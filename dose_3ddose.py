@@ -5,36 +5,42 @@ import numpy as np
 import dicompylercore
 import workplace
 
-# location = input("Where are you, home or jgh?")
-location = workplace.askForLocation()
+# a function to test the dose loading from .3ddose was successful
+def testSimLoadSuccess(dose):
+        try:
+                print("Type of the dose is: ", type(dose["grid"]))
+                print("-----------------")
+                print("dimensions of the dose is:", np.shape(dose["grid"]))
+                print("-----------------")
+                print("the average uncertainty of the dose is:", dose_utils.get_average_uncert(dose))
+                print("-----------------")
+                print("3ddose was loaded successfully")
+                return 1
+        except:
+                print("3ddose file did not load successfully")
+                return 0
 
-# set directory of the 3ddose files
-if workplace._workplace(location):
-        simfileDir = "/home/majd/data/TG186 Vallidation/Elekta/Case1-simResults"
-        dicomfileDir = ""
-else:
-        simfileDir = "/home/hosseinj/data/Case1_elekta_simResults"
-'''
+
+# set directory of the project data
+mother_dir = workplace._workplace(workplace.askForLocation())
+# simfileDir = simfileDir + "/simResults"
+print("------------------")
+print("looking at the mother directory: \n")
+print(mother_dir)
+print("------------------")
+
 # a for loop to iterate through dose files in the specified directory
-for fileName in os.listdir(simfileDir):
-# only pick .3ddose files
-    if fileName.endswith(".3ddose"):
-# get and print the full path of the file
-        doseFile = os.path.join(simfileDir, fileName)
-        print("loading file at:", doseFile)
+for case in os.listdir(mother_dir):
+        if "Case1" in case:
+                doseFile = mother_dir + "/" + case + "/simResults/combined.3ddose"
+                print("looking at the file: \n")
+                print(doseFile)
+                print("------------------")
 # extract the dose data out of the .3ddose file
-        dose = dose_utils.load_3ddose(doseFile)
-        print("Type of the dose is: ", type(dose["grid"]))
-        print("-----------------")
-        print("dimensions of the dose is:", np.shape(dose["grid"]))
-        print("-----------------")
-        print("the average uncertainty of the dose is:", dose_utils.get_average_uncert(dose))
-
-# load the dicomfiles 
-'''
-
-
-
+                dose = dose_utils.load_3ddose(doseFile)
+# test in the dose loading was successful
+                testSimLoadSuccess(dose)
+                
 
 
 
