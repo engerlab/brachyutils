@@ -1,5 +1,5 @@
 def askForLocation():
-    location = input("Where are you, home, jgh or cedar?")
+    location = input("Where are you, home, jgh or cedar? \n")
     return location
 
 def _workplace(location):

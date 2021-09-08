@@ -4,6 +4,8 @@ import os
 import numpy as np
 import dicompylercore
 import workplace
+import scroll_3ddose
+
 
 # a function to test the dose loading from .3ddose was successful
 def testSimLoadSuccess(dose):
@@ -15,12 +17,13 @@ def testSimLoadSuccess(dose):
                 print("the average uncertainty of the dose is:", dose_utils.get_average_uncert(dose))
                 print("-----------------")
                 print("3ddose was loaded successfully")
+                print("------------------")                
                 return 1
         except:
                 print("3ddose file did not load successfully")
                 return 0
 
-
+     
 # set directory of the project data
 mother_dir = workplace._workplace(workplace.askForLocation())
 # simfileDir = simfileDir + "/simResults"
@@ -38,10 +41,15 @@ for case in os.listdir(mother_dir):
                 print("------------------")
 # extract the dose data out of the .3ddose file
                 dose = dose_utils.load_3ddose(doseFile)
+
 # test in the dose loading was successful
                 testSimLoadSuccess(dose)
-                
 
+# scroll through the 3ddose files
+                scroll_3ddose.plot3ddose(dose["grid"])
+
+# time to get % error!
+                                
 
 
 
