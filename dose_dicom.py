@@ -3,7 +3,7 @@ from dicompylercore import dose
 import os
 import numpy as np
 import workplace
-
+'''
 # set up the location of the compute u run at
 dicom_dir = workplace._workplace(workplace.askForLocation())
 print("looking at the directory: \n")
@@ -21,7 +21,7 @@ fileName = "RD_Case-1_MCNP6.dcm"
 fullFile = os.path.join(dicom_dir, fileName)
 print("I am looking at this file: \n", fullFile)
 print("-----------------")
-
+'''
 
 dicom_object = dose.DoseGrid(fullFile)
 

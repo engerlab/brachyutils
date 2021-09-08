@@ -2,9 +2,10 @@
 import dose_utils
 import os
 import numpy as np
-import dicompylercore
+from dicompylercore import dose
 import workplace
-import scroll_3ddose
+import scroll_dose
+import glob
 
 
 # a function to test the dose loading from .3ddose was successful
@@ -23,6 +24,11 @@ def testSimLoadSuccess(dose):
                 print("3ddose file did not load successfully")
                 return 0
 
+def testDicomLoadSuccess(dicom_dose)
+        try:
+                print("dasf")
+        except:
+                print("asdfa")
      
 # set directory of the project data
 mother_dir = workplace._workplace(workplace.askForLocation())
@@ -35,21 +41,33 @@ print("------------------")
 # a for loop to iterate through dose files in the specified directory
 for case in os.listdir(mother_dir):
         if "Case1" in case:
-                doseFile = mother_dir + "/" + case + "/simResults/combined.3ddose"
+                simDoseFile = glob.glob(mother_dir + "/" + case + "/simResults/*.3ddose")
                 print("looking at the file: \n")
-                print(doseFile)
+                print(simDoseFile)
                 print("------------------")
+                '''
 # extract the dose data out of the .3ddose file
-                dose = dose_utils.load_3ddose(doseFile)
+                simDose = dose_utils.load_3ddose(simDoseFile)
 
 # test in the dose loading was successful
-                testSimLoadSuccess(dose)
+                testSimLoadSuccess(simDose)
 
 # scroll through the 3ddose files
-                scroll_3ddose.plot3ddose(dose["grid"])
+                scroll_3ddose.plot3ddose(simDose["grid"])
+'''
+# let's load the ground truth from DICOM files
+                dicomDoseFile = glob.glob(mother_dir + "/" + case + "/dicom/RD*")
+                print("looking at the file: \n")
+                print(dicomDoseFile)
+                print("------------------")
+                dicom_object = dose.DoseGrid(dicomDoseFile)
+
+
+
+
 
 # time to get % error!
-                                
+
 
 
 
