@@ -1,4 +1,4 @@
-'''
+"""
 Date 
         2021/9/9
 Purpose
@@ -17,7 +17,7 @@ Dependencies
 
 Outputs
     a scrollable plot of the 3D dose
-'''
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 # a function to scroll through dose slices: one can improve this section by adding units to axis and dose value

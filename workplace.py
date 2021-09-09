@@ -1,4 +1,4 @@
-'''
+"""
 Date 
         2021/9/9
 
@@ -18,7 +18,7 @@ Inputs
 
 Outputs
         a string specifying the directory of the mother_dir used in validate_sims
-'''
+"""
 def askForLocation():
     location = input("Where are you, home, jgh or cedar? \n")
     return location
