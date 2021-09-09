@@ -1,16 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
 # a function to scroll through dose slices: one can improve this section by adding units to axis and dose value
-def plot3ddose(dose):
+def plot_scrollable(dose, fileType):
     print("------------------")
-    scroll = input("whould u like to scroll through 3ddose files? yes, or no \n")
+    scroll = input("whould u like to scroll through " + fileType +" files? yes, or no \n")
     if scroll=="yes":
         fig, ax = plt.subplots(1, 1)
         tracker = IndexTracker(ax, dose)
 
         fig.canvas.mpl_connect('scroll_event', tracker.onscroll)
         plt.show()
-        return 1
+        return fig
             
     elif scroll=="no":
             print("------------------")
