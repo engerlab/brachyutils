@@ -101,10 +101,13 @@ for case in os.listdir(mother_dir):
                              
 # extract the dose data out of the .3ddose file
                 simDose = dose_utils.load_3ddose(simDoseFile)
-
+                ''' there is a bug with cropping the dose grid. I should look into it later.
+                perhaps, the "grid" is not the only attribute of the simDose that needs to be updated for the avg uncertainty calculations
+                # simDose["grid"] = simDose["grid"][155:412, 155:412, 155:412]
+                '''
 # test in the dose loading was successful
                 testSimLoadSuccess(simDose)
-
+"""
 # scroll through the 3ddose files
                 scroll_dose.plot_scrollable(simDose["grid"], "3ddose")
                 
@@ -129,6 +132,5 @@ for case in os.listdir(mother_dir):
 
 # let's do Gamma Variate analysis
 
-
-
+"""
 
