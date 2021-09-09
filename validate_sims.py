@@ -1,3 +1,42 @@
+"""
+Date 
+        2021/9/9
+Purpose
+        To compare the dose that was simulated according to TG-186 by MCTPS to the dose that was presented by AAPM as ground truth. 
+        This script will loop through the AAPM cases, and validates our dose for each case to the ground truth. 
+Author
+        Hossein Jafarzadeh
+        Enger Lab
+        McGill University
+Inputs
+        a mother directory that contains the dicom files and simulated dose for each case. Shown below:
+                -mother_dir
+                        |-Case1/
+                                |-dicom
+                                        RD-...-.dcm
+                                |-simResults 
+                                        combined.3ddose
+                        |-Case2/
+                        |-Case3/
+                        |etc...
+                
+Dependencies
+        The following external packages:
+                1. numpy
+                2. glob
+                3. matplotlib.pyplot
+                4. dicompylercore (needs installation!)
+
+        The following internal packages:
+                1. workplace
+                2. scroll_dose
+                3. dose_utils
+Outputs
+        1. terminal outputs saying dose loading was successful
+        2. two scrollable plots of the dose matrix; one for ground truth dose and one for our simulated dose
+        3. result of gamma index analysis (to be added) 
+"""
+
 # needed libraries
 import dose_utils
 import os
@@ -26,7 +65,7 @@ def testSimLoadSuccess(dose):
                 print("3ddose file did not load \n")
                 print("-----------------")
                 return 0
-
+# a function to test the loading from dicom files
 def testDicomLoadSuccess(dicom_object):
         try:
                 print("here is the shape of the dose \n")

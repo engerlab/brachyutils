@@ -1,3 +1,23 @@
+'''
+Date 
+        2021/9/9
+Purpose
+        a function to generate a scrollable plot of 3D dose matricies. scrolling happens along the third axis (z-axis)
+Author
+        Hossein Jafarzadeh
+            Enger Lab
+            McGill University
+Inputs
+    1. "dose": 3D numpy matrix containing dose values
+    2. "fileType": a string that describes the source of the dose (simulate vs dicom vs measured)
+
+Dependencies
+    1. numpy
+    2. matplotlib.pyplot
+
+Outputs
+    a scrollable plot of the 3D dose
+'''
 import numpy as np
 import matplotlib.pyplot as plt
 # a function to scroll through dose slices: one can improve this section by adding units to axis and dose value
