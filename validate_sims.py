@@ -107,7 +107,7 @@ for case in os.listdir(mother_dir):
                 '''
 # test in the dose loading was successful
                 testSimLoadSuccess(simDose)
-"""
+
 # scroll through the 3ddose files
                 scroll_dose.plot_scrollable(simDose["grid"], "3ddose")
                 
@@ -132,5 +132,4 @@ for case in os.listdir(mother_dir):
 
 # let's do Gamma Variate analysis
 
-"""
 
