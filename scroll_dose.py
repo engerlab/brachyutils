@@ -34,7 +34,7 @@ def plot_scrollable(dose, fileType):
             
     elif scroll=="no":
             print("------------------")
-            print("not scrolling through the 3ddose file and moving on")
+            print("not scrolling through " + fileType +" file and moving on")
             return 0
     else:
             print("------------------")

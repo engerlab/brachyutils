@@ -94,6 +94,22 @@ print("------------------")
 # a for loop to iterate through dose files in the specified directory
 for case in os.listdir(mother_dir):
         if "Case1" in case:
+# let's load the ground truth from DICOM files
+                dicomDoseFile = glob.glob(mother_dir + "/" + case + "/dicom/RD*")[0]
+                print("looking at the DICOM file: \n")
+                print(dicomDoseFile)
+                print("------------------")
+                dicom_object = dose.DoseGrid(dicomDoseFile)
+
+# check if loading was successful
+                testDicomLoadSuccess(dicom_object)
+# plot the dicom dose file
+                scroll_dose.plot_scrollable(dicom_object.dose_grid, "DICOM")
+# obtain shape of dose in DICOM file to crop the dose in 3ddose file accordingly 
+                dicom_shape = np.shape(dicom_object.dose_grid)
+                print("here is the shape of the dicom dose file: \n", dicom_shape)
+# ############################################
+
                 simDoseFile = glob.glob(mother_dir + "/" + case + "/simResults/*.3ddose")[0]
                 print("looking at the file: \n")
                 print(simDoseFile)
@@ -111,17 +127,16 @@ for case in os.listdir(mother_dir):
 # scroll through the 3ddose files
                 scroll_dose.plot_scrollable(simDose["grid"], "3ddose")
                 
-# let's load the ground truth from DICOM files
-                dicomDoseFile = glob.glob(mother_dir + "/" + case + "/dicom/RD*")[0]
-                print("looking at the DICOM file: \n")
-                print(dicomDoseFile)
-                print("------------------")
-                dicom_object = dose.DoseGrid(dicomDoseFile)
+# cropping the dose grid of 3ddose file to match the dose of DICOM file
+                a3ddose_shape = np.shape(simDose["grid"])
 
-# check if loading was successful
-                testDicomLoadSuccess(dicom_object)
-# plot the dicom dose file
-                scroll_dose.plot_scrollable(dicom_object.dose_grid, "DICOM")
+                # let's get the range of values from size of dicom dose
+                crop_out = (a3ddose_shape[0] - dicom_shape[0])/2
+                lower_bound = int(crop_out-1)
+                upper_bound = int(a3ddose_shape[0]-crop_out-1)
+                simDose["grid"] = simDose["grid"][lower_bound:upper_bound, lower_bound:upper_bound, lower_bound:upper_bound]
+                print("------------------")
+                print("here is the size of croped out 3ddose::::: \n", np.shape(simDose["grid"]))
 
 # time to get % error
                 ''' at the moment, %error does not work since the sizes of the arrays do not match
