@@ -46,7 +46,7 @@ import workplace
 import scroll_dose
 import glob
 import matplotlib.pyplot as plt
-
+import pymedphys
 
 
 # a function to test the dose loading from .3ddose was successful
@@ -108,8 +108,14 @@ for case in os.listdir(mother_dir):
 # obtain shape of dose in DICOM file to crop the dose in 3ddose file accordingly 
                 dicom_shape = np.shape(dicom_object.dose_grid)
                 print("here is the shape of the dicom dose file: \n", dicom_shape)
+                # dicom axis object
+                dicom_axes = tuple(dicom_object.axes)
+                print("------------------")    
+                print("here is the axis of the dicom file: \n")
+                print(dicom_axes)
+                print("------------------")    
+                
 # ############################################
-
                 simDoseFile = glob.glob(mother_dir + "/" + case + "/simResults/*.3ddose")[0]
                 print("looking at the file: \n")
                 print(simDoseFile)
@@ -135,6 +141,7 @@ for case in os.listdir(mother_dir):
                 lower_bound = int(crop_out-1)
                 upper_bound = int(a3ddose_shape[0]-crop_out-1)
                 simDose["grid"] = simDose["grid"][lower_bound:upper_bound, lower_bound:upper_bound, lower_bound:upper_bound]
+                
                 print("------------------")
                 print("here is the size of croped out 3ddose::::: \n", np.shape(simDose["grid"]))
 
@@ -145,6 +152,7 @@ for case in os.listdir(mother_dir):
                 print(mean_abs_percent_err)
                 '''
 
+
 # let's do Gamma Variate analysis
-
-
+                gamma_matrix = pymedphys.gamma(dicom_axes, dicom_object.dose_grid, dicom_axes, simDose["grid"], 2., 2.)
+                     
