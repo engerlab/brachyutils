@@ -123,15 +123,9 @@ for case in os.listdir(mother_dir):
                              
 # extract the dose data out of the .3ddose file
                 simDose = dose_utils.load_3ddose(simDoseFile)
-                ''' there is a bug with cropping the dose grid. I should look into it later.
-                perhaps, the "grid" is not the only attribute of the simDose that needs to be updated for the avg uncertainty calculations
-                # simDose["grid"] = simDose["grid"][155:412, 155:412, 155:412]
-                '''
+
 # test in the dose loading was successful
                 testSimLoadSuccess(simDose)
-
-# scroll through the 3ddose files
-                scroll_dose.plot_scrollable(simDose["grid"], "3ddose")
                 
 # cropping the dose grid of 3ddose file to match the dose of DICOM file
                 a3ddose_shape = np.shape(simDose["grid"])
@@ -145,6 +139,9 @@ for case in os.listdir(mother_dir):
                 print("------------------")
                 print("here is the size of croped out 3ddose::::: \n", np.shape(simDose["grid"]))
 
+# scroll through the 3ddose files
+                scroll_dose.plot_scrollable(simDose["grid"], "3ddose")
+
 # time to get % error
                 ''' at the moment, %error does not work since the sizes of the arrays do not match
                 mean_abs_percent_err = np.mean(np.abs((dicom_object.dose_grid - simDose["grid"])/dicom_object.dose_grid))*100
@@ -152,7 +149,12 @@ for case in os.listdir(mother_dir):
                 print(mean_abs_percent_err)
                 '''
 
-
 # let's do Gamma Variate analysis
                 gamma_matrix = pymedphys.gamma(dicom_axes, dicom_object.dose_grid, dicom_axes, simDose["grid"], 2., 2.)
-                     
+                print("------------------")
+                print("here is the shape of the gamma_matrix \n", np.shape(gamma_matrix))
+                print("------------------")
+                print("here is the type of the gamma_matrix \n", type(gamma_matrix))
+                scroll_dose.plot_scrollable(gamma_matrix, "gamma")
+                print("------------------")
+                print("here is the result of gamma 2%/2mm: ", ((gamma_matrix < 1).sum() / len(gamma_matrix)))
