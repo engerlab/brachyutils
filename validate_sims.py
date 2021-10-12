@@ -47,6 +47,7 @@ import scroll_dose
 import glob
 import matplotlib.pyplot as plt
 import pymedphys
+import pickle
 
 
 # a function to test the dose loading from .3ddose was successful
@@ -91,6 +92,16 @@ print("looking at the mother directory: \n")
 print(mother_dir)
 print("------------------")
 
+# ask what kinds of plots are wanted?
+scroll_dicome = input("whould u like to scroll through DICOM dose? yes or no \n")
+print("------------------")
+scroll_simulated = input("whould u like to scroll through simulated dose? yes or no \n")
+print("------------------")
+scroll_gamma = input("whould u like to scroll through gamma map? yes or no \n")
+print("------------------")
+scroll_doseRatio = input("whould u like to scroll through dose ratio between simulated over ground truth map? yes or no \n")
+print("------------------")
+
 # a for loop to iterate through dose files in the specified directory
 for case in os.listdir(mother_dir):
         if "Case1" in case:
@@ -104,7 +115,19 @@ for case in os.listdir(mother_dir):
 # check if loading was successful
                 testDicomLoadSuccess(dicom_object)
 # plot the dicom dose file
-                scroll_dose.plot_scrollable(dicom_object.dose_grid, "DICOM")
+                if scroll_dicome == "yes":
+                        scroll_dose.plot_scrollable(dicom_object.dose_grid, "DICOM")
+                        # pickle.dump(fig, open('FigureObject.fig.pickle', 'wb'))
+                        # pickle.dump(scroll_dose.plot_scrollable(dicom_object.dose_grid, "DICOM"), open('doseGroundTruth.pickle', 'wb'))
+                
+                elif scroll_dicome == "no":
+                        print("------------------")
+                        print("not scrolling through ground truth dose and moving on")
+                else:
+                        print("------------------")
+                        print("invalid input, rerun the script and pick either yes or no")
+                        quit()
+
 # obtain shape of dose in DICOM file to crop the dose in 3ddose file accordingly 
                 dicom_shape = np.shape(dicom_object.dose_grid)
                 print("here is the shape of the dicom dose file: \n", dicom_shape)
@@ -115,6 +138,7 @@ for case in os.listdir(mother_dir):
                 print(dicom_axes)
                 print("------------------")    
                 
+                # quit()
 # ############################################
                 simDoseFile = glob.glob(mother_dir + "/" + case + "/simResults/*.3ddose")[0]
                 print("looking at the file: \n")
@@ -140,7 +164,15 @@ for case in os.listdir(mother_dir):
                 print("here is the size of croped out 3ddose::::: \n", np.shape(simDose["grid"]))
 
 # scroll through the 3ddose files
-                scroll_dose.plot_scrollable(simDose["grid"], "3ddose")
+                if scroll_simulated == "yes":
+                        scroll_dose.plot_scrollable(simDose["grid"], "3ddose")
+                elif scroll_simulated == "no":
+                        print("------------------")
+                        print("not scrolling through simulated dose and moving on")
+                else:
+                        print("------------------")
+                        print("invalid input, rerun the script and pick either yes or no")
+                        quit()
 
 # time to get % error
                 ''' at the moment, %error does not work since the sizes of the arrays do not match
@@ -155,7 +187,16 @@ for case in os.listdir(mother_dir):
                 print("here is the shape of the gamma_matrix \n", np.shape(gamma_matrix))
                 print("------------------")
                 print("here is the type of the gamma_matrix \n", type(gamma_matrix))
-                scroll_dose.plot_scrollable(gamma_matrix, "gamma")
+                if scroll_gamma == "yes":
+                        scroll_dose.plot_scrollable(gamma_matrix, "gamma")
+                elif scroll_gamma == "no":
+                        print("------------------")
+                        print("not scrolling through gamma map and moving on")
+                else:
+                        print("------------------")
+                        print("invalid input, rerun the script and pick either yes or no")
+                        quit()
+   
                 print("------------------")
                 print("here is the result of gamma 2%/2mm: ", ((gamma_matrix < 1).sum() / len(gamma_matrix)))
 
@@ -165,5 +206,12 @@ for case in os.listdir(mother_dir):
                 print("here is the shape of the dose ratio \n", np.shape(doseRatio_sim_dicom))
                 print("------------------")
                 print("here is the type of the gamma_matrix \n", type(doseRatio_sim_dicom))
-                scroll_dose.plot_scrollable(doseRatio_sim_dicom, "D simulated/groundTruth")
-
+                if scroll_doseRatio == "yes":
+                        scroll_dose.plot_scrollable(doseRatio_sim_dicom, "D simulated/groundTruth")
+                elif scroll_doseRatio == "no":
+                        print("------------------")
+                        print("not scrolling through dose ratio map and moving on")
+                else:
+                        print("------------------")
+                        print("invalid input, rerun the script and pick either yes or no")
+                        quit()

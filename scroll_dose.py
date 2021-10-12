@@ -7,6 +7,8 @@ Author
         Hossein Jafarzadeh
             Enger Lab
             McGill University
+        code is mostly taken from "https://matplotlib.org/2.1.2/gallery/animation/image_slices_viewer.html"
+
 Inputs
     1. "dose": 3D numpy matrix containing dose values
     2. "fileType": a string that describes the source of the dose (simulate vs dicom vs measured)
@@ -22,35 +24,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 # a function to scroll through dose slices: one can improve this section by adding units to axis and dose value
 def plot_scrollable(dose, fileType):
-    print("------------------")
-    scroll = input("whould u like to scroll through " + fileType +" files? yes, or no \n")
-    if scroll=="yes":
-        fig, ax = plt.subplots(1, 1)
-        tracker = IndexTracker(ax, dose)
+    fig, ax = plt.subplots(1, 1)
+    tracker = IndexTracker(ax, dose, fileType)
 
-        fig.canvas.mpl_connect('scroll_event', tracker.onscroll)
-        plt.show()
-        return fig
-            
-    elif scroll=="no":
-            print("------------------")
-            print("not scrolling through " + fileType +" file and moving on")
-            return 0
-    else:
-            print("------------------")
-            print("invalid input, rerun the script and pick either yes or no")
-            return 0
+    fig.canvas.mpl_connect('scroll_event', tracker.onscroll)
+    plt.show()
+    return fig
 
+    
 class IndexTracker(object):
-    def __init__(self, ax, X):
+    def __init__(self, ax, X, fileType):
         self.ax = ax
-        ax.set_title('use scroll wheel to navigate images')
+        ax.set_title('use scroll wheel to navigate ' + fileType + ' images.')
 
         self.X = X 
         rows, cols, self.slices = X.shape 
         self.ind = self.slices//2
 
         self.im = ax.imshow(self.X[:, :, self.ind])
+        plt.colorbar(self.im, use_gridspec = True)
         self.update()
     
     def update(self):
