@@ -158,3 +158,12 @@ for case in os.listdir(mother_dir):
                 scroll_dose.plot_scrollable(gamma_matrix, "gamma")
                 print("------------------")
                 print("here is the result of gamma 2%/2mm: ", ((gamma_matrix < 1).sum() / len(gamma_matrix)))
+
+# let's get the dose ratios
+                doseRatio_sim_dicom = simDose["grid"]/dicom_object.dose_grid
+                print("------------------")
+                print("here is the shape of the dose ratio \n", np.shape(doseRatio_sim_dicom))
+                print("------------------")
+                print("here is the type of the gamma_matrix \n", type(doseRatio_sim_dicom))
+                scroll_dose.plot_scrollable(doseRatio_sim_dicom, "D simulated/groundTruth")
+
