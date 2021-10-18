@@ -83,7 +83,20 @@ def testDicomLoadSuccess(dicom_object):
                 print("DICOM dose file did not load\n")
                 print("-----------------")
                 return 0
-     
+
+def triPlanar_snapshot(matrix):
+        # get the dimensions of the input matrix and find the coordinates of the center
+        dimensions = np.shape(matrix)
+        coord_center = np.array([dimensions[0]/2, dimensions[1]/2, dimensions[2]/2], dtype = int)
+
+        xy_plane = matrix(:, :, coord_center[2])
+        xz_plane = matrix(coord_center[0], :, :)
+        yz_plane = matrix(:, coord_center[1], :)
+
+        # generate a subplot that has 3 maps in a row. the maps are transverse (xy), sagital(yz) and coronal(xz) planes.
+
+        # add proper title, axes label and colorbar 
+
 # set directory of the project data
 mother_dir = workplace._workplace(workplace.askForLocation())
 # simfileDir = simfileDir + "/simResults"
@@ -215,3 +228,8 @@ for case in os.listdir(mother_dir):
                         print("------------------")
                         print("invalid input, rerun the script and pick either yes or no")
                         quit()
+
+# ############################################
+
+# let's bring all the graphs in one place so the users do not have to scroll all the time.
+
