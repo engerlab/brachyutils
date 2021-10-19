@@ -84,16 +84,35 @@ def testDicomLoadSuccess(dicom_object):
                 print("-----------------")
                 return 0
 
-def triPlanar_snapshot(matrix):
+def triPlanar_snapshot(matrix, name):
         # get the dimensions of the input matrix and find the coordinates of the center
         dimensions = np.shape(matrix)
         coord_center = np.array([dimensions[0]/2, dimensions[1]/2, dimensions[2]/2], dtype = int)
 
-        xy_plane = matrix(:, :, coord_center[2])
-        xz_plane = matrix(coord_center[0], :, :)
-        yz_plane = matrix(:, coord_center[1], :)
+        xy_plane = matrix[:, :, coord_center[2]]
+        xz_plane = matrix[coord_center[0], :, :]
+        yz_plane = matrix[:, coord_center[1], :]
 
         # generate a subplot that has 3 maps in a row. the maps are transverse (xy), sagital(yz) and coronal(xz) planes.
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 4))
+        
+        ax1.title.set_text("Transverse Plane")
+        ax2.title.set_text("Coronal Plane")
+        ax3.title.set_text("Sagital Plane")
+
+        xy_map = ax1.imshow(xy_plane)
+        xz_map = ax2.imshow(xz_plane)
+        yz_map = ax3.imshow(yz_plane)
+        
+        fig.colorbar(xy_map, ax=ax1)
+        fig.colorbar(xz_map, ax=ax2)
+        fig.colorbar(yz_map, ax=ax3)
+
+        fig.suptitle("Tri-Planar Snapshot of "+name+ " at center", fontsize=20)
+
+        # plt.show()
+        return fig
+
 
         # add proper title, axes label and colorbar 
 
@@ -150,7 +169,7 @@ for case in os.listdir(mother_dir):
                 print("here is the axis of the dicom file: \n")
                 print(dicom_axes)
                 print("------------------")    
-                
+
                 # quit()
 # ############################################
                 simDoseFile = glob.glob(mother_dir + "/" + case + "/simResults/*.3ddose")[0]
@@ -232,4 +251,9 @@ for case in os.listdir(mother_dir):
 # ############################################
 
 # let's bring all the graphs in one place so the users do not have to scroll all the time.
-
+# tri-planaer subplot of the dose distributions
+                groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose")
+                simulated_triplanar = triPlanar_snapshot(simDose["grid"], "Simulated dose")
+                gamma_triplanar =  triPlanar_snapshot(gamma_matrix, "Gamma Matrix between ground truth and simulated doses")
+                doseRatio_triplanar = triPlanar_snapshot(doseRatio_sim_dicom, "dose ratio of simulated over ground truth Dsim/truth")
+                plt.show()
