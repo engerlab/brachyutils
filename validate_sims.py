@@ -83,8 +83,8 @@ def testDicomLoadSuccess(dicom_object):
                 print("DICOM dose file did not load\n")
                 print("-----------------")
                 return 0
-
-def triPlanar_snapshot(matrix, name):
+# this function shows images of the input 3D matrix. the images are 2D planes (transverse, sagital and coronal)
+def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1]):
         # get the dimensions of the input matrix and find the coordinates of the center
         dimensions = np.shape(matrix)
         coord_center = np.array([dimensions[0]/2, dimensions[1]/2, dimensions[2]/2], dtype = int)
@@ -93,12 +93,27 @@ def triPlanar_snapshot(matrix, name):
         xz_plane = matrix[coord_center[0], :, :]
         yz_plane = matrix[:, coord_center[1], :]
 
+        x_axis_tick = np.arange(-1*coord_center[0]*voxelSize[0]+1, coord_center[0]*voxelSize[0], voxelSize[0])
+        y_axis_tick = np.arange(-1*coord_center[1]*voxelSize[1]+1, coord_center[1]*voxelSize[1], voxelSize[1])
+        z_axis_tick = np.arange(-1*coord_center[2]*voxelSize[2]+1, coord_center[2]*voxelSize[2], voxelSize[2])
+        
+        print(str(x_axis_tick))
+        # quit()
+
         # generate a subplot that has 3 maps in a row. the maps are transverse (xy), sagital(yz) and coronal(xz) planes.
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 4))
         
         ax1.title.set_text("Transverse Plane")
+        ax1.set_xlabel("x-axis")
+        ax1.set_ylabel("y-axis")
+
         ax2.title.set_text("Coronal Plane")
+        ax2.set_xlabel("x-axis")
+        ax2.set_ylabel("z-axis")
+
         ax3.title.set_text("Sagital Plane")
+        ax3.set_xlabel("z-axis")
+        ax3.set_ylabel("y-axis")
 
         xy_map = ax1.imshow(xy_plane)
         xz_map = ax2.imshow(xz_plane)
@@ -108,7 +123,12 @@ def triPlanar_snapshot(matrix, name):
         fig.colorbar(xz_map, ax=ax2)
         fig.colorbar(yz_map, ax=ax3)
 
-        fig.suptitle("Tri-Planar Snapshot of "+name+ " at center", fontsize=20)
+        ''' the tick labels are turned into coordinates instead of slide number (this does not work at the moment).
+        plt.setp(ax1, xticklabels=str(x_axis_tick), yticklabels=str(y_axis_tick))
+        plt.setp(ax2, xticklabels=str(x_axis_tick), yticklabels=str(y_axis_tick))
+        plt.setp(ax3, xticklabels=str(x_axis_tick), yticklabels=str(y_axis_tick))
+        '''
+        fig.suptitle("Tri-Planar Snapshot of "+name+ " at center" + unit, fontsize=20)
 
         # plt.show()
         return fig
@@ -169,9 +189,10 @@ for case in os.listdir(mother_dir):
                 print("here is the axis of the dicom file: \n")
                 print(dicom_axes)
                 print("------------------")    
-
-                # quit()
-# ############################################
+# # test triplanar
+#                 triPlanar_snapshot(dicom_object.dose_grid, "ground truth", "Gy")
+#                 quit()
+# # ############################################
                 simDoseFile = glob.glob(mother_dir + "/" + case + "/simResults/*.3ddose")[0]
                 print("looking at the file: \n")
                 print(simDoseFile)
@@ -252,8 +273,8 @@ for case in os.listdir(mother_dir):
 
 # let's bring all the graphs in one place so the users do not have to scroll all the time.
 # tri-planaer subplot of the dose distributions
-                groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose")
-                simulated_triplanar = triPlanar_snapshot(simDose["grid"], "Simulated dose")
-                gamma_triplanar =  triPlanar_snapshot(gamma_matrix, "Gamma Matrix between ground truth and simulated doses")
-                doseRatio_triplanar = triPlanar_snapshot(doseRatio_sim_dicom, "dose ratio of simulated over ground truth Dsim/truth")
+                groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose", "(Gy)")
+                simulated_triplanar = triPlanar_snapshot(simDose["grid"], "Simulated dose", "(Gy)")
+                gamma_triplanar =  triPlanar_snapshot(gamma_matrix, "Gamma Matrix between simulated dose and ground truth", "")
+                doseRatio_triplanar = triPlanar_snapshot(doseRatio_sim_dicom, "D(sim/truth)", "")
                 plt.show()
