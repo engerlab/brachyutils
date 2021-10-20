@@ -90,8 +90,8 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1]):
         coord_center = np.array([dimensions[0]/2, dimensions[1]/2, dimensions[2]/2], dtype = int)
 
         xy_plane = matrix[:, :, coord_center[2]]
-        yz_plane = matrix[coord_center[0], :, :]
         xz_plane = matrix[:, coord_center[1], :]
+        yz_plane = matrix[coord_center[0], :, :]
 
         x_axis_tick = np.arange(-1*coord_center[0]*voxelSize[0]+1, coord_center[0]*voxelSize[0], voxelSize[0])
         y_axis_tick = np.arange(-1*coord_center[1]*voxelSize[1]+1, coord_center[1]*voxelSize[1], voxelSize[1])
@@ -102,23 +102,22 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1]):
 
         # generate a subplot that has 3 maps in a row. the maps are transverse (xy), sagital(yz) and coronal(xz) planes.
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 4))
+        xy_map = ax1.imshow(xy_plane)
+        xz_map = ax2.imshow(xz_plane)
+        yz_map = ax3.imshow(yz_plane)
         
         ax1.title.set_text("Transverse Plane")
-        ax1.set_xlabel("x-axis")
-        ax1.set_ylabel("y-axis")
+        ax1.set_xlabel("y-axis")
+        ax1.set_ylabel("x-axis")
 
         ax2.title.set_text("Coronal Plane")
-        ax2.set_xlabel("x-axis")
-        ax2.set_ylabel("z-axis")
+        ax2.set_xlabel("z-axis")
+        ax2.set_ylabel("x-axis")
 
         ax3.title.set_text("Sagital Plane")
         ax3.set_xlabel("z-axis")
         ax3.set_ylabel("y-axis")
 
-        xy_map = ax1.imshow(xy_plane)
-        xz_map = ax2.imshow(xz_plane)
-        yz_map = ax3.imshow(yz_plane)
-        
         fig.colorbar(xy_map, ax=ax1)
         fig.colorbar(xz_map, ax=ax2)
         fig.colorbar(yz_map, ax=ax3)
