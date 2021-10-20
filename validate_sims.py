@@ -90,8 +90,8 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1]):
         coord_center = np.array([dimensions[0]/2, dimensions[1]/2, dimensions[2]/2], dtype = int)
 
         xy_plane = matrix[:, :, coord_center[2]]
-        xz_plane = matrix[coord_center[0], :, :]
-        yz_plane = matrix[:, coord_center[1], :]
+        yz_plane = matrix[coord_center[0], :, :]
+        xz_plane = matrix[:, coord_center[1], :]
 
         x_axis_tick = np.arange(-1*coord_center[0]*voxelSize[0]+1, coord_center[0]*voxelSize[0], voxelSize[0])
         y_axis_tick = np.arange(-1*coord_center[1]*voxelSize[1]+1, coord_center[1]*voxelSize[1], voxelSize[1])
