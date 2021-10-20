@@ -97,7 +97,7 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1]):
         y_axis_tick = np.arange(-1*coord_center[1]*voxelSize[1]+1, coord_center[1]*voxelSize[1], voxelSize[1])
         z_axis_tick = np.arange(-1*coord_center[2]*voxelSize[2]+1, coord_center[2]*voxelSize[2], voxelSize[2])
         
-        print(str(x_axis_tick))
+        # print(str(x_axis_tick))
         # quit()
 
         # generate a subplot that has 3 maps in a row. the maps are transverse (xy), sagital(yz) and coronal(xz) planes.
