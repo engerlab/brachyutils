@@ -75,9 +75,10 @@ def testDicomLoadSuccess(dicom_object):
                 print("this is the type of the dicom_object:\n")
                 print(type(dicom_object))
                 print("-----------------")
-                print("here is the first few dose values \n")
-                print(dicom_object.dose_grid[0, 0, 98:101])
-                print("-----------------")
+                # {{for debugging only}}
+                # print("here is the first few dose values \n")
+                # print(dicom_object.dose_grid[0, 0, 98:101])
+                # print("-----------------")
                 return 1
         except:
                 print("DICOM dose file did not load\n")
@@ -133,8 +134,6 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1]):
         return fig
 
 
-        # add proper title, axes label and colorbar 
-
 # set directory of the project data
 mother_dir = workplace._workplace(workplace.askForLocation())
 # simfileDir = simfileDir + "/simResults"
@@ -155,12 +154,13 @@ print("------------------")
 
 # a for loop to iterate through dose files in the specified directory
 for case in os.listdir(mother_dir):
-        if "Case1" in case:
+        if "Case4" in case:
 # let's load the ground truth from DICOM files
                 dicomDoseFile = glob.glob(mother_dir + "/" + case + "/dicom/RD*")[0]
                 print("looking at the DICOM file: \n")
                 print(dicomDoseFile)
                 print("------------------")
+        
                 dicom_object = dose.DoseGrid(dicomDoseFile)
 
 # check if loading was successful
@@ -184,10 +184,11 @@ for case in os.listdir(mother_dir):
                 print("here is the shape of the dicom dose file: \n", dicom_shape)
                 # dicom axis object
                 dicom_axes = tuple(dicom_object.axes)
-                print("------------------")    
-                print("here is the axis of the dicom file: \n")
-                print(dicom_axes)
-                print("------------------")    
+                # {{for debugging}}
+                # print("------------------")    
+                # print("here is the axis of the dicom file: \n")
+                # print(dicom_axes)
+                # print("------------------")    
 # # test triplanar
 #                 triPlanar_snapshot(dicom_object.dose_grid, "ground truth", "Gy")
 #                 quit()
@@ -277,3 +278,4 @@ for case in os.listdir(mother_dir):
                 gamma_triplanar =  triPlanar_snapshot(gamma_matrix, "Gamma Matrix between simulated dose and ground truth", "")
                 doseRatio_triplanar = triPlanar_snapshot(doseRatio_sim_dicom, "D(sim/truth)", "")
                 plt.show()
+        
