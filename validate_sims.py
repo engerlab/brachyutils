@@ -133,6 +133,17 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1]):
         # plt.show()
         return fig
 
+def crop_dose_matrix(dose_in, wanted_dimensions):
+        shape_in = np.shape(dose_in)
+        crop_out = ((shape_in[0] - wanted_dimensions[0])/2)
+        if crop_out < 1:
+                raise("cropped volume should be smaller than the input volume. please check your input and wanted dimensions")
+
+        # get the lower and upper index to crop from the input
+        lower_bound = int(crop_out)
+        upper_bound = int(shape_in[0]-crop_out)
+        return dose_in[lower_bound:upper_bound, lower_bound:upper_bound, lower_bound:upper_bound]
+
 def validate_sims(dir_to_case, scroll_yes_no, ):
         ### First openning DICOM files ###
         dicomDoseFile = glob.glob(dir_to_case + "/dicom/RD*")[0]
@@ -180,14 +191,16 @@ def validate_sims(dir_to_case, scroll_yes_no, ):
         # test in the dose loading was successful
         testSimLoadSuccess(simDose)
         # cropping the dose grid of 3ddose file to match the dose of DICOM file
-        a3ddose_shape = np.shape(simDose["grid"])
-        crop_out = (a3ddose_shape[0] - dicom_shape[0])/2
-        lower_bound = int(crop_out-1)
-        upper_bound = int(a3ddose_shape[0]-crop_out-1)
-        simDose["grid"] = simDose["grid"][lower_bound:upper_bound, lower_bound:upper_bound, lower_bound:upper_bound]
-                        
+        # a3ddose_shape = np.shape(simDose["grid"])
+        # crop_out = (a3ddose_shape[0] - dicom_shape[0])/2
+        # lower_bound = int(crop_out-1)
+        # upper_bound = int(a3ddose_shape[0]-crop_out-1)
+        # simDose["grid"] = simDose["grid"][lower_bound:upper_bound, lower_bound:upper_bound, lower_bound:upper_bound]
+        simDose["grid"] = crop_dose_matrix(simDose['grid'], dicom_shape)              
         print("------------------")
         print("here is the size of croped out 3ddose::::: \n", np.shape(simDose["grid"]))
+        
+        quit()
 
         # scroll through the 3ddose files
         if scroll_yes_no['scroll_simulated'] == "yes":
