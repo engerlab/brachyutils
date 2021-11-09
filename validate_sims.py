@@ -188,19 +188,13 @@ def validate_sims(dir_to_case, scroll_yes_no, ):
                                 
         # extract the dose data out of the .3ddose file
         simDose = dose_utils.load_3ddose(simDoseFile)
+        
         # test in the dose loading was successful
         testSimLoadSuccess(simDose)
         # cropping the dose grid of 3ddose file to match the dose of DICOM file
-        # a3ddose_shape = np.shape(simDose["grid"])
-        # crop_out = (a3ddose_shape[0] - dicom_shape[0])/2
-        # lower_bound = int(crop_out-1)
-        # upper_bound = int(a3ddose_shape[0]-crop_out-1)
-        # simDose["grid"] = simDose["grid"][lower_bound:upper_bound, lower_bound:upper_bound, lower_bound:upper_bound]
         simDose["grid"] = crop_dose_matrix(simDose['grid'], dicom_shape)              
         print("------------------")
         print("here is the size of croped out 3ddose::::: \n", np.shape(simDose["grid"]))
-        
-        quit()
 
         # scroll through the 3ddose files
         if scroll_yes_no['scroll_simulated'] == "yes":
