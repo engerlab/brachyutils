@@ -134,6 +134,7 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1]):
         return fig
 
 def crop_dose_matrix(dose_in, wanted_dimensions):
+        # only for matrixes with 3 dimensions of equal size
         shape_in = np.shape(dose_in)
         crop_out = ((shape_in[0] - wanted_dimensions[0])/2)
         if crop_out < 1:
@@ -188,9 +189,12 @@ def validate_sims(dir_to_case, scroll_yes_no, ):
                                 
         # extract the dose data out of the .3ddose file
         simDose = dose_utils.load_3ddose(simDoseFile)
-        
         # test in the dose loading was successful
         testSimLoadSuccess(simDose)
+
+        # dose utils loads the images az zyx, but I want them to be xyz
+        simDose["grid"] = np.swapaxes(simDose["grid"], 0, 2)
+
         # cropping the dose grid of 3ddose file to match the dose of DICOM file
         simDose["grid"] = crop_dose_matrix(simDose['grid'], dicom_shape)              
         print("------------------")
