@@ -85,18 +85,25 @@ def testDicomLoadSuccess(dicom_object):
                 print("-----------------")
                 return 0
 # this function shows images of the input 3D matrix. the images are 2D planes (transverse, sagital and coronal)
-def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1]):
+def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1], source_coord=[0, 0, 0]):
         # get the dimensions of the input matrix and find the coordinates of the center
         dimensions = np.shape(matrix)
         coord_center = np.array([dimensions[0]/2, dimensions[1]/2, dimensions[2]/2], dtype = int)
+        snapshot_center = coord_center + source_coord
 
-        xy_plane = matrix[:, :, coord_center[2]]
-        xz_plane = matrix[:, coord_center[1], :]
-        yz_plane = matrix[coord_center[0], :, :]
+        normalization_point = list(snapshot_center + [10, 0, 0])
 
-        x_axis_tick = np.arange(-1*coord_center[0]*voxelSize[0]+1, coord_center[0]*voxelSize[0], voxelSize[0])
-        y_axis_tick = np.arange(-1*coord_center[1]*voxelSize[1]+1, coord_center[1]*voxelSize[1], voxelSize[1])
-        z_axis_tick = np.arange(-1*coord_center[2]*voxelSize[2]+1, coord_center[2]*voxelSize[2], voxelSize[2])
+        print("**Here is the normalization point**", normalization_point)
+        print("**Here is the dose value at the normalization point**", matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]])
+        print(np.shape(matrix))
+        xy_plane = matrix[:, :, snapshot_center[2]]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]]
+        xz_plane = matrix[:, snapshot_center[1], :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]]
+        yz_plane = matrix[snapshot_center[0], :, :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]]
+        
+# x y and z ticks. it does not work, ignore for now or fix it if you can ;) 
+        # x_axis_tick = np.arange(-1*snapshot_center[0]*voxelSize[0]+1, snapshot_center[0]*voxelSize[0], voxelSize[0])
+        # y_axis_tick = np.arange(-1*snapshot_center[1]*voxelSize[1]+1, snapshot_center[1]*voxelSize[1], voxelSize[1])
+        # z_axis_tick = np.arange(-1*snapshot_center[2]*voxelSize[2]+1, snapshot_center[2]*voxelSize[2], voxelSize[2])
         
         # print(str(x_axis_tick))
         # quit()
@@ -108,8 +115,8 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1]):
         yz_map = ax3.imshow(yz_plane)
         
         ax1.title.set_text("Transverse Plane")
-        ax1.set_xlabel("y-axis")
-        ax1.set_ylabel("x-axis")
+        ax1.set_xlabel("x-axis")
+        ax1.set_ylabel("y-axis")
 
         ax2.title.set_text("Coronal Plane")
         ax2.set_xlabel("z-axis")
@@ -212,23 +219,25 @@ def validate_sims(dir_to_case, scroll_yes_no, ):
                 quit()
 
         # let's do Gamma Variate analysis
-        gamma_matrix = pymedphys.gamma(dicom_axes, dicom_object.dose_grid, dicom_axes, simDose["grid"], 2., 2.)
-        print("------------------")
-        print("here is the shape of the gamma_matrix \n", np.shape(gamma_matrix))
-        print("------------------")
-        print("here is the type of the gamma_matrix \n", type(gamma_matrix))
-        if scroll_yes_no['scroll_gamma'] == "yes":
-                scroll_dose.plot_scrollable(gamma_matrix, "gamma")
-        elif scroll_yes_no['scroll_gamma'] == "no":
+        do_gamma = "yes"
+        if do_gamma == "yes":
+                gamma_matrix = pymedphys.gamma(dicom_axes, dicom_object.dose_grid, dicom_axes, simDose["grid"], 2., 2.)
                 print("------------------")
-                print("not scrolling through gamma map and moving on")
-        else:
+                print("here is the shape of the gamma_matrix \n", np.shape(gamma_matrix))
                 print("------------------")
-                print("invalid input, rerun the script and pick either yes or no")
-                quit()
-        
-        print("------------------")
-        print("here is the result of gamma 2%/2mm: ", ((gamma_matrix < 1).sum() / len(gamma_matrix)))
+                print("here is the type of the gamma_matrix \n", type(gamma_matrix))
+                if scroll_yes_no['scroll_gamma'] == "yes":
+                        scroll_dose.plot_scrollable(gamma_matrix, "gamma")
+                elif scroll_yes_no['scroll_gamma'] == "no":
+                        print("------------------")
+                        print("not scrolling through gamma map and moving on")
+                else:
+                        print("------------------")
+                        print("invalid input, rerun the script and pick either yes or no")
+                        quit()
+                
+                print("------------------")
+                print("here is the result of gamma 2%/2mm: ", ((gamma_matrix < 1).sum() / len(gamma_matrix)))
 
         # let's get the dose ratios
         doseRatio_sim_dicom = simDose["grid"]/dicom_object.dose_grid
@@ -273,6 +282,6 @@ if __name__ =="__main__":
         scroll_yes_no['scroll_gamma']= "no"
         scroll_yes_no['scroll_doseRatio']= "no"
 
-        validate_sims(mother_dir+"Case1-OCB-MCNP6", scroll_yes_no)
+        validate_sims(mother_dir+"Case3-OCB-MCNP6", scroll_yes_no)
 
 
