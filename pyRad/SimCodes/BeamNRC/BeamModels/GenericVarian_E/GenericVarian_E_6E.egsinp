@@ -1,0 +1,195 @@
+6E Varian                                            #!GUI1.0
+AIR700ICRU
+0, 0, 0, 0, 0, 3, 0,  IWATCH ETC.
+{{nhist}}, 22, 44, 999, 0, 0, 0, 0,  NCASE ETC.
+-1, 19, -{{e_fwhm}}, 0.0, 0.0, 1.0, 0.0, -{{e_fwhm}}, 0.0, 0.0,  IQIN, ISOURCE + OPTIONS
+0, MONOENERGETIC
+{{e_energy}}
+0, 0, 0.7, 0.01, 0, 0, 0.0,  0 , ECUT,PCUT,IREJCT,ESAVE
+0, 0, 0, 0, 0,  PHOTON FORCING
+1, 8,  SCORING INPUT
+1, 1
+15.0,
+0,  DOSE COMPONENTS
+0.0, Z TO FRONT FACE
+*********** start of CM CONESTAK with identifier Pcoll  ***********
+8.1, RMAX
+Primary collimator
+0, 8.1, ZMIN, RBN
+4, NUMBER OF LAYERS
+1.6, 0.38, 0.39,
+6.2, 0.3989, 1.9447,
+1.2, 5.9, 6,
+0.0254, 7.9, 8,
+0.7, 0.01, 0, 1, OUTER WALL
+W700ICRU
+0.7, 0.01, 0, 0,
+VACUUM
+0.7, 0.01, 0, 0,
+VACUUM
+0.7, 0.01, 0, 0,
+VACUUM
+0.7, 0.01, 0, 1,
+W700ICRU
+0.7, 0.01, 0, 0,
+VACUUM
+0.7, 0.01, 0, 0,
+VACUUM
+0.7, 0.01, 0, 2,
+BE700ICRU
+0.7, 0.01, 0, 2,
+BE700ICRU
+*********** start of CM SLABS with identifier upfoil  ***********
+10.0, RMAX
+Upper foil + air
+1, NSLABS
+9.49492, ZMIN
+0.00508, 0.7, 0.01, 0, 2, 0.0
+TA700ICRU
+*********** start of CM FLATFILT with identifier lowfoil  ***********
+12, RMAX
+lower foil + air
+12.8703, ZMIN
+4, NUMBER OF LAYERS
+1, 0.02286, # CONES, ZTHICK OF LAYER 1
+0.40005,
+0.40005,
+1, 0.00762, # CONES, ZTHICK OF LAYER 2
+2.80883,
+2.80883,
+1, 0.1016, # CONES, ZTHICK OF LAYER 3
+0.49911,
+0.49911,
+1, 0.00762, # CONES, ZTHICK OF LAYER 4
+2.80883,
+2.80883,
+0.7, 0.01, 0, 3,
+AL700ICRU
+0.7, 0.01, 0, 3,
+AIR700ICRU
+0.7, 0.01, 0, 3,
+AL700ICRU
+0.7, 0.01, 0, 3,
+AIR700ICRU
+0.7, 0.01, 0, 3,
+AL700ICRU
+0.7, 0.01, 0, 3,
+AIR700ICRU
+0.7, 0.01, 0, 3,
+AL700ICRU
+0.7, 0.01, 0, 3,
+AIR700ICRU
+*********** start of CM CHAMBER with identifier chamber  ***********
+8, RMAX
+Monitor chamber, 6 layers of AIR-interspaced aluminized MYLAR
+14.2, ZMIN
+0, 13, 0, N_TOP, N_CHM, N_BOT
+4.763, 4.95, 6, RADII FOR CENTRAL PART
+0.033147, 0, ZTHICK, FLAG FOR LAYER 1 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+KAPTON700ICRU
+0.23126, 0, ZTHICK, FLAG FOR LAYER 2 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+AIR700ICRU
+0.00508, 0, ZTHICK, FLAG FOR LAYER 3 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+KAPTON700ICRU
+0.23392, 0, ZTHICK, FLAG FOR LAYER 4 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+AIR700ICRU
+0.00508, 0, ZTHICK, FLAG FOR LAYER 5 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+KAPTON700ICRU
+0.22911, 0, ZTHICK, FLAG FOR LAYER 6 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+AIR700ICRU
+0.033147, 0, ZTHICK, FLAG FOR LAYER 7 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+KAPTON700ICRU
+0.22911, 0, ZTHICK, FLAG FOR LAYER 8 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+AIR700ICRU
+0.00508, 0, ZTHICK, FLAG FOR LAYER 9 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+KAPTON700ICRU
+0.23192, 0, ZTHICK, FLAG FOR LAYER 10 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+AIR700ICRU
+0.00508, 0, ZTHICK, FLAG FOR LAYER 11 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+KAPTON700ICRU
+0.23157, 0, ZTHICK, FLAG FOR LAYER 12 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+AIR700ICRU
+0.033147, 0, ZTHICK, FLAG FOR LAYER 13 IN CENTRAL PART
+0.7, 0.01, 0, 0,
+KAPTON700ICRU
+0.7, 0.01, 0, 0,   chamber wall
+AL700ICRU
+0.7, 0.01, 0, 0,   gap
+AIR700ICRU
+0, 0, 0, 0,   container
+AIR700ICRU
+0, MRNGE
+*********** start of CM SLABS with identifier MMIRROR  ***********
+10.0, RMAX
+Field Light Mirror
+1, NSLABS
+22.0, ZMIN
+0.0051, 0.7, 0.01, 0, 9, 0.0
+MYLAR700ICRU
+*********** start of CM SYNCJAWS with identifier Jaws  ***********
+57.34, RMAX
+SYNCJAW settings
+2, {{delivery_mode}}, # PAIRED BARS OR JAWS
+Y
+X
+{{jaws_file}}
+0.7, 0.01, 1, 0,
+0.7, 0.01, 1, 0,
+WJAWS700
+0.7, 0.01, 1, 0,
+WJAWS700
+*********** start of CM SLABS with identifier MYLAR  ***********
+25, RMAX
+Mylar film
+1, NSLABS
+55.7, ZMIN
+0.01016, 0.7, 0.01, 0, 0, 2
+MYLAR700ICRU
+{applicator_template}
+*********** start of CM SLABS with identifier AIRSLAB  ***********
+50.0, RMAX
+Air slab to 60 cm SSD
+1, n_slabs
+94.99, distance
+0.01, 0.7, 0.01, 0, 0, 0.0
+AIR700ICRU
+*********************end of all CMs*****************************
+ #########################
+ :Start MC Transport Parameter:
+
+ Global ECUT= 0.7
+ Global PCUT= 0.01
+ Global SMAX= 10000000000.
+ ESTEPE= 0.25
+ XIMAX= 0.5
+ Boundary crossing algorithm= EXACT
+ Skin depth for BCA= 3.
+ Electron-step algorithm= PRESTA-II
+ Spin effects= On
+ Brems angular sampling= Simple
+ Brems cross sections= BH
+ Bound Compton scattering= Off
+ Compton cross sections= default
+ Pair angular sampling= Simple
+ Pair cross sections= BH
+ Photoelectron angular sampling= Off
+ Rayleigh scattering= Off
+ Atomic relaxations= Off
+ Electron impact ionization= Off
+ Photon cross sections= xcom
+ Photon cross-sections output= Off
+
+ :Stop MC Transport Parameter:
+ #########################

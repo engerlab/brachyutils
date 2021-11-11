@@ -1,0 +1,18 @@
+*********** start of CM SYNCMLCE with identifier mlc  ***********
+25.0, RMAX
+mlc
+1, {delivery_mode}, ORIENT, MODE
+40, NUM_LEAF
+32.313, 39.813, ZMIN, ZMAX
+36.213, 35.988, ZSTEPL, ZSTEPR (similar to varian design, midpoint - 1% leaf length, midpoint + 2% leaf length)
+0.02, TGW
+0.147, 0.191, X3, X4 (scaled by 2)
+0.9184, 100, SPACE, SSD (old value before scaling = 0.4593)
+0.009, LBROT (http://onlinelibrary.wiley.com/doi/10.1118/1.4924990/full)
+0, ENDTYPE
+17, 36.063, LEAFRADIUS, CIL
+{mlc_file}
+0.7, 0.01, 0, 1, 
+AIR700ICRU
+0.7, 0.01, 0, 1, 
+WNiFe700

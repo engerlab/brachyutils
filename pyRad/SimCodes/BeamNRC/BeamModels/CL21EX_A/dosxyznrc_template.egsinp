@@ -1,0 +1,36 @@
+{title}
+0
+{phantom_path}
+0.7, 0.01, 0
+{zero_air_dose}, 0, 1,
+2, 21, {num_cpts}, 1, 50
+{cpt_string}
+2, 0, 1, 100, 0, 0, 0, 0
+{beam_model},{name}_beam,{pegs_file},0,0
+{nhist}, 0, 99, 33, 97, 100.0, 0, 0, 1, 0, 0., 0, 0, 0, 50, 0
+ #########################
+ :Start MC Transport Parameter:
+
+ Global ECUT= 0.
+ Global PCUT= 0.
+ Global SMAX= 5.
+ ESTEPE= 0.25
+ XIMAX= 0.5
+ Boundary crossing algorithm= EXACT
+ Skin depth for BCA= 3.
+ Electron-step algorithm= PRESTA-II
+ Spin effects= On
+ Brems angular sampling= KM
+ Brems cross sections= BH
+ Bound Compton scattering= Off
+ Compton cross sections= default
+ Pair angular sampling= Simple
+ Pair cross sections= BH
+ Photoelectron angular sampling= Off
+ Rayleigh scattering= Off
+ Atomic relaxations= Off
+ Electron impact ionization= Off
+ Photon cross-sections output= Off
+
+ :Stop MC Transport Parameter:
+ #########################

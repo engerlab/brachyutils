@@ -85,20 +85,26 @@ def testDicomLoadSuccess(dicom_object):
                 print("-----------------")
                 return 0
 # this function shows images of the input 3D matrix. the images are 2D planes (transverse, sagital and coronal)
-def triPlanar_snapshot(matrix, name, unit="(Gy)", voxelSize=[1,1,1], source_coord=[0, 0, 0]):
+def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0], voxelSize=[1,1,1], normalize="yes"):
         # get the dimensions of the input matrix and find the coordinates of the center
         dimensions = np.shape(matrix)
         coord_center = np.array([dimensions[0]/2, dimensions[1]/2, dimensions[2]/2], dtype = int)
         snapshot_center = coord_center + source_coord
-
-        normalization_point = list(snapshot_center + [10, 0, 0])
-
-        print("**Here is the normalization point**", normalization_point)
-        print("**Here is the dose value at the normalization point**", matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]])
-        print(np.shape(matrix))
-        xy_plane = matrix[:, :, snapshot_center[2]]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]]
-        xz_plane = matrix[:, snapshot_center[1], :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]]
-        yz_plane = matrix[snapshot_center[0], :, :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]]
+        if normalize=="yes":
+                normalization_point = list(snapshot_center + [0, 10, 0])
+                xy_plane = np.swapaxes(matrix[:, :, snapshot_center[2]]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]], 0, 1)
+                xz_plane = matrix[:, snapshot_center[1], :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]]
+                yz_plane = matrix[snapshot_center[0], :, :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]] 
+        # {{for debugging
+        # print("**Here is the normalization point**", normalization_point)
+        # print("**Here is the dose value at the normalization point**", matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]])
+        # # print(np.shape(matrix))
+        # print("**Here is the snap shot location**", snapshot_center)
+        # quit()
+        # }}
+        xy_plane = np.swapaxes(matrix[:, :, snapshot_center[2]], 0, 1)
+        xz_plane = matrix[:, snapshot_center[1], :]
+        yz_plane = matrix[snapshot_center[0], :, :]
         
 # x y and z ticks. it does not work, ignore for now or fix it if you can ;) 
         # x_axis_tick = np.arange(-1*snapshot_center[0]*voxelSize[0]+1, snapshot_center[0]*voxelSize[0], voxelSize[0])
@@ -152,7 +158,7 @@ def crop_dose_matrix(dose_in, wanted_dimensions):
         upper_bound = int(shape_in[0]-crop_out)
         return dose_in[lower_bound:upper_bound, lower_bound:upper_bound, lower_bound:upper_bound]
 
-def validate_sims(dir_to_case, scroll_yes_no, ):
+def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no"):
         ### First openning DICOM files ###
         dicomDoseFile = glob.glob(dir_to_case + "/dicom/RD*")[0]
         print("looking at the DICOM file: \n")
@@ -183,6 +189,9 @@ def validate_sims(dir_to_case, scroll_yes_no, ):
         # dicom axis object
         dicom_axes = tuple(dicom_object.axes)
         # {{for debugging}}
+        # groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose", "(Gy)", source_coord=source_coord_in)
+        # plt.show()
+        # quit()
         # print("------------------")    
         # print("here is the axis of the dicom file: \n")
         # print(dicom_axes)
@@ -219,7 +228,7 @@ def validate_sims(dir_to_case, scroll_yes_no, ):
                 quit()
 
         # let's do Gamma Variate analysis
-        do_gamma = "yes"
+        # do_gamma = "no"
         if do_gamma == "yes":
                 gamma_matrix = pymedphys.gamma(dicom_axes, dicom_object.dose_grid, dicom_axes, simDose["grid"], 2., 2.)
                 print("------------------")
@@ -259,10 +268,11 @@ def validate_sims(dir_to_case, scroll_yes_no, ):
 
         # let's bring all the graphs in one place so the users do not have to scroll all the time.
         # tri-planaer subplot of the dose distributions
-        groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose", "(Gy)")
-        simulated_triplanar = triPlanar_snapshot(simDose["grid"], "Simulated dose", "(Gy)")
-        gamma_triplanar =  triPlanar_snapshot(gamma_matrix, "Gamma Matrix between simulated dose and ground truth", "")
-        doseRatio_triplanar = triPlanar_snapshot(doseRatio_sim_dicom, "D(sim/truth)", "")
+        groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose", "(Gy)", source_coord=source_coord_in)
+        simulated_triplanar = triPlanar_snapshot(simDose["grid"], "Simulated dose", "(Gy)", source_coord=source_coord_in)
+        if do_gamma=="yes":
+                gamma_triplanar =  triPlanar_snapshot(gamma_matrix, "Gamma Matrix between simulated dose and ground truth", "", source_coord=source_coord_in)
+        doseRatio_triplanar = triPlanar_snapshot(doseRatio_sim_dicom, "D(sim/truth)", "", source_coord=source_coord_in, normalize="no")
         plt.show()
        
 
@@ -281,7 +291,9 @@ if __name__ =="__main__":
         scroll_yes_no['scroll_simulated']= "no"
         scroll_yes_no['scroll_gamma']= "no"
         scroll_yes_no['scroll_doseRatio']= "no"
-
-        validate_sims(mother_dir+"Case3-OCB-MCNP6", scroll_yes_no)
+        # validate_sims(mother_dir+"Case1-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
+        # validate_sims(mother_dir+"Case2-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
+        # validate_sims(mother_dir+"Case3-OCB-MCNP6", scroll_yes_no, [70, 0, 0])
+        validate_sims(mother_dir+"Case4-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
 
 

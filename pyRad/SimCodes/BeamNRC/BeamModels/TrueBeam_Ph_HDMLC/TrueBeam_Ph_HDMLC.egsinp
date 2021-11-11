@@ -1,0 +1,99 @@
+DummySource
+AIR700ICRU
+0, 0, 0, 0, 1, 3, 0,  IWATCH ETC.
+{nhist}, 533, 769, 1000, 0, 0, 0, 0,  NCASE ETC.
+-1, 19, -0.125, 0.0, 0.0, 1.0, 0.15, -0.10, 0.0, 0.0,  IQIN, ISOURCE + OPTIONS
+0, MONOENERGETIC
+5.9
+0, 0, 0.7, 0.01, 0, -2, 2.0,  0 , ECUT,PCUT,IREJCT,ESAVE
+0, 1, 1, 1, 6,  PHOTON FORCING
+1, 4,  SCORING INPUT
+1, 0
+30.0,
+0,  DOSE COMPONENTS
+26.7, Z TO FRONT FACE
+*********** start of CM SYNCJAWS with identifier JAWS  ***********
+57.34, RMAX
+SYNCJAW settings
+2, {delivery_mode}, # PAIRED BARS OR JAWS
+Y
+X
+{jaws_file}
+0.7, 0.01, 1, 0,
+0.7, 0.01, 1, 0,
+TBJAWS700
+0.7, 0.01, 1, 0,
+TBJAWS700
+*********** start of CM CONESTAK with identifier BASEPLATE  ***********
+60.452, RMAX
+Baseplate (0.6 inch) approximated as cylinders
+45.176, 15.24, ZMIN, RBN
+1, NUMBER OF LAYERS
+1.524, 15.24, 15.24,
+2.0, 0.01, 2, 0, OUTER WALL
+BPLATE700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+2.0, 0.01, 3, 0,
+BPLATE700
+*********** start of CM SYNCHDMLC with identifier MLC  ***********
+20.5, RMAX
+TrueBeam HDMLC
+1, 3, {delivery_mode}, ORIENT, NGROUP, MODE
+47.00, ZMIN
+6.9, ZTHICK
+0.4705, 0.04, 0.04, 0.1354, 0.3252, 0.1227, 47, 47.523, 49.524, 50.732, 50.98, 51.28, 1.7, 52.5474, 52.812,
+0.231834, 0.037250, 0.037242, 0.091899, 0.136709, 0.136951, 47.10, 47.36, 49.09, 49.42, 1.70, 50.470, 50.480, 53.58, 53.70,
+0.232535, 0.037235, 0.037206, 0.074619, 0.123684, 0.123087, 47.24, 47.36, 50.49, 50.53, 51.72, 52.05, 1.7, 53.58, 53.84,
+0.113572, 0.037237, 0.037237, 0.043721, 0.074009, 0.088379, 47.1, 47.33, 47.92, 48.12, 1.7, 50.488, 50.488, 53.63, 53.75,
+0.113538, 0.037217, 0.037226, 0.034837, 0.078874, 0.065436, 47.22, 47.34, 50.5150, 50.503, 52.85, 53.05, 1.7, 53.63, 53.87,
+14, 2
+32, 3
+14, 2
+-5.20611, START
+0.0047, LEAFGAP
+0, ENDTYPE
+16, ZFOCUS or RADIUS of leaf ends
+0, ZFOCUS of leaf sides
+{mlc_file}
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 0, 0,
+HDMLC700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+*********** start of CM SLABS with identifier MYLAR  ***********
+25, RMAX
+Mylar film
+1, NSLABS
+55.6, ZMIN
+0.01016, 0.7, 0.01, 0, 0, 2
+MYLAR700ICRU
+*********************end of all CMs*****************************
+ #########################
+ :Start MC Transport Parameter:
+
+ Global ECUT= 0.7
+ Global PCUT= 0.01
+ Global SMAX= 100000000000
+ ESTEPE= 0.25
+ XIMAX= 0.5
+ Boundary crossing algorithm= EXACT
+ Skin depth for BCA= 3
+ Electron-step algorithm= PRESTA-II
+ Spin effects= On
+ Brems angular sampling= KM
+ Brems cross sections= NRC
+ Bound Compton scattering= Off
+ Compton cross sections= default
+ Pair angular sampling= KM
+ Pair cross sections= NRC
+ Photoelectron angular sampling= Off
+ Rayleigh scattering= Off
+ Atomic relaxations= Off
+ Electron impact ionization= Off
+ Photon cross sections= xcom
+ Photon cross-sections output= Off
+
+ :Stop MC Transport Parameter:
+ #########################

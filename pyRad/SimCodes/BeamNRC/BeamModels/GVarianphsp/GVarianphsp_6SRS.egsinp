@@ -1,0 +1,265 @@
+6FFF Linac
+AIR700ICRU
+0, 0, 0, 0, 1, 3, 0,  IWATCH ETC.
+{{nhist}}, 533, 769, 1000, 2, 1000, 0, 0,  NCASE ETC.
+{{dbs_radius}}, 100, 4, 14, 0, 12.67,  DIRECTIONAL BREM OPTIONS
+-1, 19, -{{e_fwhm}}, 0.0, 0.0, 1.0, 0.0, -{{e_fwhm}}, 0.0, 0.0,  IQIN, ISOURCE + OPTIONS
+0,  MONOENERGETIC
+{{e_energy}}
+0, 0, 0.7, 0.01, 0, -1, 2.0, 0, ECUT,PCUT,IREJCT,ESAVE
+0, 1, 1, 1, 7,  PHOTON FORCING
+1, 10,  SCORING INPUT
+1, 1
+30.0,
+0,  DOSE COMPONENTS
+-0.0489, Z TO FRONT FACE
+*********** start of CM SLABS with identifier TARGET  ***********
+1.0, RMAX
+Target and backing
+3, NSLABS
+-0.049, ZMIN
+0.0889, 0.7, 0.01, 1, 1, 1.0
+WTARGET700
+0.1575, 0.7, 0.01, 1, 2, 1.0
+CU700ICRU
+1.3425, 0.7, 0.15, 1, 0, 1.0
+VACUUM
+*********** start of CM CONS3R with identifier PRIMCOLL  ***********
+10.0, RMAX
+Primary Collimator
+1.54, ZMIN
+5.99, ZTHICK
+2, NUM_NODE
+1.54, 0.6101,
+7.53, 2.08915,
+0.7, 0.01, 1, 0, 0,
+VACUUM
+0.7, 0.01, 1, 3, 0,
+WPRIMCOLL700
+*********** start of CM SLABS with identifier WINDOW  ***********
+10.0, RMAX
+Vacuum and beryllium window
+2, NSLABS
+7.53, ZMIN
+1.2954, 0.7, 0.01, 0, 0, 0.0
+VACUUM
+0.0254, 0.7, 0.01, 0, 8, 0.0
+BE700ICRU
+*********** start of CM FLATFILT with identifier FLATFILT  ***********
+3.68047, RMAX
+SRS flatening filter
+12.10996, ZMIN
+13, NUMBER OF LAYERS
+1, 0.01778, # CONES, ZTHICK OF LAYER 1
+0,
+0.0635,
+1, 0.00508, # CONES, ZTHICK OF LAYER 2
+0.0635,
+0.127,
+1, 0.01778, # CONES, ZTHICK OF LAYER 3
+0.127,
+0.1905,
+1, 0.0127, # CONES, ZTHICK OF LAYER 4
+0.1905,
+0.254,
+1, 0.01524, # CONES, ZTHICK OF LAYER 5
+0.254,
+0.381,
+1, 0.04064, # CONES, ZTHICK OF LAYER 6
+0.381,
+0.508,
+1, 0.0381, # CONES, ZTHICK OF LAYER 7
+0.508,
+0.635,
+1, 0.0381, # CONES, ZTHICK OF LAYER 8
+0.635,
+0.762,
+1, 0.03556, # CONES, ZTHICK OF LAYER 9
+0.762,
+0.889,
+1, 0.04318, # CONES, ZTHICK OF LAYER 10
+0.889,
+1.016,
+1, 0.01016, # CONES, ZTHICK OF LAYER 11
+1.016,
+1.27,
+1, 0.04572, # CONES, ZTHICK OF LAYER 12
+1.27,
+1.905,
+1, 0.1016, # CONES, ZTHICK OF LAYER 13
+3.68046,
+3.68046,
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 1, 3,
+TBJAWS700
+0.7, 0.01, 1, 0,
+AIR700ICRU
+0.7, 0.01, 0, 3,
+TBJAWS700
+0.7, 0.01, 0, 0,
+AIR700ICRU
+0.7, 0.01, 0, 3,
+TBJAWS700
+0.7, 0.01, 0, 0,
+AIR700ICRU
+*********** start of CM CHAMBER with identifier CHAMBER  ***********
+10.0, RMAX
+Monitor chamber Kapton
+14.83, ZMIN
+0, 13, 0, N_TOP, N_CHM, N_BOT
+9.525, 9.95, 10.0, RADII FOR CENTRAL PART
+0.0127, 0, ZTHICK, FLAG FOR LAYER 1 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+KAPTON700ICRU
+0.2273, 0, ZTHICK, FLAG FOR LAYER 2 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+AIR700ICRU
+0.0051, 0, ZTHICK, FLAG FOR LAYER 3 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+KAPTON700ICRU
+0.234, 0, ZTHICK, FLAG FOR LAYER 4 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+AIR700ICRU
+0.0051, 0, ZTHICK, FLAG FOR LAYER 5 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+KAPTON700ICRU
+0.229, 0, ZTHICK, FLAG FOR LAYER 6 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+AIR700ICRU
+0.0127, 0, ZTHICK, FLAG FOR LAYER 7 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+KAPTON700ICRU
+0.229, 0, ZTHICK, FLAG FOR LAYER 8 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+AIR700ICRU
+0.0051, 0, ZTHICK, FLAG FOR LAYER 9 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+KAPTON700ICRU
+0.234, 0, ZTHICK, FLAG FOR LAYER 10 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+AIR700ICRU
+0.0051, 0, ZTHICK, FLAG FOR LAYER 11 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+KAPTON700ICRU
+0.227, 0, ZTHICK, FLAG FOR LAYER 12 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+AIR700ICRU
+0.0127, 0, ZTHICK, FLAG FOR LAYER 13 IN CENTRAL PART
+0.0, 0.0, 6, 6,
+KAPTON700ICRU
+0.0, 0.0, 6, 6,   chamber wall
+KAPTON700ICRU
+0.0, 0.0, 6, 6,   gap
+KAPTON700ICRU
+0.0, 0.0, 6, 6,   container
+KAPTON700ICRU
+0, MRNGE
+*********** start of CM SLABS with identifier MMIRROR  ***********
+10.0, RMAX
+Field Light Mirror
+1, NSLABS
+22.0, ZMIN
+0.0051, 0.7, 0.01, 0, 9, 0.0
+MYLAR700ICRU
+*********** start of CM PYRAMIDS with identifier SHIELD  ***********
+50.0, RMAX
+Generic Varian shielding model
+1, 0, #LAYERS, AIR OUTSIDE
+24.2, 27.0, 5.97, 5.97, -5.97, -5.97, 5.97, 5.97, -5.97, -5.97, 20.0, 20,
+0.7, 0.01, 1, 2,  ECUT ETC. FOR AIR
+0.7, 0.01, 1, 3,
+PB700ICRU
+*********** start of CM SYNCJAWS with identifier JAWS  ***********
+57.34, RMAX
+SYNCJAW settings
+2, {{delivery_mode}}, # PAIRED BARS OR JAWS, field type
+Y
+X
+{{jaws_file}}
+0.7, 0.01, 1, 0,
+0.7, 0.01, 1, 0,
+WJAWS700
+0.7, 0.01, 1, 0,
+WJAWS700
+{mlc_template}
+*********** start of CM SLABS with identifier AIRSLAB ***********
+30, RMAX
+airslab
+1, NSLABS
+59.99, ZMIN
+0.01, 0.7, 0.01, 0, 0, 0
+AIR700ICRU
+*********************end of all CMs*****************************
+ #########################
+ :Start MC Transport Parameter:
+
+ Global ECUT= 0.7
+ Global PCUT= 0.01
+ Global SMAX= 10000000000.
+ ESTEPE= 0.25
+ XIMAX= 0.5
+ Boundary crossing algorithm= EXACT
+ Skin depth for BCA= 3.
+ Electron-step algorithm= PRESTA-II
+ Spin effects= On
+ Brems angular sampling= KM
+ Brems cross sections= NRC
+ Bound Compton scattering= Off
+ Compton cross sections= default
+ Pair angular sampling= Simple
+ Pair cross sections= NRC
+ Photoelectron angular sampling= Off
+ Rayleigh scattering= Off
+ Atomic relaxations= Off
+ Electron impact ionization= Off
+ Photon cross sections= xcom
+ Photon cross-sections output= Off
+
+ :Stop MC Transport Parameter:
+ #########################
+ :Start DBS rejection plane:
+
+ Use a rejection plane= On
+ Z(cm) from zero reference plane= 65.
+
+ :Stop DBS rejection plane:
+ #########################

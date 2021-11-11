@@ -1,0 +1,37 @@
+{title}
+0
+{phantom_path}
+0.811, 0.01, 0
+1, 0, 1,
+0, 8, {iso_x:.3f}, {iso_y:.3f}, {iso_z:.3f}, -1, {dsource}, 0, 0, 0, 0, 0, 0
+0, {theta}, {phi}, {phi}, 1, 1
+2, 0, 1, 200, 0, 0, 0, 0
+{phsp_path}
+{nhist}, 0, 500, 33, 97, 100.0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0
+ #########################
+ :Start MC Transport Parameter:
+
+ Global ECUT= 0.811
+ Global PCUT= 0.01
+ Global SMAX= 1e10
+ ESTEPE= 0.25
+ XIMAX= 0.5
+ Boundary crossing algorithm= EXACT
+ Skin depth for BCA= 0
+ Electron-step algorithm= PRESTA-II
+ Spin effects= On
+ Brems angular sampling= Simple
+ Brems cross sections= BH
+ Bound Compton scattering= On
+ Compton cross sections= default
+ Pair angular sampling= Simple
+ Pair cross sections= BH
+ Photoelectron angular sampling= On
+ Rayleigh scattering= On
+ Atomic relaxations= On
+ Electron impact ionization= On
+ Photon cross sections= xcom
+ Photon cross-sections output= Off
+
+ :Stop MC Transport Parameter:
+ #########################

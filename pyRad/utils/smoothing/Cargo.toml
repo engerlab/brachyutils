@@ -1,0 +1,4 @@
+[package]
+name = "smoothing"
+version = "0.1.0"
+authors = ["Marc-Andre Renaud <moi@marcandre.io>"]

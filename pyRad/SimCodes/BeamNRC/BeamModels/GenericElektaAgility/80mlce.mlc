@@ -1,0 +1,17 @@
+25.0, RMAX
+mlc
+1, {delivery_mode}, ORIENT, MODE
+80, NUM_LEAF
+31.18, 40.18, ZMIN, ZMAX nominal 31.18 40.18
+35.86, 35.59, ZSTEPL, ZSTEPR (similar to varian design, midpoint - 1% leaf length, midpoint + 2% leaf length)
+0.005, TGW
+0.0735, 0.0955, X3, X4
+0.5, 100, SPACE, SSD
+0.009, LBROT (http://onlinelibrary.wiley.com/doi/10.1118/1.4924990/full)
+0, ENDTYPE
+17, 34.93, LEAFRADIUS, CIL
+{mlc_file}
+0.7, 0.01, 0, 1, 
+AIR700ICRU
+0.7, 0.01, 0, 1, 
+WNiFe700

@@ -1,0 +1,153 @@
+6MV Linac                                                                        #!GUI1.0
+AIR700ICRU
+0, 0, 0, 0, 1, 3, 0,  IWATCH ETC.
+{{nhist}}, 533, 769, 1000, 2, 1000, 0, 0,  NCASE ETC.
+{{dbs_radius}}, 100, 3, 8, 1, 15.75,  DIRECTIONAL BREM OPTIONS
+-1, 19, -{{e_fwhm}}, 0.0, 0.0, 1.0, 0.0, -{{e_fwhm}}, 0.0, 0.0,  IQIN, ISOURCE + OPTIONS
+0, MONOENERGETIC
+{{e_energy}}
+0, 0, 0.7, 0.01, 0, -1, 2.0,  0 , ECUT,PCUT,IREJCT,ESAVE
+0, 1, 1, 1, 7,  PHOTON FORCING
+1, 7,  SCORING INPUT
+1, 1
+30.0, 
+0,  DOSE COMPONENTS
+0.0, Z TO FRONT FACE
+*********** start of CM SLABS with identifier Target  ***********
+1.0, RMAX
+Target
+3, NSLABS
+0.0, ZMIN (1mm tungsten from 1st line physics doc)
+0.1, 0.7, 0.01, 1, 2, 1.0
+WRe700
+1.033, 0.7, 0.01, 1, 2, 1.0
+CU700ICRU
+0.1, 0.7, 0.01, 1, 0, 1.0
+AIR700ICRU
+*********** start of CM CONS3R with identifier PRIMCOLL  ***********
+10.0, RMAX
+PRIMCOLL
+1.66, ZMIN (old: 2.133)
+10.1, ZTHICK
+2, NUM_NODE
+1.66, 0.645, 
+11.76, 3.16, 
+0.7, 0.01, 1, 0, 0, 
+AIR700ICRU
+0.7, 0.01, 1, 3, 0, 
+WPRIMCOLL700
+*********** start of CM FLATFILT with identifier FLATFILT  ***********
+4.2, RMAX
+6X Flattening Filter
+13.207, ZMIN
+7, NUMBER OF LAYERS
+1, 0.10000, # CONES, ZTHICK OF LAYER 1, zmin = 12.93870, zmax = 13.17030, cumulative thickness = 0.00000
+0.00000,
+0.25880,
+1, 0.43151, # CONES, ZTHICK OF LAYER 2, zmin = 13.03870, zmax = 13.47021, cumulative thickness = 0.10000
+0.25880,
+0.88920,
+1, 0.43397, # CONES, ZTHICK OF LAYER 3, zmin = 13.47021, zmax = 13.90418, cumulative thickness = 0.53151
+0.88920,
+1.43460,
+1, 0.47857, # CONES, ZTHICK OF LAYER 4, zmin = 13.90418, zmax = 14.38275, cumulative thickness = 0.96548
+1.43460,
+2.21740,
+1, 0.48595, # CONES, ZTHICK OF LAYER 5, zmin = 14.38275, zmax = 14.86870, cumulative thickness = 1.44405
+2.21740,
+3.19050,
+1, 0.56300, # CONES, ZTHICK OF LAYER 6, zmin = 14.86870, zmax = 15.43170, cumulative thickness = 1.93000
+4.20000,
+4.20000,
+1, 0.20000, # CONES, ZTHICK OF LAYER 7, zmin = 15.43170, zmax = 15.63170, cumulative thickness = 2.49300
+4.20000,
+4.20000,
+0.7, 0.01, 0, 1, layer 1
+WPRIMCOLL700
+0.7, 0.01, 0, 1,
+AIR700ICRU
+0.7, 0.01, 0, 1, layer 2
+WPRIMCOLL700
+0.7, 0.01, 0, 1,
+AIR700ICRU
+0.7, 0.01, 0, 1, layer 3
+WPRIMCOLL700
+0.7, 0.01, 0, 1,
+AIR700ICRU
+0.7, 0.01, 0, 1, layer 4
+WPRIMCOLL700
+0.7, 0.01, 0, 1,
+AIR700ICRU
+0.7, 0.01, 0, 1, layer 5
+WPRIMCOLL700
+0.7, 0.01, 0, 1,
+AIR700ICRU
+0.7, 0.01, 0, 1, layer 6
+ESTEEL700
+0.7, 0.01, 0, 1,
+AIR700ICRU
+0.7, 0.01, 0, 1, layer 7
+AL700ICRU
+0.7, 0.01, 0, 1,
+AIR700ICRU
+*********** start of CM SLABS with identifier CHAMBER  ***********
+6.0, RMAX
+Target
+1, NSLABS
+16.3, ZMIN (guesstimate from 2nd line physics doc MLCi layout. Also added 0.192 to original 1.5 guess to remove last Alum layer in FF
+0.9, 0.7, 0.01, 1, 0, 1.0
+AL700ICRU
+*********** start of CM SYNCMLCE with identifier mlc  ***********
+{mlc_template}
+*********** start of CM SYNCEJAWS with identifier yjaw  ***********
+35.0, RMAX
+SYNCJAW settings
+1, {{delivery_mode}}, # PAIRED BARS OR JAWS, field type
+Y
+3.5, 13.5,
+{{jaws_file}}
+0.7, 0.01, 0, 0,
+0.7, 0.01, 0, 0,
+WNiFe700
+*********** start of CM SLABS with identifier AIRSLAB  ***********
+35, RMAX
+airslab
+1, NSLABS
+59.99, ZMIN
+{{filler_depth}}, 0.7, 0.01, 0, 0, 0
+AIR700ICRU
+*********************end of all CMs*****************************
+ #########################
+ :Start MC Transport Parameter:
+ 
+ Global ECUT= 0.7
+ Global PCUT= 0.01
+ Global SMAX= 10000000000.
+ ESTEPE= 0.25
+ XIMAX= 0.5
+ Boundary crossing algorithm= EXACT
+ Skin depth for BCA= 3.
+ Electron-step algorithm= PRESTA-II
+ Spin effects= On
+ Brems angular sampling= KM
+ Brems cross sections= NRC
+ Bound Compton scattering= Off
+ Compton cross sections= default
+ Pair angular sampling= Simple
+ Pair cross sections= NRC
+ Photoelectron angular sampling= Off
+ Rayleigh scattering= Off
+ Atomic relaxations= Off
+ Electron impact ionization= Off
+ Photon cross sections= xcom
+ Photon cross-sections output= Off
+ 
+ :Stop MC Transport Parameter:
+ #########################
+ :Start DBS rejection plane:
+ 
+ Use a rejection plane= On
+ Z(cm) from zero reference plane= {{dbs_rejection}}
+ 
+ :Stop DBS rejection plane:
+ #########################
