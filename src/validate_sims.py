@@ -93,8 +93,12 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0], voxelS
         if normalize=="yes":
                 normalization_point = list(snapshot_center + [0, 10, 0])
                 xy_plane = np.swapaxes(matrix[:, :, snapshot_center[2]]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]], 0, 1)
-                xz_plane = matrix[:, snapshot_center[1], :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]]
-                yz_plane = matrix[snapshot_center[0], :, :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]] 
+                xz_plane = np.swapaxes(matrix[:, snapshot_center[1], :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]], 0, 1)
+                yz_plane = np.swapaxes(matrix[snapshot_center[0], :, :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]], 0, 1) 
+        else: 
+                xy_plane = np.swapaxes(matrix[:, :, snapshot_center[2]], 0, 1)
+                xz_plane = np.swapaxes(matrix[:, snapshot_center[1], :], 0, 1)
+                yz_plane = np.swapaxes(matrix[snapshot_center[0], :, :], 0, 1)
         # {{for debugging
         # print("**Here is the normalization point**", normalization_point)
         # print("**Here is the dose value at the normalization point**", matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]])
@@ -102,9 +106,6 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0], voxelS
         # print("**Here is the snap shot location**", snapshot_center)
         # quit()
         # }}
-        xy_plane = np.swapaxes(matrix[:, :, snapshot_center[2]], 0, 1)
-        xz_plane = matrix[:, snapshot_center[1], :]
-        yz_plane = matrix[snapshot_center[0], :, :]
         
 # x y and z ticks. it does not work, ignore for now or fix it if you can ;) 
         # x_axis_tick = np.arange(-1*snapshot_center[0]*voxelSize[0]+1, snapshot_center[0]*voxelSize[0], voxelSize[0])
@@ -125,12 +126,12 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0], voxelS
         ax1.set_ylabel("y-axis")
 
         ax2.title.set_text("Coronal Plane")
-        ax2.set_xlabel("z-axis")
-        ax2.set_ylabel("x-axis")
+        ax2.set_xlabel("x-axis")
+        ax2.set_ylabel("z-axis")
 
         ax3.title.set_text("Sagital Plane")
-        ax3.set_xlabel("z-axis")
-        ax3.set_ylabel("y-axis")
+        ax3.set_xlabel("y-axis")
+        ax3.set_ylabel("z-axis")
 
         fig.colorbar(xy_map, ax=ax1)
         fig.colorbar(xz_map, ax=ax2)
@@ -158,7 +159,7 @@ def crop_dose_matrix(dose_in, wanted_dimensions):
         upper_bound = int(shape_in[0]-crop_out)
         return dose_in[lower_bound:upper_bound, lower_bound:upper_bound, lower_bound:upper_bound]
 
-def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no"):
+def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", normalize_dose = "yes"):
         ### First openning DICOM files ###
         dicomDoseFile = glob.glob(dir_to_case + "/dicom/RD*")[0]
         print("looking at the DICOM file: \n")
@@ -268,10 +269,10 @@ def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no"):
 
         # let's bring all the graphs in one place so the users do not have to scroll all the time.
         # tri-planaer subplot of the dose distributions
-        groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose", "(Gy)", source_coord=source_coord_in)
-        simulated_triplanar = triPlanar_snapshot(simDose["grid"], "Simulated dose", "(Gy)", source_coord=source_coord_in)
+        groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose", "(Gy)", source_coord=source_coord_in, normalize=normalize_dose)
+        simulated_triplanar = triPlanar_snapshot(simDose["grid"], "Simulated dose", "(Gy)", source_coord=source_coord_in, normalize=normalize_dose)
         if do_gamma=="yes":
-                gamma_triplanar =  triPlanar_snapshot(gamma_matrix, "Gamma Matrix between simulated dose and ground truth", "", source_coord=source_coord_in)
+                gamma_triplanar =  triPlanar_snapshot(gamma_matrix, "Gamma Matrix between simulated dose and ground truth", "", source_coord=source_coord_in, normalize="no")
         doseRatio_triplanar = triPlanar_snapshot(doseRatio_sim_dicom, "D(sim/truth)", "", source_coord=source_coord_in, normalize="no")
         plt.show()
        
