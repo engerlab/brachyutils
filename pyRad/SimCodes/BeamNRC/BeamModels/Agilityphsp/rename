@@ -1,3 +1,0 @@
-#!/bin/bash
-
-for f in GenericElektaAgility*; do mv $f ${f/GenericElektaAgility/Agilityphsp}; done

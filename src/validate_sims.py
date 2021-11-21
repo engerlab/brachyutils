@@ -159,6 +159,11 @@ def crop_dose_matrix(dose_in, wanted_dimensions):
         upper_bound = int(shape_in[0]-crop_out)
         return dose_in[lower_bound:upper_bound, lower_bound:upper_bound, lower_bound:upper_bound]
 
+def percent_error(points, sim, gtd):
+        
+        
+        return pe, d_sim, d_gtd
+
 def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", normalize_dose = "yes"):
         ### First openning DICOM files ###
         dicomDoseFile = glob.glob(dir_to_case + "/dicom/RD*")[0]
@@ -266,6 +271,15 @@ def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", no
                 quit()
 
         # ############################################
+        # let's get the simulated dose, GTD and the percent error at the specific locations
+        examin_points = np.array([
+                [-10, 0, 0], [10, 0, 0], [0, -10, 0], [0, 10, 0], [0, 0, -10], [0, 0, 10], [-50, 0, 0], [50, 0, 0], [0, -50, 0], [0, 50, 0], [0, 0, -50], [0, 0, 50]
+        ])
+
+        print(percent_error(examin_points, simDose["grid"], dicom_object.dose_grid))
+
+        # ############################################
+
 
         # let's bring all the graphs in one place so the users do not have to scroll all the time.
         # tri-planaer subplot of the dose distributions
@@ -274,6 +288,7 @@ def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", no
         if do_gamma=="yes":
                 gamma_triplanar =  triPlanar_snapshot(gamma_matrix, "Gamma Matrix between simulated dose and ground truth", "", source_coord=source_coord_in, normalize="no")
         doseRatio_triplanar = triPlanar_snapshot(doseRatio_sim_dicom, "D(sim/truth)", "", source_coord=source_coord_in, normalize="no")
+
         plt.show()
        
 
