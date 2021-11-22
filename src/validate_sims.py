@@ -48,6 +48,7 @@ import glob
 import matplotlib.pyplot as plt
 import pymedphys
 import pickle
+import csv
 
 
 # a function to test the dose loading from .3ddose was successful
@@ -167,6 +168,20 @@ def percent_error(points, sim, gtd):
         pe = 100*(d_sim - d_gtd)/d_gtd
         return pe, d_sim, d_gtd
 
+def _test_save_to_csv():
+        a = np.arange(0, 12)
+        b = np.arange(12, 24)
+        c = np.arange(24, 36)
+        file = "/home/majd/data/TG186 Vallidation/Elekta/Case1-OCB-MCNP6/simResults/test.csv"
+        save_to_csv(file, a, b, c)
+
+def save_to_csv(filename, pe, d_sim, d_gtd):
+        rows = zip(pe, d_sim, d_gtd)
+        with open(filename, 'w') as f:
+                writer = csv.writer(f)
+                for row in rows:
+                        writer.writerow(row)
+
 def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", normalize_dose = "yes"):
         ### First openning DICOM files ###
         dicomDoseFile = glob.glob(dir_to_case + "/dicom/RD*")[0]
@@ -205,15 +220,15 @@ def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", no
         # print("here is the axis of the dicom file: \n")
         # print(dicom_axes)
         # print("------------------")
-        examin_points = np.array([
-                [-10, 0, 0], [10, 0, 0], [0, -10, 0], [0, 10, 0], [0, 0, -10], [0, 0, 10], [-50, 0, 0], [50, 0, 0], [0, -50, 0], [0, 50, 0], [0, 0, -50], [0, 0, 50]
-        ])
-        print("**here is the percent error!**")
-        print(percent_error(examin_points, dicom_object.dose_grid, dicom_object.dose_grid))  
-        quit()
+        # examin_points = np.array([
+        #         [-10, 0, 0], [10, 0, 0], [0, -10, 0], [0, 10, 0], [0, 0, -10], [0, 0, 10], [-50, 0, 0], [50, 0, 0], [0, -50, 0], [0, 50, 0], [0, 0, -50], [0, 0, 50]
+        # ])
+        # print("**here is the percent error!**")
+        # print(percent_error(examin_points, dicom_object.dose_grid, dicom_object.dose_grid))  
+        # quit()
         # }}
         ### simulated dose files ###
-        simDoseFile = glob.glob(dir_to_case + "/simResults/source_along_z/*.3ddose")[0]
+        simDoseFile = glob.glob(dir_to_case + "/simResults/source_along_y/*.3ddose")[0]
         print("looking at the file: \n")
         print(simDoseFile)
         print("------------------")
@@ -279,17 +294,7 @@ def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", no
                 print("invalid input, rerun the script and pick either yes or no")
                 quit()
 
-        # ############################################
-        # let's get the simulated dose, GTD and the percent error at the specific locations
-        # examin_points = np.array([
-        #         [-10, 0, 0], [10, 0, 0], [0, -10, 0], [0, 10, 0], [0, 0, -10], [0, 0, 10], [-50, 0, 0], [50, 0, 0], [0, -50, 0], [0, 50, 0], [0, 0, -50], [0, 0, 50]
-        # ])
-
-        # # {for debugging
-        # print("**HERE is the perecent errors**")
-        # print(percent_error(examin_points, simDose["grid"], dicom_object.dose_grid))
-        # quit()
-        # # }
+       
         # ############################################
 
 
@@ -303,6 +308,19 @@ def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", no
 
         plt.show()
        
+        # ############################################
+        # let's get the simulated dose, GTD and the percent error at the specific locations
+        examin_points = np.array([
+                [-10, 0, 0], [10, 0, 0], [0, -10, 0], [0, 10, 0], [0, 0, -10], [0, 0, 10], [-50, 0, 0], [50, 0, 0], [0, -50, 0], [0, 50, 0], [0, 0, -50], [0, 0, 50]
+        ])
+        
+
+        return [dicom_object.dose_grid, simDose["grid"], percent_error(examin_points, simDose["grid"], dicom_object.dose_grid)]
+        # # {for debugging
+        # print("**HERE is the perecent errors**")
+        # print(percent_error(examin_points, simDose["grid"], dicom_object.dose_grid))
+        # quit()
+        # # }
 
 if __name__ =="__main__":
         # set directory of the project data
@@ -313,14 +331,21 @@ if __name__ =="__main__":
         print(mother_dir)
         print("------------------")
 
+        # _test_save_to_csv()
+        # quit()
+
         # ask what kinds of plots are wanted?
         scroll_yes_no = {}
         scroll_yes_no['scroll_dicome']=  "no"
         scroll_yes_no['scroll_simulated']= "no"
         scroll_yes_no['scroll_gamma']= "no"
         scroll_yes_no['scroll_doseRatio']= "no"
-        validate_sims(mother_dir+"Case1-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
-        # validate_sims(mother_dir+"Case2-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
+        _, _, p_error1 = validate_sims(mother_dir+"Case1-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
+        save_to_csv(mother_dir+"Case1-OCB-MCNP6/simResults/source_along_y/case1_y.csv", p_error1[0], p_error1[1], p_error1[2])
+
+        # _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
+        # save_to_csv(mother_dir+"Case2-OCB-MCNP6/simResults/source_along_y/case1_z.csv", p_error2[0], p_error2[1], p_error2[2])
+
         # validate_sims(mother_dir+"Case3-OCB-MCNP6", scroll_yes_no, [70, 0, 0])
         # validate_sims(mother_dir+"Case4-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
 

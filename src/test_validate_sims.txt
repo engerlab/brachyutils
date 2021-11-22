@@ -23,3 +23,31 @@ looking at the file:
 
 /home/majd/data/TG186 Vallidation/Elekta/Case1-OCB-MCNP6/simResults/source_along_z/combined.3ddose
 ------------------
+Type of the dose is:  <class 'numpy.ndarray'>
+-----------------
+dimensions of the dose is: (511, 511, 511)
+-----------------
+the average uncertainty of the dose is: 0.0074642268109842425
+-----------------
+3ddose was loaded successfully
+------------------
+------------------
+here is the size of croped out 3ddose::::: 
+ (201, 201, 201)
+------------------
+not scrolling through simulated dose and moving on
+------------------
+here is the shape of the dose ratio 
+ (201, 201, 201)
+------------------
+here is the type of the gamma_matrix 
+ <class 'numpy.ndarray'>
+------------------
+not scrolling through dose ratio map and moving on
+(array([-1.6536594 , -2.59542968, -2.76387487, -1.58266164, -2.06328864,
+       -2.19369942, -1.76201952, -5.327284  , -1.88334479,  0.14244944,
+       -3.2777195 , -3.14543674]), array([1.102931  , 1.092566  , 1.090382  , 1.103926  , 0.6688442 ,
+       0.7220169 , 0.04466694, 0.04305635, 0.04460382, 0.04554197,
+       0.02932765, 0.03080469]), array([1.1214764 , 1.12167837, 1.12137541, 1.12167837, 0.68293512,
+       0.73821103, 0.0454681 , 0.04547915, 0.04545999, 0.04547719,
+       0.0303215 , 0.0318051 ]))
