@@ -182,7 +182,7 @@ def save_to_csv(filename, pe, d_sim, d_gtd):
                 for row in rows:
                         writer.writerow(row)
 
-def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", normalize_dose = "yes"):
+def validate_sims(dir_to_case, scroll_yes_no, simDoseFile=None, source_coord_in=[0,0,0], do_gamma="no", normalize_dose = "yes"):
         ### First openning DICOM files ###
         dicomDoseFile = glob.glob(dir_to_case + "/dicom/RD*")[0]
         print("looking at the DICOM file: \n")
@@ -212,23 +212,27 @@ def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", no
         print("here is the shape of the dicom dose file: \n", dicom_shape)
         # dicom axis object
         dicom_axes = tuple(dicom_object.axes)
-        # {{for debugging
-        # groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose", "(Gy)", source_coord=source_coord_in)
-        # plt.show()
-        # quit()
-        # print("------------------")    
-        # print("here is the axis of the dicom file: \n")
-        # print(dicom_axes)
-        # print("------------------")
-        # examin_points = np.array([
-        #         [-10, 0, 0], [10, 0, 0], [0, -10, 0], [0, 10, 0], [0, 0, -10], [0, 0, 10], [-50, 0, 0], [50, 0, 0], [0, -50, 0], [0, 50, 0], [0, 0, -50], [0, 0, 50]
-        # ])
-        # print("**here is the percent error!**")
-        # print(percent_error(examin_points, dicom_object.dose_grid, dicom_object.dose_grid))  
-        # quit()
-        # }}
-        ### simulated dose files ###
-        simDoseFile = glob.glob(dir_to_case + "/simResults/source_along_y/*.3ddose")[0]
+                # {{for debugging
+                # groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose", "(Gy)", source_coord=source_coord_in)
+                # plt.show()
+                # quit()
+                # print("------------------")    
+                # print("here is the axis of the dicom file: \n")
+                # print(dicom_axes)
+                # print("------------------")
+                # examin_points = np.array([
+                #         [-10, 0, 0], [10, 0, 0], [0, -10, 0], [0, 10, 0], [0, 0, -10], [0, 0, 10], [-50, 0, 0], [50, 0, 0], [0, -50, 0], [0, 50, 0], [0, 0, -50], [0, 0, 50]
+                # ])
+                # print("**here is the percent error!**")
+                # print(percent_error(examin_points, dicom_object.dose_grid, dicom_object.dose_grid))  
+                # quit()
+                # }}
+                ### simulated dose files ###
+        
+        #############################
+        if simDoseFile==None:
+                simDoseFile = glob.glob(dir_to_case + "/simResults/*.3ddose")[0]
+        
         print("looking at the file: \n")
         print(simDoseFile)
         print("------------------")
@@ -340,11 +344,13 @@ if __name__ =="__main__":
         scroll_yes_no['scroll_simulated']= "no"
         scroll_yes_no['scroll_gamma']= "no"
         scroll_yes_no['scroll_doseRatio']= "no"
-        _, _, p_error1 = validate_sims(mother_dir+"Case1-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
-        save_to_csv(mother_dir+"Case1-OCB-MCNP6/simResults/source_along_y/case1_y.csv", p_error1[0], p_error1[1], p_error1[2])
-
-        # _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
-        # save_to_csv(mother_dir+"Case2-OCB-MCNP6/simResults/source_along_y/case1_z.csv", p_error2[0], p_error2[1], p_error2[2])
+        # simFileCase1 = (mother_dir+"Case1-OCB-MCNP6/simResults/source_along_z/combined.3ddose")
+        # _, _, p_error1 = validate_sims(mother_dir+"Case1-OCB-MCNP6", simFileCase1, scroll_yes_no, [0, 0, 0])
+        # save_to_csv(mother_dir+"Case1-OCB-MCNP6/simResults/source_along_z/case1_z.csv", p_error1[0], p_error1[1], p_error1[2])
+        
+        simFileCase2 = (mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/combined.3ddose")
+        _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6", scroll_yes_no, simFileCase2)
+        save_to_csv(mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/case1_z.csv", p_error2[0], p_error2[1], p_error2[2])
 
         # validate_sims(mother_dir+"Case3-OCB-MCNP6", scroll_yes_no, [70, 0, 0])
         # validate_sims(mother_dir+"Case4-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
