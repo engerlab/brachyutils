@@ -160,8 +160,11 @@ def crop_dose_matrix(dose_in, wanted_dimensions):
         return dose_in[lower_bound:upper_bound, lower_bound:upper_bound, lower_bound:upper_bound]
 
 def percent_error(points, sim, gtd):
-        
-        
+        points += int(np.shape(sim)[0]/2)
+        points = np.ravel_multi_index(points.T, np.shape(sim))
+        d_sim = sim.take(points)
+        d_gtd = gtd.take(points)
+        pe = 100*(d_sim - d_gtd)/d_gtd
         return pe, d_sim, d_gtd
 
 def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", normalize_dose = "yes"):
@@ -194,17 +197,23 @@ def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", no
         print("here is the shape of the dicom dose file: \n", dicom_shape)
         # dicom axis object
         dicom_axes = tuple(dicom_object.axes)
-        # {{for debugging}}
+        # {{for debugging
         # groundTruth_triplanar = triPlanar_snapshot(dicom_object.dose_grid, "ground truth dose", "(Gy)", source_coord=source_coord_in)
         # plt.show()
         # quit()
         # print("------------------")    
         # print("here is the axis of the dicom file: \n")
         # print(dicom_axes)
-        # print("------------------")    
-
+        # print("------------------")
+        examin_points = np.array([
+                [-10, 0, 0], [10, 0, 0], [0, -10, 0], [0, 10, 0], [0, 0, -10], [0, 0, 10], [-50, 0, 0], [50, 0, 0], [0, -50, 0], [0, 50, 0], [0, 0, -50], [0, 0, 50]
+        ])
+        print("**here is the percent error!**")
+        print(percent_error(examin_points, dicom_object.dose_grid, dicom_object.dose_grid))  
+        quit()
+        # }}
         ### simulated dose files ###
-        simDoseFile = glob.glob(dir_to_case + "/simResults/*.3ddose")[0]
+        simDoseFile = glob.glob(dir_to_case + "/simResults/source_along_z/*.3ddose")[0]
         print("looking at the file: \n")
         print(simDoseFile)
         print("------------------")
@@ -272,12 +281,15 @@ def validate_sims(dir_to_case, scroll_yes_no, source_coord_in, do_gamma="no", no
 
         # ############################################
         # let's get the simulated dose, GTD and the percent error at the specific locations
-        examin_points = np.array([
-                [-10, 0, 0], [10, 0, 0], [0, -10, 0], [0, 10, 0], [0, 0, -10], [0, 0, 10], [-50, 0, 0], [50, 0, 0], [0, -50, 0], [0, 50, 0], [0, 0, -50], [0, 0, 50]
-        ])
+        # examin_points = np.array([
+        #         [-10, 0, 0], [10, 0, 0], [0, -10, 0], [0, 10, 0], [0, 0, -10], [0, 0, 10], [-50, 0, 0], [50, 0, 0], [0, -50, 0], [0, 50, 0], [0, 0, -50], [0, 0, 50]
+        # ])
 
-        print(percent_error(examin_points, simDose["grid"], dicom_object.dose_grid))
-
+        # # {for debugging
+        # print("**HERE is the perecent errors**")
+        # print(percent_error(examin_points, simDose["grid"], dicom_object.dose_grid))
+        # quit()
+        # # }
         # ############################################
 
 
@@ -307,9 +319,9 @@ if __name__ =="__main__":
         scroll_yes_no['scroll_simulated']= "no"
         scroll_yes_no['scroll_gamma']= "no"
         scroll_yes_no['scroll_doseRatio']= "no"
-        # validate_sims(mother_dir+"Case1-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
+        validate_sims(mother_dir+"Case1-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
         # validate_sims(mother_dir+"Case2-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
         # validate_sims(mother_dir+"Case3-OCB-MCNP6", scroll_yes_no, [70, 0, 0])
-        validate_sims(mother_dir+"Case4-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
+        # validate_sims(mother_dir+"Case4-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
 
 

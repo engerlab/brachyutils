@@ -21,5 +21,5 @@ here is the shape of the dicom dose file:
  (201, 201, 201)
 looking at the file: 
 
-/home/majd/data/TG186 Vallidation/Elekta/Case1-OCB-MCNP6/simResults/combined.3ddose
+/home/majd/data/TG186 Vallidation/Elekta/Case1-OCB-MCNP6/simResults/source_along_z/combined.3ddose
 ------------------
