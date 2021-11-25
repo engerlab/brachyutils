@@ -350,7 +350,7 @@ if __name__ =="__main__":
         
         simFileCase2 = (mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/combined.3ddose")
         _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6", scroll_yes_no, simFileCase2)
-        save_to_csv(mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/case1_z.csv", p_error2[0], p_error2[1], p_error2[2])
+        save_to_csv(mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/case2_z.csv", p_error2[0], p_error2[1], p_error2[2])
 
         # validate_sims(mother_dir+"Case3-OCB-MCNP6", scroll_yes_no, [70, 0, 0])
         # validate_sims(mother_dir+"Case4-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
