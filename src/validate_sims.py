@@ -34,7 +34,7 @@ Dependencies
 Outputs
         1. terminal outputs saying dose loading was successful
         2. two scrollable plots of the dose matrix; one for ground truth dose and one for our simulated dose
-        3. result of gamma index analysis (to be added) 
+        3. result of gamma index analysis 
 """
 
 # needed libraries
@@ -182,9 +182,9 @@ def save_to_csv(filename, pe, d_sim, d_gtd):
                 for row in rows:
                         writer.writerow(row)
 
-def validate_sims(dir_to_case, scroll_yes_no, simDoseFile=None, source_coord_in=[0,0,0], do_gamma="no", normalize_dose = "yes"):
+def validate_sims(dir_to_dicom, scroll_yes_no, simDoseFile=None, source_coord_in=[0,0,0], do_gamma="no", normalize_dose = "yes"):
         ### First openning DICOM files ###
-        dicomDoseFile = glob.glob(dir_to_case + "/dicom/RD*")[0]
+        dicomDoseFile = glob.glob(dir_to_dicom + "/RD*")[0]
         print("looking at the DICOM file: \n")
         print(dicomDoseFile)
         print("------------------")
@@ -344,13 +344,19 @@ if __name__ =="__main__":
         scroll_yes_no['scroll_simulated']= "no"
         scroll_yes_no['scroll_gamma']= "no"
         scroll_yes_no['scroll_doseRatio']= "no"
-        # simFileCase1 = (mother_dir+"Case1-OCB-MCNP6/simResults/source_along_z/combined.3ddose")
-        # _, _, p_error1 = validate_sims(mother_dir+"Case1-OCB-MCNP6", simFileCase1, scroll_yes_no, [0, 0, 0])
-        # save_to_csv(mother_dir+"Case1-OCB-MCNP6/simResults/source_along_z/case1_z.csv", p_error1[0], p_error1[1], p_error1[2])
         
-        simFileCase2 = (mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/combined.3ddose")
-        _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6", scroll_yes_no, simFileCase2)
-        save_to_csv(mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/case2_z.csv", p_error2[0], p_error2[1], p_error2[2])
+        simFileCase1 = (mother_dir+"Case1-OCB-MCNP6/simResults/combined.3ddose")
+        _, _, p_error1 = validate_sims(mother_dir+"Case1-OCB-MCNP6/dicom", scroll_yes_no, simFileCase1, [0, 0, 0])
+        save_to_csv(mother_dir+"Case1-OCB-MCNP6/simResults/case1.csv", p_error1[0], p_error1[1], p_error1[2])
+        
+        # simFileCase2 = (mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/combined.3ddose")
+        # _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6/dicom", scroll_yes_no, simFileCase2)
+        # save_to_csv(mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/case2_z.csv", p_error2[0], p_error2[1], p_error2[2])
+
+        # simFileCase3 = (mother_dir+"Case3-OCB-MCNP6/simResults/source_along_z/combined.3ddose")
+        # _, _, p_error3 = validate_sims(mother_dir+"Case3-OCB-MCNP6/dicom", scroll_yes_no, simFileCase3, [70, 0, 0])
+        # save_to_csv(mother_dir+"Case3-OCB-MCNP6/simResults/source_along_z/case3_z.csv", p_error3[0], p_error3[1], p_error3[2])
+
 
         # validate_sims(mother_dir+"Case3-OCB-MCNP6", scroll_yes_no, [70, 0, 0])
         # validate_sims(mother_dir+"Case4-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
