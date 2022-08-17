@@ -53,7 +53,7 @@ import pickle
 import csv
 import pandas as pd
 
-def _test_QA_TG186_init(with_return=bool):
+def _test_QA_TG186_init(with_return=False):
         test_path = "/home/majd/data/TG186 Vallidation/rapidBrachyMCTPS/RapidBrachyMCTPS_Merged_DoseComparison/alana_newmuens_combined.3ddose"
         groundTruth_path = "/home/majd/data/TG186 Vallidation/rapidBrachyMCTPS/RapidBrachyMCTPS_Merged_DoseComparison/merged_combined.3ddose"
         qa_object = QA_TG186(test_path, groundTruth_path)
@@ -63,6 +63,22 @@ def _test_QA_TG186_init(with_return=bool):
 
 
 class QA_TG186:
+        """ an object containing the following attributes:
+        - two dose objects:
+                - test dose: 3ddose or dicom format
+                - ground truth dose: 3ddose or dicom format
+
+        - functions that compare the equality of the dose objects:
+                - dose ratio analysis
+                - percent error analysis
+                - gamma variate analysis
+                - dose point analysis
+                - dose line profile analysis
+
+        - functions that visualize the result of the analysis
+                - tri-planar snapshot (views transverse, sagital and coronal views of a 3D matrix)
+        - pandas data frame that contains the result of the analysis
+        """
         test_dose = None
         groundTruth_dose = None
         qa_results = pd.DataFrame
@@ -71,10 +87,10 @@ class QA_TG186:
                 # load test dose
                 test_extension = path2testDose.split('.')[-1]
                 if test_extension == "3ddose":
-                        self.test_dose = dose_utils.load_3ddose(path2testDose)
+                        self.test_dose = dose_utils.load_3ddose(path2testDose)['grid']
                         testSimLoadSuccess(self.test_dose)
                 elif test_extension == "dcm":
-                        self.test_dose = dose.DoseGrid(path2GroundTruth)
+                        self.test_dose = dose.DoseGrid(path2GroundTruth).dose_grid
                         testDicomLoadSuccess(self.test_dose)
                 else:
                         raise Exception("input testing dose must have 3ddose or DICOM RD format")
@@ -82,16 +98,17 @@ class QA_TG186:
                 # load ground truth dose
                 groundTruth_extension = path2GroundTruth.split('.')[-1]
                 if groundTruth_extension == "3ddose":
-                        self.groundTruth_dose = dose_utils.load_3ddose(path2GroundTruth)
+                        self.groundTruth_dose = dose_utils.load_3ddose(path2GroundTruth)['grid']
                         testSimLoadSuccess(self.groundTruth_dose)
                 elif groundTruth_extension == "dcm":
                         self.groundTruth_dose = dose.DoseGrid(path2GroundTruth)
-                        testDicomLoadSuccess(self.groundTruth_dose)
+                        testDicomLoadSuccess(self.groundTruth_dose).dose_grid
                 else:
                         raise Exception("input testing dose must have 3ddose or DICOM RD format")
 
 
-        # now we do quality check tests
+        # these tests compare 2 dose matrices. the format of the metrices should be Z,Y,X
+        # def dose_ratio(self):
 
 
 # a function to test the dose loading from .3ddose was successful
@@ -99,10 +116,10 @@ def testSimLoadSuccess(dose):
         try:
                 print("Type of the input dose is: ", type(dose))
                 print("-----------------")
-                print("dimensions of the dose is:", np.shape(dose["grid"]))
+                print("dimensions of the dose is:", np.shape(dose))
                 print("-----------------")
-                print("the average uncertainty of the dose is:", dose_utils.get_average_uncert(dose))
-                print("-----------------")
+                # print("the average uncertainty of the dose is:", dose_utils.get_average_uncert(dose))
+                # print("-----------------")
                 print("3ddose was loaded successfully")
                 print("------------------")                
                 return 1
@@ -118,8 +135,6 @@ def testDicomLoadSuccess(dicom_object):
                 print("here is the shape of the dose \n")
                 print(dicom_object.shape)
                 print("-----------------")
-                print("this is the type of the dicom_object:\n")
-                print(type(dicom_object))
                 print("-----------------")
                 # {{for debugging only}}
                 # print("here is the first few dose values \n")
