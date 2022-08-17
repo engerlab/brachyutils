@@ -60,6 +60,15 @@ def _test_QA_TG186_init(with_return=False):
         if with_return:
                 return qa_object
 
+def _test_QA_TG186_dose_ratio():
+        qa_object = _test_QA_TG186_init(True)
+        qa_object.dose_ratio()
+        print(qa_object.results_df)
+        
+def _test_QA_TG186_dose_percent_error():
+        qa_object = _test_QA_TG186_init(True)
+        qa_object.dose_percent_error()
+        print(qa_object.results_df['mean_dose_ratio'])
 
 
 class QA_TG186:
@@ -76,12 +85,13 @@ class QA_TG186:
                 - dose line profile analysis
 
         - functions that visualize the result of the analysis
+                - scroll dose
                 - tri-planar snapshot (views transverse, sagital and coronal views of a 3D matrix)
         - pandas data frame that contains the result of the analysis
         """
         test_dose = None
         groundTruth_dose = None
-        qa_results = pd.DataFrame
+        results_df = {}
         
         def __init__(self, path2testDose:string, path2GroundTruth:string) -> None:
                 # load test dose
@@ -108,7 +118,23 @@ class QA_TG186:
 
 
         # these tests compare 2 dose matrices. the format of the metrices should be Z,Y,X
-        # def dose_ratio(self):
+        def dose_ratio(self):
+                '''get elemetwise ratio between the test dose and the ground truth dose. add the results to the results_df'''
+                dose_ratio =  self.test_dose/self.groundTruth_dose
+                self.results_df["dose_ratio"] = dose_ratio
+                self.results_df['max_dose_ratio']=np.nanmax(dose_ratio)
+                self.results_df['mean_dose_ratio']=np.nanmean(dose_ratio)
+                self.results_df['std_dose_ratio']=np.nanstd(dose_ratio)
+        def dose_percent_error(self):
+                '''get elementwise percent error between the dose and the ground truth dose. add the results to the results_df'''
+                dose_PE= np.abs(self.test_dose - self.groundTruth_dose)/self.groundTruth_dose * 100
+                self.results_df["dose_percent_error"] = dose_PE
+                self.results_df['max_dose_percent_error']=np.nanmax(dose_PE)
+                self.results_df['mean_dose_percent_error']=np.nanmean(dose_PE)
+                self.results_df['std_dose_percent_error']=np.nanstd(dose_PE)
+        def gamma_index(self):
+                return None
+        
 
 
 # a function to test the dose loading from .3ddose was successful
@@ -387,4 +413,6 @@ def validate_sims(dir_to_dicom, scroll_yes_no, simDoseFile=None, source_coord_in
         # # }
 
 if __name__ =="__main__":
-     _test_QA_TG186_init()
+#      _test_QA_TG186_init()                    # test passed
+     _test_QA_TG186_dose_ratio()                # test passed
+     _test_QA_TG186_dose_percent_error()
