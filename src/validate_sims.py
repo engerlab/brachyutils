@@ -38,6 +38,8 @@ Outputs
 """
 
 # needed libraries
+import string
+from typing import Any
 import dose_utils
 import os
 import numpy as np
@@ -49,12 +51,48 @@ import matplotlib.pyplot as plt
 import pymedphys
 import pickle
 import csv
+import pandas as pd
+
+def _test_QA_TG186_init():
+        test_path = ""
+        groundTruth_path = ""
+
+        qa_object = QA_TG186(test_path, groundTruth_path)
+
+class QA_TG186:
+        test_dose = None
+        groundTruth_dose = None
+        qa_results = pd.DataFrame
+        
+        def __init__(self, path2testDose:string, path2GroundTruth:string) -> None:
+                # load test dose
+                test_extension = path2testDose.split('.')[-1]
+                if test_extension == "3ddose":
+                        self.test_dose = dose_utils.load_3ddose(path2testDose)
+                        testSimLoadSuccess(self.test_dose)
+                elif test_extension == "dcm":
+                        self.test_dose = dose.DoseGrid(path2GroundTruth)
+                        testDicomLoadSuccess(self.test_dose)
+                else:
+                        raise Exception("input testing dose must have 3ddose or DICOM RD format")
+
+                # load ground truth dose
+                groundTruth_extension = path2GroundTruth.split('.')[-1]
+                if groundTruth_extension == "3ddose":
+                        self.groundTruth_dose = dose_utils.load_3ddose(path2GroundTruth)
+                elif groundTruth_extension == "dcm":
+                        self.groundTruth_dose = dose.DoseGrid(path2GroundTruth)
+                else:
+                        raise Exception("input testing dose must have 3ddose or DICOM RD format")
+
+
+        # now we do quality check tests
 
 
 # a function to test the dose loading from .3ddose was successful
 def testSimLoadSuccess(dose):
         try:
-                print("Type of the dose is: ", type(dose["grid"]))
+                print("Type of the input dose is: ", type(dose))
                 print("-----------------")
                 print("dimensions of the dose is:", np.shape(dose["grid"]))
                 print("-----------------")
@@ -70,6 +108,8 @@ def testSimLoadSuccess(dose):
 # a function to test the loading from dicom files
 def testDicomLoadSuccess(dicom_object):
         try:
+                print("Type of the input dose is: ", type(dicom_object))
+                print("-----------------")
                 print("here is the shape of the dose \n")
                 print(dicom_object.shape)
                 print("-----------------")
@@ -345,13 +385,13 @@ if __name__ =="__main__":
         scroll_yes_no['scroll_gamma']= "no"
         scroll_yes_no['scroll_doseRatio']= "no"
         
-        simFileCase1 = (mother_dir+"Case1-OCB-MCNP6/simResults/combined.3ddose")
-        _, _, p_error1 = validate_sims(mother_dir+"Case1-OCB-MCNP6/dicom", scroll_yes_no, simFileCase1, [0, 0, 0])
-        save_to_csv(mother_dir+"Case1-OCB-MCNP6/simResults/case1.csv", p_error1[0], p_error1[1], p_error1[2])
+        # simFileCase1 = (mother_dir+"Case1-OCB-MCNP6/simResults/combined.3ddose")
+        # _, _, p_error1 = validate_sims(mother_dir+"Case1-OCB-MCNP6/dicom", scroll_yes_no, simFileCase1, [0, 0, 0])
+        # save_to_csv(mother_dir+"Case1-OCB-MCNP6/simResults/case1.csv", p_error1[0], p_error1[1], p_error1[2])
         
-        # simFileCase2 = (mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/combined.3ddose")
-        # _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6/dicom", scroll_yes_no, simFileCase2)
-        # save_to_csv(mother_dir+"Case2-OCB-MCNP6/simResults/source_along_z/case2_z.csv", p_error2[0], p_error2[1], p_error2[2])
+        simFileCase2 = (mother_dir+"Case2-OCB-MCNP6/simResults/combined.3ddose")
+        _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6/dicom", scroll_yes_no, simFileCase2)
+        save_to_csv(mother_dir+"Case2-OCB-MCNP6/simResults/case2.csv", p_error2[0], p_error2[1], p_error2[2])
 
         # simFileCase3 = (mother_dir+"Case3-OCB-MCNP6/simResults/source_along_z/combined.3ddose")
         # _, _, p_error3 = validate_sims(mother_dir+"Case3-OCB-MCNP6/dicom", scroll_yes_no, simFileCase3, [70, 0, 0])
