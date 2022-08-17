@@ -53,11 +53,14 @@ import pickle
 import csv
 import pandas as pd
 
-def _test_QA_TG186_init():
-        test_path = ""
-        groundTruth_path = ""
-
+def _test_QA_TG186_init(with_return=bool):
+        test_path = "/home/majd/data/TG186 Vallidation/rapidBrachyMCTPS/RapidBrachyMCTPS_Merged_DoseComparison/alana_newmuens_combined.3ddose"
+        groundTruth_path = "/home/majd/data/TG186 Vallidation/rapidBrachyMCTPS/RapidBrachyMCTPS_Merged_DoseComparison/merged_combined.3ddose"
         qa_object = QA_TG186(test_path, groundTruth_path)
+        if with_return:
+                return qa_object
+
+
 
 class QA_TG186:
         test_dose = None
@@ -80,8 +83,10 @@ class QA_TG186:
                 groundTruth_extension = path2GroundTruth.split('.')[-1]
                 if groundTruth_extension == "3ddose":
                         self.groundTruth_dose = dose_utils.load_3ddose(path2GroundTruth)
+                        testSimLoadSuccess(self.groundTruth_dose)
                 elif groundTruth_extension == "dcm":
                         self.groundTruth_dose = dose.DoseGrid(path2GroundTruth)
+                        testDicomLoadSuccess(self.groundTruth_dose)
                 else:
                         raise Exception("input testing dose must have 3ddose or DICOM RD format")
 
@@ -367,38 +372,4 @@ def validate_sims(dir_to_dicom, scroll_yes_no, simDoseFile=None, source_coord_in
         # # }
 
 if __name__ =="__main__":
-        # set directory of the project data
-        # mother_dir = workplace._workplace(workplace.askForLocation())
-        mother_dir = "/home/majd/data/TG186 Vallidation/Elekta/"
-        print("------------------")
-        print("looking at the mother directory: \n")
-        print(mother_dir)
-        print("------------------")
-
-        # _test_save_to_csv()
-        # quit()
-
-        # ask what kinds of plots are wanted?
-        scroll_yes_no = {}
-        scroll_yes_no['scroll_dicome']=  "no"
-        scroll_yes_no['scroll_simulated']= "no"
-        scroll_yes_no['scroll_gamma']= "no"
-        scroll_yes_no['scroll_doseRatio']= "no"
-        
-        # simFileCase1 = (mother_dir+"Case1-OCB-MCNP6/simResults/combined.3ddose")
-        # _, _, p_error1 = validate_sims(mother_dir+"Case1-OCB-MCNP6/dicom", scroll_yes_no, simFileCase1, [0, 0, 0])
-        # save_to_csv(mother_dir+"Case1-OCB-MCNP6/simResults/case1.csv", p_error1[0], p_error1[1], p_error1[2])
-        
-        simFileCase2 = (mother_dir+"Case2-OCB-MCNP6/simResults/combined.3ddose")
-        _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6/dicom", scroll_yes_no, simFileCase2)
-        save_to_csv(mother_dir+"Case2-OCB-MCNP6/simResults/case2.csv", p_error2[0], p_error2[1], p_error2[2])
-
-        # simFileCase3 = (mother_dir+"Case3-OCB-MCNP6/simResults/source_along_z/combined.3ddose")
-        # _, _, p_error3 = validate_sims(mother_dir+"Case3-OCB-MCNP6/dicom", scroll_yes_no, simFileCase3, [70, 0, 0])
-        # save_to_csv(mother_dir+"Case3-OCB-MCNP6/simResults/source_along_z/case3_z.csv", p_error3[0], p_error3[1], p_error3[2])
-
-
-        # validate_sims(mother_dir+"Case3-OCB-MCNP6", scroll_yes_no, [70, 0, 0])
-        # validate_sims(mother_dir+"Case4-OCB-MCNP6", scroll_yes_no, [0, 0, 0])
-
-
+     _test_QA_TG186_init()
