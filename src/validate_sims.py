@@ -432,26 +432,3 @@ if __name__ =="__main__":
         # _test_QA_TG186_dose_percent_error()           # test passed
         # _test_QA_TG186_gamma_index()                    # test passed but what does gamma mean???!!
         _test_QA_TG186_run_QA()
-
-        # mother_dir = "/home/majd/data/TG186 Vallidation/Elekta/"
-        # print("------------------")
-        # print("looking at the mother directory: \n")
-        # print(mother_dir)
-        # print("------------------")
-
-        # # _test_save_to_csv()
-        # # quit()
-
-        # # ask what kinds of plots are wanted?
-        # scroll_yes_no = {}
-        # scroll_yes_no['scroll_dicome']=  "no"
-        # scroll_yes_no['scroll_simulated']= "no"
-        # scroll_yes_no['scroll_gamma']= "no"
-        # scroll_yes_no['scroll_doseRatio']= "no"
-        
-        # # simFileCase1 = (mother_dir+"Case1-OCB-MCNP6/simResults/combined.3ddose")
-        # # _, _, p_error1 = validate_sims(mother_dir+"Case1-OCB-MCNP6/dicom", scroll_yes_no, simFileCase1, [0, 0, 0])
-        # # save_to_csv(mother_dir+"Case1-OCB-MCNP6/simResults/case1.csv", p_error1[0], p_error1[1], p_error1[2])
-        
-        # simFileCase2 = (mother_dir+"Case2-OCB-MCNP6/simResults/combined.3ddose")
-        # _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6/dicom", scroll_yes_no, simFileCase2)
