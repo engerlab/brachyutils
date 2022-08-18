@@ -91,13 +91,19 @@ class QA_TG186:
         """
         test_dose = None
         groundTruth_dose = None
+        dose_axes = None
         results_df = {}
         
         def __init__(self, path2testDose:string, path2GroundTruth:string) -> None:
                 # load test dose
                 test_extension = path2testDose.split('.')[-1]
                 if test_extension == "3ddose":
-                        self.test_dose = dose_utils.load_3ddose(path2testDose)['grid']
+                        dose_dictionary = dose_utils.load_3ddose(path2testDose)
+                        self.test_dose = dose_dictionary['grid']
+                        # reconstruct the coordinate matrix
+                        
+
+                        # self.dose_axes = dose_dictionary['']
                         testSimLoadSuccess(self.test_dose)
                 elif test_extension == "dcm":
                         self.test_dose = dose.DoseGrid(path2GroundTruth).dose_grid
@@ -118,6 +124,7 @@ class QA_TG186:
 
 
         # these tests compare 2 dose matrices. the format of the metrices should be Z,Y,X
+        
         def dose_ratio(self):
                 '''get elemetwise ratio between the test dose and the ground truth dose. add the results to the results_df'''
                 dose_ratio =  self.test_dose/self.groundTruth_dose
@@ -125,6 +132,7 @@ class QA_TG186:
                 self.results_df['max_dose_ratio']=np.nanmax(dose_ratio)
                 self.results_df['mean_dose_ratio']=np.nanmean(dose_ratio)
                 self.results_df['std_dose_ratio']=np.nanstd(dose_ratio)
+        
         def dose_percent_error(self):
                 '''get elementwise percent error between the dose and the ground truth dose. add the results to the results_df'''
                 dose_PE= np.abs(self.test_dose - self.groundTruth_dose)/self.groundTruth_dose * 100
@@ -132,7 +140,10 @@ class QA_TG186:
                 self.results_df['max_dose_percent_error']=np.nanmax(dose_PE)
                 self.results_df['mean_dose_percent_error']=np.nanmean(dose_PE)
                 self.results_df['std_dose_percent_error']=np.nanstd(dose_PE)
+        
         def gamma_index(self):
+                '''get gamma matrix between the dose and the ground truth dose. add the results to the results_df'''
+                gamma_matrix = pymedphys.gamma()
                 return None
         
 
