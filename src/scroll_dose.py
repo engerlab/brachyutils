@@ -38,15 +38,15 @@ class IndexTracker(object):
         ax.set_title('use scroll wheel to navigate ' + fileType + ' images.')
 
         self.X = X 
-        rows, cols, self.slices = X.shape 
+        self.slices, rows, cols = X.shape 
         self.ind = self.slices//2
 
-        self.im = ax.imshow(self.X[:, :, self.ind])
+        self.im = ax.imshow(self.X[self.ind, :, :])
         plt.colorbar(self.im, use_gridspec = True)
         self.update()
     
     def update(self):
-        self.im.set_data(self.X[:, :, self.ind])
+        self.im.set_data(self.X[self.ind, :, :])
         self.ax.set_ylabel('slice %s' % self.ind)
         self.im.axes.figure.canvas.draw()
 

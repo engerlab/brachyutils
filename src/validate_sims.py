@@ -70,6 +70,15 @@ def _test_QA_TG186_dose_percent_error():
         qa_object.dose_percent_error()
         print(qa_object.results_df['mean_dose_ratio'])
 
+def _test_QA_TG186_gamma_index():
+        qa_object = _test_QA_TG186_init(True)
+        qa_object.gamma_index()
+        print(qa_object.results_df['mean_gamma_matrix'])
+        print(qa_object.plot_results())
+def _test_QA_TG186_run_QA():
+        qa_object = _test_QA_TG186_init(True)
+        qa_object.run_QA()
+
 
 class QA_TG186:
         """ an object containing the following attributes:
@@ -91,7 +100,8 @@ class QA_TG186:
         """
         test_dose = None
         groundTruth_dose = None
-        dose_axes = None
+        test_dose_axes = None
+        groundTruth_dose_axes = None
         results_df = {}
         
         def __init__(self, path2testDose:string, path2GroundTruth:string) -> None:
@@ -100,10 +110,7 @@ class QA_TG186:
                 if test_extension == "3ddose":
                         dose_dictionary = dose_utils.load_3ddose(path2testDose)
                         self.test_dose = dose_dictionary['grid']
-                        # reconstruct the coordinate matrix
-                        
-
-                        # self.dose_axes = dose_dictionary['']
+                        self.test_dose_axes = dose_dictionary['axis']
                         testSimLoadSuccess(self.test_dose)
                 elif test_extension == "dcm":
                         self.test_dose = dose.DoseGrid(path2GroundTruth).dose_grid
@@ -114,7 +121,9 @@ class QA_TG186:
                 # load ground truth dose
                 groundTruth_extension = path2GroundTruth.split('.')[-1]
                 if groundTruth_extension == "3ddose":
-                        self.groundTruth_dose = dose_utils.load_3ddose(path2GroundTruth)['grid']
+                        dose_dictionary = dose_utils.load_3ddose(path2GroundTruth)
+                        self.groundTruth_dose = dose_dictionary['grid']
+                        self.groundTruth_dose_axes = dose_dictionary['axis']
                         testSimLoadSuccess(self.groundTruth_dose)
                 elif groundTruth_extension == "dcm":
                         self.groundTruth_dose = dose.DoseGrid(path2GroundTruth)
@@ -143,9 +152,24 @@ class QA_TG186:
         
         def gamma_index(self):
                 '''get gamma matrix between the dose and the ground truth dose. add the results to the results_df'''
-                gamma_matrix = pymedphys.gamma()
-                return None
+                gamma_matrix = pymedphys.gamma(self.groundTruth_dose_axes, self.groundTruth_dose, self.test_dose_axes, self.test_dose, 20., 2.)
+                self.results_df["gamma_matrix"] = gamma_matrix
+                self.results_df['max_gamma_matrix']=np.nanmax(gamma_matrix)
+                self.results_df['mean_gamma_matrix']=np.nanmean(gamma_matrix)
+                self.results_df['std_gamma_matrix']=np.nanstd(gamma_matrix)
         
+        def run_QA(self,):
+                self.dose_ratio()
+                self.dose_percent_error()
+                self.gamma_index()
+
+                triPlanar_snapshot(self.results_df['dose_ratio'], "dose ratio")
+                triPlanar_snapshot(self.results_df['dose_percent_error'], "dose dose_percent_error")
+                triPlanar_snapshot(self.results_df['gamma_matrix'], "dose gamma_matrix")
+
+                scroll_dose.plot_scrollable(self.results_df['dose_ratio'], "dose ratio")
+                scroll_dose.plot_scrollable(self.results_df['dose_percent_error'], "dose dose_percent_error")
+
 
 
 # a function to test the dose loading from .3ddose was successful
@@ -183,37 +207,16 @@ def testDicomLoadSuccess(dicom_object):
                 print("-----------------")
                 return 0
 # this function shows images of the input 3D matrix. the images are 2D planes (transverse, sagital and coronal)
-def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0], voxelSize=[1,1,1], normalize="yes"):
+def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0],):
         # get the dimensions of the input matrix and find the coordinates of the center
         dimensions = np.shape(matrix)
-        coord_center = np.array([dimensions[0]/2, dimensions[1]/2, dimensions[2]/2], dtype = int)
+        coord_center = np.array([dimensions[2]/2, dimensions[1]/2, dimensions[0]/2], dtype = int)
         snapshot_center = coord_center + source_coord
-        if normalize=="yes":
-                normalization_point = list(snapshot_center + [0, 10, 0])
-                xy_plane = np.swapaxes(matrix[:, :, snapshot_center[2]]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]], 0, 1)
-                xz_plane = np.swapaxes(matrix[:, snapshot_center[1], :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]], 0, 1)
-                yz_plane = np.swapaxes(matrix[snapshot_center[0], :, :]/matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]], 0, 1) 
-        else: 
-                xy_plane = np.swapaxes(matrix[:, :, snapshot_center[2]], 0, 1)
-                xz_plane = np.swapaxes(matrix[:, snapshot_center[1], :], 0, 1)
-                yz_plane = np.swapaxes(matrix[snapshot_center[0], :, :], 0, 1)
-        # {{for debugging
-        # print("**Here is the normalization point**", normalization_point)
-        # print("**Here is the dose value at the normalization point**", matrix[normalization_point[0]][normalization_point[1]][normalization_point[2]])
-        # # print(np.shape(matrix))
-        # print("**Here is the snap shot location**", snapshot_center)
-        # quit()
-        # }}
-        
-# x y and z ticks. it does not work, ignore for now or fix it if you can ;) 
-        # x_axis_tick = np.arange(-1*snapshot_center[0]*voxelSize[0]+1, snapshot_center[0]*voxelSize[0], voxelSize[0])
-        # y_axis_tick = np.arange(-1*snapshot_center[1]*voxelSize[1]+1, snapshot_center[1]*voxelSize[1], voxelSize[1])
-        # z_axis_tick = np.arange(-1*snapshot_center[2]*voxelSize[2]+1, snapshot_center[2]*voxelSize[2], voxelSize[2])
-        
-        # print(str(x_axis_tick))
-        # quit()
-
-        # generate a subplot that has 3 maps in a row. the maps are transverse (xy), sagital(yz) and coronal(xz) planes.
+       
+        xy_plane = matrix[snapshot_center[2], :, :]
+        xz_plane = matrix[:, snapshot_center[1], :]
+        yz_plane = matrix[:, :, snapshot_center[0]]
+      
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 4))
         xy_map = ax1.imshow(xy_plane)
         xz_map = ax2.imshow(xz_plane)
@@ -241,8 +244,7 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0], voxelS
         plt.setp(ax3, xticklabels=str(x_axis_tick), yticklabels=str(y_axis_tick))
         '''
         fig.suptitle("Tri-Planar Snapshot of "+name+ " at center" + unit, fontsize=20)
-
-        # plt.show()
+        plt.show()
         return fig
 
 def crop_dose_matrix(dose_in, wanted_dimensions):
@@ -424,6 +426,31 @@ def validate_sims(dir_to_dicom, scroll_yes_no, simDoseFile=None, source_coord_in
         # # }
 
 if __name__ =="__main__":
-#      _test_QA_TG186_init()                    # test passed
-     _test_QA_TG186_dose_ratio()                # test passed
-     _test_QA_TG186_dose_percent_error()
+#      _test_QA_TG186_init()                            # test passed
+        # _test_QA_TG186_dose_ratio()                   # test passed
+        # _test_QA_TG186_dose_percent_error()           # test passed
+        # _test_QA_TG186_gamma_index()                    # test passed but what does gamma mean???!!
+        _test_QA_TG186_run_QA()
+
+        # mother_dir = "/home/majd/data/TG186 Vallidation/Elekta/"
+        # print("------------------")
+        # print("looking at the mother directory: \n")
+        # print(mother_dir)
+        # print("------------------")
+
+        # # _test_save_to_csv()
+        # # quit()
+
+        # # ask what kinds of plots are wanted?
+        # scroll_yes_no = {}
+        # scroll_yes_no['scroll_dicome']=  "no"
+        # scroll_yes_no['scroll_simulated']= "no"
+        # scroll_yes_no['scroll_gamma']= "no"
+        # scroll_yes_no['scroll_doseRatio']= "no"
+        
+        # # simFileCase1 = (mother_dir+"Case1-OCB-MCNP6/simResults/combined.3ddose")
+        # # _, _, p_error1 = validate_sims(mother_dir+"Case1-OCB-MCNP6/dicom", scroll_yes_no, simFileCase1, [0, 0, 0])
+        # # save_to_csv(mother_dir+"Case1-OCB-MCNP6/simResults/case1.csv", p_error1[0], p_error1[1], p_error1[2])
+        
+        # simFileCase2 = (mother_dir+"Case2-OCB-MCNP6/simResults/combined.3ddose")
+        # _, _, p_error2 = validate_sims(mother_dir+"Case2-OCB-MCNP6/dicom", scroll_yes_no, simFileCase2)

@@ -66,7 +66,7 @@ def load_3ddose(filename):
         bench_dict["num_voxels"] = bench_voxels
         bench_dict["vox_size"] = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
         bench_dict["topleft"] = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
-
+        bench_dict["axis"] = (bench_z_pos[:-1], bench_y_pos[:-1], bench_y_pos[:-1])
         # x_axis = bench_voxels[0] * bench_x
         # bench_dict["axis"] = 
 
