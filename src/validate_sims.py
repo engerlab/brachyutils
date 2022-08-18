@@ -282,6 +282,7 @@ def save_to_csv(filename, pe, d_sim, d_gtd):
                         writer.writerow(row)
 
 def validate_sims(dir_to_dicom, scroll_yes_no, simDoseFile=None, source_coord_in=[0,0,0], do_gamma="no", normalize_dose = "yes"):
+        '''THIS FUNCTION IS NOT WORKING AND IS NOT NEEDED'''
         ### First openning DICOM files ###
         dicomDoseFile = glob.glob(dir_to_dicom + "/RD*")[0]
         print("looking at the DICOM file: \n")
