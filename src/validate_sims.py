@@ -127,7 +127,7 @@ class QA_TG186:
                         testSimLoadSuccess(self.groundTruth_dose)
                 elif groundTruth_extension == "dcm":
                         self.groundTruth_dose = dose.DoseGrid(path2GroundTruth)
-                        testDicomLoadSuccess(self.groundTruth_dose).dose_grid
+                        # testDicomLoadSuccess(self.groundTruth_dose).dose_grid
                 else:
                         raise Exception("input testing dose must have 3ddose or DICOM RD format")
 
@@ -158,18 +158,32 @@ class QA_TG186:
                 self.results_df['mean_gamma_matrix']=np.nanmean(gamma_matrix)
                 self.results_df['std_gamma_matrix']=np.nanstd(gamma_matrix)
         
+        def view_testDose(self, title="Test Dose"):
+                r''''''
+                triPlanar_snapshot(self.test_dose, title)
+
+        def view_groundTruthDose(self, title="ground truth Dose"):
+                r''''''
+                triPlanar_snapshot(self.groundTruth_dose, title)
+
         def run_QA(self,):
                 self.dose_ratio()
                 self.dose_percent_error()
                 self.gamma_index()
 
-                triPlanar_snapshot(self.results_df['dose_ratio'], "dose ratio")
-                triPlanar_snapshot(self.results_df['dose_percent_error'], "dose dose_percent_error")
+                triPlanar_snapshot(self.results_df['dose_ratio'], "dose ratio", unit=" ")
+                triPlanar_snapshot(self.results_df['dose_percent_error'], "dose dose_percent_error", "%")
                 triPlanar_snapshot(self.results_df['gamma_matrix'], "dose gamma_matrix")
 
                 scroll_dose.plot_scrollable(self.results_df['dose_ratio'], "dose ratio")
                 scroll_dose.plot_scrollable(self.results_df['dose_percent_error'], "dose dose_percent_error")
 
+                self.results_df['max_dose_ratio', 'mean_dose_ratio', 'std_dose_ratio', 'max_dose_percent_error', 
+                'mean_dose_percent_error', 
+                'std_dose_percent_error', 
+                'max_gamma_matrix', 
+                'mean_gamma_matrix', 
+                'std_gamma_matrix'].to_csv('rapid_brachy_mc_alana_newMuen_vs_merged.csv')
 
 
 # a function to test the dose loading from .3ddose was successful
@@ -207,7 +221,7 @@ def testDicomLoadSuccess(dicom_object):
                 print("-----------------")
                 return 0
 # this function shows images of the input 3D matrix. the images are 2D planes (transverse, sagital and coronal)
-def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0],):
+def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0], colorBar_range=(0, 20)):
         # get the dimensions of the input matrix and find the coordinates of the center
         dimensions = np.shape(matrix)
         coord_center = np.array([dimensions[2]/2, dimensions[1]/2, dimensions[0]/2], dtype = int)
@@ -237,6 +251,7 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0],):
         fig.colorbar(xy_map, ax=ax1)
         fig.colorbar(xz_map, ax=ax2)
         fig.colorbar(yz_map, ax=ax3)
+        # fig.clim(colorBar_range)
 
         ''' the tick labels are turned into coordinates instead of slide number (this does not work at the moment).
         plt.setp(ax1, xticklabels=str(x_axis_tick), yticklabels=str(y_axis_tick))
@@ -245,6 +260,7 @@ def triPlanar_snapshot(matrix, name, unit="(Gy)", source_coord=[0, 0, 0],):
         '''
         fig.suptitle("Tri-Planar Snapshot of "+name+ " at center" + unit, fontsize=20)
         plt.show()
+
         return fig
 
 def crop_dose_matrix(dose_in, wanted_dimensions):
@@ -431,4 +447,8 @@ if __name__ =="__main__":
         # _test_QA_TG186_dose_ratio()                   # test passed
         # _test_QA_TG186_dose_percent_error()           # test passed
         # _test_QA_TG186_gamma_index()                    # test passed but what does gamma mean???!!
-        _test_QA_TG186_run_QA()
+        # _test_QA_TG186_run_QA()
+        dose_file_3ddose = '/home/majd/data/TG186 Vallidation/Elekta/Case1-OCB-MCNP6/simResults/combined.3ddose'
+        dose_file_dicom = "/home/majd/data/TG186 Vallidation/Elekta/Case1-OCB-MCNP6/dicom/RD_Case-1_MCNP6.dcm"
+        qa_object = QA_TG186(dose_file_3ddose, dose_file_dicom)
+        triPlanar_snapshot(qa_object.test_dose, "D_w(Source=Ir-192, t=10s)")
