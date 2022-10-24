@@ -159,11 +159,11 @@ class QA_TG186:
                 self.results_df['std_gamma_matrix']=np.nanstd(gamma_matrix)
         
         def view_testDose(self, title="Test Dose"):
-                r''''''
+                r'''A function to view test Dose'''
                 triPlanar_snapshot(self.test_dose, title)
 
         def view_groundTruthDose(self, title="ground truth Dose"):
-                r''''''
+                r'''A function to view ground truth Dose'''
                 triPlanar_snapshot(self.groundTruth_dose, title)
 
         def run_QA(self,):
