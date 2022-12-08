@@ -23,6 +23,15 @@ Outputs
 import numpy as np
 import matplotlib.pyplot as plt
 # a function to scroll through dose slices: one can improve this section by adding units to axis and dose value
+
+def plot_masked_scrollable(dose1, dose2, fileType):
+    ''' we need to have two mask overlayed. this is to be implemented later
+    '''
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    tracker = IndexTracker(ax1, dose1, fileType)
+
+    fig.canvas.mpl_connect("")
+
 def plot_scrollable(dose, fileType):
     fig, ax = plt.subplots(1, 1)
     tracker = IndexTracker(ax, dose, fileType)
