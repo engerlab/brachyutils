@@ -73,7 +73,7 @@ def load_3ddose(filename):
         bench_dict["num_voxels"] = bench_voxels
         bench_dict["vox_size"] = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
         bench_dict["topleft"] = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
-        bench_dict["axis"] = np.array([bench_z_pos[:-1], bench_y_pos[:-1], bench_y_pos[:-1]], dtype=object)
+        bench_dict["axis"] = np.array([bench_z_pos[:-1], bench_y_pos[:-1], bench_x_pos[:-1]], dtype=object)
         
     return bench_dict
 
@@ -178,26 +178,39 @@ def pad_3ddose(dose:dict, new_dims:list, new_topLeft:list):
         padding[2-i] = [pad_before, pad_after]
 
     # pad the old dose grid to get the new grid!
-    new_grid = np.pad(dose['grid'], tuple(padding.astype(int)), mode='edge')
+    new_dose_grid = np.pad(dose['grid'], tuple(padding.astype(int)), mode='edge')
+    if hasattr(dose, 'uncert'):
+            new_uncert = np.pad(dose['uncert'], tuple(padding.astype(int)), mode='edge')
+
 
     # figure out the end coordinates based on the padding
-    end_coords_distances =  (padding * np.array([[-1, 1], [-1, 1], [-1, 1]]) * 0.3)
+    # dose['vox_size'] is a list of x, y and z spacing, we want it to be
+    # a numpy array of z, y, x spacings. 
+    voxel_size = np.array(dose['vox_size'])[:, np.newaxis][::-1]
+    end_coords_distances =  padding * np.array([[-1, 1], [-1, 1], [-1, 1]]) * voxel_size
+     
     old_end_coords = np.array(
-        [[dose['axis'][2][0],dose['axis'][2][-1]], 
+        [[dose['axis'][0][0],dose['axis'][0][-1]], 
         [dose['axis'][1][0],dose['axis'][1][-1]], 
-        [dose['axis'][0][0],dose['axis'][0][-1]]])
+        [dose['axis'][2][0],dose['axis'][2][-1]]])
 
+    new_end_coords = old_end_coords + end_coords_distances
 
-    # calculate how much padding should be done at each end of each axis:
-    # for x axis:
-    print('dsasf')
-
-
-    # pad the new 
-    new_axis = np.pad(dose['axis'], tuple(padding.astype(int)), mode='linear_ramp', end_values=())
+    # now padd the new axis with respect to the appropriate begin and end coordinates
+    new_axis = np.array([np.zeros(new_dims[0]), np.zeros(new_dims[1]), np.zeros(new_dims[2])], dtype=object)
+    
+    # pad the new axis with linear ramp
+    for i in range(new_axis.shape[0]):
+        new_axis[i] = np.pad(dose['axis'][i], tuple(padding[i].astype(int)), mode='linear_ramp', end_values=new_end_coords[i])
 
     # fillout the new padded dose dictionary
-    padded_dose={'grid': None, 'uncert': None, 'vox_size': None, 'topleft': final_topleft, 'axis': None}
+    padded_dose={
+        'grid': new_dose_grid, 
+        'uncert': new_uncert if hasattr(dose, 'uncert') else None, 
+        # voxel size remains unchanged
+        'vox_size': dose['vox_size'], 
+        'topleft': final_topleft, 
+        'axis': new_axis}
     
     return padded_dose
 
@@ -213,7 +226,13 @@ def _test_pad_3ddose():
 
     new_topLeft = nparray([-249., -122., 23.]) * 0.1
 
-    pad_3ddose(dose=old_3ddose, new_dims=new_dims, new_topLeft=new_topLeft)
+    padded_dose = pad_3ddose(dose=old_3ddose, new_dims=new_dims, new_topLeft=new_topLeft)
+
+    print(f"size of the new grid is {padded_dose['grid'].shape}")
+    print(f"the voxel size is {padded_dose['vox_size']}")
+    print(f"the new top left is {padded_dose['topleft']} \n",
+     f"and the old top left was {old_3ddose['topleft']}")
+    print(f"the size of the new axis is {padded_dose['axis'].shape}")
 
     # load the dicom files
     # path2Dicom = "/home/majd/data/Patient_Treatment _Plans/sebastien-breast/230776_Anon/"
