@@ -73,7 +73,8 @@ def load_3ddose(filename):
         bench_dict["num_voxels"] = bench_voxels
         bench_dict["vox_size"] = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
         bench_dict["topleft"] = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
-        bench_dict["axis"] = np.array([bench_z_pos[:-1], bench_y_pos[:-1], bench_x_pos[:-1]], dtype=object)
+        bench_dict["axis"] = np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
+        #  bench_dict["axis"] = np.array([bench_z_pos[:-1], bench_y_pos[:-1], bench_x_pos[:-1]], dtype=object)
         
     return bench_dict
 
@@ -214,6 +215,31 @@ def pad_3ddose(dose:dict, new_dims:list, new_topLeft:list):
     
     return padded_dose
 
+def write_3ddose(fileName:str, dose:dict):
+    r''' given a dose dictionary with the proper fields, this function will
+    write the contents onto a text file with .3ddose extension. 
+    inputs:
+        fileName := the directory path where the file will be written
+        
+        dose := a dictionary containing the following keys:
+            grid [z, y, x]
+            uncert [z, y, x] 
+            vox_size [x, y, z]
+            topleft [x, y, z]
+            axis [z, y, x]
+    '''   
+    dimensions = ' '.join(map(str, np.array(dose['grid'].shape[::-1]))) + '\n'
+    x_axis = ' '.join(map(str, dose['axis'][2])) + '\n'
+    y_axis = ' '.join(map(str, dose['axis'][1])) + '\n'
+    z_axis = ' '.join(map(str, dose['axis'][0])) + '\n'
+    dose_flattened = ' '.join(map(str, dose['grid'].flatten('C'))) + '\n'
+     
+
+    with open(fileName, 'w') as file:
+        lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened]
+        file.writelines(lines)
+    
+
 def _test_pad_3ddose():
    
     # load the 3ddose file that is to be padded
@@ -241,7 +267,35 @@ def _test_pad_3ddose():
     # print(type(rt_dose))
 
 
+def _test_write_3ddose():
+    import difflib
+    old_file_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose'
+    old_3ddose = load_3ddose(old_file_dir)
+    new_file_dir = './test_run_1.3ddose'
+
+    write_3ddose(new_file_dir, old_3ddose)
+
+    new_3ddose = load_3ddose(new_file_dir)
+
+    # print(f"the difference between original dose and written dose {new_3ddose['grid']-old_3ddose['grid']}")
+
+    with open(old_file_dir, 'r') as file1, open(new_file_dir) as file2:
+        contents1 = file1.read()
+        contents2 = file2.read()
+        
+    if contents1 == contents2:
+        print("write 3ddose works fine")
+    else:
+        print("write 3ddose does not work fine")
+        print('here are the differences')
+        diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
+        print('\n'.join(diff_list))
+
+
+    print('okay')
+
 if __name__ == "__main__":
 
     # a Test for the following functions
-    _test_pad_3ddose()
+    # _test_pad_3ddose()
+    _test_write_3ddose()
