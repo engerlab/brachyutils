@@ -240,6 +240,29 @@ def write_3ddose(fileName:str, dose:dict):
         file.writelines(lines)
     
 
+def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, new_dims:list, new_topLeft:list):
+    r'''Given a directory full of 3ddose maps, this function will padd them all to a user defined size. 
+    inputs:
+        dir_3ddose_folder := the directory of the many 3ddose files
+
+        output_dir_3ddose_folder := the directory where each padded 3ddose file will be saved
+        
+        new_dims := a 1 by 3 list containing the new x, y and z dimensions:
+            [new_z_dim, new_y_dim, new_x_dim]
+
+        new_topLeft := coordinates of the new topleft
+            [x, y, z]
+    '''
+
+    files = glob(input_dir_3ddose_folder+'*.3ddose')
+
+    for file in files:
+        file_name = file.split('/')[-1]
+        dose_dict = load_3ddose(file)
+        padded_dose_dict = pad_3ddose(dose_dict, new_dims, new_topLeft)
+        write_3ddose(output_dir_3ddose_folder+file_name, padded_dose_dict)
+
+
 def _test_pad_3ddose():
    
     # load the 3ddose file that is to be padded
@@ -282,7 +305,7 @@ def _test_write_3ddose():
     with open(old_file_dir, 'r') as file1, open(new_file_dir) as file2:
         contents1 = file1.read()
         contents2 = file2.read()
-        
+
     if contents1 == contents2:
         print("write 3ddose works fine")
     else:
@@ -294,8 +317,17 @@ def _test_write_3ddose():
 
     print('okay')
 
+def _test_pad_many_3ddoses():
+    input_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/'
+    output_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/padded/patient_230776/'
+    new_dims = np.array([78, 167, 167])
+    new_topLeft = np.array([-249.48828125, -122.48828125, 23.5]) * 0.1
+
+    pad_many_3ddoses(input_dir, output_dir, new_dims, new_topLeft)
+
 if __name__ == "__main__":
 
     # a Test for the following functions
     # _test_pad_3ddose()
-    _test_write_3ddose()
+    # _test_write_3ddose()
+    _test_pad_many_3ddoses()
