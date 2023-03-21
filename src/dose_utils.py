@@ -3,8 +3,14 @@ from numpy import float as npfloat
 from numpy import int as npint
 from numpy import ma
 from numpy import dtype
+import numpy as np
 import re
 import os
+
+from dicompylercore import dicomparser
+from glob import glob
+from numericalunits import cm, mm, kg, J
+Gy = J/kg
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
@@ -56,17 +62,20 @@ def load_3ddose(filename):
 
         huge_dose_array = nparray(newfile.readline().strip().split(), dtype=npfloat)
         bench_dose = reshape(huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
-
-        huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=npfloat)
-        bench_uncert = reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+        try:
+            huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=npfloat)
+            bench_uncert = reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+        except:
+            print("Warning: No uncertainty in the 3ddose files")
 
         bench_dict = {}
         bench_dict["grid"] = bench_dose
-        bench_dict["uncert"] = bench_uncert
         bench_dict["num_voxels"] = bench_voxels
         bench_dict["vox_size"] = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
         bench_dict["topleft"] = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
-
+        bench_dict["axis"] = np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
+        #  bench_dict["axis"] = np.array([bench_z_pos[:-1], bench_y_pos[:-1], bench_x_pos[:-1]], dtype=object)
+        
     return bench_dict
 
 
@@ -127,3 +136,198 @@ def get_average_uncert_benchmark(dose):
     masked_uncert = ma.array(dose["uncert"], mask=dose_mask)
     average_uncert = ma.average(masked_uncert) * 100
     return average_uncert
+
+def pad_3ddose(dose:dict, new_dims:list, new_topLeft:list):
+    r''' a function to padd the 3ddose file and bring it to the desired dimensios.
+    it will update all the aspects of the dose object to match the new dimensiosn.
+    The voxels must have the same size! remember, python does z, y, x. 
+    inputs:
+        dose := a dictionary containing the following keys:
+            grid [z, y, x]
+            uncert [z, y, x] 
+            vox_size [x, y, z]
+            topleft [x, y, z]
+            axis [z, y, x]
+        
+        new_dims := a 1 by 3 list containing the new x, y and z dimensions:
+            [new_z_dim, new_y_dim, new_x_dim]
+
+        new_topLeft := coordinates of the new topleft
+            [x, y, z]
+    '''
+    assert any(new_dims > dose['grid'].shape)
+    
+    # calculate distances between the new and old topleft voxels. 
+    # if for an axis, the distance of toplefts is larger than the voxel size, use the new topleft
+    # else, use the old top left
+    topleft_distance = np.abs(new_topLeft - dose['topleft'])
+    final_topleft = np.zeros(3)
+    for i, distance in zip(range(3), topleft_distance):
+        final_topleft[i] = new_topLeft[i] if distance > dose['vox_size'][i] else dose['topleft'][i]
+
+    # figure out how much padding to do before and after each axis
+    padding = np.zeros([3,2])
+    for i in range(3):
+        if final_topleft[i] == dose['topleft'][i]:
+            # all padding goes to the end for this dose axis
+            pad_before = 0
+            pad_after = new_dims[2-i] - dose['grid'].shape[2-i]
+        else:
+            # all padding goes to the begining of the dose axis
+            pad_before = new_dims[2-i] - dose['grid'].shape[2-i] 
+            pad_after = 0
+        padding[2-i] = [pad_before, pad_after]
+
+    # pad the old dose grid to get the new grid!
+    new_dose_grid = np.pad(dose['grid'], tuple(padding.astype(int)), mode='edge')
+    if hasattr(dose, 'uncert'):
+            new_uncert = np.pad(dose['uncert'], tuple(padding.astype(int)), mode='edge')
+
+
+    # figure out the end coordinates based on the padding
+    # dose['vox_size'] is a list of x, y and z spacing, we want it to be
+    # a numpy array of z, y, x spacings. 
+    voxel_size = np.array(dose['vox_size'])[:, np.newaxis][::-1]
+    end_coords_distances =  padding * np.array([[-1, 1], [-1, 1], [-1, 1]]) * voxel_size
+     
+    old_end_coords = np.array(
+        [[dose['axis'][0][0],dose['axis'][0][-1]], 
+        [dose['axis'][1][0],dose['axis'][1][-1]], 
+        [dose['axis'][2][0],dose['axis'][2][-1]]])
+
+    new_end_coords = old_end_coords + end_coords_distances
+
+    # now padd the new axis with respect to the appropriate begin and end coordinates
+    new_axis = np.array([np.zeros(new_dims[0]), np.zeros(new_dims[1]), np.zeros(new_dims[2])], dtype=object)
+    
+    # pad the new axis with linear ramp
+    for i in range(new_axis.shape[0]):
+        new_axis[i] = np.pad(dose['axis'][i], tuple(padding[i].astype(int)), mode='linear_ramp', end_values=new_end_coords[i])
+
+    # fillout the new padded dose dictionary
+    padded_dose={
+        'grid': new_dose_grid, 
+        'uncert': new_uncert if hasattr(dose, 'uncert') else None, 
+        # voxel size remains unchanged
+        'vox_size': dose['vox_size'], 
+        'topleft': final_topleft, 
+        'axis': new_axis}
+    
+    return padded_dose
+
+def write_3ddose(fileName:str, dose:dict):
+    r''' given a dose dictionary with the proper fields, this function will
+    write the contents onto a text file with .3ddose extension. 
+    inputs:
+        fileName := the directory path where the file will be written
+        
+        dose := a dictionary containing the following keys:
+            grid [z, y, x]
+            uncert [z, y, x] 
+            vox_size [x, y, z]
+            topleft [x, y, z]
+            axis [z, y, x]
+    '''   
+    dimensions = ' '.join(map(str, np.array(dose['grid'].shape[::-1]))) + '\n'
+    x_axis = ' '.join(map(str, dose['axis'][2])) + '\n'
+    y_axis = ' '.join(map(str, dose['axis'][1])) + '\n'
+    z_axis = ' '.join(map(str, dose['axis'][0])) + '\n'
+    dose_flattened = ' '.join(map(str, dose['grid'].flatten('C'))) + '\n'
+     
+
+    with open(fileName, 'w') as file:
+        lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened]
+        file.writelines(lines)
+    
+
+def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, new_dims:list, new_topLeft:list):
+    r'''Given a directory full of 3ddose maps, this function will padd them all to a user defined size. 
+    inputs:
+        dir_3ddose_folder := the directory of the many 3ddose files
+
+        output_dir_3ddose_folder := the directory where each padded 3ddose file will be saved
+        
+        new_dims := a 1 by 3 list containing the new x, y and z dimensions:
+            [new_z_dim, new_y_dim, new_x_dim]
+
+        new_topLeft := coordinates of the new topleft
+            [x, y, z]
+    '''
+
+    files = glob(input_dir_3ddose_folder+'*.3ddose')
+
+    for file in files:
+        file_name = file.split('/')[-1]
+        dose_dict = load_3ddose(file)
+        padded_dose_dict = pad_3ddose(dose_dict, new_dims, new_topLeft)
+        write_3ddose(output_dir_3ddose_folder+file_name, padded_dose_dict)
+
+
+def _test_pad_3ddose():
+   
+    # load the 3ddose file that is to be padded
+    old_3ddose = load_3ddose('/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose')
+
+    # here i just give some arbitrary numbers just for developement
+    # the new dimensions must be in the z, y, x format. 
+    # voxel size and topleft must be in x, y, z forma. 
+    new_dims = nparray([78, 167, 167])
+
+    new_topLeft = nparray([-249., -122., 23.]) * 0.1
+
+    padded_dose = pad_3ddose(dose=old_3ddose, new_dims=new_dims, new_topLeft=new_topLeft)
+
+    print(f"size of the new grid is {padded_dose['grid'].shape}")
+    print(f"the voxel size is {padded_dose['vox_size']}")
+    print(f"the new top left is {padded_dose['topleft']} \n",
+     f"and the old top left was {old_3ddose['topleft']}")
+    print(f"the size of the new axis is {padded_dose['axis'].shape}")
+
+    # load the dicom files
+    # path2Dicom = "/home/majd/data/Patient_Treatment _Plans/sebastien-breast/230776_Anon/"
+    # dicom_file_path = glob(path2Dicom+'CT2.dcm')[0]
+    # loaded_dicom = dicomparser.DicomParser(dicom_file_path)
+    # print(type(rt_dose))
+
+
+def _test_write_3ddose():
+    import difflib
+    old_file_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose'
+    old_3ddose = load_3ddose(old_file_dir)
+    new_file_dir = './test_run_1.3ddose'
+
+    write_3ddose(new_file_dir, old_3ddose)
+
+    new_3ddose = load_3ddose(new_file_dir)
+
+    # print(f"the difference between original dose and written dose {new_3ddose['grid']-old_3ddose['grid']}")
+
+    with open(old_file_dir, 'r') as file1, open(new_file_dir) as file2:
+        contents1 = file1.read()
+        contents2 = file2.read()
+
+    if contents1 == contents2:
+        print("write 3ddose works fine")
+    else:
+        print("write 3ddose does not work fine")
+        print('here are the differences')
+        diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
+        print('\n'.join(diff_list))
+
+
+    print('okay')
+
+def _test_pad_many_3ddoses():
+    input_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/'
+    output_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/padded/patient_230776/'
+    new_dims = np.array([78, 167, 167])
+    new_topLeft = np.array([-249.48828125, -122.48828125, 23.5]) * 0.1
+
+    pad_many_3ddoses(input_dir, output_dir, new_dims, new_topLeft)
+
+if __name__ == "__main__":
+
+    # a Test for the following functions
+    # _test_pad_3ddose()
+    # _test_write_3ddose()
+    _test_pad_many_3ddoses()
