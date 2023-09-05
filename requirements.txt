@@ -1,0 +1,5 @@
+numpy
+# dicompyler
+matplotlib
+pandas
+SimpleITK

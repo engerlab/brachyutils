@@ -1,2 +1,4 @@
 *.pickle
 pyRad
+test_data
+ENV

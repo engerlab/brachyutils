@@ -12,6 +12,8 @@ from glob import glob
 from numericalunits import cm, mm, kg, J
 Gy = J/kg
 
+import SimpleITK as sitk
+
 def load_pmc_dose(filename):
     return load_3ddose(filename)
 
@@ -263,8 +265,12 @@ def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, 
         write_3ddose(output_dir_3ddose_folder+file_name, padded_dose_dict)
 
 
+def write_nrrd(fileName:str, dose:dict):
+
+    return 0
+
 def _test_pad_3ddose():
-   
+    
     # load the 3ddose file that is to be padded
     old_3ddose = load_3ddose('/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose')
 
@@ -324,6 +330,16 @@ def _test_pad_many_3ddoses():
     new_topLeft = np.array([-249.48828125, -122.48828125, 23.5]) * 0.1
 
     pad_many_3ddoses(input_dir, output_dir, new_dims, new_topLeft)
+
+def _test_write_nrrd():
+    pth_3ddose = "test_data/combined.3ddose"
+    pth_nrrd = "test_data/combined.nrrd"
+    
+    # load the 3ddos file
+    dose_3ddose = load_3ddose(pth_3ddose)
+
+    write_nrrd(pth_nrrd, dose_3ddose)
+
 
 if __name__ == "__main__":
 
