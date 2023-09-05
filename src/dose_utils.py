@@ -1,16 +1,16 @@
 from numpy import array as nparray, zeros as npzeros, reshape
-from numpy import float as npfloat
-from numpy import int as npint
+# from numpy import float as float
+# from numpy import int as int
 from numpy import ma
 from numpy import dtype
 import numpy as np
 import re
 import os
 
-from dicompylercore import dicomparser
+# from dicompylercore import dicomparser
 from glob import glob
-from numericalunits import cm, mm, kg, J
-Gy = J/kg
+# from numericalunits import cm, mm, kg, J
+# Gy = J/kg
 
 import SimpleITK as sitk
 
@@ -33,8 +33,8 @@ def load_egsphant(filename):
         phant["y_voxels"] = [float(y) for y in egsphant.readline().strip().split()]
         phant["z_voxels"] = [float(z) for z in egsphant.readline().strip().split()]
 
-        phant["mat_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=npint)
-        phant["density_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=npfloat)
+        phant["mat_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=int)
+        phant["density_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=float)
 
         for k in range(phant["num_voxels"][2]):
             for j in range(phant["num_voxels"][1]):
@@ -54,28 +54,31 @@ def load_3ddose(filename):
     #print("Opening 3ddose at %s" % path)
     with open(path, "rb") as newfile:
         bench_voxels = [int(i) for i in newfile.readline().split()]
-        bench_x_pos = nparray(newfile.readline().split(), dtype=npfloat)
-        bench_y_pos = nparray(newfile.readline().split(), dtype=npfloat)
-        bench_z_pos = nparray(newfile.readline().split(), dtype=npfloat)
+        bench_x_pos = nparray(newfile.readline().split(), dtype=float)
+        bench_y_pos = nparray(newfile.readline().split(), dtype=float)
+        bench_z_pos = nparray(newfile.readline().split(), dtype=float)
 
         bench_x_spacing = (bench_x_pos[1] - bench_x_pos[0])
         bench_y_spacing = (bench_y_pos[1] - bench_y_pos[0])
         bench_slice_thick = (bench_z_pos[1] - bench_z_pos[0])
 
-        huge_dose_array = nparray(newfile.readline().strip().split(), dtype=npfloat)
+        bench_dict = {}
+
+        huge_dose_array = nparray(newfile.readline().strip().split(), dtype=float)
         bench_dose = reshape(huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
         try:
-            huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=npfloat)
+            huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=float)
             bench_uncert = reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+            bench_dict["uncertainty"] = bench_uncert
         except:
             print("Warning: No uncertainty in the 3ddose files")
 
-        bench_dict = {}
         bench_dict["grid"] = bench_dose
         bench_dict["num_voxels"] = bench_voxels
         bench_dict["vox_size"] = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
         bench_dict["topleft"] = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
         bench_dict["axis"] = np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
+
         #  bench_dict["axis"] = np.array([bench_z_pos[:-1], bench_y_pos[:-1], bench_x_pos[:-1]], dtype=object)
         
     return bench_dict
@@ -266,6 +269,18 @@ def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, 
 
 
 def write_nrrd(fileName:str, dose:dict):
+    print("braeking point is here")
+    # dose_image = sitk.Image([2]+dose['num_voxels'], sitk.sitkVectorFloat32)
+    dose_image = sitk.GetImageFromArray(np.swapaxes(dose['grid'], 0, 2))
+    dose_image.SetOrigin(dose['topleft'])
+    dose_image.SetSpacing(dose['vox_size'])
+
+    uncertainty_image = sitk.GetImageFromArray(np.swapaxes(dose['uncertainty'], 0, 2))
+    uncertainty_image.SetOrigin(dose['topleft'])
+    uncertainty_image.SetSpacing(dose['vox_size'])
+
+    
+    sitk.WriteImage(dose_image, fileName)
 
     return 0
 
@@ -332,7 +347,8 @@ def _test_pad_many_3ddoses():
     pad_many_3ddoses(input_dir, output_dir, new_dims, new_topLeft)
 
 def _test_write_nrrd():
-    pth_3ddose = "test_data/combined.3ddose"
+    # pth_3ddose = "test_data/combined.3ddose"
+    pth_3ddose = "test_data/run_1.3ddose"
     pth_nrrd = "test_data/combined.nrrd"
     
     # load the 3ddos file
@@ -346,4 +362,5 @@ if __name__ == "__main__":
     # a Test for the following functions
     # _test_pad_3ddose()
     # _test_write_3ddose()
-    _test_pad_many_3ddoses()
+    # _test_pad_many_3ddoses()
+    _test_write_nrrd()
