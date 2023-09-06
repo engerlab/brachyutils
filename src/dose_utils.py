@@ -270,14 +270,23 @@ def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, 
 
 def write_nrrd(fileName:str, dose:dict, metaData:None):
 
+
+
     # create sitk dose image
-    dose_image = sitk.GetImageFromArray(np.swapaxes(dose['grid'], 0, 2))
+    dose_image = sitk.GetImageFromArray(
+        np.array([np.swapaxes(dose['grid'], 0, 2), np.swapaxes(dose['uncertainty'], 0, 2)])
+        )
     dose_image.SetOrigin(dose['topleft'])
     dose_image.SetSpacing(dose['vox_size'])
 
-    uncertainty_image = sitk.GetImageFromArray(np.swapaxes(dose['uncertainty'], 0, 2))
-    uncertainty_image.SetOrigin(dose['topleft'])
-    uncertainty_image.SetSpacing(dose['vox_size'])
+    # uncertainty_image = sitk.GetImageFromArray(np.swapaxes(dose['uncertainty'], 0, 2))
+    # uncertainty_image.SetOrigin(dose['topleft'])
+    # uncertainty_image.SetSpacing(dose['vox_size'])
+
+    # set the metadata: all sitk Images belonging to a patient will have the same meta data
+    for key in metaData:
+        dose_image.SetMetaData(key, metaData[key])
+        # uncertainty_image.SetMetaData(key, metaData[key])
 
     # write out the files
     fileName_ospth = os.path.abspath(fileName)
@@ -285,8 +294,9 @@ def write_nrrd(fileName:str, dose:dict, metaData:None):
     
     run_number = fileName_ospth.split(".")[0]
 
-    sitk.WriteImage(dose_image, run_number+"dose.nrrd")
-    sitk.WriteImage(uncertainty_image, run_number+"uncertainty.nrrd")
+    sitk.WriteImage(dose_image, run_number+"_dose.nrrd")
+    # sitk.WriteImage(uncertainty_image, run_number+"uncertainty.nrrd")
+
     return 0
 
 def _test_pad_3ddose():
@@ -354,13 +364,29 @@ def _test_pad_many_3ddoses():
 def _test_write_nrrd():
     # pth_3ddose = "test_data/combined.3ddose"
     pth_3ddose = "test_data/run_1.3ddose"
-    pth__basename_nrrd = "test_data/run_1.nrrd"
+    pth_toWrite_nrrd = "test_data/run_1.nrrd"
+    pth_toLoad_nrrd = "test_data/run_1_dose.nrrd"
     
+    # creat metadata dictionary
+    meta_dict = {
+        "cancer site": "prostate",
+        "care center": "muhc glen",
+        "number of dwell positions": "100",
+        "number of segmented structures": "4",
+        "patient number": "0",
+        "Image content": "[3D dose, 3D uncertainty]"
+    }
+
     # load the 3ddos file
     dose_3ddose = load_3ddose(pth_3ddose)
 
-    write_nrrd(pth__basename_nrrd, dose_3ddose)
+    write_nrrd(pth_toWrite_nrrd, dose_3ddose, meta_dict)
 
+    loaded_image_nrrd = sitk.ReadImage(pth_toLoad_nrrd, imageIO='NrrdImageIO')
+    array = sitk.GetArrayFromImage(loaded_image_nrrd)
+    print(f"dimensions of the loaded image: {loaded_image_nrrd}")
+    # reader = sitk.ImageFileReader()
+    # reader.SetImageIO("NrrdImageIO")
 
 if __name__ == "__main__":
 
