@@ -268,9 +268,9 @@ def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, 
         write_3ddose(output_dir_3ddose_folder+file_name, padded_dose_dict)
 
 
-def write_nrrd(fileName:str, dose:dict):
-    print("braeking point is here")
-    # dose_image = sitk.Image([2]+dose['num_voxels'], sitk.sitkVectorFloat32)
+def write_nrrd(fileName:str, dose:dict, metaData:None):
+
+    # create sitk dose image
     dose_image = sitk.GetImageFromArray(np.swapaxes(dose['grid'], 0, 2))
     dose_image.SetOrigin(dose['topleft'])
     dose_image.SetSpacing(dose['vox_size'])
@@ -279,9 +279,14 @@ def write_nrrd(fileName:str, dose:dict):
     uncertainty_image.SetOrigin(dose['topleft'])
     uncertainty_image.SetSpacing(dose['vox_size'])
 
+    # write out the files
+    fileName_ospth = os.path.abspath(fileName)
+    assert os.path.exists(os.path.dirname(fileName_ospth))
     
-    sitk.WriteImage(dose_image, fileName)
+    run_number = fileName_ospth.split(".")[0]
 
+    sitk.WriteImage(dose_image, run_number+"dose.nrrd")
+    sitk.WriteImage(uncertainty_image, run_number+"uncertainty.nrrd")
     return 0
 
 def _test_pad_3ddose():
@@ -349,12 +354,12 @@ def _test_pad_many_3ddoses():
 def _test_write_nrrd():
     # pth_3ddose = "test_data/combined.3ddose"
     pth_3ddose = "test_data/run_1.3ddose"
-    pth_nrrd = "test_data/combined.nrrd"
+    pth__basename_nrrd = "test_data/run_1.nrrd"
     
     # load the 3ddos file
     dose_3ddose = load_3ddose(pth_3ddose)
 
-    write_nrrd(pth_nrrd, dose_3ddose)
+    write_nrrd(pth__basename_nrrd, dose_3ddose)
 
 
 if __name__ == "__main__":
