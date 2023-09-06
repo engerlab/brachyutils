@@ -269,19 +269,30 @@ def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, 
 
 
 def write_nrrd(fileName:str, dose:dict, metaData:None):
+r""""
+    Purpose: 
+        To save a dose dictionary as a nrrd file. 
+    inputs:
+        - fileName := path where the dose nrrd file will be written to. 
+            _dose.nrrd will be added to the basename. 
+        - dose := The dictionary that is the output of load 3ddose
+        - metaData := a dictionary containing the following meta data key values (should be changed later):
+            "cancer site": 
+            "care center": 
+            "number of dwell positions": 
+            "number of segmented structures": 
+            "patient number": 
+            "Image content": "[3D dose, 3D uncertainty]"
+    outputs: Void
+        writes [3D dose, 3D uncertainty], voxel size, origin (topleft), and metaData to the fileName_dose.nrrd
 
-
-
+""""
     # create sitk dose image
     dose_image = sitk.GetImageFromArray(
         np.array([np.swapaxes(dose['grid'], 0, 2), np.swapaxes(dose['uncertainty'], 0, 2)])
         )
     dose_image.SetOrigin(dose['topleft'])
     dose_image.SetSpacing(dose['vox_size'])
-
-    # uncertainty_image = sitk.GetImageFromArray(np.swapaxes(dose['uncertainty'], 0, 2))
-    # uncertainty_image.SetOrigin(dose['topleft'])
-    # uncertainty_image.SetSpacing(dose['vox_size'])
 
     # set the metadata: all sitk Images belonging to a patient will have the same meta data
     for key in metaData:
