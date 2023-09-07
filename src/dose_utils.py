@@ -33,8 +33,8 @@ def load_egsphant(filename):
         phant["y_voxels"] = [float(y) for y in egsphant.readline().strip().split()]
         phant["z_voxels"] = [float(z) for z in egsphant.readline().strip().split()]
 
-        phant["mat_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=int)
-        phant["density_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=float)
+        phant["mat_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=np.int)
+        phant["density_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=np.float32)
 
         for k in range(phant["num_voxels"][2]):
             for j in range(phant["num_voxels"][1]):
@@ -78,8 +78,6 @@ def load_3ddose(filename):
         bench_dict["vox_size"] = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
         bench_dict["topleft"] = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
         bench_dict["axis"] = np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
-
-        #  bench_dict["axis"] = np.array([bench_z_pos[:-1], bench_y_pos[:-1], bench_x_pos[:-1]], dtype=object)
         
     return bench_dict
 
@@ -285,18 +283,21 @@ def write_nrrd(fileName:str, dose:dict, metaData:None):
                 "Image content": "[3D dose, 3D uncertainty]"
         outputs: Void
             writes [3D dose, 3D uncertainty], voxel size, origin (topleft), and metaData to the fileName_dose.nrrd
-
+            note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z. 
     """
     # create sitk dose image
-    dose_image = sitk.GetImageFromArray(
-        np.array([np.swapaxes(dose['grid'], 0, 2), np.swapaxes(dose['uncertainty'], 0, 2)])
-        )
-    dose_image.SetOrigin(dose['topleft'])
-    dose_image.SetSpacing(dose['vox_size'])
-
+    dose_nda = np.swapaxes(dose['grid'], 0, 2).astype(np.float32)
+    uncertainty_nda = np.swapaxes(dose['grid'], 0, 2).astype(np.float32)
+    
+    image_nrrd = sitk.JoinSeries(
+        sitk.GetImageFromArray(dose_nda),
+        sitk.GetImageFromArray(uncertainty_nda)
+    )
+    image_nrrd.SetOrigin(np.append([0],dose['topleft']))
+    image_nrrd.SetSpacing(np.append([1],dose['vox_size']))
     # set the metadata: all sitk Images belonging to a patient will have the same meta data
     for key in metaData:
-        dose_image.SetMetaData(key, metaData[key])
+        image_nrrd.SetMetaData(key, metaData[key])
         # uncertainty_image.SetMetaData(key, metaData[key])
 
     # write out the files
@@ -305,10 +306,37 @@ def write_nrrd(fileName:str, dose:dict, metaData:None):
     
     run_number = fileName_ospth.split(".")[0]
 
-    sitk.WriteImage(dose_image, run_number+"_dose.nrrd")
+    sitk.WriteImage(image_nrrd, run_number+"_dose.nrrd", useCompression=True, compressionLevel=9)
     # sitk.WriteImage(uncertainty_image, run_number+"uncertainty.nrrd")
 
     return 0
+
+def getAxisFromNRRD():
+    return 0
+
+def nrrd_to_3ddose(pth_nrrd:str) -> dict:
+    loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO='NrrdImageIO')
+    [dose_array, uncertainty_array] = sitk.GetArrayFromImage(loaded_image_nrrd)
+    dose_array = np.swapaxes(dose_array, 0, 2)
+    uncertainty_array = np.swapaxes(uncertainty_array, 0, 2)
+
+    bench_dict = {}
+    bench_dict["uncertainty"] = uncertainty_array
+    bench_dict["grid"] = dose_array
+    bench_dict["num_voxels"] = np.array(dose_array.shape)
+    bench_dict["vox_size"] = loaded_image_nrrd.GetSpacing()
+    bench_dict["topleft"] = loaded_image_nrrd.GetOrigin()
+    bench_dict["axis"] = getAxisFromNRRD() 
+        
+    return bench_dict
+
+def _test_nrrd_to_3ddose():
+    pth_nrrd = "../test_data/combined_dose.nrrd"
+    pth_3ddose = "../test_data/combined.3ddose"
+    nrrd_3ddose = nrrd_to_3ddose(pth_nrrd)
+    original_3ddose = load_3ddose(pth_3ddose)
+
+
 
 def _test_pad_3ddose():
     
@@ -393,9 +421,9 @@ def _test_write_nrrd():
 
     write_nrrd(pth_toWrite_nrrd, dose_3ddose, meta_dict)
 
-    loaded_image_nrrd = sitk.ReadImage(pth_toLoad_nrrd, imageIO='NrrdImageIO')
-    array = sitk.GetArrayFromImage(loaded_image_nrrd)
-    print(f"dimensions of the loaded image: {loaded_image_nrrd}")
+    # loaded_image_nrrd = sitk.ReadImage(pth_toLoad_nrrd, imageIO='NrrdImageIO')
+    # array = sitk.GetArrayFromImage(loaded_image_nrrd)
+    # print(f"dimensions of the loaded image: {loaded_image_nrrd}")
     # reader = sitk.ImageFileReader()
     # reader.SetImageIO("NrrdImageIO")
 
@@ -406,3 +434,4 @@ if __name__ == "__main__":
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
     _test_write_nrrd()
+    # _test_nrrd_to_3ddose()
