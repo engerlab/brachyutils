@@ -13,6 +13,8 @@ from glob import glob
 # Gy = J/kg
 
 import SimpleITK as sitk
+import difflib
+
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
@@ -236,10 +238,13 @@ def write_3ddose(fileName:str, dose:dict):
     y_axis = ' '.join(map(str, dose['axis'][1])) + '\n'
     z_axis = ' '.join(map(str, dose['axis'][0])) + '\n'
     dose_flattened = ' '.join(map(str, dose['grid'].flatten('C'))) + '\n'
-     
-
+    if 'uncertainty' in dose:
+        uncertainty_flattened = ' '.join(map(str, dose['uncertainty'].flatten('C'))) + '\n'
+    else:
+        uncertainty_flattened = ''
+        
     with open(fileName, 'w') as file:
-        lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened]
+        lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened, uncertainty_flattened]
         file.writelines(lines)
     
 
@@ -364,12 +369,39 @@ def nrrd_to_3ddose(pth_nrrd:str) -> dict:
         
     return bench_dict
 
+def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
+    # old_file_dir = load_3ddose(pth1_3ddose)
+    # new_file_dir = load_3ddose(pth2_3ddose)
+    
+    with open(pth1_3ddose, 'r') as file1, open(pth2_3ddose) as file2:
+        contents1 = file1.read()
+        contents2 = file2.read()
+
+    if contents1 == contents2:
+        print("write 3ddose works fine")
+    else:
+        print("write 3ddose does not work fine")
+        print('here are the differences')
+        diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
+        print('\n'.join(diff_list))
+
+
+
 def _test_nrrd_to_3ddose():
-    pth_nrrd = "../test_data/combined_dose.nrrd"
-    pth_3ddose = "../test_data/combined.3ddose"
+    # 1mm 
+    # pth_nrrd = "../test_data/combined_dose.nrrd"
+    # pth_3ddose = "../test_data/combined_fromNRRD.3ddose"
+    # pth_3ddose_groundtruth = "../test_data/combined.3ddose"
+
+    # 3mm 
+    pth_nrrd = "../test_data/run_1_dose.nrrd"
+    pth_3ddose = "../test_data/run_1_fromNRRD.3ddose"
+    pth_3ddose_groundtruth = "../test_data/run_1_old.3ddose"
+    
     nrrd_3ddose = nrrd_to_3ddose(pth_nrrd)
-    original_3ddose = load_3ddose(pth_3ddose)
-    # TO IMPLEMENT: comparison between the two dictionaries above. 
+    write_3ddose(pth_3ddose, nrrd_3ddose)
+    
+    compare_two_3ddose_files(pth_3ddose_groundtruth, pth_3ddose)
 
 
 def _test_pad_3ddose():
@@ -400,7 +432,6 @@ def _test_pad_3ddose():
 
 
 def _test_write_3ddose():
-    import difflib
     old_file_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose'
     old_3ddose = load_3ddose(old_file_dir)
     new_file_dir = './test_run_1.3ddose'
@@ -435,11 +466,14 @@ def _test_pad_many_3ddoses():
     pad_many_3ddoses(input_dir, output_dir, new_dims, new_topLeft)
 
 def _test_write_nrrd():
-    pth_3ddose = "../test_data/combined.3ddose"
-    # pth_3ddose = "../test_data/run_1.3ddose"
+    # 1mm resolution
+    # pth_3ddose = "../test_data/combined.3ddose"
     pth_toWrite_nrrd = "../test_data/combined.nrrd"
     pth_toLoad_nrrd = "../test_data/combined_dose.nrrd"
-    
+    # 3 mm resolution
+    pth_3ddose = "../test_data/run_1_old.3ddose"
+    pth_toWrite_nrrd = "../test_data/run_1.nrrd"
+    pth_toLoad_nrrd = "../test_data/run_1_dose.nrrd"
     # creat metadata dictionary
     meta_dict = {
         "cancer site": "prostate",
