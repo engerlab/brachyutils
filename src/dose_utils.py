@@ -311,10 +311,44 @@ def write_nrrd(fileName:str, dose:dict, metaData:None):
 
     return 0
 
-def getAxisFromNRRD():
-    return 0
+def calculateAxis(dose:dict):
+    r"""
+    Purpose: will calculate the axies coordinates for a 3ddose dictionary.
+    Input: 
+        - dose := output of load_3ddose(). it should have the following keys and values:
+            {"grid":,
+            "topleft":,
+            "vox_size":}
+    Output: 
+        - axes:numpy.array() := 
+        [[x_min:vox_size:x_max],
+        [y_min:vox_size:y_max],
+        [z_min:vox_size:z_max]] 
+    """
+    axes_end = np.array(
+        dose['topleft'] +  np.flip(np.array(dose['grid'].shape), axis=0)* dose['vox_size']
+    )
+    axes = np.empty(len(axes_end), dtype=object)
+    for i in range(len(axes_end)):
+        axes[i] = np.arange(dose['topleft'][i], axes_end[i], dose['vox_size'][i])
+        
+    return axes
 
 def nrrd_to_3ddose(pth_nrrd:str) -> dict:
+    r"""
+    Purpose: given the path to a nrrd dose file, it will load its content and
+        returns the info in the same formats as of the output of load_3ddose()
+    Inputs: 
+        pth_nrrd := Path to a nrrd file writtern by write_nrrd(). 
+    Output:
+        bench_dict:dict := a dictionary containing the following keys:
+            {"uncertainty"
+            "grid":
+            "num_voxels":
+            "vox_size":
+            "topleft":
+            "axis":}
+    """
     loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO='NrrdImageIO')
     [dose_array, uncertainty_array] = sitk.GetArrayFromImage(loaded_image_nrrd)
     dose_array = np.swapaxes(dose_array, 0, 2)
@@ -324,9 +358,9 @@ def nrrd_to_3ddose(pth_nrrd:str) -> dict:
     bench_dict["uncertainty"] = uncertainty_array
     bench_dict["grid"] = dose_array
     bench_dict["num_voxels"] = np.array(dose_array.shape)
-    bench_dict["vox_size"] = loaded_image_nrrd.GetSpacing()
-    bench_dict["topleft"] = loaded_image_nrrd.GetOrigin()
-    bench_dict["axis"] = getAxisFromNRRD() 
+    bench_dict["vox_size"] = loaded_image_nrrd.GetSpacing()[1:]
+    bench_dict["topleft"] = loaded_image_nrrd.GetOrigin()[1:]
+    bench_dict["axis"] = calculateAxis(bench_dict) 
         
     return bench_dict
 
@@ -433,5 +467,5 @@ if __name__ == "__main__":
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
-    _test_write_nrrd()
-    # _test_nrrd_to_3ddose()
+    # _test_write_nrrd()
+    _test_nrrd_to_3ddose()
