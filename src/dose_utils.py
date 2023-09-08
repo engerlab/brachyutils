@@ -369,7 +369,7 @@ def _test_nrrd_to_3ddose():
     pth_3ddose = "../test_data/combined.3ddose"
     nrrd_3ddose = nrrd_to_3ddose(pth_nrrd)
     original_3ddose = load_3ddose(pth_3ddose)
-
+    # TO IMPLEMENT: comparison between the two dictionaries above. 
 
 
 def _test_pad_3ddose():
