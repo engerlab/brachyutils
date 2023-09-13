@@ -202,6 +202,8 @@ class BrachyDose:
         masked_uncert = ma.array(self.uncert, mask=dose_mask)
         average_uncert = ma.average(masked_uncert) * 100
         return average_uncert
+    
+    def 
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
