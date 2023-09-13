@@ -13,6 +13,8 @@ from glob import glob
 # Gy = J/kg
 
 import SimpleITK as sitk
+import difflib
+
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
@@ -33,8 +35,8 @@ def load_egsphant(filename):
         phant["y_voxels"] = [float(y) for y in egsphant.readline().strip().split()]
         phant["z_voxels"] = [float(z) for z in egsphant.readline().strip().split()]
 
-        phant["mat_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=int)
-        phant["density_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=float)
+        phant["mat_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=np.int)
+        phant["density_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=np.float32)
 
         for k in range(phant["num_voxels"][2]):
             for j in range(phant["num_voxels"][1]):
@@ -78,8 +80,6 @@ def load_3ddose(filename):
         bench_dict["vox_size"] = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
         bench_dict["topleft"] = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
         bench_dict["axis"] = np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
-
-        #  bench_dict["axis"] = np.array([bench_z_pos[:-1], bench_y_pos[:-1], bench_x_pos[:-1]], dtype=object)
         
     return bench_dict
 
@@ -238,10 +238,13 @@ def write_3ddose(fileName:str, dose:dict):
     y_axis = ' '.join(map(str, dose['axis'][1])) + '\n'
     z_axis = ' '.join(map(str, dose['axis'][0])) + '\n'
     dose_flattened = ' '.join(map(str, dose['grid'].flatten('C'))) + '\n'
-     
-
+    if 'uncertainty' in dose:
+        uncertainty_flattened = ' '.join(map(str, dose['uncertainty'].flatten('C'))) + '\n'
+    else:
+        uncertainty_flattened = ''
+        
     with open(fileName, 'w') as file:
-        lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened]
+        lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened, uncertainty_flattened]
         file.writelines(lines)
     
 
@@ -269,34 +272,37 @@ def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, 
 
 
 def write_nrrd(fileName:str, dose:dict, metaData:None):
-r""""
-    Purpose: 
-        To save a dose dictionary as a nrrd file. 
-    inputs:
-        - fileName := path where the dose nrrd file will be written to. 
-            _dose.nrrd will be added to the basename. 
-        - dose := The dictionary that is the output of load 3ddose
-        - metaData := a dictionary containing the following meta data key values (should be changed later):
-            "cancer site": 
-            "care center": 
-            "number of dwell positions": 
-            "number of segmented structures": 
-            "patient number": 
-            "Image content": "[3D dose, 3D uncertainty]"
-    outputs: Void
-        writes [3D dose, 3D uncertainty], voxel size, origin (topleft), and metaData to the fileName_dose.nrrd
-
-""""
+    r"""
+        Purpose: 
+            To save a dose dictionary as a nrrd file. 
+        inputs:
+            - fileName := path where the dose nrrd file will be written to. 
+                _dose.nrrd will be added to the basename. 
+            - dose := The dictionary that is the output of load 3ddose
+            - metaData := a dictionary containing the following meta data key values (should be changed later):
+                "cancer site": 
+                "care center": 
+                "number of dwell positions": 
+                "number of segmented structures": 
+                "patient number": 
+                "Image content": "[3D dose, 3D uncertainty]"
+        outputs: Void
+            writes [3D dose, 3D uncertainty], voxel size, origin (topleft), and metaData to the fileName_dose.nrrd
+            note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z. 
+    """
     # create sitk dose image
-    dose_image = sitk.GetImageFromArray(
-        np.array([np.swapaxes(dose['grid'], 0, 2), np.swapaxes(dose['uncertainty'], 0, 2)])
-        )
-    dose_image.SetOrigin(dose['topleft'])
-    dose_image.SetSpacing(dose['vox_size'])
-
+    dose_nda = np.swapaxes(dose['grid'], 0, 2).astype(np.float32)
+    uncertainty_nda = np.swapaxes(dose['uncertainty'], 0, 2).astype(np.float32)
+    
+    image_nrrd = sitk.JoinSeries(
+        sitk.GetImageFromArray(dose_nda),
+        sitk.GetImageFromArray(uncertainty_nda)
+    )
+    image_nrrd.SetOrigin(np.append([0],dose['topleft']))
+    image_nrrd.SetSpacing(np.append([1],dose['vox_size']))
     # set the metadata: all sitk Images belonging to a patient will have the same meta data
     for key in metaData:
-        dose_image.SetMetaData(key, metaData[key])
+        image_nrrd.SetMetaData(key, metaData[key])
         # uncertainty_image.SetMetaData(key, metaData[key])
 
     # write out the files
@@ -305,10 +311,99 @@ r""""
     
     run_number = fileName_ospth.split(".")[0]
 
-    sitk.WriteImage(dose_image, run_number+"_dose.nrrd")
+    sitk.WriteImage(image_nrrd, run_number+"_dose.nrrd", useCompression=True, compressionLevel=9)
     # sitk.WriteImage(uncertainty_image, run_number+"uncertainty.nrrd")
 
     return 0
+
+def calculateAxis(dose:dict):
+    r"""
+    Purpose: will calculate the axies coordinates for a 3ddose dictionary.
+    Input: 
+        - dose := output of load_3ddose(). it should have the following keys and values:
+            {"grid":,
+            "topleft":,
+            "vox_size":}
+    Output: 
+        - axes:numpy.array() := 
+        [[z_min:vox_size:z_max],
+        [y_min:vox_size:y_max],
+        [x_min:vox_size:x_max]] 
+    """
+    axes_end = np.array(
+        dose['topleft'] +  np.flip(np.array(dose['grid'].shape), axis=0)* dose['vox_size']
+    )
+    axes = np.empty(len(axes_end), dtype=object)
+    for i in range(len(axes_end)):
+        # flip axes to go from x,y,z to z,y,x:
+        axes[i] = np.arange(dose['topleft'][len(axes_end)-1-i], axes_end[len(axes_end)-1-i], dose['vox_size'][len(axes_end)-1-i])
+    
+    return axes
+
+def nrrd_to_3ddose(pth_nrrd:str) -> dict:
+    r"""
+    Purpose: given the path to a nrrd dose file, it will load its content and
+        returns the info in the same formats as of the output of load_3ddose()
+    Inputs: 
+        pth_nrrd := Path to a nrrd file writtern by write_nrrd(). 
+    Output:
+        bench_dict:dict := a dictionary containing the following keys:
+            {"uncertainty"
+            "grid":
+            "num_voxels":
+            "vox_size":
+            "topleft":
+            "axis":}
+    """
+    loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO='NrrdImageIO')
+    [dose_array, uncertainty_array] = sitk.GetArrayFromImage(loaded_image_nrrd)
+    dose_array = np.swapaxes(dose_array, 0, 2)
+    uncertainty_array = np.swapaxes(uncertainty_array, 0, 2)
+
+    bench_dict = {}
+    bench_dict["uncertainty"] = uncertainty_array
+    bench_dict["grid"] = dose_array
+    bench_dict["num_voxels"] = np.array(dose_array.shape)
+    bench_dict["vox_size"] = loaded_image_nrrd.GetSpacing()[1:]
+    bench_dict["topleft"] = loaded_image_nrrd.GetOrigin()[1:]
+    bench_dict["axis"] = calculateAxis(bench_dict) 
+        
+    return bench_dict
+
+def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
+    # old_file_dir = load_3ddose(pth1_3ddose)
+    # new_file_dir = load_3ddose(pth2_3ddose)
+    
+    with open(pth1_3ddose, 'r') as file1, open(pth2_3ddose) as file2:
+        contents1 = file1.read()
+        contents2 = file2.read()
+
+    if contents1 == contents2:
+        print("write 3ddose works fine")
+    else:
+        print("write 3ddose does not work fine")
+        print('here are the differences')
+        diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
+        print('\n'.join(diff_list))
+
+
+
+def _test_nrrd_to_3ddose():
+    # 1mm 
+    # pth_nrrd = "../test_data/combined_dose.nrrd"
+    # pth_3ddose = "../test_data/combined_fromNRRD.3ddose"
+    # pth_3ddose_groundtruth = "../test_data/combined.3ddose"
+
+    # 3mm 
+    pth_nrrd = "../test_data/run_1_dose.nrrd"
+    pth_3ddose = "../test_data/run_1_fromNRRD.3ddose"
+    pth_3ddose_groundtruth = "../test_data/run_1_old.3ddose"
+    
+    nrrd_3ddose = nrrd_to_3ddose(pth_nrrd)
+    write_3ddose(pth_3ddose, nrrd_3ddose)
+    
+    compare_two_3ddose_files(pth_3ddose_groundtruth, pth_3ddose)
+
 
 def _test_pad_3ddose():
     
@@ -338,7 +433,6 @@ def _test_pad_3ddose():
 
 
 def _test_write_3ddose():
-    import difflib
     old_file_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose'
     old_3ddose = load_3ddose(old_file_dir)
     new_file_dir = './test_run_1.3ddose'
@@ -373,11 +467,14 @@ def _test_pad_many_3ddoses():
     pad_many_3ddoses(input_dir, output_dir, new_dims, new_topLeft)
 
 def _test_write_nrrd():
-    # pth_3ddose = "test_data/combined.3ddose"
-    pth_3ddose = "test_data/run_1.3ddose"
-    pth_toWrite_nrrd = "test_data/run_1.nrrd"
-    pth_toLoad_nrrd = "test_data/run_1_dose.nrrd"
-    
+    # 1mm resolution
+    # pth_3ddose = "../test_data/combined.3ddose"
+    # pth_toWrite_nrrd = "../test_data/combined.nrrd"
+    # pth_toLoad_nrrd = "../test_data/combined_dose.nrrd"
+    # 3 mm resolution
+    pth_3ddose = "../test_data/run_1_old.3ddose"
+    pth_toWrite_nrrd = "../test_data/run_1.nrrd"
+    pth_toLoad_nrrd = "../test_data/run_1_dose.nrrd"
     # creat metadata dictionary
     meta_dict = {
         "cancer site": "prostate",
@@ -393,9 +490,9 @@ def _test_write_nrrd():
 
     write_nrrd(pth_toWrite_nrrd, dose_3ddose, meta_dict)
 
-    loaded_image_nrrd = sitk.ReadImage(pth_toLoad_nrrd, imageIO='NrrdImageIO')
-    array = sitk.GetArrayFromImage(loaded_image_nrrd)
-    print(f"dimensions of the loaded image: {loaded_image_nrrd}")
+    # loaded_image_nrrd = sitk.ReadImage(pth_toLoad_nrrd, imageIO='NrrdImageIO')
+    # array = sitk.GetArrayFromImage(loaded_image_nrrd)
+    # print(f"dimensions of the loaded image: {loaded_image_nrrd}")
     # reader = sitk.ImageFileReader()
     # reader.SetImageIO("NrrdImageIO")
 
@@ -405,4 +502,5 @@ if __name__ == "__main__":
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
-    _test_write_nrrd()
+    # _test_write_nrrd()
+    _test_nrrd_to_3ddose()
