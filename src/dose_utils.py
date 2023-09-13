@@ -292,7 +292,7 @@ def write_nrrd(fileName:str, dose:dict, metaData:None):
     """
     # create sitk dose image
     dose_nda = np.swapaxes(dose['grid'], 0, 2).astype(np.float32)
-    uncertainty_nda = np.swapaxes(dose['grid'], 0, 2).astype(np.float32)
+    uncertainty_nda = np.swapaxes(dose['uncertainty'], 0, 2).astype(np.float32)
     
     image_nrrd = sitk.JoinSeries(
         sitk.GetImageFromArray(dose_nda),
@@ -326,17 +326,18 @@ def calculateAxis(dose:dict):
             "vox_size":}
     Output: 
         - axes:numpy.array() := 
-        [[x_min:vox_size:x_max],
+        [[z_min:vox_size:z_max],
         [y_min:vox_size:y_max],
-        [z_min:vox_size:z_max]] 
+        [x_min:vox_size:x_max]] 
     """
     axes_end = np.array(
         dose['topleft'] +  np.flip(np.array(dose['grid'].shape), axis=0)* dose['vox_size']
     )
     axes = np.empty(len(axes_end), dtype=object)
     for i in range(len(axes_end)):
-        axes[i] = np.arange(dose['topleft'][i], axes_end[i], dose['vox_size'][i])
-        
+        # flip axes to go from x,y,z to z,y,x:
+        axes[i] = np.arange(dose['topleft'][len(axes_end)-1-i], axes_end[len(axes_end)-1-i], dose['vox_size'][len(axes_end)-1-i])
+    
     return axes
 
 def nrrd_to_3ddose(pth_nrrd:str) -> dict:
@@ -468,8 +469,8 @@ def _test_pad_many_3ddoses():
 def _test_write_nrrd():
     # 1mm resolution
     # pth_3ddose = "../test_data/combined.3ddose"
-    pth_toWrite_nrrd = "../test_data/combined.nrrd"
-    pth_toLoad_nrrd = "../test_data/combined_dose.nrrd"
+    # pth_toWrite_nrrd = "../test_data/combined.nrrd"
+    # pth_toLoad_nrrd = "../test_data/combined_dose.nrrd"
     # 3 mm resolution
     pth_3ddose = "../test_data/run_1_old.3ddose"
     pth_toWrite_nrrd = "../test_data/run_1.nrrd"
