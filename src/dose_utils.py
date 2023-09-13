@@ -15,6 +15,121 @@ from glob import glob
 import SimpleITK as sitk
 import difflib
 
+class BrachyDose:
+    r"""
+    Purpse: This class holds information regarding a dose distribution as well as the fundamental 
+    functions that are applied on the dose. All the doses are J/Gy. 
+    
+    Attributes:
+        grid:np.ndarray := 3D numpy array holding dose at each voxel. [z, y, x]
+        uncertainty:np.ndarray := 3D numpy array holding dose uncertainity at each voxel. [z, y, x] 
+        num_voxels:np.ndarray := 1D numpy array holding the number of grid points on x, y, z axis. 
+        vox_size:np.ndarray := 1D numpy array holding the resolution of each voxel along x, y, z axis in centimeters. 
+        topleft:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z] 
+        axis:np.ndarray := coorindates of grid points along z, y and x axis.  
+
+    Functions:
+    
+    Dependencies: 
+    
+    """
+    
+    grid:np.ndarray
+    uncertainty:np.ndarray
+    num_voxels:np.ndarray
+    vox_size:np.ndarray
+    topleft:np.ndarray
+    axis:np.ndarray
+    
+    def __init__(self, pth_dose_file:str):
+        r""" 
+        Purpose: given the path to a file holding dose information, it will return 
+        a BrachyDose object with the populated available attributes. It will give a warning
+        for the missing attributes.
+        
+        Inputs:
+            - pth_dose_file := path directory where the file containing the dose is. The file 
+                extension could be ".3ddose", ".nrrd", ".dcm", or ".bin"
+        
+        Output:
+        self : BrachyDose
+        """
+        pth_dose_file = os.path.abspath(pth_dose_file)
+        
+        file_extension = os.path.splitext(pth_dose_file)
+        
+        if file_extension == ".3ddose":
+            self.load_from_3ddose(pth_dose_file)
+        elif file_extension == ".nrrd":
+            self.load_from_nrrd(pth_dose_file)
+        elif file_extension == ".dcm":
+            assert "RD" in pth_dose_file
+            raise Exception("loading dose from dicom is not currently supported")
+        elif file_extension == ".bin":
+            raise Exception("loading dose from .bin file is not currently supported")
+    
+        return self
+
+    def load_from_3ddose(self, filename:str):
+        r""" 
+        Purpose: Given the path to a 3ddose file, load its content into self:BrachyDose.
+        
+        Input:
+            - filename := path to a ".3ddose" file
+        """
+        assert os.path.splitext(filename) == ".3ddose"
+        path = filename
+        #print("Opening 3ddose at %s" % path)
+        with open(path, "rb") as newfile:
+            bench_voxels = [int(i) for i in newfile.readline().split()]
+            bench_x_pos = nparray(newfile.readline().split(), dtype=float)
+            bench_y_pos = nparray(newfile.readline().split(), dtype=float)
+            bench_z_pos = nparray(newfile.readline().split(), dtype=float)
+
+            bench_x_spacing = (bench_x_pos[1] - bench_x_pos[0])
+            bench_y_spacing = (bench_y_pos[1] - bench_y_pos[0])
+            bench_slice_thick = (bench_z_pos[1] - bench_z_pos[0])
+
+            bench_dict = {}
+
+            huge_dose_array = nparray(newfile.readline().strip().split(), dtype=float)
+            bench_dose = reshape(huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+            try:
+                huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=float)
+                bench_uncert = reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+                self.uncertainty = bench_uncert
+            except:
+                print("Warning: No uncertainty in the 3ddose files")
+
+            self.grid = bench_dose
+            self.num_voxels = bench_voxels
+            self.vox_size = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
+            self.topleft = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
+            self.axis = np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
+    
+    def load_from_nrrd(self, pth_nrrd:str):
+        r"""
+        Purpose: given the path to a nrrd dose file, it will load its content into self:BrachyDose
+       
+        Inputs: 
+            - pth_nrrd := Path to a nrrd file writtern by self.to_nrrd()
+            
+        Dependencies:
+            - SimpleITK
+            - calculateAxis()
+        """
+        loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO='NrrdImageIO')
+        [dose_array, uncertainty_array] = sitk.GetArrayFromImage(loaded_image_nrrd)
+        dose_array = np.swapaxes(dose_array, 0, 2)
+        uncertainty_array = np.swapaxes(uncertainty_array, 0, 2)
+
+        self.uncertainty = uncertainty_array
+        self.grid = dose_array
+        self.num_voxels = np.array(dose_array.shape)
+        self.vox_size = loaded_image_nrrd.GetSpacing()[1:]
+        self.topleft = loaded_image_nrrd.GetOrigin()[1:]
+        self.axis = calculateAxis(bench_dict) 
+    
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
@@ -340,7 +455,7 @@ def calculateAxis(dose:dict):
     
     return axes
 
-def nrrd_to_3ddose(pth_nrrd:str) -> dict:
+def load_nrrd_to_3ddose(pth_nrrd:str) -> dict:
     r"""
     Purpose: given the path to a nrrd dose file, it will load its content and
         returns the info in the same formats as of the output of load_3ddose()
