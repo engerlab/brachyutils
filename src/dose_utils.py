@@ -17,7 +17,8 @@ import difflib
 
 class BrachyDose:
     r"""
-    Purpse: This class holds information regarding a dose distribution as well as the fundamental 
+    Purpse: 
+        This class holds information regarding a dose distribution as well as the fundamental 
     functions that are applied on the dose. All the doses are J/Gy. 
     
     Attributes:
@@ -43,7 +44,8 @@ class BrachyDose:
     
     def __init__(self, pth_dose_file:str):
         r""" 
-        Purpose: given the path to a file holding dose information, it will return 
+        Purpose: 
+            given the path to a file holding dose information, it will return 
         a BrachyDose object with the populated available attributes. It will give a warning
         for the missing attributes.
         
@@ -72,7 +74,8 @@ class BrachyDose:
 
     def load_from_3ddose(self, filename:str):
         r""" 
-        Purpose: Given the path to a 3ddose file, load its content into self:BrachyDose.
+        Purpose: 
+            Given the path to a 3ddose file, load its content into self:BrachyDose.
         
         Input:
             - filename := path to a ".3ddose" file
@@ -109,7 +112,8 @@ class BrachyDose:
     
     def load_from_nrrd(self, pth_nrrd:str):
         r"""
-        Purpose: given the path to a nrrd dose file, it will load its content into self:BrachyDose
+        Purpose: 
+            given the path to a nrrd dose file, it will load its content into self:BrachyDose
        
         Inputs: 
             - pth_nrrd := Path to a nrrd file writtern by self.to_nrrd()
@@ -130,6 +134,74 @@ class BrachyDose:
         self.topleft = loaded_image_nrrd.GetOrigin()[1:]
         self.axis = calculateAxis(bench_dict) 
     
+    def make_profile(self, depth:float, axis:str):
+        """
+        Purpose: 
+            Plots a profile at a given depth (z coordinate) inside a 3ddose file.
+        """
+        num_x, num_y, num_z = self.num_voxels
+        x_size, y_size, z_size = self.vox_size
+        topleft_x, topleft_y, topleft_z = self.topleft
+        depth_voxel = (depth - topleft_z) / z_size
+        if axis == "x":
+            off_axis_values = [topleft_x + (i + 0.5) * x_size for i in range(num_x)]
+            mid_y = num_y / 2
+            dose_values = [self.grid[depth_voxel][mid_y][i] for i in range(num_x)]
+        elif axis == "y":
+            off_axis_values = [topleft_y + (i + 0.5) * y_size for i in range(num_y)]
+            mid_x = num_x / 2
+            dose_values = [self.grid[depth_voxel][i][mid_x] for i in range(num_y)]
+        else:
+            raise("Only x or y axes are recognized")
+
+        profile_dict = {}
+        # Here, x and y axis refers to the axes on a graph, not
+        # the dose axes.
+        profile_dict["x_axis"] = off_axis_values
+        profile_dict["y_axis"] = dose_values
+        return profile_dict
+
+    def make_pdd(self):
+        r"""
+        Purpose:
+            Documentation is missing
+        """
+        mid_x, mid_y, mid_z = [int(vox/2) for vox in self.num_voxels]
+        x_size, y_size, z_size = self.vox_size
+        z_values = [(i + 0.5) * z_size for i in range(self.num_voxels[2])]
+        dose_values = [self.grid[i][mid_y][mid_x] for i in range(self.num_voxels[2])]
+
+        pdd_dict = {}
+        if "uncert" in dose:
+            uncert_values = [self.uncert[i][mid_y][mid_x] / 2.0 for i in range(self.num_voxels[2])]
+            pdd_dict["uncert"] = uncert_values
+
+        pdd_dict["x_axis"] = z_values
+        pdd_dict["y_axis"] = nparray(dose_values)
+        return pdd_dict
+    
+    def get_average_uncert(self) -> float:
+        r"""
+        Purpose:
+            Documentation is missing
+        """
+        max_dose = self.grid.max()
+        dose_mask = self.grid < 0.2 * max_dose
+        masked_uncert = ma.array(self.uncert, mask=dose_mask)
+        masked_dose = ma.array(self.grid, mask=dose_mask)
+        average_uncert = ma.average(masked_uncert / masked_dose) * 100
+        return average_uncert
+
+    def get_average_uncert_benchmark(self) -> float:
+        r"""
+        Purpose:
+            Documentation is missing
+        """
+        max_dose = self.grid.max()
+        dose_mask = self.grid < 0.2 * max_dose
+        masked_uncert = ma.array(self.uncert, mask=dose_mask)
+        average_uncert = ma.average(masked_uncert) * 100
+        return average_uncert
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
