@@ -34,15 +34,15 @@ class BrachyDose:
     Dependencies: 
     
     """
-    
-    grid:np.ndarray
-    uncertainty:np.ndarray
-    num_voxels:np.ndarray
-    vox_size:np.ndarray
-    topleft:np.ndarray
-    axis:np.ndarray
-    
-    def __init__(self, pth_dose_file:str):
+    def __init__(self, ):
+        grid:np.ndarray
+        uncertainty:np.ndarray
+        num_voxels:np.ndarray
+        vox_size:np.ndarray
+        topleft:np.ndarray
+        axis:np.ndarray
+                   
+    def load_file_to_BrachyDose(self, pth_dose_file:str):
         r""" 
         Purpose: 
             given the path to a file holding dose information, it will return 
@@ -172,7 +172,7 @@ class BrachyDose:
         dose_values = [self.grid[i][mid_y][mid_x] for i in range(self.num_voxels[2])]
 
         pdd_dict = {}
-        if "uncert" in dose:
+        if self.uncertainty is not None:
             uncert_values = [self.uncert[i][mid_y][mid_x] / 2.0 for i in range(self.num_voxels[2])]
             pdd_dict["uncert"] = uncert_values
 
@@ -203,7 +203,78 @@ class BrachyDose:
         average_uncert = ma.average(masked_uncert) * 100
         return average_uncert
     
-    def 
+    def pad_3ddose(self, new_dims:list, new_topLeft:list):
+        r''' a function to padd the grid and uncertainty in BrachyDose object and bring it to the desired dimensios.
+        it will update all the aspects of the dose object to match the new dimensiosn.
+        The voxels must have the same size! remember, python does z, y, x. 
+        inputs:
+            self:BrachyDose
+            
+            new_dims := a 1 by 3 list containing the new x, y and z dimensions:
+                [new_z_dim, new_y_dim, new_x_dim]
+
+            new_topLeft := coordinates of the new topleft
+                [x, y, z]
+        '''
+        assert any(new_dims > self.grid.shape)
+        
+        # calculate distances between the new and old topleft voxels. 
+        # if for an axis, the distance of toplefts is larger than the voxel size, use the new topleft
+        # else, use the old top left
+        topleft_distance = np.abs(new_topLeft - self.topleft)
+        final_topleft = np.zeros(3)
+        for i, distance in zip(range(3), topleft_distance):
+            final_topleft[i] = new_topLeft[i] if distance > self.vox_size[i] else self.topleft[i]
+
+        # figure out how much padding to do before and after each axis
+        padding = np.zeros([3,2])
+        for i in range(3):
+            if final_topleft[i] == self.topleft[i]:
+                # all padding goes to the end for this dose axis
+                pad_before = 0
+                pad_after = new_dims[2-i] - self.grid.shape[2-i]
+            else:
+                # all padding goes to the begining of the dose axis
+                pad_before = new_dims[2-i] - self.grid.shape[2-i] 
+                pad_after = 0
+            padding[2-i] = [pad_before, pad_after]
+
+        # pad the old dose grid to get the new grid!
+        new_dose_grid = np.pad(self.grid, tuple(padding.astype(int)), mode='edge')
+        if self.uncertainty is not None:
+                new_uncert = np.pad(self.uncertainty, tuple(padding.astype(int)), mode='edge')
+
+        # figure out the end coordinates based on the padding
+        # self.vox_size is a list of x, y and z spacing, we want it to be
+        # a numpy array of z, y, x spacings. 
+        voxel_size = np.array(self.vox_size)[:, np.newaxis][::-1]
+        end_coords_distances =  padding * np.array([[-1, 1], [-1, 1], [-1, 1]]) * voxel_size
+        
+        old_end_coords = np.array(
+            [[self.axis[0][0],self.axis[0][-1]], 
+            [self.axis[1][0],self.axis[1][-1]], 
+            [self.axis[2][0],self.axis[2][-1]]])
+
+        new_end_coords = old_end_coords + end_coords_distances
+
+        # now padd the new axis with respect to the appropriate begin and end coordinates
+        new_axis = np.array([np.zeros(new_dims[0]), np.zeros(new_dims[1]), np.zeros(new_dims[2])], dtype=object)
+        
+        # pad the new axis with linear ramp
+        for i in range(new_axis.shape[0]):
+            new_axis[i] = np.pad(self.axis[i], tuple(padding[i].astype(int)), mode='linear_ramp', end_values=new_end_coords[i])
+
+        # fillout the new padded dose dictionary
+        padded_dose = BrachyDose()
+        
+        padded_dose.grid = new_dose_grid 
+        padded_dose.uncert = new_uncert if self.uncertainty is not None else None 
+        # voxel size remains unchanged
+        padded_dose.vox_size = self.vox_size 
+        padded_dose.topleft = final_topleft 
+        padded_dose.axis = new_axis
+        
+        return padded_dose
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
