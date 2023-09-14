@@ -275,6 +275,38 @@ class BrachyDose:
         padded_dose.axis = new_axis
         
         return padded_dose
+    
+    def to_3ddose_file(self, fileName:str):
+        r''' 
+        Purpose: 
+            This function will write the contents of a BrachyDose onto a text file with .3ddose extension. 
+        
+        inputs:
+            - self := a BrachyDose object containing the following keys:
+                grid [z, y, x]
+                uncert [z, y, x] 
+                vox_size [x, y, z]
+                topleft [x, y, z]
+                axis [z, y, x]
+
+            - fileName := the directory path where the file will be written
+        '''   
+        dimensions = ' '.join(map(str, np.array(self.grid.shape[::-1]))) + '\n'
+        x_axis = ' '.join(map(str, self.axis[2])) + '\n'
+        y_axis = ' '.join(map(str, self.axis[1])) + '\n'
+        z_axis = ' '.join(map(str, self.axis[0])) + '\n'
+        dose_flattened = ' '.join(map(str, self.grid.flatten('C'))) + '\n'
+        if self.uncertainty is not None:
+            uncertainty_flattened = ' '.join(map(str, self.uncertainty.flatten('C'))) + '\n'
+        else:
+            uncertainty_flattened = ''
+            
+        with open(fileName, 'w') as file:
+            lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened, uncertainty_flattened]
+            file.writelines(lines)
+        
+        fileName = os.path.abspath(fileName)
+        
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
@@ -309,176 +341,6 @@ def load_egsphant(filename):
             egsphant.readline()
 
     return phant
-
-def load_3ddose(filename):
-    # Load in the benchmark results.
-    path = filename
-    #print("Opening 3ddose at %s" % path)
-    with open(path, "rb") as newfile:
-        bench_voxels = [int(i) for i in newfile.readline().split()]
-        bench_x_pos = nparray(newfile.readline().split(), dtype=float)
-        bench_y_pos = nparray(newfile.readline().split(), dtype=float)
-        bench_z_pos = nparray(newfile.readline().split(), dtype=float)
-
-        bench_x_spacing = (bench_x_pos[1] - bench_x_pos[0])
-        bench_y_spacing = (bench_y_pos[1] - bench_y_pos[0])
-        bench_slice_thick = (bench_z_pos[1] - bench_z_pos[0])
-
-        bench_dict = {}
-
-        huge_dose_array = nparray(newfile.readline().strip().split(), dtype=float)
-        bench_dose = reshape(huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
-        try:
-            huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=float)
-            bench_uncert = reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
-            bench_dict["uncertainty"] = bench_uncert
-        except:
-            print("Warning: No uncertainty in the 3ddose files")
-
-        bench_dict["grid"] = bench_dose
-        bench_dict["num_voxels"] = bench_voxels
-        bench_dict["vox_size"] = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
-        bench_dict["topleft"] = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
-        bench_dict["axis"] = np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
-        
-    return bench_dict
-
-
-def make_profile(dose, depth, axis = "x"):
-    """
-        Plots a profile at a given depth (z coordinate) inside a 3ddose file.
-    """
-    num_x, num_y, num_z = dose["num_voxels"]
-    x_size, y_size, z_size = dose["vox_size"]
-    topleft_x, topleft_y, topleft_z = dose["topleft"]
-    depth_voxel = (depth - topleft_z) / z_size
-    if axis == "x":
-        off_axis_values = [topleft_x + (i + 0.5) * x_size for i in range(num_x)]
-        mid_y = num_y / 2
-        dose_values = [dose["grid"][depth_voxel][mid_y][i] for i in range(num_x)]
-    elif axis == "y":
-        off_axis_values = [topleft_y + (i + 0.5) * y_size for i in range(num_y)]
-        mid_x = num_x / 2
-        dose_values = [dose["grid"][depth_voxel][i][mid_x] for i in range(num_y)]
-    else:
-        raise("Only x or y axes are recognized")
-
-    profile_dict = {}
-    # Here, x and y axis refers to the axes on a graph, not
-    # the dose axes.
-    profile_dict["x_axis"] = off_axis_values
-    profile_dict["y_axis"] = dose_values
-    return profile_dict
-
-def make_pdd(dose):
-    mid_x, mid_y, mid_z = [int(vox/2) for vox in dose["num_voxels"]]
-    x_size, y_size, z_size = dose["vox_size"]
-    z_values = [(i + 0.5) * z_size for i in range(dose["num_voxels"][2])]
-    dose_values = [dose["grid"][i][mid_y][mid_x] for i in range(dose["num_voxels"][2])]
-
-    pdd_dict = {}
-    if "uncert" in dose:
-        uncert_values = [dose["uncert"][i][mid_y][mid_x] / 2.0 for i in range(dose["num_voxels"][2])]
-        pdd_dict["uncert"] = uncert_values
-
-    pdd_dict["x_axis"] = z_values
-    pdd_dict["y_axis"] = nparray(dose_values)
-    return pdd_dict
-
-
-def get_average_uncert(dose):
-    max_dose = dose["grid"].max()
-    dose_mask = dose["grid"] < 0.2 * max_dose
-    masked_uncert = ma.array(dose["uncert"], mask=dose_mask)
-    masked_dose = ma.array(dose["grid"], mask=dose_mask)
-    average_uncert = ma.average(masked_uncert / masked_dose) * 100
-    return average_uncert
-
-
-def get_average_uncert_benchmark(dose):
-    max_dose = dose["grid"].max()
-    dose_mask = dose["grid"] < 0.2 * max_dose
-    masked_uncert = ma.array(dose["uncert"], mask=dose_mask)
-    average_uncert = ma.average(masked_uncert) * 100
-    return average_uncert
-
-def pad_3ddose(dose:dict, new_dims:list, new_topLeft:list):
-    r''' a function to padd the 3ddose file and bring it to the desired dimensios.
-    it will update all the aspects of the dose object to match the new dimensiosn.
-    The voxels must have the same size! remember, python does z, y, x. 
-    inputs:
-        dose := a dictionary containing the following keys:
-            grid [z, y, x]
-            uncert [z, y, x] 
-            vox_size [x, y, z]
-            topleft [x, y, z]
-            axis [z, y, x]
-        
-        new_dims := a 1 by 3 list containing the new x, y and z dimensions:
-            [new_z_dim, new_y_dim, new_x_dim]
-
-        new_topLeft := coordinates of the new topleft
-            [x, y, z]
-    '''
-    assert any(new_dims > dose['grid'].shape)
-    
-    # calculate distances between the new and old topleft voxels. 
-    # if for an axis, the distance of toplefts is larger than the voxel size, use the new topleft
-    # else, use the old top left
-    topleft_distance = np.abs(new_topLeft - dose['topleft'])
-    final_topleft = np.zeros(3)
-    for i, distance in zip(range(3), topleft_distance):
-        final_topleft[i] = new_topLeft[i] if distance > dose['vox_size'][i] else dose['topleft'][i]
-
-    # figure out how much padding to do before and after each axis
-    padding = np.zeros([3,2])
-    for i in range(3):
-        if final_topleft[i] == dose['topleft'][i]:
-            # all padding goes to the end for this dose axis
-            pad_before = 0
-            pad_after = new_dims[2-i] - dose['grid'].shape[2-i]
-        else:
-            # all padding goes to the begining of the dose axis
-            pad_before = new_dims[2-i] - dose['grid'].shape[2-i] 
-            pad_after = 0
-        padding[2-i] = [pad_before, pad_after]
-
-    # pad the old dose grid to get the new grid!
-    new_dose_grid = np.pad(dose['grid'], tuple(padding.astype(int)), mode='edge')
-    if hasattr(dose, 'uncert'):
-            new_uncert = np.pad(dose['uncert'], tuple(padding.astype(int)), mode='edge')
-
-
-    # figure out the end coordinates based on the padding
-    # dose['vox_size'] is a list of x, y and z spacing, we want it to be
-    # a numpy array of z, y, x spacings. 
-    voxel_size = np.array(dose['vox_size'])[:, np.newaxis][::-1]
-    end_coords_distances =  padding * np.array([[-1, 1], [-1, 1], [-1, 1]]) * voxel_size
-     
-    old_end_coords = np.array(
-        [[dose['axis'][0][0],dose['axis'][0][-1]], 
-        [dose['axis'][1][0],dose['axis'][1][-1]], 
-        [dose['axis'][2][0],dose['axis'][2][-1]]])
-
-    new_end_coords = old_end_coords + end_coords_distances
-
-    # now padd the new axis with respect to the appropriate begin and end coordinates
-    new_axis = np.array([np.zeros(new_dims[0]), np.zeros(new_dims[1]), np.zeros(new_dims[2])], dtype=object)
-    
-    # pad the new axis with linear ramp
-    for i in range(new_axis.shape[0]):
-        new_axis[i] = np.pad(dose['axis'][i], tuple(padding[i].astype(int)), mode='linear_ramp', end_values=new_end_coords[i])
-
-    # fillout the new padded dose dictionary
-    padded_dose={
-        'grid': new_dose_grid, 
-        'uncert': new_uncert if hasattr(dose, 'uncert') else None, 
-        # voxel size remains unchanged
-        'vox_size': dose['vox_size'], 
-        'topleft': final_topleft, 
-        'axis': new_axis}
-    
-    return padded_dose
 
 def write_3ddose(fileName:str, dose:dict):
     r''' given a dose dictionary with the proper fields, this function will
