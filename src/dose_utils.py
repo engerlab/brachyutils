@@ -372,8 +372,6 @@ class BrachyDose:
         
         return axes
 
-
-
 def load_pmc_dose(filename):
     return load_3ddose(filename)
 
