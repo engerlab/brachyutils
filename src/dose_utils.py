@@ -133,7 +133,7 @@ class BrachyDose:
         self.num_voxels = np.array(dose_array.shape)
         self.vox_size = loaded_image_nrrd.GetSpacing()[1:]
         self.topleft = loaded_image_nrrd.GetOrigin()[1:]
-        self.axis = calculateAxis(bench_dict) 
+        self.axis = calculateAxis(self) 
     
     def make_profile(self, depth:float, axis:str):
         """
@@ -348,8 +348,31 @@ class BrachyDose:
 
         sitk.WriteImage(image_nrrd, run_number+"_dose.nrrd", useCompression=True, compressionLevel=9)
 
-
+    def calculateAxis(self):
+        r"""
+        Purpose: will calculate the axies coordinates for a 3ddose dictionary.
+        Input: 
+            - dose := output of load_3ddose(). it should have the following keys and values:
+                {"grid":,
+                "topleft":,
+                "vox_size":}
+        Output: 
+            - axes:numpy.array() := 
+            [[z_min:vox_size:z_max],
+            [y_min:vox_size:y_max],
+            [x_min:vox_size:x_max]] 
+        """
+        axes_end = np.array(
+            self.topleft +  np.flip(np.array(self.grid.shape), axis=0)* self.vox_size
+        )
+        axes = np.empty(len(axes_end), dtype=object)
+        for i in range(len(axes_end)):
+            # flip axes to go from x,y,z to z,y,x:
+            axes[i] = np.arange(self.topleft[len(axes_end)-1-i], axes_end[len(axes_end)-1-i], self.vox_size[len(axes_end)-1-i])
         
+        return axes
+
+
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
@@ -407,61 +430,6 @@ def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, 
         padded_dose_dict = pad_3ddose(dose_dict, new_dims, new_topLeft)
         write_3ddose(output_dir_3ddose_folder+file_name, padded_dose_dict)
 
-
-
-def calculateAxis(dose:dict):
-    r"""
-    Purpose: will calculate the axies coordinates for a 3ddose dictionary.
-    Input: 
-        - dose := output of load_3ddose(). it should have the following keys and values:
-            {"grid":,
-            "topleft":,
-            "vox_size":}
-    Output: 
-        - axes:numpy.array() := 
-        [[z_min:vox_size:z_max],
-        [y_min:vox_size:y_max],
-        [x_min:vox_size:x_max]] 
-    """
-    axes_end = np.array(
-        dose['topleft'] +  np.flip(np.array(dose['grid'].shape), axis=0)* dose['vox_size']
-    )
-    axes = np.empty(len(axes_end), dtype=object)
-    for i in range(len(axes_end)):
-        # flip axes to go from x,y,z to z,y,x:
-        axes[i] = np.arange(dose['topleft'][len(axes_end)-1-i], axes_end[len(axes_end)-1-i], dose['vox_size'][len(axes_end)-1-i])
-    
-    return axes
-
-def load_nrrd_to_3ddose(pth_nrrd:str) -> dict:
-    r"""
-    Purpose: given the path to a nrrd dose file, it will load its content and
-        returns the info in the same formats as of the output of load_3ddose()
-    Inputs: 
-        pth_nrrd := Path to a nrrd file writtern by write_nrrd(). 
-    Output:
-        bench_dict:dict := a dictionary containing the following keys:
-            {"uncertainty"
-            "grid":
-            "num_voxels":
-            "vox_size":
-            "topleft":
-            "axis":}
-    """
-    loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO='NrrdImageIO')
-    [dose_array, uncertainty_array] = sitk.GetArrayFromImage(loaded_image_nrrd)
-    dose_array = np.swapaxes(dose_array, 0, 2)
-    uncertainty_array = np.swapaxes(uncertainty_array, 0, 2)
-
-    bench_dict = {}
-    bench_dict["uncertainty"] = uncertainty_array
-    bench_dict["grid"] = dose_array
-    bench_dict["num_voxels"] = np.array(dose_array.shape)
-    bench_dict["vox_size"] = loaded_image_nrrd.GetSpacing()[1:]
-    bench_dict["topleft"] = loaded_image_nrrd.GetOrigin()[1:]
-    bench_dict["axis"] = calculateAxis(bench_dict) 
-        
-    return bench_dict
 
 def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
     # old_file_dir = load_3ddose(pth1_3ddose)
