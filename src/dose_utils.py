@@ -14,6 +14,7 @@ from glob import glob
 
 import SimpleITK as sitk
 import difflib
+from typing import Optional
 
 class BrachyDose:
     r"""
@@ -276,7 +277,7 @@ class BrachyDose:
         
         return padded_dose
     
-    def to_3ddose_file(self, fileName:str):
+    def write_to_3ddose_file(self, fileName:str):
         r''' 
         Purpose: 
             This function will write the contents of a BrachyDose onto a text file with .3ddose extension. 
@@ -291,6 +292,8 @@ class BrachyDose:
 
             - fileName := the directory path where the file will be written
         '''   
+        fileName = os.path.abspath(fileName)
+
         dimensions = ' '.join(map(str, np.array(self.grid.shape[::-1]))) + '\n'
         x_axis = ' '.join(map(str, self.axis[2])) + '\n'
         y_axis = ' '.join(map(str, self.axis[1])) + '\n'
@@ -304,8 +307,48 @@ class BrachyDose:
         with open(fileName, 'w') as file:
             lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened, uncertainty_flattened]
             file.writelines(lines)
+    
+    def write_to_nrrd_file(self, fileName:str, metaData:Optional[dict]):
+        r"""
+            Purpose: 
+                To save the contents of BrachyDose into a nrrd file. 
+            inputs:
+                - fileName := path where the dose nrrd file will be written to. 
+                    _dose.nrrd will be added to the basename. 
+                - metaData := a dictionary containing the following meta data key values (should be changed later):
+                    "cancer site": 
+                    "care center": 
+                    "number of dwell positions": 
+                    "number of segmented structures": 
+                    "patient number": 
+                    "Image content": "[3D dose, 3D uncertainty]"
+            outputs: Void
+                writes [3D dose, 3D uncertainty], voxel size, origin (topleft), and metaData to the fileName_dose.nrrd
+                note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z. 
+        """
+        # create sitk dose image
+        dose_nda = np.swapaxes(self.grid, 0, 2).astype(np.float32)
+        uncertainty_nda = np.swapaxes(self.uncertainty, 0, 2).astype(np.float32)
         
-        fileName = os.path.abspath(fileName)
+        image_nrrd = sitk.JoinSeries(
+            sitk.GetImageFromArray(dose_nda),
+            sitk.GetImageFromArray(uncertainty_nda)
+        )
+        image_nrrd.SetOrigin(np.append([0],self.topleft))
+        image_nrrd.SetSpacing(np.append([1],self.vox_size))
+        # set the metadata: all sitk Images belonging to a patient will have the same meta data
+        for key in metaData:
+            image_nrrd.SetMetaData(key, metaData[key])
+
+        # write out the files
+        fileName_ospth = os.path.abspath(fileName)
+        assert os.path.exists(os.path.dirname(fileName_ospth))
+        
+        run_number = fileName_ospth.split(".")[0]
+
+        sitk.WriteImage(image_nrrd, run_number+"_dose.nrrd", useCompression=True, compressionLevel=9)
+
+
         
 
 def load_pmc_dose(filename):
@@ -342,34 +385,6 @@ def load_egsphant(filename):
 
     return phant
 
-def write_3ddose(fileName:str, dose:dict):
-    r''' given a dose dictionary with the proper fields, this function will
-    write the contents onto a text file with .3ddose extension. 
-    inputs:
-        fileName := the directory path where the file will be written
-        
-        dose := a dictionary containing the following keys:
-            grid [z, y, x]
-            uncert [z, y, x] 
-            vox_size [x, y, z]
-            topleft [x, y, z]
-            axis [z, y, x]
-    '''   
-    dimensions = ' '.join(map(str, np.array(dose['grid'].shape[::-1]))) + '\n'
-    x_axis = ' '.join(map(str, dose['axis'][2])) + '\n'
-    y_axis = ' '.join(map(str, dose['axis'][1])) + '\n'
-    z_axis = ' '.join(map(str, dose['axis'][0])) + '\n'
-    dose_flattened = ' '.join(map(str, dose['grid'].flatten('C'))) + '\n'
-    if 'uncertainty' in dose:
-        uncertainty_flattened = ' '.join(map(str, dose['uncertainty'].flatten('C'))) + '\n'
-    else:
-        uncertainty_flattened = ''
-        
-    with open(fileName, 'w') as file:
-        lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened, uncertainty_flattened]
-        file.writelines(lines)
-    
-
 def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, new_dims:list, new_topLeft:list):
     r'''Given a directory full of 3ddose maps, this function will padd them all to a user defined size. 
     inputs:
@@ -393,50 +408,6 @@ def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, 
         write_3ddose(output_dir_3ddose_folder+file_name, padded_dose_dict)
 
 
-def write_nrrd(fileName:str, dose:dict, metaData:None):
-    r"""
-        Purpose: 
-            To save a dose dictionary as a nrrd file. 
-        inputs:
-            - fileName := path where the dose nrrd file will be written to. 
-                _dose.nrrd will be added to the basename. 
-            - dose := The dictionary that is the output of load 3ddose
-            - metaData := a dictionary containing the following meta data key values (should be changed later):
-                "cancer site": 
-                "care center": 
-                "number of dwell positions": 
-                "number of segmented structures": 
-                "patient number": 
-                "Image content": "[3D dose, 3D uncertainty]"
-        outputs: Void
-            writes [3D dose, 3D uncertainty], voxel size, origin (topleft), and metaData to the fileName_dose.nrrd
-            note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z. 
-    """
-    # create sitk dose image
-    dose_nda = np.swapaxes(dose['grid'], 0, 2).astype(np.float32)
-    uncertainty_nda = np.swapaxes(dose['uncertainty'], 0, 2).astype(np.float32)
-    
-    image_nrrd = sitk.JoinSeries(
-        sitk.GetImageFromArray(dose_nda),
-        sitk.GetImageFromArray(uncertainty_nda)
-    )
-    image_nrrd.SetOrigin(np.append([0],dose['topleft']))
-    image_nrrd.SetSpacing(np.append([1],dose['vox_size']))
-    # set the metadata: all sitk Images belonging to a patient will have the same meta data
-    for key in metaData:
-        image_nrrd.SetMetaData(key, metaData[key])
-        # uncertainty_image.SetMetaData(key, metaData[key])
-
-    # write out the files
-    fileName_ospth = os.path.abspath(fileName)
-    assert os.path.exists(os.path.dirname(fileName_ospth))
-    
-    run_number = fileName_ospth.split(".")[0]
-
-    sitk.WriteImage(image_nrrd, run_number+"_dose.nrrd", useCompression=True, compressionLevel=9)
-    # sitk.WriteImage(uncertainty_image, run_number+"uncertainty.nrrd")
-
-    return 0
 
 def calculateAxis(dose:dict):
     r"""
