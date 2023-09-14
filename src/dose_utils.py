@@ -14,7 +14,363 @@ from glob import glob
 
 import SimpleITK as sitk
 import difflib
+from typing import Optional
 
+class BrachyDose:
+    r"""
+    Purpse: 
+        This class holds information regarding a dose distribution as well as the fundamental 
+    functions that are applied on the dose. All the doses are J/Gy. 
+    
+    Attributes:
+        grid:np.ndarray := 3D numpy array holding dose at each voxel. [z, y, x]
+        uncertainty:np.ndarray := 3D numpy array holding dose uncertainity at each voxel. [z, y, x] 
+        num_voxels:np.ndarray := 1D numpy array holding the number of grid points on x, y, z axis. 
+        vox_size:np.ndarray := 1D numpy array holding the resolution of each voxel along x, y, z axis in centimeters. 
+        topleft:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z] 
+        axis:np.ndarray := coorindates of grid points along z, y and x axis.  
+
+    Functions:
+    
+    Dependencies: 
+    
+    """
+    def __init__(self, ):
+        grid:np.ndarray
+        uncertainty:np.ndarray
+        num_voxels:np.ndarray
+        vox_size:np.ndarray
+        topleft:np.ndarray
+        axis:np.ndarray
+                   
+    def load_file_to_BrachyDose(self, pth_dose_file:str):
+        r""" 
+        Purpose: 
+            given the path to a file holding dose information, it will return 
+        a BrachyDose object with the populated available attributes. It will give a warning
+        for the missing attributes.
+        
+        Inputs:
+            - pth_dose_file := path directory where the file containing the dose is. The file 
+                extension could be ".3ddose", ".nrrd", ".dcm", or ".bin"
+        
+        Output:
+        self : BrachyDose
+        """
+        pth_dose_file = os.path.abspath(pth_dose_file)
+        
+        file_extension = os.path.splitext(pth_dose_file)
+        
+        if file_extension == ".3ddose":
+            self.load_from_3ddose(pth_dose_file)
+        elif file_extension == ".nrrd":
+            self.load_from_nrrd(pth_dose_file)
+        elif file_extension == ".dcm":
+            assert "RD" in pth_dose_file
+            raise Exception("loading dose from dicom is not currently supported")
+        elif file_extension == ".bin":
+            raise Exception("loading dose from .bin file is not currently supported")
+    
+        return self
+
+    def load_from_3ddose(self, filename:str):
+        r""" 
+        Purpose: 
+            Given the path to a 3ddose file, load its content into self:BrachyDose.
+        
+        Input:
+            - filename := path to a ".3ddose" file
+        """
+        assert os.path.splitext(filename) == ".3ddose"
+        path = filename
+        #print("Opening 3ddose at %s" % path)
+        with open(path, "rb") as newfile:
+            bench_voxels = [int(i) for i in newfile.readline().split()]
+            bench_x_pos = nparray(newfile.readline().split(), dtype=float)
+            bench_y_pos = nparray(newfile.readline().split(), dtype=float)
+            bench_z_pos = nparray(newfile.readline().split(), dtype=float)
+
+            bench_x_spacing = (bench_x_pos[1] - bench_x_pos[0])
+            bench_y_spacing = (bench_y_pos[1] - bench_y_pos[0])
+            bench_slice_thick = (bench_z_pos[1] - bench_z_pos[0])
+
+            bench_dict = {}
+
+            huge_dose_array = nparray(newfile.readline().strip().split(), dtype=float)
+            bench_dose = reshape(huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+            try:
+                huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=float)
+                bench_uncert = reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+                self.uncertainty = bench_uncert
+            except:
+                print("Warning: No uncertainty in the 3ddose files")
+
+            self.grid = bench_dose
+            self.num_voxels = bench_voxels
+            self.vox_size = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
+            self.topleft = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
+            self.axis = np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
+    
+    def load_from_nrrd(self, pth_nrrd:str):
+        r"""
+        Purpose: 
+            given the path to a nrrd dose file, it will load its content into self:BrachyDose
+       
+        Inputs: 
+            - pth_nrrd := Path to a nrrd file writtern by self.to_nrrd()
+            
+        Dependencies:
+            - SimpleITK
+            - calculateAxis()
+        """
+        loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO='NrrdImageIO')
+        [dose_array, uncertainty_array] = sitk.GetArrayFromImage(loaded_image_nrrd)
+        dose_array = np.swapaxes(dose_array, 0, 2)
+        uncertainty_array = np.swapaxes(uncertainty_array, 0, 2)
+
+        self.uncertainty = uncertainty_array
+        self.grid = dose_array
+        self.num_voxels = np.array(dose_array.shape)
+        self.vox_size = loaded_image_nrrd.GetSpacing()[1:]
+        self.topleft = loaded_image_nrrd.GetOrigin()[1:]
+        self.axis = calculateAxis(self) 
+    
+    def make_profile(self, depth:float, axis:str):
+        """
+        Purpose: 
+            Plots a profile at a given depth (z coordinate) inside a 3ddose file.
+        """
+        num_x, num_y, num_z = self.num_voxels
+        x_size, y_size, z_size = self.vox_size
+        topleft_x, topleft_y, topleft_z = self.topleft
+        depth_voxel = (depth - topleft_z) / z_size
+        if axis == "x":
+            off_axis_values = [topleft_x + (i + 0.5) * x_size for i in range(num_x)]
+            mid_y = num_y / 2
+            dose_values = [self.grid[depth_voxel][mid_y][i] for i in range(num_x)]
+        elif axis == "y":
+            off_axis_values = [topleft_y + (i + 0.5) * y_size for i in range(num_y)]
+            mid_x = num_x / 2
+            dose_values = [self.grid[depth_voxel][i][mid_x] for i in range(num_y)]
+        else:
+            raise("Only x or y axes are recognized")
+
+        profile_dict = {}
+        # Here, x and y axis refers to the axes on a graph, not
+        # the dose axes.
+        profile_dict["x_axis"] = off_axis_values
+        profile_dict["y_axis"] = dose_values
+        return profile_dict
+
+    def make_pdd(self):
+        r"""
+        Purpose:
+            Documentation is missing
+        """
+        mid_x, mid_y, mid_z = [int(vox/2) for vox in self.num_voxels]
+        x_size, y_size, z_size = self.vox_size
+        z_values = [(i + 0.5) * z_size for i in range(self.num_voxels[2])]
+        dose_values = [self.grid[i][mid_y][mid_x] for i in range(self.num_voxels[2])]
+
+        pdd_dict = {}
+        if self.uncertainty is not None:
+            uncert_values = [self.uncert[i][mid_y][mid_x] / 2.0 for i in range(self.num_voxels[2])]
+            pdd_dict["uncert"] = uncert_values
+
+        pdd_dict["x_axis"] = z_values
+        pdd_dict["y_axis"] = nparray(dose_values)
+        return pdd_dict
+    
+    def get_average_uncert(self) -> float:
+        r"""
+        Purpose:
+            Documentation is missing
+        """
+        max_dose = self.grid.max()
+        dose_mask = self.grid < 0.2 * max_dose
+        masked_uncert = ma.array(self.uncert, mask=dose_mask)
+        masked_dose = ma.array(self.grid, mask=dose_mask)
+        average_uncert = ma.average(masked_uncert / masked_dose) * 100
+        return average_uncert
+
+    def get_average_uncert_benchmark(self) -> float:
+        r"""
+        Purpose:
+            Documentation is missing
+        """
+        max_dose = self.grid.max()
+        dose_mask = self.grid < 0.2 * max_dose
+        masked_uncert = ma.array(self.uncert, mask=dose_mask)
+        average_uncert = ma.average(masked_uncert) * 100
+        return average_uncert
+    
+    def pad_3ddose(self, new_dims:list, new_topLeft:list):
+        r''' a function to padd the grid and uncertainty in BrachyDose object and bring it to the desired dimensios.
+        it will update all the aspects of the dose object to match the new dimensiosn.
+        The voxels must have the same size! remember, python does z, y, x. 
+        inputs:
+            self:BrachyDose
+            
+            new_dims := a 1 by 3 list containing the new x, y and z dimensions:
+                [new_z_dim, new_y_dim, new_x_dim]
+
+            new_topLeft := coordinates of the new topleft
+                [x, y, z]
+        '''
+        assert any(new_dims > self.grid.shape)
+        
+        # calculate distances between the new and old topleft voxels. 
+        # if for an axis, the distance of toplefts is larger than the voxel size, use the new topleft
+        # else, use the old top left
+        topleft_distance = np.abs(new_topLeft - self.topleft)
+        final_topleft = np.zeros(3)
+        for i, distance in zip(range(3), topleft_distance):
+            final_topleft[i] = new_topLeft[i] if distance > self.vox_size[i] else self.topleft[i]
+
+        # figure out how much padding to do before and after each axis
+        padding = np.zeros([3,2])
+        for i in range(3):
+            if final_topleft[i] == self.topleft[i]:
+                # all padding goes to the end for this dose axis
+                pad_before = 0
+                pad_after = new_dims[2-i] - self.grid.shape[2-i]
+            else:
+                # all padding goes to the begining of the dose axis
+                pad_before = new_dims[2-i] - self.grid.shape[2-i] 
+                pad_after = 0
+            padding[2-i] = [pad_before, pad_after]
+
+        # pad the old dose grid to get the new grid!
+        new_dose_grid = np.pad(self.grid, tuple(padding.astype(int)), mode='edge')
+        if self.uncertainty is not None:
+                new_uncert = np.pad(self.uncertainty, tuple(padding.astype(int)), mode='edge')
+
+        # figure out the end coordinates based on the padding
+        # self.vox_size is a list of x, y and z spacing, we want it to be
+        # a numpy array of z, y, x spacings. 
+        voxel_size = np.array(self.vox_size)[:, np.newaxis][::-1]
+        end_coords_distances =  padding * np.array([[-1, 1], [-1, 1], [-1, 1]]) * voxel_size
+        
+        old_end_coords = np.array(
+            [[self.axis[0][0],self.axis[0][-1]], 
+            [self.axis[1][0],self.axis[1][-1]], 
+            [self.axis[2][0],self.axis[2][-1]]])
+
+        new_end_coords = old_end_coords + end_coords_distances
+
+        # now padd the new axis with respect to the appropriate begin and end coordinates
+        new_axis = np.array([np.zeros(new_dims[0]), np.zeros(new_dims[1]), np.zeros(new_dims[2])], dtype=object)
+        
+        # pad the new axis with linear ramp
+        for i in range(new_axis.shape[0]):
+            new_axis[i] = np.pad(self.axis[i], tuple(padding[i].astype(int)), mode='linear_ramp', end_values=new_end_coords[i])
+
+        # fillout the new padded dose dictionary
+        padded_dose = BrachyDose()
+        
+        padded_dose.grid = new_dose_grid 
+        padded_dose.uncert = new_uncert if self.uncertainty is not None else None 
+        # voxel size remains unchanged
+        padded_dose.vox_size = self.vox_size 
+        padded_dose.topleft = final_topleft 
+        padded_dose.axis = new_axis
+        
+        return padded_dose
+    
+    def write_to_3ddose_file(self, fileName:str):
+        r''' 
+        Purpose: 
+            This function will write the contents of a BrachyDose onto a text file with .3ddose extension. 
+        
+        inputs:
+            - self := a BrachyDose object containing the following keys:
+                grid [z, y, x]
+                uncert [z, y, x] 
+                vox_size [x, y, z]
+                topleft [x, y, z]
+                axis [z, y, x]
+
+            - fileName := the directory path where the file will be written
+        '''   
+        fileName = os.path.abspath(fileName)
+
+        dimensions = ' '.join(map(str, np.array(self.grid.shape[::-1]))) + '\n'
+        x_axis = ' '.join(map(str, self.axis[2])) + '\n'
+        y_axis = ' '.join(map(str, self.axis[1])) + '\n'
+        z_axis = ' '.join(map(str, self.axis[0])) + '\n'
+        dose_flattened = ' '.join(map(str, self.grid.flatten('C'))) + '\n'
+        if self.uncertainty is not None:
+            uncertainty_flattened = ' '.join(map(str, self.uncertainty.flatten('C'))) + '\n'
+        else:
+            uncertainty_flattened = ''
+            
+        with open(fileName, 'w') as file:
+            lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened, uncertainty_flattened]
+            file.writelines(lines)
+    
+    def write_to_nrrd_file(self, fileName:str, metaData:Optional[dict]):
+        r"""
+            Purpose: 
+                To save the contents of BrachyDose into a nrrd file. 
+            inputs:
+                - fileName := path where the dose nrrd file will be written to. 
+                    _dose.nrrd will be added to the basename. 
+                - metaData := a dictionary containing the following meta data key values (should be changed later):
+                    "cancer site": 
+                    "care center": 
+                    "number of dwell positions": 
+                    "number of segmented structures": 
+                    "patient number": 
+                    "Image content": "[3D dose, 3D uncertainty]"
+            outputs: Void
+                writes [3D dose, 3D uncertainty], voxel size, origin (topleft), and metaData to the fileName_dose.nrrd
+                note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z. 
+        """
+        # create sitk dose image
+        dose_nda = np.swapaxes(self.grid, 0, 2).astype(np.float32)
+        uncertainty_nda = np.swapaxes(self.uncertainty, 0, 2).astype(np.float32)
+        
+        image_nrrd = sitk.JoinSeries(
+            sitk.GetImageFromArray(dose_nda),
+            sitk.GetImageFromArray(uncertainty_nda)
+        )
+        image_nrrd.SetOrigin(np.append([0],self.topleft))
+        image_nrrd.SetSpacing(np.append([1],self.vox_size))
+        # set the metadata: all sitk Images belonging to a patient will have the same meta data
+        for key in metaData:
+            image_nrrd.SetMetaData(key, metaData[key])
+
+        # write out the files
+        fileName_ospth = os.path.abspath(fileName)
+        assert os.path.exists(os.path.dirname(fileName_ospth))
+        
+        run_number = fileName_ospth.split(".")[0]
+
+        sitk.WriteImage(image_nrrd, run_number+"_dose.nrrd", useCompression=True, compressionLevel=9)
+
+    def calculateAxis(self):
+        r"""
+        Purpose: will calculate the axies coordinates for a 3ddose dictionary.
+        Input: 
+            - dose := output of load_3ddose(). it should have the following keys and values:
+                {"grid":,
+                "topleft":,
+                "vox_size":}
+        Output: 
+            - axes:numpy.array() := 
+            [[z_min:vox_size:z_max],
+            [y_min:vox_size:y_max],
+            [x_min:vox_size:x_max]] 
+        """
+        axes_end = np.array(
+            self.topleft +  np.flip(np.array(self.grid.shape), axis=0)* self.vox_size
+        )
+        axes = np.empty(len(axes_end), dtype=object)
+        for i in range(len(axes_end)):
+            # flip axes to go from x,y,z to z,y,x:
+            axes[i] = np.arange(self.topleft[len(axes_end)-1-i], axes_end[len(axes_end)-1-i], self.vox_size[len(axes_end)-1-i])
+        
+        return axes
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
@@ -50,204 +406,6 @@ def load_egsphant(filename):
 
     return phant
 
-def load_3ddose(filename):
-    # Load in the benchmark results.
-    path = filename
-    #print("Opening 3ddose at %s" % path)
-    with open(path, "rb") as newfile:
-        bench_voxels = [int(i) for i in newfile.readline().split()]
-        bench_x_pos = nparray(newfile.readline().split(), dtype=float)
-        bench_y_pos = nparray(newfile.readline().split(), dtype=float)
-        bench_z_pos = nparray(newfile.readline().split(), dtype=float)
-
-        bench_x_spacing = (bench_x_pos[1] - bench_x_pos[0])
-        bench_y_spacing = (bench_y_pos[1] - bench_y_pos[0])
-        bench_slice_thick = (bench_z_pos[1] - bench_z_pos[0])
-
-        bench_dict = {}
-
-        huge_dose_array = nparray(newfile.readline().strip().split(), dtype=float)
-        bench_dose = reshape(huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
-        try:
-            huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=float)
-            bench_uncert = reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
-            bench_dict["uncertainty"] = bench_uncert
-        except:
-            print("Warning: No uncertainty in the 3ddose files")
-
-        bench_dict["grid"] = bench_dose
-        bench_dict["num_voxels"] = bench_voxels
-        bench_dict["vox_size"] = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
-        bench_dict["topleft"] = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
-        bench_dict["axis"] = np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
-        
-    return bench_dict
-
-
-def make_profile(dose, depth, axis = "x"):
-    """
-        Plots a profile at a given depth (z coordinate) inside a 3ddose file.
-    """
-    num_x, num_y, num_z = dose["num_voxels"]
-    x_size, y_size, z_size = dose["vox_size"]
-    topleft_x, topleft_y, topleft_z = dose["topleft"]
-    depth_voxel = (depth - topleft_z) / z_size
-    if axis == "x":
-        off_axis_values = [topleft_x + (i + 0.5) * x_size for i in range(num_x)]
-        mid_y = num_y / 2
-        dose_values = [dose["grid"][depth_voxel][mid_y][i] for i in range(num_x)]
-    elif axis == "y":
-        off_axis_values = [topleft_y + (i + 0.5) * y_size for i in range(num_y)]
-        mid_x = num_x / 2
-        dose_values = [dose["grid"][depth_voxel][i][mid_x] for i in range(num_y)]
-    else:
-        raise("Only x or y axes are recognized")
-
-    profile_dict = {}
-    # Here, x and y axis refers to the axes on a graph, not
-    # the dose axes.
-    profile_dict["x_axis"] = off_axis_values
-    profile_dict["y_axis"] = dose_values
-    return profile_dict
-
-def make_pdd(dose):
-    mid_x, mid_y, mid_z = [int(vox/2) for vox in dose["num_voxels"]]
-    x_size, y_size, z_size = dose["vox_size"]
-    z_values = [(i + 0.5) * z_size for i in range(dose["num_voxels"][2])]
-    dose_values = [dose["grid"][i][mid_y][mid_x] for i in range(dose["num_voxels"][2])]
-
-    pdd_dict = {}
-    if "uncert" in dose:
-        uncert_values = [dose["uncert"][i][mid_y][mid_x] / 2.0 for i in range(dose["num_voxels"][2])]
-        pdd_dict["uncert"] = uncert_values
-
-    pdd_dict["x_axis"] = z_values
-    pdd_dict["y_axis"] = nparray(dose_values)
-    return pdd_dict
-
-
-def get_average_uncert(dose):
-    max_dose = dose["grid"].max()
-    dose_mask = dose["grid"] < 0.2 * max_dose
-    masked_uncert = ma.array(dose["uncert"], mask=dose_mask)
-    masked_dose = ma.array(dose["grid"], mask=dose_mask)
-    average_uncert = ma.average(masked_uncert / masked_dose) * 100
-    return average_uncert
-
-
-def get_average_uncert_benchmark(dose):
-    max_dose = dose["grid"].max()
-    dose_mask = dose["grid"] < 0.2 * max_dose
-    masked_uncert = ma.array(dose["uncert"], mask=dose_mask)
-    average_uncert = ma.average(masked_uncert) * 100
-    return average_uncert
-
-def pad_3ddose(dose:dict, new_dims:list, new_topLeft:list):
-    r''' a function to padd the 3ddose file and bring it to the desired dimensios.
-    it will update all the aspects of the dose object to match the new dimensiosn.
-    The voxels must have the same size! remember, python does z, y, x. 
-    inputs:
-        dose := a dictionary containing the following keys:
-            grid [z, y, x]
-            uncert [z, y, x] 
-            vox_size [x, y, z]
-            topleft [x, y, z]
-            axis [z, y, x]
-        
-        new_dims := a 1 by 3 list containing the new x, y and z dimensions:
-            [new_z_dim, new_y_dim, new_x_dim]
-
-        new_topLeft := coordinates of the new topleft
-            [x, y, z]
-    '''
-    assert any(new_dims > dose['grid'].shape)
-    
-    # calculate distances between the new and old topleft voxels. 
-    # if for an axis, the distance of toplefts is larger than the voxel size, use the new topleft
-    # else, use the old top left
-    topleft_distance = np.abs(new_topLeft - dose['topleft'])
-    final_topleft = np.zeros(3)
-    for i, distance in zip(range(3), topleft_distance):
-        final_topleft[i] = new_topLeft[i] if distance > dose['vox_size'][i] else dose['topleft'][i]
-
-    # figure out how much padding to do before and after each axis
-    padding = np.zeros([3,2])
-    for i in range(3):
-        if final_topleft[i] == dose['topleft'][i]:
-            # all padding goes to the end for this dose axis
-            pad_before = 0
-            pad_after = new_dims[2-i] - dose['grid'].shape[2-i]
-        else:
-            # all padding goes to the begining of the dose axis
-            pad_before = new_dims[2-i] - dose['grid'].shape[2-i] 
-            pad_after = 0
-        padding[2-i] = [pad_before, pad_after]
-
-    # pad the old dose grid to get the new grid!
-    new_dose_grid = np.pad(dose['grid'], tuple(padding.astype(int)), mode='edge')
-    if hasattr(dose, 'uncert'):
-            new_uncert = np.pad(dose['uncert'], tuple(padding.astype(int)), mode='edge')
-
-
-    # figure out the end coordinates based on the padding
-    # dose['vox_size'] is a list of x, y and z spacing, we want it to be
-    # a numpy array of z, y, x spacings. 
-    voxel_size = np.array(dose['vox_size'])[:, np.newaxis][::-1]
-    end_coords_distances =  padding * np.array([[-1, 1], [-1, 1], [-1, 1]]) * voxel_size
-     
-    old_end_coords = np.array(
-        [[dose['axis'][0][0],dose['axis'][0][-1]], 
-        [dose['axis'][1][0],dose['axis'][1][-1]], 
-        [dose['axis'][2][0],dose['axis'][2][-1]]])
-
-    new_end_coords = old_end_coords + end_coords_distances
-
-    # now padd the new axis with respect to the appropriate begin and end coordinates
-    new_axis = np.array([np.zeros(new_dims[0]), np.zeros(new_dims[1]), np.zeros(new_dims[2])], dtype=object)
-    
-    # pad the new axis with linear ramp
-    for i in range(new_axis.shape[0]):
-        new_axis[i] = np.pad(dose['axis'][i], tuple(padding[i].astype(int)), mode='linear_ramp', end_values=new_end_coords[i])
-
-    # fillout the new padded dose dictionary
-    padded_dose={
-        'grid': new_dose_grid, 
-        'uncert': new_uncert if hasattr(dose, 'uncert') else None, 
-        # voxel size remains unchanged
-        'vox_size': dose['vox_size'], 
-        'topleft': final_topleft, 
-        'axis': new_axis}
-    
-    return padded_dose
-
-def write_3ddose(fileName:str, dose:dict):
-    r''' given a dose dictionary with the proper fields, this function will
-    write the contents onto a text file with .3ddose extension. 
-    inputs:
-        fileName := the directory path where the file will be written
-        
-        dose := a dictionary containing the following keys:
-            grid [z, y, x]
-            uncert [z, y, x] 
-            vox_size [x, y, z]
-            topleft [x, y, z]
-            axis [z, y, x]
-    '''   
-    dimensions = ' '.join(map(str, np.array(dose['grid'].shape[::-1]))) + '\n'
-    x_axis = ' '.join(map(str, dose['axis'][2])) + '\n'
-    y_axis = ' '.join(map(str, dose['axis'][1])) + '\n'
-    z_axis = ' '.join(map(str, dose['axis'][0])) + '\n'
-    dose_flattened = ' '.join(map(str, dose['grid'].flatten('C'))) + '\n'
-    if 'uncertainty' in dose:
-        uncertainty_flattened = ' '.join(map(str, dose['uncertainty'].flatten('C'))) + '\n'
-    else:
-        uncertainty_flattened = ''
-        
-    with open(fileName, 'w') as file:
-        lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened, uncertainty_flattened]
-        file.writelines(lines)
-    
-
 def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, new_dims:list, new_topLeft:list):
     r'''Given a directory full of 3ddose maps, this function will padd them all to a user defined size. 
     inputs:
@@ -270,105 +428,6 @@ def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, 
         padded_dose_dict = pad_3ddose(dose_dict, new_dims, new_topLeft)
         write_3ddose(output_dir_3ddose_folder+file_name, padded_dose_dict)
 
-
-def write_nrrd(fileName:str, dose:dict, metaData:None):
-    r"""
-        Purpose: 
-            To save a dose dictionary as a nrrd file. 
-        inputs:
-            - fileName := path where the dose nrrd file will be written to. 
-                _dose.nrrd will be added to the basename. 
-            - dose := The dictionary that is the output of load 3ddose
-            - metaData := a dictionary containing the following meta data key values (should be changed later):
-                "cancer site": 
-                "care center": 
-                "number of dwell positions": 
-                "number of segmented structures": 
-                "patient number": 
-                "Image content": "[3D dose, 3D uncertainty]"
-        outputs: Void
-            writes [3D dose, 3D uncertainty], voxel size, origin (topleft), and metaData to the fileName_dose.nrrd
-            note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z. 
-    """
-    # create sitk dose image
-    dose_nda = np.swapaxes(dose['grid'], 0, 2).astype(np.float32)
-    uncertainty_nda = np.swapaxes(dose['uncertainty'], 0, 2).astype(np.float32)
-    
-    image_nrrd = sitk.JoinSeries(
-        sitk.GetImageFromArray(dose_nda),
-        sitk.GetImageFromArray(uncertainty_nda)
-    )
-    image_nrrd.SetOrigin(np.append([0],dose['topleft']))
-    image_nrrd.SetSpacing(np.append([1],dose['vox_size']))
-    # set the metadata: all sitk Images belonging to a patient will have the same meta data
-    for key in metaData:
-        image_nrrd.SetMetaData(key, metaData[key])
-        # uncertainty_image.SetMetaData(key, metaData[key])
-
-    # write out the files
-    fileName_ospth = os.path.abspath(fileName)
-    assert os.path.exists(os.path.dirname(fileName_ospth))
-    
-    run_number = fileName_ospth.split(".")[0]
-
-    sitk.WriteImage(image_nrrd, run_number+"_dose.nrrd", useCompression=True, compressionLevel=9)
-    # sitk.WriteImage(uncertainty_image, run_number+"uncertainty.nrrd")
-
-    return 0
-
-def calculateAxis(dose:dict):
-    r"""
-    Purpose: will calculate the axies coordinates for a 3ddose dictionary.
-    Input: 
-        - dose := output of load_3ddose(). it should have the following keys and values:
-            {"grid":,
-            "topleft":,
-            "vox_size":}
-    Output: 
-        - axes:numpy.array() := 
-        [[z_min:vox_size:z_max],
-        [y_min:vox_size:y_max],
-        [x_min:vox_size:x_max]] 
-    """
-    axes_end = np.array(
-        dose['topleft'] +  np.flip(np.array(dose['grid'].shape), axis=0)* dose['vox_size']
-    )
-    axes = np.empty(len(axes_end), dtype=object)
-    for i in range(len(axes_end)):
-        # flip axes to go from x,y,z to z,y,x:
-        axes[i] = np.arange(dose['topleft'][len(axes_end)-1-i], axes_end[len(axes_end)-1-i], dose['vox_size'][len(axes_end)-1-i])
-    
-    return axes
-
-def nrrd_to_3ddose(pth_nrrd:str) -> dict:
-    r"""
-    Purpose: given the path to a nrrd dose file, it will load its content and
-        returns the info in the same formats as of the output of load_3ddose()
-    Inputs: 
-        pth_nrrd := Path to a nrrd file writtern by write_nrrd(). 
-    Output:
-        bench_dict:dict := a dictionary containing the following keys:
-            {"uncertainty"
-            "grid":
-            "num_voxels":
-            "vox_size":
-            "topleft":
-            "axis":}
-    """
-    loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO='NrrdImageIO')
-    [dose_array, uncertainty_array] = sitk.GetArrayFromImage(loaded_image_nrrd)
-    dose_array = np.swapaxes(dose_array, 0, 2)
-    uncertainty_array = np.swapaxes(uncertainty_array, 0, 2)
-
-    bench_dict = {}
-    bench_dict["uncertainty"] = uncertainty_array
-    bench_dict["grid"] = dose_array
-    bench_dict["num_voxels"] = np.array(dose_array.shape)
-    bench_dict["vox_size"] = loaded_image_nrrd.GetSpacing()[1:]
-    bench_dict["topleft"] = loaded_image_nrrd.GetOrigin()[1:]
-    bench_dict["axis"] = calculateAxis(bench_dict) 
-        
-    return bench_dict
 
 def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
     # old_file_dir = load_3ddose(pth1_3ddose)
