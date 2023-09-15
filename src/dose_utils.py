@@ -35,14 +35,16 @@ class BrachyDose:
     Dependencies: 
     
     """
+    grid:np.ndarray
+    uncertainty:np.ndarray
+    num_voxels:np.ndarray
+    vox_size:np.ndarray
+    topleft:np.ndarray
+    axis:np.ndarray
+
     def __init__(self, ):
-        grid:np.ndarray
-        uncertainty:np.ndarray
-        num_voxels:np.ndarray
-        vox_size:np.ndarray
-        topleft:np.ndarray
-        axis:np.ndarray
-                   
+        return None       
+    
     def load_file_to_BrachyDose(self, pth_dose_file:str):
         r""" 
         Purpose: 
@@ -63,11 +65,14 @@ class BrachyDose:
         
         if file_extension == ".3ddose":
             self.load_from_3ddose(pth_dose_file)
+
         elif file_extension == ".nrrd":
             self.load_from_nrrd(pth_dose_file)
+
         elif file_extension == ".dcm":
-            assert "RD" in pth_dose_file
+            assert "RD" in pth_dose_file, "must be a dicom dose file starting with 'RD'"
             raise Exception("loading dose from dicom is not currently supported")
+        
         elif file_extension == ".bin":
             raise Exception("loading dose from .bin file is not currently supported")
     
@@ -81,7 +86,7 @@ class BrachyDose:
         Input:
             - filename := path to a ".3ddose" file
         """
-        assert os.path.splitext(filename) == ".3ddose"
+        assert os.path.splitext(filename)[-1] == ".3ddose", "this file should have '3ddose' extension."
         path = filename
         #print("Opening 3ddose at %s" % path)
         with open(path, "rb") as newfile:
@@ -133,7 +138,7 @@ class BrachyDose:
         self.num_voxels = np.array(dose_array.shape)
         self.vox_size = loaded_image_nrrd.GetSpacing()[1:]
         self.topleft = loaded_image_nrrd.GetOrigin()[1:]
-        self.axis = calculateAxis(self) 
+        self.axis = self.calculateAxis(self) 
     
     def make_profile(self, depth:float, axis:str):
         """
@@ -217,7 +222,7 @@ class BrachyDose:
             new_topLeft := coordinates of the new topleft
                 [x, y, z]
         '''
-        assert any(new_dims > self.grid.shape)
+        assert any(new_dims > self.grid.shape), "since you are padding, the new dimensions should be larger than the input dimensions"
         
         # calculate distances between the new and old topleft voxels. 
         # if for an axis, the distance of toplefts is larger than the voxel size, use the new topleft
@@ -342,7 +347,7 @@ class BrachyDose:
 
         # write out the files
         fileName_ospth = os.path.abspath(fileName)
-        assert os.path.exists(os.path.dirname(fileName_ospth))
+        assert os.path.exists(os.path.dirname(fileName_ospth)), f"the input folder does not exist: {os.path.dirname(fileName_ospth)}"
         
         run_number = fileName_ospth.split(".")[0]
 
@@ -371,6 +376,25 @@ class BrachyDose:
             axes[i] = np.arange(self.topleft[len(axes_end)-1-i], axes_end[len(axes_end)-1-i], self.vox_size[len(axes_end)-1-i])
         
         return axes
+    
+    def is_equal(self, new_brachyDose):
+        r"""
+        Purpose:
+            To compare if self:BrachyDose has the same attributes as an input BrachyDose
+        
+        Inputs:
+            - new_brachyDose: another BrachyDose object whose attributes may or may not contain equal info as the attributes of self. 
+        
+        Outputs:
+            True if attributes of new_brachyDose are the same as self
+            False otherwise
+        """
+        assert isinstance(new_brachyDose, BrachyDose), "input must be of type BrachyDose"
+
+        return self.grid == new_brachyDose.grid and self.axis == new_brachyDose.axis \
+            and self.uncertainty == new_brachyDose.uncertainty \
+            and self.num_voxels == new_brachyDose.num_voxels \
+            and self.vox_size == new_brachyDose.vox_size and self.topleft == new_brachyDose.topleft
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
@@ -447,119 +471,150 @@ def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
 
 
 
-def _test_nrrd_to_3ddose():
-    # 1mm 
-    # pth_nrrd = "../test_data/combined_dose.nrrd"
-    # pth_3ddose = "../test_data/combined_fromNRRD.3ddose"
-    # pth_3ddose_groundtruth = "../test_data/combined.3ddose"
+# def _test_nrrd_to_3ddose():
+#     # 1mm 
+#     # pth_nrrd = "../test_data/combined_dose.nrrd"
+#     # pth_3ddose = "../test_data/combined_fromNRRD.3ddose"
+#     # pth_3ddose_groundtruth = "../test_data/combined.3ddose"
 
-    # 3mm 
-    pth_nrrd = "../test_data/run_1_dose.nrrd"
-    pth_3ddose = "../test_data/run_1_fromNRRD.3ddose"
-    pth_3ddose_groundtruth = "../test_data/run_1_old.3ddose"
+#     # 3mm 
+#     pth_nrrd = "../test_data/run_1_dose.nrrd"
+#     pth_3ddose = "../test_data/run_1_fromNRRD.3ddose"
+#     pth_3ddose_groundtruth = "../test_data/run_1_old.3ddose"
     
-    nrrd_3ddose = nrrd_to_3ddose(pth_nrrd)
-    write_3ddose(pth_3ddose, nrrd_3ddose)
+#     nrrd_3ddose = nrrd_to_3ddose(pth_nrrd)
+#     write_3ddose(pth_3ddose, nrrd_3ddose)
     
-    compare_two_3ddose_files(pth_3ddose_groundtruth, pth_3ddose)
+#     compare_two_3ddose_files(pth_3ddose_groundtruth, pth_3ddose)
 
 
-def _test_pad_3ddose():
+# def _test_pad_3ddose():
     
-    # load the 3ddose file that is to be padded
-    old_3ddose = load_3ddose('/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose')
+#     # load the 3ddose file that is to be padded
+#     old_3ddose = load_3ddose('/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose')
 
-    # here i just give some arbitrary numbers just for developement
-    # the new dimensions must be in the z, y, x format. 
-    # voxel size and topleft must be in x, y, z forma. 
-    new_dims = nparray([78, 167, 167])
+#     # here i just give some arbitrary numbers just for developement
+#     # the new dimensions must be in the z, y, x format. 
+#     # voxel size and topleft must be in x, y, z forma. 
+#     new_dims = nparray([78, 167, 167])
 
-    new_topLeft = nparray([-249., -122., 23.]) * 0.1
+#     new_topLeft = nparray([-249., -122., 23.]) * 0.1
 
-    padded_dose = pad_3ddose(dose=old_3ddose, new_dims=new_dims, new_topLeft=new_topLeft)
+#     padded_dose = pad_3ddose(dose=old_3ddose, new_dims=new_dims, new_topLeft=new_topLeft)
 
-    print(f"size of the new grid is {padded_dose['grid'].shape}")
-    print(f"the voxel size is {padded_dose['vox_size']}")
-    print(f"the new top left is {padded_dose['topleft']} \n",
-     f"and the old top left was {old_3ddose['topleft']}")
-    print(f"the size of the new axis is {padded_dose['axis'].shape}")
+#     print(f"size of the new grid is {padded_dose['grid'].shape}")
+#     print(f"the voxel size is {padded_dose['vox_size']}")
+#     print(f"the new top left is {padded_dose['topleft']} \n",
+#      f"and the old top left was {old_3ddose['topleft']}")
+#     print(f"the size of the new axis is {padded_dose['axis'].shape}")
 
-    # load the dicom files
-    # path2Dicom = "/home/majd/data/Patient_Treatment _Plans/sebastien-breast/230776_Anon/"
-    # dicom_file_path = glob(path2Dicom+'CT2.dcm')[0]
-    # loaded_dicom = dicomparser.DicomParser(dicom_file_path)
-    # print(type(rt_dose))
-
-
-def _test_write_3ddose():
-    old_file_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose'
-    old_3ddose = load_3ddose(old_file_dir)
-    new_file_dir = './test_run_1.3ddose'
-
-    write_3ddose(new_file_dir, old_3ddose)
-
-    new_3ddose = load_3ddose(new_file_dir)
-
-    # print(f"the difference between original dose and written dose {new_3ddose['grid']-old_3ddose['grid']}")
-
-    with open(old_file_dir, 'r') as file1, open(new_file_dir) as file2:
-        contents1 = file1.read()
-        contents2 = file2.read()
-
-    if contents1 == contents2:
-        print("write 3ddose works fine")
-    else:
-        print("write 3ddose does not work fine")
-        print('here are the differences')
-        diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
-        print('\n'.join(diff_list))
+#     # load the dicom files
+#     # path2Dicom = "/home/majd/data/Patient_Treatment _Plans/sebastien-breast/230776_Anon/"
+#     # dicom_file_path = glob(path2Dicom+'CT2.dcm')[0]
+#     # loaded_dicom = dicomparser.DicomParser(dicom_file_path)
+#     # print(type(rt_dose))
 
 
-    print('okay')
+# def _test_write_3ddose():
+#     old_file_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose'
+#     old_3ddose = load_3ddose(old_file_dir)
+#     new_file_dir = './test_run_1.3ddose'
 
-def _test_pad_many_3ddoses():
-    input_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/'
-    output_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/padded/patient_230776/'
-    new_dims = np.array([78, 167, 167])
-    new_topLeft = np.array([-249.48828125, -122.48828125, 23.5]) * 0.1
+#     write_3ddose(new_file_dir, old_3ddose)
 
-    pad_many_3ddoses(input_dir, output_dir, new_dims, new_topLeft)
+#     new_3ddose = load_3ddose(new_file_dir)
 
-def _test_write_nrrd():
-    # 1mm resolution
-    # pth_3ddose = "../test_data/combined.3ddose"
-    # pth_toWrite_nrrd = "../test_data/combined.nrrd"
-    # pth_toLoad_nrrd = "../test_data/combined_dose.nrrd"
-    # 3 mm resolution
-    pth_3ddose = "../test_data/run_1_old.3ddose"
-    pth_toWrite_nrrd = "../test_data/run_1.nrrd"
-    pth_toLoad_nrrd = "../test_data/run_1_dose.nrrd"
-    # creat metadata dictionary
-    meta_dict = {
-        "cancer site": "prostate",
-        "care center": "muhc glen",
-        "number of dwell positions": "100",
-        "number of segmented structures": "4",
-        "patient number": "0",
-        "Image content": "[3D dose, 3D uncertainty]"
-    }
+#     # print(f"the difference between original dose and written dose {new_3ddose['grid']-old_3ddose['grid']}")
 
-    # load the 3ddos file
-    dose_3ddose = load_3ddose(pth_3ddose)
+#     with open(old_file_dir, 'r') as file1, open(new_file_dir) as file2:
+#         contents1 = file1.read()
+#         contents2 = file2.read()
 
-    write_nrrd(pth_toWrite_nrrd, dose_3ddose, meta_dict)
+#     if contents1 == contents2:
+#         print("write 3ddose works fine")
+#     else:
+#         print("write 3ddose does not work fine")
+#         print('here are the differences')
+#         diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
+#         print('\n'.join(diff_list))
 
-    # loaded_image_nrrd = sitk.ReadImage(pth_toLoad_nrrd, imageIO='NrrdImageIO')
-    # array = sitk.GetArrayFromImage(loaded_image_nrrd)
-    # print(f"dimensions of the loaded image: {loaded_image_nrrd}")
-    # reader = sitk.ImageFileReader()
-    # reader.SetImageIO("NrrdImageIO")
 
-if __name__ == "__main__":
+#     print('okay')
+
+# def _test_pad_many_3ddoses():
+#     input_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/'
+#     output_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/padded/patient_230776/'
+#     new_dims = np.array([78, 167, 167])
+#     new_topLeft = np.array([-249.48828125, -122.48828125, 23.5]) * 0.1
+
+#     pad_many_3ddoses(input_dir, output_dir, new_dims, new_topLeft)
+
+# def _test_write_nrrd():
+#     # 1mm resolution
+#     # pth_3ddose = "../test_data/combined.3ddose"
+#     # pth_toWrite_nrrd = "../test_data/combined.nrrd"
+#     # pth_toLoad_nrrd = "../test_data/combined_dose.nrrd"
+#     # 3 mm resolution
+#     pth_3ddose = "../test_data/run_1_old.3ddose"
+#     pth_toWrite_nrrd = "../test_data/run_1.nrrd"
+#     pth_toLoad_nrrd = "../test_data/run_1_dose.nrrd"
+#     # creat metadata dictionary
+#     meta_dict = {
+#         "cancer site": "prostate",
+#         "care center": "muhc glen",
+#         "number of dwell positions": "100",
+#         "number of segmented structures": "4",
+#         "patient number": "0",
+#         "Image content": "[3D dose, 3D uncertainty]"
+#     }
+
+#     # load the 3ddos file
+#     dose_3ddose = load_3ddose(pth_3ddose)
+
+#     write_nrrd(pth_toWrite_nrrd, dose_3ddose, meta_dict)
+
+#     loaded_image_nrrd = sitk.ReadImage(pth_toLoad_nrrd, imageIO='NrrdImageIO')
+#     array = sitk.GetArrayFromImage(loaded_image_nrrd)
+#     print(f"dimensions of the loaded image: {loaded_image_nrrd}")
+#     reader = sitk.ImageFileReader()
+#     reader.SetImageIO("NrrdImageIO")
+
+def assert_BrachyDose_notEmpty(dose_obj:BrachyDose):
+    assert dose_obj.grid is not None, "error in load_from_3ddose. grid is None"  
+    assert dose_obj.uncertainty is not None, "error in load_from_3ddose. uncertainty is None"
+    assert dose_obj.num_voxels is not None, "error in load_from_3ddose. num_voxels is None"
+    assert dose_obj.vox_size is not None, "error in load_from_3ddose. vox_size is None"
+    assert dose_obj.topleft is not None, "error in load_from_3ddose. topleft is None"
+    assert dose_obj.axis is not None, "error in load_from_3ddose. axis is None"
+
+
+def test_load_from_3ddose():
+    pth_3ddose =  "../dose_test/run_1_old.3ddose"
+    dose_obj = BrachyDose()
+    dose_obj.load_from_3ddose(pth_3ddose)
+    assert_BrachyDose_notEmpty(dose_obj)
+
+def test_load_file_to_brachyDose():
+    pth_3ddose =  "../dose_test/run_1_old.3ddose"
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+
+def test_write_to_3ddose_file():
+    pth_3ddose =  "../dose_test/run_1_old.3ddose"
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+
+    pth_new_3ddose = "../dose_test/run_1_new.3ddose"
+    dose_obj.write_to_3ddose_file(pth_new_3ddose)
+    new_dose_obj = BrachyDose().load_file_to_BrachyDose(pth_new_3ddose)
+    assert dose_obj.is_equal(new_dose_obj)
+
+# if __name__ == "__main__":
 
     # a Test for the following functions
+    # test_load_from_3ddose()
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
     # _test_write_nrrd()
-    _test_nrrd_to_3ddose()
+    # _test_nrrd_to_3ddose()
