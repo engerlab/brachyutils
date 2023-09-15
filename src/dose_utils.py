@@ -94,9 +94,9 @@ class BrachyDose:
         #print("Opening 3ddose at %s" % path)
         with open(path, "rb") as newfile:
             bench_voxels = [int(i) for i in newfile.readline().split()]
-            bench_x_pos = nparray(newfile.readline().split(), dtype=float)
-            bench_y_pos = nparray(newfile.readline().split(), dtype=float)
-            bench_z_pos = nparray(newfile.readline().split(), dtype=float)
+            bench_x_pos = nparray(newfile.readline().split(), dtype=np.float32)
+            bench_y_pos = nparray(newfile.readline().split(), dtype=np.float32)
+            bench_z_pos = nparray(newfile.readline().split(), dtype=np.float32)
 
             bench_x_spacing = (bench_x_pos[1] - bench_x_pos[0])
             bench_y_spacing = (bench_y_pos[1] - bench_y_pos[0])
@@ -104,20 +104,21 @@ class BrachyDose:
 
             bench_dict = {}
 
-            huge_dose_array = nparray(newfile.readline().strip().split(), dtype=float)
+            huge_dose_array = nparray(newfile.readline().strip().split(), dtype=np.float32)
             bench_dose = reshape(huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
             try:
-                huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=float)
+                huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=np.float32)
                 bench_uncert = reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
                 self.uncertainty = bench_uncert
             except:
                 print("Warning: No uncertainty in the 3ddose files")
 
             self.grid = bench_dose
-            self.num_voxels = bench_voxels
-            self.vox_size = [bench_x_spacing, bench_y_spacing, bench_slice_thick]
-            self.topleft = [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]]
-            self.axis = np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
+            self.num_voxels = np.array(bench_voxels, dtype=np.float32)
+            self.vox_size = np.array([bench_x_spacing, bench_y_spacing, bench_slice_thick], dtype=np.float32)
+            self.topleft = np.array([bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]], dtype=np.float32)
+            # overriding axis calculation to ignore the axis contents of 3ddose and use the function below
+            self.axis = self.calculateAxis() #np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
     
     def load_from_nrrd(self, pth_nrrd:str):
         r"""
@@ -138,10 +139,10 @@ class BrachyDose:
 
         self.uncertainty = uncertainty_array
         self.grid = dose_array
-        self.num_voxels = np.array(dose_array.shape)
-        self.vox_size = loaded_image_nrrd.GetSpacing()[1:]
-        self.topleft = loaded_image_nrrd.GetOrigin()[1:]
-        self.axis = self.calculateAxis(self) 
+        self.num_voxels = np.array(np.flip((dose_array.shape), axis=0))
+        self.vox_size = np.array(loaded_image_nrrd.GetSpacing()[1:])
+        self.topleft = np.array(loaded_image_nrrd.GetOrigin()[1:])
+        self.axis = self.calculateAxis() 
     
     def make_profile(self, depth:float, axis:str):
         """
@@ -302,7 +303,7 @@ class BrachyDose:
         '''   
         fileName = os.path.abspath(fileName)
 
-        dimensions = ' '.join(map(str, np.array(self.grid.shape[::-1]))) + '\n'
+        dimensions = ' '.join(map(str, self.num_voxels.astype(int))) + '\n'
         x_axis = ' '.join(map(str, self.axis[2])) + '\n'
         y_axis = ' '.join(map(str, self.axis[1])) + '\n'
         z_axis = ' '.join(map(str, self.axis[0])) + '\n'
@@ -316,7 +317,7 @@ class BrachyDose:
             lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened, uncertainty_flattened]
             file.writelines(lines)
     
-    def write_to_nrrd_file(self, fileName:str, metaData:Optional[dict]):
+    def write_to_nrrd_file(self, fileName:str, metaData:Optional[dict]=None):
         r"""
             Purpose: 
                 To save the contents of BrachyDose into a nrrd file. 
@@ -344,9 +345,11 @@ class BrachyDose:
         )
         image_nrrd.SetOrigin(np.append([0],self.topleft))
         image_nrrd.SetSpacing(np.append([1],self.vox_size))
+        
         # set the metadata: all sitk Images belonging to a patient will have the same meta data
-        for key in metaData:
-            image_nrrd.SetMetaData(key, metaData[key])
+        if metaData is not None:
+            for key in metaData:
+                image_nrrd.SetMetaData(key, metaData[key])
 
         # write out the files
         fileName_ospth = os.path.abspath(fileName)
@@ -354,7 +357,7 @@ class BrachyDose:
         
         run_number = fileName_ospth.split(".")[0]
 
-        sitk.WriteImage(image_nrrd, run_number+"_dose.nrrd", useCompression=True, compressionLevel=9)
+        sitk.WriteImage(image_nrrd, run_number+".nrrd", useCompression=True, compressionLevel=9)
 
     def calculateAxis(self):
         r"""
@@ -370,13 +373,13 @@ class BrachyDose:
             [y_min:vox_size:y_max],
             [x_min:vox_size:x_max]] 
         """
+        # calculate the end point of axis in 3D space
         axes_end = np.array(
-            self.topleft +  np.flip(np.array(self.grid.shape), axis=0)* self.vox_size
+            self.topleft +  self.num_voxels* self.vox_size + self.vox_size # one voxel size is added because np.arange stops at an index before the end  
         )
         axes = np.empty(len(axes_end), dtype=object)
         for i in range(len(axes_end)):
-            # flip axes to go from x,y,z to z,y,x:
-            axes[i] = np.arange(self.topleft[len(axes_end)-1-i], axes_end[len(axes_end)-1-i], self.vox_size[len(axes_end)-1-i])
+            axes[i] = np.arange(self.topleft[len(axes_end)-1-i], axes_end[len(axes_end)-1-i], self.vox_size[len(axes_end)-1-i], dtype=np.float32)
         
         return axes
     
@@ -393,24 +396,22 @@ class BrachyDose:
             False otherwise
         """
         assert isinstance(new_brachyDose, BrachyDose), "input must be of type BrachyDose"
-
-        return np.array_equal(self.grid, new_brachyDose.grid) and \
-            np.all(np.concatenate(np.equal(self.axis, new_brachyDose.axis, dtype=object))) \
+        assert np.array_equal(self.grid, new_brachyDose.grid), "dose grid is not the same" 
+        assert np.array_equal(np.concatenate(self.axis), np.concatenate(new_brachyDose.axis)), "axis is not the same"
+        assert np.array_equal(self.uncertainty, new_brachyDose.uncertainty), "uncertainty is not the same"
+        assert np.array_equal(self.num_voxels, new_brachyDose.num_voxels), "num_voxels is not the same"
+        assert np.array_equal(np.round(self.vox_size, 2), np.round(new_brachyDose.vox_size, 2)), "vox_size is not the same"
+        assert np.array_equal(np.round(self.topleft, 2), np.round(new_brachyDose.topleft), 2), "topleft is not the same"
+        
+        
+        return np.array_equal(self.grid, new_brachyDose.grid) \
+            and np.array_equal(np.concatenate(self.axis), np.concatenate(new_brachyDose.axis)) \
             and np.array_equal(self.uncertainty, new_brachyDose.uncertainty) \
             and np.array_equal(self.num_voxels, new_brachyDose.num_voxels) \
-            and np.array_equal(self.vox_size, new_brachyDose.vox_size) \
-            and np.array_equal(self.topleft, new_brachyDose.topleft)
-
-def flatten(l):
-    returnlist = []
-    for elem in l:
-        if isinstance(elem, Iterable):
-            returnlist.extend(flatten(elem))
-        else:
-            returnlist.append(elem)
-            
-        return returnlist
-
+            and np.array_equal(np.round(self.vox_size, 2), np.round(new_brachyDose.vox_size, 2)) \
+            and np.array_equal(np.round(self.topleft, 2), np.round(new_brachyDose.topleft), 2)
+            # np.array_equal(np.round(np.concatenate(self.axis), 2), np.concatenate(new_brachyDose.axis)) \
+                
 def load_pmc_dose(filename):
     return load_3ddose(filename)
 
@@ -486,121 +487,13 @@ def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
 
 
 
-# def _test_nrrd_to_3ddose():
-#     # 1mm 
-#     # pth_nrrd = "../test_data/combined_dose.nrrd"
-#     # pth_3ddose = "../test_data/combined_fromNRRD.3ddose"
-#     # pth_3ddose_groundtruth = "../test_data/combined.3ddose"
-
-#     # 3mm 
-#     pth_nrrd = "../test_data/run_1_dose.nrrd"
-#     pth_3ddose = "../test_data/run_1_fromNRRD.3ddose"
-#     pth_3ddose_groundtruth = "../test_data/run_1_old.3ddose"
-    
-#     nrrd_3ddose = nrrd_to_3ddose(pth_nrrd)
-#     write_3ddose(pth_3ddose, nrrd_3ddose)
-    
-#     compare_two_3ddose_files(pth_3ddose_groundtruth, pth_3ddose)
-
-
-# def _test_pad_3ddose():
-    
-#     # load the 3ddose file that is to be padded
-#     old_3ddose = load_3ddose('/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose')
-
-#     # here i just give some arbitrary numbers just for developement
-#     # the new dimensions must be in the z, y, x format. 
-#     # voxel size and topleft must be in x, y, z forma. 
-#     new_dims = nparray([78, 167, 167])
-
-#     new_topLeft = nparray([-249., -122., 23.]) * 0.1
-
-#     padded_dose = pad_3ddose(dose=old_3ddose, new_dims=new_dims, new_topLeft=new_topLeft)
-
-#     print(f"size of the new grid is {padded_dose['grid'].shape}")
-#     print(f"the voxel size is {padded_dose['vox_size']}")
-#     print(f"the new top left is {padded_dose['topleft']} \n",
-#      f"and the old top left was {old_3ddose['topleft']}")
-#     print(f"the size of the new axis is {padded_dose['axis'].shape}")
-
-#     # load the dicom files
-#     # path2Dicom = "/home/majd/data/Patient_Treatment _Plans/sebastien-breast/230776_Anon/"
-#     # dicom_file_path = glob(path2Dicom+'CT2.dcm')[0]
-#     # loaded_dicom = dicomparser.DicomParser(dicom_file_path)
-#     # print(type(rt_dose))
-
-
-# def _test_write_3ddose():
-#     old_file_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/run_1.3ddose'
-#     old_3ddose = load_3ddose(old_file_dir)
-#     new_file_dir = './test_run_1.3ddose'
-
-#     write_3ddose(new_file_dir, old_3ddose)
-
-#     new_3ddose = load_3ddose(new_file_dir)
-
-#     # print(f"the difference between original dose and written dose {new_3ddose['grid']-old_3ddose['grid']}")
-
-#     with open(old_file_dir, 'r') as file1, open(new_file_dir) as file2:
-#         contents1 = file1.read()
-#         contents2 = file2.read()
-
-#     if contents1 == contents2:
-#         print("write 3ddose works fine")
-#     else:
-#         print("write 3ddose does not work fine")
-#         print('here are the differences')
-#         diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
-#         print('\n'.join(diff_list))
-
-
-#     print('okay')
-
-# def _test_pad_many_3ddoses():
-#     input_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/patient_230776/'
-#     output_dir = '/home/majd/data/Patient_Dose_Simulations/sebastien-breast/padded/patient_230776/'
-#     new_dims = np.array([78, 167, 167])
-#     new_topLeft = np.array([-249.48828125, -122.48828125, 23.5]) * 0.1
-
-#     pad_many_3ddoses(input_dir, output_dir, new_dims, new_topLeft)
-
-# def _test_write_nrrd():
-#     # 1mm resolution
-#     # pth_3ddose = "../test_data/combined.3ddose"
-#     # pth_toWrite_nrrd = "../test_data/combined.nrrd"
-#     # pth_toLoad_nrrd = "../test_data/combined_dose.nrrd"
-#     # 3 mm resolution
-#     pth_3ddose = "../test_data/run_1_old.3ddose"
-#     pth_toWrite_nrrd = "../test_data/run_1.nrrd"
-#     pth_toLoad_nrrd = "../test_data/run_1_dose.nrrd"
-#     # creat metadata dictionary
-#     meta_dict = {
-#         "cancer site": "prostate",
-#         "care center": "muhc glen",
-#         "number of dwell positions": "100",
-#         "number of segmented structures": "4",
-#         "patient number": "0",
-#         "Image content": "[3D dose, 3D uncertainty]"
-#     }
-
-#     # load the 3ddos file
-#     dose_3ddose = load_3ddose(pth_3ddose)
-
-#     write_nrrd(pth_toWrite_nrrd, dose_3ddose, meta_dict)
-
-#     loaded_image_nrrd = sitk.ReadImage(pth_toLoad_nrrd, imageIO='NrrdImageIO')
-#     array = sitk.GetArrayFromImage(loaded_image_nrrd)
-#     print(f"dimensions of the loaded image: {loaded_image_nrrd}")
-#     reader = sitk.ImageFileReader()
-#     reader.SetImageIO("NrrdImageIO")
-
 def assert_BrachyDose_notEmpty(dose_obj:BrachyDose):
-    assert dose_obj.grid is not None, "error in load_from_3ddose. grid is None"  
-    assert dose_obj.uncertainty is not None, "error in load_from_3ddose. uncertainty is None"
-    assert dose_obj.num_voxels is not None, "error in load_from_3ddose. num_voxels is None"
-    assert dose_obj.vox_size is not None, "error in load_from_3ddose. vox_size is None"
-    assert dose_obj.topleft is not None, "error in load_from_3ddose. topleft is None"
-    assert dose_obj.axis is not None, "error in load_from_3ddose. axis is None"
+    assert dose_obj.grid is not None, "error grid is None"  
+    assert dose_obj.uncertainty is not None, "error uncertainty is None"
+    assert dose_obj.num_voxels is not None, "error num_voxels is None"
+    assert dose_obj.vox_size is not None, "error vox_size is None"
+    assert dose_obj.topleft is not None, "error topleft is None"
+    assert dose_obj.axis is not None, "error axis is None"
 
 def test_load_from_3ddose():
     pth_3ddose =  "../data_test/run_1_old.3ddose"
@@ -622,9 +515,23 @@ def test_write_to_3ddose_file():
     pth_new_3ddose = "../data_test/run_1_new.3ddose"
     dose_obj.write_to_3ddose_file(pth_new_3ddose)
     new_dose_obj = BrachyDose().load_file_to_BrachyDose(pth_new_3ddose)
-    assert dose_obj.is_equal(new_dose_obj)
+    assert dose_obj.is_equal(new_dose_obj), "dose objects are not equal"
 
-
+def test_convert_to_nrrd():
+    r"""
+    Purpose: 
+        simulatenously test write_to_nrrd() and load_from_nrrd()
+    """
+    pth_3ddose =  "../data_test/run_1_old.3ddose"
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    pth_nrrd = "../data_test/run_1_old.nrrd"
+    dose_obj.write_to_nrrd_file(pth_nrrd)
+    
+    dose_obj_From_nrrd = BrachyDose()
+    dose_obj_From_nrrd.load_file_to_BrachyDose(pth_nrrd)
+    
+    assert dose_obj.is_equal(dose_obj_From_nrrd), "dose objects are not equal"
 
 if __name__ == "__main__":
 
@@ -632,6 +539,7 @@ if __name__ == "__main__":
     # test_load_from_3ddose()
     # test_load_file_to_brachyDose()
     test_write_to_3ddose_file()
+    # test_convert_to_nrrd()
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
