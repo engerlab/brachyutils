@@ -15,6 +15,7 @@ from glob import glob
 import SimpleITK as sitk
 import difflib
 from typing import Optional
+from collections.abc import Iterable
 
 class BrachyDose:
     r"""
@@ -35,6 +36,7 @@ class BrachyDose:
     Dependencies: 
     
     """
+    
     grid:np.ndarray
     uncertainty:np.ndarray
     num_voxels:np.ndarray
@@ -42,8 +44,9 @@ class BrachyDose:
     topleft:np.ndarray
     axis:np.ndarray
 
-    def __init__(self, ):
-        return None       
+    # def __init__(self, ):
+        
+    #     return None       
     
     def load_file_to_BrachyDose(self, pth_dose_file:str):
         r""" 
@@ -61,7 +64,7 @@ class BrachyDose:
         """
         pth_dose_file = os.path.abspath(pth_dose_file)
         
-        file_extension = os.path.splitext(pth_dose_file)
+        file_extension = os.path.splitext(pth_dose_file)[-1]
         
         if file_extension == ".3ddose":
             self.load_from_3ddose(pth_dose_file)
@@ -391,10 +394,22 @@ class BrachyDose:
         """
         assert isinstance(new_brachyDose, BrachyDose), "input must be of type BrachyDose"
 
-        return self.grid == new_brachyDose.grid and self.axis == new_brachyDose.axis \
-            and self.uncertainty == new_brachyDose.uncertainty \
-            and self.num_voxels == new_brachyDose.num_voxels \
-            and self.vox_size == new_brachyDose.vox_size and self.topleft == new_brachyDose.topleft
+        return np.array_equal(self.grid, new_brachyDose.grid) and \
+            np.all(np.concatenate(np.equal(self.axis, new_brachyDose.axis, dtype=object))) \
+            and np.array_equal(self.uncertainty, new_brachyDose.uncertainty) \
+            and np.array_equal(self.num_voxels, new_brachyDose.num_voxels) \
+            and np.array_equal(self.vox_size, new_brachyDose.vox_size) \
+            and np.array_equal(self.topleft, new_brachyDose.topleft)
+
+def flatten(l):
+    returnlist = []
+    for elem in l:
+        if isinstance(elem, Iterable):
+            returnlist.extend(flatten(elem))
+        else:
+            returnlist.append(elem)
+            
+        return returnlist
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
@@ -587,32 +602,36 @@ def assert_BrachyDose_notEmpty(dose_obj:BrachyDose):
     assert dose_obj.topleft is not None, "error in load_from_3ddose. topleft is None"
     assert dose_obj.axis is not None, "error in load_from_3ddose. axis is None"
 
-
 def test_load_from_3ddose():
-    pth_3ddose =  "../dose_test/run_1_old.3ddose"
+    pth_3ddose =  "../data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_from_3ddose(pth_3ddose)
     assert_BrachyDose_notEmpty(dose_obj)
 
 def test_load_file_to_brachyDose():
-    pth_3ddose =  "../dose_test/run_1_old.3ddose"
+    pth_3ddose =  "../data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    assert_BrachyDose_notEmpty(dose_obj)
 
 def test_write_to_3ddose_file():
-    pth_3ddose =  "../dose_test/run_1_old.3ddose"
+    pth_3ddose =  "../data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
 
-    pth_new_3ddose = "../dose_test/run_1_new.3ddose"
+    pth_new_3ddose = "../data_test/run_1_new.3ddose"
     dose_obj.write_to_3ddose_file(pth_new_3ddose)
     new_dose_obj = BrachyDose().load_file_to_BrachyDose(pth_new_3ddose)
     assert dose_obj.is_equal(new_dose_obj)
 
-# if __name__ == "__main__":
+
+
+if __name__ == "__main__":
 
     # a Test for the following functions
     # test_load_from_3ddose()
+    # test_load_file_to_brachyDose()
+    test_write_to_3ddose_file()
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
