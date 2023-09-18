@@ -10,4 +10,4 @@ python "./dose_utils.py"
 
 duration=$[ $(date +%s) - ${start_run}  ]
 
-echo ${duration}
+echo ${duration} seconds

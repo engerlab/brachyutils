@@ -17,6 +17,10 @@ import difflib
 from typing import Optional
 from collections.abc import Iterable
 
+import pytest
+
+# for using QDataStream for writing Qt binary files
+
 class BrachyDose:
     r"""
     Purpse: 
@@ -143,6 +147,17 @@ class BrachyDose:
         self.vox_size = np.array(loaded_image_nrrd.GetSpacing()[1:])
         self.topleft = np.array(loaded_image_nrrd.GetOrigin()[1:])
         self.axis = self.calculateAxis() 
+        
+    def load_from_npz(self, pth_npz):
+        assert os.path.splitext(pth_npz)[-1]==".npz", "the file extension should be npz"
+        
+        loaded_BrachyDose = np.load(pth_npz, allow_pickle=True)
+        self.uncertainty = loaded_BrachyDose["uncertainty"]
+        self.grid =  loaded_BrachyDose["grid"]
+        self.num_voxels =  loaded_BrachyDose["num_voxels"]
+        self.vox_size =  loaded_BrachyDose["vox_size"]
+        self.topleft =  loaded_BrachyDose["topleft"]
+        self.axis =  loaded_BrachyDose["axis"]
     
     def make_profile(self, depth:float, axis:str):
         """
@@ -359,6 +374,19 @@ class BrachyDose:
 
         sitk.WriteImage(image_nrrd, run_number+".nrrd", useCompression=True, compressionLevel=9)
 
+    def write_to_npz_file(self, fileName:str):
+        assert os.path.splitext(fileName)[-1] == ".npz"
+        
+        np.savez_compressed(
+            file=fileName, 
+            grid=self.grid,
+            uncertainty=self.uncertainty,
+            num_voxels=self.num_voxels, 
+            vox_size=self.vox_size,
+            topleft = self.topleft,
+            axis=self.axis,
+            )
+            
     def calculateAxis(self):
         r"""
         Purpose: will calculate the axies coordinates for a 3ddose dictionary.
@@ -499,6 +527,7 @@ def assert_BrachyDose_notEmpty(dose_obj:BrachyDose):
     assert dose_obj.topleft is not None, "error topleft is None"
     assert dose_obj.axis is not None, "error axis is None"
 
+
 def test_load_from_3ddose():
     pth_3ddose =  "../data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
@@ -510,7 +539,7 @@ def test_load_file_to_brachyDose():
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     assert_BrachyDose_notEmpty(dose_obj)
-
+# @pytest.mark.passed
 def test_write_to_3ddose_file():
     pth_3ddose =  "../data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
@@ -520,16 +549,24 @@ def test_write_to_3ddose_file():
     dose_obj.write_to_3ddose_file(pth_new_3ddose)
     new_dose_obj = BrachyDose().load_file_to_BrachyDose(pth_new_3ddose)
     dose_obj.is_equal(new_dose_obj), "dose objects are not equal"
-
+# @pytest.mark.passed
 def test_convert_to_nrrd():
     r"""
     Purpose: 
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
-    pth_3ddose =  "../data_test/run_1_old.3ddose"
+    # 3 mm resolution
+    # pth_3ddose =  "../data_test/run_1_old.3ddose"
+    # pth_nrrd = "../data_test/run_1_old.nrrd"
+# 
+    # 1 mm resolution
+    pth_3ddose =  "../data_test/combined.3ddose"
+    pth_nrrd = "../data_test/combined_old.nrrd"
+
+    
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
-    pth_nrrd = "../data_test/run_1_old.nrrd"
+   
     dose_obj.write_to_nrrd_file(pth_nrrd)
     
     dose_obj_From_nrrd = BrachyDose()
@@ -537,30 +574,31 @@ def test_convert_to_nrrd():
     
     dose_obj.is_equal(dose_obj_From_nrrd), "dose objects are not equal"
 
-def test_convert_to_nrrd_1mm():
+def test_convert_to_npz_file():
     r"""
     Purpose: 
-        simulatenously test write_to_nrrd() and load_from_nrrd()
+        simulatenously test write_to_npz_file() and load_from_npz()
     """
     pth_3ddose =  "../data_test/combined.3ddose"
+    pth_npz = "../data_test/combined.npz"
+    
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
-    pth_nrrd = "../data_test/combined_old.nrrd"
-    dose_obj.write_to_nrrd_file(pth_nrrd)
     
-    dose_obj_From_nrrd = BrachyDose()
-    dose_obj_From_nrrd.load_file_to_BrachyDose(pth_nrrd)
+    dose_obj.write_to_npz_file(pth_npz)
     
-    dose_obj.is_equal(dose_obj_From_nrrd), "dose objects are not equal"
-    
+    new_dose_obj = BrachyDose()
+    new_dose_obj.load_from_npz(pth_npz)
+    dose_obj.is_equal(new_dose_obj)
 
 if __name__ == "__main__":
 
     # a Test for the following functions
     # test_load_from_3ddose()
     # test_load_file_to_brachyDose()
-    test_write_to_3ddose_file()
+    # test_write_to_3ddose_file()
     # test_convert_to_nrrd()
+    test_convert_to_npz_file()
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
