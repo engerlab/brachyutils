@@ -400,16 +400,20 @@ class BrachyDose:
         assert np.array_equal(np.concatenate(self.axis), np.concatenate(new_brachyDose.axis)), "axis is not the same"
         assert np.array_equal(self.uncertainty, new_brachyDose.uncertainty), "uncertainty is not the same"
         assert np.array_equal(self.num_voxels, new_brachyDose.num_voxels), "num_voxels is not the same"
-        assert np.array_equal(np.round(self.vox_size, 2), np.round(new_brachyDose.vox_size, 2)), "vox_size is not the same"
-        assert np.array_equal(np.round(self.topleft, 2), np.round(new_brachyDose.topleft), 2), "topleft is not the same"
+        assert np.array_equal(self.vox_size, new_brachyDose.vox_size), "vox_size is not the same"
+        assert np.array_equal(self.topleft, new_brachyDose.topleft), "topleft is not the same"
+        # assert np.array_equal(np.round(self.vox_size, 2), np.round(new_brachyDose.vox_size, 2)), "vox_size is not the same"
+        # assert np.array_equal(np.round(self.topleft, 2), np.round(new_brachyDose.topleft), 2), "topleft is not the same"
         
         
         return np.array_equal(self.grid, new_brachyDose.grid) \
             and np.array_equal(np.concatenate(self.axis), np.concatenate(new_brachyDose.axis)) \
             and np.array_equal(self.uncertainty, new_brachyDose.uncertainty) \
             and np.array_equal(self.num_voxels, new_brachyDose.num_voxels) \
-            and np.array_equal(np.round(self.vox_size, 2), np.round(new_brachyDose.vox_size, 2)) \
-            and np.array_equal(np.round(self.topleft, 2), np.round(new_brachyDose.topleft), 2)
+            and np.array_equal(self.vox_size, new_brachyDose.vox_size) \
+            and np.array_equal(self.topleft, new_brachyDose.topleft)
+            # and np.array_equal(np.round(self.vox_size, 2), np.round(new_brachyDose.vox_size, 2)) \
+            # and np.array_equal(np.round(self.topleft, 2), np.round(new_brachyDose.topleft), 2)
             # np.array_equal(np.round(np.concatenate(self.axis), 2), np.concatenate(new_brachyDose.axis)) \
                 
 def load_pmc_dose(filename):
@@ -515,7 +519,7 @@ def test_write_to_3ddose_file():
     pth_new_3ddose = "../data_test/run_1_new.3ddose"
     dose_obj.write_to_3ddose_file(pth_new_3ddose)
     new_dose_obj = BrachyDose().load_file_to_BrachyDose(pth_new_3ddose)
-    assert dose_obj.is_equal(new_dose_obj), "dose objects are not equal"
+    dose_obj.is_equal(new_dose_obj), "dose objects are not equal"
 
 def test_convert_to_nrrd():
     r"""
@@ -531,7 +535,24 @@ def test_convert_to_nrrd():
     dose_obj_From_nrrd = BrachyDose()
     dose_obj_From_nrrd.load_file_to_BrachyDose(pth_nrrd)
     
-    assert dose_obj.is_equal(dose_obj_From_nrrd), "dose objects are not equal"
+    dose_obj.is_equal(dose_obj_From_nrrd), "dose objects are not equal"
+
+def test_convert_to_nrrd_1mm():
+    r"""
+    Purpose: 
+        simulatenously test write_to_nrrd() and load_from_nrrd()
+    """
+    pth_3ddose =  "../data_test/combined.3ddose"
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    pth_nrrd = "../data_test/combined_old.nrrd"
+    dose_obj.write_to_nrrd_file(pth_nrrd)
+    
+    dose_obj_From_nrrd = BrachyDose()
+    dose_obj_From_nrrd.load_file_to_BrachyDose(pth_nrrd)
+    
+    dose_obj.is_equal(dose_obj_From_nrrd), "dose objects are not equal"
+    
 
 if __name__ == "__main__":
 
