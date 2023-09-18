@@ -149,6 +149,14 @@ class BrachyDose:
         self.axis = self.calculateAxis() 
         
     def load_from_npz(self, pth_npz):
+        r""" 
+        Purpose: 
+            Given the path to an npz file, load its content into self:BrachyDose.
+        
+        Input:
+            - filename := path to a ".npz" file
+        """
+    
         assert os.path.splitext(pth_npz)[-1]==".npz", "the file extension should be npz"
         
         loaded_BrachyDose = np.load(pth_npz, allow_pickle=True)
@@ -378,19 +386,13 @@ class BrachyDose:
         r"""
             Purpose: 
                 To save the contents of BrachyDose into a npz file, which is numpy compressed. 
+            
             inputs:
+                - self := BrachyDose object
                 - fileName := path where the dose npz file will be written to. 
-                     
-                - metaData := a dictionary containing the following meta data key values (should be changed later):
-                    "cancer site": 
-                    "care center": 
-                    "number of dwell positions": 
-                    "number of segmented structures": 
-                    "patient number": 
-                    "Image content": "[3D dose, 3D uncertainty]"
+                
             outputs: Void
-                writes [3D dose, 3D uncertainty], voxel size, origin (topleft), and metaData to the fileName_dose.nrrd
-                note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z. 
+                writes the contents of self:BrachyDose to the fileName. 
         """
         
         assert os.path.splitext(fileName)[-1] == ".npz"
