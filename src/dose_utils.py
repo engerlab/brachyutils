@@ -338,7 +338,7 @@ class BrachyDose:
                 To save the contents of BrachyDose into a nrrd file. 
             inputs:
                 - fileName := path where the dose nrrd file will be written to. 
-                    _dose.nrrd will be added to the basename. 
+
                 - metaData := a dictionary containing the following meta data key values (should be changed later):
                     "cancer site": 
                     "care center": 
@@ -375,6 +375,24 @@ class BrachyDose:
         sitk.WriteImage(image_nrrd, run_number+".nrrd", useCompression=True, compressionLevel=9)
 
     def write_to_npz_file(self, fileName:str):
+        r"""
+            Purpose: 
+                To save the contents of BrachyDose into a npz file, which is numpy compressed. 
+            inputs:
+                - fileName := path where the dose npz file will be written to. 
+                     
+                - metaData := a dictionary containing the following meta data key values (should be changed later):
+                    "cancer site": 
+                    "care center": 
+                    "number of dwell positions": 
+                    "number of segmented structures": 
+                    "patient number": 
+                    "Image content": "[3D dose, 3D uncertainty]"
+            outputs: Void
+                writes [3D dose, 3D uncertainty], voxel size, origin (topleft), and metaData to the fileName_dose.nrrd
+                note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z. 
+        """
+        
         assert os.path.splitext(fileName)[-1] == ".npz"
         
         np.savez_compressed(
