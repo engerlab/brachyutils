@@ -18,6 +18,12 @@ from typing import Optional
 from collections.abc import Iterable
 
 import pytest
+# import uu
+import lzma
+import pickle
+import pyzstd
+
+import pandas as pd
 
 # for using QDataStream for writing Qt binary files
 
@@ -61,7 +67,7 @@ class BrachyDose:
         
         Inputs:
             - pth_dose_file := path directory where the file containing the dose is. The file 
-                extension could be ".3ddose", ".nrrd", ".dcm", or ".bin"
+                extension could be ".3ddose", ".nrrd", ".dcm", or ".minidose"
         
         Output:
         self : BrachyDose
@@ -166,6 +172,9 @@ class BrachyDose:
         self.vox_size =  loaded_BrachyDose["vox_size"]
         self.topleft =  loaded_BrachyDose["topleft"]
         self.axis =  loaded_BrachyDose["axis"]
+    
+    # def load_from_minidose(self, pth_minidose):
+        
     
     def make_profile(self, depth:float, axis:str):
         """
@@ -407,6 +416,67 @@ class BrachyDose:
             axis=self.axis,
             )
             
+    def write_to_minidose_file(self, fileName, compress_program:Optional[str]=None):
+        r"""
+            Purpose: 
+                To save the contents of BrachyDose into a minidose file, which is just a binary file written line by line. 
+            
+            inputs:
+                - self := BrachyDose object
+                - fileName := path where the dose minidose file will be written to. 
+                
+            outputs: Void
+                writes the contents of self:BrachyDose to the fileName. 
+        """
+        
+        contents = bytes("", 'utf-8')
+        for attribute in dir(self):
+            if attribute.startswith('__') or callable(getattr(self, attribute)):
+                continue
+            else:
+                # print(attribute)
+                contents = contents + getattr(self, attribute).tobytes() + bytes('\n', 'utf-8')
+                # print("breaking point was here")
+                # if attribute == 'grid' or 'uncertainty':
+                #     minidose_file.write(getattr(self, attribute).flatten('C').tobytes()+bytes('\n', 'utf-8'))
+                #     continue
+                
+                # minidose_file.write(getattr(self, attribute).tobytes()+bytes('\n', 'utf-8'))
+        
+        if compress_program == "zstd":
+            contents = pyzstd.compress(contents, 22)
+        
+        with open(fileName, "wb") as minidose_file:
+            minidose_file.write(contents)
+            
+        minidose_file.close()
+    
+    def write_to_xz_file(self, fileName):
+        assert os.path.splitext(fileName)[-1] == '.xz'
+        
+        with lzma.open(fileName, 'wb') as file:
+            pickle.dump(self, file)
+    
+    def write_to_zstd(self, fileName):
+        assert os.path.splitext(fileName)[-1] == '.zst'
+        
+        with pyzstd.open(fileName, "wb", level_or_option=22) as file:
+            pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)
+        
+        # brachyDose_dict = {}
+        
+        # for attribute in dir(self):
+        #     if attribute.startswith('__') or callable(getattr(self, attribute)):
+        #         continue
+        #     else:
+        #         if attribute == 'grid' or 'uncertainty':
+        #                 brachyDose_dict[attribute] = getattr(self, attribute).flatten('C')
+        #                 continue
+        #         brachyDose_dict[attribute] = getattr(self, attribute)
+        
+        # pd.DataFrame(brachyDose_dict).to_pickle(fileName, compression='zstd')
+        
+      
     def calculateAxis(self):
         r"""
         Purpose: will calculate the axies coordinates for a 3ddose dictionary.
@@ -611,6 +681,43 @@ def test_convert_to_npz_file():
     new_dose_obj.load_from_npz(pth_npz)
     dose_obj.is_equal(new_dose_obj)
 
+def test_write_to_minidose_file():
+    r"""
+    Purpose: 
+        simulatenously test write_to_minidose_file() and load_from_minidose()
+    """
+    pth_3ddose =  "../data_test/combined.3ddose"
+    pth_minidose = "../data_test/combined.minidose"
+    
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    
+    dose_obj.write_to_minidose_file(pth_minidose, compress_program='zstd')
+    
+    # new_dose_obj = BrachyDose()
+    # # new_dose_obj.load_from_minidose(pth_minidose)
+    # dose_obj.is_equal(new_dose_obj)
+
+def test_write_to_xz_file():
+    
+    pth_3ddose =  "../data_test/combined.3ddose"
+    pth_xz = "../data_test/combined.xz"
+    
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    
+    dose_obj.write_to_xz_file(pth_xz)
+
+def test_write_to_zstd():
+    
+    pth_3ddose =  "../data_test/combined.3ddose"
+    pth_zstd = "../data_test/combined.zst"
+    
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    
+    dose_obj.write_to_zstd(pth_zstd)
+
 if __name__ == "__main__":
 
     # a Test for the following functions
@@ -618,7 +725,10 @@ if __name__ == "__main__":
     # test_load_file_to_brachyDose()
     # test_write_to_3ddose_file()
     # test_convert_to_nrrd()
-    test_convert_to_npz_file()
+    # test_convert_to_npz_file()
+    # test_write_to_minidose_file()
+    # test_write_to_xz_file()
+    test_write_to_zstd()
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
