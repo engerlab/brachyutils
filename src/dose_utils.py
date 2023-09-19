@@ -461,21 +461,7 @@ class BrachyDose:
         assert os.path.splitext(fileName)[-1] == '.zst'
         
         with pyzstd.open(fileName, "wb", level_or_option=22) as file:
-            pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)
-        
-        # brachyDose_dict = {}
-        
-        # for attribute in dir(self):
-        #     if attribute.startswith('__') or callable(getattr(self, attribute)):
-        #         continue
-        #     else:
-        #         if attribute == 'grid' or 'uncertainty':
-        #                 brachyDose_dict[attribute] = getattr(self, attribute).flatten('C')
-        #                 continue
-        #         brachyDose_dict[attribute] = getattr(self, attribute)
-        
-        # pd.DataFrame(brachyDose_dict).to_pickle(fileName, compression='zstd')
-        
+            pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)         
       
     def calculateAxis(self):
         r"""
