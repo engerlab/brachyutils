@@ -680,9 +680,9 @@ def test_write_to_minidose_file():
     
     dose_obj.write_to_minidose_file(pth_minidose, compress_program='zstd')
     
-    # new_dose_obj = BrachyDose()
-    # # new_dose_obj.load_from_minidose(pth_minidose)
-    # dose_obj.is_equal(new_dose_obj)
+    new_dose_obj = BrachyDose()
+    # new_dose_obj.load_from_minidose(pth_minidose)
+    dose_obj.is_equal(new_dose_obj)
 
 def test_write_to_xz_file():
     
