@@ -765,18 +765,39 @@ def test_write_to_zstd_file():
     
     dose_obj.write_to_zstd_file(pth_zstd)
 
-
+def test_convert_many_files():
+    dir_in = "../data_test/many_files"
+    type_in = ".3ddose"
+    type_out = ".nrrd"
+    
+    convert_many_files(dir_in, type_in, type_out)
+    
+    dir_in = os.path.abspath(dir_in)
+    nrrd_list = glob(dir_in+".nrrd")
+    
+    for file_nrrd in nrrd_list:
+        dose_obj_nrrd = BrachyDose()
+        dose_obj_nrrd.load_file_to_BrachyDose(file_nrrd)
+        
+        file_3ddose = os.path.splitext(file_nrrd)[0]+".3ddose"
+        dose_obj_3ddose = BrachyDose()
+        dose_obj_3ddose.load_file_to_BrachyDose(file_3ddose)
+        
+        dose_obj_3ddose.is_equal(dose_obj_nrrd)
+    
+    
 if __name__ == "__main__":
 
     # a Test for the following functions
     # test_load_from_3ddose()
     # test_load_file_to_brachyDose()
     # test_write_to_3ddose_file()
-    test_convert_to_nrrd()
+    # test_convert_to_nrrd()
     # test_convert_to_npz_file()
     # test_write_to_minidose_file()
     # test_write_to_xz_file()
     # test_write_to_zstd()
+    test_convert_many_files()
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
