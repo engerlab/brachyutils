@@ -24,7 +24,10 @@ import pickle
 import pyzstd
 
 import typer
+import decimal
 # for using QDataStream for writing Qt binary files
+
+decimal.getcontext().prec = 6
 
 class BrachyDose:
     r"""
@@ -103,9 +106,9 @@ class BrachyDose:
         #print("Opening 3ddose at %s" % path)
         with open(path, "rb") as newfile:
             bench_voxels = [int(i) for i in newfile.readline().split()]
-            bench_x_pos = nparray(newfile.readline().split(), dtype=np.float32)
-            bench_y_pos = nparray(newfile.readline().split(), dtype=np.float32)
-            bench_z_pos = nparray(newfile.readline().split(), dtype=np.float32)
+            bench_x_pos = np.round(nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
+            bench_y_pos = np.round(nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
+            bench_z_pos = np.round(nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
 
             bench_x_spacing = (bench_x_pos[1] - bench_x_pos[0])
             bench_y_spacing = (bench_y_pos[1] - bench_y_pos[0])
@@ -146,11 +149,11 @@ class BrachyDose:
         dose_array = np.swapaxes(dose_array, 0, 2)
         uncertainty_array = np.swapaxes(uncertainty_array, 0, 2)
 
-        self.uncertainty = uncertainty_array
-        self.grid = dose_array
-        self.num_voxels = np.array(np.flip((dose_array.shape), axis=0))
-        self.vox_size = np.array(loaded_image_nrrd.GetSpacing()[1:])
-        self.topleft = np.array(loaded_image_nrrd.GetOrigin()[1:])
+        self.uncertainty = uncertainty_array.astype(np.float32)
+        self.grid = dose_array.astype(np.float32)
+        self.num_voxels = np.array(np.flip((dose_array.shape), axis=0)).astype(np.float32)
+        self.vox_size = np.array(loaded_image_nrrd.GetSpacing()[1:]).astype(np.float32)
+        self.topleft = np.array(loaded_image_nrrd.GetOrigin()[1:]).astype(np.float32)
         self.axis = self.calculateAxis() 
         
     def load_from_npz(self, pth_npz):
@@ -663,14 +666,14 @@ def test_write_to_3ddose_file():
 
     # testing on maud's file
     pth_3ddose = "../data_test/maud.3ddose"
-    pth_out = os.path.splitext(pth_3ddose)[0]+'.3ddose'
+    pth_out = os.path.splitext(pth_3ddose)[0]+'_test.3ddose'
     
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
 
     dose_obj.write_to_3ddose_file(pth_out)
-    new_dose_obj = BrachyDose().load_file_to_BrachyDose(pth_new_3ddose)
-    dose_obj.is_equal(new_dose_obj), "dose objects are not equal"
+    new_dose_obj = BrachyDose().load_file_to_BrachyDose(pth_out)
+    dose_obj.is_equal(new_dose_obj)
 # @pytest.mark.passed
 def test_convert_to_nrrd():
     r"""
@@ -697,7 +700,7 @@ def test_convert_to_nrrd():
     dose_obj_From_nrrd = BrachyDose()
     dose_obj_From_nrrd.load_file_to_BrachyDose(pth_out)
     
-    dose_obj.is_equal(dose_obj_From_nrrd), "dose objects are not equal"
+    dose_obj.is_equal(dose_obj_From_nrrd)
 
 def test_convert_to_npz_file():
     r"""
