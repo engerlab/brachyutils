@@ -567,6 +567,19 @@ def convert_many_files(input_dir: str, type_in: str, type_out: str):
         elif type_out == ".zstd":
             dose_obj.write_to_zstd_file(file_base_noExtension+type_out)
 
+@app.command()
+def padd_many_files(input_dir: str, type_in: str, dim_out:str):
+    r"""
+    Purpose:
+        Will padd all files in the "input_dir" of type "type_in" with zeros to
+            have the dimensions "dim_out"
+    Inputs:
+        input_dir := directory where there are files to be converted 
+        type_in := could be ".3ddose", ".nrrd", ".minidose", other types could be added
+        dim_out := the new dimensions in [z, y, x] format
+    """
+    raise Exception("This feature is not implementated yet")
+
 def load_pmc_dose(filename):
     return load_3ddose(filename)
 
@@ -787,6 +800,8 @@ def test_convert_many_files():
     
     
 if __name__ == "__main__":
+    
+    app()
 
     # a Test for the following functions
     # test_load_from_3ddose()
@@ -797,7 +812,7 @@ if __name__ == "__main__":
     # test_write_to_minidose_file()
     # test_write_to_xz_file()
     # test_write_to_zstd()
-    test_convert_many_files()
+    # test_convert_many_files()
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
