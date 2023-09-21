@@ -25,7 +25,8 @@ import pyzstd
 
 import typer
 import decimal
-# for using QDataStream for writing Qt binary files
+
+from tqdm import tqdm
 
 decimal.getcontext().prec = 6
 
@@ -548,7 +549,7 @@ def convert_many_files(input_dir: str, type_in: str, type_out: str):
     assert os.path.exists(input_dir)
     file_list = glob(input_dir+"/*"+type_in)
     
-    for file in file_list:
+    for file in tqdm(file_list):
         dose_obj = BrachyDose()
         dose_obj.load_file_to_BrachyDose(file)
         
