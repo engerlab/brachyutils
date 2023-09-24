@@ -552,24 +552,38 @@ class BrachyDose:
         new_origin_distance = coord_range[:, 0] - self.topleft
 
         new_origin_index = np.floor(new_origin_distance / self.vox_size).astype(int)
-        assert np.all(new_origin_index >= 0), "new origin index cannot be negative, please report this bug"
 
         new_ending_index = np.floor((coord_range[:, 1] - self.topleft) / self.vox_size).astype(int)
+
+        new_index_range = np.column_stack([new_origin_index, new_ending_index])
+
+        return self.crop_by_index(new_index_range, inplace)
+
+    def crop_by_index(self, index_range:np.array, inplace:Optional[bool]=True):
+
+        new_origin_index = index_range[:, 0]
+        assert np.all(new_origin_index >= 0), "new origin index cannot be negative, please report this bug"
+
+        new_ending_index = index_range[:, 1]
         assert np.all(new_ending_index >= 0), "new ending index cannot be negative, please report this bug"
 
         # update the attributes 
         if inplace:
             self.grid = self.grid[
-                new_origin_index[2]:new_ending_index[2],
-                new_origin_index[1]:new_ending_index[1],
-                new_origin_index[0]:new_ending_index[0]
+                new_origin_index[2]:new_ending_index[2], # z
+                new_origin_index[1]:new_ending_index[1], # y
+                new_origin_index[0]:new_ending_index[0] # x
             ]          
             self.uncertainty = self.uncertainty[
-                new_origin_index[2]:new_ending_index[2],
-                new_origin_index[1]:new_ending_index[1],
-                new_origin_index[0]:new_ending_index[0]
+                new_origin_index[2]:new_ending_index[2], # z
+                new_origin_index[1]:new_ending_index[1], # y
+                new_origin_index[0]:new_ending_index[0] # x
             ]    
-            self.topleft = coord_range[:, 0]            
+            self.topleft = np.array([
+                self.axis[0][new_origin_index[2]], # z
+                self.axis[1][new_origin_index[1]], # y
+                self.axis[2][new_origin_index[0]] # x
+            ])
             self.num_voxels = np.flip(self.grid.shape, 0)    
             self.axis = self.calculateAxis()      
         else:
@@ -584,12 +598,15 @@ class BrachyDose:
                 new_origin_index[1]:new_ending_index[1],
                 new_origin_index[0]:new_ending_index[0]
             ]    
-            new_dose_obj.topleft = coord_range[:, 0]            
+            new_dose_obj.topleft = np.array([
+                self.axis[0][new_origin_index[2]], # z
+                self.axis[1][new_origin_index[1]], # y
+                self.axis[2][new_origin_index[0]] # x
+            ])         
             new_dose_obj.num_voxels = np.flip(self.grid.shape, 0) 
             new_dose_obj.vox_size = self.vox_size   
             new_dose_obj.axis = self.calculateAxis()
             return new_dose_obj
-            
 
     def assert_BrachyDose_notEmpty(self):
         assert self.grid is not None, "error grid is None"  
