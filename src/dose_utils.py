@@ -523,15 +523,47 @@ class BrachyDose:
             # and np.array_equal(np.round(self.topleft, 2), np.round(new_brachyDose.topleft), 2)
             # np.array_equal(np.round(np.concatenate(self.axis), 2), np.concatenate(new_brachyDose.axis)) \
 
+    def crop_by_coordinates(self, coord_range:np.array):
+        r"""
+        Purpose: 
+            given a range of coordinate (mix and max on each axis), this function will crop
+            dose and uncertainty maps and will adjust the rest of the attributes accordingly. 
+        Inputs:
+            - self: BrachyDose object
+            - coord_range := a 3 x 2 array holding the min and max on x, y and axis
+                [[x_min, x_max], [y_min, y_max], [z_min, z_max]] 
+        Output:
+            - Void := will crop out the dose and uncertainty maps of self to have the range of the coordinate range. 
+                it will also update the num_voxels, topleft and axis. only vox_size will not change
+        """
+        self.assert_BrachyDose_notEmpty()
 
-def assert_BrachyDose_notEmpty(dose_obj:BrachyDose):
-    assert dose_obj.grid is not None, "error grid is None"  
-    assert dose_obj.uncertainty is not None, "error uncertainty is None"
-    assert dose_obj.num_voxels is not None, "error num_voxels is None"
-    assert dose_obj.vox_size is not None, "error vox_size is None"
-    assert dose_obj.topleft is not None, "error topleft is None"
-    assert dose_obj.axis is not None, "error axis is None"
+        # assert coordinate range falls into the image
+        axes_name = ["x axis(2)", "y axis(1)", "z axis(0)"]
+        for i in range(self.axis.shape):
+            assert coord_range[i][0] > self.axis[i][0], f"cropping lower limit must be larger than the lowest coordinate on {axes_name[i]}"
 
+        return 0
+
+    def assert_BrachyDose_notEmpty(self):
+        assert self.grid is not None, "error grid is None"  
+        assert self.uncertainty is not None, "error uncertainty is None"
+        assert self.num_voxels is not None, "error num_voxels is None"
+        assert self.vox_size is not None, "error vox_size is None"
+        assert self.topleft is not None, "error topleft is None"
+        assert self.axis is not None, "error axis is None"
+    
+    def info(self):
+        self.assert_BrachyDose_notEmpty()
+        print(f"shape of dose grid is: {self.grid.shape}")
+        print(f"shape of uncertainty matrix is: {self.uncertainty.shape}")
+        print(f"num voxels attribute is: {self.num_voxels}")
+        print(f"the top left (bottom left in reality) is {self.topleft}")
+        print(f"the voxel size is {self.vox_size}")
+        print(f"the size of the z, y and x are {self.axis[0].shape, self.axis[1].shape, self.axis[2].shape}")
+        print(f"the range of the z axis is {self.axis[0][0], self.axis[0][-1]}")
+        print(f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
+        print(f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
              
 app = typer.Typer()
 
@@ -799,7 +831,18 @@ def test_convert_many_files():
         
         dose_obj_3ddose.is_equal(dose_obj_nrrd)
     
-    
+def test_crop_by_coordinates():
+    pth_3ddose = "../data_test/run_1_old.3ddose"
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    dose_obj.info()
+
+    coords=[
+        [],
+        [],
+        []]
+    dose_obj.crop_by_coordinates(pth_3ddose)
+
 if __name__ == "__main__":
     
     app()
@@ -814,6 +857,7 @@ if __name__ == "__main__":
     # test_write_to_xz_file()
     # test_write_to_zstd()
     # test_convert_many_files()
+    test_crop_by_coordinates()
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
