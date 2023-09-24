@@ -908,6 +908,20 @@ def test_crop_by_coordinates():
     dose_obj.crop_by_coordinates(coords)
     dose_obj.info()
 
+def test_crop_by_index():
+    pth_3ddose = "../data_test/run_1_old.3ddose"
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    dose_obj.info()
+
+    index=np.array([
+        [30, 90],
+        [30, 90],
+        [0, 94]],dtype=np.float32)
+    
+    dose_obj.crop_by_index(index)
+    dose_obj.info()
+
 if __name__ == "__main__":
     
     # app()
@@ -922,7 +936,8 @@ if __name__ == "__main__":
     # test_write_to_xz_file()
     # test_write_to_zstd()
     # test_convert_many_files()
-    test_crop_by_coordinates()
+    # test_crop_by_coordinates()
+    test_crop_by_index()
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
