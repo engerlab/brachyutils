@@ -523,7 +523,7 @@ class BrachyDose:
             # and np.array_equal(np.round(self.topleft, 2), np.round(new_brachyDose.topleft), 2)
             # np.array_equal(np.round(np.concatenate(self.axis), 2), np.concatenate(new_brachyDose.axis)) \
 
-    def crop_by_coordinates(self, coord_range:np.array):
+    def crop_by_coordinates(self, coord_range:np.array, inplace:Optional[bool]=True):
         r"""
         Purpose: 
             given a range of coordinate (mix and max on each axis), this function will crop
@@ -537,13 +537,59 @@ class BrachyDose:
                 it will also update the num_voxels, topleft and axis. only vox_size will not change
         """
         self.assert_BrachyDose_notEmpty()
+        
+        # make sure the ending coordinate of the new range is larger than its origin 
+        for ax in coord_range:
+            assert ax[1] > ax[0], "axis ending coordinate should be larger than its begining coordinate"
 
         # assert coordinate range falls into the image
         axes_name = ["x axis(2)", "y axis(1)", "z axis(0)"]
-        for i in range(self.axis.shape):
-            assert coord_range[i][0] > self.axis[i][0], f"cropping lower limit must be larger than the lowest coordinate on {axes_name[i]}"
+        coords_flipped = np.flip(coord_range, 0) 
+        for i in range(self.axis.shape[0]):
+            assert coords_flipped[i][0] > self.axis[i][0], f"cropping lower limit must be larger than the lowest coordinate on {axes_name[i]}"
 
-        return 0
+        # convert new coordinates to indicies for both beggingn and ending (may not be exact)
+        new_origin_distance = coord_range[:, 0] - self.topleft
+
+        new_origin_index = np.floor(new_origin_distance / self.vox_size).astype(int)
+        assert np.all(new_origin_index >= 0), "new origin index cannot be negative, please report this bug"
+
+        new_ending_index = np.floor((coord_range[:, 1] - self.topleft) / self.vox_size).astype(int)
+        assert np.all(new_ending_index >= 0), "new ending index cannot be negative, please report this bug"
+
+        # update the attributes 
+        if inplace:
+            self.grid = self.grid[
+                new_origin_index[2]:new_ending_index[2],
+                new_origin_index[1]:new_ending_index[1],
+                new_origin_index[0]:new_ending_index[0]
+            ]          
+            self.uncertainty = self.uncertainty[
+                new_origin_index[2]:new_ending_index[2],
+                new_origin_index[1]:new_ending_index[1],
+                new_origin_index[0]:new_ending_index[0]
+            ]    
+            self.topleft = coord_range[:, 0]            
+            self.num_voxels = np.flip(self.grid.shape, 0)    
+            self.axis = self.calculateAxis()      
+        else:
+            new_dose_obj = BrachyDose()
+            new_dose_obj.grid = self.grid[
+                new_origin_index[2]:new_ending_index[2],
+                new_origin_index[1]:new_ending_index[1],
+                new_origin_index[0]:new_ending_index[0]
+            ]          
+            new_dose_obj.uncertainty = self.uncertainty[
+                new_origin_index[2]:new_ending_index[2],
+                new_origin_index[1]:new_ending_index[1],
+                new_origin_index[0]:new_ending_index[0]
+            ]    
+            new_dose_obj.topleft = coord_range[:, 0]            
+            new_dose_obj.num_voxels = np.flip(self.grid.shape, 0) 
+            new_dose_obj.vox_size = self.vox_size   
+            new_dose_obj.axis = self.calculateAxis()
+            return new_dose_obj
+            
 
     def assert_BrachyDose_notEmpty(self):
         assert self.grid is not None, "error grid is None"  
@@ -837,15 +883,17 @@ def test_crop_by_coordinates():
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     dose_obj.info()
 
-    coords=[
-        [],
-        [],
-        []]
-    dose_obj.crop_by_coordinates(pth_3ddose)
+    coords=np.array([
+        [-14, 8],
+        [3, 15],
+        [-115, -100]],dtype=np.float32)
+    
+    dose_obj.crop_by_coordinates(coords)
+    dose_obj.info()
 
 if __name__ == "__main__":
     
-    app()
+    # app()
 
     # a Test for the following functions
     # test_load_from_3ddose()
