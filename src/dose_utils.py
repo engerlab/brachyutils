@@ -561,10 +561,10 @@ class BrachyDose:
 
     def crop_by_index(self, index_range:np.array, inplace:Optional[bool]=True):
 
-        new_origin_index = index_range[:, 0]
+        new_origin_index = index_range[:, 0].astype(int)
         assert np.all(new_origin_index >= 0), "new origin index cannot be negative, please report this bug"
 
-        new_ending_index = index_range[:, 1]
+        new_ending_index = index_range[:, 1].astype(int)
         assert np.all(new_ending_index >= 0), "new ending index cannot be negative, please report this bug"
 
         # update the attributes 
@@ -580,9 +580,9 @@ class BrachyDose:
                 new_origin_index[0]:new_ending_index[0] # x
             ]    
             self.topleft = np.array([
-                self.axis[0][new_origin_index[2]], # z
+                self.axis[2][new_origin_index[0]], # x
                 self.axis[1][new_origin_index[1]], # y
-                self.axis[2][new_origin_index[0]] # x
+                self.axis[0][new_origin_index[2]] # z
             ])
             self.num_voxels = np.flip(self.grid.shape, 0)    
             self.axis = self.calculateAxis()      
@@ -599,9 +599,9 @@ class BrachyDose:
                 new_origin_index[0]:new_ending_index[0]
             ]    
             new_dose_obj.topleft = np.array([
-                self.axis[0][new_origin_index[2]], # z
+                self.axis[2][new_origin_index[0]], # x
                 self.axis[1][new_origin_index[1]], # y
-                self.axis[2][new_origin_index[0]] # x
+                self.axis[0][new_origin_index[2]] # z
             ])         
             new_dose_obj.num_voxels = np.flip(self.grid.shape, 0) 
             new_dose_obj.vox_size = self.vox_size   
@@ -623,7 +623,7 @@ class BrachyDose:
         print(f"num voxels attribute is: {self.num_voxels}")
         print(f"the top left (bottom left in reality) is {self.topleft}")
         print(f"the voxel size is {self.vox_size}")
-        print(f"the size of the z, y and x are {self.axis[0].shape, self.axis[1].shape, self.axis[2].shape}")
+        print(f"the size of the z, y and x axes are {self.axis[0].shape, self.axis[1].shape, self.axis[2].shape}")
         print(f"the range of the z axis is {self.axis[0][0], self.axis[0][-1]}")
         print(f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
         print(f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
@@ -758,7 +758,7 @@ def test_load_from_3ddose():
 
     dose_obj = BrachyDose()
     dose_obj.load_from_3ddose(pth_3ddose)
-    assert_BrachyDose_notEmpty(dose_obj)
+    dose_obj.assert_BrachyDose_notEmpty(dose_obj)
 
 def test_load_file_to_brachyDose():
     # pth_3ddose =  "../data_test/run_1_old.3ddose"
@@ -768,7 +768,7 @@ def test_load_file_to_brachyDose():
         
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
-    assert_BrachyDose_notEmpty(dose_obj)
+    dose_obj.assert_BrachyDose_notEmpty(dose_obj)
 # @pytest.mark.passed
 def test_write_to_3ddose_file():
     # pth_3ddose =  "../data_test/run_1_old.3ddose"
