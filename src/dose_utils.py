@@ -592,7 +592,7 @@ class BrachyDose:
             - self: BrachyDose object
             - crop_fraction := a floating point between 0 and 1, which is the fraction of the image axis that remains in the crop. 
                 for example, a crop ratio of 0.5 will keep the center of the x and y axis, plus minus 0.25*dimension of the image. 
-                The x axis will not be cropped. 
+                The z axis will not be cropped. 
                     +++++++++       ---------
                     +++++++++       --+++++--
                     +++++++++  ===> --+++++--
