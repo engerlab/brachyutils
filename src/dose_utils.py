@@ -535,6 +535,8 @@ class BrachyDose:
         Output:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the coordinate range. 
                 it will also update the num_voxels, topleft and axis. only vox_size will not change
+        Dependencies:
+            -self.crop_by_index()
         """
         self.assert_BrachyDose_notEmpty()
         
@@ -559,8 +561,55 @@ class BrachyDose:
 
         return self.crop_by_index(new_index_range, inplace)
 
-    def crop_by_index(self, index_range:np.array, inplace:Optional[bool]=True):
+    def crop_by_fraction(self, crop_fraction, inplace:Optional[bool]=True):
+        r"""
+        Purpose: 
+            given the crop_fraction, this function will crop out 0.5*(1 - crop_fraction)*dimension voxels
+                from the edges of the x and y axis of dose and uncertainty maps and will adjust the rest of the attributes accordingly. 
+        Inputs:
+            - self: BrachyDose object
+            - crop_fraction := a floating point between 0 and 1, which is the fraction of the image axis that remains in the crop. 
+                for example, a crop ratio of 0.5 will keep the center of the x and y axis, plus minus 0.25*dimension of the image. 
+                The x axis will not be cropped. 
+                    +++++++++       ---------
+                    +++++++++       --+++++--
+                    +++++++++  ===> --+++++--
+                    +++++++++       --+++++--
+                    +++++++++       ---------
+        Output:
+            - Void := will crop out the dose and uncertainty maps of self to have the range of the coordinate range. 
+                it will also update the num_voxels, topleft and axis. only vox_size will not change
+        Dependencies:
+            -self.crop_by_index()
+        """
+        assert crop_fraction >=0 and crop_fraction <= 1, "the fraction should be between 0 and 1"
+        off_set = 0.5 * (1-crop_fraction)*self.num_voxels
+        new_origin_index = np.array([off_set[0], off_set[1], 0]).astype(int)
+        assert np.all(new_origin_index >= 0), "new origin index cannot be negative, please report this bug"
 
+        new_ending_index = np.array([self.num_voxels[0]-off_set[0], self.num_voxels[1]-off_set[1], self.num_voxels[2]]).astype(int)
+        assert np.all(new_ending_index >= 0), "new ending index cannot be negative, please report this bug"
+
+        new_index_range = np.column_stack([new_origin_index, new_ending_index])
+
+        return self.crop_by_index(new_index_range, inplace)
+
+
+    def crop_by_index(self, index_range:np.array, inplace:Optional[bool]=True):
+        r"""
+        Purpose: 
+            given a range of indicies (mix and max on each axis), this function will crop
+            dose and uncertainty maps and will adjust the rest of the attributes accordingly. 
+        Inputs:
+            - self: BrachyDose object
+            - index_range := a 3 x 2 array holding the min and max on x, y and axis
+                [[x_min, x_max], [y_min, y_max], [z_min, z_max]] 
+        Output:
+            - Void := will crop out the dose and uncertainty maps of self to have the range of the index range. 
+                it will also update the num_voxels, topleft and axis. only vox_size will not change
+        Dependencies:
+            - None
+        """
         new_origin_index = index_range[:, 0].astype(int)
         assert np.all(new_origin_index >= 0), "new origin index cannot be negative, please report this bug"
 
@@ -662,6 +711,49 @@ def convert_many_files(input_dir: str, type_in: str, type_out: str):
             dose_obj.write_to_npz_file(file_base_noExtension+type_out)
         elif type_out == ".zstd":
             dose_obj.write_to_zstd_file(file_base_noExtension+type_out)
+
+
+@app.command()
+def crop_and_convert_many_files(input_dir: str, crop_ratio:float, type_in: str, type_out: str):
+    r"""
+    Purpose:
+        Will crop all files in the "input_dir" of type "type_in" and write the cropped dose to file with "type_out"
+    Inputs:
+        input_dir := directory where there are files to be converted 
+        crop_ratio := the fraction of the image axis that remains in the crop. for example, a crop ratio of 0.5 will keep 
+            the center of the x and y axis plus minus 0.25*dimension of the image. The x axis will not be cropped. 
+            +++++++++       ---------
+            +++++++++       --+++++--
+            +++++++++  ===> --+++++--
+            +++++++++       --+++++--
+            +++++++++       ---------
+        type_in := could be ".3ddose", ".nrrd", ".minidose", other types could be added
+        type_out := could be ".3ddose", ".nrrd", ".minidose", other types could be added
+    """
+    input_dir = os.path.abspath(input_dir)
+    assert os.path.exists(input_dir)
+    file_list = glob(input_dir+"/*"+type_in)
+    
+    for file in tqdm(file_list):
+        dose_obj = BrachyDose()
+        dose_obj.load_file_to_BrachyDose(file)
+        dose_obj.crop_by_fraction(crop_ratio)
+
+        file_base_noExtension = os.path.splitext(file)[0]
+
+        if type_out == ".3ddose":
+            dose_obj.write_to_3ddose_file(file_base_noExtension+type_out)
+        elif type_out == ".nrrd":
+            dose_obj.write_to_nrrd_file(file_base_noExtension+type_out)
+        elif type_out == ".minidose":
+            dose_obj.write_to_minidose_file(file_base_noExtension+type_out)
+        elif type_out == ".xz":
+            dose_obj.write_to_xz_file(file_base_noExtension+type_out)
+        elif type_out == ".npz":
+            dose_obj.write_to_npz_file(file_base_noExtension+type_out)
+        elif type_out == ".zstd":
+            dose_obj.write_to_zstd_file(file_base_noExtension+type_out)
+
 
 @app.command()
 def padd_many_files(input_dir: str, type_in: str, dim_out:str):
@@ -922,9 +1014,20 @@ def test_crop_by_index():
     dose_obj.crop_by_index(index)
     dose_obj.info()
 
+def test_crop_by_fraction():
+    pth_3ddose = "../data_test/run_1_old.3ddose"
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    dose_obj.info()
+
+    fraction = 0.3
+    
+    dose_obj.crop_by_fraction(fraction)
+    dose_obj.info()
+
 if __name__ == "__main__":
     
-    # app()
+    app()
 
     # a Test for the following functions
     # test_load_from_3ddose()
@@ -937,7 +1040,8 @@ if __name__ == "__main__":
     # test_write_to_zstd()
     # test_convert_many_files()
     # test_crop_by_coordinates()
-    test_crop_by_index()
+    # test_crop_by_index()
+    # test_crop_by_fraction()
     # _test_pad_3ddose()
     # _test_write_3ddose()
     # _test_pad_many_3ddoses()
