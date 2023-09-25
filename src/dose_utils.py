@@ -111,7 +111,7 @@ class BrachyDose:
             assert "RD" in pth_dose_file, "must be a dicom dose file starting with 'RD'"
             raise Exception("loading dose from dicom is not currently supported")
         
-        elif file_extension == ".bin":
+        elif file_extension == ".minidose":
             raise Exception("loading dose from .bin file is not currently supported")
     
         return self
@@ -872,7 +872,7 @@ def test_load_from_3ddose():
 
     dose_obj = BrachyDose()
     dose_obj.load_from_3ddose(pth_3ddose)
-    dose_obj.assert_BrachyDose_notEmpty(dose_obj)
+    dose_obj.assert_BrachyDose_notEmpty()
 
 def test_load_file_to_brachyDose():
     # pth_3ddose =  "../data_test/run_1_old.3ddose"
@@ -882,7 +882,7 @@ def test_load_file_to_brachyDose():
         
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
-    dose_obj.assert_BrachyDose_notEmpty(dose_obj)
+    dose_obj.assert_BrachyDose_notEmpty()
 # @pytest.mark.passed
 def test_write_to_3ddose_file():
     # pth_3ddose =  "../data_test/run_1_old.3ddose"
@@ -973,7 +973,7 @@ def test_write_to_xz_file():
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     
-    dose_obj.write_to_xz_file(pth_xz)
+    dose_obj.write_to_xz_file(pth_out)
 
 def test_write_to_zstd_file():
     
@@ -986,7 +986,7 @@ def test_write_to_zstd_file():
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     
-    dose_obj.write_to_zstd_file(pth_zstd)
+    dose_obj.write_to_zstd_file(pth_out)
 
 def test_convert_many_files():
     dir_in = "../data_test/many_files"
