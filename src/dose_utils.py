@@ -45,7 +45,29 @@ class BrachyDose:
         axis:np.ndarray := coorindates of grid points along z, y and x axis.  
 
     Functions:
-    
+        load_file_to_BrachyDose()
+        load_from_3ddose()
+        load_from_nrrd()
+        load_from_npz()
+        make_profile()
+        make_pdd()
+        get_average_uncert()
+        get_average_uncert_benchmark()
+        pad_3ddose()
+        write_to_3ddose_file()
+        write_to_nrrd_file()
+        write_to_npz_file()
+        write_to_minidose_file()
+        write_to_xz_file()
+        write_to_zstd_file()
+        calculateAxis()
+        is_equal()
+        crop_by_coordinates()
+        crop_by_fraction()
+        crop_by_index()
+        assert_BrachyDose_notEmpty()
+        info()
+        
     Dependencies: 
     
     """
