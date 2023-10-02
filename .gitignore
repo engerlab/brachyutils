@@ -3,3 +3,5 @@ pyRad
 test_data
 ENV
 data_test
+__pycache__
+.pytest_cache
