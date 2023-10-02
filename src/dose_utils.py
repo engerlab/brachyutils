@@ -28,7 +28,8 @@ import decimal
 
 from tqdm import tqdm
 
-decimal.getcontext().prec = 6
+from rt_utils import RTStructBuilder
+
 
 class BrachyDose:
     r"""
@@ -698,7 +699,41 @@ class BrachyDose:
         print(f"the range of the z axis is {self.axis[0][0], self.axis[0][-1]}")
         print(f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
         print(f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
-             
+
+def get_body_coord_range(pth_dir_dicom:str):
+    r"""
+    Purpose:
+        to find the coordinate extend of the body voxels along each axis using 
+            dicom RT structure file. 
+    Inputs:
+        pth_dir_dicom := path to the directory with the dicom files of a patient. 
+            it should contain both images and RTSTRUCT file
+    
+    Dependencies:
+        rt_utils
+    """
+    
+    pth_dir_dicom = os.path.abspath(pth_dir_dicom)
+    assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
+    assert not not glob(pth_dir_dicom+"/*.dcm"), "there are no dicom files in this directory"
+    
+    coord_range = np.zeros([3, 2], dtype=np.float32)
+    
+    pth_structure_dcm = glob(pth_dir_dicom+"/RS*.dcm")[0]
+    
+    # load the structure file into an rt_struct object
+    rtstruct_obj = RTStructBuilder.create_from(
+        dicom_series_path=pth_dir_dicom,
+        rt_struct_path=pth_structure_dcm
+    )
+    # find the name of the body structure inside the rt_structure object
+    body_structure_name = [name for name in rtstruct_obj.get_roi_names() if "body" in name.lower()][0]
+    
+    # get the array of the body structure:
+    body_mask = rtstruct_obj.get_roi_mask_by_name(body_structure_name)
+           
+    return coord_range
+          
 app = typer.Typer()
 
 @app.command()
@@ -1048,7 +1083,7 @@ def test_crop_by_fraction():
     dose_obj.info()
 
 def test_get_body_coord_range():
-    pth_dicomRS = "../data_test/RS_glen_prostate_p1.dcm"
+    pth_dicomRS = "../data_test/prostate_glen_p1/"
     pth_3ddose = "../data_test/run_1_glen_prostate_p1.3ddose"
 
     dicom_coord_range = get_body_coord_range(pth_dicomRS)
@@ -1067,9 +1102,10 @@ def test_get_body_coord_range():
 
 if __name__ == "__main__":
     
-    app()
+    # app()
 
     # a Test for the following functions
+    test_get_body_coord_range()
     # test_load_from_3ddose()
     # test_load_file_to_brachyDose()
     # test_write_to_3ddose_file()
