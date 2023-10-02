@@ -1047,6 +1047,24 @@ def test_crop_by_fraction():
     dose_obj.crop_by_fraction(fraction)
     dose_obj.info()
 
+def test_get_body_coord_range():
+    pth_dicomRS = "../data_test/RS_glen_prostate_p1.dcm"
+    pth_3ddose = "../data_test/run_1_glen_prostate_p1.3ddose"
+
+    dicom_coord_range = get_body_coord_range(pth_dicomRS)
+    
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    
+    for i in range(3):
+        # low and high bound on x, y and z axes
+        assert dose_obj.axis[3-i-1][0] <= dicom_coord_range[i][0] <= dose_obj.axis[3-i-1][-1], \
+            "lower bound on x axis must be larger than min and max x coordinate"
+        assert dose_obj.axis[3-i-1][0] <= dicom_coord_range[i][1] <= dose_obj.axis[3-i-1][-1], \
+            "upper bound on x axis must be larger than min and max x coordinate"
+
+    
+
 if __name__ == "__main__":
     
     app()
