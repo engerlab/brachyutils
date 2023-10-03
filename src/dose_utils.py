@@ -709,7 +709,9 @@ class BrachyDose:
         Inputs:
             pth_dir_dicom := path to the directory with the dicom files of a patient. 
                 it should contain both images and RTSTRUCT file
-        
+        Outputs:
+            body_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
+                [[x_min, x_max], [y_min, y_max], [z_min, z_max]] 
         Dependencies:
             DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
         """
@@ -741,12 +743,27 @@ class BrachyDose:
         for i in range(3):
             body_index_range[i, :] = np.floor(np.array([
                 np.argwhere(mask_numpy==1)[:, i].min(), 
-                np.argwhere(mask_numpy==1)[:, i].max()]) / np.array(mask_numpy.shape[i]) * self.num_voxels[3-i-1]).astype(int)
+                # off set of +1 is added to acount for python stopping before range end
+                np.argwhere(mask_numpy==1)[:, i].max()+1]) / np.array(mask_numpy.shape[i]) * self.num_voxels[3-i-1]).astype(int)
             
         body_index_range = np.flip(body_index_range, axis=0)    
                 
         return body_index_range
-          
+    
+    def crop_by_body_contour(self, pth_dir_dicom:str):
+        f"""
+        Purpose: 
+            based on the given dicom structure file, crop the BrachyDose object such 
+                that it only has the body contour. 
+        Inputs: 
+            - pth_dir_dicom := pth_dir_dicom := path to the directory with the dicom files of a patient. 
+                it should contain both images and RTSTRUCT file
+        Outputs:
+            - Void := will crop out the dose and uncertainty maps of self to have the range of the body contour 
+                    in the dicom structure file. It will also update the num_voxels, topleft and axis. only vox_size will not change
+        """
+        self.crop_by_index(self.get_body_index_range(pth_dir_dicom), True)
+    
 app = typer.Typer()
 
 @app.command()
@@ -1082,6 +1099,7 @@ def test_crop_by_index():
         [0, 94]],dtype=np.float32)
     
     dose_obj.crop_by_index(index)
+    
     dose_obj.info()
 
 def test_crop_by_fraction():
@@ -1111,13 +1129,24 @@ def test_get_body_index_range():
         assert 0 <= dicom_coord_range[i][0] <= dose_obj.num_voxels[i], \
             f"lower bound on {axes_name[i]} index axis must be larger than min and max index for this axis"
 
+def test_crop_by_body_contour():
+    pth_dicomRS = "../data_test/prostate_glen_p1/"
+    pth_3ddose = "../data_test/run_1_glen_prostate_p1.3ddose"
 
+
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    dose_obj.info()
+    dose_obj.crop_by_body_contour(pth_dicomRS)
+    dose_obj.info()
+    
 if __name__ == "__main__":
     
     # app()
 
     # a Test for the following functions
-    test_get_body_index_range()
+    test_crop_by_body_contour()
+    # test_get_body_index_range()
     # test_load_from_3ddose()
     # test_load_file_to_brachyDose()
     # test_write_to_3ddose_file()
