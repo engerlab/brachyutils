@@ -28,8 +28,9 @@ import decimal
 
 from tqdm import tqdm
 
-from rt_utils import RTStructBuilder
-
+# from rt_utils import RTStructBuilder
+from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
+import pydicom
 
 class BrachyDose:
     r"""
@@ -700,39 +701,51 @@ class BrachyDose:
         print(f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
         print(f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
 
-def get_body_coord_range(pth_dir_dicom:str):
-    r"""
-    Purpose:
-        to find the coordinate extend of the body voxels along each axis using 
-            dicom RT structure file. 
-    Inputs:
-        pth_dir_dicom := path to the directory with the dicom files of a patient. 
-            it should contain both images and RTSTRUCT file
-    
-    Dependencies:
-        rt_utils
-    """
-    
-    pth_dir_dicom = os.path.abspath(pth_dir_dicom)
-    assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
-    assert not not glob(pth_dir_dicom+"/*.dcm"), "there are no dicom files in this directory"
-    
-    coord_range = np.zeros([3, 2], dtype=np.float32)
-    
-    pth_structure_dcm = glob(pth_dir_dicom+"/RS*.dcm")[0]
-    
-    # load the structure file into an rt_struct object
-    rtstruct_obj = RTStructBuilder.create_from(
-        dicom_series_path=pth_dir_dicom,
-        rt_struct_path=pth_structure_dcm
-    )
-    # find the name of the body structure inside the rt_structure object
-    body_structure_name = [name for name in rtstruct_obj.get_roi_names() if "body" in name.lower()][0]
-    
-    # get the array of the body structure:
-    body_mask = rtstruct_obj.get_roi_mask_by_name(body_structure_name)
-           
-    return coord_range
+    def get_body_index_range(self, pth_dir_dicom:str):
+        r"""
+        Purpose:
+            to find the coordinate extend of the body voxels along each axis using 
+                dicom RT structure file. 
+        Inputs:
+            pth_dir_dicom := path to the directory with the dicom files of a patient. 
+                it should contain both images and RTSTRUCT file
+        
+        Dependencies:
+            DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
+        """
+        
+        pth_dir_dicom = os.path.abspath(pth_dir_dicom)
+        assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
+        assert not not glob(pth_dir_dicom+"/*.dcm"), "there are no dicom files in this directory"
+                
+        pth_structure_dcm = glob(pth_dir_dicom+"/RS*.dcm")[0]
+        
+        # load the structure file into an rt_struct object
+        dicom_reader = DicomReaderWriter(description="getting body mask", arg_max=True)
+        dicom_reader.walk_through_folders(pth_dir_dicom)
+        all_rois = dicom_reader.return_rois()
+        
+        # # find the name of the body structure inside the rt_structure object
+        body_structure_name = [name for name in all_rois if "body" in name.lower()]
+        
+        # # get the numpy array of the body structure:
+        dicom_reader.set_contour_names_and_associations(contour_names=body_structure_name)
+        
+        dicom_reader.get_mask()
+        mask_numpy = dicom_reader.mask
+        
+        # so we got the mask but the dimensions may not match the dimension of the dose
+        # let's get the relative extent of the body mask compared to the whole grid and resample
+        # the extents
+        body_index_range = np.zeros([3, 2], dtype=int)
+        for i in range(3):
+            body_index_range[i, :] = np.floor(np.array([
+                np.argwhere(mask_numpy==1)[:, i].min(), 
+                np.argwhere(mask_numpy==1)[:, i].max()]) / np.array(mask_numpy.shape[i]) * self.num_voxels[3-i-1]).astype(int)
+            
+        body_index_range = np.flip(body_index_range, axis=0)    
+                
+        return body_index_range
           
 app = typer.Typer()
 
@@ -1082,30 +1095,29 @@ def test_crop_by_fraction():
     dose_obj.crop_by_fraction(fraction)
     dose_obj.info()
 
-def test_get_body_coord_range():
+def test_get_body_index_range():
     pth_dicomRS = "../data_test/prostate_glen_p1/"
     pth_3ddose = "../data_test/run_1_glen_prostate_p1.3ddose"
 
-    dicom_coord_range = get_body_coord_range(pth_dicomRS)
-    
+
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
-    
+
+    dicom_coord_range = dose_obj.get_body_index_range(pth_dicomRS)
+
+    axes_name = ['x', 'y', 'z']
     for i in range(3):
         # low and high bound on x, y and z axes
-        assert dose_obj.axis[3-i-1][0] <= dicom_coord_range[i][0] <= dose_obj.axis[3-i-1][-1], \
-            "lower bound on x axis must be larger than min and max x coordinate"
-        assert dose_obj.axis[3-i-1][0] <= dicom_coord_range[i][1] <= dose_obj.axis[3-i-1][-1], \
-            "upper bound on x axis must be larger than min and max x coordinate"
+        assert 0 <= dicom_coord_range[i][0] <= dose_obj.num_voxels[i], \
+            f"lower bound on {axes_name[i]} index axis must be larger than min and max index for this axis"
 
-    
 
 if __name__ == "__main__":
     
     # app()
 
     # a Test for the following functions
-    test_get_body_coord_range()
+    test_get_body_index_range()
     # test_load_from_3ddose()
     # test_load_file_to_brachyDose()
     # test_write_to_3ddose_file()
