@@ -32,6 +32,8 @@ from tqdm import tqdm
 from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
 import pydicom
 
+import json
+
 class BrachyDose:
     r"""
     Purpse: 
@@ -704,13 +706,20 @@ class BrachyDose:
     def crop_by_body_contour(self, pth_dir_dicom:Optional[str]=None, 
                              body_index_range:Optional[np.ndarray] = None, 
                              body_mask_shape:Optional[np.ndarray] = None):
-        f"""
+        r"""
         Purpose: 
             based on the given dicom structure file, crop the BrachyDose object such 
                 that it only has the body contour. 
         Inputs: 
             - pth_dir_dicom := pth_dir_dicom := path to the directory with the dicom files of a patient. 
-                it should contain both images and RTSTRUCT file
+                it should contain both images and RTSTRUCT file. this input is optional
+            
+            - body_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
+                [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
+        
+            - original_mask_dimensions:np.array := 1 x 3 array holding the dimension of the original mask
+            
+            
         Outputs:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the body contour 
                     in the dicom structure file. It will also update the num_voxels, topleft and axis. only vox_size will not change
@@ -728,16 +737,15 @@ class BrachyDose:
 def get_body_index_range(pth_dir_dicom:str):
     r"""
     Purpose:
-        to find the coordinate extend of the body voxels along each axis using 
-            dicom RT structure file. 
+        to find the index extent of the body voxels along each axis using dicom RT structure file. 
     Inputs:
-        pth_dir_dicom := path to the directory with the dicom files of a patient. 
+        - pth_dir_dicom := path to the directory with the dicom files of a patient. 
             it should contain both images and RTSTRUCT file
     Outputs:
-        body_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
+        - body_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
             [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
         
-        original_mask_dimensions:np.array := 1 x 3 array holding the dimension of the original mask
+        - body_mask_shape:np.array := 1 x 3 array holding the dimension of the original mask
             
     Dependencies:
         DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
@@ -779,6 +787,50 @@ def get_body_index_range(pth_dir_dicom:str):
     return body_index_range, np.flip(np.array(mask_numpy.shape))
 
 app = typer.Typer()
+
+@app.command()
+def get_body_contour_range_from_many_patients_dicom(
+    input_dir:str, 
+    pth_output_json:str
+):
+    r"""
+    Purpose:
+        to exract body contour extent on each axis for all the patients in input_dir and save them
+            to a json file located at "output_json"
+    Input:
+        - input_dir := path to the directory where folders of many patients with dicom files exist.
+            this script will loop through patient folders
+        - output_json := path to the json file where the following information for each patient is stored            
+    Output: 
+        - Void := the following content will be written to output_json for each patient:
+            {
+                patient_number:=str,
+                body_index_range:[
+                    [x_min:int, x_max:int],
+                    [y_min:int, y_max:int],
+                    [z_min:int, z_max:int],
+                ]
+                body_mask_shape:[len(x):int, len(y):int, len(z):int]
+            }
+    """
+    
+    input_dir = os.path.abspath(input_dir)
+    
+    patient_dir_list = glob(input_dir+"/*/")
+    patient_dict_list = []
+    
+    for patient_dir in patient_dir_list:
+        body_index_range , body_mask_shape = get_body_index_range(patient_dir)
+        patient_dict_list.append(
+        {
+            "patient_number": os.path.basename(patient_dir),
+            "body_index_range": body_index_range,
+            "body_mask_shape": body_mask_shape
+        })
+    
+    json_object = json.dumps(patient_dict_list, indent=4)
+    with open(pth_output_json, "w") as outfile:
+        outfile.write(json_object)
 
 @app.command()
 def convert_many_files(input_dir: str, type_in: str, type_out: str):
