@@ -15,7 +15,7 @@ start_run="$(date +%s)"
 
 # # to crop by a 1/3 and convert to nrrd
 python "./dose_utils.py" \
-    crop-and-convert-many-files \
+    crop-by-ratio-and-convert-many-files \
     '../data_test/' \
     '0.6' \
     '.3ddose' \
