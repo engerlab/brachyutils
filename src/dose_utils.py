@@ -766,6 +766,7 @@ def get_body_index_range(pth_dir_dicom:str):
     body_structure_name = [name for name in all_rois if "body" in name.lower()]
     
     # # get the numpy array of the body structure:
+    assert len(body_structure_name) == 1, "body contour not found!"
     dicom_reader.set_contour_names_and_associations(contour_names=body_structure_name)
     
     dicom_reader.get_mask()
@@ -820,13 +821,18 @@ def get_body_contour_range_from_many_patients_dicom(
     patient_dict_list = []
     
     for patient_dir in patient_dir_list:
-        body_index_range , body_mask_shape = get_body_index_range(patient_dir)
-        patient_dict_list.append(
-        {
-            "patient_number": os.path.basename(patient_dir),
-            "body_index_range": body_index_range,
-            "body_mask_shape": body_mask_shape
-        })
+        try:
+            body_index_range , body_mask_shape = get_body_index_range(patient_dir)
+            patient_dict_list.append(
+            {
+            "patient_number": patient_dir.split("/")[-2],
+            "body_index_range": body_index_range.tolist(),
+            "body_mask_shape": body_mask_shape.tolist()
+            })
+        except:
+            print(f"WARNING: no body contour for patient {patient_dir}, moving on")
+            # body_index_range , body_mask_shape = np.array([]), np.array([])
+        
     
     json_object = json.dumps(patient_dict_list, indent=4)
     with open(pth_output_json, "w") as outfile:
@@ -1196,13 +1202,25 @@ def test_crop_by_body_contour():
     dose_obj.info()
     dose_obj.crop_by_body_contour(pth_dicomRS)
     dose_obj.info()
+
+def test_get_body_contour_range_from_many_patients_dicom():
+    input_dir = "../data_test"
+    pth_json = "../data_test/test_patient_body_bounds.json"
+    
+    get_body_contour_range_from_many_patients_dicom(input_dir, pth_json)
+    
+    with open(pth_json, "r") as file:
+        data_json = json.load(file)
+    
+    print(data_json)
     
 if __name__ == "__main__":
     
     # app()
 
     # a Test for the following functions
-    test_crop_by_body_contour()
+    test_get_body_contour_range_from_many_patients_dicom()
+    # test_crop_by_body_contour()
     # test_get_body_index_range()
     # test_load_from_3ddose()
     # test_load_file_to_brachyDose()
