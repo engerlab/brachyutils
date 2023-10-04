@@ -73,7 +73,23 @@ class BrachyDose:
         info()
         
     Dependencies: 
-    
+        numpy
+        re
+        os
+        glob
+        SimpleITK
+        difflib
+        typing
+        collections
+        pytest
+        lzma
+        pickle
+        pyzstd
+        typer
+        tqdm
+        DicomRTTool
+        pydicom
+        json
     """
     
     grid:np.ndarray
@@ -729,7 +745,8 @@ class BrachyDose:
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
             body_index_range, body_mask_shape = get_body_index_range(pth_dir_dicom)
-                
+        # the body mask may have a different size than the dose map, we normalize range to the dimension 
+        # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.  
         scaled_body_index_range = (body_index_range / np.expand_dims(body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
         
         self.crop_by_index(scaled_body_index_range, True)
@@ -929,37 +946,6 @@ def padd_many_files(input_dir: str, type_in: str, dim_out:str):
 
 def load_pmc_dose(filename):
     return load_3ddose(filename)
-
-def load_egsphant(filename):
-    phant = {}
-    with open(filename, "r") as egsphant:
-        num_media = int(egsphant.readline().strip())
-        phant["media"] = []
-        for i in range(num_media):
-            phant["media"].append(egsphant.readline().strip())
-
-        # dummy line
-        egsphant.readline()
-
-        phant["num_voxels"] = [int(i) for i in egsphant.readline().strip().split()]
-        phant["x_voxels"] = [float(x) for x in egsphant.readline().strip().split()]
-        phant["y_voxels"] = [float(y) for y in egsphant.readline().strip().split()]
-        phant["z_voxels"] = [float(z) for z in egsphant.readline().strip().split()]
-
-        phant["mat_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=np.int)
-        phant["density_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=np.float32)
-
-        for k in range(phant["num_voxels"][2]):
-            for j in range(phant["num_voxels"][1]):
-                phant["mat_matrix"][k][j] = list(egsphant.readline().strip())
-            egsphant.readline()
-
-        for k in range(phant["num_voxels"][2]):
-            for j in range(phant["num_voxels"][1]):
-                phant["density_matrix"][k][j] = egsphant.readline().strip().split()
-            egsphant.readline()
-
-    return phant
 
 def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, new_dims:list, new_topLeft:list):
     r'''Given a directory full of 3ddose maps, this function will padd them all to a user defined size. 
