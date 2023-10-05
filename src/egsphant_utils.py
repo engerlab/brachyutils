@@ -51,17 +51,17 @@ class BrachyEgsphant:
         - axis:np.ndarray := coorindates of grid points along z, y and x axis.  
     
     Functions:
-        - load_file_to_BrachyEgsphant()
-        - load_from_ctegsphant()
-        - load_from_nrrd()
-        - calculate_axis()
-        - write_to_ctegsphant()
-        - write_to_nrrd()
-        - crop_by_index()
+        - load_file_to_BrachyEgsphant()     done
+        - load_from_ctegsphant()            done
+        - load_from_nrrd()                  not implmented
+        - calculate_axis()                  done
+        - write_to_ctegsphant()             done
+        - write_to_nrrd()                   not implemented
+        - crop_by_index()                   
         - crop_by_body_contour()
-        - assert_BrachyEgsphant_notEmpty()
-        - info()
-        - is_equal()
+        - assert_BrachyEgsphant_notEmpty()  done
+        - info()                            done
+        - is_equal()                        done
     
     Dependencies:
         numpy
@@ -164,7 +164,7 @@ class BrachyEgsphant:
                     self._sanity_axis[0][1] - self._sanity_axis[0][0]
                 ]
             )
-            
+            # this line maybe useless in the future
             self.axis = self.calculateAxis()
             assert np.isclose(np.concatenate(self.axis), np.concatenate(self._sanity_axis), rtol=1e-3).all(), "axis is not the same"
  
@@ -184,11 +184,20 @@ class BrachyEgsphant:
                     self.density_matrix[k][j] = egsphant.readline().strip().split()
                 egsphant.readline()
     
+    def load_from_nrrd(self, pth_file:str):
+        r"""
+        Purpose:
+            to load a nrrd file containing egsphant data. 
+        Input:
+            - pth_file := directory path to the .nrrd file
+        """
+        raise Exception("This function is not implemented yet!")
+    
     def calculateAxis(self):
         r"""
-        Purpose: will calculate the axies coordinates for a 3ddose dictionary.
+        Purpose: will calculate the axies coordinates for a BrachyEgsphant object.
         Input: 
-            - dose := output of load_3ddose(). it should have the following keys and values:
+            - self := it should have the following keys and values:
                 {"grid":,
                 "topleft":,
                 "vox_size":}
@@ -239,23 +248,21 @@ class BrachyEgsphant:
             
         with open(fileName, 'w') as file:
             lines = [num_materials, materials, spacing, dimensions, x_axis, y_axis, z_axis, material_matrix, density_matrix]
-            file.writelines(lines)
-    
-        
+            file.writelines(lines)    
     
     def is_equal(self, new_BrachyEgsphant):
         r"""
         Purpose:
-            To compare if self:BrachyDose has the same attributes as an input BrachyDose
+            To compare if self:BrachyEgsphant has the same attributes as an input BrachyEgsphant
         
         Inputs:
-            - new_brachyDose: another BrachyDose object whose attributes may or may not contain equal info as the attributes of self. 
+            - new_BrachyEgsphant: another BrachyEgsphant object whose attributes may or may not contain equal info as the attributes of self. 
         
         Outputs:
-            True if attributes of new_brachyDose are the same as self
+            True if attributes of new_BrachyEgsphant are the same as self
             False otherwise
         """
-        assert isinstance(new_BrachyEgsphant, BrachyEgsphant), "input must be of type BrachyDose"
+        assert isinstance(new_BrachyEgsphant, BrachyEgsphant), "input must be of type BrachyEgsphant"
         assert np.array_equal(self.material_matrix, new_BrachyEgsphant.material_matrix), "material matrix is not the same" 
         assert np.array_equal(self.density_matrix, new_BrachyEgsphant.density_matrix), "density matrix is not the same" 
         assert np.isclose(np.concatenate(self.axis), np.concatenate(new_BrachyEgsphant.axis), rtol=1e-3).all(), "axis is not the same"
@@ -264,7 +271,6 @@ class BrachyEgsphant:
         assert np.array_equal(self.num_voxels, new_BrachyEgsphant.num_voxels), "num_voxels is not the same"
         assert np.array_equal(self.vox_size, new_BrachyEgsphant.vox_size), "vox_size is not the same"
         assert np.isclose(self.topleft, new_BrachyEgsphant.topleft, rtol=1e-3).all(), "topleft is not the same"
-        
         
         return np.array_equal(self.material_matrix, new_BrachyEgsphant.material_matrix) \
             and np.array_equal(self.density_matrix, new_BrachyEgsphant.density_matrix) \
@@ -289,7 +295,84 @@ class BrachyEgsphant:
         assert self.vox_size is not None, "error: vox_size is None"
         assert self.topleft is not None, "error: topleft is None"
         assert self.axis is not None, "error: axis is None"
+    
+    def info(self):
+        self.assert_BrachyEgsphant_notEmpty()
+        print(f"shape of material matrix is: {self.material_matrix.shape}")
+        print(f"shape of density matrix is: {self.density_matrix.shape}")
+        print(f"num voxels attribute is: {self.num_voxels}")
+        print(f"the top left (bottom left in reality) is {self.topleft}")
+        print(f"the voxel size is {self.vox_size}")
+        print(f"the size of the z, y and x axes are {self.axis[0].shape, self.axis[1].shape, self.axis[2].shape}")
+        print(f"the range of the z axis is {self.axis[0][0], self.axis[0][-1]}")
+        print(f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
+        print(f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
+        print(f"The number of materials is {self.num_materials}")
+        print(f"the material dictionary is {self.material_dict}")
+    
+    def crop_by_index(self, index_range:np.array, inplace:Optional[bool]=True):
+        r"""
+        Purpose: 
+            given a range of indicies (mix and max on each axis), this function will crop
+            material and density matricies and will adjust the rest of the attributes accordingly. 
+        Inputs:
+            - self: BrachyEgsphant object
+            - index_range := a 3 x 2 array holding the min and max on x, y and axis
+                [[x_min, x_max], [y_min, y_max], [z_min, z_max]] 
+        Output:
+            - Void := will crop out the material and density maps of self to have the range of the index range. 
+                it will also update the num_voxels, topleft and axis. only vox_size will not change
+        Dependencies:
+            - None
+        """
+        new_origin_index = index_range[:, 0].astype(int)
+        assert np.all(new_origin_index >= 0), "new origin index cannot be negative, please report this bug"
+
+        new_ending_index = index_range[:, 1].astype(int)
+        assert np.all(new_ending_index >= 0), "new ending index cannot be negative, please report this bug"
+
+        # update the attributes 
+        if inplace:
+            self.material_matrix = self.material_matrix[
+                new_origin_index[2]:new_ending_index[2], # z
+                new_origin_index[1]:new_ending_index[1], # y
+                new_origin_index[0]:new_ending_index[0] # x
+            ]          
+            self.density_matrix = self.density_matrix[
+                new_origin_index[2]:new_ending_index[2], # z
+                new_origin_index[1]:new_ending_index[1], # y
+                new_origin_index[0]:new_ending_index[0] # x
+            ]    
+            self.topleft = np.array([
+                self.axis[2][new_origin_index[0]], # x
+                self.axis[1][new_origin_index[1]], # y
+                self.axis[0][new_origin_index[2]] # z
+            ])
+            self.num_voxels = np.flip(self.material_matrix.shape, 0)    
+            self.axis = self.calculateAxis()      
+        else:
+            new_obj = BrachyEgsphant()
+            new_obj.material_matrix = self.material_matrix[
+                new_origin_index[2]:new_ending_index[2],
+                new_origin_index[1]:new_ending_index[1],
+                new_origin_index[0]:new_ending_index[0]
+            ]          
+            new_obj.density_matrix = self.density_matrix[
+                new_origin_index[2]:new_ending_index[2],
+                new_origin_index[1]:new_ending_index[1],
+                new_origin_index[0]:new_ending_index[0]
+            ]    
+            new_obj.topleft = np.array([
+                self.axis[2][new_origin_index[0]], # x
+                self.axis[1][new_origin_index[1]], # y
+                self.axis[0][new_origin_index[2]] # z
+            ])         
+            new_obj.num_voxels = np.flip(self.material_matrix.shape, 0) 
+            new_obj.vox_size = self.vox_size   
+            new_obj.axis = self.calculateAxis()
+            return new_obj
         
+    
 def _to_single_string(matrix:np.ndarray, deliminator:Optional[str]=""):
     r"""
     Purpose:
@@ -348,6 +431,22 @@ def load_egsphant(filename):
 
     return phant
 
+def test_crop_by_index():
+    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
+    
+    egsphant_obj = BrachyEgsphant()
+    egsphant_obj.load_from_ctegsphant(pth_input)
+    egsphant_obj.info()
+    
+    index=np.array([
+        [30, 90],
+        [30, 90],
+        [0, 94]],dtype=np.float32)
+
+    egsphant_obj.crop_by_index(index)
+    egsphant_obj.info()
+
 def test_write_to_egsphant():
     pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
@@ -382,6 +481,7 @@ def test_load_from_ctegsphant():
 if __name__=="__main__":
     
     # running tests top is the latest test written
+    test_crop_by_index()
     # test_to_single_string()
-    test_write_to_egsphant()
+    # test_write_to_egsphant()
     # test_load_from_ctegsphant()
