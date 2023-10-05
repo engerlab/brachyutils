@@ -228,22 +228,22 @@ class BrachyEgsphant:
         '''   
         fileName = os.path.abspath(fileName)
         num_materials = str(self.num_materials) + '\n'
-        materials = ' '.join(map(str, self.material_dict))
+        materials = "\n".join(self.material_dict.keys()) + "\n"
+        spacing = "0 0 0 0 0 0 0 0 0\n"
         dimensions = ' '.join(map(str, self.num_voxels.astype(int))) + '\n'
-        x_axis = ' '.join(map(str, self.axis[2])) + '\n'
-        y_axis = ' '.join(map(str, self.axis[1])) + '\n'
-        z_axis = ' '.join(map(str, self.axis[0])) + '\n'
-        dose_flattened = ' '.join(map(str, self.grid.flatten('C'))) + '\n'
-        if self.uncertainty is not None:
-            uncertainty_flattened = ' '.join(map(str, self.uncertainty.flatten('C'))) + '\n'
-        else:
-            uncertainty_flattened = ''
+        x_axis = ' '.join(map(str, np.round(self.axis[2], decimals=3))) + '\n'
+        y_axis = ' '.join(map(str, np.round(self.axis[1], decimals=3))) + '\n'
+        z_axis = ' '.join(map(str, np.round(self.axis[0], decimals=3))) + '\n'
+        material_string_list = [np.array2string(z.flatten('C'), precision=6, separator="") for z in self.material_matrix]
+        material_matrix = ''.join(material_string_list) + '\n' 
+        
+        density_matrix = ' '.join(map(str, self.density_matrix.flatten('C'))) + '\n'
             
         with open(fileName, 'w') as file:
-            lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened, uncertainty_flattened]
+            lines = [num_materials, materials, spacing, dimensions, x_axis, y_axis, z_axis, material_matrix, density_matrix]
             file.writelines(lines)
     
-    def is_equal(self, new_BrachyEgsphant:BrachyEgsphant):
+    def is_equal(self, new_BrachyEgsphant):
         r"""
         Purpose:
             To compare if self:BrachyDose has the same attributes as an input BrachyDose
@@ -324,7 +324,7 @@ def load_egsphant(filename):
 
 def test_write_to_egsphant():
     pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
-    pth_output = os.path.dirname(pth_input) + "test_"+os.path.basename(pth_input)
+    pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
@@ -347,4 +347,5 @@ def test_load_from_ctegsphant():
 if __name__=="__main__":
     
     # running tests top is the latest test written
-    test_load_from_ctegsphant()
+    test_write_to_egsphant()
+    # test_load_from_ctegsphant()
