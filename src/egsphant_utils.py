@@ -234,14 +234,14 @@ class BrachyEgsphant:
         x_axis = ' '.join(map(str, np.round(self.axis[2], decimals=3))) + '\n'
         y_axis = ' '.join(map(str, np.round(self.axis[1], decimals=3))) + '\n'
         z_axis = ' '.join(map(str, np.round(self.axis[0], decimals=3))) + '\n'
-        material_string_list = [np.array2string(z.flatten('C'), precision=6, separator="") for z in self.material_matrix]
-        material_matrix = ''.join(material_string_list) + '\n' 
-        
-        density_matrix = ' '.join(map(str, self.density_matrix.flatten('C'))) + '\n'
+        material_matrix = _to_single_string(self.material_matrix.astype(str))
+        density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
             
         with open(fileName, 'w') as file:
             lines = [num_materials, materials, spacing, dimensions, x_axis, y_axis, z_axis, material_matrix, density_matrix]
             file.writelines(lines)
+    
+        
     
     def is_equal(self, new_BrachyEgsphant):
         r"""
@@ -255,7 +255,7 @@ class BrachyEgsphant:
             True if attributes of new_brachyDose are the same as self
             False otherwise
         """
-        assert isinstance(new_BrachyEgsphant, BrachyDose), "input must be of type BrachyDose"
+        assert isinstance(new_BrachyEgsphant, BrachyEgsphant), "input must be of type BrachyDose"
         assert np.array_equal(self.material_matrix, new_BrachyEgsphant.material_matrix), "material matrix is not the same" 
         assert np.array_equal(self.density_matrix, new_BrachyEgsphant.density_matrix), "density matrix is not the same" 
         assert np.isclose(np.concatenate(self.axis), np.concatenate(new_BrachyEgsphant.axis), rtol=1e-3).all(), "axis is not the same"
@@ -263,7 +263,7 @@ class BrachyEgsphant:
         assert self.material_dict == new_BrachyEgsphant.material_dict, "the material dictionary is not the same"
         assert np.array_equal(self.num_voxels, new_BrachyEgsphant.num_voxels), "num_voxels is not the same"
         assert np.array_equal(self.vox_size, new_BrachyEgsphant.vox_size), "vox_size is not the same"
-        assert np.array_equal(self.topleft, new_BrachyEgsphant.topleft), "topleft is not the same"
+        assert np.isclose(self.topleft, new_BrachyEgsphant.topleft, rtol=1e-3).all(), "topleft is not the same"
         
         
         return np.array_equal(self.material_matrix, new_BrachyEgsphant.material_matrix) \
@@ -290,7 +290,33 @@ class BrachyEgsphant:
         assert self.topleft is not None, "error: topleft is None"
         assert self.axis is not None, "error: axis is None"
         
+def _to_single_string(matrix:np.ndarray, deliminator:Optional[str]=""):
+    r"""
+    Purpose:
+        given a 3D matrix with string entries, this function concatenates all the
+            entries into a single string to be written to the file. 
+            "\n" is added at the end of each row and 
+    
+    Input:
+        matrix := 3D ndarray full of string enteries
+        deliminator := the string text inbetween the enteries. 
+    Output:
+        a single string containing all the enteries with added \n at the end of each row of 
+            matrix and an addiation \n added to each slide in the input matrix
+     
+    """
+    matrix_single_string = []
+    for slide in matrix:
+        slide_single_string = []
+        for row in slide:
+            slide_single_string.append(
+                deliminator.join(row) + "\n"
+                # "".join(np.pad(row, (0,1), mode='constant', constant_values=("\n")))
+            )
+        matrix_single_string.append(deliminator.join(slide_single_string)+"\n")
         
+    return "".join(matrix_single_string)           
+    
 def load_egsphant(filename):
     phant = {}
     with open(filename, "r") as egsphant:
@@ -335,7 +361,16 @@ def test_write_to_egsphant():
     new_egsphant_obj.load_from_ctegsphant(pth_output)
     
     egsphant_obj.is_equal(new_egsphant_obj)
+
+def test_to_single_string():
+    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
+    egsphant_obj = BrachyEgsphant()
+    egsphant_obj.load_from_ctegsphant(pth_input)
+    egsphant_obj.assert_BrachyEgsphant_notEmpty()
+    
+    _to_single_string(egsphant_obj.material_matrix.astype(str))     
 
 def test_load_from_ctegsphant():
     pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
@@ -347,5 +382,6 @@ def test_load_from_ctegsphant():
 if __name__=="__main__":
     
     # running tests top is the latest test written
+    # test_to_single_string()
     test_write_to_egsphant()
     # test_load_from_ctegsphant()
