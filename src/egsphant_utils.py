@@ -34,6 +34,8 @@ import pydicom
 
 import json
 
+from dose_utils import get_body_index_range
+
 class BrachyEgsphant:
     r"""
     Purpose:
@@ -57,8 +59,8 @@ class BrachyEgsphant:
         - calculate_axis()                  done
         - write_to_ctegsphant()             done
         - write_to_nrrd()                   not implemented
-        - crop_by_index()                   
-        - crop_by_body_contour()
+        - crop_by_index()                   done
+        - crop_by_body_contour()            
         - assert_BrachyEgsphant_notEmpty()  done
         - info()                            done
         - is_equal()                        done
@@ -371,7 +373,39 @@ class BrachyEgsphant:
             new_obj.vox_size = self.vox_size   
             new_obj.axis = self.calculateAxis()
             return new_obj
+    
+    def crop_by_body_contour(self, pth_dir_dicom:Optional[str]=None, 
+                             body_index_range:Optional[np.ndarray] = None, 
+                             body_mask_shape:Optional[np.ndarray] = None):
+        r"""
+        Purpose: 
+            based on the given dicom structure file, crop the BrachyEgsphant object such 
+                that it only has the body contour. 
+        Inputs: 
+            - pth_dir_dicom := pth_dir_dicom := path to the directory with the dicom files of a patient. 
+                it should contain both images and RTSTRUCT file. this input is optional
+            
+            - body_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
+                [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
         
+            - original_mask_dimensions:np.array := 1 x 3 array holding the dimension of the original mask
+            
+            
+        Outputs:
+            - Void := will crop out the material and density maps of self to have the range of the body contour 
+                    in the dicom structure file. It will also update the num_voxels, topleft and axis. only vox_size will not change
+        """
+        
+        if body_index_range is None or body_mask_shape is None:
+            assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
+                file should be given or body_index_range and body_mask_shape"
+            body_index_range, body_mask_shape = get_body_index_range(pth_dir_dicom)
+        # the body mask may have a different size than the material map, we normalize range to the dimension 
+        # of original mask and scale it to the dimension of the material map to get the body index range on the material image.  
+        scaled_body_index_range = (body_index_range / np.expand_dims(body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
+        
+        self.crop_by_index(scaled_body_index_range, True)
+    
     
 def _to_single_string(matrix:np.ndarray, deliminator:Optional[str]=""):
     r"""
@@ -394,7 +428,6 @@ def _to_single_string(matrix:np.ndarray, deliminator:Optional[str]=""):
         for row in slide:
             slide_single_string.append(
                 deliminator.join(row) + "\n"
-                # "".join(np.pad(row, (0,1), mode='constant', constant_values=("\n")))
             )
         matrix_single_string.append(deliminator.join(slide_single_string)+"\n")
         
@@ -431,6 +464,20 @@ def load_egsphant(filename):
 
     return phant
 
+def test_crop_by_body_contour():
+    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
+    pth_dicomRS = "../data_test/prostate_glen_p1/"
+
+    egsphant_obj = BrachyEgsphant()
+    egsphant_obj.load_from_ctegsphant(pth_input)
+    egsphant_obj.info()
+    
+    egsphant_obj.crop_by_body_contour(pth_dicomRS)
+    egsphant_obj.info()
+    
+    
+
 def test_crop_by_index():
     pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
@@ -446,6 +493,7 @@ def test_crop_by_index():
 
     egsphant_obj.crop_by_index(index)
     egsphant_obj.info()
+    egsphant_obj.write_to_ctegsphant(pth_output)
 
 def test_write_to_egsphant():
     pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
@@ -481,7 +529,8 @@ def test_load_from_ctegsphant():
 if __name__=="__main__":
     
     # running tests top is the latest test written
-    test_crop_by_index()
+    test_crop_by_body_contour()
+    # test_crop_by_index()
     # test_to_single_string()
     # test_write_to_egsphant()
     # test_load_from_ctegsphant()
