@@ -478,7 +478,7 @@ def crop_by_body_contour_many_files(patient_egsphant_dir:str, patient_body_range
     pth_egsphant_set = set(glob(patient_egsphant_dir+"/*/*.egsphant"))
         
     body_range_dict = _load_json(pth_json=patient_body_range_json)
-    for patient in body_range_dict: 
+    for patient in tqdm(body_range_dict): 
         pth_egsphant = list(filter(lambda x: patient["patient_number"] in x, pth_egsphant_set))[0]
         
         egsphant_obj = BrachyEgsphant(pth_egsphant)
