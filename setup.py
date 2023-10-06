@@ -26,5 +26,8 @@ setup(name='BrachyUtils',
         "typer",
         "tqdm",
         "DicomRTTool"
-      ]
+      ],
+      entry_points={
+        'console_scripts': ['brachy-utils=BrachyUtils:main']
+    }
      )
