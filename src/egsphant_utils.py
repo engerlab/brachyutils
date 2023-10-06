@@ -432,37 +432,27 @@ def _to_single_string(matrix:np.ndarray, deliminator:Optional[str]=""):
         matrix_single_string.append(deliminator.join(slide_single_string)+"\n")
         
     return "".join(matrix_single_string)           
+ 
+
+app = typer.Typer()
+
+def _load_json(pth_json:str):
+    assert os.path.exists(pth_json), f"no such json file was found at this directory: \n {pth_json}"
     
-def load_egsphant(filename):
-    phant = {}
-    with open(filename, "r") as egsphant:
-        num_media = int(egsphant.readline().strip())
-        phant["media"] = []
-        for i in range(num_media):
-            phant["media"].append(egsphant.readline().strip())
+    with open(pth_json, 'r', encoding='utf-8') as file_json:
+        return json.loads(file_json)
 
-        # dummy line
-        egsphant.readline()
+@app.command()
+def crop_by_body_contour_many_files(patient_egsphant_dir:str, patient_body_range_json:str):
+    
+    body_range_dict = _load_json(pth_json=patient_body_range_json)
+    print(body_range_dict)
 
-        phant["num_voxels"] = [int(i) for i in egsphant.readline().strip().split()]
-        phant["x_voxels"] = [float(x) for x in egsphant.readline().strip().split()]
-        phant["y_voxels"] = [float(y) for y in egsphant.readline().strip().split()]
-        phant["z_voxels"] = [float(z) for z in egsphant.readline().strip().split()]
-
-        phant["mat_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=np.int)
-        phant["density_matrix"] = npzeros((phant["num_voxels"][2], phant["num_voxels"][1], phant["num_voxels"][0]), dtype=np.float32)
-
-        for k in range(phant["num_voxels"][2]):
-            for j in range(phant["num_voxels"][1]):
-                phant["mat_matrix"][k][j] = list(egsphant.readline().strip())
-            egsphant.readline()
-
-        for k in range(phant["num_voxels"][2]):
-            for j in range(phant["num_voxels"][1]):
-                phant["density_matrix"][k][j] = egsphant.readline().strip().split()
-            egsphant.readline()
-
-    return phant
+def test_crop_by_body_contour_many_files():
+    pth_input = "../data_test"
+    pth_json = "../data_test/patient_body_bounds.json"
+    
+    crop_by_body_contour_many_files(pth_input, pth_json)
 
 def test_crop_by_body_contour():
     pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
@@ -529,7 +519,8 @@ def test_load_from_ctegsphant():
 if __name__=="__main__":
     
     # running tests top is the latest test written
-    test_crop_by_body_contour()
+    test_crop_by_body_contour_many_files()
+    # test_crop_by_body_contour()
     # test_crop_by_index()
     # test_to_single_string()
     # test_write_to_egsphant()
