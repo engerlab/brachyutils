@@ -843,24 +843,6 @@ def padd_many_files(input_dir: str, type_in: str, dim_out:str):
     """
     raise Exception("This feature is not implementated yet")
 
-def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, new_dims:list, new_topLeft:list):
-    r'''TO BE RE-IMPLEMENTED
-    Purpose:
-        Given a directory full of 3ddose maps, this function will padd them all to a user defined size. 
-    inputs:
-        dir_3ddose_folder := the directory of the many 3ddose files
-
-        output_dir_3ddose_folder := the directory where each padded 3ddose file will be saved
-        
-        new_dims := a 1 by 3 list containing the new x, y and z dimensions:
-            [new_z_dim, new_y_dim, new_x_dim]
-
-        new_topLeft := coordinates of the new topleft
-            [x, y, z]
-    '''
-    raise Exception("This feature is not implementated yet")
-
-
 def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
     # old_file_dir = load_3ddose(pth1_3ddose)
     # new_file_dir = load_3ddose(pth2_3ddose)

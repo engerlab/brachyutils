@@ -561,9 +561,9 @@ def test_load_from_ctegsphant():
     egsphant_obj.assert_BrachyEgsphant_notEmpty()
 
 if __name__=="__main__":
-    
+    app()
     # running tests top is the latest test written
-    test_crop_by_body_contour_many_files()
+    # test_crop_by_body_contour_many_files()
     # test_crop_by_body_contour()
     # test_crop_by_index()
     # test_to_single_string()

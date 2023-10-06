@@ -100,7 +100,9 @@ def get_body_contour_range_from_many_patients_dicom(
             to a json file located at "output_json"
     Input:
         - input_dir := path to the directory where folders of many patients with dicom files exist.
-            this script will loop through patient folders
+            this script will loop through patient folders. Example:
+                input_dir/p1/
+                input_dir/p2/ ...
         - output_json := path to the json file where the following information for each patient is stored            
     Output: 
         - Void := the following content will be written to output_json for each patient:
