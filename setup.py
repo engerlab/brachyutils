@@ -1,0 +1,30 @@
+from distutils.core import setup
+
+setup(name='BrachyUtils',
+      version='1.0',
+      description='Python utility packages for handling dose files and egsphant files.',
+      author='EngerLab',
+      install_requires=[
+        "contourpy==1.1.0",
+        "cycler==0.11.0",
+        "fonttools==4.42.1",
+        "importlib-resources==6.0.1",
+        "kiwisolver==1.4.5",
+        "matplotlib==3.7.2",
+        "numpy==1.24.4",
+        "packaging==23.1",
+        "pandas==2.0.3",
+        "Pillow==10.0.0",
+        "pyparsing==3.0.9",
+        "python-dateutil==2.8.2",
+        "pytz==2023.3",
+        "SimpleITK==2.2.1",
+        "six==1.16.0",
+        "tzdata==2023.3",
+        "zipp==3.16.2",
+        "pyzstd",
+        "typer",
+        "tqdm",
+        "DicomRTTool"
+      ]
+     )
