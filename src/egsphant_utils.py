@@ -471,7 +471,8 @@ def crop_by_body_contour_many_files(patient_egsphant_dir:str, patient_body_range
                     "body_mask_shape": [512, 512, 42]
                     }
                 ]
-        
+    Output:
+        - Void: the cropped .egsphant file for each patient will be written to patient_dir/cropped_basename.egsphant 
     """
     pth_egsphant_set = set(glob(patient_egsphant_dir+"/*/*.egsphant"))
         
