@@ -2,9 +2,9 @@
 
 source ../ENV/bin/activate
 
-PYTHONPATH=./src
+# PYTHONPATH=./src
 
-start_run="$(date +%s)"
+# start_run="$(date +%s)"
 
 # # to conver from 3ddose to nrrd
 # python "./dose_utils.py" \
@@ -21,6 +21,6 @@ python "./dose_utils.py" \
     '.3ddose' \
     '.nrrd'
 
-duration=$[ $(date +%s) - ${start_run}  ]
+# duration=$[ $(date +%s) - ${start_run}  ]
 
-echo ${duration} seconds
+# echo ${duration} seconds

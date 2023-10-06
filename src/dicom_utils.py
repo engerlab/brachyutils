@@ -160,8 +160,8 @@ def test_get_body_contour_range_from_many_patients_dicom():
 
 if __name__ == "__main__":
     
-    # app()
+    app()
 
     # a Test for the following functions
-    test_get_body_index_range()
-    test_get_body_contour_range_from_many_patients_dicom()
+    # test_get_body_index_range()
+    # test_get_body_contour_range_from_many_patients_dicom()

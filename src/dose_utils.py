@@ -752,109 +752,7 @@ class BrachyDose:
         
         self.crop_by_index(scaled_body_index_range, True)
 
-# def get_body_index_range(pth_dir_dicom:str):
-#     r"""
-#     Purpose:
-#         to find the index extent of the body voxels along each axis using dicom RT structure file. 
-#     Inputs:
-#         - pth_dir_dicom := path to the directory with the dicom files of a patient. 
-#             it should contain both images and RTSTRUCT file
-#     Outputs:
-#         - body_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
-#             [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
-        
-#         - body_mask_shape:np.array := 1 x 3 array holding the dimension of the original mask
-            
-#     Dependencies:
-#         DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
-#     """
-    
-#     pth_dir_dicom = os.path.abspath(pth_dir_dicom)
-#     assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
-#     assert not not glob(pth_dir_dicom+"/*.dcm"), "there are no dicom files in this directory"
-            
-#     pth_structure_dcm = glob(pth_dir_dicom+"/RS*.dcm")[0]
-    
-#     # load the structure file into an rt_struct object
-#     dicom_reader = DicomReaderWriter(description="getting body mask", arg_max=True)
-#     dicom_reader.walk_through_folders(pth_dir_dicom)
-#     all_rois = dicom_reader.return_rois()
-    
-#     # # find the name of the body structure inside the rt_structure object
-#     body_structure_name = [name for name in all_rois if "body" in name.lower()]
-    
-#     # # get the numpy array of the body structure:
-#     assert len(body_structure_name) == 1, "body contour not found!"
-#     dicom_reader.set_contour_names_and_associations(contour_names=body_structure_name)
-    
-#     dicom_reader.get_mask()
-#     mask_numpy = dicom_reader.mask
-    
-#     # so we got the mask but the dimensions may not match the dimension of the dose
-#     # let's get the relative extent of the body mask compared to the whole grid and resample
-#     # the extents
-#     body_index_range = np.zeros([3, 2], dtype=int)
-#     for i in range(3):
-#         body_index_range[i, :] = np.floor(np.array([
-#             np.argwhere(mask_numpy==1)[:, i].min(), 
-#             # off set of +1 is added to acount for python stopping before range end
-#             np.argwhere(mask_numpy==1)[:, i].max()+1])).astype(int)
-#             # np.argwhere(mask_numpy==1)[:, i].max()+1]) / np.array(mask_numpy.shape[i]) * self.num_voxels[3-i-1]).astype(int)
-        
-#     body_index_range = np.flip(body_index_range, axis=0)    
-            
-#     return body_index_range, np.flip(np.array(mask_numpy.shape))
-
 app = typer.Typer()
-
-# @app.command()
-# def get_body_contour_range_from_many_patients_dicom(
-#     input_dir:str, 
-#     pth_output_json:str 
-# ):
-#     r"""
-#     Purpose:
-#         to exract body contour extent on each axis for all the patients in input_dir and save them
-#             to a json file located at "output_json"
-#     Input:
-#         - input_dir := path to the directory where folders of many patients with dicom files exist.
-#             this script will loop through patient folders
-#         - output_json := path to the json file where the following information for each patient is stored            
-#     Output: 
-#         - Void := the following content will be written to output_json for each patient:
-#             {
-#                 patient_number:=str,
-#                 body_index_range:[
-#                     [x_min:int, x_max:int],
-#                     [y_min:int, y_max:int],
-#                     [z_min:int, z_max:int],
-#                 ]
-#                 body_mask_shape:[len(x):int, len(y):int, len(z):int]
-#             }
-#     """
-    
-#     input_dir = os.path.abspath(input_dir)
-    
-#     patient_dir_list = glob(input_dir+"/*/")
-#     patient_dict_list = []
-    
-#     for patient_dir in patient_dir_list:
-#         try:
-#             body_index_range , body_mask_shape = get_body_index_range(patient_dir)
-#             patient_dict_list.append(
-#             {
-#             "patient_number": patient_dir.split("/")[-2],
-#             "body_index_range": body_index_range.tolist(),
-#             "body_mask_shape": body_mask_shape.tolist()
-#             })
-#         except:
-#             print(f"WARNING: no body contour for patient {patient_dir}, moving on")
-#             # body_index_range , body_mask_shape = np.array([]), np.array([])
-        
-    
-#     json_object = json.dumps(patient_dict_list, indent=4)
-#     with open(pth_output_json, "w") as outfile:
-#         outfile.write(json_object)
 
 @app.command()
 def convert_many_files(input_dir: str, type_in: str, type_out: str):
@@ -945,9 +843,6 @@ def padd_many_files(input_dir: str, type_in: str, dim_out:str):
     """
     raise Exception("This feature is not implementated yet")
 
-def load_pmc_dose(filename):
-    return load_3ddose(filename)
-
 def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, new_dims:list, new_topLeft:list):
     r'''TO BE RE-IMPLEMENTED
     Purpose:
@@ -963,14 +858,7 @@ def pad_many_3ddoses(input_dir_3ddose_folder:str, output_dir_3ddose_folder:str, 
         new_topLeft := coordinates of the new topleft
             [x, y, z]
     '''
-
-    files = glob(input_dir_3ddose_folder+'*.3ddose')
-
-    for file in files:
-        file_name = file.split('/')[-1]
-        dose_dict = load_3ddose(file)
-        padded_dose_dict = pad_3ddose(dose_dict, new_dims, new_topLeft)
-        write_3ddose(output_dir_3ddose_folder+file_name, padded_dose_dict)
+    raise Exception("This feature is not implementated yet")
 
 
 def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
