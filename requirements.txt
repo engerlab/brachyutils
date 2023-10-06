@@ -18,3 +18,4 @@ zipp==3.16.2
 pyzstd
 typer
 tqdm
+DicomRTTool
