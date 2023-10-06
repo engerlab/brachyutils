@@ -439,17 +439,27 @@ app = typer.Typer()
 def _load_json(pth_json:str):
     assert os.path.exists(pth_json), f"no such json file was found at this directory: \n {pth_json}"
     
-    with open(pth_json, 'r', encoding='utf-8') as file_json:
-        return json.loads(file_json)
+    with open(pth_json, 'r') as file_json:
+        return json.load(file_json)
 
 @app.command()
 def crop_by_body_contour_many_files(patient_egsphant_dir:str, patient_body_range_json:str):
     
+    pth_egsphant_set = set(glob(patient_egsphant_dir+"/*/*.egsphant"))
+        
     body_range_dict = _load_json(pth_json=patient_body_range_json)
-    print(body_range_dict)
-
+    for patient in body_range_dict: 
+        pth_egsphant = list(filter(lambda x: patient["patient_number"] in x, pth_egsphant_set))[0]
+        
+        egsphant_obj = BrachyEgsphant(pth_egsphant)
+        egsphant_obj.crop_by_body_contour(patient["body_index_range"], patient["body_mask_shape"])
+        egsphant_obj.write_to_ctegsphant(
+            os.path.dirname(pth_egsphant) + "cropped_" + os.path.basename(pth_egsphant)
+            )
+        
 def test_crop_by_body_contour_many_files():
-    pth_input = "../data_test"
+    # pth_input = "../data_test"
+    pth_input = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm"
     pth_json = "../data_test/patient_body_bounds.json"
     
     crop_by_body_contour_many_files(pth_input, pth_json)
