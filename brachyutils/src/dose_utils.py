@@ -28,7 +28,7 @@ import decimal
 
 from tqdm import tqdm
 
-from src.dicom_utils import get_body_index_range
+from dicom_utils import get_body_index_range
 
 # from rt_utils import RTStructBuilder
 from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass

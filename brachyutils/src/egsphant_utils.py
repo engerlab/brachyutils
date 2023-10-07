@@ -34,7 +34,7 @@ from typing import Optional
 
 import json
 
-from src.dicom_utils import get_body_index_range
+from dicom_utils import get_body_index_range
 
 class BrachyEgsphant:
     r"""

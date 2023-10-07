@@ -5,9 +5,9 @@ from tqdm import tqdm
 import pytest
 
 
-from src.dicom_utils import  get_body_index_range
-from src.egsphant_utils import _load_json, BrachyEgsphant
-from src.dose_utils import BrachyDose
+from dicom_utils import  get_body_index_range
+from egsphant_utils import _load_json, BrachyEgsphant
+from dose_utils import BrachyDose
 import typer
 
 app = typer.Typer()

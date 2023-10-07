@@ -4,7 +4,7 @@ setup(name='brachyutils',
       version='1.0',
       description='Python utility packages for handling dose files and egsphant files.',
       author='EngerLab',
-      packages = find_packages('src'),
+      packages = find_packages(),
       install_requires=[
         "contourpy",
         "cycler",
@@ -28,7 +28,6 @@ setup(name='brachyutils',
         "tqdm",
         "DicomRTTool"
       ],
-      entry_points={
-        'console_scripts': ['brachyutils=brachyutils:main']
-    }
+      entry_points={'console_scripts': ['brachyutils=brachyutils:main']},
+      package_dir={'':'brachyutils/src'}
      )
