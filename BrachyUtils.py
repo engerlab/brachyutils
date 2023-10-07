@@ -250,6 +250,9 @@ def test_crop_by_body_contour():
     dose_obj.crop_by_body_contour(pth_dicomRS)
     dose_obj.info()
 
-if __name__=="__main__":
-    # test_get_body_contour_range_from_many_patients_dicom()
+def main():
     app()
+
+# if __name__=="__main__":
+#     # test_get_body_contour_range_from_many_patients_dicom()
+#     app()

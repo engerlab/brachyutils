@@ -28,6 +28,6 @@ setup(name='brachyutils',
         "DicomRTTool"
       ],
       entry_points={
-        'console_scripts': ['brachyutils=BrachyUtils']
+        'console_scripts': ['brachyutils=BrachyUtils:main']
     }
      )
