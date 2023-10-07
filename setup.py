@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-setup(name='BrachyUtils',
+setup(name='brachyutils',
       version='1.0',
       description='Python utility packages for handling dose files and egsphant files.',
       author='EngerLab',
@@ -18,7 +18,7 @@ setup(name='BrachyUtils',
         "pyparsing",
         "python-dateutil",
         "pytz",
-        "SimpleITK",
+        "SimpleITK==2.3.0",
         "six",
         "tzdata",
         "zipp",
