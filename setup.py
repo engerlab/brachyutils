@@ -4,7 +4,7 @@ setup(name='brachyutils',
       version='1.0',
       description='Python utility packages for handling dose files and egsphant files.',
       author='EngerLab',
-      packages = find_packages(include=['brachyutils', 'src.*']),
+      packages = find_packages('src'),
       install_requires=[
         "contourpy",
         "cycler",
