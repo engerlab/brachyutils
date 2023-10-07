@@ -1,9 +1,10 @@
-from distutils.core import setup
+from distutils.core import setup, find_packages
 
 setup(name='brachyutils',
       version='1.0',
       description='Python utility packages for handling dose files and egsphant files.',
       author='EngerLab',
+      packages=find_packages(include=['brachyutils, src.*']),
       install_requires=[
         "contourpy",
         "cycler",
