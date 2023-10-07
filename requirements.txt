@@ -19,3 +19,4 @@ pyzstd
 typer
 tqdm
 DicomRTTool
+pytest
