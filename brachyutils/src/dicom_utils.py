@@ -142,16 +142,16 @@ def get_body_index_range(pth_dir_dicom:str):
 
 
 def test_get_body_index_range():
-    pth_dicomRS = "../data_test/prostate_glen_p1/"
-    pth_3ddose = "../data_test/run_1_glen_prostate_p1.3ddose"
+    pth_dicomRS = "../../data_test/prostate_glen_p1/"
+    pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
 
 
     print(get_body_index_range(pth_dicomRS))
     
 
 # def test_get_body_contour_range_from_many_patients_dicom():
-#     input_dir = "../data_test"
-#     pth_json = "../data_test/test_patient_body_bounds.json"
+#     input_dir = "../../data_test"
+#     pth_json = "../../data_test/test_patient_body_bounds.json"
     
 #     get_body_contour_range_from_many_patients_dicom(input_dir, pth_json)
     

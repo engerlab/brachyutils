@@ -198,8 +198,8 @@ def padd_many_files(input_dir: str, type_in: str, dim_out:str):
 
 
 def test_get_body_contour_range_from_many_patients_dicom():
-    input_dir = "data_test"
-    pth_json = "data_test/test_patient_body_bounds.json"
+    input_dir = "../../data_test"
+    pth_json = "../../data_test/test_patient_body_bounds.json"
     
     get_body_contour_range_from_many_patients_dicom(input_dir, pth_json)
     
@@ -210,17 +210,17 @@ def test_get_body_contour_range_from_many_patients_dicom():
 
 def test_crop_egsphant_by_body_contour_many_files():
     # test on testing dataset
-    pth_input = "."
-    pth_json = "data_test/test_patient_body_bounds.json"
+    pth_input = "../.."
+    pth_json = "../../data_test/test_patient_body_bounds.json"
     
     # test on all patients
     # pth_input = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm"
-    # pth_json = "data_test/patient_body_bounds.json"
+    # pth_json = "../../data_test/patient_body_bounds.json"
     
     crop_egsphant_by_body_contour_many_patients(pth_input, pth_json)
 
 def test_convert_many_files():
-    dir_in = "data_test/many_files"
+    dir_in = "../../data_test/many_files"
     type_in = ".3ddose"
     type_out = ".nrrd"
     
@@ -240,8 +240,8 @@ def test_convert_many_files():
         dose_obj_3ddose.is_equal(dose_obj_nrrd)
 
 def test_crop_by_body_contour():
-    pth_dicomRS = "data_test/prostate_glen_p1/"
-    pth_3ddose = "data_test/run_1_glen_prostate_p1.3ddose"
+    pth_dicomRS = "../../data_test/prostate_glen_p1/"
+    pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
 
 
     dose_obj = BrachyDose()

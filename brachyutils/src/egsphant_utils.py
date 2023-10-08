@@ -490,18 +490,18 @@ def _load_json(pth_json:str):
 # def test_crop_by_body_contour_many_files():
 #     # test on testing dataset
 #     pth_input = "../"
-#     pth_json = "../data_test/test_patient_body_bounds.json"
+#     pth_json = "../../data_test/test_patient_body_bounds.json"
     
 #     # test on all patients
 #     # pth_input = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm"
-#     # pth_json = "../data_test/patient_body_bounds.json"
+#     # pth_json = "../../data_test/patient_body_bounds.json"
     
 #     crop_egsphant_by_body_contour_many_patients(pth_input, pth_json)
 
 def test_crop_by_body_contour():
-    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
-    pth_dicomRS = "../data_test/prostate_glen_p1/"
+    pth_dicomRS = "../../data_test/prostate_glen_p1/"
 
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
@@ -513,7 +513,7 @@ def test_crop_by_body_contour():
     
 
 def test_crop_by_index():
-    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
     egsphant_obj = BrachyEgsphant()
@@ -530,7 +530,7 @@ def test_crop_by_index():
     egsphant_obj.write_to_ctegsphant(pth_output)
 
 def test_write_to_egsphant():
-    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
     egsphant_obj = BrachyEgsphant()
@@ -544,7 +544,7 @@ def test_write_to_egsphant():
     egsphant_obj.is_equal(new_egsphant_obj)
 
 def test_to_single_string():
-    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
     egsphant_obj = BrachyEgsphant()
@@ -554,7 +554,7 @@ def test_to_single_string():
     _to_single_string(egsphant_obj.material_matrix.astype(str))     
 
 def test_load_from_ctegsphant():
-    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
     
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
