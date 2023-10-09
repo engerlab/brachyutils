@@ -19,14 +19,15 @@ setup(name='brachyutils',
         "pyparsing",
         "python-dateutil",
         "pytz",
-        "SimpleITK==2.3.0",
+        "SimpleITK",
         "six",
         "tzdata",
         "zipp",
         "pyzstd",
         "typer",
         "tqdm",
-        "DicomRTTool"
+        "DicomRTTool",
+        "scikit-build"
       ],
       entry_points={'console_scripts': ['brachyutils=brachyutils:main']},
       package_dir={'':'brachyutils/src'}
