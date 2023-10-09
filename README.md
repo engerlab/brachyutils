@@ -28,7 +28,7 @@ brachyutils comes with a linux command line interface, to learn about its functi
 
 ## BrachyDose
 
-You can import this object in your python script by running `from brachyutils import BrachyDose`. This object has the following attributes and functions:
+You can import this object in your python script by running `from brachyutils import BrachyEgsphant`. This object has the following attributes and functions:
 
 ```to be added later```
 
