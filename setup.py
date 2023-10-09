@@ -19,6 +19,10 @@ setup(name='brachyutils',
         "pyparsing",
         "python-dateutil",
         "pytz",
+<<<<<<< HEAD
+=======
+        "cmake"
+>>>>>>> 5f722209b02eb329e9722a226415703e5f5b03ad
         "SimpleITK",
         "six",
         "tzdata",
@@ -26,7 +30,7 @@ setup(name='brachyutils',
         "pyzstd",
         "typer",
         "tqdm",
-        "DicomRTTool"
+        "DicomRTTool",
       ],
       entry_points={'console_scripts': ['brachyutils=brachyutils:main']},
       package_dir={'':'brachyutils/src'}
