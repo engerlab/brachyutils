@@ -5,7 +5,7 @@ from tqdm import tqdm
 import pytest
 
 
-from dicom_utils import  get_body_index_range
+# from dicom_utils import  get_body_index_range
 from egsphant_utils import _load_json, BrachyEgsphant
 from dose_utils import BrachyDose
 import typer
@@ -40,28 +40,30 @@ def get_body_contour_range_from_many_patients_dicom(
             }
     """
     
-    input_dir = os.path.abspath(input_dir)
+    raise Exception("this command does not run on compute canada due to difficulties with DicomRTTool installation")
+
+    # input_dir = os.path.abspath(input_dir)
     
-    patient_dir_list = glob(input_dir+"/*/")
-    patient_dict_list = []
+    # patient_dir_list = glob(input_dir+"/*/")
+    # patient_dict_list = []
     
-    for patient_dir in patient_dir_list:
-        try:
-            body_index_range , body_mask_shape = get_body_index_range(patient_dir)
-            patient_dict_list.append(
-            {
-            "patient_number": patient_dir.split("/")[-2],
-            "body_index_range": body_index_range.tolist(),
-            "body_mask_shape": body_mask_shape.tolist()
-            })
-        except:
-            print(f"WARNING: no body contour for patient {patient_dir}, moving on")
-            # body_index_range , body_mask_shape = np.array([]), np.array([])
+    # for patient_dir in patient_dir_list:
+    #     try:
+    #         body_index_range , body_mask_shape = get_body_index_range(patient_dir)
+    #         patient_dict_list.append(
+    #         {
+    #         "patient_number": patient_dir.split("/")[-2],
+    #         "body_index_range": body_index_range.tolist(),
+    #         "body_mask_shape": body_mask_shape.tolist()
+    #         })
+    #     except:
+    #         print(f"WARNING: no body contour for patient {patient_dir}, moving on")
+    #         # body_index_range , body_mask_shape = np.array([]), np.array([])
         
     
-    json_object = json.dumps(patient_dict_list, indent=4)
-    with open(pth_output_json, "w") as outfile:
-        outfile.write(json_object)
+    # json_object = json.dumps(patient_dict_list, indent=4)
+    # with open(pth_output_json, "w") as outfile:
+    #     outfile.write(json_object)
 
 @app.command()
 def crop_egsphant_by_body_contour_many_patients(patient_egsphant_dir:str, patient_body_range_json:str):
