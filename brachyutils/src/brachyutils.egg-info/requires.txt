@@ -11,7 +11,7 @@ Pillow
 pyparsing
 python-dateutil
 pytz
-SimpleITK==2.3.0
+SimpleITK
 six
 tzdata
 zipp
