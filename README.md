@@ -11,7 +11,9 @@ To get the package run:
 Then, create a virtual envionrment and activate it by running:
 
 `python3 -m venv ENV_brachyutils`
+
 `source ENV_brachyutils/bin/activate`
+
 `python3 -m pip install --upgrade pip`
 
 Install SimpleITK independently by running `python3 -m pip install SimpleITK`. If you run into the error saying `skbuild` is [missing](https://bugs.python.org/issue30573), run `python3 -m pip install cmake`, then try installing SimpleITK again.
