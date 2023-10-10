@@ -98,14 +98,15 @@ def crop_egsphant_by_body_contour_many_patients(patient_egsphant_dir:str, patien
     pth_egsphant_set = set(glob(patient_egsphant_dir+"/*/*.egsphant"))
         
     body_range_dict = _load_json(pth_json=patient_body_range_json)
-    for patient in tqdm(body_range_dict): 
+
+    for patient in tqdm(body_range_dict):
         pth_egsphant = list(filter(lambda x: patient["patient_number"] in x, pth_egsphant_set))[0]
-        
+        print(f"loading the patient egsphant {pth_egsphant}")
         egsphant_obj = BrachyEgsphant(pth_egsphant)
         egsphant_obj.crop_by_body_contour(patient["body_index_range"], patient["body_mask_shape"])
-        egsphant_obj.write_to_ctegsphant(
-            os.path.dirname(pth_egsphant) + "/cropped_" + os.path.basename(pth_egsphant)
-            )
+        pth_cropped_egsphant = os.path.dirname(pth_egsphant) + "/cropped_" + os.path.basename(pth_egsphant)
+        print(f"writing the cropped egsphant to {pth_cropped_egsphant}")
+        egsphant_obj.write_to_ctegsphant(pth_cropped_egsphant)
 
 
 @app.command()
