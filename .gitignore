@@ -5,3 +5,4 @@ ENV
 data_test
 __pycache__
 .pytest_cache
+/src/vscode/

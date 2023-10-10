@@ -6,6 +6,7 @@ from numpy import dtype
 import numpy as np
 import re
 import os
+from scipy.interpolate import RegularGridInterpolator
 
 # from dicompylercore import dicomparser
 from glob import glob
@@ -98,6 +99,7 @@ class BrachyDose:
     vox_size:np.ndarray
     topleft:np.ndarray
     axis:np.ndarray
+    interpolation_function:RegularGridInterpolator
 
     # def __init__(self, ):
         
@@ -133,6 +135,11 @@ class BrachyDose:
         
         elif file_extension == ".minidose":
             raise Exception("loading dose from .bin file is not currently supported")
+
+        else:
+            raise Exception("file extension not recognized")
+        
+        self.interpolation_function = RegularGridInterpolator((self.axis[0], self.axis[1], self.axis[2]), self.grid, bounds_error=False, fill_value=0)
     
         return self
 
@@ -986,7 +993,7 @@ def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
         diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
         print('\n'.join(diff_list))
 
-
+def 
 def test_load_from_3ddose():
     # pth_3ddose =  "../data_test/run_1_old.3ddose"
 
