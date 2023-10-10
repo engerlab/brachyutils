@@ -8,33 +8,33 @@ import re
 import os
 
 # from dicompylercore import dicomparser
-from glob import glob
+# from glob import glob
 # from numericalunits import cm, mm, kg, J
 # Gy = J/kg
 
-import SimpleITK as sitk
-import difflib
+# import SimpleITK as sitk
+# import difflib
 from typing import Optional
-from collections.abc import Iterable
+# from collections.abc import Iterable
 
-import pytest
-# import uu
-import lzma
-import pickle
-import pyzstd
+# import pytest
+# # import uu
+# import lzma
+# import pickle
+# import pyzstd
 
-import typer
-import decimal
+# import typer
+# import decimal
 
-from tqdm import tqdm
+# from tqdm import tqdm
 
 # from rt_utils import RTStructBuilder
-from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
-import pydicom
+# from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
+# import pydicom
 
 import json
 
-from dose_utils import get_body_index_range
+from dicom_utils import get_body_index_range
 
 class BrachyEgsphant:
     r"""
@@ -96,18 +96,19 @@ class BrachyEgsphant:
     _sanity_axis:np.ndarray
     
     def __init__(self, pth_egsphant_file:Optional[str]=None):
+
+        self.material_matrix:np.ndarray = None
+        self.density_matrix:np.ndarray = None
+        self.num_materials:int = None
+        self.material_dict:dict = {}
+        self.num_voxels:np.ndarray = None
+        self.vox_size:np.ndarray = None
+        self.topleft:np.ndarray = None
+        self.axis:np.ndarray = None
+        self._sanity_axis:np.ndarray = None
+
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
-        else:
-            self.material_matrix:np.ndarray = None
-            self.density_matrix:np.ndarray = None
-            self.num_materials:int = None
-            self.material_dict:dict = {}
-            self.num_voxels:np.ndarray = None
-            self.vox_size:np.ndarray = None
-            self.topleft:np.ndarray = None
-            self.axis:np.ndarray = None
-            self._sanity_axis:np.ndarray = None
     
     def load_file_to_BrachyEgsphant(self, pth_egsphant_file):
         pth_egsphant_file = os.path.abspath(pth_egsphant_file)
@@ -374,22 +375,25 @@ class BrachyEgsphant:
             new_obj.axis = self.calculateAxis()
             return new_obj
     
-    def crop_by_body_contour(self, pth_dir_dicom:Optional[str]=None, 
-                             body_index_range:Optional[np.ndarray] = None, 
-                             body_mask_shape:Optional[np.ndarray] = None):
+    def crop_by_body_contour(self, body_index_range:Optional[np.ndarray] = None, 
+                             body_mask_shape:Optional[np.ndarray] = None,
+                             pth_dir_dicom:Optional[str]=None, 
+                             ):
         r"""
         Purpose: 
             based on the given dicom structure file, crop the BrachyEgsphant object such 
                 that it only has the body contour. 
         Inputs: 
-            - pth_dir_dicom := pth_dir_dicom := path to the directory with the dicom files of a patient. 
-                it should contain both images and RTSTRUCT file. this input is optional
-            
             - body_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
-                [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
+                [[x_min, x_max], [y_min, y_max], [z_min, z_max]]. If this is not available, provide
+                the third input. 
         
-            - original_mask_dimensions:np.array := 1 x 3 array holding the dimension of the original mask
-            
+            - original_mask_dimensions:np.array := 1 x 3 array holding the dimension of the original mask. 
+                If this is not available, provide the third input. 
+
+            - pth_dir_dicom := pth_dir_dicom := path to the directory with the dicom files of a patient. 
+                it should contain both images and RTSTRUCT file. this input is used when the first 2 inputs 
+                are not available
             
         Outputs:
             - Void := will crop out the material and density maps of self to have the range of the body contour 
@@ -413,7 +417,6 @@ def _to_single_string(matrix:np.ndarray, deliminator:Optional[str]=""):
         given a 3D matrix with string entries, this function concatenates all the
             entries into a single string to be written to the file. 
             "\n" is added at the end of each row and 
-    
     Input:
         matrix := 3D ndarray full of string enteries
         deliminator := the string text inbetween the enteries. 
@@ -434,7 +437,7 @@ def _to_single_string(matrix:np.ndarray, deliminator:Optional[str]=""):
     return "".join(matrix_single_string)           
  
 
-app = typer.Typer()
+# app = typer.Typer()
 
 def _load_json(pth_json:str):
     assert os.path.exists(pth_json), f"no such json file was found at this directory: \n {pth_json}"
@@ -442,32 +445,63 @@ def _load_json(pth_json:str):
     with open(pth_json, 'r') as file_json:
         return json.load(file_json)
 
-@app.command()
-def crop_by_body_contour_many_files(patient_egsphant_dir:str, patient_body_range_json:str):
+# @app.command()
+# def crop_egsphant_by_body_contour_many_patients(patient_egsphant_dir:str, patient_body_range_json:str):
+#     r"""
+#     Purpose: 
+#         to crop the egsphant file of all patients in a directory. 
+#     Input:
+#         patient_egsphant_dir := the directory holding patient folders inside which 
+#             there is .egsphant files to be cropped. Example:
+#                 patient_egsphant_dir/p1/ct.egsphant
+#                 patient_egsphant_dir/p2/ct.egsphant
+#             ...
+#         patient_body_range_json := a json file holding the list of the patient directory names
+#             as well as the index bounding range of the body contour and the original size of the body mask. 
+#             This file can be generated by running the function dicom_utils.get_body_contour_range_from_many_patients_dicom(). 
+#             run "python dicom_utils.py get_body_contour_range_from_many_patients_dicom --help" for more details.  
+#             Example:
+#                 [
+#                     {
+#                     "patient_number": "p1",
+#                     "body_index_range": [
+#                         [x_min, x_max],
+#                         [y_min, y_max],
+#                         [z_min,z_max]
+#                     ],
+#                     "body_mask_shape": [512, 512, 42]
+#                     }
+#                 ]
+#     Output:
+#         - Void: the cropped .egsphant file for each patient will be written to patient_dir/cropped_basename.egsphant 
+#     """
+#     pth_egsphant_set = set(glob(patient_egsphant_dir+"/*/*.egsphant"))
+        
+#     body_range_dict = _load_json(pth_json=patient_body_range_json)
+#     for patient in tqdm(body_range_dict): 
+#         pth_egsphant = list(filter(lambda x: patient["patient_number"] in x, pth_egsphant_set))[0]
+        
+#         egsphant_obj = BrachyEgsphant(pth_egsphant)
+#         egsphant_obj.crop_by_body_contour(patient["body_index_range"], patient["body_mask_shape"])
+#         egsphant_obj.write_to_ctegsphant(
+#             os.path.dirname(pth_egsphant) + "/cropped_" + os.path.basename(pth_egsphant)
+#             )
+
+# def test_crop_by_body_contour_many_files():
+#     # test on testing dataset
+#     pth_input = "../"
+#     pth_json = "../../data_test/test_patient_body_bounds.json"
     
-    pth_egsphant_set = set(glob(patient_egsphant_dir+"/*/*.egsphant"))
-        
-    body_range_dict = _load_json(pth_json=patient_body_range_json)
-    for patient in body_range_dict: 
-        pth_egsphant = list(filter(lambda x: patient["patient_number"] in x, pth_egsphant_set))[0]
-        
-        egsphant_obj = BrachyEgsphant(pth_egsphant)
-        egsphant_obj.crop_by_body_contour(patient["body_index_range"], patient["body_mask_shape"])
-        egsphant_obj.write_to_ctegsphant(
-            os.path.dirname(pth_egsphant) + "cropped_" + os.path.basename(pth_egsphant)
-            )
-        
-def test_crop_by_body_contour_many_files():
-    # pth_input = "../data_test"
-    pth_input = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm"
-    pth_json = "../data_test/patient_body_bounds.json"
+#     # test on all patients
+#     # pth_input = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm"
+#     # pth_json = "../../data_test/patient_body_bounds.json"
     
-    crop_by_body_contour_many_files(pth_input, pth_json)
+#     crop_egsphant_by_body_contour_many_patients(pth_input, pth_json)
 
 def test_crop_by_body_contour():
-    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
-    pth_dicomRS = "../data_test/prostate_glen_p1/"
+    pth_dicomRS = "../../data_test/prostate_glen_p1/"
 
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
@@ -479,7 +513,7 @@ def test_crop_by_body_contour():
     
 
 def test_crop_by_index():
-    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
     egsphant_obj = BrachyEgsphant()
@@ -496,7 +530,7 @@ def test_crop_by_index():
     egsphant_obj.write_to_ctegsphant(pth_output)
 
 def test_write_to_egsphant():
-    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
     egsphant_obj = BrachyEgsphant()
@@ -510,7 +544,7 @@ def test_write_to_egsphant():
     egsphant_obj.is_equal(new_egsphant_obj)
 
 def test_to_single_string():
-    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
     egsphant_obj = BrachyEgsphant()
@@ -520,16 +554,16 @@ def test_to_single_string():
     _to_single_string(egsphant_obj.material_matrix.astype(str))     
 
 def test_load_from_ctegsphant():
-    pth_input = "../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
     
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
     egsphant_obj.assert_BrachyEgsphant_notEmpty()
 
-if __name__=="__main__":
-    
+# if __name__=="__main__":
+#     app()
     # running tests top is the latest test written
-    test_crop_by_body_contour_many_files()
+    # test_crop_by_body_contour_many_files()
     # test_crop_by_body_contour()
     # test_crop_by_index()
     # test_to_single_string()
