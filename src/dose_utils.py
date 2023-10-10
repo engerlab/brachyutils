@@ -139,7 +139,7 @@ class BrachyDose:
         else:
             raise Exception("file extension not recognized")
         
-        self.interpolation_function = RegularGridInterpolator((self.axis[0], self.axis[1], self.axis[2]), self.grid, bounds_error=False, fill_value=0)
+        self.interpolation_function = RegularGridInterpolator((self.axis[0], self.axis[1], self.axis[2]), self.grid, bounds_error=True, fill_value=0)
     
         return self
 
