@@ -140,7 +140,7 @@ class BrachyDose:
         else:
             raise Exception("file extension not recognized")
         
-        self.interpolation_function = RegularGridInterpolator((self.axis[0], self.axis[1], self.axis[2]), self.grid, bounds_error=True, fill_value=0)
+        self.interpolation_function = RegularGridInterpolator((self.axis[0], self.axis[1], self.axis[2]), self.grid, bounds_error=True)
     
         return self
 
@@ -229,51 +229,56 @@ class BrachyDose:
     # def load_from_minidose(self, pth_minidose):
         
     
-    def make_profile(self, depth:float, axis:str):
+    def make_profile_1d(self, axis:str, x=None, y=None, z=None, spacing=0.1) -> tuple:
         """
         Purpose: 
-            Plots a profile at a given depth (z coordinate) inside a 3ddose file.
+            Creates a 1 dimensional profile along a given axis given the other two axis coordinates.
+            Returns a tuple with an array of axis coordinates and the corresponding dose at the point along the given axis.
         """
         num_x, num_y, num_z = self.num_voxels
         x_size, y_size, z_size = self.vox_size
         topleft_x, topleft_y, topleft_z = self.topleft
-        depth_voxel = (depth - topleft_z) / z_size
+        axis_coords = None
+        coord_grid = None
+        if type(spacing) is not float: 
+            raise ValueError("spacing must be a float")
         if axis == "x":
-            off_axis_values = [topleft_x + (i + 0.5) * x_size for i in range(num_x)]
-            mid_y = num_y / 2
-            dose_values = [self.grid[depth_voxel][mid_y][i] for i in range(num_x)]
+            if y is None or z is None or type(y) is not float or type(z) is not float: 
+                raise ValueError("y and z coordinates in cm must be specified for an x profile")
+            axis_coords = [topleft_x + (i + 0.5) * spacing for i in range(num_x * x_size / spacing)]
+            coord_grid = np.meshgrid([z], [y], axis, indexing='ij')
         elif axis == "y":
-            off_axis_values = [topleft_y + (i + 0.5) * y_size for i in range(num_y)]
-            mid_x = num_x / 2
-            dose_values = [self.grid[depth_voxel][i][mid_x] for i in range(num_y)]
+            if x is None or z is None or type(x) is not float or type(z) is not float:
+                raise ValueError("x and z coordinates in cm must be specified for a y profile")
+            axis_coords = [topleft_y + (i + 0.5) * spacing for i in range(num_y * y_size / spacing)]
+            coord_grid = np.meshgrid([z], axis, [x], indexing='ij')
+        elif axis == "z":
+            if x is None or y is None or type(x) is not float or type(y) is not float:
+                raise ValueError("x and y coordinates in cm must be specified for a z profile")
+            axis_coords = [topleft_z + (i + 0.5) * spacing for i in range(num_z * z_size / spacing)]
+            coord_grid = np.meshgrid(axis, [y], [x], indexing='ij')
         else:
-            raise("Only x or y axes are recognized")
+            raise ValueError("Axis must be x, y, or z")
 
-        profile_dict = {}
-        # Here, x and y axis refers to the axes on a graph, not
-        # the dose axes.
-        profile_dict["x_axis"] = off_axis_values
-        profile_dict["y_axis"] = dose_values
-        return profile_dict
+        profile = self.interpolation_function(coord_grid)
+        return (axis_coords, profile)
 
-    def make_pdd(self):
-        r"""
-        Purpose:
-            Documentation is missing
+    def make_profile_2d(self, plane:str, x=None, y=None, z=None, spacing=0.1) -> tuple:
         """
-        mid_x, mid_y, mid_z = [int(vox/2) for vox in self.num_voxels]
+        Purpose:
+
+        """
+        num_x, num_y, num_z = self.num_voxels
         x_size, y_size, z_size = self.vox_size
-        z_values = [(i + 0.5) * z_size for i in range(self.num_voxels[2])]
-        dose_values = [self.grid[i][mid_y][mid_x] for i in range(self.num_voxels[2])]
-
-        pdd_dict = {}
-        if self.uncertainty is not None:
-            uncert_values = [self.uncert[i][mid_y][mid_x] / 2.0 for i in range(self.num_voxels[2])]
-            pdd_dict["uncert"] = uncert_values
-
-        pdd_dict["x_axis"] = z_values
-        pdd_dict["y_axis"] = nparray(dose_values)
-        return pdd_dict
+        topleft_x, topleft_y, topleft_z = self.topleft
+        plane_coords = None
+        coord_grid = None
+        if type(spacing) is not float:
+            raise ValueError("spacing must be a float")
+        if plane == "xy": 
+            if z is None or z is not float:
+                raise ValueError("z coordinate in cm must be specified for an xy profile")
+            
     
     def get_average_uncert(self) -> float:
         r"""
@@ -866,7 +871,7 @@ def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
         diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
         print('\n'.join(diff_list))
 
-def 
+
 def test_load_from_3ddose():
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
 

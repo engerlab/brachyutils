@@ -20,3 +20,6 @@ typer
 tqdm
 DicomRTTool
 pytest
+scipy
+tk
+pymedphys
