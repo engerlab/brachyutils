@@ -719,9 +719,9 @@ class BrachyDose:
         print(f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
         print(f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
     
-    def crop_by_body_contour(self, pth_dir_dicom:Optional[str]=None, 
-                             body_index_range:Optional[np.ndarray] = None, 
-                             body_mask_shape:Optional[np.ndarray] = None):
+    def crop_by_body_contour(self, body_index_range:Optional[np.ndarray] = None, 
+                            body_mask_shape:Optional[np.ndarray] = None, 
+                            pth_dir_dicom:Optional[str]=None, ):
         r"""
         Purpose: 
             based on the given dicom structure file, crop the BrachyDose object such 
@@ -750,97 +750,6 @@ class BrachyDose:
         scaled_body_index_range = (body_index_range / np.expand_dims(body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
         
         self.crop_by_index(scaled_body_index_range, True)
-
-# app = typer.Typer()
-
-# @app.command()
-# def convert_many_files(input_dir: str, type_in: str, type_out: str):
-#     r"""
-#     Purpose:
-#         Will convert all files in the "input_dir" of type "type_in" to "type_out"
-#     Inputs:
-#         input_dir := directory where there are files to be converted 
-#         type_in := could be ".3ddose", ".nrrd", ".minidose", other types could be added
-#         type_out := could be ".3ddose", ".nrrd", ".minidose", other types could be added
-#     """
-#     input_dir = os.path.abspath(input_dir)
-#     assert os.path.exists(input_dir)
-#     file_list = glob(input_dir+"/*"+type_in)
-    
-#     for file in tqdm(file_list):
-#         dose_obj = BrachyDose()
-#         dose_obj.load_file_to_BrachyDose(file)
-        
-#         file_base_noExtension = os.path.splitext(file)[0]
-        
-#         if type_out == ".3ddose":
-#             dose_obj.write_to_3ddose_file(file_base_noExtension+type_out)
-#         elif type_out == ".nrrd":
-#             dose_obj.write_to_nrrd_file(file_base_noExtension+type_out)
-#         elif type_out == ".minidose":
-#             dose_obj.write_to_minidose_file(file_base_noExtension+type_out)
-#         elif type_out == ".xz":
-#             dose_obj.write_to_xz_file(file_base_noExtension+type_out)
-#         elif type_out == ".npz":
-#             dose_obj.write_to_npz_file(file_base_noExtension+type_out)
-#         elif type_out == ".zstd":
-#             dose_obj.write_to_zstd_file(file_base_noExtension+type_out)
-
-
-# @app.command()
-# def crop_by_ratio_and_convert_many_files(input_dir: str, crop_ratio:float, type_in: str, type_out: str):
-#     r"""
-#     Purpose:
-#         Will crop all files in the "input_dir" of type "type_in" and write the cropped dose to file with "type_out"
-#     Inputs:
-#         input_dir := directory where there are files to be converted 
-#         crop_ratio := the fraction of the image axis that remains in the crop. for example, a crop ratio of 0.5 will keep 
-#             the center of the x and y axis plus minus 0.25*dimension of the image. The x axis will not be cropped. 
-#             +++++++++       ---------
-#             +++++++++       --+++++--
-#             +++++++++  ===> --+++++--
-#             +++++++++       --+++++--
-#             +++++++++       ---------
-#         type_in := could be ".3ddose", ".nrrd", ".minidose", other types could be added
-#         type_out := could be ".3ddose", ".nrrd", ".minidose", other types could be added
-#     """
-#     input_dir = os.path.abspath(input_dir)
-#     assert os.path.exists(input_dir)
-#     file_list = glob(input_dir+"/*"+type_in)
-    
-#     for file in tqdm(file_list):
-#         dose_obj = BrachyDose()
-#         dose_obj.load_file_to_BrachyDose(file)
-#         dose_obj.crop_by_fraction(crop_ratio)
-
-#         file_base_noExtension = os.path.splitext(file)[0]
-
-#         if type_out == ".3ddose":
-#             dose_obj.write_to_3ddose_file(file_base_noExtension+type_out)
-#         elif type_out == ".nrrd":
-#             dose_obj.write_to_nrrd_file(file_base_noExtension+type_out)
-#         elif type_out == ".minidose":
-#             dose_obj.write_to_minidose_file(file_base_noExtension+type_out)
-#         elif type_out == ".xz":
-#             dose_obj.write_to_xz_file(file_base_noExtension+type_out)
-#         elif type_out == ".npz":
-#             dose_obj.write_to_npz_file(file_base_noExtension+type_out)
-#         elif type_out == ".zstd":
-#             dose_obj.write_to_zstd_file(file_base_noExtension+type_out)
-
-
-# @app.command()
-# def padd_many_files(input_dir: str, type_in: str, dim_out:str):
-#     r"""
-#     Purpose:
-#         Will padd all files in the "input_dir" of type "type_in" with zeros to
-#             have the dimensions "dim_out"
-#     Inputs:
-#         input_dir := directory where there are files to be converted 
-#         type_in := could be ".3ddose", ".nrrd", ".minidose", other types could be added
-#         dim_out := the new dimensions in [z, y, x] format
-#     """
-#     raise Exception("This feature is not implementated yet")
 
 def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
     # old_file_dir = load_3ddose(pth1_3ddose)
@@ -982,26 +891,6 @@ def test_write_to_zstd_file():
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     
     dose_obj.write_to_zstd_file(pth_out)
-
-# def test_convert_many_files():
-#     dir_in = "../../data_test/many_files"
-#     type_in = ".3ddose"
-#     type_out = ".nrrd"
-    
-#     convert_many_files(dir_in, type_in, type_out)
-    
-#     dir_in = os.path.abspath(dir_in)
-#     nrrd_list = glob(dir_in+".nrrd")
-    
-#     for file_nrrd in nrrd_list:
-#         dose_obj_nrrd = BrachyDose()
-#         dose_obj_nrrd.load_file_to_BrachyDose(file_nrrd)
-        
-#         file_3ddose = os.path.splitext(file_nrrd)[0]+".3ddose"
-#         dose_obj_3ddose = BrachyDose()
-#         dose_obj_3ddose.load_file_to_BrachyDose(file_3ddose)
-        
-#         dose_obj_3ddose.is_equal(dose_obj_nrrd)
     
 def test_crop_by_coordinates():
     pth_3ddose = "../../data_test/run_1_old.3ddose"
