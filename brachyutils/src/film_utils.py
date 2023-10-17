@@ -16,8 +16,24 @@ import cv2
 
 
 class FilmCalibration:
-    r"""
-    to write
+    """
+    A utility class for processing film images in the context of brachytherapy.
+
+    This class provides methods for loading and processing calibration images, as well as for applying
+    calibration curves to film images. It also stores various parameters related to the calibration process,
+    such as the pixel range, the calibration file directory, and the ROI bounds.
+
+    Attributes:
+        pixel_range (int): The maximum pixel value for the film images.
+        calibration_file_dict (dict): A dictionary mapping dose values to calibration file paths and calibration
+            coefficients.
+        calibration_images (dict): A dictionary mapping dose values to calibration images.
+        calibration_curve_type (str): The type of calibration curve used to fit the calibration data.
+        calibration_curve_params (dict): A dictionary of parameters for the calibration curve.
+        film_to_mc_offset (tuple): The offset between the film and the Monte Carlo (MC) simulation.
+        roi_bounds (tuple): The bounds of the region of interest (ROI) for the film images.
+        calibration_file_directory (str): The directory where the calibration files are stored.
+        calibration_object_file_path (str): The path to the calibration object file.
     """
 
     possible_calibrations = ["Lewis", "Devic"]
@@ -43,10 +59,10 @@ class FilmCalibration:
         and select calibration film files for a given dose. 
         Then loads and plots the calibration data.
         """
-        while (self.calibration_curve_type not in FilmCalibration.possible_calibrations):
+        while self.calibration_curve_type not in FilmCalibration.possible_calibrations:
             print("Choose calibration curve type (Lewis or Devic):")
             self.calibration_curve_type = input()
-        while (isinstance(self.pixel_range, int)):
+        while not isinstance(self.pixel_range, int):
             print(
                 "Enter the number of possible pixel values (e.g. 2^16 for 16 bit images):")
             pixel_range_str = input()
@@ -56,7 +72,7 @@ class FilmCalibration:
                 print("Invalid input. Please enter an integer.")
         print("Begin selecting calibration film files. Enter a dose and select the calibration films at that dose or enter \'Done\' to finish.")
         current_dose_str = input()
-        while (current_dose_str != "Done"):
+        while current_dose_str != "Done":
             try:
                 current_dose = float(current_dose_str)
                 self.add_calibration_files_for_dose(current_dose)
@@ -67,6 +83,18 @@ class FilmCalibration:
         self.plot_calibration()
 
     def add_calibration_files_for_dose(self, dose: float):
+        """Opens a file dialog to select calibration film files corresponding to a given dose.
+        
+        Args:
+            dose (float): The dose in Gy for which to select calibration files.
+            
+        Returns:
+            None
+        
+        Side effects:
+            - Modifies the `calibration_file_dict` attribute of the object to include the selected files.
+            - Modifies the `calibration_file_directory` attribute of the object to the directory of the last selected file.
+        """
         root = tk.Tk()
         root.withdraw()
         filenames_for_dose = fd.askopenfilenames(parent=root, initialdir=self.calibration_file_directory,
@@ -99,11 +127,11 @@ class FilmCalibration:
         """
         Plots the calibration images with the region of interest bounds.
         """
-        if (self.calibration_images is None):
+        if self.calibration_images is None:
             raise ValueError("calibration images not loaded")
         else:
             nplots = len(self.calibration_images.keys())
-            fig, axes = plt.subplots(
+            _, axes = plt.subplots(
                 1, nplots,  dpi=124, figsize=(15, 10), squeeze=True)
             i = 0
             if nplots == 1:
@@ -289,12 +317,12 @@ class FilmCalibration:
         ax[2].set_title('Dose Error')
 
     @staticmethod
-    def lewis_dose_to_pv(D, a, b, c):
+    def lewis_dose_to_pv(d, a, b, c):
         """
         Calculates the PV value for a given dose using the Lewis model.
 
         Args:
-            D (float): The dose value.
+            d (float): The dose value.
             a (float): The a parameter of the Lewis model.
             b (float): The b parameter of the Lewis model.
             c (float): The c parameter of the Lewis model.
@@ -302,15 +330,15 @@ class FilmCalibration:
         Returns:
             float: The PV value calculated using the Lewis model.
         """
-        return a + b/(D + c)
+        return a + b/(d + c)
 
     @staticmethod
-    def lewis_pv_to_dose(PV, a, b, c):
+    def lewis_pv_to_dose(pv, a, b, c):
         """
         Converts a given PV value to a dose value using the Lewis formula.
 
         Args:
-            PV (float): The PV value to convert to dose.
+            pv (float): The PV value to convert to dose.
             a (float): The 'a' parameter of the Lewis formula.
             b (float): The 'b' parameter of the Lewis formula.
             c (float): The 'c' parameter of the Lewis formula.
@@ -318,48 +346,56 @@ class FilmCalibration:
         Returns:
             float: The dose value corresponding to the given PV value.
         """
-        return -c + b/(PV - a)
+        return -c + b/(pv - a)
 
     @staticmethod
-    def devic_pv_to_dose(PV, a, b):
+    def devic_pv_to_dose(pv, a, b):
         """
         Converts a pixel value (PV) to a dose value using the Devic formula.
 
         Args:
-            PV (float): Pixel value
+            pv (float): Pixel value
             a (float): Calibration coefficient
             b (float): Calibration coefficient
 
         Returns:
             float: Dose value
         """
-        return (a*PV)/(1 - b*PV)
+        return (a*pv)/(1 - b*pv)
 
     @staticmethod
-    def devic_dose_to_pv(D, a, b):
+    def devic_dose_to_pv(d, a, b):
         """
         Converts a measured dose value to a pixel value using the Devic formula.
 
         Args:
-            D (float): The measured dose value.
+            d (float): The measured dose value.
             a (float): The a parameter of the Devic formula.
             b (float): The b parameter of the Devic formula.
 
         Returns:
             float: The pixel value corresponding to the measured dose value.
         """
-        return D/(a + b*D)
+        return d/(a + b*d)
 
     def save_calibration_object(self):
         """
+        Saves the calibration object to a file using the pickle module.
+
+        Returns:
+            None
         """
-        f = fd.asksaveasfile(
-            defaultextention=".cal", initialdir=self.calibration_file_directory, title='Save calibration object')
+        f = fd.asksaveasfile(mode='wb',
+            defaultextension=".cal", initialdir=self.calibration_file_directory, title='Save calibration object', confirmoverwrite=True)
         # Pickle the 'data' dictionary using the highest protocol available.
         pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
     def open_calibration_object(self):
         """
+        Opens the calibration object file and updates the current object's attributes with the loaded object's attributes.
+
+        Returns:
+            None
         """
         with open(self.calibration_object_file_path, 'rb') as f:
             # The protocol version used is detected automatically, so we do not
@@ -369,6 +405,13 @@ class FilmCalibration:
     @staticmethod
     def create_or_load_calibration_object():
         """
+        Prompts the user to create a new calibration or load an existing calibration.
+        If the user chooses to create a new calibration, a new FilmCalibration object is created,
+        configured, and saved. The calibration curve is also plotted.
+        If the user chooses to load an existing calibration, the user is prompted to select a saved
+        calibration file. The selected file is then loaded into a new FilmCalibration object, and
+        the calibration curve is plotted.
+        Raises a ValueError if the user enters an invalid input.
         """
         root = tk.Tk()
         root.withdraw()
@@ -382,12 +425,13 @@ class FilmCalibration:
             root.destroy()
             film.plot_calibration()
         elif load_or_new_calibration_str == "L":
-            calibration_object_file_path = fd.askopenfilenames(
-                parent=root, initialdir=calibration_file_directory, title='Select saved calibration file')
-            root.destroy()
             film = FilmCalibration()
+            calibration_object_file_path = fd.askopenfilename(
+                parent=root, initialdir="$HOME", title='Select saved calibration file')
+            print(calibration_object_file_path)
             film.calibration_object_file_path = calibration_object_file_path
             film.open_calibration_object()
+            root.destroy()
             film.plot_calibration()
         else:
             raise ValueError("Invalid input. Please enter N or L.")
@@ -395,6 +439,10 @@ class FilmCalibration:
 
 def main():
     """
+    This main function creates or loads a calibration object for film calibration.
+
+    Returns:
+        None
     """
     FilmCalibration.create_or_load_calibration_object()
     plt.show()
