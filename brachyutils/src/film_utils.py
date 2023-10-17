@@ -16,7 +16,7 @@ import cv2
 
 
 class FilmCalibration:
-    """
+    r"""
     A utility class for processing film images in the context of brachytherapy.
 
     This class provides methods for loading and processing calibration images, as well as for applying
@@ -51,7 +51,7 @@ class FilmCalibration:
 
 
     def configure_calibration(self):
-        """
+        r"""
         Configures the calibration settings for the film.
 
         Prompts the user to choose the calibration curve type, 
@@ -80,10 +80,9 @@ class FilmCalibration:
                 print("Invalid input. Please enter a float or \'Done\' to finish.")
             current_dose_str = input()
         self.load_calibration()
-        self.plot_calibration()
 
     def add_calibration_files_for_dose(self, dose: float):
-        """Opens a file dialog to select calibration film files corresponding to a given dose.
+        r"""Opens a file dialog to select calibration film files corresponding to a given dose.
         
         Args:
             dose (float): The dose in Gy for which to select calibration files.
@@ -107,7 +106,7 @@ class FilmCalibration:
         root.destroy()
 
     def load_calibration(self):
-        """
+        r"""
         Loads calibration images from a dictionary of file paths and calculates the mean pixel value for each image.
 
         Raises:
@@ -123,8 +122,8 @@ class FilmCalibration:
                 i) for i in self.calibration_file_dict[j]], axis=0) / self.pixel_range for j in self.calibration_file_dict.keys()}
 
 
-    def plot_calibration(self):
-        """
+    def display_calibration_films(self):
+        r"""
         Plots the calibration images with the region of interest bounds.
         """
         if self.calibration_images is None:
@@ -154,7 +153,7 @@ class FilmCalibration:
                     i += 1
 
     def set_roi_bounds(self, new_bounds: tuple):
-        """
+        r"""
         Set the region of interest (ROI) bounds for the film.
 
         Args:
@@ -172,7 +171,7 @@ class FilmCalibration:
         self.roi_bounds = new_bounds
 
     def create_calibration_curve(self):
-        """
+        r"""
         Create a calibration curve for a film dosimetry image.
 
         The calibration curve is created by analyzing a set of calibration images
@@ -185,7 +184,7 @@ class FilmCalibration:
             None
         """
         doses = np.array(list(self.calibration_images.keys()))
-        r_pv = []
+        r_pv = np.array([])
         g_pv = []
         b_pv = []
 
@@ -195,17 +194,113 @@ class FilmCalibration:
 
         # populate arrays with mean pixel value in ROI as a function of dose
         for dose in doses:
-            r_pv.append((self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 0]).mean())
-            g_pv.append((self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 1]).mean())
-            b_pv.append((self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 2]).mean())
+            r_pv = np.array([self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 0].mean() for dose in doses])
+            g_pv = np.array([self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 1].mean() for dose in doses])
+            b_pv = np.array([self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 2].mean() for dose in doses])
 
-            r_std.append((self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 0]).std())
-            g_std.append((self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 1]).std())
-            b_std.append((self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 2]).std())
+            r_std = np.array([self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 0].std() for dose in doses])
+            g_std = np.array([self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 1].std() for dose in doses])
+            b_std = np.array([self.calibration_images[dose][self.roi_bounds[1]:self.roi_bounds[3], self.roi_bounds[0]:self.roi_bounds[2], 2].std() for dose in doses])
 
         #print('red channel:', rstd)
         #print('green channel:', gstd)
         #print('blue channel:', bstd)
+        dose_to_pv, pv_to_dose, r_pv_fit, g_pv_fit, b_pv_fit = self.define_fit_parameters_for_calibration_type(doses, r_pv, g_pv, b_pv)
+
+        r_opt, rp_cov = curve_fit(dose_to_pv, doses, r_pv_fit, sigma=r_std)
+        g_opt, gp_cov = curve_fit(dose_to_pv, doses, g_pv_fit, sigma=g_std)
+        b_opt, bp_cov = curve_fit(dose_to_pv, doses, b_pv_fit, sigma=b_std)
+        
+        self.calibration_curve_params = {'doses': doses, 'r_pv': r_pv, 'g_pv' : g_pv, 'b_pv': b_pv, 'r_opt': r_opt, 'rp_cov': rp_cov, 'g_opt': g_opt, 'gp_cov': gp_cov, 'b_opt': b_opt, 'bp_cov': bp_cov}
+
+    def define_fit_parameters_for_calibration_type(self, doses, r_pv, g_pv, b_pv):
+        """
+        Defines the fit parameters for the calibration type based on the calibration curve type.
+
+        Args:
+        - doses (numpy.ndarray): Array of doses
+        - r_pv (numpy.ndarray): Array of red channel pixel values
+        - g_pv (numpy.ndarray): Array of green channel pixel values
+        - b_pv (numpy.ndarray): Array of blue channel pixel values
+
+        Returns:
+        - Tuple containing:
+            - dose_to_pv (function): Function to convert dose to pixel value
+            - pv_to_dose (function): Function to convert pixel value to dose
+            - r_pv_fit (numpy.ndarray): Array of red channel pixel values normalized to the zero dose pixel value
+            - g_pv_fit (numpy.ndarray): Array of green channel pixel values normalized to the zero dose pixel value
+            - b_pv_fit (numpy.ndarray): Array of blue channel pixel values normalized to the zero dose pixel value (for Lewis) or net pixel value (for Devic)
+        """
+        if self.calibration_curve_type == "Lewis":
+            dose_to_pv = FilmCalibration.lewis_dose_to_pv
+            pv_to_dose = FilmCalibration.lewis_pv_to_dose
+            # normalize to the zero dose pv for Lewis
+            #print(r_pv, doses==0)
+            r_pv_fit = r_pv/(r_pv[doses == 0])
+            g_pv_fit = g_pv/(g_pv[doses == 0])
+            b_pv_fit = b_pv/(b_pv[doses == 0])
+
+        elif self.calibration_curve_type == "Devic":
+            dose_to_pv = FilmCalibration.devic_dose_to_pv
+            pv_to_dose = FilmCalibration.devic_pv_to_dose
+            # Devic uses net pvs
+            r_pv_fit = np.abs(np.array(r_pv) - r_pv[doses == 0])
+            g_pv_fit = np.abs(np.array(g_pv) - r_pv[doses == 0])
+            b_pv_fit = np.abs(np.array(b_pv) - r_pv[doses == 0])
+
+        return (dose_to_pv, pv_to_dose, r_pv_fit, g_pv_fit, b_pv_fit)
+
+    def normalize_image_by_calibration_type(self, image: np.array):
+        """
+        Normalizes the given image based on the calibration curve type.
+
+        Args:
+        - image: A numpy array representing the image to be normalized, with shape (height, width, 3).
+
+        Returns:
+        A tuple containing the pv_to_dose conversion function and the normalized image.
+
+        Throws: 
+        ValueError: If the image does not have 3 channels.
+        """
+        if image.shape[2] !=3:
+            raise ValueError("Image must have 3 channels")
+        norm_image = np.zeros(image.shape)
+        doses = self.calibration_curve_params['doses']
+        r_pv = self.calibration_curve_params['r_pv']
+        g_pv = self.calibration_curve_params['g_pv']
+        b_pv = self.calibration_curve_params['b_pv']
+        if self.calibration_curve_type == "Lewis":
+            pv_to_dose = FilmCalibration.lewis_pv_to_dose
+            norm_image[:,:,0] = image[:,:,0] / r_pv[doses == 0]
+            norm_image[:,:,1] = image[:,:,1] / g_pv[doses == 0]
+            norm_image[:,:,2] = image[:,:,2] / b_pv[doses == 0]
+        elif self.calibration_curve_type == "Devic":
+            pv_to_dose = FilmCalibration.devic_pv_to_dose
+            norm_image[:,:,0] = np.abs(image[:,:,0] - r_pv[doses == 0])
+            norm_image[:,:,1] = np.abs(image[:,:,1] - g_pv[doses == 0])
+            norm_image[:,:,2] = np.abs(image[:,:,2] - b_pv[doses == 0])
+        else: 
+            raise ValueError("Invalid calibration curve type")
+        return (pv_to_dose, norm_image)
+
+    def plot_calibration_and_response_curve(self):
+        """
+        Plots the calibration and response curves for the film dosimetry system.
+        The calibration curve relates the measured pixel values (PV) to the actual
+        radiation dose delivered to the film. The response curve relates the
+        normalized PV to the actual radiation dose delivered to the film.
+        """
+
+        doses = self.calibration_curve_params['doses']
+        r_pv = self.calibration_curve_params['r_pv']
+        g_pv = self.calibration_curve_params['g_pv']
+        b_pv = self.calibration_curve_params['b_pv']
+        r_opt = self.calibration_curve_params['r_opt']
+        g_opt = self.calibration_curve_params['g_opt']
+        b_opt = self.calibration_curve_params['b_opt']
+        
+        dose_to_pv, pv_to_dose, r_pv_fit, g_pv_fit, b_pv_fit = self.define_fit_parameters_for_calibration_type(doses, r_pv, g_pv, b_pv)
 
         fig, ax = plt.subplots(2, 1, dpi=150, sharex=True)
         # Remove space so awesome sharex visual
@@ -234,32 +329,7 @@ class FilmCalibration:
         ax[1].grid()
         ax[1].legend()
 
-        dose_to_pv = None
-        pv_to_dose = None
-        r_pv_fit = None
-        g_pv_fit = None
-        b_pv_fit = None
-
-        if self.calibration_curve_type == "Lewis":
-            dose_to_pv = FilmCalibration.lewis_dose_to_pv
-            pv_to_dose = FilmCalibration.lewis_pv_to_dose
-            # normalize to the zero dose pv for Lewis
-            r_pv_fit = r_pv/r_pv[r_pv == 0]
-            g_pv_fit = g_pv/g_pv[r_pv == 0]
-            b_pv_fit = b_pv/b_pv[r_pv == 0]
-
-        elif self.calibration_curve_type == "Devic":
-            dose_to_pv = FilmCalibration.devic_dose_to_pv
-            pv_to_dose = FilmCalibration.devic_pv_to_dose
-            # Devic uses net pvs
-            r_pv_fit = np.abs(np.array(r_pv) - r_pv[r_pv == 0])
-            g_pv_fit = np.abs(np.array(g_pv) - r_pv[r_pv == 0])
-            b_pv_fit = np.abs(np.array(b_pv) - r_pv[r_pv == 0])
-
-        r_opt, rp_cov = curve_fit(dose_to_pv, doses, r_pv_fit, sigma=r_std)
-        g_opt, gp_cov = curve_fit(dose_to_pv, doses, g_pv_fit, sigma=g_std)
-        b_opt, bp_cov = curve_fit(dose_to_pv, doses, b_pv_fit, sigma=b_std)
-
+        doses = np.array(list(self.calibration_images.keys()))
         dose_array = np.linspace(0, 40, 100)
         r_pv_array = np.linspace(0.12, 1, 100)
         g_pv_array = np.linspace(0.15, 1, 100)
@@ -318,7 +388,7 @@ class FilmCalibration:
 
     @staticmethod
     def lewis_dose_to_pv(d, a, b, c):
-        """
+        r"""
         Calculates the PV value for a given dose using the Lewis model.
 
         Args:
@@ -334,7 +404,7 @@ class FilmCalibration:
 
     @staticmethod
     def lewis_pv_to_dose(pv, a, b, c):
-        """
+        r"""
         Converts a given PV value to a dose value using the Lewis formula.
 
         Args:
@@ -350,7 +420,7 @@ class FilmCalibration:
 
     @staticmethod
     def devic_pv_to_dose(pv, a, b):
-        """
+        r"""
         Converts a pixel value (PV) to a dose value using the Devic formula.
 
         Args:
@@ -365,7 +435,7 @@ class FilmCalibration:
 
     @staticmethod
     def devic_dose_to_pv(d, a, b):
-        """
+        r"""
         Converts a measured dose value to a pixel value using the Devic formula.
 
         Args:
@@ -378,8 +448,30 @@ class FilmCalibration:
         """
         return d/(a + b*d)
 
-    def save_calibration_object(self):
+    def convert_image_to_dose(self, image:np.array):
+        r"""
+        Converts an image to a dose map using the calibration curve parameters.
+
+        Args:
+            image (np.array): The input image to convert, with shape (height, width, 3).
+
+        Returns:
+            np.array: The dose map generated from the input image.
+
+        Throws: 
+            ValueError: If the image does not have 3 channels.
         """
+        if image.shape[2] !=3:
+            raise ValueError("Image must have 3 channels")
+        pv_to_dose, normed_image= self.normalize_image_by_calibration_type(image)
+        dose = np.zeros(image.shape)
+        dose[:,:,0] = pv_to_dose(normed_image[:,:,0], *self.calibration_curve_params['r_opt'])
+        dose[:,:,1] = pv_to_dose(normed_image[:,:,1], *self.calibration_curve_params['g_opt'])
+        dose[:,:,2] = pv_to_dose(normed_image[:,:,2], *self.calibration_curve_params['b_opt'])
+        return dose
+
+    def save_calibration_object(self):
+        r"""
         Saves the calibration object to a file using the pickle module.
 
         Returns:
@@ -391,7 +483,7 @@ class FilmCalibration:
         pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
     def open_calibration_object(self):
-        """
+        r"""
         Opens the calibration object file and updates the current object's attributes with the loaded object's attributes.
 
         Returns:
@@ -404,7 +496,7 @@ class FilmCalibration:
 
     @staticmethod
     def create_or_load_calibration_object():
-        """
+        r"""
         Prompts the user to create a new calibration or load an existing calibration.
         If the user chooses to create a new calibration, a new FilmCalibration object is created,
         configured, and saved. The calibration curve is also plotted.
@@ -417,28 +509,28 @@ class FilmCalibration:
         root.withdraw()
         print("Please enter N to create a new calibration or L to load an existing calibration:")
         load_or_new_calibration_str = input()
+        film_calibration = FilmCalibration()
         if load_or_new_calibration_str == "N":
-            film = FilmCalibration()
-            film.configure_calibration()
-            film.create_calibration_curve()
-            film.save_calibration_object()
+            film_calibration.configure_calibration()
+            film_calibration.create_calibration_curve()
+            film_calibration.save_calibration_object()
             root.destroy()
-            film.plot_calibration()
         elif load_or_new_calibration_str == "L":
-            film = FilmCalibration()
             calibration_object_file_path = fd.askopenfilename(
                 parent=root, initialdir="$HOME", title='Select saved calibration file')
-            print(calibration_object_file_path)
-            film.calibration_object_file_path = calibration_object_file_path
-            film.open_calibration_object()
+            #print(calibration_object_file_path)
+            film_calibration.calibration_object_file_path = calibration_object_file_path
+            film_calibration.open_calibration_object()
             root.destroy()
-            film.plot_calibration()
         else:
             raise ValueError("Invalid input. Please enter N or L.")
+        film_calibration.display_calibration_films()
+        film_calibration.plot_calibration_and_response_curve()
 
+    
 
 def main():
-    """
+    r"""
     This main function creates or loads a calibration object for film calibration.
 
     Returns:
