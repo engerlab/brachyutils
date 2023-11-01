@@ -262,6 +262,10 @@ class BrachyDose:
         Input:
             - filename := path to a ".minidose" file
         """
+        assert os.path.splitext(pth_minidose)[-1] == ".minidose", f"the file {pth_minidose}, should have '.minidose' extension."
+        with open(pth_minidose, 'rb') as file:
+            line_content = np.frombuffer(file.readline())
+            
         
     
     def make_profile(self, depth:float, axis:str):
@@ -503,7 +507,7 @@ class BrachyDose:
             topleft = self.topleft,
             axis=self.axis,
             )
-            
+        
     def write_to_minidose(self, fileName, compress_program:Optional[str]=None):
         r"""
             Purpose: 
@@ -522,14 +526,7 @@ class BrachyDose:
             if attribute.startswith('__') or callable(getattr(self, attribute)):
                 continue
             else:
-                # print(attribute)
                 contents = contents + getattr(self, attribute).tobytes() + bytes('\n', 'utf-8')
-                # print("breaking point was here")
-                # if attribute == 'grid' or 'uncertainty':
-                #     minidose_file.write(getattr(self, attribute).flatten('C').tobytes()+bytes('\n', 'utf-8'))
-                #     continue
-                
-                # minidose_file.write(getattr(self, attribute).tobytes()+bytes('\n', 'utf-8'))
         
         if compress_program == "zstd":
             contents = pyzstd.compress(contents, 22)
@@ -989,6 +986,9 @@ def test_crop_by_body_contour():
     dose_obj.info()
     dose_obj.crop_by_body_contour(pth_dicomRS)
     dose_obj.info()
+
+def test_load_from_minidose():
+    pth_minidose = "../../data_test/"
 
 # if __name__ == "__main__":
     
