@@ -19,7 +19,7 @@ setup(name='brachyutils',
         "pyparsing",
         "python-dateutil",
         "pytz",
-        "cmake"
+        "cmake",
         "SimpleITK",
         "six",
         "tzdata",
