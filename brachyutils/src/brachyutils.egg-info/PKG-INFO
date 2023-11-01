@@ -16,7 +16,8 @@ Requires-Dist: Pillow
 Requires-Dist: pyparsing
 Requires-Dist: python-dateutil
 Requires-Dist: pytz
-Requires-Dist: SimpleITK==2.3.0
+Requires-Dist: cmake
+Requires-Dist: SimpleITK
 Requires-Dist: six
 Requires-Dist: tzdata
 Requires-Dist: zipp
