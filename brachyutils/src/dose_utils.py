@@ -150,28 +150,28 @@ class BrachyDose:
         Output:
             - void := contents of self is written to "pth_dose_file"
         """
-        file_extension = os.path.splitext(pth_dose_file)
+        file_extension = os.path.splitext(pth_dose_file)[-1]
         
-        if file_extension == "3ddose":
+        if file_extension == ".3ddose":
             self.write_to_3ddose(pth_dose_file)
             
-        elif file_extension == "nrrd":
+        elif file_extension == ".nrrd":
             self.write_to_nrrd(pth_dose_file)
             
-        elif file_extension == "npz":
+        elif file_extension == ".npz":
             self.write_to_npz(pth_dose_file)
             
-        elif file_extension == "minidose":
+        elif file_extension == ".minidose":
             self.write_to_minidose(pth_dose_file)
             
-        elif file_extension == "xz":
+        elif file_extension == ".xz":
             self.write_to_xz(pth_dose_file)
             
-        elif file_extension == "zstd":
+        elif file_extension == ".zstd":
             self.write_to_zstd(pth_dose_file)
         else:
             raise Exception(f"The input file name {pth_dose_file} is not supported. the supported \
-                file types are '.3ddose', '.nrrd', '.npz', '.minidose', '.xz', and '.zstd'")
+            file types are '.3ddose', '.nrrd', '.npz', '.minidose', '.xz', and '.zstd'")
     
     def load_from_3ddose(self, filename:str):
         r""" 
