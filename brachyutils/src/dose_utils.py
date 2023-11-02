@@ -92,17 +92,24 @@ class BrachyDose:
         pydicom
         json
     """
-    
     grid:np.ndarray
     uncertainty:np.ndarray
     num_voxels:np.ndarray
     vox_size:np.ndarray
     topleft:np.ndarray
     axis:np.ndarray
-
-    # def __init__(self, ):
+    
+    def __init__(self, pth_dose_file:Optional[str]=None):
+    
+        self.grid:np.ndarray = None
+        self.uncertainty:np.ndarray = None
+        self.num_voxels:np.ndarray = None
+        self.vox_size:np.ndarray = None
+        self.topleft:np.ndarray = None
+        self.axis:np.ndarray = None
         
-    #     return None       
+        if pth_dose_file != None:
+            self.load_file_to_BrachyDose(pth_dose_file)
     
     def load_file_to_BrachyDose(self, pth_dose_file:str):
         r""" 
@@ -888,22 +895,22 @@ def test_convert_to_npz_file():
     new_dose_obj.load_from_npz(pth_out)
     dose_obj.is_equal(new_dose_obj)
 
-def test_write_to_minidose():
-    r"""
-    Purpose: 
-        simulatenously test write_to_minidose() and load_from_minidose()
-    """
-    # pth_3ddose =  "../../data_test/combined.3ddose"
+# def test_write_to_minidose():
+#     r"""
+#     Purpose: 
+#         simulatenously test write_to_minidose() and load_from_minidose()
+#     """
+#     # pth_3ddose =  "../../data_test/combined.3ddose"
 
-    # testing on maud's file
-    pth_3ddose = "../../data_test/maud.3ddose"
-    pth_out = os.path.splitext(pth_3ddose)[0]+'.minidose'
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+#     # testing on maud's file
+#     pth_3ddose = "../../data_test/maud.3ddose"
+#     pth_out = os.path.splitext(pth_3ddose)[0]+'.minidose'
+#     dose_obj = BrachyDose()
+#     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     
-    dose_obj.write_to_minidose(pth_out, compress_program='zstd')
+#     dose_obj.write_to_minidose(pth_out, compress_program='zstd')
     
-    new_dose_obj = BrachyDose()
+#     new_dose_obj = BrachyDose()
     # new_dose_obj.load_from_minidose(pth_out)
     # dose_obj.is_equal(new_dose_obj)
 
@@ -987,8 +994,11 @@ def test_crop_by_body_contour():
     dose_obj.crop_by_body_contour(pth_dicomRS)
     dose_obj.info()
 
-def test_load_from_minidose():
-    pth_minidose = "../../data_test/"
+def test_convert_to_minidose():
+    pth_input = "../../data_test/dwell1_1mm.nrrd"
+    pth_minidose = os.path.splitext(pth_input) + ".minidose"
+    
+     
 
 # if __name__ == "__main__":
     
