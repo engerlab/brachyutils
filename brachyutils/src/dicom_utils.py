@@ -87,60 +87,6 @@ def get_body_index_range(pth_dir_dicom:str):
             
     return body_index_range, np.flip(np.array(mask_numpy.shape))
 
-# app = typer.Typer()
-
-# @app.command()
-# def get_body_contour_range_from_many_patients_dicom(
-#     input_dir:str, 
-#     pth_output_json:str 
-# ):
-#     r"""
-#     Purpose:
-#         to exract body contour extent on each axis for all the patients in input_dir and save them
-#             to a json file located at "output_json"
-#     Input:
-#         - input_dir := path to the directory where folders of many patients with dicom files exist.
-#             this script will loop through patient folders. Example:
-#                 input_dir/p1/
-#                 input_dir/p2/ ...
-#         - output_json := path to the json file where the following information for each patient is stored            
-#     Output: 
-#         - Void := the following content will be written to output_json for each patient:
-#             {
-#                 patient_number:=str,
-#                 body_index_range:[
-#                     [x_min:int, x_max:int],
-#                     [y_min:int, y_max:int],
-#                     [z_min:int, z_max:int],
-#                 ]
-#                 body_mask_shape:[len(x):int, len(y):int, len(z):int]
-#             }
-#     """
-    
-#     input_dir = os.path.abspath(input_dir)
-    
-#     patient_dir_list = glob(input_dir+"/*/")
-#     patient_dict_list = []
-    
-#     for patient_dir in patient_dir_list:
-#         try:
-#             body_index_range , body_mask_shape = get_body_index_range(patient_dir)
-#             patient_dict_list.append(
-#             {
-#             "patient_number": patient_dir.split("/")[-2],
-#             "body_index_range": body_index_range.tolist(),
-#             "body_mask_shape": body_mask_shape.tolist()
-#             })
-#         except:
-#             print(f"WARNING: no body contour for patient {patient_dir}, moving on")
-#             # body_index_range , body_mask_shape = np.array([]), np.array([])
-        
-    
-#     json_object = json.dumps(patient_dict_list, indent=4)
-#     with open(pth_output_json, "w") as outfile:
-#         outfile.write(json_object)
-
-
 def test_get_body_index_range():
     pth_dicomRS = "../../data_test/prostate_glen_p1/"
     pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
@@ -148,17 +94,6 @@ def test_get_body_index_range():
 
     print(get_body_index_range(pth_dicomRS))
     
-
-# def test_get_body_contour_range_from_many_patients_dicom():
-#     input_dir = "../../data_test"
-#     pth_json = "../../data_test/test_patient_body_bounds.json"
-    
-#     get_body_contour_range_from_many_patients_dicom(input_dir, pth_json)
-    
-#     with open(pth_json, "r") as file:
-#         data_json = json.load(file)
-    
-#     print(data_json)
 
 # if __name__ == "__main__":
     

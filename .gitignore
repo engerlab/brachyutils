@@ -1,8 +1,9 @@
 *.pickle
 pyRad
 test_data
-ENV
+ENV_*
 data_test
 __pycache__
 .pytest_cache
-/src/vscode/
+*vscode*
+/brachyutils/src/brachyutils.egg-info/

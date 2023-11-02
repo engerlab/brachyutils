@@ -126,18 +126,8 @@ def convert_many_files(input_dir: str, type_in: str, type_out: str):
         
         file_base_noExtension = os.path.splitext(single_file)[0]
         
-        if type_out == ".3ddose":
-            dose_obj.write_to_3ddose_file(file_base_noExtension+type_out)
-        elif type_out == ".nrrd":
-            dose_obj.write_to_nrrd_file(file_base_noExtension+type_out)
-        elif type_out == ".minidose":
-            dose_obj.write_to_minidose_file(file_base_noExtension+type_out)
-        elif type_out == ".xz":
-            dose_obj.write_to_xz_file(file_base_noExtension+type_out)
-        elif type_out == ".npz":
-            dose_obj.write_to_npz_file(file_base_noExtension+type_out)
-        elif type_out == ".zstd":
-            dose_obj.write_to_zstd_file(file_base_noExtension+type_out)
+        dose_obj.write_BrachyDose_to_file(file_base_noExtension+type_out)
+        
 
 
 @app.command()
@@ -168,18 +158,8 @@ def crop_by_ratio_and_convert_many_files(input_dir: str, crop_ratio:float, type_
 
         file_base_noExtension = os.path.splitext(file)[0]
 
-        if type_out == ".3ddose":
-            dose_obj.write_to_3ddose_file(file_base_noExtension+type_out)
-        elif type_out == ".nrrd":
-            dose_obj.write_to_nrrd_file(file_base_noExtension+type_out)
-        elif type_out == ".minidose":
-            dose_obj.write_to_minidose_file(file_base_noExtension+type_out)
-        elif type_out == ".xz":
-            dose_obj.write_to_xz_file(file_base_noExtension+type_out)
-        elif type_out == ".npz":
-            dose_obj.write_to_npz_file(file_base_noExtension+type_out)
-        elif type_out == ".zstd":
-            dose_obj.write_to_zstd_file(file_base_noExtension+type_out)
+        dose_obj.write_BrachyDose_to_file(file_base_noExtension+type_out)
+        
 
 
 @app.command()

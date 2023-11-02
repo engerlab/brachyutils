@@ -60,12 +60,12 @@ class BrachyDose:
         get_average_uncert()
         get_average_uncert_benchmark()
         pad_3ddose()
-        write_to_3ddose_file()
-        write_to_nrrd_file()
-        write_to_npz_file()
-        write_to_minidose_file()
-        write_to_xz_file()
-        write_to_zstd_file()
+        write_to_3ddose()
+        write_to_nrrd()
+        write_to_npz()
+        write_to_minidose()
+        write_to_xz()
+        write_to_zstd()
         calculateAxis()
         is_equal()
         crop_by_coordinates()
@@ -93,7 +93,6 @@ class BrachyDose:
         pydicom
         json
     """
-    
     grid:np.ndarray
     uncertainty:np.ndarray
     num_voxels:np.ndarray
@@ -103,13 +102,23 @@ class BrachyDose:
     interpolation_function:RegularGridInterpolator
 
     # def __init__(self, ):
+    
+    def __init__(self, pth_dose_file:Optional[str]=None):
+    
+        self.grid:np.ndarray = None
+        self.uncertainty:np.ndarray = None
+        self.num_voxels:np.ndarray = None
+        self.vox_size:np.ndarray = None
+        self.topleft:np.ndarray = None
+        self.axis:np.ndarray = None
         
-    #     return None       
+        if pth_dose_file != None:
+            self.load_file_to_BrachyDose(pth_dose_file)
     
     def load_file_to_BrachyDose(self, pth_dose_file:str):
         r""" 
         Purpose: 
-            given the path to a file holding dose information, it will return 
+        given the path to a file holding dose information, it will return 
         a BrachyDose object with the populated available attributes. It will give a warning
         for the missing attributes.
         
@@ -144,6 +153,42 @@ class BrachyDose:
     
         return self
 
+    def write_BrachyDose_to_file(self, pth_dose_file:str):
+        r"""
+        Purpose:
+        To write a brachy dose object to the given file path. this function will automatically
+        detect the type of the output file and will call the right brachyDose writer function. 
+        
+        Inputs:
+            - pth_dose_file := path where the BrachyDose contents will be written to. The options 
+            for output type are "3ddose", "nrrd", "npz", "minidose", "xz", and "zstd". 
+        
+        Output:
+            - void := contents of self is written to "pth_dose_file"
+        """
+        file_extension = os.path.splitext(pth_dose_file)[-1]
+        
+        if file_extension == ".3ddose":
+            self.write_to_3ddose(pth_dose_file)
+            
+        elif file_extension == ".nrrd":
+            self.write_to_nrrd(pth_dose_file)
+            
+        elif file_extension == ".npz":
+            self.write_to_npz(pth_dose_file)
+            
+        elif file_extension == ".minidose":
+            self.write_to_minidose(pth_dose_file)
+            
+        elif file_extension == ".xz":
+            self.write_to_xz(pth_dose_file)
+            
+        elif file_extension == ".zstd":
+            self.write_to_zstd(pth_dose_file)
+        else:
+            raise Exception(f"The input file name {pth_dose_file} is not supported. the supported \
+            file types are '.3ddose', '.nrrd', '.npz', '.minidose', '.xz', and '.zstd'")
+    
     def load_from_3ddose(self, filename:str):
         r""" 
         Purpose: 
@@ -226,7 +271,17 @@ class BrachyDose:
         self.topleft =  loaded_BrachyDose["topleft"]
         self.axis =  loaded_BrachyDose["axis"]
     
-    # def load_from_minidose(self, pth_minidose):
+    def load_from_minidose(self, pth_minidose):
+        r"""
+        Purpose:
+            Given the path to a minidose file, load its content into self:BrachyDose
+        Input:
+            - filename := path to a ".minidose" file
+        """
+        assert os.path.splitext(pth_minidose)[-1] == ".minidose", f"the file {pth_minidose}, should have '.minidose' extension."
+        with open(pth_minidose, 'rb') as file:
+            line_content = np.frombuffer(file.readline())
+            
         
     
     def make_profile_1d(self, axis:str, x=None, y=None, z=None, spacing=0.1) -> tuple:
@@ -376,7 +431,7 @@ class BrachyDose:
         
         return padded_dose
     
-    def write_to_3ddose_file(self, fileName:str):
+    def write_to_3ddose(self, fileName:str):
         r''' 
         Purpose: 
             This function will write the contents of a BrachyDose onto a text file with .3ddose extension. 
@@ -407,7 +462,7 @@ class BrachyDose:
             lines = [dimensions, x_axis, y_axis, z_axis, dose_flattened, uncertainty_flattened]
             file.writelines(lines)
     
-    def write_to_nrrd_file(self, fileName:str, metaData:Optional[dict]=None):
+    def write_to_nrrd(self, fileName:str, metaData:Optional[dict]=None):
         r"""
             Purpose: 
                 To save the contents of BrachyDose into a nrrd file. 
@@ -449,7 +504,7 @@ class BrachyDose:
 
         sitk.WriteImage(image_nrrd, run_number+".nrrd", useCompression=True, compressionLevel=9)
 
-    def write_to_npz_file(self, fileName:str):
+    def write_to_npz(self, fileName:str):
         r"""
             Purpose: 
                 To save the contents of BrachyDose into a npz file, which is numpy compressed. 
@@ -473,8 +528,8 @@ class BrachyDose:
             topleft = self.topleft,
             axis=self.axis,
             )
-            
-    def write_to_minidose_file(self, fileName, compress_program:Optional[str]=None):
+        
+    def write_to_minidose(self, fileName, compress_program:Optional[str]=None):
         r"""
             Purpose: 
                 To save the contents of BrachyDose into a minidose file, which is just a binary file written line by line. 
@@ -492,14 +547,7 @@ class BrachyDose:
             if attribute.startswith('__') or callable(getattr(self, attribute)):
                 continue
             else:
-                # print(attribute)
                 contents = contents + getattr(self, attribute).tobytes() + bytes('\n', 'utf-8')
-                # print("breaking point was here")
-                # if attribute == 'grid' or 'uncertainty':
-                #     minidose_file.write(getattr(self, attribute).flatten('C').tobytes()+bytes('\n', 'utf-8'))
-                #     continue
-                
-                # minidose_file.write(getattr(self, attribute).tobytes()+bytes('\n', 'utf-8'))
         
         if compress_program == "zstd":
             contents = pyzstd.compress(contents, 22)
@@ -509,13 +557,13 @@ class BrachyDose:
             
         minidose_file.close()
     
-    def write_to_xz_file(self, fileName):
+    def write_to_xz(self, fileName):
         assert os.path.splitext(fileName)[-1] == '.xz'
         
         with lzma.open(fileName, 'wb') as file:
             pickle.dump(self, file)
     
-    def write_to_zstd_file(self, fileName):
+    def write_to_zstd(self, fileName):
         assert os.path.splitext(fileName)[-1] == '.zst'
         
         with pyzstd.open(fileName, "wb", level_or_option=22) as file:
@@ -764,97 +812,6 @@ class BrachyDose:
         
         self.crop_by_index(scaled_body_index_range, True)
 
-# app = typer.Typer()
-
-# @app.command()
-# def convert_many_files(input_dir: str, type_in: str, type_out: str):
-#     r"""
-#     Purpose:
-#         Will convert all files in the "input_dir" of type "type_in" to "type_out"
-#     Inputs:
-#         input_dir := directory where there are files to be converted 
-#         type_in := could be ".3ddose", ".nrrd", ".minidose", other types could be added
-#         type_out := could be ".3ddose", ".nrrd", ".minidose", other types could be added
-#     """
-#     input_dir = os.path.abspath(input_dir)
-#     assert os.path.exists(input_dir)
-#     file_list = glob(input_dir+"/*"+type_in)
-    
-#     for file in tqdm(file_list):
-#         dose_obj = BrachyDose()
-#         dose_obj.load_file_to_BrachyDose(file)
-        
-#         file_base_noExtension = os.path.splitext(file)[0]
-        
-#         if type_out == ".3ddose":
-#             dose_obj.write_to_3ddose_file(file_base_noExtension+type_out)
-#         elif type_out == ".nrrd":
-#             dose_obj.write_to_nrrd_file(file_base_noExtension+type_out)
-#         elif type_out == ".minidose":
-#             dose_obj.write_to_minidose_file(file_base_noExtension+type_out)
-#         elif type_out == ".xz":
-#             dose_obj.write_to_xz_file(file_base_noExtension+type_out)
-#         elif type_out == ".npz":
-#             dose_obj.write_to_npz_file(file_base_noExtension+type_out)
-#         elif type_out == ".zstd":
-#             dose_obj.write_to_zstd_file(file_base_noExtension+type_out)
-
-
-# @app.command()
-# def crop_by_ratio_and_convert_many_files(input_dir: str, crop_ratio:float, type_in: str, type_out: str):
-#     r"""
-#     Purpose:
-#         Will crop all files in the "input_dir" of type "type_in" and write the cropped dose to file with "type_out"
-#     Inputs:
-#         input_dir := directory where there are files to be converted 
-#         crop_ratio := the fraction of the image axis that remains in the crop. for example, a crop ratio of 0.5 will keep 
-#             the center of the x and y axis plus minus 0.25*dimension of the image. The x axis will not be cropped. 
-#             +++++++++       ---------
-#             +++++++++       --+++++--
-#             +++++++++  ===> --+++++--
-#             +++++++++       --+++++--
-#             +++++++++       ---------
-#         type_in := could be ".3ddose", ".nrrd", ".minidose", other types could be added
-#         type_out := could be ".3ddose", ".nrrd", ".minidose", other types could be added
-#     """
-#     input_dir = os.path.abspath(input_dir)
-#     assert os.path.exists(input_dir)
-#     file_list = glob(input_dir+"/*"+type_in)
-    
-#     for file in tqdm(file_list):
-#         dose_obj = BrachyDose()
-#         dose_obj.load_file_to_BrachyDose(file)
-#         dose_obj.crop_by_fraction(crop_ratio)
-
-#         file_base_noExtension = os.path.splitext(file)[0]
-
-#         if type_out == ".3ddose":
-#             dose_obj.write_to_3ddose_file(file_base_noExtension+type_out)
-#         elif type_out == ".nrrd":
-#             dose_obj.write_to_nrrd_file(file_base_noExtension+type_out)
-#         elif type_out == ".minidose":
-#             dose_obj.write_to_minidose_file(file_base_noExtension+type_out)
-#         elif type_out == ".xz":
-#             dose_obj.write_to_xz_file(file_base_noExtension+type_out)
-#         elif type_out == ".npz":
-#             dose_obj.write_to_npz_file(file_base_noExtension+type_out)
-#         elif type_out == ".zstd":
-#             dose_obj.write_to_zstd_file(file_base_noExtension+type_out)
-
-
-# @app.command()
-# def padd_many_files(input_dir: str, type_in: str, dim_out:str):
-#     r"""
-#     Purpose:
-#         Will padd all files in the "input_dir" of type "type_in" with zeros to
-#             have the dimensions "dim_out"
-#     Inputs:
-#         input_dir := directory where there are files to be converted 
-#         type_in := could be ".3ddose", ".nrrd", ".minidose", other types could be added
-#         dim_out := the new dimensions in [z, y, x] format
-#     """
-#     raise Exception("This feature is not implementated yet")
-
 def compare_two_3ddose_files(pth1_3ddose:str, pth2_3ddose:str):
     # old_file_dir = load_3ddose(pth1_3ddose)
     # new_file_dir = load_3ddose(pth2_3ddose)
@@ -892,7 +849,7 @@ def test_load_file_to_brachyDose():
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     dose_obj.assert_BrachyDose_notEmpty()
 # @pytest.mark.passed
-def test_write_to_3ddose_file():
+def test_write_to_3ddose():
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
 
     # testing on maud's file
@@ -902,7 +859,7 @@ def test_write_to_3ddose_file():
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
 
-    dose_obj.write_to_3ddose_file(pth_out)
+    dose_obj.write_to_3ddose(pth_out)
     new_dose_obj = BrachyDose().load_file_to_BrachyDose(pth_out)
     dose_obj.is_equal(new_dose_obj)
 # @pytest.mark.passed
@@ -926,7 +883,7 @@ def test_convert_to_nrrd():
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
    
-    dose_obj.write_to_nrrd_file(pth_out)
+    dose_obj.write_to_nrrd(pth_out)
     
     dose_obj_From_nrrd = BrachyDose()
     dose_obj_From_nrrd.load_file_to_BrachyDose(pth_out)
@@ -936,7 +893,7 @@ def test_convert_to_nrrd():
 def test_convert_to_npz_file():
     r"""
     Purpose: 
-        simulatenously test write_to_npz_file() and load_from_npz()
+        simulatenously test write_to_npz() and load_from_npz()
     """
     # pth_3ddose =  "../../data_test/combined.3ddose"
 
@@ -946,32 +903,32 @@ def test_convert_to_npz_file():
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     
-    dose_obj.write_to_npz_file(pth_out)
+    dose_obj.write_to_npz(pth_out)
     
     new_dose_obj = BrachyDose()
     new_dose_obj.load_from_npz(pth_out)
     dose_obj.is_equal(new_dose_obj)
 
-def test_write_to_minidose_file():
-    r"""
-    Purpose: 
-        simulatenously test write_to_minidose_file() and load_from_minidose()
-    """
-    # pth_3ddose =  "../../data_test/combined.3ddose"
+# def test_write_to_minidose():
+#     r"""
+#     Purpose: 
+#         simulatenously test write_to_minidose() and load_from_minidose()
+#     """
+#     # pth_3ddose =  "../../data_test/combined.3ddose"
 
-    # testing on maud's file
-    pth_3ddose = "../../data_test/maud.3ddose"
-    pth_out = os.path.splitext(pth_3ddose)[0]+'.minidose'
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+#     # testing on maud's file
+#     pth_3ddose = "../../data_test/maud.3ddose"
+#     pth_out = os.path.splitext(pth_3ddose)[0]+'.minidose'
+#     dose_obj = BrachyDose()
+#     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     
-    dose_obj.write_to_minidose_file(pth_out, compress_program='zstd')
+#     dose_obj.write_to_minidose(pth_out, compress_program='zstd')
     
-    new_dose_obj = BrachyDose()
+#     new_dose_obj = BrachyDose()
     # new_dose_obj.load_from_minidose(pth_out)
     # dose_obj.is_equal(new_dose_obj)
 
-def test_write_to_xz_file():
+def test_write_to_xz():
     
     # pth_3ddose =  "../../data_test/combined.3ddose"
 
@@ -981,9 +938,9 @@ def test_write_to_xz_file():
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     
-    dose_obj.write_to_xz_file(pth_out)
+    dose_obj.write_to_xz(pth_out)
 
-def test_write_to_zstd_file():
+def test_write_to_zstd():
     
     # pth_3ddose =  "../../data_test/combined.3ddose"
     # pth_zstd = "../../data_test/combined.zst"
@@ -994,28 +951,8 @@ def test_write_to_zstd_file():
     dose_obj = BrachyDose()
     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     
-    dose_obj.write_to_zstd_file(pth_out)
+    dose_obj.write_to_zstd(pth_out)
 
-# def test_convert_many_files():
-#     dir_in = "../../data_test/many_files"
-#     type_in = ".3ddose"
-#     type_out = ".nrrd"
-    
-#     convert_many_files(dir_in, type_in, type_out)
-    
-#     dir_in = os.path.abspath(dir_in)
-#     nrrd_list = glob(dir_in+".nrrd")
-    
-#     for file_nrrd in nrrd_list:
-#         dose_obj_nrrd = BrachyDose()
-#         dose_obj_nrrd.load_file_to_BrachyDose(file_nrrd)
-        
-#         file_3ddose = os.path.splitext(file_nrrd)[0]+".3ddose"
-#         dose_obj_3ddose = BrachyDose()
-#         dose_obj_3ddose.load_file_to_BrachyDose(file_3ddose)
-        
-#         dose_obj_3ddose.is_equal(dose_obj_nrrd)
-    
 def test_crop_by_coordinates():
     pth_3ddose = "../../data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
@@ -1056,23 +993,26 @@ def test_crop_by_fraction():
     dose_obj.crop_by_fraction(fraction)
     dose_obj.info()
 
-# def test_get_body_index_range():
-#     pth_dicomRS = "../../data_test/prostate_glen_p1/"
-#     pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
-
-
-#     print(get_body_index_range(pth_dicomRS))
+def test_get_body_index_range():
+    pth_dicomRS = "../../data_test/prostate_glen_p1/"
+    pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
+    print(get_body_index_range(pth_dicomRS))
     
-# def test_crop_by_body_contour():
-#     pth_dicomRS = "../../data_test/prostate_glen_p1/"
-#     pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
+def test_crop_by_body_contour():
+    pth_dicomRS = "../../data_test/prostate_glen_p1/"
+    pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
 
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(pth_3ddose)
+    dose_obj.info()
+    dose_obj.crop_by_body_contour(pth_dicomRS)
+    dose_obj.info()
 
-#     dose_obj = BrachyDose()
-#     dose_obj.load_file_to_BrachyDose(pth_3ddose)
-#     dose_obj.info()
-#     dose_obj.crop_by_body_contour(pth_dicomRS)
-#     dose_obj.info()
+def test_convert_to_minidose():
+    pth_input = "../../data_test/dwell1_1mm.nrrd"
+    pth_minidose = os.path.splitext(pth_input) + ".minidose"
+    
+     
 
 # if __name__ == "__main__":
     
@@ -1082,11 +1022,11 @@ def test_crop_by_fraction():
     # test_crop_by_body_contour()
     # test_load_from_3ddose()
     # test_load_file_to_brachyDose()
-    # test_write_to_3ddose_file()
+    # test_write_to_3ddose()
     # test_convert_to_nrrd()
     # test_convert_to_npz_file()
-    # test_write_to_minidose_file()
-    # test_write_to_xz_file()
+    # test_write_to_minidose()
+    # test_write_to_xz()
     # test_write_to_zstd()
     # test_convert_many_files()
     # test_crop_by_coordinates()
