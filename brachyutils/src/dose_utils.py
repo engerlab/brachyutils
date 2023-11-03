@@ -1,11 +1,9 @@
-from numpy import array as nparray, zeros as npzeros, reshape
-# from numpy import float as float
-# from numpy import int as int
 from numpy import ma
 from numpy import dtype
 import numpy as np
 import re
 import os
+from array import array
 
 # from dicompylercore import dicomparser
 from glob import glob
@@ -193,9 +191,9 @@ class BrachyDose:
         #print("Opening 3ddose at %s" % path)
         with open(path, "rb") as newfile:
             bench_voxels = [int(i) for i in newfile.readline().split()]
-            bench_x_pos = np.round(nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
-            bench_y_pos = np.round(nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
-            bench_z_pos = np.round(nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
+            bench_x_pos = np.round(np.array(newfile.readline().split(), dtype=np.float32), decimals=6)
+            bench_y_pos = np.round(np.array(newfile.readline().split(), dtype=np.float32), decimals=6)
+            bench_z_pos = np.round(np.array(newfile.readline().split(), dtype=np.float32), decimals=6)
 
             bench_x_spacing = (bench_x_pos[1] - bench_x_pos[0])
             bench_y_spacing = (bench_y_pos[1] - bench_y_pos[0])
@@ -203,10 +201,10 @@ class BrachyDose:
 
             bench_dict = {}
 
-            huge_dose_array = nparray(newfile.readline().strip().split(), dtype=np.float32)
+            huge_dose_array = np.array(newfile.readline().strip().split(), dtype=np.float32)
             bench_dose = reshape(huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
             try:
-                huge_uncert_array = nparray(newfile.readline().strip().split(), dtype=np.float32)
+                huge_uncert_array = np.array(newfile.readline().strip().split(), dtype=np.float32)
                 bench_uncert = reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
                 self.uncertainty = bench_uncert
             except:
@@ -318,7 +316,7 @@ class BrachyDose:
             pdd_dict["uncert"] = uncert_values
 
         pdd_dict["x_axis"] = z_values
-        pdd_dict["y_axis"] = nparray(dose_values)
+        pdd_dict["y_axis"] = np.array(dose_values)
         return pdd_dict
     
     def get_average_uncert(self) -> float:
@@ -519,7 +517,7 @@ class BrachyDose:
         r"""
             Purpose: 
                 To save the contents of BrachyDose into a minidose file, which is just a binary file written line by line. 
-            
+                This code is based on Maude Robitaille's implementation. 
             inputs:
                 - self := BrachyDose object
                 - fileName := path where the dose minidose file will be written to. 
@@ -527,21 +525,38 @@ class BrachyDose:
             outputs: Void
                 writes the contents of self:BrachyDose to the fileName. 
         """
-        
-        contents = bytes("", 'utf-8')
-        for attribute in dir(self):
-            if attribute.startswith('__') or callable(getattr(self, attribute)):
-                continue
-            else:
-                contents = contents + getattr(self, attribute).tobytes() + bytes('\n', 'utf-8')
-        
-        if compress_program == "zstd":
-            contents = pyzstd.compress(contents, 22)
-        
-        with open(fileName, "wb") as minidose_file:
-            minidose_file.write(contents)
+        assert os.path.splitext(fileName)[-1] == ".minidose", f"the file name {fileName} should have '.minidose' extension."
+        with open(fileName, 'wb') as newfile:
             
-        minidose_file.close()
+            # the first line is the number of voxels along each dimension [x, y , z]
+            dims_array = array('i', self.num_voxels)
+            dims_array.tofile(newfile)
+            
+            # lines 2,3 and 4 are the voxel sizes x, y, z
+            float_array_x = array('f', [self.vox_size[0]])
+            float_array_x.tofile(newfile)
+            float_array_y = array('f', [self.vox_size[1]])
+            float_array_y.tofile(newfile)
+            float_array_z = array('f', [self.vox_size[2]])
+            float_array_z.tofile(newfile)
+            
+            # lines 5, 6, 7 are the origins x, y, and z
+            originx_array = array('f', [self.topleft[0]])
+            originy_array = array('f', [self.topleft[1]])
+            originz_array = array('f', [self.topleft[2]])
+
+            originx_array.tofile(newfile)
+            originy_array.tofile(newfile)
+            originz_array.tofile(newfile)
+            
+            # lines 8 is just a zero 
+            zero = array('i', [0])
+            zero.tofile(newfile)
+            
+            # line 9-infinit is the dose per voxel array
+            for d in self.grid.flatten():
+                array('f', [d]).tofile(newfile)
+                        
     
     def write_to_xz(self, fileName):
         assert os.path.splitext(fileName)[-1] == '.xz'
@@ -782,7 +797,6 @@ class BrachyDose:
         
             - original_mask_dimensions:np.array := 1 x 3 array holding the dimension of the original mask
             
-            
         Outputs:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the body contour 
                     in the dicom structure file. It will also update the num_voxels, topleft and axis. only vox_size will not change
@@ -996,15 +1010,22 @@ def test_crop_by_body_contour():
 
 def test_convert_to_minidose():
     pth_input = "../../data_test/dwell1_1mm.nrrd"
-    pth_minidose = os.path.splitext(pth_input) + ".minidose"
+    pth_minidose = os.path.splitext(pth_input)[0] + ".minidose"
     
+    dose_obj = BrachyDose(pth_input)
+    dose_obj.assert_BrachyDose_notEmpty()
+    dose_obj.write_to_minidose(pth_minidose)
+    
+    dose_obj_fromMinidose = BrachyDose(pth_minidose)
+    dose_obj_fromMinidose.is_equal(dose_obj)
      
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
     
     # app()
 
     # a Test for the following functions
+    test_convert_to_minidose()
     # test_crop_by_body_contour()
     # test_load_from_3ddose()
     # test_load_file_to_brachyDose()
