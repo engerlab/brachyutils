@@ -182,14 +182,21 @@ def crop_dose_by_body_contour_many_patients(
     print(patient_dose_dir)
     patient_number = os.path.basename(patient_dose_dir)
     patient = list(filter(lambda x: patient_number == x["patient_number"], body_range_dict))[0] 
+
     print(f"the patient body mask is {patient}")
 
     for dose_file in tqdm(list_3ddose):
+        pth_cropped_dose = os.path.dirname(dose_file) + "/cropped_" + os.path.basename(dose_file).split(".")[0]+type_in_out[1]
+        # skip the nrrd files that already exist
+        if os.path.exists(pth_cropped_dose):
+            print(f"file already exists: {pth_cropped_dose}")
+            continue
+        
         print(f"loading the patient dose file at {dose_file}")
         dose_obj = BrachyDose()
         dose_obj.load_file_to_BrachyDose(dose_file)
         dose_obj.crop_by_body_contour(patient["body_index_range"], patient["body_mask_shape"])
-        pth_cropped_dose = os.path.dirname(dose_file) + "/cropped_" + os.path.basename(dose_file).split(".")[0]+type_in_out[1]
+        
         print(f"writing the cropped egsphant to {pth_cropped_dose}")
         dose_obj.write_to_nrrd_file(pth_cropped_dose)
 
