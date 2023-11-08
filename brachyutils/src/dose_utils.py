@@ -201,10 +201,10 @@ class BrachyDose:
             bench_dict = {}
 
             huge_dose_array = np.array(newfile.readline().strip().split(), dtype=np.float32)
-            bench_dose = reshape(huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+            bench_dose = np.reshape(huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
             try:
                 huge_uncert_array = np.array(newfile.readline().strip().split(), dtype=np.float32)
-                bench_uncert = reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+                bench_uncert = np.reshape(huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
                 self.uncertainty = bench_uncert
             except:
                 print("Warning: No uncertainty in the 3ddose files")

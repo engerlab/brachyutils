@@ -188,7 +188,7 @@ def crop_dose_by_body_contour_many_patients(
         dose_obj.crop_by_body_contour(patient["body_index_range"], patient["body_mask_shape"])
         
         print(f"writing the cropped egsphant to {pth_cropped_dose}")
-        dose_obj.write_to_nrrd_file(pth_cropped_dose)
+        dose_obj.write_to_nrrd(pth_cropped_dose)
 
 @app.command()
 def crop_dose_by_ratio_and_convert_many_files(input_dir: str, crop_ratio:float, type_in: str, type_out: str):
