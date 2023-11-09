@@ -28,6 +28,7 @@ setup(name='brachyutils',
         "typer",
         "tqdm",
         "DicomRTTool",
+        "py7zr"
       ],
       entry_points={'console_scripts': ['brachyutils=brachyutils:main']},
       package_dir={'':'brachyutils/src'}
