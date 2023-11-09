@@ -1,7 +1,7 @@
 *.pickle
 pyRad
 test_data
-ENV
+ENV*
 data_test
 __pycache__
 .pytest_cache
