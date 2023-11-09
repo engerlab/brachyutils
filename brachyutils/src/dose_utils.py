@@ -43,7 +43,7 @@ class BrachyDose:
         uncertainty:np.ndarray := 3D numpy array holding dose uncertainity at each voxel. [z, y, x] 
         num_voxels:np.ndarray := 1D numpy array holding the number of grid points on x, y, z axis. 
         vox_size:np.ndarray := 1D numpy array holding the resolution of each voxel along x, y, z axis in centimeters. 
-        topleft:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z] 
+        topleft:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centimeters. [x, y, z] 
         axis:np.ndarray := coorindates of grid points along z, y and x axis.  
 
     Functions:
@@ -117,7 +117,7 @@ class BrachyDose:
         
         Inputs:
             - pth_dose_file := path directory where the file containing the dose is. The file 
-                extension could be ".3ddose", ".nrrd", ".dcm", or ".minidose"
+                extension could be ".3ddose", ".nrrd", ".dcm", or ".minidos"
         
         Output:
         self : BrachyDose
@@ -136,7 +136,7 @@ class BrachyDose:
             assert "RD" in pth_dose_file, "must be a dicom dose file starting with 'RD'"
             raise Exception("loading dose from dicom is not currently supported")
         
-        elif file_extension == ".minidose":
+        elif file_extension == ".minidos":
             raise Exception("loading dose from .bin file is not currently supported")
     
         return self
@@ -165,7 +165,7 @@ class BrachyDose:
         elif file_extension == ".npz":
             self.write_to_npz(pth_dose_file)
             
-        elif file_extension == ".minidose":
+        elif file_extension == ".minidos":
             self.write_to_minidose(pth_dose_file)
             
         elif file_extension == ".xz":
@@ -175,7 +175,7 @@ class BrachyDose:
             self.write_to_zstd(pth_dose_file)
         else:
             raise Exception(f"The input file name {pth_dose_file} is not supported. the supported \
-            file types are '.3ddose', '.nrrd', '.npz', '.minidose', '.xz', and '.zstd'")
+            file types are '.3ddose', '.nrrd', '.npz', '.minidos', '.xz', and '.zstd'")
     
     def load_from_3ddose(self, filename:str):
         r""" 
@@ -264,9 +264,9 @@ class BrachyDose:
         Purpose:
             Given the path to a minidose file, load its content into self:BrachyDose
         Input:
-            - filename := path to a ".minidose" file
+            - filename := path to a ".minidos" file
         """
-        assert os.path.splitext(pth_minidose)[-1] == ".minidose", f"the file {pth_minidose}, should have '.minidose' extension."
+        assert os.path.splitext(pth_minidose)[-1] == ".minidos", f"the file {pth_minidose}, should have '.minidos' extension."
         with open(pth_minidose, 'rb') as file:
             line_content = np.frombuffer(file.readline())
             
@@ -524,7 +524,7 @@ class BrachyDose:
             outputs: Void
                 writes the contents of self:BrachyDose to the fileName. 
         """
-        assert os.path.splitext(fileName)[-1] == ".minidose", f"the file name {fileName} should have '.minidose' extension."
+        assert os.path.splitext(fileName)[-1] == ".minidos", f"the file name {fileName} should have '.minidos' extension."
         with open(fileName, 'wb') as newfile:
             
             # the first line is the number of voxels along each dimension [x, y , z]
@@ -917,7 +917,7 @@ def test_convert_to_npz_file():
 
 #     # testing on maud's file
 #     pth_3ddose = "../../data_test/maud.3ddose"
-#     pth_out = os.path.splitext(pth_3ddose)[0]+'.minidose'
+#     pth_out = os.path.splitext(pth_3ddose)[0]+'.minidos'
 #     dose_obj = BrachyDose()
 #     dose_obj.load_file_to_BrachyDose(pth_3ddose)
     
@@ -1009,7 +1009,7 @@ def test_crop_by_body_contour():
 
 def test_convert_to_minidose():
     pth_input = "../../data_test/dwell1_1mm.nrrd"
-    pth_minidose = os.path.splitext(pth_input)[0] + ".minidose"
+    pth_minidose = os.path.splitext(pth_input)[0] + ".minidos"
     
     dose_obj = BrachyDose(pth_input)
     dose_obj.assert_BrachyDose_notEmpty()
