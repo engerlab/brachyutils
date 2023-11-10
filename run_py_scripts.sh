@@ -44,8 +44,8 @@ input_dir="/home/majd/data/patient_dose_simulations/prostate-jgh"
 patient_folders=$input_dir'/*/'
 for folder in $patient_folders
 do 
-    ls $folder'/*/'
-    # brachyutils convert-many-files $folder '.3ddose' '.nrrd'
+    echo $folder
+    brachyutils convert-many-files $folder '.3ddose' '.nrrd' --multi-proc
     # rm $folder*.3ddose
 done
 

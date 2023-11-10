@@ -5,11 +5,14 @@ from tqdm import tqdm
 import pytest
 import typer
 
-# from dicom_utils import  get_body_index_range
+from dicom_utils import  get_body_index_range
 from egsphant_utils import _load_json, BrachyEgsphant
 from dose_utils import BrachyDose
 from typing import Optional
+from typing_extensions import Annotated
 
+from multiprocessing import Pool
+from functools import partial
 app = typer.Typer()
 
 @app.command()
@@ -107,8 +110,20 @@ def crop_egsphant_by_body_contour_many_patients(patient_egsphant_dir:str, patien
         egsphant_obj.write_to_ctegsphant(pth_cropped_egsphant)
 
 
+def convert_single_dose_file(input_name, type_out):
+    dose_obj = BrachyDose(input_name)
+    file_base_noExtension = os.path.splitext(input_name)[0]        
+    dose_obj.write_BrachyDose_to_file(file_base_noExtension+type_out)
+
 @app.command()
-def convert_many_files(input_dir: str, type_in: str, type_out: str):
+def convert_many_files(
+    input_dir: str, 
+    type_in: Annotated[str, typer.Argument(help="extension of the files to be converted. \
+    options are .3ddose, and .nrrd. .minidos will be added soon")], 
+    type_out: Annotated[str, typer.Argument(help="extension of the output files. \
+    options are .3ddose, .nrrd, .minidos")], 
+    multi_proc:Annotated[bool, typer.Option(help="if set to true, multiprocessing \
+        will be used to convert files in parallel")]=False):
     r"""
     Purpose:
         Will convert all files in the "input_dir" of type "type_in" to "type_out"
@@ -121,13 +136,18 @@ def convert_many_files(input_dir: str, type_in: str, type_out: str):
     assert os.path.exists(input_dir)
     file_list = glob(input_dir+"/*"+type_in)
     
-    for single_file in tqdm(file_list):
-        dose_obj = BrachyDose()
-        dose_obj.load_file_to_BrachyDose(single_file)
-        
-        file_base_noExtension = os.path.splitext(single_file)[0]
-        
-        dose_obj.write_BrachyDose_to_file(file_base_noExtension+type_out)
+    if multi_proc:
+        with Pool() as our_pool:
+            partial_dose_writer = partial(convert_single_dose_file, type_out=type_out) 
+            our_pool.map(partial_dose_writer, file_list)
+    else:
+        for single_file in tqdm(file_list):
+            dose_obj = BrachyDose()
+            dose_obj.load_file_to_BrachyDose(single_file)
+            
+            file_base_noExtension = os.path.splitext(single_file)[0]
+            
+            dose_obj.write_BrachyDose_to_file(file_base_noExtension+type_out)
         
 
 
