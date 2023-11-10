@@ -1,7 +1,7 @@
 #!bin/bash
 # This script contains demos on how to use dicom_utils.py, dose_utils.py and egsphant_utils.py 
 # on the command line interface. You can also import these script 
-source ../ENV/bin/activate
+source ENV/bin/activate
 
 # # DICOM_UTILS.PY 
 # # to extract body index limits from dicom folders. INPUT_DIR holds the dicom folders \
@@ -30,21 +30,24 @@ source ../ENV/bin/activate
 # # In addition to the INPUT_DIR, it needs the PTH_JSON file path where the 
 # # patient folder name and their respective body index range and body mask size
 # # is storred. 
-python "src/egsphant_utils.py" \
-    "crop_by_body_contour_many_files" \
-    "INPUT_DIR" \
-    "PTH_JSON"
+# python "src/egsphant_utils.py" \
+#     "crop_by_body_contour_many_files" \
+#     "INPUT_DIR" \
+#     "PTH_JSON"
 
 # # DOSE_UTILS.PY
 # # to crop, padd and convert .3ddose files more compact formats such as nrrd or tar.zst. 
 # # examples and details for each command is provided below:
 
-# # to convert all 3ddose files located at INPUT_DIR to nrrd in the same folder.  
-# python "src/dose_utils.py" \
-#     convert-many-files \
-#     'INPUT_DIR' \
-#     '.3ddose' \
-#     '.nrrd'
+# to convert all 3ddose files located at INPUT_DIR to nrrd in the same folder.  
+input_dir="/home/majd/data/patient_dose_simulations/prostate-jgh"
+patient_folders=$input_dir'/*/'
+for folder in $patient_folders
+do 
+    ls $folder'/*/'
+    # brachyutils convert-many-files $folder '.3ddose' '.nrrd'
+    # rm $folder*.3ddose
+done
 
 # # to crop all 3ddose files in INPUT_DIR folder by a certain fraction (0.6) and convert to nrrd. 
 # # cropping 0.6 keeps the centeral 0.6 voxels on x and y axis. 
