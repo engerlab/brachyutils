@@ -1,11 +1,14 @@
 import re
 import os
+import sys
 import difflib
 from typing import Optional
 import lzma
 import pickle
 import pymedphys
+import logging
 from numpy import array as nparray, zeros as npzeros, reshape
+from matplotlib import pyplot as plt
 # from numpy import float as float
 # from numpy import int as int
 from numpy import ma
@@ -41,7 +44,7 @@ import pydicom
 import json
 import numpy as np
 from typing import List
-
+so_true = True
 
 class BrachyDose:
     r"""
@@ -161,7 +164,7 @@ class BrachyDose:
         voxel_centers  = self.get_voxel_centers()
         #print(len(self.voxel_edges))
         self.interpolation_function = RegularGridInterpolator(
-            (voxel_centers[0], voxel_centers[1], voxel_centers[2]), self.grid, bounds_error=True)
+            (voxel_centers[0], voxel_centers[1], voxel_centers[2]), self.grid, bounds_error=False)
 
         return self
 
@@ -316,17 +319,21 @@ class BrachyDose:
         """
         self.assert_brachydose_not_empty()
         shape = []
-        for coord in [x, y, z]:
+        axis = []
+        for coord in [z, y, x]:
             if isinstance(coord, float):
                 coord_size = 1
+                axis.append([coord])
             elif isinstance(coord, np.ndarray):
                 coord_size = coord.size
+                axis.append(coord)
             else:
                 raise TypeError(
                     "x, y, and z should be either floats or numpy arrays")
             shape.append(coord_size)
-        coord_grid = np.meshgrid([z], [y], [x], indexing='ij')
-        dose_grid = self.interpolation_function(coord_grid)
+        coord_grid_z, coord_grid_y, coord_grid_x = np.meshgrid([z], [y], [x], indexing='ij')
+        #print(coord_grid.shape())
+        dose_grid = self.interpolation_function((coord_grid_z, coord_grid_y, coord_grid_x))
         dose_grid.reshape(shape)
         return dose_grid
 
@@ -1119,7 +1126,7 @@ def test_crop_by_body_contour():
 
 def test_convert_to_minidose():
     pth_input = "../../data_test/dwell1_1mm.nrrd"
-    pth_minidose = os.path.splitext(pth_input) + ".minidose"
+    pth_minidose = os.path.splitext(pth_input)[0] + ".minidose"
 
 # if __name__ == "__main__":
     # app()
@@ -1170,16 +1177,53 @@ class DoseComparison:
         if (compute_gamma_index):
             self.compute_gamma_index()
 
-    def compare_dose_distributions_2D(self, axis_1_coords: np.ndarray, axis_2_coords: np.ndarray, plane_coord: float, plane):
+    def plot_2d_dose_comparison(self, axis_1_coords: np.ndarray, axis_2_coords: np.ndarray, plane_coord: float, plane:str, plot_titles):
         dose_1_profile = self.dose1.extract_profile_2d(
-            axis_1_coords, axis_2_coords, plane_coord, plane)
+        axis_1_coords, axis_2_coords, plane_coord, plane)
         dose_2_profile = self.dose2.extract_profile_2d(
             axis_1_coords, axis_2_coords, plane_coord, plane)
-        self.generate_comparison_plot(
-            axis_1_coords, axis_2_coords, dose_1_profile, dose_2_profile)
+        if(self.percent_difference is not None):
+            percent_difference_profile = self.percent_difference.extract_profile_2d(
+                axis_1_coords, axis_2_coords, plane_coord, plane)
+        if(self.gamma_index is not None):
+            gamma_index_profile = self.gamma_index.extract_profile_2d(
+                axis_1_coords, axis_2_coords, plane_coord, plane)
+        else: 
+            raise NotImplementedError("""Plotting of a comparison without computing the percent difference or 
+            gamma index is not supported""")
+        plt.figure()
+        fig, ax = plt.subplots(figsize=(20,16), nrows=2, ncols=2)
+        plt.tight_layout()
+        c00 = ax[0,0].imshow(dose_1_profile, vmin=0, vmax=30, cmap='turbo', aspect="auto")
+        ax[0,0].set_title(plot_titles[0], fontsize = 20, pad = 10)
+        cbar00 = fig.colorbar(c00, ax=ax[0,0])
+        cbar00.set_label(label='Dose [Gy]', size = 18)
+        #cbar00.mappable.set_clim(0, max_dose)
+        ax[0,0].invert_yaxis()
+        ax[0,0].set_ylabel('y (cm)', fontsize = 18)
+        c01 = ax[0,1].imshow(dose_2_profile, vmin=0, vmax=30, cmap='turbo', aspect="auto")
+        ax[0,1].set_title(plot_titles[1], fontsize = 20, pad = 10)
+        cbar01 = fig.colorbar(c01, ax=ax[0,1])
+        cbar01.set_label(label='Dose [Gy]', size = 18 )
+        #cbar01.mappable.set_clim(0, max_dose)
+        ax[0,1].invert_yaxis()
+        c10 = ax[1,0].imshow(percent_difference_profile, vmin=0, vmax=200, cmap='turbo', aspect="auto")
+        ax[1,0].set_title('Percent Difference', fontsize = 18, pad = 10)
+        cbar10 = fig.colorbar(c10, ax=ax[1,0])
+        cbar10.set_label(label='[%]', size = 18)
+        ax[1,0].invert_yaxis()
+        ax[1,0].set_xlabel('x (cm)', fontsize = 18)
+        ax[1,0].set_ylabel('y (cm)', fontsize = 18)
 
-    def generate_comparison_plot(self, axis_1, axis_2, plane_1, plane_2):
-        pass
+        c11 = ax[1,1].imshow(gamma_index_profile, vmin=0, vmax=2,  cmap='turbo', aspect="auto")
+        ax[1,1].set_title(f"Gamma ({self.gamma_dose_percent_threshold} % / {10.*self.gamma_distance_threshold} mm) | Pass Rate = {np.round(self.gamma_pass_ratio*100,1)}%", fontsize = 20, pad = 10)
+        cbar11 = fig.colorbar(c11, ax=ax[1,1])
+        cbar11.set_label(label='Gamma', size = 18)
+        ax[1,1].invert_yaxis()
+        ax[1,1].set_xlabel('x (cm)', fontsize = 18)
+        plt.legend()
+        plt.show()
+
 
     def compute_percent_difference(self):
         self.percent_difference = BrachyDose()
@@ -1192,6 +1236,7 @@ class DoseComparison:
 
     def compute_gamma_index(self):
         print("Computing gamma index may take time")
+        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
         self.gamma_index = BrachyDose()
         self.gamma_index.grid = pymedphys.gamma(tuple(self.voxel_centers), self.dose1.grid, tuple(
             self.voxel_centers), self.dose_2_grid_resampled, self.gamma_dose_percent_threshold, self.gamma_distance_threshold, 
@@ -1200,6 +1245,9 @@ class DoseComparison:
         self.gamma_index.vox_size = self.dose1.vox_size
         self.gamma_index.topleft = self.dose1.topleft
         self.gamma_index.num_voxels = self.dose1.num_voxels
+        valid_gamma = self.gamma_index.grid[~np.isnan(self.gamma_index.grid)]
+        self.gamma_pass_ratio = np.sum(valid_gamma <= 1) / valid_gamma.size
+
 
     def save_dose_comparison(self):
         pass
@@ -1207,3 +1255,17 @@ class DoseComparison:
     @staticmethod
     def load_dose_comparison():
         pass
+
+def test_dose_comparison():
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    pth_3ddose = "../data_test/run_1_old.3ddose"
+    pth_3ddose2 = "../data_test/run_1_old.3ddose"
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_brachydose(pth_3ddose)
+    dose_obj2 = BrachyDose()
+    dose_obj2.load_file_to_brachydose(pth_3ddose2)
+    dose_comparison = DoseComparison(dose_obj, dose_obj2, 1, 1)
+    #evaluate that the grid contains only 0
+    assert(not np.any(dose_comparison.percent_difference.grid))
+    #dose_comparison.compare_dose_distributions_2D(
+    #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
