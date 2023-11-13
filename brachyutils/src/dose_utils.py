@@ -19,6 +19,12 @@ from matplotlib import pyplot as plt
 # from numpy import float as float
 # from numpy import int as int
 from scipy.interpolate import RegularGridInterpolator
+from numpy import ma
+from numpy import dtype
+import numpy as np
+import re
+import os
+from array import array
 
 # from dicompylercore import dicomparser
 # from numericalunits import cm, mm, kg, J
@@ -38,7 +44,7 @@ import pyzstd
 
 #from tqdm import tqdm
 
-from dicom_utils import get_body_index_range
+# from dicom_utils import get_body_index_range
 
 # from rt_utils import RTStructBuilder
 #from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
@@ -47,6 +53,8 @@ from dicom_utils import get_body_index_range
 #import numpy as np
 from typing import List
 #so_true = True
+
+import json
 
 class BrachyDose:
     r"""
@@ -310,7 +318,7 @@ class BrachyDose:
         Purpose:
             Given the path to a minidose file, load its content into self:BrachyDose
         Input:
-            - filename := path to a ".minidose" file
+            - filename := path to a ".minidos" file
         """
         assert os.path.splitext(
             pth_minidose)[-1] == ".minidose", f"the file {pth_minidose}, should have '.minidose' extension."
@@ -391,39 +399,40 @@ class BrachyDose:
             raise ValueError(
                 "plane should be one of the following: 'xy', 'xz', 'yz', 'yx', 'zx', 'zy'")
 
-    def extract_profile_1d(self):
-        pass
+    def extract_profile_1d(self, axis: str, axis_1_coords: np.ndarray, axis_2_coords: np.ndarray, axis_3_coords: List[float]) -> np.ndarray:
+        r"""
+        Extracts a 1D line profile from the dose grid along the specified axis, given the coordinates of the other two axes and a list of coordinates along the axis of extraction.
 
-        def extract_profile_1d(self, axis: str, axis_1_coords: np.ndarray, axis_2_coords: np.ndarray, axis_3_coords: List[float]) -> np.ndarray:
-            r"""
-            Extracts a 1D line profile from the dose grid along the specified axis, given the coordinates of the other two axes and a list of coordinates along the axis of extraction.
+        Parameters:
+            - axis (str): the axis along which to extract the line profile. Must be one of 'x', 'y', or 'z'.
+            - axis_1_coords (np.ndarray): the coordinates of the first axis, as a 1D numpy array.
+            - axis_2_coords (np.ndarray): the coordinates of the second axis, as a 1D numpy array.
+            - axis_3_coords (List[float]): the coordinates along the axis of extraction, as a list of floats.
 
-            Parameters:
-                - axis (str): the axis along which to extract the line profile. Must be one of 'x', 'y', or 'z'.
-                - axis_1_coords (np.ndarray): the coordinates of the first axis, as a 1D numpy array.
-                - axis_2_coords (np.ndarray): the coordinates of the second axis, as a 1D numpy array.
-                - axis_3_coords (List[float]): the coordinates along the axis of extraction, as a list of floats.
+        Returns:
+            - profile (np.ndarray): the line profile extracted from the dose grid, as a 1D numpy array.
+        """
+        if axis not in ['x', 'y', 'z']:
+            raise ValueError("axis must be one of 'x', 'y', or 'z'")
 
-            Returns:
-                - profile (np.ndarray): the line profile extracted from the dose grid, as a 1D numpy array.
-            """
-            if axis not in ['x', 'y', 'z']:
-                raise ValueError("axis must be one of 'x', 'y', or 'z'")
+        if axis == 'x':
+            x = np.array(axis_3_coords)
+            y, z = np.meshgrid(axis_2_coords, axis_1_coords, indexing='ij')
+        elif axis == 'y':
+            y = np.array(axis_3_coords)
+            x, z = np.meshgrid(axis_1_coords, axis_2_coords, indexing='ij')
+        else:
+            z = np.array(axis_3_coords)
+            x, y = np.meshgrid(axis_1_coords, axis_2_coords, indexing='ij')
 
-            if axis == 'x':
-                x = np.array(axis_3_coords)
-                y, z = np.meshgrid(axis_2_coords, axis_1_coords, indexing='ij')
-            elif axis == 'y':
-                y = np.array(axis_3_coords)
-                x, z = np.meshgrid(axis_1_coords, axis_2_coords, indexing='ij')
-            else:
-                z = np.array(axis_3_coords)
-                x, y = np.meshgrid(axis_1_coords, axis_2_coords, indexing='ij')
+        dose_grid = self.extract_dose_values_from_coordinates(x, y, z)
+        profile = np.mean(dose_grid, axis=(1, 2))
+        return profile
 
-            dose_grid = self.extract_dose_values_from_coordinates(x, y, z)
-            profile = np.mean(dose_grid, axis=(1, 2))
-            return profile
-
+        #pdd_dict["x_axis"] = z_values
+        #pdd_dict["y_axis"] = np.array(dose_values)
+        #return pdd_dict
+    
     def get_average_uncert(self) -> float:
         r"""
         Purpose:
@@ -633,7 +642,7 @@ class BrachyDose:
         r"""
             Purpose: 
                 To save the contents of BrachyDose into a minidose file, which is just a binary file written line by line. 
-
+                This code is based on Maude Robitaille's implementation. 
             inputs:
                 - self := BrachyDose object
                 - file_name := path where the dose minidose file will be written to. 
@@ -641,27 +650,43 @@ class BrachyDose:
             outputs: Void
                 writes the contents of self:BrachyDose to the file_name. 
         """
+        assert os.path.splitext(fileName)[-1] == ".minidos", f"the file name {fileName} should have '.minidos' extension."
+        with open(fileName, 'wb') as newfile:
+            
+            # the first line is the number of voxels along each dimension [x, y , z]
+            dims_array = array('i', self.num_voxels)
+            dims_array.tofile(newfile)
+            
+            # lines 2,3 and 4 are the voxel sizes x, y, z
+            float_array_x = array('f', [self.vox_size[0]])
+            float_array_x.tofile(newfile)
+            float_array_y = array('f', [self.vox_size[1]])
+            float_array_y.tofile(newfile)
+            float_array_z = array('f', [self.vox_size[2]])
+            float_array_z.tofile(newfile)
+            
+            # lines 5, 6, 7 are the origins x, y, and z
+            originx_array = array('f', [self.topleft[0]])
+            originy_array = array('f', [self.topleft[1]])
+            originz_array = array('f', [self.topleft[2]])
 
-        contents = bytes("", 'utf-8')
-        for attribute in dir(self):
-            if attribute.startswith('__') or callable(getattr(self, attribute)):
-                continue
-            else:
-                contents = contents + \
-                    getattr(self, attribute).tobytes() + bytes('\n', 'utf-8')
-
-        if compress_program == "zstd":
-            contents = pyzstd.compress(contents, 22)
-
-        with open(file_name, "wb") as minidose_file:
-            minidose_file.write(contents)
-
-        minidose_file.close()
-
-    def write_to_xz(self, file_name):
-        assert os.path.splitext(file_name)[-1] == '.xz'
-
-        with lzma.open(file_name, 'wb') as file:
+            originx_array.tofile(newfile)
+            originy_array.tofile(newfile)
+            originz_array.tofile(newfile)
+            
+            # lines 8 is just a zero 
+            zero = array('i', [0])
+            zero.tofile(newfile)
+            
+            # line 9-infinit is the dose per voxel array
+            for d in self.grid.flatten():
+                array('f', [d]).tofile(newfile)
+                        
+    
+    def write_to_xz(self, fileName):
+        assert os.path.splitext(fileName)[-1] == '.xz'
+        
+        with lzma.open(fileName, 'wb') as file:
             pickle.dump(self, file)
 
     def write_to_zstd(self, file_name):
@@ -904,18 +929,14 @@ class BrachyDose:
         print(f"num voxels attribute is: {self.num_voxels}")
         print(f"the top left (bottom left in reality) is {self.topleft}")
         print(f"the voxel size is {self.vox_size}")
-        print(
-            f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}")
-        print(
-            f"the range of the z axis is {self.voxel_edges[0][0], self.voxel_edges[0][-1]}")
-        print(
-            f"the range of the y axis is {self.voxel_edges[1][0], self.voxel_edges[1][-1]}")
-        print(
-            f"the range of the x axis is {self.voxel_edges[2][0], self.voxel_edges[2][-1]}")
-
-    def crop_by_body_contour(self, pth_dir_dicom: Optional[str] = None,
-                             body_index_range: Optional[np.ndarray] = None,
-                             body_mask_shape: Optional[np.ndarray] = None):
+        print(f"the size of the z, y and x axes are {self.axis[0].shape, self.axis[1].shape, self.axis[2].shape}")
+        print(f"the range of the z axis is {self.axis[0][0], self.axis[0][-1]}")
+        print(f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
+        print(f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
+    
+    def crop_by_body_contour(self, body_index_range:Optional[np.ndarray] = None, 
+                            body_mask_shape:Optional[np.ndarray] = None, 
+                            pth_dir_dicom:Optional[str]=None, ):
         r"""
         Purpose: 
             based on the given dicom structure file, crop the BrachyDose object such 
@@ -938,13 +959,11 @@ class BrachyDose:
         if body_index_range is None or body_mask_shape is None:
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            body_index_range, body_mask_shape = get_body_index_range(
-                pth_dir_dicom)
-        # the body mask may have a different size than the dose map, we normalize range to the dimension
-        # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.
-        scaled_body_index_range = (body_index_range / np.expand_dims(
-            body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
-
+            # body_index_range, body_mask_shape = get_body_index_range(pth_dir_dicom)
+        # the body mask may have a different size than the dose map, we normalize range to the dimension 
+        # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.  
+        scaled_body_index_range = (body_index_range / np.expand_dims(body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
+        
         self.crop_by_index(scaled_body_index_range, True)
 
 
@@ -1061,7 +1080,7 @@ def test_convert_to_npz_file():
 
 #     # testing on maud's file
 #     pth_3ddose = "../../data_test/maud.3ddose"
-#     pth_out = os.path.splitext(pth_3ddose)[0]+'.minidose'
+#     pth_out = os.path.splitext(pth_3ddose)[0]+'.minidos'
 #     dose_obj = BrachyDose()
 #     dose_obj.load_file_to_brachydose(pth_3ddose)
 
@@ -1168,6 +1187,7 @@ def test_convert_to_minidose():
     # app()
 
     # a Test for the following functions
+    test_convert_to_minidose()
     # test_crop_by_body_contour()
     # test_load_from_3ddose()
     # test_load_file_to_brachydose()

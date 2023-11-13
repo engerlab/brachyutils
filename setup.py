@@ -19,7 +19,7 @@ setup(name='brachyutils',
         "pyparsing",
         "python-dateutil",
         "pytz",
-        "cmake",
+        # "cmake",
         "SimpleITK",
         "six",
         "tzdata",
@@ -31,7 +31,8 @@ setup(name='brachyutils',
         "pydicom",
         "scipy", 
         "tk", 
-        "pymedphys"
+        "pymedphys",
+        "py7zr"
       ],
       entry_points={'console_scripts': ['brachyutils=brachyutils:main']},
       package_dir={'':'brachyutils/src'}

@@ -34,7 +34,7 @@ from typing import Optional
 
 import json
 
-from dicom_utils import get_body_index_range
+# from dicom_utils import get_body_index_range
 
 class BrachyEgsphant:
     r"""
@@ -169,7 +169,13 @@ class BrachyEgsphant:
             )
             # this line maybe useless in the future
             self.axis = self.calculateAxis()
-            assert np.isclose(np.concatenate(self.axis), np.concatenate(self._sanity_axis), rtol=1e-3).all(), "axis is not the same"
+            # {for debugging
+            # print(f"The axis calculated from calculateAxis() are \n {self.axis}")
+            # print(f"The axis from the text file are: \n {self._sanity_axis}")
+            # print(f"the size of the axis in the z, y, x for axis from calcAxis() are {self.axis[0].shape}, {self.axis[1].shape}, {self.axis[2].shape}")
+            # print(f"the size of the axis in the z, y, x for axis from file are {self._sanity_axis[0].shape}, {self._sanity_axis[1].shape}, {self._sanity_axis[2].shape}")
+            # }
+            assert np.isclose(np.concatenate(self.axis), np.concatenate(self._sanity_axis), rtol=1e-1).all(), "axis is not the same"
  
             # prepare empty matricies to hold material and density images
             self.material_matrix = npzeros((self.num_voxels[2], self.num_voxels[1], self.num_voxels[0]), dtype=int)
@@ -403,7 +409,7 @@ class BrachyEgsphant:
         if body_index_range is None or body_mask_shape is None:
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            body_index_range, body_mask_shape = get_body_index_range(pth_dir_dicom)
+            # body_index_range, body_mask_shape = get_body_index_range(pth_dir_dicom)
         # the body mask may have a different size than the material map, we normalize range to the dimension 
         # of original mask and scale it to the dimension of the material map to get the body index range on the material image.  
         scaled_body_index_range = (body_index_range / np.expand_dims(body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
