@@ -1,50 +1,52 @@
-import re
+#import re
 import os
 import sys
 import difflib
 from typing import Optional
 import lzma
 import pickle
-import pymedphys
 import logging
+from glob import glob
+
+import pymedphys
 from numpy import array as nparray, zeros as npzeros, reshape
-from matplotlib import pyplot as plt
-# from numpy import float as float
-# from numpy import int as int
 from numpy import ma
 from numpy import dtype
 import numpy as np
-
+#from PyQt5.QtCore import QFile, QDataStream, QIODevice, QList
+#from PyQt5.Qt3DExtras import QVector3D
+from matplotlib import pyplot as plt
+# from numpy import float as float
+# from numpy import int as int
 from scipy.interpolate import RegularGridInterpolator
 
 # from dicompylercore import dicomparser
-from glob import glob
 # from numericalunits import cm, mm, kg, J
 # Gy = J/kg
 
 import SimpleITK as sitk
 
-from collections.abc import Iterable
+#from collections.abc import Iterable
 
-import pytest
+#import pytest
 # import uu
 
 import pyzstd
 
-import typer
-import decimal
+#import typer
+#import decimal
 
-from tqdm import tqdm
+#from tqdm import tqdm
 
 from dicom_utils import get_body_index_range
 
 # from rt_utils import RTStructBuilder
-from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
-import pydicom
-import json
-import numpy as np
+#from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
+#import pydicom
+#import json
+#import numpy as np
 from typing import List
-so_true = True
+#so_true = True
 
 class BrachyDose:
     r"""
@@ -111,8 +113,6 @@ class BrachyDose:
     axis: np.ndarray
     interpolation_function: RegularGridInterpolator
 
-    # def __init__(self, ):
-
     def __init__(self, pth_dose_file: Optional[str] = None):
 
         self.grid: np.ndarray = None
@@ -125,6 +125,8 @@ class BrachyDose:
 
         if pth_dose_file is not None:
             self.load_file_to_brachydose(pth_dose_file)
+        if self.grid is not None:
+            self.create_interpolation_function()
 
     def load_file_to_brachydose(self, pth_dose_file: str):
         r""" 
@@ -146,25 +148,22 @@ class BrachyDose:
 
         if file_extension == ".3ddose":
             self.load_from_3ddose(pth_dose_file)
-
         elif file_extension == ".nrrd":
             self.load_from_nrrd(pth_dose_file)
-
         elif file_extension == ".dcm":
             assert "RD" in pth_dose_file, "must be a dicom dose file starting with 'RD'"
             raise NotImplementedError(
                 "loading dose from dicom is not currently supported")
-
         elif file_extension == ".minidose":
             raise NotImplementedError(
                 "loading dose from .bin file is not currently supported")
-
+        #elif file_extension == ".bindose":
+        #    self.load_from_bindose(pth_dose_file)
         else:
             raise ValueError("file extension not recognized")
         voxel_centers  = self.get_voxel_centers()
         #print(len(self.voxel_edges))
-        self.interpolation_function = RegularGridInterpolator(
-            (voxel_centers[0], voxel_centers[1], voxel_centers[2]), self.grid, bounds_error=False)
+
 
         return self
 
@@ -200,6 +199,10 @@ class BrachyDose:
 
         elif file_extension == ".zstd":
             self.write_to_zstd(pth_dose_file)
+
+        #elif file_extension == ".bindose":
+        #    raise NotImplementedError("Writing to .bindose not implemented")
+
         else:
             raise ValueError(f"The input file name {pth_dose_file} is not supported. the supported \
             file types are '.3ddose', '.nrrd', '.npz', '.minidose', '.xz', and '.zstd'")
@@ -313,6 +316,37 @@ class BrachyDose:
             pth_minidose)[-1] == ".minidose", f"the file {pth_minidose}, should have '.minidose' extension."
         with open(pth_minidose, 'rb') as file:
             line_content = np.frombuffer(file.readline())
+
+    # def load_from_bindose(self, pth_bindose):
+    #     assert os.path.splitext(
+    #     pth_bindose)[-1] == ".bindose", f"the file {pth_bindose}, should have '.bindose' extension."
+    #     dose_file = QFile(pth_bindose)
+    #     dose_file.open(QIODevice.ReadOnly, QIODevice.end)
+    #     dose_file_in = QDataStream(dose_file)
+    #     dose_file_in.setByteOrder(QDataStream.LittleEndian)
+    #     dose_file_in.setFloatingPointPrecision(QDataStream.SinglePrecision)
+    #     origin = QVector3D()
+    #     spacing = QVector3D()
+    #     dimensions = QVector3D()
+    #     dose_list = QList()
+    #     uncertainty_list = QList()
+    #     dose_file_in >> origin
+    #     dose_file_in >> spacing
+    #     dose_file_in >> dimensions
+    #     dose_file_in >> dose_list
+    #     dose_file_in >> uncertainty_list
+    #     dose_file.close()
+    #     self.vox_size = np.array(spacing)
+    #     self.num_voxels = np.array(dimensions)
+    #     self.topleft = np.array(origin)
+    #     self.grid = np.array(dose_list)
+    #     self.uncertainty = np.array(uncertainty_list)
+
+    def create_interpolation_function(self):
+        voxel_centers = self.get_voxel_centers()
+        self.interpolation_function = RegularGridInterpolator(
+            (voxel_centers[0], voxel_centers[1], voxel_centers[2]), self.grid, bounds_error=False)
+
 
     def extract_dose_values_from_coordinates(self, x, y, z):
         r"""
@@ -855,7 +889,9 @@ class BrachyDose:
 
     def assert_brachydose_not_empty(self):
         assert self.grid is not None, "error grid is None"
-        assert self.uncertainty is not None, "error uncertainty is None"
+        #commenting out the following line, since uncertainty is not always available
+        #e.g. for gamma and percent difference
+        #assert self.uncertainty is not None, "error uncertainty is None"
         assert self.num_voxels is not None, "error num_voxels is None"
         assert self.vox_size is not None, "error vox_size is None"
         assert self.topleft is not None, "error topleft is None"
