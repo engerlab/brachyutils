@@ -1,4 +1,4 @@
-#import re
+# import re
 import os
 import sys
 import difflib
@@ -6,22 +6,22 @@ from typing import Optional
 import lzma
 import pickle
 import logging
+import pickle
+import tkinter as tk
 from glob import glob
+from tkinter import filedialog as fd
 
 import pymedphys
 from numpy import array as nparray, zeros as npzeros, reshape
 from numpy import ma
 from numpy import dtype
 import numpy as np
-#from PyQt5.QtCore import QFile, QDataStream, QIODevice, QList
-#from PyQt5.Qt3DExtras import QVector3D
+# from PyQt5.QtCore import QFile, QDataStream, QIODevice, QList
+# from PyQt5.Qt3DExtras import QVector3D
 from matplotlib import pyplot as plt
 # from numpy import float as float
 # from numpy import int as int
 from scipy.interpolate import RegularGridInterpolator
-from numpy import ma
-from numpy import dtype
-import numpy as np
 import re
 import os
 from array import array
@@ -32,29 +32,30 @@ from array import array
 
 import SimpleITK as sitk
 
-#from collections.abc import Iterable
+# from collections.abc import Iterable
 
-#import pytest
+# import pytest
 # import uu
 
 import pyzstd
 
-#import typer
-#import decimal
+# import typer
+# import decimal
 
-#from tqdm import tqdm
+# from tqdm import tqdm
 
-# from dicom_utils import get_body_index_range
+from dicom_utils import get_body_index_range
 
 # from rt_utils import RTStructBuilder
-#from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
-#import pydicom
-#import json
-#import numpy as np
+# from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
+# import pydicom
+# import json
+# import numpy as np
 from typing import List
-#so_true = True
+# so_true = True
 
 import json
+
 
 class BrachyDose:
     r"""
@@ -129,13 +130,12 @@ class BrachyDose:
         self.vox_size: np.ndarray = None
         self.topleft: np.ndarray = None
         self.voxel_edges: np.ndarray = None
-
-
+        self.interpolation_function = None
         if pth_dose_file is not None:
             self.load_file_to_brachydose(pth_dose_file)
         if self.grid is not None:
             self.create_interpolation_function()
-
+      
     def load_file_to_brachydose(self, pth_dose_file: str):
         r""" 
         Purpose: 
@@ -165,14 +165,14 @@ class BrachyDose:
         elif file_extension == ".minidose":
             raise NotImplementedError(
                 "loading dose from .bin file is not currently supported")
-        #elif file_extension == ".bindose":
+        # elif file_extension == ".bindose":
         #    self.load_from_bindose(pth_dose_file)
         else:
             raise ValueError("file extension not recognized")
-        voxel_centers  = self.get_voxel_centers()
-        #print(len(self.voxel_edges))
-
-
+        #voxel_centers = self.get_voxel_centers()
+        # print(len(self.voxel_edges))
+        if(self.interpolation_function is None and self.grid is not None):
+            self.create_interpolation_function()
         return self
 
     def write_brachydose_to_file(self, pth_dose_file: str):
@@ -208,7 +208,7 @@ class BrachyDose:
         elif file_extension == ".zstd":
             self.write_to_zstd(pth_dose_file)
 
-        #elif file_extension == ".bindose":
+        # elif file_extension == ".bindose":
         #    raise NotImplementedError("Writing to .bindose not implemented")
 
         else:
@@ -353,13 +353,14 @@ class BrachyDose:
     def create_interpolation_function(self):
         voxel_centers = self.get_voxel_centers()
         self.interpolation_function = RegularGridInterpolator(
-            (voxel_centers[0], voxel_centers[1], voxel_centers[2]), self.grid, bounds_error=False)
-
+            (voxel_centers[0], voxel_centers[1], voxel_centers[2]), self.grid, bounds_error=False, fill_value = 0)
 
     def extract_dose_values_from_coordinates(self, x, y, z):
         r"""
         """
         self.assert_brachydose_not_empty()
+        if (self.interpolation_function is None):
+            raise ValueError("interpolation function is not defined")
         shape = []
         axis = []
         for coord in [z, y, x]:
@@ -373,11 +374,13 @@ class BrachyDose:
                 raise TypeError(
                     "x, y, and z should be either floats or numpy arrays")
             shape.append(coord_size)
-        coord_grid_z, coord_grid_y, coord_grid_x = np.meshgrid([z], [y], [x], indexing='ij')
-        #print(coord_grid.shape())
-        dose_grid = self.interpolation_function((coord_grid_z, coord_grid_y, coord_grid_x))
+        coord_grid_z, coord_grid_y, coord_grid_x = np.meshgrid(
+            [z], [y], [x], indexing='ij')
+        # print(coord_grid.shape())
+        dose_grid = self.interpolation_function(
+            (coord_grid_z, coord_grid_y, coord_grid_x))
         dose_grid.reshape(shape)
-        return dose_grid
+        return dose_grid.squeeze()
 
     def extract_profile_2d(self, axis_1_coords: np.ndarray, axis_2_coords: np.ndarray, plane_coord: float, plane: str):
         if not isinstance(axis_1_coords, np.ndarray) or not isinstance(axis_2_coords, np.ndarray) or not isinstance(plane_coord, float):
@@ -429,10 +432,10 @@ class BrachyDose:
         profile = np.mean(dose_grid, axis=(1, 2))
         return profile
 
-        #pdd_dict["x_axis"] = z_values
-        #pdd_dict["y_axis"] = np.array(dose_values)
-        #return pdd_dict
-    
+        # pdd_dict["x_axis"] = z_values
+        # pdd_dict["y_axis"] = np.array(dose_values)
+        # return pdd_dict
+
     def get_average_uncert(self) -> float:
         r"""
         Purpose:
@@ -531,7 +534,7 @@ class BrachyDose:
         # voxel size remains unchanged
         padded_dose.vox_size = self.vox_size
         padded_dose.topleft = final_topleft
-        padded_dose.axis = new_axis
+        padded_dose.voxel_edges = new_axis
 
         return padded_dose
 
@@ -650,13 +653,14 @@ class BrachyDose:
             outputs: Void
                 writes the contents of self:BrachyDose to the file_name. 
         """
-        assert os.path.splitext(fileName)[-1] == ".minidos", f"the file name {fileName} should have '.minidos' extension."
-        with open(fileName, 'wb') as newfile:
-            
+        assert os.path.splitext(
+            file_name)[-1] == ".minidos", f"the file name {file_name} should have '.minidos' extension."
+        with open(file_name, 'wb') as newfile:
+
             # the first line is the number of voxels along each dimension [x, y , z]
             dims_array = array('i', self.num_voxels)
             dims_array.tofile(newfile)
-            
+
             # lines 2,3 and 4 are the voxel sizes x, y, z
             float_array_x = array('f', [self.vox_size[0]])
             float_array_x.tofile(newfile)
@@ -664,7 +668,7 @@ class BrachyDose:
             float_array_y.tofile(newfile)
             float_array_z = array('f', [self.vox_size[2]])
             float_array_z.tofile(newfile)
-            
+
             # lines 5, 6, 7 are the origins x, y, and z
             originx_array = array('f', [self.topleft[0]])
             originy_array = array('f', [self.topleft[1]])
@@ -673,19 +677,18 @@ class BrachyDose:
             originx_array.tofile(newfile)
             originy_array.tofile(newfile)
             originz_array.tofile(newfile)
-            
-            # lines 8 is just a zero 
+
+            # lines 8 is just a zero
             zero = array('i', [0])
             zero.tofile(newfile)
-            
+
             # line 9-infinit is the dose per voxel array
             for d in self.grid.flatten():
                 array('f', [d]).tofile(newfile)
-                        
-    
+
     def write_to_xz(self, fileName):
         assert os.path.splitext(fileName)[-1] == '.xz'
-        
+
         with lzma.open(fileName, 'wb') as file:
             pickle.dump(self, file)
 
@@ -719,7 +722,6 @@ class BrachyDose:
             self.voxel_edges[i] = np.arange(self.topleft[len(axes_end)-1-i], axes_end[len(
                 axes_end)-1-i], self.vox_size[len(axes_end)-1-i], dtype=np.float32)
 
-
         return self.voxel_edges
 
     def get_voxel_centers(self):
@@ -749,7 +751,7 @@ class BrachyDose:
         assert np.array_equal(
             self.grid, new_brachy_dose.grid), "dose grid is not the same"
         assert np.array_equal(np.concatenate(self.voxel_edges), np.concatenate(
-            new_brachy_dose.axis)), "axis is not the same"
+            new_brachy_dose.voxel_edges)), "axis is not the same"
         assert np.array_equal(
             self.uncertainty, new_brachy_dose.uncertainty), "uncertainty is not the same"
         assert np.array_equal(
@@ -762,14 +764,14 @@ class BrachyDose:
         # assert np.array_equal(np.round(self.topleft, 2), np.round(new_brachy_dose.topleft), 2), "topleft is not the same"
 
         return np.array_equal(self.grid, new_brachy_dose.grid) \
-            and np.array_equal(np.concatenate(self.voxel_edges), np.concatenate(new_brachy_dose.axis)) \
+            and np.array_equal(np.concatenate(self.voxel_edges), np.concatenate(new_brachy_dose.voxel_edges)) \
             and np.array_equal(self.uncertainty, new_brachy_dose.uncertainty) \
             and np.array_equal(self.num_voxels, new_brachy_dose.num_voxels) \
             and np.array_equal(self.vox_size, new_brachy_dose.vox_size) \
             and np.array_equal(self.topleft, new_brachy_dose.topleft)
         # and np.array_equal(np.round(self.vox_size, 2), np.round(new_brachy_dose.vox_size, 2)) \
         # and np.array_equal(np.round(self.topleft, 2), np.round(new_brachy_dose.topleft), 2)
-        # np.array_equal(np.round(np.concatenate(self.voxel_edges), 2), np.concatenate(new_brachy_dose.axis)) \
+        # np.array_equal(np.round(np.concatenate(self.voxel_edges), 2), np.concatenate(new_brachy_dose.voxel_edges)) \
 
     def crop_by_coordinates(self, coord_range: np.array, inplace: Optional[bool] = True):
         r"""
@@ -909,14 +911,14 @@ class BrachyDose:
             ])
             new_dose_obj.num_voxels = np.flip(self.grid.shape, 0)
             new_dose_obj.vox_size = self.vox_size
-            new_dose_obj.axis = self.calculate_voxel_edges()
+            new_dose_obj.voxel_edges = self.calculate_voxel_edges()
             return new_dose_obj
 
     def assert_brachydose_not_empty(self):
         assert self.grid is not None, "error grid is None"
-        #commenting out the following line, since uncertainty is not always available
-        #e.g. for gamma and percent difference
-        #assert self.uncertainty is not None, "error uncertainty is None"
+        # commenting out the following line, since uncertainty is not always available
+        # e.g. for gamma and percent difference
+        # assert self.uncertainty is not None, "error uncertainty is None"
         assert self.num_voxels is not None, "error num_voxels is None"
         assert self.vox_size is not None, "error vox_size is None"
         assert self.topleft is not None, "error topleft is None"
@@ -929,14 +931,18 @@ class BrachyDose:
         print(f"num voxels attribute is: {self.num_voxels}")
         print(f"the top left (bottom left in reality) is {self.topleft}")
         print(f"the voxel size is {self.vox_size}")
-        print(f"the size of the z, y and x axes are {self.axis[0].shape, self.axis[1].shape, self.axis[2].shape}")
-        print(f"the range of the z axis is {self.axis[0][0], self.axis[0][-1]}")
-        print(f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
-        print(f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
-    
-    def crop_by_body_contour(self, body_index_range:Optional[np.ndarray] = None, 
-                            body_mask_shape:Optional[np.ndarray] = None, 
-                            pth_dir_dicom:Optional[str]=None, ):
+        print(
+            f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}")
+        print(
+            f"the range of the z axis is {self.voxel_edges[0][0], self.voxel_edges[0][-1]}")
+        print(
+            f"the range of the y axis is {self.voxel_edges[1][0], self.voxel_edges[1][-1]}")
+        print(
+            f"the range of the x axis is {self.voxel_edges[2][0], self.voxel_edges[2][-1]}")
+
+    def crop_by_body_contour(self, body_index_range: Optional[np.ndarray] = None,
+                             body_mask_shape: Optional[np.ndarray] = None,
+                             pth_dir_dicom: Optional[str] = None, ):
         r"""
         Purpose: 
             based on the given dicom structure file, crop the BrachyDose object such 
@@ -960,10 +966,11 @@ class BrachyDose:
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
             # body_index_range, body_mask_shape = get_body_index_range(pth_dir_dicom)
-        # the body mask may have a different size than the dose map, we normalize range to the dimension 
-        # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.  
-        scaled_body_index_range = (body_index_range / np.expand_dims(body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
-        
+        # the body mask may have a different size than the dose map, we normalize range to the dimension
+        # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.
+        scaled_body_index_range = (body_index_range / np.expand_dims(
+            body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
+
         self.crop_by_index(scaled_body_index_range, True)
 
 
@@ -988,8 +995,8 @@ def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
 def test_load_from_3ddose():
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
 
-    # testing on maud's file
-    pth_3ddose = "../../data_test/maud.3ddose"
+    # testing on maude's file
+    pth_3ddose = "../../data_test/maude.3ddose"
 
     dose_obj = BrachyDose()
     dose_obj.load_from_3ddose(pth_3ddose)
@@ -999,8 +1006,8 @@ def test_load_from_3ddose():
 def test_load_file_to_brachydose():
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
 
-    # testing on maud's file
-    pth_3ddose = "../../data_test/maud.3ddose"
+    # testing on maude's file
+    pth_3ddose = "../../data_test/maude.3ddose"
 
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
@@ -1011,8 +1018,8 @@ def test_load_file_to_brachydose():
 def test_write_to_3ddose():
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
 
-    # testing on maud's file
-    pth_3ddose = "../../data_test/maud.3ddose"
+    # testing on maude's file
+    pth_3ddose = "../../data_test/maude.3ddose"
     pth_out = os.path.splitext(pth_3ddose)[0]+'_test.3ddose'
 
     dose_obj = BrachyDose()
@@ -1037,8 +1044,8 @@ def test_convert_to_nrrd():
     # pth_3ddose =  "../../data_test/combined.3ddose"
     # pth_nrrd = "../../data_test/combined_old.nrrd"
 
-    # testing on maud's file
-    pth_3ddose = "../../data_test/maud.3ddose"
+    # testing on maude's file
+    pth_3ddose = "../../data_test/maude.3ddose"
     pth_out = os.path.splitext(pth_3ddose)[0]+'.nrrd'
 
     dose_obj = BrachyDose()
@@ -1059,8 +1066,8 @@ def test_convert_to_npz_file():
     """
     # pth_3ddose =  "../../data_test/combined.3ddose"
 
-    # testing on maud's file
-    pth_3ddose = "../../data_test/maud.3ddose"
+    # testing on maude's file
+    pth_3ddose = "../../data_test/maude.3ddose"
     pth_out = os.path.splitext(pth_3ddose)[0]+'.npz'
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
@@ -1078,8 +1085,8 @@ def test_convert_to_npz_file():
 #     """
 #     # pth_3ddose =  "../../data_test/combined.3ddose"
 
-#     # testing on maud's file
-#     pth_3ddose = "../../data_test/maud.3ddose"
+#     # testing on maude's file
+#     pth_3ddose = "../../data_test/maude.3ddose"
 #     pth_out = os.path.splitext(pth_3ddose)[0]+'.minidos'
 #     dose_obj = BrachyDose()
 #     dose_obj.load_file_to_brachydose(pth_3ddose)
@@ -1095,8 +1102,8 @@ def test_write_to_xz():
 
     # pth_3ddose =  "../../data_test/combined.3ddose"
 
-    # testing on maud's file
-    pth_3ddose = "../../data_test/maud.3ddose"
+    # testing on maude's file
+    pth_3ddose = "../../data_test/maude.3ddose"
     pth_out = os.path.splitext(pth_3ddose)[0]+'.xz'
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
@@ -1109,8 +1116,8 @@ def test_write_to_zstd():
     # pth_3ddose =  "../../data_test/combined.3ddose"
     # pth_zstd = "../../data_test/combined.zst"
 
-    # testing on maud's file
-    pth_3ddose = "../../data_test/maud.3ddose"
+    # testing on maude's file
+    pth_3ddose = "../../data_test/maude.3ddose"
     pth_out = os.path.splitext(pth_3ddose)[0]+'.zstd'
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
@@ -1187,7 +1194,7 @@ def test_convert_to_minidose():
     # app()
 
     # a Test for the following functions
-    test_convert_to_minidose()
+    #test_convert_to_minidose()
     # test_crop_by_body_contour()
     # test_load_from_3ddose()
     # test_load_file_to_brachydose()
@@ -1210,76 +1217,92 @@ def test_convert_to_minidose():
 
 class DoseComparison:
 
-    def __init__(self, dose1: BrachyDose, dose2: BrachyDose, gamma_dose_percent_threshold:float,
-    gamma_distance_threshold_mm:float,compute_percent_difference=True, compute_gamma_index=True,
-    gamma_kwargs:dict = {'lower_percent_dose_cutoff':20, 'interp_fraction':10, 'max_gamma':None,
-    'local_gamma':False, 'global_normalisation':None, 'skip_once_passed':False}):
+    def __init__(self, dose1: BrachyDose, dose2: BrachyDose, gamma_dose_percent_threshold: float,
+                 gamma_distance_threshold_mm: float, compute_percent_difference=True, compute_gamma_index=True, 
+                 prescription_dose: float = None, max_gamma = None,
+                 gamma_kwargs: dict = {'lower_percent_dose_cutoff': 1, 'interp_fraction': 10,
+                                       'local_gamma': True, 'global_normalisation': None, 'skip_once_passed': False}):
         self.dose1 = dose1
         self.dose2 = dose2
-        self.voxel_centers = dose1.get_voxel_centers()  # axis is taken from the first dose provided
+        # axis is taken from the first dose provided
+        self.voxel_centers = dose1.get_voxel_centers()
         self.dose_2_grid_resampled = self.dose2.extract_dose_values_from_coordinates(
             self.voxel_centers[2], self.voxel_centers[1], self.voxel_centers[0])
         self.percent_difference: BrachyDose = None
         self.gamma_index: BrachyDose = None
         self.gamma_dose_percent_threshold = gamma_dose_percent_threshold
         self.gamma_kwargs = gamma_kwargs
+        #we can index the dose cutoff to the prescription dose
+        if(isinstance(prescription_dose, float)):
+            self.gamma_kwargs["global_normalisation"] = prescription_dose
+        if(isinstance(max_gamma, float)):
+            self.max_gamma = max_gamma
+            self.gamma_kwargs["max_gamma"] = max_gamma
+        else:
+            self.max_gamma = 2
         # axes values are assumed in cm from the 3ddose formalism
         # gamma distance thresholds are usually provided in mm
         # pymedphys documentation indicates that the threshold unit must match the axis
         # despite the name of the function input containing 'mm'
-        self.gamma_distance_threshold = gamma_distance_threshold_mm/ 10.0
+        self.gamma_distance_threshold = gamma_distance_threshold_mm / 10.0
         if (compute_percent_difference):
             self.compute_percent_difference()
         if (compute_gamma_index):
             self.compute_gamma_index()
 
-    def plot_2d_dose_comparison(self, axis_1_coords: np.ndarray, axis_2_coords: np.ndarray, plane_coord: float, plane:str, plot_titles):
+    def plot_2d_dose_comparison(self, axis_1_coords: np.ndarray, axis_2_coords: np.ndarray, plane_coord: float, plane: str, plot_titles: tuple):
+        import itertools
+        import matplotlib
+        from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
+        matplotlib.rcParams.update({'font.size': 16})
         dose_1_profile = self.dose1.extract_profile_2d(
-        axis_1_coords, axis_2_coords, plane_coord, plane)
+            axis_1_coords, axis_2_coords, plane_coord, plane)
         dose_2_profile = self.dose2.extract_profile_2d(
             axis_1_coords, axis_2_coords, plane_coord, plane)
-        if(self.percent_difference is not None):
+        if (self.percent_difference is not None):
             percent_difference_profile = self.percent_difference.extract_profile_2d(
                 axis_1_coords, axis_2_coords, plane_coord, plane)
-        if(self.gamma_index is not None):
+        if (self.gamma_index is not None):
             gamma_index_profile = self.gamma_index.extract_profile_2d(
                 axis_1_coords, axis_2_coords, plane_coord, plane)
-        else: 
-            raise NotImplementedError("""Plotting of a comparison without computing the percent difference or 
+        else:
+            raise NotImplementedError("""Plotting of a comparison without computing the percent difference or
             gamma index is not supported""")
-        plt.figure()
-        fig, ax = plt.subplots(figsize=(20,16), nrows=2, ncols=2)
+        fig, ax = plt.subplots(figsize=(10, 10), nrows=2, ncols=2, sharex=True, sharey=True)
         plt.tight_layout()
-        c00 = ax[0,0].imshow(dose_1_profile, vmin=0, vmax=30, cmap='turbo', aspect="auto")
-        ax[0,0].set_title(plot_titles[0], fontsize = 20, pad = 10)
-        cbar00 = fig.colorbar(c00, ax=ax[0,0])
-        cbar00.set_label(label='Dose [Gy]', size = 18)
-        #cbar00.mappable.set_clim(0, max_dose)
-        ax[0,0].invert_yaxis()
-        ax[0,0].set_ylabel('y (cm)', fontsize = 18)
-        c01 = ax[0,1].imshow(dose_2_profile, vmin=0, vmax=30, cmap='turbo', aspect="auto")
-        ax[0,1].set_title(plot_titles[1], fontsize = 20, pad = 10)
-        cbar01 = fig.colorbar(c01, ax=ax[0,1])
-        cbar01.set_label(label='Dose [Gy]', size = 18 )
-        #cbar01.mappable.set_clim(0, max_dose)
-        ax[0,1].invert_yaxis()
-        c10 = ax[1,0].imshow(percent_difference_profile, vmin=0, vmax=200, cmap='turbo', aspect="auto")
-        ax[1,0].set_title('Percent Difference', fontsize = 18, pad = 10)
-        cbar10 = fig.colorbar(c10, ax=ax[1,0])
-        cbar10.set_label(label='[%]', size = 18)
-        ax[1,0].invert_yaxis()
-        ax[1,0].set_xlabel('x (cm)', fontsize = 18)
-        ax[1,0].set_ylabel('y (cm)', fontsize = 18)
+        c00 = ax[0, 0].imshow(dose_1_profile, vmin=0,
+                              vmax=30, cmap='turbo', aspect="auto")
+        ax[0, 0].set_title(plot_titles[0], fontsize=20, pad=5)
+        cbar00 = fig.colorbar(c00, ax=ax[0, 0])
+        cbar00.set_label(label='Dose [Gy]', size=18)
+        # cbar00.mappable.set_clim(0, max_dose)
+        ax[0, 0].invert_yaxis()
+        ax[0, 0].set_ylabel('y (cm)', fontsize=18)
+        c01 = ax[0, 1].imshow(dose_2_profile, vmin=0,
+                              vmax=30, cmap='turbo', aspect="auto")
+        ax[0, 1].set_title(plot_titles[1], fontsize=20, pad=5)
+        cbar01 = fig.colorbar(c01, ax=ax[0, 1])
+        cbar01.set_label(label='Dose [Gy]', size=18)
+        # cbar01.mappable.set_clim(0, max_dose)
+        ax[0, 1].invert_yaxis()
+        c10 = ax[1, 0].imshow(percent_difference_profile,
+                              vmin=0, vmax=200, cmap='turbo', aspect="auto")
+        ax[1, 0].set_title('Percent Difference', fontsize=18, pad=5)
+        cbar10 = fig.colorbar(c10, ax=ax[1, 0])
+        cbar10.set_label(label='[%]', size=18)
+        ax[1, 0].invert_yaxis()
+        ax[1, 0].set_xlabel('x (cm)', fontsize=18)
+        ax[1, 0].set_ylabel('y (cm)', fontsize=18)
 
-        c11 = ax[1,1].imshow(gamma_index_profile, vmin=0, vmax=2,  cmap='turbo', aspect="auto")
-        ax[1,1].set_title(f"Gamma ({self.gamma_dose_percent_threshold} % / {10.*self.gamma_distance_threshold} mm) | Pass Rate = {np.round(self.gamma_pass_ratio*100,1)}%", fontsize = 20, pad = 10)
-        cbar11 = fig.colorbar(c11, ax=ax[1,1])
-        cbar11.set_label(label='Gamma', size = 18)
-        ax[1,1].invert_yaxis()
-        ax[1,1].set_xlabel('x (cm)', fontsize = 18)
-        plt.legend()
+        c11 = ax[1, 1].imshow(gamma_index_profile, vmin=0,
+                              vmax=self.max_gamma,  cmap='turbo', aspect="auto")
+        ax[1, 1].set_title(
+            f"Gamma ({self.gamma_dose_percent_threshold} % / {10.*self.gamma_distance_threshold} mm) | Pass Rate = {np.round(self.gamma_pass_ratio*100,1)}%", fontsize=20, pad=10)
+        cbar11 = fig.colorbar(c11, ax=ax[1, 1])
+        cbar11.set_label(label='Gamma', size=18)
+        ax[1, 1].invert_yaxis()
+        ax[1, 1].set_xlabel('x (cm)', fontsize=18)
         plt.show()
-
 
     def compute_percent_difference(self):
         self.percent_difference = BrachyDose()
@@ -1294,34 +1317,65 @@ class DoseComparison:
         print("Computing gamma index may take time")
         logging.basicConfig(stream=sys.stdout, level=logging.INFO)
         self.gamma_index = BrachyDose()
-        self.gamma_index.grid = pymedphys.gamma(tuple(self.voxel_centers), self.dose1.grid, tuple(
-            self.voxel_centers), self.dose_2_grid_resampled, self.gamma_dose_percent_threshold, self.gamma_distance_threshold, 
+        gamma_index_grid = pymedphys.gamma(tuple(self.voxel_centers), self.dose1.grid, tuple(
+            self.voxel_centers), self.dose_2_grid_resampled, self.gamma_dose_percent_threshold, self.gamma_distance_threshold,
             **self.gamma_kwargs)
+        #cast the NaNs to 0s
+        gamma_index_grid[np.isnan(gamma_index_grid)] = 0
+        self.gamma_index.grid = gamma_index_grid
         self.gamma_index.voxel_edges = self.dose1.voxel_edges
         self.gamma_index.vox_size = self.dose1.vox_size
         self.gamma_index.topleft = self.dose1.topleft
         self.gamma_index.num_voxels = self.dose1.num_voxels
-        valid_gamma = self.gamma_index.grid[~np.isnan(self.gamma_index.grid)]
-        self.gamma_pass_ratio = np.sum(valid_gamma <= 1) / valid_gamma.size
+        self.gamma_pass_ratio = np.sum(self.gamma_index.grid <= 1) / self.gamma_index.grid.size
 
+    def save_comparison_object(self, path:str = None):
+        r"""
+        Saves the dose comparison object to a file using the pickle module.
 
-    def save_dose_comparison(self):
-        pass
+        Returns:
+        None
+        """
+        if not isinstance(path, str):
+            root = tk.Tk()
+            root.withdraw()    
+            f = fd.asksaveasfile(mode='wb',
+            defaultextension=".comp", initialdir=os.getcwd(), 
+            title='Save dose comparison object', confirmoverwrite=True)
+            pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+            root.destroy()
+        else: 
+            with open(path, 'wb') as f:
+                pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
-    @staticmethod
-    def load_dose_comparison():
-        pass
+    def load_comparison_object(self, path:str = None):
+        r"""
+        Opens the dose comparison object file and updates the current object's attributes with the loaded object's attributes.
+
+        Returns:
+        None
+        """
+        if not isinstance(path, str):
+            root = tk.Tk()
+            root.withdraw()
+            f = fd.askopenfilename(mode='wb',
+            parent=root, initialdir="$HOME", title='Select saved calibration file')
+            self.__dict__.update(pickle.load(f).__dict__)
+                #print(calibration_object_file_path)
+            root.destroy()
+        with open(path, 'rb') as f:
+            self.__dict__.update(pickle.load(f).__dict__)
 
 def test_dose_comparison():
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-    pth_3ddose = "../data_test/run_1_old.3ddose"
-    pth_3ddose2 = "../data_test/run_1_old.3ddose"
+    pth_3ddose = "../../data_test/run_1_old.3ddose"
+    pth_3ddose2 = "../../data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj2 = BrachyDose()
     dose_obj2.load_file_to_brachydose(pth_3ddose2)
     dose_comparison = DoseComparison(dose_obj, dose_obj2, 1, 1)
-    #evaluate that the grid contains only 0
-    assert(not np.any(dose_comparison.percent_difference.grid))
-    #dose_comparison.compare_dose_distributions_2D(
+    # evaluate that the grid contains only 0
+    assert (not np.any(dose_comparison.percent_difference.grid))
+    # dose_comparison.compare_dose_distributions_2D(
     #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')

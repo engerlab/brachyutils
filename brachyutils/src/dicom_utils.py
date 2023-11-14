@@ -53,7 +53,7 @@ def get_body_index_range(pth_dir_dicom:str):
     
     pth_dir_dicom = os.path.abspath(pth_dir_dicom)
     assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
-    assert not not glob(pth_dir_dicom+"/*.dcm"), "there are no dicom files in this directory"
+    assert glob(pth_dir_dicom+"/*.dcm"), "there are no dicom files in this directory"
             
     pth_structure_dcm = glob(pth_dir_dicom+"/RS*.dcm")[0]
     
@@ -83,7 +83,7 @@ def get_body_index_range(pth_dir_dicom:str):
             np.argwhere(mask_numpy==1)[:, i].max()+1])).astype(int)
             # np.argwhere(mask_numpy==1)[:, i].max()+1]) / np.array(mask_numpy.shape[i]) * self.num_voxels[3-i-1]).astype(int)
         
-    body_index_range = np.flip(body_index_range, axis=0)    
+    body_index_range = np.flip(body_index_range, axis=0)
             
     return body_index_range, np.flip(np.array(mask_numpy.shape))
 
