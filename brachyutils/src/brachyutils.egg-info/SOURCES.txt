@@ -1,8 +1,0 @@
-README.md
-setup.py
-brachyutils/src/brachyutils.egg-info/PKG-INFO
-brachyutils/src/brachyutils.egg-info/SOURCES.txt
-brachyutils/src/brachyutils.egg-info/dependency_links.txt
-brachyutils/src/brachyutils.egg-info/entry_points.txt
-brachyutils/src/brachyutils.egg-info/requires.txt
-brachyutils/src/brachyutils.egg-info/top_level.txt
