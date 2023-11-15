@@ -550,7 +550,7 @@ class FilmCalibration:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
             root.destroy()
 
-        else: 
+        else:
             with open(path, 'wb') as f:
                 pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
@@ -564,13 +564,14 @@ class FilmCalibration:
         if not isinstance(path, str):
             root = tk.Tk()
             root.withdraw()
-            f = fd.askopenfilename(mode='wb',
+            f = fd.askopenfile(mode='rb',
             parent=root, initialdir="$HOME", title='Select saved calibration file')
             self.__dict__.update(pickle.load(f).__dict__)
             #print(calibration_object_file_path)
             root.destroy()
-        with open(path, 'rb') as f:
-            self.__dict__.update(pickle.load(f).__dict__)
+        else:
+            with open(path, 'rb') as f:
+                self.__dict__.update(pickle.load(f).__dict__)
 
     @staticmethod
     def create_or_load_calibration_object():

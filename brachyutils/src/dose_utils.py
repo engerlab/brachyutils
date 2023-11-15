@@ -1218,10 +1218,15 @@ def test_convert_to_minidose():
 class DoseComparison:
 
     def __init__(self, dose1: BrachyDose, dose2: BrachyDose, gamma_dose_percent_threshold: float,
-                 gamma_distance_threshold_mm: float, compute_percent_difference=True, compute_gamma_index=True, 
+                 gamma_distance_threshold_mm: float, compute_percent_difference=True, compute_gamma_index=True,
                  prescription_dose: float = None, max_gamma = None,
                  gamma_kwargs: dict = {'lower_percent_dose_cutoff': 1, 'interp_fraction': 10,
                                        'local_gamma': True, 'global_normalisation': None, 'skip_once_passed': False}):
+        #provide no dose to just load a file
+        if(dose1 is None and dose2 is None):
+            self.load_comparison_object()
+            return
+        
         self.dose1 = dose1
         self.dose2 = dose2
         # axis is taken from the first dose provided
@@ -1233,7 +1238,7 @@ class DoseComparison:
         self.gamma_dose_percent_threshold = gamma_dose_percent_threshold
         self.gamma_kwargs = gamma_kwargs
         #we can index the dose cutoff to the prescription dose
-        if(isinstance(prescription_dose, float)):
+        if(isinstance(prescription_dose, float) or isinstance(prescription_dose, int)):
             self.gamma_kwargs["global_normalisation"] = prescription_dose
         if(isinstance(max_gamma, float)):
             self.max_gamma = max_gamma
@@ -1312,6 +1317,7 @@ class DoseComparison:
         self.percent_difference.vox_size = self.dose1.vox_size
         self.percent_difference.topleft = self.dose1.topleft
         self.percent_difference.num_voxels = self.dose1.num_voxels
+        self.percent_difference.create_interpolation_function()
 
     def compute_gamma_index(self):
         print("Computing gamma index may take time")
@@ -1321,13 +1327,15 @@ class DoseComparison:
             self.voxel_centers), self.dose_2_grid_resampled, self.gamma_dose_percent_threshold, self.gamma_distance_threshold,
             **self.gamma_kwargs)
         #cast the NaNs to 0s
-        gamma_index_grid[np.isnan(gamma_index_grid)] = 0
+        number_excluded = np.sum(np.isnan(gamma_index_grid))
+        gamma_index_grid[np.isnan(gamma_index_grid)] = -1
         self.gamma_index.grid = gamma_index_grid
         self.gamma_index.voxel_edges = self.dose1.voxel_edges
         self.gamma_index.vox_size = self.dose1.vox_size
         self.gamma_index.topleft = self.dose1.topleft
         self.gamma_index.num_voxels = self.dose1.num_voxels
-        self.gamma_pass_ratio = np.sum(self.gamma_index.grid <= 1) / self.gamma_index.grid.size
+        self.gamma_pass_ratio = (np.sum(self.gamma_index.grid <= 1) - number_excluded) / (self.gamma_index.grid.size - number_excluded)
+        self.gamma_index.create_interpolation_function()
 
     def save_comparison_object(self, path:str = None):
         r"""
@@ -1340,13 +1348,15 @@ class DoseComparison:
             root = tk.Tk()
             root.withdraw()    
             f = fd.asksaveasfile(mode='wb',
-            defaultextension=".comp", initialdir=os.getcwd(), 
+            defaultextension=".comp", initialdir=os.getcwd(),
             title='Save dose comparison object', confirmoverwrite=True)
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
             root.destroy()
+            f.close()
         else: 
             with open(path, 'wb') as f:
                 pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+
 
     def load_comparison_object(self, path:str = None):
         r"""
@@ -1358,13 +1368,15 @@ class DoseComparison:
         if not isinstance(path, str):
             root = tk.Tk()
             root.withdraw()
-            f = fd.askopenfilename(mode='wb',
-            parent=root, initialdir="$HOME", title='Select saved calibration file')
+            f = fd.askopenfile(mode='rb',
+            parent=root, initialdir="$HOME", title='Select saved dose comparison file')
             self.__dict__.update(pickle.load(f).__dict__)
                 #print(calibration_object_file_path)
             root.destroy()
-        with open(path, 'rb') as f:
-            self.__dict__.update(pickle.load(f).__dict__)
+            f.close()
+        else:
+            with open(path, 'rb') as f:
+                self.__dict__.update(pickle.load(f).__dict__)
 
 def test_dose_comparison():
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
