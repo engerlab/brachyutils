@@ -1,6 +1,7 @@
 import os
 from glob import glob
 import json
+import numpy as np
 
 from typing import Optional
 
@@ -60,7 +61,10 @@ class BrachyPlan:
     def __init__(self):
         pass
     
-    def load_catheterTable_json(self, pth_catheterTable_json:str):
+    def load_catheterTable_json(
+        self, 
+        pth_catheterTable_json:str, 
+        drop_lastDwell_perCatheter:bool=False):
         r"""
         Purpose:
             - To load the contents of a catheter table into the Brachy plan.
@@ -82,7 +86,8 @@ class BrachyPlan:
                             "z"
                         },
                         "time" := dwell time for this dwell position
-                        "weight" := ratio of this dwell time over the sum of all dwell times in all catheters
+                        "weight" := ratio of this dwell time over the sum of all dwell times in all catheters.
+                        ...,
                     ],
                     "id":= the id of the caheter,
                     "points":[] := i do not know what this is. in all plans i have seen, it has been lefty empty
@@ -90,5 +95,43 @@ class BrachyPlan:
             ]
 
         """
+        
+        # load the json file
+        with open(pth_catheterTable_json, 'r') as json_file:
+            catheter_table = json.load(json_file)
+        
+        # there is currently a bug in the tps where the last dwell position is repeated.
+        # this block will fixe it {
+        if drop_lastDwell_perCatheter:
+            corrected_catheter_table = []
+            for catheter in catheter_table:
+                dwell_list = catheter['dwells']
+                corrected_catheter_table.append(
+                    {
+                        'dwells': dwell_list[:-1],
+                        "id": catheter["id"],
+                        "points": catheter["points"] 
+                    })
+            self.catheter_table = corrected_catheter_table
+        # }
+        else:
+            self.catheter_table = catheter_table
+        
+            
+
+def test_load_catheterTable_json():
+    pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
+    
+    with open(pth_cathTable_json, 'r') as json_file:
+        ground_truth_catheter_table = json.load(json_file)
+    
+    plan_obj = BrachyPlan()
+    plan_obj.load_catheterTable_json(pth_cathTable_json, True)
+
+    print(plan_obj.catheter_table)
+    # assert [i for i in ground_truth_catheter_table if i not in plan_obj.catheter_table] ==[],\
+        # "loading catheter table did not work as expected"
+        
 if __name__ == "__main__":
-    return 0
+    
+    test_load_catheterTable_json()
