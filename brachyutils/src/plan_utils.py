@@ -47,19 +47,28 @@ class BrachyPlan:
         - organ_bounds:dict
         - dose_rate_matrix:np.array := dose rate from dwell position 1 to n. the order 
         matches the dwell_number_list
-        - brachy_structure:BrachyStructure := a patient structure 
+        - brachy_structure:list[BrachyStructure] := the list of patient structures in the plan
     """
     num_dwels:int
     catheter_table:list
-    # dwell_number_list:np.list
-    # dwell_times_list:np.list
-    # dwell_coordinates:np.list
+    dwell_numbers:np.array
+    dwell_timess:np.array
+    dwell_coordinates:np.array
     organ_bounds:dict
-    dose_rate_matrix:np.array
-    brachy_structure:BrachyStructure
+    dose_rate_tensor:np.array
+    uncertainty_tensor:np.array
+    structure_set:list
     
     def __init__(self):
-        pass
+        self.num_dwels = None
+        self.catheter_table = None
+        self.dwell_numbers = np.array([], dtype=np.float32)
+        self.dwell_times = np.array([], dtype=np.float32)
+        self.dwell_coordinates = []
+        self.organ_bounds = None
+        self.dose_rate_tensor = None
+        self.uncertainty_tensor = None
+        self.structure_set = None
     
     def load_catheterTable_json(
         self, 
@@ -74,13 +83,14 @@ class BrachyPlan:
             [
                 {
                     "dwells":[
-                        "position":{
+                        "angle":= angle of the IMBT shield
+                        "position":{ := dwell position in the patient coordinate system
                             "x",
                             "y",
                             "z"
                         },
                         "relativePos":= dwell coordinate along the catheter from the reference point. increments of 5 mm
-                        "rotation": {
+                        "rotation": { := rotation of the dwell position in the patient coordinate system
                             "x",
                             "y",
                             "z"
@@ -93,7 +103,10 @@ class BrachyPlan:
                     "points":[] := i do not know what this is. in all plans i have seen, it has been lefty empty
                 }
             ]
-
+        Outputs:
+            - Void := will update the BrachyPlan.catheter_table attribute
+        Dependencies:
+            - json
         """
         
         # load the json file
@@ -110,14 +123,64 @@ class BrachyPlan:
                     {
                         'dwells': dwell_list[:-1],
                         "id": catheter["id"],
-                        "points": catheter["points"] 
+                        "points": catheter["points"]
                     })
             self.catheter_table = corrected_catheter_table
         # }
         else:
             self.catheter_table = catheter_table
+    
+    def extract_dwell_numbers_times_coordinates_from_catheterTable(self):
+        r"""
+        Purpose:
+            - To extract the dwell numbers, times, and coordinates from the catheter table
+            and save them as class attributes.
+        Inputs:
+            - self := the BrachyPlan object
+        Outputs:
+            - Void := will update the BrachyPlan.dwell_numbers, BrachyPlan.dwell_times, 
+            and BrachyPlan.dwell_coordinates attributes
+        """
+        assert self.catheter_table is not None, "catheter table is not loaded"
+        dwell_counter = 1
+        for catheter in self.catheter_table:
+            for dwell in catheter['dwells']:
+                self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
+                self.dwell_times = np.append(self.dwell_times, dwell['time'])
+                self.dwell_coordinates.append(
+                    {
+                        "position": dwell['position'],
+                        "rotation": dwell['rotation'],
+                        "relativePos": dwell["relativePos"]
+                    })
+                dwell_counter += 1
+    
+    def load_dose_rate_tensor(
+        self, 
+        dir_dose_rate:str,
+        type_dose_file:str=".nrrd",
+        load_uncertainty:bool=False,):
+        r"""
+        Purpose:
+            - To load the dose rate tensor into the BrachyPlan object given a folder with 
+            patient's dose rate files and the catheter table loaded into the BrachyPlan object.
+        Inputs:
+            - dir_dose_rate :=  path to the directory containing the dose rate files. we assume
+            that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
+            - type_dose_file := the type of dose rate file. The type could be ".nrrd" or ".3ddose"
+            consult BrachyDose in dose_utils.py for more info on the dose rate file types.
+            - load_uncertainty := if True, the uncertainty tensor will be loaded as well
+        Outputs:
+            - Void := will update the BrachyPlan.dose_rate_tensor attribute
+        """
+        # make sure catheter table is loaded
+        assert self.catheter_table is not None, "catheter table is not loaded"
         
-            
+        # figure out the order of dwell positions
+        
+        # load the dose rate tensor   
+        
+        # int(os.path.basename(pth_dose_rate).split(".")[0]).split("run_")[-1])  
 
 def test_load_catheterTable_json():
     pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
@@ -126,12 +189,41 @@ def test_load_catheterTable_json():
         ground_truth_catheter_table = json.load(json_file)
     
     plan_obj = BrachyPlan()
-    plan_obj.load_catheterTable_json(pth_cathTable_json, True)
+    plan_obj.load_catheterTable_json(pth_cathTable_json)
 
-    print(plan_obj.catheter_table)
-    # assert [i for i in ground_truth_catheter_table if i not in plan_obj.catheter_table] ==[],\
-        # "loading catheter table did not work as expected"
-        
+    # print(plan_obj.catheter_table)
+    assert [i for i in ground_truth_catheter_table if i not in plan_obj.catheter_table] ==[],\
+        "loading catheter table did not work as expected"
+
+def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
+    pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
+    dir_dose_rate = "../../data_test/plan_files/prostate-glen-p1-dose"
+
+    plan_obj = BrachyPlan()
+    plan_obj.load_catheterTable_json(pth_cathTable_json)
+    plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
+    
+    assert plan_obj.dwell_numbers is not None, "dwell numbers not extracted"
+    assert plan_obj.dwell_times is not None, "dwell times not extracted"
+    assert plan_obj.dwell_coordinates is not None, "dwell coordinates not extracted"
+    
+    print(f"The shape of the dwell_number is {plan_obj.dwell_numbers.shape}")
+    print(f"The shape of the dwell_times is {plan_obj.dwell_times.shape}")
+    print(f"The shape of the dwell_coordinates is {len(plan_obj.dwell_coordinates)}")
+
+def test_load_dose_rate_tensor():
+    pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
+    dir_dose_rate = "../../data_test/plan_files/prostate-glen-p1-dose"
+
+    plan_obj = BrachyPlan()
+    plan_obj.load_catheterTable_json(pth_cathTable_json)
+    
+    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
+    
 if __name__ == "__main__":
     
-    test_load_catheterTable_json()
+    # running the test functions above: 
+    # test_load_catheterTable_json()
+    test_extract_dwell_numbers_times_coordinates_from_catheterTable()
+    # test_load_dose_rate_tensor()
+    
