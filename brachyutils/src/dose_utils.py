@@ -84,7 +84,7 @@ class BrachyDose:
         write_to_3ddose()
         write_to_nrrd()
         write_to_npz()
-        write_to_minidose()
+        write_to_minidos()
         write_to_xz()
         write_to_zstd()
         calculate_voxel_edges()
@@ -145,7 +145,7 @@ class BrachyDose:
 
         Inputs:
             - pth_dose_file := path directory where the file containing the dose is. The file 
-                extension could be ".3ddose", ".nrrd", ".dcm", or ".minidose"
+                extension could be ".3ddose", ".nrrd", ".dcm", or ".minidos"
 
         Output:
         self : BrachyDose
@@ -162,11 +162,11 @@ class BrachyDose:
             assert "RD" in pth_dose_file, "must be a dicom dose file starting with 'RD'"
             raise NotImplementedError(
                 "loading dose from dicom is not currently supported")
-        elif file_extension == ".minidose":
+        elif file_extension == ".minidos":
             raise NotImplementedError(
-                "loading dose from .bin file is not currently supported")
-        # elif file_extension == ".bindose":
-        #    self.load_from_bindose(pth_dose_file)
+                "loading dose from .minidos file is not currently supported")
+        elif file_extension == ".bindose":
+            raise NotImplementedError("Writing to .bindose not implemented")
         else:
             raise ValueError("file extension not recognized")
         #voxel_centers = self.get_voxel_centers()
@@ -183,7 +183,7 @@ class BrachyDose:
 
         Inputs:
             - pth_dose_file := path where the BrachyDose contents will be written to. The options 
-            for output type are "3ddose", "nrrd", "npz", "minidose", "xz", and "zstd". 
+            for output type are "3ddose", "nrrd", "npz", "minidos", "xz", and "zstd". 
 
         Output:
             - void := contents of self is written to "pth_dose_file"
@@ -199,8 +199,8 @@ class BrachyDose:
         elif file_extension == ".npz":
             self.write_to_npz(pth_dose_file)
 
-        elif file_extension == ".minidose":
-            self.write_to_minidose(pth_dose_file)
+        elif file_extension == ".minidos":
+            self.write_to_minidos(pth_dose_file)
 
         elif file_extension == ".xz":
             self.write_to_xz(pth_dose_file)
@@ -208,12 +208,12 @@ class BrachyDose:
         elif file_extension == ".zstd":
             self.write_to_zstd(pth_dose_file)
 
-        # elif file_extension == ".bindose":
-        #    raise NotImplementedError("Writing to .bindose not implemented")
+        elif file_extension == ".bindose":
+           raise NotImplementedError("Writing to .bindose not implemented")
 
         else:
             raise ValueError(f"The input file name {pth_dose_file} is not supported. the supported \
-            file types are '.3ddose', '.nrrd', '.npz', '.minidose', '.xz', and '.zstd'")
+            file types are '.3ddose', '.nrrd', '.npz', '.minidos', '.xz', and '.zstd'")
 
     def load_from_3ddose(self, filename: str):
         r""" 
@@ -313,16 +313,16 @@ class BrachyDose:
         self.topleft = loaded_brachydose["topleft"]
         self.voxel_edges = loaded_brachydose["axis"]
 
-    def load_from_minidose(self, pth_minidose):
+    def load_from_minidos(self, pth_minidos):
         r"""
         Purpose:
-            Given the path to a minidose file, load its content into self:BrachyDose
+            Given the path to a minidos file, load its content into self:BrachyDose
         Input:
             - filename := path to a ".minidos" file
         """
         assert os.path.splitext(
-            pth_minidose)[-1] == ".minidose", f"the file {pth_minidose}, should have '.minidose' extension."
-        with open(pth_minidose, 'rb') as file:
+            pth_minidos)[-1] == ".minidos", f"the file {pth_minidos}, should have '.minidos' extension."
+        with open(pth_minidos, 'rb') as file:
             line_content = np.frombuffer(file.readline())
 
     # def load_from_bindose(self, pth_bindose):
@@ -641,14 +641,14 @@ class BrachyDose:
             axis=self.voxel_edges,
         )
 
-    def write_to_minidose(self, file_name, compress_program: Optional[str] = None):
+    def write_to_minidos(self, file_name, compress_program: Optional[str] = None):
         r"""
             Purpose: 
-                To save the contents of BrachyDose into a minidose file, which is just a binary file written line by line. 
+                To save the contents of BrachyDose into a minidos file, which is just a binary file written line by line. 
                 This code is based on Maude Robitaille's implementation. 
             inputs:
                 - self := BrachyDose object
-                - file_name := path where the dose minidose file will be written to. 
+                - file_name := path where the dose minidos file will be written to. 
 
             outputs: Void
                 writes the contents of self:BrachyDose to the file_name. 
@@ -1078,10 +1078,10 @@ def test_convert_to_npz_file():
     new_dose_obj.load_from_npz(pth_out)
     dose_obj.is_equal(new_dose_obj)
 
-# def test_write_to_minidose():
+# def test_write_to_minidos():
 #     r"""
 #     Purpose:
-#         simulatenously test write_to_minidose() and load_from_minidose()
+#         simulatenously test write_to_minidos() and load_from_minidos()
 #     """
 #     # pth_3ddose =  "../../data_test/combined.3ddose"
 
@@ -1091,10 +1091,10 @@ def test_convert_to_npz_file():
 #     dose_obj = BrachyDose()
 #     dose_obj.load_file_to_brachydose(pth_3ddose)
 
-#     dose_obj.write_to_minidose(pth_out, compress_program='zstd')
+#     dose_obj.write_to_minidos(pth_out, compress_program='zstd')
 
 #     new_dose_obj = BrachyDose()
-    # new_dose_obj.load_from_minidose(pth_out)
+    # new_dose_obj.load_from_minidos(pth_out)
     # dose_obj.is_equal(new_dose_obj)
 
 
@@ -1186,22 +1186,22 @@ def test_crop_by_body_contour():
     dose_obj.info()
 
 
-def test_convert_to_minidose():
+def test_convert_to_minidos():
     pth_input = "../../data_test/dwell1_1mm.nrrd"
-    pth_minidose = os.path.splitext(pth_input)[0] + ".minidose"
+    pth_minidos = os.path.splitext(pth_input)[0] + ".minidos"
 
 # if __name__ == "__main__":
     # app()
 
     # a Test for the following functions
-    #test_convert_to_minidose()
+    #test_convert_to_minidos()
     # test_crop_by_body_contour()
     # test_load_from_3ddose()
     # test_load_file_to_brachydose()
     # test_write_to_3ddose()
     # test_convert_to_nrrd()
     # test_convert_to_npz_file()
-    # test_write_to_minidose()
+    # test_write_to_minidos()
     # test_write_to_xz()
     # test_write_to_zstd()
     # test_convert_many_files()
