@@ -230,11 +230,11 @@ class BrachyDose:
         with open(path, "rb") as newfile:
             bench_voxels = [int(i) for i in newfile.readline().split()]
             bench_x_pos = np.round(
-                nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
+                np.array(newfile.readline().split(), dtype=np.float32), decimals=6)
             bench_y_pos = np.round(
-                nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
+                np.array(newfile.readline().split(), dtype=np.float32), decimals=6)
             bench_z_pos = np.round(
-                nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
+                np.array(newfile.readline().split(), dtype=np.float32), decimals=6)
 
             bench_x_spacing = bench_x_pos[1] - bench_x_pos[0]
             bench_y_spacing = bench_y_pos[1] - bench_y_pos[0]
@@ -242,12 +242,12 @@ class BrachyDose:
 
             bench_dict = {}
 
-            huge_dose_array = nparray(
+            huge_dose_array = np.array(
                 newfile.readline().strip().split(), dtype=np.float32)
             bench_dose = reshape(
                 huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
             try:
-                huge_uncert_array = nparray(
+                huge_uncert_array = np.array(
                     newfile.readline().strip().split(), dtype=np.float32)
                 bench_uncert = reshape(
                     huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))

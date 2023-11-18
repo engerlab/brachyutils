@@ -6,6 +6,7 @@ import numpy as np
 # from typing import Optional
 from tqdm import tqdm
 from dose_utils import BrachyDose
+from copy import deepcopy
 
 class BrachyStructure:
     r"""
@@ -40,15 +41,19 @@ class BrachyPlan:
         as well as all the functions to support the necessary plan operations. 
     
     Attributes:
-        - num_dwels:int
+        - num_dwells:int := the number of dwell positions in the plan
         - catheter_table:list := a list of catheter dictionaries. each catheter dictionary 
         contains the keys "dwells", "id", and points. the value belonging to the "dwells" key
         is a list of dwell position dictionary. The dwell position dictionary contains the keys: 
         "angle", "position", "relativePos", "rotation", "time", and "weight". for more info, 
         look at the function BrachyPlan.load_catheterTable_json() 
+        - dwell_numbers:np.array := the dwell number of each dwell position in the plan
+        - dwell_times:np.array := the dwell time of each dwell position in the plan
+        - dwell_coordinates:list := a list of dictionaries. each dictionary contains the keys "position", "rotation", and "relativePos"
         - organ_bounds:dict
-        - dose_rate_matrix:np.array := dose rate from dwell position 1 to n. the order 
-        matches the dwell_number_list
+        - dose_rate_tensor:np.array := dose rate from dwell position 1 to num_dwells. 
+        matches the dwell_number_list. shape: (num_dwells, z, y, x)
+        - uncertainty_tensor:np.array := uncertainty from dwell position 1 to num_dwells. shape: (num_dwells, z, y, x)
         - brachy_structure:list[BrachyStructure] := the list of patient structures in the plan
     """
     num_dwells:int
@@ -58,8 +63,10 @@ class BrachyPlan:
     dwell_coordinates:list #shape: (num_dwells, 3) 
     organ_bounds:dict
     dose_rate_tensor:np.array #shape: (num_dwells, z, y, x)
+    combined_dose:BrachyDose
     uncertainty_tensor:np.array #shape: (num_dwells, z, y, x)
     structure_set:list
+
     
     def __init__(self):
         self.num_dwells = None
@@ -71,6 +78,7 @@ class BrachyPlan:
         self.dose_rate_tensor = np.array([], dtype=np.float32)
         self.uncertainty_tensor = np.array([], dtype=np.float32)
         self.structure_set = None
+        self.combined_dose = None
     
     def load_catheterTable_json(
         self, 
@@ -167,6 +175,8 @@ class BrachyPlan:
         Purpose:
             - To load the dose rate tensor into the BrachyPlan object given a folder with 
             patient's dose rate files and the catheter table loaded into the BrachyPlan object.
+            In addition, combined dose is calculated as a linear combination of the dose rates 
+            and dwell times. 
         Inputs:
             - dir_dose_rate :=  path to the directory containing the dose rate files. we assume
             that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
@@ -199,7 +209,24 @@ class BrachyPlan:
             self.dose_rate_tensor[i] = dose_obj.grid
             if load_uncertainty:
                 self.uncertainty_tensor[i] = dose_obj.uncertainty
-                
+        
+        # calculate the combined dose and store the result in the combined_dose attribute 
+        combined_dose_grid = np.sum(
+            self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
+            axis=0)
+        self.combined_dose = BrachyDose()
+        self.combined_dose.grid = combined_dose_grid
+        self.combined_dose.num_voxels = test_dose_obj.num_voxels        
+        self.combined_dose.vox_size = test_dose_obj.vox_size
+        self.combined_dose.topleft = test_dose_obj.topleft
+        self.combined_dose.calculate_voxel_edges()
+        
+        assert np.array_equal(
+            np.concatenate(self.combined_dose.voxel_edges), 
+            np.concatenate(test_dose_obj.voxel_edges)), \
+            "voxel edges of combined dose map and dwell dose rate map do not match"
+        
+
 def test_load_catheterTable_json():
     pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
     
@@ -240,6 +267,7 @@ def test_load_dose_rate_tensor():
     plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
     print(f"The shape of the dose rate tensor is {plan_obj.dose_rate_tensor.shape}")
     print(f"The shape of the uncertainty tensor is {plan_obj.uncertainty_tensor.shape}")
+    print(f"The shape of the combined dose is {plan_obj.combined_dose.grid.shape}")
     
 if __name__ == "__main__":
     
@@ -247,4 +275,5 @@ if __name__ == "__main__":
     # test_load_catheterTable_json()
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     test_load_dose_rate_tensor()
+    
     
