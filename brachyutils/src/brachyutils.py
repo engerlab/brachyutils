@@ -306,7 +306,7 @@ def test_convert_many_files():
     type_in = ".3ddose"
     type_out = ".nrrd"
     
-    convert_many_files(dir_in, type_in, type_out)
+    convert_many_dose_files(dir_in, type_in, type_out)
     
     dir_in = os.path.abspath(dir_in)
     nrrd_list = glob(dir_in+".nrrd")
