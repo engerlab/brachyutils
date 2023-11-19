@@ -1,52 +1,25 @@
-from numpy import array as nparray, zeros as npzeros, reshape
-# from numpy import float as float
-# from numpy import int as int
-# from numpy import ma
-# from numpy import dtype
 import numpy as np
-# import re
 import os
 
 # from dicompylercore import dicomparser
 from glob import glob
-# from numericalunits import cm, mm, kg, J
-# Gy = J/kg
 
-# import SimpleITK as sitk
-# import difflib
-# from typing import Optional
-# from collections.abc import Iterable
-
-# import pytest
-# # import uu
-# import lzma
-# import pickle
-# import pyzstd
-
-# import typer
-# import decimal
-
-# from tqdm import tqdm
-
-# from rt_utils import RTStructBuilder
 from DicomRTTool.ReaderWriter import DicomReaderWriter#, ROIAssociationClass
-# import pydicom
 
-# import json
+import json
 
-def get_structure_index_range(pth_dir_dicom:str, query_structure_list:list=["body"]) -> nparray:
+def get_structure_index_range(pth_dir_dicom:str, query_structure_list:list):
     r"""
     Purpose:
-        to find the index extent of the body voxels along each axis using dicom RT structure file. 
+        to find the index extent of the structure voxels along each axis using dicom RT structure file. 
     Inputs:
         - pth_dir_dicom := path to the directory with the dicom files of a patient. 
             it should contain both images and RTSTRUCT file
+        - query_structure_list := list of structure names to find the index range of.
     Outputs:
         - structure_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
             [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
-        
         - body_mask_shape:np.array := 1 x 3 array holding the dimension of the original mask
-            
     Dependencies:
         DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
     """
@@ -87,6 +60,19 @@ def get_structure_index_range(pth_dir_dicom:str, query_structure_list:list=["bod
         output_dict[query_structure_name] = {"structure_index_range":structure_index_range, "dicom_mask_shape":np.flip(np.array(mask_numpy.shape))}
             
     return output_dict
+
+def get_strcuture_mask_from_dicom(pth_dir_dicom:str, query_structure_list:list):
+    r"""
+    Purpose:
+        to get the mask of the structures using dicom RT structure file.
+    Inputs:
+        - pth_dir_dicom := path to the directory with the dicom files of a patient. 
+            it should contain both images and RTSTRUCT file
+        - query_structure_list := list of structure names to find the mask of.
+    Outputs:
+    
+    """
+
 
 def test_get_structure_index_range():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
