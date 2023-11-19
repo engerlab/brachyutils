@@ -34,7 +34,7 @@ from DicomRTTool.ReaderWriter import DicomReaderWriter#, ROIAssociationClass
 
 # import json
 
-def get_body_index_range(pth_dir_dicom:str):
+def get_structure_index_range(pth_dir_dicom:str, query_structure_name:str="body") -> nparray:
     r"""
     Purpose:
         to find the index extent of the body voxels along each axis using dicom RT structure file. 
@@ -58,16 +58,16 @@ def get_body_index_range(pth_dir_dicom:str):
     pth_structure_dcm = glob(pth_dir_dicom+"/RS*.dcm")[0]
     
     # load the structure file into an rt_struct object
-    dicom_reader = DicomReaderWriter(description="getting body mask", arg_max=True)
+    dicom_reader = DicomReaderWriter(description=f"getting {query_structure_name} mask", arg_max=True)
     dicom_reader.walk_through_folders(pth_dir_dicom)
     all_rois = dicom_reader.return_rois()
     
     # # find the name of the body structure inside the rt_structure object
-    body_structure_name = [name for name in all_rois if "body" in name.lower()]
+    dicom_structure_name = [name for name in all_rois if query_structure_name in name.lower()]
     
     # # get the numpy array of the body structure:
-    assert len(body_structure_name) == 1, "body contour not found!"
-    dicom_reader.set_contour_names_and_associations(contour_names=body_structure_name)
+    assert len(dicom_structure_name) == 1, "body contour not found!"
+    dicom_reader.set_contour_names_and_associations(contour_names=dicom_structure_name)
     
     dicom_reader.get_mask()
     mask_numpy = dicom_reader.mask
@@ -87,12 +87,12 @@ def get_body_index_range(pth_dir_dicom:str):
             
     return body_index_range, np.flip(np.array(mask_numpy.shape))
 
-def test_get_body_index_range():
+def test_get_structure_index_range():
     pth_dicomRS = "../../data_test/prostate_glen_p1/"
     pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
 
 
-    print(get_body_index_range(pth_dicomRS))
+    print(get_structure_index_range(pth_dicomRS))
     
 
 # if __name__ == "__main__":
@@ -100,5 +100,5 @@ def test_get_body_index_range():
     # app()
 
     # a Test for the following functions
-    # test_get_body_index_range()
+    # test_get_structure_index_range()
     # test_get_body_contour_range_from_many_patients_dicom()

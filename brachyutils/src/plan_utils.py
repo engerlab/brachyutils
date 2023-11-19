@@ -61,11 +61,12 @@ class BrachyPlan:
     dwell_numbers:np.array #shape: (num_dwells, 1)
     dwell_timess:np.array #shape: (num_dwells, 1)
     dwell_coordinates:list #shape: (num_dwells, 3) 
-    organ_bounds:dict
     dose_rate_tensor:np.array #shape: (num_dwells, z, y, x)
     combined_dose:BrachyDose
     uncertainty_tensor:np.array #shape: (num_dwells, z, y, x)
-    structure_set:list
+
+    organ_bounds:dict
+    structure_list:list
 
     
     def __init__(self):
@@ -77,7 +78,7 @@ class BrachyPlan:
         self.organ_bounds = None
         self.dose_rate_tensor = np.array([], dtype=np.float32)
         self.uncertainty_tensor = np.array([], dtype=np.float32)
-        self.structure_set = None
+        self.structure_list = []
         self.combined_dose = None
     
     def load_catheterTable_json(
@@ -225,8 +226,24 @@ class BrachyPlan:
             np.concatenate(self.combined_dose.voxel_edges), 
             np.concatenate(test_dose_obj.voxel_edges)), \
             "voxel edges of combined dose map and dwell dose rate map do not match"
-        
 
+        assert self.combined_dose.is_not_empty(), "combined dose is empty"
+
+def get_organ_bounds(
+    dir_structure_set:str,
+    structure_source_type:str=".dcm"):
+
+    if structure_source_type == ".dcm":
+        print("loading structure set from dicom files")
+    
+    elif structure_source_type == ".nrrd":    
+        print("loading structure set from nrrd file")
+        raise NotImplementedError("loading structure set from .nrrd file is not implemented yet")
+    
+    elif structure_source_type == ".json":
+        print("loading structure set from json file")
+        raise NotImplementedError("loading structure set from .json file is not implemented yet")
+    
 def test_load_catheterTable_json():
     pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
     
@@ -274,6 +291,7 @@ if __name__ == "__main__":
     # running the test functions above: 
     # test_load_catheterTable_json()
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
-    test_load_dose_rate_tensor()
+    # test_load_dose_rate_tensor()
+    get_organ_bounds()
     
     

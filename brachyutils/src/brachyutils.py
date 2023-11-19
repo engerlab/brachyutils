@@ -60,7 +60,7 @@ def get_bodyContourRange_from_many_patients_dicom(
     
     for patient_dir in patient_dir_list:
         try:
-            body_index_range , body_mask_shape = get_body_index_range(patient_dir)
+            body_index_range , body_mask_shape = get_structure_index_range(patient_dir)
             patient_dict_list.append(
             {
             "patient_number": patient_dir.split("/")[-2],

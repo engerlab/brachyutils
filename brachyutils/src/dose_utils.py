@@ -92,7 +92,7 @@ class BrachyDose:
         crop_by_coordinates()
         crop_by_fraction()
         crop_by_index()
-        assert_brachydose_not_empty()
+        is_not_empty()
         info()
 
     Dependencies: 
@@ -358,7 +358,7 @@ class BrachyDose:
     def extract_dose_values_from_coordinates(self, x, y, z):
         r"""
         """
-        self.assert_brachydose_not_empty()
+        self.is_not_empty()
         if (self.interpolation_function is None):
             raise ValueError("interpolation function is not defined")
         shape = []
@@ -788,7 +788,7 @@ class BrachyDose:
         Dependencies:
             -self.crop_by_index()
         """
-        self.assert_brachydose_not_empty()
+        self.is_not_empty()
 
         # make sure the ending coordinate of the new range is larger than its origin
         for ax in coord_range:
@@ -914,7 +914,7 @@ class BrachyDose:
             new_dose_obj.voxel_edges = self.calculate_voxel_edges()
             return new_dose_obj
 
-    def assert_brachydose_not_empty(self):
+    def is_not_empty(self):
         assert self.grid is not None, "error grid is None"
         # commenting out the following line, since uncertainty is not always available
         # e.g. for gamma and percent difference
@@ -923,9 +923,10 @@ class BrachyDose:
         assert self.vox_size is not None, "error vox_size is None"
         assert self.topleft is not None, "error topleft is None"
         assert self.voxel_edges is not None, "error axis is None"
+        return True
 
     def info(self):
-        self.assert_brachydose_not_empty()
+        self.is_not_empty()
         print(f"shape of dose grid is: {self.grid.shape}")
         print(f"shape of uncertainty matrix is: {self.uncertainty.shape}")
         print(f"num voxels attribute is: {self.num_voxels}")
@@ -965,7 +966,7 @@ class BrachyDose:
         if body_index_range is None or body_mask_shape is None:
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            # body_index_range, body_mask_shape = get_body_index_range(pth_dir_dicom)
+            # body_index_range, body_mask_shape = get_structure_index_range(pth_dir_dicom)
         # the body mask may have a different size than the dose map, we normalize range to the dimension
         # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.
         scaled_body_index_range = (body_index_range / np.expand_dims(
@@ -1000,7 +1001,7 @@ def test_load_from_3ddose():
 
     dose_obj = BrachyDose()
     dose_obj.load_from_3ddose(pth_3ddose)
-    dose_obj.assert_brachydose_not_empty()
+    dose_obj.is_not_empty()
 
 
 def test_load_file_to_brachydose():
@@ -1011,7 +1012,7 @@ def test_load_file_to_brachydose():
 
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
-    dose_obj.assert_brachydose_not_empty()
+    dose_obj.is_not_empty()
 # @pytest.mark.passed
 
 
@@ -1168,10 +1169,10 @@ def test_crop_by_fraction():
     dose_obj.info()
 
 
-def test_get_body_index_range():
+def test_get_structure_index_range():
     pth_dicom_rs = "../../data_test/prostate_glen_p1/"
     pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
-    print(get_body_index_range(pth_dicom_rs))
+    print(get_structure_index_range(pth_dicom_rs))
 
 
 def test_crop_by_body_contour():
