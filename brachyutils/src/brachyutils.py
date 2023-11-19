@@ -311,6 +311,7 @@ def test_convert_many_files():
     dir_in = os.path.abspath(dir_in)
     nrrd_list = glob(dir_in+".nrrd")
     
+    
     for file_nrrd in nrrd_list:
         dose_obj_nrrd = BrachyDose()
         dose_obj_nrrd.load_file_to_BrachyDose(file_nrrd)
