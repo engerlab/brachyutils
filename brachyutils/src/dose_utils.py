@@ -44,7 +44,7 @@ import pyzstd
 
 # from tqdm import tqdm
 
-from dicom_utils import get_body_index_range
+from dicom_utils import get_structure_index_range
 
 # from rt_utils import RTStructBuilder
 # from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
