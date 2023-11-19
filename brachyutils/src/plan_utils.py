@@ -263,14 +263,12 @@ class BrachyPlan:
     def create_structures(
         self,
         dir_structures_source:str, 
-        size_uncropped_dose_grid: list):
+        size_uncropped_dose_grid: np.array):
         r"""
         Purpose: 
-            - To create a list of BrachyStructure objects given a list of structure names and 
-            the path to the directory containing the structure masks. the list is stored in the 
-            BrachyPlan.structure_list attribute.
+            - To create a list of BrachyStructure objects given the path to the directory
+            containing the structure masks. the list is stored in the BrachyPlan.structure_list attribute.
         Inputes:
-            - structure_names := list of structure names to be created
             - dir_structures_source := path to the directory containing the structure masks. 
             this could be dicom files or nrrd files.
             - size_uncropped_dose_grid := the size of the uncropped dose grid. this is needed to
@@ -280,6 +278,8 @@ class BrachyPlan:
         Dependencies:
             - get_strcuture_mask_from_dicom
         """
+        assert self.dvh_metric_goals is not None, "dvh metric goals are not set, run set_dvh_metric_goals()"
+
         structure_name_list = []
         for dvh_metric in self.dvh_metric_goals:
             structure_obj = BrachyStructure()
@@ -293,15 +293,36 @@ class BrachyPlan:
         structure_mask_dict = load_structure_mask(dir_structures_source, structure_name_list)
         for structure in self.structure_list:
             original_mask = structure_mask_dict[structure.name]
-            structure.mask = ndimage.zoom(original_mask, self.combined_dose.grid.shape/original_mask.shape, order=0)
+            structure.mask = ndimage.zoom(original_mask, size_uncropped_dose_grid/original_mask.shape, order=0)
+            # print(structure.mask.shape)
+            # print(size_uncropped_dose_grid)
+            # print(self.combined_dose.grid.shape)
+
+    def measure_DVH_metrics(self):
+            r"""
+            Purpose:
+                - To get the observed value of the dvh metric for each structure in the BrachyPlan.
+                the observed value is calculated from the combined dose map.
+            Inputs:
+                - self := the BrachyPlan object
+            Outputs:
+                - Void := will update the BrachyStructure.dvh_metric_observed attribute
+            """
+            raise NotImplementedError("this function is not implemented yet")
+            # for structure_obj in self.structure_list:
+            #     structure_obj.dvh_metric_observed = self.combined_dose.get_dvh_metric(
+            #         structure_obj.name, 
+            #         structure_obj.dvh_metric_name)
+
 
 def load_structure_mask(
     dir_structure_source:str,
+    structure_name_list:list,
     structure_source_type:str=".dcm"):
 
     if structure_source_type == ".dcm":
         print("loading structure set from dicom files")
-        structure_mask_dict = get_strcuture_mask_from_dicom(dir_structure_source, ['urethra', 'rectum', 'ctv'])
+        structure_mask_dict = get_strcuture_mask_from_dicom(dir_structure_source, structure_name_list)
 
     elif structure_source_type == ".nrrd":    
         print("loading structure set from nrrd file")
@@ -309,22 +330,7 @@ def load_structure_mask(
     else:
         raise ValueError("structure source type is not recognized")
     
-
-    def measure_DVH_metrics(self):
-        r"""
-        Purpose:
-            - To get the observed value of the dvh metric for each structure in the BrachyPlan.
-            the observed value is calculated from the combined dose map.
-        Inputs:
-            - self := the BrachyPlan object
-        Outputs:
-            - Void := will update the BrachyStructure.dvh_metric_observed attribute
-        """
-        raise NotImplementedError("this function is not implemented yet")
-        # for structure_obj in self.structure_list:
-        #     structure_obj.dvh_metric_observed = self.combined_dose.get_dvh_metric(
-        #         structure_obj.name, 
-        #         structure_obj.dvh_metric_name)
+    return structure_mask_dict
 
 
 def test_load_catheterTable_json():
@@ -342,7 +348,6 @@ def test_load_catheterTable_json():
 
 def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
     pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
-    dir_dose_rate = "../../data_test/plan_files/prostate-glen-p1-dose"
 
     plan_obj = BrachyPlan()
     plan_obj.load_catheterTable_json(pth_cathTable_json)
@@ -381,7 +386,22 @@ def test_set_dvh_metric_goals():
     print(plan_obj.dvh_metric_goals)
 
 def test_create_structures():
-    
+    dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
+    dvh_metric_goals = {
+        'D95%(ctv)': 15,
+        'D1cc(rectum)': 11.25,
+        'D0.1cc(urethra)': 18.75
+    }
+
+    plan_obj = BrachyPlan()
+    plan_obj.load_catheterTable_json(pth_cathTable_json)
+    plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
+    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
+    plan_obj.set_dvh_metric_goals(dvh_metric_goals)
+
+    plan_obj.create_structures(dir_dicom, np.array([126, 380, 380]))
 
 if __name__ == "__main__":
     
@@ -390,5 +410,5 @@ if __name__ == "__main__":
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     # test_load_dose_rate_tensor()
     # test_set_dvh_metric_goals()
-        
+    test_create_structures()
     
