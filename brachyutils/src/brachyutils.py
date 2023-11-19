@@ -5,7 +5,7 @@ from tqdm import tqdm
 import pytest
 import typer
 
-from dicom_utils import  get_body_index_range
+from dicom_utils import  get_structure_index_range
 from egsphant_utils import _load_json, BrachyEgsphant
 from dose_utils import BrachyDose
 from typing import Optional
@@ -60,7 +60,9 @@ def get_bodyContourRange_from_many_patients_dicom(
     
     for patient_dir in patient_dir_list:
         try:
-            body_index_range , body_mask_shape = get_structure_index_range(patient_dir)
+            body_mask_info = get_structure_index_range(patient_dir, query_structure_list=["body"])
+            body_index_range  = body_mask_info["body"]['structure_index_range']
+            body_mask_shape = body_mask_info["body"]['dicom_mask_shape']
             patient_dict_list.append(
             {
             "patient_number": patient_dir.split("/")[-2],
@@ -330,9 +332,9 @@ def test_crop_by_bodyContour():
     dose_obj.crop_by_bodyContour(pth_dicomRS)
     dose_obj.info()
 
-def main():
-    app()
+# def main():
+#     app()
 
-# if __name__=="__main__":
-# #     # test_get_bodyContourRange_from_many_patients_dicom()
+if __name__=="__main__":
+    test_get_bodyContourRange_from_many_patients_dicom()
 #     app()

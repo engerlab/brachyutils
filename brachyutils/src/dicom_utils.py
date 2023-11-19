@@ -55,14 +55,13 @@ def get_structure_index_range(pth_dir_dicom:str, query_structure_list:list=["bod
     assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
     assert glob(pth_dir_dicom+"/*.dcm"), "there are no dicom files in this directory"
     
+    # load the structure file into an rt_struct object
+    dicom_reader = DicomReaderWriter(description=f"getting structure masks", arg_max=True)
+    dicom_reader.walk_through_folders(pth_dir_dicom)
+    all_rois = dicom_reader.return_rois()
+
     output_dict = {}
     for query_structure_name in query_structure_list:
-
-        # load the structure file into an rt_struct object
-        dicom_reader = DicomReaderWriter(description=f"getting {query_structure_name} mask", arg_max=True)
-        dicom_reader.walk_through_folders(pth_dir_dicom)
-        all_rois = dicom_reader.return_rois()
-        
         # # find the name of the body structure inside the rt_structure object
         dicom_structure_name = [name for name in all_rois if query_structure_name in name.lower()]
         
@@ -92,7 +91,7 @@ def get_structure_index_range(pth_dir_dicom:str, query_structure_list:list=["bod
 def test_get_structure_index_range():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
     # pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
-    print(get_structure_index_range(pth_dicomRS, ['body', 'urethra_brachy', 'rectum_brachy', 'ctv_brachy']))
+    print(get_structure_index_range(pth_dicomRS, ['body', 'urethra', 'rectum', 'ctv']))
     # print(get_structure_index_range(pth_dicomRS, ['body']))
     
 
