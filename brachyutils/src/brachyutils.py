@@ -334,8 +334,8 @@ def test_crop_by_bodyContour():
     dose_obj.crop_by_bodyContour(pth_dicomRS)
     dose_obj.info()
 
-# def main():
-#     app()
+def main():
+    app()
 
-if __name__ == "__main__":
-    test_convert_many_files()
+# if __name__ == "__main__":
+#     test_convert_many_files()
