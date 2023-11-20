@@ -11,6 +11,9 @@ from copy import deepcopy
 from dicom_utils import get_strcuture_mask_from_dicom
 from scipy import ndimage
 
+import re
+from scipy import interpolate
+
 class BrachyStructure:
     r"""
     Purpose:
@@ -40,6 +43,28 @@ class BrachyStructure:
 
     def __init__(self):
         pass
+
+    def get_dvh_metric(self, combined_dose:BrachyDose):
+        assert self.mask is not None, "mask is not loaded"
+        assert self.dvh_metric_name is not None, "dvh metric name is not set"
+        assert self.dvh_metric_clinical_goal is not None, "dvh metric clinical goal is not set"
+
+        num_bins = int(combined_dose.grid.max()*10) + 1
+        total_dose_max = combined_dose.grid.max()
+
+        structure_dose = combined_dose.grid * self.mask
+        structure_dose = structure_dose[structure_dose != 0].flatten()
+        voxel_volume = np.prod(combined_dose.vox_size)
+        num_voxels_in_structure = np.sum(self.mask)
+
+        if "%" in self.dvh_metric_name:
+            histogram_limit = float(re.findall('-?\d+\.?\d*', self.dvh_metric_name))[0]
+        elif "cc" in self.dvh_metric_name:
+            histogram_limit = float(re.findall('-?\d+\.?\d*', self.dvh_metric_name)[0])/(combined_dose*num_voxels_in_structure)*100
+        else:
+            raise ValueError("invalid name for DVH metric name. The metric should have percent sign (%) or cc.")
+
+        self.dvh_metric_observed = dvh_metric(structure_dose, num_bins, total_dose_max, histogram_limit, voxel_volume)
 
 class BrachyPlan:
     r"""
@@ -280,7 +305,7 @@ class BrachyPlan:
         """
         assert self.dvh_metric_goals is not None, "dvh metric goals are not set, run set_dvh_metric_goals()"
 
-        structure_name_list = []
+        structure_name_list = ['body']
         for dvh_metric in self.dvh_metric_goals:
             structure_obj = BrachyStructure()
             structure_obj.name = dvh_metric.split("(")[-1].split(")")[0]
@@ -291,28 +316,27 @@ class BrachyPlan:
 
         # load the structure mask
         structure_mask_dict = load_structure_mask(dir_structures_source, structure_name_list)
+
         for structure in self.structure_list:
             original_mask = structure_mask_dict[structure.name]
             structure.mask = ndimage.zoom(original_mask, size_uncropped_dose_grid/original_mask.shape, order=0)
             # print(structure.mask.shape)
             # print(size_uncropped_dose_grid)
             # print(self.combined_dose.grid.shape)
+            
 
-    def measure_DVH_metrics(self):
-            r"""
-            Purpose:
-                - To get the observed value of the dvh metric for each structure in the BrachyPlan.
-                the observed value is calculated from the combined dose map.
-            Inputs:
-                - self := the BrachyPlan object
-            Outputs:
-                - Void := will update the BrachyStructure.dvh_metric_observed attribute
-            """
-            raise NotImplementedError("this function is not implemented yet")
-            # for structure_obj in self.structure_list:
-            #     structure_obj.dvh_metric_observed = self.combined_dose.get_dvh_metric(
-            #         structure_obj.name, 
-            #         structure_obj.dvh_metric_name)
+    def calculate_DVH_metrics(self):
+        r"""
+        Purpose:
+            - To get the observed value of the dvh metric for each structure in the BrachyPlan.
+            the observed value is calculated from the combined dose map.
+        Inputs:
+            - self := the BrachyPlan object
+        Outputs:
+            - Void := will update the BrachyStructure.dvh_metric_observed attribute
+        """
+        for structure_obj in self.structure_list:
+            structure_obj.get_dvh_metric(self.combined_dose)
 
 
 def load_structure_mask(
@@ -331,6 +355,56 @@ def load_structure_mask(
         raise ValueError("structure source type is not recognized")
     
     return structure_mask_dict
+
+def dvh_metric(
+        dose:np.array, 
+        num_bins:int, 
+        total_dose_max:float, 
+        threshold:float, 
+        voxel_volume:float, 
+        normalize_dose_by=None):
+    r"""This function calculates the accumulative DVH given a dose matrix 
+    for a structure in the treatment plan. 
+
+    Inputs:
+        - dose: a 1-D dose array, dtype = numpy matrix of floats 
+        - num_bins: a large number in general: we recommend 10 times 
+        the maximum dose for all structures.
+        - total_dose_max: maximum of dose of the structure of interest 
+        - threshold: percent volume at which a certain dose is recieved, 
+        for example, for PTV D90%, threshold is 90. 
+        for urethra D0.1cc becomes 0.1 cc / total urethra volume * 100
+        - voxel_volume: volume of a single voxel in cm^3
+        - normalize_dose_by: if desired, the dose axis of the DVH can be normalized to the target dose.
+
+    Dependencies
+        1. scipy.interpolate.interp1d()
+        2. np.histogram()
+        3. np.cumsum()
+
+    Outputs
+        f(threshold): this is D90 or D1cc depending on the input threshold
+        cum_dvh: this is the cumulative DVH after adding the new volum to the old one
+        """
+    
+    histogram, bins_edges = np.histogram(dose.numpy(), bins=num_bins, range=(0, total_dose_max.numpy()+0.1))
+    vol_hist = histogram * voxel_volume
+    vol_hist = np.append(np.trim_zeros(vol_hist, trim='b'), 0)
+
+    cum_dvh = np.cumsum(vol_hist[::-1])[::-1]
+    normalized_cum_dvh = cum_dvh * 100 / cum_dvh[0]
+    if normalize_dose_by is not None:
+        dvh_dose_axis = bins_edges[:len(cum_dvh)]/normalize_dose_by
+    else:
+        dvh_dose_axis = bins_edges[:len(cum_dvh)]
+    # for debugging{ let's plot the normalized dvh. nomralization is done both on dose and volume domains
+    # dvh_plot = plt.plot(dvh_dose_axis, normalized_cum_dvh)
+    # plt.show()
+    # }
+    f = interpolate.interp1d(normalized_cum_dvh, dvh_dose_axis, kind="linear")
+
+    # in future, one could pass the DVH plot to be stored in the structure object. 
+    return f(threshold) # dvh_plot
 
 
 def test_load_catheterTable_json():
@@ -378,14 +452,14 @@ def test_set_dvh_metric_goals():
     dvh_metric_goals = {
         'D95%(ctv)': 15,
         'D1cc(rectum)': 11.25,
-        'D0.1cc(urethra)': 18.75
+        'D0.1cc(urethra)': 18.75 
     }
     plan_obj = BrachyPlan()
     plan_obj.set_dvh_metric_goals(dvh_metric_goals)
     assert plan_obj.dvh_metric_goals == dvh_metric_goals, "dvh metric list not set correctly"
     print(plan_obj.dvh_metric_goals)
 
-def test_create_structures():
+def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
     pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
     dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
@@ -402,6 +476,9 @@ def test_create_structures():
     plan_obj.set_dvh_metric_goals(dvh_metric_goals)
 
     plan_obj.create_structures(dir_dicom, np.array([126, 380, 380]))
+    plan_obj.calculate_DVH_metrics()
+    for structure in plan_obj.structure_list:
+        print(f"{structure.name}: {structure.dvh_metric_observed}")
 
 if __name__ == "__main__":
     
@@ -410,5 +487,5 @@ if __name__ == "__main__":
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     # test_load_dose_rate_tensor()
     # test_set_dvh_metric_goals()
-    test_create_structures()
+    test_create_structures_and_calc_dvh_metrics()
     
