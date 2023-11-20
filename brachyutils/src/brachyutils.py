@@ -134,7 +134,7 @@ def crop_egsphant_by_bodyContour_many_patients(
 def convert_single_dose_file(input_name, type_out):
     dose_obj = BrachyDose(input_name)
     file_base_noExtension = os.path.splitext(input_name)[0]        
-    dose_obj.write_BrachyDose_to_file(file_base_noExtension+type_out)
+    dose_obj.write_brachydose_to_file(file_base_noExtension+type_out)
 
 @app.command(help="""Will convert all files in the "input_dir" of type "type_in" to "type_out" """)
 def convert_many_dose_files(
@@ -302,9 +302,10 @@ def test_crop_egsphant_by_bodyContour_many_files():
     crop_egsphant_by_bodyContour_many_patients(pth_input, pth_json)
 
 def test_convert_many_files():
-    dir_in = "../../data_test/many_files"
-    type_in = ".3ddose"
-    type_out = ".nrrd"
+    # dir_in = "../../data_test/many_files"
+    dir_in = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm/p2/"
+    type_in = ".nrrd"
+    type_out = ".minidos"
     
     convert_many_dose_files(dir_in, type_in, type_out)
     
@@ -333,9 +334,8 @@ def test_crop_by_bodyContour():
     dose_obj.crop_by_bodyContour(pth_dicomRS)
     dose_obj.info()
 
-def main():
-    app()
+# def main():
+#     app()
 
-# if __name__=="__main__":
-#     test_get_bodyContourRange_from_many_patients_dicom()
-# #     app()
+if __name__ == "__main__":
+    test_convert_many_files()

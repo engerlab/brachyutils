@@ -715,12 +715,15 @@ class BrachyDose:
         # calculate the end point of axis in 3D space
         axes_end = np.array(
             # one voxel size is added because np.arange stops at an index before the end
-            self.topleft + self.num_voxels * self.vox_size + self.vox_size
+            self.topleft + self.num_voxels * np.round(self.vox_size, 1) + np.round(self.vox_size, 1)
         )
         self.voxel_edges = np.empty(len(axes_end), dtype=object)
         for i in range(len(axes_end)):
-            self.voxel_edges[i] = np.arange(self.topleft[len(axes_end)-1-i], axes_end[len(
-                axes_end)-1-i], self.vox_size[len(axes_end)-1-i], dtype=np.float32)
+            self.voxel_edges[i] = np.arange(
+                self.topleft[len(axes_end)-1-i], 
+                axes_end[len(axes_end)-1-i], 
+                np.round(self.vox_size, 1)[len(axes_end)-1-i], 
+                dtype=np.float32)
 
         return self.voxel_edges
 
