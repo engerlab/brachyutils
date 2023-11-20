@@ -1219,12 +1219,12 @@ class DoseComparison:
 
     def __init__(self, dose1: BrachyDose, dose2: BrachyDose, gamma_dose_percent_threshold: float,
                  gamma_distance_threshold_mm: float, compute_percent_difference=True, compute_gamma_index=True,
-                 prescription_dose: float = None, max_gamma = None,
-                 gamma_kwargs: dict = {'lower_percent_dose_cutoff': 1, 'interp_fraction': 10,
-                                       'local_gamma': True, 'global_normalisation': None, 'skip_once_passed': False}):
+                 prescription_dose: float = None, max_gamma = None, path = None,
+                 gamma_kwargs: dict = {'lower_percent_dose_cutoff': 5, 'interp_fraction': 10,
+                                       'local_gamma': False, 'global_normalisation': None, 'skip_once_passed': False}):
         #provide no dose to just load a file
         if(dose1 is None and dose2 is None):
-            self.load_comparison_object()
+            self.load_comparison_object(path)
             return
         
         self.dose1 = dose1
@@ -1240,7 +1240,7 @@ class DoseComparison:
         #we can index the dose cutoff to the prescription dose
         if(isinstance(prescription_dose, float) or isinstance(prescription_dose, int)):
             self.gamma_kwargs["global_normalisation"] = prescription_dose
-        if(isinstance(max_gamma, float)):
+        if(isinstance(max_gamma, float) or isinstance(prescription_dose, int)):
             self.max_gamma = max_gamma
             self.gamma_kwargs["max_gamma"] = max_gamma
         else:
@@ -1275,36 +1275,38 @@ class DoseComparison:
             gamma index is not supported""")
         fig, ax = plt.subplots(figsize=(10, 10), nrows=2, ncols=2, sharex=True, sharey=True)
         plt.tight_layout()
-        c00 = ax[0, 0].imshow(dose_1_profile, vmin=0,
-                              vmax=30, cmap='turbo', aspect="auto")
-        ax[0, 0].set_title(plot_titles[0], fontsize=20, pad=5)
+        c00 = ax[0, 0].pcolormesh(axis_1_coords, axis_2_coords, dose_1_profile, vmin=0,
+                              vmax=30, cmap='turbo', rasterized=True, antialiased=True)
+        ax[0, 0].set_title(plot_titles[0], fontsize=20, pad=5, fontweight="bold")
         cbar00 = fig.colorbar(c00, ax=ax[0, 0])
-        cbar00.set_label(label='Dose [Gy]', size=18)
+        cbar00.set_label(label='Dose [Gy]', size=18, labelpad = 10)
         # cbar00.mappable.set_clim(0, max_dose)
         ax[0, 0].invert_yaxis()
         ax[0, 0].set_ylabel('y (cm)', fontsize=18)
-        c01 = ax[0, 1].imshow(dose_2_profile, vmin=0,
-                              vmax=30, cmap='turbo', aspect="auto")
-        ax[0, 1].set_title(plot_titles[1], fontsize=20, pad=5)
+        c01 = ax[0, 1].pcolormesh(axis_1_coords, axis_2_coords, dose_2_profile, vmin=0,
+                              vmax=30, cmap='turbo', rasterized=True, antialiased=True)
+        ax[0, 1].set_title(plot_titles[1], fontsize=20, pad=5, fontweight="bold")
         cbar01 = fig.colorbar(c01, ax=ax[0, 1])
-        cbar01.set_label(label='Dose [Gy]', size=18)
+        cbar01.set_label(label='Dose [Gy]', size=18, labelpad = 10)
         # cbar01.mappable.set_clim(0, max_dose)
         ax[0, 1].invert_yaxis()
-        c10 = ax[1, 0].imshow(percent_difference_profile,
-                              vmin=0, vmax=200, cmap='turbo', aspect="auto")
-        ax[1, 0].set_title('Percent Difference', fontsize=18, pad=5)
+        c10 = ax[1, 0].pcolormesh(axis_1_coords, axis_2_coords, percent_difference_profile,
+                              vmin=0, vmax=200, cmap='turbo', rasterized=True, antialiased=True)
+        ax[1, 0].set_title('Percent Difference', fontsize=20, pad=5, fontweight="bold")
         cbar10 = fig.colorbar(c10, ax=ax[1, 0])
-        cbar10.set_label(label='[%]', size=18)
+        cbar10.set_label(label='[%]', size=18, labelpad = 10)
         ax[1, 0].invert_yaxis()
         ax[1, 0].set_xlabel('x (cm)', fontsize=18)
         ax[1, 0].set_ylabel('y (cm)', fontsize=18)
 
-        c11 = ax[1, 1].imshow(gamma_index_profile, vmin=0,
-                              vmax=self.max_gamma,  cmap='turbo', aspect="auto")
+        c11 = ax[1, 1].pcolormesh(axis_1_coords, axis_2_coords, gamma_index_profile, vmin=0,
+                              vmax=self.max_gamma,  cmap='turbo', rasterized=True, antialiased=True)
         ax[1, 1].set_title(
-            f"Gamma ({self.gamma_dose_percent_threshold} % / {10.*self.gamma_distance_threshold} mm) | Pass Rate = {np.round(self.gamma_pass_ratio*100,1)}%", fontsize=20, pad=10)
+            f"Gamma ({self.gamma_dose_percent_threshold}% / {int(10.*self.gamma_distance_threshold)} mm)", fontsize=20, pad=5, 
+            fontweight="bold")
+        #: Pass Rate = {np.round(self.gamma_pass_ratio*100,1)}%"
         cbar11 = fig.colorbar(c11, ax=ax[1, 1])
-        cbar11.set_label(label='Gamma', size=18)
+        cbar11.set_label(label='Gamma', size=18, labelpad = 10)
         ax[1, 1].invert_yaxis()
         ax[1, 1].set_xlabel('x (cm)', fontsize=18)
         plt.show()
@@ -1321,7 +1323,7 @@ class DoseComparison:
 
     def compute_gamma_index(self):
         print("Computing gamma index may take time")
-        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
         self.gamma_index = BrachyDose()
         gamma_index_grid = pymedphys.gamma(tuple(self.voxel_centers), self.dose1.grid, tuple(
             self.voxel_centers), self.dose_2_grid_resampled, self.gamma_dose_percent_threshold, self.gamma_distance_threshold,
