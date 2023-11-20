@@ -58,9 +58,9 @@ class BrachyStructure:
         num_voxels_in_structure = np.sum(self.mask)
 
         if "%" in self.dvh_metric_name:
-            histogram_limit = float(re.findall('-?\d+\.?\d*', self.dvh_metric_name))[0]
+            histogram_limit = float(*re.findall('-?\d+\.?\d*', self.dvh_metric_name))
         elif "cc" in self.dvh_metric_name:
-            histogram_limit = float(re.findall('-?\d+\.?\d*', self.dvh_metric_name)[0])/(combined_dose*num_voxels_in_structure)*100
+            histogram_limit = float(*re.findall('-?\d+\.?\d*', self.dvh_metric_name))/(voxel_volume*num_voxels_in_structure)*100
         else:
             raise ValueError("invalid name for DVH metric name. The metric should have percent sign (%) or cc.")
 
@@ -288,7 +288,7 @@ class BrachyPlan:
     def create_structures(
         self,
         dir_structures_source:str, 
-        size_uncropped_dose_grid: np.array):
+        dose_cropped_by_body:bool=True):
         r"""
         Purpose: 
             - To create a list of BrachyStructure objects given the path to the directory
@@ -317,9 +317,30 @@ class BrachyPlan:
         # load the structure mask
         structure_mask_dict = load_structure_mask(dir_structures_source, structure_name_list)
 
+        # get the index extent of body contour on each axis
+        if dose_cropped_by_body:
+            body_index_range = np.zeros([3, 2], dtype=int)
+            for i in range(3):
+                body_index_range [i, :] = np.floor(np.array([
+                    np.argwhere(structure_mask_dict["body"]==1)[:, i].min(), 
+                    # off set of +1 is added to acount for python stopping before range end
+                    np.argwhere(structure_mask_dict["body"]==1)[:, i].max()+1])).astype(int)
+            
+            
         for structure in self.structure_list:
-            original_mask = structure_mask_dict[structure.name]
-            structure.mask = ndimage.zoom(original_mask, size_uncropped_dose_grid/original_mask.shape, order=0)
+            mask = structure_mask_dict[structure.name]
+            # apply body contour mask to the structure mask
+            if dose_cropped_by_body:
+                mask = mask[
+                    body_index_range[0][0]:body_index_range[0][1], 
+                    body_index_range[1][0]:body_index_range[1][1], 
+                    body_index_range[2][0]:body_index_range[2][1]]
+            
+            structure.mask = ndimage.zoom(
+                mask, 
+                np.array(self.combined_dose.grid.shape)/mask.shape, 
+                order=0)
+            
             # print(structure.mask.shape)
             # print(size_uncropped_dose_grid)
             # print(self.combined_dose.grid.shape)
@@ -387,7 +408,7 @@ def dvh_metric(
         cum_dvh: this is the cumulative DVH after adding the new volum to the old one
         """
     
-    histogram, bins_edges = np.histogram(dose.numpy(), bins=num_bins, range=(0, total_dose_max.numpy()+0.1))
+    histogram, bins_edges = np.histogram(dose, bins=num_bins, range=(0, total_dose_max+0.1))
     vol_hist = histogram * voxel_volume
     vol_hist = np.append(np.trim_zeros(vol_hist, trim='b'), 0)
 
@@ -462,7 +483,8 @@ def test_set_dvh_metric_goals():
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
     pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
-    dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
+    # dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
+    dir_dose_rate = "/home/majd/data/patient_dose_simulations/prostate-glen/p1"
     dvh_metric_goals = {
         'D95%(ctv)': 15,
         'D1cc(rectum)': 11.25,
@@ -475,7 +497,7 @@ def test_create_structures_and_calc_dvh_metrics():
     plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
     plan_obj.set_dvh_metric_goals(dvh_metric_goals)
 
-    plan_obj.create_structures(dir_dicom, np.array([126, 380, 380]))
+    plan_obj.create_structures(dir_dicom, False)
     plan_obj.calculate_DVH_metrics()
     for structure in plan_obj.structure_list:
         print(f"{structure.name}: {structure.dvh_metric_observed}")
