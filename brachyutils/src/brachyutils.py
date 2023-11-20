@@ -161,11 +161,11 @@ def convert_many_dose_files(
     else:
         for single_file in tqdm(file_list):
             dose_obj = BrachyDose()
-            dose_obj.load_file_to_BrachyDose(single_file)
+            dose_obj.load_file_to_brachydose(single_file)
             
             file_base_noExtension = os.path.splitext(single_file)[0]
             
-            dose_obj.write_BrachyDose_to_file(file_base_noExtension+type_out)
+            dose_obj.write_brachydose_to_file(file_base_noExtension+type_out)
         
 
 @app.command(help="""Purpose: to crop all the dose files in a folder""")
@@ -333,9 +333,9 @@ def test_crop_by_bodyContour():
     dose_obj.crop_by_bodyContour(pth_dicomRS)
     dose_obj.info()
 
-# def main():
-#     app()
+def main():
+    app()
 
-if __name__=="__main__":
-    test_get_bodyContourRange_from_many_patients_dicom()
-#     app()
+# if __name__=="__main__":
+#     test_get_bodyContourRange_from_many_patients_dicom()
+# #     app()
