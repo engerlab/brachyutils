@@ -257,8 +257,8 @@ class BrachyDose:
 
             self.grid = bench_dose
             self.num_voxels = np.array(bench_voxels, dtype=np.float32)
-            self.vox_size = np.array(
-                [bench_x_spacing, bench_y_spacing, bench_slice_thick], dtype=np.float32)
+            self.vox_size = np.round(np.array(
+                [bench_x_spacing, bench_y_spacing, bench_slice_thick], dtype=np.float32), 1)
             self.topleft = np.array(
                 [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]], dtype=np.float32)
             # overriding axis calculation to ignore the axis contents of 3ddose and use the function below
@@ -287,8 +287,8 @@ class BrachyDose:
         self.grid = dose_array.astype(np.float32)
         self.num_voxels = np.array(
             np.flip((dose_array.shape), axis=0)).astype(np.float32)
-        self.vox_size = np.array(loaded_image_nrrd.GetSpacing()[
-                                 1:]).astype(np.float32)
+        self.vox_size = np.round(np.array(loaded_image_nrrd.GetSpacing()[
+                                 1:]).astype(np.float32), 1)
         self.topleft = np.array(loaded_image_nrrd.GetOrigin()[
                                 1:]).astype(np.float32)
         self.voxel_edges = self.calculate_voxel_edges()
@@ -715,15 +715,18 @@ class BrachyDose:
         # calculate the end point of axis in 3D space
         axes_end = np.array(
             # one voxel size is added because np.arange stops at an index before the end
-            self.topleft + self.num_voxels * np.round(self.vox_size, 1) + np.round(self.vox_size, 1)
+            self.topleft + self.num_voxels * self.vox_size + self.vox_size
         )
+                
         self.voxel_edges = np.empty(len(axes_end), dtype=object)
         for i in range(len(axes_end)):
             self.voxel_edges[i] = np.arange(
                 self.topleft[len(axes_end)-1-i], 
                 axes_end[len(axes_end)-1-i], 
-                np.round(self.vox_size, 1)[len(axes_end)-1-i], 
+                self.vox_size[len(axes_end)-1-i], 
                 dtype=np.float32)
+            if np.absolute(self.grid.shape[i] - self.voxel_edges[i].shape[0]) > 1:
+                self.voxel_edges[i] = self.voxel_edges[i][:-1] 
 
         return self.voxel_edges
 

@@ -132,9 +132,10 @@ def crop_egsphant_by_bodyContour_many_patients(
 
 
 def convert_single_dose_file(input_name, type_out):
-    dose_obj = BrachyDose(input_name)
-    file_base_noExtension = os.path.splitext(input_name)[0]        
-    dose_obj.write_brachydose_to_file(file_base_noExtension+type_out)
+    file_base_noExtension = os.path.splitext(input_name)[0]
+    if not os.path.exists(file_base_noExtension+type_out):  
+        dose_obj = BrachyDose(input_name)
+        dose_obj.write_brachydose_to_file(file_base_noExtension+type_out)
 
 @app.command(help="""Will convert all files in the "input_dir" of type "type_in" to "type_out" """)
 def convert_many_dose_files(
@@ -160,12 +161,13 @@ def convert_many_dose_files(
             our_pool.map(partial_dose_writer, file_list)
     else:
         for single_file in tqdm(file_list):
-            dose_obj = BrachyDose()
-            dose_obj.load_file_to_brachydose(single_file)
+            convert_single_dose_file(single_file, type_out)
+            # dose_obj = BrachyDose()
+            # dose_obj.load_file_to_brachydose(single_file)
             
-            file_base_noExtension = os.path.splitext(single_file)[0]
+            # file_base_noExtension = os.path.splitext(single_file)[0]
             
-            dose_obj.write_brachydose_to_file(file_base_noExtension+type_out)
+            # dose_obj.write_brachydose_to_file(file_base_noExtension+type_out)
         
 
 @app.command(help="""Purpose: to crop all the dose files in a folder""")
@@ -303,7 +305,7 @@ def test_crop_egsphant_by_bodyContour_many_files():
 
 def test_convert_many_files():
     # dir_in = "../../data_test/many_files"
-    dir_in = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm/p2/"
+    dir_in = "/home/majd/data/patient_dose_simulations/prostate-glen/p10/"
     type_in = ".nrrd"
     type_out = ".minidos"
     
@@ -337,5 +339,5 @@ def test_crop_by_bodyContour():
 def main():
     app()
 
-# if __name__ == "__main__":
-#     test_convert_many_files()
+if __name__ == "__main__":
+    test_convert_many_files()
