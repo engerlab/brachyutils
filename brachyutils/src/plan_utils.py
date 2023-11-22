@@ -119,8 +119,7 @@ class BrachyPlan:
     
     def load_catheterTable_json(
         self, 
-        pth_catheterTable_json:str, 
-        drop_lastDwell_perCatheter:bool=False):
+        pth_catheterTable_json:str):
         r"""
         Purpose:
             - To load the contents of a catheter table into the Brachy plan.
@@ -162,20 +161,20 @@ class BrachyPlan:
         
         # there is currently a bug in the tps where the last dwell position is repeated.
         # this block will fixe it {
-        if drop_lastDwell_perCatheter:
-            corrected_catheter_table = []
-            for catheter in catheter_table:
-                dwell_list = catheter['dwells']
-                corrected_catheter_table.append(
-                    {
-                        'dwells': dwell_list[:-1],
-                        "id": catheter["id"],
-                        "points": catheter["points"]
-                    })
-            self.catheter_table = corrected_catheter_table
-        # }
-        else:
-            self.catheter_table = catheter_table
+        # if drop_lastDwell_perCatheter:
+        #     corrected_catheter_table = []
+        #     for catheter in catheter_table:
+        #         dwell_list = catheter['dwells']
+        #         corrected_catheter_table.append(
+        #             {
+        #                 'dwells': dwell_list[:-1],
+        #                 "id": catheter["id"],
+        #                 "points": catheter["points"]
+        #             })
+        #     self.catheter_table = corrected_catheter_table
+        # # }
+        # else:
+        self.catheter_table = catheter_table
     
     def extract_dwell_numbers_times_coordinates_from_catheterTable(self):
         r"""

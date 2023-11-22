@@ -224,8 +224,8 @@ def crop_dose_by_bodyContour_many_files(
         
         print(f"loading the patient dose file at {dose_file}")
         dose_obj = BrachyDose()
-        dose_obj.load_file_to_BrachyDose(dose_file)
-        dose_obj.crop_by_bodyContour(patient["body_index_range"], patient["body_mask_shape"])
+        dose_obj.load_file_to_brachydose(dose_file)
+        dose_obj.crop_by_body_contour(patient["body_index_range"], patient["body_mask_shape"])
         
         print(f"writing the cropped egsphant to {pth_cropped_dose}")
         dose_obj.write_to_nrrd(pth_cropped_dose)
@@ -336,8 +336,16 @@ def test_crop_by_bodyContour():
     dose_obj.crop_by_bodyContour(pth_dicomRS)
     dose_obj.info()
 
+def test_crop_dose_by_bodyContour_many_files():
+    # pth_3ddose = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm/p3/run_29.3ddose"
+    pth_3ddose = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm/p3"
+    pth_json = "../../data_test/patient_body_bounds.json"
+    
+    crop_dose_by_bodyContour_many_files(pth_3ddose, pth_json)
+    
 def main():
     app()
 
 if __name__ == "__main__":
-    test_convert_many_files()
+    # test_convert_many_files()
+    test_crop_dose_by_bodyContour_many_files()
