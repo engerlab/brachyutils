@@ -646,6 +646,7 @@ class BrachyDose:
             Purpose: 
                 To save the contents of BrachyDose into a minidos file, which is just a binary file written line by line. 
                 This code is based on Maude Robitaille's implementation. 
+                This script was developed by Maude Robitaille. 
             inputs:
                 - self := BrachyDose object
                 - file_name := path where the dose minidos file will be written to. 
