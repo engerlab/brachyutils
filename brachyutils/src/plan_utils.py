@@ -87,6 +87,14 @@ class BrachyPlan:
         matches the dwell_number_list. shape: (num_dwells, z, y, x)
         - uncertainty_tensor:np.array := uncertainty from dwell position 1 to num_dwells. shape: (num_dwells, z, y, x)
         - brachy_structure:list[BrachyStructure] := the list of patient structures in the plan
+    
+    Functions:
+        - load_catheterTable_json
+        - extract_dwell_numbers_times_coordinates_from_catheterTable
+        - load_dose_rate_tensor
+        - set_dvh_metric_goals
+        - create_structures
+        - calculate_DVH_metrics
     """
     num_dwells:int
     catheter_table:list
