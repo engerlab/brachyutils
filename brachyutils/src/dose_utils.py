@@ -81,6 +81,7 @@ class BrachyDose:
         get_average_uncert()
         get_average_uncert_benchmark()
         pad_3ddose()
+        scale_dose_by_constant()
         write_to_3ddose()
         write_to_nrrd()
         write_to_npz()
@@ -981,6 +982,22 @@ class BrachyDose:
 
         self.crop_by_index(scaled_body_index_range, True)
 
+    def scale_dose_by_constant(
+        self, 
+        scale_factor: float, 
+        scale_uncert: Optional[bool] = False):
+        r"""
+        Purpose: 
+            scale the dose and uncertainty maps by a constant factor. 
+        Inputs:
+            - scale_factor := a floating point number that the dose and uncertainty maps will be scaled by. 
+        Outputs:
+            - Void := will scale the dose and uncertainty maps of self by the scale factor. 
+        """
+        self.is_not_empty()
+        self.grid *= scale_factor
+        if scale_uncert and self.uncertainty is not None:
+            self.uncertainty *= scale_factor
 
 def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
     # old_file_dir = load_3ddose(pth1_3ddose)

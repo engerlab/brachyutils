@@ -19,7 +19,7 @@ app = typer.Typer()
     help="""Purpose: to exract body contour extent on each axis
     for all the patients in input_dir and save them to a json 
     file located at output_json""")
-def get_bodyContourRange_from_many_patients_dicom(
+def get_bodyContourRange_from_dicom_many_patients(
     input_dir:Annotated[str, typer.Argument(
     help="""
     path to the directory where folders of many patients with dicom files exist. this script will loop through patient folders. \n
@@ -138,7 +138,7 @@ def convert_single_dose_file(input_name, type_out):
         dose_obj.write_brachydose_to_file(file_base_noExtension+type_out)
 
 @app.command(help="""Will convert all files in the "input_dir" of type "type_in" to "type_out" """)
-def convert_many_dose_files(
+def convert_dose_many_files(
     input_dir: Annotated[str, typer.Argument(help="""directory where there are dose files to be converted""")], 
     type_in: Annotated[str, typer.Argument(help="""extension of the files to be converted. Options are .3ddose, and .nrrd. .minidos will be added soon""")], 
     type_out: Annotated[str, typer.Argument(help="""extension of the output files. Options are .3ddose, .nrrd, .minidos""")], 
@@ -161,14 +161,7 @@ def convert_many_dose_files(
             our_pool.map(partial_dose_writer, file_list)
     else:
         for single_file in tqdm(file_list):
-            convert_single_dose_file(single_file, type_out)
-            # dose_obj = BrachyDose()
-            # dose_obj.load_file_to_brachydose(single_file)
-            
-            # file_base_noExtension = os.path.splitext(single_file)[0]
-            
-            # dose_obj.write_brachydose_to_file(file_base_noExtension+type_out)
-        
+            convert_single_dose_file(single_file, type_out)  
 
 @app.command(help="""Purpose: to crop all the dose files in a folder""")
 def crop_dose_by_bodyContour_many_files(
@@ -267,7 +260,7 @@ def crop_dose_by_ratio_many_files(
 
 
 @app.command()
-def padd_many_dose_files(input_dir: str, type_in: str, dim_out:str):
+def padd_dose_many_files(input_dir: str, type_in: str, dim_out:str):
     r"""
     Purpose:
         Will padd all files in the "input_dir" of type "type_in" with zeros to
@@ -279,7 +272,39 @@ def padd_many_dose_files(input_dir: str, type_in: str, dim_out:str):
     """
     raise Exception("This feature is not implementated yet")
 
-
+def scale_dose_by_constant_single_file(input_name, scale_factor):
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_BrachyDose(input_name)
+    dose_obj.scale_dose_by_constant(scale_factor)
+    dose_obj.write_brachydose_to_file(input_name)
+    
+@app.command(help="""Purpose: Will scale all files in the "input_dir" of type "type_in" by multiplying them by "scale_factor" """)
+def scale_dose_by_constant_many_files(
+    input_dir: Annotated[str,  typer.Argument(help="""directory where there are files to be converted""")],
+    type_in: Annotated[str,  typer.Argument(help="""could be ".3ddose", ".nrrd", ".minidose", other types could be added""")],
+    scale_factor: Annotated[float, typer.Argument(help="""the factor by which the dose will be scaled""")],
+    multi_proc: Annotated[bool, typer.Option(help="""if set to true, multiprocessing will be used to convert files in parallel""")] = False):
+    r"""
+    Purpose:
+        Will scale all files in the "input_dir" of type "type_in" 
+        by multiplying them by "scale_factor". 
+    Inputs:
+        input_dir := directory where there are files to be converted 
+        type_in := could be ".3ddose", ".nrrd", ".minidose", other types could be added
+        scale_factor := the factor by which the dose will be scaled
+    """
+    # raise Exception("This feature is not implementated yet")
+    assert os.path.exists(input_dir)
+    
+    file_list = glob(input_dir+"/*"+type_in)
+    
+    if multi_proc:
+        with Pool() as our_pool:
+            partial_dose_writer = partial(scale_dose_by_constant_single_file, scale_factor=scale_factor) 
+            our_pool.map(partial_dose_writer, file_list)
+    else:
+        for single_file in tqdm(file_list):
+            scale_dose_by_constant_single_file(single_file, scale_factor)
 
 def test_get_bodyContourRange_from_many_patients_dicom():
     input_dir = "../../data_test"
