@@ -273,10 +273,12 @@ def padd_dose_many_files(input_dir: str, type_in: str, dim_out:str):
     raise Exception("This feature is not implementated yet")
 
 def scale_dose_by_constant_single_file(input_name, scale_factor):
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_BrachyDose(input_name)
-    dose_obj.scale_dose_by_constant(scale_factor)
-    dose_obj.write_brachydose_to_file(input_name)
+    assert os.path.exists(input_name)
+    output_name = os.path.dirname(input_name) + "/scaled_" + os.path.basename(input_name)
+    if not os.path.exists(output_name):
+        dose_obj = BrachyDose(input_name)
+        dose_obj.scale_dose_by_constant(scale_factor)
+        dose_obj.write_brachydose_to_file(output_name)
     
 @app.command(help="""Purpose: Will scale all files in the "input_dir" of type "type_in" by multiplying them by "scale_factor" """)
 def scale_dose_by_constant_many_files(
