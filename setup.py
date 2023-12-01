@@ -6,7 +6,7 @@ setup(name='brachyutils',
       author='EngerLab',
       packages = find_packages(),
       install_requires=[
-        "contourpy",
+        # "contourpy",
         "cycler",
         "fonttools",
         "importlib-resources",
