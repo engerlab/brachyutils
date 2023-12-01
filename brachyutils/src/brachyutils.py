@@ -262,12 +262,12 @@ def crop_dose_by_ratio_many_files(
 
         file_base_noExtension = os.path.splitext(file)[0]
 
-        dose_obj.write_BrachyDose_to_file(file_base_noExtension+type_out)
+        dose_obj.write_brachydose_to_file(file_base_noExtension+type_out)
         
 
 
 @app.command()
-def padd_many_files(input_dir: str, type_in: str, dim_out:str):
+def padd_many_dose_files(input_dir: str, type_in: str, dim_out:str):
     r"""
     Purpose:
         Will padd all files in the "input_dir" of type "type_in" with zeros to
