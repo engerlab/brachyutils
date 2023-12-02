@@ -81,7 +81,7 @@ class BrachyDose:
         get_average_uncert()
         get_average_uncert_benchmark()
         pad_3ddose()
-        scale_dose_by_constant()
+        multiply_dose_by_constant()
         write_to_3ddose()
         write_to_nrrd()
         write_to_npz()
@@ -982,7 +982,7 @@ class BrachyDose:
 
         self.crop_by_index(scaled_body_index_range, True)
 
-    def scale_dose_by_constant(
+    def multiply_dose_by_constant(
         self, 
         scale_factor: float, 
         scale_uncert: Optional[bool] = False):

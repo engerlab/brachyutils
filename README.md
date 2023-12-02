@@ -22,9 +22,37 @@ After this process finishes, run `pip install -e .` to install the brachyutils p
 
 ## brachyutils commands
 
-brachyutils comes with a linux command line interface, to learn about its functionality run:
+brachyutils comes with a linux command line interface. To learn about the commands that are available run `brachyutils --help` on the command line.
 
-`brachyutils --help` on the command line. 
+At the moment, the outputs looks like the following:
+
+```
+$ brachyutils --help
+Usage: brachyutils [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --install-completion [bash|zsh|fish|powershell|pwsh]
+                                  Install completion for the specified
+                                  shell.
+  --show-completion [bash|zsh|fish|powershell|pwsh]
+                                  Show completion for the specified
+                                  shell, to copy it or customize the
+                                  installation.
+  --help                          Show this message and exit.
+
+Commands:
+  convert-dose-many-files         Will convert all...
+  crop-dose-by-bodycontour-many-files
+                                  Purpose: to crop...
+  crop-dose-by-ratio-many-files   Purpose: Will...
+  crop-egsphant-by-bodycontour-many-patients
+                                  Purpose: to crop...
+  get-bodycontourrange-from-dicom-many-patients
+                                  Purpose: to...
+  multiply-dose-by-constant-many-files
+                                  Purpose: Will...
+  padd-dose-many-files            Purpose: Will...
+```
 
 ## BrachyDose
 
@@ -65,6 +93,7 @@ This class holds information regarding a dose distribution as well as the fundam
 - crop_by_index()
 - is_not_empty()
 - info()
+- multiply_dose_by_constant()
 
 ## BrachyEgsphant
 

@@ -273,16 +273,16 @@ def padd_dose_many_files(input_dir: str, type_in: str, dim_out:str):
     """
     raise Exception("This feature is not implementated yet")
 
-def scale_dose_by_constant_single_file(input_name, scale_factor):
+def multiply_dose_by_constant_single_file(input_name, scale_factor):
     assert os.path.exists(input_name)
     output_name = os.path.dirname(input_name) + "/scaled_" + os.path.basename(input_name)
     if not os.path.exists(output_name):
         dose_obj = BrachyDose(input_name)
-        dose_obj.scale_dose_by_constant(scale_factor)
+        dose_obj.multiply_dose_by_constant(scale_factor)
         dose_obj.write_brachydose_to_file(output_name)
     
 @app.command(help="""Purpose: Will scale all files in the "input_dir" of type "type_in" by multiplying them by "scale_factor" """)
-def scale_dose_by_constant_many_files(
+def multiply_dose_by_constant_many_files(
     input_dir: Annotated[str,  typer.Argument(help="""directory where there are files to be converted""")],
     type_in: Annotated[str,  typer.Argument(help="""could be ".3ddose", ".nrrd", ".minidos", other types could be added""")],
     scale_factor: Annotated[float, typer.Argument(help="""the factor by which the dose will be scaled""")],
@@ -303,11 +303,11 @@ def scale_dose_by_constant_many_files(
     
     if multi_proc:
         with Pool() as our_pool:
-            partial_dose_writer = partial(scale_dose_by_constant_single_file, scale_factor=scale_factor) 
+            partial_dose_writer = partial(multiply_dose_by_constant_single_file, scale_factor=scale_factor) 
             our_pool.map(partial_dose_writer, file_list)
     else:
         for single_file in tqdm(file_list):
-            scale_dose_by_constant_single_file(single_file, scale_factor)
+            multiply_dose_by_constant_single_file(single_file, scale_factor)
 
 def test_get_bodyContourRange_from_many_patients_dicom():
     input_dir = "../../data_test"
@@ -371,12 +371,12 @@ def test_crop_dose_by_bodyContour_many_files():
     
     crop_dose_by_bodyContour_many_files(pth_3ddose, pth_json)
 
-def test_scale_dose_by_constant_many_files():
+def test_multiply_dose_by_constant_many_files():
     dir_in = "../../data_test/many_files"
     type_in = ".nrrd"
     scale_factor = 3.4
     
-    scale_dose_by_constant_many_files(
+    multiply_dose_by_constant_many_files(
         dir_in, 
         type_in, 
         scale_factor, 
@@ -397,4 +397,4 @@ def main():
 if __name__ == "__main__":
     # test_convert_many_files()
     # test_crop_dose_by_bodyContour_many_files()
-    test_scale_dose_by_constant_many_files()
+    test_multiply_dose_by_constant_many_files()
