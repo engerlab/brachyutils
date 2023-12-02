@@ -4,6 +4,7 @@ import os
 from tqdm import tqdm
 import pytest
 import typer
+import numpy as np
 
 from dicom_utils import  get_structure_index_range
 from egsphant_utils import _load_json, BrachyEgsphant
@@ -381,12 +382,19 @@ def test_scale_dose_by_constant_many_files():
         scale_factor, 
         multi_proc=True)
     
-    scaled_file_list = glob(dir_in+"/scaled*"+type_in)
-    
+    scaled_file_list = glob(dir_in+"/scaled_*"+type_in)
+    for scaled_dose_file_name in scaled_file_list:
+        scaled_dose_obj = BrachyDose(scaled_dose_file_name)
 
+        original_dose_file_name = os.path.dirname(scaled_dose_file_name) + "/" + os.path.basename(scaled_dose_file_name).split("scaled_")[-1] 
+        original_dose_obj = BrachyDose(original_dose_file_name)
+        
+        assert np.allclose(scaled_dose_obj.grid, original_dose_obj.grid*scale_factor)
+        
 def main():
     app()
 
 if __name__ == "__main__":
     # test_convert_many_files()
-    test_crop_dose_by_bodyContour_many_files()
+    # test_crop_dose_by_bodyContour_many_files()
+    test_scale_dose_by_constant_many_files()
