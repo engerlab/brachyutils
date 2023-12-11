@@ -44,7 +44,7 @@ import pyzstd
 
 # from tqdm import tqdm
 
-from dicom_utils import get_body_index_range
+from dicom_utils import get_structure_index_range
 
 # from rt_utils import RTStructBuilder
 # from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
@@ -81,10 +81,11 @@ class BrachyDose:
         get_average_uncert()
         get_average_uncert_benchmark()
         pad_3ddose()
+        multiply_dose_by_constant()
         write_to_3ddose()
         write_to_nrrd()
         write_to_npz()
-        write_to_minidose()
+        write_to_minidos()
         write_to_xz()
         write_to_zstd()
         calculate_voxel_edges()
@@ -92,7 +93,7 @@ class BrachyDose:
         crop_by_coordinates()
         crop_by_fraction()
         crop_by_index()
-        assert_brachydose_not_empty()
+        is_not_empty()
         info()
 
     Dependencies: 
@@ -145,7 +146,7 @@ class BrachyDose:
 
         Inputs:
             - pth_dose_file := path directory where the file containing the dose is. The file 
-                extension could be ".3ddose", ".nrrd", ".dcm", or ".minidose"
+                extension could be ".3ddose", ".nrrd", ".dcm", or ".minidos"
 
         Output:
         self : BrachyDose
@@ -162,11 +163,11 @@ class BrachyDose:
             assert "RD" in pth_dose_file, "must be a dicom dose file starting with 'RD'"
             raise NotImplementedError(
                 "loading dose from dicom is not currently supported")
-        elif file_extension == ".minidose":
+        elif file_extension == ".minidos":
             raise NotImplementedError(
-                "loading dose from .bin file is not currently supported")
-        # elif file_extension == ".bindose":
-        #    self.load_from_bindose(pth_dose_file)
+                "loading dose from .minidos file is not currently supported")
+        elif file_extension == ".bindose":
+            raise NotImplementedError("Writing to .bindose not implemented")
         else:
             raise ValueError("file extension not recognized")
         #voxel_centers = self.get_voxel_centers()
@@ -183,7 +184,7 @@ class BrachyDose:
 
         Inputs:
             - pth_dose_file := path where the BrachyDose contents will be written to. The options 
-            for output type are "3ddose", "nrrd", "npz", "minidose", "xz", and "zstd". 
+            for output type are "3ddose", "nrrd", "npz", "minidos", "xz", and "zstd". 
 
         Output:
             - void := contents of self is written to "pth_dose_file"
@@ -199,8 +200,8 @@ class BrachyDose:
         elif file_extension == ".npz":
             self.write_to_npz(pth_dose_file)
 
-        elif file_extension == ".minidose":
-            self.write_to_minidose(pth_dose_file)
+        elif file_extension == ".minidos":
+            self.write_to_minidos(pth_dose_file)
 
         elif file_extension == ".xz":
             self.write_to_xz(pth_dose_file)
@@ -208,12 +209,12 @@ class BrachyDose:
         elif file_extension == ".zstd":
             self.write_to_zstd(pth_dose_file)
 
-        # elif file_extension == ".bindose":
-        #    raise NotImplementedError("Writing to .bindose not implemented")
+        elif file_extension == ".bindose":
+           raise NotImplementedError("Writing to .bindose not implemented")
 
         else:
             raise ValueError(f"The input file name {pth_dose_file} is not supported. the supported \
-            file types are '.3ddose', '.nrrd', '.npz', '.minidose', '.xz', and '.zstd'")
+            file types are '.3ddose', '.nrrd', '.npz', '.minidos', '.xz', and '.zstd'")
 
     def load_from_3ddose(self, filename: str):
         r""" 
@@ -230,11 +231,11 @@ class BrachyDose:
         with open(path, "rb") as newfile:
             bench_voxels = [int(i) for i in newfile.readline().split()]
             bench_x_pos = np.round(
-                nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
+                np.array(newfile.readline().split(), dtype=np.float32), decimals=6)
             bench_y_pos = np.round(
-                nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
+                np.array(newfile.readline().split(), dtype=np.float32), decimals=6)
             bench_z_pos = np.round(
-                nparray(newfile.readline().split(), dtype=np.float32), decimals=6)
+                np.array(newfile.readline().split(), dtype=np.float32), decimals=6)
 
             bench_x_spacing = bench_x_pos[1] - bench_x_pos[0]
             bench_y_spacing = bench_y_pos[1] - bench_y_pos[0]
@@ -242,12 +243,12 @@ class BrachyDose:
 
             bench_dict = {}
 
-            huge_dose_array = nparray(
+            huge_dose_array = np.array(
                 newfile.readline().strip().split(), dtype=np.float32)
             bench_dose = reshape(
                 huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
             try:
-                huge_uncert_array = nparray(
+                huge_uncert_array = np.array(
                     newfile.readline().strip().split(), dtype=np.float32)
                 bench_uncert = reshape(
                     huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
@@ -257,8 +258,8 @@ class BrachyDose:
 
             self.grid = bench_dose
             self.num_voxels = np.array(bench_voxels, dtype=np.float32)
-            self.vox_size = np.array(
-                [bench_x_spacing, bench_y_spacing, bench_slice_thick], dtype=np.float32)
+            self.vox_size = np.round(np.array(
+                [bench_x_spacing, bench_y_spacing, bench_slice_thick], dtype=np.float32), 1)
             self.topleft = np.array(
                 [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]], dtype=np.float32)
             # overriding axis calculation to ignore the axis contents of 3ddose and use the function below
@@ -287,8 +288,8 @@ class BrachyDose:
         self.grid = dose_array.astype(np.float32)
         self.num_voxels = np.array(
             np.flip((dose_array.shape), axis=0)).astype(np.float32)
-        self.vox_size = np.array(loaded_image_nrrd.GetSpacing()[
-                                 1:]).astype(np.float32)
+        self.vox_size = np.round(np.array(loaded_image_nrrd.GetSpacing()[
+                                 1:]).astype(np.float32), 1)
         self.topleft = np.array(loaded_image_nrrd.GetOrigin()[
                                 1:]).astype(np.float32)
         self.voxel_edges = self.calculate_voxel_edges()
@@ -313,16 +314,16 @@ class BrachyDose:
         self.topleft = loaded_brachydose["topleft"]
         self.voxel_edges = loaded_brachydose["axis"]
 
-    def load_from_minidose(self, pth_minidose):
+    def load_from_minidos(self, pth_minidos):
         r"""
         Purpose:
-            Given the path to a minidose file, load its content into self:BrachyDose
+            Given the path to a minidos file, load its content into self:BrachyDose
         Input:
             - filename := path to a ".minidos" file
         """
         assert os.path.splitext(
-            pth_minidose)[-1] == ".minidose", f"the file {pth_minidose}, should have '.minidose' extension."
-        with open(pth_minidose, 'rb') as file:
+            pth_minidos)[-1] == ".minidos", f"the file {pth_minidos}, should have '.minidos' extension."
+        with open(pth_minidos, 'rb') as file:
             line_content = np.frombuffer(file.readline())
 
     # def load_from_bindose(self, pth_bindose):
@@ -358,7 +359,7 @@ class BrachyDose:
     def extract_dose_values_from_coordinates(self, x, y, z):
         r"""
         """
-        self.assert_brachydose_not_empty()
+        self.is_not_empty()
         if (self.interpolation_function is None):
             raise ValueError("interpolation function is not defined")
         shape = []
@@ -641,14 +642,15 @@ class BrachyDose:
             axis=self.voxel_edges,
         )
 
-    def write_to_minidose(self, file_name, compress_program: Optional[str] = None):
+    def write_to_minidos(self, file_name, compress_program: Optional[str] = None):
         r"""
             Purpose: 
-                To save the contents of BrachyDose into a minidose file, which is just a binary file written line by line. 
+                To save the contents of BrachyDose into a minidos file, which is just a binary file written line by line. 
                 This code is based on Maude Robitaille's implementation. 
+                This script was developed by Maude Robitaille. 
             inputs:
                 - self := BrachyDose object
-                - file_name := path where the dose minidose file will be written to. 
+                - file_name := path where the dose minidos file will be written to. 
 
             outputs: Void
                 writes the contents of self:BrachyDose to the file_name. 
@@ -717,10 +719,16 @@ class BrachyDose:
             # one voxel size is added because np.arange stops at an index before the end
             self.topleft + self.num_voxels * self.vox_size + self.vox_size
         )
+                
         self.voxel_edges = np.empty(len(axes_end), dtype=object)
         for i in range(len(axes_end)):
-            self.voxel_edges[i] = np.arange(self.topleft[len(axes_end)-1-i], axes_end[len(
-                axes_end)-1-i], self.vox_size[len(axes_end)-1-i], dtype=np.float32)
+            self.voxel_edges[i] = np.arange(
+                self.topleft[len(axes_end)-1-i], 
+                axes_end[len(axes_end)-1-i], 
+                self.vox_size[len(axes_end)-1-i], 
+                dtype=np.float32)
+            if np.absolute(self.grid.shape[i] - self.voxel_edges[i].shape[0]) > 1:
+                self.voxel_edges[i] = self.voxel_edges[i][:-1] 
 
         return self.voxel_edges
 
@@ -788,7 +796,7 @@ class BrachyDose:
         Dependencies:
             -self.crop_by_index()
         """
-        self.assert_brachydose_not_empty()
+        self.is_not_empty()
 
         # make sure the ending coordinate of the new range is larger than its origin
         for ax in coord_range:
@@ -914,7 +922,7 @@ class BrachyDose:
             new_dose_obj.voxel_edges = self.calculate_voxel_edges()
             return new_dose_obj
 
-    def assert_brachydose_not_empty(self):
+    def is_not_empty(self):
         assert self.grid is not None, "error grid is None"
         # commenting out the following line, since uncertainty is not always available
         # e.g. for gamma and percent difference
@@ -923,9 +931,10 @@ class BrachyDose:
         assert self.vox_size is not None, "error vox_size is None"
         assert self.topleft is not None, "error topleft is None"
         assert self.voxel_edges is not None, "error axis is None"
+        return True
 
     def info(self):
-        self.assert_brachydose_not_empty()
+        self.is_not_empty()
         print(f"shape of dose grid is: {self.grid.shape}")
         print(f"shape of uncertainty matrix is: {self.uncertainty.shape}")
         print(f"num voxels attribute is: {self.num_voxels}")
@@ -965,7 +974,7 @@ class BrachyDose:
         if body_index_range is None or body_mask_shape is None:
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            # body_index_range, body_mask_shape = get_body_index_range(pth_dir_dicom)
+            # body_index_range, body_mask_shape = get_structure_index_range(pth_dir_dicom)
         # the body mask may have a different size than the dose map, we normalize range to the dimension
         # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.
         scaled_body_index_range = (body_index_range / np.expand_dims(
@@ -973,6 +982,22 @@ class BrachyDose:
 
         self.crop_by_index(scaled_body_index_range, True)
 
+    def multiply_dose_by_constant(
+        self, 
+        scale_factor: float, 
+        scale_uncert: Optional[bool] = False):
+        r"""
+        Purpose: 
+            scale the dose and uncertainty maps by a constant factor. 
+        Inputs:
+            - scale_factor := a floating point number that the dose and uncertainty maps will be scaled by. 
+        Outputs:
+            - Void := will scale the dose and uncertainty maps of self by the scale factor. 
+        """
+        self.is_not_empty()
+        self.grid *= scale_factor
+        if scale_uncert and self.uncertainty is not None:
+            self.uncertainty *= scale_factor
 
 def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
     # old_file_dir = load_3ddose(pth1_3ddose)
@@ -1000,7 +1025,7 @@ def test_load_from_3ddose():
 
     dose_obj = BrachyDose()
     dose_obj.load_from_3ddose(pth_3ddose)
-    dose_obj.assert_brachydose_not_empty()
+    dose_obj.is_not_empty()
 
 
 def test_load_file_to_brachydose():
@@ -1011,7 +1036,7 @@ def test_load_file_to_brachydose():
 
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
-    dose_obj.assert_brachydose_not_empty()
+    dose_obj.is_not_empty()
 # @pytest.mark.passed
 
 
@@ -1078,10 +1103,10 @@ def test_convert_to_npz_file():
     new_dose_obj.load_from_npz(pth_out)
     dose_obj.is_equal(new_dose_obj)
 
-# def test_write_to_minidose():
+# def test_write_to_minidos():
 #     r"""
 #     Purpose:
-#         simulatenously test write_to_minidose() and load_from_minidose()
+#         simulatenously test write_to_minidos() and load_from_minidos()
 #     """
 #     # pth_3ddose =  "../../data_test/combined.3ddose"
 
@@ -1091,10 +1116,10 @@ def test_convert_to_npz_file():
 #     dose_obj = BrachyDose()
 #     dose_obj.load_file_to_brachydose(pth_3ddose)
 
-#     dose_obj.write_to_minidose(pth_out, compress_program='zstd')
+#     dose_obj.write_to_minidos(pth_out, compress_program='zstd')
 
 #     new_dose_obj = BrachyDose()
-    # new_dose_obj.load_from_minidose(pth_out)
+    # new_dose_obj.load_from_minidos(pth_out)
     # dose_obj.is_equal(new_dose_obj)
 
 
@@ -1168,10 +1193,10 @@ def test_crop_by_fraction():
     dose_obj.info()
 
 
-def test_get_body_index_range():
+def test_get_structure_index_range():
     pth_dicom_rs = "../../data_test/prostate_glen_p1/"
     pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
-    print(get_body_index_range(pth_dicom_rs))
+    print(get_structure_index_range(pth_dicom_rs))
 
 
 def test_crop_by_body_contour():
@@ -1186,22 +1211,22 @@ def test_crop_by_body_contour():
     dose_obj.info()
 
 
-def test_convert_to_minidose():
+def test_convert_to_minidos():
     pth_input = "../../data_test/dwell1_1mm.nrrd"
-    pth_minidose = os.path.splitext(pth_input)[0] + ".minidose"
+    pth_minidos = os.path.splitext(pth_input)[0] + ".minidos"
 
 # if __name__ == "__main__":
     # app()
 
     # a Test for the following functions
-    #test_convert_to_minidose()
+    #test_convert_to_minidos()
     # test_crop_by_body_contour()
     # test_load_from_3ddose()
     # test_load_file_to_brachydose()
     # test_write_to_3ddose()
     # test_convert_to_nrrd()
     # test_convert_to_npz_file()
-    # test_write_to_minidose()
+    # test_write_to_minidos()
     # test_write_to_xz()
     # test_write_to_zstd()
     # test_convert_many_files()

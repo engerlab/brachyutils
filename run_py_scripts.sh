@@ -40,12 +40,12 @@ source ENV/bin/activate
 # # examples and details for each command is provided below:
 
 # to convert all 3ddose files located at INPUT_DIR to nrrd in the same folder.  
-input_dir="/home/majd/data/patient_dose_simulations/prostate-jgh"
+input_dir="/home/majd/data/patient_dose_simulations/prostate-glen"
 patient_folders=$input_dir'/*/'
 for folder in $patient_folders
 do 
     echo $folder
-    brachyutils convert-many-files $folder '.3ddose' '.nrrd' --multi-proc
+    brachyutils convert-many-dose-files $folder '.nrrd' '.minidos' --multi-proc
     # rm $folder*.3ddose
 done
 
