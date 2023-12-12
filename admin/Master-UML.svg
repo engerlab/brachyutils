@@ -28,7 +28,7 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      inkscape:zoom="0.51969075"
-     inkscape:cx="673.47745"
+     inkscape:cx="676.36378"
      inkscape:cy="728.31775"
      inkscape:window-width="1853"
      inkscape:window-height="1025"
@@ -39,7 +39,7 @@
      id="defs1"><linearGradient
    id="linearGradient97"
    inkscape:collect="always"><stop
-     style="stop-color:#00ffff;stop-opacity:1"
+     style="stop-color:#d40000;stop-opacity:1"
      offset="0"
      id="stop97" /><stop
      style="stop-color:#000080;stop-opacity:1"
@@ -50,7 +50,7 @@
      style="stop-color:#000080;stop-opacity:1"
      offset="0"
      id="stop95" /><stop
-     style="stop-color:#00ffff;stop-opacity:1"
+     style="stop-color:#ff0000;stop-opacity:1"
      offset="1"
      id="stop96" /></linearGradient><inkscape:perspective
    sodipodi:type="inkscape:persp3d"
@@ -239,18 +239,18 @@
    inkscape:collect="always"
    xlink:href="#linearGradient95"
    id="linearGradient96"
-   x1="8.8759508"
-   y1="27.356533"
-   x2="360.91373"
-   y2="19.170601"
+   x1="38.093231"
+   y1="21.791195"
+   x2="403.95816"
+   y2="23.003298"
    gradientUnits="userSpaceOnUse" /><linearGradient
    inkscape:collect="always"
    xlink:href="#linearGradient97"
    id="linearGradient98"
-   x1="-20.702961"
-   y1="24.226692"
-   x2="210.19362"
-   y2="7.4239249"
+   x1="-15.671018"
+   y1="6.9099851"
+   x2="144.11897"
+   y2="8.8887901"
    gradientUnits="userSpaceOnUse" /></defs><g
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
@@ -640,7 +640,7 @@
    id="path2-2" />
 </g><g
          id="g23"
-         transform="matrix(0.82932725,0,0,0.78598711,1052.7365,-179.42671)"><text
+         transform="matrix(0.62303833,0,0,0.79543201,1098.3841,-180.01632)"><text
            xml:space="preserve"
            style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:50.218px;font-family:MathJax_Caligraphic;-inkscape-font-specification:'MathJax_Caligraphic, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre;inline-size:254.542;display:inline;fill:#000000;stroke-width:0.50218"
            x="0"
@@ -699,7 +699,7 @@
              rx="1.05"
              ry="2.1500001" /></g></g><g
          id="g98"
-         transform="matrix(0.1129659,0,0,0.12509626,45.317674,-212.88486)"><text
+         transform="matrix(0.12261334,0,0,0.12163235,33.869559,-217.46859)"><text
            xml:space="preserve"
            style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:50.218px;font-family:MathJax_Caligraphic;-inkscape-font-specification:'MathJax_Caligraphic, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre;inline-size:339.096;display:inline;fill:url(#linearGradient96);fill-opacity:1;stroke-width:0.50218"
            x="0"
