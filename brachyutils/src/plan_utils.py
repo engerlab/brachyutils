@@ -166,22 +166,7 @@ class BrachyPlan:
         # load the json file
         with open(pth_catheterTable_json, 'r') as json_file:
             catheter_table = json.load(json_file)
-        
-        # there is currently a bug in the tps where the last dwell position is repeated.
-        # this block will fixe it {
-        # if drop_lastDwell_perCatheter:
-        #     corrected_catheter_table = []
-        #     for catheter in catheter_table:
-        #         dwell_list = catheter['dwells']
-        #         corrected_catheter_table.append(
-        #             {
-        #                 'dwells': dwell_list[:-1],
-        #                 "id": catheter["id"],
-        #                 "points": catheter["points"]
-        #             })
-        #     self.catheter_table = corrected_catheter_table
-        # # }
-        # else:
+       
         self.catheter_table = catheter_table
     
     def extract_dwell_numbers_times_coordinates_from_catheterTable(self):
@@ -268,6 +253,9 @@ class BrachyPlan:
         self.combined_dose.topleft = test_dose_obj.topleft
         self.combined_dose.calculate_voxel_edges()
         
+        if load_uncertainty:
+            self.calculate_combined_uncertainty()
+        
         assert np.array_equal(
             np.concatenate(self.combined_dose.voxel_edges), 
             np.concatenate(test_dose_obj.voxel_edges)), \
@@ -351,8 +339,30 @@ class BrachyPlan:
             # print(structure.mask.shape)
             # print(size_uncropped_dose_grid)
             # print(self.combined_dose.grid.shape)
-            
+    
+    def calculate_combined_uncertainty(self):
+        r"""
+        Purpose:
+            - To calculate the combined uncertainty of the combined dose map.
+        Inputs:
+            - self := the BrachyPlan object
+        Outputs:
+            - Void := will update the BrachyPlan.combined_dose.uncertainty attribute
+        """
+        assert self.uncertainty_tensor is not None, "uncertainty tensor is not loaded"
+        assert self.dose_rate_tensor is not None, "dose rate tensor is not loaded"
+        assert self.dwell_times is not None, "dwell times are not extracted"
+        assert self.combined_dose is not None, "combined dose is not calculated yet"
 
+        normalized_times = self.dwell_times / np.sum(self.dwell_times)
+        
+        combined_uncertainty_grid = np.sqrt(
+            np.sum(
+                (self.uncertainty_tensor * normalized_times[:, np.newaxis, np.newaxis, np.newaxis])**2,
+                axis=0))
+        
+        self.combined_dose.uncertainty = combined_uncertainty_grid
+        
     def calculate_DVH_metrics(self):
         r"""
         Purpose:
@@ -471,9 +481,8 @@ def test_load_dose_rate_tensor():
     plan_obj.load_catheterTable_json(pth_cathTable_json)
     plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
 
-    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
+    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=False)
     print(f"The shape of the dose rate tensor is {plan_obj.dose_rate_tensor.shape}")
-    print(f"The shape of the uncertainty tensor is {plan_obj.uncertainty_tensor.shape}")
     print(f"The shape of the combined dose is {plan_obj.combined_dose.grid.shape}")
 
 def test_set_dvh_metric_goals():
@@ -509,6 +518,20 @@ def test_create_structures_and_calc_dvh_metrics():
     for structure in plan_obj.structure_list:
         print(f"{structure.name}: {structure.dvh_metric_observed}")
 
+def test_calculate_combined_uncertainty():
+    pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
+
+    plan_obj = BrachyPlan()
+    plan_obj.load_catheterTable_json(pth_cathTable_json)
+    plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
+
+    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=False)
+    plan_obj.calculate_combined_uncertainty()
+    print(f"The shape of the combined uncertainty is {plan_obj.combined_dose.uncertainty.shape}")
+    assert plan_obj.combined_dose.uncertainty.shape == plan_obj.combined_dose.grid.shape, \
+        "combined uncertainty shape does not match combined dose shape"
+    
 if __name__ == "__main__":
     
     # running the test functions above: 
@@ -516,5 +539,6 @@ if __name__ == "__main__":
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     # test_load_dose_rate_tensor()
     # test_set_dvh_metric_goals()
-    test_create_structures_and_calc_dvh_metrics()
+    # test_create_structures_and_calc_dvh_metrics()
+    test_calculate_combined_uncertainty()
     
