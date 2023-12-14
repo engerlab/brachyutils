@@ -32,10 +32,20 @@ class BrachyStructure:
     name:str
     mask:np.array # shape: (z, y, x)
 
+    # dose volume histogram
     dvh_metric_name:str
     dvh_metric_clinical_goal:float
     dvh_metric_observed:float
+    dvh:np.array
+    
+    # uncertainty volume histogram
+    uvh:np.array 
+    uvh_mean:float
+    uvh_std:float
+    uvh_max:float
+    uvh_min:float
 
+    # optimization parameters
     name_in_gurobiModel:str
     bound_coordinates_in_gurobiModel:list
     penalty_weight:float
@@ -373,10 +383,36 @@ class BrachyPlan:
         Outputs:
             - Void := will update the BrachyStructure.dvh_metric_observed attribute
         """
+        assert sturcture_list is not None, "structure list is not created yet"
         for structure_obj in self.structure_list:
             structure_obj.get_dvh_metric(self.combined_dose)
 
-
+    def calculate_uncertainty_per_structure(self):
+        r"""
+        Purpose:
+            - To calculate the uncertainty of each structure in the BrachyPlan.
+        Inputs:
+            - self := the BrachyPlan object
+        Outputs:
+            - Void := will update the BrachyStructure.uncertainty attribute
+        """
+        assert self.combined_dose.uncertainty is not None, "combined uncertainty is not calculated yet"
+        assert self.sturcture_list is not None, "structure list is not created yet"
+        for structure_obj in self.structure_list:
+            # Apply structure mask to the uncertainty map
+            masked_uncertainty = self.combined_dose.uncertainty * structure_obj.mask
+            # isolate the uncertainty values that are in the mask
+            flattened_uncertainty = masked_uncertainty[structure_obj.mask != 0].flatten()
+            # generate a histogram from the masked uncertainty
+            histogram, bins_edges = np.histogram(
+                flattened_uncertainty, 
+                bins=100, 
+                range=(0, flattened_uncertainty.max()+0.1))
+            structure_obj.uvh = histogram
+            structure_obj.uvh_mean = np.mean(flattened_uncertainty)
+            structure_obj.uvh_std = np.std(flattened_uncertainty)
+            structure_obj.uvh_max = np.max(flattened_uncertainty)
+            
 def load_structure_mask(
     dir_structure_source:str,
     structure_name_list:list,
@@ -481,7 +517,7 @@ def test_load_dose_rate_tensor():
     plan_obj.load_catheterTable_json(pth_cathTable_json)
     plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
 
-    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=False)
+    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
     print(f"The shape of the dose rate tensor is {plan_obj.dose_rate_tensor.shape}")
     print(f"The shape of the combined dose is {plan_obj.combined_dose.grid.shape}")
 
@@ -526,11 +562,33 @@ def test_calculate_combined_uncertainty():
     plan_obj.load_catheterTable_json(pth_cathTable_json)
     plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
 
-    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=False)
+    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
     plan_obj.calculate_combined_uncertainty()
     print(f"The shape of the combined uncertainty is {plan_obj.combined_dose.uncertainty.shape}")
     assert plan_obj.combined_dose.uncertainty.shape == plan_obj.combined_dose.grid.shape, \
         "combined uncertainty shape does not match combined dose shape"
+
+def test_calculate_uncertainty_per_structure():
+    pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
+    dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    dvh_metric_goals = {
+        'D95%(ctv)': 15,
+        'D1cc(rectum)': 11.25,
+        'D0.1cc(urethra)': 18.75
+    }
+    plan_obj = BrachyPlan()
+    plan_obj.load_catheterTable_json(pth_cathTable_json)
+    plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
+    plan_obj.set_dvh_metric_goals(dvh_metric_goals)
+    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
+    
+    plan_obj.create_structures(dir_dicom)
+    
+    plan_obj.calculate_combined_uncertainty()
+    plan_obj.calculate_uncertainty_per_structure()
+    for structure in plan_obj.structure_list:
+        print(f"{structure.name}: mean: {structure.uvh_mean},\n std: {structure.uvh_std}, \n max: {structure.uvh_max}")
     
 if __name__ == "__main__":
     
@@ -540,5 +598,5 @@ if __name__ == "__main__":
     # test_load_dose_rate_tensor()
     # test_set_dvh_metric_goals()
     # test_create_structures_and_calc_dvh_metrics()
-    test_calculate_combined_uncertainty()
-    
+    # test_calculate_combined_uncertainty()
+    test_calculate_uncertainty_per_structure()
