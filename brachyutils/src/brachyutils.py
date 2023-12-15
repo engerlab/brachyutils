@@ -9,6 +9,8 @@ import numpy as np
 from dicom_utils import  get_structure_index_range
 from egsphant_utils import _load_json, BrachyEgsphant
 from dose_utils import BrachyDose
+from plan_utils import BrachyPlan
+
 from typing import Optional
 from typing_extensions import Annotated
 
@@ -318,6 +320,71 @@ def multiply_dose_by_constant_many_files(
         for single_file in tqdm(file_list):
             multiply_dose_by_constant_single_file(single_file, scale_factor)
 
+def get_uncertaintyAllStructures_many_patients(
+    dir_dicoms:Annotated[str, typer.Argument(help="""directory containing DICOM data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match.""")],
+    dir_doses:Annotated[str, typer.Argument(help="""directory containing Dose data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match """)],
+    dir_plans:Annotated[str, typer.Argument(help="""directory containing Plan data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match """)],
+    pth_json:Annotated[str, typer.Argument(help="""path to the json file where the uncertainty of all structures will be saved.""")],
+    multi_proc:Annotated[bool, typer.Option(help="""If set to true, multiprocessing will be used to load the dose files in parallel.""")],
+):
+    r"""
+    Purpose: 
+        To loop over all patients and get the uncertainty of all structures. 
+    Input:
+        - dir_dicoms := Directory containing DICOM data of many patients. each folder 
+        has a subfolder for every patient. The names of the patients (subfolders) should match. 
+        - dir_doses := Directory containing Dose data of many patients. each folder 
+        has a subfolder for every patient. The names of the patients (subfolders) should match. 
+        - dir_plans := Directory containing Plan data of many patients. each folder 
+        has a subfolder for every patient. The names of the patients (subfolders) should match.
+        
+        
+        - pth_json := path to the json file where the uncertainty of all structures will be saved.
+        - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
+    Output:
+        - Void := Path of the json file where the uncertainty of all structures will be saved.
+    Dependencies:
+    """
+    
+    assert os.path.exists(dir_dicoms)
+    assert os.path.exists(dir_doses)
+    
+    dir_dicoms = os.path.abspath(dir_dicoms)
+    dir_doses = os.path.abspath(dir_doses)
+    
+    patient_DICOM_dir_list = glob(dir_dicoms+"/*/")
+    
+    patient_name_list = [
+        os.path.basename(patient_DICOM_dir) for patient_DICOM_dir in patient_DICOM_dir_list
+        ].sort()
+
+    out_json = []
+    
+    for patient in patient_name_list:
+        
+        pth_plan = dir_plans + "/" + patient
+        pth_dicom = dir_dicoms + "/" + patient
+        pth_dose = dir_doses + "/" + patient
+        
+        plan_obj = BrachyPlan(pth_dicom, pth_dose)
+        plan_obj.calculate_uncertainty_per_structure()
+        
+        patient_info = {
+            "patient_id": patient,
+            "pth_dicom": pth_dicom,
+            "pth_dose": pth_dose,
+            "pth_plan": pth_plan,
+            }
+        
+        for structure in plan_obj.structure_list:
+            patient_info[structure.name] = {
+                "uncertainty_mean" : structure.uncertainty_mean, 
+                "uncertainty_std" : structure.uncertainty_std, 
+                "uncertainty_max" : structure.uncertainty_max, 
+                "uncertainty_min" : structure.uncertainty_min, 
+            }      
+       
+    
 def test_get_bodyContourRange_from_many_patients_dicom():
     input_dir = "../../data_test"
     pth_json = "../../data_test/test_patient_body_bounds.json"

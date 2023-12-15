@@ -40,10 +40,10 @@ class BrachyStructure:
     
     # uncertainty volume histogram
     uvh:np.array 
-    uvh_mean:float
-    uvh_std:float
-    uvh_max:float
-    uvh_min:float
+    uncertainty_mean:float
+    uncertainty_std:float
+    uncertainty_max:float
+    uncertainty_min:float
 
     # optimization parameters
     name_in_gurobiModel:str
@@ -408,10 +408,11 @@ class BrachyPlan:
                 flattened_uncertainty, 
                 bins=100, 
                 range=(0, flattened_uncertainty.max()+0.1))
-            structure_obj.uvh = histogram
-            structure_obj.uvh_mean = np.mean(flattened_uncertainty)
-            structure_obj.uvh_std = np.std(flattened_uncertainty)
-            structure_obj.uvh_max = np.max(flattened_uncertainty)
+            structure_obj.uvh = histogram * np.prod(self.combined_dose.voxel_volume)
+            structure_obj.uncertainty_mean = np.mean(flattened_uncertainty)
+            structure_obj.uncertainty_std = np.std(flattened_uncertainty)
+            structure_obj.uncertainty_max = np.max(flattened_uncertainty)
+            structure_obj.uncertainty_min = np.min(flattened_uncertainty)
             
 def load_structure_mask(
     dir_structure_source:str,
@@ -588,7 +589,10 @@ def test_calculate_uncertainty_per_structure():
     plan_obj.calculate_combined_uncertainty()
     plan_obj.calculate_uncertainty_per_structure()
     for structure in plan_obj.structure_list:
-        print(f"{structure.name}: mean: {structure.uvh_mean},\n std: {structure.uvh_std}, \n max: {structure.uvh_max}")
+        print(f"{structure.name}: mean: {structure.uncertainty_mean},\n \
+            std: {structure.uncertainty_std}, \n \
+            max: {structure.uncertainty_max}, \n \
+            min: {structure.uncertainty_min}")
     
 if __name__ == "__main__":
     
