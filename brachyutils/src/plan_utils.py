@@ -397,7 +397,7 @@ class BrachyPlan:
             - Void := will update the BrachyStructure.uncertainty attribute
         """
         assert self.combined_dose.uncertainty is not None, "combined uncertainty is not calculated yet"
-        assert self.sturcture_list is not None, "structure list is not created yet"
+        assert self.structure_list is not None, "structure list is not created yet"
         for structure_obj in self.structure_list:
             # Apply structure mask to the uncertainty map
             masked_uncertainty = self.combined_dose.uncertainty * structure_obj.mask
