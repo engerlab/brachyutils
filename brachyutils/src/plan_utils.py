@@ -36,7 +36,7 @@ class BrachyStructure:
     dvh_metric_name:str
     dvh_metric_clinical_goal:float
     dvh_metric_observed:float
-    dvh:np.array
+    normalized_cummulative_dvh:np.array
     
     # uncertainty volume histogram
     uvh:np.array 
@@ -74,7 +74,7 @@ class BrachyStructure:
         else:
             raise ValueError("invalid name for DVH metric name. The metric should have percent sign (%) or cc.")
 
-        self.dvh_metric_observed = dvh_metric(structure_dose, num_bins, total_dose_max, histogram_limit, voxel_volume)
+        self.dvh_metric_observed, self.normalized_cummulative_dvh = dvh_metric(structure_dose, num_bins, total_dose_max, histogram_limit, voxel_volume)
 
 class BrachyPlan:
     r"""
@@ -383,7 +383,7 @@ class BrachyPlan:
         Outputs:
             - Void := will update the BrachyStructure.dvh_metric_observed attribute
         """
-        assert sturcture_list is not None, "structure list is not created yet"
+        assert self.structure_list is not None, "structure list is not created yet"
         for structure_obj in self.structure_list:
             structure_obj.get_dvh_metric(self.combined_dose)
 
@@ -478,7 +478,7 @@ def dvh_metric(
     f = interpolate.interp1d(normalized_cum_dvh, dvh_dose_axis, kind="linear")
 
     # in future, one could pass the DVH plot to be stored in the structure object. 
-    return f(threshold) # dvh_plot
+    return f(threshold), normalized_cum_dvh
 
 
 def test_load_catheterTable_json():
@@ -536,7 +536,7 @@ def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
     pth_cathTable_json = "../../data_test/plan_files/optimized_plan_ctv/catheter_table.json"
     # dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
-    dir_dose_rate = "/home/majd/data/patient_dose_simulations/prostate-glen/p1"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose/"
     dvh_metric_goals = {
         'D95%(ctv)': 15,
         'D1cc(rectum)': 11.25,
@@ -549,7 +549,7 @@ def test_create_structures_and_calc_dvh_metrics():
     plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
     plan_obj.set_dvh_metric_goals(dvh_metric_goals)
 
-    plan_obj.create_structures(dir_dicom, False)
+    plan_obj.create_structures(dir_dicom, True)
     plan_obj.calculate_DVH_metrics()
     for structure in plan_obj.structure_list:
         print(f"{structure.name}: {structure.dvh_metric_observed}")
@@ -597,6 +597,6 @@ if __name__ == "__main__":
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     # test_load_dose_rate_tensor()
     # test_set_dvh_metric_goals()
-    # test_create_structures_and_calc_dvh_metrics()
+    test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
-    test_calculate_uncertainty_per_structure()
+    # test_calculate_uncertainty_per_structure()
