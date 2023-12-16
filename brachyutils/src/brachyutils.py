@@ -320,6 +320,7 @@ def multiply_dose_by_constant_many_files(
         for single_file in tqdm(file_list):
             multiply_dose_by_constant_single_file(single_file, scale_factor)
 
+@app.command(help="""Purpose: Will calculate the uncertainty of all structures for all patients in a directory""")
 def get_uncertaintyAllStructures_many_patients(
     dir_dicoms:Annotated[str, typer.Argument(help="""directory containing DICOM data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match.""")],
     dir_doses:Annotated[str, typer.Argument(help="""directory containing Dose data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match """)],
@@ -337,7 +338,7 @@ def get_uncertaintyAllStructures_many_patients(
         has a subfolder for every patient. The names of the patients (subfolders) should match. 
         - dir_plans := Directory containing Plan data of many patients. each folder 
         has a subfolder for every patient. The names of the patients (subfolders) should match.
-        
+        Inside the dir plans, there should be a file named catheter
         
         - pth_json := path to the json file where the uncertainty of all structures will be saved.
         - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
@@ -362,11 +363,11 @@ def get_uncertaintyAllStructures_many_patients(
     
     for patient in patient_name_list:
         
-        pth_plan = dir_plans + "/" + patient
+        pth_plan = dir_plans + "/" + patient + "/catheter_table.json"
         pth_dicom = dir_dicoms + "/" + patient
         pth_dose = dir_doses + "/" + patient
         
-        plan_obj = BrachyPlan(pth_dicom, pth_dose)
+        plan_obj = BrachyPlan(pth_dicom, pth_dose, multi_proc=multi_proc)
         plan_obj.calculate_uncertainty_per_structure()
         
         patient_info = {
@@ -375,17 +376,23 @@ def get_uncertaintyAllStructures_many_patients(
             "pth_dose": pth_dose,
             "pth_plan": pth_plan,
             }
-        
         for structure in plan_obj.structure_list:
             patient_info[structure.name] = {
                 "uncertainty_mean" : structure.uncertainty_mean, 
                 "uncertainty_std" : structure.uncertainty_std, 
                 "uncertainty_max" : structure.uncertainty_max, 
                 "uncertainty_min" : structure.uncertainty_min, 
-            }      
-       
+            }
+
+        out_json.append(patient_info)
+
+    json_object = json.dump(out_json, indent=4)
+    with open(pth_json, "w") as outfile:
+        outfile.write(json_object)   
     
 def test_get_bodyContourRange_from_many_patients_dicom():
+    r"""Outdated test function"""
+    raise Exception("Outdated test function")
     input_dir = "../../data_test"
     pth_json = "../../data_test/test_patient_body_bounds.json"
     
@@ -408,6 +415,8 @@ def test_crop_egsphant_by_bodyContour_many_files():
     crop_egsphant_by_bodyContour_many_patients(pth_input, pth_json)
 
 def test_convert_many_files():
+    r"""Outdated test function"""
+    raise Exception("Outdated test function")
     # dir_in = "../../data_test/many_files"
     dir_in = "/home/majd/data/patient_dose_simulations/prostate-glen/p10/"
     type_in = ".nrrd"
