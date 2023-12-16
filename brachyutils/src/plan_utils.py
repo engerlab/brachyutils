@@ -120,21 +120,59 @@ class BrachyPlan:
     structure_list:list
 
     
-    def __init__(self):
+    def __init__(
+            self, 
+            pth_catheterTable_json:str=None,
+            dir_dose_rate:str=None,
+            type_dose_file:str=".nrrd",
+            load_uncertainty:bool=True,
+            dir_structure_source:str=None,
+            dose_cropped_by_body:bool=True):
+        r"""
+        Purpose:
+            - To initialize the BrachyPlan object.
+        Inputs:
+            - pht_catheterTable_json := path to a json file having the info on the catheter table.
+            - dir_dose_rate := path to the directory containing the dose rate files for a patient.
+            - dir_structure_source := path to the directory containing the structures. this could be dicom files for a patient or nrrd files.
+        Outputs:
+            - Void := will initialize the BrachyPlan object
+        Dependencies:
+            -  
+        """
+        # catheter table attributes
         self.num_dwells = None
         self.catheter_table = None
         self.dwell_numbers = np.array([], dtype=int)
         self.dwell_times = np.array([], dtype=np.float32)
         self.dwell_coordinates = []
 
-        # self.organ_bounds = None
+        # dose attributes
         self.dose_rate_tensor = np.array([], dtype=np.float32)
         self.uncertainty_tensor = np.array([], dtype=np.float32)
         self.combined_dose = None
 
+        # sturctures attributes
+        # self.organ_bounds = None
         dvh_metric_goals = None
         self.structure_list = []
-    
+
+        # imaging attributes [for future]
+        # self.ct_image = None
+        # self.mr_image = None
+        # self.ultrasound_image = None
+
+        # load the catheter table if the path is provided
+        if pth_catheterTable_json is not None:
+            self.load_catheterTable_json(pth_catheterTable_json)
+            self.extract_dwell_numbers_times_coordinates_from_catheterTable()
+
+        if dir_dose_rate is not None:
+            self.load_dose_rate_tensor(dir_dose_rate, type_dose_file, load_uncertainty)
+
+        if dir_structure_source is not None:
+            self.create_structures(dir_structure_source, dose_cropped_by_body)
+
     def load_catheterTable_json(
         self, 
         pth_catheterTable_json:str):
