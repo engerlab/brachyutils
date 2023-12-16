@@ -247,7 +247,8 @@ class BrachyPlan:
         self, 
         dir_dose_rate:str,
         type_dose_file:str=".nrrd",
-        load_uncertainty:bool=False,):
+        load_uncertainty:bool=False,
+        multi_processing:bool=False):
         r"""
         Purpose:
             - To load the dose rate tensor into the BrachyPlan object given a folder with 
@@ -275,21 +276,28 @@ class BrachyPlan:
         
         # here is the list of the dose rate files
         dose_rate_files = glob(os.path.join(dir_dose_rate, f"*{type_dose_file}"))
+        dose_rate_files.sort(key=lambda x: int(os.path.basename(x).split(".")[0].split("_")[-1]))
         assert len(dose_rate_files) == self.num_dwells, "number of dose rate files does not match the number of dwell positions"
 
         test_dose_obj = BrachyDose(dose_rate_files[0])
         self.dose_rate_tensor = np.zeros((self.num_dwells, *test_dose_obj.grid.shape), dtype=np.float32)
         self.uncertainty_tensor = np.zeros((self.num_dwells, *test_dose_obj.uncertainty.shape), dtype=np.float32)
-        # load the dose rate tensor   
-        for i, dwell_num in tqdm(zip(range(self.num_dwells), self.dwell_numbers)):
-            # find the dose rate file corresponding to this dwell number
-            query_string = f"run_{int(dwell_num)}{type_dose_file}"
-            pth_dose_rate = list(filter(lambda x: query_string in x, dose_rate_files))[0]
-            dose_obj = BrachyDose(pth_dose_rate)
-            self.dose_rate_tensor[i] = dose_obj.grid
-            if load_uncertainty:
-                self.uncertainty_tensor[i] = dose_obj.uncertainty
         
+        # create dictionary of dwell numbers and dose rate file names
+         
+        # load the dose rate tensor 
+        if multi_processing:
+            raise NotImplementedError("multi-processing is not implemented yet")
+        else:  
+            for i, pth_dose_rate in tqdm(zip(range(self.num_dwells), dose_rate_files)):
+                # find the dose rate file corresponding to this dwell number
+                # query_string = f"run_{int(dwell_num)}{type_dose_file}"
+                # pth_dose_rate = list(filter(lambda x: query_string in x, dose_rate_files))[0]
+                dose_obj = BrachyDose(pth_dose_rate)
+                self.dose_rate_tensor[i] = dose_obj.grid
+                if load_uncertainty:
+                    self.uncertainty_tensor[i] = dose_obj.uncertainty
+            
         # calculate the combined dose and store the result in the combined_dose attribute 
         combined_dose_grid = np.sum(
             self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
@@ -310,7 +318,13 @@ class BrachyPlan:
             "voxel edges of combined dose map and dwell dose rate map do not match"
 
         assert self.combined_dose.is_not_empty(), "combined dose is empty"
-
+    
+    def _load_single_dose():
+        r""""
+        Purpose:
+            - To load a single dose rate file into the BrachyPlan object.
+            this is to be used in the case of multiprocessing. 
+        """
     def set_dvh_metric_goals(self, dvh_metric_goals:dict):
         r"""
         Purpose:
