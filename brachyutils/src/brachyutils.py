@@ -6,6 +6,7 @@ import pytest
 import typer
 import numpy as np
 import re
+import gc
 
 from dicom_utils import  get_structure_index_range
 from egsphant_utils import _load_json, BrachyEgsphant
@@ -399,7 +400,9 @@ def get_uncertaintyAllStructures_many_patients(
                 "uncertainty_max" : structure.uncertainty_max, 
                 "uncertainty_min" : structure.uncertainty_min, 
             }
-
+        # delete plan object to save memory for the next round. 
+        del plan_obj
+        gc.collect()
         out_json.append(patient_info)
 
     json_object = json.dump(out_json, indent=4)
