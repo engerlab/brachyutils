@@ -5,6 +5,7 @@ from tqdm import tqdm
 import pytest
 import typer
 import numpy as np
+import re
 
 from dicom_utils import  get_structure_index_range
 from egsphant_utils import _load_json, BrachyEgsphant
@@ -322,10 +323,11 @@ def multiply_dose_by_constant_many_files(
 
 @app.command(help="""Purpose: Will calculate the uncertainty of all structures for all patients in a directory""")
 def get_uncertaintyAllStructures_many_patients(
+    dir_doses:Annotated[str, typer.Argument(help="""directory containing Dose data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match. """)],
+    dir_plans:Annotated[str, typer.Argument(help="""directory containing Plan data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match. In this folder, there should be a file named catheter_table.json that contains the catheter table.""")],
     dir_dicoms:Annotated[str, typer.Argument(help="""directory containing DICOM data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match.""")],
-    dir_doses:Annotated[str, typer.Argument(help="""directory containing Dose data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match """)],
-    dir_plans:Annotated[str, typer.Argument(help="""directory containing Plan data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match """)],
-    pth_json:Annotated[str, typer.Argument(help="""path to the json file where the uncertainty of all structures will be saved.""")],
+    pth_dvh_metric_goals_json:Annotated[str, typer.Argument(help="""path to the json file where the DVH metric goals are saved.""")],
+    pth_uncertainty_json:Annotated[str, typer.Argument(help="""path to the json file where the uncertainty of all structures will be saved.""")],
     multi_proc:Annotated[bool, typer.Option(help="""If set to true, multiprocessing will be used to load the dose files in parallel.""")],
 ):
     r"""
@@ -338,9 +340,8 @@ def get_uncertaintyAllStructures_many_patients(
         has a subfolder for every patient. The names of the patients (subfolders) should match. 
         - dir_plans := Directory containing Plan data of many patients. each folder 
         has a subfolder for every patient. The names of the patients (subfolders) should match.
-        Inside the dir plans, there should be a file named catheter
-        
-        - pth_json := path to the json file where the uncertainty of all structures will be saved.
+        Inside the dir plans, there should be a file named catheter_table.json that contains the catheter table.
+        - pth_uncertainty_json := path to the json file where the uncertainty of all structures will be saved.
         - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
     Output:
         - Void := Path of the json file where the uncertainty of all structures will be saved.
@@ -353,21 +354,36 @@ def get_uncertaintyAllStructures_many_patients(
     dir_dicoms = os.path.abspath(dir_dicoms)
     dir_doses = os.path.abspath(dir_doses)
     
-    patient_DICOM_dir_list = glob(dir_dicoms+"/*/")
+    patient_dose_dir_list = glob(dir_doses+"/*/")
     
     patient_name_list = [
-        os.path.basename(patient_DICOM_dir) for patient_DICOM_dir in patient_DICOM_dir_list
-        ].sort()
+        os.path.basename(os.path.normpath(patient_dose_dir)) for patient_dose_dir in patient_dose_dir_list
+        ]
+    patient_name_list.sort(key=lambda x: int(*re.findall('-?\d+\.?\d*', x)))
 
+    with open(pth_dvh_metric_goals_json, "r") as dvh_target_file:
+        dvh_metric_goals = json.load(dvh_target_file) 
+    
     out_json = []
     
     for patient in patient_name_list:
         
         pth_plan = dir_plans + "/" + patient + "/catheter_table.json"
-        pth_dicom = dir_dicoms + "/" + patient
-        pth_dose = dir_doses + "/" + patient
+        assert os.path.exists(pth_plan)
+        pth_dicom = dir_dicoms + "/" + patient + "/"
+        assert os.path.exists(pth_dicom)
+        pth_dose = dir_doses + "/" + patient + "/"
+        assert os.path.exists(pth_dose)
         
-        plan_obj = BrachyPlan(pth_dicom, pth_dose, multi_proc=multi_proc)
+        plan_obj = BrachyPlan(
+            pth_catheterTable_json=pth_plan,
+            dir_dose_rate=pth_dose,
+            load_uncertainty=True,
+            multi_processing=multi_proc,
+            dvh_metric_goals=dvh_metric_goals,
+            dir_structure_source=pth_dicom,
+            dose_cropped_by_body=True,
+        )
         plan_obj.calculate_uncertainty_per_structure()
         
         patient_info = {
@@ -387,7 +403,7 @@ def get_uncertaintyAllStructures_many_patients(
         out_json.append(patient_info)
 
     json_object = json.dump(out_json, indent=4)
-    with open(pth_json, "w") as outfile:
+    with open(pth_uncertainty_json, "w") as outfile:
         outfile.write(json_object)   
     
 def test_get_bodyContourRange_from_many_patients_dicom():
@@ -475,11 +491,29 @@ def test_multiply_dose_by_constant_many_files():
         original_dose_obj = BrachyDose(original_dose_file_name)
         
         assert np.allclose(scaled_dose_obj.grid, original_dose_obj.grid*scale_factor)
-        
+
+def test_get_uncertaintyAllStructures_many_patients():
+    dir_dicoms = "/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023"
+    dir_doses = "/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm"
+    dir_plans = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023"
+    pth_json = "../../data_test/patient_uncertainty.json"
+    multi_proc = True
+    pth_dvh_metric_goals_json = "../../data_test/dvh_metric_goals.json"
+    
+    get_uncertaintyAllStructures_many_patients(
+        dir_doses,
+        dir_plans,
+        dir_dicoms,
+        pth_dvh_metric_goals_json,
+        pth_json,
+        multi_proc,
+    )
+    
 def main():
     app()
 
 if __name__ == "__main__":
     # test_convert_many_files()
     # test_crop_dose_by_bodyContour_many_files()
-    test_multiply_dose_by_constant_many_files()
+    # test_multiply_dose_by_constant_many_files()
+    test_get_uncertaintyAllStructures_many_patients()

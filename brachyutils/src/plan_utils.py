@@ -163,7 +163,7 @@ class BrachyPlan:
 
         # sturctures attributes
         # self.organ_bounds = None
-        dvh_metric_goals = None
+        self.dvh_metric_goals = None
         self.structure_list = []
 
         # imaging attributes [for future]
@@ -274,7 +274,9 @@ class BrachyPlan:
             that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
             - type_dose_file := the type of dose rate file. The type could be ".nrrd" or ".3ddose"
             consult BrachyDose in dose_utils.py for more info on the dose rate file types.
-            - load_uncertainty := if True, the uncertainty tensor will be loaded as well
+            - load_uncertainty := if True, the uncertainty tensor will be loaded as well. 
+            - multi_processing := if True, the dose rate files will be loaded in parallel. By default,
+            we use 8 cores for parallel processing.
         Outputs:
             - Void := will update the BrachyPlan.dose_rate_tensor attribute
         Dependencies:
@@ -474,7 +476,7 @@ class BrachyPlan:
                 flattened_uncertainty, 
                 bins=100, 
                 range=(0, flattened_uncertainty.max()+0.1))
-            structure_obj.uvh = histogram * np.prod(self.combined_dose.voxel_volume)
+            structure_obj.uvh = histogram * np.prod(self.combined_dose.vox_size)
             structure_obj.uncertainty_mean = np.mean(flattened_uncertainty)
             structure_obj.uncertainty_std = np.std(flattened_uncertainty)
             structure_obj.uncertainty_max = np.max(flattened_uncertainty)
