@@ -299,21 +299,16 @@ class BrachyPlan:
                  
         # load the dose rate tensor 
         if multi_processing:
-            manager = Manager()           
-            dose_obj_dict = manager.dict()
-            job = [Process(target=_load_dose_to_dict, args=(pth_dose_rate, dose_obj_dict, load_uncertainty)) for pth_dose_rate in dose_rate_files]
-            for p in job:
-                p.start()
-            for p in job:
-                p.join()
-            self.dose_rate_tensor = np.array([value["dose"] for value in dose_obj_dict.values()])
-            if load_uncertainty:
-                self.uncertainty_tensor = np.array([value["uncertainty"] for value in dose_obj_dict.values()])
-            # with Pool(8) as mp_pool:
-            #     dose_rate_dict = mp_pool.map(
-            #         partial(_load_dose_to_dict, dose_rate_dict={}), 
-            #         dose_rate_files)
-            
+            with Pool(8) as mp_pool:
+                dose_rate_list = mp_pool.map(
+                    partial(_load_dose_to_dict, load_uncertainty=load_uncertainty), 
+                    dose_rate_files)
+            # the output of the map is already sorted out. if needed sorting, use the line below:
+            # dose_rate_list.sort(key=lambda x : x.keys())
+            for i, dose_rate_dict in enumerate(dose_rate_list):
+                self.dose_rate_tensor[i] = dose_rate_dict[i+1]["dose"]
+                if load_uncertainty:
+                    self.uncertainty_tensor[i] = dose_rate_dict[i+1]["uncertainty"]            
         else:  
             for i, pth_dose_rate in tqdm(zip(range(self.num_dwells), dose_rate_files)):
                 dose_obj = BrachyDose(pth_dose_rate)
@@ -554,7 +549,7 @@ def dvh_metric(
 
 def _load_dose_to_dict(
             pth_dose_rate:str,
-            dose_rate_dict:dict,
+            # dose_rate_dict:dict,
             load_uncertainty:bool=False 
             ):
         r""""
@@ -572,7 +567,8 @@ def _load_dose_to_dict(
             except:
                 Warning(f"uncertainty map for dwell number {index} is not loaded from {pth_dose_rate}. Moving on...")
 
-        dose_rate_dict[index] = dose_obj_dict
+        return {index: dose_obj_dict}
+        # dose_rate_dict[index] = dose_obj_dict
         
 def test_load_catheterTable_json():
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
@@ -700,7 +696,7 @@ def test_BrachyPlan():
         pth_cathTable_json, 
         dir_dose_rate,
         load_uncertainty=True,
-        multi_processing=False,
+        multi_processing=True,
         dir_structure_source=dir_dicom,
         dvh_metric_goals=dvh_metric_goals) 
     t1 = time.time()
