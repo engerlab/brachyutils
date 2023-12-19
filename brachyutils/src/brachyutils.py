@@ -350,19 +350,8 @@ def get_uncertaintyAllStructures_one_patient(
     assert os.path.exists(dir_dicom)
     assert os.path.exists(dir_doseRate_maps)
     
-    # dir_dicom = os.path.abspath(dir_dicom)
-    # dir_doseRate_maps = os.path.abspath(dir_doseRate_maps)
-    
-    # patient_dose_dir_list = glob(dir_doseRate_maps+"/*/")
-    
-    # patient_name_list = [
-    #     os.path.basename(os.path.normpath(patient_dose_dir)) for patient_dose_dir in patient_dose_dir_list
-    #     ]
-    # patient_name_list.sort(key=lambda x: int(*re.findall('-?\d+\.?\d*', x)))
-
     with open(pth_dvh_metric_goals_json, "r") as dvh_target_file:
         dvh_metric_goals = json.load(dvh_target_file) 
-    
     
     patient = os.path.basename(os.path.normpath(dir_doseRate_maps))
     pth_plan = dir_plan + "/catheter_table.json"
@@ -396,7 +385,7 @@ def get_uncertaintyAllStructures_one_patient(
             "uncertainty_max" : structure.uncertainty_max, 
             "uncertainty_min" : structure.uncertainty_min, 
         }
-    # delete plan object to save memory for the next round. 
+
     del plan_obj
     gc.collect()
 
