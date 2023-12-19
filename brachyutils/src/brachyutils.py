@@ -323,10 +323,10 @@ def multiply_dose_by_constant_many_files(
             multiply_dose_by_constant_single_file(single_file, scale_factor)
 
 @app.command(help="""Purpose: Will calculate the uncertainty of all structures for all patients in a directory""")
-def get_uncertaintyAllStructures_many_patients(
-    dir_doses:Annotated[str, typer.Argument(help="""directory containing Dose data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match. """)],
-    dir_plans:Annotated[str, typer.Argument(help="""directory containing Plan data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match. In this folder, there should be a file named catheter_table.json that contains the catheter table.""")],
-    dir_dicoms:Annotated[str, typer.Argument(help="""directory containing DICOM data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match.""")],
+def get_uncertaintyAllStructures_one_patient(
+    dir_doseRate_maps:Annotated[str, typer.Argument(help="""directory containing Dose data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match. """)],
+    dir_plan:Annotated[str, typer.Argument(help="""directory containing Plan data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match. In this folder, there should be a file named catheter_table.json that contains the catheter table.""")],
+    dir_dicom:Annotated[str, typer.Argument(help="""directory containing DICOM data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match.""")],
     pth_dvh_metric_goals_json:Annotated[str, typer.Argument(help="""path to the json file where the DVH metric goals are saved.""")],
     pth_uncertainty_json:Annotated[str, typer.Argument(help="""path to the json file where the uncertainty of all structures will be saved.""")],
     multi_proc:Annotated[bool, typer.Option(help="""If set to true, multiprocessing will be used to load the dose files in parallel.""")],
@@ -335,13 +335,11 @@ def get_uncertaintyAllStructures_many_patients(
     Purpose: 
         To loop over all patients and get the uncertainty of all structures. 
     Input:
-        - dir_dicoms := Directory containing DICOM data of many patients. each folder 
-        has a subfolder for every patient. The names of the patients (subfolders) should match. 
-        - dir_doses := Directory containing Dose data of many patients. each folder 
-        has a subfolder for every patient. The names of the patients (subfolders) should match. 
-        - dir_plans := Directory containing Plan data of many patients. each folder 
-        has a subfolder for every patient. The names of the patients (subfolders) should match.
-        Inside the dir plans, there should be a file named catheter_table.json that contains the catheter table.
+        - dir_dicom := Directory containing DICOM data of the patient. 
+        - dir_doseRate_maps := Directory containing Dose rate maps for the dwell position. 
+        - dir_plan := Directory containing Plan data of the patient. Inside the dir plan, 
+        there should be a file named catheter_table.json that contains the catheter table.
+        - pth_dvh_metric_goals_json := path to the json file where the DVH metric goals are saved.
         - pth_uncertainty_json := path to the json file where the uncertainty of all structures will be saved.
         - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
     Output:
@@ -349,65 +347,61 @@ def get_uncertaintyAllStructures_many_patients(
     Dependencies:
     """
     
-    assert os.path.exists(dir_dicoms)
-    assert os.path.exists(dir_doses)
+    assert os.path.exists(dir_dicom)
+    assert os.path.exists(dir_doseRate_maps)
     
-    dir_dicoms = os.path.abspath(dir_dicoms)
-    dir_doses = os.path.abspath(dir_doses)
+    # dir_dicom = os.path.abspath(dir_dicom)
+    # dir_doseRate_maps = os.path.abspath(dir_doseRate_maps)
     
-    patient_dose_dir_list = glob(dir_doses+"/*/")
+    # patient_dose_dir_list = glob(dir_doseRate_maps+"/*/")
     
-    patient_name_list = [
-        os.path.basename(os.path.normpath(patient_dose_dir)) for patient_dose_dir in patient_dose_dir_list
-        ]
-    patient_name_list.sort(key=lambda x: int(*re.findall('-?\d+\.?\d*', x)))
+    # patient_name_list = [
+    #     os.path.basename(os.path.normpath(patient_dose_dir)) for patient_dose_dir in patient_dose_dir_list
+    #     ]
+    # patient_name_list.sort(key=lambda x: int(*re.findall('-?\d+\.?\d*', x)))
 
     with open(pth_dvh_metric_goals_json, "r") as dvh_target_file:
         dvh_metric_goals = json.load(dvh_target_file) 
     
-    out_json = []
     
-    for patient in patient_name_list:
-        
-        pth_plan = dir_plans + "/" + patient + "/catheter_table.json"
-        assert os.path.exists(pth_plan)
-        pth_dicom = dir_dicoms + "/" + patient + "/"
-        assert os.path.exists(pth_dicom)
-        pth_dose = dir_doses + "/" + patient + "/"
-        assert os.path.exists(pth_dose)
-        
-        plan_obj = BrachyPlan(
-            pth_catheterTable_json=pth_plan,
-            dir_dose_rate=pth_dose,
-            load_uncertainty=True,
-            multi_processing=multi_proc,
-            dvh_metric_goals=dvh_metric_goals,
-            dir_structure_source=pth_dicom,
-            dose_cropped_by_body=True,
-        )
-        plan_obj.calculate_uncertainty_per_structure()
-        
-        patient_info = {
-            "patient_id": patient,
-            "pth_dicom": pth_dicom,
-            "pth_dose": pth_dose,
-            "pth_plan": pth_plan,
-            }
-        for structure in plan_obj.structure_list:
-            patient_info[structure.name] = {
-                "uncertainty_mean" : structure.uncertainty_mean, 
-                "uncertainty_std" : structure.uncertainty_std, 
-                "uncertainty_max" : structure.uncertainty_max, 
-                "uncertainty_min" : structure.uncertainty_min, 
-            }
-        # delete plan object to save memory for the next round. 
-        del plan_obj
-        gc.collect()
-        out_json.append(patient_info)
+    patient = os.path.basename(os.path.normpath(dir_doseRate_maps))
+    pth_plan = dir_plan + "/catheter_table.json"
+    assert os.path.exists(pth_plan)
+    pth_dicom = dir_dicom + "/"
+    assert os.path.exists(pth_dicom)
+    pth_dose = dir_doseRate_maps + "/"
+    assert os.path.exists(pth_dose)
+    
+    plan_obj = BrachyPlan(
+        pth_catheterTable_json=pth_plan,
+        dir_dose_rate=pth_dose,
+        load_uncertainty=True,
+        multi_processing=multi_proc,
+        dvh_metric_goals=dvh_metric_goals,
+        dir_structure_source=pth_dicom,
+        dose_cropped_by_body=True,
+    )
+    plan_obj.calculate_uncertainty_per_structure()
+    
+    patient_info = {
+        "patient_id": patient,
+        "pth_dicom": pth_dicom,
+        "pth_dose": pth_dose,
+        "pth_plan": pth_plan,
+        }
+    for structure in plan_obj.structure_list:
+        patient_info[structure.name] = {
+            "uncertainty_mean" : structure.uncertainty_mean, 
+            "uncertainty_std" : structure.uncertainty_std, 
+            "uncertainty_max" : structure.uncertainty_max, 
+            "uncertainty_min" : structure.uncertainty_min, 
+        }
+    # delete plan object to save memory for the next round. 
+    del plan_obj
+    gc.collect()
 
-    json_object = json.dump(out_json, indent=4)
     with open(pth_uncertainty_json, "w") as outfile:
-        outfile.write(json_object)   
+        json.dump(patient_info, outfile, indent=4)
     
 def test_get_bodyContourRange_from_many_patients_dicom():
     r"""Outdated test function"""
@@ -496,17 +490,17 @@ def test_multiply_dose_by_constant_many_files():
         assert np.allclose(scaled_dose_obj.grid, original_dose_obj.grid*scale_factor)
 
 def test_get_uncertaintyAllStructures_many_patients():
-    dir_dicoms = "/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023"
-    dir_doses = "/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm"
-    dir_plans = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023"
+    dir_dicom = "/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/p1"
+    dir_doseRate_maps = "/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm/p1"
+    dir_plan = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/p1"
     pth_json = "../../data_test/patient_uncertainty.json"
     multi_proc = True
     pth_dvh_metric_goals_json = "../../data_test/dvh_metric_goals.json"
     
-    get_uncertaintyAllStructures_many_patients(
-        dir_doses,
-        dir_plans,
-        dir_dicoms,
+    get_uncertaintyAllStructures_one_patient(
+        dir_doseRate_maps,
+        dir_plan,
+        dir_dicom,
         pth_dvh_metric_goals_json,
         pth_json,
         multi_proc,
