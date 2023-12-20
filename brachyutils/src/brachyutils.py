@@ -323,21 +323,21 @@ def multiply_dose_by_constant_many_files(
             multiply_dose_by_constant_single_file(single_file, scale_factor)
 
 @app.command(help="""Purpose: Will calculate the uncertainty of all structures for all patients in a directory""")
-def get_uncertaintyAllStructures_one_patient(
+def get_uncertainty_one_patient(
     dir_doseRate_maps:Annotated[str, typer.Argument(help="""directory containing Dose data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match. """)],
     dir_plan:Annotated[str, typer.Argument(help="""directory containing Plan data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match. In this folder, there should be a file named catheter_table.json that contains the catheter table.""")],
     dir_dicom:Annotated[str, typer.Argument(help="""directory containing DICOM data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match.""")],
     pth_dvh_metric_goals_json:Annotated[str, typer.Argument(help="""path to the json file where the DVH metric goals are saved.""")],
     pth_uncertainty_json:Annotated[str, typer.Argument(help="""path to the json file where the uncertainty of all structures will be saved.""")],
-    multi_proc:Annotated[bool, typer.Option(help="""If set to true, multiprocessing will be used to load the dose files in parallel.""")],
+    multi_proc:Annotated[bool, typer.Option(help="""If set to true, multiprocessing will be used to load the dose files in parallel.""")]=False,
 ):
     r"""
     Purpose: 
         To loop over all patients and get the uncertainty of all structures. 
     Input:
-        - dir_dicom := Directory containing DICOM data of the patient. 
         - dir_doseRate_maps := Directory containing Dose rate maps for the dwell position. 
         - dir_plan := Directory containing Plan data of the patient. Inside the dir plan, 
+        - dir_dicom := Directory containing DICOM data of the patient. 
         there should be a file named catheter_table.json that contains the catheter table.
         - pth_dvh_metric_goals_json := path to the json file where the DVH metric goals are saved.
         - pth_uncertainty_json := path to the json file where the uncertainty of all structures will be saved.
@@ -482,11 +482,11 @@ def test_get_uncertaintyAllStructures_many_patients():
     dir_dicom = "/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/p1"
     dir_doseRate_maps = "/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm/p1"
     dir_plan = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/p1"
-    pth_json = "../../data_test/patient_uncertainty.json"
+    pth_json = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/p1/patient_uncertainty.json"
     multi_proc = True
     pth_dvh_metric_goals_json = "../../data_test/dvh_metric_goals.json"
     
-    get_uncertaintyAllStructures_one_patient(
+    get_uncertainty_one_patient(
         dir_doseRate_maps,
         dir_plan,
         dir_dicom,
@@ -498,8 +498,8 @@ def test_get_uncertaintyAllStructures_many_patients():
 def main():
     app()
 
-if __name__ == "__main__":
-    # test_convert_many_files()
-    # test_crop_dose_by_bodyContour_many_files()
-    # test_multiply_dose_by_constant_many_files()
-    test_get_uncertaintyAllStructures_many_patients()
+# if __name__ == "__main__":
+#     # test_convert_many_files()
+#     # test_crop_dose_by_bodyContour_many_files()
+#     # test_multiply_dose_by_constant_many_files()
+#     test_get_uncertaintyAllStructures_many_patients()

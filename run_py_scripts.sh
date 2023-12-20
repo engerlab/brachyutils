@@ -40,14 +40,14 @@ source ENV/bin/activate
 # # examples and details for each command is provided below:
 
 # to convert all 3ddose files located at INPUT_DIR to nrrd in the same folder.  
-input_dir="/home/majd/data/patient_dose_simulations/prostate-glen"
-patient_folders=$input_dir'/*/'
-for folder in $patient_folders
-do 
-    echo $folder
-    brachyutils convert-many-dose-files $folder '.nrrd' '.minidos' --multi-proc
-    # rm $folder*.3ddose
-done
+# input_dir="/home/majd/data/patient_dose_simulations/prostate-glen"
+# patient_folders=$input_dir'/*/'
+# for folder in $patient_folders
+# do 
+#     echo $folder
+#     brachyutils convert-many-dose-files $folder '.nrrd' '.minidos' --multi-proc
+#     # rm $folder*.3ddose
+# done
 
 # # to crop all 3ddose files in INPUT_DIR folder by a certain fraction (0.6) and convert to nrrd. 
 # # cropping 0.6 keeps the centeral 0.6 voxels on x and y axis. 
@@ -65,3 +65,36 @@ done
 #     '0.6' \
 #     '.3ddose' \
 #     '.nrrd'
+
+# # plan utils.py
+# # to calculate uncertainity for all patients for a plan
+dir_dicom_patients="/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023"
+dir_dose_all_patients="/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm"
+dir_plan_all_patients="/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023"
+pth_uncertainty_json=$dir_plan_all_patients
+pth_dvh_metric_goals_json="/home/majd/Software/tg186-validation/data_test/dvh_metric_goals.json"
+
+patient_folders=$dir_plan_all_patients'/*/'
+for folder in $patient_folders
+do
+    echo $folder 
+    # Isolate the last subfolder from $folder
+    last_subfolder=$(basename "$folder")
+    echo "Last subfolder: $last_subfolder"
+    dir_dose_rateMaps="$dir_dose_all_patients/$last_subfolder" 
+    dir_plan="$dir_plan_all_patients/$last_subfolder" 
+    dir_dicom="$dir_dicom_patients/$last_subfolder" 
+    pth_uncertainty="$pth_uncertainty_json/$last_subfolder/uncertainty.json" 
+    # # Run the command
+    # brachyutils "get-uncertainty-one-patient" --help
+    brachyutils \
+        "get-uncertainty-one-patient" \
+        $dir_doseRate_maps \
+        $dir_plan \
+        $dir_dicom \
+        $pth_dvh_metric_goals_json \
+        $pth_uncertainty \
+        --multi-proc
+        
+    echo "-----------------------------------"
+done
