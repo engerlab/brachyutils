@@ -105,7 +105,7 @@ class BrachyPlan:
     Functions:
         - load_catheterTable_json
         - extract_dwell_numbers_times_coordinates_from_catheterTable
-        - load_dose_rate_tensor
+        - load_dose_rate_or_uncertainty_tensor
         - set_dvh_metric_goals
         - create_structures
         - calculate_DVH_metrics
@@ -131,13 +131,13 @@ class BrachyPlan:
             # for loading dose:
             dir_dose_rate:str=None,
             type_dose_file:str=".nrrd",
-            load_uncertainty:bool=True,
+            load_dose_or_uncertainty:str="dose",
             multi_processing:bool=False,
             # for structure creation:
             dvh_metric_goals:dict=None,
             dir_structure_source:str=None,
             dose_cropped_by_body:bool=True):
-        r"""
+        r"""TO BE UPDATED
         Purpose:
             - To initialize the BrachyPlan object.
         Inputs:
@@ -177,10 +177,10 @@ class BrachyPlan:
             self.extract_dwell_numbers_times_coordinates_from_catheterTable()
 
         if dir_dose_rate is not None:
-            self.load_dose_rate_tensor(
+            self.load_dose_rate_or_uncertainty_tensor(
                 dir_dose_rate, 
                 type_dose_file=type_dose_file, 
-                load_uncertainty=load_uncertainty, 
+                load_dose_or_uncertainty=load_dose_or_uncertainty, 
                 multi_processing=multi_processing)
 
         if dir_structure_source is not None and dvh_metric_goals is not None:
@@ -257,7 +257,7 @@ class BrachyPlan:
                 dwell_counter += 1
         self.num_dwells = len(self.dwell_numbers)
 
-    def load_dose_rate_tensor(
+    def load_dose_rate_or_uncertainty_tensor(
         self, 
         dir_dose_rate:str,
         type_dose_file:str=".nrrd",
@@ -306,29 +306,20 @@ class BrachyPlan:
         if multi_processing:
             with Pool(8) as mp_pool:
                 dose_rate_list = mp_pool.map(
-                    partial(
-                        _load_dose_to_dict, 
-                        load_dose_or_uncertainty=load_dose_or_uncertainty), 
-                    dose_rate_files)
-            # the output of the map is already sorted out. if needed sorting, use the line below:
-            # dose_rate_list.sort(key=lambda x : x.keys())
-                       
+                        _load_single_dose_and_uncertainty_to_dict,
+                        dose_rate_files)
+                    # partial(
+                    #     _load_single_dose_and_uncertainty_to_dict, 
+                    #     load_dose_or_uncertainty="both"), 
+                    # dose_rate_files)      
         else:  
             dose_rate_list = np.empty(len(dose_rate_files), dtype=object)
             for i, pth_dose_rate in tqdm(enumerate(dose_rate_files)):     
-                dose_rate_list[i] = _load_dose_to_dict(pth_dose_rate, load_dose_or_uncertainty)
-                               
-                # dose_obj = BrachyDose(pth_dose_rate)
-                # self.dose_rate_tensor[i] = dose_obj.grid
-                # if load_uncertainty:
-                #     try:
-                #         self.uncertainty_tensor[i] = dose_obj.uncertainty
-                #     except:
-                #         Warning(f"uncertainty map for dwell number {i} is not loaded from dose file {pth_dose_rate}. Moving on...")
-        
+                dose_rate_list[i] = _load_single_dose_and_uncertainty_to_dict(pth_dose_rate)#, load_dose_or_uncertainty)
+               
         for i, dose_rate_dict in enumerate(dose_rate_list):
                 self.dose_rate_tensor[i] = dose_rate_dict[i+1]["dose"]
-                if load_uncertainty:
+                if load_dose_or_uncertainty != "dose":
                     self.uncertainty_tensor[i] = dose_rate_dict[i+1]["uncertainty"]
         
         del dose_rate_list
@@ -344,17 +335,22 @@ class BrachyPlan:
         self.combined_dose.vox_size = test_dose_obj.vox_size
         self.combined_dose.topleft = test_dose_obj.topleft
         self.combined_dose.calculate_voxel_edges()
+            # for debugging{
+            # assert np.array_equal(
+            #     np.concatenate(self.combined_dose.voxel_edges), 
+            #     np.concatenate(test_dose_obj.voxel_edges)), \
+            #     "voxel edges of combined dose map and dwell dose rate map do not match"
+
+            # assert self.combined_dose.is_not_empty(), "combined dose is empty"
+            # }
         
-        if load_uncertainty:
+        if load_dose_or_uncertainty != "dose":
+            if load_dose_or_uncertainty == "uncertainty":
+                del self.dose_rate_tensor
+                gc.collect()
             self.calculate_combined_uncertainty()
         
-        assert np.array_equal(
-            np.concatenate(self.combined_dose.voxel_edges), 
-            np.concatenate(test_dose_obj.voxel_edges)), \
-            "voxel edges of combined dose map and dwell dose rate map do not match"
-
-        assert self.combined_dose.is_not_empty(), "combined dose is empty"
-    
+        
     def set_dvh_metric_goals(self, dvh_metric_goals:dict):
         r"""
         Purpose:
@@ -441,7 +437,7 @@ class BrachyPlan:
             - Void := will update the BrachyPlan.combined_dose.uncertainty attribute
         """
         assert self.uncertainty_tensor is not None, "uncertainty tensor is not loaded"
-        assert self.dose_rate_tensor is not None, "dose rate tensor is not loaded"
+        # assert self.dose_rate_tensor is not None, "dose rate tensor is not loaded"
         assert self.dwell_times is not None, "dwell times are not extracted"
         assert self.combined_dose is not None, "combined dose is not calculated yet"
 
@@ -562,9 +558,9 @@ def dvh_metric(
     # in future, one could pass the DVH plot to be stored in the structure object. 
     return f(threshold), normalized_cum_dvh
 
-def _load_dose_to_dict(
+def _load_single_dose_and_uncertainty_to_dict(
             pth_dose_rate:str,
-            load_dose_or_uncertainty:str="dose" 
+            load_dose_or_uncertainty:str="both" 
             ):
         r""""
         Purpose:
@@ -624,7 +620,7 @@ def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
     print(f"The shape of the dwell_times is {plan_obj.dwell_times.shape}")
     print(f"The shape of the dwell_coordinates is {len(plan_obj.dwell_coordinates)}")
 
-def test_load_dose_rate_tensor():
+def test_load_dose_rate_or_uncertainty_tensor():
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
     dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
 
@@ -632,7 +628,7 @@ def test_load_dose_rate_tensor():
     plan_obj.load_catheterTable_json(pth_cathTable_json)
     plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
 
-    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
+    plan_obj.load_dose_rate_or_uncertainty_tensor(dir_dose_rate, load_dose_or_uncertainty="both")
     print(f"The shape of the dose rate tensor is {plan_obj.dose_rate_tensor.shape}")
     print(f"The shape of the combined dose is {plan_obj.combined_dose.grid.shape}")
 
@@ -661,7 +657,7 @@ def test_create_structures_and_calc_dvh_metrics():
     plan_obj = BrachyPlan()
     plan_obj.load_catheterTable_json(pth_cathTable_json)
     plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
-    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
+    plan_obj.load_dose_rate_or_uncertainty_tensor(dir_dose_rate, load_dose_or_uncertainty="both")
     plan_obj.set_dvh_metric_goals(dvh_metric_goals)
 
     plan_obj.create_structures(dir_dicom, True)
@@ -677,7 +673,7 @@ def test_calculate_combined_uncertainty():
     plan_obj.load_catheterTable_json(pth_cathTable_json)
     plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
 
-    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
+    plan_obj.load_dose_rate_or_uncertainty_tensor(dir_dose_rate, load_dose_or_uncertainty="both")
     plan_obj.calculate_combined_uncertainty()
     print(f"The shape of the combined uncertainty is {plan_obj.combined_dose.uncertainty.shape}")
     assert plan_obj.combined_dose.uncertainty.shape == plan_obj.combined_dose.grid.shape, \
@@ -696,7 +692,7 @@ def test_calculate_uncertainty_per_structure():
     plan_obj.load_catheterTable_json(pth_cathTable_json)
     plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
     plan_obj.set_dvh_metric_goals(dvh_metric_goals)
-    plan_obj.load_dose_rate_tensor(dir_dose_rate, load_uncertainty=True)
+    plan_obj.load_dose_rate_or_uncertainty_tensor(dir_dose_rate, load_dose_or_uncertainty="both")
     
     plan_obj.create_structures(dir_dicom)
     
@@ -721,17 +717,17 @@ def test_BrachyPlan():
     plan_obj = BrachyPlan(
         pth_cathTable_json, 
         dir_dose_rate,
-        load_uncertainty=True,
+        load_dose_or_uncertainty="both",
         multi_processing=True,
         dir_structure_source=dir_dicom,
         dvh_metric_goals=dvh_metric_goals) 
     t1 = time.time()
     print(f"loading the plan took {t1-t0} seconds")
 
-def test__load_dose_to_dict():
+def test__load_single_dose_and_uncertainty_to_dict():
     pth_dose_rate = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     dose_rate_dict = {}
-    _load_dose_to_dict(pth_dose_rate, dose_rate_dict, True)
+    _load_single_dose_and_uncertainty_to_dict(pth_dose_rate, dose_rate_dict, True)
     print(dose_rate_dict[1]["dose"].shape)
     print(dose_rate_dict[1]["uncertainty"].shape)
     
@@ -740,10 +736,10 @@ if __name__ == "__main__":
     # running the test functions above: 
     # test_load_catheterTable_json()
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
-    # test_load_dose_rate_tensor()
+    # test_load_dose_rate_or_uncertainty_tensor()
     # test_set_dvh_metric_goals()
     # test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
     test_BrachyPlan()
-    # test__load_dose_to_dict()
+    # test__load_single_dose_and_uncertainty_to_dict()

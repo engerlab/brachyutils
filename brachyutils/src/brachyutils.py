@@ -25,7 +25,7 @@ def memory_limit():
     """Limit max memory usage to half."""
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     # Convert KiB to bytes, and divide in two to half
-    resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * 0.95), hard))
+    resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * 0.98), hard))
 
 def get_memory():
     with open('/proc/meminfo', 'r') as mem:
@@ -381,7 +381,7 @@ def get_uncertainty_one_patient(
     plan_obj = BrachyPlan(
         pth_catheterTable_json=pth_plan,
         dir_dose_rate=pth_dose,
-        load_uncertainty=True,
+        load_dose_or_uncertainty="uncertainty",
         multi_processing=multi_proc,
         dvh_metric_goals=dvh_metric_goals,
         dir_structure_source=pth_dicom,
@@ -495,11 +495,11 @@ def test_multiply_dose_by_constant_many_files():
         
         assert np.allclose(scaled_dose_obj.grid, original_dose_obj.grid*scale_factor)
 
-def test_get_uncertaintyAllStructures_many_patients():
+def test_get_uncertainty_one_patient():
     dir_dicom = "/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/p4"
     dir_doserate_maps = "/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm/p4"
     dir_plan = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/p4"
-    pth_json = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/p4/patient_uncertainty.json"
+    pth_json = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/p4/uncertainty.json"
     multi_proc = True
     pth_dvh_metric_goals_json = "../../data_test/dvh_metric_goals.json"
     
@@ -517,7 +517,7 @@ def main():
     try:
         app()
     except MemoryError:
-        print("Memory Error")
+        print("Memory Error. consider loading only dose or uncertainty instead of both.")
         sys.exit(1)
         
 if __name__ == "__main__":
@@ -526,7 +526,7 @@ if __name__ == "__main__":
         # test_convert_many_files()
         # test_crop_dose_by_bodyContour_many_files()
         # test_multiply_dose_by_constant_many_files()
-        test_get_uncertaintyAllStructures_many_patients()
+        test_get_uncertainty_one_patient()
     except MemoryError:
         print("Memory Error")
         sys.exit(1)
