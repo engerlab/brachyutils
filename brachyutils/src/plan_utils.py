@@ -261,7 +261,7 @@ class BrachyPlan:
         self, 
         dir_dose_rate:str,
         type_dose_file:str=".nrrd",
-        load_uncertainty:bool=False,
+        load_dose_or_uncertainty:str="dose",
         multi_processing:bool=False):
         r"""
         Purpose:
@@ -274,7 +274,7 @@ class BrachyPlan:
             that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
             - type_dose_file := the type of dose rate file. The type could be ".nrrd" or ".3ddose"
             consult BrachyDose in dose_utils.py for more info on the dose rate file types.
-            - load_uncertainty := if True, the uncertainty tensor will be loaded as well. 
+            - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
             - multi_processing := if True, the dose rate files will be loaded in parallel. By default,
             we use 8 cores for parallel processing.
         Outputs:
@@ -306,24 +306,34 @@ class BrachyPlan:
         if multi_processing:
             with Pool(8) as mp_pool:
                 dose_rate_list = mp_pool.map(
-                    partial(_load_dose_to_dict, load_uncertainty=load_uncertainty), 
+                    partial(
+                        _load_dose_to_dict, 
+                        load_dose_or_uncertainty=load_dose_or_uncertainty), 
                     dose_rate_files)
             # the output of the map is already sorted out. if needed sorting, use the line below:
             # dose_rate_list.sort(key=lambda x : x.keys())
-            for i, dose_rate_dict in enumerate(dose_rate_list):
+                       
+        else:  
+            dose_rate_list = np.empty(len(dose_rate_files), dtype=object)
+            for i, pth_dose_rate in tqdm(enumerate(dose_rate_files)):     
+                dose_rate_list[i] = _load_dose_to_dict(pth_dose_rate, load_dose_or_uncertainty)
+                               
+                # dose_obj = BrachyDose(pth_dose_rate)
+                # self.dose_rate_tensor[i] = dose_obj.grid
+                # if load_uncertainty:
+                #     try:
+                #         self.uncertainty_tensor[i] = dose_obj.uncertainty
+                #     except:
+                #         Warning(f"uncertainty map for dwell number {i} is not loaded from dose file {pth_dose_rate}. Moving on...")
+        
+        for i, dose_rate_dict in enumerate(dose_rate_list):
                 self.dose_rate_tensor[i] = dose_rate_dict[i+1]["dose"]
                 if load_uncertainty:
-                    self.uncertainty_tensor[i] = dose_rate_dict[i+1]["uncertainty"]            
-        else:  
-            for i, pth_dose_rate in tqdm(zip(range(self.num_dwells), dose_rate_files)):
-                dose_obj = BrachyDose(pth_dose_rate)
-                self.dose_rate_tensor[i] = dose_obj.grid
-                if load_uncertainty:
-                    try:
-                        self.uncertainty_tensor[i] = dose_obj.uncertainty
-                    except:
-                        Warning(f"uncertainty map for dwell number {i} is not loaded from dose file {pth_dose_rate}. Moving on...")
-            
+                    self.uncertainty_tensor[i] = dose_rate_dict[i+1]["uncertainty"]
+        
+        del dose_rate_list
+        gc.collect()
+        
         # calculate the combined dose and store the result in the combined_dose attribute 
         combined_dose_grid = np.sum(
             self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
@@ -554,25 +564,35 @@ def dvh_metric(
 
 def _load_dose_to_dict(
             pth_dose_rate:str,
-            # dose_rate_dict:dict,
-            load_uncertainty:bool=False 
+            load_dose_or_uncertainty:str="dose" 
             ):
         r""""
         Purpose:
             - To load a single dose rate file into the BrachyPlan object.
             this is to be used in the case of multiprocessing. 
+        Inputs:
+            - pth_dose_rate := path to the dose rate file
+            - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
         """
         dose_obj = BrachyDose(pth_dose_rate)
         dose_obj_dict = {}
         index = int(os.path.basename(pth_dose_rate).split(".")[0].split("_")[-1])
-        dose_obj_dict["dose"] = dose_obj.grid
-        if load_uncertainty:
+        if load_dose_or_uncertainty == "both":
+            dose_obj_dict["dose"] = dose_obj.grid
+            dose_obj_dict["uncertainty"] = dose_obj.uncertainty
+
+        elif load_dose_or_uncertainty == "uncertainty":
             try:
                 dose_obj_dict["uncertainty"] = dose_obj.uncertainty
             except:
                 Warning(f"uncertainty map for dwell number {index} is not loaded from {pth_dose_rate}. Moving on...")
+        elif load_dose_or_uncertainty == "dose":
+            dose_obj_dict["dose"] = dose_obj.grid
+        else:
+            raise ValueError("load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'")
+        
         del dose_obj
-        gc.collect()
+        # gc.collect()
         return {index: dose_obj_dict}
         # dose_rate_dict[index] = dose_obj_dict
         
