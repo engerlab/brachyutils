@@ -39,7 +39,7 @@ source ENV/bin/activate
 # # to crop, padd and convert .3ddose files more compact formats such as nrrd or tar.zst. 
 # # examples and details for each command is provided below:
 
-# to convert all 3ddose files located at INPUT_DIR to nrrd in the same folder.  
+# # # to convert all 3ddose files located at INPUT_DIR to nrrd in the same folder.  
 # input_dir="/home/majd/data/patient_dose_simulations/prostate-glen"
 # patient_folders=$input_dir'/*/'
 # for folder in $patient_folders
@@ -86,14 +86,22 @@ do
     dir_dicom="$dir_dicom_patients/$last_subfolder" 
     pth_uncertainty_json="$pth_uncertainty_all_patients/$last_subfolder/uncertainty.json" 
     # # Run the command
-    # brachyutils "get-uncertainty-one-patient" --help
-    brachyutils "get-uncertainty-one-patient" \
-        "$dir_doseRate_map" \
-        "$dir_plan" \
-        "$dir_dicom" \
-        "$pth_dvh_metric_goals_json" \
-        "$pth_uncertainty_json" \
-        --multi-proc
+
+    echo "brachyutils get-uncertainty-one-patient \
+        $dir_doseRate_map \
+        $dir_plan \
+        $dir_dicom \
+        $pth_dvh_metric_goals_json \
+        $pth_uncertainty_json \
+        --multi-proc"
+
+    echo "-----------------------------------"
+    brachyutils get-uncertainty-one-patient\
+    $dir_doseRate_map\
+    $dir_plan $dir_dicom\
+    $pth_dvh_metric_goals_json\
+    $pth_uncertainty_json\
+    --multi-proc
 
     # echo "$dir_doseRate_map"
     # echo "$dir_plan"
