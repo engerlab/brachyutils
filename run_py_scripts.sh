@@ -71,30 +71,34 @@ source ENV/bin/activate
 dir_dicom_patients="/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023"
 dir_dose_all_patients="/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm"
 dir_plan_all_patients="/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023"
-pth_uncertainty_json=$dir_plan_all_patients
+pth_uncertainty_all_patients=$dir_plan_all_patients
 pth_dvh_metric_goals_json="/home/majd/Software/tg186-validation/data_test/dvh_metric_goals.json"
 
 patient_folders=$dir_plan_all_patients'/*/'
 for folder in $patient_folders
 do
-    echo $folder 
+    # echo $folder 
     # Isolate the last subfolder from $folder
     last_subfolder=$(basename "$folder")
     echo "Last subfolder: $last_subfolder"
-    dir_dose_rateMaps="$dir_dose_all_patients/$last_subfolder" 
+    dir_doseRate_map="$dir_dose_all_patients/$last_subfolder" 
     dir_plan="$dir_plan_all_patients/$last_subfolder" 
     dir_dicom="$dir_dicom_patients/$last_subfolder" 
-    pth_uncertainty="$pth_uncertainty_json/$last_subfolder/uncertainty.json" 
+    pth_uncertainty_json="$pth_uncertainty_all_patients/$last_subfolder/uncertainty.json" 
     # # Run the command
     # brachyutils "get-uncertainty-one-patient" --help
-    brachyutils \
-        "get-uncertainty-one-patient" \
-        $dir_doseRate_maps \
-        $dir_plan \
-        $dir_dicom \
-        $pth_dvh_metric_goals_json \
-        $pth_uncertainty \
+    brachyutils "get-uncertainty-one-patient" \
+        "$dir_doseRate_map" \
+        "$dir_plan" \
+        "$dir_dicom" \
+        "$pth_dvh_metric_goals_json" \
+        "$pth_uncertainty_json" \
         --multi-proc
-        
+
+    # echo "$dir_doseRate_map"
+    # echo "$dir_plan"
+    # echo "$dir_dicom"
+    # echo "$pth_dvh_metric_goals_json"
+    # echo "$pth_uncertainty_json"        
     echo "-----------------------------------"
 done
