@@ -2,7 +2,7 @@ import os
 from glob import glob
 import json
 import numpy as np
-
+import gc
 # from typing import Optional
 from tqdm import tqdm
 from multiprocessing import Pool, Process, Manager
@@ -292,6 +292,9 @@ class BrachyPlan:
         
         # here is the list of the dose rate files
         dose_rate_files = glob(os.path.join(dir_dose_rate, f"*{type_dose_file}"))
+        
+        dose_rate_files = [dosefile for dosefile in dose_rate_files if "combined" not in dosefile]
+        
         dose_rate_files.sort(key=lambda x: int(os.path.basename(x).split(".")[0].split("_")[-1]))
         assert len(dose_rate_files) == self.num_dwells, "number of dose rate files does not match the number of dwell positions"
 
@@ -568,7 +571,8 @@ def _load_dose_to_dict(
                 dose_obj_dict["uncertainty"] = dose_obj.uncertainty
             except:
                 Warning(f"uncertainty map for dwell number {index} is not loaded from {pth_dose_rate}. Moving on...")
-
+        del dose_obj
+        gc.collect()
         return {index: dose_obj_dict}
         # dose_rate_dict[index] = dose_obj_dict
         

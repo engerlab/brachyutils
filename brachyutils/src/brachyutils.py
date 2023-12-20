@@ -7,6 +7,8 @@ import typer
 import numpy as np
 import re
 import gc
+import resource
+import sys
 
 from dicom_utils import  get_structure_index_range
 from egsphant_utils import _load_json, BrachyEgsphant
@@ -18,6 +20,23 @@ from typing_extensions import Annotated
 
 from multiprocessing import Pool
 from functools import partial
+
+def memory_limit():
+    """Limit max memory usage to half."""
+    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    # Convert KiB to bytes, and divide in two to half
+    resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * 0.95), hard))
+
+def get_memory():
+    with open('/proc/meminfo', 'r') as mem:
+        free_memory = 0
+        for i in mem:
+            sline = i.split()
+            if str(sline[0]) in ('MemFree:', 'Buffers:', 'Cached:'):
+                free_memory += int(sline[1])
+    return free_memory  # KiB
+
+
 app = typer.Typer()
 
 @app.command(
@@ -477,10 +496,10 @@ def test_multiply_dose_by_constant_many_files():
         assert np.allclose(scaled_dose_obj.grid, original_dose_obj.grid*scale_factor)
 
 def test_get_uncertaintyAllStructures_many_patients():
-    dir_dicom = "/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/p1"
-    dir_doserate_maps = "/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm/p1"
-    dir_plan = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/p1"
-    pth_json = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/p1/patient_uncertainty.json"
+    dir_dicom = "/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/p4"
+    dir_doserate_maps = "/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm/p4"
+    dir_plan = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/p4"
+    pth_json = "/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/p4/patient_uncertainty.json"
     multi_proc = True
     pth_dvh_metric_goals_json = "../../data_test/dvh_metric_goals.json"
     
@@ -494,10 +513,20 @@ def test_get_uncertaintyAllStructures_many_patients():
     )
     
 def main():
-    app()
-
+    memory_limit()
+    try:
+        app()
+    except MemoryError:
+        print("Memory Error")
+        sys.exit(1)
+        
 if __name__ == "__main__":
-    # test_convert_many_files()
-    # test_crop_dose_by_bodyContour_many_files()
-    # test_multiply_dose_by_constant_many_files()
-    test_get_uncertaintyAllStructures_many_patients()
+    memory_limit()
+    try:
+        # test_convert_many_files()
+        # test_crop_dose_by_bodyContour_many_files()
+        # test_multiply_dose_by_constant_many_files()
+        test_get_uncertaintyAllStructures_many_patients()
+    except MemoryError:
+        print("Memory Error")
+        sys.exit(1)
