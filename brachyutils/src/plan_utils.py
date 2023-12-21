@@ -33,30 +33,28 @@ class BrachyStructure:
         - dvh_metric_clinical_goal:float
         - dvh_metric_observed:float
     """
-    name:str
-    mask:np.array # shape: (z, y, x)
-
-    # dose volume histogram
-    dvh_metric_name:str
-    dvh_metric_clinical_goal:float
-    dvh_metric_observed:float
-    normalized_cummulative_dvh:np.array
     
-    # uncertainty volume histogram
-    uvh:np.array 
-    uncertainty_mean:float
-    uncertainty_std:float
-    uncertainty_max:float
-    uncertainty_min:float
-
-    # optimization parameters
-    name_in_gurobiModel:str
-    bound_coordinates_in_gurobiModel:list
-    penalty_weight:float
-    
-
     def __init__(self):
-        pass
+        name:str = None
+        mask:np.array = None # shape: (z, y, x)
+
+        # dose volume histogram
+        dvh_metric_name:str = None
+        dvh_metric_clinical_goal:float = None
+        dvh_metric_observed:float = None
+        normalized_cummulative_dvh:np.array = None
+        
+        # uncertainty volume histogram
+        uvh:np.array  = None
+        uncertainty_mean:float = None
+        uncertainty_std:float = None
+        uncertainty_max:float = None
+        uncertainty_min:float = None
+
+        # optimization parameters
+        name_in_gurobiModel:str = None
+        bound_coordinates_in_gurobiModel:list = None
+        penalty_weight:float = None
 
     def get_dvh_metric(self, combined_dose:BrachyDose):
         assert self.mask is not None, "mask is not loaded"
@@ -103,32 +101,21 @@ class BrachyPlan:
         - brachy_structure:list[BrachyStructure] := the list of patient structures in the plan
     
     Functions:
-        - load_catheterTable_json
-        - extract_dwell_numbers_times_coordinates_from_catheterTable
-        - load_dose_rate_or_uncertainty_tensor
-        - set_dvh_metric_goals
-        - create_structures
-        - calculate_DVH_metrics
+        - load_catheterTable_json()
+        - extract_dwell_numbers_times_coordinates_from_catheterTable()
+        - load_dose_rate_or_uncertainty_tensor()
+        - set_dvh_metric_goals()
+        - create_structures()
+        - calculate_DVH_metrics()
+        - calculate_combined_uncertainty()
+        - calculate_uncertainty_per_structure()
     """
-    num_dwells:int
-    catheter_table:list
-    dwell_numbers:np.array #shape: (num_dwells, 1)
-    dwell_timess:np.array #shape: (num_dwells, 1)
-    dwell_coordinates:list #shape: (num_dwells, 3) 
-    dose_rate_tensor:np.array #shape: (num_dwells, z, y, x)
-    combined_dose:BrachyDose
-    uncertainty_tensor:np.array #shape: (num_dwells, z, y, x)
-
-    # organ_bounds:dict
-    dvh_metric_goals: list
-    structure_list:list
-
     
     def __init__(
             self, 
             # for loading catheter table:
             pth_catheterTable_json:str=None,
-            # for loading dose:
+            # for loading dose or uncertainty:
             dir_dose_rate:str=None,
             type_dose_file:str=".nrrd",
             load_dose_or_uncertainty:str="dose",
@@ -137,13 +124,21 @@ class BrachyPlan:
             dvh_metric_goals:dict=None,
             dir_structure_source:str=None,
             dose_cropped_by_body:bool=True):
-        r"""TO BE UPDATED
+        r"""
         Purpose:
             - To initialize the BrachyPlan object.
         Inputs:
-            - pht_catheterTable_json := path to a json file having the info on the catheter table.
-            - dir_dose_rate := path to the directory containing the dose rate files for a patient.
-            - dir_structure_source := path to the directory containing the structures. this could be dicom files for a patient or nrrd files.
+            # for loading catheter table:
+            - pth_catheterTable_json:str := path to a json file containing the information of the catheter table.
+            # for loading dose or uncertainty:
+            - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
+            - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
+            - load_dose_or_uncertainty:str = "dose" := specify whether to load "dose" or "uncertainty" or "both" (default is "dose").
+            - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
+            # for structure creation:
+            - dvh_metric_goals:dict = None := dictionary containing the DVH metric goals (default is None).
+            - dir_structure_source:str = None := path to the directory containing the structures (default is None).
+            - dose_cropped_by_body:bool = True := flag to indicate whether the dose is cropped by body (default is True).
         Outputs:
             - Void := will initialize the BrachyPlan object
         Dependencies:
@@ -152,14 +147,14 @@ class BrachyPlan:
         # catheter table attributes
         self.num_dwells = None
         self.catheter_table = None
-        self.dwell_numbers = np.array([], dtype=int)
-        self.dwell_times = np.array([], dtype=np.float32)
-        self.dwell_coordinates = []
+        self.dwell_numbers = np.array([], dtype=int) #shape: (num_dwells, 1)
+        self.dwell_times = np.array([], dtype=np.float32) #shape: (num_dwells, 1)
+        self.dwell_coordinates = [] #shape: (num_dwells, 3) 
 
         # dose attributes
-        self.dose_rate_tensor = np.array([], dtype=np.float32)
-        self.uncertainty_tensor = np.array([], dtype=np.float32)
+        self.dose_rate_tensor = np.array([], dtype=np.float32) #shape: (num_dwells, z, y, x)
         self.combined_dose = None
+        self.uncertainty_tensor = np.array([], dtype=np.float32) #shape: (num_dwells, z, y, x)
 
         # sturctures attributes
         # self.organ_bounds = None

@@ -115,14 +115,7 @@ class BrachyDose:
         pydicom
         json
     """
-    grid: np.ndarray
-    uncertainty: np.ndarray
-    num_voxels: np.ndarray
-    vox_size: np.ndarray
-    topleft: np.ndarray
-    axis: np.ndarray
-    interpolation_function: RegularGridInterpolator
-
+    
     def __init__(self, pth_dose_file: Optional[str] = None):
 
         self.grid: np.ndarray = None
