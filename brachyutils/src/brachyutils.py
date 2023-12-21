@@ -498,7 +498,7 @@ def test_multiply_dose_by_constant_many_files():
 def test_get_uncertainty_one_patient():
     # for patient_number in ["p9", "p8", "p7", "p12"]:
     #     try:
-        patient_number = "p8"
+        patient_number = "p9"
         dir_dicom = f"/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/{patient_number}"
         dir_doserate_maps = f"/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm/{patient_number}"
         dir_plan = f"/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/{patient_number}"
@@ -526,7 +526,7 @@ def main():
         sys.exit(1)
         
 if __name__ == "__main__":
-    # memory_limit()
+    memory_limit()
     try:
         # test_convert_many_files()
         # test_crop_dose_by_bodyContour_many_files()

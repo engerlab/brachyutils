@@ -299,44 +299,38 @@ class BrachyPlan:
         assert len(dose_rate_files) == self.num_dwells, "number of dose rate files does not match the number of dwell positions"
 
         test_dose_obj = BrachyDose(dose_rate_files[0])
-        self.dose_rate_tensor = np.zeros((self.num_dwells, *test_dose_obj.grid.shape), dtype=np.float32)
-        self.uncertainty_tensor = np.zeros((self.num_dwells, *test_dose_obj.uncertainty.shape), dtype=np.float32)
+        
+        if load_dose_or_uncertainty not in ["dose", "uncertainty", "both"]:
+            raise ValueError("load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'")
                  
         # load the dose rate tensor 
         if multi_processing:
             with Pool(8) as mp_pool:
-                dose_rate_list = mp_pool.map(
-                        _load_single_dose_and_uncertainty_to_dict,
-                        dose_rate_files)
-                    # partial(
-                    #     _load_single_dose_and_uncertainty_to_dict, 
-                    #     load_dose_or_uncertainty="both"), 
-                    # dose_rate_files)      
+                dose_or_uncertainty_list = np.array(mp_pool.map(
+                        partial(_load_single_dose_or_uncertainty_to_dict, load_dose_or_uncertainty=load_dose_or_uncertainty),
+                        dose_rate_files), dtype=np.float32)  
+                
         else:  
-            dose_rate_list = np.empty(len(dose_rate_files), dtype=object)
+            dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
             for i, pth_dose_rate in tqdm(enumerate(dose_rate_files)):     
-                dose_rate_list[i] = _load_single_dose_and_uncertainty_to_dict(pth_dose_rate)#, load_dose_or_uncertainty)
-               
-        for i, dose_rate_dict in enumerate(dose_rate_list):
-            self.dose_rate_tensor[i] = dose_rate_dict[i+1]["dose"]
-            if load_dose_or_uncertainty != "dose":
-                self.uncertainty_tensor[i] = dose_rate_dict[i+1]["uncertainty"]
-          
+                dose_or_uncertainty_list[i] = _load_single_dose_or_uncertainty_to_dict(pth_dose_rate, load_dose_or_uncertainty)
+        
+        if load_dose_or_uncertainty == "both":
+            self.dose_rate_tensor = np.array(dose_or_uncertainty_list[:, 0], dtype=np.float32)
+            self.uncertainty_tensor = np.array(dose_or_uncertainty_list[:, 1], dtype=np.float32)
             
-        del dose_rate_list
+        elif load_dose_or_uncertainty == "dose":
+            self.dose_rate_tensor = np.array(dose_or_uncertainty_list, dtype=np.float32)
+        elif load_dose_or_uncertainty == "uncertainty":
+            self.uncertainty_tensor = np.array(dose_or_uncertainty_list, dtype=np.float32)
+        else:
+            raise ValueError("load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'")
+        
+        del dose_or_uncertainty_list
         gc.collect()
         
-        # calculate the combined dose and store the result in the combined_dose attribute 
-        # this implementation is a little slow, and very very memory efficient
-        combined_dose_grid = np.zeros_like(self.dose_rate_tensor[0])
-        for i in range(self.num_dwells):
-            combined_dose_grid += self.dose_rate_tensor[i] * self.dwell_times[i]
-        # this implementation is a bit faster, but very memory inefficient
-        # combined_dose_grid = np.sum(
-        #     self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
-        #     axis=0)
         self.combined_dose = BrachyDose()
-        self.combined_dose.grid = combined_dose_grid
+        self.combined_dose.grid = np.zeros_like(test_dose_obj.grid)
         self.combined_dose.num_voxels = test_dose_obj.num_voxels        
         self.combined_dose.vox_size = test_dose_obj.vox_size
         self.combined_dose.topleft = test_dose_obj.topleft
@@ -349,11 +343,16 @@ class BrachyPlan:
 
             # assert self.combined_dose.is_not_empty(), "combined dose is empty"
             # }
-        
+        if load_dose_or_uncertainty != "uncertainty":
+            # calculate the combined dose and store the result in the combined_dose attribute 
+            # this implementation is a little slow, and very very memory efficient
+            for i in range(self.num_dwells):
+                self.combined_dose.grid += self.dose_rate_tensor[i] * self.dwell_times[i]
+            # this implementation is a bit faster, but very memory inefficient
+            # self.combined_dose.grid = np.sum(
+            #     self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
+            #     axis=0)
         if load_dose_or_uncertainty != "dose":
-            if load_dose_or_uncertainty == "uncertainty":
-                del self.dose_rate_tensor
-                gc.collect()
             self.calculate_combined_uncertainty()
         
         
@@ -443,7 +442,6 @@ class BrachyPlan:
             - Void := will update the BrachyPlan.combined_dose.uncertainty attribute
         """
         assert self.uncertainty_tensor is not None, "uncertainty tensor is not loaded"
-        # assert self.dose_rate_tensor is not None, "dose rate tensor is not loaded"
         assert self.dwell_times is not None, "dwell times are not extracted"
         assert self.combined_dose is not None, "combined dose is not calculated yet"
 
@@ -452,7 +450,9 @@ class BrachyPlan:
         # This implementation is a little slow, and very very memory efficient
         self.combined_dose.uncertainty = np.zeros_like(self.combined_dose.grid)
         for i in range(self.num_dwells):
-            self.combined_dose.uncertainty += self.uncertainty_tensor[i] * normalized_times[i]
+            self.combined_dose.uncertainty += (self.uncertainty_tensor[i] * normalized_times[i])**2
+        self.combined_dose.uncertainty = np.sqrt(self.combined_dose.uncertainty)
+        
         # This implementation is a bit faster, but very memory inefficient
         # self.combined_dose.uncertainty = np.sqrt(
         #     np.sum(
@@ -567,7 +567,7 @@ def dvh_metric(
     # in future, one could pass the DVH plot to be stored in the structure object. 
     return f(threshold), normalized_cum_dvh
 
-def _load_single_dose_and_uncertainty_to_dict(
+def _load_single_dose_or_uncertainty_to_dict(
             pth_dose_rate:str,
             load_dose_or_uncertainty:str="both" 
             ):
@@ -578,28 +578,33 @@ def _load_single_dose_and_uncertainty_to_dict(
         Inputs:
             - pth_dose_rate := path to the dose rate file
             - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
+        Outputs:
+            - dose_or_uncert_map := the dose rate or uncertainty map of the dwell position
+            specified by the index. 
+                If load_dose_or_uncertainty == "both", then dose_or_uncert_map[0] is dose and 
+                dose_or_uncert_map[1] is uncertainty.
+        Dependencies:
+            - BrachyDose()
         """
         dose_obj = BrachyDose(pth_dose_rate)
-        dose_obj_dict = {}
-        index = int(os.path.basename(pth_dose_rate).split(".")[0].split("_")[-1])
         if load_dose_or_uncertainty == "both":
-            dose_obj_dict["dose"] = dose_obj.grid
-            dose_obj_dict["uncertainty"] = dose_obj.uncertainty
+            dose_or_uncert_map = np.zeros((2, *dose_obj.grid.shape), dtype=np.float32)
+            dose_or_uncert_map[0] = dose_obj.grid
+            dose_or_uncert_map[1] = dose_obj.uncertainty
 
         elif load_dose_or_uncertainty == "uncertainty":
             try:
-                dose_obj_dict["uncertainty"] = dose_obj.uncertainty
+                dose_or_uncert_map = np.zeros_like(BrachyDose(pth_dose_rate).grid, dtype=np.float32)
+                dose_or_uncert_map = dose_obj.uncertainty
             except:
                 Warning(f"uncertainty map for dwell number {index} is not loaded from {pth_dose_rate}. Moving on...")
         elif load_dose_or_uncertainty == "dose":
-            dose_obj_dict["dose"] = dose_obj.grid
+            dose_or_uncert_map = np.zeros_like(BrachyDose(pth_dose_rate).grid, dtype=np.float32)
+            dose_or_uncert_map = dose_obj.grid
         else:
             raise ValueError("load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'")
         
-        del dose_obj
-        # gc.collect()
-        return {index: dose_obj_dict}
-        # dose_rate_dict[index] = dose_obj_dict
+        return dose_or_uncert_map
         
 def test_load_catheterTable_json():
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
@@ -697,15 +702,15 @@ def test_calculate_uncertainty_per_structure():
         'D1cc(rectum)': 11.25,
         'D0.1cc(urethra)': 18.75
     }
-    plan_obj = BrachyPlan()
-    plan_obj.load_catheterTable_json(pth_cathTable_json)
-    plan_obj.extract_dwell_numbers_times_coordinates_from_catheterTable()
-    plan_obj.set_dvh_metric_goals(dvh_metric_goals)
-    plan_obj.load_dose_rate_or_uncertainty_tensor(dir_dose_rate, load_dose_or_uncertainty="both")
     
-    plan_obj.create_structures(dir_dicom)
+    plan_obj = BrachyPlan(
+        pth_cathTable_json,
+        dir_dose_rate,
+        load_dose_or_uncertainty="both",
+        multi_processing=True,
+        dir_structure_source=dir_dicom,
+        dvh_metric_goals=dvh_metric_goals)
     
-    plan_obj.calculate_combined_uncertainty()
     plan_obj.calculate_uncertainty_per_structure()
     for structure in plan_obj.structure_list:
         print(f"{structure.name}: mean: {structure.uncertainty_mean},\n \
@@ -733,10 +738,9 @@ def test_BrachyPlan():
     t1 = time.time()
     print(f"loading the plan took {t1-t0} seconds")
 
-def test__load_single_dose_and_uncertainty_to_dict():
+def test__load_single_dose_or_uncertainty_to_dict():
     pth_dose_rate = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
-    dose_rate_dict = {}
-    _load_single_dose_and_uncertainty_to_dict(pth_dose_rate, dose_rate_dict, True)
+    _load_single_dose_or_uncertainty_to_dict(pth_dose_rate, "both")
     print(dose_rate_dict[1]["dose"].shape)
     print(dose_rate_dict[1]["uncertainty"].shape)
     
@@ -749,6 +753,6 @@ if __name__ == "__main__":
     # test_set_dvh_metric_goals()
     # test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
-    # test_calculate_uncertainty_per_structure()
-    test_BrachyPlan()
-    # test__load_single_dose_and_uncertainty_to_dict()
+    test_calculate_uncertainty_per_structure()
+    # test_BrachyPlan()
+    # test__load_single_dose_or_uncertainty_to_dict()
