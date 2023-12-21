@@ -496,26 +496,27 @@ def test_multiply_dose_by_constant_many_files():
         assert np.allclose(scaled_dose_obj.grid, original_dose_obj.grid*scale_factor)
 
 def test_get_uncertainty_one_patient():
-    for patient_number in ["p9", "p8", "p7", "p12"]:
-        try:
-            dir_dicom = f"/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/{patient_number}"
-            dir_doserate_maps = f"/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm/{patient_number}"
-            dir_plan = f"/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/{patient_number}"
-            pth_json = f"/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/{patient_number}/uncertainty.json"
-            multi_proc = True
-            pth_dvh_metric_goals_json = "../../data_test/dvh_metric_goals.json"
-            
-            get_uncertainty_one_patient(
-                dir_doserate_maps,
-                dir_plan,
-                dir_dicom,
-                pth_dvh_metric_goals_json,
-                pth_json,
-                multi_proc,
-            )
-        except:
-            print(f"patient {patient_number} failed")
-            continue
+    # for patient_number in ["p9", "p8", "p7", "p12"]:
+    #     try:
+        patient_number = "p8"
+        dir_dicom = f"/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/{patient_number}"
+        dir_doserate_maps = f"/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm/{patient_number}"
+        dir_plan = f"/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/{patient_number}"
+        pth_json = f"/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/{patient_number}/uncertainty.json"
+        multi_proc = True
+        pth_dvh_metric_goals_json = "../../data_test/dvh_metric_goals.json"
+        
+        get_uncertainty_one_patient(
+            dir_doserate_maps,
+            dir_plan,
+            dir_dicom,
+            pth_dvh_metric_goals_json,
+            pth_json,
+            multi_proc,
+        )
+        # except:
+        #     print(f"patient {patient_number} failed")
+        #     continue
 def main():
     memory_limit()
     try:
@@ -525,7 +526,7 @@ def main():
         sys.exit(1)
         
 if __name__ == "__main__":
-    memory_limit()
+    # memory_limit()
     try:
         # test_convert_many_files()
         # test_crop_dose_by_bodyContour_many_files()

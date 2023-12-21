@@ -318,17 +318,23 @@ class BrachyPlan:
                 dose_rate_list[i] = _load_single_dose_and_uncertainty_to_dict(pth_dose_rate)#, load_dose_or_uncertainty)
                
         for i, dose_rate_dict in enumerate(dose_rate_list):
-                self.dose_rate_tensor[i] = dose_rate_dict[i+1]["dose"]
-                if load_dose_or_uncertainty != "dose":
-                    self.uncertainty_tensor[i] = dose_rate_dict[i+1]["uncertainty"]
-        
+            self.dose_rate_tensor[i] = dose_rate_dict[i+1]["dose"]
+            if load_dose_or_uncertainty != "dose":
+                self.uncertainty_tensor[i] = dose_rate_dict[i+1]["uncertainty"]
+          
+            
         del dose_rate_list
         gc.collect()
         
         # calculate the combined dose and store the result in the combined_dose attribute 
-        combined_dose_grid = np.sum(
-            self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
-            axis=0)
+        # this implementation is a little slow, and very very memory efficient
+        combined_dose_grid = np.zeros_like(self.dose_rate_tensor[0])
+        for i in range(self.num_dwells):
+            combined_dose_grid += self.dose_rate_tensor[i] * self.dwell_times[i]
+        # this implementation is a bit faster, but very memory inefficient
+        # combined_dose_grid = np.sum(
+        #     self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
+        #     axis=0)
         self.combined_dose = BrachyDose()
         self.combined_dose.grid = combined_dose_grid
         self.combined_dose.num_voxels = test_dose_obj.num_voxels        
@@ -443,13 +449,16 @@ class BrachyPlan:
 
         normalized_times = self.dwell_times / np.sum(self.dwell_times)
         
-        combined_uncertainty_grid = np.sqrt(
-            np.sum(
-                (self.uncertainty_tensor * normalized_times[:, np.newaxis, np.newaxis, np.newaxis])**2,
-                axis=0))
-        
-        self.combined_dose.uncertainty = combined_uncertainty_grid
-        
+        # This implementation is a little slow, and very very memory efficient
+        self.combined_dose.uncertainty = np.zeros_like(self.combined_dose.grid)
+        for i in range(self.num_dwells):
+            self.combined_dose.uncertainty += self.uncertainty_tensor[i] * normalized_times[i]
+        # This implementation is a bit faster, but very memory inefficient
+        # self.combined_dose.uncertainty = np.sqrt(
+        #     np.sum(
+        #         (self.uncertainty_tensor * normalized_times[:, np.newaxis, np.newaxis, np.newaxis])**2,
+        #         axis=0))
+                
     def calculate_DVH_metrics(self):
         r"""
         Purpose:
