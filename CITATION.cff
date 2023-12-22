@@ -1,0 +1,19 @@
+cff-version: 0.1.0
+message: If you use this software, please cite it using these metadata.
+authors:
+  - family-names: Jafarzadeh
+    given-names: Hossein
+  
+  - family-names: Kalinowski
+    given-names: Jonathan
+
+  - family-names: A. Enger
+    given-names: Shirin
+
+title: "BrachyUtils, a python library for brachytherapy research"
+version: 0.1.0
+identifiers:
+  - type: link
+    value: https://github.com/engerlab/brachyutils.git
+
+date-released: 2023-12-22
