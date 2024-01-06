@@ -11,7 +11,9 @@ To get the package run:
 If you are installing this package on a remote cluster managed by the Digital Research Alliance of Canada (Compute Canada), you need to load some required modules:
 
 `module load StdEnv/2020`
+
 `module load python/3.9`
+
 `module load opencv`
 
 Then, create a virtual envionrment and activate it by running:
