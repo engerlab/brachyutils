@@ -164,10 +164,10 @@ def convert_single_dose_file(input_name, type_out):
 
 @app.command(help="""Will convert all files in the "input_dir" of type "type_in" to "type_out" """)
 def convert_dose_many_files(
+    # file_regex: Annotated[str, typer.Argument(help="""regular expression of files to be converted. for example, "*.nrrd".""")]=None,
+    input_dir: Annotated[str, typer.Argument(help="""directory where there are dose files to be converted""")], 
+    type_in: Annotated[str, typer.Argument(help="""extension of the files to be converted. Options are .3ddose, and .nrrd. .minidos will be added soon""")], 
     type_out: Annotated[str, typer.Argument(help="""extension of the output files. Options are .3ddose, .nrrd, .minidos""")], 
-    file_regex: Annotated[str, typer.Argument(help="""regular expression of files to be converted. for example, "*.nrrd".""")]=None,
-    input_dir: Annotated[str, typer.Argument(help="""directory where there are dose files to be converted""")]=None, 
-    type_in: Annotated[str, typer.Argument(help="""extension of the files to be converted. Options are .3ddose, and .nrrd. .minidos will be added soon""")]=None, 
     multi_proc:Annotated[bool, typer.Option(help="""if set to true, multiprocessing will be used to convert files in parallel""")]=False):
     r"""
     Purpose:
@@ -177,15 +177,15 @@ def convert_dose_many_files(
         type_in := could be ".3ddose", ".nrrd", ".minidos", other types could be added
         type_out := could be ".3ddose", ".nrrd", ".minidos", other types could be added
     """
-    if file_regex is not None:
-        file_list = glob(file_regex)
-        print(file_list)
-    elif input_dir is not None and type_in is not None:
-        input_dir = os.path.abspath(input_dir)
-        assert os.path.exists(input_dir)
-        file_list = glob(input_dir+"/*"+type_in)
-    else:
-        raise Exception("either file_regex or input_dir and type_in should be provided")
+    # if file_regex is not None:
+    #     file_list = glob(file_regex)
+    #     print(file_list)
+    # elif input_dir is not None and type_in is not None:
+    input_dir = os.path.abspath(input_dir)
+    assert os.path.exists(input_dir)
+    file_list = glob(input_dir+"/*"+type_in)
+    # else:
+    #     raise Exception("either file_regex or input_dir and type_in should be provided")
     
     if multi_proc:
         with Pool() as our_pool:
