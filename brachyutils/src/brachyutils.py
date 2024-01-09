@@ -282,8 +282,7 @@ def crop_dose_by_ratio_many_files(
     file_list = glob(input_dir+"/*"+type_in)
     
     for file in tqdm(file_list):
-        dose_obj = BrachyDose()
-        dose_obj.load_file_to_BrachyDose(file)
+        dose_obj = BrachyDose(file)
         dose_obj.crop_by_fraction(crop_ratio)
 
         file_base_noExtension = os.path.splitext(file)[0]
