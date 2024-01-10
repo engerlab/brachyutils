@@ -517,12 +517,13 @@ def test_get_uncertainty_one_patient():
         #     print(f"patient {patient_number} failed")
         #     continue
 def main():
-    memory_limit()
-    try:
-        app()
-    except MemoryError:
-        print("Memory Error. consider loading only dose or uncertainty instead of both.")
-        sys.exit(1)
+    app()
+    # memory_limit()
+    # try:
+    #     app()
+    # except MemoryError:
+    #     print("Memory Error. consider loading only dose or uncertainty instead of both.")
+    #     sys.exit(1)
         
 if __name__ == "__main__":
     memory_limit()
