@@ -497,8 +497,8 @@ class BrachyPlan:
     
     def export_plan(
         self, 
-        export_format, 
-        dir_export, 
+        export_format:str, 
+        dir_export:str, 
         content_to_export:list):
         r"""
         Purpose: 
@@ -523,7 +523,7 @@ class BrachyPlan:
             - dir_export := the directory to which the plan will be exported.
             - content_to_export := a list of strings specifying the content to export.
             options are: dose, uncertainty, catheter_table, applicator_geometry, 
-            simulation setup, structure_set. 
+            simulation setup, structure_set, Egsphant. 
         
         Outputs:
             - Void := will export the available parts of a plan into the specified export_format. 
@@ -532,12 +532,30 @@ class BrachyPlan:
             "export directory does not exist. please make the directory first"
 
         if export_format =="WebApp":
-            self.export_to_webapp(dir_export, content_to_export)
+            
+            raise NotImplementedError("export to WebApp is not implemented yet")
             
         elif export_format =="RapidBrachyExport":
-            self.export_to_rapidbrachy(dir_export, content_to_export)
             
-    def export_to_webapp(self, dir_export):
+            for item in content_to_export:
+                if item == "dose":
+                    self.export_dose(dir_export)
+                elif item == "uncertainty":
+                    self.export_uncertainty(dir_export)
+                elif item == "catheter_table":
+                    self.export_catheter_table(dir_export)
+                elif item == "applicator_geometry":
+                    self.export_applicator_geometry(dir_export)
+                elif item == "simulation_setup":
+                    self.export_simulation_setup(dir_export)
+                elif item == "structure_set":
+                    self.export_structure_set(dir_export)
+                elif item == "Egsphant":
+                    self.export_Egsphant(dir_export)
+                else:
+                    raise ValueError(f"content to export {item} is not recognized")
+            
+    def export_to_webapp(self, dir_export:str, content_to_export:list):
         r"""
         Purpose: 
             - To export the treatment plan file into the WebApp export_format.
@@ -549,20 +567,44 @@ class BrachyPlan:
         """
         raise NotImplementedError("export to WebApp is not implemented yet")
     
-    def export_to_rapidbrachy(self, dir_export):
+    def export_to_rapidbrachy(self, dir_export:str, content_to_export:list):
         r"""
         Purpose:
             - To export the treatment plan file into dir_export with the format of 
             "RapidBrachyExport", which has the following files:
-                    "run_#.3ddose",                # Optional
-                    "dwell_#.plan",                # Required
-                    "run_#.mac",                   # Optional
-                    "ApplicatorMaterials"          # Optional
-                    "applicator_geometry.json"     # Optional
-                    "catheter_table.json"          # Required
-                    "structure_set.json"           # Required
+                    "run_#.3ddose",                
+                    "dwell_#.plan",                
+                    "run_#.mac",                   
+                    "ApplicatorMaterials"          
+                    "applicator_geometry.json"     
+                    "catheter_table.json"          
+                    "structure_set.json" 
+                    "ct.egsphant"        
+                    
+        Inputs:
+            - dir_export := the directory to which the plan will be exported.
+            - content_to_export := a list of strings specifying the content to export.
+            options are: dose, uncertainty, catheter_table, applicator_geometry, 
+            simulation setup, structure_set, Egsphant.
         """
-    
+        for item in content_to_export:
+            if item == "dose":
+                self.export_dose(dir_export)
+            elif item == "uncertainty":
+                self.export_uncertainty(dir_export)
+            elif item == "catheter_table":
+                self.export_catheter_table(dir_export)
+            elif item == "applicator_geometry":
+                self.export_applicator_geometry(dir_export)
+            elif item == "simulation_setup":
+                self.export_simulation_setup(dir_export)
+            elif item == "structure_set":
+                self.export_structure_set(dir_export)
+            elif item == "Egsphant":
+                self.export_Egsphant(dir_export)
+            else:
+                raise ValueError(f"content to export {item} is not recognized")
+        
 def load_structure_mask(
     dir_structure_source:str,
     structure_name_list:list,
