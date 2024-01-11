@@ -495,7 +495,11 @@ class BrachyPlan:
             structure_obj.uncertainty_max = np.max(flattened_uncertainty)
             structure_obj.uncertainty_min = np.min(flattened_uncertainty)
     
-    def export_plan(self, export_format, dir_export):
+    def export_plan(
+        self, 
+        export_format, 
+        dir_export, 
+        content_to_export:list):
         r"""
         Purpose: 
             - To export the treatment plan file into a given export_format.
@@ -517,7 +521,10 @@ class BrachyPlan:
                     "run_#.json",
 
             - dir_export := the directory to which the plan will be exported.
-            
+            - content_to_export := a list of strings specifying the content to export.
+            options are: dose, uncertainty, catheter_table, applicator_geometry, 
+            simulation setup, structure_set. 
+        
         Outputs:
             - Void := will export the available parts of a plan into the specified export_format. 
         """
@@ -525,11 +532,36 @@ class BrachyPlan:
             "export directory does not exist. please make the directory first"
 
         if export_format =="WebApp":
-            raise NotImplementedError("WebApp export is not implemented yet")
-            self.export_to_webapp(dir_export)
+            self.export_to_webapp(dir_export, content_to_export)
             
         elif export_format =="RapidBrachyExport":
-            self.export_to_rapidbrachy(dir_export)
+            self.export_to_rapidbrachy(dir_export, content_to_export)
+            
+    def export_to_webapp(self, dir_export):
+        r"""
+        Purpose: 
+            - To export the treatment plan file into the WebApp export_format.
+        Inputs:
+            - dir_export := the directory to which the plan will be exported.
+            
+        Outputs:
+            - Void := will export the available parts of a plan into the specified export_format. 
+        """
+        raise NotImplementedError("export to WebApp is not implemented yet")
+    
+    def export_to_rapidbrachy(self, dir_export):
+        r"""
+        Purpose:
+            - To export the treatment plan file into dir_export with the format of 
+            "RapidBrachyExport", which has the following files:
+                    "run_#.3ddose",                # Optional
+                    "dwell_#.plan",                # Required
+                    "run_#.mac",                   # Optional
+                    "ApplicatorMaterials"          # Optional
+                    "applicator_geometry.json"     # Optional
+                    "catheter_table.json"          # Required
+                    "structure_set.json"           # Required
+        """
     
 def load_structure_mask(
     dir_structure_source:str,
