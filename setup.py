@@ -36,6 +36,6 @@ setup(name='brachyutils',
         "pytest",
         "pymedphys",
       ],
-      entry_points={'console_scripts': ['brachyutils=brachyutils:main']},
+      entry_points={'console_scripts': ['brachyutils=cli_utils:main']},
       package_dir={'':'brachyutils/src'}
      )
