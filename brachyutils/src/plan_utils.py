@@ -21,7 +21,7 @@ from scipy import interpolate
 class BrachyStructure:
     r"""
     Purpose:
-        - this class holds the information regarding a structure inside a brachytherapy 
+        - this class holds the inexport_formation regarding a structure inside a brachytherapy 
         treatment plan. 
         
     Attributes:
@@ -81,7 +81,7 @@ class BrachyStructure:
 class BrachyPlan:
     r"""
     Purpose:
-        - This class holds the information regarding the brachytherapy treatment plan
+        - This class holds the inexport_formation regarding the brachytherapy treatment plan
         as well as all the functions to support the necessary plan operations. 
     
     Attributes:
@@ -129,7 +129,7 @@ class BrachyPlan:
             - To initialize the BrachyPlan object.
         Inputs:
             # for loading catheter table:
-            - pth_catheterTable_json:str := path to a json file containing the information of the catheter table.
+            - pth_catheterTable_json:str := path to a json file containing the inexport_formation of the catheter table.
             # for loading dose or uncertainty:
             - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
             - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
@@ -494,7 +494,43 @@ class BrachyPlan:
             structure_obj.uncertainty_std = np.std(flattened_uncertainty)
             structure_obj.uncertainty_max = np.max(flattened_uncertainty)
             structure_obj.uncertainty_min = np.min(flattened_uncertainty)
+    
+    def export_plan(self, export_format, dir_export):
+        r"""
+        Purpose: 
+            - To export the treatment plan file into a given export_format.
+            The export_format can be either "RapidBrachyExport" or "WebAppExport".
+        Inputs:
+            - export_format := the export_format of the exported plan. options are:
+                - "RapidBrachyExport":
+                    "run_#.3ddose",
+                    "dwell_#.plan",
+                    "run_#.mac", 
+                    "ApplicatorMaterials"
+                    "applicator_geometry.json"
+                    "catheter_table.json"
+                    "structure_set.json"
+                     
+                - "WebApp": Not implemented yet
+                    "run_#.nrrd",
+                    "dwell_#.json",
+                    "run_#.json",
+
+            - dir_export := the directory to which the plan will be exported.
             
+        Outputs:
+            - Void := will export the available parts of a plan into the specified export_format. 
+        """
+        assert os.path.exists(dir_export), \
+            "export directory does not exist. please make the directory first"
+
+        if export_format =="WebApp":
+            raise NotImplementedError("WebApp export is not implemented yet")
+            self.export_to_webapp(dir_export)
+            
+        elif export_format =="RapidBrachyExport":
+            self.export_to_rapidbrachy(dir_export)
+    
 def load_structure_mask(
     dir_structure_source:str,
     structure_name_list:list,
