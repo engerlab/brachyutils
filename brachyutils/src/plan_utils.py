@@ -499,7 +499,7 @@ class BrachyPlan:
         self, 
         export_format:str, 
         dir_export:str, 
-        content_to_export:list):
+        content_to_export:dict):
         r"""
         Purpose: 
             - To export the treatment plan file into a given export_format.
@@ -507,12 +507,13 @@ class BrachyPlan:
         Inputs:
             - export_format := the export_format of the exported plan. options are:
                 - "RapidBrachyExport":
-                    "run_#.3ddose",
+                    "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
+                    "catheter_table.json"
                     "dwell_#.plan",
                     "run_#.mac", 
+                    "ct.egsphant",
                     "ApplicatorMaterials"
-                    "applicator_geometry.json"
-                    "catheter_table.json"
+                    "applicator_geometry.json",
                     "structure_set.json"
                      
                 - "WebApp": Not implemented yet
@@ -521,9 +522,15 @@ class BrachyPlan:
                     "run_#.json",
 
             - dir_export := the directory to which the plan will be exported.
-            - content_to_export := a list of strings specifying the content to export.
-            options are: dose, uncertainty, catheter_table, applicator_geometry, 
-            simulation setup, structure_set, Egsphant. 
+            - content_to_export := a dictionary with which the user specifies what parts
+            of the plan to export. everything is binary (True or False) except for 
+            "dose type", which can be either ".3ddose", ".minidos", or ".nrrd".
+            the keys of content_to_export are: 
+            {
+                "dose", "dose type", "uncertainty", "dose rate maps", 
+                "catheter_table", "plan", "mac", "egsphant",
+                "ApplicatorMaterials", applicator_geometry", "structure_set", 
+            }. 
         
         Outputs:
             - Void := will export the available parts of a plan into the specified export_format. 
@@ -537,73 +544,118 @@ class BrachyPlan:
             
         elif export_format =="RapidBrachyExport":
             
-            for item in content_to_export:
-                if item == "dose":
-                    self.export_dose(dir_export)
-                elif item == "uncertainty":
-                    self.export_uncertainty(dir_export)
-                elif item == "catheter_table":
-                    self.export_catheter_table(dir_export)
-                elif item == "applicator_geometry":
-                    self.export_applicator_geometry(dir_export)
-                elif item == "simulation_setup":
-                    self.export_simulation_setup(dir_export)
-                elif item == "structure_set":
-                    self.export_structure_set(dir_export)
-                elif item == "Egsphant":
-                    self.export_Egsphant(dir_export)
-                else:
-                    raise ValueError(f"content to export {item} is not recognized")
+            if content_to_export["dose"]:
+                self.export_dose(
+                    dir_export, 
+                    content_to_export["uncertainty"], 
+                    content_to_export["dose type"],
+                    content_to_export["dose rate maps"])
+                
+            elif content_to_export["catheter_table"]:
+                # assumes file name is "catheter_table.json"
+                self.export_catheter_table(dir_export)
             
-    def export_to_webapp(self, dir_export:str, content_to_export:list):
-        r"""
-        Purpose: 
-            - To export the treatment plan file into the WebApp export_format.
-        Inputs:
-            - dir_export := the directory to which the plan will be exported.
+            elif content_to_export["plan"]:
+                # assumes file name is "dwell_#.plan"
+                self.export_plan(dir_export)
             
-        Outputs:
-            - Void := will export the available parts of a plan into the specified export_format. 
-        """
-        raise NotImplementedError("export to WebApp is not implemented yet")
-    
-    def export_to_rapidbrachy(self, dir_export:str, content_to_export:list):
+            elif content_to_export["mac"]:
+                # assumes file name is "run_#.mac"
+                self.export_mac(dir_export)
+                
+            elif content_to_export["egsphant"]:
+                # assumes file name is "ct.egsphant"
+                self.export_egsphant(dir_export)
+            
+            elif content_to_export["ApplicatorMaterials"]:
+                # assumes file name is "ApplicatorMaterials"
+                self.export_applicator_materials(dir_export)
+            
+            elif content_to_export["applicator_geometry"]:
+                # assumes file name is "applicator_geometry.json"
+                self.export_applicator_geometry(dir_export)
+            
+            elif content_to_export["structure_set"]:
+                # assumes file name is "structure_set.json"
+                self.export_structure_set(dir_export)
+            
+    def export_dose(
+        self, 
+        dir_export, 
+        uncertainty=False, 
+        dose_type=".minidos", 
+        dose_rate_maps=False):
         r"""
         Purpose:
-            - To export the treatment plan file into dir_export with the format of 
-            "RapidBrachyExport", which has the following files:
-                    "run_#.3ddose",                
-                    "dwell_#.plan",                
-                    "run_#.mac",                   
-                    "ApplicatorMaterials"          
-                    "applicator_geometry.json"     
-                    "catheter_table.json"          
-                    "structure_set.json" 
-                    "ct.egsphant"        
-                    
+            to export combined dose map with or without uncertainty in the provided export directory. 
+            exporting dose rate maps is optional. 
         Inputs:
-            - dir_export := the directory to which the plan will be exported.
-            - content_to_export := a list of strings specifying the content to export.
-            options are: dose, uncertainty, catheter_table, applicator_geometry, 
-            simulation setup, structure_set, Egsphant.
+            - dir_export := the directory to which the dose map will be exported.
+            - uncertainty := if True, the uncertainty map will be exported as well. 
+            - dose_type := the type of dose map to be exported. options are ".3ddose", ".minidos", or ".nrrd".
+            - dose_rate_maps := if True, the dose rate maps will be exported as well.
+        Outputs:
+            - Void := will export the dose map into the specified export directory.
+        Dependencies:
         """
-        for item in content_to_export:
-            if item == "dose":
-                self.export_dose(dir_export)
-            elif item == "uncertainty":
-                self.export_uncertainty(dir_export)
-            elif item == "catheter_table":
-                self.export_catheter_table(dir_export)
-            elif item == "applicator_geometry":
-                self.export_applicator_geometry(dir_export)
-            elif item == "simulation_setup":
-                self.export_simulation_setup(dir_export)
-            elif item == "structure_set":
-                self.export_structure_set(dir_export)
-            elif item == "Egsphant":
-                self.export_Egsphant(dir_export)
-            else:
-                raise ValueError(f"content to export {item} is not recognized")
+        raise NotImplementedError("to be implemented soon")
+
+    def export_catheter_table(self, dir_export):
+        r"""
+        Purpose:
+        Inputs:
+        Outputs:
+        Dependencies:
+        """
+        raise NotImplementedError("to be implemented soon")
+    def export_plan(self, dir_export):
+        r"""
+        Purpose:
+        Inputs:
+        Outputs:
+        Dependencies:
+        """
+        raise NotImplementedError("to be implemented soon")
+    def export_mac(self, dir_export):
+        r"""
+        Purpose:
+        Inputs:
+        Outputs:
+        Dependencies:
+        """
+        raise NotImplementedError("to be implemented soon")
+    def export_egsphant(self, dir_export):
+        r"""
+        Purpose:
+        Inputs:
+        Outputs:
+        Dependencies:
+        """
+        raise NotImplementedError("to be implemented soon")
+    def export_applicator_materials(self, dir_export):
+        r"""
+        Purpose:
+        Inputs:
+        Outputs:
+        Dependencies:
+        """
+        raise NotImplementedError("to be implemented soon")
+    def export_applicator_geometry(self, dir_export):
+        r"""
+        Purpose:
+        Inputs:
+        Outputs:
+        Dependencies:
+        """
+        raise NotImplementedError("to be implemented soon")
+    def export_structure_set(self, dir_export):
+        r"""
+        Purpose:
+        Inputs:
+        Outputs:
+        Dependencies:
+        """       
+        raise NotImplementedError("to be implemented soon")
         
 def load_structure_mask(
     dir_structure_source:str,
