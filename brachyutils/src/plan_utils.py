@@ -614,7 +614,7 @@ class BrachyPlan:
                         dose_type,
                         self.uncertainty_tensor[i])
             else:
-                with Pool(cpu_count()-1) as mp_pool:
+                with Pool() as mp_pool:
                     mp_pool.starmap(
                         partial(
                             _export_single_dose_rate,
