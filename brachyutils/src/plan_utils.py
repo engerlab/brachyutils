@@ -21,7 +21,7 @@ from scipy import interpolate
 class BrachyStructure:
     r"""
     Purpose:
-        - this class holds the inexport_formation regarding a structure inside a brachytherapy 
+        - this class holds the information regarding a structure inside a brachytherapy 
         treatment plan. 
         
     Attributes:
@@ -81,7 +81,7 @@ class BrachyStructure:
 class BrachyPlan:
     r"""
     Purpose:
-        - This class holds the inexport_formation regarding the brachytherapy treatment plan
+        - This class holds the information regarding the brachytherapy treatment plan
         as well as all the functions to support the necessary plan operations. 
     
     Attributes:
@@ -129,7 +129,7 @@ class BrachyPlan:
             - To initialize the BrachyPlan object.
         Inputs:
             # for loading catheter table:
-            - pth_catheterTable_json:str := path to a json file containing the inexport_formation of the catheter table.
+            - pth_catheterTable_json:str := path to a json file containing the information of the catheter table.
             # for loading dose or uncertainty:
             - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
             - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
