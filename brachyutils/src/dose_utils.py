@@ -585,9 +585,12 @@ class BrachyDose:
         """
         # create sitk dose image
         dose_nda = np.swapaxes(self.grid, 0, 2).astype(np.float32)
-        uncertainty_nda = np.swapaxes(
-            self.uncertainty, 0, 2).astype(np.float32)
-
+        try:
+            uncertainty_nda = np.swapaxes(
+                self.uncertainty, 0, 2).astype(np.float32)
+        except:
+            uncertainty_nda = np.zeros(dose_nda.shape, dtype=np.float32)
+            
         image_nrrd = sitk.JoinSeries(
             sitk.GetImageFromArray(dose_nda),
             sitk.GetImageFromArray(uncertainty_nda)
@@ -991,6 +994,27 @@ class BrachyDose:
         self.grid *= scale_factor
         if scale_uncert and self.uncertainty is not None:
             self.uncertainty *= scale_factor
+
+
+def dose_with_empty_grid_like(doseObj:BrachyDose):
+    r"""
+    Purpose:
+        To create a new dose object with the same attributes as the input dose object, 
+        but with an empty grid and uncertainty.
+        
+    Inputs:
+        doseObj: BrachyDose object
+        
+    Outputs:
+        empty_dose: BrachyDose object with empty grid and uncertainty
+    """
+    new_dose = BrachyDose()
+    new_dose.num_voxels = doseObj.num_voxels
+    new_dose.vox_size = doseObj.vox_size
+    new_dose.topleft = doseObj.topleft
+    new_dose.voxel_edges = doseObj.voxel_edges
+    return new_dose
+
 
 def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
     # old_file_dir = load_3ddose(pth1_3ddose)

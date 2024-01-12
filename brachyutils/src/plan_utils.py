@@ -5,11 +5,11 @@ import numpy as np
 import gc
 # from typing import Optional
 from tqdm import tqdm
-from multiprocessing import Pool, Process, Manager
+from multiprocessing import Pool, Process, Manager, cpu_count
 from functools import partial
 import time
 
-from dose_utils import BrachyDose
+from dose_utils import BrachyDose, dose_with_empty_grid_like
 from copy import deepcopy
 
 from dicom_utils import get_strcuture_mask_from_dicom
@@ -35,26 +35,26 @@ class BrachyStructure:
     """
     
     def __init__(self):
-        name:str = None
-        mask:np.array = None # shape: (z, y, x)
+        self.name:str = None
+        self.mask:np.array = None # shape: (z, y, x)
 
         # dose volume histogram
-        dvh_metric_name:str = None
-        dvh_metric_clinical_goal:float = None
-        dvh_metric_observed:float = None
-        normalized_cummulative_dvh:np.array = None
+        self.dvh_metric_name:str = None
+        self.dvh_metric_clinical_goal:float = None
+        self.dvh_metric_observed:float = None
+        self.normalized_cummulative_dvh:np.array = None
         
         # uncertainty volume histogram
-        uvh:np.array  = None
-        uncertainty_mean:float = None
-        uncertainty_std:float = None
-        uncertainty_max:float = None
-        uncertainty_min:float = None
+        self.uvh:np.array  = None
+        self.uncertainty_mean:float = None
+        self.uncertainty_std:float = None
+        self.uncertainty_max:float = None
+        self.uncertainty_min:float = None
 
         # optimization parameters
-        name_in_gurobiModel:str = None
-        bound_coordinates_in_gurobiModel:list = None
-        penalty_weight:float = None
+        self.name_in_gurobiModel:str = None
+        self.bound_coordinates_in_gurobiModel:list = None
+        self.penalty_weight:float = None
 
     def get_dvh_metric(self, combined_dose:BrachyDose):
         assert self.mask is not None, "mask is not loaded"
@@ -547,7 +547,7 @@ class BrachyPlan:
             if content_to_export["dose"]:
                 self.export_dose(
                     dir_export, 
-                    content_to_export["uncertainty"], 
+                    # content_to_export["uncertainty"], 
                     content_to_export["dose type"],
                     content_to_export["dose rate maps"])
                 
@@ -578,11 +578,11 @@ class BrachyPlan:
             elif content_to_export["structure_set"]:
                 # assumes file name is "structure_set.json"
                 self.export_structure_set(dir_export)
-            
+          
     def export_dose(
         self, 
-        dir_export, 
-        uncertainty=False, 
+        dir_export:str, 
+        # uncertainty=False, 
         dose_type=".minidos", 
         dose_rate_maps=False):
         r"""
@@ -598,9 +598,23 @@ class BrachyPlan:
             - Void := will export the dose map into the specified export directory.
         Dependencies:
         """
-        raise NotImplementedError("to be implemented soon")
+        # raise NotImplementedError("to be implemented soon")
+        assert self.combined_dose is not None, "combined dose is not calculated yet"
+        # if uncertainty:
+        self.combined_dose.write_brachydose_to_file(dir_export+"/combined"+dose_type)
+        
+        if dose_rate_maps:
+            if cpu_count < 4:
+                for i in self.dwell_numbers:
+                    _export_single_dose_rate(
+                        self.dose_rate_tensor[i], 
+                        i,
+                        self.combined_dose,
+                        dir_export, 
+                        dose_type,
+                        self.uncertainty_tensor[i])
 
-    def export_catheter_table(self, dir_export):
+    def export_catheter_table(self, dir_export:str):
         r"""
         Purpose:
         Inputs:
@@ -608,7 +622,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
-    def export_plan(self, dir_export):
+    def export_plan(self, dir_export:str):
         r"""
         Purpose:
         Inputs:
@@ -616,7 +630,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
-    def export_mac(self, dir_export):
+    def export_mac(self, dir_export:str):
         r"""
         Purpose:
         Inputs:
@@ -624,7 +638,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
-    def export_egsphant(self, dir_export):
+    def export_egsphant(self, dir_export:str):
         r"""
         Purpose:
         Inputs:
@@ -632,7 +646,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
-    def export_applicator_materials(self, dir_export):
+    def export_applicator_materials(self, dir_export:str):
         r"""
         Purpose:
         Inputs:
@@ -640,7 +654,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
-    def export_applicator_geometry(self, dir_export):
+    def export_applicator_geometry(self, dir_export:str):
         r"""
         Purpose:
         Inputs:
@@ -648,7 +662,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
-    def export_structure_set(self, dir_export):
+    def export_structure_set(self, dir_export:str):
         r"""
         Purpose:
         Inputs:
@@ -657,6 +671,22 @@ class BrachyPlan:
         """       
         raise NotImplementedError("to be implemented soon")
         
+def _export_single_dose_rate(
+    dose_grid:np.array, 
+    dwell_number:int,
+    doseObj_template:BrachyDose, 
+    dir_export:str, 
+    dose_type:str=".minidos", 
+    uncertainty:np.array=None):
+    
+    doseObj = dose_with_empty_grid_like(doseObj_template)
+    doseObj.grid = dose_grid
+    if uncertainty is not None:
+        doseObj.uncertainty = uncertainty
+    
+    doseObj.write_brachydose_to_file(dir_export+f"/run_{dwell_number}"+dose_type)
+
+
 def load_structure_mask(
     dir_structure_source:str,
     structure_name_list:list,
