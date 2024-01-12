@@ -607,21 +607,25 @@ class BrachyPlan:
             if cpu_count() < 4:
                 for i in self.dwell_numbers:
                     _export_single_dose_rate(
-                        self.dose_rate_tensor[i], 
+                        self.dose_rate_tensor[i-1], 
                         i,
                         self.combined_dose,
                         dir_export, 
                         dose_type,
-                        self.uncertainty_tensor[i])
+                        self.uncertainty_tensor[i-1])
             else:
-                with Pool() as mp_pool:
+                with Pool(cpu_count()-2) as mp_pool:
                     mp_pool.starmap(
                         partial(
                             _export_single_dose_rate,
                             doseObj_template=self.combined_dose,
                             dir_export=dir_export,
                             dose_type=dose_type),
-                        zip(self.dose_rate_tensor, self.dwell_numbers, self.uncertainty_tensor)
+                        [(dose_grid, dwell_number, uncertainty) \
+                            for dose_grid, dwell_number, uncertainty \
+                                in zip(self.dose_rate_tensor, 
+                                       self.dwell_numbers, 
+                                       self.uncertainty_tensor)]
                     )
 
     def export_catheter_table(self, dir_export:str):
@@ -684,10 +688,11 @@ class BrachyPlan:
 def _export_single_dose_rate(
     dose_grid:np.array, 
     dwell_number:int,
-    doseObj_template:BrachyDose, 
-    dir_export:str, 
-    dose_type:str=".minidos", 
-    uncertainty:np.array=None):
+    uncertainty:np.array=None,
+    doseObj_template:BrachyDose=None, 
+    dir_export:str=None, 
+    dose_type:str=None, 
+    ):
     r"""
     Purpose:
         to write out a single dose rate map given the numpy grid for dose and uncertainty and 
