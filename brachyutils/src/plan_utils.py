@@ -604,7 +604,7 @@ class BrachyPlan:
         self.combined_dose.write_brachydose_to_file(dir_export+"/combined"+dose_type)
         
         if dose_rate_maps:
-            if cpu_count < 4:
+            if cpu_count() < 4:
                 for i in self.dwell_numbers:
                     _export_single_dose_rate(
                         self.dose_rate_tensor[i], 
@@ -688,7 +688,21 @@ def _export_single_dose_rate(
     dir_export:str, 
     dose_type:str=".minidos", 
     uncertainty:np.array=None):
-    
+    r"""
+    Purpose:
+        to write out a single dose rate map given the numpy grid for dose and uncertainty and 
+        a template dose object that has the same origin, voxel spacing and axis. 
+    Inputs:
+        - dose_grid :=  
+        - dwell_number:= 
+        - doseObj_template :=  
+        - dir_export:= 
+        - dose_type :=
+        - uncertainty := 
+        
+    Output:
+        - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
+    """
     doseObj = dose_with_empty_grid_like(doseObj_template)
     doseObj.grid = dose_grid
     if uncertainty is not None:
@@ -941,8 +955,32 @@ def test__load_single_dose_or_uncertainty_to_dict():
     print(dose_rate_dict[1]["dose"].shape)
     print(dose_rate_dict[1]["uncertainty"].shape)
 
-def test_export_dose():
-    raise NotImplementedError("to be implemented soon")
+def test_all_exports():
+    # raise NotImplementedError("to be implemented soon")
+    dir_export = "../../data_test/test_export_plan"
+    
+    # boiler plate to create a dose object.
+    pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose/"
+    dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    dvh_metric_goals = {
+        'D95%(ctv)': 15,
+        'D1cc(rectum)': 11.25,
+        'D0.1cc(urethra)': 18.75
+    }
+    t0 = time.time()
+    plan_obj = BrachyPlan(
+        pth_cathTable_json, 
+        dir_dose_rate,
+        load_dose_or_uncertainty="both",
+        multi_processing=True,
+        dir_structure_source=dir_dicom,
+        dvh_metric_goals=dvh_metric_goals) 
+    
+    # test export dose
+    plan_obj.export_dose(dir_export, dose_type=".minidos", dose_rate_maps=True)
+    assert bool(os.listdir(dir_export)), "no dose files were exported"
+        
 
 if __name__ == "__main__":
     
@@ -953,6 +991,7 @@ if __name__ == "__main__":
     # test_set_dvh_metric_goals()
     # test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
-    test_calculate_uncertainty_per_structure()
+    # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
+    test_all_exports()
