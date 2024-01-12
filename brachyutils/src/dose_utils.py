@@ -1232,6 +1232,9 @@ def test_convert_to_minidos():
     pth_input = "../../data_test/dwell1_1mm.nrrd"
     pth_minidos = os.path.splitext(pth_input)[0] + ".minidos"
 
+def test_dose_with_empty_grid_like():
+    raise NotImplementedError("This function is not implemented yet")
+
 # if __name__ == "__main__":
     # app()
 

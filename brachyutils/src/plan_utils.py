@@ -930,7 +930,10 @@ def test__load_single_dose_or_uncertainty_to_dict():
     _load_single_dose_or_uncertainty_to_dict(pth_dose_rate, "both")
     print(dose_rate_dict[1]["dose"].shape)
     print(dose_rate_dict[1]["uncertainty"].shape)
-    
+
+def test_export_dose():
+    raise NotImplementedError("to be implemented soon")
+
 if __name__ == "__main__":
     
     # running the test functions above: 
