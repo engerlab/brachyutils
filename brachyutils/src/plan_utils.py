@@ -613,6 +613,16 @@ class BrachyPlan:
                         dir_export, 
                         dose_type,
                         self.uncertainty_tensor[i])
+            else:
+                with Pool(cpu_count()-1) as mp_pool:
+                    mp_pool.starmap(
+                        partial(
+                            _export_single_dose_rate,
+                            doseObj_template=self.combined_dose,
+                            dir_export=dir_export,
+                            dose_type=dose_type),
+                        zip(self.dose_rate_tensor, self.dwell_numbers, self.uncertainty_tensor)
+                    )
 
     def export_catheter_table(self, dir_export:str):
         r"""
