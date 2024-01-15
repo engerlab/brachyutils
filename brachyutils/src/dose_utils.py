@@ -1009,6 +1009,8 @@ def dose_with_empty_grid_like(doseObj:BrachyDose):
         empty_dose: BrachyDose object with empty grid and uncertainty
     """
     new_dose = BrachyDose()
+    new_dose.grid = np.zeros_like(doseObj.grid)
+    new_dose.uncertainty = np.zeros_like(doseObj.grid)
     new_dose.num_voxels = doseObj.num_voxels
     new_dose.vox_size = doseObj.vox_size
     new_dose.topleft = doseObj.topleft

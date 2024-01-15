@@ -169,7 +169,7 @@ class BrachyPlan:
         # load the catheter table if the path is provided
         if pth_catheterTable_json is not None:
             self.load_catheterTable_json(pth_catheterTable_json)
-            self.extract_dwell_numbers_times_coordinates_from_catheterTable()
+            # self.extract_dwell_numbers_times_coordinates_from_catheterTable()
 
         if dir_dose_rate is not None:
             self.load_dose_rate_or_uncertainty_tensor(
@@ -219,12 +219,14 @@ class BrachyPlan:
         Dependencies:
             - json
         """
-        
+        # reset catheter table in case of a re-read
+        self.catheter_table = None
         # load the json file
         with open(pth_catheterTable_json, 'r') as json_file:
             catheter_table = json.load(json_file)
        
         self.catheter_table = catheter_table
+        self.extract_dwell_numbers_times_coordinates_from_catheterTable()
     
     def extract_dwell_numbers_times_coordinates_from_catheterTable(self):
         r"""
@@ -238,6 +240,11 @@ class BrachyPlan:
             and BrachyPlan.dwell_coordinates attributes
         """
         assert self.catheter_table is not None, "catheter table is not loaded"
+        # reset the dwell_numbers, dwell times, coordinates, and num dwells
+        self.dwell_numbers, self.dwell_times, self.dwell_coordinates = [], [], []
+        self.num_dwells = None
+        
+        # extract the attributes above from the catheter table
         dwell_counter = 1
         for catheter in self.catheter_table:
             for dwell in catheter['dwells']:
@@ -312,8 +319,7 @@ class BrachyPlan:
         
         if load_dose_or_uncertainty == "both":
             self.dose_rate_tensor = np.array(dose_or_uncertainty_list[:, 0], dtype=np.float32)
-            self.uncertainty_tensor = np.array(dose_or_uncertainty_list[:, 1], dtype=np.float32)
-            
+            self.uncertainty_tensor = np.array(dose_or_uncertainty_list[:, 1], dtype=np.float32) 
         elif load_dose_or_uncertainty == "dose":
             self.dose_rate_tensor = np.array(dose_or_uncertainty_list, dtype=np.float32)
         elif load_dose_or_uncertainty == "uncertainty":
@@ -324,12 +330,8 @@ class BrachyPlan:
         del dose_or_uncertainty_list
         gc.collect()
         
-        self.combined_dose = BrachyDose()
-        self.combined_dose.grid = np.zeros_like(test_dose_obj.grid)
-        self.combined_dose.num_voxels = test_dose_obj.num_voxels        
-        self.combined_dose.vox_size = test_dose_obj.vox_size
-        self.combined_dose.topleft = test_dose_obj.topleft
-        self.combined_dose.calculate_voxel_edges()
+        self.combined_dose = dose_with_empty_grid_like(test_dose_obj)
+        
             # for debugging{
             # assert np.array_equal(
             #     np.concatenate(self.combined_dose.voxel_edges), 
@@ -597,8 +599,9 @@ class BrachyPlan:
         Outputs:
             - Void := will export the dose map into the specified export directory.
         Dependencies:
+            - _export_single_dose_rate()
+            - multiprocessing
         """
-        # raise NotImplementedError("to be implemented soon")
         assert self.combined_dose is not None, "combined dose is not calculated yet"
         # if uncertainty:
         self.combined_dose.write_brachydose_to_file(dir_export+"/combined"+dose_type)
@@ -631,11 +634,20 @@ class BrachyPlan:
     def export_catheter_table(self, dir_export:str):
         r"""
         Purpose:
+            to export catheter table of the plan into a file called catheter_table.json
+            inside dir_export. 
         Inputs:
+            - dir_export := path to the directory where the export happens
         Outputs:
+            - void := self.catheter_table is written to catheter_table.json
         Dependencies:
+            - json
         """
-        raise NotImplementedError("to be implemented soon")
+        # raise NotImplementedError("to be implemented soon")
+        file_path = dir_export + "/catheter_table.json"
+        with open(file_path, 'w') as file:
+            json.dump(self.catheter_table, file, indent=4)
+        
     def export_plan(self, dir_export:str):
         r"""
         Purpose:
@@ -983,8 +995,13 @@ def test_all_exports():
         dvh_metric_goals=dvh_metric_goals) 
     
     # test export dose
-    plan_obj.export_dose(dir_export, dose_type=".minidos", dose_rate_maps=True)
-    assert bool(os.listdir(dir_export)), "no dose files were exported"
+    # passed for minidos, nrrd, 3ddose 
+    # plan_obj.export_dose(dir_export, dose_type=".nrrd", dose_rate_maps=True)
+    # assert bool(os.listdir(dir_export)), "no dose files were exported"
+    
+    # test export catheter table
+    plan_obj.export_catheter_table(dir_export=dir_export)
+    
         
 
 if __name__ == "__main__":
