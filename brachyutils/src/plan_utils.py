@@ -331,27 +331,39 @@ class BrachyPlan:
         gc.collect()
         
         self.combined_dose = dose_with_empty_grid_like(test_dose_obj)
-        
-            # for debugging{
-            # assert np.array_equal(
-            #     np.concatenate(self.combined_dose.voxel_edges), 
-            #     np.concatenate(test_dose_obj.voxel_edges)), \
-            #     "voxel edges of combined dose map and dwell dose rate map do not match"
+        # for debugging{
+        # assert np.array_equal(
+        #     np.concatenate(self.combined_dose.voxel_edges), 
+        #     np.concatenate(test_dose_obj.voxel_edges)), \
+        #     "voxel edges of combined dose map and dwell dose rate map do not match"
 
-            # assert self.combined_dose.is_not_empty(), "combined dose is empty"
-            # }
+        # assert self.combined_dose.is_not_empty(), "combined dose is empty"
+        # }
         if load_dose_or_uncertainty != "uncertainty":
-            # calculate the combined dose and store the result in the combined_dose attribute 
-            # this implementation is a little slow, and very very memory efficient
-            for i in range(self.num_dwells):
-                self.combined_dose.grid += self.dose_rate_tensor[i] * self.dwell_times[i]
-            # this implementation is a bit faster, but very memory inefficient
-            # self.combined_dose.grid = np.sum(
-            #     self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
-            #     axis=0)
+            self.calculate_combined_dose()
         if load_dose_or_uncertainty != "dose":
             self.calculate_combined_uncertainty()
         
+    def calculate_combined_dose(self):
+            """
+            Purpose:
+            Calculate the combined dose by multiplying the dose rate tensor with the dwell times array.
+            The result is stored in the combined_dose attribute.
+    
+            Raises:
+                AssertionError: If the dose rate tensor or dwell times array is empty.
+            """
+            assert self.dose_rate_tensor.size != 0, "dose rate tensor is empty. Run load_dose_rate_or_uncertainty_tensor()"
+            assert self.dwell_times.size != 0, "dwell times array is empty. Run extract_dwell_numbers_times_coordinates_from_catheterTable()"
+            
+            # calculate the combined dose and store the result in the combined_dose attribute 
+                # this implementation is a little slow, and very very memory efficient
+            for i in range(self.num_dwells):
+                self.combined_dose.grid += self.dose_rate_tensor[i] * self.dwell_times[i]
+                # this implementation is a bit faster, but very memory inefficient
+                # self.combined_dose.grid = np.sum(
+                #     self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
+                #     axis=0)
         
     def set_dvh_metric_goals(self, dvh_metric_goals:dict):
         r"""
