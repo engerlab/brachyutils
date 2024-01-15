@@ -851,14 +851,25 @@ class BrachyPlan:
         """
         raise NotImplementedError("to be implemented soon")
     
-    def export_structure_set(self, dir_export:str):
+    def export_structure_set(self, dir_export:str, export_format:str="RapidBrachyExport"):
         r"""
         Purpose:
+            - to export the structure set of the plan into dir_export
         Inputs:
+            - dir_export := path to the directory where the export happens
         Outputs:
+            - void := self.structure_list is exported as a dictionary and
+            written to structure_set.json
         Dependencies:
         """       
-        raise NotImplementedError("to be implemented soon")
+        # raise NotImplementedError("to be implemented soon")
+        structure_set = []
+        for structure in self.structure_list:
+            structure_set.append(structure.to_dict(export_format))
+            
+        file_path = dir_export + "/structure_set.json"
+        with open(file_path, 'w') as file:
+            json.dump(structure_set, file, indent=4)
         
 def _export_single_dose_rate(
     dose_grid:np.array, 
