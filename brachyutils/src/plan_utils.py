@@ -42,6 +42,7 @@ class BrachyStructure:
         self.target_volume:bool = None
 
         # dose volume histogram
+        self.in_dvh:bool = None
         self.dvh_metric_name:str = None
         self.dvh_metric_clinical_goal:float = None
         self.dvh_metric_observed:float = None
@@ -59,15 +60,15 @@ class BrachyStructure:
         self.bound_coordinates_in_gurobiModel:list = None
         self.penalty_weight_linear:float = None
         self.penalty_weight_quadratic:float = None
-        self.penal_weight_uniformity:float = None
+        self.penalty_weight_uniformity:float = None
         self.dose_limit:float = None
         self.max_dose:float = 500
         self.min_dose:float = 0
         
         # simulation attributes
-        self.density:float = None
-        self.density_mode:str = None
-        self.material:str = None
+        self.density:float = None # 0
+        self.density_mode:str = None # ""
+        self.material:str = None # "CT Material"
 
     def get_dvh_metric(self, combined_dose:BrachyDose):
         assert self.mask is not None, "mask is not loaded"
@@ -85,13 +86,56 @@ class BrachyStructure:
         if "%" in self.dvh_metric_name:
             histogram_limit = float(*re.findall('-?\d+\.?\d*', self.dvh_metric_name))
         elif "cc" in self.dvh_metric_name:
-            histogram_limit = float(*re.findall('-?\d+\.?\d*', self.dvh_metric_name))/(voxel_volume*num_voxels_in_structure)*100
+            histogram_limit = float(*re.findall('-?\d+\.?\d*', self.dvh_metric_name))\
+                /(voxel_volume*num_voxels_in_structure)*100
         else:
             raise ValueError("invalid name for DVH metric name. \
                 The metric should have percent sign (%) or cc.")
 
-        self.dvh_metric_observed, self.normalized_cummulative_dvh = dvh_metric(structure_dose, num_bins, total_dose_max, histogram_limit, voxel_volume)
+        self.dvh_metric_observed, self.normalized_cummulative_dvh = \
+            dvh_metric(structure_dose, num_bins, total_dose_max, histogram_limit, voxel_volume)
 
+    def to_dict(self, export_format:str):
+        r"""
+        Purpose:
+            - To export the BrachyStructure object into a dictionary of a certain format.
+        Inputs:
+            - export_format := the export_format of the exported plan. an example is:
+                - "RapidBrachyExport":{
+                    "density": 0, 
+                    "density_mode": "", 
+                    "dose_limit": 0, 
+                    "dvhConstraints": "", 
+                    "in_dvh": true, 
+                    "linear_weight": 1, 
+                    "material": "CT Material", 
+                    "max_dose": 500, 
+                    "min_dose": 0, 
+                    "name": "BODY", 
+                    "quadratic_weight": 1, 
+                    "type": "" or "Target volume" or "Organ at risk",
+                    "uniformity_weight": 1}
+                    
+                - "WebApp": Not implemented yet
+        """
+        if export_format == "WebApp":
+            raise NotImplementedError("export to WebApp is not implemented yet")
+        elif export_format == "RapidBrachyExport":
+            return {
+                "density": self.density, 
+                "density_mode": self.density_mode, 
+                "dose_limit": self.dose_limit, 
+                "dvhConstraints": "", 
+                "in_dvh": self.in_dvh, 
+                "linear_weight": self.penalty_weight_linear, 
+                "material": self.material, 
+                "max_dose": self.max_dose, 
+                "min_dose": self.min_dose, 
+                "name": self.name, 
+                "quadratic_weight": self.penalty_weight_quadratic, 
+                "type": "Target volume" if self.target_volume else "Organ at risk",
+                "uniformity_weight": self.penal_weight_uniformity}
+    
 class BrachyPlan:
     r"""
     Purpose:
@@ -764,6 +808,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
+    
     def export_mac(self, dir_export:str):
         r"""
         Purpose:
@@ -772,6 +817,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
+    
     def export_egsphant(self, dir_export:str):
         r"""
         Purpose: 
@@ -795,6 +841,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
+    
     def export_applicator_geometry(self, dir_export:str):
         r"""
         Purpose:
@@ -803,6 +850,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
+    
     def export_structure_set(self, dir_export:str):
         r"""
         Purpose:
