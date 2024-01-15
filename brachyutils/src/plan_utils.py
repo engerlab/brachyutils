@@ -145,8 +145,10 @@ class BrachyPlan:
             -  
         """
         # catheter table attributes
-        self.num_dwells = None
         self.catheter_table = None
+        self.num_catheters = None
+        self.catheter_numbers = np.array([], dtype=int) #shape: (num_catheters, 1)
+        self.num_dwells = None
         self.dwell_numbers = np.array([], dtype=int) #shape: (num_dwells, 1)
         self.dwell_times = np.array([], dtype=np.float32) #shape: (num_dwells, 1)
         self.dwell_coordinates = [] #shape: (num_dwells, 3) 
@@ -241,24 +243,69 @@ class BrachyPlan:
         """
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
-        self.dwell_numbers, self.dwell_times, self.dwell_coordinates = [], [], []
+        self.dwell_numbers, self.dwell_times, self.dwell_coordinates = \
+             np.array([], dtype=int),  np.array([], dtype=np.float32), []
         self.num_dwells = None
         
         # extract the attributes above from the catheter table
         dwell_counter = 1
         for catheter in self.catheter_table:
-            for dwell in catheter['dwells']:
+            self.catheter_numbers = np.append(self.catheter_numbers, catheter["id"])
+            for dwell in catheter["dwells"]:
                 self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
-                self.dwell_times = np.append(self.dwell_times, dwell['time'])
+                self.dwell_times = np.append(self.dwell_times, dwell["time"])
                 self.dwell_coordinates.append(
                     {
-                        "position": dwell['position'],
-                        "rotation": dwell['rotation'],
-                        "relativePos": dwell["relativePos"]
+                        "position": dwell["position"],
+                        "rotation": dwell["rotation"],
+                        "relativePos": dwell["relativePos"],
+                        "catheterId": catheter["id"]
                     })
                 dwell_counter += 1
+        
+        assert len(self.catheter_numbers) == self.catheter_numbers[-1], "catheter numbers are not extracted correctly"
+        self.num_catheters = len(self.catheter_numbers)
+        
+        assert len(self.dwell_numbers) == self.dwell_numbers[-1], "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
 
+    def update_catheter_table_from_plan(self):
+        r"""
+        Purpose:
+            - Assuming that the dwell times or coordinates have changed, we need to update
+            the catheter_table attribute to match the plan. 
+        Inputs:
+            - self := the BrachyPlan object
+        Outputs:
+            - Void := will update the BrachyPlan.catheter_table attribute
+        """
+        assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
+        assert self.dwell_times.size != 0, "dwell times are not extracted"
+        assert len(self.dwell_coordinates) !=0, "dwell coordinates are not extracted"
+        assert self.num_dwells is not None, "number of dwells is not extracted"
+        
+        self.catheter_table = []
+        
+        for catheter_i in self.catheter_numbers:
+            catheter = {}
+            catheter["id"] = catheter_i
+            catheter["points"] = []
+            catheter["dwells"] = []
+            dwell = {}
+            for dwell_i in self.dwell_numbers:
+                if self.dwell_coordinates[dwell_i-1]["catheterId"] != catheter_i:
+                    continue
+                dwell["angle"] = self.dwell_coordinates[dwell_i-1]["angle"]
+                dwell["position"] = self.dwell_coordinates[dwell_i-1]["position"]
+                dwell["relativePos"] = self.dwell_coordinates[dwell_i-1]["relativePos"]
+                dwell["rotation"] = self.dwell_coordinates[dwell_i-1]["rotation"]
+                dwell["time"] = self.dwell_times[dwell_i-1]
+                dwell["weight"] = self.dwell_times[dwell_i-1] / np.sum(self.dwell_times)
+                catheter["dwells"].append(deepcopy(dwell))   
+               
+            self.catheter_table.append(deepcopy(catheter)) 
+                
+    
     def load_dose_rate_or_uncertainty_tensor(
         self, 
         dir_dose_rate:str,
@@ -287,9 +334,9 @@ class BrachyPlan:
         """
         # make sure catheter table is loaded
         assert self.catheter_table is not None, "catheter table is not loaded"
-        assert self.dwell_numbers is not None, "dwell numbers are not extracted"
-        assert self.dwell_times is not None, "dwell times are not extracted"
-        assert self.dwell_coordinates is not None, "dwell coordinates are not extracted"
+        assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
+        assert self.dwell_times.size != 0, "dwell times are not extracted"
+        assert len(self.dwell_coordinates) !=0, "dwell coordinates are not extracted"
         assert self.num_dwells is not None, "number of dwells is not extracted"
         
         # here is the list of the dose rate files
@@ -347,7 +394,7 @@ class BrachyPlan:
     def calculate_combined_dose(self):
             """
             Purpose:
-            Calculate the combined dose by multiplying the dose rate tensor with the dwell times array.
+            - To calculate the combined dose by multiplying the dose rate tensor with the dwell times array.
             The result is stored in the combined_dose attribute.
     
             Raises:
@@ -364,7 +411,7 @@ class BrachyPlan:
                 # self.combined_dose.grid = np.sum(
                 #     self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
                 #     axis=0)
-        
+    
     def set_dvh_metric_goals(self, dvh_metric_goals:dict):
         r"""
         Purpose:
