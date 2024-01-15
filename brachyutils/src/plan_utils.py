@@ -171,7 +171,6 @@ class BrachyPlan:
         # load the catheter table if the path is provided
         if pth_catheterTable_json is not None:
             self.load_catheterTable_json(pth_catheterTable_json)
-            # self.extract_dwell_numbers_times_coordinates_from_catheterTable()
 
         if dir_dose_rate is not None:
             self.load_dose_rate_or_uncertainty_tensor(
@@ -256,6 +255,7 @@ class BrachyPlan:
                 self.dwell_times = np.append(self.dwell_times, dwell["time"])
                 self.dwell_coordinates.append(
                     {
+                        "angle": dwell["angle"],
                         "position": dwell["position"],
                         "rotation": dwell["rotation"],
                         "relativePos": dwell["relativePos"],
@@ -263,7 +263,7 @@ class BrachyPlan:
                     })
                 dwell_counter += 1
         
-        assert len(self.catheter_numbers) == self.catheter_numbers[-1], "catheter numbers are not extracted correctly"
+        assert len(self.catheter_numbers)-1 == self.catheter_numbers[-1], "catheter numbers are not extracted correctly"
         self.num_catheters = len(self.catheter_numbers)
         
         assert len(self.dwell_numbers) == self.dwell_numbers[-1], "dwell numbers are not extracted correctly"
@@ -304,7 +304,20 @@ class BrachyPlan:
                 catheter["dwells"].append(deepcopy(dwell))   
                
             self.catheter_table.append(deepcopy(catheter)) 
-                
+        
+    def update_after_change_in_plan(self):
+        r"""
+        Purpose:
+            - Assuming that the dwell times or coordinates have changed, we need to update
+            the catheter_table attribute and the combined dose to match the plan.  
+        Inputs:
+            - self := the BrachyPlan object
+        Outputs:
+            - Void := will update the BrachyPlan.catheter_table and BrachyPlan.combined_dose 
+            attributes
+        """
+        self.update_catheter_table_from_plan()
+        self.calculate_combined_dose()
     
     def load_dose_rate_or_uncertainty_tensor(
         self, 
@@ -1032,7 +1045,6 @@ def test__load_single_dose_or_uncertainty_to_dict():
     print(dose_rate_dict[1]["uncertainty"].shape)
 
 def test_all_exports():
-    # raise NotImplementedError("to be implemented soon")
     dir_export = "../../data_test/test_export_plan"
     
     # boiler plate to create a dose object.
@@ -1061,8 +1073,32 @@ def test_all_exports():
     # test export catheter table
     plan_obj.export_catheter_table(dir_export=dir_export)
     
-        
+def test_update_after_change_in_plan():
+    dir_export = "../../data_test/test_export_plan"
+    
+    # boiler plate to create a dose object.
+    pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose/"
+    dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    dvh_metric_goals = {
+        'D95%(ctv)': 15,
+        'D1cc(rectum)': 11.25,
+        'D0.1cc(urethra)': 18.75
+    }
+    t0 = time.time()
+    plan_obj = BrachyPlan(
+        pth_cathTable_json, 
+        dir_dose_rate,
+        load_dose_or_uncertainty="both",
+        multi_processing=True,
+        dir_structure_source=dir_dicom,
+        dvh_metric_goals=dvh_metric_goals) 
+    old_combined_dose = plan_obj.combined_dose
+    
+    plan_obj.update_after_change_in_plan()
 
+    assert plan_obj.combined_dose.is_equal(old_combined_dose), "combined dose is not updated after change in plan"
+    
 if __name__ == "__main__":
     
     # running the test functions above: 
@@ -1075,4 +1111,6 @@ if __name__ == "__main__":
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
-    test_all_exports()
+    # test_all_exports()
+    test_update_after_change_in_plan()
+    
