@@ -10,10 +10,12 @@ from functools import partial
 import time
 
 from dose_utils import BrachyDose, dose_with_empty_grid_like
+from dicom_utils import get_strcuture_mask_from_dicom
+from egsphant_utils import BrachyEgsphant 
+
+from scipy import ndimage
 from copy import deepcopy
 
-from dicom_utils import get_strcuture_mask_from_dicom
-from scipy import ndimage
 
 import re
 from scipy import interpolate
@@ -37,6 +39,7 @@ class BrachyStructure:
     def __init__(self):
         self.name:str = None
         self.mask:np.array = None # shape: (z, y, x)
+        self.target_volume:bool = None
 
         # dose volume histogram
         self.dvh_metric_name:str = None
@@ -51,10 +54,20 @@ class BrachyStructure:
         self.uncertainty_max:float = None
         self.uncertainty_min:float = None
 
-        # optimization parameters
+        # optimization attributes
         self.name_in_gurobiModel:str = None
         self.bound_coordinates_in_gurobiModel:list = None
-        self.penalty_weight:float = None
+        self.penalty_weight_linear:float = None
+        self.penalty_weight_quadratic:float = None
+        self.penal_weight_uniformity:float = None
+        self.dose_limit:float = None
+        self.max_dose:float = 500
+        self.min_dose:float = 0
+        
+        # simulation attributes
+        self.density:float = None
+        self.density_mode:str = None
+        self.material:str = None
 
     def get_dvh_metric(self, combined_dose:BrachyDose):
         assert self.mask is not None, "mask is not loaded"
@@ -74,7 +87,8 @@ class BrachyStructure:
         elif "cc" in self.dvh_metric_name:
             histogram_limit = float(*re.findall('-?\d+\.?\d*', self.dvh_metric_name))/(voxel_volume*num_voxels_in_structure)*100
         else:
-            raise ValueError("invalid name for DVH metric name. The metric should have percent sign (%) or cc.")
+            raise ValueError("invalid name for DVH metric name. \
+                The metric should have percent sign (%) or cc.")
 
         self.dvh_metric_observed, self.normalized_cummulative_dvh = dvh_metric(structure_dose, num_bins, total_dose_max, histogram_limit, voxel_volume)
 
@@ -93,12 +107,14 @@ class BrachyPlan:
         look at the function BrachyPlan.load_catheterTable_json() 
         - dwell_numbers:np.array := the dwell number of each dwell position in the plan
         - dwell_times:np.array := the dwell time of each dwell position in the plan
-        - dwell_coordinates:list := a list of dictionaries. each dictionary contains the keys "position", "rotation", and "relativePos"
+        - dwell_coordinates:list := a list of dictionaries. each dictionary contains the 
+        keys "position", "rotation", and "relativePos"
         - organ_bounds:dict
         - dose_rate_tensor:np.array := dose rate from dwell position 1 to num_dwells. 
         matches the dwell_number_list. shape: (num_dwells, z, y, x)
-        - uncertainty_tensor:np.array := uncertainty from dwell position 1 to num_dwells. shape: (num_dwells, z, y, x)
-        - brachy_structure:list[BrachyStructure] := the list of patient structures in the plan
+        - uncertainty_tensor:np.array := uncertainty from dwell position 1 to num_dwells. 
+        shape: (num_dwells, z, y, x)
+        - brachy_structure:list[BrachyStructure] := the list of patient structures in the plan.
     
     Functions:
         - load_catheterTable_json()
@@ -115,15 +131,23 @@ class BrachyPlan:
             self, 
             # for loading catheter table:
             pth_catheterTable_json:str=None,
+            
             # for loading dose or uncertainty:
             dir_dose_rate:str=None,
             type_dose_file:str=".nrrd",
             load_dose_or_uncertainty:str="dose",
             multi_processing:bool=False,
+            
             # for structure creation:
             dvh_metric_goals:dict=None,
             dir_structure_source:str=None,
-            dose_cropped_by_body:bool=True):
+            dose_cropped_by_body:bool=True,
+            
+            # for simulation setup:
+            dir_egsphant:str=None,
+            dir_applicator_geometry:str=None,
+            dir_applicator_materials:str=None,
+            ):
         r"""
         Purpose:
             - To initialize the BrachyPlan object.
@@ -167,6 +191,11 @@ class BrachyPlan:
         # self.ct_image = None
         # self.mr_image = None
         # self.ultrasound_image = None
+        
+        # simulation attributes
+        self.egsphant = None
+        self.applicator_geometry = None
+        self.applicator_materials = None
 
         # load the catheter table if the path is provided
         if pth_catheterTable_json is not None:
@@ -182,6 +211,13 @@ class BrachyPlan:
         if dir_structure_source is not None and dvh_metric_goals is not None:
             self.set_dvh_metric_goals(dvh_metric_goals)
             self.create_structures(dir_structure_source, dose_cropped_by_body)
+            
+        if dir_egsphant is not None:
+            self.egsphant = BrachyEgsphant(dir_egsphant)
+            
+        if dir_applicator_geometry is not None or dir_applicator_materials is not None:
+            raise NotImplementedError("to be implemented soon")
+        
 
     def load_catheterTable_json(
         self, 
@@ -706,7 +742,7 @@ class BrachyPlan:
     def export_catheter_table(self, dir_export:str):
         r"""
         Purpose:
-            to export catheter table of the plan into a file called catheter_table.json
+            - to export catheter table of the plan into a file called catheter_table.json
             inside dir_export. 
         Inputs:
             - dir_export := path to the directory where the export happens
@@ -738,12 +774,19 @@ class BrachyPlan:
         raise NotImplementedError("to be implemented soon")
     def export_egsphant(self, dir_export:str):
         r"""
-        Purpose:
+        Purpose: 
+            - to export the egsphant file of the plan into dir_export
         Inputs:
+            - dir_export := path to the directory where the export happens
         Outputs:
+            - void := self.egsphant is written to ct.egsphant
         Dependencies:
+            - BrachyEgsphant
         """
-        raise NotImplementedError("to be implemented soon")
+        # raise NotImplementedError("to be implemented soon")
+        file_path = dir_export + "/ct.egsphant"
+        self.egsphant.write_to_ctegsphant(file_path)
+        
     def export_applicator_materials(self, dir_export:str):
         r"""
         Purpose:

@@ -6,31 +6,8 @@ from numpy import dtype
 import numpy as np
 import re
 import os
-
-# from dicompylercore import dicomparser
-# from glob import glob
-# from numericalunits import cm, mm, kg, J
-# Gy = J/kg
-
-# import SimpleITK as sitk
-# import difflib
+from glob import glob
 from typing import Optional
-# from collections.abc import Iterable
-
-# import pytest
-# # import uu
-# import lzma
-# import pickle
-# import pyzstd
-
-# import typer
-# import decimal
-
-# from tqdm import tqdm
-
-# from rt_utils import RTStructBuilder
-# from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
-# import pydicom
 
 import json
 
@@ -47,9 +24,12 @@ class BrachyEgsphant:
         - num_materials:int := the number of different material composition options a voxel has
         - material_dict:dict := a dictionary containing the name of the elements for each voxel
             and their number coding
-        - num_voxels:np.ndarray := 1D numpy array holding the number of grid points on x, y, z axis. 
-        - vox_size:np.ndarray := 1D numpy array holding the resolution of each voxel along x, y, z axis in centimeters. 
-        - topleft:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z] 
+        - num_voxels:np.ndarray := 1D numpy array holding the number of grid points 
+        on x, y, z axis. 
+        - vox_size:np.ndarray := 1D numpy array holding the resolution of each voxel 
+        along x, y, z axis in centimeters. 
+        - topleft:np.ndarray := The spatial coordinate of the "bottom" left corner of 
+        the image in centrimeters. [x, y, z] 
         - axis:np.ndarray := coorindates of grid points along z, y and x axis.  
     
     Functions:
@@ -229,7 +209,8 @@ class BrachyEgsphant:
     def write_to_ctegsphant(self, fileName:str):
         r''' 
         Purpose: 
-            This function will write the contents of a BrachyEgsphant onto a text file with .egsphant extension. 
+            This function will write the contents of a BrachyEgsphant onto a text 
+            file with .egsphant extension. 
         
         inputs:
             - self := a BrachyEgsphant object containing the following keys:
@@ -256,7 +237,8 @@ class BrachyEgsphant:
         density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
             
         with open(fileName, 'w') as file:
-            lines = [num_materials, materials, spacing, dimensions, x_axis, y_axis, z_axis, material_matrix, density_matrix]
+            lines = [num_materials, materials, spacing, dimensions, \
+                x_axis, y_axis, z_axis, material_matrix, density_matrix]
             file.writelines(lines)    
     
     def is_equal(self, new_BrachyEgsphant):
