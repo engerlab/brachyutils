@@ -36,7 +36,7 @@ import json
 
 # from dicom_utils import get_body_index_range
 
-from egspgant_utils import BrachyDose
+from egspgant_utils import BrachyEgsphant
 
 def test_crop_by_body_contour():
     pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
