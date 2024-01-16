@@ -6,7 +6,13 @@ This package implements Brachytherapy dose, egsphant dicom and film dosimetry fu
 
 To get the package run:
 
-`git clone https://gitlab.com/hosseinjafar/tg186-validation.git`
+`git clone https://github.com/engerlab/brachyutils.git`
+
+If you are installing this package on a remote cluster managed by the Digital Research Alliance of Canada (Compute Canada), you need to load some required modules:
+
+`module load StdEnv/2023`
+
+`module load opencv`
 
 Then, create a virtual envionrment and activate it by running:
 
@@ -14,17 +20,49 @@ Then, create a virtual envionrment and activate it by running:
 
 `source ENV_brachyutils/bin/activate`
 
+After this process finishes, run `pip install -e .` to install the brachyutils package. 
+
+### Optional:
+
 `python3 -m pip install --upgrade pip`
 
 Install SimpleITK independently by running `python3 -m pip install SimpleITK`. If you run into the error saying `skbuild` is [missing](https://bugs.python.org/issue30573), run `python3 -m pip install cmake`, then try installing SimpleITK again.
 
-After this process finishes, run `pip install -e .` to install the brachyutils package. 
 
 ## brachyutils commands
 
-brachyutils comes with a linux command line interface, to learn about its functionality run:
+brachyutils comes with a linux command line interface. To learn about the commands that are available run `brachyutils --help` on the command line.
 
-`brachyutils --help` on the command line. 
+At the moment, the outputs looks like the following:
+
+```
+$ brachyutils --help
+Usage: brachyutils [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --install-completion [bash|zsh|fish|powershell|pwsh]
+                                  Install completion for the specified
+                                  shell.
+  --show-completion [bash|zsh|fish|powershell|pwsh]
+                                  Show completion for the specified
+                                  shell, to copy it or customize the
+                                  installation.
+  --help                          Show this message and exit.
+
+Commands:
+  convert-dose-many-files         Will convert all files...
+  crop-dose-by-bodycontour-many-files
+                                  Purpose: to crop all the...
+  crop-dose-by-ratio-many-files   Purpose: Will crop all...
+  crop-egsphant-by-bodycontour-many-patients
+                                  Purpose: to crop the...
+  get-bodycontourrange-from-dicom-many-patients
+                                  Purpose: to exract body...
+  get-uncertainty-one-patient     Purpose: Will calculate...
+  multiply-dose-by-constant-many-files
+                                  Purpose: Will scale all...
+  padd-dose-many-files            Purpose: Will padd all...
+```
 
 ## BrachyDose
 
@@ -65,6 +103,7 @@ This class holds information regarding a dose distribution as well as the fundam
 - crop_by_index()
 - is_not_empty()
 - info()
+- multiply_dose_by_constant()
 
 ## BrachyEgsphant
 

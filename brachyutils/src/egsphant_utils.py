@@ -375,10 +375,12 @@ class BrachyEgsphant:
                 self.axis[2][new_origin_index[0]], # x
                 self.axis[1][new_origin_index[1]], # y
                 self.axis[0][new_origin_index[2]] # z
-            ])         
-            new_obj.num_voxels = np.flip(self.material_matrix.shape, 0) 
+            ])
+            new_obj.material_dict = self.material_dict     
+            new_obj.num_voxels = np.flip(new_obj.material_matrix.shape, 0)
             new_obj.vox_size = self.vox_size   
             new_obj.axis = self.calculateAxis()
+            new_obj.num_materials = self.num_materials
             return new_obj
     
     def crop_by_body_contour(self, body_index_range:Optional[np.ndarray] = None, 
