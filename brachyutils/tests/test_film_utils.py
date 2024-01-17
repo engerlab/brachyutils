@@ -15,6 +15,7 @@ from scipy.optimize import curve_fit
 import cv2
 
 from film_utils import FilmCalibration
+from film_utils import CalibrationCurve
 
 def test_create_lewis_calibration_curve():
     test_curve_type = "Lewis"

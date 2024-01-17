@@ -56,6 +56,7 @@ from typing import List
 import json
 
 from dose_utils import BrachyDose
+from dose_utils import DoseComparison
 
 
 def test_load_from_3ddose():
@@ -235,21 +236,9 @@ def test_crop_by_fraction():
 
 
 def test_get_structure_index_range():
-    pth_dicom_rs = "../../data_test/prostate_glen_p1/"
-    pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
+    pth_dicom_rs = "../../data_test/prostate-glen-p1-dcm/"
+    #pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
     print(get_structure_index_range(pth_dicom_rs))
-
-
-def test_crop_by_body_contour():
-    pth_dicom_rs = "../../data_test/prostate_glen_p1/"
-    pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
-
-    dose_obj = BrachyDose()
-
-    dose_obj.load_file_to_brachydose(pth_3ddose)
-    dose_obj.info()
-    dose_obj.crop_by_body_contour(pth_dicom_rs)
-    dose_obj.info()
 
 
 def test_convert_to_minidos():

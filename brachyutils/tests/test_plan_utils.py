@@ -110,7 +110,7 @@ def test_calculate_combined_uncertainty():
 
 def test_calculate_uncertainty_per_structure():
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
-    dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose/"
     dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
     dvh_metric_goals = {
         'D95%(ctv)': 15,
