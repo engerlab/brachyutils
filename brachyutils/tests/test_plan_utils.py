@@ -20,6 +20,7 @@ from scipy import interpolate
 
 #from plan_utils import BrachyStructure
 from plan_utils import BrachyPlan
+from plan_utils import _load_single_dose_or_uncertainty_to_dict
 
 def test_load_catheterTable_json():
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
@@ -155,19 +156,19 @@ def test_BrachyPlan():
 
 def test__load_single_dose_or_uncertainty_to_dict():
     pth_dose_rate = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
-    _load_single_dose_or_uncertainty_to_dict(pth_dose_rate, "both")
-    print(dose_rate_dict[1]["dose"].shape)
-    print(dose_rate_dict[1]["uncertainty"].shape)
+    dose_rate_dict = _load_single_dose_or_uncertainty_to_dict(pth_dose_rate, "both")
+    print(dose_rate_dict[0].shape) #dose
+    print(dose_rate_dict[1].shape) #uncertainty
     
 if __name__ == "__main__":
     
     # running the test functions above: 
-    # test_load_catheterTable_json()
-    # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
-    # test_load_dose_rate_or_uncertainty_tensor()
-    # test_set_dvh_metric_goals()
-    # test_create_structures_and_calc_dvh_metrics()
-    # test_calculate_combined_uncertainty()
-    test_calculate_uncertainty_per_structure()
-    # test_BrachyPlan()
-    # test__load_single_dose_or_uncertainty_to_dict()
+    # test_load_catheterTable_json() #passes
+    # test_extract_dwell_numbers_times_coordinates_from_catheterTable() #passes
+    # test_load_dose_rate_or_uncertainty_tensor() #TENSOR ISSUE!!!
+    # test_set_dvh_metric_goals() #passes
+    # test_create_structures_and_calc_dvh_metrics() #TENSOR ISSUE!!!
+    # test_calculate_combined_uncertainty() #TENSOR ISSUE!!!!
+    # test_calculate_uncertainty_per_structure() #Killed
+    # test_BrachyPlan() #Killed
+    # test__load_single_dose_or_uncertainty_to_dict() #passes

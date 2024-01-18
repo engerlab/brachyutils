@@ -1,40 +1,13 @@
 from numpy import array as nparray, zeros as npzeros, reshape
-# from numpy import float as float
-# from numpy import int as int
+
 from numpy import ma
 from numpy import dtype
 import numpy as np
 import re
 import os
-
-# from dicompylercore import dicomparser
-# from glob import glob
-# from numericalunits import cm, mm, kg, J
-# Gy = J/kg
-
-# import SimpleITK as sitk
-# import difflib
 from typing import Optional
-# from collections.abc import Iterable
-
-# import pytest
-# # import uu
-# import lzma
-# import pickle
-# import pyzstd
-
-# import typer
-# import decimal
-
-# from tqdm import tqdm
-
-# from rt_utils import RTStructBuilder
-# from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
-# import pydicom
 
 import json
-
-# from dicom_utils import get_body_index_range
 
 from egsphant_utils import BrachyEgsphant
 from egsphant_utils import _to_single_string
@@ -102,13 +75,3 @@ def test_load_from_ctegsphant():
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
     egsphant_obj.assert_BrachyEgsphant_notEmpty()
-
-#if __name__=="__main__":
-#     app()
-    # running tests top is the latest test written
-    # test_crop_by_body_contour_many_files()
-    # test_crop_by_body_contour()
-    # test_crop_by_index()
-    # test_to_single_string()
-    # test_write_to_egsphant()
-    # test_load_from_ctegsphant()
