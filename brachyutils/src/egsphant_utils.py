@@ -409,6 +409,7 @@ class BrachyEgsphant:
         """
         
         if body_index_range is None or body_mask_shape is None:
+            print("path_dir_dicom is: " .format(pth_dir_dicom))
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
             # body_index_range, body_mask_shape = get_structure_index_range(pth_dir_dicom)

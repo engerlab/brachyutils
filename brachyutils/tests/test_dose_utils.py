@@ -185,7 +185,8 @@ def test_write_to_zstd():
 
     # testing on maude's file
     pth_3ddose = "../../data_test/maude.3ddose"
-    pth_out = os.path.splitext(pth_3ddose)[0]+'.zstd'
+    pth_out = os.path.splitext(pth_3ddose)[0]+'.zst'
+    print(pth_out)
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
 

@@ -40,9 +40,9 @@ from egsphant_utils import BrachyEgsphant
 from egsphant_utils import _to_single_string
 
 def test_crop_by_body_contour():
-    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/egsphants/p1/ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
-    pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
+    pth_dicomRS = "../../data_test/prostate-glen-p1-dcm"
 
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
@@ -54,7 +54,7 @@ def test_crop_by_body_contour():
     
 
 def test_crop_by_index():
-    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/egsphants/p1/ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
     egsphant_obj = BrachyEgsphant()
@@ -71,7 +71,7 @@ def test_crop_by_index():
     egsphant_obj.write_to_ctegsphant(pth_output)
 
 def test_write_to_egsphant():
-    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/egsphants/p1/ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
     egsphant_obj = BrachyEgsphant()
@@ -85,7 +85,7 @@ def test_write_to_egsphant():
     egsphant_obj.is_equal(new_egsphant_obj)
 
 def test_to_single_string():
-    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/egsphants/p1/ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
     
     egsphant_obj = BrachyEgsphant()
@@ -95,17 +95,17 @@ def test_to_single_string():
     _to_single_string(egsphant_obj.material_matrix.astype(str))     
 
 def test_load_from_ctegsphant():
-    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
+    pth_input = "../../data_test/egsphants/p1/ct.egsphant"
     
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
     egsphant_obj.assert_BrachyEgsphant_notEmpty()
 
-# if __name__=="__main__":
+if __name__=="__main__":
 #     app()
     # running tests top is the latest test written
     # test_crop_by_body_contour_many_files()
-    # test_crop_by_body_contour()
+     test_crop_by_body_contour()
     # test_crop_by_index()
     # test_to_single_string()
     # test_write_to_egsphant()

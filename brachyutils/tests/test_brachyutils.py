@@ -33,8 +33,8 @@ def test_get_bodyContourRange_from_dicom_many_patients():
 
 def test_crop_egsphant_by_bodyContour_many_patients():
     # test on testing dataset
-    pth_input = "../../data_test"
-    pth_json = "../../data_test/patient_body_bounds.json"
+    pth_input = "../../data_test/egsphants"
+    pth_json = "../../data_test/test_patient_body_bounds.json"
     
     # test on all patients
     # pth_input = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm"
@@ -64,7 +64,7 @@ def test_convert_many_files():
         
         dose_obj_3ddose.is_equal(dose_obj_nrrd)
 
-def test_crop_by_body_contour():
+""" def test_crop_by_body_contour():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
     pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
 
@@ -72,18 +72,14 @@ def test_crop_by_body_contour():
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.info()
     dose_obj.crop_by_body_contour(pth_dicomRS)
-    dose_obj.info()
+    dose_obj.info() """
 
 def test_crop_dose_by_bodyContour_many_files():
     # pth_3ddose = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm/p3/run_29.3ddose"
-    pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
+    pth_3ddose = "../../data_test/3ddose/p1"
     pth_json = "../../data_test/patient_body_bounds.json"
     
     crop_dose_by_bodyContour_many_files(pth_3ddose, pth_json)
 
-#def main():
-#    app()
-
 if __name__ == "__main__":
-    # test_convert_many_files()
-    test_crop_dose_by_bodyContour_many_files()
+    test_crop_egsphant_by_bodyContour_many_patients()
