@@ -31,9 +31,9 @@ def test_get_bodyContourRange_from_dicom_many_patients():
     
     print(data_json)
 
-def test_crop_egsphant_by_bodyContour_many_files():
+def test_crop_egsphant_by_bodyContour_many_patients():
     # test on testing dataset
-    pth_input = "../../data_test/"
+    pth_input = "../../data_test"
     pth_json = "../../data_test/patient_body_bounds.json"
     
     # test on all patients
@@ -65,7 +65,7 @@ def test_convert_many_files():
         dose_obj_3ddose.is_equal(dose_obj_nrrd)
 
 def test_crop_by_body_contour():
-    pth_dicomRS = "../../data_test/prostate-glen-p1-dcm"
+    pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
     pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
 
     dose_obj = BrachyDose()

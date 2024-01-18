@@ -237,8 +237,9 @@ def test_crop_by_fraction():
 
 def test_get_structure_index_range():
     pth_dicom_rs = "../../data_test/prostate-glen-p1-dcm/"
+    list_query_rs = ['body', 'ctv_brachy', 'rectum_brachy', 'urethra_brachy']
     #pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
-    print(get_structure_index_range(pth_dicom_rs))
+    print(get_structure_index_range(pth_dicom_rs, list_query_rs))
 
 
 def test_convert_to_minidos():
