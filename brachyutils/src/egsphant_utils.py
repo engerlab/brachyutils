@@ -34,6 +34,8 @@ from typing import Optional
 
 import json
 
+from dicom_utils import get_structure_index_range
+
 # from dicom_utils import get_body_index_range
 
 class BrachyEgsphant:
@@ -385,8 +387,8 @@ class BrachyEgsphant:
     
     def crop_by_body_contour(self, body_index_range:Optional[np.ndarray] = None, 
                              body_mask_shape:Optional[np.ndarray] = None,
-                             pth_dir_dicom:Optional[str]=None, 
-                             ):
+                             pth_dir_dicom:Optional[str]=None,
+):
         r"""
         Purpose: 
             based on the given dicom structure file, crop the BrachyEgsphant object such 
@@ -409,14 +411,15 @@ class BrachyEgsphant:
         """
         
         if body_index_range is None or body_mask_shape is None:
-            print("path_dir_dicom is: " .format(pth_dir_dicom))
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            # body_index_range, body_mask_shape = get_structure_index_range(pth_dir_dicom)
+            body_mask_info = get_structure_index_range(pth_dir_dicom, query_structure_list=["body"])
+            body_index_range  = body_mask_info["body"]['structure_index_range']
+            body_mask_shape = body_mask_info["body"]['dicom_mask_shape']
         # the body mask may have a different size than the material map, we normalize range to the dimension 
         # of original mask and scale it to the dimension of the material map to get the body index range on the material image.  
         scaled_body_index_range = (body_index_range / np.expand_dims(body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
-        
+        print(scaled_body_index_range)
         self.crop_by_index(scaled_body_index_range, True)
     
     

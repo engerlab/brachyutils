@@ -967,8 +967,9 @@ class BrachyDose:
         if body_index_range is None or body_mask_shape is None:
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            # body_index_range, body_mask_shape = get_structure_index_range(pth_dir_dicom)
-        # the body mask may have a different size than the dose map, we normalize range to the dimension
+            body_mask_info = get_structure_index_range(pth_dir_dicom, query_structure_list=["body"])
+            body_index_range  = body_mask_info["body"]['structure_index_range']
+            body_mask_shape = body_mask_info["body"]['dicom_mask_shape']        # the body mask may have a different size than the dose map, we normalize range to the dimension
         # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.
         scaled_body_index_range = (body_index_range / np.expand_dims(
             body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)

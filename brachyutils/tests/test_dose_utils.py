@@ -194,7 +194,7 @@ def test_write_to_zstd():
 
 
 def test_crop_by_coordinates():
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
+    pth_3ddose = "../../data_test/3ddose/p1/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.info()
@@ -209,7 +209,7 @@ def test_crop_by_coordinates():
 
 
 def test_crop_by_index():
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
+    pth_3ddose = "../../data_test/3ddose/p1/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.info()
@@ -225,7 +225,7 @@ def test_crop_by_index():
 
 
 def test_crop_by_fraction():
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
+    pth_3ddose = "../../data_test/3ddose/p1/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.info()
@@ -249,8 +249,8 @@ def test_convert_to_minidos():
 
 def test_dose_comparison():
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
-    pth_3ddose2 = "../../data_test/run_1_old.3ddose"
+    pth_3ddose = "../../data_test/3ddose/p1/run_1_old.3ddose"
+    pth_3ddose2 = "../../data_test/3ddose/p1/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj2 = BrachyDose()
@@ -260,3 +260,12 @@ def test_dose_comparison():
     assert (not np.any(dose_comparison.percent_difference.grid))
     # dose_comparison.compare_dose_distributions_2D(
     #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
+
+def test_crop_by_body_contour():
+    pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
+    pth_3ddose = "../../data_test/3ddose/p1/run_1_glen_prostate_p1.3ddose"
+
+    dose_obj = BrachyDose()
+    dose_obj.load_file_to_brachydose(pth_3ddose)
+    dose_obj.info()
+    dose_obj.crop_by_body_contour(pth_dir_dicom=pth_dicomRS)

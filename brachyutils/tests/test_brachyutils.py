@@ -22,7 +22,7 @@ from functools import partial
 
 def test_get_bodyContourRange_from_dicom_many_patients():
     input_dir = "../../data_test/prostate-glen-p1-dcm/"
-    pth_json = "../../data_test/test_patient_body_bounds.json"
+    pth_json = "../../data_test/patient_body_bounds_output.json"
     
     get_bodyContourRange_from_dicom_many_patients(input_dir, pth_json)
     
