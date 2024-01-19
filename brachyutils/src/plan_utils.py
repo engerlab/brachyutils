@@ -307,8 +307,9 @@ class BrachyPlan:
                 
         else:  
             dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
-            for i, pth_dose_rate in tqdm(enumerate(dose_rate_files)):     
+            for i, pth_dose_rate in tqdm(enumerate(dose_rate_files)):    
                 dose_or_uncertainty_list[i] = _load_single_dose_or_uncertainty_to_dict(pth_dose_rate, load_dose_or_uncertainty)
+            print(dose_or_uncertainty_list.shape)
         
         if load_dose_or_uncertainty == "both":
             self.dose_rate_tensor = np.array(dose_or_uncertainty_list[:, 0], dtype=np.float32)
@@ -735,7 +736,6 @@ def test_BrachyPlan():
 
 def test__load_single_dose_or_uncertainty_to_dict():
     pth_dose_rate = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
-    _load_single_dose_or_uncertainty_to_dict(pth_dose_rate, "both")
     print(dose_rate_dict[1]["dose"].shape)
     print(dose_rate_dict[1]["uncertainty"].shape)
     
