@@ -1398,17 +1398,3 @@ class DoseComparison:
         else:
             with open(path, 'rb') as f:
                 self.__dict__.update(pickle.load(f).__dict__)
-
-def test_dose_comparison():
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
-    pth_3ddose2 = "../../data_test/run_1_old.3ddose"
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
-    dose_obj2 = BrachyDose()
-    dose_obj2.load_file_to_brachydose(pth_3ddose2)
-    dose_comparison = DoseComparison(dose_obj, dose_obj2, 1, 1)
-    # evaluate that the grid contains only 0
-    assert (not np.any(dose_comparison.percent_difference.grid))
-    # dose_comparison.compare_dose_distributions_2D(
-    #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
