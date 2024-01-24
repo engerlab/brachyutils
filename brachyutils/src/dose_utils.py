@@ -10,49 +10,28 @@ import pickle
 import tkinter as tk
 from glob import glob
 from tkinter import filedialog as fd
+import timeit
 
 import pymedphys
 from numpy import array as nparray, zeros as npzeros, reshape
 from numpy import ma
 from numpy import dtype
 import numpy as np
-# from PyQt5.QtCore import QFile, QDataStream, QIODevice, QList
-# from PyQt5.Qt3DExtras import QVector3D
 from matplotlib import pyplot as plt
-# from numpy import float as float
-# from numpy import int as int
 from scipy.interpolate import RegularGridInterpolator
 import re
 import os
 from array import array
 
-# from dicompylercore import dicomparser
-# from numericalunits import cm, mm, kg, J
-# Gy = J/kg
-
 import SimpleITK as sitk
 
-# from collections.abc import Iterable
-
-# import pytest
-# import uu
 
 import pyzstd
 
-# import typer
-# import decimal
-
-# from tqdm import tqdm
 
 from dicom_utils import get_structure_index_range
 
-# from rt_utils import RTStructBuilder
-# from DicomRTTool.ReaderWriter import DicomReaderWriter, ROIAssociationClass
-# import pydicom
-# import json
-# import numpy as np
 from typing import List
-# so_true = True
 
 import json
 
@@ -1040,10 +1019,11 @@ def test_load_from_3ddose():
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
 
     # testing on maude's file
-    pth_3ddose = "../../data_test/maude.3ddose"
-
-    dose_obj = BrachyDose()
-    dose_obj.load_from_3ddose(pth_3ddose)
+    
+    pth_3ddose = "../../data_test/combined.3ddose"
+    start_time = timeit.default_timer()
+    dose_obj = BrachyDose(pth_3ddose)
+    print(f"3ddose loading time is {timeit.default_timer() - start_time}")
     dose_obj.is_not_empty()
 
 
@@ -1063,14 +1043,17 @@ def test_write_to_3ddose():
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
 
     # testing on maude's file
-    pth_3ddose = "../../data_test/maude.3ddose"
+    pth_3ddose = "../../data_test/combined.3ddose"
     pth_out = os.path.splitext(pth_3ddose)[0]+'_test.3ddose'
 
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
+    dose_obj = BrachyDose(pth_3ddose)
+    
+    start_time = timeit.default_timer()
 
     dose_obj.write_to_3ddose(pth_out)
-    new_dose_obj = BrachyDose().load_file_to_brachydose(pth_out)
+    print(f"3ddose writing time is {timeit.default_timer() - start_time}")
+
+    new_dose_obj = BrachyDose(pth_out)
     dose_obj.is_equal(new_dose_obj)
 # @pytest.mark.passed
 
@@ -1085,17 +1068,22 @@ def test_convert_to_nrrd():
     # pth_nrrd = "../../data_test/run_1_old.nrrd"
 #
     # 1 mm resolution
-    # pth_3ddose =  "../../data_test/combined.3ddose"
-    # pth_nrrd = "../../data_test/combined_old.nrrd"
+    pth_3ddose =  "../../data_test/combined.3ddose"
+    pth_nrrd = "../../data_test/combined_old.nrrd"
 
     # testing on maude's file
-    pth_3ddose = "../../data_test/maude.3ddose"
+    # pth_3ddose = "../../data_test/maude.3ddose"
     pth_out = os.path.splitext(pth_3ddose)[0]+'.nrrd'
 
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
+    start_time = timeit.default_timer()
 
+    dose_obj = BrachyDose(pth_3ddose)
+    print(f"nrrd loading time is {timeit.default_timer() - start_time}")
+
+    # dose_obj.load_file_to_brachydose(pth_3ddose)
+    start_time = timeit.default_timer()
     dose_obj.write_to_nrrd(pth_out)
+    print(f"nrrd writing time is {timeit.default_timer() - start_time}")
 
     dose_obj_from_nrrd = BrachyDose()
     dose_obj_from_nrrd.load_file_to_brachydose(pth_out)
@@ -1236,30 +1224,6 @@ def test_convert_to_minidos():
 
 def test_dose_with_empty_grid_like():
     raise NotImplementedError("This function is not implemented yet")
-
-# if __name__ == "__main__":
-    # app()
-
-    # a Test for the following functions
-    #test_convert_to_minidos()
-    # test_crop_by_body_contour()
-    # test_load_from_3ddose()
-    # test_load_file_to_brachydose()
-    # test_write_to_3ddose()
-    # test_convert_to_nrrd()
-    # test_convert_to_npz_file()
-    # test_write_to_minidos()
-    # test_write_to_xz()
-    # test_write_to_zstd()
-    # test_convert_many_files()
-    # test_crop_by_coordinates()
-    # test_crop_by_index()
-    # test_crop_by_fraction()
-    # _test_pad_3ddose()
-    # _test_write_3ddose()
-    # _test_pad_many_3ddoses()
-    # _test_write_nrrd()
-    # _test_nrrd_to_3ddose()
 
 
 class DoseComparison:
@@ -1440,3 +1404,27 @@ def test_dose_comparison():
     assert (not np.any(dose_comparison.percent_difference.grid))
     # dose_comparison.compare_dose_distributions_2D(
     #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
+
+
+if __name__ == "__main__":
+
+    # a Test for the following functions
+    #test_convert_to_minidos()
+    # test_crop_by_body_contour()
+    # test_load_from_3ddose()
+    # test_load_file_to_brachydose()
+    # test_write_to_3ddose()
+    test_convert_to_nrrd()
+    # test_convert_to_npz_file()
+    # test_write_to_minidos()
+    # test_write_to_xz()
+    # test_write_to_zstd()
+    # test_convert_many_files()
+    # test_crop_by_coordinates()
+    # test_crop_by_index()
+    # test_crop_by_fraction()
+    # _test_pad_3ddose()
+    # _test_write_3ddose()
+    # _test_pad_many_3ddoses()
+    # _test_write_nrrd()
+    # _test_nrrd_to_3ddose()
