@@ -193,8 +193,12 @@ def convert_dose_many_files(
             our_pool.map(partial_dose_writer, file_list)
     else:
         for single_file in tqdm(file_list):
-            print(f"converting {single_file}")
-            convert_single_dose_file(single_file, type_out)  
+            file_no_extension = os.path.splitext(single_file)[0]
+            if os.path.exists(file_no_extension+type_out):
+                continue
+            else:                             
+                print(f"converting {single_file}")
+                convert_single_dose_file(single_file, type_out)  
 
 @app.command(help="""Purpose: to crop all the dose files in a folder""")
 def crop_dose_by_bodyContour_many_files(
@@ -408,6 +412,66 @@ def get_uncertainty_one_patient(
     with open(pth_uncertainty_json, "w") as outfile:
         json.dump(patient_info, outfile, indent=4)
     
+
+@app.command(help="""Purpose: Will combined multiple dose files for a single patient""")
+def combined_dose_per_patient(
+    dir_dose_maps: Annotated[str, typer.Argument(help="""Directory containing dose data for a patient. """)],
+    type_in: Annotated[str, typer.Argument(help="""Extension of the files to be converted. Options are .3ddose and .nrrd. """)], 
+    type_out: Annotated[str, typer.Argument(help="""Extension of the output files. Options are .3ddose, .nrrd, .minidos.""")], 
+    multi_proc: Annotated[bool, typer.Option(help="""If set to true, multiprocessing will be used to load the dose files in parallel.""")] = False):
+    r"""
+    Purpose: 
+        To loop over all batches of a simulatation and create the combined 3ddose file. 
+    Input:
+        - dir_dose_maps := Directory containing dose files. 
+        - type_in := Format of the dose files to be converted.
+        - type_out := Format of the output file.
+        - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
+    """
+    assert os.path.exists(dir_dose_maps)
+    
+    dose_files = [file for file in os.listdir(dir_dose_maps) if file.endswith(type_in)]
+    N = len(dose_files)
+
+    dose_obj = BrachyDose(dir_dose_maps+dose_files[0])
+
+    num_voxels = dose_obj.num_voxels
+    vox_size = dose_obj.vox_size
+    topleft = dose_obj.topleft
+    voxel_edges = dose_obj.voxel_edges
+
+    sum_dose = dose_obj.grid
+
+    for dose_file in tqdm(dose_files[1:]):
+        dose_obj = BrachyDose(dir_dose_maps+dose_file)
+        sum_dose += dose_obj.grid
+
+    mean_dose = sum_dose/N
+
+    uncertainty = np.zeros(mean_dose.shape)
+
+    for dose_file in tqdm(dose_files):
+        dose_obj = BrachyDose(dir_dose_maps+dose_file)
+        uncertainty += (dose_obj.grid - mean_dose)**2
+
+    uncertainty = np.sqrt(uncertainty/(N*(N-1)))
+    uncertainty = uncertainty/(dose_obj.grid+1e-7)
+
+    combined_dose_obj = BrachyDose()
+    combined_dose_obj.grid = mean_dose
+    combined_dose_obj.uncertainty = uncertainty
+    combined_dose_obj.num_voxels = num_voxels
+    combined_dose_obj.vox_size = vox_size
+    combined_dose_obj.topleft = topleft
+    combined_dose_obj.voxel_edges = voxel_edges
+    
+    if type_out == ".3ddose":
+        combined_dose_obj.write_to_3ddose(dir_dose_maps+'combined.3ddose')
+    elif type_out == ".nrrd":
+        combined_dose_obj.write_to_nrrd(dir_dose_maps+'combined.nrrd')
+    elif type_out == ".minidos":
+        combined_dose_obj.write_to_minidos(dir_dose_maps+'combined.minidos')
+
 def test_get_bodyContourRange_from_many_patients_dicom():
     r"""Outdated test function"""
     raise Exception("Outdated test function")
