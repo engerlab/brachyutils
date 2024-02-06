@@ -34,6 +34,8 @@ from typing import Optional
 
 import json
 
+from dicom_utils import get_structure_index_range
+
 # from dicom_utils import get_body_index_range
 
 class BrachyEgsphant:
@@ -385,8 +387,8 @@ class BrachyEgsphant:
     
     def crop_by_body_contour(self, body_index_range:Optional[np.ndarray] = None, 
                              body_mask_shape:Optional[np.ndarray] = None,
-                             pth_dir_dicom:Optional[str]=None, 
-                             ):
+                             pth_dir_dicom:Optional[str]=None,
+):
         r"""
         Purpose: 
             based on the given dicom structure file, crop the BrachyEgsphant object such 
@@ -411,11 +413,13 @@ class BrachyEgsphant:
         if body_index_range is None or body_mask_shape is None:
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            # body_index_range, body_mask_shape = get_structure_index_range(pth_dir_dicom)
+            body_mask_info = get_structure_index_range(pth_dir_dicom, query_structure_list=["body"])
+            body_index_range  = body_mask_info["body"]['structure_index_range']
+            body_mask_shape = body_mask_info["body"]['dicom_mask_shape']
         # the body mask may have a different size than the material map, we normalize range to the dimension 
         # of original mask and scale it to the dimension of the material map to get the body index range on the material image.  
         scaled_body_index_range = (body_index_range / np.expand_dims(body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
-        
+        print(scaled_body_index_range)
         self.crop_by_index(scaled_body_index_range, True)
     
     
@@ -453,74 +457,5 @@ def _load_json(pth_json:str):
     with open(pth_json, 'r') as file_json:
         return json.load(file_json)
 
-def test_crop_by_body_contour():
-    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
-    pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
-    pth_dicomRS = "../../data_test/prostate_glen_p1/"
-
-    egsphant_obj = BrachyEgsphant()
-    egsphant_obj.load_from_ctegsphant(pth_input)
-    egsphant_obj.info()
-    
-    egsphant_obj.crop_by_body_contour(pth_dicomRS)
-    egsphant_obj.info()
-    
-    
-
-def test_crop_by_index():
-    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
-    pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
-    
-    egsphant_obj = BrachyEgsphant()
-    egsphant_obj.load_from_ctegsphant(pth_input)
-    egsphant_obj.info()
-    
-    index=np.array([
-        [30, 90],
-        [30, 90],
-        [0, 94]],dtype=np.float32)
-
-    egsphant_obj.crop_by_index(index)
-    egsphant_obj.info()
-    egsphant_obj.write_to_ctegsphant(pth_output)
-
-def test_write_to_egsphant():
-    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
-    pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
-    
-    egsphant_obj = BrachyEgsphant()
-    egsphant_obj.load_from_ctegsphant(pth_input)
-    egsphant_obj.assert_BrachyEgsphant_notEmpty()
-    
-    egsphant_obj.write_to_ctegsphant(pth_output)
-    new_egsphant_obj = BrachyEgsphant()
-    new_egsphant_obj.load_from_ctegsphant(pth_output)
-    
-    egsphant_obj.is_equal(new_egsphant_obj)
-
-def test_to_single_string():
-    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
-    pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
-    
-    egsphant_obj = BrachyEgsphant()
-    egsphant_obj.load_from_ctegsphant(pth_input)
-    egsphant_obj.assert_BrachyEgsphant_notEmpty()
-    
-    _to_single_string(egsphant_obj.material_matrix.astype(str))     
-
-def test_load_from_ctegsphant():
-    pth_input = "../../data_test/glen_prostate_p1_3mm_ct.egsphant"
-    
-    egsphant_obj = BrachyEgsphant()
-    egsphant_obj.load_from_ctegsphant(pth_input)
-    egsphant_obj.assert_BrachyEgsphant_notEmpty()
-
 # if __name__=="__main__":
 #     app()
-    # running tests top is the latest test written
-    # test_crop_by_body_contour_many_files()
-    # test_crop_by_body_contour()
-    # test_crop_by_index()
-    # test_to_single_string()
-    # test_write_to_egsphant()
-    # test_load_from_ctegsphant()

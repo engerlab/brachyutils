@@ -6,7 +6,13 @@ This package implements Brachytherapy dose, egsphant dicom and film dosimetry fu
 
 To get the package run:
 
-`git clone https://gitlab.com/hosseinjafar/tg186-validation.git`
+`git clone https://github.com/engerlab/brachyutils.git`
+
+If you are installing this package on a remote cluster managed by the Digital Research Alliance of Canada (Compute Canada), you need to load some required modules:
+
+`module load StdEnv/2023`
+
+`module load opencv`
 
 Then, create a virtual envionrment and activate it by running:
 
@@ -14,11 +20,14 @@ Then, create a virtual envionrment and activate it by running:
 
 `source ENV_brachyutils/bin/activate`
 
+After this process finishes, run `pip install -e .` to install the brachyutils package. 
+
+### Optional:
+
 `python3 -m pip install --upgrade pip`
 
 Install SimpleITK independently by running `python3 -m pip install SimpleITK`. If you run into the error saying `skbuild` is [missing](https://bugs.python.org/issue30573), run `python3 -m pip install cmake`, then try installing SimpleITK again.
 
-After this process finishes, run `pip install -e .` to install the brachyutils package. 
 
 ## brachyutils commands
 
@@ -41,17 +50,18 @@ Options:
   --help                          Show this message and exit.
 
 Commands:
-  convert-dose-many-files         Will convert all...
+  convert-dose-many-files         Will convert all files...
   crop-dose-by-bodycontour-many-files
-                                  Purpose: to crop...
-  crop-dose-by-ratio-many-files   Purpose: Will...
+                                  Purpose: to crop all the...
+  crop-dose-by-ratio-many-files   Purpose: Will crop all...
   crop-egsphant-by-bodycontour-many-patients
-                                  Purpose: to crop...
+                                  Purpose: to crop the...
   get-bodycontourrange-from-dicom-many-patients
-                                  Purpose: to...
+                                  Purpose: to exract body...
+  get-uncertainty-one-patient     Purpose: Will calculate...
   multiply-dose-by-constant-many-files
-                                  Purpose: Will...
-  padd-dose-many-files            Purpose: Will...
+                                  Purpose: Will scale all...
+  padd-dose-many-files            Purpose: Will padd all...
 ```
 
 ## BrachyDose

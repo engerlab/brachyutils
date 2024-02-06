@@ -5,15 +5,38 @@ from tqdm import tqdm
 import pytest
 import typer
 import numpy as np
+import re
+import gc
+import resource
+import sys
 
 from dicom_utils import  get_structure_index_range
 from egsphant_utils import _load_json, BrachyEgsphant
 from dose_utils import BrachyDose
+from plan_utils import BrachyPlan
+
 from typing import Optional
 from typing_extensions import Annotated
 
 from multiprocessing import Pool
 from functools import partial
+
+def memory_limit():
+    """Limit max memory usage to half."""
+    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    # Convert KiB to bytes, and divide in two to half
+    resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * 0.98), hard))
+
+def get_memory():
+    with open('/proc/meminfo', 'r') as mem:
+        free_memory = 0
+        for i in mem:
+            sline = i.split()
+            if str(sline[0]) in ('MemFree:', 'Buffers:', 'Cached:'):
+                free_memory += int(sline[1])
+    return free_memory  # KiB
+
+
 app = typer.Typer()
 
 @app.command(
@@ -123,16 +146,18 @@ def crop_egsphant_by_bodyContour_many_patients(
     body_range_dict = _load_json(pth_json=patient_body_range_json)
 
     for patient in tqdm(body_range_dict):
+        print(patient["patient_number"])
         pth_egsphant = list(filter(lambda x: patient["patient_number"] in x, pth_egsphant_set))[0]
         print(f"loading the patient egsphant {pth_egsphant}")
         egsphant_obj = BrachyEgsphant(pth_egsphant)
-        egsphant_obj.crop_by_bodyContour(patient["body_index_range"], patient["body_mask_shape"])
+        egsphant_obj.crop_by_body_contour(patient["body_index_range"], patient["body_mask_shape"])
         pth_cropped_egsphant = os.path.dirname(pth_egsphant) + "/cropped_" + os.path.basename(pth_egsphant)
         print(f"writing the cropped egsphant to {pth_cropped_egsphant}")
         egsphant_obj.write_to_ctegsphant(pth_cropped_egsphant)
 
 
 def convert_single_dose_file(input_name, type_out):
+    assert os.path.exists(input_name)
     file_base_noExtension = os.path.splitext(input_name)[0]
     if not os.path.exists(file_base_noExtension+type_out):  
         dose_obj = BrachyDose(input_name)
@@ -140,6 +165,7 @@ def convert_single_dose_file(input_name, type_out):
 
 @app.command(help="""Will convert all files in the "input_dir" of type "type_in" to "type_out" """)
 def convert_dose_many_files(
+    # file_regex: Annotated[str, typer.Argument(help="""regular expression of files to be converted. for example, "*.nrrd".""")]=None,
     input_dir: Annotated[str, typer.Argument(help="""directory where there are dose files to be converted""")], 
     type_in: Annotated[str, typer.Argument(help="""extension of the files to be converted. Options are .3ddose, and .nrrd. .minidos will be added soon""")], 
     type_out: Annotated[str, typer.Argument(help="""extension of the output files. Options are .3ddose, .nrrd, .minidos""")], 
@@ -152,9 +178,15 @@ def convert_dose_many_files(
         type_in := could be ".3ddose", ".nrrd", ".minidos", other types could be added
         type_out := could be ".3ddose", ".nrrd", ".minidos", other types could be added
     """
+    # if file_regex is not None:
+    #     file_list = glob(file_regex)
+    #     print(file_list)
+    # elif input_dir is not None and type_in is not None:
     input_dir = os.path.abspath(input_dir)
     assert os.path.exists(input_dir)
     file_list = glob(input_dir+"/*"+type_in)
+    # else:
+    #     raise Exception("either file_regex or input_dir and type_in should be provided")
     
     if multi_proc:
         with Pool() as our_pool:
@@ -162,6 +194,7 @@ def convert_dose_many_files(
             our_pool.map(partial_dose_writer, file_list)
     else:
         for single_file in tqdm(file_list):
+            print(f"converting {single_file}")
             convert_single_dose_file(single_file, type_out)  
 
 @app.command(help="""Purpose: to crop all the dose files in a folder""")
@@ -250,8 +283,7 @@ def crop_dose_by_ratio_many_files(
     file_list = glob(input_dir+"/*"+type_in)
     
     for file in tqdm(file_list):
-        dose_obj = BrachyDose()
-        dose_obj.load_file_to_BrachyDose(file)
+        dose_obj = BrachyDose(file)
         dose_obj.crop_by_fraction(crop_ratio)
 
         file_base_noExtension = os.path.splitext(file)[0]
@@ -309,92 +341,90 @@ def multiply_dose_by_constant_many_files(
         for single_file in tqdm(file_list):
             multiply_dose_by_constant_single_file(single_file, scale_factor)
 
-def test_get_bodyContourRange_from_many_patients_dicom():
-    input_dir = "../../data_test"
-    pth_json = "../../data_test/test_patient_body_bounds.json"
+@app.command(help="""Purpose: Will calculate the uncertainty of all structures for all patients in a directory""")
+def get_uncertainty_one_patient(
+    dir_doserate_maps: Annotated[str, typer.Argument(help="""directory containing Dose data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match. """)],
+    dir_plan: Annotated[str, typer.Argument(help="""directory containing Plan data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match. In this folder, there should be a file named catheter_table.json that contains the catheter table.""")],
+    dir_dicom: Annotated[str, typer.Argument(help="""directory containing DICOM data of many patients. each folder has a subfolder for every patient. The names of the patients (subfolders) should match.""")],
+    pth_dvh_metric_goals_json: Annotated[str, typer.Argument(help="""path to the json file where the DVH metric goals are saved.""")],
+    pth_uncertainty_json: Annotated[str, typer.Argument(help="""path to the json file where the uncertainty of all structures will be saved.""")],
+    multi_proc: Annotated[bool, typer.Option(help="""If set to true, multiprocessing will be used to load the dose files in parallel.""")] = False):
+    r"""
+    Purpose: 
+        To loop over all patients and get the uncertainty of all structures. 
+    Input:
+        - dir_doserate_maps := Directory containing Dose rate maps for the dwell position. 
+        - dir_plan := Directory containing Plan data of the patient. Inside the dir plan, 
+        - dir_dicom := Directory containing DICOM data of the patient. 
+        there should be a file named catheter_table.json that contains the catheter table.
+        - pth_dvh_metric_goals_json := path to the json file where the DVH metric goals are saved.
+        - pth_uncertainty_json := path to the json file where the uncertainty of all structures will be saved.
+        - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
+    Output:
+        - Void := Path of the json file where the uncertainty of all structures will be saved.
+    Dependencies:
+    """
+    assert os.path.exists(dir_dicom)
+    assert os.path.exists(dir_doserate_maps)
     
-    get_bodyContourRange_from_many_patients_dicom(input_dir, pth_json)
+    with open(pth_dvh_metric_goals_json, "r") as dvh_target_file:
+        dvh_metric_goals = json.load(dvh_target_file) 
     
-    with open(pth_json, "r") as file:
-        data_json = json.load(file)
+    patient = os.path.basename(os.path.normpath(dir_doserate_maps))
+    pth_plan = dir_plan + "/catheter_table.json"
+    assert os.path.exists(pth_plan)
+    pth_dicom = dir_dicom + "/"
+    assert os.path.exists(pth_dicom)
+    pth_dose = dir_doserate_maps + "/"
+    assert os.path.exists(pth_dose)
     
-    print(data_json)
+    plan_obj = BrachyPlan(
+        pth_catheterTable_json=pth_plan,
+        dir_dose_rate=pth_dose,
+        load_dose_or_uncertainty="uncertainty",
+        multi_processing=multi_proc,
+        dvh_metric_goals=dvh_metric_goals,
+        dir_structure_source=pth_dicom,
+        dose_cropped_by_body=True,
+    )
+    plan_obj.calculate_uncertainty_per_structure()
+    
+    patient_info = {
+        "patient_id": patient,
+        "pth_dicom": pth_dicom,
+        "pth_dose": pth_dose,
+        "pth_plan": pth_plan,
+        }
+    for structure in plan_obj.structure_list:
+        patient_info[structure.name] = {
+            "uncertainty_mean" : structure.uncertainty_mean, 
+            "uncertainty_std" : structure.uncertainty_std, 
+            "uncertainty_max" : structure.uncertainty_max, 
+            "uncertainty_min" : structure.uncertainty_min, 
+        }
 
-def test_crop_egsphant_by_bodyContour_many_files():
-    # test on testing dataset
-    pth_input = "../.."
-    pth_json = "../../data_test/test_patient_body_bounds.json"
-    
-    # test on all patients
-    # pth_input = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm"
-    # pth_json = "../../data_test/patient_body_bounds.json"
-    
-    crop_egsphant_by_bodyContour_many_patients(pth_input, pth_json)
+    del plan_obj
+    gc.collect()
 
-def test_convert_many_files():
-    # dir_in = "../../data_test/many_files"
-    dir_in = "/home/majd/data/patient_dose_simulations/prostate-glen/p10/"
-    type_in = ".nrrd"
-    type_out = ".minidos"
+    with open(pth_uncertainty_json, "w") as outfile:
+        json.dump(patient_info, outfile, indent=4)
     
-    convert_many_dose_files(dir_in, type_in, type_out)
-    
-    dir_in = os.path.abspath(dir_in)
-    nrrd_list = glob(dir_in+".nrrd")
-    
-    
-    for file_nrrd in nrrd_list:
-        dose_obj_nrrd = BrachyDose()
-        dose_obj_nrrd.load_file_to_BrachyDose(file_nrrd)
-        
-        file_3ddose = os.path.splitext(file_nrrd)[0]+".3ddose"
-        dose_obj_3ddose = BrachyDose()
-        dose_obj_3ddose.load_file_to_BrachyDose(file_3ddose)
-        
-        dose_obj_3ddose.is_equal(dose_obj_nrrd)
-
-def test_crop_by_bodyContour():
-    pth_dicomRS = "../../data_test/prostate_glen_p1/"
-    pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
-
-
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_BrachyDose(pth_3ddose)
-    dose_obj.info()
-    dose_obj.crop_by_bodyContour(pth_dicomRS)
-    dose_obj.info()
-
-def test_crop_dose_by_bodyContour_many_files():
-    # pth_3ddose = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm/p3/run_29.3ddose"
-    pth_3ddose = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm/p3"
-    pth_json = "../../data_test/patient_body_bounds.json"
-    
-    crop_dose_by_bodyContour_many_files(pth_3ddose, pth_json)
-
-def test_multiply_dose_by_constant_many_files():
-    dir_in = "../../data_test/many_files"
-    type_in = ".nrrd"
-    scale_factor = 3.4
-    
-    multiply_dose_by_constant_many_files(
-        dir_in, 
-        type_in, 
-        scale_factor, 
-        multi_proc=True)
-    
-    scaled_file_list = glob(dir_in+"/scaled_*"+type_in)
-    for scaled_dose_file_name in scaled_file_list:
-        scaled_dose_obj = BrachyDose(scaled_dose_file_name)
-
-        original_dose_file_name = os.path.dirname(scaled_dose_file_name) + "/" + os.path.basename(scaled_dose_file_name).split("scaled_")[-1] 
-        original_dose_obj = BrachyDose(original_dose_file_name)
-        
-        assert np.allclose(scaled_dose_obj.grid, original_dose_obj.grid*scale_factor)
-        
 def main():
     app()
-
+    # memory_limit()
+    # try:
+    #     app()
+    # except MemoryError:
+    #     print("Memory Error. consider loading only dose or uncertainty instead of both.")
+    #     sys.exit(1)
+        
 if __name__ == "__main__":
-    # test_convert_many_files()
-    # test_crop_dose_by_bodyContour_many_files()
-    test_multiply_dose_by_constant_many_files()
+    memory_limit()
+    try:
+        # test_convert_many_files()
+        # test_crop_dose_by_bodyContour_many_files()
+        # test_multiply_dose_by_constant_many_files()
+        test_get_uncertainty_one_patient()
+    except MemoryError:
+        print("Memory Error")
+        sys.exit(1)
