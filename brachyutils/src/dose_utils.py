@@ -967,8 +967,9 @@ class BrachyDose:
         if body_index_range is None or body_mask_shape is None:
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            # body_index_range, body_mask_shape = get_structure_index_range(pth_dir_dicom)
-        # the body mask may have a different size than the dose map, we normalize range to the dimension
+            body_mask_info = get_structure_index_range(pth_dir_dicom, query_structure_list=["body"])
+            body_index_range  = body_mask_info["body"]['structure_index_range']
+            body_mask_shape = body_mask_info["body"]['dicom_mask_shape']        # the body mask may have a different size than the dose map, we normalize range to the dimension
         # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.
         scaled_body_index_range = (body_index_range / np.expand_dims(
             body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
@@ -1397,17 +1398,3 @@ class DoseComparison:
         else:
             with open(path, 'rb') as f:
                 self.__dict__.update(pickle.load(f).__dict__)
-
-def test_dose_comparison():
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
-    pth_3ddose2 = "../../data_test/run_1_old.3ddose"
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
-    dose_obj2 = BrachyDose()
-    dose_obj2.load_file_to_brachydose(pth_3ddose2)
-    dose_comparison = DoseComparison(dose_obj, dose_obj2, 1, 1)
-    # evaluate that the grid contains only 0
-    assert (not np.any(dose_comparison.percent_difference.grid))
-    # dose_comparison.compare_dose_distributions_2D(
-    #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
