@@ -949,8 +949,9 @@ class BrachyDose:
         if body_index_range is None or body_mask_shape is None:
             assert pth_dir_dicom is not None, "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            # body_index_range, body_mask_shape = get_structure_index_range(pth_dir_dicom)
-        # the body mask may have a different size than the dose map, we normalize range to the dimension
+            body_mask_info = get_structure_index_range(pth_dir_dicom, query_structure_list=["body"])
+            body_index_range  = body_mask_info["body"]['structure_index_range']
+            body_mask_shape = body_mask_info["body"]['dicom_mask_shape']        # the body mask may have a different size than the dose map, we normalize range to the dimension
         # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.
         scaled_body_index_range = (body_index_range / np.expand_dims(
             body_mask_shape, axis=1) * np.expand_dims(self.num_voxels, axis=1)).astype(int)
@@ -1270,7 +1271,8 @@ class DoseComparison:
         import itertools
         import matplotlib
         from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
-        matplotlib.rcParams.update({'font.size': 16})
+        matplotlib.rcParams.update({'font.size': 8})
+        plt.rcParams.update({'figure.dpi': 300})
         dose_1_profile = self.dose1.extract_profile_2d(
             axis_1_coords, axis_2_coords, plane_coord, plane)
         dose_2_profile = self.dose2.extract_profile_2d(
@@ -1284,42 +1286,50 @@ class DoseComparison:
         else:
             raise NotImplementedError("""Plotting of a comparison without computing the percent difference or
             gamma index is not supported""")
-        fig, ax = plt.subplots(figsize=(10, 10), nrows=2, ncols=2, sharex=True, sharey=True)
-        plt.tight_layout()
+        #we will plot a figure that is suitable as a double column figure for medical physics
+        mm = 1./25.4 #define millimeters (relative to inches=1)
+        fig, ax = plt.subplots(figsize=(180*mm, 120*mm), nrows=2, ncols=2, sharex=True, sharey=True)
         c00 = ax[0, 0].pcolormesh(axis_1_coords, axis_2_coords, dose_1_profile, vmin=0,
                               vmax=30, cmap='turbo', rasterized=True, antialiased=True)
-        ax[0, 0].set_title(plot_titles[0], fontsize=20, pad=5, fontweight="bold")
-        cbar00 = fig.colorbar(c00, ax=ax[0, 0])
-        cbar00.set_label(label='Dose [Gy]', size=18, labelpad = 10)
+        ax[0, 0].set_title(plot_titles[0], fontsize=12, pad=5, fontweight="bold")
+        ax[0, 0].set_aspect('equal')
+        cbar00 = fig.colorbar(c00, ax=ax[0, 0], shrink=0.9, pad = 0.04)
+        cbar00.set_label(label='Dose [Gy]', size=10, labelpad = 5)
         # cbar00.mappable.set_clim(0, max_dose)
         ax[0, 0].invert_yaxis()
-        ax[0, 0].set_ylabel('y (cm)', fontsize=18)
+        ax[0, 0].set_ylabel('y (cm)', fontsize=10)
         c01 = ax[0, 1].pcolormesh(axis_1_coords, axis_2_coords, dose_2_profile, vmin=0,
                               vmax=30, cmap='turbo', rasterized=True, antialiased=True)
-        ax[0, 1].set_title(plot_titles[1], fontsize=20, pad=5, fontweight="bold")
-        cbar01 = fig.colorbar(c01, ax=ax[0, 1])
-        cbar01.set_label(label='Dose [Gy]', size=18, labelpad = 10)
-        # cbar01.mappable.set_clim(0, max_dose)
+        ax[0, 1].set_title(plot_titles[1], fontsize=12, pad=5, fontweight="bold")
+        ax[0, 1].set_aspect('equal')
+
+        cbar01 = fig.colorbar(c01, ax=ax[0, 1], shrink=0.9, pad = 0.04)
+        cbar01.set_label(label='Dose [Gy]', size=10, labelpad = 5)
+        # cbar01.mappable.set_clim(0, max_dose)g
         ax[0, 1].invert_yaxis()
         c10 = ax[1, 0].pcolormesh(axis_1_coords, axis_2_coords, percent_difference_profile,
                               vmin=0, vmax=200, cmap='turbo', rasterized=True, antialiased=True)
-        ax[1, 0].set_title('Percent Difference', fontsize=20, pad=5, fontweight="bold")
-        cbar10 = fig.colorbar(c10, ax=ax[1, 0])
-        cbar10.set_label(label='[%]', size=18, labelpad = 10)
+        ax[1, 0].set_title('Percent Difference', fontsize=12, pad=5, fontweight="bold")
+        ax[1, 0].set_aspect('equal')
+        cbar10 = fig.colorbar(c10, ax=ax[1, 0], shrink=0.9, pad = 0.04)
+        cbar10.set_label(label='[%]', size=10, labelpad = 5)
         ax[1, 0].invert_yaxis()
-        ax[1, 0].set_xlabel('x (cm)', fontsize=18)
-        ax[1, 0].set_ylabel('y (cm)', fontsize=18)
+        ax[1, 0].set_xlabel('x (cm)', fontsize=10)
+        ax[1, 0].set_ylabel('y (cm)', fontsize=10)
 
         c11 = ax[1, 1].pcolormesh(axis_1_coords, axis_2_coords, gamma_index_profile, vmin=0,
                               vmax=self.max_gamma,  cmap='turbo', rasterized=True, antialiased=True)
         ax[1, 1].set_title(
-            f"Gamma ({self.gamma_dose_percent_threshold}% / {int(10.*self.gamma_distance_threshold)} mm)", fontsize=20, pad=5, 
+            f"Gamma ({self.gamma_dose_percent_threshold}% / {int(10.*self.gamma_distance_threshold)} mm)", fontsize=12, pad=5, 
             fontweight="bold")
+        ax[1, 1].set_aspect('equal')
         #: Pass Rate = {np.round(self.gamma_pass_ratio*100,1)}%"
-        cbar11 = fig.colorbar(c11, ax=ax[1, 1])
-        cbar11.set_label(label='Gamma', size=18, labelpad = 10)
+        cbar11 = fig.colorbar(c11, ax=ax[1, 1], shrink=0.9, pad = 0.04)
+        cbar11.set_label(label='Gamma', size=10, labelpad = 5)
         ax[1, 1].invert_yaxis()
-        ax[1, 1].set_xlabel('x (cm)', fontsize=18)
+        ax[1, 1].set_xlabel('x (cm)', fontsize=10)
+        plt.tight_layout()
+        plt.savefig("dose_comparison.eps", dpi=300)
         plt.show()
 
     def compute_percent_difference(self):
@@ -1390,41 +1400,3 @@ class DoseComparison:
         else:
             with open(path, 'rb') as f:
                 self.__dict__.update(pickle.load(f).__dict__)
-
-def test_dose_comparison():
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
-    pth_3ddose2 = "../../data_test/run_1_old.3ddose"
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
-    dose_obj2 = BrachyDose()
-    dose_obj2.load_file_to_brachydose(pth_3ddose2)
-    dose_comparison = DoseComparison(dose_obj, dose_obj2, 1, 1)
-    # evaluate that the grid contains only 0
-    assert (not np.any(dose_comparison.percent_difference.grid))
-    # dose_comparison.compare_dose_distributions_2D(
-    #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
-
-
-if __name__ == "__main__":
-
-    # a Test for the following functions
-    #test_convert_to_minidos()
-    # test_crop_by_body_contour()
-    # test_load_from_3ddose()
-    # test_load_file_to_brachydose()
-    # test_write_to_3ddose()
-    test_convert_to_nrrd()
-    # test_convert_to_npz_file()
-    # test_write_to_minidos()
-    # test_write_to_xz()
-    # test_write_to_zstd()
-    # test_convert_many_files()
-    # test_crop_by_coordinates()
-    # test_crop_by_index()
-    # test_crop_by_fraction()
-    # _test_pad_3ddose()
-    # _test_write_3ddose()
-    # _test_pad_many_3ddoses()
-    # _test_write_nrrd()
-    # _test_nrrd_to_3ddose()
