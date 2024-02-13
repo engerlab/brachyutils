@@ -11,10 +11,10 @@ from dose_utils import BrachyDose
 from typing import Optional
 from typing_extensions import Annotated
 
-from brachyutils import get_bodyContourRange_from_dicom_many_patients
-from brachyutils import crop_dose_by_bodyContour_many_files
-from brachyutils import convert_dose_many_files
-from brachyutils import crop_egsphant_by_bodyContour_many_patients
+from cli_utils import get_bodyContourRange_from_dicom_many_patients
+from cli_utils import crop_dose_by_bodyContour_many_files
+from cli_utils import convert_dose_many_files
+from cli_utils import crop_egsphant_by_bodyContour_many_patients
 
 from multiprocessing import Pool
 from functools import partial
