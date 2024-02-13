@@ -160,3 +160,24 @@ def test__load_single_dose_or_uncertainty_to_dict():
     print(dose_rate_dict[0].shape) #dose
     print(dose_rate_dict[1].shape) #uncertainty
     
+def test_export_plan():
+    pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose-nrrd"
+    dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    dvh_metric_goals = {
+        'D95%(ctv)': 15,
+        'D1cc(rectum)': 11.25,
+        'D0.1cc(urethra)': 18.75
+    }
+    plan_obj = BrachyPlan(
+        pth_cathTable_json,
+        dir_dose_rate,
+        load_dose_or_uncertainty="both",
+        multi_processing=True,
+        dir_structure_source=dir_dicom,
+        dvh_metric_goals=dvh_metric_goals)
+    
+    # # This function tests all the exporting functions. 
+    # plan_obj.export_plan()
+    # # But for now, we check the export functions one by one
+    

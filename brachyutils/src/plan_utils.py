@@ -84,9 +84,9 @@ class BrachyStructure:
         num_voxels_in_structure = np.sum(self.mask)
 
         if "%" in self.dvh_metric_name:
-            histogram_limit = float(*re.findall('-?\d+\.?\d*', self.dvh_metric_name))
+            histogram_limit = float(*re.findall(r"-?\d+\.?\d*", self.dvh_metric_name))
         elif "cc" in self.dvh_metric_name:
-            histogram_limit = float(*re.findall('-?\d+\.?\d*', self.dvh_metric_name))\
+            histogram_limit = float(*re.findall(r"-?\d+\.?\d*", self.dvh_metric_name))\
                 /(voxel_volume*num_voxels_in_structure)*100
         else:
             raise ValueError("invalid name for DVH metric name. \
@@ -1008,5 +1008,3 @@ def _load_single_dose_or_uncertainty_to_dict(
             raise ValueError("load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'")
         
         return dose_or_uncert_map
-    
-#if __name__ == "__main__":
