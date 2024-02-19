@@ -412,13 +412,25 @@ def get_uncertainty_one_patient(
     with open(pth_uncertainty_json, "w") as outfile:
         json.dump(patient_info, outfile, indent=4)
     
+def get_dose_map(dose_file):
+    r"""
+    Purpose:
+        Helper function for loading batch dose files for a patient that
+        loads a dose file to extract the dose grid
+    Input:
+        - dose_file := path to the dose file
+    Output:
+        - dose_obj.grid := the dose grid from dose_file
+    """
+    dose_obj = BrachyDose(dose_file, load_uncertainty=False)
+    return dose_obj.grid
 
 @app.command(help="""Purpose: Will combined multiple dose files for a single patient""")
 def combined_dose_per_patient(
     dir_dose_maps: Annotated[str, typer.Argument(help="""Directory containing dose data for a patient. """)],
     type_in: Annotated[str, typer.Argument(help="""Extension of the files to be converted. Options are .3ddose and .nrrd. """)], 
     type_out: Annotated[str, typer.Argument(help="""Extension of the output files. Options are .3ddose, .nrrd, .minidos.""")], 
-    multi_proc: Annotated[bool, typer.Option(help="""If set to true, multiprocessing will be used to load the dose files in parallel.""")] = False):
+    multi_proc: Annotated[bool, typer.Option(help="""If set to true, multiprocessing will be used to load the dose files in parallel.""")] = True):
     r"""
     Purpose: 
         To loop over all batches of a simulatation and create the combined 3ddose file. 
@@ -428,43 +440,58 @@ def combined_dose_per_patient(
         - type_out := Format of the output file.
         - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
     """
-    assert os.path.exists(dir_dose_maps)
-    
-    dose_files = [file for file in os.listdir(dir_dose_maps) if file.endswith(type_in)]
-    N = len(dose_files)
+    #make sure directory ends with a / to avoid errors
+    if dir_dose_maps[-1] != "/":
+        dir_dose_maps += "/"
 
-    dose_obj = BrachyDose(dir_dose_maps+dose_files[0])
+    #check if the directory exists
+    if not os.path.exists(dir_dose_maps):
+        raise FileNotFoundError(f"the directory {dir_dose_maps} does not exist")
 
-    num_voxels = dose_obj.num_voxels
-    vox_size = dose_obj.vox_size
-    topleft = dose_obj.topleft
-    voxel_edges = dose_obj.voxel_edges
+
+    #prepare a list of dose files
+    dose_files = [dir_dose_maps + file for file in os.listdir(dir_dose_maps) if file.endswith(type_in)]
+    n_batches = len(dose_files)
+
+    #get information about the dose grid from the first file
+    dose_obj = BrachyDose(dose_files[0])
+    combined_dose_obj = BrachyDose()
+
+    combined_dose_obj.num_voxels = dose_obj.num_voxels
+    combined_dose_obj.vox_size = dose_obj.vox_size
+    combined_dose_obj.topleft = dose_obj.topleft
+    combined_dose_obj.voxel_edges  = dose_obj.voxel_edges
 
     sum_dose = dose_obj.grid
+    uncertainty = np.zeros(dose_obj.grid.shape)
 
-    for dose_file in tqdm(dose_files[1:]):
-        dose_obj = BrachyDose(dir_dose_maps+dose_file)
-        sum_dose += dose_obj.grid
+    #multiprocessing loop
+    if(multi_proc):
+        with Pool() as pool:
+            for dose in tqdm(pool.imap_unordered(get_dose_map, dose_files[1:])):
+                sum_dose += dose
+            mean_dose = sum_dose/n_batches
+            for dose in tqdm(pool.imap_unordered(get_dose_map, dose_files)):
+                uncertainty += (dose - mean_dose)**2
+    #if no multiprocessing, a simple loop over files
+    else:
+        for dose_file in tqdm(dose_files[1:]):
+            dose_obj = BrachyDose(dose_file)
+            sum_dose += dose_obj.grid
+        mean_dose = sum_dose/n_batches
+        uncertainty = np.zeros(mean_dose.shape)
+        for dose_file in tqdm(dose_files):
+            dose_obj = BrachyDose(dose_file)
+            uncertainty += (dose_obj.grid - mean_dose)**2
 
-    mean_dose = sum_dose/N
+    #finish uncertainty calculation
+    uncertainty = np.sqrt(uncertainty/(n_batches*(n_batches-1)))
+    uncertainty = uncertainty/(mean_dose+1e-7) #avoid divide by 0 with small perturbation
 
-    uncertainty = np.zeros(mean_dose.shape)
-
-    for dose_file in tqdm(dose_files):
-        dose_obj = BrachyDose(dir_dose_maps+dose_file)
-        uncertainty += (dose_obj.grid - mean_dose)**2
-
-    uncertainty = np.sqrt(uncertainty/(N*(N-1)))
-    uncertainty = uncertainty/(dose_obj.grid+1e-7)
-
-    combined_dose_obj = BrachyDose()
+    #write the combined dose to file
     combined_dose_obj.grid = mean_dose
     combined_dose_obj.uncertainty = uncertainty
-    combined_dose_obj.num_voxels = num_voxels
-    combined_dose_obj.vox_size = vox_size
-    combined_dose_obj.topleft = topleft
-    combined_dose_obj.voxel_edges = voxel_edges
-    
+
     if type_out == ".3ddose":
         combined_dose_obj.write_to_3ddose(dir_dose_maps+'combined.3ddose')
     elif type_out == ".nrrd":
@@ -580,6 +607,23 @@ def test_get_uncertainty_one_patient():
         # except:
         #     print(f"patient {patient_number} failed")
         #     continue
+
+
+def test_combined_dose_per_patient():
+    batch_directory = "../../data_test/batch_uncertainty_test/"
+    combined_dose_per_patient(batch_directory, ".3ddose", ".3ddose", multi_proc=True)
+    mp_combined = BrachyDose(f"{batch_directory}/combined.3ddose")
+    combined_dose_per_patient(batch_directory, ".3ddose", ".3ddose", multi_proc=False)
+    nmp_combined = BrachyDose(f"{batch_directory}/combined.3ddose")
+    assert np.allclose(mp_combined.grid, nmp_combined.grid), "Combined dose grids should \
+         be equal regardless of whether multiprocessing is used"
+    assert np.allclose(mp_combined.uncertainty, nmp_combined.uncertainty), "Combined uncertainty grids should \
+         be equal regardless of whether multiprocessing is used"
+    assert np.all(mp_combined.grid - 1  < 0.1), "Mean dose should be close to the \
+        mean of the individual doses"
+    assert np.all(mp_combined.uncertainty < 0.1), "Mean uncertainty should be far less \
+        than the uncertainty of the individual doses"
+
 def main():
     app()
     # memory_limit()
