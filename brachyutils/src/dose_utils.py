@@ -242,7 +242,8 @@ class BrachyDose:
                 bench_dose = reshape(
                 huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
             except ValueError as e:
-                print(f"Error in dose file {filename}: {e}")
+                print(f"Error in dose file {filename}: {e}", "\n")
+                bench_dose = None
 
             if load_uncertainty:
                 try:
@@ -252,7 +253,7 @@ class BrachyDose:
                         huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
                     self.uncertainty = bench_uncert
                 except:
-                    print("Warning: No uncertainty in the 3ddose file", filename)
+                    print("Warning: No uncertainty in the 3ddose file", filename, "\n")
 
             self.grid = bench_dose
             self.num_voxels = np.array(bench_voxels, dtype=np.float32)
