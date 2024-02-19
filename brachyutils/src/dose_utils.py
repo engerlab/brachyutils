@@ -726,7 +726,7 @@ class BrachyDose:
                 axes_end[len(axes_end)-1-i], 
                 self.vox_size[len(axes_end)-1-i], 
                 dtype=np.float32)
-            if np.absolute(self.grid.shape[i] - self.voxel_edges[i].shape[0]) > 1:
+            if np.absolute(self.num_voxels[i] - self.voxel_edges[i].shape[0]) > 1:
                 self.voxel_edges[i] = self.voxel_edges[i][:-1] 
 
         return self.voxel_edges
