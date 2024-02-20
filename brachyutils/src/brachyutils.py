@@ -422,11 +422,15 @@ def get_dose_map(dose_file):
     Output:
         - dose_obj.grid := the dose grid from dose_file
     """
-    #print("Loading dose file ", dose_file)
-    print("\n Start Processing", dose_file)
-    dose_obj = BrachyDose(dose_file, load_uncertainty=False)
-    print("\n End Processing", dose_file)
-    return dose_obj.grid
+    try:
+        #print("Loading dose file ", dose_file)
+        print("\n Start Processing", dose_file)
+        dose_obj = BrachyDose(dose_file, load_uncertainty=False)
+        print("\n End Processing", dose_file)
+        return dose_obj.grid
+    except (TypeError, ValueError, IndexError, IOError) as e:
+        print("Error loading dose file ", dose_file, e)
+        return None
 
 @app.command(help="""Purpose: Will combined multiple dose files for a single patient""")
 def combined_dose_per_patient(
