@@ -471,11 +471,13 @@ def combined_dose_per_patient(
             for dose in tqdm(pool.imap_unordered(get_dose_map, dose_files[1:])):
                 if dose is not None:
                     sum_dose += dose
+                    del dose
                 else:
                     n_batches -= 1
             mean_dose = sum_dose/n_batches
             for dose in tqdm(pool.imap_unordered(get_dose_map, dose_files)):
                 uncertainty += (dose - mean_dose)**2
+                del dose
     #if no multiprocessing, a simple loop over files
     else:
         for dose_file in tqdm(dose_files[1:]):
