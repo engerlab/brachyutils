@@ -424,9 +424,9 @@ def get_dose_map(dose_file):
     """
     try:
         #print("Loading dose file ", dose_file)
-        print("\n Start Processing", dose_file)
+        #print("\n Start Processing", dose_file)
         dose_obj = BrachyDose(dose_file, load_uncertainty=False)
-        print("\n End Processing", dose_file)
+        #print("\n End Processing", dose_file)
         return dose_obj.grid
     except (TypeError, ValueError, IndexError, IOError) as e:
         print("Error loading dose file ", dose_file, e)
@@ -487,18 +487,24 @@ def combined_dose_per_patient(
                 else:
                     n_batches -= 1
             mean_dose = sum_dose/n_batches
-            for dose in tqdm(pool.imap_unordered(get_dose_map, dose_files), total=n_batches - 1, desc = "Extracing Dose for Uncertainty: "):
-                uncertainty += (dose - mean_dose)**2
+            #print(mean_dose)
+            for dose in tqdm(pool.imap_unordered(get_dose_map, dose_files), total=n_batches, desc = "Extracing Dose for Uncertainty: "):
+                if dose is not None:
+                    uncertainty += (dose - mean_dose)**2
     #if no multiprocessing, a simple loop over files
     else:
         for dose_file in tqdm(dose_files[1:]):
             dose_obj = BrachyDose(dose_file)
-            sum_dose += dose_obj.grid
+            if dose_obj.grid is not None:
+                sum_dose += dose_obj.grid
+            else:
+                n_batches -= 1
         mean_dose = sum_dose/n_batches
         uncertainty = np.zeros(mean_dose.shape)
         for dose_file in tqdm(dose_files):
             dose_obj = BrachyDose(dose_file)
-            uncertainty += (dose_obj.grid - mean_dose)**2
+            if dose_obj.grid is not None:
+                uncertainty += (dose_obj.grid - mean_dose)**2
 
     #finish uncertainty calculation
     uncertainty = np.sqrt(uncertainty/(n_batches*(n_batches-1)))
@@ -508,7 +514,7 @@ def combined_dose_per_patient(
     combined_dose_obj.grid = mean_dose
     combined_dose_obj.uncertainty = uncertainty
 
-    print("Batched ", nbatches, " 3ddose files together", \
+    print("Combining ", n_batches, " 3ddose files complete", \
     "writing to ", dir_dose_maps+"combined"+type_out)
 
     if type_out == ".3ddose":
