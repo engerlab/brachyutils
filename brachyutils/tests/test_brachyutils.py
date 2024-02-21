@@ -1,6 +1,7 @@
 from glob import glob
 import json
 import os
+import numpy as np
 from tqdm import tqdm
 import pytest
 import typer
@@ -15,6 +16,7 @@ from brachyutils import get_bodyContourRange_from_dicom_many_patients
 from brachyutils import crop_dose_by_bodyContour_many_files
 from brachyutils import convert_dose_many_files
 from brachyutils import crop_egsphant_by_bodyContour_many_patients
+from brachyutils import combined_dose_per_patient
 
 from multiprocessing import Pool
 from functools import partial
@@ -65,7 +67,7 @@ def test_crop_dose_by_bodyContour_many_files():
     
     crop_dose_by_bodyContour_many_files(pth_3ddose, pth_json)
 
-    def test_combined_dose_per_patient():
+def test_combined_dose_per_patient():
     batch_directory = "../../data_test/batch_uncertainty_test/"
     combined_dose_per_patient(batch_directory, ".3ddose", ".3ddose", multi_proc=True)
     mp_combined = BrachyDose(f"{batch_directory}/combined.3ddose")
