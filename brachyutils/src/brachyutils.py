@@ -463,7 +463,15 @@ def combined_dose_per_patient(
 
     #prepare a list of dose files
     dose_files = [dir_dose_maps + file for file in os.listdir(dir_dose_maps) if file.endswith(type_in)]
+
     n_batches = len(dose_files)
+    
+    #check if there's any dose files
+    if(n_batches == 0):
+        raise FileNotFoundError(f"No {type_in} files found in the directory {dir_dose_maps}")
+
+
+    progress_bar_length = n_batches
 
     #get information about the dose grid from the first file
     dose_obj = BrachyDose(dose_files[0])
@@ -481,14 +489,14 @@ def combined_dose_per_patient(
     #multiprocessing loop
     if(multi_proc):
         with Pool() as pool:
-            for dose in tqdm(pool.imap_unordered(get_dose_map, dose_files[1:]), total=n_batches - 1, desc = "Extracing Dose for Mean Dose: "):
+            for dose in tqdm(pool.imap_unordered(get_dose_map, dose_files[1:]), total= progress_bar_length - 1, desc = "Extracing Dose for Mean Dose: "):
                 if dose is not None:
                     sum_dose += dose
                 else:
                     n_batches -= 1
             mean_dose = sum_dose/n_batches
             #print(mean_dose)
-            for dose in tqdm(pool.imap_unordered(get_dose_map, dose_files), total=n_batches, desc = "Extracing Dose for Uncertainty: "):
+            for dose in tqdm(pool.imap_unordered(get_dose_map, dose_files), total=progress_bar_length, desc = "Extracing Dose for Uncertainty: "):
                 if dose is not None:
                     uncertainty += (dose - mean_dose)**2
     #if no multiprocessing, a simple loop over files
