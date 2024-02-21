@@ -68,11 +68,11 @@ source ENV/bin/activate
 
 # # plan utils.py
 # # to calculate uncertainity for all patients for a plan
-dir_dicom_patients="/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023"
-dir_dose_all_patients="/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm"
-dir_plan_all_patients="/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023"
+dir_dicom_patients="/data_test/prostate-glen-p1-dcm"
+dir_dose_all_patients="/data_test/prostate-glen-p1-dose"
+dir_plan_all_patients="/data_test/prostate-glen-p1-planFiles"
 pth_uncertainty_all_patients=$dir_plan_all_patients
-pth_dvh_metric_goals_json="/home/majd/Software/tg186-validation/data_test/dvh_metric_goals.json"
+pth_dvh_metric_goals_json="/data_test/dvh_metric_goals.json"
 
 patient_folders=$dir_plan_all_patients'/*/'
 for folder in $patient_folders

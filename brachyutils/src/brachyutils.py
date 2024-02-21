@@ -146,10 +146,11 @@ def crop_egsphant_by_bodyContour_many_patients(
     body_range_dict = _load_json(pth_json=patient_body_range_json)
 
     for patient in tqdm(body_range_dict):
+        print(patient["patient_number"])
         pth_egsphant = list(filter(lambda x: patient["patient_number"] in x, pth_egsphant_set))[0]
         print(f"loading the patient egsphant {pth_egsphant}")
         egsphant_obj = BrachyEgsphant(pth_egsphant)
-        egsphant_obj.crop_by_bodyContour(patient["body_index_range"], patient["body_mask_shape"])
+        egsphant_obj.crop_by_body_contour(patient["body_index_range"], patient["body_mask_shape"])
         pth_cropped_egsphant = os.path.dirname(pth_egsphant) + "/cropped_" + os.path.basename(pth_egsphant)
         print(f"writing the cropped egsphant to {pth_cropped_egsphant}")
         egsphant_obj.write_to_ctegsphant(pth_cropped_egsphant)
@@ -531,131 +532,6 @@ def combined_dose_per_patient(
         combined_dose_obj.write_to_nrrd(dir_dose_maps+'combined.nrrd')
     elif type_out == ".minidos":
         combined_dose_obj.write_to_minidos(dir_dose_maps+'combined.minidos')
-
-def test_get_bodyContourRange_from_many_patients_dicom():
-    r"""Outdated test function"""
-    raise Exception("Outdated test function")
-    input_dir = "../../data_test"
-    pth_json = "../../data_test/test_patient_body_bounds.json"
-    
-    get_bodyContourRange_from_many_patients_dicom(input_dir, pth_json)
-    
-    with open(pth_json, "r") as file:
-        data_json = json.load(file)
-    
-    print(data_json)
-
-def test_crop_egsphant_by_bodyContour_many_files():
-    # test on testing dataset
-    pth_input = "../.."
-    pth_json = "../../data_test/test_patient_body_bounds.json"
-    
-    # test on all patients
-    # pth_input = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm"
-    # pth_json = "../../data_test/patient_body_bounds.json"
-    
-    crop_egsphant_by_bodyContour_many_patients(pth_input, pth_json)
-
-def test_convert_many_files():
-    r"""Outdated test function"""
-    raise Exception("Outdated test function")
-    # dir_in = "../../data_test/many_files"
-    dir_in = "/home/majd/data/patient_dose_simulations/prostate-glen/p10/"
-    type_in = ".nrrd"
-    type_out = ".minidos"
-    
-    convert_many_dose_files(dir_in, type_in, type_out)
-    
-    dir_in = os.path.abspath(dir_in)
-    nrrd_list = glob(dir_in+".nrrd")
-    
-    
-    for file_nrrd in nrrd_list:
-        dose_obj_nrrd = BrachyDose()
-        dose_obj_nrrd.load_file_to_BrachyDose(file_nrrd)
-        
-        file_3ddose = os.path.splitext(file_nrrd)[0]+".3ddose"
-        dose_obj_3ddose = BrachyDose()
-        dose_obj_3ddose.load_file_to_BrachyDose(file_3ddose)
-        
-        dose_obj_3ddose.is_equal(dose_obj_nrrd)
-
-def test_crop_by_bodyContour():
-    pth_dicomRS = "../../data_test/prostate_glen_p1/"
-    pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
-
-
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_BrachyDose(pth_3ddose)
-    dose_obj.info()
-    dose_obj.crop_by_bodyContour(pth_dicomRS)
-    dose_obj.info()
-
-def test_crop_dose_by_bodyContour_many_files():
-    # pth_3ddose = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm/p3/run_29.3ddose"
-    pth_3ddose = "/home/majd/data/patient_dose_simulations/prostate-glen-1mm/p3"
-    pth_json = "../../data_test/patient_body_bounds.json"
-    
-    crop_dose_by_bodyContour_many_files(pth_3ddose, pth_json)
-
-def test_multiply_dose_by_constant_many_files():
-    dir_in = "../../data_test/many_files"
-    type_in = ".nrrd"
-    scale_factor = 3.4
-    
-    multiply_dose_by_constant_many_files(
-        dir_in, 
-        type_in, 
-        scale_factor, 
-        multi_proc=True)
-    
-    scaled_file_list = glob(dir_in+"/scaled_*"+type_in)
-    for scaled_dose_file_name in scaled_file_list:
-        scaled_dose_obj = BrachyDose(scaled_dose_file_name)
-
-        original_dose_file_name = os.path.dirname(scaled_dose_file_name) + "/" + os.path.basename(scaled_dose_file_name).split("scaled_")[-1] 
-        original_dose_obj = BrachyDose(original_dose_file_name)
-        
-        assert np.allclose(scaled_dose_obj.grid, original_dose_obj.grid*scale_factor)
-
-def test_get_uncertainty_one_patient():
-    # for patient_number in ["p9", "p8", "p7", "p12"]:
-    #     try:
-        patient_number = "p9"
-        dir_dicom = f"/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/{patient_number}"
-        dir_doserate_maps = f"/home/majd/data/patient_dose_simulations/prostate-glen-2023-1mm/{patient_number}"
-        dir_plan = f"/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/{patient_number}"
-        pth_json = f"/home/majd/data/patient_treatment_plans/tps_exported/prostate-glen-2023/{patient_number}/uncertainty.json"
-        multi_proc = True
-        pth_dvh_metric_goals_json = "../../data_test/dvh_metric_goals.json"
-        
-        get_uncertainty_one_patient(
-            dir_doserate_maps,
-            dir_plan,
-            dir_dicom,
-            pth_dvh_metric_goals_json,
-            pth_json,
-            multi_proc,
-        )
-        # except:
-        #     print(f"patient {patient_number} failed")
-        #     continue
-
-
-def test_combined_dose_per_patient():
-    batch_directory = "../../data_test/batch_uncertainty_test/"
-    combined_dose_per_patient(batch_directory, ".3ddose", ".3ddose", multi_proc=True)
-    mp_combined = BrachyDose(f"{batch_directory}/combined.3ddose")
-    combined_dose_per_patient(batch_directory, ".3ddose", ".3ddose", multi_proc=False)
-    nmp_combined = BrachyDose(f"{batch_directory}/combined.3ddose")
-    assert np.allclose(mp_combined.grid, nmp_combined.grid), "Combined dose grids should \
-         be equal regardless of whether multiprocessing is used"
-    assert np.allclose(mp_combined.uncertainty, nmp_combined.uncertainty), "Combined uncertainty grids should \
-         be equal regardless of whether multiprocessing is used"
-    assert np.all(mp_combined.grid - 1  < 0.1), "Mean dose should be close to the \
-        mean of the individual doses"
-    assert np.all(mp_combined.uncertainty < 0.1), "Mean uncertainty should be far less \
-        than the uncertainty of the individual doses"
 
 def main():
     app()
