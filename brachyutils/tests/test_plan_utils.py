@@ -52,7 +52,7 @@ def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
 
 def test_load_dose_rate_or_uncertainty_tensor():
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
-    dir_dose_rate = "../../data_test/prostate-glen-p1-dose-nrrd"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
 
     plan_obj = BrachyPlan()
     plan_obj.load_catheterTable_json(pth_cathTable_json)
@@ -77,7 +77,7 @@ def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
     # dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
-    dir_dose_rate = "../../data_test/prostate-glen-p1-dose-nrrd"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
     dvh_metric_goals = {
         'D95%(ctv)': 15,
         'D1cc(rectum)': 11.25,
@@ -97,7 +97,7 @@ def test_create_structures_and_calc_dvh_metrics():
 
 def test_calculate_combined_uncertainty():
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
-    dir_dose_rate = "../../data_test/prostate-glen-p1-dose-nrrd"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
 
     plan_obj = BrachyPlan()
     plan_obj.load_catheterTable_json(pth_cathTable_json)

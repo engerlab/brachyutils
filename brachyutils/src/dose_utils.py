@@ -61,7 +61,7 @@ class BrachyDose:
     r"""
     Purpse: 
         This class holds information regarding a dose distribution as well as the fundamental 
-    functions that are applied on the dose. All the doses are J/Gy. 
+    functions that are applied on the dose. All doses are expressed in Gy.
 
     Attributes:
         grid:np.ndarray := 3D numpy array holding dose at each voxel. [z, y, x]
@@ -116,7 +116,7 @@ class BrachyDose:
         json
     """
     
-    def __init__(self, pth_dose_file: Optional[str] = None):
+    def __init__(self, pth_dose_file: Optional[str] = None, load_uncertainty: Optional[bool] = True):
 
         self.grid: np.ndarray = None
         self.uncertainty: np.ndarray = None
@@ -126,11 +126,11 @@ class BrachyDose:
         self.voxel_edges: np.ndarray = None
         self.interpolation_function = None
         if pth_dose_file is not None:
-            self.load_file_to_brachydose(pth_dose_file)
+            self.load_file_to_brachydose(pth_dose_file, load_uncertainty)
         if self.grid is not None:
             self.create_interpolation_function()
       
-    def load_file_to_brachydose(self, pth_dose_file: str):
+    def load_file_to_brachydose(self, pth_dose_file: str, load_uncertainty: Optional[bool] = True):
         r""" 
         Purpose: 
         given the path to a file holding dose information, it will return 
@@ -149,7 +149,7 @@ class BrachyDose:
         file_extension = os.path.splitext(pth_dose_file)[-1]
 
         if file_extension == ".3ddose":
-            self.load_from_3ddose(pth_dose_file)
+            self.load_from_3ddose(pth_dose_file, load_uncertainty)
         elif file_extension == ".nrrd":
             self.load_from_nrrd(pth_dose_file)
         elif file_extension == ".dcm":
@@ -209,7 +209,7 @@ class BrachyDose:
             raise ValueError(f"The input file name {pth_dose_file} is not supported. the supported \
             file types are '.3ddose', '.nrrd', '.npz', '.minidos', '.xz', and '.zstd'")
 
-    def load_from_3ddose(self, filename: str):
+    def load_from_3ddose(self, filename: str, load_uncertainty: Optional[bool] = True):
         r""" 
         Purpose: 
             Given the path to a 3ddose file, load its content into self:BrachyDose.
@@ -238,16 +238,22 @@ class BrachyDose:
 
             huge_dose_array = np.array(
                 newfile.readline().strip().split(), dtype=np.float32)
-            bench_dose = reshape(
-                huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
             try:
-                huge_uncert_array = np.array(
-                    newfile.readline().strip().split(), dtype=np.float32)
-                bench_uncert = reshape(
-                    huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
-                self.uncertainty = bench_uncert
-            except:
-                print("Warning: No uncertainty in the 3ddose files")
+                bench_dose = reshape(
+                huge_dose_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+            except ValueError as e:
+                print(f"Error in dose file {filename}: {e}", "\n")
+                bench_dose = None
+
+            if load_uncertainty:
+                try:
+                    huge_uncert_array = np.array(
+                        newfile.readline().strip().split(), dtype=np.float32)
+                    bench_uncert = reshape(
+                        huge_uncert_array, (bench_voxels[2], bench_voxels[1], bench_voxels[0]))
+                    self.uncertainty = bench_uncert
+                except:
+                    print("Warning: No uncertainty in the 3ddose file", filename, "\n")
 
             self.grid = bench_dose
             self.num_voxels = np.array(bench_voxels, dtype=np.float32)
@@ -720,9 +726,8 @@ class BrachyDose:
                 axes_end[len(axes_end)-1-i], 
                 self.vox_size[len(axes_end)-1-i], 
                 dtype=np.float32)
-            if np.absolute(self.grid.shape[i] - self.voxel_edges[i].shape[0]) > 1:
+            if np.absolute(self.num_voxels[::-1][i] - self.voxel_edges[i].shape[0]) > 1:
                 self.voxel_edges[i] = self.voxel_edges[i][:-1] 
-
         return self.voxel_edges
 
     def get_voxel_centers(self):

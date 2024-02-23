@@ -68,7 +68,9 @@ class CalibrationCurve:
         self.b_pv_fit: np.array = None #mean blue channel pixel values to fit; normalized to the zero dose pixel value
         self.define_fit_parameters_for_calibration_type()
         self.perform_fit()
-        self.plot_calibration_and_response_curve()
+        #don't plot if running under a tester
+        if "PYTEST_CURRENT_TEST" not in os.environ:
+            self.plot_calibration_and_response_curve()
 
     def perform_fit(self):
         """
