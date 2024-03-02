@@ -1,3 +1,4 @@
+import array
 import difflib
 import logging
 import lzma
@@ -6,7 +7,6 @@ import os
 # trunk-ignore(bandit/B403)
 import pickle
 import sys
-import timeit
 import tkinter as tk
 from tkinter import filedialog as fd
 from typing import List, Optional
@@ -20,7 +20,6 @@ from matplotlib import pyplot as plt
 from numpy import ma, reshape
 from scipy.interpolate import RegularGridInterpolator
 
-import array
 
 class BrachyDose:
     r"""
@@ -317,31 +316,6 @@ class BrachyDose:
         # ), f"the file {pth_minidos}, should have '.minidos' extension."
         # with open(pth_minidos, "rb") as file:
         #     line_content = np.frombuffer(file.readline())
-
-    # def load_from_bindose(self, pth_bindose):
-    #     assert os.path.splitext(
-    #     pth_bindose)[-1] == ".bindose", f"the file {pth_bindose}, should have '.bindose' extension."
-    #     dose_file = QFile(pth_bindose)
-    #     dose_file.open(QIODevice.ReadOnly, QIODevice.end)
-    #     dose_file_in = QDataStream(dose_file)
-    #     dose_file_in.setByteOrder(QDataStream.LittleEndian)
-    #     dose_file_in.setFloatingPointPrecision(QDataStream.SinglePrecision)
-    #     origin = QVector3D()
-    #     spacing = QVector3D()
-    #     dimensions = QVector3D()
-    #     dose_list = QList()
-    #     uncertainty_list = QList()
-    #     dose_file_in >> origin
-    #     dose_file_in >> spacing
-    #     dose_file_in >> dimensions
-    #     dose_file_in >> dose_list
-    #     dose_file_in >> uncertainty_list
-    #     dose_file.close()
-    #     self.vox_size = np.array(spacing)
-    #     self.num_voxels = np.array(dimensions)
-    #     self.topleft = np.array(origin)
-    #     self.grid = np.array(dose_list)
-    #     self.uncertainty = np.array(uncertainty_list)
 
     def create_interpolation_function(self):
         voxel_centers = self.get_voxel_centers()
