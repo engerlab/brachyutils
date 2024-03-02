@@ -2,24 +2,14 @@ from glob import glob
 import json
 import os
 import numpy as np
-from tqdm import tqdm
-import pytest
-import typer
 
-from dicom_utils import  get_structure_index_range
-from egsphant_utils import _load_json, BrachyEgsphant
 from dose_utils import BrachyDose
-from typing import Optional
-from typing_extensions import Annotated
 
 from cli_utils import get_body_contour_range_from_dicom_many_patients
 from cli_utils import crop_dose_by_body_contour_many_files
 from cli_utils import convert_dose_many_files
 from cli_utils import crop_egsphant_by_body_contour_many_patients
 from cli_utils import combined_dose_per_patient
-
-from multiprocessing import Pool
-from functools import partial
 
 def test_get_body_contour_range_from_dicom_many_patients():
     input_dir = "../../data_test/prostate-glen-p1-dcm/"
