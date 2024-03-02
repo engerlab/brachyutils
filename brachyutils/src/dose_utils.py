@@ -665,7 +665,7 @@ class BrachyDose:
             axis=self.voxel_edges,
         )
 
-    def write_to_minidos(self, file_name, compress_program: Optional[str] = None):
+    def write_to_minidos(self, file_name: str):
         r"""
         Purpose:
             To save the contents of BrachyDose into a minidos file, which is just a binary file written line by line.
