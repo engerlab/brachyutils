@@ -9,5 +9,4 @@ __pycache__
 *.whl
 *.vscode
 dist/*
-.pytest_cache/*
-
+.pytest_cache/
