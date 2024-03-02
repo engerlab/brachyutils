@@ -1,12 +1,3 @@
-import numpy as np
-import os
-
-from glob import glob
-
-from DicomRTTool.ReaderWriter import DicomReaderWriter
-
-import json
-
 from dicom_utils import get_structure_index_range
 from dicom_utils import get_strcuture_mask_from_dicom
 
