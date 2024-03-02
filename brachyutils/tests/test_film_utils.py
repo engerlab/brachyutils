@@ -1,21 +1,7 @@
-import pickle
-import tkinter as tk
-from tkinter import filedialog as fd
-import sys
-import os
-import dose_utils
-import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.ticker import FormatStrFormatter
-import tifffile
-import pymedphys
-from scipy import ndimage
-from scipy.optimize import curve_fit
-import cv2
+import numpy as np
+from film_utils import CalibrationCurve, FilmCalibration
 
-from film_utils import FilmCalibration
-from film_utils import CalibrationCurve
 
 def test_create_lewis_calibration_curve():
     test_curve_type = "Lewis"
@@ -26,11 +12,23 @@ def test_create_lewis_calibration_curve():
     test_r_std = np.ones(test_r_pv.shape)
     test_g_std = np.ones(test_g_pv.shape)
     test_b_std = np.ones(test_b_pv.shape)
-    test_calibration_curve = CalibrationCurve(test_doses, test_r_pv, test_g_pv, test_b_pv, test_r_std, test_g_std, test_b_std, test_curve_type)
-    fit_ground_truth = np.array([-0.27395561,  1.85194717,  1.45033183]) #ground truth extracted using a separate python script
+    test_calibration_curve = CalibrationCurve(
+        test_doses,
+        test_r_pv,
+        test_g_pv,
+        test_b_pv,
+        test_r_std,
+        test_g_std,
+        test_b_std,
+        test_curve_type,
+    )
+    fit_ground_truth = np.array(
+        [-0.27395561, 1.85194717, 1.45033183]
+    )  # ground truth extracted using a separate python script
     assert np.allclose(test_calibration_curve.r_opt, fit_ground_truth, rtol=1e-6)
     assert np.allclose(test_calibration_curve.g_opt, fit_ground_truth, rtol=1e-6)
     assert np.allclose(test_calibration_curve.b_opt, fit_ground_truth, rtol=1e-6)
+
 
 def test_create_devic_calibration_curve():
     test_curve_type = "Devic"
@@ -41,21 +39,48 @@ def test_create_devic_calibration_curve():
     test_r_std = np.ones(test_r_pv.shape)
     test_g_std = np.ones(test_g_pv.shape)
     test_b_std = np.ones(test_b_pv.shape)
-    test_calibration_curve = CalibrationCurve(test_doses, test_r_pv, test_g_pv, test_b_pv, test_r_std, test_g_std, test_b_std, test_curve_type)
-    fit_ground_truth = np.array([1.14490056, 0.78425477]) #ground truth extracted using a separate python script
+    test_calibration_curve = CalibrationCurve(
+        test_doses,
+        test_r_pv,
+        test_g_pv,
+        test_b_pv,
+        test_r_std,
+        test_g_std,
+        test_b_std,
+        test_curve_type,
+    )
+    fit_ground_truth = np.array(
+        [1.14490056, 0.78425477]
+    )  # ground truth extracted using a separate python script
     assert np.allclose(test_calibration_curve.r_opt, fit_ground_truth, rtol=1e-6)
     assert np.allclose(test_calibration_curve.g_opt, fit_ground_truth, rtol=1e-6)
     assert np.allclose(test_calibration_curve.b_opt, fit_ground_truth, rtol=1e-6)
 
+
 def test_load_calibration_films():
     test_calibration_films_path = "../../data_test/test_calibration_films/"
-    pixel_range = 65535. #2^32 -1 
-    test_file_dict = dict() #dict maps dose to array of file names
+    pixel_range = 65535.0  # 2^32 -1
+    test_file_dict = dict()  # dict maps dose to array of file names
     test_file_dict[0] = ["0Gy062.tif", "0Gy063.tif"]
-    test_file_dict[0.25] = ["0_25_1Gy058.tif", "0_25_1Gy059.tif", "0_25_2Gy060.tif", "0_25_2Gy061.tif"]
-    test_file_dict[0.5] = ["0_5_1Gy053.tif", "0_5_1Gy054.tif", "0_5_2Gy056.tif", "0_5_2Gy057.tif"]
+    test_file_dict[0.25] = [
+        "0_25_1Gy058.tif",
+        "0_25_1Gy059.tif",
+        "0_25_2Gy060.tif",
+        "0_25_2Gy061.tif",
+    ]
+    test_file_dict[0.5] = [
+        "0_5_1Gy053.tif",
+        "0_5_1Gy054.tif",
+        "0_5_2Gy056.tif",
+        "0_5_2Gy057.tif",
+    ]
     test_file_dict[1] = ["1_1Gy049.tif", "1_1Gy050.tif", "1_2Gy051.tif", "1_2Gy052.tif"]
-    test_file_dict[1.5] = ["1_5_1Gy045.tif", "1_5_1Gy046.tif", "1_5_2Gy047.tif", "1_5_2Gy048.tif"]
+    test_file_dict[1.5] = [
+        "1_5_1Gy045.tif",
+        "1_5_1Gy046.tif",
+        "1_5_2Gy047.tif",
+        "1_5_2Gy048.tif",
+    ]
     test_file_dict[2] = ["2Gy043.tif", "2Gy044.tif"]
     test_file_dict[2.5] = ["2_5Gy041.tif", "2_5Gy042.tif"]
     test_file_dict[3] = ["3Gy039.tif", "3Gy040.tif"]
@@ -67,7 +92,10 @@ def test_load_calibration_films():
     test_file_dict[9] = ["9Gy027.tif", "9Gy028.tif"]
     test_file_dict[10] = ["10Gy025.tif", "10Gy026.tif"]
     test_file_dict[12] = ["12Gy023.tif", "12Gy024.tif"]
-    test_file_dict[14] = ["14Gy021.tif", "14Gy022.tif"] #ignoring _end files, of unknown purpose
+    test_file_dict[14] = [
+        "14Gy021.tif",
+        "14Gy022.tif",
+    ]  # ignoring _end files, of unknown purpose
     test_file_dict[16] = ["16Gy019.tif", "16Gy020.tif"]
     test_file_dict[18] = ["18Gy017.tif", "18Gy018.tif"]
     test_file_dict[20] = ["20Gy015.tif", "20Gy016.tif"]
@@ -76,7 +104,7 @@ def test_load_calibration_films():
     test_file_dict[32] = ["32Gy008.tif", "32Gy009.tif"]
     test_file_dict[36] = ["36Gy006.tif", "36Gy007.tif"]
     test_file_dict[40] = ["40Gy004.tif", "40Gy005.tif"]
-    #add the proper directory
+    # add the proper directory
     for d in test_file_dict.keys():
         for i in range(len(test_file_dict[d])):
             test_file_dict[d][i] = test_calibration_films_path + test_file_dict[d][i]
@@ -84,23 +112,29 @@ def test_load_calibration_films():
     test_calibration.pixel_range = pixel_range
     test_calibration.calibration_curve_type = "Lewis"
     test_calibration.calibration_file_dict = test_file_dict
-    #for d in test_file_dict.keys():
+    # for d in test_file_dict.keys():
     #    test_calibration.add_calibration_files_for_dose(test_file_dict[d])
     test_calibration.load_calibration()
     test_calibration.create_calibration_curve()
     r_opt_ground_truth = np.array([0.09951261, 2.66066357, 3.07706001])
     g_opt_ground_truth = np.array([0.05982643, 5.28318534, 5.74549658])
-    b_opt_ground_truth = np.array([ 0.16486698, 10.10602592, 12.20989423])
-    #the following assertions on the calibration curve opt parameters appear highly sensitive
-    #to the python/scipy version. We will use a large tolerance of 0.2 based on observed variation
-    assert np.allclose(test_calibration.calibration_curve.r_opt, r_opt_ground_truth, rtol=2e-1)
-    assert np.allclose(test_calibration.calibration_curve.g_opt, g_opt_ground_truth, rtol=2e-1)
-    assert np.allclose(test_calibration.calibration_curve.b_opt, b_opt_ground_truth, rtol=2e-1)
-
+    b_opt_ground_truth = np.array([0.16486698, 10.10602592, 12.20989423])
+    # the following assertions on the calibration curve opt parameters appear highly sensitive
+    # to the python/scipy version. We will use a large tolerance of 0.2 based on observed variation
+    assert np.allclose(
+        test_calibration.calibration_curve.r_opt, r_opt_ground_truth, rtol=2e-1
+    )
+    assert np.allclose(
+        test_calibration.calibration_curve.g_opt, g_opt_ground_truth, rtol=2e-1
+    )
+    assert np.allclose(
+        test_calibration.calibration_curve.b_opt, b_opt_ground_truth, rtol=2e-1
+    )
 
 
 def test_load_calibraton_object():
     pass
+
 
 def main():
     r"""
