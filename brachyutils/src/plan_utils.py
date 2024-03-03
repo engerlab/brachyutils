@@ -735,7 +735,7 @@ class BrachyPlan:
                     "dwell_#.plan",
                     "run_#.mac",
                     "ct.egsphant",
-                    "ApplicatorMaterials"
+                    "ApplicatorMaterials",
                     "applicator_geometry.json",
                     "structure_set.json"
 
@@ -1092,9 +1092,7 @@ def _load_single_dose_or_uncertainty_to_dict(
             )
             dose_or_uncert_map = dose_obj.uncertainty
         except AttributeError:
-            Warning(
-                f"uncertainty map is not loaded from {pth_dose_rate}. Moving on..."
-            )
+            Warning(f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...")
     elif load_dose_or_uncertainty == "dose":
         dose_or_uncert_map = np.zeros_like(
             BrachyDose(pth_dose_rate).grid, dtype=np.float32

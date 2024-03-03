@@ -191,3 +191,16 @@ def test_export_plan():
     # # This function tests all the exporting functions.
     # plan_obj.export_plan()
     # # But for now, we check the export functions one by one
+    plan_obj.export_dose_rate()
+
+if __name__ == "__main__":
+    # test_load_catheterTable_json()
+    # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
+    # test_load_dose_rate_or_uncertainty_tensor()
+    # test_set_dvh_metric_goals()
+    # test_create_structures_and_calc_dvh_metrics()
+    # test_calculate_combined_uncertainty()
+    # test_calculate_uncertainty_per_structure()
+    # test_BrachyPlan()
+    # test__load_single_dose_or_uncertainty_to_dict()
+    test_export_plan()
