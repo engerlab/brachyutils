@@ -187,14 +187,23 @@ def test_export_brachy_plan():
         multi_processing=True,
         dir_structure_source=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
+        dir_egsphant="../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/ct.egsphant",
+        # dir_applicator_geometry="../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/applicator_geometry.json",
     )
     dir_export = "../../data_test/test_export_plan/"
     os.makedirs(dir_export, exist_ok=True)
     content_to_export = {
         "dose": True,
-        "dose type": "nrrd",
+        "dose type": ".nrrd",
         "dose rate maps": True,
         "uncertainty": True,
+        "catheter_table": True,
+        "egsphant": True,
+        "structure_set": True,
+        "plan": False,
+        "mac": False,
+        "ApplicatorMaterials": False,
+        "applicator_geometry": False,
     }
     export_format = "RapidBrachyExport"
     # # This function tests all the exporting functions.

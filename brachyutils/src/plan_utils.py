@@ -769,7 +769,7 @@ class BrachyPlan:
             raise NotImplementedError("export to WebApp is not implemented yet")
 
         elif export_format == "RapidBrachyExport":
-
+            
             if content_to_export["dose"]:
                 self.export_dose(
                     dir_export,
@@ -778,31 +778,31 @@ class BrachyPlan:
                     content_to_export["dose rate maps"],
                 )
 
-            elif content_to_export["catheter_table"]:
+            if content_to_export["catheter_table"]:
                 # assumes file name is "catheter_table.json"
                 self.export_catheter_table(dir_export)
 
-            elif content_to_export["plan"]:
+            if content_to_export["plan"]:
                 # assumes file name is "dwell_#.plan"
                 self.export_plan_file(dir_export)
 
-            elif content_to_export["mac"]:
+            if content_to_export["mac"]:
                 # assumes file name is "run_#.mac"
                 self.export_mac_file(dir_export)
 
-            elif content_to_export["egsphant"]:
+            if content_to_export["egsphant"]:
                 # assumes file name is "ct.egsphant"
                 self.export_egsphant(dir_export)
 
-            elif content_to_export["ApplicatorMaterials"]:
+            if content_to_export["ApplicatorMaterials"]:
                 # assumes file name is "ApplicatorMaterials"
                 self.export_applicator_materials(dir_export)
 
-            elif content_to_export["applicator_geometry"]:
+            if content_to_export["applicator_geometry"]:
                 # assumes file name is "applicator_geometry.json"
                 self.export_applicator_geometry(dir_export)
 
-            elif content_to_export["structure_set"]:
+            if content_to_export["structure_set"]:
                 # assumes file name is "structure_set.json"
                 self.export_structure_set(dir_export)
 
@@ -944,12 +944,12 @@ class BrachyPlan:
             written to structure_set.json
         Dependencies:
         """
-        # raise NotImplementedError("to be implemented soon")
+
         structure_set = []
         for structure in self.structure_list:
             structure_set.append(structure.to_dict(export_format))
 
-        file_path = dir_export + "/structure_set.json"
+        file_path = os.path.join(dir_export, "structure_set.json")
         with open(file_path, "w") as file:
             json.dump(structure_set, file, indent=4)
 
