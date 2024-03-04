@@ -1,4 +1,5 @@
 import json
+import os
 import time
 
 # from plan_utils import BrachyStructure
@@ -170,9 +171,9 @@ def test__load_single_dose_or_uncertainty_to_dict():
     print(dose_rate_dict[1].shape)  # uncertainty
 
 
-def test_export_plan():
+def test_export_brachy_plan():
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/catheter_table.json"
-    dir_dose_rate = "../../data_test/prostate-glen-p1-dose-nrrd"
+    dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
     dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
@@ -187,7 +188,27 @@ def test_export_plan():
         dir_structure_source=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
     )
-
+    dir_export = "../../data_test/test_export_plan/"
+    os.makedirs(dir_export, exist_ok=True)
+    content_to_export = {
+        "dose": True,
+        "dose type": "nrrd",
+        "dose rate maps": True,
+        "uncertainty": True,
+    }
+    export_format = "RapidBrachyExport"
     # # This function tests all the exporting functions.
-    # plan_obj.export_plan()
-    # # But for now, we check the export functions one by one
+    plan_obj.export_brachy_plan(export_format, dir_export, content_to_export)
+
+
+if __name__ == "__main__":
+    # test_load_catheterTable_json()
+    # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
+    # test_load_dose_rate_or_uncertainty_tensor()
+    # test_set_dvh_metric_goals()
+    # test_create_structures_and_calc_dvh_metrics()
+    # test_calculate_combined_uncertainty()
+    # test_calculate_uncertainty_per_structure()
+    # test_BrachyPlan()
+    # test__load_single_dose_or_uncertainty_to_dict()
+    test_export_brachy_plan()

@@ -720,7 +720,7 @@ class BrachyPlan:
             structure_obj.uncertainty_max = np.max(flattened_uncertainty)
             structure_obj.uncertainty_min = np.min(flattened_uncertainty)
 
-    def export_BrachyPlan(
+    def export_brachy_plan(
         self, export_format: str, dir_export: str, content_to_export: dict
     ):
         r"""
@@ -750,7 +750,9 @@ class BrachyPlan:
             "dose type", which can be either ".3ddose", ".minidos", or ".nrrd".
             the keys of content_to_export are:
             {
-                "dose", "dose type", "uncertainty", "dose rate maps",
+                "dose":bool,
+                "dose type":str := "nrrd", "minidos" or "3ddose",
+                "uncertainty", "dose rate maps",
                 "catheter_table", "plan", "mac", "egsphant",
                 "ApplicatorMaterials", applicator_geometry", "structure_set",
             }.
@@ -782,11 +784,11 @@ class BrachyPlan:
 
             elif content_to_export["plan"]:
                 # assumes file name is "dwell_#.plan"
-                self.export_BrachyPlan(dir_export)
+                self.export_plan_file(dir_export)
 
             elif content_to_export["mac"]:
                 # assumes file name is "run_#.mac"
-                self.export_mac(dir_export)
+                self.export_mac_file(dir_export)
 
             elif content_to_export["egsphant"]:
                 # assumes file name is "ct.egsphant"
@@ -874,7 +876,6 @@ class BrachyPlan:
         Dependencies:
             - json
         """
-        # raise NotImplementedError("to be implemented soon")
         file_path = dir_export + "/catheter_table.json"
         with open(file_path, "w") as file:
             json.dump(self.catheter_table, file, indent=4)
@@ -1092,9 +1093,7 @@ def _load_single_dose_or_uncertainty_to_dict(
             )
             dose_or_uncert_map = dose_obj.uncertainty
         except AttributeError:
-            Warning(
-                f"uncertainty map is not loaded from {pth_dose_rate}. Moving on..."
-            )
+            Warning(f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...")
     elif load_dose_or_uncertainty == "dose":
         dose_or_uncert_map = np.zeros_like(
             BrachyDose(pth_dose_rate).grid, dtype=np.float32
