@@ -139,7 +139,7 @@ class BrachyStructure:
                 "name": self.name,
                 "quadratic_weight": self.penalty_weight_quadratic,
                 "type": "Target volume" if self.target_volume else "Organ at risk",
-                "uniformity_weight": self.penal_weight_uniformity,
+                "uniformity_weight": self.penalty_weight_uniformity,
             }
 
 
@@ -769,7 +769,7 @@ class BrachyPlan:
             raise NotImplementedError("export to WebApp is not implemented yet")
 
         elif export_format == "RapidBrachyExport":
-            
+
             if content_to_export["dose"]:
                 self.export_dose(
                     dir_export,
