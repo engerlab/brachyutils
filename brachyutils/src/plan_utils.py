@@ -248,7 +248,8 @@ class BrachyPlan:
         self.egsphant = None
         self.applicator_geometry = None
         self.applicator_materials = None
-
+        self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
+        self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
         # load the catheter table if the path is provided
         if pth_catheterTable_json is not None:
             self.load_catheterTable_json(pth_catheterTable_json)
@@ -883,11 +884,52 @@ class BrachyPlan:
     def export_plan_file(self, dir_export: str):
         r"""
         Purpose:
+            - To export dwell positions and their normalized times into ".plan" text files in the
+            format required by RapidBrachy.
         Inputs:
+            - dir_export := path to the directory where the export happens
         Outputs:
+            - void := Two types of .plan files are written, one named combined.plan and the other
+            named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and their normalized
+            dwell time, and the run_{dwellNumber}.plan contains info of a single dwell position.
+            The format of each .plan file is given in this example:
+                "Treatment Plan
+                56 Control Points
+                Control Point
+                weight = 0.00327228
+                1 Dwell Position
+                -10.2819,82.598,-1224.98,-0.0291444,-0.017922,0.999415,0,0,0,1,0,0,0
+                Control Point ..."
         Dependencies:
+            - None
         """
-        raise NotImplementedError("to be implemented soon")
+        total_dwell_time = np.sum(self.dwell_times)
+        combined_plan = "Treatment Plan\n"
+        combined_plan += f"{self.num_dwells} Control Points\n"
+
+        for dwell_i in range(self.num_dwells):
+
+            dwell_coordinates_str = f"{self.dwell_coordinates[dwell_i]['position']},\
+                {self.dwell_coordinates[dwell_i]['rotation']},\
+                {self.dwell_coordinates[dwell_i]['angle']}\",\
+                {self.applicator_rotation_axis},\
+                {self.applicator_rotation_origin}\n"
+
+            combined_plan += "Control Point\n"
+            combined_plan += f"weight = {self.dwell_times[dwell_i]/total_dwell_time}\n"
+            combined_plan += "1 Dwell Position\n"
+            combined_plan += dwell_coordinates_str
+
+            run_i_plan = "Treatment Plan\n"
+            run_i_plan += "1 Control Points\n"
+            run_i_plan += "Control Point\nweight = 1.0\n"
+            run_i_plan += "1 Dwell Position\n"
+            run_i_plan += dwell_coordinates_str
+            with open(dir_export + f"/run_{dwell_i + 1}.plan", "w") as file:
+                file.write(run_i_plan)
+
+        with open(dir_export + "/combined.plan", "w") as file:
+            file.write(combined_plan)
 
     def export_mac_file(self, dir_export: str):
         r"""

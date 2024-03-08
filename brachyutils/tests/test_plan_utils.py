@@ -152,7 +152,7 @@ def test_BrachyPlan():
         "D0.1cc(urethra)": 18.75,
     }
     t0 = time.time()
-    plan_obj = BrachyPlan(
+    BrachyPlan(
         pth_cathTable_json,
         dir_dose_rate,
         load_dose_or_uncertainty="both",
