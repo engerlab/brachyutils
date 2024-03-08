@@ -909,12 +909,17 @@ class BrachyPlan:
 
         for dwell_i in range(self.num_dwells):
 
-            dwell_coordinates_str = f"{self.dwell_coordinates[dwell_i]['position']},\
-                {self.dwell_coordinates[dwell_i]['rotation']},\
-                {self.dwell_coordinates[dwell_i]['angle']}\",\
-                {self.applicator_rotation_axis},\
-                {self.applicator_rotation_origin}\n"
-
+            dwell_coordinates_str = np.array(
+                list(self.dwell_coordinates[dwell_i]["position"].values())
+                + list(self.dwell_coordinates[dwell_i]["rotation"].values())
+                + [self.dwell_coordinates[dwell_i]["angle"]]
+                + list(self.applicator_rotation_axis)
+                + list(self.applicator_rotation_origin),
+                dtype=np.float32,
+            )
+            dwell_coordinates_str = (
+                ",".join(format(coord, ".6f") for coord in dwell_coordinates_str) + "\n"
+            )
             combined_plan += "Control Point\n"
             combined_plan += f"weight = {self.dwell_times[dwell_i]/total_dwell_time}\n"
             combined_plan += "1 Dwell Position\n"
