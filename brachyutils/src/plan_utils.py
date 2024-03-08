@@ -918,8 +918,15 @@ class BrachyPlan:
                 dtype=np.float32,
             )
             dwell_coordinates_str = (
-                ",".join(format(coord, ".6f") for coord in dwell_coordinates_str) + "\n"
+                ",".join(
+                    [
+                        str(int(coord)) if coord == int(coord) else format(coord, ".6f")
+                        for coord in dwell_coordinates_str
+                    ]
+                )
+                + "\n"
             )
+
             combined_plan += "Control Point\n"
             combined_plan += f"weight = {self.dwell_times[dwell_i]/total_dwell_time}\n"
             combined_plan += "1 Dwell Position\n"
