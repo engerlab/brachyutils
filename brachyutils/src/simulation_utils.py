@@ -1,9 +1,10 @@
 class BrachySimulation:
     r"""
     Purpose:
-        - This class holds the information needed for simulating a brachytherapy plan using the 
+        - This class holds the information needed for simulating a brachytherapy plan using the
         RapidBrachyMC software.
     """
+
     def __init__(self):
         self.treatment_type: str = "HDR"
         self.source_geometry: str = "MicroSelectronV2"
@@ -36,4 +37,24 @@ class BrachySimulation:
         Purpose:
             - to convert the object to a string.
         """
-        raise NotImplementedError
+        return f"""
+        /source_world/treatmentType {self.treatment_type}
+        /source_world/switch {self.source_geometry}
+        /source_world/coreMaterial {self.core_material}
+        /source_world/core/A {self.mass_number}
+        /source_world/core/Z {self.atomic_number}
+        /sim/plan {self.pth_plan}
+        /world/phantom {self.pth_phantom}
+        /parallel_world/ak_per_history {self.air_kerma_per_history}
+        /parallel_world/ref_ak {self.reference_air_kerma}
+        /parallel_world/H {self.number_histories}
+        /parallel_world/total_time {self.total_time}
+        /dose/format {self.dose_format}
+        /run/numberOfThreads {self.number_of_threads}
+        /run/initialize
+        /control/verbose {self.control_verbose}
+        /run/verbose {self.run_verbose}
+        /tracking/verbose {self.tracking_verbose}
+        /run/printProgress {self.PrintProgress}
+        /sim/beamOn {self.beam_on}
+        """
