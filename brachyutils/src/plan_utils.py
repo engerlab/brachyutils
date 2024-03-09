@@ -12,6 +12,7 @@ from dicom_utils import get_strcuture_mask_from_dicom
 from dose_utils import BrachyDose, dose_with_empty_grid_like
 from egsphant_utils import BrachyEgsphant
 from scipy import interpolate, ndimage
+from simulation_utils import BrachySimulation
 
 # from typing import Optional
 from tqdm import tqdm
@@ -192,6 +193,7 @@ class BrachyPlan:
         dir_structure_source: str = None,
         dose_cropped_by_body: bool = True,
         # for simulation setup:
+        combined_simulation_dict: dict = None,
         dir_egsphant: str = None,
         dir_applicator_geometry: str = None,
         dir_applicator_materials: str = None,
@@ -229,7 +231,7 @@ class BrachyPlan:
         self.dose_rate_tensor = np.array(
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
-        self.combined_dose = None
+        self.combined_dose: BrachyDose = None
         self.uncertainty_tensor = np.array(
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
@@ -245,7 +247,8 @@ class BrachyPlan:
         # self.ultrasound_image = None
 
         # simulation attributes
-        self.egsphant = None
+        self.simulation_setup: BrachySimulation = None
+        self.egsphant: BrachyEgsphant = None
         self.applicator_geometry = None
         self.applicator_materials = None
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
@@ -268,6 +271,9 @@ class BrachyPlan:
 
         if dir_egsphant is not None:
             self.egsphant = BrachyEgsphant(dir_egsphant)
+
+        if combined_simulation_dict is not None:
+            self.combined_simulation_setup = BrachySimulation(combined_simulation_dict)
 
         if dir_applicator_geometry is not None or dir_applicator_materials is not None:
             raise NotImplementedError("to be implemented soon")
@@ -778,7 +784,6 @@ class BrachyPlan:
                     content_to_export["dose type"],
                     content_to_export["dose rate maps"],
                 )
-
             if content_to_export["catheter_table"]:
                 # assumes file name is "catheter_table.json"
                 self.export_catheter_table(dir_export)
@@ -980,7 +985,16 @@ class BrachyPlan:
         Dependencies:
             - simulation_utils
         """
-        raise NotImplementedError("to be implemented soon")
+        for dwell_i in range(self.num_dwells):
+            sim_obj = self.combined_simulation_setup
+            sim_obj.pth_plan = f"run_{dwell_i + 1}.plan"
+            sim_obj.total_time = 1
+            with open(dir_export + f"/run_{dwell_i + 1}.mac", "w") as file:
+                file.write(sim_obj.to_string())
+
+        self.combined_simulation_setup.total_time = np.sum(self.dwell_times)
+        with open(dir_export + "/combined.mac", "w") as file:
+            file.write(self.combined_simulation_setup.to_string())
 
     def export_egsphant(self, dir_export: str):
         r"""

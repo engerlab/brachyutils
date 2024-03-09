@@ -180,6 +180,22 @@ def test_export_brachy_plan():
         "D1cc(rectum)": 11.25,
         "D0.1cc(urethra)": 18.75,
     }
+    sim_dict = {
+        "treatment_type": "HDR",
+        "source_geometry": "MicroSelectronV2",
+        "core_material": "G4_Ir",
+        "mass_number": "192",
+        "atomic_number": "77",
+        "pth_plan": "combined.plan",
+        "pth_phantom": "ct.egsphant",
+        "air_kerma_per_history": 1.149000e-11,
+        "reference_air_kerma": 4.278729e04,
+        "number_histories": 1000000,
+        "total_time": 5983,
+        "number_of_threads": 12,
+        "PrintProgress": 10000,
+        "beam_on": 10000,
+    }
     plan_obj = BrachyPlan(
         pth_cathTable_json,
         dir_dose_rate,
@@ -188,20 +204,21 @@ def test_export_brachy_plan():
         dir_structure_source=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
         dir_egsphant="../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/ct.egsphant",
+        combined_simulation_dict=sim_dict,
         # dir_applicator_geometry="../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/applicator_geometry.json",
     )
     dir_export = "../../data_test/test_export_plan/"
     os.makedirs(dir_export, exist_ok=True)
     content_to_export = {
-        "dose": True,
+        "dose": False,
         "dose type": ".nrrd",
         "dose rate maps": False,
-        "uncertainty": True,
+        "uncertainty": False,
         "catheter_table": True,
         "egsphant": False,
         "structure_set": True,
         "plan": True,
-        "mac": False,
+        "mac": True,
         "ApplicatorMaterials": False,
         "applicator_geometry": False,
     }
