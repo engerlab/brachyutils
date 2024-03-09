@@ -1,6 +1,3 @@
-from copy import deepcopy
-
-
 class BrachySimulation:
     r"""
     Purpose:
@@ -158,16 +155,3 @@ class BrachySimulation:
 /run/printProgress {self.PrintProgress}
 /sim/beamOn {self.beam_on}
 """
-
-    def deepcopy(self):
-        r"""
-        Purpose:
-            - to create a deep copy of the object.
-        Input:
-            - self: BrachySimulation
-        Output:
-            - a deep copy of the object.
-        Dependencies:
-            - None
-        """
-        return deepcopy(self)

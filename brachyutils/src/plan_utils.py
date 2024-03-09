@@ -986,8 +986,8 @@ class BrachyPlan:
             - simulation_utils
         """
         for dwell_i in range(self.num_dwells):
-            sim_obj = self.combined_simulation_setup
-            sim_obj.pth_plan = f"run_{dwell_i + 1}.plan"
+            sim_obj = deepcopy(self.combined_simulation_setup)
+            sim_obj.pth_plan = f"dwell_{dwell_i + 1}.plan"
             sim_obj.total_time = 1
             with open(dir_export + f"/run_{dwell_i + 1}.mac", "w") as file:
                 file.write(sim_obj.to_string())
