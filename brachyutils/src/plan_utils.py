@@ -890,9 +890,9 @@ class BrachyPlan:
             - dir_export := path to the directory where the export happens
         Outputs:
             - void := Two types of .plan files are written, one named combined.plan and the other
-            named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and their normalized
-            dwell time, and the run_{dwellNumber}.plan contains info of a single dwell position.
-            The format of each .plan file is given in this example:
+            named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and
+            their normalized dwell time, and the run_{dwellNumber}.plan contains info of a single
+            dwell position. The format of each .plan file is given in this example:
                 "Treatment Plan
                 56 Control Points
                 Control Point
@@ -946,9 +946,39 @@ class BrachyPlan:
     def export_mac_file(self, dir_export: str):
         r"""
         Purpose:
+            - To export the simulation parameters of the plan into a macro files
+            called combine.mac and run_{dwellNumber}.mac
         Inputs:
+            - dir_export := path to the directory where the export happens
         Outputs:
+            - void := Two types of .mac files are written, one named combined.mac and the other
+            named run_{dwellNumber}.mac. combined.plan contains
+
+            plan contains info of a single dwell position.
+
+            The format of each .plan file is given in this example:
+                /source_world/treatmentType HDR
+                /source_world/switch MicroSelectronV2
+                /source_world/coreMaterial G4_Ir
+                /source_world/core/A 192
+                /source_world/core/Z 77
+                /sim/plan combined.plan
+                /world/phantom ct.egsphant
+                /parallel_world/ak_per_history 1.149000e-11
+                /parallel_world/ref_ak 4.278729e+04
+                /parallel_world/H 2.500000e+00
+                /parallel_world/total_time 4.531841e+02
+                /dose/format 3ddose
+                /run/numberOfThreads 40
+                /run/initialize
+                /control/verbose 0
+                /run/verbose 0
+                /tracking/verbose 0
+                /run/printProgress 1000000
+                /sim/beamOn 10000000
+
         Dependencies:
+            - simulation_utils
         """
         raise NotImplementedError("to be implemented soon")
 
