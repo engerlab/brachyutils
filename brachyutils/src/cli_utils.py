@@ -750,6 +750,19 @@ def combined_dose_per_patient(
         combined_dose_obj.write_to_minidos(dir_dose_maps + "combined.minidos")
 
 
+def export_plan_single_patient(
+    dir_images_and_structures: str,
+    pth_plan: str,
+    pth_material_table: str,
+    dir_plan_export: str,
+):
+    r"""
+    Purpose:
+        - To export the simulation of a single patient to a directory.
+    """
+    raise NotImplementedError
+
+
 def main():
     app()
     # memory_limit()

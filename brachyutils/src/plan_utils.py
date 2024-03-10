@@ -171,12 +171,16 @@ class BrachyPlan:
     Functions:
         - load_catheterTable_json()
         - extract_dwell_numbers_times_coordinates_from_catheterTable()
+        - update_catheter_table_from_plan()
+        - update_after_change_in_plan()
         - load_dose_rate_or_uncertainty_tensor()
+        - calculate_combined_dose()
         - set_dvh_metric_goals()
         - create_structures()
         - calculate_DVH_metrics()
         - calculate_combined_uncertainty()
         - calculate_uncertainty_per_structure()
+        - export_brachy_plan ()
     """
 
     def __init__(
