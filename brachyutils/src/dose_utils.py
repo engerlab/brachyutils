@@ -19,6 +19,7 @@ from dicom_utils import get_structure_index_range
 from matplotlib import pyplot as plt
 from numpy import ma, reshape
 from scipy.interpolate import RegularGridInterpolator
+import pydicom
 
 
 class BrachyDose:
@@ -123,10 +124,7 @@ class BrachyDose:
         elif file_extension == ".nrrd":
             self.load_from_nrrd(pth_dose_file)
         elif file_extension == ".dcm":
-            assert "RD" in pth_dose_file, "must be a dicom dose file starting with 'RD'"
-            raise NotImplementedError(
-                "loading dose from dicom is not currently supported"
-            )
+            self.load_from_dicom(pth_dose_file)
         elif file_extension == ".minidos":
             raise NotImplementedError(
                 "loading dose from .minidos file is not currently supported"
@@ -300,6 +298,25 @@ class BrachyDose:
         self.vox_size = loaded_brachydose["vox_size"]
         self.topleft = loaded_brachydose["topleft"]
         self.voxel_edges = loaded_brachydose["axis"]
+
+    def load_from_dicom(self, pth_RD_dicom):
+        r"""
+        Purpose:
+            - Given the path to a dicom dose file, load its content into self:BrachyDose.
+        Inputs:
+            - pth_RD_dicom := path to a dicom dose file. baseename must start with "RD".
+        Outputs:
+            - void := contents of self is updated.
+        Dependencies:
+            - pydicom
+        """
+        assert os.basename(pth_RD_dicom).startswith("RD"), "the basename should start with RD"
+        dose_dcm = pydicom.dcmread(pth_RD_dicom)
+        self.grid = dose_dcm.pixel_array.astype(np.float32)
+        self.num_voxels = np.array(dose_dcm.pixel_array.shape, dtype=np.float32)
+        self.vox_size = np.array(dose_dcm.PixelSpacing + [dose_dcm.SliceThickness], dtype=np.float32)
+        self.topleft = np.array(dose_dcm.ImagePositionPatient, dtype=np.float32)
+        self.voxel_edges = self.calculate_voxel_edges()
 
     def load_from_minidos(self, pth_minidos):
         r"""

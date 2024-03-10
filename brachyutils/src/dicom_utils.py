@@ -4,10 +4,25 @@ import os
 from glob import glob
 
 import numpy as np
-from DicomRTTool.ReaderWriter import DicomReaderWriter  # , ROIAssociationClass
-
+from DicomRTTool.ReaderWriter import DicomReaderWriter
+from brachy_dose import BrachyDose
 
 class BrachyDicom:
+    r"""
+    Puprose:
+        - A wrapper around the DicomReaderWriter class to get the images, the structure masks
+        and the index range of the structure masks.
+    Attributes:
+        - dicom_reader:DicomReaderWriter := an instance of the DicomReaderWriter class.
+        - all_rois:list := a list of all the structure names in the dicom file.
+        - mask_dict:dict := a dictionary with the structure name as key and the mask as value.
+        - structure_index_range_dict:dict := a dictionary with the structure name as key and the index range as value.
+        - top_left:DicomReaderWriter := an instance of the DicomReaderWriter class.
+    Dependencies:
+        - DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
+
+    """
+
     def __init__(self, pth_dir_dicom: str):
         r"""
         Purpose:
@@ -23,36 +38,41 @@ class BrachyDicom:
             description="getting structure masks", arg_max=True
         )
         self.dicom_reader.walk_through_folders(pth_dir_dicom)
+        self.dicom_reader.get_images()
+
         self.all_rois = self.dicom_reader.return_rois()
+        self.mask_dict = {}
+        self.structure_index_range_dict = {}
+        print("breaking point was here")
+        self.origin_coords = np.array(
+            self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
+        )
+        self.voxel_size = np.array(
+            self.dicom_reader.dicom_handle.GetSpacing(), dtype=np.float32
+        )
+        self.image = self.dicom_reader.ArrayDicom
+        self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
+        self.plan = self.dicom_reader.plan
 
     def get_structure_index_range(self, query_structure_list: list):
         r"""
         Purpose:
             to find the index extent of the structure voxels along each axis using dicom RT structure file.
         Inputs:
-            - pth_dir_dicom := path to the directory with the dicom files of a patient.
-                it should contain both images and RTSTRUCT file
             - query_structure_list := list of structure names to find the index range of.
         Outputs:
             - structure_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
                 [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
             - body_mask_shape:np.array := 1 x 3 array holding the dimension of the original mask
         Dependencies:
-            DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
+            - get_strcuture_mask_from_dicom()
         """
-        output_dict = {}
-        for query_structure_name in query_structure_list:
-            # # find the name of the body structure inside the rt_structure object
-            dicom_structure_name = [
-                name for name in self.all_rois if query_structure_name in name.lower()
-            ]
-            # # get the numpy array of the body structure:
-            assert len(dicom_structure_name) >= 1, "no contour was found!"
-            self.dicom_reader.set_contour_names_and_associations(
-                contour_names=dicom_structure_name
-            )
-            self.dicom_reader.get_mask()
-            mask_numpy = self.dicom_reader.mask
+        if len(self.structure_index_range_dict) > 0:
+            return self.structure_index_range_dict
+
+        self.structure_index_range_dict = {}
+        self.get_strcuture_mask_from_dicom(query_structure_list)
+        for mask_name, mask_numpy in self.mask_dict.items():
             # so we got the mask but the dimensions may not match the dimension of the dose
             # let's get the relative extent of the body mask compared to the whole grid and resample
             # the extents
@@ -67,26 +87,25 @@ class BrachyDicom:
                         ]
                     )
                 ).astype(int)
-                # np.argwhere(mask_numpy==1)[:, i].max()+1]) / np.array(mask_numpy.shape[i]) * self.num_voxels[3-i-1]).astype(int)
             structure_index_range = np.flip(structure_index_range, axis=0)
-            output_dict[query_structure_name] = {
+            self.structure_index_range_dict[mask_name] = {
                 "structure_index_range": structure_index_range,
                 "dicom_mask_shape": np.flip(np.array(mask_numpy.shape)),
             }
-        return output_dict
+        return self.structure_index_range_dict
 
     def get_strcuture_mask_from_dicom(self, query_structure_list: list):
         r"""
         Purpose:
             to get the mask of the structures using dicom RT structure file.
         Inputs:
-            - pth_dir_dicom := path to the directory with the dicom files of a patient.
-                it should contain both images and RTSTRUCT file
             - query_structure_list := list of structure names to find the mask of.
         Outputs:
-
+            - mask_dict:dict :=  a dictionary with the structure name as key and the mask as value.
         """
-        result_dict = {}
+        if len(self.mask_dict) > 0:
+            return self.mask_dict
+
         for query_structure_name in query_structure_list:
             # # find the name of the body structure inside the rt_structure object
             dicom_structure_name = [
@@ -99,6 +118,10 @@ class BrachyDicom:
             )
             self.dicom_reader.get_mask()
             mask_numpy = self.dicom_reader.mask
-            result_dict[query_structure_name] = mask_numpy
+            self.mask_dict[query_structure_name] = mask_numpy
 
-        return result_dict
+        return self.mask_dict
+
+    def reset(self):
+        self.mask_dict = {}
+        self.structure_index_range_dict = {}
