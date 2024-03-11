@@ -5,7 +5,8 @@ from glob import glob
 
 import numpy as np
 from DicomRTTool.ReaderWriter import DicomReaderWriter
-from brachy_dose import BrachyDose
+from dose_utils import BrachyDose
+
 
 class BrachyDicom:
     r"""
@@ -23,7 +24,14 @@ class BrachyDicom:
 
     """
 
-    def __init__(self, pth_dir_dicom: str):
+    def __init__(
+        self,
+        pth_dir_dicom: str,
+        load_image: bool = True,
+        load_structure: bool = True,
+        load_dose: bool = False,
+        load_plan: bool = False,
+    ):
         r"""
         Purpose:
             - To gatheter all the information provided by the dicom files of a patient.
@@ -39,20 +47,27 @@ class BrachyDicom:
         )
         self.dicom_reader.walk_through_folders(pth_dir_dicom)
         self.dicom_reader.get_images()
-
         self.all_rois = self.dicom_reader.return_rois()
+
+        if load_image:
+            self.image = self.dicom_reader.ArrayDicom
+            self.origin_coords = np.array(
+                self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
+            )
+            self.voxel_size = np.array(
+                self.dicom_reader.dicom_handle.GetSpacing(), dtype=np.float32
+            )
+
         self.mask_dict = {}
         self.structure_index_range_dict = {}
-        print("breaking point was here")
-        self.origin_coords = np.array(
-            self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
-        )
-        self.voxel_size = np.array(
-            self.dicom_reader.dicom_handle.GetSpacing(), dtype=np.float32
-        )
-        self.image = self.dicom_reader.ArrayDicom
-        self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
-        self.plan = self.dicom_reader.plan
+        if load_structure:
+            self.get_strcuture_mask_from_dicom(self.all_rois)
+            self.get_structure_index_range(self.all_rois)
+
+        if load_dose:
+            self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
+        if load_plan:
+            self.plan = self.dicom_reader.plan
 
     def get_structure_index_range(self, query_structure_list: list):
         r"""

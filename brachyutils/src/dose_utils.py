@@ -8,18 +8,18 @@ import os
 import pickle
 import sys
 import tkinter as tk
+import warnings
 from tkinter import filedialog as fd
 from typing import List, Optional
 
 import numpy as np
+import pydicom
 import pymedphys
 import pyzstd
 import SimpleITK as sitk
-from dicom_utils import get_structure_index_range
 from matplotlib import pyplot as plt
 from numpy import ma, reshape
 from scipy.interpolate import RegularGridInterpolator
-import pydicom
 
 
 class BrachyDose:
@@ -310,11 +310,23 @@ class BrachyDose:
         Dependencies:
             - pydicom
         """
-        assert os.basename(pth_RD_dicom).startswith("RD"), "the basename should start with RD"
+        assert os.path.basename(pth_RD_dicom).startswith(
+            "RD"
+        ), "the basename should start with RD"
         dose_dcm = pydicom.dcmread(pth_RD_dicom)
         self.grid = dose_dcm.pixel_array.astype(np.float32)
-        self.num_voxels = np.array(dose_dcm.pixel_array.shape, dtype=np.float32)
-        self.vox_size = np.array(dose_dcm.PixelSpacing + [dose_dcm.SliceThickness], dtype=np.float32)
+        self.num_voxels = np.flip(
+            np.array(dose_dcm.pixel_array.shape, dtype=int), axis=0
+        )
+        x_y_spacing = np.array(dose_dcm.PixelSpacing, dtype=np.float32)
+        z_spacing = np.array(dose_dcm.SliceThickness, dtype=np.float32)
+        if z_spacing == 0:
+            warnings.warn(
+                "z_spacing is 0, using x_y_spacing as z_spacing", stacklevel=2
+            )
+            z_spacing = x_y_spacing[0]
+
+        self.vox_size = np.append(x_y_spacing, z_spacing)
         self.topleft = np.array(dose_dcm.ImagePositionPatient, dtype=np.float32)
         self.voxel_edges = self.calculate_voxel_edges()
 
@@ -1053,17 +1065,16 @@ class BrachyDose:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the body contour
                     in the dicom structure file. It will also update the num_voxels, topleft and axis. only vox_size will not change
         """
+        from dicom_utils import BrachyDicom
 
         if body_index_range is None or body_mask_shape is None:
             assert (
                 pth_dir_dicom is not None
             ), "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            body_mask_info = get_structure_index_range(
-                pth_dir_dicom, query_structure_list=["body"]
-            )
-            body_index_range = body_mask_info["body"]["structure_index_range"]
-            body_mask_shape = body_mask_info["body"][
+            body_mask_shape = BrachyDicom(pth_dir_dicom).structure_index_range_dict[
+                "body"
+            ][
                 "dicom_mask_shape"
             ]  # the body mask may have a different size than the dose map, we normalize range to the dimension
         # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.

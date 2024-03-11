@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 import numpy as np
-from dicom_utils import get_structure_index_range
+# from dicom_utils import get_structure_index_range
 from dose_utils import BrachyDose, DoseComparison
 
 
@@ -24,6 +24,10 @@ def test_load_file_to_brachydose():
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.is_not_empty()
 
+def test_load_from_dicom():
+    pth_dicom = "../../data_test/prostate-glen-p1-dcm/RD1.3.6.1.4.1.2452.6.350102904.1117384417.1751574951.1257637737.dcm"
+    dose_obj = BrachyDose(pth_dicom)
+    dose_obj.is_not_empty()
 
 # @pytest.mark.passed
 
@@ -179,13 +183,6 @@ def test_crop_by_fraction():
     dose_obj.info()
 
 
-def test_get_structure_index_range():
-    pth_dicom_rs = "../../data_test/prostate-glen-p1-dcm/"
-    list_query_rs = ["body", "ctv_brachy", "rectum_brachy", "urethra_brachy"]
-    # pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
-    print(get_structure_index_range(pth_dicom_rs, list_query_rs))
-
-
 def test_convert_to_minidos():
     pth_input = "../../data_test/dwell1_1mm.nrrd"
     pth_minidos = os.path.splitext(pth_input)[0] + ".minidos"
@@ -207,7 +204,7 @@ def test_dose_comparison():
     # dose_comparison.compare_dose_distributions_2D(
     #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
 
-
+# XXX: check and fix if neede!
 def test_crop_by_body_contour():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
     pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
@@ -216,3 +213,6 @@ def test_crop_by_body_contour():
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.info()
     dose_obj.crop_by_body_contour(pth_dir_dicom=pth_dicomRS)
+
+if __name__ == "__main__":
+    test_load_from_dicom()
