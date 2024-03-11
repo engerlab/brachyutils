@@ -51,7 +51,7 @@ class BrachyDicom:
 
         if load_image:
             self.image = self.dicom_reader.ArrayDicom
-            self.topleft = np.array(
+            self.origin_coords = np.array(
                 self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
             )
             self.voxel_size = np.array(
@@ -142,6 +142,10 @@ class BrachyDicom:
         self.structure_index_range_dict = {}
 
     def info(self):
-        print(
-            f"shape of the image: "
-        )
+        print(f"shape of the image: {self.image.shape}")
+        print(f"origin of the image: {self.origin_coords}")
+        print(f"voxel size of the image: {self.voxel_size}")
+        print(f"all the structures in the dicom: {self.all_rois}")
+        print(f"the shape of dose: {self.dose.num_voxels}")
+        print(f"origin of the dose: {self.dose.topleft}")
+        print(f"voxel size of the dose: {self.dose.voxel_size}")
