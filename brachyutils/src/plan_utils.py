@@ -80,7 +80,7 @@ class BrachyStructure:
 
         structure_dose = combined_dose.grid * self.mask
         structure_dose = structure_dose[structure_dose != 0].flatten()
-        voxel_volume = np.prod(combined_dose.vox_size)
+        voxel_volume = np.prod(combined_dose.voxel_size)
         num_voxels_in_structure = np.sum(self.mask)
 
         if "%" in self.dvh_metric_name:
@@ -725,7 +725,7 @@ class BrachyPlan:
                 bins=100,
                 range=(0, flattened_uncertainty.max() + 0.1),
             )
-            structure_obj.uvh = histogram * np.prod(self.combined_dose.vox_size)
+            structure_obj.uvh = histogram * np.prod(self.combined_dose.voxel_size)
             structure_obj.uncertainty_mean = np.mean(flattened_uncertainty)
             structure_obj.uncertainty_std = np.std(flattened_uncertainty)
             structure_obj.uncertainty_max = np.max(flattened_uncertainty)

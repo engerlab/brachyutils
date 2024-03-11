@@ -680,7 +680,7 @@ def combined_dose_per_patient(
     combined_dose_obj = BrachyDose()
 
     combined_dose_obj.num_voxels = dose_obj.num_voxels
-    combined_dose_obj.vox_size = dose_obj.vox_size
+    combined_dose_obj.voxel_size = dose_obj.voxel_size
     combined_dose_obj.topleft = dose_obj.topleft
     combined_dose_obj.voxel_edges = dose_obj.voxel_edges
 

@@ -32,7 +32,7 @@ class BrachyDose:
         grid:np.ndarray := 3D numpy array holding dose at each voxel. [z, y, x]
         uncertainty:np.ndarray := 3D numpy array holding dose uncertainity at each voxel. [z, y, x]
         num_voxels:np.ndarray := 1D numpy array holding the number of grid points on x, y, z axis.
-        vox_size:np.ndarray := 1D numpy array holding the resolution of each voxel along x, y, z axis in centimeters.
+        voxel_size:np.ndarray := 1D numpy array holding the resolution of each voxel along x, y, z axis in centimeters.
         topleft:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z]
         voxel_edges:np.ndarray := coorindates of voxel edges along z, y and x axis.
 
@@ -90,7 +90,7 @@ class BrachyDose:
         self.grid: np.ndarray = None
         self.uncertainty: np.ndarray = None
         self.num_voxels: np.ndarray = None
-        self.vox_size: np.ndarray = None
+        self.voxel_size: np.ndarray = None
         self.topleft: np.ndarray = None
         self.voxel_edges: np.ndarray = None
         self.interpolation_function = None
@@ -236,7 +236,7 @@ class BrachyDose:
 
             self.grid = bench_dose
             self.num_voxels = np.array(bench_voxels, dtype=np.float32)
-            self.vox_size = np.round(
+            self.voxel_size = np.round(
                 np.array(
                     [bench_x_spacing, bench_y_spacing, bench_slice_thick],
                     dtype=np.float32,
@@ -272,7 +272,7 @@ class BrachyDose:
         self.num_voxels = np.array(np.flip((dose_array.shape), axis=0)).astype(
             np.float32
         )
-        self.vox_size = np.round(
+        self.voxel_size = np.round(
             np.array(loaded_image_nrrd.GetSpacing()[1:]).astype(np.float32), 1
         )
         self.topleft = np.array(loaded_image_nrrd.GetOrigin()[1:]).astype(np.float32)
@@ -295,7 +295,7 @@ class BrachyDose:
         self.uncertainty = loaded_brachydose["uncertainty"]
         self.grid = loaded_brachydose["grid"]
         self.num_voxels = loaded_brachydose["num_voxels"]
-        self.vox_size = loaded_brachydose["vox_size"]
+        self.voxel_size = loaded_brachydose["voxel_size"]
         self.topleft = loaded_brachydose["topleft"]
         self.voxel_edges = loaded_brachydose["axis"]
 
@@ -326,7 +326,7 @@ class BrachyDose:
             )
             z_spacing = x_y_spacing[0]
 
-        self.vox_size = np.append(x_y_spacing, z_spacing)
+        self.voxel_size = np.append(x_y_spacing, z_spacing)
         self.topleft = np.array(dose_dcm.ImagePositionPatient, dtype=np.float32)
         self.voxel_edges = self.calculate_voxel_edges()
 
@@ -513,7 +513,7 @@ class BrachyDose:
         final_topleft = np.zeros(3)
         for i, distance in zip(range(3), topleft_distance):
             final_topleft[i] = (
-                new_top_left[i] if distance > self.vox_size[i] else self.topleft[i]
+                new_top_left[i] if distance > self.voxel_size[i] else self.topleft[i]
             )
 
         # figure out how much padding to do before and after each axis
@@ -537,9 +537,9 @@ class BrachyDose:
             )
 
         # figure out the end coordinates based on the padding
-        # self.vox_size is a list of x, y and z spacing, we want it to be
+        # self.voxel_size is a list of x, y and z spacing, we want it to be
         # a numpy array of z, y, x spacings.
-        voxel_size = np.array(self.vox_size)[:, np.newaxis][::-1]
+        voxel_size = np.array(self.voxel_size)[:, np.newaxis][::-1]
         end_coords_distances = (
             padding * np.array([[-1, 1], [-1, 1], [-1, 1]]) * voxel_size
         )
@@ -575,7 +575,7 @@ class BrachyDose:
         padded_dose.grid = new_dose_grid
         padded_dose.uncert = new_uncert if self.uncertainty is not None else None
         # voxel size remains unchanged
-        padded_dose.vox_size = self.vox_size
+        padded_dose.voxel_size = self.voxel_size
         padded_dose.topleft = final_topleft
         padded_dose.voxel_edges = new_axis
 
@@ -590,7 +590,7 @@ class BrachyDose:
             - self := a BrachyDose object containing the following keys:
                 grid [z, y, x]
                 uncert [z, y, x]
-                vox_size [x, y, z]
+                voxel_size [x, y, z]
                 topleft [x, y, z]
                 axis [z, y, x]
 
@@ -650,7 +650,7 @@ class BrachyDose:
             sitk.GetImageFromArray(dose_nda), sitk.GetImageFromArray(uncertainty_nda)
         )
         image_nrrd.SetOrigin(np.append([0], self.topleft))
-        image_nrrd.SetSpacing(np.append([1], self.vox_size))
+        image_nrrd.SetSpacing(np.append([1], self.voxel_size))
 
         # set the metadata: all sitk Images belonging to a patient will have the same meta data
         if metadata is not None:
@@ -689,7 +689,7 @@ class BrachyDose:
             grid=self.grid,
             uncertainty=self.uncertainty,
             num_voxels=self.num_voxels,
-            vox_size=self.vox_size,
+            voxel_size=self.voxel_size,
             topleft=self.topleft,
             axis=self.voxel_edges,
         )
@@ -717,11 +717,11 @@ class BrachyDose:
             dims_array.tofile(newfile)
 
             # lines 2,3 and 4 are the voxel sizes x, y, z
-            float_array_x = array("f", [self.vox_size[0]])
+            float_array_x = array("f", [self.voxel_size[0]])
             float_array_x.tofile(newfile)
-            float_array_y = array("f", [self.vox_size[1]])
+            float_array_y = array("f", [self.voxel_size[1]])
             float_array_y.tofile(newfile)
-            float_array_z = array("f", [self.vox_size[2]])
+            float_array_z = array("f", [self.voxel_size[2]])
             float_array_z.tofile(newfile)
 
             # lines 5, 6, 7 are the origins x, y, and z
@@ -760,19 +760,19 @@ class BrachyDose:
             - dose := output of load_3ddose(). it should have the following keys and values:
                 {"grid":,
                 "topleft":,
-                "vox_size":}
+                "voxel_size":}
         Output:
             - axes:numpy.array() :=
-            [[z_min:vox_size:z_max],
-            [y_min:vox_size:y_max],
-            [x_min:vox_size:x_max]]
+            [[z_min:voxel_size:z_max],
+            [y_min:voxel_size:y_max],
+            [x_min:voxel_size:x_max]]
         """
         # calculate the end point of axis in 3D space
         axes_end = np.array(
             # one voxel size is added because np.arange stops at an index before the end
             self.topleft
-            + self.num_voxels * self.vox_size
-            + self.vox_size
+            + self.num_voxels * self.voxel_size
+            + self.voxel_size
         )
 
         self.voxel_edges = np.empty(len(axes_end), dtype=object)
@@ -780,7 +780,7 @@ class BrachyDose:
             self.voxel_edges[i] = np.arange(
                 self.topleft[len(axes_end) - 1 - i],
                 axes_end[len(axes_end) - 1 - i],
-                self.vox_size[len(axes_end) - 1 - i],
+                self.voxel_size[len(axes_end) - 1 - i],
                 dtype=np.float32,
             )
             if np.absolute(self.num_voxels[::-1][i] - self.voxel_edges[i].shape[0]) > 1:
@@ -791,7 +791,7 @@ class BrachyDose:
         voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
         if self.voxel_edges is not None:
             for i in range(len(self.voxel_edges)):
-                voxel_centers[i] = self.voxel_edges[i] + self.vox_size[i] / 2.0
+                voxel_centers[i] = self.voxel_edges[i] + self.voxel_size[i] / 2.0
                 voxel_centers[i] = voxel_centers[i][:-1]
         else:
             raise ValueError("Voxel edges are not calculated yet")
@@ -826,12 +826,12 @@ class BrachyDose:
             self.num_voxels, new_brachy_dose.num_voxels
         ), "num_voxels is not the same"
         assert np.array_equal(
-            self.vox_size, new_brachy_dose.vox_size
-        ), "vox_size is not the same"
+            self.voxel_size, new_brachy_dose.voxel_size
+        ), "voxel_size is not the same"
         assert np.array_equal(
             self.topleft, new_brachy_dose.topleft
         ), "topleft is not the same"
-        # assert np.array_equal(np.round(self.vox_size, 2), np.round(new_brachy_dose.vox_size, 2)), "vox_size is not the same"
+        # assert np.array_equal(np.round(self.voxel_size, 2), np.round(new_brachy_dose.voxel_size, 2)), "voxel_size is not the same"
         # assert np.array_equal(np.round(self.topleft, 2), np.round(new_brachy_dose.topleft), 2), "topleft is not the same"
 
         return (
@@ -842,10 +842,10 @@ class BrachyDose:
             )
             and np.array_equal(self.uncertainty, new_brachy_dose.uncertainty)
             and np.array_equal(self.num_voxels, new_brachy_dose.num_voxels)
-            and np.array_equal(self.vox_size, new_brachy_dose.vox_size)
+            and np.array_equal(self.voxel_size, new_brachy_dose.voxel_size)
             and np.array_equal(self.topleft, new_brachy_dose.topleft)
         )
-        # and np.array_equal(np.round(self.vox_size, 2), np.round(new_brachy_dose.vox_size, 2)) \
+        # and np.array_equal(np.round(self.voxel_size, 2), np.round(new_brachy_dose.voxel_size, 2)) \
         # and np.array_equal(np.round(self.topleft, 2), np.round(new_brachy_dose.topleft), 2)
         # np.array_equal(np.round(np.concatenate(self.voxel_edges), 2), np.concatenate(new_brachy_dose.voxel_edges)) \
 
@@ -862,7 +862,7 @@ class BrachyDose:
                 [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
         Output:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the coordinate range.
-                it will also update the num_voxels, topleft and axis. only vox_size will not change
+                it will also update the num_voxels, topleft and axis. only voxel_size will not change
         Dependencies:
             -self.crop_by_index()
         """
@@ -885,10 +885,10 @@ class BrachyDose:
         # convert new coordinates to indicies for both beggingn and ending (may not be exact)
         new_origin_distance = coord_range[:, 0] - self.topleft
 
-        new_origin_index = np.floor(new_origin_distance / self.vox_size).astype(int)
+        new_origin_index = np.floor(new_origin_distance / self.voxel_size).astype(int)
 
         new_ending_index = np.floor(
-            (coord_range[:, 1] - self.topleft) / self.vox_size
+            (coord_range[:, 1] - self.topleft) / self.voxel_size
         ).astype(int)
 
         new_index_range = np.column_stack([new_origin_index, new_ending_index])
@@ -912,7 +912,7 @@ class BrachyDose:
                     +++++++++       ---------
         Output:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the coordinate range.
-                it will also update the num_voxels, topleft and axis. only vox_size will not change
+                it will also update the num_voxels, topleft and axis. only voxel_size will not change
         Dependencies:
             -self.crop_by_index()
         """
@@ -951,7 +951,7 @@ class BrachyDose:
                 [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
         Output:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the index range.
-                it will also update the num_voxels, topleft and axis. only vox_size will not change
+                it will also update the num_voxels, topleft and axis. only voxel_size will not change
         Dependencies:
             - None
         """
@@ -1006,7 +1006,7 @@ class BrachyDose:
                 ]
             )
             new_dose_obj.num_voxels = np.flip(self.grid.shape, 0)
-            new_dose_obj.vox_size = self.vox_size
+            new_dose_obj.voxel_size = self.voxel_size
             new_dose_obj.voxel_edges = self.calculate_voxel_edges()
             return new_dose_obj
 
@@ -1016,7 +1016,7 @@ class BrachyDose:
         # e.g. for gamma and percent difference
         # assert self.uncertainty is not None, "error uncertainty is None"
         assert self.num_voxels is not None, "error num_voxels is None"
-        assert self.vox_size is not None, "error vox_size is None"
+        assert self.voxel_size is not None, "error voxel_size is None"
         assert self.topleft is not None, "error topleft is None"
         assert self.voxel_edges is not None, "error axis is None"
         return True
@@ -1024,10 +1024,11 @@ class BrachyDose:
     def info(self):
         self.is_not_empty()
         print(f"shape of dose grid is: {self.grid.shape}")
-        print(f"shape of uncertainty matrix is: {self.uncertainty.shape}")
+        if self.uncertainty is not None:
+            print(f"shape of uncertainty matrix is: {self.uncertainty.shape}")
         print(f"num voxels attribute is: {self.num_voxels}")
         print(f"the top left (bottom left in reality) is {self.topleft}")
-        print(f"the voxel size is {self.vox_size}")
+        print(f"the voxel size is {self.voxel_size}")
         print(
             f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
         )
@@ -1063,7 +1064,7 @@ class BrachyDose:
 
         Outputs:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the body contour
-                    in the dicom structure file. It will also update the num_voxels, topleft and axis. only vox_size will not change
+                    in the dicom structure file. It will also update the num_voxels, topleft and axis. only voxel_size will not change
         """
         from dicom_utils import BrachyDicom
 
@@ -1119,7 +1120,7 @@ def dose_with_empty_grid_like(doseObj: BrachyDose):
     new_dose.grid = np.zeros_like(doseObj.grid)
     new_dose.uncertainty = np.zeros_like(doseObj.grid)
     new_dose.num_voxels = doseObj.num_voxels
-    new_dose.vox_size = doseObj.vox_size
+    new_dose.voxel_size = doseObj.voxel_size
     new_dose.topleft = doseObj.topleft
     new_dose.voxel_edges = doseObj.voxel_edges
     return new_dose
@@ -1328,7 +1329,7 @@ class DoseComparison:
             np.abs(self.dose1.grid - self.dose_2_grid_resampled) / self.dose1.grid * 100
         )
         self.percent_difference.voxel_edges = self.dose1.voxel_edges
-        self.percent_difference.vox_size = self.dose1.vox_size
+        self.percent_difference.voxel_size = self.dose1.voxel_size
         self.percent_difference.topleft = self.dose1.topleft
         self.percent_difference.num_voxels = self.dose1.num_voxels
         self.percent_difference.create_interpolation_function()
@@ -1351,7 +1352,7 @@ class DoseComparison:
         gamma_index_grid[np.isnan(gamma_index_grid)] = -1
         self.gamma_index.grid = gamma_index_grid
         self.gamma_index.voxel_edges = self.dose1.voxel_edges
-        self.gamma_index.vox_size = self.dose1.vox_size
+        self.gamma_index.voxel_size = self.dose1.voxel_size
         self.gamma_index.topleft = self.dose1.topleft
         self.gamma_index.num_voxels = self.dose1.num_voxels
         self.gamma_pass_ratio = (

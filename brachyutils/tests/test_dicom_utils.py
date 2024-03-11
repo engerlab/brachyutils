@@ -4,7 +4,7 @@ from dicom_utils import BrachyDicom
 
 def test_get_strcuture_mask_from_dicom():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
-    dicom_obj = BrachyDicom(pth_dicomRS)
+    dicom_obj = BrachyDicom(pth_dicomRS, load_dose=True)
     strcuture_masks = dicom_obj.get_strcuture_mask_from_dicom(
         ["urethra", "rectum", "ctv"]
     )

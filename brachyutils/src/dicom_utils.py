@@ -51,7 +51,7 @@ class BrachyDicom:
 
         if load_image:
             self.image = self.dicom_reader.ArrayDicom
-            self.origin_coords = np.array(
+            self.topleft = np.array(
                 self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
             )
             self.voxel_size = np.array(
@@ -140,3 +140,8 @@ class BrachyDicom:
     def reset(self):
         self.mask_dict = {}
         self.structure_index_range_dict = {}
+
+    def info(self):
+        print(
+            f"shape of the image: "
+        )
