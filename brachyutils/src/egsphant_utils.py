@@ -1,10 +1,12 @@
+import json
 import os
 from typing import Optional
 
 import numpy as np
 
-from dicom_utils import get_structure_index_range
-import json
+# from dicom_utils import get_structure_index_range
+from dicom_utils import BrachyDicom
+
 
 class BrachyEgsphant:
     r"""
@@ -470,9 +472,7 @@ class BrachyEgsphant:
                 pth_dir_dicom is not None
             ), "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            body_mask_info = get_structure_index_range(
-                pth_dir_dicom, query_structure_list=["body"]
-            )
+            body_mask_info = BrachyDicom(pth_dir_dicom, query_structure_list=["body"])
             body_index_range = body_mask_info["body"]["structure_index_range"]
             body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]
         # the body mask may have a different size than the material map, we normalize range to the dimension

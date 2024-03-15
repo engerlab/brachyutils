@@ -8,7 +8,8 @@ from multiprocessing import Pool
 
 import numpy as np
 import typer
-from dicom_utils import get_structure_index_range
+
+from dicom_utils import BrachyDicom
 from dose_utils import BrachyDose
 from egsphant_utils import BrachyEgsphant, _load_json
 from plan_utils import BrachyPlan
@@ -90,9 +91,9 @@ def get_body_contour_range_from_dicom_many_patients(
 
     for patient_dir in patient_dir_list:
         try:
-            body_mask_info = get_structure_index_range(
-                patient_dir, query_structure_list=["body"]
-            )
+            body_mask_info = BrachyDicom(
+                pth_dicomRS, load_dose=True
+            ).get_structure_index_range(["body"])
             body_index_range = body_mask_info["body"]["structure_index_range"]
             body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]
             patient_dict_list.append(

@@ -2,7 +2,6 @@ import logging
 import os
 import sys
 import numpy as np
-# from dicom_utils import get_structure_index_range
 from dose_utils import BrachyDose, DoseComparison
 
 

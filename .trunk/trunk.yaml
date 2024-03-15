@@ -18,19 +18,19 @@ runtimes:
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
   enabled:
-    - bandit@1.7.7
+    - bandit@1.7.8
     - black@24.2.0
     - git-diff-check
     - isort@5.13.2
     - markdownlint@0.39.0
-    - osv-scanner@1.6.2
+    - osv-scanner@1.7.0
     - oxipng@9.0.0
     - prettier@3.2.5
-    - ruff@0.3.1
+    - ruff@0.3.2
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - svgo@3.2.0
-    - trufflehog@3.68.5
+    - trufflehog@3.69.0
 actions:
   disabled:
     - trunk-announce

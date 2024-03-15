@@ -82,3 +82,10 @@ def test_combined_dose_per_patient():
         mp_combined.uncertainty < 0.1
     ), "Mean uncertainty should be far less \
         than the uncertainty of the individual doses"
+
+if __name__ == "__main__":
+    test_get_body_contour_range_from_dicom_many_patients()
+    # test_crop_egsphant_by_body_contour_many_patients()
+    # test_convert_many_files()
+    # test_crop_dose_by_body_contour_many_files()
+    # test_combined_dose_per_patient()
