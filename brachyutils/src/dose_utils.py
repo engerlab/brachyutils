@@ -1,4 +1,3 @@
-import array
 import difflib
 import logging
 import lzma
@@ -9,6 +8,7 @@ import pickle
 import sys
 import tkinter as tk
 import warnings
+from array import array
 from tkinter import filedialog as fd
 from typing import List, Optional
 
