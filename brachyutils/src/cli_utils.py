@@ -8,7 +8,6 @@ from multiprocessing import Pool
 
 import numpy as np
 import typer
-
 from dicom_utils import BrachyDicom
 from dose_utils import BrachyDose
 from egsphant_utils import BrachyEgsphant, _load_json
@@ -80,7 +79,7 @@ def get_body_contour_range_from_dicom_many_patients(
                     [y_min:int, y_max:int],
                     [z_min:int, z_max:int],
                 ]
-                body_mask_shape:[len(x):int, len(y):int, len(z):int]
+                body_mask_shape:[len(x):int, len(y):int, len(z):/int]
             }
     """
 
@@ -90,9 +89,11 @@ def get_body_contour_range_from_dicom_many_patients(
     patient_dict_list = []
 
     for patient_dir in patient_dir_list:
+        if ".dcm" not in ",".join(os.listdir(patient_dir)):
+            continue
         try:
             body_mask_info = BrachyDicom(
-                pth_dicomRS, load_dose=True
+                patient_dir, load_dose=True
             ).get_structure_index_range(["body"])
             body_index_range = body_mask_info["body"]["structure_index_range"]
             body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]

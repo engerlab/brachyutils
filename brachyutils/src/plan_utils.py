@@ -8,7 +8,7 @@ from glob import glob
 from multiprocessing import Pool, cpu_count
 
 import numpy as np
-from dicom_utils import get_strcuture_mask_from_dicom
+from dicom_utils import BrachyDicom  # get_strcuture_mask_from_dicom
 from dose_utils import BrachyDose, dose_with_empty_grid_like
 from egsphant_utils import BrachyEgsphant
 from scipy import interpolate, ndimage
@@ -603,7 +603,7 @@ class BrachyPlan:
         Outputs:
             - Void := will update the BrachyPlan.structure_list attribute
         Dependencies:
-            - get_strcuture_mask_from_dicom
+            - BrachyDicom
         """
         assert (
             self.dvh_metric_goals is not None
@@ -1095,10 +1095,9 @@ def load_structure_mask(
 
     if structure_source_type == ".dcm":
         print("loading structure set from dicom files")
-        structure_mask_dict = get_strcuture_mask_from_dicom(
-            dir_structure_source, structure_name_list
-        )
-
+        structure_mask_dict = BrachyDicom(
+            dir_structure_source
+        ).get_strcuture_mask_from_dicom(structure_name_list)
     elif structure_source_type == ".nrrd":
         print("loading structure set from nrrd file")
         raise NotImplementedError(

@@ -14,7 +14,8 @@ from dose_utils import BrachyDose
 
 
 def test_get_body_contour_range_from_dicom_many_patients():
-    input_dir = "../../data_test/prostate-glen-p1-dcm/"
+    # input_dir = "../../data_test/prostate-glen-p1-dcm/"
+    input_dir = "../../data_test/"
     pth_json = "../../data_test/patient_body_bounds_output.json"
 
     get_body_contour_range_from_dicom_many_patients(input_dir, pth_json)
@@ -83,9 +84,10 @@ def test_combined_dose_per_patient():
     ), "Mean uncertainty should be far less \
         than the uncertainty of the individual doses"
 
+
 if __name__ == "__main__":
-    test_get_body_contour_range_from_dicom_many_patients()
-    # test_crop_egsphant_by_body_contour_many_patients()
+    # test_get_body_contour_range_from_dicom_many_patients()
+    test_crop_egsphant_by_body_contour_many_patients()
     # test_convert_many_files()
     # test_crop_dose_by_body_contour_many_files()
     # test_combined_dose_per_patient()
