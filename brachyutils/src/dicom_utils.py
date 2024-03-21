@@ -4,6 +4,7 @@ import os
 from glob import glob
 
 import numpy as np
+import pydicom
 from DicomRTTool.ReaderWriter import DicomReaderWriter
 from dose_utils import BrachyDose
 
@@ -67,7 +68,9 @@ class BrachyDicom:
         if load_dose:
             self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
         if load_plan:
-            self.plan = self.dicom_reader.plan
+            self.catheter_table = load_catheter_table(
+                glob(pth_dir_dicom + "/RP*.dcm")[0]
+            )
 
     def get_structure_index_range(self, query_structure_list: list):
         r"""
@@ -149,3 +152,36 @@ class BrachyDicom:
         print(f"the shape of dose: {self.dose.num_voxels}")
         print(f"origin of the dose: {self.dose.topleft}")
         print(f"voxel size of the dose: {self.dose.voxel_size}")
+
+
+def load_catheter_table(pth_catheter_table: str):
+    # load the plan file into an rt_plan object
+    plan = pydicom.dcmread(pth_catheter_table)
+    catheter_table = []
+    total_reference_air_kerma = float(plan.ApplicationSetupSequence[0].TotalReferenceAirKerma)
+    for catheter_dcm in plan.ApplicationSetupSequence[0].ChannelSequence:
+        dwells = []
+        catheter_time = float(catheter_dcm.ChannelTotalTime)
+        for dwell_dcm in catheter_dcm.BrachyControlPointSequence:
+            dwell_time_weight = float(dwell_dcm.CumulativeTimeWeight)
+            dwells.append(
+                {
+                    "index": int(dwell_dcm.ControlPointIndex),
+                    "angle": None,
+                    "position": np.array(dwell_dcm.ControlPoint3DPosition, dtype=np.float32),
+                    "relativePos": catheter_time*dwell_time_weight,
+                    "rotation": None,
+                    "time": float(dwell_dcm.CumulativeTimeWeight),
+                    "weight": dwell_time_weight,
+                    "total rerence air kerma": total_reference_air_kerma
+                }
+            )
+        catheter_table.append(
+            {
+                "id": catheter_dcm.ChannelNumber,
+                "points": [],
+                "channel total time": catheter_time,
+                "dwells": dwells,
+            }
+        )
+    return catheter_table

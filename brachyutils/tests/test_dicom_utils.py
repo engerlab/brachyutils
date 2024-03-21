@@ -2,6 +2,18 @@
 from dicom_utils import BrachyDicom
 
 
+def test_load_dicom():
+    pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
+    dicom_obj = BrachyDicom(
+        pth_dicomRS,
+        load_image=True,
+        load_structure=True,
+        load_dose=True,
+        load_plan=True,
+    )
+    dicom_obj.info()
+
+
 def test_get_strcuture_mask_from_dicom():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
     dicom_obj = BrachyDicom(pth_dicomRS, load_dose=True)
@@ -26,5 +38,6 @@ def test_get_structure_index_range():
 
 if __name__ == "__main__":
     print("running tests")
-    test_get_strcuture_mask_from_dicom()
-    test_get_structure_index_range()
+    test_load_dicom()
+    # test_get_strcuture_mask_from_dicom()
+    # test_get_structure_index_range()
