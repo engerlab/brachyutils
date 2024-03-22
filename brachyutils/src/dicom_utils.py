@@ -158,29 +158,67 @@ def load_catheter_table(pth_catheter_table: str):
     # load the plan file into an rt_plan object
     plan = pydicom.dcmread(pth_catheter_table)
     catheter_table = []
-    total_reference_air_kerma = float(plan.ApplicationSetupSequence[0].TotalReferenceAirKerma)
+    # total_reference_air_kerma = (
+    #     float(plan.ApplicationSetupSequence[0].TotalReferenceAirKerma)
+    #     if hasattr(plan.ApplicationSetupSequence[0], "TotalReferenceAirKerma")
+    #     else 0
+    # )
+
     for catheter_dcm in plan.ApplicationSetupSequence[0].ChannelSequence:
         dwells = []
-        catheter_time = float(catheter_dcm.ChannelTotalTime)
+        catheter_time = (
+            float(catheter_dcm.ChannelTotalTime)
+            if hasattr(catheter_dcm, "ChannelTotalTime")
+            else 0
+        )
+        catheter_time_weight = (
+            float(catheter_dcm.FinalCumulativeTimeWeight)
+            if hasattr(catheter_dcm, "FinalCumulativeTimeWeight")
+            else 0
+        )
         for dwell_dcm in catheter_dcm.BrachyControlPointSequence:
-            dwell_time_weight = float(dwell_dcm.CumulativeTimeWeight)
+            dwell_time_weight = (
+                float(dwell_dcm.CumulativeTimeWeight)
+                if hasattr(dwell_dcm, "CumulativeTimeWeight")
+                else 0
+            )
             dwells.append(
                 {
-                    "index": int(dwell_dcm.ControlPointIndex),
-                    "angle": None,
-                    "position": np.array(dwell_dcm.ControlPoint3DPosition, dtype=np.float32),
-                    "relativePos": catheter_time*dwell_time_weight,
-                    "rotation": None,
-                    "time": float(dwell_dcm.CumulativeTimeWeight),
-                    "weight": dwell_time_weight,
-                    "total rerence air kerma": total_reference_air_kerma
+                    "index": (
+                        int(dwell_dcm.ControlPointIndex)
+                        if hasattr(dwell_dcm, "ControlPointIndex")
+                        else None
+                    ),
+                    "angle": (
+                        dwell_dcm.ControlPointShieldAngle
+                        if hasattr(dwell_dcm, "ControlPointShieldAngle")
+                        else 0
+                    ),
+                    "position": (
+                        np.array(dwell_dcm.ControlPoint3DPosition, dtype=np.float32)
+                        if hasattr(dwell_dcm, "ControlPoint3DPosition")
+                        else None
+                    ),
+                    "relativePos": (
+                        float(dwell_dcm.ControlPointRelativePosition)
+                        if hasattr(dwell_dcm, "ControlPointRelativePosition")
+                        else None
+                    ),
+                    "rotation": (
+                        np.array(dwell_dcm.ControlPointOrientation, dtype=np.float32)
+                        if hasattr(dwell_dcm, "ControlPointOrientation")
+                        else None
+                    ),
+                    "time": catheter_time * dwell_time_weight / catheter_time_weight,
+                    "weight": dwell_time_weight * catheter_time_weight,
+                    # "total rerence air kerma": total_reference_air_kerma,
                 }
             )
         catheter_table.append(
             {
-                "id": catheter_dcm.ChannelNumber,
+                "id": int(catheter_dcm.ChannelNumber),
                 "points": [],
-                "channel total time": catheter_time,
+                "channel_total_time": catheter_time,
                 "dwells": dwells,
             }
         )
