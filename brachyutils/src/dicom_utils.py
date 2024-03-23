@@ -68,7 +68,10 @@ class BrachyDicom:
         if load_dose:
             self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
         if load_plan:
-            self.catheter_table = load_catheter_table(
+            self.catheter_table = load_catheter_table_from_dicom(
+                glob(pth_dir_dicom + "/RP*.dcm")[0]
+            )
+            self.source_info = load_source_info_from_dicom(
                 glob(pth_dir_dicom + "/RP*.dcm")[0]
             )
 
@@ -154,63 +157,80 @@ class BrachyDicom:
         print(f"voxel size of the dose: {self.dose.voxel_size}")
 
 
-def load_catheter_table(pth_catheter_table: str):
+def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
+    r"""
+    Purpose:
+        - To load the catheter table from the dicom plan file.
+    Inputs:
+        - pth_dicom_plan:str := the path to the dicom plan file.
+    Outputs:
+        - catheter_table:dict := a dictionary with the catheter id as key and the dwell points as value.
+        the details of the keys in this dictionary are"
+            - id:int := the id of the catheter.
+            - points:list := a list of the dwell points.
+                - index:int := the index of the dwell point.
+                - angle:float := the angle of the dwell point.
+                - position:np.array := the position of the dwell point.
+                - relativePos:float := the relative position of the dwell point.
+                - rotation:np.array := the rotation of the dwell point.
+                - time:float := the time of the dwell point.
+                - weight:float := the weight of the dwell point.
+    Dependencies:
+        - pydicom: https://pydicom.github.io/
+    """
     # load the plan file into an rt_plan object
-    plan = pydicom.dcmread(pth_catheter_table)
+    plan = pydicom.dcmread(pth_dicom_plan)
     catheter_table = []
-    # total_reference_air_kerma = (
-    #     float(plan.ApplicationSetupSequence[0].TotalReferenceAirKerma)
-    #     if hasattr(plan.ApplicationSetupSequence[0], "TotalReferenceAirKerma")
-    #     else 0
-    # )
-
     for catheter_dcm in plan.ApplicationSetupSequence[0].ChannelSequence:
-        dwells = []
+        control_points = []
         catheter_time = (
             float(catheter_dcm.ChannelTotalTime)
             if hasattr(catheter_dcm, "ChannelTotalTime")
             else 0
         )
-        catheter_time_weight = (
+        channel_final_time_weight = (
             float(catheter_dcm.FinalCumulativeTimeWeight)
             if hasattr(catheter_dcm, "FinalCumulativeTimeWeight")
             else 0
         )
-        for dwell_dcm in catheter_dcm.BrachyControlPointSequence:
-            dwell_time_weight = (
-                float(dwell_dcm.CumulativeTimeWeight)
-                if hasattr(dwell_dcm, "CumulativeTimeWeight")
+        for control_point_dcm in catheter_dcm.BrachyControlPointSequence:
+            cumulative_time_weight = (
+                float(control_point_dcm.CumulativeTimeWeight)
+                if hasattr(control_point_dcm, "CumulativeTimeWeight")
                 else 0
             )
-            dwells.append(
+            control_points.append(
                 {
                     "index": (
-                        int(dwell_dcm.ControlPointIndex)
-                        if hasattr(dwell_dcm, "ControlPointIndex")
+                        int(control_point_dcm.ControlPointIndex)
+                        if hasattr(control_point_dcm, "ControlPointIndex")
                         else None
                     ),
                     "angle": (
-                        dwell_dcm.ControlPointShieldAngle
-                        if hasattr(dwell_dcm, "ControlPointShieldAngle")
+                        control_point_dcm.ControlPointShieldAngle
+                        if hasattr(control_point_dcm, "ControlPointShieldAngle")
                         else 0
                     ),
                     "position": (
-                        np.array(dwell_dcm.ControlPoint3DPosition, dtype=np.float32)
-                        if hasattr(dwell_dcm, "ControlPoint3DPosition")
+                        np.array(
+                            control_point_dcm.ControlPoint3DPosition, dtype=np.float32
+                        )
+                        if hasattr(control_point_dcm, "ControlPoint3DPosition")
                         else None
                     ),
                     "relativePos": (
-                        float(dwell_dcm.ControlPointRelativePosition)
-                        if hasattr(dwell_dcm, "ControlPointRelativePosition")
+                        float(control_point_dcm.ControlPointRelativePosition)
+                        if hasattr(control_point_dcm, "ControlPointRelativePosition")
                         else None
                     ),
                     "rotation": (
-                        np.array(dwell_dcm.ControlPointOrientation, dtype=np.float32)
-                        if hasattr(dwell_dcm, "ControlPointOrientation")
+                        np.array(
+                            control_point_dcm.ControlPointOrientation, dtype=np.float32
+                        )
+                        if hasattr(control_point_dcm, "ControlPointOrientation")
                         else None
                     ),
-                    "time": catheter_time * dwell_time_weight / catheter_time_weight,
-                    "weight": dwell_time_weight * catheter_time_weight,
+                    "cumulative_weight": cumulative_time_weight,
                     # "total rerence air kerma": total_reference_air_kerma,
                 }
             )
@@ -219,7 +239,17 @@ def load_catheter_table(pth_catheter_table: str):
                 "id": int(catheter_dcm.ChannelNumber),
                 "points": [],
                 "channel_total_time": catheter_time,
-                "dwells": dwells,
+                "channel_final_time_weight": channel_final_time_weight,
+                "control_points": control_points,
             }
         )
+
+    # after extracting the final cummulative time weight of the catheters,
+    # the time of the catheter, and the cummulative time weight of the control points,
+    # we need to calculate the dwell time and time weight of the dwell positions.
+
     return catheter_table
+
+
+def load_source_info_from_dicom(pth_dicom_plan):
+    raise NotImplementedError
