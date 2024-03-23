@@ -39,5 +39,5 @@ def test_get_structure_index_range():
 if __name__ == "__main__":
     print("running tests")
     test_load_dicom()
-    # test_get_strcuture_mask_from_dicom()
+    # test_get_strcuture_mask_from_dicom()5
     # test_get_structure_index_range()
