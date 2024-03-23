@@ -68,11 +68,10 @@ class BrachyDicom:
         if load_dose:
             self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
         if load_plan:
-            self.catheter_table = load_catheter_table_from_dicom(
-                glob(pth_dir_dicom + "/RP*.dcm")[0]
-            )
-            self.source_info = load_source_info_from_dicom(
-                glob(pth_dir_dicom + "/RP*.dcm")[0]
+            self.catheter_table, self.source_info = (
+                load_catheter_table_and_source_info_from_dicom(
+                    glob(pth_dir_dicom + "/RP*.dcm")[0]
+                )
             )
 
     def get_structure_index_range(self, query_structure_list: list):
@@ -155,6 +154,15 @@ class BrachyDicom:
         print(f"the shape of dose: {self.dose.num_voxels}")
         print(f"origin of the dose: {self.dose.topleft}")
         print(f"voxel size of the dose: {self.dose.voxel_size}")
+        num_dwell_positions = np.sum(
+            [len(catheter["dwells"]) for catheter in self.catheter_table]
+        )
+        print(f"number of dwell positions: {num_dwell_positions}")
+        treatment_time = np.sum(
+            [catheter["channel_total_time"] for catheter in self.catheter_table]
+        )
+        print(f"treatment time: {treatment_time}")
+        print(f"source info: {self.source_info}")
 
 
 def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
@@ -175,12 +183,33 @@ def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
                 - rotation:np.array := the rotation of the dwell point.
                 - time:float := the time of the dwell point.
                 - weight:float := the weight of the dwell point.
+
+        - source_info:dict := a dictionary with the source information.
     Dependencies:
         - pydicom: https://pydicom.github.io/
     """
     # load the plan file into an rt_plan object
     plan = pydicom.dcmread(pth_dicom_plan)
     catheter_table = []
+    # get the source info
+    source_info = {
+        "TotalReferenceAirKerma": (
+            float(plan.ApplicationSetupSequence[0].TotalReferenceAirKerma)
+            if hasattr(plan.ApplicationSetupSequence[0], "TotalReferenceAirKerma")
+            else None
+        ),
+        # "BrachyTreatmentType": (
+        #     plan.ApplicationSetupSequence[0].BrachyTreatmentType
+        #     if hasattr(plan.ApplicationSetupSequence[0], "BrachyTreatmentType")
+        #     else None
+        # ),
+        # "SourceType": None,
+        # "SourceManufacturer"
+        # ActiveSourceDiameter
+        # ActiveSourceLength
+        # SourceEncapsulationNominalThickness and many more is possible...
+    }
+    # loop through the channels
     for catheter_dcm in plan.ApplicationSetupSequence[0].ChannelSequence:
         control_points = []
         catheter_time = (
@@ -193,6 +222,8 @@ def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
             if hasattr(catheter_dcm, "FinalCumulativeTimeWeight")
             else 0
         )
+        # loop through the control points.
+        # Each dwell position has 2 control points, get them all.
         for control_point_dcm in catheter_dcm.BrachyControlPointSequence:
             cumulative_time_weight = (
                 float(control_point_dcm.CumulativeTimeWeight)
@@ -243,13 +274,54 @@ def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
                 "control_points": control_points,
             }
         )
+    # # Convert control points to dwell positions:
+    # # after extracting the final cummulative time weight of the catheters,
+    # # the time of the catheter, and the cummulative time weight of the control points,
+    # # we need to calculate the dwell time and time weight of the dwell positions.
+    # # the formula is:
+    # #     time_weight = (cumulative_time_weight - previous_cumulative_time_weight) / channel_final_time_weight
+    # #     dwell time = time_weight * channel_total_time
+    # #     dwell weight = dwell time / sum(channel_total_time)
+    # get total treatment time
+    treatment_time = np.sum(
+        [catheter["channel_total_time"] for catheter in catheter_table]
+    )
+    final_catheter_table = []
+    # loop through the catheters
+    for catheter in catheter_table:
+        dwells = []
+        # loop through the control points
+        # each dwell position has 2 control points:
+        #   arrive time and depart time for the source
+        for idx, control_point in enumerate(catheter["control_points"]):
+            # if idx == len(catheter["control_points"]) - 1:
+            #     break
+            if idx % 2 == 1:
+                continue
+            dwell_time_weight = (
+                catheter["control_points"][idx + 1]["cumulative_weight"]
+                - control_point["cumulative_weight"]
+            ) / catheter["channel_final_time_weight"]
+            dwell_time = dwell_time_weight * catheter["channel_total_time"]
+            dwell_weight = dwell_time / treatment_time
+            dwells.append(
+                {
+                    "index": control_point["index"] / 2,
+                    "angle": control_point["angle"],
+                    "position": control_point["position"],
+                    "relativePos": control_point["relativePos"],
+                    "rotation": control_point["rotation"],
+                    "time": dwell_time,
+                    "weight": dwell_weight,
+                }
+            )
+        final_catheter_table.append(
+            {
+                "id": catheter["id"],
+                "points": catheter["points"],
+                "channel_total_time": catheter["channel_total_time"],
+                "dwells": dwells,
+            }
+        )
 
-    # after extracting the final cummulative time weight of the catheters,
-    # the time of the catheter, and the cummulative time weight of the control points,
-    # we need to calculate the dwell time and time weight of the dwell positions.
-
-    return catheter_table
-
-
-def load_source_info_from_dicom(pth_dicom_plan):
-    raise NotImplementedError
+    return final_catheter_table, source_info
