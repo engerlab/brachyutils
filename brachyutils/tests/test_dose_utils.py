@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 import numpy as np
-from dose_utils import BrachyDose, DoseComparison
+from brachyutils.src.dose_utils import BrachyDose, DoseComparison
 
 
 

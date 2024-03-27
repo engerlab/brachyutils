@@ -3,14 +3,14 @@ import os
 from glob import glob
 
 import numpy as np
-from cli_utils import (
+from brachyutils.src.cli_utils import (
     combined_dose_per_patient,
     convert_dose_many_files,
     crop_dose_by_body_contour_many_files,
     crop_egsphant_by_body_contour_many_patients,
     get_body_contour_range_from_dicom_many_patients,
 )
-from dose_utils import BrachyDose
+from brachyutils.src.dose_utils import BrachyDose
 
 
 def test_get_body_contour_range_from_dicom_many_patients():

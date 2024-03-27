@@ -8,10 +8,10 @@ from multiprocessing import Pool
 
 import numpy as np
 import typer
-from dicom_utils import BrachyDicom
-from dose_utils import BrachyDose
-from egsphant_utils import BrachyEgsphant, _load_json
-from plan_utils import BrachyPlan
+from brachyutils.src.dicom_utils import BrachyDicom
+from brachyutils.src.dose_utils import BrachyDose
+from brachyutils.src.egsphant_utils import BrachyEgsphant, _load_json
+from brachyutils.src.plan_utils import BrachyPlan
 from tqdm import tqdm
 from typing_extensions import Annotated
 

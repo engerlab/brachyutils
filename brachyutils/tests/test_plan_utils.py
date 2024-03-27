@@ -3,7 +3,7 @@ import os
 import time
 
 # from plan_utils import BrachyStructure
-from plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_to_dict
+from brachyutils.src.plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_to_dict
 
 
 def test_load_catheterTable_json():

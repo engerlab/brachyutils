@@ -1,5 +1,5 @@
 # import numpy as np
-from dicom_utils import BrachyDicom
+from brachyutils.src.dicom_utils import BrachyDicom
 
 
 def test_load_dicom():

@@ -6,7 +6,7 @@ from glob import glob
 import numpy as np
 import pydicom
 from DicomRTTool.ReaderWriter import DicomReaderWriter
-from dose_utils import BrachyDose
+from brachyutils.src.dose_utils import BrachyDose
 
 
 class BrachyDicom:

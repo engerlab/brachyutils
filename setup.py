@@ -1,11 +1,12 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
-setup(name='brachyutils',
-      version='1.0',
-      description='Python utility packages for handling dose files and egsphant files.',
-      author='EngerLab',
-      packages = find_packages(),
-      install_requires=[
+setup(
+    name="brachyutils",
+    version="1.0",
+    description="Python utility packages for handling dose files and egsphant files.",
+    author="EngerLab",
+    packages=find_packages(),
+    install_requires=[
         # "contourpy",
         "cycler",
         "fonttools",
@@ -29,12 +30,12 @@ setup(name='brachyutils',
         "tqdm",
         "DicomRTTool",
         "pydicom",
-        "scipy", 
-        "tk", 
+        "scipy",
+        "tk",
         "pymedphys",
         "py7zr",
         "pytest",
-      ],
-      entry_points={'console_scripts': ['brachyutils=cli_utils:main']},
-      package_dir={'':'brachyutils/src'}
-     )
+    ],
+    entry_points={"console_scripts": ["brachyutils=brachyutils.src.cli_utils:main"]},
+    # package_dir={'':'brachyutils/src'}
+)
