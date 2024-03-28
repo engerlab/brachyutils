@@ -220,6 +220,10 @@ class BrachyPlan:
             - dvh_metric_goals:dict = None := dictionary containing the DVH metric goals (default is None).
             - pth_structure_source:str = None := path to the directory containing the structures (default is None).
             - dose_cropped_by_body:bool = True := flag to indicate whether the dose is cropped by body (default is True).
+            - combined_simulation_dict = None := dictionary containing the simulation setup,
+            - dir_egsphant = None := path to the directory containing the egsphant file,
+            - dir_applicator_geometry: str = None,
+            - dir_applicator_materials: str = None,
         Outputs:
             - Void := will initialize the BrachyPlan object
         Dependencies:
@@ -245,8 +249,8 @@ class BrachyPlan:
 
         # sturctures attributes
         # self.organ_bounds = None
-        self.dvh_metric_goals:dict = None
-        self.structure_list:list = []
+        self.dvh_metric_goals: dict = None
+        self.structure_list: list = []
 
         # dicom image
         self.dicom_obj = None
@@ -287,7 +291,9 @@ class BrachyPlan:
         if dir_applicator_geometry is not None or dir_applicator_materials is not None:
             raise NotImplementedError("to be implemented soon")
 
-    def load_brachy_plan_from_dicom(self, dir_dicom: str, dose_cropped_by_body: bool = False):
+    def load_brachy_plan_from_dicom(
+        self, dir_dicom: str, dose_cropped_by_body: bool = False
+    ):
         r"""
         Purpose:
             - To load the brachytherapy plan from a directory containing the dicom files.
@@ -318,10 +324,12 @@ class BrachyPlan:
             load_dose=load_dose,
         )
         if load_structure:
-            self.create_structures(self.dicom_obj.structure_mask_dict, dose_cropped_by_body)
+            self.create_structures(
+                self.dicom_obj.structure_mask_dict, dose_cropped_by_body
+            )
 
         if load_plan:
-            self.catheter_table (self.dicom_obj.catheter_table)
+            self.catheter_table(self.dicom_obj.catheter_table)
 
         if load_dose:
             self.combined_dose = self.dicom_obj.combined_dose
@@ -634,7 +642,7 @@ class BrachyPlan:
 
     def create_structures(
         self,
-        structure_mask_dict:dict = None,
+        structure_mask_dict: dict = None,
         dir_structures_source: str = None,
         dose_cropped_by_body: bool = False,
     ):
@@ -671,7 +679,9 @@ class BrachyPlan:
                 dir_structures_source, structure_name_list
             )
         else:
-            assert structure_mask_dict is not None, "structure mask dict is not provided. Either provide it or provide dir_structures_source"
+            assert (
+                structure_mask_dict is not None
+            ), "structure mask dict is not provided. Either provide it or provide dir_structures_source"
         # get the index extent of body contour on each axis
         if dose_cropped_by_body:
             body_index_range = np.zeros([3, 2], dtype=int)

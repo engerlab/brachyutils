@@ -45,6 +45,7 @@ class BrachyDicom:
         self.mask_dict: dict = {}
         self.structure_index_range_dict: dict = {}
         self.dose: BrachyDose = None
+        self.dvh_metrics: dict = None
         self.catheter_table: dict = None
         self.source_info: dict = None
 
@@ -76,6 +77,9 @@ class BrachyDicom:
 
         if load_dose:
             self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
+            self.dvh_metrics = get_dvh_metrics_from_dicom_dose(
+                glob(pth_dir_dicom + "/RD*.dcm")[0]
+            )
         if load_plan:
             self.catheter_table, self.source_info = (
                 load_catheter_table_and_source_info_from_dicom(
@@ -334,3 +338,18 @@ def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
         )
 
     return final_catheter_table, source_info
+
+
+def get_dvh_metrics_from_dicom_dose(pth_dicom_dose: str):
+    r"""
+    Purpose:
+        - To get the dvh metrics from the dicom dose file.
+    Inputs:
+        - pth_dicom_dose:str := the path to the dicom dose file.
+    Outputs:
+        - dvh_metrics:dict := a dictionary with the dvh metrics.
+    Dependencies:
+        - pydicom: https://pydicom.github.io/
+    """
+    # load the dose file into an rt_dose object
+    raise NotImplementedError("this function is not implemented yet")
