@@ -3,7 +3,10 @@ import os
 import time
 
 # from plan_utils import BrachyStructure
-from brachyutils.src.plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_to_dict
+from brachyutils.src.plan_utils import (
+    BrachyPlan,
+    _load_single_dose_or_uncertainty_to_dict,
+)
 
 
 def test_load_catheterTable_json():
@@ -227,6 +230,17 @@ def test_export_brachy_plan():
     plan_obj.export_brachy_plan(export_format, dir_export, content_to_export)
 
 
+def test_load_brachy_plan_from_dicom():
+    pth_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    dvh_metric_goals = {
+        "D95%(ctv)": 15,
+        "D1cc(rectum)": 11.25,
+        "D0.1cc(urethra)": 18.75,
+    }
+    plan_obj = BrachyPlan(pth_dicom, dvh_metric_goals=dvh_metric_goals)
+    plan_obj.info()
+
+
 if __name__ == "__main__":
     # test_load_catheterTable_json()
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
@@ -237,4 +251,5 @@ if __name__ == "__main__":
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
-    test_export_brachy_plan()
+    # test_export_brachy_plan()
+    test_load_brachy_plan_from_dicom()

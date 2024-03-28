@@ -263,6 +263,12 @@ class BrachyPlan:
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
+        (
+            self.set_dvh_metric_goals(dvh_metric_goals)
+            if dvh_metric_goals is not None
+            else None
+        )
+
         if dir_dicom is not None:
             self.load_brachy_plan_from_dicom(dir_dicom, dose_cropped_by_body)
 
@@ -279,7 +285,6 @@ class BrachyPlan:
             )
 
         if pth_structure_source is not None and dvh_metric_goals is not None:
-            self.set_dvh_metric_goals(dvh_metric_goals)
             self.create_structures(pth_structure_source, dose_cropped_by_body)
 
         if dir_egsphant is not None:
@@ -329,10 +334,10 @@ class BrachyPlan:
             )
 
         if load_plan:
-            self.catheter_table(self.dicom_obj.catheter_table)
+            self.catheter_table = self.dicom_obj.catheter_table
 
         if load_dose:
-            self.combined_dose = self.dicom_obj.combined_dose
+            self.combined_dose = self.dicom_obj.dose
 
     def load_catheterTable_json(self, pth_catheterTable_json: str):
         r"""
@@ -698,7 +703,10 @@ class BrachyPlan:
                 ).astype(int)
 
         for structure in self.structure_list:
-            mask = structure_mask_dict[structure.name]
+            structure_name_in_dicom = list(
+                filter(lambda x: structure.name in x, structure_mask_dict.keys())
+            )[0]
+            mask = structure_mask_dict[structure_name_in_dicom]
             # apply body contour mask to the structure mask
             if dose_cropped_by_body:
                 mask = mask[
@@ -707,8 +715,13 @@ class BrachyPlan:
                     body_index_range[2][0] : body_index_range[2][1],
                 ]
 
-            structure.mask = ndimage.zoom(
-                mask, np.array(self.combined_dose.grid.shape) / mask.shape, order=0
+            # resize the mask to match the dose grid if dose grid exists
+            structure.mask = (
+                ndimage.zoom(
+                    mask, np.array(self.combined_dose.grid.shape) / mask.shape, order=0
+                )
+                if self.combined_dose is not None
+                else mask
             )
 
             # print(structure.mask.shape)

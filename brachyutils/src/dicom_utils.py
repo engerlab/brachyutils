@@ -42,7 +42,7 @@ class BrachyDicom:
         self.all_rois = None
         self.image: np.array = None
         self.origin_coords: np.array = None
-        self.mask_dict: dict = {}
+        self.structure_mask_dict: dict = {}
         self.structure_index_range_dict: dict = {}
         self.dose: BrachyDose = None
         self.dvh_metrics: dict = None
@@ -77,9 +77,9 @@ class BrachyDicom:
 
         if load_dose:
             self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
-            self.dvh_metrics = get_dvh_metrics_from_dicom_dose(
-                glob(pth_dir_dicom + "/RD*.dcm")[0]
-            )
+            # self.dvh_metrics = get_dvh_metrics_from_dicom_dose(
+            #     glob(pth_dir_dicom + "/RD*.dcm")[0]
+            # )
         if load_plan:
             self.catheter_table, self.source_info = (
                 load_catheter_table_and_source_info_from_dicom(
@@ -105,7 +105,7 @@ class BrachyDicom:
 
         self.structure_index_range_dict = {}
         self.get_strcuture_mask_from_dicom(query_structure_list)
-        for mask_name, mask_numpy in self.mask_dict.items():
+        for mask_name, mask_numpy in self.structure_mask_dict.items():
             # so we got the mask but the dimensions may not match the dimension of the dose
             # let's get the relative extent of the body mask compared to the whole grid and resample
             # the extents
@@ -136,8 +136,8 @@ class BrachyDicom:
         Outputs:
             - mask_dict:dict :=  a dictionary with the structure name as key and the mask as value.
         """
-        if len(self.mask_dict) > 0:
-            return self.mask_dict
+        if len(self.structure_mask_dict) > 0:
+            return self.structure_mask_dict
 
         for query_structure_name in query_structure_list:
             # # find the name of the body structure inside the rt_structure object
@@ -151,12 +151,12 @@ class BrachyDicom:
             )
             self.dicom_reader.get_mask()
             mask_numpy = self.dicom_reader.mask
-            self.mask_dict[query_structure_name] = mask_numpy
+            self.structure_mask_dict[query_structure_name] = mask_numpy
 
-        return self.mask_dict
+        return self.structure_mask_dict
 
     def reset(self):
-        self.mask_dict = {}
+        self.structure_mask_dict = {}
         self.structure_index_range_dict = {}
 
     def info(self):
