@@ -229,6 +229,7 @@ class BrachyPlan:
         Dependencies:
             -
         """
+        # declare the attributes
         # catheter table attributes
         self.catheter_table = None
         self.num_catheters = None
@@ -237,7 +238,6 @@ class BrachyPlan:
         self.dwell_numbers = np.array([], dtype=int)  # shape: (num_dwells, 1)
         self.dwell_times = np.array([], dtype=np.float32)  # shape: (num_dwells, 1)
         self.dwell_coordinates = []  # shape: (num_dwells, 3)
-
         # dose attributes
         self.dose_rate_tensor = np.array(
             [], dtype=np.float32
@@ -246,15 +246,12 @@ class BrachyPlan:
         self.uncertainty_tensor = np.array(
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
-
         # sturctures attributes
         # self.organ_bounds = None
         self.dvh_metric_goals: dict = None
         self.structure_list: list = []
-
         # dicom image
         self.dicom_obj = None
-
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
         self.egsphant: BrachyEgsphant = None
@@ -263,19 +260,20 @@ class BrachyPlan:
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
+        # fill the attributes depending on the inputs to the constructor
+        # set the dvh metric goals if provided
         (
             self.set_dvh_metric_goals(dvh_metric_goals)
             if dvh_metric_goals is not None
             else None
         )
-
+        # load the dicom plan if the path is provided
         if dir_dicom is not None:
             self.load_brachy_plan_from_dicom(dir_dicom, dose_cropped_by_body)
-
         # load the catheter table if the path is provided
         if pth_catheterTable_json is not None:
             self.load_catheterTable_json(pth_catheterTable_json)
-
+        # load the dose rate tensor if the path is provided
         if dir_dose_rate is not None:
             self.load_dose_rate_or_uncertainty_tensor(
                 dir_dose_rate,
@@ -283,16 +281,14 @@ class BrachyPlan:
                 load_dose_or_uncertainty=load_dose_or_uncertainty,
                 multi_processing=multi_processing,
             )
-
+        # create the structures if the path is provided
         if pth_structure_source is not None and dvh_metric_goals is not None:
             self.create_structures(pth_structure_source, dose_cropped_by_body)
-
+        # load the simulation setup if the dictionary is provided
         if dir_egsphant is not None:
             self.egsphant = BrachyEgsphant(dir_egsphant)
-
         if combined_simulation_dict is not None:
             self.combined_simulation_setup = BrachySimulation(combined_simulation_dict)
-
         if dir_applicator_geometry is not None or dir_applicator_materials is not None:
             raise NotImplementedError("to be implemented soon")
 
@@ -335,6 +331,7 @@ class BrachyPlan:
 
         if load_plan:
             self.catheter_table = self.dicom_obj.catheter_table
+            self.extract_dwell_numbers_times_coordinates_from_catheterTable()
 
         if load_dose:
             self.combined_dose = self.dicom_obj.dose
@@ -1126,6 +1123,27 @@ class BrachyPlan:
         file_path = os.path.join(dir_export, "structure_set.json")
         with open(file_path, "w") as file:
             json.dump(structure_set, file, indent=4)
+
+    def info(self):
+        r"""
+        Purpose:
+            - to print the information of the plan
+        Inputs:
+            - self := the BrachyPlan object
+        Outputs:
+            - Void := will print the information of the plan
+        Dependencies:
+            - None
+        """
+
+        print("****BrachyPlan Information****")
+        for attr, value in self.__dict__.items():
+            if isinstance(value, np.ndarray):
+                print(f"{attr} := {value.shape}")
+            elif isinstance(value, list):
+                print(f"{attr} := {len(value)}")
+            else:
+                print(f"{attr} := {value}")
 
 
 def _export_single_dose_rate(

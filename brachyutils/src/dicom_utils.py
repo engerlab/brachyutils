@@ -280,7 +280,7 @@ def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
             )
         catheter_table.append(
             {
-                "id": int(catheter_dcm.ChannelNumber),
+                "id": int(catheter_dcm.ChannelNumber)-1,
                 "points": [],
                 "channel_total_time": catheter_time,
                 "channel_final_time_weight": channel_final_time_weight,
