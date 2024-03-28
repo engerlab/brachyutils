@@ -186,6 +186,12 @@ class BrachyPlan:
 
     def __init__(
         self,
+        # for loading dicom
+        dir_dicom: str = None,
+        # for structure creation:
+        dvh_metric_goals: dict = None,
+        pth_structure_source: str = None,
+        dose_cropped_by_body: bool = False,
         # for loading catheter table:
         pth_catheterTable_json: str = None,
         # for loading dose or uncertainty:
@@ -193,14 +199,6 @@ class BrachyPlan:
         type_dose_file: str = ".nrrd",
         load_dose_or_uncertainty: str = "dose",
         multi_processing: bool = False,
-        # for loading dicom
-        dir_dicom: str = None,
-        # for loading nrrd files
-        dir_nrrd: str = None,
-        # for structure creation:
-        dvh_metric_goals: dict = None,
-        dir_structure_source: str = None,
-        dose_cropped_by_body: bool = True,
         # for simulation setup:
         combined_simulation_dict: dict = None,
         dir_egsphant: str = None,
@@ -220,7 +218,7 @@ class BrachyPlan:
             - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
             # for structure creation:
             - dvh_metric_goals:dict = None := dictionary containing the DVH metric goals (default is None).
-            - dir_structure_source:str = None := path to the directory containing the structures (default is None).
+            - pth_structure_source:str = None := path to the directory containing the structures (default is None).
             - dose_cropped_by_body:bool = True := flag to indicate whether the dose is cropped by body (default is True).
         Outputs:
             - Void := will initialize the BrachyPlan object
@@ -247,13 +245,11 @@ class BrachyPlan:
 
         # sturctures attributes
         # self.organ_bounds = None
-        self.dvh_metric_goals = None
-        self.structure_list = []
+        self.dvh_metric_goals:dict = None
+        self.structure_list:list = []
 
-        # imaging attributes [for future]
-        # self.ct_image = None
-        # self.mr_image = None
-        # self.ultrasound_image = None
+        # dicom image
+        self.dicom_obj = None
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
@@ -262,6 +258,10 @@ class BrachyPlan:
         self.applicator_materials = None
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
+
+        if dir_dicom is not None:
+            self.load_brachy_plan_from_dicom(dir_dicom, dose_cropped_by_body)
+
         # load the catheter table if the path is provided
         if pth_catheterTable_json is not None:
             self.load_catheterTable_json(pth_catheterTable_json)
@@ -274,9 +274,9 @@ class BrachyPlan:
                 multi_processing=multi_processing,
             )
 
-        if dir_structure_source is not None and dvh_metric_goals is not None:
+        if pth_structure_source is not None and dvh_metric_goals is not None:
             self.set_dvh_metric_goals(dvh_metric_goals)
-            self.create_structures(dir_structure_source, dose_cropped_by_body)
+            self.create_structures(pth_structure_source, dose_cropped_by_body)
 
         if dir_egsphant is not None:
             self.egsphant = BrachyEgsphant(dir_egsphant)
@@ -286,6 +286,45 @@ class BrachyPlan:
 
         if dir_applicator_geometry is not None or dir_applicator_materials is not None:
             raise NotImplementedError("to be implemented soon")
+
+    def load_brachy_plan_from_dicom(self, dir_dicom: str, dose_cropped_by_body: bool = False):
+        r"""
+        Purpose:
+            - To load the brachytherapy plan from a directory containing the dicom files.
+            depending on the availability of the RP, RS and RD dicom files, the plan will be
+            loaded in different ways.
+        Inputs:
+            - dir_dicom := path to the directory containing the dicom files.
+        Outputs:
+            - Void := will update the BrachyPlan.dicom_obj as well other attribute
+        Dependencies:
+            - BrachyDicom
+        """
+        file_list_dcm = glob(os.path.join(dir_dicom, "*.dcm"))
+        file_list_dcm = [os.path.basename(file).split(".")[0] for file in file_list_dcm]
+        all_names = ",".join(file_list_dcm)
+
+        if "RS" in all_names:
+            load_structure = True
+        if "RP" in all_names:
+            load_plan = True
+        if "RD" in all_names:
+            load_dose = True
+
+        self.dicom_obj = BrachyDicom(
+            pth_dir_dicom=dir_dicom,
+            load_structure=load_structure,
+            load_plan=load_plan,
+            load_dose=load_dose,
+        )
+        if load_structure:
+            self.create_structures(self.dicom_obj.structure_mask_dict, dose_cropped_by_body)
+
+        if load_plan:
+            self.catheter_table (self.dicom_obj.catheter_table)
+
+        if load_dose:
+            self.combined_dose = self.dicom_obj.combined_dose
 
     def load_catheterTable_json(self, pth_catheterTable_json: str):
         r"""
@@ -594,7 +633,10 @@ class BrachyPlan:
         self.dvh_metric_goals = dvh_metric_goals
 
     def create_structures(
-        self, dir_structures_source: str, dose_cropped_by_body: bool = True
+        self,
+        structure_mask_dict:dict = None,
+        dir_structures_source: str = None,
+        dose_cropped_by_body: bool = False,
     ):
         r"""
         Purpose:
@@ -624,10 +666,12 @@ class BrachyPlan:
             self.structure_list.append(structure_obj)
 
         # load the structure mask
-        structure_mask_dict = load_structure_mask(
-            dir_structures_source, structure_name_list
-        )
-
+        if dir_structures_source is not None and structure_mask_dict is None:
+            structure_mask_dict = load_structure_mask(
+                dir_structures_source, structure_name_list
+            )
+        else:
+            assert structure_mask_dict is not None, "structure mask dict is not provided. Either provide it or provide dir_structures_source"
         # get the index extent of body contour on each axis
         if dose_cropped_by_body:
             body_index_range = np.zeros([3, 2], dtype=int)
@@ -1093,20 +1137,25 @@ def _export_single_dose_rate(
 
 
 def load_structure_mask(
-    dir_structure_source: str,
+    pth_structure_source: str,
     structure_name_list: list,
-    structure_source_type: str = ".dcm",
+    # structure_source_type: str = ".dcm",
 ):
+    structure_source_type = os.path.splitext(pth_structure_source)[1]
 
     if structure_source_type == ".dcm":
         print("loading structure set from dicom files")
         structure_mask_dict = BrachyDicom(
-            dir_structure_source
+            pth_structure_source
         ).get_strcuture_mask_from_dicom(structure_name_list)
     elif structure_source_type == ".nrrd":
         print("loading structure set from nrrd file")
         raise NotImplementedError(
             "loading structure set from .nrrd file is not implemented yet"
+        )
+    elif structure_source_type == ".json":
+        raise NotImplementedError(
+            "loading structure set from .json file is not implemented yet"
         )
     else:
         raise ValueError("structure source type is not recognized")

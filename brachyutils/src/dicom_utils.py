@@ -59,7 +59,6 @@ class BrachyDicom:
         )
         self.dicom_reader.walk_through_folders(pth_dir_dicom)
         self.dicom_reader.get_images()
-        self.all_rois = self.dicom_reader.return_rois()
 
         if load_image:
             self.image = self.dicom_reader.ArrayDicom
@@ -70,9 +69,8 @@ class BrachyDicom:
                 self.dicom_reader.dicom_handle.GetSpacing(), dtype=np.float32
             )
 
-        self.mask_dict = {}
-        self.structure_index_range_dict = {}
         if load_structure:
+            self.all_rois = self.dicom_reader.return_rois()
             self.get_strcuture_mask_from_dicom(self.all_rois)
             self.get_structure_index_range(self.all_rois)
 
