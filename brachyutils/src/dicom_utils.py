@@ -6,6 +6,7 @@ from glob import glob
 import numpy as np
 import pydicom
 from DicomRTTool.ReaderWriter import DicomReaderWriter
+
 from brachyutils.src.dose_utils import BrachyDose
 
 
@@ -37,6 +38,16 @@ class BrachyDicom:
         Purpose:
             - To gatheter all the information provided by the dicom files of a patient.
         """
+        self.dicom_reader: DicomReaderWriter = None
+        self.all_rois = None
+        self.image: np.array = None
+        self.origin_coords: np.array = None
+        self.mask_dict: dict = {}
+        self.structure_index_range_dict: dict = {}
+        self.dose: BrachyDose = None
+        self.catheter_table: dict = None
+        self.source_info: dict = None
+
         os.path.abspath(pth_dir_dicom)
         assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
         assert glob(
