@@ -193,6 +193,10 @@ class BrachyPlan:
         type_dose_file: str = ".nrrd",
         load_dose_or_uncertainty: str = "dose",
         multi_processing: bool = False,
+        # for loading dicom
+        dir_dicom: str = None,
+        # for loading nrrd files
+        dir_nrrd: str = None,
         # for structure creation:
         dvh_metric_goals: dict = None,
         dir_structure_source: str = None,
