@@ -108,7 +108,7 @@ class BrachyStructure:
             - To export the BrachyStructure object into a dictionary of a certain format.
         Inputs:
             - export_format := the export_format of the exported plan. an example is:
-                - "RapidBrachyExport":{
+                - "RapidBrachy":{
                     "density": 0,
                     "density_mode": "",
                     "dose_limit": 0,
@@ -127,7 +127,7 @@ class BrachyStructure:
         """
         if export_format == "WebApp":
             raise NotImplementedError("export to WebApp is not implemented yet")
-        elif export_format == "RapidBrachyExport":
+        elif export_format == "RapidBrachy":
             return {
                 "density": self.density,
                 "density_mode": self.density_mode,
@@ -173,7 +173,7 @@ class BrachyPlan:
         - load_catheterTable_json()
         - extract_dwell_numbers_times_coordinates_from_catheterTable()
         - update_catheter_table_from_plan()
-        - update_after_change_in_plan()
+        - update_dose_after_change_in_plan()
         - load_dose_rate_or_uncertainty_tensor()
         - calculate_combined_dose()
         - set_dvh_metric_goals()
@@ -448,28 +448,28 @@ class BrachyPlan:
 
         for catheter_i in self.catheter_numbers:
             catheter = {}
-            catheter["id"] = catheter_i
+            catheter["id"] = int(catheter_i)
             catheter["points"] = []
             catheter["dwells"] = []
             dwell = {}
             for dwell_i in self.dwell_numbers:
                 if self.dwell_coordinates[dwell_i - 1]["catheterId"] != catheter_i:
                     continue
-                dwell["angle"] = self.dwell_coordinates[dwell_i - 1]["angle"]
-                dwell["position"] = self.dwell_coordinates[dwell_i - 1]["position"]
-                dwell["relativePos"] = self.dwell_coordinates[dwell_i - 1][
+                dwell["angle"] = float(self.dwell_coordinates[dwell_i - 1]["angle"])
+                dwell["position"] = list(self.dwell_coordinates[dwell_i - 1]["position"])
+                dwell["relativePos"] = float(self.dwell_coordinates[dwell_i - 1][
                     "relativePos"
-                ]
-                dwell["rotation"] = self.dwell_coordinates[dwell_i - 1]["rotation"]
-                dwell["time"] = self.dwell_times[dwell_i - 1]
-                dwell["weight"] = self.dwell_times[dwell_i - 1] / np.sum(
+                ])
+                dwell["rotation"] = list(self.dwell_coordinates[dwell_i - 1]["rotation"])
+                dwell["time"] = float(self.dwell_times[dwell_i - 1].item())
+                dwell["weight"] = float((self.dwell_times[dwell_i - 1] / np.sum(
                     self.dwell_times
-                )
+                )).item())
                 catheter["dwells"].append(deepcopy(dwell))
 
             self.catheter_table.append(deepcopy(catheter))
 
-    def update_after_change_in_plan(self):
+    def update_dose_after_change_in_plan(self):
         r"""
         Purpose:
             - Assuming that the dwell times or coordinates have changed, we need to update
@@ -811,36 +811,37 @@ class BrachyPlan:
         r"""
         Purpose:
             - To export the treatment plan file into a given export_format.
-            The export_format can be either "RapidBrachyExport" or "WebAppExport".
+            The export_format can be either "RapidBrachy" or "WebAppExport".
+
         Inputs:
             - export_format := the export_format of the exported plan. options are:
-                - "RapidBrachyExport":
-                    "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
-                    "catheter_table.json"
-                    "dwell_#.plan",
-                    "run_#.mac",
-                    "ct.egsphant",
-                    "ApplicatorMaterials"
-                    "applicator_geometry.json",
-                    "structure_set.json"
+            
+                - "RapidBrachy":
+                    - "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
+                    - "catheter_table.json"
+                    - "dwell_#.plan",
+                    - "run_#.mac",
+                    - "ct.egsphant",
+                    - "ApplicatorMaterials"
+                    - "applicator_geometry.json",
+                    - "structure_set.json"
 
                 - "WebApp": Not implemented yet
-                    "run_#.nrrd",
-                    "dwell_#.json",
-                    "run_#.json",
+                    - "run_#.nrrd",
+                    - "dwell_#.json",
+                    - "run_#.json",
 
             - dir_export := the directory to which the plan will be exported.
             - content_to_export := a dictionary with which the user specifies what parts
-            of the plan to export. everything is binary (True or False) except for
-            "dose type", which can be either ".3ddose", ".minidos", or ".nrrd".
-            the keys of content_to_export are:
-            {
-                "dose":bool,
-                "dose type":str := "nrrd", "minidos" or "3ddose",
-                "uncertainty", "dose rate maps",
-                "catheter_table", "plan", "mac", "egsphant",
-                "ApplicatorMaterials", applicator_geometry", "structure_set",
-            }.
+            of the plan to export. The keys are plan components, and the values are binary 
+            (True or False) except for "dose type", which can be either ".3ddose", ".minidos", 
+            or ".nrrd". The keys are:
+            
+                - "dose":bool,
+                - "dose type":str := "nrrd", "minidos" or "3ddose",
+                - "uncertainty", "dose rate maps",
+                - "catheter_table", "plan", "mac", "egsphant",
+                - "ApplicatorMaterials", applicator_geometry", "structure_set",
 
         Outputs:
             - Void := will export the available parts of a plan into the specified export_format.
@@ -853,14 +854,14 @@ class BrachyPlan:
 
             raise NotImplementedError("export to WebApp is not implemented yet")
 
-        elif export_format == "RapidBrachyExport":
+        elif export_format == "RapidBrachy":
 
             if content_to_export["dose"]:
                 self.export_dose(
                     dir_export,
                     # content_to_export["uncertainty"],
-                    content_to_export["dose type"],
-                    content_to_export["dose rate maps"],
+                    content_to_export["dose_type"],
+                    content_to_export["dose_rate_maps"],
                 )
             if content_to_export["catheter_table"]:
                 # assumes file name is "catheter_table.json"
@@ -1108,7 +1109,7 @@ class BrachyPlan:
         raise NotImplementedError("to be implemented soon")
 
     def export_structure_set(
-        self, dir_export: str, export_format: str = "RapidBrachyExport"
+        self, dir_export: str, export_format: str = "RapidBrachy"
     ):
         r"""
         Purpose:

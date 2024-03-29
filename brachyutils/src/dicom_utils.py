@@ -272,7 +272,7 @@ def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
                             control_point_dcm.ControlPointOrientation, dtype=np.float32
                         )
                         if hasattr(control_point_dcm, "ControlPointOrientation")
-                        else None
+                        else np.array([0, 0, 0], dtype=np.float32)
                     ),
                     "cumulative_weight": cumulative_time_weight,
                     # "total rerence air kerma": total_reference_air_kerma,
