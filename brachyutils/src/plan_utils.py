@@ -178,7 +178,7 @@ class BrachyPlan:
         - calculate_combined_dose()
         - set_dvh_metric_goals()
         - create_structures()
-        - calculate_DVH_metrics()
+        - calculate_dvh_metrics()
         - calculate_combined_uncertainty()
         - calculate_uncertainty_per_structure()
         - export_brachy_plan ()
@@ -249,6 +249,7 @@ class BrachyPlan:
         # sturctures attributes
         # self.organ_bounds = None
         self.dvh_metric_goals: dict = None
+        self.dvh_metric_observed: dict = None
         self.structure_list: list = []
         # dicom image
         self.dicom_obj = None
@@ -754,7 +755,7 @@ class BrachyPlan:
         #         (self.uncertainty_tensor * normalized_times[:, np.newaxis, np.newaxis, np.newaxis])**2,
         #         axis=0))
 
-    def calculate_DVH_metrics(self):
+    def calculate_dvh_metrics(self):
         r"""
         Purpose:
             - To get the observed value of the dvh metric for each structure in the BrachyPlan.
@@ -765,9 +766,13 @@ class BrachyPlan:
             - Void := will update the BrachyStructure.dvh_metric_observed attribute
         """
         assert self.structure_list is not None, "structure list is not created yet"
+        self.dvh_metric_observed = {}
         for structure_obj in self.structure_list:
             structure_obj.get_dvh_metric(self.combined_dose)
+            self.dvh_metric_observed[structure_obj.dvh_metric_name] = structure_obj.dvh_metric_observed
 
+        return self.dvh_metric_observed
+    
     def calculate_uncertainty_per_structure(self):
         r"""
         Purpose:
