@@ -312,13 +312,10 @@ class BrachyPlan:
         file_list_dcm = [os.path.basename(file).split(".")[0] for file in file_list_dcm]
         all_names = ",".join(file_list_dcm)
 
-        if "RS" in all_names:
-            load_structure = True
-        if "RP" in all_names:
-            load_plan = True
-        if "RD" in all_names:
-            load_dose = True
-
+        load_structure = True if "RS" in all_names else False
+        load_plan = True if "RP" in all_names else False
+        load_dose = True if "RD" in all_names else False
+        
         self.dicom_obj = BrachyDicom(
             pth_dir_dicom=dir_dicom,
             load_structure=load_structure,
