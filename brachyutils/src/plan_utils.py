@@ -453,11 +453,11 @@ class BrachyPlan:
                 if self.dwell_coordinates[dwell_i - 1]["catheterId"] != catheter_i:
                     continue
                 dwell["angle"] = float(self.dwell_coordinates[dwell_i - 1]["angle"])
-                dwell["position"] = list(self.dwell_coordinates[dwell_i - 1]["position"])
+                dwell["position"] = list(self.dwell_coordinates[dwell_i - 1]["position"].astype(np.float64))
                 dwell["relativePos"] = float(self.dwell_coordinates[dwell_i - 1][
                     "relativePos"
                 ])
-                dwell["rotation"] = list(self.dwell_coordinates[dwell_i - 1]["rotation"])
+                dwell["rotation"] = list(self.dwell_coordinates[dwell_i - 1]["rotation"].astype(np.float64))
                 dwell["time"] = float(self.dwell_times[dwell_i - 1].item())
                 dwell["weight"] = float((self.dwell_times[dwell_i - 1] / np.sum(
                     self.dwell_times
@@ -1304,3 +1304,17 @@ def _load_single_dose_or_uncertainty_to_dict(
         )
 
     return dose_or_uncert_map
+
+def _type_nested_dict_list(data):
+    
+    if isinstance(data, dict):
+       for key, value in data.items():
+            if isinstance(value, (dict, list)):
+                _type_nested_dict_list(value)
+            else:
+                print(f"{key}: {type(value)}")
+                
+    elif isinstance(data, list):
+        for item in data:
+            _type_nested_dict_list(item)
+            
