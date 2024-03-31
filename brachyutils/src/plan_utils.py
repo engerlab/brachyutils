@@ -316,12 +316,40 @@ class BrachyPlan:
         load_plan = True if "RP" in all_names else False
         load_dose = True if "RD" in all_names else False
         
-        self.dicom_obj = BrachyDicom(
-            pth_dir_dicom=dir_dicom,
-            load_structure=load_structure,
-            load_plan=load_plan,
-            load_dose=load_dose,
-        )
+        try:
+            self.dicom_obj = BrachyDicom(
+                pth_dir_dicom=dir_dicom,
+                load_structure=load_structure,
+                load_plan=load_plan,
+                load_dose=load_dose,
+            )
+        except Exception as e:
+            print(f"Error in loading all dicom files: {e}")
+            try:
+                self.dicom_obj = BrachyDicom(
+                    pth_dir_dicom=dir_dicom,
+                    load_structure=load_structure,
+                    load_plan=load_plan,
+                    load_dose=False,
+                )
+            except Exception as e:
+                print(f"Error in loading dicom dose file: {e}")
+                try:
+                    self.dicom_obj = BrachyDicom(
+                        pth_dir_dicom=dir_dicom,
+                        load_structure=load_structure,
+                        load_plan=False,
+                        load_dose=False,
+                    )
+                except Exception as e:
+                    print(f"Error in loading dicom plan file: {e}")
+                    self.dicom_obj = BrachyDicom(
+                        pth_dir_dicom=dir_dicom,
+                        load_structure=False,
+                        load_plan=False,
+                        load_dose=False,
+                    )
+
         if load_structure:
             self.create_structures(
                 self.dicom_obj.structure_mask_dict, dose_cropped_by_body

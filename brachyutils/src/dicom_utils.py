@@ -164,18 +164,24 @@ class BrachyDicom:
         print(f"origin of the image: {self.origin_coords}")
         print(f"voxel size of the image: {self.voxel_size}")
         print(f"all the structures in the dicom: {self.all_rois}")
-        print(f"the shape of dose: {self.dose.num_voxels}")
-        print(f"origin of the dose: {self.dose.topleft}")
-        print(f"voxel size of the dose: {self.dose.voxel_size}")
-        num_dwell_positions = np.sum(
-            [len(catheter["dwells"]) for catheter in self.catheter_table]
-        )
-        print(f"number of dwell positions: {num_dwell_positions}")
-        treatment_time = np.sum(
-            [catheter["channel_total_time"] for catheter in self.catheter_table]
-        )
-        print(f"treatment time: {treatment_time}")
-        print(f"source info: {self.source_info}")
+        if self.dose is not None:
+            print(f"the shape of dose: {self.dose.num_voxels}")
+            print(f"origin of the dose: {self.dose.topleft}")
+            print(f"voxel size of the dose: {self.dose.voxel_size}")
+        else:
+            print("no dose file was loaded")
+        if self.catheter_table is not None:
+            num_dwell_positions = np.sum(
+                [len(catheter["dwells"]) for catheter in self.catheter_table]
+            )
+            print(f"number of dwell positions: {num_dwell_positions}")
+            treatment_time = np.sum(
+                [catheter["channel_total_time"] for catheter in self.catheter_table]
+            )
+            print(f"treatment time: {treatment_time}")
+            print(f"source info: {self.source_info}")
+        else:
+            print("no plan file was loaded")
 
 
 def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
@@ -238,6 +244,9 @@ def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
         # loop through the control points.
         # Each dwell position has 2 control points, get them all.
         for control_point_dcm in catheter_dcm.BrachyControlPointSequence:
+            if control_point_dcm.CumulativeTimeWeight is None:
+                continue
+
             cumulative_time_weight = (
                 float(control_point_dcm.CumulativeTimeWeight)
                 if hasattr(control_point_dcm, "CumulativeTimeWeight")

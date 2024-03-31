@@ -5,12 +5,14 @@ from brachyutils.src.dicom_utils import BrachyDicom, get_dvh_metrics_from_dicom_
 
 
 def test_load_dicom():
-    pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
+    # pth_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    # especial patient case
+    pth_dicom = "/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/p5"
     dicom_obj = BrachyDicom(
-        pth_dicomRS,
+        pth_dicom,
         load_image=True,
         load_structure=True,
-        load_dose=True,
+        load_dose=False,
         load_plan=True,
     )
     dicom_obj.info()
@@ -46,7 +48,7 @@ def test_get_dvh_metrics_from_dicom_dose():
 
 if __name__ == "__main__":
     print("running tests")
-    # test_load_dicom()
+    test_load_dicom()
     # test_get_strcuture_mask_from_dicom()
     # test_get_structure_index_range()
-    test_get_dvh_metrics_from_dicom_dose()
+    # test_get_dvh_metrics_from_dicom_dose()
