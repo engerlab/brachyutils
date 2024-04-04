@@ -8,13 +8,15 @@ from glob import glob
 from multiprocessing import Pool, cpu_count
 
 import numpy as np
-from dicom_utils import get_strcuture_mask_from_dicom
-from dose_utils import BrachyDose, dose_with_empty_grid_like
-from egsphant_utils import BrachyEgsphant
 from scipy import interpolate, ndimage
 
 # from typing import Optional
 from tqdm import tqdm
+
+from brachyutils.src.dicom_utils import BrachyDicom  # get_strcuture_mask_from_dicom
+from brachyutils.src.dose_utils import BrachyDose, dose_with_empty_grid_like
+from brachyutils.src.egsphant_utils import BrachyEgsphant
+from brachyutils.src.simulation_utils import BrachySimulation
 
 
 class BrachyStructure:
@@ -79,7 +81,7 @@ class BrachyStructure:
 
         structure_dose = combined_dose.grid * self.mask
         structure_dose = structure_dose[structure_dose != 0].flatten()
-        voxel_volume = np.prod(combined_dose.vox_size)
+        voxel_volume = np.prod(combined_dose.voxel_size)
         num_voxels_in_structure = np.sum(self.mask)
 
         if "%" in self.dvh_metric_name:
@@ -106,7 +108,7 @@ class BrachyStructure:
             - To export the BrachyStructure object into a dictionary of a certain format.
         Inputs:
             - export_format := the export_format of the exported plan. an example is:
-                - "RapidBrachyExport":{
+                - "RapidBrachy":{
                     "density": 0,
                     "density_mode": "",
                     "dose_limit": 0,
@@ -125,7 +127,7 @@ class BrachyStructure:
         """
         if export_format == "WebApp":
             raise NotImplementedError("export to WebApp is not implemented yet")
-        elif export_format == "RapidBrachyExport":
+        elif export_format == "RapidBrachy":
             return {
                 "density": self.density,
                 "density_mode": self.density_mode,
@@ -139,7 +141,7 @@ class BrachyStructure:
                 "name": self.name,
                 "quadratic_weight": self.penalty_weight_quadratic,
                 "type": "Target volume" if self.target_volume else "Organ at risk",
-                "uniformity_weight": self.penal_weight_uniformity,
+                "uniformity_weight": self.penalty_weight_uniformity,
             }
 
 
@@ -170,16 +172,26 @@ class BrachyPlan:
     Functions:
         - load_catheterTable_json()
         - extract_dwell_numbers_times_coordinates_from_catheterTable()
+        - update_catheter_table_from_plan()
+        - update_dose_after_change_in_plan()
         - load_dose_rate_or_uncertainty_tensor()
+        - calculate_combined_dose()
         - set_dvh_metric_goals()
         - create_structures()
-        - calculate_DVH_metrics()
+        - calculate_dvh_metrics()
         - calculate_combined_uncertainty()
         - calculate_uncertainty_per_structure()
+        - export_brachy_plan ()
     """
 
     def __init__(
         self,
+        # for loading dicom
+        dir_dicom: str = None,
+        # for structure creation:
+        dvh_metric_goals: dict = None,
+        pth_structure_source: str = None,
+        dose_cropped_by_body: bool = False,
         # for loading catheter table:
         pth_catheterTable_json: str = None,
         # for loading dose or uncertainty:
@@ -187,11 +199,8 @@ class BrachyPlan:
         type_dose_file: str = ".nrrd",
         load_dose_or_uncertainty: str = "dose",
         multi_processing: bool = False,
-        # for structure creation:
-        dvh_metric_goals: dict = None,
-        dir_structure_source: str = None,
-        dose_cropped_by_body: bool = True,
         # for simulation setup:
+        combined_simulation_dict: dict = None,
         dir_egsphant: str = None,
         dir_applicator_geometry: str = None,
         dir_applicator_materials: str = None,
@@ -209,13 +218,18 @@ class BrachyPlan:
             - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
             # for structure creation:
             - dvh_metric_goals:dict = None := dictionary containing the DVH metric goals (default is None).
-            - dir_structure_source:str = None := path to the directory containing the structures (default is None).
+            - pth_structure_source:str = None := path to the directory containing the structures (default is None).
             - dose_cropped_by_body:bool = True := flag to indicate whether the dose is cropped by body (default is True).
+            - combined_simulation_dict = None := dictionary containing the simulation setup,
+            - dir_egsphant = None := path to the directory containing the egsphant file,
+            - dir_applicator_geometry: str = None,
+            - dir_applicator_materials: str = None,
         Outputs:
             - Void := will initialize the BrachyPlan object
         Dependencies:
             -
         """
+        # declare the attributes
         # catheter table attributes
         self.catheter_table = None
         self.num_catheters = None
@@ -224,35 +238,43 @@ class BrachyPlan:
         self.dwell_numbers = np.array([], dtype=int)  # shape: (num_dwells, 1)
         self.dwell_times = np.array([], dtype=np.float32)  # shape: (num_dwells, 1)
         self.dwell_coordinates = []  # shape: (num_dwells, 3)
-
         # dose attributes
         self.dose_rate_tensor = np.array(
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
-        self.combined_dose = None
+        self.combined_dose: BrachyDose = None
         self.uncertainty_tensor = np.array(
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
-
         # sturctures attributes
         # self.organ_bounds = None
-        self.dvh_metric_goals = None
-        self.structure_list = []
-
-        # imaging attributes [for future]
-        # self.ct_image = None
-        # self.mr_image = None
-        # self.ultrasound_image = None
-
+        self.dvh_metric_goals: dict = None
+        self.dvh_metric_observed: dict = None
+        self.structure_list: list = []
+        # dicom image
+        self.dicom_obj = None
         # simulation attributes
-        self.egsphant = None
+        self.simulation_setup: BrachySimulation = None
+        self.egsphant: BrachyEgsphant = None
         self.applicator_geometry = None
         self.applicator_materials = None
+        self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
+        self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
+        # fill the attributes depending on the inputs to the constructor
+        # set the dvh metric goals if provided
+        (
+            self.set_dvh_metric_goals(dvh_metric_goals)
+            if dvh_metric_goals is not None
+            else None
+        )
+        # load the dicom plan if the path is provided
+        if dir_dicom is not None:
+            self.load_brachy_plan_from_dicom(dir_dicom, dose_cropped_by_body)
         # load the catheter table if the path is provided
         if pth_catheterTable_json is not None:
             self.load_catheterTable_json(pth_catheterTable_json)
-
+        # load the dose rate tensor if the path is provided
         if dir_dose_rate is not None:
             self.load_dose_rate_or_uncertainty_tensor(
                 dir_dose_rate,
@@ -260,16 +282,85 @@ class BrachyPlan:
                 load_dose_or_uncertainty=load_dose_or_uncertainty,
                 multi_processing=multi_processing,
             )
-
-        if dir_structure_source is not None and dvh_metric_goals is not None:
-            self.set_dvh_metric_goals(dvh_metric_goals)
-            self.create_structures(dir_structure_source, dose_cropped_by_body)
-
+        # create the structures if the path is provided
+        if pth_structure_source is not None and dvh_metric_goals is not None:
+            self.create_structures(pth_structure_source, dose_cropped_by_body)
+        # load the simulation setup if the dictionary is provided
         if dir_egsphant is not None:
             self.egsphant = BrachyEgsphant(dir_egsphant)
-
+        if combined_simulation_dict is not None:
+            self.combined_simulation_setup = BrachySimulation(combined_simulation_dict)
         if dir_applicator_geometry is not None or dir_applicator_materials is not None:
             raise NotImplementedError("to be implemented soon")
+
+    def load_brachy_plan_from_dicom(
+        self, dir_dicom: str, dose_cropped_by_body: bool = False
+    ):
+        r"""
+        Purpose:
+            - To load the brachytherapy plan from a directory containing the dicom files.
+            depending on the availability of the RP, RS and RD dicom files, the plan will be
+            loaded in different ways.
+        Inputs:
+            - dir_dicom := path to the directory containing the dicom files.
+        Outputs:
+            - Void := will update the BrachyPlan.dicom_obj as well other attribute
+        Dependencies:
+            - BrachyDicom
+        """
+        file_list_dcm = glob(os.path.join(dir_dicom, "*.dcm"))
+        file_list_dcm = [os.path.basename(file).split(".")[0] for file in file_list_dcm]
+        all_names = ",".join(file_list_dcm)
+
+        load_structure = True if "RS" in all_names else False
+        load_plan = True if "RP" in all_names else False
+        load_dose = True if "RD" in all_names else False
+        
+        try:
+            self.dicom_obj = BrachyDicom(
+                pth_dir_dicom=dir_dicom,
+                load_structure=load_structure,
+                load_plan=load_plan,
+                load_dose=load_dose,
+            )
+        except Exception as e:
+            print(f"Error in loading all dicom files: {e}")
+            try:
+                self.dicom_obj = BrachyDicom(
+                    pth_dir_dicom=dir_dicom,
+                    load_structure=load_structure,
+                    load_plan=load_plan,
+                    load_dose=False,
+                )
+            except Exception as e:
+                print(f"Error in loading dicom dose file: {e}")
+                try:
+                    self.dicom_obj = BrachyDicom(
+                        pth_dir_dicom=dir_dicom,
+                        load_structure=load_structure,
+                        load_plan=False,
+                        load_dose=False,
+                    )
+                except Exception as e:
+                    print(f"Error in loading dicom plan file: {e}")
+                    self.dicom_obj = BrachyDicom(
+                        pth_dir_dicom=dir_dicom,
+                        load_structure=False,
+                        load_plan=False,
+                        load_dose=False,
+                    )
+
+        if load_structure:
+            self.create_structures(
+                self.dicom_obj.structure_mask_dict, dose_cropped_by_body
+            )
+
+        if load_plan:
+            self.catheter_table = self.dicom_obj.catheter_table
+            self.extract_dwell_numbers_times_coordinates_from_catheterTable()
+
+        if load_dose:
+            self.combined_dose = self.dicom_obj.dose
 
     def load_catheterTable_json(self, pth_catheterTable_json: str):
         r"""
@@ -382,28 +473,28 @@ class BrachyPlan:
 
         for catheter_i in self.catheter_numbers:
             catheter = {}
-            catheter["id"] = catheter_i
+            catheter["id"] = int(catheter_i)
             catheter["points"] = []
             catheter["dwells"] = []
             dwell = {}
             for dwell_i in self.dwell_numbers:
                 if self.dwell_coordinates[dwell_i - 1]["catheterId"] != catheter_i:
                     continue
-                dwell["angle"] = self.dwell_coordinates[dwell_i - 1]["angle"]
-                dwell["position"] = self.dwell_coordinates[dwell_i - 1]["position"]
-                dwell["relativePos"] = self.dwell_coordinates[dwell_i - 1][
+                dwell["angle"] = float(self.dwell_coordinates[dwell_i - 1]["angle"])
+                dwell["position"] = list(self.dwell_coordinates[dwell_i - 1]["position"].astype(np.float64))
+                dwell["relativePos"] = float(self.dwell_coordinates[dwell_i - 1][
                     "relativePos"
-                ]
-                dwell["rotation"] = self.dwell_coordinates[dwell_i - 1]["rotation"]
-                dwell["time"] = self.dwell_times[dwell_i - 1]
-                dwell["weight"] = self.dwell_times[dwell_i - 1] / np.sum(
+                ])
+                dwell["rotation"] = list(self.dwell_coordinates[dwell_i - 1]["rotation"].astype(np.float64))
+                dwell["time"] = float(self.dwell_times[dwell_i - 1].item())
+                dwell["weight"] = float((self.dwell_times[dwell_i - 1] / np.sum(
                     self.dwell_times
-                )
+                )).item())
                 catheter["dwells"].append(deepcopy(dwell))
 
             self.catheter_table.append(deepcopy(catheter))
 
-    def update_after_change_in_plan(self):
+    def update_dose_after_change_in_plan(self):
         r"""
         Purpose:
             - Assuming that the dwell times or coordinates have changed, we need to update
@@ -578,7 +669,10 @@ class BrachyPlan:
         self.dvh_metric_goals = dvh_metric_goals
 
     def create_structures(
-        self, dir_structures_source: str, dose_cropped_by_body: bool = True
+        self,
+        structure_mask_dict: dict = None,
+        dir_structures_source: str = None,
+        dose_cropped_by_body: bool = False,
     ):
         r"""
         Purpose:
@@ -592,7 +686,7 @@ class BrachyPlan:
         Outputs:
             - Void := will update the BrachyPlan.structure_list attribute
         Dependencies:
-            - get_strcuture_mask_from_dicom
+            - BrachyDicom
         """
         assert (
             self.dvh_metric_goals is not None
@@ -608,10 +702,14 @@ class BrachyPlan:
             self.structure_list.append(structure_obj)
 
         # load the structure mask
-        structure_mask_dict = load_structure_mask(
-            dir_structures_source, structure_name_list
-        )
-
+        if dir_structures_source is not None and structure_mask_dict is None:
+            structure_mask_dict = load_structure_mask(
+                dir_structures_source, structure_name_list
+            )
+        else:
+            assert (
+                structure_mask_dict is not None
+            ), "structure mask dict is not provided. Either provide it or provide dir_structures_source"
         # get the index extent of body contour on each axis
         if dose_cropped_by_body:
             body_index_range = np.zeros([3, 2], dtype=int)
@@ -628,7 +726,10 @@ class BrachyPlan:
                 ).astype(int)
 
         for structure in self.structure_list:
-            mask = structure_mask_dict[structure.name]
+            structure_name_in_dicom = list(
+                filter(lambda x: structure.name in x, structure_mask_dict.keys())
+            )[0]
+            mask = structure_mask_dict[structure_name_in_dicom]
             # apply body contour mask to the structure mask
             if dose_cropped_by_body:
                 mask = mask[
@@ -637,8 +738,13 @@ class BrachyPlan:
                     body_index_range[2][0] : body_index_range[2][1],
                 ]
 
-            structure.mask = ndimage.zoom(
-                mask, np.array(self.combined_dose.grid.shape) / mask.shape, order=0
+            # resize the mask to match the dose grid if dose grid exists
+            structure.mask = (
+                ndimage.zoom(
+                    mask, np.array(self.combined_dose.grid.shape) / mask.shape, order=0
+                )
+                if self.combined_dose is not None
+                else mask
             )
 
             # print(structure.mask.shape)
@@ -674,7 +780,7 @@ class BrachyPlan:
         #         (self.uncertainty_tensor * normalized_times[:, np.newaxis, np.newaxis, np.newaxis])**2,
         #         axis=0))
 
-    def calculate_DVH_metrics(self):
+    def calculate_dvh_metrics(self):
         r"""
         Purpose:
             - To get the observed value of the dvh metric for each structure in the BrachyPlan.
@@ -685,9 +791,13 @@ class BrachyPlan:
             - Void := will update the BrachyStructure.dvh_metric_observed attribute
         """
         assert self.structure_list is not None, "structure list is not created yet"
+        self.dvh_metric_observed = {}
         for structure_obj in self.structure_list:
             structure_obj.get_dvh_metric(self.combined_dose)
+            self.dvh_metric_observed[structure_obj.dvh_metric_name] = structure_obj.dvh_metric_observed
 
+        return self.dvh_metric_observed
+    
     def calculate_uncertainty_per_structure(self):
         r"""
         Purpose:
@@ -714,46 +824,49 @@ class BrachyPlan:
                 bins=100,
                 range=(0, flattened_uncertainty.max() + 0.1),
             )
-            structure_obj.uvh = histogram * np.prod(self.combined_dose.vox_size)
+            structure_obj.uvh = histogram * np.prod(self.combined_dose.voxel_size)
             structure_obj.uncertainty_mean = np.mean(flattened_uncertainty)
             structure_obj.uncertainty_std = np.std(flattened_uncertainty)
             structure_obj.uncertainty_max = np.max(flattened_uncertainty)
             structure_obj.uncertainty_min = np.min(flattened_uncertainty)
 
-    def export_BrachyPlan(
+    def export_brachy_plan(
         self, export_format: str, dir_export: str, content_to_export: dict
     ):
         r"""
         Purpose:
             - To export the treatment plan file into a given export_format.
-            The export_format can be either "RapidBrachyExport" or "WebAppExport".
+            The export_format can be either "RapidBrachy" or "WebAppExport".
+
         Inputs:
             - export_format := the export_format of the exported plan. options are:
-                - "RapidBrachyExport":
-                    "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
-                    "catheter_table.json"
-                    "dwell_#.plan",
-                    "run_#.mac",
-                    "ct.egsphant",
-                    "ApplicatorMaterials",
-                    "applicator_geometry.json",
-                    "structure_set.json"
+            
+                - "RapidBrachy":
+                    - "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
+                    - "catheter_table.json"
+                    - "dwell_#.plan",
+                    - "run_#.mac",
+                    - "ct.egsphant",
+                    - "ApplicatorMaterials"
+                    - "applicator_geometry.json",
+                    - "structure_set.json"
 
                 - "WebApp": Not implemented yet
-                    "run_#.nrrd",
-                    "dwell_#.json",
-                    "run_#.json",
+                    - "run_#.nrrd",
+                    - "dwell_#.json",
+                    - "run_#.json",
 
             - dir_export := the directory to which the plan will be exported.
             - content_to_export := a dictionary with which the user specifies what parts
-            of the plan to export. everything is binary (True or False) except for
-            "dose type", which can be either ".3ddose", ".minidos", or ".nrrd".
-            the keys of content_to_export are:
-            {
-                "dose", "dose type", "uncertainty", "dose rate maps",
-                "catheter_table", "plan", "mac", "egsphant",
-                "ApplicatorMaterials", applicator_geometry", "structure_set",
-            }.
+            of the plan to export. The keys are plan components, and the values are binary 
+            (True or False) except for "dose type", which can be either ".3ddose", ".minidos", 
+            or ".nrrd". The keys are:
+            
+                - "dose":bool,
+                - "dose type":str := "nrrd", "minidos" or "3ddose",
+                - "uncertainty", "dose rate maps",
+                - "catheter_table", "plan", "mac", "egsphant",
+                - "ApplicatorMaterials", applicator_geometry", "structure_set",
 
         Outputs:
             - Void := will export the available parts of a plan into the specified export_format.
@@ -766,41 +879,40 @@ class BrachyPlan:
 
             raise NotImplementedError("export to WebApp is not implemented yet")
 
-        elif export_format == "RapidBrachyExport":
+        elif export_format == "RapidBrachy":
 
             if content_to_export["dose"]:
                 self.export_dose(
                     dir_export,
                     # content_to_export["uncertainty"],
-                    content_to_export["dose type"],
-                    content_to_export["dose rate maps"],
+                    content_to_export["dose_type"],
+                    content_to_export["dose_rate_maps"],
                 )
-
-            elif content_to_export["catheter_table"]:
+            if content_to_export["catheter_table"]:
                 # assumes file name is "catheter_table.json"
                 self.export_catheter_table(dir_export)
 
-            elif content_to_export["plan"]:
+            if content_to_export["plan"]:
                 # assumes file name is "dwell_#.plan"
-                self.export_BrachyPlan(dir_export)
+                self.export_plan_file(dir_export)
 
-            elif content_to_export["mac"]:
+            if content_to_export["mac"]:
                 # assumes file name is "run_#.mac"
-                self.export_mac(dir_export)
+                self.export_mac_file(dir_export)
 
-            elif content_to_export["egsphant"]:
+            if content_to_export["egsphant"]:
                 # assumes file name is "ct.egsphant"
                 self.export_egsphant(dir_export)
 
-            elif content_to_export["ApplicatorMaterials"]:
+            if content_to_export["ApplicatorMaterials"]:
                 # assumes file name is "ApplicatorMaterials"
                 self.export_applicator_materials(dir_export)
 
-            elif content_to_export["applicator_geometry"]:
+            if content_to_export["applicator_geometry"]:
                 # assumes file name is "applicator_geometry.json"
                 self.export_applicator_geometry(dir_export)
 
-            elif content_to_export["structure_set"]:
+            if content_to_export["structure_set"]:
                 # assumes file name is "structure_set.json"
                 self.export_structure_set(dir_export)
 
@@ -874,7 +986,6 @@ class BrachyPlan:
         Dependencies:
             - json
         """
-        # raise NotImplementedError("to be implemented soon")
         file_path = dir_export + "/catheter_table.json"
         with open(file_path, "w") as file:
             json.dump(self.catheter_table, file, indent=4)
@@ -882,20 +993,112 @@ class BrachyPlan:
     def export_plan_file(self, dir_export: str):
         r"""
         Purpose:
+            - To export dwell positions and their normalized times into ".plan" text files in the
+            format required by RapidBrachy.
         Inputs:
+            - dir_export := path to the directory where the export happens
         Outputs:
+            - void := Two types of .plan files are written, one named combined.plan and the other
+            named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and
+            their normalized dwell time, and the run_{dwellNumber}.plan contains info of a single
+            dwell position. The format of each .plan file is given in this example:
+                "Treatment Plan
+                56 Control Points
+                Control Point
+                weight = 0.00327228
+                1 Dwell Position
+                -10.2819,82.598,-1224.98,-0.0291444,-0.017922,0.999415,0,0,0,1,0,0,0
+                Control Point ..."
         Dependencies:
+            - None
         """
-        raise NotImplementedError("to be implemented soon")
+        total_dwell_time = np.sum(self.dwell_times)
+        combined_plan = "Treatment Plan\n"
+        combined_plan += f"{self.num_dwells} Control Points\n"
+
+        for dwell_i in range(self.num_dwells):
+
+            dwell_coordinates_str = np.array(
+                list(self.dwell_coordinates[dwell_i]["position"].values())
+                + list(self.dwell_coordinates[dwell_i]["rotation"].values())
+                + [self.dwell_coordinates[dwell_i]["angle"]]
+                + list(self.applicator_rotation_axis)
+                + list(self.applicator_rotation_origin),
+                dtype=np.float32,
+            )
+            dwell_coordinates_str = (
+                ",".join(
+                    [
+                        str(int(coord)) if coord == int(coord) else format(coord, ".6f")
+                        for coord in dwell_coordinates_str
+                    ]
+                )
+                + "\n"
+            )
+
+            combined_plan += "Control Point\n"
+            combined_plan += f"weight = {self.dwell_times[dwell_i]/total_dwell_time}\n"
+            combined_plan += "1 Dwell Position\n"
+            combined_plan += dwell_coordinates_str
+
+            run_i_plan = "Treatment Plan\n"
+            run_i_plan += "1 Control Points\n"
+            run_i_plan += "Control Point\nweight = 1.0\n"
+            run_i_plan += "1 Dwell Position\n"
+            run_i_plan += dwell_coordinates_str
+            with open(dir_export + f"/run_{dwell_i + 1}.plan", "w") as file:
+                file.write(run_i_plan)
+
+        with open(dir_export + "/combined.plan", "w") as file:
+            file.write(combined_plan)
 
     def export_mac_file(self, dir_export: str):
         r"""
         Purpose:
+            - To export the simulation parameters of the plan into a macro files
+            called combine.mac and run_{dwellNumber}.mac
         Inputs:
+            - dir_export := path to the directory where the export happens
         Outputs:
+            - void := Two types of .mac files are written, one named combined.mac and the other
+            named run_{dwellNumber}.mac. combined.plan contains
+
+            plan contains info of a single dwell position.
+
+            The format of each .plan file is given in this example:
+                /source_world/treatmentType HDR
+                /source_world/switch MicroSelectronV2
+                /source_world/coreMaterial G4_Ir
+                /source_world/core/A 192
+                /source_world/core/Z 77
+                /sim/plan combined.plan
+                /world/phantom ct.egsphant
+                /parallel_world/ak_per_history 1.149000e-11
+                /parallel_world/ref_ak 4.278729e+04
+                /parallel_world/H 2.500000e+00
+                /parallel_world/total_time 4.531841e+02
+                /dose/format 3ddose
+                /run/numberOfThreads 40
+                /run/initialize
+                /control/verbose 0
+                /run/verbose 0
+                /tracking/verbose 0
+                /run/printProgress 1000000
+                /sim/beamOn 10000000
+
         Dependencies:
+            - simulation_utils
         """
-        raise NotImplementedError("to be implemented soon")
+        for dwell_i in range(self.num_dwells):
+            sim_obj = deepcopy(self.combined_simulation_setup)
+            sim_obj.pth_plan = f"dwell_{dwell_i + 1}.plan"
+            sim_obj.total_time = 1
+            with open(dir_export + f"/run_{dwell_i + 1}.mac", "w") as file:
+                file.write(sim_obj.to_string())
+
+        self.combined_simulation_setup.total_time = np.sum(self.dwell_times)
+        with open(dir_export + "/combined.mac", "w") as file:
+            file.write(self.combined_simulation_setup.to_string())
 
     def export_egsphant(self, dir_export: str):
         r"""
@@ -931,7 +1134,7 @@ class BrachyPlan:
         raise NotImplementedError("to be implemented soon")
 
     def export_structure_set(
-        self, dir_export: str, export_format: str = "RapidBrachyExport"
+        self, dir_export: str, export_format: str = "RapidBrachy"
     ):
         r"""
         Purpose:
@@ -943,14 +1146,35 @@ class BrachyPlan:
             written to structure_set.json
         Dependencies:
         """
-        # raise NotImplementedError("to be implemented soon")
+
         structure_set = []
         for structure in self.structure_list:
             structure_set.append(structure.to_dict(export_format))
 
-        file_path = dir_export + "/structure_set.json"
+        file_path = os.path.join(dir_export, "structure_set.json")
         with open(file_path, "w") as file:
             json.dump(structure_set, file, indent=4)
+
+    def info(self):
+        r"""
+        Purpose:
+            - to print the information of the plan
+        Inputs:
+            - self := the BrachyPlan object
+        Outputs:
+            - Void := will print the information of the plan
+        Dependencies:
+            - None
+        """
+
+        print("****BrachyPlan Information****")
+        for attr, value in self.__dict__.items():
+            if isinstance(value, np.ndarray):
+                print(f"{attr} := {value.shape}")
+            elif isinstance(value, list):
+                print(f"{attr} := {len(value)}")
+            else:
+                print(f"{attr} := {value}")
 
 
 def _export_single_dose_rate(
@@ -985,21 +1209,25 @@ def _export_single_dose_rate(
 
 
 def load_structure_mask(
-    dir_structure_source: str,
+    pth_structure_source: str,
     structure_name_list: list,
-    structure_source_type: str = ".dcm",
+    # structure_source_type: str = ".dcm",
 ):
+    structure_source_type = os.path.splitext(pth_structure_source)[1]
 
     if structure_source_type == ".dcm":
         print("loading structure set from dicom files")
-        structure_mask_dict = get_strcuture_mask_from_dicom(
-            dir_structure_source, structure_name_list
-        )
-
+        structure_mask_dict = BrachyDicom(
+            pth_structure_source
+        ).get_strcuture_mask_from_dicom(structure_name_list)
     elif structure_source_type == ".nrrd":
         print("loading structure set from nrrd file")
         raise NotImplementedError(
             "loading structure set from .nrrd file is not implemented yet"
+        )
+    elif structure_source_type == ".json":
+        raise NotImplementedError(
+            "loading structure set from .json file is not implemented yet"
         )
     else:
         raise ValueError("structure source type is not recognized")
@@ -1104,3 +1332,17 @@ def _load_single_dose_or_uncertainty_to_dict(
         )
 
     return dose_or_uncert_map
+
+def _type_nested_dict_list(data):
+    
+    if isinstance(data, dict):
+       for key, value in data.items():
+            if isinstance(value, (dict, list)):
+                _type_nested_dict_list(value)
+            else:
+                print(f"{key}: {type(value)}")
+                
+    elif isinstance(data, list):
+        for item in data:
+            _type_nested_dict_list(item)
+            

@@ -8,10 +8,10 @@ from multiprocessing import Pool
 
 import numpy as np
 import typer
-from dicom_utils import get_structure_index_range
-from dose_utils import BrachyDose
-from egsphant_utils import BrachyEgsphant, _load_json
-from plan_utils import BrachyPlan
+from brachyutils.src.dicom_utils import BrachyDicom
+from brachyutils.src.dose_utils import BrachyDose
+from brachyutils.src.egsphant_utils import BrachyEgsphant, _load_json
+from brachyutils.src.plan_utils import BrachyPlan
 from tqdm import tqdm
 from typing_extensions import Annotated
 
@@ -79,7 +79,7 @@ def get_body_contour_range_from_dicom_many_patients(
                     [y_min:int, y_max:int],
                     [z_min:int, z_max:int],
                 ]
-                body_mask_shape:[len(x):int, len(y):int, len(z):int]
+                body_mask_shape:[len(x):int, len(y):int, len(z):/int]
             }
     """
 
@@ -89,10 +89,12 @@ def get_body_contour_range_from_dicom_many_patients(
     patient_dict_list = []
 
     for patient_dir in patient_dir_list:
+        if ".dcm" not in ",".join(os.listdir(patient_dir)):
+            continue
         try:
-            body_mask_info = get_structure_index_range(
-                patient_dir, query_structure_list=["body"]
-            )
+            body_mask_info = BrachyDicom(
+                patient_dir, load_dose=True
+            ).get_structure_index_range(["body"])
             body_index_range = body_mask_info["body"]["structure_index_range"]
             body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]
             patient_dict_list.append(
@@ -680,7 +682,7 @@ def combined_dose_per_patient(
     combined_dose_obj = BrachyDose()
 
     combined_dose_obj.num_voxels = dose_obj.num_voxels
-    combined_dose_obj.vox_size = dose_obj.vox_size
+    combined_dose_obj.voxel_size = dose_obj.voxel_size
     combined_dose_obj.topleft = dose_obj.topleft
     combined_dose_obj.voxel_edges = dose_obj.voxel_edges
 
@@ -748,6 +750,19 @@ def combined_dose_per_patient(
         combined_dose_obj.write_to_nrrd(dir_dose_maps + "combined.nrrd")
     elif type_out == ".minidos":
         combined_dose_obj.write_to_minidos(dir_dose_maps + "combined.minidos")
+
+
+def export_plan_single_patient(
+    dir_images_and_structures: str,
+    pth_plan: str,
+    pth_material_table: str,
+    dir_plan_export: str,
+):
+    r"""
+    Purpose:
+        - To export the simulation of a single patient to a directory.
+    """
+    raise NotImplementedError
 
 
 def main():

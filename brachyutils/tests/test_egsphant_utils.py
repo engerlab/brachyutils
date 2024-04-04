@@ -1,12 +1,12 @@
 import os
 
 import numpy as np
-from egsphant_utils import BrachyEgsphant, _to_single_string
+from brachyutils.src.egsphant_utils import BrachyEgsphant, _to_single_string
 
 
 def test_crop_by_body_contour():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
-    print("pth_dicomRS: ".format(pth_dicomRS))
+    # print("pth_dicomRS: ".format(pth_dicomRS))
 
     pth_input = (
         "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/ct.egsphant"
