@@ -37,5 +37,5 @@ setup(
         "pytest",
     ],
     entry_points={"console_scripts": ["brachyutils=brachyutils.src.cli_utils:main"]},
-    # package_dir={'':'brachyutils/src'}
+    package_dir={'':'.'}
 )
