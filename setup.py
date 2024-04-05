@@ -35,6 +35,7 @@ setup(
         "pymedphys",
         "py7zr",
         "pytest",
+        "scikit-build",
     ],
     entry_points={"console_scripts": ["brachyutils=brachyutils.src.cli_utils:main"]},
     package_dir={'':'.'}
