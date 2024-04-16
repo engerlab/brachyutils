@@ -183,7 +183,7 @@ class BrachyEgsphant:
             # prepare empty matricies to hold material and density images
             self.material_matrix = np.zeros(
                 (self.num_voxels[2], self.num_voxels[1],
-                 self.num_voxels[0]), dtype=int
+                 self.num_voxels[0]), dtype=str
             )
             self.density_matrix = np.zeros(
                 (self.num_voxels[2], self.num_voxels[1], self.num_voxels[0]),
@@ -449,7 +449,7 @@ class BrachyEgsphant:
             new_obj.material_dict = self.material_dict
             new_obj.num_voxels = np.flip(new_obj.material_matrix.shape, 0)
             new_obj.voxel_size = self.voxel_size
-            new_obj.axis = self.calculateAxis()
+            new_obj.axis = new_obj.calculateAxis()
             new_obj.num_materials = self.num_materials
             return new_obj
 
