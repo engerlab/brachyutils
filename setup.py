@@ -1,4 +1,5 @@
 from setuptools import find_packages, setup
+from os import getcwd
 
 setup(
     name="brachyutils",
@@ -38,6 +39,6 @@ setup(
         "py7zr",
         "pytest",
     ],
-    entry_points={"console_scripts": ["brachyutils=brachyutils.src.cli_utils:main"]},
-    package_dir={'':'.'}
+    package_dir={"":"/home/odcus/Software/brachyutils/brachyutils/src/"},
+    entry_points={"console_scripts": ["brachyutils=cli_utils:main"]},
 )
