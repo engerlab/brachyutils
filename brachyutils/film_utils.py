@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import filedialog as fd
 import sys
 import os
-import brachyutils.src.dose_utils
+import brachyutils.dose_utils
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D

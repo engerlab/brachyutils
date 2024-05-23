@@ -7,7 +7,7 @@ import numpy as np
 import pydicom
 from DicomRTTool.ReaderWriter import DicomReaderWriter
 
-from brachyutils.src.dose_utils import BrachyDose
+from brachyutils.dose_utils import BrachyDose
 
 
 class BrachyDicom:

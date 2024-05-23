@@ -1,7 +1,7 @@
 # import numpy as np
 from glob import glob
 
-from brachyutils.src.dicom_utils import BrachyDicom, get_dvh_metrics_from_dicom_dose
+from brachyutils.dicom_utils import BrachyDicom, get_dvh_metrics_from_dicom_dose
 
 
 def test_load_dicom():

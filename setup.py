@@ -6,7 +6,9 @@ setup(
     version="1.0",
     description="Python utility packages for handling dose files and egsphant files.",
     author="EngerLab",
-    packages=find_packages(),
+    packages=find_packages(include=['brachyutils.*']),
+    # namespace_packages=['brachyutils'],
+    package_dir={'':'.'},
     install_requires=[
         # "contourpy",
         "cycler",
@@ -39,6 +41,5 @@ setup(
         "py7zr",
         "pytest",
     ],
-    package_dir={"":"."},
-    entry_points={"console_scripts": ["brachyutils=brachyutils.src.cli_utils:main"]},
+    entry_points={"console_scripts": ["brachyutils=brachyutils.cli_utils:main"]},
 )

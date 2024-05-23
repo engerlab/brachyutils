@@ -13,10 +13,10 @@ from scipy import interpolate, ndimage
 # from typing import Optional
 from tqdm import tqdm
 
-from brachyutils.src.dicom_utils import BrachyDicom  # get_strcuture_mask_from_dicom
-from brachyutils.src.dose_utils import BrachyDose, dose_with_empty_grid_like
-from brachyutils.src.egsphant_utils import BrachyEgsphant
-from brachyutils.src.simulation_utils import BrachySimulation
+from brachyutils.dicom_utils import BrachyDicom  # get_strcuture_mask_from_dicom
+from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
+from brachyutils.egsphant_utils import BrachyEgsphant
+from brachyutils.simulation_utils import BrachySimulation
 
 
 class BrachyStructure:

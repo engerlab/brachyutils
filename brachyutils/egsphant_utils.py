@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 
 # from dicom_utils import get_structure_index_range
-from brachyutils.src.dicom_utils import BrachyDicom
+from brachyutils.dicom_utils import BrachyDicom
 
 
 class BrachyEgsphant:

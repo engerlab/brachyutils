@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from brachyutils.src.egsphant_utils import BrachyEgsphant, _to_single_string
+from brachyutils.egsphant_utils import BrachyEgsphant, _to_single_string
 
 
 def test_crop_by_body_contour():
