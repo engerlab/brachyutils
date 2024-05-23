@@ -39,6 +39,6 @@ setup(
         "py7zr",
         "pytest",
     ],
-    package_dir={"":"/home/odcus/Software/brachyutils/brachyutils/src/"},
-    entry_points={"console_scripts": ["brachyutils=cli_utils:main"]},
+    package_dir={"":"."},
+    entry_points={"console_scripts": ["brachyutils=brachyutils.src.cli_utils:main"]},
 )
