@@ -33,6 +33,10 @@ class BrachyStructure:
         - dvh_metric_name:str
         - dvh_metric_clinical_goal:float
         - dvh_metric_observed:float
+    
+    Functions:
+        - get_dvh_metric(combined_dose:BrachyDose)
+        - to_dict(export_format:str)
     """
 
     def __init__(self):
@@ -171,15 +175,15 @@ class BrachyPlan:
 
     Functions:
         - load_catheterTable_json()
-        - extract_dwell_numbers_times_coordinates_from_catheterTable()
-        - update_catheter_table_from_plan()
-        - update_dose_after_change_in_plan()
+        - _extract_dwell_numbers_times_coordinates_from_catheterTable()
+        - _update_catheter_table_from_plan()
+        - _update_dose_after_change_in_plan()
         - load_dose_rate_or_uncertainty_tensor()
-        - calculate_combined_dose()
+        - _calculate_combined_dose()
         - set_dvh_metric_goals()
         - create_structures()
         - calculate_dvh_metrics()
-        - calculate_combined_uncertainty()
+        - _calculate_combined_uncertainty()
         - calculate_uncertainty_per_structure()
         - export_brachy_plan ()
     """
@@ -357,7 +361,7 @@ class BrachyPlan:
 
         if load_plan:
             self.catheter_table = self.dicom_obj.catheter_table
-            self.extract_dwell_numbers_times_coordinates_from_catheterTable()
+            self._extract_dwell_numbers_times_coordinates_from_catheterTable()
 
         if load_dose:
             self.combined_dose = self.dicom_obj.dose
@@ -404,9 +408,9 @@ class BrachyPlan:
             catheter_table = json.load(json_file)
 
         self.catheter_table = catheter_table
-        self.extract_dwell_numbers_times_coordinates_from_catheterTable()
+        self._extract_dwell_numbers_times_coordinates_from_catheterTable()
 
-    def extract_dwell_numbers_times_coordinates_from_catheterTable(self):
+    def _extract_dwell_numbers_times_coordinates_from_catheterTable(self):
         r"""
         Purpose:
             - To extract the dwell numbers, times, and coordinates from the catheter table
@@ -454,7 +458,7 @@ class BrachyPlan:
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
 
-    def update_catheter_table_from_plan(self):
+    def _update_catheter_table_from_plan(self):
         r"""
         Purpose:
             - Assuming that the dwell times or coordinates have changed, we need to update
@@ -494,7 +498,7 @@ class BrachyPlan:
 
             self.catheter_table.append(deepcopy(catheter))
 
-    def update_dose_after_change_in_plan(self):
+    def _update_dose_after_change_in_plan(self):
         r"""
         Purpose:
             - Assuming that the dwell times or coordinates have changed, we need to update
@@ -505,8 +509,8 @@ class BrachyPlan:
             - Void := will update the BrachyPlan.catheter_table and BrachyPlan.combined_dose
             attributes
         """
-        self.update_catheter_table_from_plan()
-        self.calculate_combined_dose()
+        self._update_catheter_table_from_plan()
+        self._calculate_combined_dose()
 
     def load_dose_rate_or_uncertainty_tensor(
         self,
@@ -616,11 +620,11 @@ class BrachyPlan:
         # assert self.combined_dose.is_not_empty(), "combined dose is empty"
         # }
         if load_dose_or_uncertainty != "uncertainty":
-            self.calculate_combined_dose()
+            self._calculate_combined_dose()
         if load_dose_or_uncertainty != "dose":
-            self.calculate_combined_uncertainty()
+            self._calculate_combined_uncertainty()
 
-    def calculate_combined_dose(self):
+    def _calculate_combined_dose(self):
         """
         Purpose:
         - To calculate the combined dose by multiplying the dose rate tensor with the dwell times array.
@@ -634,7 +638,7 @@ class BrachyPlan:
         ), "dose rate tensor is empty. Run load_dose_rate_or_uncertainty_tensor()"
         assert (
             self.dwell_times.size != 0
-        ), "dwell times array is empty. Run extract_dwell_numbers_times_coordinates_from_catheterTable()"
+        ), "dwell times array is empty. Run _extract_dwell_numbers_times_coordinates_from_catheterTable()"
 
         # calculate the combined dose and store the result in the combined_dose attribute
         # this implementation is a little slow, and very very memory efficient
@@ -751,7 +755,7 @@ class BrachyPlan:
             # print(size_uncropped_dose_grid)
             # print(self.combined_dose.grid.shape)
 
-    def calculate_combined_uncertainty(self):
+    def _calculate_combined_uncertainty(self):
         r"""
         Purpose:
             - To calculate the combined uncertainty of the combined dose map.
@@ -882,7 +886,7 @@ class BrachyPlan:
         elif export_format == "RapidBrachy":
 
             if content_to_export["dose"]:
-                self.export_dose(
+                self._export_dose(
                     dir_export,
                     # content_to_export["uncertainty"],
                     content_to_export["dose_type"],
@@ -890,33 +894,33 @@ class BrachyPlan:
                 )
             if content_to_export["catheter_table"]:
                 # assumes file name is "catheter_table.json"
-                self.export_catheter_table(dir_export)
+                self._export_catheter_table(dir_export)
 
             if content_to_export["plan"]:
                 # assumes file name is "dwell_#.plan"
-                self.export_plan_file(dir_export)
+                self._export_plan_file(dir_export)
 
             if content_to_export["mac"]:
                 # assumes file name is "run_#.mac"
-                self.export_mac_file(dir_export)
+                self._export_mac_file(dir_export)
 
             if content_to_export["egsphant"]:
                 # assumes file name is "ct.egsphant"
-                self.export_egsphant(dir_export)
+                self._export_egsphant(dir_export)
 
             if content_to_export["ApplicatorMaterials"]:
                 # assumes file name is "ApplicatorMaterials"
-                self.export_applicator_materials(dir_export)
+                self._export_applicator_materials(dir_export)
 
             if content_to_export["applicator_geometry"]:
                 # assumes file name is "applicator_geometry.json"
-                self.export_applicator_geometry(dir_export)
+                self._export_applicator_geometry(dir_export)
 
             if content_to_export["structure_set"]:
                 # assumes file name is "structure_set.json"
-                self.export_structure_set(dir_export)
+                self._export_structure_set(dir_export)
 
-    def export_dose(
+    def _export_dose(
         self,
         dir_export: str,
         # uncertainty=False,
@@ -974,7 +978,7 @@ class BrachyPlan:
                         ],
                     )
 
-    def export_catheter_table(self, dir_export: str):
+    def _export_catheter_table(self, dir_export: str):
         r"""
         Purpose:
             - to export catheter table of the plan into a file called catheter_table.json
@@ -990,7 +994,7 @@ class BrachyPlan:
         with open(file_path, "w") as file:
             json.dump(self.catheter_table, file, indent=4)
 
-    def export_plan_file(self, dir_export: str):
+    def _export_plan_file(self, dir_export: str):
         r"""
         Purpose:
             - To export dwell positions and their normalized times into ".plan" text files in the
@@ -1052,7 +1056,7 @@ class BrachyPlan:
         with open(dir_export + "/combined.plan", "w") as file:
             file.write(combined_plan)
 
-    def export_mac_file(self, dir_export: str):
+    def _export_mac_file(self, dir_export: str):
         r"""
         Purpose:
             - To export the simulation parameters of the plan into a macro files
@@ -1100,7 +1104,7 @@ class BrachyPlan:
         with open(dir_export + "/combined.mac", "w") as file:
             file.write(self.combined_simulation_setup.to_string())
 
-    def export_egsphant(self, dir_export: str):
+    def _export_egsphant(self, dir_export: str):
         r"""
         Purpose:
             - to export the egsphant file of the plan into dir_export
@@ -1115,7 +1119,7 @@ class BrachyPlan:
         file_path = dir_export + "/ct.egsphant"
         self.egsphant.write_to_ctegsphant(file_path)
 
-    def export_applicator_materials(self, dir_export: str):
+    def _export_applicator_materials(self, dir_export: str):
         r"""
         Purpose:
         Inputs:
@@ -1124,7 +1128,7 @@ class BrachyPlan:
         """
         raise NotImplementedError("to be implemented soon")
 
-    def export_applicator_geometry(self, dir_export: str):
+    def _export_applicator_geometry(self, dir_export: str):
         r"""
         Purpose:
         Inputs:
@@ -1133,7 +1137,7 @@ class BrachyPlan:
         """
         raise NotImplementedError("to be implemented soon")
 
-    def export_structure_set(
+    def _export_structure_set(
         self, dir_export: str, export_format: str = "RapidBrachy"
     ):
         r"""

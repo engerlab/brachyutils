@@ -9,7 +9,7 @@ def test_crop_by_body_contour():
     # print("pth_dicomRS: ".format(pth_dicomRS))
 
     pth_input = (
-        "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/ct.egsphant"
+        "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     )
     # pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
 
@@ -23,7 +23,7 @@ def test_crop_by_body_contour():
 
 def test_crop_by_index():
     pth_input = (
-        "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/ct.egsphant"
+        "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     )
     pth_output = os.path.dirname(pth_input) + "/test_" + os.path.basename(pth_input)
 
@@ -40,7 +40,7 @@ def test_crop_by_index():
 
 def test_write_to_egsphant():
     pth_input = (
-        "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/ct.egsphant"
+        "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     )
     pth_output = os.path.dirname(pth_input) + "/test_" + os.path.basename(pth_input)
 
@@ -57,7 +57,7 @@ def test_write_to_egsphant():
 
 def test_to_single_string():
     pth_input = (
-        "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/ct.egsphant"
+        "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     )
     # pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
 
@@ -70,7 +70,7 @@ def test_to_single_string():
 
 def test_load_from_ctegsphant():
     pth_input = (
-        "../../data_test/prostate-glen-p1-planFiles/optimized_plan_ctv/ct.egsphant"
+        "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     )
 
     egsphant_obj = BrachyEgsphant()
