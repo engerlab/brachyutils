@@ -18,9 +18,13 @@ class BrachyDicom:
     Attributes:
         - dicom_reader:DicomReaderWriter := an instance of the DicomReaderWriter class.
         - all_rois:list := a list of all the structure names in the dicom file.
-        - mask_dict:dict := a dictionary with the structure name as key and the mask as value.
+        - image:np.array := the image of the patient. [z, y, x]
+        - origin_coords:list := the origin of the image. [x, y, z]
+        - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value.
         - structure_index_range_dict:dict := a dictionary with the structure name as key and the index range as value.
-        - top_left:DicomReaderWriter := an instance of the DicomReaderWriter class.
+        - dose: BrachyDose := dose from dicom RD file saved as an instance of the BrachyDose class.
+        - catheter_table := a dictionary returned by load_catheter_table_and_source_info_from_dicom()
+        - source_info: dict := a dictionary with the source information.
     Dependencies:
         - DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
 
@@ -45,7 +49,6 @@ class BrachyDicom:
         self.structure_mask_dict: dict = {}
         self.structure_index_range_dict: dict = {}
         self.dose: BrachyDose = None
-        self.dvh_metrics: dict = None
         self.catheter_table: dict = None
         self.source_info: dict = None
 
@@ -77,9 +80,7 @@ class BrachyDicom:
 
         if load_dose:
             self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
-            # self.dvh_metrics = get_dvh_metrics_from_dicom_dose(
-            #     glob(pth_dir_dicom + "/RD*.dcm")[0]
-            # )
+
         if load_plan:
             self.catheter_table, self.source_info = (
                 load_catheter_table_and_source_info_from_dicom(
@@ -347,18 +348,3 @@ def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
         )
 
     return final_catheter_table, source_info
-
-
-def get_dvh_metrics_from_dicom_dose(pth_dicom_dose: str):
-    r"""
-    Purpose:
-        - To get the dvh metrics from the dicom dose file.
-    Inputs:
-        - pth_dicom_dose:str := the path to the dicom dose file.
-    Outputs:
-        - dvh_metrics:dict := a dictionary with the dvh metrics.
-    Dependencies:
-        - pydicom: https://pydicom.github.io/
-    """
-    # load the dose file into an rt_dose object
-    raise NotImplementedError("this function is not implemented yet")

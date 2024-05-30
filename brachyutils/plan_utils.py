@@ -13,7 +13,7 @@ from scipy import interpolate, ndimage
 # from typing import Optional
 from tqdm import tqdm
 
-from brachyutils.dicom_utils import BrachyDicom  # get_strcuture_mask_from_dicom
+from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
 from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.simulation_utils import BrachySimulation
@@ -26,14 +26,41 @@ class BrachyStructure:
         treatment plan.
 
     Attributes:
-        - name:str
-        - name_in_gurobiModel:str
-        - bound_coordinates:list
-        - penalty_weight:float
-        - dvh_metric_name:str
-        - dvh_metric_clinical_goal:float
-        - dvh_metric_observed:float
     
+        Basic Attributes
+        - name:str
+        - mask
+        - target_volume
+        
+        DVH Attributes:
+        - in_dvh
+        - dvh_metric_name
+        - dvh_metric_clinical_goal
+        - dvh_metric_observed
+        - normalized_cummulative_dvh
+        
+        Uncertainty Attributes:
+        - uvh
+        - uncertainty_mean
+        - uncertainty_std
+        - uncertainty_max
+        - uncertainty_min
+        
+        Optimization Attributes:
+        - name_in_gurobiModel
+        - bound_coordinates_in_gurobiModel
+        - penalty_weight_linear
+        - penalty_weight_quadratic
+        - penalty_weight_uniformity
+        - dose_limit
+        - max_dose
+        - min_dose
+        
+        Simulation attributes:
+        - density
+        - density_mode
+        - material
+
     Functions:
         - get_dvh_metric(combined_dose:BrachyDose)
         - to_dict(export_format:str)
@@ -192,17 +219,21 @@ class BrachyPlan:
         self,
         # for loading dicom
         dir_dicom: str = None,
+        
         # for structure creation:
         dvh_metric_goals: dict = None,
         pth_structure_source: str = None,
         dose_cropped_by_body: bool = False,
+        
         # for loading catheter table:
         pth_catheterTable_json: str = None,
+        
         # for loading dose or uncertainty:
         dir_dose_rate: str = None,
         type_dose_file: str = ".nrrd",
         load_dose_or_uncertainty: str = "dose",
         multi_processing: bool = False,
+        
         # for simulation setup:
         combined_simulation_dict: dict = None,
         dir_egsphant: str = None,
@@ -242,6 +273,7 @@ class BrachyPlan:
         self.dwell_numbers = np.array([], dtype=int)  # shape: (num_dwells, 1)
         self.dwell_times = np.array([], dtype=np.float32)  # shape: (num_dwells, 1)
         self.dwell_coordinates = []  # shape: (num_dwells, 3)
+        
         # dose attributes
         self.dose_rate_tensor = np.array(
             [], dtype=np.float32
@@ -250,13 +282,16 @@ class BrachyPlan:
         self.uncertainty_tensor = np.array(
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
+        
         # sturctures attributes
         # self.organ_bounds = None
         self.dvh_metric_goals: dict = None
         self.dvh_metric_observed: dict = None
         self.structure_list: list = []
+        
         # dicom image
-        self.dicom_obj = None
+        self.dicom_obj:BrachyDicom = None
+        
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
         self.egsphant: BrachyEgsphant = None
@@ -674,14 +709,21 @@ class BrachyPlan:
 
     def create_structures(
         self,
-        structure_mask_dict: dict = None,
         dir_structures_source: str = None,
+        structure_mask_dict: dict = None,
         dose_cropped_by_body: bool = False,
     ):
         r"""
         Purpose:
             - To create a list of BrachyStructure objects given the path to the directory
             containing the structure masks. the list is stored in the BrachyPlan.structure_list attribute.
+            Eeach BrachyStructure object will have attributes for the structure mask, the dose volume
+            and uncertainty volume histograms, optimization attributes, and simulation attributes. 
+            
+            The basic (mandatory) attributes are the structure name, mask and whether it is a target volume or not.
+            If dvh metric goals are set, the BrachyStructure object will automatically update the DVH attributes
+            in the BrachyStructure object.
+             
         Inputes:
             - dir_structures_source := path to the directory containing the structure masks.
             this could be dicom files or nrrd files.
@@ -692,20 +734,19 @@ class BrachyPlan:
         Dependencies:
             - BrachyDicom
         """
-        assert (
-            self.dvh_metric_goals is not None
-        ), "dvh metric goals are not set, run set_dvh_metric_goals()"
 
-        structure_name_list = ["body"]
-        for dvh_metric in self.dvh_metric_goals:
-            structure_obj = BrachyStructure()
-            structure_obj.name = dvh_metric.split("(")[-1].split(")")[0]
-            structure_name_list.append(structure_obj.name)
-            structure_obj.dvh_metric_name = dvh_metric.split("(")[0]
-            structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[dvh_metric]
-            self.structure_list.append(structure_obj)
+        if self.dvh_metric_goals is not None:
+            for dvh_metric in self.dvh_metric_goals:
+                structure_obj = BrachyStructure()
+                structure_obj.name = dvh_metric.split("(")[-1].split(")")[0]
+                structure_name_list.append(structure_obj.name)
+                structure_obj.dvh_metric_name = dvh_metric.split("(")[0]
+                structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[dvh_metric]
+                self.structure_list.append(structure_obj)
 
         # load the structure mask
+        structure_name_list = ["body"]
+        
         if dir_structures_source is not None and structure_mask_dict is None:
             structure_mask_dict = load_structure_mask(
                 dir_structures_source, structure_name_list

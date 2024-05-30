@@ -212,10 +212,10 @@ def test_export_brachy_plan():
     dir_export = "../../data_test/test_export_plan/"
     os.makedirs(dir_export, exist_ok=True)
     content_to_export = {
-        "dose": False,
+        "dose": True,
         "dose type": ".nrrd",
         "dose rate maps": False,
-        "uncertainty": False,
+        "uncertainty": True,
         "catheter_table": True,
         "egsphant": False,
         "structure_set": True,
@@ -240,15 +240,15 @@ def test_load_brachy_plan_from_dicom():
     plan_obj.info()
 
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
     # test_load_catheterTable_json()
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     # test_load_dose_rate_or_uncertainty_tensor()
     # test_set_dvh_metric_goals()
-    # test_create_structures_and_calc_dvh_metrics()
-    # test_calculate_combined_uncertainty()
-    # test_calculate_uncertainty_per_structure()
-    # test_BrachyPlan()
+    test_create_structures_and_calc_dvh_metrics()
+    test_calculate_combined_uncertainty()
+    test_calculate_uncertainty_per_structure()
+    test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
-    # test_export_brachy_plan()
+    test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
