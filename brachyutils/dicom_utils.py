@@ -75,7 +75,7 @@ class BrachyDicom:
 
         if load_structure:
             self.all_rois = self.dicom_reader.return_rois()
-            self.get_strcuture_mask_from_dicom(self.all_rois)
+            # self.get_strcuture_mask_from_dicom(self.all_rois)
             self.get_structure_index_range(self.all_rois)
 
         if load_dose:
@@ -91,7 +91,8 @@ class BrachyDicom:
     def get_structure_index_range(self, query_structure_list: list):
         r"""
         Purpose:
-            to find the index extent of the structure voxels along each axis using dicom RT structure file.
+            To find the index extent of the structure voxels along each axis using dicom RT structure file.
+            If the object already has this feature, it will return the stored value instead of over-writing it.
         Inputs:
             - query_structure_list := list of structure names to find the index range of.
         Outputs:
@@ -131,7 +132,8 @@ class BrachyDicom:
     def get_strcuture_mask_from_dicom(self, query_structure_list: list):
         r"""
         Purpose:
-            to get the mask of the structures using dicom RT structure file.
+            To get the mask of the structures using dicom RT structure file.
+            If the object already has this feature, it will return the stored value instead of over-writing it.
         Inputs:
             - query_structure_list := list of structure names to find the mask of.
         Outputs:

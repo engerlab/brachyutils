@@ -709,8 +709,8 @@ class BrachyPlan:
 
     def create_structures(
         self,
-        dir_structures_source: str = None,
         structure_mask_dict: dict = None,
+        dir_structures_source: str = None,
         dose_cropped_by_body: bool = False,
     ):
         r"""
@@ -725,76 +725,86 @@ class BrachyPlan:
             in the BrachyStructure object.
              
         Inputes:
+            - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value. This 
+            dictionary can be obtained from self.dicom_obj.structure_mask_dict.
+            
             - dir_structures_source := path to the directory containing the structure masks.
-            this could be dicom files or nrrd files.
-            - size_uncropped_dose_grid := the size of the uncropped dose grid. this is needed to
-            match the size of the structure mask to the size of the dose grid.
+            this could be dicom file (starting with RS) or nrrd files. If self.dicom_obj is not None,
+            using this parameter will over-ride the previous structure objects. 
+            
         Outputs:
             - Void := will update the BrachyPlan.structure_list attribute
         Dependencies:
             - BrachyDicom
         """
-
-        if self.dvh_metric_goals is not None:
-            for dvh_metric in self.dvh_metric_goals:
-                structure_obj = BrachyStructure()
-                structure_obj.name = dvh_metric.split("(")[-1].split(")")[0]
-                structure_name_list.append(structure_obj.name)
-                structure_obj.dvh_metric_name = dvh_metric.split("(")[0]
-                structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[dvh_metric]
-                self.structure_list.append(structure_obj)
-
-        # load the structure mask
-        structure_name_list = ["body"]
+        # contour names are assigned based on the keys in the structure mask dictionary
+        if structure_mask_dict is None:
+            # assert dir_structures_source is not None, "dir_structures_source is not provided"
+            try:
+                structure_mask_dict = _load_structure_mask(dir_structures_source)
+            except Exception as e:
+                print(f"Either structure mask should be provided or dir_structure_source: {e}")
+                return
+            
+        # get the key corresponding to the body contour, which is used to squeeze the structure mask
+        body_key = list(filter(lambda x: "body" in x.lower(), structure_mask_dict.keys()))[0]
         
-        if dir_structures_source is not None and structure_mask_dict is None:
-            structure_mask_dict = load_structure_mask(
-                dir_structures_source, structure_name_list
-            )
-        else:
-            assert (
-                structure_mask_dict is not None
-            ), "structure mask dict is not provided. Either provide it or provide dir_structures_source"
-        # get the index extent of body contour on each axis
-        if dose_cropped_by_body:
-            body_index_range = np.zeros([3, 2], dtype=int)
-            for i in range(3):
-                body_index_range[i, :] = np.floor(
-                    np.array(
-                        [
-                            np.argwhere(structure_mask_dict["body"] == 1)[:, i].min(),
-                            # off set of +1 is added to acount for python stopping before range end
-                            np.argwhere(structure_mask_dict["body"] == 1)[:, i].max()
-                            + 1,
-                        ]
-                    )
-                ).astype(int)
-
-        for structure in self.structure_list:
-            structure_name_in_dicom = list(
-                filter(lambda x: structure.name in x, structure_mask_dict.keys())
-            )[0]
-            mask = structure_mask_dict[structure_name_in_dicom]
-            # apply body contour mask to the structure mask
+        for structure_name in structure_mask_dict.keys():
+            structure_obj = BrachyStructure()
+            # get the name based on the structure mask dictionary key
+            structure_obj.name = structure_name
+            
+            # get the mask from the structure mask dictionary
+            structure_obj.mask = structure_mask_dict[structure_name]
             if dose_cropped_by_body:
-                mask = mask[
-                    body_index_range[0][0] : body_index_range[0][1],
-                    body_index_range[1][0] : body_index_range[1][1],
-                    body_index_range[2][0] : body_index_range[2][1],
-                ]
-
+                # obtain the range of body contour on each axis. 
+                # we assume that the body contour contains the word "body" in its name
+                body_index_range = np.zeros([3, 2], dtype=int)
+                for i in range(3):
+                    body_index_range[i, :] = np.floor(
+                        np.array(
+                            [
+                                np.argwhere(structure_mask_dict[body_key] == 1)[:, i].min(),
+                                # off set of +1 is added to acount for python stopping before range end
+                                np.argwhere(structure_mask_dict[body_key] == 1)[:, i].max()
+                                + 1,
+                            ]
+                        )
+                    ).astype(int)
+                # apply body contour mask to the structure mask
+                structure_obj.mask = structure_obj.mask[
+                        body_index_range[0][0] : body_index_range[0][1],
+                        body_index_range[1][0] : body_index_range[1][1],
+                        body_index_range[2][0] : body_index_range[2][1],
+                    ]    
             # resize the mask to match the dose grid if dose grid exists
-            structure.mask = (
+            structure_obj.mask = (
                 ndimage.zoom(
-                    mask, np.array(self.combined_dose.grid.shape) / mask.shape, order=0
+                    structure_obj.mask, np.array(self.combined_dose.grid.shape) / structure_obj.mask.shape, order=0
                 )
                 if self.combined_dose is not None
-                else mask
+                else structure_obj.mask
             )
+            
+            # get the dvh metric goals if they are set
+            if self.dvh_metric_goals is not None:
+                dvh_metric = list(filter(lambda x: x.split("(")[-1].split(")")[0].lower()
+                                        in structure_obj.name, self.dvh_metric_goals.keys()))[0]
+                if dvh_metric is None:
+                    print(f"{structure_obj.name} is not in the dvh metric goals")
+                    structure_obj.in_dvh = False
+                else:
+                    structure_obj.in_dvh = True
+                    structure_obj.dvh_metric_name = dvh_metric.split("(")[0]
+                    structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[dvh_metric]
 
-            # print(structure.mask.shape)
-            # print(size_uncropped_dose_grid)
-            # print(self.combined_dose.grid.shape)
+            # get the simulation parameters for that structure
+            if self.simulation_setup is not None:
+                raise NotImplementedError("to be implemented soon")
+            
+            # add the structure object to the structure list
+            self.structure_list.append(structure_obj)
+
 
     def _calculate_combined_uncertainty(self):
         r"""
@@ -1253,27 +1263,43 @@ def _export_single_dose_rate(
     doseObj.write_brachydose_to_file(dir_export + f"/run_{dwell_number}" + dose_type)
 
 
-def load_structure_mask(
+def _load_structure_mask(
     pth_structure_source: str,
-    structure_name_list: list,
-    # structure_source_type: str = ".dcm",
+    structure_name_list: list = None,
 ):
+    """
+    Load structure mask from different file formats.
+
+    Inputs:
+        pth_structure_source (str): The path to the structure source file.
+        structure_name_list (list): A list of structure names to load.
+
+    Returns:
+        dict: A dictionary containing the structure masks.
+
+    Raises:
+        NotImplementedError: If the structure source type is not implemented yet.
+        ValueError: If the structure source type is not recognized.
+    """
     structure_source_type = os.path.splitext(pth_structure_source)[1]
 
     if structure_source_type == ".dcm":
         print("loading structure set from dicom files")
         structure_mask_dict = BrachyDicom(
             pth_structure_source
-        ).get_strcuture_mask_from_dicom(structure_name_list)
+        ).structure_mask_dict
+        
     elif structure_source_type == ".nrrd":
         print("loading structure set from nrrd file")
         raise NotImplementedError(
             "loading structure set from .nrrd file is not implemented yet"
         )
+        
     elif structure_source_type == ".json":
         raise NotImplementedError(
             "loading structure set from .json file is not implemented yet"
         )
+        
     else:
         raise ValueError("structure source type is not recognized")
 
