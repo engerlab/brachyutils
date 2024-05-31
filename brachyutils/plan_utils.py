@@ -746,9 +746,8 @@ class BrachyPlan:
             # assert dir_structures_source is not None, "dir_structures_source is not provided"
             try:
                 structure_mask_dict = _load_structure_mask(dir_structures_source)
-            except Exception as e:
-                print(f"Either structure mask should be provided or dir_structure_source: {e}")
-                return
+            except:
+                raise ValueError("Either structure mask should be provided or dir_structure_source") 
             
         # get the key corresponding to the body contour, which is used to squeeze the structure mask
         body_key = list(filter(lambda x: "body" in x.lower(), structure_mask_dict.keys()))[0]
