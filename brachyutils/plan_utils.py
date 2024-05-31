@@ -322,8 +322,11 @@ class BrachyPlan:
                 multi_processing=multi_processing,
             )
         # create the structures if the path is provided
-        if pth_structure_source is not None and dvh_metric_goals is not None:
-            self.create_structures(pth_structure_source, dose_cropped_by_body)
+        if pth_structure_source is not None:
+            self.create_structures(
+                dir_structures_source=pth_structure_source,
+                dose_cropped_by_body=dose_cropped_by_body)
+            
         # load the simulation setup if the dictionary is provided
         if dir_egsphant is not None:
             self.egsphant = BrachyEgsphant(dir_egsphant)
@@ -391,7 +394,8 @@ class BrachyPlan:
 
         if load_structure:
             self.create_structures(
-                self.dicom_obj.structure_mask_dict, dose_cropped_by_body
+                structure_mask_dict = self.dicom_obj.structure_mask_dict,
+                dose_cropped_by_body=dose_cropped_by_body
             )
 
         if load_plan:

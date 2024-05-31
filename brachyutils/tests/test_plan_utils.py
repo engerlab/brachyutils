@@ -89,8 +89,12 @@ def test_create_structures_and_calc_dvh_metrics():
     )
     plan_obj.set_dvh_metric_goals(dvh_metric_goals)
 
-    plan_obj.create_structures(dir_dicom, True)
-    plan_obj.calculate_DVH_metrics()
+    plan_obj.create_structures(
+        dir_structures_source=dir_dicom,
+        dose_cropped_by_body=True,
+    )
+    plan_obj.calculate_dvh_metrics()
+    # XXX: structure list is empty. fix it tomorrow!
     for structure in plan_obj.structure_list:
         print(f"{structure.name}: {structure.dvh_metric_observed}")
 
