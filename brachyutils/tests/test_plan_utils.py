@@ -107,9 +107,9 @@ def test_calculate_combined_uncertainty():
     
 
     plan_obj.load_dose_rate_or_uncertainty_tensor(
-        dir_dose_rate, load_dose_or_uncertainty="both", multi_processing=True
+        dir_dose_rate, load_dose_or_uncertainty="uncertainty", multi_processing=True
     )
-    plan_obj.calculate_combined_uncertainty()
+    plan_obj._calculate_combined_uncertainty()
     print(
         f"The shape of the combined uncertainty is {plan_obj.combined_dose.uncertainty.shape}"
     )
@@ -119,7 +119,7 @@ def test_calculate_combined_uncertainty():
 
 
 def test_calculate_uncertainty_per_structure():
-    pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    pth_catheter_table_json = "../../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../../data_test/prostate-glen-p1-dose/"
     dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
     dvh_metric_goals = {
@@ -129,12 +129,13 @@ def test_calculate_uncertainty_per_structure():
     }
 
     plan_obj = BrachyPlan(
-        pth_cathTable_json,
-        dir_dose_rate,
-        load_dose_or_uncertainty="both",
-        multi_processing=True,
-        dir_structure_source=dir_dicom,
+        dir_dicom=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
+        dose_cropped_by_body=True,
+        pth_catheter_table_json=pth_catheter_table_json,
+        dir_dose_rate = dir_dose_rate,
+        load_dose_or_uncertainty="both",
+        multi_processing=True
     )
 
     plan_obj.calculate_uncertainty_per_structure()
@@ -248,8 +249,8 @@ if __name__ == "__main__":
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     # test_load_dose_rate_or_uncertainty_tensor()
     # test_set_dvh_metric_goals()
-    test_create_structures_and_calc_dvh_metrics()
-    test_calculate_combined_uncertainty()
+    # test_create_structures_and_calc_dvh_metrics()
+    # test_calculate_combined_uncertainty()
     test_calculate_uncertainty_per_structure()
     test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
