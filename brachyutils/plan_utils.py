@@ -6,6 +6,7 @@ from copy import deepcopy
 from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
+import warnings
 
 import numpy as np
 from scipy import interpolate, ndimage
@@ -310,12 +311,15 @@ class BrachyPlan:
             if dvh_metric_goals is not None
             else None
         )
+
         # load the dicom plan if the path is provided
         if dir_dicom is not None:
             self.load_brachy_plan_from_dicom(dir_dicom, dose_cropped_by_body)
+        
         # load the catheter table if the path is provided
         if pth_catheter_table_json is not None:
             self.load_catheterTable_json(pth_catheter_table_json)
+        
         # load the dose rate tensor if the path is provided
         if dir_dose_rate is not None:
             self.load_dose_rate_or_uncertainty_tensor(
@@ -324,6 +328,7 @@ class BrachyPlan:
                 load_dose_or_uncertainty=load_dose_or_uncertainty,
                 multi_processing=multi_processing,
             )
+
         # create the structures if the path is provided
         if pth_structure_source is not None:
             self.create_structures(
@@ -465,11 +470,13 @@ class BrachyPlan:
         """
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
-        self.dwell_numbers, self.dwell_times, self.dwell_coordinates = (
+        self.catheter_numbers, self.dwell_numbers, self.dwell_times, self.dwell_coordinates = (
+            np.array([], dtype=int),
             np.array([], dtype=int),
             np.array([], dtype=np.float32),
             [],
         )
+        self.num_catheters = None
         self.num_dwells = None
 
         # extract the attributes above from the catheter table
@@ -653,18 +660,15 @@ class BrachyPlan:
         gc.collect()
 
         self.combined_dose = dose_with_empty_grid_like(test_dose_obj)
-        # for debugging{
-        # assert np.array_equal(
-        #     np.concatenate(self.combined_dose.voxel_edges),
-        #     np.concatenate(test_dose_obj.voxel_edges)), \
-        #     "voxel edges of combined dose map and dwell dose rate map do not match"
-
-        # assert self.combined_dose.is_not_empty(), "combined dose is empty"
-        # }
+        
         if load_dose_or_uncertainty != "uncertainty":
             self._calculate_combined_dose()
         if load_dose_or_uncertainty != "dose":
             self._calculate_combined_uncertainty()
+        
+        if len(self.structure_list) != 0:
+            for structure in self.structure_list:
+                structure.mask = _resize_structure_mask(structure.mask, self.combined_dose.grid.shape)
 
     def _calculate_combined_dose(self):
         """
@@ -785,9 +789,7 @@ class BrachyPlan:
                     ]    
             # resize the mask to match the dose grid if dose grid exists
             structure_obj.mask = (
-                ndimage.zoom(
-                    structure_obj.mask, np.array(self.combined_dose.grid.shape) / structure_obj.mask.shape, order=0
-                )
+                _resize_structure_mask(structure_obj.mask, self.combined_dose.grid.shape)
                 if self.combined_dose is not None
                 else structure_obj.mask
             )
@@ -815,7 +817,6 @@ class BrachyPlan:
             
             # add the structure object to the structure list
             self.structure_list.append(structure_obj)
-
 
     def _calculate_combined_uncertainty(self):
         r"""
@@ -1243,6 +1244,18 @@ class BrachyPlan:
                 print(f"{attr} := {value}")
 
 
+def _resize_structure_mask(structure_mask, target_shape):
+    r"""
+    Purpose:
+        - To resize the structure mask to match the target shape.
+    Inputs:
+        - structure_mask:np.array := the structure mask to be resized.
+        - target_shape:tuple := the target shape to which the structure mask will be resized.
+    Outputs:
+        - np.array := the resized structure mask
+    """
+    return ndimage.zoom(structure_mask, np.array(target_shape) / structure_mask.shape, order=0)
+
 def _export_single_dose_rate(
     dose_grid: np.array,
     dwell_number: int,
@@ -1408,7 +1421,8 @@ def _load_single_dose_or_uncertainty_to_dict(
             )
             dose_or_uncert_map = dose_obj.uncertainty
         except AttributeError:
-            Warning(f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...")
+            warnings.warn(f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...")
+
     elif load_dose_or_uncertainty == "dose":
         dose_or_uncert_map = np.zeros_like(
             BrachyDose(pth_dose_rate).grid, dtype=np.float32
