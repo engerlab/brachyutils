@@ -300,6 +300,9 @@ class BrachyPlan:
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
+        # optimization attributes
+        self.optimizer = None
+
         # fill the attributes depending on the inputs to the constructor
         # set the dvh metric goals if provided
         (
@@ -743,7 +746,7 @@ class BrachyPlan:
         """
         # contour names are assigned based on the keys in the structure mask dictionary
         if structure_mask_dict is None:
-            # assert dir_structures_source is not None, "dir_structures_source is not provided"
+        # assert dir_structures_source is not None, "dir_structures_source is not provided"
             try:
                 structure_mask_dict = _load_structure_mask(dir_structures_source)
             except:
@@ -791,18 +794,23 @@ class BrachyPlan:
             
             # get the dvh metric goals if they are set
             if self.dvh_metric_goals is not None:
-                dvh_metric = list(filter(lambda x: x.split("(")[-1].split(")")[0].lower()
-                                        in structure_obj.name, self.dvh_metric_goals.keys()))[0]
-                if dvh_metric is None:
+                try:
+                    dvh_metric = list(filter(lambda x: x.split("(")[-1].split(")")[0].lower()
+                                            in structure_obj.name, self.dvh_metric_goals.keys()))[0]
+                except:
                     print(f"{structure_obj.name} is not in the dvh metric goals")
                     structure_obj.in_dvh = False
-                else:
-                    structure_obj.in_dvh = True
-                    structure_obj.dvh_metric_name = dvh_metric.split("(")[0]
-                    structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[dvh_metric]
+                    continue
+
+                structure_obj.in_dvh = True
+                structure_obj.dvh_metric_name = dvh_metric.split("(")[0]
+                structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[dvh_metric]
 
             # get the simulation parameters for that structure
             if self.simulation_setup is not None:
+                raise NotImplementedError("to be implemented soon")
+            
+            if self.optimizer is not None:
                 raise NotImplementedError("to be implemented soon")
             
             # add the structure object to the structure list
@@ -1284,12 +1292,18 @@ def _load_structure_mask(
         NotImplementedError: If the structure source type is not implemented yet.
         ValueError: If the structure source type is not recognized.
     """
+    # if a folder is given, we assume that the structure source is dicom files
+    if os.path.isdir(pth_structure_source):
+        pth_structure_source = glob(os.path.join(pth_structure_source, "RS*.dcm"))[0]
+        if pth_structure_source is None:
+            raise ValueError("No dicom structure file starting with RS, ending with .dcm is found in the directory")
+    
     structure_source_type = os.path.splitext(pth_structure_source)[1]
 
     if structure_source_type == ".dcm":
         print("loading structure set from dicom files")
         structure_mask_dict = BrachyDicom(
-            pth_structure_source
+            os.path.dirname(pth_structure_source)
         ).structure_mask_dict
         
     elif structure_source_type == ".nrrd":

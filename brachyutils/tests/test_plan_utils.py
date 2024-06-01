@@ -71,9 +71,8 @@ def test_set_dvh_metric_goals():
 
 
 def test_create_structures_and_calc_dvh_metrics():
-    dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    dir_dicom = "../../data_test/prostate-glen-p1-dcm"
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    # dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
     dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
@@ -85,7 +84,7 @@ def test_create_structures_and_calc_dvh_metrics():
     plan_obj.load_catheterTable_json(pth_cathTable_json)
     
     plan_obj.load_dose_rate_or_uncertainty_tensor(
-        dir_dose_rate, load_dose_or_uncertainty="both", multi_processing=True
+        dir_dose_rate, load_dose_or_uncertainty="dose", multi_processing=True
     )
     plan_obj.set_dvh_metric_goals(dvh_metric_goals)
 
