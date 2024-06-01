@@ -226,7 +226,7 @@ class BrachyPlan:
         dose_cropped_by_body: bool = False,
         
         # for loading catheter table:
-        pth_catheterTable_json: str = None,
+        pth_catheter_table_json: str = None,
         
         # for loading dose or uncertainty:
         dir_dose_rate: str = None,
@@ -245,7 +245,7 @@ class BrachyPlan:
             - To initialize the BrachyPlan object.
         Inputs:
             # for loading catheter table:
-            - pth_catheterTable_json:str := path to a json file containing the information of the catheter table.
+            - pth_catheter_table_json:str := path to a json file containing the information of the catheter table.
             # for loading dose or uncertainty:
             - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
             - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
@@ -314,8 +314,8 @@ class BrachyPlan:
         if dir_dicom is not None:
             self.load_brachy_plan_from_dicom(dir_dicom, dose_cropped_by_body)
         # load the catheter table if the path is provided
-        if pth_catheterTable_json is not None:
-            self.load_catheterTable_json(pth_catheterTable_json)
+        if pth_catheter_table_json is not None:
+            self.load_catheterTable_json(pth_catheter_table_json)
         # load the dose rate tensor if the path is provided
         if dir_dose_rate is not None:
             self.load_dose_rate_or_uncertainty_tensor(
@@ -408,12 +408,12 @@ class BrachyPlan:
         if load_dose:
             self.combined_dose = self.dicom_obj.dose
 
-    def load_catheterTable_json(self, pth_catheterTable_json: str):
+    def load_catheterTable_json(self, pth_catheter_table_json: str):
         r"""
         Purpose:
             - To load the contents of a catheter table into the Brachy plan.
         Inputs:
-            - pth_catheterTable_json := path to a json file having the info on the catheter table.
+            - pth_catheter_table_json := path to a json file having the info on the catheter table.
             here is the expected contents of the catheter table json:
             [
                 {
@@ -446,7 +446,7 @@ class BrachyPlan:
         # reset catheter table in case of a re-read
         self.catheter_table = None
         # load the json file
-        with open(pth_catheterTable_json, "r") as json_file:
+        with open(pth_catheter_table_json, "r") as json_file:
             catheter_table = json.load(json_file)
 
         self.catheter_table = catheter_table
