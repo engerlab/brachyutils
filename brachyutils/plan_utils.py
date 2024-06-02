@@ -950,43 +950,54 @@ class BrachyPlan:
 
             if content_to_export["dose"]:
                 self._export_dose(
-                    dir_export,
-                    # content_to_export["uncertainty"],
-                    content_to_export["dose_type"],
-                    content_to_export["dose_rate_maps"],
+                    dir_export = dir_export,
+                    with_uncertainty = content_to_export["uncertainty"],
+                    dose_type = content_to_export["dose_type"],
+                    dose_rate_maps = content_to_export["dose_rate_maps"],
                 )
+                print("Dose exported successfully")
             if content_to_export["catheter_table"]:
                 # assumes file name is "catheter_table.json"
                 self._export_catheter_table(dir_export)
+                print("Catheter Table exported successfully")
 
             if content_to_export["plan"]:
                 # assumes file name is "dwell_#.plan"
                 self._export_plan_file(dir_export)
+                print(".plan files were exported successfully")
 
             if content_to_export["mac"]:
                 # assumes file name is "run_#.mac"
                 self._export_mac_file(dir_export)
+                print(".mac files were exported successfully")
 
             if content_to_export["egsphant"]:
                 # assumes file name is "ct.egsphant"
                 self._export_egsphant(dir_export)
+                print("Egsphant file was exported successfully")
 
             if content_to_export["ApplicatorMaterials"]:
                 # assumes file name is "ApplicatorMaterials"
                 self._export_applicator_materials(dir_export)
+                print("applicator material.json exported successfully")
 
             if content_to_export["applicator_geometry"]:
                 # assumes file name is "applicator_geometry.json"
                 self._export_applicator_geometry(dir_export)
+                print("applicator geometry file was exported successfully")
 
             if content_to_export["structure_set"]:
                 # assumes file name is "structure_set.json"
                 self._export_structure_set(dir_export)
+                print("structure set file was exported successfully")
 
+        else:
+            raise ValueError("export_format should be either 'RapidBrachy' or 'WebApp'")
+        
     def _export_dose(
         self,
         dir_export: str,
-        # uncertainty=False,
+        with_uncertainty=False,
         dose_type=".minidos",
         dose_rate_maps=False,
     ):
@@ -1023,22 +1034,34 @@ class BrachyPlan:
                         self.uncertainty_tensor[i - 1],
                     )
             else:
-                with Pool(cpu_count() - 2) as mp_pool:
-                    mp_pool.starmap(
-                        partial(
-                            _export_single_dose_rate,
-                            doseObj_template=self.combined_dose,
-                            dir_export=dir_export,
-                            dose_type=dose_type,
-                        ),
-                        [
+                # prepare inputs to the parallel processing
+                if with_uncertainty and self.uncertainty_tensor is not None:
+                    print("Exporting dose rate maps with uncertainty")
+                    giant_export_list = [
                             (dose_grid, dwell_number, uncertainty)
                             for dose_grid, dwell_number, uncertainty in zip(
                                 self.dose_rate_tensor,
                                 self.dwell_numbers,
                                 self.uncertainty_tensor,
                             )
-                        ],
+                        ]
+                else:
+                    print("Exporting dose rate maps without uncertainty")
+                    giant_export_list = [
+                            (dose_grid, dwell_number)
+                            for dose_grid, dwell_number in zip(
+                                self.dose_rate_tensor, self.dwell_numbers
+                            )
+                        ]
+                with Pool(cpu_count() - 2) as mp_pool:
+                    mp_pool.starmap(
+                        partial(
+                            _export_single_dose_rate,
+                            doseObj_template = self.combined_dose,
+                            dir_export = dir_export,
+                            dose_type = dose_type,
+                        ),
+                        giant_export_list,
                     )
 
     def _export_catheter_table(self, dir_export: str):
@@ -1269,12 +1292,12 @@ def _export_single_dose_rate(
         to write out a single dose rate map given the numpy grid for dose and uncertainty and
         a template dose object that has the same origin, voxel spacing and axis.
     Inputs:
-        - dose_grid :=
-        - dwell_number:=
-        - doseObj_template :=
-        - dir_export:=
-        - dose_type :=
-        - uncertainty :=
+        - dose_grid := the numpy array holding the dose rate maps
+        - dwell_number:= the dwell number of the dose rate map
+        - doseObj_template := a BrachyDose object that has the same origin, voxel spacing and axis
+        - dir_export:= the directory to which the dose rate maps will be exported
+        - dose_type := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
+        - uncertainty := the numpy array holding the uncertainty maps
 
     Output:
         - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
