@@ -1,5 +1,4 @@
 from setuptools import find_packages, setup
-from os import getcwd
 
 setup(
     name="brachyutils",

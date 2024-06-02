@@ -2,11 +2,11 @@ import gc
 import json
 import os
 import re
+import warnings
 from copy import deepcopy
 from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
-import warnings
 
 import numpy as np
 from scipy import interpolate, ndimage
@@ -27,26 +27,26 @@ class BrachyStructure:
         treatment plan.
 
     Attributes:
-    
+
         Basic Attributes
         - name:str
         - mask
         - target_volume
-        
+
         DVH Attributes:
         - in_dvh
         - dvh_metric_name
         - dvh_metric_clinical_goal
         - dvh_metric_observed
         - normalized_cummulative_dvh
-        
+
         Uncertainty Attributes:
         - uvh
         - uncertainty_mean
         - uncertainty_std
         - uncertainty_max
         - uncertainty_min
-        
+
         Optimization Attributes:
         - name_in_gurobiModel
         - bound_coordinates_in_gurobiModel
@@ -56,7 +56,7 @@ class BrachyStructure:
         - dose_limit
         - max_dose
         - min_dose
-        
+
         Simulation attributes:
         - density
         - density_mode
@@ -220,21 +220,17 @@ class BrachyPlan:
         self,
         # for loading dicom
         dir_dicom: str = None,
-        
         # for structure creation:
         dvh_metric_goals: dict = None,
         pth_structure_source: str = None,
         dose_cropped_by_body: bool = False,
-        
         # for loading catheter table:
         pth_catheter_table_json: str = None,
-        
         # for loading dose or uncertainty:
         dir_dose_rate: str = None,
         type_dose_file: str = ".nrrd",
         load_dose_or_uncertainty: str = "dose",
         multi_processing: bool = False,
-        
         # for simulation setup:
         combined_simulation_dict: dict = None,
         dir_egsphant: str = None,
@@ -274,7 +270,7 @@ class BrachyPlan:
         self.dwell_numbers = np.array([], dtype=int)  # shape: (num_dwells, 1)
         self.dwell_times = np.array([], dtype=np.float32)  # shape: (num_dwells, 1)
         self.dwell_coordinates = []  # shape: (num_dwells, 3)
-        
+
         # dose attributes
         self.dose_rate_tensor = np.array(
             [], dtype=np.float32
@@ -283,16 +279,16 @@ class BrachyPlan:
         self.uncertainty_tensor = np.array(
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
-        
+
         # sturctures attributes
         # self.organ_bounds = None
         self.dvh_metric_goals: dict = None
         self.dvh_metric_observed: dict = None
         self.structure_list: list = []
-        
+
         # dicom image
-        self.dicom_obj:BrachyDicom = None
-        
+        self.dicom_obj: BrachyDicom = None
+
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
         self.egsphant: BrachyEgsphant = None
@@ -315,11 +311,11 @@ class BrachyPlan:
         # load the dicom plan if the path is provided
         if dir_dicom is not None:
             self.load_brachy_plan_from_dicom(dir_dicom, dose_cropped_by_body)
-        
+
         # load the catheter table if the path is provided
         if pth_catheter_table_json is not None:
             self.load_catheterTable_json(pth_catheter_table_json)
-        
+
         # load the dose rate tensor if the path is provided
         if dir_dose_rate is not None:
             self.load_dose_rate_or_uncertainty_tensor(
@@ -333,8 +329,9 @@ class BrachyPlan:
         if pth_structure_source is not None:
             self.create_structures(
                 dir_structures_source=pth_structure_source,
-                dose_cropped_by_body=dose_cropped_by_body)
-            
+                dose_cropped_by_body=dose_cropped_by_body,
+            )
+
         # load the simulation setup if the dictionary is provided
         if dir_egsphant is not None:
             self.egsphant = BrachyEgsphant(dir_egsphant)
@@ -365,7 +362,7 @@ class BrachyPlan:
         load_structure = True if "RS" in all_names else False
         load_plan = True if "RP" in all_names else False
         load_dose = True if "RD" in all_names else False
-        
+
         try:
             self.dicom_obj = BrachyDicom(
                 pth_dir_dicom=dir_dicom,
@@ -402,8 +399,8 @@ class BrachyPlan:
 
         if load_structure:
             self.create_structures(
-                structure_mask_dict = self.dicom_obj.structure_mask_dict,
-                dose_cropped_by_body=dose_cropped_by_body
+                structure_mask_dict=self.dicom_obj.structure_mask_dict,
+                dose_cropped_by_body=dose_cropped_by_body,
             )
 
         if load_plan:
@@ -470,7 +467,12 @@ class BrachyPlan:
         """
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
-        self.catheter_numbers, self.dwell_numbers, self.dwell_times, self.dwell_coordinates = (
+        (
+            self.catheter_numbers,
+            self.dwell_numbers,
+            self.dwell_times,
+            self.dwell_coordinates,
+        ) = (
             np.array([], dtype=int),
             np.array([], dtype=int),
             np.array([], dtype=np.float32),
@@ -534,15 +536,19 @@ class BrachyPlan:
                 if self.dwell_coordinates[dwell_i - 1]["catheterId"] != catheter_i:
                     continue
                 dwell["angle"] = float(self.dwell_coordinates[dwell_i - 1]["angle"])
-                dwell["position"] = list(self.dwell_coordinates[dwell_i - 1]["position"].astype(np.float64))
-                dwell["relativePos"] = float(self.dwell_coordinates[dwell_i - 1][
-                    "relativePos"
-                ])
-                dwell["rotation"] = list(self.dwell_coordinates[dwell_i - 1]["rotation"].astype(np.float64))
+                dwell["position"] = list(
+                    self.dwell_coordinates[dwell_i - 1]["position"].astype(np.float64)
+                )
+                dwell["relativePos"] = float(
+                    self.dwell_coordinates[dwell_i - 1]["relativePos"]
+                )
+                dwell["rotation"] = list(
+                    self.dwell_coordinates[dwell_i - 1]["rotation"].astype(np.float64)
+                )
                 dwell["time"] = float(self.dwell_times[dwell_i - 1].item())
-                dwell["weight"] = float((self.dwell_times[dwell_i - 1] / np.sum(
-                    self.dwell_times
-                )).item())
+                dwell["weight"] = float(
+                    (self.dwell_times[dwell_i - 1] / np.sum(self.dwell_times)).item()
+                )
                 catheter["dwells"].append(deepcopy(dwell))
 
             self.catheter_table.append(deepcopy(catheter))
@@ -660,15 +666,17 @@ class BrachyPlan:
         gc.collect()
 
         self.combined_dose = dose_with_empty_grid_like(test_dose_obj)
-        
+
         if load_dose_or_uncertainty != "uncertainty":
             self._calculate_combined_dose()
         if load_dose_or_uncertainty != "dose":
             self._calculate_combined_uncertainty()
-        
+
         if len(self.structure_list) != 0:
             for structure in self.structure_list:
-                structure.mask = _resize_structure_mask(structure.mask, self.combined_dose.grid.shape)
+                structure.mask = _resize_structure_mask(
+                    structure.mask, self.combined_dose.grid.shape
+                )
 
     def _calculate_combined_dose(self):
         """
@@ -729,20 +737,20 @@ class BrachyPlan:
             - To create a list of BrachyStructure objects given the path to the directory
             containing the structure masks. the list is stored in the BrachyPlan.structure_list attribute.
             Eeach BrachyStructure object will have attributes for the structure mask, the dose volume
-            and uncertainty volume histograms, optimization attributes, and simulation attributes. 
-            
+            and uncertainty volume histograms, optimization attributes, and simulation attributes.
+
             The basic (mandatory) attributes are the structure name, mask and whether it is a target volume or not.
             If dvh metric goals are set, the BrachyStructure object will automatically update the DVH attributes
             in the BrachyStructure object.
-             
+
         Inputes:
-            - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value. This 
+            - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value. This
             dictionary can be obtained from self.dicom_obj.structure_mask_dict.
-            
+
             - dir_structures_source := path to the directory containing the structure masks.
             this could be dicom file (starting with RS) or nrrd files. If self.dicom_obj is not None,
-            using this parameter will over-ride the previous structure objects. 
-            
+            using this parameter will over-ride the previous structure objects.
+
         Outputs:
             - Void := will update the BrachyPlan.structure_list attribute
         Dependencies:
@@ -750,71 +758,88 @@ class BrachyPlan:
         """
         # contour names are assigned based on the keys in the structure mask dictionary
         if structure_mask_dict is None:
-        # assert dir_structures_source is not None, "dir_structures_source is not provided"
+            # assert dir_structures_source is not None, "dir_structures_source is not provided"
             try:
                 structure_mask_dict = _load_structure_mask(dir_structures_source)
-            except:
-                raise ValueError("Either structure mask should be provided or dir_structure_source") 
-            
+            except Exception:
+                raise ValueError(
+                    "Either structure mask should be provided or dir_structure_source"
+                ) from None
+
         # get the key corresponding to the body contour, which is used to squeeze the structure mask
-        body_key = list(filter(lambda x: "body" in x.lower(), structure_mask_dict.keys()))[0]
-        
+        body_key = list(
+            filter(lambda x: "body" in x.lower(), structure_mask_dict.keys())
+        )[0]
+
         for structure_name in structure_mask_dict.keys():
             structure_obj = BrachyStructure()
             # get the name based on the structure mask dictionary key
             structure_obj.name = structure_name
-            
+
             # get the mask from the structure mask dictionary
             structure_obj.mask = structure_mask_dict[structure_name]
             if dose_cropped_by_body:
-                # obtain the range of body contour on each axis. 
+                # obtain the range of body contour on each axis.
                 # we assume that the body contour contains the word "body" in its name
                 body_index_range = np.zeros([3, 2], dtype=int)
                 for i in range(3):
                     body_index_range[i, :] = np.floor(
                         np.array(
                             [
-                                np.argwhere(structure_mask_dict[body_key] == 1)[:, i].min(),
+                                np.argwhere(structure_mask_dict[body_key] == 1)[
+                                    :, i
+                                ].min(),
                                 # off set of +1 is added to acount for python stopping before range end
-                                np.argwhere(structure_mask_dict[body_key] == 1)[:, i].max()
+                                np.argwhere(structure_mask_dict[body_key] == 1)[
+                                    :, i
+                                ].max()
                                 + 1,
                             ]
                         )
                     ).astype(int)
                 # apply body contour mask to the structure mask
                 structure_obj.mask = structure_obj.mask[
-                        body_index_range[0][0] : body_index_range[0][1],
-                        body_index_range[1][0] : body_index_range[1][1],
-                        body_index_range[2][0] : body_index_range[2][1],
-                    ]    
+                    body_index_range[0][0] : body_index_range[0][1],
+                    body_index_range[1][0] : body_index_range[1][1],
+                    body_index_range[2][0] : body_index_range[2][1],
+                ]
             # resize the mask to match the dose grid if dose grid exists
             structure_obj.mask = (
-                _resize_structure_mask(structure_obj.mask, self.combined_dose.grid.shape)
+                _resize_structure_mask(
+                    structure_obj.mask, self.combined_dose.grid.shape
+                )
                 if self.combined_dose is not None
                 else structure_obj.mask
             )
-            
+
             # get the dvh metric goals if they are set
             if self.dvh_metric_goals is not None:
                 try:
-                    dvh_metric = list(filter(lambda x: x.split("(")[-1].split(")")[0].lower()
-                                            in structure_obj.name, self.dvh_metric_goals.keys()))[0]
-                except:
-                    print(f"{structure_obj.name} is not in the dvh metric goals")
+                    dvh_metric = list(
+                        filter(
+                            lambda x: x.split("(")[-1].split(")")[0].lower()
+                            in structure_obj.name,
+                            self.dvh_metric_goals.keys(),
+                        )
+                    )[0]
+                except IndexError as e:
+                    print(f"{structure_obj.name} is not in the dvh metric goals. {e}")
                     structure_obj.in_dvh = False
                     continue
 
                 structure_obj.in_dvh = True
                 structure_obj.dvh_metric_name = dvh_metric.split("(")[0]
-                structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[dvh_metric]
+                structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[
+                    dvh_metric
+                ]
 
             # get the simulation parameters for that structure
             if self.simulation_setup is not None:
                 raise NotImplementedError("to be implemented soon")
-            
+
             if self.optimizer is not None:
                 raise NotImplementedError("to be implemented soon")
-            
+
             # add the structure object to the structure list
             self.structure_list.append(structure_obj)
 
@@ -861,10 +886,12 @@ class BrachyPlan:
         self.dvh_metric_observed = {}
         for structure_obj in self.structure_list:
             structure_obj.get_dvh_metric(self.combined_dose)
-            self.dvh_metric_observed[structure_obj.dvh_metric_name] = structure_obj.dvh_metric_observed
+            self.dvh_metric_observed[structure_obj.dvh_metric_name] = (
+                structure_obj.dvh_metric_observed
+            )
 
         return self.dvh_metric_observed
-    
+
     def calculate_uncertainty_per_structure(self):
         r"""
         Purpose:
@@ -907,7 +934,7 @@ class BrachyPlan:
 
         Inputs:
             - export_format := the export_format of the exported plan. options are:
-            
+
                 - "RapidBrachy":
                     - "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
                     - "catheter_table.json"
@@ -925,10 +952,10 @@ class BrachyPlan:
 
             - dir_export := the directory to which the plan will be exported.
             - content_to_export := a dictionary with which the user specifies what parts
-            of the plan to export. The keys are plan components, and the values are binary 
-            (True or False) except for "dose type", which can be either ".3ddose", ".minidos", 
+            of the plan to export. The keys are plan components, and the values are binary
+            (True or False) except for "dose type", which can be either ".3ddose", ".minidos",
             or ".nrrd". The keys are:
-            
+
                 - "dose":bool,
                 - "dose type":str := "nrrd", "minidos" or "3ddose",
                 - "uncertainty", "dose rate maps",
@@ -950,10 +977,10 @@ class BrachyPlan:
 
             if content_to_export["dose"]:
                 self._export_dose(
-                    dir_export = dir_export,
-                    with_uncertainty = content_to_export["uncertainty"],
-                    dose_type = content_to_export["dose_type"],
-                    dose_rate_maps = content_to_export["dose_rate_maps"],
+                    dir_export=dir_export,
+                    with_uncertainty=content_to_export["uncertainty"],
+                    dose_type=content_to_export["dose_type"],
+                    dose_rate_maps=content_to_export["dose_rate_maps"],
                 )
                 print("Dose exported successfully")
             if content_to_export["catheter_table"]:
@@ -993,7 +1020,7 @@ class BrachyPlan:
 
         else:
             raise ValueError("export_format should be either 'RapidBrachy' or 'WebApp'")
-        
+
     def _export_dose(
         self,
         dir_export: str,
@@ -1038,28 +1065,28 @@ class BrachyPlan:
                 if with_uncertainty and self.uncertainty_tensor is not None:
                     print("Exporting dose rate maps with uncertainty")
                     giant_export_list = [
-                            (dose_grid, dwell_number, uncertainty)
-                            for dose_grid, dwell_number, uncertainty in zip(
-                                self.dose_rate_tensor,
-                                self.dwell_numbers,
-                                self.uncertainty_tensor,
-                            )
-                        ]
+                        (dose_grid, dwell_number, uncertainty)
+                        for dose_grid, dwell_number, uncertainty in zip(
+                            self.dose_rate_tensor,
+                            self.dwell_numbers,
+                            self.uncertainty_tensor,
+                        )
+                    ]
                 else:
                     print("Exporting dose rate maps without uncertainty")
                     giant_export_list = [
-                            (dose_grid, dwell_number)
-                            for dose_grid, dwell_number in zip(
-                                self.dose_rate_tensor, self.dwell_numbers
-                            )
-                        ]
+                        (dose_grid, dwell_number)
+                        for dose_grid, dwell_number in zip(
+                            self.dose_rate_tensor, self.dwell_numbers
+                        )
+                    ]
                 with Pool(cpu_count() - 2) as mp_pool:
                     mp_pool.starmap(
                         partial(
                             _export_single_dose_rate,
-                            doseObj_template = self.combined_dose,
-                            dir_export = dir_export,
-                            dose_type = dose_type,
+                            doseObj_template=self.combined_dose,
+                            dir_export=dir_export,
+                            dose_type=dose_type,
                         ),
                         giant_export_list,
                     )
@@ -1277,7 +1304,10 @@ def _resize_structure_mask(structure_mask, target_shape):
     Outputs:
         - np.array := the resized structure mask
     """
-    return ndimage.zoom(structure_mask, np.array(target_shape) / structure_mask.shape, order=0)
+    return ndimage.zoom(
+        structure_mask, np.array(target_shape) / structure_mask.shape, order=0
+    )
+
 
 def _export_single_dose_rate(
     dose_grid: np.array,
@@ -1333,8 +1363,10 @@ def _load_structure_mask(
     if os.path.isdir(pth_structure_source):
         pth_structure_source = glob(os.path.join(pth_structure_source, "RS*.dcm"))[0]
         if pth_structure_source is None:
-            raise ValueError("No dicom structure file starting with RS, ending with .dcm is found in the directory")
-    
+            raise ValueError(
+                "No dicom structure file starting with RS, ending with .dcm is found in the directory"
+            )
+
     structure_source_type = os.path.splitext(pth_structure_source)[1]
 
     if structure_source_type == ".dcm":
@@ -1342,18 +1374,18 @@ def _load_structure_mask(
         structure_mask_dict = BrachyDicom(
             os.path.dirname(pth_structure_source)
         ).structure_mask_dict
-        
+
     elif structure_source_type == ".nrrd":
         print("loading structure set from nrrd file")
         raise NotImplementedError(
             "loading structure set from .nrrd file is not implemented yet"
         )
-        
+
     elif structure_source_type == ".json":
         raise NotImplementedError(
             "loading structure set from .json file is not implemented yet"
         )
-        
+
     else:
         raise ValueError("structure source type is not recognized")
 
@@ -1445,7 +1477,10 @@ def _load_single_dose_or_uncertainty_to_dict(
             )
             dose_or_uncert_map = dose_obj.uncertainty
         except AttributeError:
-            warnings.warn(f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...")
+            warnings.warn(
+                f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...",
+                stacklevel=2,
+            )
 
     elif load_dose_or_uncertainty == "dose":
         dose_or_uncert_map = np.zeros_like(
@@ -1459,16 +1494,16 @@ def _load_single_dose_or_uncertainty_to_dict(
 
     return dose_or_uncert_map
 
+
 def _type_nested_dict_list(data):
-    
+
     if isinstance(data, dict):
-       for key, value in data.items():
+        for key, value in data.items():
             if isinstance(value, (dict, list)):
                 _type_nested_dict_list(value)
             else:
                 print(f"{key}: {type(value)}")
-                
+
     elif isinstance(data, list):
         for item in data:
             _type_nested_dict_list(item)
-            
