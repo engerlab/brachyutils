@@ -1292,7 +1292,8 @@ def _load_structure_mask(
     structure_name_list: list = None,
 ):
     """
-    Load structure mask from different file formats.
+    Load structure mask from different file formats. The acceptable formats are dicom, nrrd, and json.
+    In the case of dicom files, providng a folder containing the dicom RS files is also acceptable.
 
     Inputs:
         pth_structure_source (str): The path to the structure source file.

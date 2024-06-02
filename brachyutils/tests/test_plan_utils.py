@@ -149,9 +149,9 @@ def test_calculate_uncertainty_per_structure():
 
 
 def test_BrachyPlan():
-    pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    pth_catheter_table_json = "../../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../../data_test/prostate-glen-p1-dose/"
-    dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    dir_dicom = "../../data_test/prostate-glen-p1-dcm"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -159,12 +159,14 @@ def test_BrachyPlan():
     }
     t0 = time.time()
     BrachyPlan(
-        pth_cathTable_json,
-        dir_dose_rate,
-        load_dose_or_uncertainty="both",
-        multi_processing=True,
-        dir_structure_source=dir_dicom,
+        # dir_dicom=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
+        dose_cropped_by_body=True,
+        pth_catheter_table_json=pth_catheter_table_json,
+        dir_dose_rate = dir_dose_rate,
+        load_dose_or_uncertainty="dose",
+        multi_processing=True,
+        pth_structure_source=dir_dicom,
     )
     t1 = time.time()
     print(f"loading the plan took {t1-t0} seconds")
@@ -181,6 +183,7 @@ def test_export_brachy_plan():
     pth_cathTable_json = "../../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../../data_test/prostate-glen-p1-dose"
     dir_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    dir_egsphant = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -202,33 +205,35 @@ def test_export_brachy_plan():
         "PrintProgress": 10000,
         "beam_on": 10000,
     }
-    plan_obj = BrachyPlan(
-        pth_cathTable_json,
-        dir_dose_rate,
-        load_dose_or_uncertainty="both",
-        multi_processing=True,
-        dir_structure_source=dir_dicom,
-        dvh_metric_goals=dvh_metric_goals,
-        dir_egsphant="../../data_test/prostate-glen-p1-planFiles/ct.egsphant",
-        combined_simulation_dict=sim_dict,
-        # dir_applicator_geometry="../../data_test/prostate-glen-p1-planFiles/applicator_geometry.json",
-    )
     dir_export = "../../data_test/test_export_plan/"
-    os.makedirs(dir_export, exist_ok=True)
-    content_to_export = {
-        "dose": True,
-        "dose type": ".nrrd",
-        "dose rate maps": False,
-        "uncertainty": True,
-        "catheter_table": True,
-        "egsphant": False,
-        "structure_set": True,
-        "plan": True,
-        "mac": True,
-        "ApplicatorMaterials": False,
-        "applicator_geometry": False,
-    }
     export_format = "RapidBrachyExport"
+    os.makedirs(dir_export, exist_ok=True)
+
+    content_to_export = {
+            "dose": True,
+            "dose type": ".nrrd",
+            "dose rate maps": True,
+            "uncertainty": True,
+            "catheter_table": True,
+            "egsphant": True,
+            "structure_set": True,
+            "plan": True,
+            "mac": True,
+            "ApplicatorMaterials": False,
+            "applicator_geometry": False,
+        }
+
+    plan_obj = BrachyPlan(
+        dir_dicom=dir_dicom,
+        dvh_metric_goals=dvh_metric_goals,
+        dose_cropped_by_body=True,
+        pth_catheter_table_json=pth_cathTable_json,
+        dir_dose_rate = dir_dose_rate,
+        load_dose_or_uncertainty="dose",
+        multi_processing=True,
+        dir_egsphant=dir_egsphant,
+        combined_simulation_dict=sim_dict,
+    )
     # # This function tests all the exporting functions.
     plan_obj.export_brachy_plan(export_format, dir_export, content_to_export)
 
@@ -251,8 +256,8 @@ if __name__ == "__main__":
     # test_set_dvh_metric_goals()
     # test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
-    test_calculate_uncertainty_per_structure()
-    test_BrachyPlan()
+    # test_calculate_uncertainty_per_structure()
+    # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
     test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
