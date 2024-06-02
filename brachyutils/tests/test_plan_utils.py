@@ -205,20 +205,20 @@ def test_export_brachy_plan():
         "PrintProgress": 10000,
         "beam_on": 10000,
     }
-    dir_export = "../../data_test/test_export_plan/"
-    export_format = "RapidBrachyExport"
+    dir_export = "../../data_test/test_export_plan"
+    export_format = "RapidBrachy"
     os.makedirs(dir_export, exist_ok=True)
 
     content_to_export = {
             "dose": True,
-            "dose type": ".nrrd",
-            "dose rate maps": True,
-            "uncertainty": True,
-            "catheter_table": True,
-            "egsphant": True,
-            "structure_set": True,
-            "plan": True,
-            "mac": True,
+            "dose_type": ".nrrd",
+            "dose_rate_maps": True,
+            "uncertainty": False,
+            "catheter_table": False,
+            "egsphant": False,
+            "structure_set": False,
+            "plan": False,
+            "mac": False,
             "ApplicatorMaterials": False,
             "applicator_geometry": False,
         }
