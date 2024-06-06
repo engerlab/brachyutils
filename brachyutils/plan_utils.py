@@ -1231,7 +1231,6 @@ class BrachyPlan:
         Dependencies:
             - BrachyEgsphant
         """
-        # raise NotImplementedError("to be implemented soon")
         file_path = dir_export + "/ct.egsphant"
         self.egsphant.write_to_ctegsphant(file_path)
 
@@ -1247,55 +1246,59 @@ class BrachyPlan:
     def _export_applicator_geometry(self, dir_export: str):
         r"""
         Purpose:
+            - To export the applicator geometry mesh as a mac file.
+            
         Inputs:
+            - dir_export := path to the directory where the export happens
+            
         Outputs:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
     
-#################### TO FIX ##########################
-TUNGSTEN_DENSITY = 19.3
-PPSU_DENSITY = 1.2951
+# #################### TO FIX ##########################
+# TUNGSTEN_DENSITY = 19.3
+# PPSU_DENSITY = 1.2951
 
-########  FOR EGSPHANT ########
+# ########  FOR EGSPHANT ########
 
-# Number of voxels
-X = 100
-Y = 100
-Z = 300
+# # Number of voxels
+# X = 100
+# Y = 100
+# Z = 300
 
-# Voxel Size
-VS = 0.1
+# # Voxel Size
+# VS = 0.1
 
-# Source Center
-X_POS_cm = 0
-Y_POS_cm = 0
-Z_POS_cm = 6 - (VS/2)
+# # Source Center
+# X_POS_cm = 0
+# Y_POS_cm = 0
+# Z_POS_cm = 6 - (VS/2)
 
-PRECISION = 5 # decimal point for round
-MATERIAL = 'Water'
-DENSITY = '0.998'
+# PRECISION = 5 # decimal point for round
+# MATERIAL = 'Water'
+# DENSITY = '0.998'
 
-######## FOR DWELL_?.PLAN FILE ########
+# ######## FOR DWELL_?.PLAN FILE ########
 
-DWELL_POS_X = 0
-DWELL_POS_Y = 0
-DWELL_POS_Z = 6 
-DWELL_ROT_X = 0 
-DWELL_ROT_Y = 0 
-DWELL_ROT_Z = 1
-DWELL_ANGLE = 0 
-DWELL_AXIS_X = 0 
-DWELL_AXIS_Y = 0 
-DWELL_AXIS_Z = 1 
-DWELL_COR_X = 0 
-DWELL_COR_Y = 0 
-DWELL_COR_Z = 0
+# DWELL_POS_X = 0
+# DWELL_POS_Y = 0
+# DWELL_POS_Z = 6 
+# DWELL_ROT_X = 0 
+# DWELL_ROT_Y = 0 
+# DWELL_ROT_Z = 1
+# DWELL_ANGLE = 0 
+# DWELL_AXIS_X = 0 
+# DWELL_AXIS_Y = 0 
+# DWELL_AXIS_Z = 1 
+# DWELL_COR_X = 0 
+# DWELL_COR_Y = 0 
+# DWELL_COR_Z = 0
 
-DWELL_NUMBER = 1
+# DWELL_NUMBER = 1
 
 
-counter = 0 
+# counter = 0 
 
 def create_appmac(filename, material, density):
 
@@ -1446,7 +1449,7 @@ with open(f"dwell_1.plan", "w") as f:
     f.write(f"1 Dwell Position\n")
 
     f.write(f"{DWELL_POS_X},{DWELL_POS_Y},{DWELL_POS_Z},{DWELL_ROT_X},{DWELL_ROT_Y},{DWELL_ROT_Z},{DWELL_ANGLE},{DWELL_AXIS_X},{DWELL_AXIS_Y},{DWELL_AXIS_Z},{DWELL_COR_X},{DWELL_COR_Y},{DWELL_COR_Z} ")
-  
+
 f.close()
 
 #Example of usage

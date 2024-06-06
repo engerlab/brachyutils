@@ -39,6 +39,7 @@ setup(
         "pymedphys",
         "py7zr",
         "pytest",
+        "vtk",
     ],
     entry_points={"console_scripts": ["brachyutils=brachyutils.cli_utils:main"]},
 )
