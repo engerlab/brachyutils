@@ -184,6 +184,23 @@ class BrachyApplicator:
     Purpose:
         - This class holds the information regarding the brachytherapy applicator.
         as well as all the functions to support the necessary applicator operations.
+
+    Attributes:
+        - path:str := path to the applicator geometry file.
+        - name:str := name of the applicator, which is taken as the basename of the path.
+        - applicator_mesh := the vtk mesh of the applicator.
+        - verticies:np.array := the verticies of the applicator mesh.
+        - faces:np.array := the faces of the applicator mesh.
+        - origin:np.array := the origin of the applicator.
+        - rotation:np.array := the rotation of the applicator.
+        - material:str := the material of the applicator.
+        - density:float := the density of the applicator.
+
+    Functions:
+        - load_stl(pth_input:str)
+        - load_json(pth_input:str)
+        - to_dict()
+        - to_json(pth_output:str)
     """
     def __init__(
             self,
@@ -244,9 +261,14 @@ class BrachyApplicator:
             - To convert the applicator geometry to a dictionary.
         """
         return {
+            "name": self.name,
+            "path": self.path,
             "verticies": self.verticies.tolist(),
-            "faces": self.faces.tolist()
-
+            "faces": self.faces.tolist(),
+            "origin": self.origin,
+            "rotation": self.rotation,
+            "material": self.material,
+            "density": self.density,
         }
 
     def to_json(self, pth_output:str):
@@ -256,12 +278,18 @@ class BrachyApplicator:
         Inputs:
             - pth_output:str := path to the output json file.
         """
-        applicator_dict = {
-            "verticies": self.verticies.tolist(),
-            "faces": self.faces.tolist()
-        }
+        applicator_dict = self.to_dict()
+
         with open(pth_output, "w") as json_file:
             json.dump(applicator_dict, json_file, indent=4)
+
+    def info(self):
+        r"""
+        Purpose:
+            - To print the information about the applicator.
+        """
+        print("Applicator info is as follows:")
+        print(self.to_dict())
 
 class BrachyPlan:
     r"""
