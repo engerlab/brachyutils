@@ -193,9 +193,15 @@ class BrachyApplicator:
         Purpose:
             - To initialize the Applicator object.
         """
+        self.path = pth_input
         self.name = os.path.splitext(os.path.basename(pth_input))[0]
+        self.applicator_mesh = None
         self.verticies:np.array = None
         self.faces:np.array = None
+        self.origin:np.array = None
+        self.rotation:np.array = None
+        self.material:str = None
+        self.density:float = None
 
         input_extension = os.path.splitext(pth_input)[1]
         if input_extension == ".stl":
@@ -215,9 +221,9 @@ class BrachyApplicator:
         reader = vtkSTLReader()
         reader.SetFileName(pth_input)
         reader.Update()
-        applicator_mesh = reader.GetOutput()
-        self.verticies = numpy_support.vtk_to_numpy(applicator_mesh.GetPoints().GetData())
-        self.faces = numpy_support.vtk_to_numpy(applicator_mesh.GetPolys().GetData())
+        self.applicator_mesh = reader.GetOutput()
+        self.verticies = numpy_support.vtk_to_numpy(self.applicator_mesh.GetPoints().GetData())
+        self.faces = numpy_support.vtk_to_numpy(self.applicator_mesh.GetPolys().GetData())
         self.faces = self.faces.reshape(-1, 4)[:, 1:]
 
     def load_json(self, pth_input:str):
@@ -231,6 +237,17 @@ class BrachyApplicator:
             applicator_dict = json.load(json_file)
         self.verticies = np.array(applicator_dict["verticies"])
         self.faces = np.array(applicator_dict["faces"])
+
+    def to_dict(self):
+        r"""
+        Purpose:
+            - To convert the applicator geometry to a dictionary.
+        """
+        return {
+            "verticies": self.verticies.tolist(),
+            "faces": self.faces.tolist()
+
+        }
 
     def to_json(self, pth_output:str):
         r"""

@@ -248,7 +248,12 @@ def test_load_brachy_plan_from_dicom():
     plan_obj = BrachyPlan(pth_dicom, dvh_metric_goals=dvh_metric_goals)
     plan_obj.info()
 
+def test_BrachyApplicator():
+    pth_applicator_stl = "../../data_test/"
+    pth_applicator_json = "../../data_test/"
 
+    applicator_obj = BrachyApplicator(pth_applicator_stl)
+    applicator_obj
 if __name__ == "__main__":
     # test_load_catheterTable_json()
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
