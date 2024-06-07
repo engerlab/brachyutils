@@ -229,7 +229,7 @@ def test_export_brachy_plan():
         dose_cropped_by_body=True,
         pth_catheter_table_json=pth_cathTable_json,
         dir_dose_rate = dir_dose_rate,
-        load_dose_or_uncertainty="dose",
+        load_dose_or_uncertainty="uncertainty",
         multi_processing=True,
         dir_egsphant=dir_egsphant,
         combined_simulation_dict=sim_dict,

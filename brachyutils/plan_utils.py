@@ -179,6 +179,72 @@ class BrachyStructure:
                 "uniformity_weight": self.penalty_weight_uniformity,
             }
 
+class BrachyApplicator:
+    r"""
+    Purpose:
+        - This class holds the information regarding the brachytherapy applicator.
+        as well as all the functions to support the necessary applicator operations.
+    """
+    def __init__(
+            self,
+            pth_input:str,
+            ) -> None:
+        r"""
+        Purpose:
+            - To initialize the Applicator object.
+        """
+        self.name = os.path.splitext(os.path.basename(pth_input))[0]
+        self.verticies:np.array = None
+        self.faces:np.array = None
+
+        input_extension = os.path.splitext(pth_input)[1]
+        if input_extension == ".stl":
+            self.load_stl(pth_input)
+        elif input_extension == ".json":
+            self.load_json(pth_input)
+        else:
+            raise ValueError("invalid input file extension")
+
+    def load_stl(self, pth_input:str):
+        r"""
+        Purpose:
+            - To load the applicator geometry from an stl file.
+        Inputs:
+            - pth_input:str := path to the stl file containing the applicator geometry.
+        """
+        reader = vtkSTLReader()
+        reader.SetFileName(pth_input)
+        reader.Update()
+        applicator_mesh = reader.GetOutput()
+        self.verticies = numpy_support.vtk_to_numpy(applicator_mesh.GetPoints().GetData())
+        self.faces = numpy_support.vtk_to_numpy(applicator_mesh.GetPolys().GetData())
+        self.faces = self.faces.reshape(-1, 4)[:, 1:]
+
+    def load_json(self, pth_input:str):
+        r"""
+        Purpose:
+            - To load the applicator geometry from a json file.
+        Inputs:
+        - pth_input:str := path to the stl file containing the applicator geometry.
+        """
+        with open(pth_input, "r") as json_file:
+            applicator_dict = json.load(json_file)
+        self.verticies = np.array(applicator_dict["verticies"])
+        self.faces = np.array(applicator_dict["faces"])
+
+    def to_json(self, pth_output:str):
+        r"""
+        Purpose:
+            - To save the applicator geometry to a json file.
+        Inputs:
+            - pth_output:str := path to the output json file.
+        """
+        applicator_dict = {
+            "verticies": self.verticies.tolist(),
+            "faces": self.faces.tolist()
+        }
+        with open(pth_output, "w") as json_file:
+            json.dump(applicator_dict, json_file, indent=4)
 
 class BrachyPlan:
     r"""
@@ -295,8 +361,8 @@ class BrachyPlan:
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
         self.egsphant: BrachyEgsphant = None
-        self.applicator_geometry = None
-        self.applicator_materials = None
+        self.applicator_list:list = None
+        # self.applicator_materials = None
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
@@ -1247,7 +1313,13 @@ class BrachyPlan:
         r"""
         Purpose:
             - To export the applicator geometry mesh as a mac file.
-            
+            This mac file contains the following information about the applicator:
+                - vertices
+                - faces
+                - material
+                - density
+                - position
+                - rotation
         Inputs:
             - dir_export := path to the directory where the export happens
             
@@ -1255,6 +1327,7 @@ class BrachyPlan:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
+
     
 # #################### TO FIX ##########################
 # TUNGSTEN_DENSITY = 19.3
