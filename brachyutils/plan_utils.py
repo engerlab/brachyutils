@@ -259,6 +259,19 @@ class BrachyApplicator:
             applicator_dict = json.load(json_file)
         self.verticies = np.array(applicator_dict["verticies"])
         self.faces = np.array(applicator_dict["faces"])
+        self.origin = np.array(applicator_dict["origin"])
+        self.rotation = np.array(applicator_dict["rotation"])
+        self.material = applicator_dict["material"]
+        self.density = applicator_dict["density"]
+
+    def load_mac(self, pth_input: str):
+        r"""
+        Purpose:
+            - To load the applicator geometry from a mac file.
+        Inputs:
+            - pth_input:str := path to the mac file containing the applicator geometry.
+        """
+        raise NotImplementedError("to be implemented soon")
 
     def to_dict(self):
         r"""
@@ -296,6 +309,41 @@ class BrachyApplicator:
         print("Applicator info is as follows:")
         print(self.to_dict())
 
+    def is_equal(self, other):
+        r"""
+        Purpose:
+            - To compare the current applicator with another applicator.
+        Inputs:
+            - other:BrachyApplicator := the other applicator to compare with.
+        Outputs:
+            - bool := True if the two applicators are equal, False otherwise.
+        """
+        if type(self) != type(other):
+            return False
+        if self.name != other.name:
+            return False
+        if not np.isclose(self.verticies, other.verticies, atol=1e-6).all():
+            return False
+        if not np.isclose(self.faces, other.faces, atol=1e-6).all():
+            return False
+        if not np.isclose(self.origin, other.origin, atol=1e-6).all():
+            return False
+        if not np.isclose(self.rotation, other.rotation, atol=1e-6).all():
+            return False
+        if self.material != other.material:
+            return False
+        if self.density != other.density:
+            return False
+        return True
+
+    def to_mac(self, pth_output: str):
+        r"""
+        Purpose:
+            - To save the applicator geometry to a mac file.
+        Inputs:
+            - pth_output:str := path to the output mac file.
+        """
+        raise NotImplementedError("to be implemented soon")
 
 class BrachyPlan:
     r"""

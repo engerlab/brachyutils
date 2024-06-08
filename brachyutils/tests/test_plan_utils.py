@@ -266,11 +266,9 @@ def test_load_brachy_plan_from_dicom():
 
 def test_BrachyApplicator():
     pth_applicator_stl = "../../data_test/rectal-jgh-planFiles/applicator_0.stl"
-    pth_applicator_json = "../../data_test/rectal-jgh-planFiles/applicator_0.json"
 
     applicator_obj = BrachyApplicator(pth_applicator_stl)
-    # applicator_obj.info()
-    applicator_tps_json = BrachyApplicator(pth_applicator_json)
+    applicator_obj.info()
 
 
 if __name__ == "__main__":
