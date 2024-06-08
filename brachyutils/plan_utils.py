@@ -206,6 +206,8 @@ class BrachyApplicator:
     def __init__(
         self,
         pth_input: str,
+        material: str = None,
+        density: float = None,
     ) -> None:
         r"""
         Purpose:
@@ -228,6 +230,11 @@ class BrachyApplicator:
             self.load_json(pth_input)
         else:
             raise ValueError("invalid input file extension")
+
+        if material is not None:
+            self.material = material
+        if density is not None:
+            self.density = density
 
     def load_stl(self, pth_input: str):
         r"""
