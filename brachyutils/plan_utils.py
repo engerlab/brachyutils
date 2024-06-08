@@ -264,6 +264,7 @@ class BrachyApplicator:
         """
         with open(pth_input, "r") as json_file:
             applicator_dict = json.load(json_file)
+
         self.verticies = np.array(applicator_dict["verticies"])
         self.faces = np.array(applicator_dict["faces"])
         self.origin = np.array(applicator_dict["origin"])
@@ -350,8 +351,32 @@ class BrachyApplicator:
         Inputs:
             - pth_output:str := path to the output mac file.
         """
-        raise NotImplementedError("to be implemented soon")
+        # raise NotImplementedError("to be implemented soon")
+        macfile_string = ""
 
+        # add in the vertex info
+        for vertex in self.verticies:
+            macfile_string += f"/source_world/vertex {vertex[0]} {vertex[1]} {vertex[2]} mm\n"
+        # add in the face info
+        for face in self.faces:
+            macfile_string += f"/source_world/face {face[0]} {face[1]} {face[2]}\n"
+        # add in the material info
+        macfile_string += f"/source_world/material {self.material}\n"
+        # add in the density info
+        macfile_string += f"/source_world/density {self.density}\n"
+        # add in the origin info
+        macfile_string += f"/source_world/xPosition {self.origin[0]} mm\n"
+        macfile_string += f"/source_world/yPosition {self.origin[1]} mm\n"
+        macfile_string += f"/source_world/zPosition {self.origin[2]} mm\n"
+        # add in rotation info
+        macfile_string += f"/source_world/xRotation {self.rotation[0]} deg\n"
+        macfile_string += f"/source_world/yRotation {self.rotation[1]} deg\n"
+        macfile_string += f"/source_world/zRotation {self.rotation[2]} deg\n"
+        # add in the done flag
+        macfile_string += "/source_world/done\n"
+
+        with open(pth_output, "w") as mac_file:
+            mac_file.write(macfile_string)
 
 class BrachyPlan:
     r"""
