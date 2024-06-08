@@ -11,11 +11,10 @@ from multiprocessing import Pool, cpu_count
 import numpy as np
 from scipy import interpolate, ndimage
 
-from vtkmodules.vtkIOGeometry import vtkSTLReader
-from vtk.util import numpy_support
-
 # from typing import Optional
 from tqdm import tqdm
+from vtk.util import numpy_support
+from vtkmodules.vtkIOGeometry import vtkSTLReader
 
 from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
@@ -179,6 +178,7 @@ class BrachyStructure:
                 "uniformity_weight": self.penalty_weight_uniformity,
             }
 
+
 class BrachyApplicator:
     r"""
     Purpose:
@@ -202,10 +202,11 @@ class BrachyApplicator:
         - to_dict()
         - to_json(pth_output:str)
     """
+
     def __init__(
-            self,
-            pth_input:str,
-            ) -> None:
+        self,
+        pth_input: str,
+    ) -> None:
         r"""
         Purpose:
             - To initialize the Applicator object.
@@ -213,12 +214,12 @@ class BrachyApplicator:
         self.path = pth_input
         self.name = os.path.splitext(os.path.basename(pth_input))[0]
         self.applicator_mesh = None
-        self.verticies:np.array = None
-        self.faces:np.array = None
-        self.origin:np.array = None
-        self.rotation:np.array = None
-        self.material:str = None
-        self.density:float = None
+        self.verticies: np.array = None
+        self.faces: np.array = None
+        self.origin: np.array = None
+        self.rotation: np.array = None
+        self.material: str = None
+        self.density: float = None
 
         input_extension = os.path.splitext(pth_input)[1]
         if input_extension == ".stl":
@@ -228,7 +229,7 @@ class BrachyApplicator:
         else:
             raise ValueError("invalid input file extension")
 
-    def load_stl(self, pth_input:str):
+    def load_stl(self, pth_input: str):
         r"""
         Purpose:
             - To load the applicator geometry from an stl file.
@@ -239,11 +240,15 @@ class BrachyApplicator:
         reader.SetFileName(pth_input)
         reader.Update()
         self.applicator_mesh = reader.GetOutput()
-        self.verticies = numpy_support.vtk_to_numpy(self.applicator_mesh.GetPoints().GetData())
-        self.faces = numpy_support.vtk_to_numpy(self.applicator_mesh.GetPolys().GetData())
+        self.verticies = numpy_support.vtk_to_numpy(
+            self.applicator_mesh.GetPoints().GetData()
+        )
+        self.faces = numpy_support.vtk_to_numpy(
+            self.applicator_mesh.GetPolys().GetData()
+        )
         self.faces = self.faces.reshape(-1, 4)[:, 1:]
 
-    def load_json(self, pth_input:str):
+    def load_json(self, pth_input: str):
         r"""
         Purpose:
             - To load the applicator geometry from a json file.
@@ -271,7 +276,7 @@ class BrachyApplicator:
             "density": self.density,
         }
 
-    def to_json(self, pth_output:str):
+    def to_json(self, pth_output: str):
         r"""
         Purpose:
             - To save the applicator geometry to a json file.
@@ -290,6 +295,7 @@ class BrachyApplicator:
         """
         print("Applicator info is as follows:")
         print(self.to_dict())
+
 
 class BrachyPlan:
     r"""
@@ -406,7 +412,7 @@ class BrachyPlan:
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
         self.egsphant: BrachyEgsphant = None
-        self.applicator_list:list = None
+        self.applicator_list: list = None
         # self.applicator_materials = None
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
@@ -1367,219 +1373,216 @@ class BrachyPlan:
                 - rotation
         Inputs:
             - dir_export := path to the directory where the export happens
-            
+
         Outputs:
         Dependencies:
         """
         raise NotImplementedError("to be implemented soon")
 
-    
-# #################### TO FIX ##########################
-# TUNGSTEN_DENSITY = 19.3
-# PPSU_DENSITY = 1.2951
+    # """
+    # # #################### TO FIX ##########################
+    # # TUNGSTEN_DENSITY = 19.3
+    # # PPSU_DENSITY = 1.2951
 
-# ########  FOR EGSPHANT ########
+    # # ########  FOR EGSPHANT ########
 
-# # Number of voxels
-# X = 100
-# Y = 100
-# Z = 300
+    # # # Number of voxels
+    # # X = 100
+    # # Y = 100
+    # # Z = 300
 
-# # Voxel Size
-# VS = 0.1
+    # # # Voxel Size
+    # # VS = 0.1
 
-# # Source Center
-# X_POS_cm = 0
-# Y_POS_cm = 0
-# Z_POS_cm = 6 - (VS/2)
+    # # # Source Center
+    # # X_POS_cm = 0
+    # # Y_POS_cm = 0
+    # # Z_POS_cm = 6 - (VS/2)
 
-# PRECISION = 5 # decimal point for round
-# MATERIAL = 'Water'
-# DENSITY = '0.998'
+    # # PRECISION = 5 # decimal point for round
+    # # MATERIAL = 'Water'
+    # # DENSITY = '0.998'
 
-# ######## FOR DWELL_?.PLAN FILE ########
+    # # ######## FOR DWELL_?.PLAN FILE ########
 
-# DWELL_POS_X = 0
-# DWELL_POS_Y = 0
-# DWELL_POS_Z = 6 
-# DWELL_ROT_X = 0 
-# DWELL_ROT_Y = 0 
-# DWELL_ROT_Z = 1
-# DWELL_ANGLE = 0 
-# DWELL_AXIS_X = 0 
-# DWELL_AXIS_Y = 0 
-# DWELL_AXIS_Z = 1 
-# DWELL_COR_X = 0 
-# DWELL_COR_Y = 0 
-# DWELL_COR_Z = 0
+    # # DWELL_POS_X = 0
+    # # DWELL_POS_Y = 0
+    # # DWELL_POS_Z = 6
+    # # DWELL_ROT_X = 0
+    # # DWELL_ROT_Y = 0
+    # # DWELL_ROT_Z = 1
+    # # DWELL_ANGLE = 0
+    # # DWELL_AXIS_X = 0
+    # # DWELL_AXIS_Y = 0
+    # # DWELL_AXIS_Z = 1
+    # # DWELL_COR_X = 0
+    # # DWELL_COR_Y = 0
+    # # DWELL_COR_Z = 0
 
-# DWELL_NUMBER = 1
+    # # DWELL_NUMBER = 1
 
+    # # counter = 0
 
-# counter = 0 
+    # def create_appmac(filename, material, density):
 
-def create_appmac(filename, material, density):
+    #     reader = vtkSTLReader()
 
-    reader = vtkSTLReader()
+    #     reader.SetFileName(filename)
+    #     reader.Update()
 
-    reader.SetFileName(filename)
-    reader.Update()
+    #     # Load the STL file
+    #     shield_mesh = reader.GetOutput()
 
-    # Load the STL file
-    shield_mesh = reader.GetOutput()
+    #     #Extract the vertices and faces
 
-    #Extract the vertices and faces
+    #     # numvertices = shield_mesh.GetNumberOfPoints() #number
+    #     # numfaces = shield_mesh.GetNumberOfCells
 
-    # numvertices = shield_mesh.GetNumberOfPoints() #number
-    # numfaces = shield_mesh.GetNumberOfCells
+    #     vertices = numpy_support.vtk_to_numpy(shield_mesh.GetPoints().GetData())
 
-    vertices = numpy_support.vtk_to_numpy(shield_mesh.GetPoints().GetData())
+    #     faces = numpy_support.vtk_to_numpy(shield_mesh.GetPolys().GetData())
+    #     faces = faces.reshape(-1, 4)
+    #     faces = faces[:,1:]
 
-    faces = numpy_support.vtk_to_numpy(shield_mesh.GetPolys().GetData())
-    faces = faces.reshape(-1, 4)
-    faces = faces[:,1:]
+    #     ##CREATE applicator.mac
+    #     global counter
 
-    ##CREATE applicator.mac 
-    global counter
+    #     with open(f"applicator_{counter}.mac", "w") as f:
+    #         for vertex in vertices:
+    #             x, y, z = vertex
+    #             f.write(f"/source_world/vertex {x} {y} {z} mm\n")
+    #         for face in faces:
+    #             x, y, z = face
+    #             f.write(f"/source_world/face {x} {y} {z}\n")
 
-    with open(f"applicator_{counter}.mac", "w") as f:
-        for vertex in vertices:
-            x, y, z = vertex
-            f.write(f"/source_world/vertex {x} {y} {z} mm\n")
-        for face in faces:
-            x, y, z = face
-            f.write(f"/source_world/face {x} {y} {z}\n")
-        
-        f.write(f"/source_world/material {material}\n")
+    #         f.write(f"/source_world/material {material}\n")
 
-        f.write(f"/source_world/density {density}\n")
+    #         f.write(f"/source_world/density {density}\n")
 
-        f.write(f"/source_world/xPosition 0 mm\n")
-        f.write(f"/source_world/yPosition 0 mm\n")
-        f.write(f"/source_world/zPosition 0 mm\n")
+    #         f.write(f"/source_world/xPosition 0 mm\n")
+    #         f.write(f"/source_world/yPosition 0 mm\n")
+    #         f.write(f"/source_world/zPosition 0 mm\n")
 
-        f.write(f"/source_world/xRotation 0 deg\n")
-        f.write(f"/source_world/yRotation 0 deg\n")
-        f.write(f"/source_world/zRotation 0 deg\n")
+    #         f.write(f"/source_world/xRotation 0 deg\n")
+    #         f.write(f"/source_world/yRotation 0 deg\n")
+    #         f.write(f"/source_world/zRotation 0 deg\n")
 
-        f.write(f"/source_world/done")
+    #         f.write(f"/source_world/done")
 
-        
-    f.close() 
+    #     f.close()
 
-    counter += 1
+    #     counter += 1
 
+    # def create_egs(x, y, z, voxelsize):
 
-def create_egs(x, y, z, voxelsize):
+    #     #### Voxel Size
+    #     vs = voxelsize
 
-    #### Voxel Size
-    vs = voxelsize
+    #     f= open("ct.egsphant","w+")
 
-    f= open("ct.egsphant","w+")
+    #     f.write('1\n')
+    #     f.write(f"Water\n")
+    #     f.write('0\n')
+    #     f.write(f"{x} {y} {z}\n")
 
-    f.write('1\n')
-    f.write(f"Water\n")
-    f.write('0\n')
-    f.write(f"{x} {y} {z}\n")
+    #     ### Get position of voxel sides for the x-axis
+    #     x_sides = []
 
-    ### Get position of voxel sides for the x-axis
-    x_sides = []
+    #     start = X_POS_cm - (x/2)*vs - vs/2
 
-    start = X_POS_cm - (x/2)*vs - vs/2
+    #     # print(start)
+    #     # start = -((x/10)/2)
 
-    # print(start)
-    # start = -((x/10)/2)
+    #     x_sides.append(start)
 
-    x_sides.append(start)
+    #     for _ in range(x):
+    #         start += vs
+    #         x_sides.append(start)
 
-    for _ in range(x):
-        start += vs
-        x_sides.append(start)
+    #     ### Get position of voxel sides for the y-axis
+    #     y_sides = []
 
-    ### Get position of voxel sides for the y-axis
-    y_sides = []
+    #     start = Y_POS_cm - (y/2)*vs - vs/2
+    #     #start = -((y/10)/2)
+    #     y_sides.append(start)
 
-    start = Y_POS_cm - (y/2)*vs - vs/2
-    #start = -((y/10)/2)
-    y_sides.append(start)
+    #     for _ in range(y):
+    #         start += vs
+    #         y_sides.append(start)
 
-    for _ in range(y):
-        start += vs
-        y_sides.append(start)
+    #     ### Get position of voxel sides for the z-axis
+    #     z_sides = []
 
-    ### Get position of voxel sides for the z-axis
-    z_sides = []
+    #     start = Z_POS_cm - (z/2)*vs - vs/2
+    #     z_sides.append(start)
 
-    start = Z_POS_cm - (z/2)*vs - vs/2
-    z_sides.append(start)
+    #     for _ in range(z):
+    #         start += vs
+    #         z_sides.append(start)
 
-    for _ in range(z):
-        start += vs
-        z_sides.append(start)
+    #     for value in x_sides:
+    #         f.write(str(np.round(value, PRECISION)) + " ")
+    #     f.write('\n')
 
-    for value in x_sides:
-        f.write(str(np.round(value, PRECISION)) + " ")
-    f.write('\n')
-            
-    for value in y_sides:
-        f.write(str(np.round(value, PRECISION)) + " ")
-    f.write('\n')
+    #     for value in y_sides:
+    #         f.write(str(np.round(value, PRECISION)) + " ")
+    #     f.write('\n')
 
-    for value in z_sides:
-        f.write(str(np.round(value, PRECISION)) + " ")
-    f.write('\n')
+    #     for value in z_sides:
+    #         f.write(str(np.round(value, PRECISION)) + " ")
+    #     f.write('\n')
 
-    for i in range(z): 
-        for j in range(y):
-            for k in range(x):
-                f.write('1')
-            f.write('\n')
-        f.write('\n')
+    #     for i in range(z):
+    #         for j in range(y):
+    #             for k in range(x):
+    #                 f.write('1')
+    #             f.write('\n')
+    #         f.write('\n')
 
-    for l in range(z): 
-        for m in range(y):
-            for n in range(x):
-                f.write(DENSITY+ " ")
-            f.write('\n')
-        f.write('\n')
+    #     for l in range(z):
+    #         for m in range(y):
+    #             for n in range(x):
+    #                 f.write(DENSITY+ " ")
+    #             f.write('\n')
+    #         f.write('\n')
 
-    f.close()
+    #     f.close()
 
-##CREATE dwell_?.plan
+    # ##CREATE dwell_?.plan
 
-### First 3 numbers are Dwell Position Coordinate
-### Next 3 numbers following number are Dwell Orientation Vector 
-### Next 1 number is Applicator/Shield Model Rotation/Spin
-### Next 3 numbers are Axis Vector For Model Rotation/Spin
-### Last 3 numbers are Applicator/Shield Center of Rotation Coordinate
+    # ### First 3 numbers are Dwell Position Coordinate
+    # ### Next 3 numbers following number are Dwell Orientation Vector
+    # ### Next 1 number is Applicator/Shield Model Rotation/Spin
+    # ### Next 3 numbers are Axis Vector For Model Rotation/Spin
+    # ### Last 3 numbers are Applicator/Shield Center of Rotation Coordinate
 
-#Switch to function
-with open(f"dwell_1.plan", "w") as f:
-    
-    f.write(f"Treatment Plan\n")
+    # #Switch to function
+    # with open(f"dwell_1.plan", "w") as f:
 
-    f.write(f"1 Control Points\n")
+    #     f.write(f"Treatment Plan\n")
 
-    f.write(f"Control Point\n")
+    #     f.write(f"1 Control Points\n")
 
-    f.write(f"weight = 1.0\n")
+    #     f.write(f"Control Point\n")
 
-    f.write(f"1 Dwell Position\n")
+    #     f.write(f"weight = 1.0\n")
 
-    f.write(f"{DWELL_POS_X},{DWELL_POS_Y},{DWELL_POS_Z},{DWELL_ROT_X},{DWELL_ROT_Y},{DWELL_ROT_Z},{DWELL_ANGLE},{DWELL_AXIS_X},{DWELL_AXIS_Y},{DWELL_AXIS_Z},{DWELL_COR_X},{DWELL_COR_Y},{DWELL_COR_Z} ")
+    #     f.write(f"1 Dwell Position\n")
 
-f.close()
+    #     f.write(f"{DWELL_POS_X},{DWELL_POS_Y},{DWELL_POS_Z},{DWELL_ROT_X},{DWELL_ROT_Y},{DWELL_ROT_Z},{DWELL_ANGLE},{DWELL_AXIS_X},{DWELL_AXIS_Y},{DWELL_AXIS_Z},{DWELL_COR_X},{DWELL_COR_Y},{DWELL_COR_Z} ")
 
-#Example of usage
+    # f.close()
 
-#create_appmac('cshield14_150.stl', 'Tungsten', TUNGSTEN_DENSITY)
-#create_appmac('bodys2.stl', 'Tungsten', TUNGSTEN_DENSITY)
-#create_appmac('plasticsim1.stl', 'PPSU', PPSU_DENSITY)
+    # #Example of usage
 
-#create_egs(X, Y, Z, VS)
+    # #create_appmac('cshield14_150.stl', 'Tungsten', TUNGSTEN_DENSITY)
+    # #create_appmac('bodys2.stl', 'Tungsten', TUNGSTEN_DENSITY)
+    # #create_appmac('plasticsim1.stl', 'PPSU', PPSU_DENSITY)
 
-####################FINISH FIX HERE##############################
+    # #create_egs(X, Y, Z, VS)
 
+    # ####################FINISH FIX HERE##############################
+    # """
     def _export_structure_set(
         self, dir_export: str, export_format: str = "RapidBrachy"
     ):
