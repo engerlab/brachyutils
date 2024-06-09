@@ -205,16 +205,18 @@ class BrachyApplicator:
 
     def __init__(
         self,
-        pth_input: str,
+        pth_input_file: str,
         material: str = None,
         density: float = None,
+        origin: np.array = None,
+        rotation: np.array = None,
     ) -> None:
         r"""
         Purpose:
             - To initialize the Applicator object.
         """
-        self.path = pth_input
-        self.name = os.path.splitext(os.path.basename(pth_input))[0]
+        self.path = pth_input_file
+        self.name = os.path.splitext(os.path.basename(self.path))[0]
         self.applicator_mesh = None
         self.verticies: np.array = None
         self.faces: np.array = None
@@ -223,11 +225,11 @@ class BrachyApplicator:
         self.material: str = None
         self.density: float = None
 
-        input_extension = os.path.splitext(pth_input)[1]
+        input_extension = os.path.splitext(self.path)[1]
         if input_extension == ".stl":
-            self.load_stl(pth_input)
+            self.load_stl(self.path)
         elif input_extension == ".json":
-            self.load_json(pth_input)
+            self.load_json(self.path)
         else:
             raise ValueError("invalid input file extension")
 
@@ -235,6 +237,10 @@ class BrachyApplicator:
             self.material = material
         if density is not None:
             self.density = density
+        if origin is not None:
+            self.origin = origin
+        if rotation is not None:
+            self.rotation = rotation
 
     def load_stl(self, pth_input: str):
         r"""
@@ -265,8 +271,8 @@ class BrachyApplicator:
         with open(pth_input, "r") as json_file:
             applicator_dict = json.load(json_file)
 
-        self.verticies = np.array(applicator_dict["verticies"])
-        self.faces = np.array(applicator_dict["faces"])
+        self.verticies = np.array(applicator_dict["verticies"], dtype=np.float32)
+        self.faces = np.array(applicator_dict["faces"], dtype=np.int32)
         self.origin = np.array(applicator_dict["origin"])
         self.rotation = np.array(applicator_dict["rotation"])
         self.material = applicator_dict["material"]
@@ -355,8 +361,10 @@ class BrachyApplicator:
         macfile_string = ""
 
         # add in the vertex info
+        float_formatter = "{:.3f}".format
         for vertex in self.verticies:
-            macfile_string += f"/source_world/vertex {vertex[0]} {vertex[1]} {vertex[2]} mm\n"
+            macfile_string += f"/source_world/vertex {float_formatter(vertex[0])} {float_formatter(vertex[1])} {float_formatter(vertex[2])} mm\n"
+
         # add in the face info
         for face in self.faces:
             macfile_string += f"/source_world/face {face[0]} {face[1]} {face[2]}\n"
@@ -377,6 +385,7 @@ class BrachyApplicator:
 
         with open(pth_output, "w") as mac_file:
             mac_file.write(macfile_string)
+
 
 class BrachyPlan:
     r"""
