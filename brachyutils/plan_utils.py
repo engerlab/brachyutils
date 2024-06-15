@@ -14,7 +14,8 @@ from scipy import interpolate, ndimage
 # from typing import Optional
 from tqdm import tqdm
 from vtk.util import numpy_support
-from vtkmodules.vtkIOGeometry import vtkSTLReader
+from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
+from vtk import vtkPoints, vtkCellArray, vtkPolyData
 
 from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
@@ -393,7 +394,26 @@ class BrachyApplicator:
         Inputs:
             - pth_output:str := path to the output stl file.
         """
-        raise NotImplementedError("to be implemented soon"
+        # convert numpy verticies to vtk points
+        points = vtkPoints()
+        for vertex in self.verticies:
+            points.InsertNextPoint(vertex)
+
+        # convert numpy faces to vtk cell array
+        cell_array = vtkCellArray()
+        for face in self.faces:
+            cell_array.InsertNextCell(3, face)
+
+        # create vtk polydata object
+        polydata = vtkPolyData()
+        polydata.SetPoints(points)
+        polydata.setPolys(cell_array)
+
+        # write the polydata to an stl file
+        stl_writer = vtkSTLWriter()
+        stl_writer.SetFileName(pth_output)
+        stl_writer.SetInputData(polydata)
+        stl_writer.Write()
 
 class BrachyPlan:
     r"""
