@@ -386,6 +386,14 @@ class BrachyApplicator:
         with open(pth_output, "w") as mac_file:
             mac_file.write(macfile_string)
 
+    def to_stl(self, pth_output: str):
+        r"""
+        Purpose:
+            - To save the applicator geometry to an stl file.
+        Inputs:
+            - pth_output:str := path to the output stl file.
+        """
+        raise NotImplementedError("to be implemented soon"
 
 class BrachyPlan:
     r"""
