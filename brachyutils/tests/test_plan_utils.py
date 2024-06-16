@@ -1,6 +1,7 @@
 import json
 import os
 import time
+
 import numpy as np
 
 # from plan_utils import BrachyStructure
@@ -270,6 +271,7 @@ def test_BrachyApplicator():
     applicator_obj = BrachyApplicator(pth_applicator_stl)
     applicator_obj.info()
 
+
 def test_BrachyApplicator_to_mac():
     pth_applicator_stl = "../../data_test/rectal-jgh-planFiles/applicator_0.stl"
     origin = np.array([0, 0, 0])
@@ -283,8 +285,26 @@ def test_BrachyApplicator_to_mac():
         density=density,
         origin=origin,
         rotation=rotation,
-        )
+    )
     applicator_obj.to_mac(pth_outfile)
+
+
+def test_BrachyApplicator_to_stl():
+    pth_applicator_stl = "../../data_test/rectal-jgh-planFiles/applicator_0.stl"
+    origin = np.array([0, 0, 0])
+    rotation = np.array([0, 0, 0])
+    material = "Tungsten"
+    density = 19.3
+    pth_outfile = "../../data_test/test_export_plan/applicator_0.stl"
+    applicator_obj = BrachyApplicator(
+        pth_input_file=pth_applicator_stl,
+        material=material,
+        density=density,
+        origin=origin,
+        rotation=rotation,
+    )
+    applicator_obj.to_stl(pth_outfile)
+
 
 if __name__ == "__main__":
     # test_load_catheterTable_json()
@@ -299,4 +319,5 @@ if __name__ == "__main__":
     # test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
     # test_BrachyApplicator()
-    test_BrachyApplicator_to_mac()
+    # test_BrachyApplicator_to_mac()
+    test_BrachyApplicator_to_stl()

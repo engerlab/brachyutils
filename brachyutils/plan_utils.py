@@ -13,6 +13,8 @@ from scipy import interpolate, ndimage
 
 # from typing import Optional
 from tqdm import tqdm
+
+# from vtk import vtkCellArray, vtkPoints, vtkPolyData
 from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
 from vtk import vtkPoints, vtkCellArray, vtkPolyData
@@ -288,34 +290,6 @@ class BrachyApplicator:
         """
         raise NotImplementedError("to be implemented soon")
 
-    def to_dict(self):
-        r"""
-        Purpose:
-            - To convert the applicator geometry to a dictionary.
-        """
-        return {
-            "name": self.name,
-            "path": self.path,
-            "verticies": self.verticies.tolist(),
-            "faces": self.faces.tolist(),
-            "origin": self.origin,
-            "rotation": self.rotation,
-            "material": self.material,
-            "density": self.density,
-        }
-
-    def to_json(self, pth_output: str):
-        r"""
-        Purpose:
-            - To save the applicator geometry to a json file.
-        Inputs:
-            - pth_output:str := path to the output json file.
-        """
-        applicator_dict = self.to_dict()
-
-        with open(pth_output, "w") as json_file:
-            json.dump(applicator_dict, json_file, indent=4)
-
     def info(self):
         r"""
         Purpose:
@@ -350,6 +324,49 @@ class BrachyApplicator:
         if self.density != other.density:
             return False
         return True
+
+    def _update_applicator_mesh(self):
+        r"""
+        Purpose:
+            - To update the applicator mesh from the verticies and faces.
+        """
+        points = vtkPoints()
+        for vertex in self.verticies:
+            points.InsertNextPoint(vertex)
+        self.applicator_mesh.SetPoints(points)
+
+        cell_array = vtkCellArray()
+        for face in self.faces:
+            cell_array.InsertNextCell(3, face)
+        self.applicator_mesh.SetPolys(cell_array)
+
+    def to_dict(self):
+        r"""
+        Purpose:
+            - To convert the applicator geometry to a dictionary.
+        """
+        return {
+            "name": self.name,
+            "path": self.path,
+            "verticies": self.verticies.tolist(),
+            "faces": self.faces.tolist(),
+            "origin": self.origin,
+            "rotation": self.rotation,
+            "material": self.material,
+            "density": self.density,
+        }
+
+    def to_json(self, pth_output: str):
+        r"""
+        Purpose:
+            - To save the applicator geometry to a json file.
+        Inputs:
+            - pth_output:str := path to the output json file.
+        """
+        applicator_dict = self.to_dict()
+
+        with open(pth_output, "w") as json_file:
+            json.dump(applicator_dict, json_file, indent=4)
 
     def to_mac(self, pth_output: str):
         r"""
@@ -394,26 +411,13 @@ class BrachyApplicator:
         Inputs:
             - pth_output:str := path to the output stl file.
         """
-        # convert numpy verticies to vtk points
-        points = vtkPoints()
-        for vertex in self.verticies:
-            points.InsertNextPoint(vertex)
-
-        # convert numpy faces to vtk cell array
-        cell_array = vtkCellArray()
-        for face in self.faces:
-            cell_array.InsertNextCell(3, face)
-
-        # create vtk polydata object
-        polydata = vtkPolyData()
-        polydata.SetPoints(points)
-        polydata.setPolys(cell_array)
-
+        self._update_applicator_mesh()
         # write the polydata to an stl file
         stl_writer = vtkSTLWriter()
         stl_writer.SetFileName(pth_output)
-        stl_writer.SetInputData(polydata)
+        stl_writer.SetInputData(self.applicator_mesh)
         stl_writer.Write()
+
 
 class BrachyPlan:
     r"""
