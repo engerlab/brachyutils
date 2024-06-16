@@ -13,11 +13,9 @@ from scipy import interpolate, ndimage
 
 # from typing import Optional
 from tqdm import tqdm
-
-# from vtk import vtkCellArray, vtkPoints, vtkPolyData
+from vtk import vtkCellArray, vtkPoints, vtkPolyData
 from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
-from vtk import vtkPoints, vtkCellArray, vtkPolyData
 
 from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
@@ -220,7 +218,7 @@ class BrachyApplicator:
         """
         self.path = pth_input_file
         self.name = os.path.splitext(os.path.basename(self.path))[0]
-        self.applicator_mesh = None
+        self.applicator_mesh: vtkPolyData = None
         self.verticies: np.array = None
         self.faces: np.array = None
         self.origin: np.array = None
@@ -242,6 +240,7 @@ class BrachyApplicator:
             self.density = density
         if origin is not None:
             self.origin = origin
+            self.set_origin(origin)
         if rotation is not None:
             self.rotation = rotation
 
@@ -339,6 +338,19 @@ class BrachyApplicator:
         for face in self.faces:
             cell_array.InsertNextCell(3, face)
         self.applicator_mesh.SetPolys(cell_array)
+
+    def set_origin(self, origin: np.array):
+        r"""
+        Purpose:
+            - To set the origin of the applicator.
+        Inputs:
+            - origin:np.array := the origin of the applicator.
+        """
+        old_origin = self.origin
+        change_in_origin = np.ones_like(self.verticies) * (origin - old_origin)
+        self.origin = origin
+        self.verticies += change_in_origin
+        self._update_applicator_mesh()
 
     def to_dict(self):
         r"""
