@@ -292,10 +292,10 @@ def test_BrachyApplicator_to_mac():
 def test_BrachyApplicator_to_stl():
     pth_applicator_stl = "../../data_test/rectal-jgh-planFiles/applicator_0.stl"
     origin = np.array([0, 0, 0])
-    rotation = np.array([0, 0, 0])
+    rotation = np.array([90, 1, 0, 0])
     material = "Tungsten"
     density = 19.3
-    pth_outfile = "../../data_test/test_export_plan/applicator_0.stl"
+    pth_outfile = "../../data_test/test_export_plan/applicator_0_tilted.stl"
     applicator_obj = BrachyApplicator(
         pth_input_file=pth_applicator_stl,
         material=material,

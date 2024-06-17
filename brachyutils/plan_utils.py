@@ -407,7 +407,7 @@ class BrachyApplicator:
         """
         # create the transformation matrix
         transform = vtkTransform()
-        transform.RotateWXYZ(**rotation)
+        transform.RotateWXYZ(rotation[0], rotation[1], rotation[2], rotation[3])
         
         # apply the transformation
         transform_filter = vtkTransformPolyDataFilter()
