@@ -246,12 +246,14 @@ class BrachyApplicator:
             self.rotation = rotation
             self.set_rotation(rotation)
 
-    def load_stl(self, pth_input: str):
+    def load_stl(self, pth_input: str) -> None:
         r"""
         Purpose:
             - To load the applicator geometry from an stl file.
         Inputs:
             - pth_input:str := path to the stl file containing the applicator geometry.
+        Outputs:
+            - Void := will update the BrachyApplicator object based on the stl file.
         """
         reader = vtkSTLReader()
         reader.SetFileName(pth_input)
@@ -259,12 +261,15 @@ class BrachyApplicator:
         self.applicator_mesh = reader.GetOutput()
         self._update_brachy_applicator_from_applicator_mesh()
 
-    def load_json(self, pth_input: str):
+    def load_json(self, pth_input: str) -> None:
         r"""
         Purpose:
             - To load the applicator geometry from a json file.
         Inputs:
-        - pth_input:str := path to the stl file containing the applicator geometry.
+            - pth_input:str := path to the stl file containing the applicator geometry.
+
+        Outputs:
+            - Void := will update the BrachyApplicator object based on the json file.
         """
         with open(pth_input, "r") as json_file:
             applicator_dict = json.load(json_file)
@@ -276,29 +281,41 @@ class BrachyApplicator:
         self.material = applicator_dict["material"]
         self.density = applicator_dict["density"]
 
-    def load_mac(self, pth_input: str):
+    def load_mac(self, pth_input: str) -> None:
         r"""
         Purpose:
             - To load the applicator geometry from a mac file.
+
         Inputs:
             - pth_input:str := path to the mac file containing the applicator geometry.
+
+        Outputs:
+            - Void := will update the BrachyApplicator object based on the mac file.
         """
         raise NotImplementedError("to be implemented soon")
 
-    def info(self):
+    def info(self) -> None:
         r"""
         Purpose:
             - To print the information about the applicator.
+        
+        Inputs:
+            - self := the BrachyApplicator object.
+        
+        Outputs:
+            - Void := will print the information about the applicator.
         """
         print("Applicator info is as follows:")
         print(self.to_dict())
 
-    def is_equal(self, other):
+    def is_equal(self, other) -> bool:
         r"""
         Purpose:
             - To compare the current applicator with another applicator.
+
         Inputs:
             - other:BrachyApplicator := the other applicator to compare with.
+
         Outputs:
             - bool := True if the two applicators are equal, False otherwise.
         """
@@ -320,10 +337,16 @@ class BrachyApplicator:
             return False
         return True
 
-    def _update_applicator_mesh_from_brachy_applicator(self):
+    def _update_applicator_mesh_from_brachy_applicator(self) -> None:
         r"""
         Purpose:
             - To update the applicator mesh from the verticies and faces.
+        
+        Inputs:
+            - self := the BrachyApplicator object.
+        
+        Outputs:
+            - Void := will update the applicator mesh from the verticies and faces.
         """
         points = vtkPoints()
         for vertex in self.verticies:
@@ -335,10 +358,16 @@ class BrachyApplicator:
             cell_array.InsertNextCell(3, face)
         self.applicator_mesh.SetPolys(cell_array)
 
-    def _update_brachy_applicator_from_applicator_mesh(self):
+    def _update_brachy_applicator_from_applicator_mesh(self) -> None:
         r"""
         Purpose:
             - To update the brachy applicator from the applicator mesh.
+
+        Inputs:
+            - self := the BrachyApplicator object.
+
+        Outputs:
+            - Void := will update the brachy applicator from the applicator mesh.
         """
         self.verticies = numpy_support.vtk_to_numpy(
             self.applicator_mesh.GetPoints().GetData()
@@ -348,12 +377,16 @@ class BrachyApplicator:
         )
         self.faces = self.faces.reshape(-1, 4)[:, 1:]
 
-    def set_origin(self, origin: np.array):
+    def set_origin(self, origin: np.array) -> None:
         r"""
         Purpose:
             - To set the origin of the applicator.
+
         Inputs:
             - origin:np.array := the origin of the applicator.
+
+        Outputs:
+            - Void := will update the applicator verticies based on the new origin.
         """
         old_origin = self.origin
         change_in_origin = np.ones_like(self.verticies) * (origin - old_origin)
@@ -361,17 +394,17 @@ class BrachyApplicator:
         self.verticies += change_in_origin
         self._update_applicator_mesh_from_brachy_applicator()
 
-    def set_rotation(self, rotation: np.array):
+    def set_rotation(self, rotation: np.array) -> None:
         r"""
         Purpose:
             - To set the rotation of the applicator.
         Inputs:
             - rotation:np.array := the rotation of the applicator.
             The rotation vector is in quaternion ([w, x, y, z]).
+
+        Outputs:
+            - Void := will update the applicator verticies based on the new rotation.
         """
-        # # convert quaternion to euler angles
-        # rotation = Rotation.from_quat(rotation).as_euler("xyz", degrees=True)
-        
         # create the transformation matrix
         transform = vtkTransform()
         transform.RotateWXYZ(**rotation)
@@ -386,10 +419,16 @@ class BrachyApplicator:
         # update the BrachyApplicator based on the transformation
         self._update_brachy_applicator_from_applicator_mesh()
         
-    def to_dict(self):
+    def to_dict(self) -> dict:
         r"""
         Purpose:
             - To convert the applicator geometry to a dictionary.
+        
+        Inputs:
+            - self := the BrachyApplicator object.
+        
+        Outputs:
+            - dict := the dictionary containing the applicator geometry.
         """
         return {
             "name": self.name,
@@ -402,24 +441,32 @@ class BrachyApplicator:
             "density": self.density,
         }
 
-    def to_json(self, pth_output: str):
+    def to_json(self, pth_output: str) -> None:
         r"""
         Purpose:
             - To save the applicator geometry to a json file.
+
         Inputs:
             - pth_output:str := path to the output json file.
+
+        Outputs:
+            - Void := will save the applicator geometry to a json file.
         """
         applicator_dict = self.to_dict()
 
         with open(pth_output, "w") as json_file:
             json.dump(applicator_dict, json_file, indent=4)
 
-    def to_mac(self, pth_output: str):
+    def to_mac(self, pth_output: str) -> None:
         r"""
         Purpose:
             - To save the applicator geometry to a mac file.
+
         Inputs:
             - pth_output:str := path to the output mac file.
+
+        Outputs:
+            - Void := will save the applicator geometry to a mac file.
         """
         # raise NotImplementedError("to be implemented soon")
         macfile_string = ""
@@ -450,12 +497,16 @@ class BrachyApplicator:
         with open(pth_output, "w") as mac_file:
             mac_file.write(macfile_string)
 
-    def to_stl(self, pth_output: str):
+    def to_stl(self, pth_output: str) -> None:
         r"""
         Purpose:
             - To save the applicator geometry to an stl file.
+
         Inputs:
             - pth_output:str := path to the output stl file.
+
+        Outputs:
+            - Void := will save the applicator geometry to an stl file.
         """
         self._update_applicator_mesh_from_brachy_applicator()
         # write the polydata to an stl file
@@ -463,7 +514,6 @@ class BrachyApplicator:
         stl_writer.SetFileName(pth_output)
         stl_writer.SetInputData(self.applicator_mesh)
         stl_writer.Write()
-
 
 class BrachyPlan:
     r"""
