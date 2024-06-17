@@ -212,6 +212,7 @@ class BrachyApplicator:
         density: float = None,
         origin: np.array = None,
         rotation: np.array = None,
+        coordinates: np.array = None,
     ) -> None:
         r"""
         Purpose:
@@ -222,8 +223,9 @@ class BrachyApplicator:
         self.applicator_mesh: vtkPolyData = None
         self.verticies: np.array = None
         self.faces: np.array = None
-        self.origin: np.array = None #[x, y, z]
-        self.rotation: np.array = None #[w, x, y, z]
+        self.origin: np.array = np.array([0,0,0]) #[x, y, z]
+        self.rotation: np.array = np.array([0,0,0,0]) #[w, x, y, z]
+        self.coordinates: np.array = np.array([0,0,0]) #[x, y, z]
         self.material: str = None
         self.density: float = None
 
@@ -240,11 +242,11 @@ class BrachyApplicator:
         if density is not None:
             self.density = density
         if origin is not None:
-            self.origin = origin
             self.set_origin(origin)
         if rotation is not None:
-            self.rotation = rotation
             self.set_rotation(rotation)
+        if coordinates is not None:
+            self.set_coordinates(coordinates)
 
     def load_stl(self, pth_input: str) -> None:
         r"""
@@ -408,6 +410,32 @@ class BrachyApplicator:
         # create the transformation matrix
         transform = vtkTransform()
         transform.RotateWXYZ(rotation[0], rotation[1], rotation[2], rotation[3])
+        
+        # apply the transformation
+        transform_filter = vtkTransformPolyDataFilter()
+        transform_filter.SetTransform(transform)
+        transform_filter.SetInputData(self.applicator_mesh)
+        transform_filter.Update()
+        self.applicator_mesh = transform_filter.GetOutput()
+        
+        # update the BrachyApplicator based on the transformation
+        self._update_brachy_applicator_from_applicator_mesh()
+    
+    def set_coordinates(self, coordinates: np.array) -> None:
+        r"""
+        Purpose:
+            - to located the applicator at a given coordinate with respect to 
+            self.origin.
+        
+        Inputs:
+            - coordinates:np.array := the coordinates of the applicator.
+        
+        Outputs:
+            - Void := will update the applicator verticies based on the new coordinates.
+        """
+        # create transformation matrix
+        transform = vtkTransform()
+        transform.Translate(coordinates[0], coordinates[1], coordinates[2])
         
         # apply the transformation
         transform_filter = vtkTransformPolyDataFilter()
