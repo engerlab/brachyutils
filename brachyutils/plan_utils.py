@@ -10,10 +10,11 @@ from multiprocessing import Pool, cpu_count
 
 import numpy as np
 from scipy import interpolate, ndimage
+from scipy.spatial.transform import Rotation
 
 # from typing import Optional
 from tqdm import tqdm
-from vtk import vtkCellArray, vtkPoints, vtkPolyData
+from vtk import vtkCellArray, vtkPoints, vtkPolyData, vtkTransform, vtkTransformPolyDataFilter
 from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
 
@@ -209,8 +210,8 @@ class BrachyApplicator:
         pth_input_file: str,
         material: str = None,
         density: float = None,
-        origin: np.array = None,
-        rotation: np.array = None,
+        origin: np.array = None, #[x, y, z]
+        rotation: np.array = None, #[w, x, y, z]
     ) -> None:
         r"""
         Purpose:
@@ -332,7 +333,7 @@ class BrachyApplicator:
         for face in self.faces:
             cell_array.InsertNextCell(3, face)
         self.applicator_mesh.SetPolys(cell_array)
-    
+
     def _update_brachy_applicator_from_applicator_mesh(self):
         r"""
         Purpose:
@@ -365,9 +366,25 @@ class BrachyApplicator:
             - To set the rotation of the applicator.
         Inputs:
             - rotation:np.array := the rotation of the applicator.
+            The rotation vector is in quaternion ([w, x, y, z]).
         """
-        raise NotImplementedError("to be implemented soon")
-    
+        # # convert quaternion to euler angles
+        # rotation = Rotation.from_quat(rotation).as_euler("xyz", degrees=True)
+        
+        # create the transformation matrix
+        transform = vtkTransform()
+        transform.RotateWXYZ(**rotation)
+        
+        # apply the transformation
+        transform_filter = vtkTransformPolyDataFilter()
+        transform_filter.SetTransform(transform)
+        transform_filter.SetInputData(self.applicator_mesh)
+        transform_filter.Update()
+        self.applicator_mesh = transform_filter.GetOutput()
+        
+        # update the BrachyApplicator based on the transformation
+        self._update_brachy_applicator_from_applicator_mesh()
+        
     def to_dict(self):
         r"""
         Purpose:
