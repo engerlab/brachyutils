@@ -407,6 +407,9 @@ class BrachyApplicator:
         Outputs:
             - Void := will update the applicator verticies based on the new rotation.
         """
+        # set the rotation attribute
+        self.rotation = rotation
+        
         # create the transformation matrix
         transform = vtkTransform()
         transform.RotateWXYZ(rotation[0], rotation[1], rotation[2], rotation[3])
@@ -433,6 +436,9 @@ class BrachyApplicator:
         Outputs:
             - Void := will update the applicator verticies based on the new coordinates.
         """
+        # set the coordinate attributes
+        self.coordinates = coordinates
+        
         # create transformation matrix
         transform = vtkTransform()
         transform.Translate(coordinates[0], coordinates[1], coordinates[2])
