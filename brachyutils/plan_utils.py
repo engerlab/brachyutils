@@ -210,8 +210,8 @@ class BrachyApplicator:
         pth_input_file: str,
         material: str = None,
         density: float = None,
-        origin: np.array = None, #[x, y, z]
-        rotation: np.array = None, #[w, x, y, z]
+        origin: np.array = None,
+        rotation: np.array = None,
     ) -> None:
         r"""
         Purpose:
@@ -222,8 +222,8 @@ class BrachyApplicator:
         self.applicator_mesh: vtkPolyData = None
         self.verticies: np.array = None
         self.faces: np.array = None
-        self.origin: np.array = None
-        self.rotation: np.array = None
+        self.origin: np.array = None #[x, y, z]
+        self.rotation: np.array = None #[w, x, y, z]
         self.material: str = None
         self.density: float = None
 
@@ -244,6 +244,7 @@ class BrachyApplicator:
             self.set_origin(origin)
         if rotation is not None:
             self.rotation = rotation
+            self.set_rotation(rotation)
 
     def load_stl(self, pth_input: str):
         r"""
@@ -436,13 +437,13 @@ class BrachyApplicator:
         # add in the density info
         macfile_string += f"/source_world/density {self.density}\n"
         # add in the origin info
-        macfile_string += f"/source_world/xPosition {self.origin[0]} mm\n"
-        macfile_string += f"/source_world/yPosition {self.origin[1]} mm\n"
-        macfile_string += f"/source_world/zPosition {self.origin[2]} mm\n"
+        macfile_string += f"/source_world/xPosition 0 mm\n"
+        macfile_string += f"/source_world/yPosition 0 mm\n"
+        macfile_string += f"/source_world/zPosition 0 mm\n"
         # add in rotation info
-        macfile_string += f"/source_world/xRotation {self.rotation[0]} deg\n"
-        macfile_string += f"/source_world/yRotation {self.rotation[1]} deg\n"
-        macfile_string += f"/source_world/zRotation {self.rotation[2]} deg\n"
+        macfile_string += f"/source_world/xRotation 0 deg\n"
+        macfile_string += f"/source_world/yRotation 0 deg\n"
+        macfile_string += f"/source_world/zRotation 0 deg\n"
         # add in the done flag
         macfile_string += "/source_world/done\n"
 
