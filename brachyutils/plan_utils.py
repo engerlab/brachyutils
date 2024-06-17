@@ -255,13 +255,7 @@ class BrachyApplicator:
         reader.SetFileName(pth_input)
         reader.Update()
         self.applicator_mesh = reader.GetOutput()
-        self.verticies = numpy_support.vtk_to_numpy(
-            self.applicator_mesh.GetPoints().GetData()
-        )
-        self.faces = numpy_support.vtk_to_numpy(
-            self.applicator_mesh.GetPolys().GetData()
-        )
-        self.faces = self.faces.reshape(-1, 4)[:, 1:]
+        self._update_brachy_applicator_from_applicator_mesh()
 
     def load_json(self, pth_input: str):
         r"""
@@ -324,7 +318,7 @@ class BrachyApplicator:
             return False
         return True
 
-    def _update_applicator_mesh(self):
+    def _update_applicator_mesh_from_brachy_applicator(self):
         r"""
         Purpose:
             - To update the applicator mesh from the verticies and faces.
@@ -338,6 +332,19 @@ class BrachyApplicator:
         for face in self.faces:
             cell_array.InsertNextCell(3, face)
         self.applicator_mesh.SetPolys(cell_array)
+    
+    def _update_brachy_applicator_from_applicator_mesh(self):
+        r"""
+        Purpose:
+            - To update the brachy applicator from the applicator mesh.
+        """
+        self.verticies = numpy_support.vtk_to_numpy(
+            self.applicator_mesh.GetPoints().GetData()
+        )
+        self.faces = numpy_support.vtk_to_numpy(
+            self.applicator_mesh.GetPolys().GetData()
+        )
+        self.faces = self.faces.reshape(-1, 4)[:, 1:]
 
     def set_origin(self, origin: np.array):
         r"""
@@ -350,8 +357,17 @@ class BrachyApplicator:
         change_in_origin = np.ones_like(self.verticies) * (origin - old_origin)
         self.origin = origin
         self.verticies += change_in_origin
-        self._update_applicator_mesh()
+        self._update_applicator_mesh_from_brachy_applicator()
 
+    def set_rotation(self, rotation: np.array):
+        r"""
+        Purpose:
+            - To set the rotation of the applicator.
+        Inputs:
+            - rotation:np.array := the rotation of the applicator.
+        """
+        raise NotImplementedError("to be implemented soon")
+    
     def to_dict(self):
         r"""
         Purpose:
@@ -423,7 +439,7 @@ class BrachyApplicator:
         Inputs:
             - pth_output:str := path to the output stl file.
         """
-        self._update_applicator_mesh()
+        self._update_applicator_mesh_from_brachy_applicator()
         # write the polydata to an stl file
         stl_writer = vtkSTLWriter()
         stl_writer.SetFileName(pth_output)
