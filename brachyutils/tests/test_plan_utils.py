@@ -291,7 +291,7 @@ def test_BrachyApplicator_to_mac():
 
 def test_BrachyApplicator_to_stl():
     pth_applicator_stl = "../../data_test/rectal-jgh-planFiles/applicator_0.stl"
-    origin = np.array([0, 0, 0])
+    origin = np.array([10, 0, 0])
     rotation = np.array([90, 1, 0, 0])
     material = "Tungsten"
     density = 19.3
