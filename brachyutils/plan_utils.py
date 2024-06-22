@@ -10,11 +10,16 @@ from multiprocessing import Pool, cpu_count
 
 import numpy as np
 from scipy import interpolate, ndimage
-from scipy.spatial.transform import Rotation
 
 # from typing import Optional
 from tqdm import tqdm
-from vtk import vtkCellArray, vtkPoints, vtkPolyData, vtkTransform, vtkTransformPolyDataFilter
+from vtk import (
+    vtkCellArray,
+    vtkPoints,
+    vtkPolyData,
+    vtkTransform,
+    vtkTransformPolyDataFilter,
+)
 from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
 
@@ -223,9 +228,9 @@ class BrachyApplicator:
         self.applicator_mesh: vtkPolyData = None
         self.verticies: np.array = None
         self.faces: np.array = None
-        self.origin: np.array = np.array([0,0,0]) #[x, y, z]
-        self.rotation: np.array = np.array([0,0,0,0]) #[w, x, y, z]
-        self.coordinates: np.array = np.array([0,0,0]) #[x, y, z]
+        self.origin: np.array = np.array([0, 0, 0])  # [x, y, z]
+        self.rotation: np.array = np.array([0, 0, 0, 0])  # [w, x, y, z]
+        self.coordinates: np.array = np.array([0, 0, 0])  # [x, y, z]
         self.material: str = None
         self.density: float = None
 
@@ -300,10 +305,10 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To print the information about the applicator.
-        
+
         Inputs:
             - self := the BrachyApplicator object.
-        
+
         Outputs:
             - Void := will print the information about the applicator.
         """
@@ -343,10 +348,10 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To update the applicator mesh from the verticies and faces.
-        
+
         Inputs:
             - self := the BrachyApplicator object.
-        
+
         Outputs:
             - Void := will update the applicator mesh from the verticies and faces.
         """
@@ -409,58 +414,58 @@ class BrachyApplicator:
         """
         # set the rotation attribute
         self.rotation = rotation
-        
+
         # create the transformation matrix
         transform = vtkTransform()
         transform.RotateWXYZ(rotation[0], rotation[1], rotation[2], rotation[3])
-        
+
         # apply the transformation
         transform_filter = vtkTransformPolyDataFilter()
         transform_filter.SetTransform(transform)
         transform_filter.SetInputData(self.applicator_mesh)
         transform_filter.Update()
         self.applicator_mesh = transform_filter.GetOutput()
-        
+
         # update the BrachyApplicator based on the transformation
         self._update_brachy_applicator_from_applicator_mesh()
-    
+
     def set_coordinates(self, coordinates: np.array) -> None:
         r"""
         Purpose:
-            - to located the applicator at a given coordinate with respect to 
+            - to located the applicator at a given coordinate with respect to
             self.origin.
-        
+
         Inputs:
             - coordinates:np.array := the coordinates of the applicator.
-        
+
         Outputs:
             - Void := will update the applicator verticies based on the new coordinates.
         """
         # set the coordinate attributes
         self.coordinates = coordinates
-        
+
         # create transformation matrix
         transform = vtkTransform()
         transform.Translate(coordinates[0], coordinates[1], coordinates[2])
-        
+
         # apply the transformation
         transform_filter = vtkTransformPolyDataFilter()
         transform_filter.SetTransform(transform)
         transform_filter.SetInputData(self.applicator_mesh)
         transform_filter.Update()
         self.applicator_mesh = transform_filter.GetOutput()
-        
+
         # update the BrachyApplicator based on the transformation
         self._update_brachy_applicator_from_applicator_mesh()
-        
+
     def to_dict(self) -> dict:
         r"""
         Purpose:
             - To convert the applicator geometry to a dictionary.
-        
+
         Inputs:
             - self := the BrachyApplicator object.
-        
+
         Outputs:
             - dict := the dictionary containing the applicator geometry.
         """
@@ -548,6 +553,7 @@ class BrachyApplicator:
         stl_writer.SetFileName(pth_output)
         stl_writer.SetInputData(self.applicator_mesh)
         stl_writer.Write()
+
 
 class BrachyPlan:
     r"""
