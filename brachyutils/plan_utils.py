@@ -283,8 +283,9 @@ class BrachyApplicator:
 
         self.verticies = np.array(applicator_dict["verticies"], dtype=np.float32)
         self.faces = np.array(applicator_dict["faces"], dtype=np.int32)
-        self.origin = np.array(applicator_dict["origin"])
-        self.rotation = np.array(applicator_dict["rotation"])
+        self.set_origin(np.array(applicator_dict["origin"]))
+        self.set_rotation(np.array(applicator_dict["rotation"]))
+        self.set_coordinates(np.array(applicator_dict["coordinates"]))
         self.material = applicator_dict["material"]
         self.density = applicator_dict["density"]
 
