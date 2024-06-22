@@ -291,9 +291,9 @@ def test_BrachyApplicator_to_mac():
 
 def test_BrachyApplicator_to_stl():
     pth_applicator_stl = "../../data_test/rectal-jgh-planFiles/applicator_0.stl"
-    origin = np.array([10, 0, 0])
-    rotation = np.array([0, 0, 0, 0])
-    coordinates = np.array([0, 50, 0])
+    origin = np.array([0, 0, 0])
+    rotation = np.array([90, 1, 0, 0])
+    coordinates = np.array([0, 0, 0])
     material = "Tungsten"
     density = 19.3
     pth_outfile = "../../data_test/test_export_plan/applicator_0_tilted.stl"
@@ -307,6 +307,24 @@ def test_BrachyApplicator_to_stl():
     )
     applicator_obj.to_stl(pth_outfile)
 
+def test_BrachyApplicator_set_rotation():
+    pth_applicator_stl = "../../data_test/rectal-jgh-planFiles/applicator_0.stl"
+    origin = np.array([0, 0, 0])
+    coordinates = np.array([50, 50, 50])
+    rotation = np.array([90, 0, 1, 0])
+    rotation_origin = np.array([50, 50, 50])
+    material = "Tungsten"
+    density = 19.3
+    pth_outfile = "../../data_test/test_export_plan/applicator_0_tilted.stl"
+    applicator_obj = BrachyApplicator(
+        pth_input_file=pth_applicator_stl,
+        material=material,
+        density=density,
+        origin=origin,
+        coordinates=coordinates,
+    )
+    applicator_obj.set_rotation(rotation, rotation_origin)
+    applicator_obj.to_stl(pth_outfile)
 
 if __name__ == "__main__":
     # test_load_catheterTable_json()
@@ -322,4 +340,5 @@ if __name__ == "__main__":
     # test_load_brachy_plan_from_dicom()
     # test_BrachyApplicator()
     # test_BrachyApplicator_to_mac()
-    test_BrachyApplicator_to_stl()
+    # test_BrachyApplicator_to_stl()
+    test_BrachyApplicator_set_rotation()
