@@ -7,7 +7,7 @@ from copy import deepcopy
 from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
-
+from typing import List
 import numpy as np
 from scipy import interpolate, ndimage
 
@@ -402,20 +402,41 @@ class BrachyApplicator:
         self.verticies += change_in_origin
         self._update_applicator_mesh_from_brachy_applicator()
 
-    def set_rotation(self, rotation: np.array) -> None:
+    def set_rotation(self, rotation: np.array, rotation_origin: np.array = None) -> None:
         r"""
         Purpose:
             - To set the rotation of the applicator.
+            the rotation origin is assumed to be the origin of applicator. To rotate the 
+            applicator around its center, coordinates of the center of applicator should 
+            be provided. 
+            
+            The rotation angle is the first element of the rotation vector. the rotation
+            axis is the last three elements of the rotation vector [w,x,y,z].
+        
         Inputs:
             - rotation:np.array := the rotation of the applicator.
             The rotation vector is in quaternion ([w, x, y, z]).
+            - rotation_origin:np.array := the origin of the rotation. if not provided, the
+            origin of the applicator will be used.
 
         Outputs:
             - Void := will update the applicator verticies based on the new rotation.
         """
         # set the rotation attribute
         self.rotation = rotation
+        # by default, the rotation origin is the origin of the applicator
+        # if rotation is provided, the applicator is translated to the rotation origin
+        # then it is rotated and translated back to the original position.
+        if rotation_origin is not None:
+            transform_translate = vtkTransform()
+            transform_translate.Translate(-rotation_origin[0], -rotation_origin[1], -rotation_origin[2])
+            transform_translate_filter = vtkTransformPolyDataFilter()
+            transform_translate_filter.SetTransform(transform_translate)
+            transform_translate_filter.SetInputData(self.applicator_mesh)
+            transform_translate_filter.Update()
+            self.applicator_mesh = transform_translate_filter.GetOutput()
 
+        # # now apply the rotation 
         # create the transformation matrix
         transform = vtkTransform()
         transform.RotateWXYZ(rotation[0], rotation[1], rotation[2], rotation[3])
@@ -426,6 +447,16 @@ class BrachyApplicator:
         transform_filter.SetInputData(self.applicator_mesh)
         transform_filter.Update()
         self.applicator_mesh = transform_filter.GetOutput()
+
+        # if rotation origin is provided, translate the applicator back to the original position
+        if rotation_origin is not None:
+            transform_translate = vtkTransform()
+            transform_translate.Translate(rotation_origin[0], rotation_origin[1], rotation_origin[2])
+            transform_translate_filter = vtkTransformPolyDataFilter()
+            transform_translate_filter.SetTransform(transform_translate)
+            transform_translate_filter.SetInputData(self.applicator_mesh)
+            transform_translate_filter.Update()
+            self.applicator_mesh = transform_translate_filter.GetOutput()
 
         # update the BrachyApplicator based on the transformation
         self._update_brachy_applicator_from_applicator_mesh()
@@ -663,7 +694,7 @@ class BrachyPlan:
         # self.organ_bounds = None
         self.dvh_metric_goals: dict = None
         self.dvh_metric_observed: dict = None
-        self.structure_list: list = []
+        self.structure_list: List[BrachyStructure] = []
 
         # dicom image
         self.dicom_obj: BrachyDicom = None
@@ -671,7 +702,7 @@ class BrachyPlan:
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
         self.egsphant: BrachyEgsphant = None
-        self.applicator_list: list = None
+        self.applicator_list: List[BrachyApplicator] = []
         # self.applicator_materials = None
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
