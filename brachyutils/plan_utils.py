@@ -523,13 +523,13 @@ class BrachyApplicator:
         # add in the density info
         macfile_string += f"/source_world/density {self.density}\n"
         # add in the origin info
-        macfile_string += f"/source_world/xPosition 0 mm\n"
-        macfile_string += f"/source_world/yPosition 0 mm\n"
-        macfile_string += f"/source_world/zPosition 0 mm\n"
-        # add in rotation info
-        macfile_string += f"/source_world/xRotation 0 deg\n"
-        macfile_string += f"/source_world/yRotation 0 deg\n"
-        macfile_string += f"/source_world/zRotation 0 deg\n"
+        macfile_string += "/source_world/xPosition 0 mm\n"
+        macfile_string += "/source_world/yPosition 0 mm\n"
+        macfile_string += "/source_world/zPosition 0 mm\n"
+        # add in rotation nfo
+        macfile_string += "/source_world/xRotation 0 deg\n"
+        macfile_string += "/source_world/yRotation 0 deg\n"
+        macfile_string += "/source_world/zRotation 0 deg\n"
         # add in the done flag
         macfile_string += "/source_world/done\n"
 
