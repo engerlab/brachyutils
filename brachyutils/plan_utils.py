@@ -211,47 +211,57 @@ class BrachyApplicator:
     """
 
     def __init__(
-        self,
-        pth_input_file: str,
-        material: str = None,
-        density: float = None,
-        origin: np.array = None,
-        rotation: np.array = None,
-        coordinates: np.array = None,
-    ) -> None:
-        r"""
-        Purpose:
-            - To initialize the Applicator object.
-        """
-        self.path = pth_input_file
-        self.name = os.path.splitext(os.path.basename(self.path))[0]
-        self.applicator_mesh: vtkPolyData = None
-        self.verticies: np.array = None
-        self.faces: np.array = None
-        self.origin: np.array = np.array([0, 0, 0])  # [x, y, z]
-        self.rotation: np.array = np.array([0, 0, 0, 0])  # [w, x, y, z]
-        self.coordinates: np.array = np.array([0, 0, 0])  # [x, y, z]
-        self.material: str = None
-        self.density: float = None
+            self,
+            pth_input_file: str,
+            material: str = None,
+            density: float = None,
+            origin: np.array = None,
+            rotation: np.array = None,
+            rotation_origin: np.array = None,
+            coordinates: np.array = None,
+        ) -> None:
+            """
+            Purpose:
+                - Initialize the Applicator object.
+            Inputs:
+                - pth_input_file (str): The path to the input file.
+                - material (str, optional): The material of the applicator. Defaults to None.
+                - density (float, optional): The density of the applicator. Defaults to None.
+                - origin (np.array, optional): The origin of the applicator. Defaults to None.
+                - rotation (np.array, optional): The rotation of the applicator. Defaults to None.
+                - coordinates (np.array, optional): The coordinates of the applicator. Defaults to None.
+            Outputs:
+                - Void: an applicator object is created dependeing on the inputs. 
+            """
+            self.path = pth_input_file
+            self.name = os.path.splitext(os.path.basename(self.path))[0]
+            self.applicator_mesh: vtkPolyData = None
+            self.verticies: np.array = None
+            self.faces: np.array = None
+            self.origin: np.array = np.array([0, 0, 0])  # [x, y, z]
+            self.rotation: np.array = np.array([0, 0, 0, 0])  # [w, x, y, z]
+            self.coordinates: np.array = np.array([0, 0, 0])  # [x, y, z]
+            self.material: str = None
+            self.density: float = None
 
-        input_extension = os.path.splitext(self.path)[1]
-        if input_extension == ".stl":
-            self.load_stl(self.path)
-        elif input_extension == ".json":
-            self.load_json(self.path)
-        else:
-            raise ValueError("invalid input file extension")
+            input_extension = os.path.splitext(self.path)[1]
+            if input_extension == ".stl":
+                self.load_stl(self.path)
+            elif input_extension == ".json":
+                self.load_json(self.path)
+            else:
+                raise ValueError("invalid input file extension")
 
-        if material is not None:
-            self.material = material
-        if density is not None:
-            self.density = density
-        if origin is not None:
-            self.set_origin(origin)
-        if rotation is not None:
-            self.set_rotation(rotation)
-        if coordinates is not None:
-            self.set_coordinates(coordinates)
+            if material is not None:
+                self.material = material
+            if density is not None:
+                self.density = density
+            if origin is not None:
+                self.set_origin(origin)
+            if rotation is not None and rotation_origin is not None:
+                self.set_rotation(rotation, rotation_origin)
+            if coordinates is not None:
+                self.set_coordinates(coordinates)
 
     def load_stl(self, pth_input: str) -> None:
         r"""
@@ -274,7 +284,6 @@ class BrachyApplicator:
             - To load the applicator geometry from a json file.
         Inputs:
             - pth_input:str := path to the stl file containing the applicator geometry.
-
         Outputs:
             - Void := will update the BrachyApplicator object based on the json file.
         """
@@ -293,10 +302,8 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To load the applicator geometry from a mac file.
-
         Inputs:
             - pth_input:str := path to the mac file containing the applicator geometry.
-
         Outputs:
             - Void := will update the BrachyApplicator object based on the mac file.
         """
@@ -306,10 +313,8 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To print the information about the applicator.
-
         Inputs:
             - self := the BrachyApplicator object.
-
         Outputs:
             - Void := will print the information about the applicator.
         """
@@ -320,10 +325,8 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To compare the current applicator with another applicator.
-
         Inputs:
             - other:BrachyApplicator := the other applicator to compare with.
-
         Outputs:
             - bool := True if the two applicators are equal, False otherwise.
         """
@@ -349,10 +352,8 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To update the applicator mesh from the verticies and faces.
-
         Inputs:
             - self := the BrachyApplicator object.
-
         Outputs:
             - Void := will update the applicator mesh from the verticies and faces.
         """
@@ -370,10 +371,8 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To update the brachy applicator from the applicator mesh.
-
         Inputs:
             - self := the BrachyApplicator object.
-
         Outputs:
             - Void := will update the brachy applicator from the applicator mesh.
         """
@@ -389,10 +388,8 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To set the origin of the applicator.
-
         Inputs:
             - origin:np.array := the origin of the applicator.
-
         Outputs:
             - Void := will update the applicator verticies based on the new origin.
         """
@@ -408,17 +405,13 @@ class BrachyApplicator:
             - To set the rotation of the applicator.
             the rotation origin is assumed to be the origin of applicator. To rotate the 
             applicator around its center, coordinates of the center of applicator should 
-            be provided. 
-            
-            The rotation angle is the first element of the rotation vector. the rotation
+            be provided. The rotation angle is the first element of the rotation vector. the rotation 
             axis is the last three elements of the rotation vector [w,x,y,z].
-        
         Inputs:
             - rotation:np.array := the rotation of the applicator.
             The rotation vector is in quaternion ([w, x, y, z]).
             - rotation_origin:np.array := the origin of the rotation. if not provided, the
             origin of the applicator will be used.
-
         Outputs:
             - Void := will update the applicator verticies based on the new rotation.
         """
@@ -466,10 +459,8 @@ class BrachyApplicator:
         Purpose:
             - to located the applicator at a given coordinate with respect to
             self.origin.
-
         Inputs:
             - coordinates:np.array := the coordinates of the applicator.
-
         Outputs:
             - Void := will update the applicator verticies based on the new coordinates.
         """
@@ -494,10 +485,8 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To convert the applicator geometry to a dictionary.
-
         Inputs:
             - self := the BrachyApplicator object.
-
         Outputs:
             - dict := the dictionary containing the applicator geometry.
         """
@@ -516,10 +505,8 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To save the applicator geometry to a json file.
-
         Inputs:
             - pth_output:str := path to the output json file.
-
         Outputs:
             - Void := will save the applicator geometry to a json file.
         """
@@ -532,10 +519,8 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To save the applicator geometry to a mac file.
-
         Inputs:
             - pth_output:str := path to the output mac file.
-
         Outputs:
             - Void := will save the applicator geometry to a mac file.
         """
@@ -572,10 +557,8 @@ class BrachyApplicator:
         r"""
         Purpose:
             - To save the applicator geometry to an stl file.
-
         Inputs:
             - pth_output:str := path to the output stl file.
-
         Outputs:
             - Void := will save the applicator geometry to an stl file.
         """
