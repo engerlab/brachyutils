@@ -8,6 +8,7 @@ from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
 from typing import List
+from multipledispatch import dispatch
 import numpy as np
 from scipy import interpolate, ndimage
 
@@ -227,8 +228,9 @@ class BrachyApplicator:
                 - pth_input_file (str): The path to the input file.
                 - material (str, optional): The material of the applicator. Defaults to None.
                 - density (float, optional): The density of the applicator. Defaults to None.
-                - origin (np.array, optional): The origin of the applicator. Defaults to None.
-                - rotation (np.array, optional): The rotation of the applicator. Defaults to None.
+                - origin (np.array, optional): The origin of the applicator in [x,y,z] . Defaults to None.
+                - rotation (np.array, optional): The rotation vector of the applicator in [w,x,y,z]. Defaults to None.
+                - rotation_origin (np.array, optional): The origin point with respect to which the rotaion vector is created.
                 - coordinates (np.array, optional): The coordinates of the applicator. Defaults to None.
             Outputs:
                 - Void: an applicator object is created dependeing on the inputs. 
@@ -627,8 +629,10 @@ class BrachyPlan:
         # for simulation setup:
         combined_simulation_dict: dict = None,
         dir_egsphant: str = None,
-        dir_applicator_geometry: str = None,
-        dir_applicator_materials: str = None,
+        # for applicator setup
+        dir_applicator_sources: str = None,
+        type_applicator_file: str = ".stl",
+        pth_rapidbrachy_applicator_json: str= None,
     ):
         r"""
         Purpose:
@@ -730,9 +734,12 @@ class BrachyPlan:
             self.egsphant = BrachyEgsphant(dir_egsphant)
         if combined_simulation_dict is not None:
             self.combined_simulation_setup = BrachySimulation(combined_simulation_dict)
-        if dir_applicator_geometry is not None or dir_applicator_materials is not None:
-            raise NotImplementedError("to be implemented soon")
 
+        if pth_rapidbrachy_applicator_json is not None:
+            self.load_applicator_list(pth_rapidbrachy_applicator_json)
+        elif dir_applicator_sources is not None:
+            self.load_applicator_list(dir_applicator_sources, type_applicator_file)
+        
     def load_brachy_plan_from_dicom(
         self, dir_dicom: str, dose_cropped_by_body: bool = False
     ):
@@ -1235,6 +1242,9 @@ class BrachyPlan:
 
             # add the structure object to the structure list
             self.structure_list.append(structure_obj)
+
+    def load_applicator_list(a=None, b=None, c=None):
+        raise NotImplementedError("to be implemented soon")
 
     def _calculate_combined_uncertainty(self):
         r"""
