@@ -8,8 +8,9 @@ from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
 from typing import List
-from multipledispatch import dispatch
+
 import numpy as np
+# from multipledispatch import dispatch
 from scipy import interpolate, ndimage
 
 # from typing import Optional
@@ -212,58 +213,58 @@ class BrachyApplicator:
     """
 
     def __init__(
-            self,
-            pth_input_file: str,
-            material: str = None,
-            density: float = None,
-            origin: np.array = None,
-            rotation: np.array = None,
-            rotation_origin: np.array = None,
-            coordinates: np.array = None,
-        ) -> None:
-            """
-            Purpose:
-                - Initialize the Applicator object.
-            Inputs:
-                - pth_input_file (str): The path to the input file.
-                - material (str, optional): The material of the applicator. Defaults to None.
-                - density (float, optional): The density of the applicator. Defaults to None.
-                - origin (np.array, optional): The origin of the applicator in [x,y,z] . Defaults to None.
-                - rotation (np.array, optional): The rotation vector of the applicator in [w,x,y,z]. Defaults to None.
-                - rotation_origin (np.array, optional): The origin point with respect to which the rotaion vector is created.
-                - coordinates (np.array, optional): The coordinates of the applicator. Defaults to None.
-            Outputs:
-                - Void: an applicator object is created dependeing on the inputs. 
-            """
-            self.path = pth_input_file
-            self.name = os.path.splitext(os.path.basename(self.path))[0]
-            self.applicator_mesh: vtkPolyData = None
-            self.verticies: np.array = None
-            self.faces: np.array = None
-            self.origin: np.array = np.array([0, 0, 0])  # [x, y, z]
-            self.rotation: np.array = np.array([0, 0, 0, 0])  # [w, x, y, z]
-            self.coordinates: np.array = np.array([0, 0, 0])  # [x, y, z]
-            self.material: str = None
-            self.density: float = None
+        self,
+        pth_input_file: str,
+        material: str = None,
+        density: float = None,
+        origin: np.array = None,
+        rotation: np.array = None,
+        rotation_origin: np.array = None,
+        coordinates: np.array = None,
+    ) -> None:
+        """
+        Purpose:
+            - Initialize the Applicator object.
+        Inputs:
+            - pth_input_file (str): The path to the input file.
+            - material (str, optional): The material of the applicator. Defaults to None.
+            - density (float, optional): The density of the applicator. Defaults to None.
+            - origin (np.array, optional): The origin of the applicator in [x,y,z] . Defaults to None.
+            - rotation (np.array, optional): The rotation vector of the applicator in [w,x,y,z]. Defaults to None.
+            - rotation_origin (np.array, optional): The origin point with respect to which the rotaion vector is created.
+            - coordinates (np.array, optional): The coordinates of the applicator. Defaults to None.
+        Outputs:
+            - Void: an applicator object is created dependeing on the inputs.
+        """
+        self.path = pth_input_file
+        self.name = os.path.splitext(os.path.basename(self.path))[0]
+        self.applicator_mesh: vtkPolyData = None
+        self.verticies: np.array = None
+        self.faces: np.array = None
+        self.origin: np.array = np.array([0, 0, 0])  # [x, y, z]
+        self.rotation: np.array = np.array([0, 0, 0, 0])  # [w, x, y, z]
+        self.coordinates: np.array = np.array([0, 0, 0])  # [x, y, z]
+        self.material: str = None
+        self.density: float = None
 
-            input_extension = os.path.splitext(self.path)[1]
-            if input_extension == ".stl":
-                self.load_stl(self.path)
-            elif input_extension == ".json":
-                self.load_json(self.path)
-            else:
-                raise ValueError("invalid input file extension")
+        input_extension = os.path.splitext(self.path)[1]
+        if input_extension == ".stl":
+            self.load_stl(self.path)
+        elif input_extension == ".json":
+            self.load_json(self.path)
+        else:
+            raise ValueError("invalid input file extension")
 
-            if material is not None:
-                self.material = material
-            if density is not None:
-                self.density = density
-            if origin is not None:
-                self.set_origin(origin)
-            if rotation is not None and rotation_origin is not None:
-                self.set_rotation(rotation, rotation_origin)
-            if coordinates is not None:
-                self.set_coordinates(coordinates)
+        if material is not None:
+            self.material = material
+        if density is not None:
+            self.density = density
+        if origin is not None:
+            self.set_origin(origin)
+        if rotation is not None and rotation_origin is not None:
+            self.set_rotation(rotation, rotation_origin)
+        if coordinates is not None:
+            self.set_coordinates(coordinates)
 
     def load_stl(self, pth_input: str) -> None:
         r"""
@@ -401,13 +402,15 @@ class BrachyApplicator:
         self.verticies += change_in_origin
         self._update_applicator_mesh_from_brachy_applicator()
 
-    def set_rotation(self, rotation: np.array, rotation_origin: np.array = None) -> None:
+    def set_rotation(
+        self, rotation: np.array, rotation_origin: np.array = None
+    ) -> None:
         r"""
         Purpose:
             - To set the rotation of the applicator.
-            the rotation origin is assumed to be the origin of applicator. To rotate the 
-            applicator around its center, coordinates of the center of applicator should 
-            be provided. The rotation angle is the first element of the rotation vector. the rotation 
+            the rotation origin is assumed to be the origin of applicator. To rotate the
+            applicator around its center, coordinates of the center of applicator should
+            be provided. The rotation angle is the first element of the rotation vector. the rotation
             axis is the last three elements of the rotation vector [w,x,y,z].
         Inputs:
             - rotation:np.array := the rotation of the applicator.
@@ -424,14 +427,16 @@ class BrachyApplicator:
         # then it is rotated and translated back to the original position.
         if rotation_origin is not None:
             transform_translate = vtkTransform()
-            transform_translate.Translate(-rotation_origin[0], -rotation_origin[1], -rotation_origin[2])
+            transform_translate.Translate(
+                -rotation_origin[0], -rotation_origin[1], -rotation_origin[2]
+            )
             transform_translate_filter = vtkTransformPolyDataFilter()
             transform_translate_filter.SetTransform(transform_translate)
             transform_translate_filter.SetInputData(self.applicator_mesh)
             transform_translate_filter.Update()
             self.applicator_mesh = transform_translate_filter.GetOutput()
 
-        # # now apply the rotation 
+        # # now apply the rotation
         # create the transformation matrix
         transform = vtkTransform()
         transform.RotateWXYZ(rotation[0], rotation[1], rotation[2], rotation[3])
@@ -446,7 +451,9 @@ class BrachyApplicator:
         # if rotation origin is provided, translate the applicator back to the original position
         if rotation_origin is not None:
             transform_translate = vtkTransform()
-            transform_translate.Translate(rotation_origin[0], rotation_origin[1], rotation_origin[2])
+            transform_translate.Translate(
+                rotation_origin[0], rotation_origin[1], rotation_origin[2]
+            )
             transform_translate_filter = vtkTransformPolyDataFilter()
             transform_translate_filter.SetTransform(transform_translate)
             transform_translate_filter.SetInputData(self.applicator_mesh)
@@ -630,9 +637,7 @@ class BrachyPlan:
         combined_simulation_dict: dict = None,
         dir_egsphant: str = None,
         # for applicator setup
-        dir_applicator_sources: str = None,
-        type_applicator_file: str = ".stl",
-        pth_rapidbrachy_applicator_json: str= None,
+        pth_applicator_list_json: str = None,
     ):
         r"""
         Purpose:
@@ -651,8 +656,16 @@ class BrachyPlan:
             - dose_cropped_by_body:bool = True := flag to indicate whether the dose is cropped by body (default is True).
             - combined_simulation_dict = None := dictionary containing the simulation setup,
             - dir_egsphant = None := path to the directory containing the egsphant file,
-            - dir_applicator_geometry: str = None,
-            - dir_applicator_materials: str = None,
+            - pth_applicator_list_json := path to the json file containing the applicator list.
+            The items inside this list have the attributes bellow. If any left empty, the default value will be used.
+            these attributes could be changed later using the setter functions.
+                - "path": path to the applicator geometry file (.stl or .json).
+                - "material": material of the applicator (str).
+                - "density": density of the applicator (str).
+                - "origin": origin of the applicator ([x,y,z]).
+                - "rotation": rotation of the applicator ([w,x,y,z]).
+                - "rotation_origin": origin of the rotation ([x,y,z]).
+                - "coordinates": coordinates of the applicator ([x,y,z]).
         Outputs:
             - Void := will initialize the BrachyPlan object
         Dependencies:
@@ -735,11 +748,11 @@ class BrachyPlan:
         if combined_simulation_dict is not None:
             self.combined_simulation_setup = BrachySimulation(combined_simulation_dict)
 
-        if pth_rapidbrachy_applicator_json is not None:
-            self.load_applicator_list(pth_rapidbrachy_applicator_json)
-        elif dir_applicator_sources is not None:
-            self.load_applicator_list(dir_applicator_sources, type_applicator_file)
-        
+        # load the applicator list if the path is provided
+        if pth_applicator_list_json is not None:
+            self.load_applicator_list(pth_applicator_list_json)
+
+
     def load_brachy_plan_from_dicom(
         self, dir_dicom: str, dose_cropped_by_body: bool = False
     ):
@@ -1243,8 +1256,48 @@ class BrachyPlan:
             # add the structure object to the structure list
             self.structure_list.append(structure_obj)
 
-    def load_applicator_list(a=None, b=None, c=None):
-        raise NotImplementedError("to be implemented soon")
+    def load_applicator_list(
+            self,
+            pth_applicator_list_json: str,
+            format: str = "WebApp",
+    ):
+        r"""
+        Purpose:
+            - To load the applicator list from a json file containing the applicator geometry.
+        Inputs:
+            - pth_applicator_list_json:str := path to the json file containing the applicator list.
+            The items inside this list have the attributes bellow. If any left empty, the default value will be used.
+            these attributes could be changed later using the setter functions.
+                - "path": path to the applicator geometry file (.stl or .json).
+                - "material": material of the applicator (str).
+                - "density": density of the applicator (str).
+                - "origin": origin of the applicator ([x,y,z]).
+                - "rotation": rotation of the applicator ([w,x,y,z]).
+                - "rotation_origin": origin of the rotation ([x,y,z]).
+                - "coordinates": coordinates of the applicator ([x,y,z]).
+            - format:str := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
+        Outputs:
+            - Void := will update the BrachyPlan.applicator_list attribute
+        """
+        with open(pth_applicator_list_json, "r") as json_file:
+            applicator_list = json.load(json_file)
+        if format == "RapidBrachy":
+            raise NotImplementedError("to be implemented soon")
+        elif format == "WebApp":
+            for applicator in applicator_list:
+
+                applicator_obj = BrachyApplicator(
+                    pth_input_file = applicator["path"],
+                    material = applicator["material"],
+                    density = applicator["density"],
+                    origin = applicator["origin"],
+                    rotation = applicator["rotation"],
+                    rotation_origin = applicator["rotation_origin"],
+                    coordinates = applicator["coordinates"]
+                    )
+                self.applicator_list.append(applicator_obj)
+        else:
+            raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
 
     def _calculate_combined_uncertainty(self):
         r"""
@@ -1333,7 +1386,7 @@ class BrachyPlan:
         r"""
         Purpose:
             - To export the treatment plan file into a given export_format.
-            The export_format can be either "RapidBrachy" or "WebAppExport".
+            The export_format can be either "RapidBrachy" or "WebApp".
 
         Inputs:
             - export_format := the export_format of the exported plan. options are:
