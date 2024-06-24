@@ -10,6 +10,7 @@ from multiprocessing import Pool, cpu_count
 from typing import List
 
 import numpy as np
+
 # from multipledispatch import dispatch
 from scipy import interpolate, ndimage
 
@@ -638,6 +639,7 @@ class BrachyPlan:
         dir_egsphant: str = None,
         # for applicator setup
         pth_applicator_list_json: str = None,
+        applicator_format: str = "RapidBrachy",
     ):
         r"""
         Purpose:
@@ -656,22 +658,18 @@ class BrachyPlan:
             - dose_cropped_by_body:bool = True := flag to indicate whether the dose is cropped by body (default is True).
             - combined_simulation_dict = None := dictionary containing the simulation setup,
             - dir_egsphant = None := path to the directory containing the egsphant file,
-            - pth_applicator_list_json := path to the json file containing the applicator list.
-            The items inside this list have the attributes bellow. If any left empty, the default value will be used.
-            these attributes could be changed later using the setter functions.
-                - "path": path to the applicator geometry file (.stl or .json).
-                - "material": material of the applicator (str).
-                - "density": density of the applicator (str).
-                - "origin": origin of the applicator ([x,y,z]).
-                - "rotation": rotation of the applicator ([w,x,y,z]).
-                - "rotation_origin": origin of the rotation ([x,y,z]).
-                - "coordinates": coordinates of the applicator ([x,y,z]).
+            - pth_applicator_list_json := path to the json file containing the applicator list. See load_applicator_list() for more info.
+            - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
         Outputs:
             - Void := will initialize the BrachyPlan object
         Dependencies:
             -
         """
         # declare the attributes
+        # patient origin is used as a reference point for the catheter table,
+        # the dwell coordinates, image origin, egsphant, and the dose objects.
+        # XXX: figure out how to sort out patient origin to match all above.
+        self.patient_origin = np.array([0, 0, 0])  # x,y,z
         # catheter table attributes
         self.catheter_table = None
         self.num_catheters = None
@@ -703,7 +701,7 @@ class BrachyPlan:
         self.simulation_setup: BrachySimulation = None
         self.egsphant: BrachyEgsphant = None
         self.applicator_list: List[BrachyApplicator] = []
-        # self.applicator_materials = None
+        # XXX: figure out if the two below are dwell or applicator attributes?
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
@@ -750,8 +748,7 @@ class BrachyPlan:
 
         # load the applicator list if the path is provided
         if pth_applicator_list_json is not None:
-            self.load_applicator_list(pth_applicator_list_json)
-
+            self.load_applicator_list(pth_applicator_list_json, applicator_format)
 
     def load_brachy_plan_from_dicom(
         self, dir_dicom: str, dose_cropped_by_body: bool = False
@@ -1257,17 +1254,19 @@ class BrachyPlan:
             self.structure_list.append(structure_obj)
 
     def load_applicator_list(
-            self,
-            pth_applicator_list_json: str,
-            format: str = "WebApp",
+        self,
+        pth_applicator_list_json: str,
+        format: str = "WebApp",
     ):
         r"""
         Purpose:
             - To load the applicator list from a json file containing the applicator geometry.
         Inputs:
-            - pth_applicator_list_json:str := path to the json file containing the applicator list.
+            - pth_applicator_list_json:str := path to the json file containing the applicator list with N applicators.
             The items inside this list have the attributes bellow. If any left empty, the default value will be used.
             these attributes could be changed later using the setter functions.
+
+            if the format is WebApp, the attributes are:
                 - "path": path to the applicator geometry file (.stl or .json).
                 - "material": material of the applicator (str).
                 - "density": density of the applicator (str).
@@ -1275,6 +1274,20 @@ class BrachyPlan:
                 - "rotation": rotation of the applicator ([w,x,y,z]).
                 - "rotation_origin": origin of the rotation ([x,y,z]).
                 - "coordinates": coordinates of the applicator ([x,y,z]).
+
+            if the format is RapidBrachy, the attributes are:
+                - "densities": list of densities of the applicator.
+                - "filenames": list of filenames of the applicator.
+                - "materials": list of materials of the applicator.
+                - "points": list of points of the applicator. (XXX Not sure what this is)
+                - "wRot": list of wRot of the applicator.
+                - "x": list of x of the applicator.
+                - "xRoti": list of xRot of the applicator i in [1, N].
+                - "y": list of y of the applicator.
+                - "yRoti": list of yRot of the applicator i in [1, N].
+                - "z": list of z of the applicator.
+                - "zRoti": list of zRot of the applicator i in [1, N].
+
             - format:str := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
         Outputs:
             - Void := will update the BrachyPlan.applicator_list attribute
@@ -1282,19 +1295,64 @@ class BrachyPlan:
         with open(pth_applicator_list_json, "r") as json_file:
             applicator_list = json.load(json_file)
         if format == "RapidBrachy":
-            raise NotImplementedError("to be implemented soon")
+            num_applicators = len(applicator_list["densities"])
+            for i in range(num_applicators):
+
+                j = i if i > 0 else ""
+                applicator_obj = BrachyApplicator(
+                    pth_input_file=applicator_list["filenames"][i],
+                    material=applicator_list["materials"][i],
+                    density=applicator_list["densities"][i],
+                    origin=self.patient_origin,
+                    rotation=np.array(
+                        [
+                            applicator_list[f"wRot{j}"],
+                            applicator_list[f"xRot{j}"],
+                            applicator_list[f"yRot{j}"],
+                            applicator_list[f"zRot{j}"],
+                        ]
+                    ),
+                    rotation_origin=np.array(
+                        [
+                            applicator_list["x"],
+                            applicator_list["y"],
+                            applicator_list["x"],
+                        ]
+                    ),
+                    coordinates=np.array(
+                        [
+                            applicator_list["points"][0][(3 * i + 0)],
+                            applicator_list["points"][0][(3 * i + 1)],
+                            applicator_list["points"][0][(3 * i + 2)],
+                        ]
+                    ),
+                )
+                self.applicator_list.append(applicator_obj)
+
         elif format == "WebApp":
             for applicator in applicator_list:
 
                 applicator_obj = BrachyApplicator(
-                    pth_input_file = applicator["path"],
-                    material = applicator["material"],
-                    density = applicator["density"],
-                    origin = applicator["origin"],
-                    rotation = applicator["rotation"],
-                    rotation_origin = applicator["rotation_origin"],
-                    coordinates = applicator["coordinates"]
-                    )
+                    pth_input_file=applicator["path"] if "path" in applicator else None,
+                    material=(
+                        applicator["material"] if "material" in applicator else None
+                    ),
+                    density=applicator["density"] if "density" in applicator else None,
+                    origin=applicator["origin"] if "origin" in applicator else None,
+                    rotation=(
+                        applicator["rotation"] if "rotation" in applicator else None
+                    ),
+                    rotation_origin=(
+                        applicator["rotation_origin"]
+                        if "rotation_origin" in applicator
+                        else None
+                    ),
+                    coordinates=(
+                        applicator["coordinates"]
+                        if "coordinates" in applicator
+                        else None
+                    ),
+                )
                 self.applicator_list.append(applicator_obj)
         else:
             raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
