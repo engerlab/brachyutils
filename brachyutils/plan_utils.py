@@ -1298,7 +1298,7 @@ class BrachyPlan:
             num_applicators = len(applicator_list["densities"])
             for i in range(num_applicators):
 
-                j = i if i > 0 else ""
+                j = i if i > 1 else ""
                 applicator_obj = BrachyApplicator(
                     pth_input_file=applicator_list["filenames"][i],
                     material=applicator_list["materials"][i],
