@@ -111,6 +111,10 @@ class BrachyDicom:
             # so we got the mask but the dimensions may not match the dimension of the dose
             # let's get the relative extent of the body mask compared to the whole grid and resample
             # the extents
+
+            # skip the mask if it is empty
+            if np.sum(mask_numpy) == 0:
+                continue
             structure_index_range = np.zeros([3, 2], dtype=int)
             for i in range(3):
                 structure_index_range[i, :] = np.floor(

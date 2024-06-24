@@ -326,6 +326,19 @@ def test_BrachyApplicator_set_rotation():
     applicator_obj.set_rotation(rotation, rotation_origin)
     applicator_obj.to_stl(pth_outfile)
 
+def test_load_applicator_list():
+    dir_dicom = "../../data_test/rectal-jgh-dcm"
+    dir_plan = "../../data_test/rectal-jgh-planFiles"
+    pth_applicator_geometry = os.path.join(dir_plan, "applicator_geometry.json")
+
+    plan_obj = BrachyPlan(
+        dir_dicom=dir_dicom,
+        # pth_applicator_list_json=pth_applicator_geometry
+        )
+
+    for applicator in plan_obj.applicator_list:
+        applicator.info()
+
 if __name__ == "__main__":
     # test_load_catheterTable_json()
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
@@ -341,4 +354,5 @@ if __name__ == "__main__":
     # test_BrachyApplicator()
     # test_BrachyApplicator_to_mac()
     # test_BrachyApplicator_to_stl()
-    test_BrachyApplicator_set_rotation()
+    # test_BrachyApplicator_set_rotation()
+    test_load_applicator_list()
