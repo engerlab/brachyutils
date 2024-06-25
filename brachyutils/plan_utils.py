@@ -1322,12 +1322,12 @@ class BrachyPlan:
                             ),
                             (
                                 applicator_list["shieldNormaly"]
-                                if "shieldNormalx" in applicator_list
+                                if "shieldNormaly" in applicator_list
                                 else 0
                             ),
                             (
                                 applicator_list["shieldNormalz"]
-                                if "shieldNormalx" in applicator_list
+                                if "shieldNormalz" in applicator_list
                                 else 0
                             ),
                         ])
