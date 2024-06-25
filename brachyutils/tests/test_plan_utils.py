@@ -340,6 +340,19 @@ def test_load_applicator_list():
     for applicator in plan_obj.applicator_list:
         applicator.info()
 
+def test__export_applicator_geometry():
+    dir_dicom = "../../data_test/rectal-jgh-dcm"
+    dir_plan = "../../data_test/rectal-jgh-planFiles"
+    pth_applicator_geometry = os.path.join(dir_plan, "applicator_geometry.json")
+    dir_export = "../../data_test/test_export_plan"
+    plan_obj = BrachyPlan(
+        dir_dicom=dir_dicom, pth_applicator_list_json=pth_applicator_geometry
+    )
+
+    plan_obj._export_applicator_geometry(
+        dir_export=dir_export,
+        export_format="RapidBrachy",
+    )
 
 if __name__ == "__main__":
     # test_load_catheterTable_json()

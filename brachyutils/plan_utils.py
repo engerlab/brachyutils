@@ -205,6 +205,7 @@ class BrachyApplicator:
         - rotation:np.array := the rotation of the applicator.
         - material:str := the material of the applicator.
         - density:float := the density of the applicator.
+        - normal:np.array := the normal of the applicator in the patient coordinate system. this is used for RapidBrachy only.
 
     Functions:
         - load_stl(pth_input:str)
@@ -222,6 +223,8 @@ class BrachyApplicator:
         rotation: np.array = None,
         rotation_origin: np.array = None,
         coordinates: np.array = None,
+        normal: np.array = None,
+        catheter_trajectory: list = None,
     ) -> None:
         """
         Purpose:
@@ -247,6 +250,8 @@ class BrachyApplicator:
         self.coordinates: np.array = np.array([0, 0, 0])  # [x, y, z]
         self.material: str = None
         self.density: float = None
+        self.normal: np.array = None
+        self.catheter_trajectory: list = []
 
         input_extension = os.path.splitext(self.path)[1]
         if input_extension == ".stl":
@@ -266,7 +271,11 @@ class BrachyApplicator:
             self.set_rotation(rotation, rotation_origin)
         if coordinates is not None:
             self.set_coordinates(coordinates)
-
+        if normal is not None:
+            self.normal = normal
+        if catheter_trajectory is not None:
+            self.catheter_trajectory = catheter_trajectory
+            
     def load_stl(self, pth_input: str) -> None:
         r"""
         Purpose:
@@ -1279,7 +1288,11 @@ class BrachyPlan:
                 - "densities": list of densities of the applicator.
                 - "filenames": list of filenames of the applicator.
                 - "materials": list of materials of the applicator.
-                - "points": list of points of the applicator. (XXX Not sure what this is)
+                - "points": list of points (x,y,z,x,y,z) describing the first and last dwell positions
+                on the applicator in the frame of the applicator.
+                - "shieldNormalx": normal of applicator in the x direction in the frame of CT.
+                - "shieldNormaly": normal of applicator in the y direction in the frame of CT.
+                - "shieldNormalz": normal of applicator in the z direction in the frame of CT.
                 - "wRot": list of wRot of the applicator.
                 - "x": list of x of the applicator.
                 - "xRoti": list of xRot of the applicator i in [1, N].
@@ -1296,9 +1309,29 @@ class BrachyPlan:
             applicator_list = json.load(json_file)
         if format == "RapidBrachy":
             num_applicators = len(applicator_list["densities"])
+            
             for i in range(num_applicators):
 
                 j = i if i > 1 else ""
+                shieldNormal = np.array(
+                        [
+                            (
+                                applicator_list["shieldNormalx"]
+                                if "shieldNormalx" in applicator_list
+                                else 0
+                            ),
+                            (
+                                applicator_list["shieldNormaly"]
+                                if "shieldNormalx" in applicator_list
+                                else 0
+                            ),
+                            (
+                                applicator_list["shieldNormalz"]
+                                if "shieldNormalx" in applicator_list
+                                else 0
+                            ),
+                        ])
+                
                 applicator_obj = BrachyApplicator(
                     pth_input_file=applicator_list["filenames"][i],
                     material=applicator_list["materials"][i],
@@ -1316,17 +1349,20 @@ class BrachyPlan:
                         [
                             applicator_list["x"],
                             applicator_list["y"],
-                            applicator_list["x"],
+                            applicator_list["z"],
                         ]
                     ),
                     coordinates=np.array(
                         [
-                            applicator_list["points"][0][(3 * i + 0)],
-                            applicator_list["points"][0][(3 * i + 1)],
-                            applicator_list["points"][0][(3 * i + 2)],
+                            applicator_list["x"],
+                            applicator_list["y"],
+                            applicator_list["z"],
                         ]
                     ),
+                    normal=shieldNormal,
+                    catheter_trajectory=applicator_list["points"],
                 )
+                
                 self.applicator_list.append(applicator_obj)
 
         elif format == "WebApp":
@@ -1747,11 +1783,20 @@ class BrachyPlan:
             or in webapp format (json file).
         Inputs:
             - dir_export := path to the directory where the export happens
-
+            - format := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
         Outputs:
+            - Void := will export the applicator geometries into the specified export directory.
         Dependencies:
+            - None
         """
-        raise NotImplementedError("to be implemented soon")
+        # raise NotImplementedError("to be implemented soon")
+        if format == "RapidBrachy":
+
+            print("yo mama is gay")
+        elif format == "WebApp":
+            print("yo mama is also gay")
+        else:
+            raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
 
     def _export_structure_set(
         self, dir_export: str, export_format: str = "RapidBrachy"
