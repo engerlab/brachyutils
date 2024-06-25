@@ -1517,14 +1517,9 @@ class BrachyPlan:
                 self._export_egsphant(dir_export)
                 print("Egsphant file was exported successfully")
 
-            if content_to_export["ApplicatorMaterials"]:
-                # assumes file name is "ApplicatorMaterials"
-                self._export_applicator_materials(dir_export)
-                print("applicator material.json exported successfully")
-
             if content_to_export["applicator_geometry"]:
                 # assumes file name is "applicator_geometry.json"
-                self._export_applicator_geometry(dir_export)
+                self._export_applicator_geometry(dir_export, export_format)
                 print("applicator geometry file was exported successfully")
 
             if content_to_export["structure_set"]:
@@ -1745,26 +1740,11 @@ class BrachyPlan:
         file_path = dir_export + "/ct.egsphant"
         self.egsphant.write_to_ctegsphant(file_path)
 
-    def _export_applicator_materials(self, dir_export: str):
+    def _export_applicator_geometry(self, dir_export: str, format: str = "RapidBrachy"):
         r"""
         Purpose:
-        Inputs:
-        Outputs:
-        Dependencies:
-        """
-        raise NotImplementedError("to be implemented soon")
-
-    def _export_applicator_geometry(self, dir_export: str):
-        r"""
-        Purpose:
-            - To export the applicator geometry mesh as a mac file.
-            This mac file contains the following information about the applicator:
-                - vertices
-                - faces
-                - material
-                - density
-                - position
-                - rotation
+            - To export the applicator geometries either in the RapidBrachy Format (mac files and single json file)
+            or in webapp format (json file).
         Inputs:
             - dir_export := path to the directory where the export happens
 
