@@ -236,7 +236,10 @@ class BrachyApplicator:
             - origin (np.array, optional): The origin of the applicator in [x,y,z] . Defaults to None.
             - rotation (np.array, optional): The rotation vector of the applicator in [w,x,y,z]. Defaults to None.
             - rotation_origin (np.array, optional): The origin point with respect to which the rotaion vector is created.
-            - coordinates (np.array, optional): The coordinates of the applicator. Defaults to None.
+            - coordinates (np.array, optional): The coordinates of the applicator in patient frame. Defaults to None.
+            - normal (np.array, optional): The normal of the applicator in the patient frame. Defaults to None.
+            - catheter_trajector: (list, optional): The list of start dwell poisition and end dwell position of the catheter inside
+            the applicator [[x,y,z,x,y,z]]. Defaults to None.
         Outputs:
             - Void: an applicator object is created dependeing on the inputs.
         """
@@ -500,6 +503,19 @@ class BrachyApplicator:
         # update the BrachyApplicator based on the transformation
         self._update_brachy_applicator_from_applicator_mesh()
 
+    def _update_catheter_trajectory(self,) -> None:
+        r"""
+        Purpose:
+            - to update the trajectory of the dwell positions inside the applicator after the applicator has 
+            been rotated or translated.
+        Inputs:
+            - self := the BrachyApplicator object.
+        Outputs:
+            - Void := will update the catheter trajectory.
+        """
+        
+        raise NotImplementedError("to be implemented soon")
+    
     def to_dict(self) -> dict:
         r"""
         Purpose:
