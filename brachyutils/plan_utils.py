@@ -243,6 +243,7 @@ class BrachyApplicator:
         Outputs:
             - Void: an applicator object is created dependeing on the inputs.
         """
+        assert os.path.exists(pth_input_file), "input file does not exist"
         self.path = pth_input_file
         self.name = os.path.splitext(os.path.basename(self.path))[0]
         self.applicator_mesh: vtkPolyData = None
@@ -1330,7 +1331,7 @@ class BrachyPlan:
 
             for i in range(num_applicators):
 
-                j = i if i > 1 else ""
+                j = i+1 if i >= 1 else ""
                 shieldNormal = np.array(
                     [
                         (
@@ -1350,20 +1351,22 @@ class BrachyPlan:
                         ),
                     ]
                 )
-
+                
+                rotation = np.array(
+                        [
+                            applicator_list[f"wRot{j}"] if f"wRot{j}" in applicator_list else 0,
+                            applicator_list[f"xRot{j}"] if f"xRot{j}" in applicator_list else 0,
+                            applicator_list[f"yRot{j}"] if f"yRot{j}" in applicator_list else 0,
+                            applicator_list[f"zRot{j}"] if f"zRot{j}" in applicator_list else 0,
+                        ]
+                )
+                
                 applicator_obj = BrachyApplicator(
                     pth_input_file=applicator_list["filenames"][i],
                     material=applicator_list["materials"][i],
                     density=applicator_list["densities"][i],
                     origin=self.patient_origin,
-                    rotation=np.array(
-                        [
-                            applicator_list[f"wRot{j}"],
-                            applicator_list[f"xRot{j}"],
-                            applicator_list[f"yRot{j}"],
-                            applicator_list[f"zRot{j}"],
-                        ]
-                    ),
+                    rotation=rotation,
                     rotation_origin=np.array(
                         [
                             applicator_list["x"],
@@ -1379,10 +1382,13 @@ class BrachyPlan:
                         ]
                     ),
                     normal=shieldNormal,
+                    # for now RapidBrachy exports only one catheter trajectory. 
+                    # in future, more catheter trajectories may be possible. 
+                    # use i instead of 0 to get the ith catheter trajectory.
                     catheter_trajectory=np.array(
                         [
-                            applicator_list["points"][i][0:3],
-                            applicator_list["points"][i][3:6]
+                            applicator_list["points"][0][0:3],
+                            applicator_list["points"][0][3:6]
                         ]
                     ),
                 )
@@ -1802,7 +1808,7 @@ class BrachyPlan:
         file_path = dir_export + "/ct.egsphant"
         self.egsphant.write_to_ctegsphant(file_path)
 
-    def _export_applicator_geometry(self, dir_export: str, format: str = "RapidBrachy"):
+    def _export_applicator_geometry(self, dir_export: str, export_format: str = "RapidBrachy"):
         r"""
         Purpose:
             - To export the applicator geometries either in the RapidBrachy Format (mac files and single json file)
@@ -1815,7 +1821,7 @@ class BrachyPlan:
         Dependencies:
             - None
         """
-        if format == "RapidBrachy":
+        if export_format == "RapidBrachy":
 
             # initialize the fields of the json file:
             out_json = {
@@ -1834,31 +1840,31 @@ class BrachyPlan:
                 "z": 0,
                 "zRot": 0,
             }
-            counter = 1
+            counter = 0
             for applicator in self.applicator_list:
                 out_json["densities"].append(applicator.density)
-                out_json["filenames"].append(applicator.pth_input_file)
+                out_json["filenames"].append(applicator.path)
                 out_json["materials"].append(applicator.material)
                 out_json["points"].append(applicator.catheter_trajectory.flatten().tolist())
-                out_json["shieldNormalx"] = applicator.normal[0]
-                out_json["shieldNormaly"] = applicator.normal[1]
-                out_json["shieldNormalz"] = applicator.normal[2]
+                out_json["shieldNormalx"] = float(applicator.normal[0])
+                out_json["shieldNormaly"] = float(applicator.normal[1])
+                out_json["shieldNormalz"] = float(applicator.normal[2])
                 
-                subscript = "" if counter == 1 else counter
-                out_json[f"wRot{subscript}"] = applicator.rotation[0]
-                out_json[f"xRot{subscript}"] = applicator.rotation[1]
-                out_json[f"yRot{subscript}"] = applicator.rotation[2]
-                out_json[f"zRot{subscript}"] = applicator.rotation[3]
+                subscript = counter+1 if counter >= 1 else ""
+                out_json[f"wRot{subscript}"] = float(applicator.rotation[0])
+                out_json[f"xRot{subscript}"] = float(applicator.rotation[1])
+                out_json[f"yRot{subscript}"] = float(applicator.rotation[2])
+                out_json[f"zRot{subscript}"] = float(applicator.rotation[3])
                 
-                out_json["x"] = applicator.coordinates[0]
-                out_json["y"] = applicator.coordinates[1]
-                out_json["z"] = applicator.coordinates[2]
+                out_json["x"] = float(applicator.coordinates[0])
+                out_json["y"] = float(applicator.coordinates[1])
+                out_json["z"] = float(applicator.coordinates[2])
                 counter += 1
             
             with open(dir_export + "/applicator_geometry.json", "w") as file:
                 json.dump(out_json, file, indent=4)
 
-        elif format == "WebApp":
+        elif export_format == "WebApp":
             out_json = [
                 applicator.to_dict(format) for applicator in self.applicator_list
             ]

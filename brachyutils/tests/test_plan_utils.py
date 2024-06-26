@@ -370,4 +370,5 @@ if __name__ == "__main__":
     # test_BrachyApplicator_to_mac()
     # test_BrachyApplicator_to_stl()
     # test_BrachyApplicator_set_rotation()
-    test_load_applicator_list()
+    # test_load_applicator_list()
+    test__export_applicator_geometry()
