@@ -534,6 +534,8 @@ class BrachyApplicator:
             "rotation": self.rotation,
             "material": self.material,
             "density": self.density,
+            "normal": self.normal,
+            "catheter_trajectory": self.catheter_trajectory,
         }
 
     def to_json(self, pth_output: str) -> None:
