@@ -504,19 +504,21 @@ class BrachyApplicator:
         # update the BrachyApplicator based on the transformation
         self._update_brachy_applicator_from_applicator_mesh()
 
-    def _update_catheter_trajectory(self,) -> None:
+    def _update_catheter_trajectory(
+        self,
+    ) -> None:
         r"""
         Purpose:
-            - to update the trajectory of the dwell positions inside the applicator after the applicator has 
+            - to update the trajectory of the dwell positions inside the applicator after the applicator has
             been rotated or translated.
         Inputs:
             - self := the BrachyApplicator object.
         Outputs:
             - Void := will update the catheter trajectory.
         """
-        
+
         raise NotImplementedError("to be implemented soon")
-    
+
     def to_dict(self) -> dict:
         r"""
         Purpose:
@@ -1331,7 +1333,7 @@ class BrachyPlan:
 
             for i in range(num_applicators):
 
-                j = i+1 if i >= 1 else ""
+                j = i + 1 if i >= 1 else ""
                 shieldNormal = np.array(
                     [
                         (
@@ -1351,16 +1353,32 @@ class BrachyPlan:
                         ),
                     ]
                 )
-                
+
                 rotation = np.array(
-                        [
-                            applicator_list[f"wRot{j}"] if f"wRot{j}" in applicator_list else 0,
-                            applicator_list[f"xRot{j}"] if f"xRot{j}" in applicator_list else 0,
-                            applicator_list[f"yRot{j}"] if f"yRot{j}" in applicator_list else 0,
-                            applicator_list[f"zRot{j}"] if f"zRot{j}" in applicator_list else 0,
-                        ]
+                    [
+                        (
+                            applicator_list[f"wRot{j}"]
+                            if f"wRot{j}" in applicator_list
+                            else 0
+                        ),
+                        (
+                            applicator_list[f"xRot{j}"]
+                            if f"xRot{j}" in applicator_list
+                            else 0
+                        ),
+                        (
+                            applicator_list[f"yRot{j}"]
+                            if f"yRot{j}" in applicator_list
+                            else 0
+                        ),
+                        (
+                            applicator_list[f"zRot{j}"]
+                            if f"zRot{j}" in applicator_list
+                            else 0
+                        ),
+                    ]
                 )
-                
+
                 applicator_obj = BrachyApplicator(
                     pth_input_file=applicator_list["filenames"][i],
                     material=applicator_list["materials"][i],
@@ -1382,13 +1400,13 @@ class BrachyPlan:
                         ]
                     ),
                     normal=shieldNormal,
-                    # for now RapidBrachy exports only one catheter trajectory. 
-                    # in future, more catheter trajectories may be possible. 
+                    # for now RapidBrachy exports only one catheter trajectory.
+                    # in future, more catheter trajectories may be possible.
                     # use i instead of 0 to get the ith catheter trajectory.
                     catheter_trajectory=np.array(
                         [
                             applicator_list["points"][0][0:3],
-                            applicator_list["points"][0][3:6]
+                            applicator_list["points"][0][3:6],
                         ]
                     ),
                 )
@@ -1419,7 +1437,11 @@ class BrachyPlan:
                         else None
                     ),
                     normal=applicator["normal"] if "normal" in applicator else None,
-                    catheter_trajectory=applicator["catheter_trajectory"] if "catheter_trajectory" in applicator else None,
+                    catheter_trajectory=(
+                        applicator["catheter_trajectory"]
+                        if "catheter_trajectory" in applicator
+                        else None
+                    ),
                 )
                 self.applicator_list.append(applicator_obj)
         else:
@@ -1577,7 +1599,7 @@ class BrachyPlan:
 
             if content_to_export["mac"]:
                 # assumes file name is "run_#.mac"
-                self._export_mac_file(dir_export)
+                self._export_dwell_mac_file(dir_export)
                 print(".mac files were exported successfully")
 
             if content_to_export["egsphant"]:
@@ -1746,7 +1768,7 @@ class BrachyPlan:
         with open(dir_export + "/combined.plan", "w") as file:
             file.write(combined_plan)
 
-    def _export_mac_file(self, dir_export: str):
+    def _export_dwell_mac_file(self, dir_export: str):
         r"""
         Purpose:
             - To export the simulation parameters of the plan into a macro files
@@ -1808,7 +1830,9 @@ class BrachyPlan:
         file_path = dir_export + "/ct.egsphant"
         self.egsphant.write_to_ctegsphant(file_path)
 
-    def _export_applicator_geometry(self, dir_export: str, export_format: str = "RapidBrachy"):
+    def _export_applicator_geometry(
+        self, dir_export: str, export_format: str = "RapidBrachy"
+    ):
         r"""
         Purpose:
             - To export the applicator geometries either in the RapidBrachy Format (mac files and single json file)
@@ -1845,22 +1869,24 @@ class BrachyPlan:
                 out_json["densities"].append(applicator.density)
                 out_json["filenames"].append(applicator.path)
                 out_json["materials"].append(applicator.material)
-                out_json["points"].append(applicator.catheter_trajectory.flatten().tolist())
+                out_json["points"].append(
+                    applicator.catheter_trajectory.flatten().tolist()
+                )
                 out_json["shieldNormalx"] = float(applicator.normal[0])
                 out_json["shieldNormaly"] = float(applicator.normal[1])
                 out_json["shieldNormalz"] = float(applicator.normal[2])
-                
-                subscript = counter+1 if counter >= 1 else ""
+
+                subscript = counter + 1 if counter >= 1 else ""
                 out_json[f"wRot{subscript}"] = float(applicator.rotation[0])
                 out_json[f"xRot{subscript}"] = float(applicator.rotation[1])
                 out_json[f"yRot{subscript}"] = float(applicator.rotation[2])
                 out_json[f"zRot{subscript}"] = float(applicator.rotation[3])
-                
+
                 out_json["x"] = float(applicator.coordinates[0])
                 out_json["y"] = float(applicator.coordinates[1])
                 out_json["z"] = float(applicator.coordinates[2])
                 counter += 1
-            
+
             with open(dir_export + "/applicator_geometry.json", "w") as file:
                 json.dump(out_json, file, indent=4)
 
@@ -1870,7 +1896,7 @@ class BrachyPlan:
             ]
             with open(dir_export + "/applicator_geometry.json", "w") as file:
                 json.dump(out_json, file, indent=4)
-            
+
         else:
             raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
 
