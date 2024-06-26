@@ -528,8 +528,8 @@ class BrachyApplicator:
         return {
             "name": self.name,
             "path": self.path,
-            "verticies": self.verticies.tolist(),
-            "faces": self.faces.tolist(),
+            # "verticies": self.verticies.tolist(),
+            # "faces": self.faces.tolist(),
             "origin": self.origin,
             "rotation": self.rotation,
             "material": self.material,
