@@ -1793,9 +1793,54 @@ class BrachyPlan:
         # raise NotImplementedError("to be implemented soon")
         if format == "RapidBrachy":
 
-            print("yo mama is gay")
+            # initialize the fields of the json file:
+            out_json = {
+                "densities": [],
+                "filenames": [],
+                "materials": [],
+                "points": [],
+                "shieldNormalx": 0,
+                "shieldNormaly": 0,
+                "shieldNormalz": 0,
+                "wRot": 0,
+                "x": 0,
+                "xRot": 0,
+                "y": 0,
+                "yRot": 0,
+                "z": 0,
+                "zRot": 0,
+            }
+            counter = 1
+            for applicator in self.applicator_list:
+                out_json["densities"].append(applicator.density)
+                out_json["filenames"].append(applicator.pth_input_file)
+                out_json["materials"].append(applicator.material)
+                out_json["points"].append(applicator.catheter_trajectory)
+                out_json["shieldNormalx"] = applicator.normal[0]
+                out_json["shieldNormaly"] = applicator.normal[1]
+                out_json["shieldNormalz"] = applicator.normal[2]
+                
+                subscript = "" if counter == 1 else counter
+                out_json[f"wRot{subscript}"] = applicator.rotation[0]
+                out_json[f"xRot{subscript}"] = applicator.rotation[1]
+                out_json[f"yRot{subscript}"] = applicator.rotation[2]
+                out_json[f"zRot{subscript}"] = applicator.rotation[3]
+                
+                out_json["x"] = applicator.coordinates[0]
+                out_json["y"] = applicator.coordinates[1]
+                out_json["z"] = applicator.coordinates[2]
+                counter += 1
+            
+            with open(dir_export + "/applicator_geometry.json", "w") as file:
+                json.dump(out_json, file, indent=4)
+                
         elif format == "WebApp":
-            print("yo mama is also gay")
+            out_json = [
+                applicator.to_dict(format) for applicator in self.applicator_list
+            ]
+            with open(dir_export + "/applicator_geometry.json", "w") as file:
+                json.dump(out_json, file, indent=4)
+            
         else:
             raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
 
