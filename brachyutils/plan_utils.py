@@ -254,7 +254,7 @@ class BrachyApplicator:
         self.material: str = None
         self.density: float = None
         self.normal: np.array = None
-        self.catheter_trajectory: list = []
+        self.catheter_trajectory: np.array = None
 
         input_extension = os.path.splitext(self.path)[1]
         if input_extension == ".stl":
@@ -1841,7 +1841,7 @@ class BrachyPlan:
                 out_json["densities"].append(applicator.density)
                 out_json["filenames"].append(applicator.pth_input_file)
                 out_json["materials"].append(applicator.material)
-                out_json["points"].append(applicator.catheter_trajectory)
+                out_json["points"].append(applicator.catheter_trajectory.flatten().tolist())
                 out_json["shieldNormalx"] = applicator.normal[0]
                 out_json["shieldNormaly"] = applicator.normal[1]
                 out_json["shieldNormalz"] = applicator.normal[2]
@@ -1859,7 +1859,7 @@ class BrachyPlan:
             
             with open(dir_export + "/applicator_geometry.json", "w") as file:
                 json.dump(out_json, file, indent=4)
-                
+
         elif format == "WebApp":
             out_json = [
                 applicator.to_dict(format) for applicator in self.applicator_list
