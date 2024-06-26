@@ -561,7 +561,6 @@ class BrachyApplicator:
         Outputs:
             - Void := will save the applicator geometry to a mac file.
         """
-        # raise NotImplementedError("to be implemented soon")
         macfile_string = ""
 
         # add in the vertex info
@@ -1816,7 +1815,6 @@ class BrachyPlan:
         Dependencies:
             - None
         """
-        # raise NotImplementedError("to be implemented soon")
         if format == "RapidBrachy":
 
             # initialize the fields of the json file:
