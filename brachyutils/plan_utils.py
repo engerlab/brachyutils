@@ -238,7 +238,7 @@ class BrachyApplicator:
             - rotation_origin (np.array, optional): The origin point with respect to which the rotaion vector is created.
             - coordinates (np.array, optional): The coordinates of the applicator in patient frame. Defaults to None.
             - normal (np.array, optional): The normal of the applicator in the patient frame. Defaults to None.
-            - catheter_trajector: (list, optional): The list of start dwell poisition and end dwell position of the catheter inside
+            - catheter_trajectory: (list, optional): The list of start dwell poisition and end dwell position of the catheter inside
             the applicator [[x,y,z,x,y,z]]. Defaults to None.
         Outputs:
             - Void: an applicator object is created dependeing on the inputs.
@@ -729,6 +729,7 @@ class BrachyPlan:
         self.egsphant: BrachyEgsphant = None
         self.applicator_list: List[BrachyApplicator] = []
         # XXX: figure out if the two below are dwell or applicator attributes?
+        # they are dwell attributes that are impacted by applicator rotation. for now, leave them be.
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
@@ -1379,7 +1380,12 @@ class BrachyPlan:
                         ]
                     ),
                     normal=shieldNormal,
-                    catheter_trajectory=applicator_list["points"],
+                    catheter_trajectory=np.array(
+                        [
+                            applicator_list["points"][i][0:3],
+                            applicator_list["points"][i][3:6]
+                        ]
+                    ),
                 )
 
                 self.applicator_list.append(applicator_obj)
@@ -1407,6 +1413,8 @@ class BrachyPlan:
                         if "coordinates" in applicator
                         else None
                     ),
+                    normal=applicator["normal"] if "normal" in applicator else None,
+                    catheter_trajectory=applicator["catheter_trajectory"] if "catheter_trajectory" in applicator else None,
                 )
                 self.applicator_list.append(applicator_obj)
         else:
