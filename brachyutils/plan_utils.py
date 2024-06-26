@@ -275,7 +275,7 @@ class BrachyApplicator:
             self.normal = normal
         if catheter_trajectory is not None:
             self.catheter_trajectory = catheter_trajectory
-            
+
     def load_stl(self, pth_input: str) -> None:
         r"""
         Purpose:
@@ -1309,29 +1309,30 @@ class BrachyPlan:
             applicator_list = json.load(json_file)
         if format == "RapidBrachy":
             num_applicators = len(applicator_list["densities"])
-            
+
             for i in range(num_applicators):
 
                 j = i if i > 1 else ""
                 shieldNormal = np.array(
-                        [
-                            (
-                                applicator_list["shieldNormalx"]
-                                if "shieldNormalx" in applicator_list
-                                else 0
-                            ),
-                            (
-                                applicator_list["shieldNormaly"]
-                                if "shieldNormaly" in applicator_list
-                                else 0
-                            ),
-                            (
-                                applicator_list["shieldNormalz"]
-                                if "shieldNormalz" in applicator_list
-                                else 0
-                            ),
-                        ])
-                
+                    [
+                        (
+                            applicator_list["shieldNormalx"]
+                            if "shieldNormalx" in applicator_list
+                            else 0
+                        ),
+                        (
+                            applicator_list["shieldNormaly"]
+                            if "shieldNormaly" in applicator_list
+                            else 0
+                        ),
+                        (
+                            applicator_list["shieldNormalz"]
+                            if "shieldNormalz" in applicator_list
+                            else 0
+                        ),
+                    ]
+                )
+
                 applicator_obj = BrachyApplicator(
                     pth_input_file=applicator_list["filenames"][i],
                     material=applicator_list["materials"][i],
@@ -1362,7 +1363,7 @@ class BrachyPlan:
                     normal=shieldNormal,
                     catheter_trajectory=applicator_list["points"],
                 )
-                
+
                 self.applicator_list.append(applicator_obj)
 
         elif format == "WebApp":
