@@ -1866,6 +1866,7 @@ class BrachyPlan:
             }
             counter = 0
             for applicator in self.applicator_list:
+
                 out_json["densities"].append(applicator.density)
                 out_json["filenames"].append(applicator.path)
                 out_json["materials"].append(applicator.material)
@@ -1899,6 +1900,10 @@ class BrachyPlan:
 
         else:
             raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
+
+        # export the mac files for each applicator
+        for applicator in self.applicator_list:
+            applicator.to_mac(os.path.join(dir_export, f"{applicator.name}.mac"))
 
     def _export_structure_set(
         self, dir_export: str, export_format: str = "RapidBrachy"
