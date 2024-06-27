@@ -1,9 +1,10 @@
 import logging
 import os
 import sys
-import numpy as np
-from brachyutils.dose_utils import BrachyDose, DoseComparison
 
+import numpy as np
+
+from brachyutils.dose_utils import BrachyDose, DoseComparison
 
 
 def test_load_from_3ddose():
@@ -18,15 +19,17 @@ def test_load_from_3ddose():
 
 
 def test_load_file_to_brachydose():
-    pth_3ddose =  "../../data_test/run_1_old.3ddose"
+    pth_3ddose = "../../data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.is_not_empty()
+
 
 def test_load_from_dicom():
     pth_dicom = "../../data_test/prostate-glen-p1-dcm/RD1.3.6.1.4.1.2452.6.350102904.1117384417.1751574951.1257637737.dcm"
     dose_obj = BrachyDose(pth_dicom)
     dose_obj.is_not_empty()
+
 
 # @pytest.mark.passed
 
@@ -189,6 +192,7 @@ def test_convert_to_minidos():
     dose_obj.load_file_to_brachydose(pth_input)
     dose_obj.write_to_minidos(pth_minidos)
 
+
 def test_dose_comparison():
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     pth_3ddose = "../../data_test/run_1_old.3ddose"
@@ -203,6 +207,7 @@ def test_dose_comparison():
     # dose_comparison.compare_dose_distributions_2D(
     #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
 
+
 # XXX: check and fix if neede!
 def test_crop_by_body_contour():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
@@ -212,6 +217,7 @@ def test_crop_by_body_contour():
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.info()
     dose_obj.crop_by_body_contour(pth_dir_dicom=pth_dicomRS)
+
 
 if __name__ == "__main__":
     test_load_from_dicom()

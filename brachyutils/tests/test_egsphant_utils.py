@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+
 from brachyutils.egsphant_utils import BrachyEgsphant, _to_single_string
 
 
@@ -8,9 +9,7 @@ def test_crop_by_body_contour():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
     # print("pth_dicomRS: ".format(pth_dicomRS))
 
-    pth_input = (
-        "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    )
+    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
 
     egsphant_obj = BrachyEgsphant()
@@ -22,9 +21,7 @@ def test_crop_by_body_contour():
 
 
 def test_crop_by_index():
-    pth_input = (
-        "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    )
+    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_" + os.path.basename(pth_input)
 
     egsphant_obj = BrachyEgsphant()
@@ -39,9 +36,7 @@ def test_crop_by_index():
 
 
 def test_write_to_egsphant():
-    pth_input = (
-        "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    )
+    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     pth_output = os.path.dirname(pth_input) + "/test_" + os.path.basename(pth_input)
 
     egsphant_obj = BrachyEgsphant()
@@ -56,9 +51,7 @@ def test_write_to_egsphant():
 
 
 def test_to_single_string():
-    pth_input = (
-        "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    )
+    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
 
     egsphant_obj = BrachyEgsphant()
@@ -69,9 +62,7 @@ def test_to_single_string():
 
 
 def test_load_from_ctegsphant():
-    pth_input = (
-        "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    )
+    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
 
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
