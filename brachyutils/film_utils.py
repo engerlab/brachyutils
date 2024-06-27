@@ -1,20 +1,25 @@
 import os
 import pickle
-import sys
+
+# import sys
 import tkinter as tk
 from tkinter import filedialog as fd
 
-import cv2
+# import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-import pymedphys
+
+# import pymedphys
 import tifffile
 from matplotlib.lines import Line2D
-from matplotlib.ticker import FormatStrFormatter
-from scipy import ndimage
+
+# from scipy import ndimage
 from scipy.optimize import curve_fit
 
-import brachyutils.dose_utils
+# from matplotlib.ticker import FormatStrFormatter
+
+
+# import brachyutils.dose_utils
 
 
 class CalibrationCurve:
