@@ -57,6 +57,8 @@ def test_convert_to_nrrd():
     Purpose:
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
+    pth_out = "../../data_test/test_export_plan"
+    pth_dose_in = "../../data_test/new_nrrd/PreOptimization/run_1_1_1.nrrd"
     # 3 mm resolution
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
     # pth_nrrd = "../../data_test/run_1_old.nrrd"
@@ -66,11 +68,13 @@ def test_convert_to_nrrd():
     # pth_nrrd = "../../data_test/combined_old.nrrd"
 
     # testing on maude's file
-    pth_3ddose = "../../data_test/maude.3ddose"
-    pth_out = os.path.splitext(pth_3ddose)[0] + ".nrrd"
+    # pth_dose = "../../data_test/maude.3ddose"
+    # new nrrd format
+    
+    pth_out = os.path.join(pth_out, os.path.basename(pth_dose_in))
 
     dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
+    dose_obj.load_file_to_brachydose(pth_dose_in)
 
     dose_obj.write_to_nrrd(pth_out)
 
@@ -220,4 +224,5 @@ def test_crop_by_body_contour():
 
 
 if __name__ == "__main__":
-    test_load_from_dicom()
+    # test_load_from_dicom()
+    test_convert_to_nrrd()
