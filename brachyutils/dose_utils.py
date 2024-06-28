@@ -669,9 +669,10 @@ class BrachyDose:
         image_nrrd = fiter.Execute(
             sitk.GetImageFromArray(dose_nda), sitk.GetImageFromArray(uncertainty_nda)
         )
-        image_nrrd = filter.Execute()
-        image_nrrd.SetOrigin(np.append([0], self.topleft))
-        image_nrrd.SetSpacing(np.append([1], self.voxel_size))
+        # image_nrrd.SetOrigin(np.append([0], self.topleft))
+        # image_nrrd.SetSpacing(np.append([1], self.voxel_size))
+        image_nrrd.SetOrigin(self.topleft.astype(float))
+        image_nrrd.SetSpacing(self.voxel_size.astype(float))
 
         # set the metadata: all sitk Images belonging to a patient will have the same meta data
         if metadata is not None:
