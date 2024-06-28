@@ -263,7 +263,27 @@ class BrachyDose:
             - calculate_voxel_edges()
         """
         loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO="NrrdImageIO")
-        [dose_array, uncertainty_array] = sitk.GetArrayFromImage(loaded_image_nrrd)
+
+        dose_uncertainty = sitk.GetArrayFromImage(loaded_image_nrrd)
+        if dose_uncertainty.shape[0] == 2:
+            dose_array = dose_uncertainty[0]
+            uncertainty_array = dose_uncertainty[1]
+            self.voxel_size = np.round(
+                np.array(loaded_image_nrrd.GetSpacing()[1:]).astype(np.float32), 1
+            )
+            self.topleft = np.array(loaded_image_nrrd.GetOrigin()[1:]).astype(
+                np.float32
+            )
+        else:
+            dose_array = dose_uncertainty[:, :, :, 0]
+            uncertainty_array = dose_uncertainty[:, :, :, 1]
+            self.voxel_size = np.round(
+                np.array(loaded_image_nrrd.GetSpacing()).astype(np.float32), 1
+            )
+            self.topleft = np.array(loaded_image_nrrd.GetOrigin()).astype(
+                np.float32
+            )
+
         dose_array = np.swapaxes(dose_array, 0, 2)
         uncertainty_array = np.swapaxes(uncertainty_array, 0, 2)
 
@@ -272,10 +292,7 @@ class BrachyDose:
         self.num_voxels = np.array(np.flip((dose_array.shape), axis=0)).astype(
             np.float32
         )
-        self.voxel_size = np.round(
-            np.array(loaded_image_nrrd.GetSpacing()[1:]).astype(np.float32), 1
-        )
-        self.topleft = np.array(loaded_image_nrrd.GetOrigin()[1:]).astype(np.float32)
+
         self.voxel_edges = self.calculate_voxel_edges()
 
     def load_from_npz(self, pth_npz):

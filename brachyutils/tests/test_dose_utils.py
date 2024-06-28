@@ -49,16 +49,13 @@ def test_write_to_3ddose():
     dose_obj.is_equal(new_dose_obj)
 
 
-# @pytest.mark.passed
-
-
 def test_convert_to_nrrd():
     r"""
     Purpose:
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
     pth_out = "../../data_test/test_export_plan"
-    pth_dose_in = "../../data_test/new_nrrd/PreOptimization/run_1_1_1.nrrd"
+    pth_dose_in = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
     # 3 mm resolution
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
     # pth_nrrd = "../../data_test/run_1_old.nrrd"
@@ -70,7 +67,7 @@ def test_convert_to_nrrd():
     # testing on maude's file
     # pth_dose = "../../data_test/maude.3ddose"
     # new nrrd format
-    
+
     pth_out = os.path.join(pth_out, os.path.basename(pth_dose_in))
 
     dose_obj = BrachyDose()
