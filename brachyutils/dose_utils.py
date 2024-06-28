@@ -280,9 +280,7 @@ class BrachyDose:
             self.voxel_size = np.round(
                 np.array(loaded_image_nrrd.GetSpacing()).astype(np.float32), 1
             )
-            self.topleft = np.array(loaded_image_nrrd.GetOrigin()).astype(
-                np.float32
-            )
+            self.topleft = np.array(loaded_image_nrrd.GetOrigin()).astype(np.float32)
 
         dose_array = np.swapaxes(dose_array, 0, 2)
         uncertainty_array = np.swapaxes(uncertainty_array, 0, 2)
@@ -662,10 +660,16 @@ class BrachyDose:
             uncertainty_nda = np.swapaxes(self.uncertainty, 0, 2).astype(np.float32)
         except AttributeError:
             uncertainty_nda = np.zeros(dose_nda.shape, dtype=np.float32)
-
-        image_nrrd = sitk.JoinSeries(
+        # # old nrrd format
+        # image_nrrd = sitk.JoinSeries(
+        #     sitk.GetImageFromArray(dose_nda), sitk.GetImageFromArray(uncertainty_nda)
+        # )
+        # # new nrrd format
+        fiter = sitk.ComposeImageFilter()
+        image_nrrd = fiter.Execute(
             sitk.GetImageFromArray(dose_nda), sitk.GetImageFromArray(uncertainty_nda)
         )
+        image_nrrd = filter.Execute()
         image_nrrd.SetOrigin(np.append([0], self.topleft))
         image_nrrd.SetSpacing(np.append([1], self.voxel_size))
 
