@@ -67,3 +67,26 @@ def test_load_from_ctegsphant():
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
     egsphant_obj.assert_BrachyEgsphant_notEmpty()
+
+def test_make_egsphant_from_images():
+    dir_images = "../../data_test/rectal_jgh_dcm"
+    pth_output = "../../data_test/test_export_plan/rectal_from_images_ct.egsphant"
+    ct2density = {
+        "Blair": {"density": 0.001225, "HU_limit": -10000},
+        "Air": {"density": 0.001225, "HU_limit": 10000},
+        "Adipose": {"density": 0.95, "HU_limit": 11000},
+        "Water": {"density": 1.0, "HU_limit": 12000},
+        "SoftTissue": {"density": 1.02, "HU_limit": 13000},
+        "SoftTissue_Male": {"density": 1.03, "HU_limit": 14000},
+        "Rectum": {"density": 1.03, "HU_limit": 15000},
+        "Bladder_Filled": {"density": 1.03, "HU_limit": 16000},
+        "SiliconRubber": {"density": 1.14, "HU_limit": 17000},
+        "Bone_Cortical": {"density": 1.92, "HU_limit": 18000},
+        "Bone": {"density": 3.0, "HU_limit": 19000},
+        "Metal": {"density": 19.0, "HU_limit": 20000},
+    }
+
+    egsphant_obj = BrachyEgsphant(
+        dir_images=dir_images, ct_to_density_dict=ct2density,
+    )
+    egsphant_obj.write_to_ctegsphant(pth_output)

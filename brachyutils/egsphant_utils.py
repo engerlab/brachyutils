@@ -60,18 +60,14 @@ class BrachyEgsphant:
         pydicom
         json
     """
-
-    material_matrix: np.ndarray
-    density_matrix: np.ndarray
-    num_materials: int
-    material_dict: dict
-    num_voxels: np.ndarray
-    voxel_size: np.ndarray
-    topleft: np.ndarray
-    axis: np.ndarray
-    _sanity_axis: np.ndarray
-
-    def __init__(self, pth_egsphant_file: Optional[str] = None):
+    def __init__(
+            self,
+            pth_egsphant_file: Optional[str] = None,
+            dir_images: Optional[str] = None,
+            dir_structure: Optional[str] = None,
+            ct_to_density_dict: Optional[dict] = None,
+            structure_material_dict: Optional[dict] = None,
+        ):
 
         self.material_matrix: np.ndarray = None
         self.density_matrix: np.ndarray = None
@@ -85,6 +81,14 @@ class BrachyEgsphant:
 
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
+        
+        if dir_images is not None:
+            self.make_egsphant_from_images(
+                dir_images,
+                dir_structure,
+                ct_to_density_dict,
+                structure_material_dict,
+            )
 
     def load_file_to_BrachyEgsphant(self, pth_egsphant_file):
         pth_egsphant_file = os.path.abspath(pth_egsphant_file)
@@ -264,6 +268,7 @@ class BrachyEgsphant:
 
             - fileName := the directory path where the file will be written
         """
+        assert os.path.splitext(fileName)[-1] == ".egsphant", "file extension is not .egsphant"
         fileName = os.path.abspath(fileName)
         num_materials = str(self.num_materials) + "\n"
         materials = "\n".join(self.material_dict.keys()) + "\n"
@@ -525,6 +530,30 @@ class BrachyEgsphant:
         print(scaled_body_index_range)
         self.crop_by_index(scaled_body_index_range, True)
 
+    def make_egsphant_from_images(
+            self,
+            dir_image: str,
+            dir_structure: str = None,
+            ct_to_density_dict: dict = None,
+            structure_material_dict: dict = None,
+    )
+        r"""
+        Purpose:
+            - To generate an egsphant object from a directory containing images and a structure file.
+            if the structure file is not provided, the function will look for it in the directory assuming
+            that the dicom structure files start with RS and the NRRD structure files end with seg.nrrd.
+        Inputs:
+            - dir_image := directory path to the dicom images
+            - dir_structure := directory path to the dicom structure file
+            - ct_to_density_dict := For each material this dictionary contains the density and the max HU on the CT images.
+            - structure_material_dict := a dictionary that maps the structure names to material and density. This is needed 
+            when ct_to_density_dict is not provided. All the voxels inside a structure will have the same material and density.
+        Outputs:
+            - Void := will generate a BrachyEgsphant object from the images and structure file.
+        Dependencies:
+            - BrachyDicom
+        """
+        raise NotImplementedError("This function is not implemented yet!")
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
