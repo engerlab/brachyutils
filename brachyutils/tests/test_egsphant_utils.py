@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from brachyutils.egsphant_utils import BrachyEgsphant, _to_single_string
-
+from brachyutils.dicom_utils import BrachyDicom
 
 def test_crop_by_body_contour():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
@@ -86,7 +86,11 @@ def test_make_egsphant_from_images():
         "Metal": {"density": 19.0, "HU_limit": 20000},
     }
 
+    dicom_obj = BrachyDicom(
+        pth_dir_dicom=dir_images,
+        load_structure=True,
+    )
     egsphant_obj = BrachyEgsphant(
-        dir_images=dir_images, ct_to_density_dict=ct2density,
+        image=dicom_obj, ct_to_density_dict=ct2density,
     )
     egsphant_obj.write_to_ctegsphant(pth_output)

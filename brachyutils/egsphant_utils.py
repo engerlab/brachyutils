@@ -63,8 +63,7 @@ class BrachyEgsphant:
     def __init__(
             self,
             pth_egsphant_file: Optional[str] = None,
-            dir_images: Optional[str] = None,
-            dir_structure: Optional[str] = None,
+            image: Optional[BrachyDicom] = None,
             ct_to_density_dict: Optional[dict] = None,
             structure_material_dict: Optional[dict] = None,
         ):
@@ -82,10 +81,9 @@ class BrachyEgsphant:
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
         
-        if dir_images is not None:
+        if image is not None:
             self.make_egsphant_from_images(
-                dir_images,
-                dir_structure,
+                image,
                 ct_to_density_dict,
                 structure_material_dict,
             )
@@ -532,8 +530,7 @@ class BrachyEgsphant:
 
     def make_egsphant_from_images(
             self,
-            dir_image: str,
-            dir_structure: str = None,
+            image:BrachyDicom,
             ct_to_density_dict: dict = None,
             structure_material_dict: dict = None,
     )
@@ -543,8 +540,7 @@ class BrachyEgsphant:
             if the structure file is not provided, the function will look for it in the directory assuming
             that the dicom structure files start with RS and the NRRD structure files end with seg.nrrd.
         Inputs:
-            - dir_image := directory path to the dicom images
-            - dir_structure := directory path to the dicom structure file
+            - image := a brachy image object containing the CT images and the structures.
             - ct_to_density_dict := For each material this dictionary contains the density and the max HU on the CT images.
             - structure_material_dict := a dictionary that maps the structure names to material and density. This is needed 
             when ct_to_density_dict is not provided. All the voxels inside a structure will have the same material and density.
@@ -553,7 +549,10 @@ class BrachyEgsphant:
         Dependencies:
             - BrachyDicom
         """
-        raise NotImplementedError("This function is not implemented yet!")
+        # raise NotImplementedError("This function is not implemented yet!")
+        
+        
+
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
