@@ -69,7 +69,7 @@ def test_load_from_ctegsphant():
     egsphant_obj.assert_BrachyEgsphant_notEmpty()
 
 def test_make_egsphant_from_images():
-    dir_images = "../../data_test/rectal_jgh_dcm"
+    dir_images = "../../data_test/rectal-jgh-dcm"
     pth_output = "../../data_test/test_export_plan/rectal_from_images_ct.egsphant"
     ct2density = {
         "Blair": {"density": 0.001225, "HU_limit": -10000},
@@ -94,3 +94,6 @@ def test_make_egsphant_from_images():
         image=dicom_obj, ct_to_density_dict=ct2density,
     )
     egsphant_obj.write_to_ctegsphant(pth_output)
+
+if __name__ == "__main__":
+    test_make_egsphant_from_images()

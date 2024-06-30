@@ -17,8 +17,8 @@ class BrachyEgsphant:
         - material_matrix:np.ndarray
         - density_matrix:np.ndarray
         - num_materials:int := the number of different material composition options a voxel has
-        - material_dict:dict := a dictionary containing the name of the elements for each voxel
-            and their number coding
+        - material_dict:dict := a dictionary containing the name of the elements for each voxel,
+            their density and HU upper limit threshold as well as their number coding
         - num_voxels:np.ndarray := 1D numpy array holding the number of grid points
         on x, y, z axis.
         - voxel_size:np.ndarray := 1D numpy array holding the resolution of each voxel
@@ -121,8 +121,10 @@ class BrachyEgsphant:
             self.num_materials = int(egsphant.readline().strip())
 
             # load each material line by line
+            # XXX: also put in the density and HU upper limit threshold
+            encoding_array = [str(i) for i in range(10)] + [chr(i) for i in range(ord('a'), ord('z') + 1)]
             for i in range(self.num_materials):
-                self.material_dict[egsphant.readline().strip()] = i
+                self.material_dict[egsphant.readline().strip()] = {"encoding":encoding_array[i]}
 
             egsphant.readline()
 
@@ -533,7 +535,7 @@ class BrachyEgsphant:
             image:BrachyDicom,
             ct_to_density_dict: dict = None,
             structure_material_dict: dict = None,
-    )
+    ):
         r"""
         Purpose:
             - To generate an egsphant object from a directory containing images and a structure file.
@@ -549,7 +551,34 @@ class BrachyEgsphant:
         Dependencies:
             - BrachyDicom
         """
-        # raise NotImplementedError("This function is not implemented yet!")
+        if ct_to_density_dict is not None:
+            self.num_materials = len(ct_to_density_dict)
+            self.material_dict = {
+                material:{
+                    "encoding":number,
+                    "density": ct_to_density_dict[material]["density"],
+                    "HU_limit":ct_to_density_dict[material]["HU_limit"]
+                } for material, number in zip (
+                    ct_to_density_dict.keys(), 
+                    range(self.num_materials)
+                )
+            }
+        elif structure_material_dict is not None:
+            self.num_materials = len(structure_material_dict)
+            self.material_dict = {
+                material:{
+                    "encoding":number,
+                    "density": structure_material_dict[material]["density"],
+                    "HU_limit":structure_material_dict[material]["HU_limit"]
+                } for material, number in zip (
+                    structure_material_dict.keys(), 
+                    range(self.num_materials)
+                )
+            }
+        else:
+            raise Exception("Either ct_to_density_dict or structure_material_dict should be provided")
+        
+        # self.num_voxels = ????
         
         
 
