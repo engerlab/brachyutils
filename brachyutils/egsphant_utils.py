@@ -23,7 +23,7 @@ class BrachyEgsphant:
         on x, y, z axis.
         - voxel_size:np.ndarray := 1D numpy array holding the resolution of each voxel
         along x, y, z axis in centimeters.
-        - topleft:np.ndarray := The spatial coordinate of the "bottom" left corner of
+        - origin_coordinates:np.ndarray := The spatial coordinate of the "bottom" left corner of
         the image in centrimeters. [x, y, z]
         - axis:np.ndarray := coorindates of grid points along z, y and x axis.
 
@@ -74,7 +74,7 @@ class BrachyEgsphant:
         self.material_dict: dict = {}
         self.num_voxels: np.ndarray = None
         self.voxel_size: np.ndarray = None
-        self.topleft: np.ndarray = None
+        self.origin_coordinates: np.ndarray = None
         self.axis: np.ndarray = None
         self._sanity_axis: np.ndarray = None
 
@@ -156,7 +156,7 @@ class BrachyEgsphant:
             )
             self._sanity_axis = np.flip(self._sanity_axis, axis=0)
 
-            self.topleft = np.array(
+            self.origin_coordinates = np.array(
                 [
                     self._sanity_axis[2][0],
                     self._sanity_axis[1][0],
@@ -223,7 +223,7 @@ class BrachyEgsphant:
         Input:
             - self := it should have the following keys and values:
                 {"grid":,
-                "topleft":,
+                "origin_coordinates":,
                 "voxel_size":}
         Output:
             - axes:numpy.array() :=
@@ -233,7 +233,7 @@ class BrachyEgsphant:
         """
         # calculate the end point of axis in 3D space
         axes_end = np.array(
-            self.topleft
+            self.origin_coordinates
             + self.num_voxels * self.voxel_size
             # one voxel size is added because np.arange stops at an index before the end
             + self.voxel_size
@@ -241,7 +241,7 @@ class BrachyEgsphant:
         axes = np.empty(len(axes_end), dtype=object)
         for i in range(len(axes_end)):
             axes[i] = np.arange(
-                self.topleft[len(axes_end) - 1 - i],
+                self.origin_coordinates[len(axes_end) - 1 - i],
                 axes_end[len(axes_end) - 1 - i],
                 self.voxel_size[len(axes_end) - 1 - i],
                 dtype=np.float32,
@@ -261,7 +261,7 @@ class BrachyEgsphant:
                 material_dict:dict
                 num_voxels:np.ndarray       [x, y, z]
                 voxel_size:np.ndarray         #Not Written
-                topleft:np.ndarray          #Not Written
+                origin_coordinates:np.ndarray          #Not Written
                 axis:np.ndarray             [z, y, x] -> [x, y, z]
                 material_matrix:np.ndarray  [z, y, x] -> [x, y, z]
                 density_matrix:np.ndarray   [z, y, x] -> [x, y, z]
@@ -334,8 +334,8 @@ class BrachyEgsphant:
             self.voxel_size, new_BrachyEgsphant.voxel_size
         ), "voxel_size is not the same"
         assert np.isclose(
-            self.topleft, new_BrachyEgsphant.topleft, rtol=1e-3
-        ).all(), "topleft is not the same"
+            self.origin_coordinates, new_BrachyEgsphant.origin_coordinates, rtol=1e-3
+        ).all(), "origin_coordinates is not the same"
 
         return (
             np.array_equal(self.material_matrix,
@@ -350,7 +350,7 @@ class BrachyEgsphant:
             and self.material_dict == new_BrachyEgsphant.material_dict
             and np.array_equal(self.num_voxels, new_BrachyEgsphant.num_voxels)
             and np.array_equal(self.voxel_size, new_BrachyEgsphant.voxel_size)
-            and np.array_equal(self.topleft, new_BrachyEgsphant.topleft)
+            and np.array_equal(self.origin_coordinates, new_BrachyEgsphant.origin_coordinates)
         )
 
     def assert_BrachyEgsphant_notEmpty(self):
@@ -364,7 +364,7 @@ class BrachyEgsphant:
         assert self.material_dict is not None, "error: material_dict is None"
         assert self.num_voxels is not None, "error: num_voxels is None"
         assert self.voxel_size is not None, "error: voxel_size is None"
-        assert self.topleft is not None, "error: topleft is None"
+        assert self.origin_coordinates is not None, "error: origin_coordinates is None"
         assert self.axis is not None, "error: axis is None"
 
     def info(self):
@@ -372,7 +372,7 @@ class BrachyEgsphant:
         print(f"shape of material matrix is: {self.material_matrix.shape}")
         print(f"shape of density matrix is: {self.density_matrix.shape}")
         print(f"num voxels attribute is: {self.num_voxels}")
-        print(f"the top left (bottom left in reality) is {self.topleft}")
+        print(f"the top left (bottom left in reality) is {self.origin_coordinates}")
         print(f"the voxel size is {self.voxel_size}")
         print(
             f"the size of the z, y and x axes are {self.axis[0].shape, self.axis[1].shape, self.axis[2].shape}"
@@ -397,7 +397,7 @@ class BrachyEgsphant:
                 [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
         Output:
             - Void := will crop out the material and density maps of self to have the range of the index range.
-                it will also update the num_voxels, topleft and axis. only voxel_size will not change
+                it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         Dependencies:
             - None
         """
@@ -423,7 +423,7 @@ class BrachyEgsphant:
                 new_origin_index[1]: new_ending_index[1],  # y
                 new_origin_index[0]: new_ending_index[0],  # x
             ]
-            self.topleft = np.array(
+            self.origin_coordinates = np.array(
                 [
                     self.axis[2][new_origin_index[0]],  # x
                     self.axis[1][new_origin_index[1]],  # y
@@ -444,7 +444,7 @@ class BrachyEgsphant:
                 new_origin_index[1]: new_ending_index[1],
                 new_origin_index[0]: new_ending_index[0],
             ]
-            new_obj.topleft = np.array(
+            new_obj.origin_coordinates = np.array(
                 [
                     self.axis[2][new_origin_index[0]],  # x
                     self.axis[1][new_origin_index[1]],  # y
@@ -470,14 +470,14 @@ class BrachyEgsphant:
                 [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
         Output:
             - Void := will crop out the material and density maps of self to have the range of the index range.
-                it will also update the num_voxels, topleft and axis. only voxel_size will not change
+                it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         Dependencies:
             - None
         """
         crop_indices = np.zeros((3, 2), dtype=int)
 
         for i in range(3):
-            origin = self.topleft[i]
+            origin = self.origin_coordinates[i]
             for j in range(2):
                 crop_indices[i][j] = int(
                     (coordinate_range[i][j]-origin)/self.voxel_size[i])
@@ -508,7 +508,7 @@ class BrachyEgsphant:
 
         Outputs:
             - Void := will crop out the material and density maps of self to have the range of the body contour
-                    in the dicom structure file. It will also update the num_voxels, topleft and axis. only voxel_size will not change
+                    in the dicom structure file. It will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         """
 
         if body_index_range is None or body_mask_shape is None:
@@ -578,7 +578,9 @@ class BrachyEgsphant:
         else:
             raise Exception("Either ct_to_density_dict or structure_material_dict should be provided")
         
-        # self.num_voxels = ????
+        self.num_voxels = image.num_voxels
+        self.voxel_size = image.voxel_size
+        self.
         
         
 

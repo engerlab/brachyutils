@@ -77,7 +77,7 @@ This class holds information regarding a dose distribution as well as the fundam
 - uncertainty:np.ndarray := 3D numpy array holding dose uncertainity at each voxel. [z, y, x] 
 - num_voxels:np.ndarray := 1D numpy array holding the number of grid points on x, y, z axis. 
 - voxel_size:np.ndarray := 1D numpy array holding the resolution of each voxel along x, y, z axis in centimeters. 
-- topleft:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z] 
+- origin_coordinates:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z] 
 - voxel_edges:np.ndarray := coorindates of voxel edges along z, y and x axis.  
 
 ### Functions:
@@ -120,7 +120,7 @@ An object to allow for loading and manipulating the .egsphant files
 - material_dict:dict := a dictionary containing the name of the elements for each voxel and their number coding
 - num_voxels:np.ndarray := 1D numpy array holding the number of grid points on x, y, z axis. 
 - voxel_size:np.ndarray := 1D numpy array holding the resolution of each voxel along x, y, z axis in centimeters. 
-- topleft:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z] 
+- origin_coordinates:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z] 
 - axis:np.ndarray := coorindates of grid points along z, y and x axis.  
     
 ### Functions:

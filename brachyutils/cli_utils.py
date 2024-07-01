@@ -683,7 +683,7 @@ def combined_dose_per_patient(
 
     combined_dose_obj.num_voxels = dose_obj.num_voxels
     combined_dose_obj.voxel_size = dose_obj.voxel_size
-    combined_dose_obj.topleft = dose_obj.topleft
+    combined_dose_obj.origin_coordinates = dose_obj.origin_coordinates
     combined_dose_obj.voxel_edges = dose_obj.voxel_edges
 
     sum_dose = dose_obj.grid

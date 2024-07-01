@@ -19,7 +19,7 @@ class BrachyDicom:
         - dicom_reader:DicomReaderWriter := an instance of the DicomReaderWriter class.
         - all_rois:list := a list of all the structure names in the dicom file.
         - image:np.array := the image of the patient. [z, y, x]
-        - origin_coords:list := the origin of the image. [x, y, z]
+        - origin_coordinates:list := the origin of the image. [x, y, z]
         - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value.
         - structure_index_range_dict:dict := a dictionary with the structure name as key and the index range as value.
         - dose: BrachyDose := dose from dicom RD file saved as an instance of the BrachyDose class.
@@ -45,7 +45,7 @@ class BrachyDicom:
         self.dicom_reader: DicomReaderWriter = None
         self.all_rois = None
         self.image: np.array = None
-        self.origin_coords: np.array = None
+        self.origin_coordinates: np.array = None
         self.voxel_size: np.array = None
         self.num_voxels: np.array = None
         self.structure_mask_dict: dict = {}
@@ -68,7 +68,7 @@ class BrachyDicom:
 
         if load_image:
             self.image = self.dicom_reader.ArrayDicom
-            self.origin_coords = np.array(
+            self.origin_coordinates = np.array(
                 self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
             )
             self.voxel_size = np.array(
@@ -177,13 +177,13 @@ class BrachyDicom:
 
     def info(self):
         print(f"shape of the image: {self.image.shape}")
-        print(f"origin of the image: {self.origin_coords}")
+        print(f"origin of the image: {self.origin_coordinates}")
         print(f"voxel size of the image: {self.voxel_size}")
         print(f"number of voxels: {self.num_voxels}")
         print(f"all the structures in the dicom: {self.all_rois}")
         if self.dose is not None:
             print(f"the shape of dose: {self.dose.num_voxels}")
-            print(f"origin of the dose: {self.dose.topleft}")
+            print(f"origin of the dose: {self.dose.origin_coordinates}")
             print(f"voxel size of the dose: {self.dose.voxel_size}")
         else:
             print("no dose file was loaded")
