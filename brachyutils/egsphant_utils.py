@@ -583,7 +583,8 @@ class BrachyEgsphant:
         self.voxel_size = image.voxel_size
         self.origin_coordinates = image.origin_coordinates
         self.axis = self.calculateAxis()
-
+        # XXX to fill out these two. after that look into voxel edges, cropping and
+        # resampling
         self.material_matrix = np.zeros_like(image.ct_images, dtype=str)
         self.density_matrix = np.zeros_like(image.ct_images, dtype=np.float32)
 
