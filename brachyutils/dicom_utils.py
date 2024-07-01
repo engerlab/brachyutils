@@ -78,9 +78,9 @@ class BrachyDicom:
                 [
                     int(self.dicom_reader.return_key_info("0028|0010")),
                     int(self.dicom_reader.return_key_info("0028|0011")),
-                    int(len(self.dicom_reader.series_instances_dictionary[0].files))
+                    int(len(self.dicom_reader.series_instances_dictionary[0].files)),
                 ]
-            ) 
+            )
 
         if load_structure:
             self.all_rois = self.dicom_reader.return_rois()

@@ -60,13 +60,14 @@ class BrachyEgsphant:
         pydicom
         json
     """
+
     def __init__(
-            self,
-            pth_egsphant_file: Optional[str] = None,
-            image: Optional[BrachyDicom] = None,
-            ct_to_density_dict: Optional[dict] = None,
-            structure_material_dict: Optional[dict] = None,
-        ):
+        self,
+        pth_egsphant_file: Optional[str] = None,
+        image: Optional[BrachyDicom] = None,
+        ct_to_density_dict: Optional[dict] = None,
+        structure_material_dict: Optional[dict] = None,
+    ):
 
         self.material_matrix: np.ndarray = None
         self.density_matrix: np.ndarray = None
@@ -80,7 +81,7 @@ class BrachyEgsphant:
 
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
-        
+
         if image is not None:
             self.make_egsphant_from_images(
                 image,
@@ -122,9 +123,13 @@ class BrachyEgsphant:
 
             # load each material line by line
             # XXX: also put in the density and HU upper limit threshold
-            encoding_array = [str(i) for i in range(10)] + [chr(i) for i in range(ord('a'), ord('z') + 1)]
+            encoding_array = [str(i) for i in range(10)] + [
+                chr(i) for i in range(ord("a"), ord("z") + 1)
+            ]
             for i in range(self.num_materials):
-                self.material_dict[egsphant.readline().strip()] = {"encoding":encoding_array[i]}
+                self.material_dict[egsphant.readline().strip()] = {
+                    "encoding": encoding_array[i]
+                }
 
             egsphant.readline()
 
@@ -137,18 +142,15 @@ class BrachyEgsphant:
             self._sanity_axis = np.array(
                 [
                     np.array(
-                        [float(x)
-                         for x in egsphant.readline().strip().split()],
+                        [float(x) for x in egsphant.readline().strip().split()],
                         dtype=np.float32,
                     ),
                     np.array(
-                        [float(y)
-                         for y in egsphant.readline().strip().split()],
+                        [float(y) for y in egsphant.readline().strip().split()],
                         dtype=np.float32,
                     ),
                     np.array(
-                        [float(z)
-                         for z in egsphant.readline().strip().split()],
+                        [float(z) for z in egsphant.readline().strip().split()],
                         dtype=np.float32,
                     ),
                 ],
@@ -186,8 +188,7 @@ class BrachyEgsphant:
 
             # prepare empty matricies to hold material and density images
             self.material_matrix = np.zeros(
-                (self.num_voxels[2], self.num_voxels[1],
-                 self.num_voxels[0]), dtype=str
+                (self.num_voxels[2], self.num_voxels[1], self.num_voxels[0]), dtype=str
             )
             self.density_matrix = np.zeros(
                 (self.num_voxels[2], self.num_voxels[1], self.num_voxels[0]),
@@ -197,15 +198,13 @@ class BrachyEgsphant:
             # load the material composition data in to the matrix
             for k in range(self.num_voxels[2]):
                 for j in range(self.num_voxels[1]):
-                    self.material_matrix[k][j] = list(
-                        egsphant.readline().strip())
+                    self.material_matrix[k][j] = list(egsphant.readline().strip())
                 egsphant.readline()
 
             # load the density data into the matrix
             for k in range(self.num_voxels[2]):
                 for j in range(self.num_voxels[1]):
-                    self.density_matrix[k][j] = egsphant.readline(
-                    ).strip().split()
+                    self.density_matrix[k][j] = egsphant.readline().strip().split()
                 egsphant.readline()
 
     def load_from_nrrd(self, pth_file: str):
@@ -268,7 +267,9 @@ class BrachyEgsphant:
 
             - fileName := the directory path where the file will be written
         """
-        assert os.path.splitext(fileName)[-1] == ".egsphant", "file extension is not .egsphant"
+        assert (
+            os.path.splitext(fileName)[-1] == ".egsphant"
+        ), "file extension is not .egsphant"
         fileName = os.path.abspath(fileName)
         num_materials = str(self.num_materials) + "\n"
         materials = "\n".join(self.material_dict.keys()) + "\n"
@@ -278,8 +279,7 @@ class BrachyEgsphant:
         y_axis = " ".join(map(str, np.round(self.axis[1], decimals=3))) + "\n"
         z_axis = " ".join(map(str, np.round(self.axis[0], decimals=3))) + "\n"
         material_matrix = _to_single_string(self.material_matrix.astype(str))
-        density_matrix = _to_single_string(
-            self.density_matrix.astype(str), " ")
+        density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
 
         with open(fileName, "w") as file:
             lines = [
@@ -338,8 +338,7 @@ class BrachyEgsphant:
         ).all(), "origin_coordinates is not the same"
 
         return (
-            np.array_equal(self.material_matrix,
-                           new_BrachyEgsphant.material_matrix)
+            np.array_equal(self.material_matrix, new_BrachyEgsphant.material_matrix)
             and np.array_equal(self.density_matrix, new_BrachyEgsphant.density_matrix)
             and np.isclose(
                 np.concatenate(self.axis),
@@ -350,7 +349,9 @@ class BrachyEgsphant:
             and self.material_dict == new_BrachyEgsphant.material_dict
             and np.array_equal(self.num_voxels, new_BrachyEgsphant.num_voxels)
             and np.array_equal(self.voxel_size, new_BrachyEgsphant.voxel_size)
-            and np.array_equal(self.origin_coordinates, new_BrachyEgsphant.origin_coordinates)
+            and np.array_equal(
+                self.origin_coordinates, new_BrachyEgsphant.origin_coordinates
+            )
         )
 
     def assert_BrachyEgsphant_notEmpty(self):
@@ -377,12 +378,9 @@ class BrachyEgsphant:
         print(
             f"the size of the z, y and x axes are {self.axis[0].shape, self.axis[1].shape, self.axis[2].shape}"
         )
-        print(
-            f"the range of the z axis is {self.axis[0][0], self.axis[0][-1]}")
-        print(
-            f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
-        print(
-            f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
+        print(f"the range of the z axis is {self.axis[0][0], self.axis[0][-1]}")
+        print(f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
+        print(f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
         print(f"The number of materials is {self.num_materials}")
         print(f"the material dictionary is {self.material_dict}")
 
@@ -414,14 +412,14 @@ class BrachyEgsphant:
         # update the attributes
         if inplace:
             self.material_matrix = self.material_matrix[
-                new_origin_index[2]: new_ending_index[2],  # z
-                new_origin_index[1]: new_ending_index[1],  # y
-                new_origin_index[0]: new_ending_index[0],  # x
+                new_origin_index[2] : new_ending_index[2],  # z
+                new_origin_index[1] : new_ending_index[1],  # y
+                new_origin_index[0] : new_ending_index[0],  # x
             ]
             self.density_matrix = self.density_matrix[
-                new_origin_index[2]: new_ending_index[2],  # z
-                new_origin_index[1]: new_ending_index[1],  # y
-                new_origin_index[0]: new_ending_index[0],  # x
+                new_origin_index[2] : new_ending_index[2],  # z
+                new_origin_index[1] : new_ending_index[1],  # y
+                new_origin_index[0] : new_ending_index[0],  # x
             ]
             self.origin_coordinates = np.array(
                 [
@@ -435,14 +433,14 @@ class BrachyEgsphant:
         else:
             new_obj = BrachyEgsphant()
             new_obj.material_matrix = self.material_matrix[
-                new_origin_index[2]: new_ending_index[2],
-                new_origin_index[1]: new_ending_index[1],
-                new_origin_index[0]: new_ending_index[0],
+                new_origin_index[2] : new_ending_index[2],
+                new_origin_index[1] : new_ending_index[1],
+                new_origin_index[0] : new_ending_index[0],
             ]
             new_obj.density_matrix = self.density_matrix[
-                new_origin_index[2]: new_ending_index[2],
-                new_origin_index[1]: new_ending_index[1],
-                new_origin_index[0]: new_ending_index[0],
+                new_origin_index[2] : new_ending_index[2],
+                new_origin_index[1] : new_ending_index[1],
+                new_origin_index[0] : new_ending_index[0],
             ]
             new_obj.origin_coordinates = np.array(
                 [
@@ -458,8 +456,9 @@ class BrachyEgsphant:
             new_obj.num_materials = self.num_materials
             return new_obj
 
-    def crop_by_coordinates(self,
-                            coordinate_range: np.array, inplace: Optional[bool] = True):
+    def crop_by_coordinates(
+        self, coordinate_range: np.array, inplace: Optional[bool] = True
+    ):
         r"""
         Purpose:
             given a range of coordinates (mix and max on each axis), this function will crop
@@ -480,7 +479,8 @@ class BrachyEgsphant:
             origin = self.origin_coordinates[i]
             for j in range(2):
                 crop_indices[i][j] = int(
-                    (coordinate_range[i][j]-origin)/self.voxel_size[i])
+                    (coordinate_range[i][j] - origin) / self.voxel_size[i]
+                )
 
         return self.crop_by_index(crop_indices, inplace=inplace)
 
@@ -516,8 +516,7 @@ class BrachyEgsphant:
                 pth_dir_dicom is not None
             ), "Either path to a dicom directory with dicom structure \
                 file should be given or body_index_range and body_mask_shape"
-            body_mask_info = BrachyDicom(
-                pth_dir_dicom, query_structure_list=["body"])
+            body_mask_info = BrachyDicom(pth_dir_dicom, query_structure_list=["body"])
             body_index_range = body_mask_info["body"]["structure_index_range"]
             body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]
         # the body mask may have a different size than the material map, we normalize range to the dimension
@@ -531,10 +530,10 @@ class BrachyEgsphant:
         self.crop_by_index(scaled_body_index_range, True)
 
     def make_egsphant_from_images(
-            self,
-            image:BrachyDicom,
-            ct_to_density_dict: dict = None,
-            structure_material_dict: dict = None,
+        self,
+        image: BrachyDicom,
+        ct_to_density_dict: dict = None,
+        structure_material_dict: dict = None,
     ):
         r"""
         Purpose:
@@ -544,7 +543,7 @@ class BrachyEgsphant:
         Inputs:
             - image := a brachy image object containing the CT images and the structures.
             - ct_to_density_dict := For each material this dictionary contains the density and the max HU on the CT images.
-            - structure_material_dict := a dictionary that maps the structure names to material and density. This is needed 
+            - structure_material_dict := a dictionary that maps the structure names to material and density. This is needed
             when ct_to_density_dict is not provided. All the voxels inside a structure will have the same material and density.
         Outputs:
             - Void := will generate a BrachyEgsphant object from the images and structure file.
@@ -554,36 +553,39 @@ class BrachyEgsphant:
         if ct_to_density_dict is not None:
             self.num_materials = len(ct_to_density_dict)
             self.material_dict = {
-                material:{
-                    "encoding":number,
+                material: {
+                    "encoding": number,
                     "density": ct_to_density_dict[material]["density"],
-                    "HU_limit":ct_to_density_dict[material]["HU_limit"]
-                } for material, number in zip (
-                    ct_to_density_dict.keys(), 
-                    range(self.num_materials)
+                    "HU_limit": ct_to_density_dict[material]["HU_limit"],
+                }
+                for material, number in zip(
+                    ct_to_density_dict.keys(), range(self.num_materials)
                 )
             }
         elif structure_material_dict is not None:
             self.num_materials = len(structure_material_dict)
             self.material_dict = {
-                material:{
-                    "encoding":number,
+                material: {
+                    "encoding": number,
                     "density": structure_material_dict[material]["density"],
-                    "HU_limit":structure_material_dict[material]["HU_limit"]
-                } for material, number in zip (
-                    structure_material_dict.keys(), 
-                    range(self.num_materials)
+                    "HU_limit": structure_material_dict[material]["HU_limit"],
+                }
+                for material, number in zip(
+                    structure_material_dict.keys(), range(self.num_materials)
                 )
             }
         else:
-            raise Exception("Either ct_to_density_dict or structure_material_dict should be provided")
-        
+            raise Exception(
+                "Either ct_to_density_dict or structure_material_dict should be provided"
+            )
+
         self.num_voxels = image.num_voxels
         self.voxel_size = image.voxel_size
-        self.
-        
-        
+        self.origin_coordinates = image.origin_coordinates
+        self.axis = self.calculateAxis()
 
+        self.material_matrix = np.zeros_like(image.ct_images, dtype=str)
+        self.density_matrix = np.zeros_like(image.ct_images, dtype=np.float32)
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
@@ -604,8 +606,7 @@ def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
         slide_single_string = []
         for row in slide:
             slide_single_string.append(deliminator.join(row) + "\n")
-        matrix_single_string.append(
-            deliminator.join(slide_single_string) + "\n")
+        matrix_single_string.append(deliminator.join(slide_single_string) + "\n")
 
     return "".join(matrix_single_string)
 
