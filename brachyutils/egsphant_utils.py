@@ -6,7 +6,7 @@ import numpy as np
 
 # from dicom_utils import get_structure_index_range
 from brachyutils.dicom_utils import BrachyDicom
-
+from scipy.interpolate import RegularGridInterpolator
 
 class BrachyEgsphant:
     r"""
@@ -60,7 +60,9 @@ class BrachyEgsphant:
         pydicom
         json
     """
-
+    _materials_encoding_array = [str(i) for i in range(10)] + [
+                chr(i) for i in range(ord("a"), ord("z") + 1)
+            ]
     def __init__(
         self,
         pth_egsphant_file: Optional[str] = None,
@@ -70,7 +72,11 @@ class BrachyEgsphant:
     ):
 
         self.material_matrix: np.ndarray = None
+        self.material_interpolation_function = None
+        
         self.density_matrix: np.ndarray = None
+        self.density_interpolation_function = None
+        
         self.num_materials: int = None
         self.material_dict: dict = {}
         self.num_voxels: np.ndarray = None
@@ -78,7 +84,7 @@ class BrachyEgsphant:
         self.origin_coordinates: np.ndarray = None
         self.voxel_edges: np.ndarray = None
         self._sanity_axis: np.ndarray = None
-        self.interpolation_function = None
+        
 
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
@@ -90,8 +96,10 @@ class BrachyEgsphant:
                 structure_material_dict,
             )
         
-        if self.grid is not None:
-            self.create_interpolation_function()
+        if self.material_matrix is not None:
+            self.material_interpolation_function = self.create_interpolation_function(self.material_matrix)
+        if self.density_matrix is not None:
+            self.density_interpolation_function = self.create_interpolation_function(self.density_matrix)
         
     def load_file_to_BrachyEgsphant(self, pth_egsphant_file):
         pth_egsphant_file = os.path.abspath(pth_egsphant_file)
@@ -127,12 +135,9 @@ class BrachyEgsphant:
 
             # load each material line by line
             # XXX: also put in the density and HU upper limit threshold
-            encoding_array = [str(i) for i in range(10)] + [
-                chr(i) for i in range(ord("a"), ord("z") + 1)
-            ]
             for i in range(self.num_materials):
                 self.material_dict[egsphant.readline().strip()] = {
-                    "encoding": encoding_array[i]
+                    "encoding": BrachyEgsphant._materials_encoding_array[i]
                 }
 
             egsphant.readline()
@@ -254,11 +259,11 @@ class BrachyEgsphant:
                 self.voxel_edges[i] = self.voxel_edges[i][:-1]
         return self.voxel_edges
 
-    def create_interpolation_function(self):
+    def create_interpolation_function(self, grid):
             voxel_centers = self.get_voxel_centers()
             self.interpolation_function = RegularGridInterpolator(
                 (voxel_centers[0], voxel_centers[1], voxel_centers[2]),
-                self.grid,
+                grid,
                 bounds_error=False,
                 fill_value=0,
             )
@@ -577,11 +582,17 @@ class BrachyEgsphant:
         Dependencies:
             - BrachyDicom
         """
-        if ct_to_density_dict is not None:
+        assert image.structure_mask_dict is not None, "No structure mask was found"
+        
+        if ct_to_density_dict is not None and structure_material_dict is not None:
+            raise ValueError(
+                "Both ct_to_density_dict and structure_material_dict cannot be provided at the same time"
+            )
+        elif ct_to_density_dict is not None:
             self.num_materials = len(ct_to_density_dict)
             self.material_dict = {
                 material: {
-                    "encoding": number,
+                    "encoding": BrachyEgsphant._materials_encoding_array[number],
                     "density": ct_to_density_dict[material]["density"],
                     "HU_limit": ct_to_density_dict[material]["HU_limit"],
                 }
@@ -593,7 +604,7 @@ class BrachyEgsphant:
             self.num_materials = len(structure_material_dict)
             self.material_dict = {
                 material: {
-                    "encoding": number,
+                    "encoding": BrachyEgsphant._materials_encoding_array[number],
                     "density": structure_material_dict[material]["density"],
                     "HU_limit": structure_material_dict[material]["HU_limit"],
                 }
@@ -602,7 +613,7 @@ class BrachyEgsphant:
                 )
             }
         else:
-            raise Exception(
+            raise ValueError(
                 "Either ct_to_density_dict or structure_material_dict should be provided"
             )
 
@@ -610,10 +621,19 @@ class BrachyEgsphant:
         self.voxel_size = image.voxel_size
         self.origin_coordinates = image.origin_coordinates
         self.voxel_edges = self.calculate_voxel_edges()
+        self.create_interpolation_function 
         # XXX to fill out these two. after that look into voxel edges, cropping and
         # resampling
-        self.material_matrix = np.zeros_like(image.ct_images, dtype=str)
-        self.density_matrix = np.zeros_like(image.ct_images, dtype=np.float32)
+        self.material_matrix = np.ones_like(image.image, dtype=str)
+        self.density_matrix = np.ones_like(image.image, dtype=np.float32)
+        
+        if ct_to_density_dict is not None:
+            # sort out the materials and density based on the HU values
+            sorted_materials = sorted(
+                self.material_dict.items(), key=lambda x: x[1]["HU_limit"]
+            )
+            print(sorted_materials)
+            
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
