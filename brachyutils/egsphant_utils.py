@@ -76,8 +76,9 @@ class BrachyEgsphant:
         self.num_voxels: np.ndarray = None
         self.voxel_size: np.ndarray = None
         self.origin_coordinates: np.ndarray = None
-        self.axis: np.ndarray = None
+        self.voxel_edges: np.ndarray = None
         self._sanity_axis: np.ndarray = None
+        self.interpolation_function = None
 
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
@@ -88,7 +89,10 @@ class BrachyEgsphant:
                 ct_to_density_dict,
                 structure_material_dict,
             )
-
+        
+        if self.grid is not None:
+            self.create_interpolation_function()
+        
     def load_file_to_BrachyEgsphant(self, pth_egsphant_file):
         pth_egsphant_file = os.path.abspath(pth_egsphant_file)
 
@@ -175,15 +179,15 @@ class BrachyEgsphant:
                 ]
             )
             # this line maybe useless in the future
-            self.axis = self.calculateAxis()
+            self.voxel_edges = self.calculate_voxel_edges()
             # {for debugging
-            # print(f"The axis calculated from calculateAxis() are \n {self.axis}")
+            # print(f"The axis calculated from calculate_voxel_edges() are \n {self.voxel_edges}")
             # print(f"The axis from the text file are: \n {self._sanity_axis}")
-            # print(f"the size of the axis in the z, y, x for axis from calcAxis() are {self.axis[0].shape}, {self.axis[1].shape}, {self.axis[2].shape}")
+            # print(f"the size of the axis in the z, y, x for axis from calcAxis() are {self.voxel_edges[0].shape}, {self.voxel_edges[1].shape}, {self.voxel_edges[2].shape}")
             # print(f"the size of the axis in the z, y, x for axis from file are {self._sanity_axis[0].shape}, {self._sanity_axis[1].shape}, {self._sanity_axis[2].shape}")
             # }
             assert np.isclose(
-                np.concatenate(self.axis), np.concatenate(self._sanity_axis), rtol=1e-1
+                np.concatenate(self.voxel_edges), np.concatenate(self._sanity_axis), rtol=1e-1
             ).all(), "axis is not the same"
 
             # prepare empty matricies to hold material and density images
@@ -216,7 +220,7 @@ class BrachyEgsphant:
         """
         raise Exception("This function is not implemented yet!")
 
-    def calculateAxis(self):
+    def calculate_voxel_edges(self):
         r"""
         Purpose: will calculate the axies coordinates for a BrachyEgsphant object.
         Input:
@@ -232,21 +236,44 @@ class BrachyEgsphant:
         """
         # calculate the end point of axis in 3D space
         axes_end = np.array(
+            # one voxel size is added because np.arange stops at an index before the end
             self.origin_coordinates
             + self.num_voxels * self.voxel_size
-            # one voxel size is added because np.arange stops at an index before the end
             + self.voxel_size
         )
-        axes = np.empty(len(axes_end), dtype=object)
+
+        self.voxel_edges = np.empty(len(axes_end), dtype=object)
         for i in range(len(axes_end)):
-            axes[i] = np.arange(
+            self.voxel_edges[i] = np.arange(
                 self.origin_coordinates[len(axes_end) - 1 - i],
                 axes_end[len(axes_end) - 1 - i],
                 self.voxel_size[len(axes_end) - 1 - i],
                 dtype=np.float32,
             )
+            if np.absolute(self.num_voxels[::-1][i] - self.voxel_edges[i].shape[0]) > 1:
+                self.voxel_edges[i] = self.voxel_edges[i][:-1]
+        return self.voxel_edges
 
-        return axes
+    def create_interpolation_function(self):
+            voxel_centers = self.get_voxel_centers()
+            self.interpolation_function = RegularGridInterpolator(
+                (voxel_centers[0], voxel_centers[1], voxel_centers[2]),
+                self.grid,
+                bounds_error=False,
+                fill_value=0,
+            )
+
+
+    def get_voxel_centers(self):
+        voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
+        if self.voxel_edges is not None:
+            for i in range(len(self.voxel_edges)):
+                voxel_centers[i] = self.voxel_edges[i] + self.voxel_size[i] / 2.0
+                voxel_centers[i] = voxel_centers[i][:-1]
+        else:
+            raise ValueError("Voxel edges are not calculated yet")
+        return voxel_centers
+
 
     def write_to_ctegsphant(self, fileName: str):
         r"""
@@ -275,9 +302,9 @@ class BrachyEgsphant:
         materials = "\n".join(self.material_dict.keys()) + "\n"
         spacing = "0 0 0 0 0 0 0 0 0\n"
         dimensions = " ".join(map(str, self.num_voxels.astype(int))) + "\n"
-        x_axis = " ".join(map(str, np.round(self.axis[2], decimals=3))) + "\n"
-        y_axis = " ".join(map(str, np.round(self.axis[1], decimals=3))) + "\n"
-        z_axis = " ".join(map(str, np.round(self.axis[0], decimals=3))) + "\n"
+        x_axis = " ".join(map(str, np.round(self.voxel_edges[2], decimals=3))) + "\n"
+        y_axis = " ".join(map(str, np.round(self.voxel_edges[1], decimals=3))) + "\n"
+        z_axis = " ".join(map(str, np.round(self.voxel_edges[0], decimals=3))) + "\n"
         material_matrix = _to_single_string(self.material_matrix.astype(str))
         density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
 
@@ -317,7 +344,7 @@ class BrachyEgsphant:
             self.density_matrix, new_BrachyEgsphant.density_matrix
         ), "density matrix is not the same"
         assert np.isclose(
-            np.concatenate(self.axis),
+            np.concatenate(self.voxel_edges),
             np.concatenate(new_BrachyEgsphant.axis),
             rtol=1e-3,
         ).all(), "axis is not the same"
@@ -341,7 +368,7 @@ class BrachyEgsphant:
             np.array_equal(self.material_matrix, new_BrachyEgsphant.material_matrix)
             and np.array_equal(self.density_matrix, new_BrachyEgsphant.density_matrix)
             and np.isclose(
-                np.concatenate(self.axis),
+                np.concatenate(self.voxel_edges),
                 np.concatenate(new_BrachyEgsphant.axis),
                 rtol=1e-3,
             ).all()
@@ -366,7 +393,7 @@ class BrachyEgsphant:
         assert self.num_voxels is not None, "error: num_voxels is None"
         assert self.voxel_size is not None, "error: voxel_size is None"
         assert self.origin_coordinates is not None, "error: origin_coordinates is None"
-        assert self.axis is not None, "error: axis is None"
+        assert self.voxel_edges is not None, "error: axis is None"
 
     def info(self):
         self.assert_BrachyEgsphant_notEmpty()
@@ -376,11 +403,11 @@ class BrachyEgsphant:
         print(f"the top left (bottom left in reality) is {self.origin_coordinates}")
         print(f"the voxel size is {self.voxel_size}")
         print(
-            f"the size of the z, y and x axes are {self.axis[0].shape, self.axis[1].shape, self.axis[2].shape}"
+            f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
         )
-        print(f"the range of the z axis is {self.axis[0][0], self.axis[0][-1]}")
-        print(f"the range of the y axis is {self.axis[1][0], self.axis[1][-1]}")
-        print(f"the range of the x axis is {self.axis[2][0], self.axis[2][-1]}")
+        print(f"the range of the z axis is {self.voxel_edges[0][0], self.voxel_edges[0][-1]}")
+        print(f"the range of the y axis is {self.voxel_edges[1][0], self.voxel_edges[1][-1]}")
+        print(f"the range of the x axis is {self.voxel_edges[2][0], self.voxel_edges[2][-1]}")
         print(f"The number of materials is {self.num_materials}")
         print(f"the material dictionary is {self.material_dict}")
 
@@ -423,13 +450,13 @@ class BrachyEgsphant:
             ]
             self.origin_coordinates = np.array(
                 [
-                    self.axis[2][new_origin_index[0]],  # x
-                    self.axis[1][new_origin_index[1]],  # y
-                    self.axis[0][new_origin_index[2]],  # z
+                    self.voxel_edges[2][new_origin_index[0]],  # x
+                    self.voxel_edges[1][new_origin_index[1]],  # y
+                    self.voxel_edges[0][new_origin_index[2]],  # z
                 ]
             )
             self.num_voxels = np.flip(self.material_matrix.shape, 0)
-            self.axis = self.calculateAxis()
+            self.voxel_edges = self.calculate_voxel_edges()
         else:
             new_obj = BrachyEgsphant()
             new_obj.material_matrix = self.material_matrix[
@@ -444,15 +471,15 @@ class BrachyEgsphant:
             ]
             new_obj.origin_coordinates = np.array(
                 [
-                    self.axis[2][new_origin_index[0]],  # x
-                    self.axis[1][new_origin_index[1]],  # y
-                    self.axis[0][new_origin_index[2]],  # z
+                    self.voxel_edges[2][new_origin_index[0]],  # x
+                    self.voxel_edges[1][new_origin_index[1]],  # y
+                    self.voxel_edges[0][new_origin_index[2]],  # z
                 ]
             )
             new_obj.material_dict = self.material_dict
             new_obj.num_voxels = np.flip(new_obj.material_matrix.shape, 0)
             new_obj.voxel_size = self.voxel_size
-            new_obj.axis = new_obj.calculateAxis()
+            new_obj.axis = new_obj.calculate_voxel_edges()
             new_obj.num_materials = self.num_materials
             return new_obj
 
@@ -582,7 +609,7 @@ class BrachyEgsphant:
         self.num_voxels = image.num_voxels
         self.voxel_size = image.voxel_size
         self.origin_coordinates = image.origin_coordinates
-        self.axis = self.calculateAxis()
+        self.voxel_edges = self.calculate_voxel_edges()
         # XXX to fill out these two. after that look into voxel edges, cropping and
         # resampling
         self.material_matrix = np.zeros_like(image.ct_images, dtype=str)
