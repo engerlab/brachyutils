@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 
@@ -79,12 +79,13 @@ class BrachyEgsphant:
         
         self.num_materials: int = None
         self.material_dict: dict = {}
+        self.sorter_materials_list: List[dict] = []
         self.num_voxels: np.ndarray = None
         self.voxel_size: np.ndarray = None
         self.origin_coordinates: np.ndarray = None
         self.voxel_edges: np.ndarray = None
         self._sanity_axis: np.ndarray = None
-        
+
 
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
