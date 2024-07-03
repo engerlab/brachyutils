@@ -61,7 +61,7 @@ class BrachyEgsphant:
         json
     """
     _materials_encoding_array = [str(i) for i in range(10)] + [
-                chr(i) for i in range(ord("a"), ord("z") + 1)
+                chr(i) for i in range(ord("A"), ord("Z") + 1)
             ]
     def __init__(
         self,
@@ -79,7 +79,6 @@ class BrachyEgsphant:
         
         self.num_materials: int = None
         self.material_dict: dict = {}
-        self.sorter_materials_list: List[dict] = []
         self.num_voxels: np.ndarray = None
         self.voxel_size: np.ndarray = None
         self.origin_coordinates: np.ndarray = None
@@ -141,6 +140,8 @@ class BrachyEgsphant:
                     "encoding": BrachyEgsphant._materials_encoding_array[i]
                 }
 
+            self.sort_materials_by_encoding()
+            
             egsphant.readline()
 
             # load number of voxels
@@ -217,6 +218,18 @@ class BrachyEgsphant:
                     self.density_matrix[k][j] = egsphant.readline().strip().split()
                 egsphant.readline()
 
+    def _sort_materials_by_encoding(self):
+        r"""
+        Purpose:
+            to sort the materials in the material dictionary based on their encoding
+        Input:
+            - self: BrachyEgsphant object with material_dict attribute. The material_dict
+            has to have at least the encoding key for each material.
+        """
+        self.material_dict = sorted(
+            self.material_dict.items(), key=lambda x: x[1]["encoding"]
+        )
+    
     def load_from_nrrd(self, pth_file: str):
         r"""
         Purpose:
@@ -617,7 +630,8 @@ class BrachyEgsphant:
             raise ValueError(
                 "Either ct_to_density_dict or structure_material_dict should be provided"
             )
-
+        # sort out the materials and density based on the HU values
+        self._sort_materials_by_encoding()
         self.num_voxels = image.num_voxels
         self.voxel_size = image.voxel_size
         self.origin_coordinates = image.origin_coordinates
@@ -628,12 +642,8 @@ class BrachyEgsphant:
         self.material_matrix = np.ones_like(image.image, dtype=str)
         self.density_matrix = np.ones_like(image.image, dtype=np.float32)
         
-        if ct_to_density_dict is not None:
-            # sort out the materials and density based on the HU values
-            sorted_materials = sorted(
-                self.material_dict.items(), key=lambda x: x[1]["HU_limit"]
-            )
-            print(sorted_materials)
+        # if ct_to_density_dict is not None:            
+            
             
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
