@@ -60,6 +60,8 @@ class BrachyEgsphant:
         pydicom
         json
     """
+    # each voxel in the material matrix is encoded with a single character 
+    # from this array that represents a unique material recognized by RapidBrachyMC.
     _materials_encoding_array = [str(i) for i in range(10)] + [
                 chr(i) for i in range(ord("A"), ord("Z") + 1)
             ]
@@ -225,6 +227,8 @@ class BrachyEgsphant:
         Input:
             - self: BrachyEgsphant object with material_dict attribute. The material_dict
             has to have at least the encoding key for each material.
+        Output:
+            - Void: will sort the material_dict based on the encoding
         """
         self.material_dict = sorted(
             self.material_dict.items(), key=lambda x: x[1]["encoding"]
