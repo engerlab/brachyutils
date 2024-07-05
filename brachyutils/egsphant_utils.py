@@ -582,8 +582,8 @@ class BrachyEgsphant:
     def create_egsphant_from_images(
         self,
         image: BrachyDicom,
-        ct_to_density_dict: dict = None,
-        structure_material_dict: dict = None,
+        new_material_dict:dict = None,
+        assign_material_from_ct:bool = True,
     ):
         r"""
         Purpose:
@@ -591,51 +591,31 @@ class BrachyEgsphant:
             if the structure file is not provided, the function will look for it in the directory assuming
             that the dicom structure files start with RS and the NRRD structure files end with seg.nrrd.
         Inputs:
-            - image := a brachy image object containing the CT images and the structures.
-            - ct_to_density_dict := For each material this dictionary contains the density and the max HU on the CT images.
-            - structure_material_dict := a dictionary that maps the structure names to material and density. This is needed
-            when ct_to_density_dict is not provided. All the voxels inside a structure will have the same material and density.
+            - image := A brachy image object containing a grid and the structures.
+            - new_material_dict := A 
         Outputs:
             - Void := will generate a BrachyEgsphant object from the images and structure file.
         Dependencies:
             - BrachyDicom
         """
-        assert image.structure_mask_dict is not None, "No structure mask was found"
-        
-        if ct_to_density_dict is not None and structure_material_dict is not None:
-            raise ValueError(
-                "Both ct_to_density_dict and structure_material_dict cannot be provided at the same time"
-            )
-        elif ct_to_density_dict is not None:
-            self.num_materials = len(ct_to_density_dict)
-            self.material_dict = {
-                material: {
-                    "encoding": BrachyEgsphant._materials_encoding_array[number],
-                    "density": ct_to_density_dict[material]["density"],
-                    "HU_limit": ct_to_density_dict[material]["HU_limit"],
-                }
-                for material, number in zip(
-                    ct_to_density_dict.keys(), range(self.num_materials)
-                )
+        if not assign_material_from_ct:
+            assert image.structure_mask_dict is not None, "No structure mask was found"
+            
+        # update the material dict based on the new material dict. 
+        self.num_materials = len(new_material_dict)
+        self.material_dict = {
+            material: {
+                "encoding": BrachyEgsphant._materials_encoding_array[number],
+                "density": new_material_dict.get(material, {}).get("density", None),
+                "HU_limit": new_material_dict.get(material, {}).get("HU_limit", None)
             }
-        elif structure_material_dict is not None:
-            self.num_materials = len(structure_material_dict)
-            self.material_dict = {
-                material: {
-                    "encoding": BrachyEgsphant._materials_encoding_array[number],
-                    "density": structure_material_dict.get(material, {}).get("density", None),
-                    "HU_limit": structure_material_dict.get(material, {}).get("HU_limit", None)
-                }
-                for material, number in zip(
-                    structure_material_dict.keys(), range(self.num_materials)
-                )
-            }
-        else:
-            raise ValueError(
-                "Either ct_to_density_dict or structure_material_dict should be provided"
+            for material, number in zip(
+                new_material_dict.keys(), range(self.num_materials)
             )
+        }
         # sort out the materials and density based on the HU values
         self._sort_materials_by_encoding()
+        # get the egsphant dimensions and voxel size from the image.
         self.num_voxels = image.num_voxels
         self.voxel_size = image.voxel_size
         self.origin_coordinates = image.origin_coordinates
@@ -647,18 +627,28 @@ class BrachyEgsphant:
         # loop through the material, get their binary mask from the ct images apply it to the material
         # density materix.
         materials_list = enumerate(self.material_dict.keys())
-        for i, material in materials_list:
-            if ct_to_density_dict:
+        if assign_material_from_ct:
+            for i, material in materials_list:
                 low_HU_threshold = self.material_dict.get(material).get("HU_limit")
                 high_HU_threshold = self.material_dict.get(materials_list[i+1]).get("HU_limit") if i < len(materials_list) else float('inf')
-                material_map = np.where((self.image.grid >= low_HU_threshold) and (self.image.grid < high_HU_threshold) , 1, 0)
+                material_map = np.where((self.image.grid >= low_HU_threshold) and (self.image.grid < high_HU_threshold) , 1, 0).astype(bool)
+                # set the density and material of all voxels outside the lowest HU_limit to air
+                if i == 0:
+                    complementary_material_map = np.logical_not(material_map)
+                    self.density_matrix *= material_map
+                    self.material_matrix *= material_map
+                    self.density_matrix += complementary_material_map * 0.001225
+                    
+                # interpolate density based on the HU value
+                hu_map = self.image.grid * material_map
                 self.density_matrix *= material_map * self.material_dict.get(material).get("density")
                 self.material_matrix *= material_map * self.material_dict.get(material).get("encoding")
-            # if structure_material_dict:
-            
-            
-            
-            
+        else:
+            raise NotImplementedError("to be implemented soon!")
+            # get the mask of each material from image
+            # sort the material dictionary based on the size of the mask (from largest to smallest)
+            # update the density and material matricies
+                
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
