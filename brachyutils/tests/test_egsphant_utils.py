@@ -68,7 +68,7 @@ def test_load_from_ctegsphant():
     egsphant_obj.load_from_ctegsphant(pth_input)
     egsphant_obj.assert_BrachyEgsphant_notEmpty()
 
-def test_make_egsphant_from_images():
+def test_create_egsphant_from_images():
     dir_images = "../../data_test/rectal-jgh-dcm"
     pth_output = "../../data_test/test_export_plan/rectal_from_images_ct.egsphant"
     ct2density = {
@@ -96,4 +96,4 @@ def test_make_egsphant_from_images():
     egsphant_obj.write_to_ctegsphant(pth_output)
 
 if __name__ == "__main__":
-    test_make_egsphant_from_images()
+    test_create_egsphant_from_images()

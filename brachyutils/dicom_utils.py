@@ -44,7 +44,7 @@ class BrachyDicom:
         """
         self.dicom_reader: DicomReaderWriter = None
         self.all_rois = None
-        self.image: np.array = None
+        self.grid: np.array = None
         self.origin_coordinates: np.array = None
         self.voxel_size: np.array = None
         self.num_voxels: np.array = None
@@ -67,7 +67,7 @@ class BrachyDicom:
         self.dicom_reader.get_images()
 
         if load_image:
-            self.image = self.dicom_reader.ArrayDicom
+            self.grid = self.dicom_reader.ArrayDicom
             self.origin_coordinates = np.array(
                 self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
             )
@@ -176,7 +176,7 @@ class BrachyDicom:
         self.structure_index_range_dict = {}
 
     def info(self):
-        print(f"shape of the image: {self.image.shape}")
+        print(f"shape of the image: {self.grid.shape}")
         print(f"origin of the image: {self.origin_coordinates}")
         print(f"voxel size of the image: {self.voxel_size}")
         print(f"number of voxels: {self.num_voxels}")

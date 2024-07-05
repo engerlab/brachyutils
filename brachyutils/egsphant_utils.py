@@ -92,7 +92,7 @@ class BrachyEgsphant:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
 
         if image is not None:
-            self.make_egsphant_from_images(
+            self.create_egsphant_from_images(
                 image,
                 ct_to_density_dict,
                 structure_material_dict,
@@ -579,7 +579,7 @@ class BrachyEgsphant:
         print(scaled_body_index_range)
         self.crop_by_index(scaled_body_index_range, True)
 
-    def make_egsphant_from_images(
+    def create_egsphant_from_images(
         self,
         image: BrachyDicom,
         ct_to_density_dict: dict = None,
@@ -623,8 +623,8 @@ class BrachyEgsphant:
             self.material_dict = {
                 material: {
                     "encoding": BrachyEgsphant._materials_encoding_array[number],
-                    "density": structure_material_dict[material]["density"],
-                    "HU_limit": structure_material_dict[material]["HU_limit"],
+                    "density": structure_material_dict.get(material, {}).get("density", None),
+                    "HU_limit": structure_material_dict.get(material, {}).get("HU_limit", None)
                 }
                 for material, number in zip(
                     structure_material_dict.keys(), range(self.num_materials)
@@ -640,13 +640,23 @@ class BrachyEgsphant:
         self.voxel_size = image.voxel_size
         self.origin_coordinates = image.origin_coordinates
         self.voxel_edges = self.calculate_voxel_edges()
-        self.create_interpolation_function 
-        # XXX to fill out these two. after that look into voxel edges, cropping and
-        # resampling
-        self.material_matrix = np.ones_like(image.image, dtype=str)
-        self.density_matrix = np.ones_like(image.image, dtype=np.float32)
+        self.create_interpolation_function
+        self.material_matrix = np.ones_like(image.grid, dtype=str)
+        self.density_matrix = np.ones_like(image.grid, dtype=np.float32)
         
-        # if ct_to_density_dict is not None:            
+        # loop through the material, get their binary mask from the ct images apply it to the material
+        # density materix.
+        materials_list = enumerate(self.material_dict.keys())
+        for i, material in materials_list:
+            if ct_to_density_dict:
+                low_HU_threshold = self.material_dict.get(material).get("HU_limit")
+                high_HU_threshold = self.material_dict.get(materials_list[i+1]).get("HU_limit") if i < len(materials_list) else float('inf')
+                material_map = np.where((self.image.grid >= low_HU_threshold) and (self.image.grid < high_HU_threshold) , 1, 0)
+                self.density_matrix *= material_map * self.material_dict.get(material).get("density")
+                self.material_matrix *= material_map * self.material_dict.get(material).get("encoding")
+            # if structure_material_dict:
+            
+            
             
             
 
