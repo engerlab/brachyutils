@@ -1,6 +1,7 @@
 import json
 import os
-from typing import List, Optional
+from collections import defaultdict
+from typing import Optional
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
@@ -64,7 +65,7 @@ class BrachyEgsphant:
 
     # each voxel in the material matrix is encoded with a single character
     # from this array that represents a unique material recognized by RapidBrachyMC.
-    _materials_encoding_array = [str(i) for i in range(10)] + [
+    _materials_encoding_array = [str(i) for i in range(1, 10)] + [
         chr(i) for i in range(ord("A"), ord("Z") + 1)
     ]
 
@@ -83,7 +84,13 @@ class BrachyEgsphant:
         self.density_interpolation_function = None
 
         self.num_materials: int = None
-        self.material_dict: dict = {}
+        self.material_dict: defaultdict = defaultdict(dict)
+        self.material_dict["Air"] = {
+            "encoding": 0,
+            "density": 0.001225,
+            "HU_limit": -10000,
+        }
+
         self.num_voxels: np.ndarray = None
         self.voxel_size: np.ndarray = None
         self.origin_coordinates: np.ndarray = None
@@ -148,7 +155,7 @@ class BrachyEgsphant:
                     "encoding": BrachyEgsphant._materials_encoding_array[i]
                 }
 
-            self.sort_materials_by_encoding()
+            self._sort_materials_by()
 
             egsphant.readline()
 
@@ -228,7 +235,7 @@ class BrachyEgsphant:
                     self.density_matrix[k][j] = egsphant.readline().strip().split()
                 egsphant.readline()
 
-    def _sort_materials_by_encoding(self):
+    def _sort_materials_by(self, material_key="encoding"):
         r"""
         Purpose:
             to sort the materials in the material dictionary based on their encoding
@@ -238,8 +245,14 @@ class BrachyEgsphant:
         Output:
             - Void: will sort the material_dict based on the encoding
         """
+        assert material_key in [
+            "encoding",
+            "density",
+            "HU_limit",
+        ], "key is not recognized"
+
         self.material_dict = sorted(
-            self.material_dict.items(), key=lambda x: x[1]["encoding"]
+            self.material_dict.items(), key=lambda x: x[1][material_key]
         )
 
     def load_from_nrrd(self, pth_file: str):
@@ -615,18 +628,17 @@ class BrachyEgsphant:
 
         # update the material dict based on the new material dict.
         self.num_materials = len(new_material_dict)
-        self.material_dict = {
-            material: {
+        for material, number in zip(
+            new_material_dict.keys(), range(self.num_materials)
+        ):
+            self.material_dict[material] = {
                 "encoding": BrachyEgsphant._materials_encoding_array[number],
                 "density": new_material_dict.get(material, {}).get("density", None),
                 "HU_limit": new_material_dict.get(material, {}).get("HU_limit", None),
             }
-            for material, number in zip(
-                new_material_dict.keys(), range(self.num_materials)
-            )
-        }
         # sort out the materials and density based on the HU values
-        self._sort_materials_by_encoding()
+        self._sort_materials_by()
+
         # get the egsphant dimensions and voxel size from the image.
         self.num_voxels = image.num_voxels
         self.voxel_size = image.voxel_size
