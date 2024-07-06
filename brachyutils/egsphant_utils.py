@@ -1,12 +1,13 @@
 import json
 import os
-from typing import Optional, List
+from typing import List, Optional
 
 import numpy as np
+from scipy.interpolate import RegularGridInterpolator
 
 # from dicom_utils import get_structure_index_range
 from brachyutils.dicom_utils import BrachyDicom
-from scipy.interpolate import RegularGridInterpolator
+
 
 class BrachyEgsphant:
     r"""
@@ -60,11 +61,13 @@ class BrachyEgsphant:
         pydicom
         json
     """
-    # each voxel in the material matrix is encoded with a single character 
+
+    # each voxel in the material matrix is encoded with a single character
     # from this array that represents a unique material recognized by RapidBrachyMC.
     _materials_encoding_array = [str(i) for i in range(10)] + [
-                chr(i) for i in range(ord("A"), ord("Z") + 1)
-            ]
+        chr(i) for i in range(ord("A"), ord("Z") + 1)
+    ]
+
     def __init__(
         self,
         pth_egsphant_file: Optional[str] = None,
@@ -75,10 +78,10 @@ class BrachyEgsphant:
 
         self.material_matrix: np.ndarray = None
         self.material_interpolation_function = None
-        
+
         self.density_matrix: np.ndarray = None
         self.density_interpolation_function = None
-        
+
         self.num_materials: int = None
         self.material_dict: dict = {}
         self.num_voxels: np.ndarray = None
@@ -86,7 +89,6 @@ class BrachyEgsphant:
         self.origin_coordinates: np.ndarray = None
         self.voxel_edges: np.ndarray = None
         self._sanity_axis: np.ndarray = None
-
 
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
@@ -97,12 +99,16 @@ class BrachyEgsphant:
                 ct_to_density_dict,
                 structure_material_dict,
             )
-        
+
         if self.material_matrix is not None:
-            self.material_interpolation_function = self.create_interpolation_function(self.material_matrix)
+            self.material_interpolation_function = self.create_interpolation_function(
+                self.material_matrix
+            )
         if self.density_matrix is not None:
-            self.density_interpolation_function = self.create_interpolation_function(self.density_matrix)
-        
+            self.density_interpolation_function = self.create_interpolation_function(
+                self.density_matrix
+            )
+
     def load_file_to_BrachyEgsphant(self, pth_egsphant_file):
         pth_egsphant_file = os.path.abspath(pth_egsphant_file)
 
@@ -143,7 +149,7 @@ class BrachyEgsphant:
                 }
 
             self.sort_materials_by_encoding()
-            
+
             egsphant.readline()
 
             # load number of voxels
@@ -196,7 +202,9 @@ class BrachyEgsphant:
             # print(f"the size of the axis in the z, y, x for axis from file are {self._sanity_axis[0].shape}, {self._sanity_axis[1].shape}, {self._sanity_axis[2].shape}")
             # }
             assert np.isclose(
-                np.concatenate(self.voxel_edges), np.concatenate(self._sanity_axis), rtol=1e-1
+                np.concatenate(self.voxel_edges),
+                np.concatenate(self._sanity_axis),
+                rtol=1e-1,
             ).all(), "axis is not the same"
 
             # prepare empty matricies to hold material and density images
@@ -233,7 +241,7 @@ class BrachyEgsphant:
         self.material_dict = sorted(
             self.material_dict.items(), key=lambda x: x[1]["encoding"]
         )
-    
+
     def load_from_nrrd(self, pth_file: str):
         r"""
         Purpose:
@@ -278,14 +286,13 @@ class BrachyEgsphant:
         return self.voxel_edges
 
     def create_interpolation_function(self, grid):
-            voxel_centers = self.get_voxel_centers()
-            self.interpolation_function = RegularGridInterpolator(
-                (voxel_centers[0], voxel_centers[1], voxel_centers[2]),
-                grid,
-                bounds_error=False,
-                fill_value=0,
-            )
-
+        voxel_centers = self.get_voxel_centers()
+        self.interpolation_function = RegularGridInterpolator(
+            (voxel_centers[0], voxel_centers[1], voxel_centers[2]),
+            grid,
+            bounds_error=False,
+            fill_value=0,
+        )
 
     def get_voxel_centers(self):
         voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
@@ -296,7 +303,6 @@ class BrachyEgsphant:
         else:
             raise ValueError("Voxel edges are not calculated yet")
         return voxel_centers
-
 
     def write_to_ctegsphant(self, fileName: str):
         r"""
@@ -428,9 +434,15 @@ class BrachyEgsphant:
         print(
             f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
         )
-        print(f"the range of the z axis is {self.voxel_edges[0][0], self.voxel_edges[0][-1]}")
-        print(f"the range of the y axis is {self.voxel_edges[1][0], self.voxel_edges[1][-1]}")
-        print(f"the range of the x axis is {self.voxel_edges[2][0], self.voxel_edges[2][-1]}")
+        print(
+            f"the range of the z axis is {self.voxel_edges[0][0], self.voxel_edges[0][-1]}"
+        )
+        print(
+            f"the range of the y axis is {self.voxel_edges[1][0], self.voxel_edges[1][-1]}"
+        )
+        print(
+            f"the range of the x axis is {self.voxel_edges[2][0], self.voxel_edges[2][-1]}"
+        )
         print(f"The number of materials is {self.num_materials}")
         print(f"the material dictionary is {self.material_dict}")
 
@@ -582,8 +594,8 @@ class BrachyEgsphant:
     def create_egsphant_from_images(
         self,
         image: BrachyDicom,
-        new_material_dict:dict = None,
-        assign_material_from_ct:bool = True,
+        new_material_dict: dict = None,
+        assign_material_from_ct: bool = True,
     ):
         r"""
         Purpose:
@@ -592,7 +604,7 @@ class BrachyEgsphant:
             that the dicom structure files start with RS and the NRRD structure files end with seg.nrrd.
         Inputs:
             - image := A brachy image object containing a grid and the structures.
-            - new_material_dict := A 
+            - new_material_dict := A
         Outputs:
             - Void := will generate a BrachyEgsphant object from the images and structure file.
         Dependencies:
@@ -600,14 +612,14 @@ class BrachyEgsphant:
         """
         if not assign_material_from_ct:
             assert image.structure_mask_dict is not None, "No structure mask was found"
-            
-        # update the material dict based on the new material dict. 
+
+        # update the material dict based on the new material dict.
         self.num_materials = len(new_material_dict)
         self.material_dict = {
             material: {
                 "encoding": BrachyEgsphant._materials_encoding_array[number],
                 "density": new_material_dict.get(material, {}).get("density", None),
-                "HU_limit": new_material_dict.get(material, {}).get("HU_limit", None)
+                "HU_limit": new_material_dict.get(material, {}).get("HU_limit", None),
             }
             for material, number in zip(
                 new_material_dict.keys(), range(self.num_materials)
@@ -620,35 +632,47 @@ class BrachyEgsphant:
         self.voxel_size = image.voxel_size
         self.origin_coordinates = image.origin_coordinates
         self.voxel_edges = self.calculate_voxel_edges()
-        self.create_interpolation_function
         self.material_matrix = np.ones_like(image.grid, dtype=str)
         self.density_matrix = np.ones_like(image.grid, dtype=np.float32)
-        
+
         # loop through the material, get their binary mask from the ct images apply it to the material
         # density materix.
         materials_list = enumerate(self.material_dict.keys())
         if assign_material_from_ct:
             for i, material in materials_list:
                 low_HU_threshold = self.material_dict.get(material).get("HU_limit")
-                high_HU_threshold = self.material_dict.get(materials_list[i+1]).get("HU_limit") if i < len(materials_list) else float('inf')
-                material_map = np.where((self.image.grid >= low_HU_threshold) and (self.image.grid < high_HU_threshold) , 1, 0).astype(bool)
+                high_HU_threshold = (
+                    self.material_dict.get(materials_list[i + 1]).get("HU_limit")
+                    if i < len(materials_list)
+                    else float("inf")
+                )
+                material_map = np.where(
+                    (self.image.grid >= low_HU_threshold)
+                    and (self.image.grid < high_HU_threshold),
+                    1,
+                    0,
+                ).astype(bool)
                 # set the density and material of all voxels outside the lowest HU_limit to air
                 if i == 0:
                     complementary_material_map = np.logical_not(material_map)
                     self.density_matrix *= material_map
                     self.material_matrix *= material_map
                     self.density_matrix += complementary_material_map * 0.001225
-                    
+
                 # interpolate density based on the HU value
                 hu_map = self.image.grid * material_map
-                self.density_matrix *= material_map * self.material_dict.get(material).get("density")
-                self.material_matrix *= material_map * self.material_dict.get(material).get("encoding")
+                self.density_matrix *= material_map * self.material_dict.get(
+                    material
+                ).get("density")
+                self.material_matrix *= material_map * self.material_dict.get(
+                    material
+                ).get("encoding")
         else:
             raise NotImplementedError("to be implemented soon!")
             # get the mask of each material from image
             # sort the material dictionary based on the size of the mask (from largest to smallest)
             # update the density and material matricies
-                
+
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
