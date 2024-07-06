@@ -646,27 +646,45 @@ class BrachyEgsphant:
                     if i < len(materials_list)
                     else float("inf")
                 )
-                material_map = np.where(
-                    (self.image.grid >= low_HU_threshold)
-                    and (self.image.grid < high_HU_threshold),
+                density_low_bound = self.material_dict.get(material).get("density")
+                density_high_bound = self.material_dict.get(materials_list[i + 1]).get(
+                    "density"
+                )
+
+                slope_density_over_HU = (density_high_bound - density_low_bound) / (
+                    high_HU_threshold - low_HU_threshold
+                )
+                intercept_density_over_HU = density_low_bound - (
+                    slope_density_over_HU * low_HU_threshold
+                )
+                # find region of interest mask based on the HU values
+                roi_mask = np.where(
+                    (image.grid >= low_HU_threshold)
+                    and (image.grid < high_HU_threshold),
                     1,
                     0,
                 ).astype(bool)
                 # set the density and material of all voxels outside the lowest HU_limit to air
                 if i == 0:
-                    complementary_material_map = np.logical_not(material_map)
-                    self.density_matrix *= material_map
-                    self.material_matrix *= material_map
-                    self.density_matrix += complementary_material_map * 0.001225
+                    complementary_roi_mask = np.logical_not(roi_mask)
+                    self.density_matrix *= roi_mask
+                    self.material_matrix *= roi_mask
+                    self.density_matrix += complementary_roi_mask * 0.001225
+                    self.material_matrix += complementary_roi_mask * "0"
 
+                # reset the voxel values for the roi enetries
+                self.density_matrix *= np.logical_not(roi_mask)
+                self.material_matrix *= np.logical_not(roi_mask)
+
+                # update the density and material matricies
                 # interpolate density based on the HU value
-                hu_map = self.image.grid * material_map
-                self.density_matrix *= material_map * self.material_dict.get(
-                    material
-                ).get("density")
-                self.material_matrix *= material_map * self.material_dict.get(
-                    material
-                ).get("encoding")
+                self.density_matrix += (
+                    image.grid * roi_mask * slope_density_over_HU
+                    + intercept_density_over_HU
+                )
+                self.material_matrix += roi_mask * self.material_dict.get(material).get(
+                    "encoding"
+                )
         else:
             raise NotImplementedError("to be implemented soon!")
             # get the mask of each material from image
