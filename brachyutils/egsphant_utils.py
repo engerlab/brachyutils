@@ -65,7 +65,7 @@ class BrachyEgsphant:
 
     # each voxel in the material matrix is encoded with a single character
     # from this array that represents a unique material recognized by RapidBrachyMC.
-    _materials_encoding_array = [str(i) for i in range(1, 10)] + [
+    _materials_encoding_array = [str(i) for i in range(0, 10)] + [
         chr(i) for i in range(ord("A"), ord("Z") + 1)
     ]
 
@@ -757,6 +757,28 @@ def _load_json(pth_json: str):
 
     with open(pth_json, "r") as file_json:
         return json.load(file_json)
+
+
+def _convert_string_to_int_numpy_array(
+    string_array: np.array,
+    encoding_array: list,
+):
+    r"""
+    Purpose:
+        to convert a numpy array of dtype string to an integer numpy array
+    Inputs:
+        - string_array:np.array := a numpy array with string enteries
+        - encoding_array:list := a list of strings that will be used to encode the string enteries
+    Outputs:
+        - int_array:np.array := a numpy array with integer enteries
+    """
+    flattened_string_array = string_array.flatten()
+    int_array = np.zeros_like(flattened_string_array, dtype=int)
+
+    for i, string in enumerate(flattened_string_array):
+        int_array[i] = encoding_array.index(string)
+
+    return int_array.reshape(string_array.shape)
 
 
 # if __name__=="__main__":
