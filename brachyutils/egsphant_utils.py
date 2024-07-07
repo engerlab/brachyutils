@@ -73,8 +73,8 @@ class BrachyEgsphant:
         self,
         pth_egsphant_file: Optional[str] = None,
         image: Optional[BrachyDicom] = None,
-        ct_to_density_dict: Optional[dict] = None,
-        structure_material_dict: Optional[dict] = None,
+        material_dict: Optional[dict] = None,
+        assign_material_from_ct: Optional[bool] = None,
     ):
 
         self.material_matrix: np.ndarray = None
@@ -102,9 +102,9 @@ class BrachyEgsphant:
 
         if image is not None:
             self.create_egsphant_from_images(
-                image,
-                ct_to_density_dict,
-                structure_material_dict,
+                image=image,
+                new_material_dict=material_dict,
+                assign_material_from_ct=assign_material_from_ct,
             )
 
         if self.material_matrix is not None:
@@ -251,9 +251,12 @@ class BrachyEgsphant:
             "HU_limit",
         ], "key is not recognized"
 
-        self.material_dict = sorted(
+        sorted_list = sorted(
             self.material_dict.items(), key=lambda x: x[1][material_key]
         )
+        self.material_dict = defaultdict(dict)
+        for key, value in sorted_list:
+            self.material_dict[key] = value
 
     def load_from_nrrd(self, pth_file: str):
         r"""
@@ -649,9 +652,9 @@ class BrachyEgsphant:
 
         # loop through the material, get their binary mask from the ct images apply it to the material
         # density materix.
-        materials_list = enumerate(self.material_dict.keys())
+        materials_list = list(self.material_dict.keys())
         if assign_material_from_ct:
-            for i, material in materials_list:
+            for i, material in enumerate(materials_list):
                 low_HU_threshold = self.material_dict.get(material).get("HU_limit")
                 high_HU_threshold = (
                     self.material_dict.get(materials_list[i + 1]).get("HU_limit")
@@ -670,23 +673,39 @@ class BrachyEgsphant:
                     slope_density_over_HU * low_HU_threshold
                 )
                 # find region of interest mask based on the HU values
-                roi_mask = np.where(
-                    (image.grid >= low_HU_threshold)
-                    and (image.grid < high_HU_threshold),
-                    1,
-                    0,
-                ).astype(bool)
+                roi_mask = np.logical_and(
+                    np.where(
+                        image.grid >= low_HU_threshold,
+                        1,
+                        0,
+                    ).astype(bool),
+                    np.where(
+                        image.grid < high_HU_threshold,
+                        1,
+                        0,
+                    ).astype(bool),
+                )
                 # set the density and material of all voxels outside the lowest HU_limit to air
                 if i == 0:
                     complementary_roi_mask = np.logical_not(roi_mask)
                     self.density_matrix *= roi_mask
-                    self.material_matrix *= roi_mask
-                    self.density_matrix += complementary_roi_mask * 0.001225
-                    self.material_matrix += complementary_roi_mask * "0"
+                    self.material_matrix = np.logical_and(
+                        self.material_matrix, roi_mask
+                    )
+                    self.density_matrix += (
+                        complementary_roi_mask
+                        * self.material_dict.get("Air").get("density")
+                    )
+                    self.material_matrix += (
+                        complementary_roi_mask
+                        * self.material_dict.get("Air").get("encoding")
+                    )
 
                 # reset the voxel values for the roi enetries
                 self.density_matrix *= np.logical_not(roi_mask)
-                self.material_matrix *= np.logical_not(roi_mask)
+                self.material_matrix = np.logical_and(
+                    self.material_matrix, np.logical_not(roi_mask)
+                )
 
                 # update the density and material matricies
                 # interpolate density based on the HU value
