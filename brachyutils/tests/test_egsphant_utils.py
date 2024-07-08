@@ -75,7 +75,6 @@ def test_create_egsphant_from_images():
     dir_images = "../../data_test/rectal-jgh-dcm"
     pth_output = "../../data_test/test_export_plan/rectal_from_images_ct.egsphant"
     materials = {
-        "Blair": {"density": 0.001225, "HU_limit": -1000.0},
         "Air": {"density": 0.001225, "HU_limit": 1000.0},
         "Adipose": {"density": 0.95, "HU_limit": 1100.0},
         "Water": {"density": 1.0, "HU_limit": 1200.0},
@@ -102,6 +101,6 @@ def test_create_egsphant_from_images():
 
 
 if __name__ == "__main__":
-    test_write_to_egsphant()
+    # test_write_to_egsphant()
     # test_load_from_ctegsphant()
-    # test_create_egsphant_from_images()
+    test_create_egsphant_from_images()

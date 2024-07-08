@@ -649,7 +649,7 @@ class BrachyEgsphant:
         self.voxel_size = image.voxel_size
         self.origin_coordinates = image.origin_coordinates
         self.voxel_edges = self.calculate_voxel_edges()
-        self.material_matrix = np.ones_like(image.grid, dtype=str)
+        self.material_matrix = np.ones_like(image.grid, dtype=int)
         self.density_matrix = np.ones_like(image.grid, dtype=np.float32)
 
         # loop through the material, get their binary mask from the ct images apply it to the material
@@ -660,13 +660,13 @@ class BrachyEgsphant:
                 low_HU_threshold = self.material_dict.get(material).get("HU_limit")
                 high_HU_threshold = (
                     self.material_dict.get(materials_list[i + 1]).get("HU_limit")
-                    if i < len(materials_list)
+                    if i+1 < len(materials_list)
                     else float("inf")
                 )
                 density_low_bound = self.material_dict.get(material).get("density")
                 density_high_bound = self.material_dict.get(materials_list[i + 1]).get(
                     "density"
-                )
+                ) if i+1 < len(materials_list) else density_low_bound
 
                 slope_density_over_HU = (density_high_bound - density_low_bound) / (
                     high_HU_threshold - low_HU_threshold
@@ -691,23 +691,21 @@ class BrachyEgsphant:
                 if i == 0:
                     complementary_roi_mask = np.logical_not(roi_mask)
                     self.density_matrix *= roi_mask
-                    self.material_matrix = np.logical_and(
-                        self.material_matrix, roi_mask
-                    )
+                    self.material_matrix *= roi_mask
                     self.density_matrix += (
                         complementary_roi_mask
                         * self.material_dict.get("Air").get("density")
                     )
                     self.material_matrix += (
-                        complementary_roi_mask
-                        * self.material_dict.get("Air").get("encoding")
+                        (complementary_roi_mask
+                        * BrachyEgsphant._materials_encoding_array.index(
+                            self.material_dict.get("Air").get("encoding")
+                            ))
                     )
 
                 # reset the voxel values for the roi enetries
                 self.density_matrix *= np.logical_not(roi_mask)
-                self.material_matrix = np.logical_and(
-                    self.material_matrix, np.logical_not(roi_mask)
-                )
+                self.material_matrix *= np.logical_not(roi_mask)
 
                 # update the density and material matricies
                 # interpolate density based on the HU value
@@ -715,14 +713,15 @@ class BrachyEgsphant:
                     image.grid * roi_mask * slope_density_over_HU
                     + intercept_density_over_HU
                 )
-                self.material_matrix += roi_mask * self.material_dict.get(material).get(
-                    "encoding"
-                )
+                self.material_matrix += roi_mask * BrachyEgsphant._materials_encoding_array.index(
+                            self.material_dict.get(material).get("encoding")
+                            )
         else:
             raise NotImplementedError("to be implemented soon!")
             # get the mask of each material from image
             # sort the material dictionary based on the size of the mask (from largest to smallest)
             # update the density and material matricies
+        
     def _convert_material_matrix_to(self, dtype:type):
         r"""
         Purpose:
