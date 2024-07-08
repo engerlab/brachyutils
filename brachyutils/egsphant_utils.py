@@ -20,7 +20,7 @@ class BrachyEgsphant:
         - density_matrix:np.ndarray
         - num_materials:int := the number of different material composition options a voxel has
         - material_dict:dict := a dictionary containing the name of the elements for each voxel,
-            their density and HU upper limit threshold as well as their number coding
+            their density and HU lower limit threshold as well as their number coding
         - num_voxels:np.ndarray := 1D numpy array holding the number of grid points
         on x, y, z axis.
         - voxel_size:np.ndarray := 1D numpy array holding the resolution of each voxel
@@ -149,7 +149,6 @@ class BrachyEgsphant:
             self.num_materials = int(egsphant.readline().strip())
 
             # load each material line by line
-            # XXX: also put in the density and HU upper limit threshold
             for i in range(self.num_materials):
                 self.material_dict[egsphant.readline().strip()] = {
                     "encoding": BrachyEgsphant._materials_encoding_array[i]
@@ -234,6 +233,9 @@ class BrachyEgsphant:
                 for j in range(self.num_voxels[1]):
                     self.density_matrix[k][j] = egsphant.readline().strip().split()
                 egsphant.readline()
+                
+            self.material_matrix = self._convert_material_matrix_to(dtype=int)
+            
 
     def _sort_materials_by(self, material_key="encoding"):
         r"""
@@ -350,7 +352,7 @@ class BrachyEgsphant:
         x_axis = " ".join(map(str, np.round(self.voxel_edges[2], decimals=3))) + "\n"
         y_axis = " ".join(map(str, np.round(self.voxel_edges[1], decimals=3))) + "\n"
         z_axis = " ".join(map(str, np.round(self.voxel_edges[0], decimals=3))) + "\n"
-        material_matrix = _to_single_string(self.material_matrix.astype(str))
+        material_matrix = _to_single_string(self._convert_material_matrix_to(dtype=str), " ")
         density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
 
         with open(fileName, "w") as file:
@@ -721,7 +723,37 @@ class BrachyEgsphant:
             # get the mask of each material from image
             # sort the material dictionary based on the size of the mask (from largest to smallest)
             # update the density and material matricies
+    def _convert_material_matrix_to(self, dtype:type):
+        r"""
+        Purpose:
+            To convert a numpy array of dtype string to an integer numpy array or the other way around. 
+            Integer array is the desired data type over string since it allows for more operational functionality.
+            String array is desired for outputting the egsphant file.
+        Inputs:
+            - self.material_matrix:np.array(dtype=str) := a numpy array with string enteries
+            - BrachyEgsphant._encoding_array:list := a list of strings that will be used to encode the string enteries
+        Outputs:
+            - Void := will update the material_dict with the density and HU lower limit thresholds.
+        """
+        assert dtype in [int, str], "dtype is not recognized"
 
+        flattened_array = self.material_matrix.flatten()
+        
+        if dtype == str:
+        
+            int_array = np.zeros_like(flattened_array, dtype=int)
+    
+            for i, string in enumerate(flattened_array):
+                int_array[i] = BrachyEgsphant._materials_encoding_array.index(string)
+        
+            return int_array.reshape(self.material_matrix.shape)
+        
+        else:
+            str_array = np.zeros_like(flattened_array, dtype=str)
+            for i, integer in enumerate(flattened_array):
+                str_array[i] = BrachyEgsphant._materials_encoding_array[integer]
+        
+            return str_array.reshape(self.material_matrix.shape)
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
@@ -746,10 +778,6 @@ def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
 
     return "".join(matrix_single_string)
 
-
-# app = typer.Typer()
-
-
 def _load_json(pth_json: str):
     assert os.path.exists(
         pth_json
@@ -758,28 +786,3 @@ def _load_json(pth_json: str):
     with open(pth_json, "r") as file_json:
         return json.load(file_json)
 
-
-def _convert_string_to_int_numpy_array(
-    string_array: np.array,
-    encoding_array: list,
-):
-    r"""
-    Purpose:
-        to convert a numpy array of dtype string to an integer numpy array
-    Inputs:
-        - string_array:np.array := a numpy array with string enteries
-        - encoding_array:list := a list of strings that will be used to encode the string enteries
-    Outputs:
-        - int_array:np.array := a numpy array with integer enteries
-    """
-    flattened_string_array = string_array.flatten()
-    int_array = np.zeros_like(flattened_string_array, dtype=int)
-
-    for i, string in enumerate(flattened_string_array):
-        int_array[i] = encoding_array.index(string)
-
-    return int_array.reshape(string_array.shape)
-
-
-# if __name__=="__main__":
-#     app()
