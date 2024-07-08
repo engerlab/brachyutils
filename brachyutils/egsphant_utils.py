@@ -352,7 +352,7 @@ class BrachyEgsphant:
         x_axis = " ".join(map(str, np.round(self.voxel_edges[2], decimals=3))) + "\n"
         y_axis = " ".join(map(str, np.round(self.voxel_edges[1], decimals=3))) + "\n"
         z_axis = " ".join(map(str, np.round(self.voxel_edges[0], decimals=3))) + "\n"
-        material_matrix = _to_single_string(self._convert_material_matrix_to(dtype=str), " ")
+        material_matrix = _to_single_string(self._convert_material_matrix_to(dtype=str), "")
         density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
 
         with open(fileName, "w") as file:
@@ -392,7 +392,7 @@ class BrachyEgsphant:
         ), "density matrix is not the same"
         assert np.isclose(
             np.concatenate(self.voxel_edges),
-            np.concatenate(new_BrachyEgsphant.axis),
+            np.concatenate(new_BrachyEgsphant.voxel_edges),
             rtol=1e-3,
         ).all(), "axis is not the same"
         assert np.array_equal(
@@ -416,7 +416,7 @@ class BrachyEgsphant:
             and np.array_equal(self.density_matrix, new_BrachyEgsphant.density_matrix)
             and np.isclose(
                 np.concatenate(self.voxel_edges),
-                np.concatenate(new_BrachyEgsphant.axis),
+                np.concatenate(new_BrachyEgsphant.voxel_edges),
                 rtol=1e-3,
             ).all()
             and np.array_equal(self.num_materials, new_BrachyEgsphant.num_materials)
@@ -532,7 +532,7 @@ class BrachyEgsphant:
             new_obj.material_dict = self.material_dict
             new_obj.num_voxels = np.flip(new_obj.material_matrix.shape, 0)
             new_obj.voxel_size = self.voxel_size
-            new_obj.axis = new_obj.calculate_voxel_edges()
+            new_obj.voxel_edges = new_obj.calculate_voxel_edges()
             new_obj.num_materials = self.num_materials
             return new_obj
 
@@ -739,7 +739,7 @@ class BrachyEgsphant:
 
         flattened_array = self.material_matrix.flatten()
         
-        if dtype == str:
+        if dtype == int:
         
             int_array = np.zeros_like(flattened_array, dtype=int)
     
@@ -785,4 +785,3 @@ def _load_json(pth_json: str):
 
     with open(pth_json, "r") as file_json:
         return json.load(file_json)
-

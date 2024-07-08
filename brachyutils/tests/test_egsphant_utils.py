@@ -38,7 +38,7 @@ def test_crop_by_index():
 
 def test_write_to_egsphant():
     pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    pth_output = os.path.dirname(pth_input) + "/test_" + os.path.basename(pth_input)
+    pth_output = "../../data_test/test_export_plan" + "/test_" + os.path.basename(pth_input)
 
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
@@ -68,6 +68,7 @@ def test_load_from_ctegsphant():
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
     egsphant_obj.assert_BrachyEgsphant_notEmpty()
+    egsphant_obj.info()
 
 
 def test_create_egsphant_from_images():
@@ -101,4 +102,6 @@ def test_create_egsphant_from_images():
 
 
 if __name__ == "__main__":
-    test_create_egsphant_from_images()
+    test_write_to_egsphant()
+    # test_load_from_ctegsphant()
+    # test_create_egsphant_from_images()
