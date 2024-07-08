@@ -256,11 +256,19 @@ class BrachyEgsphant:
             "encoding",
             "density",
             "HU_limit",
+            "mask",
         ], "key is not recognized"
 
-        sorted_list = sorted(
-            self.material_dict.items(), key=lambda x: x[1][material_key]
-        )
+        if material_key == "mask":
+            sorted_list = sorted(
+                self.material_dict.items(),
+                key=lambda x: x[1][material_key].sum(),
+                reverse=True,
+            )
+        else:
+            sorted_list = sorted(
+                self.material_dict.items(), key=lambda x: x[1][material_key]
+            )
         self.material_dict = defaultdict(dict)
         for key, value in sorted_list:
             self.material_dict[key] = value
@@ -646,9 +654,7 @@ class BrachyEgsphant:
                 "density": new_material_dict.get(material, {}).get("density", None),
                 "HU_limit": new_material_dict.get(material, {}).get("HU_limit", None),
             }
-        # sort out the materials and density based on the HU values
-        self._sort_materials_by("HU_limit")
-
+        
         # get the egsphant dimensions and voxel size from the image.
         self.num_voxels = image.num_voxels
         self.voxel_size = image.voxel_size
@@ -660,7 +666,11 @@ class BrachyEgsphant:
         # loop through the material, get their binary mask from the ct images apply it to the material
         # density materix.
         materials_list = list(self.material_dict.keys())
+    
         if assign_material_from_ct:
+            # sort out the materials and density based on the HU values
+            self._sort_materials_by("HU_limit")
+
             for i, material in enumerate(materials_list):
                 
                 # numerically interpolate the density and material based on the HU values
@@ -725,9 +735,12 @@ class BrachyEgsphant:
                             )
                 assert np.all(self.density_matrix >= 0), "density matrix has negative values"
         else:
-            raise NotImplementedError("to be implemented soon!")
+            # raise NotImplementedError("to be implemented soon!")
             # get the mask of each material from image
             # sort the material dictionary based on the size of the mask (from largest to smallest)
+            # sort out the materials and density based on the HU values
+            self._sort_materials_by("mask")
+
             # update the density and material matricies
         
     def _convert_material_matrix_to(self, dtype:type):
