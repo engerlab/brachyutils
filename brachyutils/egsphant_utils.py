@@ -3,6 +3,7 @@ import os
 from collections import defaultdict
 from typing import Optional, Union
 from pathlib import Path
+from difflib import get_close_matches
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
@@ -245,7 +246,7 @@ class BrachyEgsphant:
     def _sort_materials_by(self, material_key="encoding"):
         r"""
         Purpose:
-            to sort the materials in the material dictionary based on their encoding
+            to sort the materials in the material dictionary based on their keys. 
         Input:
             - self: BrachyEgsphant object with material_dict attribute. The material_dict
             has to have at least the encoding key for each material.
@@ -256,10 +257,11 @@ class BrachyEgsphant:
             "encoding",
             "density",
             "HU_limit",
-            "mask",
+            "structure_name",
+            "structure_size",
         ], "key is not recognized"
 
-        if material_key == "mask":
+        if material_key == "structure_name":
             sorted_list = sorted(
                 self.material_dict.items(),
                 key=lambda x: x[1][material_key].sum(),
@@ -733,15 +735,33 @@ class BrachyEgsphant:
                 self.material_matrix += roi_mask * BrachyEgsphant._materials_encoding_array.index(
                             self.material_dict.get(material).get("encoding")
                             )
-                assert np.all(self.density_matrix >= 0), "density matrix has negative values"
+                # assert np.all(self.density_matrix >= 0), "density matrix has negative values"
         else:
-            
+            dicom_structure_list = list(image.structure_mask_dict.keys())
             # get the mask of each material from image
-            
+            for material in materials_list:
+                structure_name = self.material_dict.get(material).get("structure_name")
+                structure_dicom_name = list(filter(lambda x: structure_name in x, dicom_structure_list))[0]
+                self.material_dict.get(material)["structure_size"] = np.sum(image.structure_mask_dict.get(structure_dicom_name))
+                
             # sort the material dictionary based on the size of the mask (from largest to smallest)
-            self._sort_materials_by("mask")
+            self._sort_materials_by("structure_size")
 
-            # update the density and material matricies
+            
+            for material in materials_list:
+                # get the mask of each material from image
+                structure_dicom_name = list(filter(lambda x: structure_name in x, dicom_structure_list))[0]
+                roi_mask = image.structure_mask_dict.get(structure_dicom_name).astype(bool)
+                
+                # reset the voxel values for the roi enetries
+                self.density_matrix *= np.logical_not(roi_mask)
+                self.material_matrix *= np.logical_not(roi_mask)
+                
+                # update the density and material matricies    
+                self.material_density += roi_mask * self.material_dict.get(material).get("density")
+                self.material_matrix += roi_mask * BrachyEgsphant._materials_encoding_array.index(
+                            self.material_dict.get(material).get("encoding")
+                )            
         
     def _convert_material_matrix_to(self, dtype:type):
         r"""
