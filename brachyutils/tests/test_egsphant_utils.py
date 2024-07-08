@@ -75,7 +75,7 @@ def test_create_egsphant_from_images():
     dir_images = "../../data_test/rectal-jgh-dcm"
     pth_output = "../../data_test/test_export_plan/rectal_from_images_ct.egsphant"
     materials = {
-        "Air": {"density": 0.001225, "HU_limit": 1000.0},
+        "Air": {"density": 0.001225, "HU_limit": -1000.0},
         "Adipose": {"density": 0.95, "HU_limit": 1100.0},
         "Water": {"density": 1.0, "HU_limit": 1200.0},
         "SoftTissue": {"density": 1.02, "HU_limit": 1300.0},
@@ -87,7 +87,7 @@ def test_create_egsphant_from_images():
         "Bone": {"density": 3.0, "HU_limit": 1900.0},
         "Metal": {"density": 19.0, "HU_limit": 2000.0},
     }
-
+    
     dicom_obj = BrachyDicom(
         pth_dir_dicom=dir_images,
         load_structure=True,

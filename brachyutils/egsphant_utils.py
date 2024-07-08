@@ -88,7 +88,7 @@ class BrachyEgsphant:
         self.material_dict["Air"] = {
             "encoding": 0,
             "density": 0.001225,
-            "HU_limit": -10000,
+            "HU_limit": -1000.0,
         }
 
         self.num_voxels: np.ndarray = None
@@ -154,7 +154,7 @@ class BrachyEgsphant:
                     "encoding": BrachyEgsphant._materials_encoding_array[i]
                 }
 
-            self._sort_materials_by()
+            self._sort_materials_by("encoding")
 
             egsphant.readline()
 
@@ -642,7 +642,7 @@ class BrachyEgsphant:
                 "HU_limit": new_material_dict.get(material, {}).get("HU_limit", None),
             }
         # sort out the materials and density based on the HU values
-        self._sort_materials_by()
+        self._sort_materials_by("HU_limit")
 
         # get the egsphant dimensions and voxel size from the image.
         self.num_voxels = image.num_voxels
@@ -657,6 +657,8 @@ class BrachyEgsphant:
         materials_list = list(self.material_dict.keys())
         if assign_material_from_ct:
             for i, material in enumerate(materials_list):
+                
+                # numerically interpolate the density and material based on the HU values
                 low_HU_threshold = self.material_dict.get(material).get("HU_limit")
                 high_HU_threshold = (
                     self.material_dict.get(materials_list[i + 1]).get("HU_limit")
@@ -716,6 +718,7 @@ class BrachyEgsphant:
                 self.material_matrix += roi_mask * BrachyEgsphant._materials_encoding_array.index(
                             self.material_dict.get(material).get("encoding")
                             )
+                assert np.all(self.density_matrix >= 0), "density matrix has negative values"
         else:
             raise NotImplementedError("to be implemented soon!")
             # get the mask of each material from image
