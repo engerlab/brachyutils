@@ -735,10 +735,10 @@ class BrachyEgsphant:
                             )
                 assert np.all(self.density_matrix >= 0), "density matrix has negative values"
         else:
-            # raise NotImplementedError("to be implemented soon!")
+            
             # get the mask of each material from image
+            
             # sort the material dictionary based on the size of the mask (from largest to smallest)
-            # sort out the materials and density based on the HU values
             self._sort_materials_by("mask")
 
             # update the density and material matricies
@@ -774,6 +774,24 @@ class BrachyEgsphant:
                 str_array[i] = BrachyEgsphant._materials_encoding_array[integer]
         
             return str_array.reshape(self.material_matrix.shape)
+
+    def export_material_dict(self, pth_file: Path):
+        r"""
+        Purpose:
+            To export the material dictionary to a json file.
+        Inputs:
+            - pth_file:Path := the directory path where the json file will be written.
+        Outputs:
+            - Void := will write the material dictionary to a json file.
+        """
+        extension = os.path.splitext(pth_file)[-1]
+        if extension == ".json":
+            with open(pth_file, "w") as file:
+                json.dump(self.material_dict, file)
+        elif extension == ".txt":
+            with open(pth_file, "w") as file:
+                for material, values in self.material_dict.items():
+                    file.write(f"{material} {values['density']} {values['HU_limit']}\n")
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
