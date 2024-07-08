@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from brachyutils.dicom_utils import BrachyDicom
-from brachyutils.egsphant_utils import BrachyEgsphant, _to_single_string
+from brachyutils.egsphant_utils import BrachyEgsphant, _to_single_string, _load_ct_to_density_txt_file
 
 
 def test_crop_by_body_contour():
@@ -74,19 +74,7 @@ def test_load_from_ctegsphant():
 def test_create_egsphant_from_images():
     dir_images = "../../data_test/rectal-jgh-dcm"
     pth_output = "../../data_test/test_export_plan/rectal_from_images_ct.egsphant"
-    materials = {
-        "Air": {"density": 0.001225, "HU_limit": -1000.0},
-        "Adipose": {"density": 0.95, "HU_limit": 1100.0},
-        "Water": {"density": 1.0, "HU_limit": 1200.0},
-        "SoftTissue": {"density": 1.02, "HU_limit": 1300.0},
-        "SoftTissue_Male": {"density": 1.03, "HU_limit": 1400.0},
-        "Rectum": {"density": 1.03, "HU_limit": 1500.0},
-        "Bladder_Filled": {"density": 1.03, "HU_limit": 1600.0},
-        "SiliconRubber": {"density": 1.14, "HU_limit": 1700.0},
-        "Bone_Cortical": {"density": 1.92, "HU_limit": 1800.0},
-        "Bone": {"density": 3.0, "HU_limit": 1900.0},
-        "Metal": {"density": 19.0, "HU_limit": 2000.0},
-    }
+    
     
     dicom_obj = BrachyDicom(
         pth_dir_dicom=dir_images,
@@ -99,8 +87,14 @@ def test_create_egsphant_from_images():
     )
     egsphant_obj.write_to_ctegsphant(pth_output)
 
+def text_load_ct_to_density_txt_file():
+    pth_input = "../../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
+    materials_dict = _load_ct_to_density_txt_file(pth_input)
+    print(materials_dict)
+        
 
 if __name__ == "__main__":
     # test_write_to_egsphant()
     # test_load_from_ctegsphant()
-    test_create_egsphant_from_images()
+    # test_create_egsphant_from_images()
+    text_load_ct_to_density_txt_file()

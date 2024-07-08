@@ -1,7 +1,8 @@
 import json
 import os
 from collections import defaultdict
-from typing import Optional
+from typing import Optional, Union
+from pathlib import Path
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
@@ -71,9 +72,9 @@ class BrachyEgsphant:
 
     def __init__(
         self,
-        pth_egsphant_file: Optional[str] = None,
+        pth_egsphant_file: Optional[Path] = None,
         image: Optional[BrachyDicom] = None,
-        material_dict: Optional[dict] = None,
+        material_dict: Optional[Union[dict, Path]] = None,
         assign_material_from_ct: Optional[bool] = None,
     ):
 
@@ -100,10 +101,14 @@ class BrachyEgsphant:
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
 
-        if image is not None:
+        if image is not None and material_dict is not None:
+            
             self.create_egsphant_from_images(
                 image=image,
-                new_material_dict=material_dict,
+                new_material_dict=(
+                    material_dict if isinstance(material_dict, dict)
+                    else _load_material_dict(material_dict)
+                ),
                 assign_material_from_ct=assign_material_from_ct,
             )
 
@@ -133,7 +138,7 @@ class BrachyEgsphant:
                 f"Loading from file extension {file_extension} is not supported!"
             )
 
-    def load_from_ctegsphant(self, pth_file: str):
+    def load_from_ctegsphant(self, pth_file: Path):
         r"""
         Purpose:
             to load a file with extension .egsphant into a BrachyEgsphant object
@@ -260,7 +265,7 @@ class BrachyEgsphant:
         for key, value in sorted_list:
             self.material_dict[key] = value
 
-    def load_from_nrrd(self, pth_file: str):
+    def load_from_nrrd(self, pth_file: Path):
         r"""
         Purpose:
             to load a nrrd file containing egsphant data.
@@ -322,7 +327,7 @@ class BrachyEgsphant:
             raise ValueError("Voxel edges are not calculated yet")
         return voxel_centers
 
-    def write_to_ctegsphant(self, fileName: str):
+    def write_to_ctegsphant(self, fileName: Path):
         r"""
         Purpose:
             This function will write the contents of a BrachyEgsphant onto a text
@@ -568,7 +573,7 @@ class BrachyEgsphant:
         self,
         body_index_range: Optional[np.ndarray] = None,
         body_mask_shape: Optional[np.ndarray] = None,
-        pth_dir_dicom: Optional[str] = None,
+        pth_dir_dicom: Optional[Path] = None,
     ):
         r"""
         Purpose:
@@ -780,10 +785,42 @@ def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
 
     return "".join(matrix_single_string)
 
-def _load_json(pth_json: str):
+def _load_json(pth_json: Path):
     assert os.path.exists(
         pth_json
     ), f"no such json file was found at this directory: \n {pth_json}"
 
     with open(pth_json, "r") as file_json:
         return json.load(file_json)
+
+def _load_material_dict(pth_file: Path):
+    r"""
+    Purpose:
+        To load material dictionary from a ct to density.txt file or from a json file that
+        contains the density and HU lower limit threshold for each material.
+    Inputs:
+        - pth_file := directory path to the ct2density.txt file
+    Outputs:
+        - dict := a dictionary containing the density and HU lower limit thresholds for each material.
+    """
+    assert os.path.exists(
+        pth_file
+    ), f"no such ct2density.txt file was found at this directory: \n {pth_file}"
+
+    extension = os.path.splitext(pth_file)[-1]
+    
+    material_dict = defaultdict(dict)
+
+    if extension == ".txt":
+        with open(pth_file, "r") as file:
+            lines = file.readlines()
+
+        for line in lines:
+            material, density, HU_limit = line.strip().split()
+            material_dict[material] = {"density": float(density), "HU_limit": float(HU_limit)}
+    elif extension == ".json":
+        material_dict = _load_json(pth_file)
+    else:
+        raise Exception(f"Loading from file extension {extension} is not supported! only .txt and .json are supported.")
+    
+    return material_dict
