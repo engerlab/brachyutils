@@ -85,7 +85,7 @@ def test_create_egsphant_from_images():
     egsphant_obj = BrachyEgsphant(
         image=dicom_obj,
         material_dict=pth_materials_with_structure_names,
-        assign_material_from_ct=False,
+        assign_material_from_ct=True,
     )
     egsphant_obj.write_to_ctegsphant(pth_output)
     # egsphant_obj.export_material_dict(

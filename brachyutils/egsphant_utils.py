@@ -654,17 +654,7 @@ class BrachyEgsphant:
             assert image.structure_mask_dict is not None, "No structure mask was found"
         for material in new_material_dict:
             assert {"encoding", "density", "HU_limit"}.issubset(set(new_material_dict[material].keys())) , "material dictionary is not formatted correctly"
-            
-        # update the material dict based on the new material dict.
-        # self.num_materials = len(new_material_dict)
-        # for material, number in zip(
-        #     new_material_dict.keys(), range(self.num_materials)
-        # ):
-        #     self.material_dict[material] = {
-        #         "encoding": BrachyEgsphant._materials_encoding_array[number],
-        #         "density": new_material_dict.get(material, {}).get("density", None),
-        #         "HU_limit": new_material_dict.get(material, {}).get("HU_limit", None),
-        #     }
+
         self.material_dict = new_material_dict
         
         # get the egsphant dimensions and voxel size from the image.
