@@ -261,10 +261,10 @@ class BrachyEgsphant:
             "structure_size",
         ], "key is not recognized"
 
-        if material_key == "structure_name":
+        if material_key == "structure_size":
             sorted_list = sorted(
                 self.material_dict.items(),
-                key=lambda x: x[1][material_key].sum(),
+                key=lambda x: x[1].get(material_key, 0),
                 reverse=True,
             )
         else:
@@ -360,6 +360,7 @@ class BrachyEgsphant:
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
         fileName = os.path.abspath(fileName)
+        self._sort_materials_by("encoding")
         num_materials = str(self.num_materials) + "\n"
         materials = "\n".join(self.material_dict.keys()) + "\n"
         spacing = "0 0 0 0 0 0 0 0 0\n"
@@ -651,17 +652,20 @@ class BrachyEgsphant:
         """
         if not assign_material_from_ct:
             assert image.structure_mask_dict is not None, "No structure mask was found"
-
+        for material in new_material_dict:
+            assert {"encoding", "density", "HU_limit"}.issubset(set(new_material_dict[material].keys())) , "material dictionary is not formatted correctly"
+            
         # update the material dict based on the new material dict.
-        self.num_materials = len(new_material_dict)
-        for material, number in zip(
-            new_material_dict.keys(), range(self.num_materials)
-        ):
-            self.material_dict[material] = {
-                "encoding": BrachyEgsphant._materials_encoding_array[number],
-                "density": new_material_dict.get(material, {}).get("density", None),
-                "HU_limit": new_material_dict.get(material, {}).get("HU_limit", None),
-            }
+        # self.num_materials = len(new_material_dict)
+        # for material, number in zip(
+        #     new_material_dict.keys(), range(self.num_materials)
+        # ):
+        #     self.material_dict[material] = {
+        #         "encoding": BrachyEgsphant._materials_encoding_array[number],
+        #         "density": new_material_dict.get(material, {}).get("density", None),
+        #         "HU_limit": new_material_dict.get(material, {}).get("HU_limit", None),
+        #     }
+        self.material_dict = new_material_dict
         
         # get the egsphant dimensions and voxel size from the image.
         self.num_voxels = image.num_voxels
@@ -679,7 +683,7 @@ class BrachyEgsphant:
             # sort out the materials and density based on the HU values
             self._sort_materials_by("HU_limit")
 
-            for i, material in enumerate(materials_list):
+            for i, material in enumerate(self.material_dict.keys()):
                 
                 # numerically interpolate the density and material based on the HU values
                 low_HU_threshold = self.material_dict.get(material).get("HU_limit")
@@ -745,15 +749,20 @@ class BrachyEgsphant:
         else:
             dicom_structure_list = list(image.structure_mask_dict.keys())
             # get the mask of each material from image
-            for material in materials_list:
-                structure_name = self.material_dict.get(material).get("structure_name")
+            for material in self.material_dict:
+                structure_name = self.material_dict.get(material).get("structure_name", None)
+                if structure_name is None:
+                    continue
                 structure_dicom_name = list(filter(lambda x: structure_name in x, dicom_structure_list))[0]
                 self.material_dict.get(material)["structure_size"] = np.sum(image.structure_mask_dict.get(structure_dicom_name))
                 
             # sort the material dictionary based on the size of the mask (from largest to smallest)
             self._sort_materials_by("structure_size")
 
-            for i, material in enumerate(materials_list):
+            for i, material in enumerate(self.material_dict.keys()):
+                structure_name = self.material_dict.get(material).get("structure_name", None) 
+                if structure_name is None:
+                    continue
                 # get the mask of each material from image
                 structure_dicom_name = list(filter(lambda x: structure_name in x, dicom_structure_list))[0]
                 roi_mask = image.structure_mask_dict.get(structure_dicom_name).astype(bool)
@@ -779,7 +788,7 @@ class BrachyEgsphant:
                 self.material_matrix *= np.logical_not(roi_mask)
                 
                 # update the density and material matricies    
-                self.material_density += roi_mask * self.material_dict.get(material).get("density")
+                self.density_matrix += roi_mask * self.material_dict.get(material).get("density")
                 self.material_matrix += roi_mask * BrachyEgsphant._materials_encoding_array.index(
                             self.material_dict.get(material).get("encoding")
                 )            
