@@ -87,13 +87,19 @@ def test_create_egsphant_from_images():
         material_dict=pth_materials,
         assign_material_from_ct=True,
     )
-    egsphant_obj.write_to_ctegsphant(pth_output)
+    # egsphant_obj.write_to_ctegsphant(pth_output)
+    egsphant_obj.export_material_dict(
+        os.path.join(
+            os.path.dirname(pth_output),
+            "test_materials.json")
+    )
+        
 
 def text_load_material_dict():
     pth_input = "../../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
     materials_dict = _load_material_dict(pth_input)
     print(materials_dict)
-        
+    
 
 if __name__ == "__main__":
     # test_write_to_egsphant()

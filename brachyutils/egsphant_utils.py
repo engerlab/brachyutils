@@ -637,7 +637,13 @@ class BrachyEgsphant:
             that the dicom structure files start with RS and the NRRD structure files end with seg.nrrd.
         Inputs:
             - image := A brachy image object containing a grid and the structures.
-            - new_material_dict := A
+            - new_material_dict := A dictionary containing the material composition of the egsphant object.
+            the following keys are required for each material:
+                - encoding: a single character string that represents the material in the material matrix
+                - density: the density of the material in g/cm^3
+                - HU_limit: the lower HU limit of the material
+                - structure_name: the name of the structure in the dicom file that represents the material [optional]
+                - structure_size: the size of the structure in the dicom file that represents the material [optional]
         Outputs:
             - Void := will generate a BrachyEgsphant object from the images and structure file.
         Dependencies:
@@ -822,7 +828,7 @@ class BrachyEgsphant:
         extension = os.path.splitext(pth_file)[-1]
         if extension == ".json":
             with open(pth_file, "w") as file:
-                json.dump(self.material_dict, file)
+                json.dump(self.material_dict, file, indent=4)
         elif extension == ".txt":
             with open(pth_file, "w") as file:
                 for material, values in self.material_dict.items():
