@@ -747,12 +747,27 @@ class BrachyEgsphant:
             # sort the material dictionary based on the size of the mask (from largest to smallest)
             self._sort_materials_by("structure_size")
 
-            
-            for material in materials_list:
+            for i, material in enumerate(materials_list):
                 # get the mask of each material from image
                 structure_dicom_name = list(filter(lambda x: structure_name in x, dicom_structure_list))[0]
                 roi_mask = image.structure_mask_dict.get(structure_dicom_name).astype(bool)
                 
+                # set everything outside the largest mask to air
+                if i == 0:
+                    complementary_roi_mask = np.logical_not(roi_mask)
+                    self.density_matrix *= roi_mask
+                    self.material_matrix *= roi_mask
+                    self.density_matrix += (
+                        complementary_roi_mask
+                        * self.material_dict.get("Air").get("density")
+                    )
+                    self.material_matrix += (
+                        (complementary_roi_mask
+                        * BrachyEgsphant._materials_encoding_array.index(
+                            self.material_dict.get("Air").get("encoding")
+                            ))
+                    )
+
                 # reset the voxel values for the roi enetries
                 self.density_matrix *= np.logical_not(roi_mask)
                 self.material_matrix *= np.logical_not(roi_mask)
