@@ -1,9 +1,9 @@
 import json
 import os
 from collections import defaultdict
-from typing import Optional, Union
-from pathlib import Path
 from difflib import get_close_matches
+from pathlib import Path
+from typing import Optional, Union
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
@@ -103,11 +103,12 @@ class BrachyEgsphant:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
 
         if image is not None and material_dict is not None:
-            
+
             self.create_egsphant_from_images(
                 image=image,
                 new_material_dict=(
-                    material_dict if isinstance(material_dict, dict)
+                    material_dict
+                    if isinstance(material_dict, dict)
                     else _load_material_dict(material_dict)
                 ),
                 assign_material_from_ct=assign_material_from_ct,
@@ -239,14 +240,13 @@ class BrachyEgsphant:
                 for j in range(self.num_voxels[1]):
                     self.density_matrix[k][j] = egsphant.readline().strip().split()
                 egsphant.readline()
-                
+
             self.material_matrix = self._convert_material_matrix_to(dtype=int)
-            
 
     def _sort_materials_by(self, material_key="encoding"):
         r"""
         Purpose:
-            to sort the materials in the material dictionary based on their keys. 
+            to sort the materials in the material dictionary based on their keys.
         Input:
             - self: BrachyEgsphant object with material_dict attribute. The material_dict
             has to have at least the encoding key for each material.
@@ -368,7 +368,9 @@ class BrachyEgsphant:
         x_axis = " ".join(map(str, np.round(self.voxel_edges[2], decimals=3))) + "\n"
         y_axis = " ".join(map(str, np.round(self.voxel_edges[1], decimals=3))) + "\n"
         z_axis = " ".join(map(str, np.round(self.voxel_edges[0], decimals=3))) + "\n"
-        material_matrix = _to_single_string(self._convert_material_matrix_to(dtype=str), "")
+        material_matrix = _to_single_string(
+            self._convert_material_matrix_to(dtype=str), ""
+        )
         density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
 
         with open(fileName, "w") as file:
@@ -653,10 +655,12 @@ class BrachyEgsphant:
         if not assign_material_from_ct:
             assert image.structure_mask_dict is not None, "No structure mask was found"
         for material in new_material_dict:
-            assert {"encoding", "density", "HU_limit"}.issubset(set(new_material_dict[material].keys())) , "material dictionary is not formatted correctly"
+            assert {"encoding", "density", "HU_limit"}.issubset(
+                set(new_material_dict[material].keys())
+            ), "material dictionary is not formatted correctly"
 
         self.material_dict = new_material_dict
-        
+
         # get the egsphant dimensions and voxel size from the image.
         self.num_voxels = image.num_voxels
         self.voxel_size = image.voxel_size
@@ -668,24 +672,26 @@ class BrachyEgsphant:
         # loop through the material, get their binary mask from the ct images apply it to the material
         # density materix.
         materials_list = list(self.material_dict.keys())
-    
+
         if assign_material_from_ct:
             # sort out the materials and density based on the HU values
             self._sort_materials_by("HU_limit")
 
             for i, material in enumerate(self.material_dict.keys()):
-                
+
                 # numerically interpolate the density and material based on the HU values
                 low_HU_threshold = self.material_dict.get(material).get("HU_limit")
                 high_HU_threshold = (
                     self.material_dict.get(materials_list[i + 1]).get("HU_limit")
-                    if i+1 < len(materials_list)
+                    if i + 1 < len(materials_list)
                     else float("inf")
                 )
                 density_low_bound = self.material_dict.get(material).get("density")
-                density_high_bound = self.material_dict.get(materials_list[i + 1]).get(
-                    "density"
-                ) if i+1 < len(materials_list) else density_low_bound
+                density_high_bound = (
+                    self.material_dict.get(materials_list[i + 1]).get("density")
+                    if i + 1 < len(materials_list)
+                    else density_low_bound
+                )
 
                 slope_density_over_HU = (density_high_bound - density_low_bound) / (
                     high_HU_threshold - low_HU_threshold
@@ -716,10 +722,10 @@ class BrachyEgsphant:
                         * self.material_dict.get("Air").get("density")
                     )
                     self.material_matrix += (
-                        (complementary_roi_mask
+                        complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
                             self.material_dict.get("Air").get("encoding")
-                            ))
+                        )
                     )
 
                 # reset the voxel values for the roi enetries
@@ -732,31 +738,46 @@ class BrachyEgsphant:
                     image.grid * roi_mask * slope_density_over_HU
                     + intercept_density_over_HU
                 )
-                self.material_matrix += roi_mask * BrachyEgsphant._materials_encoding_array.index(
-                            self.material_dict.get(material).get("encoding")
-                            )
+                self.material_matrix += (
+                    roi_mask
+                    * BrachyEgsphant._materials_encoding_array.index(
+                        self.material_dict.get(material).get("encoding")
+                    )
+                )
                 # assert np.all(self.density_matrix >= 0), "density matrix has negative values"
         else:
             dicom_structure_list = list(image.structure_mask_dict.keys())
             # get the mask of each material from image
             for material in self.material_dict:
-                structure_name = self.material_dict.get(material).get("structure_name", None)
+                structure_name = self.material_dict.get(material).get(
+                    "structure_name", None
+                )
                 if structure_name is None:
                     continue
-                structure_dicom_name = list(filter(lambda x: structure_name in x, dicom_structure_list))[0]
-                self.material_dict.get(material)["structure_size"] = np.sum(image.structure_mask_dict.get(structure_dicom_name))
-                
+                structure_dicom_name = list(
+                    filter(lambda x: structure_name in x, dicom_structure_list)
+                )[0]
+                self.material_dict.get(material)["structure_size"] = np.sum(
+                    image.structure_mask_dict.get(structure_dicom_name)
+                )
+
             # sort the material dictionary based on the size of the mask (from largest to smallest)
             self._sort_materials_by("structure_size")
 
             for i, material in enumerate(self.material_dict.keys()):
-                structure_name = self.material_dict.get(material).get("structure_name", None) 
+                structure_name = self.material_dict.get(material).get(
+                    "structure_name", None
+                )
                 if structure_name is None:
                     continue
                 # get the mask of each material from image
-                structure_dicom_name = list(filter(lambda x: structure_name in x, dicom_structure_list))[0]
-                roi_mask = image.structure_mask_dict.get(structure_dicom_name).astype(bool)
-                
+                structure_dicom_name = list(
+                    filter(lambda x: structure_name in x, dicom_structure_list)
+                )[0]
+                roi_mask = image.structure_mask_dict.get(structure_dicom_name).astype(
+                    bool
+                )
+
                 # set everything outside the largest mask to air
                 if i == 0:
                     complementary_roi_mask = np.logical_not(roi_mask)
@@ -767,26 +788,31 @@ class BrachyEgsphant:
                         * self.material_dict.get("Air").get("density")
                     )
                     self.material_matrix += (
-                        (complementary_roi_mask
+                        complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
                             self.material_dict.get("Air").get("encoding")
-                            ))
+                        )
                     )
 
                 # reset the voxel values for the roi enetries
                 self.density_matrix *= np.logical_not(roi_mask)
                 self.material_matrix *= np.logical_not(roi_mask)
-                
-                # update the density and material matricies    
-                self.density_matrix += roi_mask * self.material_dict.get(material).get("density")
-                self.material_matrix += roi_mask * BrachyEgsphant._materials_encoding_array.index(
-                            self.material_dict.get(material).get("encoding")
-                )            
-        
-    def _convert_material_matrix_to(self, dtype:type):
+
+                # update the density and material matricies
+                self.density_matrix += roi_mask * self.material_dict.get(material).get(
+                    "density"
+                )
+                self.material_matrix += (
+                    roi_mask
+                    * BrachyEgsphant._materials_encoding_array.index(
+                        self.material_dict.get(material).get("encoding")
+                    )
+                )
+
+    def _convert_material_matrix_to(self, dtype: type):
         r"""
         Purpose:
-            To convert a numpy array of dtype string to an integer numpy array or the other way around. 
+            To convert a numpy array of dtype string to an integer numpy array or the other way around.
             Integer array is the desired data type over string since it allows for more operational functionality.
             String array is desired for outputting the egsphant file.
         Inputs:
@@ -798,21 +824,21 @@ class BrachyEgsphant:
         assert dtype in [int, str], "dtype is not recognized"
 
         flattened_array = self.material_matrix.flatten()
-        
-        if dtype == int:
-        
+
+        if dtype is int:
+
             int_array = np.zeros_like(flattened_array, dtype=int)
-    
+
             for i, string in enumerate(flattened_array):
                 int_array[i] = BrachyEgsphant._materials_encoding_array.index(string)
-        
+
             return int_array.reshape(self.material_matrix.shape)
-        
+
         else:
             str_array = np.zeros_like(flattened_array, dtype=str)
             for i, integer in enumerate(flattened_array):
                 str_array[i] = BrachyEgsphant._materials_encoding_array[integer]
-        
+
             return str_array.reshape(self.material_matrix.shape)
 
     def export_material_dict(self, pth_file: Path):
@@ -832,6 +858,7 @@ class BrachyEgsphant:
             with open(pth_file, "w") as file:
                 for material, values in self.material_dict.items():
                     file.write(f"{material} {values['density']} {values['HU_limit']}\n")
+
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
@@ -856,6 +883,7 @@ def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
 
     return "".join(matrix_single_string)
 
+
 def _load_json(pth_json: Path):
     assert os.path.exists(
         pth_json
@@ -863,6 +891,7 @@ def _load_json(pth_json: Path):
 
     with open(pth_json, "r") as file_json:
         return json.load(file_json)
+
 
 def _load_material_dict(pth_file: Path):
     r"""
@@ -879,19 +908,25 @@ def _load_material_dict(pth_file: Path):
     ), f"no such ct2density.txt file was found at this directory: \n {pth_file}"
 
     extension = os.path.splitext(pth_file)[-1]
-    
+
     material_dict = defaultdict(dict)
 
     if extension == ".txt":
         with open(pth_file, "r") as file:
             lines = file.readlines()
 
-        for line in lines:
+        for i, line in enumerate(lines):
             material, density, HU_limit = line.strip().split()
-            material_dict[material] = {"density": float(density), "HU_limit": float(HU_limit)}
+            material_dict[material] = {
+                "density": float(density),
+                "HU_limit": float(HU_limit),
+                "encoding": BrachyEgsphant._materials_encoding_array[i],
+            }
     elif extension == ".json":
         material_dict = _load_json(pth_file)
     else:
-        raise Exception(f"Loading from file extension {extension} is not supported! only .txt and .json are supported.")
-    
+        raise Exception(
+            f"Loading from file extension {extension} is not supported! only .txt and .json are supported."
+        )
+
     return material_dict
