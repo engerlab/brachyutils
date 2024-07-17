@@ -329,7 +329,11 @@ class BrachyDose:
             "RD"
         ), "the basename should start with RD"
         dose_dcm = pydicom.dcmread(pth_RD_dicom)
-        self.grid = dose_dcm.pixel_array.astype(np.float32)
+        if hasattr(dose_dcm, 'DoseGridScaling'):
+            print(dose_dcm.DoseGridScaling)
+            self.grid = dose_dcm.pixel_array.astype(np.float32) * dose_dcm.DoseGridScaling
+        else:
+            self.grid = dose_dcm.pixel_array.astype(np.float32)
         self.num_voxels = np.flip(
             np.array(dose_dcm.pixel_array.shape, dtype=int), axis=0
         )
@@ -777,7 +781,7 @@ class BrachyDose:
 
     def calculate_voxel_edges(self):
         r"""
-        Purpose: will calculate the axies coordinates for a 3ddose dictionary.
+        Purpose: will calculate the axes coordinates for a 3ddose dictionary.
         Input:
             - dose := output of load_3ddose(). it should have the following keys and values:
                 {"grid":,
