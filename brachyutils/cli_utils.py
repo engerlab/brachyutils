@@ -8,10 +8,10 @@ from multiprocessing import Pool
 
 import numpy as np
 import typer
-from brachyutils.src.dicom_utils import BrachyDicom
-from brachyutils.src.dose_utils import BrachyDose
-from brachyutils.src.egsphant_utils import BrachyEgsphant, _load_json
-from brachyutils.src.plan_utils import BrachyPlan
+from brachyutils.dicom_utils import BrachyDicom
+from brachyutils.dose_utils import BrachyDose
+from brachyutils.egsphant_utils import BrachyEgsphant, _load_json
+from brachyutils.plan_utils import BrachyPlan
 from tqdm import tqdm
 from typing_extensions import Annotated
 
@@ -683,7 +683,7 @@ def combined_dose_per_patient(
 
     combined_dose_obj.num_voxels = dose_obj.num_voxels
     combined_dose_obj.voxel_size = dose_obj.voxel_size
-    combined_dose_obj.topleft = dose_obj.topleft
+    combined_dose_obj.origin_coordinates = dose_obj.origin_coordinates
     combined_dose_obj.voxel_edges = dose_obj.voxel_edges
 
     sum_dose = dose_obj.grid

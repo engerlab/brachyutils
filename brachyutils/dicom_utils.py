@@ -7,7 +7,7 @@ import numpy as np
 import pydicom
 from DicomRTTool.ReaderWriter import DicomReaderWriter
 
-from brachyutils.src.dose_utils import BrachyDose
+from brachyutils.dose_utils import BrachyDose
 
 
 class BrachyDicom:
@@ -18,9 +18,13 @@ class BrachyDicom:
     Attributes:
         - dicom_reader:DicomReaderWriter := an instance of the DicomReaderWriter class.
         - all_rois:list := a list of all the structure names in the dicom file.
-        - mask_dict:dict := a dictionary with the structure name as key and the mask as value.
+        - image:np.array := the image of the patient. [z, y, x]
+        - origin_coordinates:list := the origin of the image. [x, y, z]
+        - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value.
         - structure_index_range_dict:dict := a dictionary with the structure name as key and the index range as value.
-        - top_left:DicomReaderWriter := an instance of the DicomReaderWriter class.
+        - dose: BrachyDose := dose from dicom RD file saved as an instance of the BrachyDose class.
+        - catheter_table := a dictionary returned by load_catheter_table_and_source_info_from_dicom()
+        - source_info: dict := a dictionary with the source information.
     Dependencies:
         - DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
 
@@ -40,12 +44,13 @@ class BrachyDicom:
         """
         self.dicom_reader: DicomReaderWriter = None
         self.all_rois = None
-        self.image: np.array = None
-        self.origin_coords: np.array = None
+        self.grid: np.array = None
+        self.origin_coordinates: np.array = None
+        self.voxel_size: np.array = None
+        self.num_voxels: np.array = None
         self.structure_mask_dict: dict = {}
         self.structure_index_range_dict: dict = {}
         self.dose: BrachyDose = None
-        self.dvh_metrics: dict = None
         self.catheter_table: dict = None
         self.source_info: dict = None
 
@@ -62,24 +67,29 @@ class BrachyDicom:
         self.dicom_reader.get_images()
 
         if load_image:
-            self.image = self.dicom_reader.ArrayDicom
-            self.origin_coords = np.array(
+            self.grid = self.dicom_reader.ArrayDicom
+            self.origin_coordinates = np.array(
                 self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
             )
             self.voxel_size = np.array(
                 self.dicom_reader.dicom_handle.GetSpacing(), dtype=np.float32
             )
+            self.num_voxels = np.array(
+                [
+                    int(self.dicom_reader.return_key_info("0028|0010")),
+                    int(self.dicom_reader.return_key_info("0028|0011")),
+                    int(len(self.dicom_reader.series_instances_dictionary[0].files)),
+                ]
+            )
 
         if load_structure:
             self.all_rois = self.dicom_reader.return_rois()
-            self.get_strcuture_mask_from_dicom(self.all_rois)
+            # self.get_strcuture_mask_from_dicom(self.all_rois)
             self.get_structure_index_range(self.all_rois)
 
         if load_dose:
             self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
-            # self.dvh_metrics = get_dvh_metrics_from_dicom_dose(
-            #     glob(pth_dir_dicom + "/RD*.dcm")[0]
-            # )
+
         if load_plan:
             self.catheter_table, self.source_info = (
                 load_catheter_table_and_source_info_from_dicom(
@@ -90,7 +100,8 @@ class BrachyDicom:
     def get_structure_index_range(self, query_structure_list: list):
         r"""
         Purpose:
-            to find the index extent of the structure voxels along each axis using dicom RT structure file.
+            To find the index extent of the structure voxels along each axis using dicom RT structure file.
+            If the object already has this feature, it will return the stored value instead of over-writing it.
         Inputs:
             - query_structure_list := list of structure names to find the index range of.
         Outputs:
@@ -109,6 +120,10 @@ class BrachyDicom:
             # so we got the mask but the dimensions may not match the dimension of the dose
             # let's get the relative extent of the body mask compared to the whole grid and resample
             # the extents
+
+            # skip the mask if it is empty
+            if np.sum(mask_numpy) == 0:
+                continue
             structure_index_range = np.zeros([3, 2], dtype=int)
             for i in range(3):
                 structure_index_range[i, :] = np.floor(
@@ -130,7 +145,8 @@ class BrachyDicom:
     def get_strcuture_mask_from_dicom(self, query_structure_list: list):
         r"""
         Purpose:
-            to get the mask of the structures using dicom RT structure file.
+            To get the mask of the structures using dicom RT structure file.
+            If the object already has this feature, it will return the stored value instead of over-writing it.
         Inputs:
             - query_structure_list := list of structure names to find the mask of.
         Outputs:
@@ -160,13 +176,14 @@ class BrachyDicom:
         self.structure_index_range_dict = {}
 
     def info(self):
-        print(f"shape of the image: {self.image.shape}")
-        print(f"origin of the image: {self.origin_coords}")
+        print(f"shape of the image: {self.grid.shape}")
+        print(f"origin of the image: {self.origin_coordinates}")
         print(f"voxel size of the image: {self.voxel_size}")
+        print(f"number of voxels: {self.num_voxels}")
         print(f"all the structures in the dicom: {self.all_rois}")
         if self.dose is not None:
             print(f"the shape of dose: {self.dose.num_voxels}")
-            print(f"origin of the dose: {self.dose.topleft}")
+            print(f"origin of the dose: {self.dose.origin_coordinates}")
             print(f"voxel size of the dose: {self.dose.voxel_size}")
         else:
             print("no dose file was loaded")
@@ -347,18 +364,3 @@ def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
         )
 
     return final_catheter_table, source_info
-
-
-def get_dvh_metrics_from_dicom_dose(pth_dicom_dose: str):
-    r"""
-    Purpose:
-        - To get the dvh metrics from the dicom dose file.
-    Inputs:
-        - pth_dicom_dose:str := the path to the dicom dose file.
-    Outputs:
-        - dvh_metrics:dict := a dictionary with the dvh metrics.
-    Dependencies:
-        - pydicom: https://pydicom.github.io/
-    """
-    # load the dose file into an rt_dose object
-    raise NotImplementedError("this function is not implemented yet")
