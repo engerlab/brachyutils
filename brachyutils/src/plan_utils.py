@@ -794,7 +794,7 @@ class BrachyPlan:
         self.dvh_metric_observed = {}
         for structure_obj in self.structure_list:
             structure_obj.get_dvh_metric(self.combined_dose)
-            self.dvh_metric_observed[structure_obj.dvh_metric_name] = structure_obj.dvh_metric_observed
+            self.dvh_metric_observed[structure_obj.name + structure_obj.dvh_metric_name] = structure_obj.dvh_metric_observed
 
         return self.dvh_metric_observed
     
