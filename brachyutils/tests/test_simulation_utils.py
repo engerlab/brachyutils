@@ -1,4 +1,4 @@
-from brachyutils.src.simulation_utils import BrachySimulation
+from brachyutils.simulation_utils import BrachySimulation
 
 
 def test_brachy_simulation():

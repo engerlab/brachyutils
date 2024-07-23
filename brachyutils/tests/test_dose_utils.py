@@ -1,9 +1,10 @@
 import logging
 import os
 import sys
-import numpy as np
-from brachyutils.src.dose_utils import BrachyDose, DoseComparison
 
+import numpy as np
+
+from brachyutils.dose_utils import BrachyDose, DoseComparison
 
 
 def test_load_from_3ddose():
@@ -18,15 +19,17 @@ def test_load_from_3ddose():
 
 
 def test_load_file_to_brachydose():
-    pth_3ddose =  "../../data_test/run_1_old.3ddose"
+    pth_3ddose = "../../data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.is_not_empty()
+
 
 def test_load_from_dicom():
     pth_dicom = "../../data_test/prostate-glen-p1-dcm/RD1.3.6.1.4.1.2452.6.350102904.1117384417.1751574951.1257637737.dcm"
     dose_obj = BrachyDose(pth_dicom)
     dose_obj.is_not_empty()
+
 
 # @pytest.mark.passed
 
@@ -46,14 +49,13 @@ def test_write_to_3ddose():
     dose_obj.is_equal(new_dose_obj)
 
 
-# @pytest.mark.passed
-
-
 def test_convert_to_nrrd():
     r"""
     Purpose:
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
+    pth_out = "../../data_test/test_export_plan"
+    pth_dose_in = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
     # 3 mm resolution
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
     # pth_nrrd = "../../data_test/run_1_old.nrrd"
@@ -63,11 +65,13 @@ def test_convert_to_nrrd():
     # pth_nrrd = "../../data_test/combined_old.nrrd"
 
     # testing on maude's file
-    pth_3ddose = "../../data_test/maude.3ddose"
-    pth_out = os.path.splitext(pth_3ddose)[0] + ".nrrd"
+    # pth_dose = "../../data_test/maude.3ddose"
+    # new nrrd format
+
+    pth_out = os.path.join(pth_out, os.path.basename(pth_dose_in))
 
     dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
+    dose_obj.load_file_to_brachydose(pth_dose_in)
 
     dose_obj.write_to_nrrd(pth_out)
 
@@ -189,6 +193,7 @@ def test_convert_to_minidos():
     dose_obj.load_file_to_brachydose(pth_input)
     dose_obj.write_to_minidos(pth_minidos)
 
+
 def test_dose_comparison():
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     pth_3ddose = "../../data_test/run_1_old.3ddose"
@@ -203,6 +208,7 @@ def test_dose_comparison():
     # dose_comparison.compare_dose_distributions_2D(
     #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
 
+
 # XXX: check and fix if neede!
 def test_crop_by_body_contour():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
@@ -213,5 +219,7 @@ def test_crop_by_body_contour():
     dose_obj.info()
     dose_obj.crop_by_body_contour(pth_dir_dicom=pth_dicomRS)
 
+
 if __name__ == "__main__":
-    test_load_from_dicom()
+    # test_load_from_dicom()
+    test_convert_to_nrrd()

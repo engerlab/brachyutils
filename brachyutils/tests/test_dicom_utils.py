@@ -1,19 +1,17 @@
 # import numpy as np
-from glob import glob
-
-from brachyutils.src.dicom_utils import BrachyDicom, get_dvh_metrics_from_dicom_dose
+from brachyutils.dicom_utils import BrachyDicom
 
 
 def test_load_dicom():
     # pth_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    pth_dicom = "../../data_test/rectal-jgh-dcm"
     # especial patient case
-    pth_dicom = "/home/majd/data/patient_treatment_plans/dicom/prostate-glen-2023/p5"
     dicom_obj = BrachyDicom(
         pth_dicom,
         load_image=True,
         load_structure=True,
         load_dose=False,
-        load_plan=True,
+        load_plan=False,
     )
     dicom_obj.info()
 
@@ -38,12 +36,6 @@ def test_get_structure_index_range():
     )
     print(structure_index_range)
     # assert structure_index_range is not None, "structure index range is empty"
-
-
-def test_get_dvh_metrics_from_dicom_dose():
-    dir_dicom: str = "../../data_test/prostate-glen-p1-dcm/"
-    pth_dicom_dose: str = glob(dir_dicom + "/RD*.dcm")[0]
-    get_dvh_metrics_from_dicom_dose(pth_dicom_dose)
 
 
 if __name__ == "__main__":

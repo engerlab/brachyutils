@@ -2,7 +2,7 @@
 pyRad
 test_data
 ENV*
-data_test
+data_test*
 __pycache__
 .pytest_cache/*
 *brachyutils.egg-info*
@@ -10,3 +10,5 @@ __pycache__
 *.vscode
 dist/*
 .pytest_cache/
+.trunk
+*DS_STORE

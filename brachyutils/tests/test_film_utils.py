@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from brachyutils.src.film_utils import CalibrationCurve, FilmCalibration
+from brachyutils.film_utils import CalibrationCurve, FilmCalibration
 
 
 def test_create_lewis_calibration_curve():

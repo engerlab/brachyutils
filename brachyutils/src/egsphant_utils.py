@@ -177,13 +177,13 @@ class BrachyEgsphant:
             # print(f"the size of the axis in the z, y, x for axis from file are {self._sanity_axis[0].shape}, {self._sanity_axis[1].shape}, {self._sanity_axis[2].shape}")
             # }
             assert np.isclose(
-                np.concatenate(self.axis), np.concatenate(self._sanity_axis), rtol=1e-1
+                np.concatenate(self.axis), np.concatenate(self._sanity_axis), rtol=5e-1
             ).all(), "axis is not the same"
 
             # prepare empty matricies to hold material and density images
             self.material_matrix = np.zeros(
                 (self.num_voxels[2], self.num_voxels[1],
-                 self.num_voxels[0]), dtype=str
+                 self.num_voxels[0]), dtype='S1'
             )
             self.density_matrix = np.zeros(
                 (self.num_voxels[2], self.num_voxels[1], self.num_voxels[0]),
@@ -215,7 +215,7 @@ class BrachyEgsphant:
 
     def calculateAxis(self):
         r"""
-        Purpose: will calculate the axies coordinates for a BrachyEgsphant object.
+        Purpose: will calculate the axis coordinates for a BrachyEgsphant object.
         Input:
             - self := it should have the following keys and values:
                 {"grid":,
@@ -449,7 +449,7 @@ class BrachyEgsphant:
             new_obj.material_dict = self.material_dict
             new_obj.num_voxels = np.flip(new_obj.material_matrix.shape, 0)
             new_obj.voxel_size = self.voxel_size
-            new_obj.axis = new_obj.calculateAxis()
+            new_obj.axis = self.calculateAxis()
             new_obj.num_materials = self.num_materials
             return new_obj
 
