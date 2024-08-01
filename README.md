@@ -48,7 +48,7 @@ brachyutils comes with a linux command line interface. To learn about the comman
 
 At the moment, the outputs looks like the following:
 
-```
+```bash
 $ brachyutils --help
 Usage: brachyutils [OPTIONS] COMMAND [ARGS]...
 
