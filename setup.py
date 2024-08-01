@@ -5,11 +5,10 @@ setup(
     version="1.0",
     description="Python utility packages for handling dose files and egsphant files.",
     author="EngerLab",
-    packages=find_packages(include=['brachyutils.*']),
+    packages=find_packages(include=["brachyutils.*"]),
     # namespace_packages=['brachyutils'],
-    package_dir={'':'.'},
+    package_dir={"": "brachyutils"},
     install_requires=[
-        # "contourpy",
         "cycler",
         "fonttools",
         "importlib-resources",
