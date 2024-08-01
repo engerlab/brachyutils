@@ -3,7 +3,11 @@ import os
 import numpy as np
 
 from brachyutils.dicom_utils import BrachyDicom
-from brachyutils.egsphant_utils import BrachyEgsphant, _to_single_string, _load_material_dict
+from brachyutils.egsphant_utils import (
+    BrachyEgsphant,
+    _load_material_dict,
+    _to_single_string,
+)
 
 
 def test_crop_by_body_contour():
@@ -38,7 +42,9 @@ def test_crop_by_index():
 
 def test_write_to_egsphant():
     pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    pth_output = "../../data_test/test_export_plan" + "/test_" + os.path.basename(pth_input)
+    pth_output = (
+        "../../data_test/test_export_plan" + "/test_" + os.path.basename(pth_input)
+    )
 
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
@@ -76,8 +82,10 @@ def test_create_egsphant_from_images():
     dir_images = "../../data_test/prostate-glen-p1-dcm"
     pth_materials = "../../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
     pth_output = "../../data_test/test_export_plan/prostate_from_images_ct.egsphant"
-    pth_materials_with_structure_names = "../../data_test/test_export_plan/test_materials.json"
-    
+    pth_materials_with_structure_names = (
+        "../../data_test/test_export_plan/test_materials.json"
+    )
+
     dicom_obj = BrachyDicom(
         pth_dir_dicom=dir_images,
         load_structure=True,
@@ -89,16 +97,17 @@ def test_create_egsphant_from_images():
     )
     egsphant_obj.write_to_ctegsphant(pth_output)
     # egsphant_obj.export_material_dict(
-        # os.path.join(
-            # os.path.dirname(pth_output),
-            # "test_materials.json")
+    # os.path.join(
+    # os.path.dirname(pth_output),
+    # "test_materials.json")
     # )
+
 
 def text_load_material_dict():
     pth_input = "../../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
     materials_dict = _load_material_dict(pth_input)
     print(materials_dict)
-    
+
 
 if __name__ == "__main__":
     # test_write_to_egsphant()
