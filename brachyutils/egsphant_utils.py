@@ -882,11 +882,15 @@ class BrachyEgsphant:
         material_list = list(self.material_dict.keys())
         material_list = [x.lower() for x in material_list]
         
+        # remove duplicated materials self.material_dict
         for material in self.material_dict:
-            if material_list.count(material.lower()) > 1:
+            if material_list.count(material.lower()) > 1 and material != "Air":
                 print(f"Duplicate material {material} found in the material dictionary and removed")
                 self.material_dict.pop(material)
-                
+        
+        # reset the encoding of the materials in the material dictionary
+        for i, material in enumerate(self.material_dict):
+            self.material_dict.get(material)["encoding"] = BrachyEgsphant._materials_encoding_array[i+1]
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
