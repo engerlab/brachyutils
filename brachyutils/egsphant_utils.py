@@ -3,7 +3,7 @@ import os
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Union
-
+import warnings
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
@@ -87,7 +87,7 @@ class BrachyEgsphant:
         self.num_materials: int = None
         self.material_dict: defaultdict = defaultdict(dict)
         self.material_dict["Air"] = {
-            "encoding": 0,
+            "encoding": BrachyEgsphant._materials_encoding_array[0],
             "density": 0.001225,
             "HU_limit": -1000.0,
         }
@@ -944,10 +944,25 @@ def _load_material_dict(pth_file: Path):
             material_dict[material] = {
                 "density": float(density),
                 "HU_limit": float(HU_limit),
-                "encoding": BrachyEgsphant._materials_encoding_array[i],
+                "encoding": BrachyEgsphant._materials_encoding_array[i+1],
             }
     elif extension == ".json":
-        material_dict = _load_json(pth_file)
+        assert os.path.exists(
+        pth_file
+        ), f"no such json file was found at this directory: \n {pth_file}"
+
+        with open(pth_file, "r") as file_json:
+            material_dict = json.load(file_json)
+        
+        for i, material in enumerate(material_dict):
+            assert material_dict.get(material).get("density") is not None, "density is not available"
+            
+            if material_dict.get(material).get("HU_limit") is None:
+                warnings.warn(f"no HU limit was found for {material}, material assignment by ct will not be possible")
+            
+            if material_dict.get(material).get("encoding") is None:
+                warnings.warn(f"no encoding was found for {material}, encoding will be set by the order of the material in the json file")
+                material_dict.get(material)["encoding"] = BrachyEgsphant._materials_encoding_array[i+1]
     else:
         raise Exception(
             f"Loading from file extension {extension} is not supported! only .txt and .json are supported."
