@@ -794,12 +794,12 @@ class BrachyEgsphant:
                     self.material_matrix *= roi_mask
                     self.density_matrix += (
                         complementary_roi_mask
-                        * self.material_dict.get("Air").get("density")
+                        * self.material_dict.get(background_material, "Air").get("encoding")
                     )
                     self.material_matrix += (
                         complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
-                            self.material_dict.get("Air").get("encoding")
+                            self.material_dict.get(background_material, "Air").get("encoding")
                         )
                     )
 
