@@ -109,14 +109,12 @@ class BrachyEgsphant:
                         "CT to density text file should be used only when assign_material_from_ct is True.\n \
                         If assigning materials by contours, please provide a json file containing material dictionary."
                     )
+                self.material_dict = self.material_dict | _load_material_dict(material_dict)
+                self._remove_duplicate_materials()
             
             self.create_egsphant_from_images(
                 image=image,
-                new_material_dict=(
-                    material_dict
-                    if isinstance(material_dict, dict)
-                    else _load_material_dict(material_dict)
-                ),
+                new_material_dict=self.material_dict,
                 assign_material_from_ct=assign_material_from_ct,
             )
 
@@ -866,6 +864,25 @@ class BrachyEgsphant:
                 for material, values in self.material_dict.items():
                     file.write(f"{material} {values['density']} {values['HU_limit']}\n")
 
+    def _remove_duplicate_materials(self):
+        r"""
+        Purpose:
+            To remove duplicate materials from the material dictionary.
+        Inputs:
+            - self:BrachyEgsphant := a BrachyEgsphant object with a material dictionary
+        Outputs:
+            - Void := will remove duplicate materials from the material dictionary.
+        """
+        assert self.material_dict is not None, "material dictionary is not available"
+        
+        material_list = list(self.material_dict.keys())
+        material_list = [x.lower() for x in material_list]
+        
+        for material in self.material_dict:
+            if material_list.count(material.lower()) > 1:
+                print(f"Duplicate material {material} found in the material dictionary and removed")
+                self.material_dict.pop(material)
+                
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""

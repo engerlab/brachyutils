@@ -199,6 +199,14 @@ class BrachyDicom:
             print(f"source info: {self.source_info}")
         else:
             print("no plan file was loaded")
+    
+    def get_materials_dict(self):
+        r"""
+        Purpose:
+            - To get the materials dictionary from the dicom file.
+            The material table contains the following attributes for each structure
+        """
+        raise NotImplementedError("this function is not implemented yet")
 
 
 def get_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
