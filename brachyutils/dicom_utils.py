@@ -23,7 +23,7 @@ class BrachyDicom:
         - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value.
         - structure_index_range_dict:dict := a dictionary with the structure name as key and the index range as value.
         - dose: BrachyDose := dose from dicom RD file saved as an instance of the BrachyDose class.
-        - catheter_table := a dictionary returned by load_catheter_table_and_source_info_from_dicom()
+        - catheter_table := a dictionary returned by get_catheter_table_and_source_info_from_dicom()
         - source_info: dict := a dictionary with the source information.
     Dependencies:
         - DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
@@ -92,7 +92,7 @@ class BrachyDicom:
 
         if load_plan:
             self.catheter_table, self.source_info = (
-                load_catheter_table_and_source_info_from_dicom(
+                get_catheter_table_and_source_info_from_dicom(
                     glob(pth_dir_dicom + "/RP*.dcm")[0]
                 )
             )
@@ -201,7 +201,7 @@ class BrachyDicom:
             print("no plan file was loaded")
 
 
-def load_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
+def get_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
     r"""
     Purpose:
         - To load the catheter table from the dicom plan file.

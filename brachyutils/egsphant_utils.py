@@ -33,7 +33,7 @@ class BrachyEgsphant:
     Functions:
         - load_file_to_BrachyEgsphant()     done
         - load_from_ctegsphant()            done
-        - load_from_nrrd()                  not implmented
+        - load_from_nrrd()                  not implemented
         - calculate_axis()                  done
         - write_to_ctegsphant()             done
         - write_to_nrrd()                   not implemented
@@ -674,6 +674,7 @@ class BrachyEgsphant:
         self.voxel_edges = self.calculate_voxel_edges()
         self.material_matrix = np.ones_like(image.grid, dtype=int)
         self.density_matrix = np.ones_like(image.grid, dtype=np.float32)
+        self.num_materials = len(self.material_dict)
 
         # loop through the material, get their binary mask from the ct images apply it to the material
         # density materix.
