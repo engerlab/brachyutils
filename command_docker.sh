@@ -24,6 +24,6 @@ fi
 if [[ $command_list == *"run"* ]]; then
     # run the docker image
     docker run --rm \
-        -it -v $(pwd):/home/brachyutils \
+        -it -v $(pwd):/root/brachyutils \
         brachyutils:latest /bin/bash
 fi

@@ -2,7 +2,9 @@ FROM ubuntu:22.04
 
 # Install dependencies
 RUN apt update && apt install -y wget nano tar ca-certificates \
-&& rm -rf /var/lib/apt/lists/*
+    libgl1-mesa-glx libglib2.0-0 \
+    libxrender1
+    && rm -rf /var/lib/apt/lists/*
 
 # Install miniconda
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh \
