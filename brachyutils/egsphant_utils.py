@@ -102,7 +102,14 @@ class BrachyEgsphant:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
 
         if image is not None and material_dict is not None:
-
+            
+            if isinstance(material_dict, str):
+                if os.path.splitext(material_dict)[-1] == ".txt" and not assign_material_from_ct:
+                    raise Exception(
+                        "CT to density text file should be used only when assign_material_from_ct is True.\n \
+                        If assigning materials by contours, please provide a json file containing material dictionary."
+                    )
+            
             self.create_egsphant_from_images(
                 image=image,
                 new_material_dict=(

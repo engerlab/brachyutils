@@ -90,10 +90,11 @@ def test_create_egsphant_from_images():
         pth_dir_dicom=dir_images,
         load_structure=True,
     )
+    # breakpoint()
     egsphant_obj = BrachyEgsphant(
         image=dicom_obj,
         material_dict=pth_materials,
-        assign_material_from_ct=False,
+        assign_material_from_ct=True,
     )
     egsphant_obj.write_to_ctegsphant(pth_output)
     # egsphant_obj.export_material_dict(
