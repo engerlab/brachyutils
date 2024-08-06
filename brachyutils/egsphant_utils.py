@@ -912,15 +912,6 @@ def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     return "".join(matrix_single_string)
 
 
-def _load_json(pth_json: Path):
-    assert os.path.exists(
-        pth_json
-    ), f"no such json file was found at this directory: \n {pth_json}"
-
-    with open(pth_json, "r") as file_json:
-        return json.load(file_json)
-
-
 def _load_material_dict(pth_file: Path):
     r"""
     Purpose:
