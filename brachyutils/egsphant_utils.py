@@ -636,6 +636,7 @@ class BrachyEgsphant:
         image: BrachyDicom,
         new_material_dict: dict = None,
         assign_material_from_ct: bool = True,
+        background_material: str = "Air",
     ):
         r"""
         Purpose:
@@ -662,7 +663,10 @@ class BrachyEgsphant:
             assert {"encoding", "density", "HU_limit"}.issubset(
                 set(new_material_dict[material].keys())
             ), "material dictionary is not formatted correctly"
-
+        if background_material not in new_material_dict:
+            warnings.warn(
+                f"Background material {background_material} not found in the material dictionary. Will default to Air"
+            )
         self.material_dict = new_material_dict
 
         # get the egsphant dimensions and voxel size from the image.
@@ -724,12 +728,12 @@ class BrachyEgsphant:
                     self.material_matrix *= roi_mask
                     self.density_matrix += (
                         complementary_roi_mask
-                        * self.material_dict.get("Air").get("density")
+                        * self.material_dict.get(background_material, "Air").get("density")
                     )
                     self.material_matrix += (
                         complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
-                            self.material_dict.get("Air").get("encoding")
+                            self.material_dict.get(background_material, "Air").get("encoding")
                         )
                     )
 
