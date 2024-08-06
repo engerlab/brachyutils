@@ -890,7 +890,7 @@ class BrachyEgsphant:
         
         # reset the encoding of the materials in the material dictionary
         for i, material in enumerate(self.material_dict):
-            self.material_dict.get(material)["encoding"] = BrachyEgsphant._materials_encoding_array[i+1]
+            self.material_dict.get(material)["encoding"] = BrachyEgsphant._materials_encoding_array[i]
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
@@ -943,7 +943,7 @@ def _load_material_dict(pth_file: Path):
             material_dict[material] = {
                 "density": float(density),
                 "HU_limit": float(HU_limit),
-                "encoding": BrachyEgsphant._materials_encoding_array[i+1],
+                "encoding": BrachyEgsphant._materials_encoding_array[i],
             }
     elif extension == ".json":
         assert os.path.exists(
@@ -958,10 +958,11 @@ def _load_material_dict(pth_file: Path):
             
             if material_dict.get(material).get("HU_limit") is None:
                 warnings.warn(f"no HU limit was found for {material}, material assignment by ct will not be possible")
+                material_dict.get(material)["HU_limit"] = float("-inf")
             
             if material_dict.get(material).get("encoding") is None:
                 warnings.warn(f"no encoding was found for {material}, encoding will be set by the order of the material in the json file")
-                material_dict.get(material)["encoding"] = BrachyEgsphant._materials_encoding_array[i+1]
+                material_dict.get(material)["encoding"] = BrachyEgsphant._materials_encoding_array[i]
     else:
         raise Exception(
             f"Loading from file extension {extension} is not supported! only .txt and .json are supported."

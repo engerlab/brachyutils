@@ -80,11 +80,12 @@ def test_load_from_ctegsphant():
 def test_create_egsphant_from_images():
     # dir_images = "../../data_test/rectal-jgh-dcm"
     dir_images = "../../data_test/prostate-glen-p1-dcm"
-    pth_materials = "../../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
+    # # materials from CT
+    # pth_materials = "../../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
     # pth_output = "../../data_test/test_export_plan/prostate_from_images_ct.egsphant"
-    
+    # materials from contours
     pth_materials = (
-    "../../data_test/test_export_plan/test_materials.json"
+    "../../data_test/prostate_material_dict.json"
     )
     pth_output = "../../data_test/test_export_plan/prostate_from_contours.egsphant"
     
