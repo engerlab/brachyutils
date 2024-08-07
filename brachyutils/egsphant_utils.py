@@ -671,7 +671,8 @@ class BrachyEgsphant:
             ), "material dictionary is not formatted correctly"
         if background_material not in new_material_dict:
             warnings.warn(
-                f"Background material {background_material} not found in the material dictionary. Will default to Air"
+                f"Background material {background_material} not found in the material dictionary. Will default to Air",
+                stacklevel=2,
             )
         self.material_dict = new_material_dict
 
@@ -805,7 +806,7 @@ class BrachyEgsphant:
                     self.density_matrix += (
                         complementary_roi_mask
                         * self.material_dict.get(background_material, "Air").get(
-                            "encoding"
+                            "density"
                         )
                     )
                     self.material_matrix += (
