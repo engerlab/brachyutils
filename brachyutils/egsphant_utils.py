@@ -1,9 +1,10 @@
 import json
 import os
+import warnings
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Union
-import warnings
+
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
@@ -102,16 +103,21 @@ class BrachyEgsphant:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
 
         if image is not None and material_dict is not None:
-            
+
             if isinstance(material_dict, str):
-                if os.path.splitext(material_dict)[-1] == ".txt" and not assign_material_from_ct:
+                if (
+                    os.path.splitext(material_dict)[-1] == ".txt"
+                    and not assign_material_from_ct
+                ):
                     raise Exception(
                         "CT to density text file should be used only when assign_material_from_ct is True.\n \
                         If assigning materials by contours, please provide a json file containing material dictionary."
                     )
-                self.material_dict = self.material_dict | _load_material_dict(material_dict)
+                self.material_dict = self.material_dict | _load_material_dict(
+                    material_dict
+                )
                 self._remove_duplicate_materials()
-            
+
             self.create_egsphant_from_images(
                 image=image,
                 new_material_dict=self.material_dict,
@@ -728,12 +734,16 @@ class BrachyEgsphant:
                     self.material_matrix *= roi_mask
                     self.density_matrix += (
                         complementary_roi_mask
-                        * self.material_dict.get(background_material, "Air").get("density")
+                        * self.material_dict.get(background_material, "Air").get(
+                            "density"
+                        )
                     )
                     self.material_matrix += (
                         complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
-                            self.material_dict.get(background_material, "Air").get("encoding")
+                            self.material_dict.get(background_material, "Air").get(
+                                "encoding"
+                            )
                         )
                     )
 
@@ -794,12 +804,16 @@ class BrachyEgsphant:
                     self.material_matrix *= roi_mask
                     self.density_matrix += (
                         complementary_roi_mask
-                        * self.material_dict.get(background_material, "Air").get("encoding")
+                        * self.material_dict.get(background_material, "Air").get(
+                            "encoding"
+                        )
                     )
                     self.material_matrix += (
                         complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
-                            self.material_dict.get(background_material, "Air").get("encoding")
+                            self.material_dict.get(background_material, "Air").get(
+                                "encoding"
+                            )
                         )
                     )
 
@@ -878,19 +892,24 @@ class BrachyEgsphant:
             - Void := will remove duplicate materials from the material dictionary.
         """
         assert self.material_dict is not None, "material dictionary is not available"
-        
+
         material_list = list(self.material_dict.keys())
         material_list = [x.lower() for x in material_list]
-        
+
         # remove duplicated materials self.material_dict
         for material in self.material_dict:
             if material_list.count(material.lower()) > 1 and material != "Air":
-                print(f"Duplicate material {material} found in the material dictionary and removed")
+                print(
+                    f"Duplicate material {material} found in the material dictionary and removed"
+                )
                 self.material_dict.pop(material)
-        
+
         # reset the encoding of the materials in the material dictionary
         for i, material in enumerate(self.material_dict):
-            self.material_dict.get(material)["encoding"] = BrachyEgsphant._materials_encoding_array[i]
+            self.material_dict.get(material)["encoding"] = (
+                BrachyEgsphant._materials_encoding_array[i]
+            )
+
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     r"""
@@ -947,22 +966,32 @@ def _load_material_dict(pth_file: Path):
             }
     elif extension == ".json":
         assert os.path.exists(
-        pth_file
+            pth_file
         ), f"no such json file was found at this directory: \n {pth_file}"
 
         with open(pth_file, "r") as file_json:
             material_dict = json.load(file_json)
-        
+
         for i, material in enumerate(material_dict):
-            assert material_dict.get(material).get("density") is not None, "density is not available"
-            
+            assert (
+                material_dict.get(material).get("density") is not None
+            ), "density is not available"
+
             if material_dict.get(material).get("HU_limit") is None:
-                warnings.warn(f"no HU limit was found for {material}, material assignment by ct will not be possible")
+                warnings.warn(
+                    f"no HU limit was found for {material}, material assignment by ct will not be possible",
+                    stacklevel=2,
+                )
                 material_dict.get(material)["HU_limit"] = float("-inf")
-            
+
             if material_dict.get(material).get("encoding") is None:
-                warnings.warn(f"no encoding was found for {material}, encoding will be set by the order of the material in the json file")
-                material_dict.get(material)["encoding"] = BrachyEgsphant._materials_encoding_array[i]
+                warnings.warn(
+                    f"no encoding was found for {material}, encoding will be set by the order of the material in the json file",
+                    stacklevel=2,
+                )
+                material_dict.get(material)["encoding"] = (
+                    BrachyEgsphant._materials_encoding_array[i]
+                )
     else:
         raise Exception(
             f"Loading from file extension {extension} is not supported! only .txt and .json are supported."
