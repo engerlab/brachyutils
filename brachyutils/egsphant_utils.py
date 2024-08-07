@@ -935,6 +935,15 @@ def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
     return "".join(matrix_single_string)
 
 
+def _load_json(pth_json: Path):
+    assert os.path.exists(
+        pth_json
+    ), f"no such json file was found at this directory: \n {pth_json}"
+
+    with open(pth_json, "r") as file_json:
+        return json.load(file_json)
+
+
 def _load_material_dict(pth_file: Path):
     r"""
     Purpose:
@@ -965,12 +974,7 @@ def _load_material_dict(pth_file: Path):
                 "encoding": BrachyEgsphant._materials_encoding_array[i],
             }
     elif extension == ".json":
-        assert os.path.exists(
-            pth_file
-        ), f"no such json file was found at this directory: \n {pth_file}"
-
-        with open(pth_file, "r") as file_json:
-            material_dict = json.load(file_json)
+        material_dict = _load_json(pth_file)
 
         for i, material in enumerate(material_dict):
             assert (
