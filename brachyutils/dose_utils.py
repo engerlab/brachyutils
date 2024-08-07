@@ -1168,11 +1168,6 @@ def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
         diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
         print("\n".join(diff_list))
 
-
-def test_dose_with_empty_grid_like():
-    raise NotImplementedError("This function is not implemented yet")
-
-
 class DoseComparison:
 
     def __init__(
