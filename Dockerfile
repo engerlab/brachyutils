@@ -3,7 +3,7 @@ FROM ubuntu:22.04
 # Install dependencies
 RUN apt update && apt install -y wget nano tar ca-certificates \
     libgl1-mesa-glx libglib2.0-0 \
-    libxrender1
+    libxrender1 libmkl-rt \
     && rm -rf /var/lib/apt/lists/*
 
 # Install miniconda
