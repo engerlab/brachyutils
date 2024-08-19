@@ -39,6 +39,7 @@ setup(
         "py7zr",
         "pytest",
         "vtk",
+        "checkpointing"
     ],
     entry_points={"console_scripts": ["brachyutils=brachyutils.cli_utils:main"]},
 )

@@ -1,7 +1,8 @@
 import os
 
 import numpy as np
-
+from checkpointing import checkpoint
+from time import time
 from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.egsphant_utils import (
     BrachyEgsphant,
@@ -81,23 +82,28 @@ def test_create_egsphant_from_images():
     # dir_images = "../../data_test/rectal-jgh-dcm"
     dir_images = "../../data_test/prostate-glen-p1-dcm"
     # materials from CT
-    pth_materials = "../../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
-    pth_output = "../../data_test/test_export_plan/prostate_from_images_ct.egsphant"
+    # pth_materials = "../../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
+    # pth_output = "../../data_test/test_export_plan/prostate_from_images_ct.egsphant"
     # # materials from contours
-    # pth_materials = "../../data_test/prostate_material_dict.json"
-    # pth_output = "../../data_test/test_export_plan/prostate_from_contours.egsphant"
+    pth_materials = "../../data_test/prostate_material_dict.json"
+    pth_output = "../../data_test/test_export_plan/prostate_from_contours.egsphant"
 
-    dicom_obj = BrachyDicom(
-        pth_dir_dicom=dir_images,
-        load_structure=True,
-    )
-
-    egsphant_obj = BrachyEgsphant(
-        image=dicom_obj,
-        material_dict=pth_materials,
-        assign_material_from_ct=True,
-    )
+    # dicom_obj = BrachyDicom(
+        # pth_dir_dicom=dir_images,
+        # load_structure=True,
+    # )
+# 
+    # egsphant_obj = BrachyEgsphant(
+        # image=dicom_obj,
+        # material_dict=pth_materials,
+        # assign_material_from_ct=False,
+    # )
+    start_time = time()
+    egsphant_obj = test_egsphant_constructor(dir_images, pth_materials)
+    # breakpoint()
     egsphant_obj.write_to_ctegsphant(pth_output)
+    end_time = time()
+    print("Time elapsed: ", end_time - start_time)
     # egsphant_obj.export_material_dict(
     # os.path.join(
     # os.path.dirname(pth_output),
@@ -109,6 +115,18 @@ def text_load_material_dict():
     pth_input = "../../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
     materials_dict = _load_material_dict(pth_input)
     print(materials_dict)
+
+@checkpoint()
+def test_egsphant_constructor(dir_images, pth_materials):
+    dicom_obj = BrachyDicom(
+        pth_dir_dicom=dir_images,
+        load_structure=True,
+    )
+    return BrachyEgsphant(
+        image=dicom_obj,
+        material_dict=pth_materials,
+        assign_material_from_ct=False,
+    )
 
 
 if __name__ == "__main__":
