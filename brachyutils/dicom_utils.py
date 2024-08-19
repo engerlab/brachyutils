@@ -4,6 +4,8 @@ from glob import glob
 
 import numpy as np
 
+import pydicom
+from DicomRTTool.ReaderWriter import DicomReaderWriter
 
 from brachyutils.dose_utils import BrachyDose
 
@@ -48,70 +50,65 @@ class BrachyDicom:
         load_structure: bool = True,
         load_dose: bool = False,
         load_plan: bool = False,
-        backend: Literal["opentps", "dicomrttool"] = "opentps",
     ):
         r"""
         Purpose:
             - To gatheter all the information provided by the dicom files of a patient.
         """
-        if backend == "opentps":
-            breakpoint()
-        else:
-            from DicomRTTool.ReaderWriter import DicomReaderWriter
-            self.dicom_reader: DicomReaderWriter = None
-            self.all_rois = None
-            self.grid: np.array = None
-            self.origin_coordinates: np.array = None
-            self.voxel_size: np.array = None
-            self.num_voxels: np.array = None
-            self.structure_mask_dict: dict = {}
-            self.structure_index_range_dict: dict = {}
-            self.dose: BrachyDose = None
-            self.catheter_table: dict = None
-            self.source_info: dict = None
-    
-            os.path.abspath(pth_dir_dicom)
-            assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
-            assert glob(
-                pth_dir_dicom + "/*.dcm"
-            ), "there are no dicom files in this directory"
-            # load the structure file into an rt_struct object
-            self.dicom_reader = DicomReaderWriter(
-                description="getting structure masks", arg_max=True
+        self.dicom_reader: DicomReaderWriter = None
+        self.all_rois = None
+        self.grid: np.array = None
+        self.origin_coordinates: np.array = None
+        self.voxel_size: np.array = None
+        self.num_voxels: np.array = None
+        self.structure_mask_dict: dict = {}
+        self.structure_index_range_dict: dict = {}
+        self.dose: BrachyDose = None
+        self.catheter_table: dict = None
+        self.source_info: dict = None
+
+        os.path.abspath(pth_dir_dicom)
+        assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
+        assert glob(
+            pth_dir_dicom + "/*.dcm"
+        ), "there are no dicom files in this directory"
+        # load the structure file into an rt_struct object
+        self.dicom_reader = DicomReaderWriter(
+            description="getting structure masks", arg_max=True
+        )
+        self.dicom_reader.walk_through_folders(pth_dir_dicom)
+        self.dicom_reader.get_images()
+
+        if load_image:
+            self.grid = self.dicom_reader.ArrayDicom
+            self.origin_coordinates = np.array(
+                self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
             )
-            self.dicom_reader.walk_through_folders(pth_dir_dicom)
-            self.dicom_reader.get_images()
-    
-            if load_image:
-                self.grid = self.dicom_reader.ArrayDicom
-                self.origin_coordinates = np.array(
-                    self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
+            self.voxel_size = np.array(
+                self.dicom_reader.dicom_handle.GetSpacing(), dtype=np.float32
+            )
+            self.num_voxels = np.array(
+                [
+                    int(self.dicom_reader.return_key_info("0028|0010")),
+                    int(self.dicom_reader.return_key_info("0028|0011")),
+                    int(len(self.dicom_reader.series_instances_dictionary[0].files)),
+                ]
+            )
+
+        if load_structure:
+            self.all_rois = self.dicom_reader.return_rois()
+            # self.get_strcuture_mask_from_dicom(self.all_rois)
+            self.get_structure_index_range(self.all_rois)
+
+        if load_dose:
+            self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
+
+        if load_plan:
+            self.catheter_table, self.source_info = (
+                get_catheter_table_and_source_info_from_dicom(
+                    glob(pth_dir_dicom + "/RP*.dcm")[0]
                 )
-                self.voxel_size = np.array(
-                    self.dicom_reader.dicom_handle.GetSpacing(), dtype=np.float32
-                )
-                self.num_voxels = np.array(
-                    [
-                        int(self.dicom_reader.return_key_info("0028|0010")),
-                        int(self.dicom_reader.return_key_info("0028|0011")),
-                        int(len(self.dicom_reader.series_instances_dictionary[0].files)),
-                    ]
-                )
-    
-            if load_structure:
-                self.all_rois = self.dicom_reader.return_rois()
-                # self.get_strcuture_mask_from_dicom(self.all_rois)
-                self.get_structure_index_range(self.all_rois)
-    
-            if load_dose:
-                self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
-    
-            if load_plan:
-                self.catheter_table, self.source_info = (
-                    get_catheter_table_and_source_info_from_dicom(
-                        glob(pth_dir_dicom + "/RP*.dcm")[0]
-                    )
-                )
+            )
 
     def get_structure_index_range(self, query_structure_list: list):
         r"""
@@ -249,7 +246,7 @@ def get_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
         - pydicom: https://pydicom.github.io/
     """
     # load the plan file into an rt_plan object
-    import pydicom
+
     plan = pydicom.dcmread(pth_dicom_plan)
     catheter_table = []
     # get the source info
