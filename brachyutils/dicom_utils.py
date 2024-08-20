@@ -1,5 +1,5 @@
 import os
-from typing import Literal
+from typing import Union, Literal
 from glob import glob
 
 import numpy as np
@@ -9,18 +9,25 @@ from DicomRTTool.ReaderWriter import DicomReaderWriter
 
 from brachyutils.dose_utils import BrachyDose
 
-from opentps.core.data.images import Image3D
+from opentps.core.data.images import (
+    CTImage,
+    MRImage,
+    ROIMask,
+    DoseImage
+)
+
+from opentps.core.data import RTStruct
 
 from opentps.core.io.dicomIO import (
     readDicomCT,
-    readDicomDose,
     readDicomMRI,
+    readDicomDose,
     readDicomPlan,
     readDicomStruct,
     writeDicomCT,
     writeRTDose,
     writeRTPlan,
-    writeRTStruct
+    # writeRTStruct
 )
 
 class BrachyDicom:
@@ -53,15 +60,20 @@ class BrachyDicom:
     ):
         r"""
         Purpose:
-            - To gatheter all the information provided by the dicom files of a patient.
+            - To gatheter all the information provided by the dicom files of a patient. You can choose to load the image,
+            the structure masks, the dose and the plan. by default, the image and the structure masks are loaded.
         """
-        self.dicom_reader: DicomReaderWriter = None
-        self.all_rois = None
-        self.grid: np.array = None
-        self.origin_coordinates: np.array = None
-        self.voxel_size: np.array = None
-        self.num_voxels: np.array = None
+        self.image: Union[CTImage, MRImage] = None
+        self.image_modality: Literal["CT", "MR"] = None
+        self.structures: RTStruct = None
         self.structure_mask_dict: dict = {}
+        # to delete once you are sure
+        # self.dicom_reader: DicomReaderWriter = None
+        # self.all_rois = None
+        # self.grid: np.array = None
+        # self.origin_coordinates: np.array = None
+        # self.voxel_size: np.array = None
+        # self.num_voxels: np.array = None
         self.structure_index_range_dict: dict = {}
         self.dose: BrachyDose = None
         self.catheter_table: dict = None
@@ -69,46 +81,56 @@ class BrachyDicom:
 
         os.path.abspath(pth_dir_dicom)
         assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
-        assert glob(
-            pth_dir_dicom + "/*.dcm"
-        ), "there are no dicom files in this directory"
+        
+        file_list: list = glob(pth_dir_dicom + "/*.dcm")
+        assert len(file_list) > 0, "there are no dicom files in this directory"
+        
+        # to delete once you are sure
         # load the structure file into an rt_struct object
-        self.dicom_reader = DicomReaderWriter(
-            description="getting structure masks", arg_max=True
-        )
-        self.dicom_reader.walk_through_folders(pth_dir_dicom)
-        self.dicom_reader.get_images()
+        # self.dicom_reader = DicomReaderWriter(
+            # description="getting structure masks", arg_max=True
+        # )
+        # self.dicom_reader.walk_through_folders(pth_dir_dicom)
+        # self.dicom_reader.get_images()
 
         if load_image:
-            self.grid = self.dicom_reader.ArrayDicom
-            self.origin_coordinates = np.array(
-                self.dicom_reader.dicom_handle.GetOrigin(), dtype=np.float32
-            )
-            self.voxel_size = np.array(
-                self.dicom_reader.dicom_handle.GetSpacing(), dtype=np.float32
-            )
-            self.num_voxels = np.array(
-                [
-                    int(self.dicom_reader.return_key_info("0028|0010")),
-                    int(self.dicom_reader.return_key_info("0028|0011")),
-                    int(len(self.dicom_reader.series_instances_dictionary[0].files)),
-                ]
-            )
+            if "CT" in file_list[0]:
+                self.image_modality = "CT"
+                ct_files = list(filter(lambda s: "CT" in s, file_list))
+                self.image = readDicomCT(ct_files)
+
+            elif "MR" in file_list[0]:
+                self.image_modality = "MR"
+                mr_files = list(filter(lambda s: "MR" in s, file_list))
+                self.image = readDicomMRI(mr_files)
+            else:
+                raise ValueError("Image modality not recognized")
 
         if load_structure:
-            self.all_rois = self.dicom_reader.return_rois()
-            # self.get_strcuture_mask_from_dicom(self.all_rois)
-            self.get_structure_index_range(self.all_rois)
+            structure_file = list(filter(lambda s: "RS" in s, file_list)).pop()
+            self._load_structure(structure_file)
+            
+            # self.all_rois = self.dicom_reader.return_rois()
+            # # self.get_strcuture_mask_from_dicom(self.all_rois)
+            # self.get_structure_index_range(self.all_rois)
 
         if load_dose:
             self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
-
+            
         if load_plan:
             self.catheter_table, self.source_info = (
                 get_catheter_table_and_source_info_from_dicom(
                     glob(pth_dir_dicom + "/RP*.dcm")[0]
                 )
             )
+    def _load_structure(self, structure_file: str):
+        self.structures_dcm = readDicomStruct(structure_file)
+        for contour in self.structures_dcm.contours:
+            self.structure_mask_dict[contour.name] = contour.getBinaryMask(
+                origin=self.image.origin,
+                gridSize=self.image.gridSize,
+                spacing=self.image.spacing,
+                ).imageArray
 
     def get_structure_index_range(self, query_structure_list: list):
         r"""

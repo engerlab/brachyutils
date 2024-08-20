@@ -3,8 +3,12 @@ from brachyutils.dicom_utils import BrachyDicom
 
 
 def test_load_dicom():
+    # CT Prostate image:
     # pth_dicom = "../../data_test/prostate-glen-p1-dcm/"
-    pth_dicom = "../../data_test/rectal-jgh-dcm"
+    # MR Prostate image:
+    pth_dicom = "../../data_test/prostate-glen-p5-dcm/"
+    # CT rectal image:
+    # pth_dicom = "../../data_test/rectal-jgh-dcm"
     # especial patient case
     dicom_obj = BrachyDicom(
         pth_dicom,
@@ -17,6 +21,7 @@ def test_load_dicom():
 
 
 def test_get_strcuture_mask_from_dicom():
+    # ct images
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
     dicom_obj = BrachyDicom(pth_dicomRS, load_dose=True)
     strcuture_masks = dicom_obj.get_strcuture_mask_from_dicom(
