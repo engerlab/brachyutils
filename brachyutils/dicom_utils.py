@@ -115,14 +115,13 @@ class BrachyDicom:
             # self.get_structure_index_range(self.all_rois)
 
         if load_dose:
-            dose_file = list(filter(lambda s: "RD" in s, file_list)).pop()
-            self.dose = BrachyDose(dose_file)
+            dose_file = list(filter(lambda s: "RD" in s, file_list)).pop() 
+            self.dose = readDicomDose(dose_file)
             
         if load_plan:
+            plan_file = list(filter(lambda s: "RP" in s, file_list)).pop()
             self.catheter_table, self.source_info = (
-                get_catheter_table_and_source_info_from_dicom(
-                    glob(pth_dir_dicom + "/RP*.dcm")[0]
-                )
+                get_catheter_table_and_source_info_from_dicom(plan_file)
             )
     def load_structures(self, structure_file: str):
         r"""

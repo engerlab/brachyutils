@@ -4,9 +4,9 @@ from brachyutils.dicom_utils import BrachyDicom
 
 def test_load_dicom():
     # CT Prostate image:
-    # pth_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    pth_dicom = "../../data_test/prostate-glen-p1-dcm/"
     # MR Prostate image:
-    pth_dicom = "../../data_test/prostate-glen-p5-dcm/"
+    # pth_dicom = "../../data_test/prostate-glen-p5-dcm/"
     # CT rectal image:
     # pth_dicom = "../../data_test/rectal-jgh-dcm"
     # especial patient case
