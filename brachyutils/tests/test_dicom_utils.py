@@ -14,7 +14,7 @@ def test_load_dicom():
         pth_dicom,
         load_image=True,
         load_structure=True,
-        load_dose=False,
+        load_dose=True,
         load_plan=False,
     )
     dicom_obj.info()

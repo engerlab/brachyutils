@@ -108,14 +108,15 @@ class BrachyDicom:
 
         if load_structure:
             structure_file = list(filter(lambda s: "RS" in s, file_list)).pop()
-            self._load_structure(structure_file)
+            self.load_structures(structure_file)
             
             # self.all_rois = self.dicom_reader.return_rois()
             # # self.get_strcuture_mask_from_dicom(self.all_rois)
             # self.get_structure_index_range(self.all_rois)
 
         if load_dose:
-            self.dose = BrachyDose(glob(pth_dir_dicom + "/RD*.dcm")[0])
+            dose_file = list(filter(lambda s: "RD" in s, file_list)).pop()
+            self.dose = BrachyDose(dose_file)
             
         if load_plan:
             self.catheter_table, self.source_info = (
@@ -123,7 +124,20 @@ class BrachyDicom:
                     glob(pth_dir_dicom + "/RP*.dcm")[0]
                 )
             )
-    def _load_structure(self, structure_file: str):
+    def load_structures(self, structure_file: str):
+        r"""
+        Purpose:
+            To load the structures from the dicom RT structure file. 
+            The structure masks are stored in the structure_mask_dict.
+            each structure would have a binary mask with the same dimension as the image.
+        Inputs:
+            - structure_file:str := the path to the dicom RT structure file.
+        Outputs:
+            - void: self.structure_mask_dict will be updated.
+        """
+        assert os.path.exists(structure_file), "given structure file does not exist"
+        assert self.image is not None, "image has not been loaded yet"
+        
         self.structures_dcm = readDicomStruct(structure_file)
         for contour in self.structures_dcm.contours:
             self.structure_mask_dict[contour.name] = contour.getBinaryMask(
@@ -132,7 +146,7 @@ class BrachyDicom:
                 spacing=self.image.spacing,
                 ).imageArray
 
-    def get_structure_index_range(self, query_structure_list: list):
+    def get_structure_index_range(self):
         r"""
         Purpose:
             To find the index extent of the structure voxels along each axis using dicom RT structure file.
@@ -146,16 +160,15 @@ class BrachyDicom:
         Dependencies:
             - get_strcuture_mask_from_dicom()
         """
-        if len(self.structure_index_range_dict) > 0:
-            return self.structure_index_range_dict
+        
+        assert self.structure_mask_dict is not None, "structure masks have not been loaded yet"
 
         self.structure_index_range_dict = {}
-        self.get_strcuture_mask_from_dicom(query_structure_list)
         for mask_name, mask_numpy in self.structure_mask_dict.items():
             # so we got the mask but the dimensions may not match the dimension of the dose
             # let's get the relative extent of the body mask compared to the whole grid and resample
             # the extents
-
+            
             # skip the mask if it is empty
             if np.sum(mask_numpy) == 0:
                 continue
@@ -177,34 +190,34 @@ class BrachyDicom:
             }
         return self.structure_index_range_dict
 
-    def get_strcuture_mask_from_dicom(self, query_structure_list: list):
-        r"""
-        Purpose:
-            To get the mask of the structures using dicom RT structure file.
-            If the object already has this feature, it will return the stored value instead of over-writing it.
-        Inputs:
-            - query_structure_list := list of structure names to find the mask of.
-        Outputs:
-            - mask_dict:dict :=  a dictionary with the structure name as key and the mask as value.
-        """
-        if len(self.structure_mask_dict) > 0:
-            return self.structure_mask_dict
+    # def get_strcuture_mask_from_dicom(self, query_structure_list: list):
+    #     r"""
+    #     Purpose:
+    #         To get the mask of the structures using dicom RT structure file.
+    #         If the object already has this feature, it will return the stored value instead of over-writing it.
+    #     Inputs:
+    #         - query_structure_list := list of structure names to find the mask of.
+    #     Outputs:
+    #         - mask_dict:dict :=  a dictionary with the structure name as key and the mask as value.
+    #     """
+    #     if len(self.structure_mask_dict) > 0:
+    #         return self.structure_mask_dict
 
-        for query_structure_name in query_structure_list:
-            # # find the name of the body structure inside the rt_structure object
-            dicom_structure_name = [
-                name for name in self.all_rois if query_structure_name in name.lower()
-            ]
-            # # get the numpy array of the body structure:
-            assert len(dicom_structure_name) >= 1, "no contour was found!"
-            self.dicom_reader.set_contour_names_and_associations(
-                contour_names=dicom_structure_name
-            )
-            self.dicom_reader.get_mask()
-            mask_numpy = self.dicom_reader.mask
-            self.structure_mask_dict[query_structure_name] = mask_numpy
+    #     for query_structure_name in query_structure_list:
+    #         # # find the name of the body structure inside the rt_structure object
+    #         dicom_structure_name = [
+    #             name for name in self.all_rois if query_structure_name in name.lower()
+    #         ]
+    #         # # get the numpy array of the body structure:
+    #         assert len(dicom_structure_name) >= 1, "no contour was found!"
+    #         self.dicom_reader.set_contour_names_and_associations(
+    #             contour_names=dicom_structure_name
+    #         )
+    #         self.dicom_reader.get_mask()
+    #         mask_numpy = self.dicom_reader.mask
+    #         self.structure_mask_dict[query_structure_name] = mask_numpy
 
-        return self.structure_mask_dict
+        # return self.structure_mask_dict
 
     def reset(self):
         self.structure_mask_dict = {}
