@@ -223,15 +223,14 @@ class BrachyDicom:
         self.structure_index_range_dict = {}
 
     def info(self):
-        print(f"shape of the image: {self.grid.shape}")
-        print(f"origin of the image: {self.origin_coordinates}")
-        print(f"voxel size of the image: {self.voxel_size}")
-        print(f"number of voxels: {self.num_voxels}")
-        print(f"all the structures in the dicom: {self.all_rois}")
+        print(f"shape of the image: {self.image.gridSize}")
+        print(f"origin of the image: {self.image.origin}")
+        print(f"voxel size of the image: {self.image.spacing}")
+        print(f"all the structures in the dicom: {self.structure_mask_dict.keys()}")
         if self.dose is not None:
-            print(f"the shape of dose: {self.dose.num_voxels}")
-            print(f"origin of the dose: {self.dose.origin_coordinates}")
-            print(f"voxel size of the dose: {self.dose.voxel_size}")
+            print(f"the shape of dose: {self.dose.gridSize}")
+            print(f"origin of the dose: {self.dose.origin}")
+            print(f"voxel size of the dose: {self.dose.spacing}")
         else:
             print("no dose file was loaded")
         if self.catheter_table is not None:
