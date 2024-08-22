@@ -380,6 +380,20 @@ class BrachyDose:
         #     line_content = np.frombuffer(file.readline())
 
     def create_interpolation_function(self):
+        r"""
+        Purpose:
+            To create an interpolation function for the dose grid.
+            it allows for sampling of dose at any arbitrary set of points.
+
+        Inputs:
+            - self:BrachyDose := the object must have the grid attribute populated.
+
+        Outputs:
+            - void := the interpolation function is stored in the object.
+
+        Dependencies:
+            - scipy.interpolate.RegularGridInterpolator()
+        """
         voxel_centers = self.get_voxel_centers()
         self.interpolation_function = RegularGridInterpolator(
             (voxel_centers[0], voxel_centers[1], voxel_centers[2]),
@@ -826,7 +840,7 @@ class BrachyDose:
                 - self.voxel_edges[i].shape[0]
                 ) > 1:
                 self.voxel_edges[i] = self.voxel_edges[i][:-1]
-  
+
         return self.voxel_edges
 
     def get_voxel_centers(self):
@@ -1053,13 +1067,7 @@ class BrachyDose:
             return new_dose_obj
 
     def is_not_empty(self):
-        assert self.grid is not None, "error grid is None"
-        # commenting out the following line, since uncertainty is not always available
-        # e.g. for gamma and percent difference
-        # assert self.uncertainty is not None, "error uncertainty is None"
-        assert self.num_voxels is not None, "error num_voxels is None"
-        assert self.voxel_size is not None, "error voxel_size is None"
-        assert self.origin_coordinates is not None, "error origin_coordinates is None"
+        assert self.dose_image is not None, "error dose image is None"
         assert self.voxel_edges is not None, "error axis is None"
         return True
 
