@@ -28,9 +28,6 @@ def test_load_from_dicom():
     dose_obj.is_not_empty()
 
 
-# @pytest.mark.passed
-
-
 def test_write_to_3ddose():
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
 
@@ -218,6 +215,6 @@ def test_crop_by_body_contour():
 
 
 if __name__ == "__main__":
-    test_load_from_3ddose()
-    # test_load_from_dicom()
+    # test_load_from_3ddose()
+    test_load_from_dicom()
     # test_convert_to_nrrd()

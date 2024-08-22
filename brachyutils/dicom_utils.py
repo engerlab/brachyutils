@@ -23,7 +23,6 @@ from opentps.core.data import RTStruct
 from opentps.core.io.dicomIO import (
     readDicomCT,
     readDicomMRI,
-    readDicomDose,
     # readDicomPlan, dose not work on brachy
     readDicomStruct,
     writeDicomCT,
@@ -111,7 +110,7 @@ class BrachyDicom:
 
         if load_dose:
             dose_file = list(filter(lambda s: "RD" in s, file_list)).pop() 
-            self.dose = readDicomDose(dose_file)
+            self.dose = BrachyDose(dose_file)
             
         if load_plan:
             plan_file = list(filter(lambda s: "RP" in s, file_list)).pop()

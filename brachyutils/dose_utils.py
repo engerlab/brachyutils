@@ -22,7 +22,7 @@ from numpy import ma, reshape
 from scipy.interpolate import RegularGridInterpolator
 
 from opentps.core.data.images import DoseImage
-
+from opentps.core.io.dicomIO import readDicomDose
 
 class BrachyDose:
     r"""
@@ -31,12 +31,20 @@ class BrachyDose:
     functions that are applied on the dose. All doses are expressed in Gy.
 
     Attributes:
+    
+        - dose_image:DoseImage := DoseImage object holding the dose grid ([z, y, x]), as well as
+            spacing, origin, and rotation ([z, y, x]) information.
+        - uncertainty_image:DoseImage := DoseImage object holding the dose uncertainity grid([z, y, x]), as well as
+            spacing, origin, and rotation ([z, y, x]) information.
+        - voxel_edges:np.ndarray := coorindates of voxel edges along z, y and x axis.
+        - interpolation_function := RegularGridInterpolator object that allows for sampling of dose at arbitrary points [z, y, x].
+
         grid:np.ndarray := 3D numpy array holding dose at each voxel. [z, y, x]
         uncertainty:np.ndarray := 3D numpy array holding dose uncertainity at each voxel. [z, y, x]
         num_voxels:np.ndarray := 1D numpy array holding the number of grid points on x, y, z axis.
         voxel_size:np.ndarray := 1D numpy array holding the resolution of each voxel along x, y, z axis in centimeters.
         origin_coordinates:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z]
-        voxel_edges:np.ndarray := coorindates of voxel edges along z, y and x axis.
+        
 
     Functions:
         load_file_to_brachydose()
@@ -140,7 +148,7 @@ class BrachyDose:
             raise ValueError("file extension not recognized")
         # voxel_centers = self.get_voxel_centers()
         # print(len(self.voxel_edges))
-        if self.interpolation_function is None and self.grid is not None:
+        if self.interpolation_function is None and self.dose_image is not None:
             self.create_interpolation_function()
         return self
 
@@ -248,20 +256,6 @@ class BrachyDose:
                 origin = (bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]),
                 spacing = (bench_x_spacing, bench_y_spacing, bench_slice_thick),
             )
-            # self.grid = bench_dose
-            # self.num_voxels = np.array(bench_voxels, dtype=np.float32)
-            # self.voxel_size = np.round(
-            #     np.array(
-            #         [bench_x_spacing, bench_y_spacing, bench_slice_thick],
-            #         dtype=np.float32,
-            #     ),
-            #     1,
-            # )
-            # self.origin_coordinates = np.array(
-            #     [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]], dtype=np.float32
-            # )
-            # overriding axis calculation to ignore the axis contents of 3ddose and use the function below
-            # np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
             self.voxel_edges = self.calculate_voxel_edges()
 
     def load_from_nrrd(self, pth_nrrd: str):
@@ -342,25 +336,36 @@ class BrachyDose:
         assert os.path.basename(pth_RD_dicom).startswith(
             "RD"
         ), "the basename should start with RD"
-        dose_dcm = pydicom.dcmread(pth_RD_dicom)
-        if hasattr(dose_dcm, 'DoseGridScaling'):
-            print(dose_dcm.DoseGridScaling)
-            self.grid = dose_dcm.pixel_array.astype(np.float32) * dose_dcm.DoseGridScaling
-        else:
-            self.grid = dose_dcm.pixel_array.astype(np.float32)
-        self.num_voxels = np.flip(
-            np.array(dose_dcm.pixel_array.shape, dtype=int), axis=0
-        )
-        x_y_spacing = np.array(dose_dcm.PixelSpacing, dtype=np.float32)
-        z_spacing = np.array(dose_dcm.SliceThickness, dtype=np.float32)
-        if z_spacing == 0:
-            warnings.warn(
-                "z_spacing is 0, using x_y_spacing as z_spacing", stacklevel=2
-            )
-            z_spacing = x_y_spacing[0]
+        # XXX to delete when you are sure!
+        # dose_dcm = pydicom.dcmread(pth_RD_dicom)
+        # if hasattr(dose_dcm, 'DoseGridScaling'):
+        #     print(dose_dcm.DoseGridScaling)
+        #     self.grid = dose_dcm.pixel_array.astype(np.float32) * dose_dcm.DoseGridScaling
+        # else:
+        #     self.grid = dose_dcm.pixel_array.astype(np.float32)
+        # self.num_voxels = np.flip(
+        #     np.array(dose_dcm.pixel_array.shape, dtype=int), axis=0
+        # )
+        # x_y_spacing = np.array(dose_dcm.PixelSpacing, dtype=np.float32)
+        # z_spacing = np.array(dose_dcm.SliceThickness, dtype=np.float32)
+        # if z_spacing == 0:
+        #     warnings.warn(
+        #         "z_spacing is 0, using x_y_spacing as z_spacing", stacklevel=2
+        #     )
+        #     z_spacing = x_y_spacing[0]
 
-        self.voxel_size = np.append(x_y_spacing, z_spacing)
-        self.origin_coordinates = np.array(dose_dcm.ImagePositionPatient, dtype=np.float32)
+        # self.voxel_size = np.append(x_y_spacing, z_spacing)
+        # self.origin_coordinates = np.array(dose_dcm.ImagePositionPatient, dtype=np.float32)
+        dose_image_xyz = readDicomDose(pth_RD_dicom)
+        self.dose_image = DoseImage(
+            imageArray = np.swapaxes(dose_image_xyz.imageArray, 0, 2),
+            origin = np.flip(dose_image_xyz.origin),
+            spacing = np.flip(dose_image_xyz.spacing),
+            name = dose_image_xyz.name,
+            angles = np.flip(dose_image_xyz.angles),
+            seriesInstanceUID=dose_image_xyz.seriesInstanceUID,
+            sopInstanceUID=dose_image_xyz.sopInstanceUID,
+        )
         self.voxel_edges = self.calculate_voxel_edges()
 
     def load_from_minidos(self, pth_minidos):
@@ -397,7 +402,7 @@ class BrachyDose:
         voxel_centers = self.get_voxel_centers()
         self.interpolation_function = RegularGridInterpolator(
             (voxel_centers[0], voxel_centers[1], voxel_centers[2]),
-            self.grid,
+            self.dose_image.imageArray,
             bounds_error=False,
             fill_value=0,
         )
@@ -830,9 +835,9 @@ class BrachyDose:
         self.voxel_edges = np.empty(len(axes_end), dtype=object)
         for i in range(len(axes_end)):
             self.voxel_edges[i] = np.arange(
-                self.dose_image.origin[len(axes_end) - 1 - i],
-                axes_end[len(axes_end) - 1 - i],
-                self.dose_image.spacing[len(axes_end) - 1 - i],
+                self.dose_image.origin[i],#[len(axes_end) - 1 - i],
+                axes_end[i],#[len(axes_end) - 1 - i],
+                self.dose_image.spacing[i],#[len(axes_end) - 1 - i],
                 dtype=np.float32,
             )
             if np.absolute(
@@ -847,8 +852,8 @@ class BrachyDose:
         voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
         if self.voxel_edges is not None:
             for i in range(len(self.voxel_edges)):
-                voxel_centers[i] = self.voxel_edges[i] + self.voxel_size[i] / 2.0
-                voxel_centers[i] = voxel_centers[i][:-1]
+                voxel_centers[i] = self.voxel_edges[i] + self.dose_image.spacing[i] / 2.0
+                # voxel_centers[i] = voxel_centers[i][:-1]
         else:
             raise ValueError("Voxel edges are not calculated yet")
         return voxel_centers
