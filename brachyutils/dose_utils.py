@@ -2,7 +2,7 @@ import difflib
 import logging
 import lzma
 import os
-
+from pathlib import Path
 # trunk-ignore(bandit/B403)
 import pickle
 import sys
@@ -86,19 +86,13 @@ class BrachyDose:
 
     def __init__(
         self,
-        pth_dose_file: Optional[str] = None,
+        pth_dose_file: Optional[Path] = None,
         load_uncertainty: Optional[bool] = True,
     ):
 
         self.dose_image: DoseImage = None
         self.uncertainty_image: DoseImage = None
         self.voxel_edges: np.ndarray = None
-        # # XXX to delete when you are sure!
-        # self.grid: np.ndarray = None
-        # self.uncertainty: np.ndarray = None
-        # self.num_voxels: np.ndarray = None
-        # self.voxel_size: np.ndarray = None
-        # self.origin_coordinates: np.ndarray = None
         self.interpolation_function = None
         if pth_dose_file is not None:
             self.load_file_to_brachydose(pth_dose_file, load_uncertainty)
@@ -106,7 +100,7 @@ class BrachyDose:
             self.create_interpolation_function()
 
     def load_file_to_brachydose(
-        self, pth_dose_file: str, load_uncertainty: Optional[bool] = True
+        self, pth_dose_file: Path, load_uncertainty: Optional[bool] = True
     ):
         r"""
         Purpose:
@@ -187,7 +181,7 @@ class BrachyDose:
             file types are '.3ddose', '.nrrd', '.npz', '.minidos', '.xz', and '.zstd'"
             )
 
-    def load_from_3ddose(self, filename: str, load_uncertainty: Optional[bool] = True):
+    def load_from_3ddose(self, filename: Path, load_uncertainty: Optional[bool] = True):
         r"""
         Purpose:
             Given the path to a 3ddose file, load its content into self:BrachyDose.
@@ -251,7 +245,7 @@ class BrachyDose:
             )
             self.voxel_edges = self.calculate_voxel_edges()
 
-    def load_from_nrrd(self, pth_nrrd: str):
+    def load_from_nrrd(self, pth_nrrd:Path):
         r"""
         Purpose:
             given the path to a nrrd dose file, it will load its content into self:BrachyDose
@@ -294,7 +288,7 @@ class BrachyDose:
 
         self.voxel_edges = self.calculate_voxel_edges()
 
-    def load_from_npz(self, pth_npz):
+    def load_from_npz(self, pth_npz:Path):
         r"""
         Purpose:
             Given the path to an npz file, load its content into self:BrachyDose.
@@ -315,7 +309,7 @@ class BrachyDose:
         self.origin_coordinates = loaded_brachydose["origin_coordinates"]
         self.voxel_edges = loaded_brachydose["axis"]
 
-    def load_from_dicom(self, pth_RD_dicom):
+    def load_from_dicom(self, pth_RD_dicom:Path):
         r"""
         Purpose:
             - Given the path to a dicom dose file, load its content into self:BrachyDose.
@@ -329,26 +323,6 @@ class BrachyDose:
         assert os.path.basename(pth_RD_dicom).startswith(
             "RD"
         ), "the basename should start with RD"
-        # XXX to delete when you are sure!
-        # dose_dcm = pydicom.dcmread(pth_RD_dicom)
-        # if hasattr(dose_dcm, 'DoseGridScaling'):
-        #     print(dose_dcm.DoseGridScaling)
-        #     self.grid = dose_dcm.pixel_array.astype(np.float32) * dose_dcm.DoseGridScaling
-        # else:
-        #     self.grid = dose_dcm.pixel_array.astype(np.float32)
-        # self.num_voxels = np.flip(
-        #     np.array(dose_dcm.pixel_array.shape, dtype=int), axis=0
-        # )
-        # x_y_spacing = np.array(dose_dcm.PixelSpacing, dtype=np.float32)
-        # z_spacing = np.array(dose_dcm.SliceThickness, dtype=np.float32)
-        # if z_spacing == 0:
-        #     warnings.warn(
-        #         "z_spacing is 0, using x_y_spacing as z_spacing", stacklevel=2
-        #     )
-        #     z_spacing = x_y_spacing[0]
-
-        # self.voxel_size = np.append(x_y_spacing, z_spacing)
-        # self.origin_coordinates = np.array(dose_dcm.ImagePositionPatient, dtype=np.float32)
         dose_image_xyz = readDicomDose(pth_RD_dicom)
         self.dose_image = DoseImage(
             imageArray = np.swapaxes(dose_image_xyz.imageArray, 0, 2),
@@ -643,14 +617,14 @@ class BrachyDose:
         """
         file_name = os.path.abspath(file_name)
 
-        dimensions = " ".join(map(str, self.num_voxels.astype(int))) + "\n"
+        dimensions = " ".join(map(str, np.flip(self.dose_image.gridSize.astype(int)))) + "\n"
         x_axis = " ".join(map(str, self.voxel_edges[2])) + "\n"
         y_axis = " ".join(map(str, self.voxel_edges[1])) + "\n"
         z_axis = " ".join(map(str, self.voxel_edges[0])) + "\n"
-        dose_flattened = " ".join(map(str, self.grid.flatten("C"))) + "\n"
+        dose_flattened = " ".join(map(str, self.dose_image.imageArray.flatten("C"))) + "\n"
         if self.uncertainty is not None:
             uncertainty_flattened = (
-                " ".join(map(str, self.uncertainty.flatten("C"))) + "\n"
+                " ".join(map(str, self.uncertainty_image.imageArray.flatten("C"))) + "\n"
             )
         else:
             uncertainty_flattened = ""
@@ -867,8 +841,8 @@ class BrachyDose:
             new_brachy_dose, BrachyDose
         ), "input must be of type BrachyDose"
         assert np.array_equal(
-            self.grid, new_brachy_dose.grid
-        ), "dose grid is not the same"
+            self.dose_image.imageArray, new_brachy_dose.dose_image.imageArray
+        ), "dose values are not the same"
         assert np.array_equal(
             np.concatenate(self.voxel_edges),
             np.concatenate(new_brachy_dose.voxel_edges),
@@ -877,27 +851,27 @@ class BrachyDose:
             self.uncertainty, new_brachy_dose.uncertainty
         ), "uncertainty is not the same"
         assert np.array_equal(
-            self.num_voxels, new_brachy_dose.num_voxels
+            self.dose_image.gridSize, new_brachy_dose.dose_image.gridSize
         ), "num_voxels is not the same"
         assert np.array_equal(
-            self.voxel_size, new_brachy_dose.voxel_size
+            self.dose_image.spacing, new_brachy_dose.dose_image.spacing
         ), "voxel_size is not the same"
         assert np.array_equal(
-            self.origin_coordinates, new_brachy_dose.origin_coordinates
+            self.dose_image.origin, new_brachy_dose.dose_image.origin
         ), "origin_coordinates is not the same"
         # assert np.array_equal(np.round(self.voxel_size, 2), np.round(new_brachy_dose.voxel_size, 2)), "voxel_size is not the same"
         # assert np.array_equal(np.round(self.origin_coordinates, 2), np.round(new_brachy_dose.origin_coordinates), 2), "origin_coordinates is not the same"
 
         return (
-            np.array_equal(self.grid, new_brachy_dose.grid)
+            np.array_equal(self.dose_image.imageArray, new_brachy_dose.dose_image.imageArray)
             and np.array_equal(
                 np.concatenate(self.voxel_edges),
                 np.concatenate(new_brachy_dose.voxel_edges),
             )
-            and np.array_equal(self.uncertainty, new_brachy_dose.uncertainty)
-            and np.array_equal(self.num_voxels, new_brachy_dose.num_voxels)
-            and np.array_equal(self.voxel_size, new_brachy_dose.voxel_size)
-            and np.array_equal(self.origin_coordinates, new_brachy_dose.origin_coordinates)
+            and np.array_equal(self.uncertainty_image.imageArray, new_brachy_dose.uncertainty_image.imageArray) if self.uncertainty is not None else True
+            and np.array_equal(self.dose_image.gridSize, new_brachy_dose.dose_image.gridSize)
+            and np.array_equal(self.dose_image.spacing, new_brachy_dose.dose_image.spacing)
+            and np.array_equal(self.dose_image.origin, new_brachy_dose.dose_image.origin)
         )
         # and np.array_equal(np.round(self.voxel_size, 2), np.round(new_brachy_dose.voxel_size, 2)) \
         # and np.array_equal(np.round(self.origin_coordinates, 2), np.round(new_brachy_dose.origin_coordinates), 2)

@@ -34,14 +34,13 @@ def test_write_to_3ddose():
     # pth_3ddose =  "../../data_test/run_1_old.3ddose"
 
     # testing on maude's file
-    pth_3ddose = "../../data_test/maude.3ddose"
-    pth_out = os.path.splitext(pth_3ddose)[0] + "_test.3ddose"
+    pth_file = "../../data_test/rectal-jgh-planFiles/combined.3ddose"
+    dir_out = "../../data_test/test_export_plan"
 
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
+    dose_obj = BrachyDose(pth_file)
 
-    dose_obj.write_to_3ddose(pth_out)
-    new_dose_obj = BrachyDose().load_file_to_brachydose(pth_out)
+    dose_obj.write_to_3ddose(os.path.join(dir_out, "test"+os.path.basename(pth_file)))
+    new_dose_obj = BrachyDose(os.path.join(dir_out,"test"+os.path.basename(pth_file)))
     dose_obj.is_equal(new_dose_obj)
 
 
@@ -217,6 +216,7 @@ def test_crop_by_body_contour():
 
 
 if __name__ == "__main__":
-    test_load_from_3ddose()
+    # test_load_from_3ddose()
     # test_load_from_dicom()
+    test_write_to_3ddose()
     # test_convert_to_nrrd()
