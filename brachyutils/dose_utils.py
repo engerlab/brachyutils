@@ -835,16 +835,16 @@ class BrachyDose:
         self.voxel_edges = np.empty(len(axes_end), dtype=object)
         for i in range(len(axes_end)):
             self.voxel_edges[i] = np.arange(
-                self.dose_image.origin[i],#[len(axes_end) - 1 - i],
-                axes_end[i],#[len(axes_end) - 1 - i],
-                self.dose_image.spacing[i],#[len(axes_end) - 1 - i],
+                self.dose_image.origin[i],
+                axes_end[i],
+                self.dose_image.spacing[i],
                 dtype=np.float32,
             )
-            if np.absolute(
-                self.dose_image.gridSize[::-1][i]
-                - self.voxel_edges[i].shape[0]
-                ) > 1:
-                self.voxel_edges[i] = self.voxel_edges[i][:-1]
+            # if np.absolute(
+            #     self.dose_image.gridSize[::-1][i]
+            #     - self.voxel_edges[i].shape[0]
+            #     ) > 1:
+            #     self.voxel_edges[i] = self.voxel_edges[i][:-1]
 
         return self.voxel_edges
 
@@ -853,7 +853,7 @@ class BrachyDose:
         if self.voxel_edges is not None:
             for i in range(len(self.voxel_edges)):
                 voxel_centers[i] = self.voxel_edges[i] + self.dose_image.spacing[i] / 2.0
-                # voxel_centers[i] = voxel_centers[i][:-1]
+                voxel_centers[i] = voxel_centers[i][:-1]
         else:
             raise ValueError("Voxel edges are not calculated yet")
         return voxel_centers
@@ -1078,25 +1078,17 @@ class BrachyDose:
 
     def info(self):
         self.is_not_empty()
-        print(f"shape of dose grid is: {self.grid.shape}")
-        if self.uncertainty is not None:
-            print(f"shape of uncertainty matrix is: {self.uncertainty.shape}")
-        print(f"num voxels attribute is: {self.num_voxels}")
-        print(f"the top left (bottom left in reality) is {self.origin_coordinates}")
-        print(f"the voxel size is {self.voxel_size}")
+        print(f"shape of dose grid is: {self.dose_image.gridSize}")
+        if self.uncertainty_image is not None:
+            print(f"shape of uncertainty matrix is: {self.uncertainty_image.gridSize}")
+        # print(f"num voxels attribute is: {self.num_voxels}")
+        print(f"the origin of dose image is {self.dose_image.origin}")
+        print(f"the voxel size is {self.dose_image.spacing}")
         print(
             f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
         )
-        print(
-            f"the range of the z axis is {self.voxel_edges[0][0], self.voxel_edges[0][-1]}"
-        )
-        print(
-            f"the range of the y axis is {self.voxel_edges[1][0], self.voxel_edges[1][-1]}"
-        )
-        print(
-            f"the range of the x axis is {self.voxel_edges[2][0], self.voxel_edges[2][-1]}"
-        )
-
+        print(f"The grid size in world unit is {self.dose_image.gridSizeInWorldUnit}")
+        
     def crop_by_body_contour(
         self,
         body_index_range: Optional[np.ndarray] = None,

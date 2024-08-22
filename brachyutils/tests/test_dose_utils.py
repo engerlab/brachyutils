@@ -25,6 +25,7 @@ def test_load_file_to_brachydose():
 def test_load_from_dicom():
     pth_dicom = "../../data_test/prostate-glen-p1-dcm/RD1.3.6.1.4.1.2452.6.350102904.1117384417.1751574951.1257637737.dcm"
     dose_obj = BrachyDose(pth_dicom)
+    dose_obj.info()
     dose_obj.is_not_empty()
 
 
