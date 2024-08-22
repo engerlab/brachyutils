@@ -1,6 +1,7 @@
 import os
-from typing import Union, Literal
+from typing import Union, Literal, List
 from glob import glob
+import warnings
 
 import numpy as np
 
@@ -22,11 +23,11 @@ from opentps.core.io.dicomIO import (
     readDicomCT,
     readDicomMRI,
     readDicomDose,
-    readDicomPlan,
+    # readDicomPlan, dose not work on brachy
     readDicomStruct,
     writeDicomCT,
     writeRTDose,
-    writeRTPlan,
+    # writeRTPlan, dose not work on brachy
     # writeRTStruct
 )
 
@@ -160,7 +161,7 @@ class BrachyDicom:
             - get_strcuture_mask_from_dicom()
         """
         
-        assert self.structure_mask_dict is not None, "structure masks have not been loaded yet"
+        assert self.structure_mask_dict is not None, "structure masks have not been loaded yet. please run load_structures() first"
 
         self.structure_index_range_dict = {}
         for mask_name, mask_numpy in self.structure_mask_dict.items():
@@ -189,34 +190,29 @@ class BrachyDicom:
             }
         return self.structure_index_range_dict
 
-    # def get_strcuture_mask_from_dicom(self, query_structure_list: list):
-    #     r"""
-    #     Purpose:
-    #         To get the mask of the structures using dicom RT structure file.
-    #         If the object already has this feature, it will return the stored value instead of over-writing it.
-    #     Inputs:
-    #         - query_structure_list := list of structure names to find the mask of.
-    #     Outputs:
-    #         - mask_dict:dict :=  a dictionary with the structure name as key and the mask as value.
-    #     """
-    #     if len(self.structure_mask_dict) > 0:
-    #         return self.structure_mask_dict
-
-    #     for query_structure_name in query_structure_list:
-    #         # # find the name of the body structure inside the rt_structure object
-    #         dicom_structure_name = [
-    #             name for name in self.all_rois if query_structure_name in name.lower()
-    #         ]
-    #         # # get the numpy array of the body structure:
-    #         assert len(dicom_structure_name) >= 1, "no contour was found!"
-    #         self.dicom_reader.set_contour_names_and_associations(
-    #             contour_names=dicom_structure_name
-    #         )
-    #         self.dicom_reader.get_mask()
-    #         mask_numpy = self.dicom_reader.mask
-    #         self.structure_mask_dict[query_structure_name] = mask_numpy
-
-        # return self.structure_mask_dict
+    def get_strcuture_mask_from_dicom(self, query_structure_list: List[str]):
+        r"""
+        Purpose:
+            To return a dictionary with the requested structure masks from BrachyDicom object. The queried
+            structure string should be a subset of the structure string in the dicom file. For example, 
+            if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
+            
+        Inputs:
+            - query_structure_list := list of structure names to find the mask of.
+        Outputs:
+            - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
+        """
+        assert self.structure_mask_dict is not None, "structure masks have not been loaded yet. please run load_structures() first"
+        mask_dict:dict = {}
+        for query_structure in query_structure_list:
+            for mask_name, mask_numpy in self.structure_mask_dict.items():
+                if query_structure.lower() in mask_name.lower():
+                    if np.sum(mask_numpy) > 0:
+                        mask_dict[query_structure] = mask_numpy
+                    else:
+                        mask_dict[query_structure] = []
+                        warnings.warn(f"mask for {query_structure} is all zeros. returning empty")                        
+        return mask_dict
 
     def reset(self):
         self.structure_mask_dict = {}

@@ -1,4 +1,4 @@
-# import numpy as np
+import numpy as np
 from brachyutils.dicom_utils import BrachyDicom
 
 
@@ -29,8 +29,10 @@ def test_get_strcuture_mask_from_dicom():
     )
     # assert np.sum(strcuture_masks) != 0, "structure masks are empty"
     dicom_obj.info()
-    print(strcuture_masks)
+    # print(strcuture_masks)
     print(strcuture_masks.keys())
+    for structure in strcuture_masks:
+        print(structure, np.sum(strcuture_masks[structure]))
 
 
 def test_get_structure_index_range():
@@ -45,7 +47,7 @@ def test_get_structure_index_range():
 
 if __name__ == "__main__":
     print("running tests")
-    test_load_dicom()
-    # test_get_strcuture_mask_from_dicom()
+    # test_load_dicom()
+    test_get_strcuture_mask_from_dicom()
     # test_get_structure_index_range()
     # test_get_dvh_metrics_from_dicom_dose()
