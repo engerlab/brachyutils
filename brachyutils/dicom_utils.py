@@ -1,5 +1,6 @@
 import os
 from typing import Union, Literal, List
+from pathlib import Path
 from glob import glob
 import warnings
 
@@ -68,13 +69,6 @@ class BrachyDicom:
         self.image_modality: Literal["CT", "MR"] = None
         self.structures: RTStruct = None
         self.structure_mask_dict: dict = {}
-        # to delete once you are sure
-        # self.dicom_reader: DicomReaderWriter = None
-        # self.all_rois = None
-        # self.grid: np.array = None
-        # self.origin_coordinates: np.array = None
-        # self.voxel_size: np.array = None
-        # self.num_voxels: np.array = None
         self.structure_index_range_dict: dict = {}
         self.dose: BrachyDose = None
         self.catheter_table: dict = None
@@ -250,6 +244,31 @@ class BrachyDicom:
         """
         raise NotImplementedError("this function is not implemented yet")
 
+    def write_to_dicom(self, dir_output: Path):
+        r"""
+        Purpose:
+            - To write the image and the dose to a dicom file.
+        """
+        if self.image is not None:
+            if self.image_modality == "CT":
+                writeDicomCT(self.image, dir_output)
+            elif self.image_modality == "MR":
+                raise NotImplementedError("MR image writing is not implemented yet")
+            else:
+                raise ValueError("Image modality not recognized")
+
+        if self.dose is not None:
+            writeRTDose(self.dose, os.path.join(dir_output, "RD.dcm"))
+
+        if self.structures is not None:
+            raise NotImplementedError("writing structures to dicom is not implemented yet")
+
+    def write_to_nrrd(self, dir_output: Path):
+        r"""
+        Purpose:
+            - To write the image, the structure masks, the dose and the plan to a nrrd file.
+        """
+        raise NotImplementedError("writing to nrrd is not implemented yet")
 
 def get_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
     r"""
