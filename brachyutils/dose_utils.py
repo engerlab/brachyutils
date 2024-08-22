@@ -21,6 +21,8 @@ from matplotlib import pyplot as plt
 from numpy import ma, reshape
 from scipy.interpolate import RegularGridInterpolator
 
+from opentps.core.data.images import DoseImage
+
 
 class BrachyDose:
     r"""
@@ -87,16 +89,19 @@ class BrachyDose:
         load_uncertainty: Optional[bool] = True,
     ):
 
-        self.grid: np.ndarray = None
-        self.uncertainty: np.ndarray = None
-        self.num_voxels: np.ndarray = None
-        self.voxel_size: np.ndarray = None
-        self.origin_coordinates: np.ndarray = None
+        self.dose_image: DoseImage = None
+        self.uncertainty_image: DoseImage = None
         self.voxel_edges: np.ndarray = None
+        # # XXX to delete when you are sure!
+        # self.grid: np.ndarray = None
+        # self.uncertainty: np.ndarray = None
+        # self.num_voxels: np.ndarray = None
+        # self.voxel_size: np.ndarray = None
+        # self.origin_coordinates: np.ndarray = None
         self.interpolation_function = None
         if pth_dose_file is not None:
             self.load_file_to_brachydose(pth_dose_file, load_uncertainty)
-        if self.grid is not None:
+        if self.dose_image is not None:
             self.create_interpolation_function()
 
     def load_file_to_brachydose(
@@ -233,19 +238,28 @@ class BrachyDose:
                     self.uncertainty = bench_uncert
                 except ValueError:
                     print("Warning: No uncertainty in the 3ddose file", filename, "\n")
-
-            self.grid = bench_dose
-            self.num_voxels = np.array(bench_voxels, dtype=np.float32)
-            self.voxel_size = np.round(
-                np.array(
-                    [bench_x_spacing, bench_y_spacing, bench_slice_thick],
-                    dtype=np.float32,
-                ),
-                1,
+            self.dose_image = DoseImage(
+                imageArray = bench_dose,
+                origin = (bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]),
+                spacing = (bench_x_spacing, bench_y_spacing, bench_slice_thick),
             )
-            self.origin_coordinates = np.array(
-                [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]], dtype=np.float32
+            self.uncertainty_image = DoseImage(
+                imageArray = bench_uncert,
+                origin = (bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]),
+                spacing = (bench_x_spacing, bench_y_spacing, bench_slice_thick),
             )
+            # self.grid = bench_dose
+            # self.num_voxels = np.array(bench_voxels, dtype=np.float32)
+            # self.voxel_size = np.round(
+            #     np.array(
+            #         [bench_x_spacing, bench_y_spacing, bench_slice_thick],
+            #         dtype=np.float32,
+            #     ),
+            #     1,
+            # )
+            # self.origin_coordinates = np.array(
+            #     [bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]], dtype=np.float32
+            # )
             # overriding axis calculation to ignore the axis contents of 3ddose and use the function below
             # np.array([bench_z_pos, bench_y_pos, bench_x_pos], dtype=object)
             self.voxel_edges = self.calculate_voxel_edges()
@@ -782,35 +796,37 @@ class BrachyDose:
     def calculate_voxel_edges(self):
         r"""
         Purpose: will calculate the axes coordinates for a 3ddose dictionary.
+
         Input:
-            - dose := output of load_3ddose(). it should have the following keys and values:
-                {"grid":,
-                "origin_coordinates":,
-                "voxel_size":}
+            - self:BrachyDose
+
         Output:
             - axes:numpy.array() :=
             [[z_min:voxel_size:z_max],
             [y_min:voxel_size:y_max],
             [x_min:voxel_size:x_max]]
         """
-        # calculate the end point of axis in 3D space
+        assert self.dose_image is not None, "dose image is not defined. please load a dose image first"
         axes_end = np.array(
+            self.dose_image.origin
+            + self.dose_image.spacing * self.dose_image.gridSize
             # one voxel size is added because np.arange stops at an index before the end
-            self.origin_coordinates
-            + self.num_voxels * self.voxel_size
-            + self.voxel_size
+            + self.dose_image.spacing
         )
-
         self.voxel_edges = np.empty(len(axes_end), dtype=object)
         for i in range(len(axes_end)):
             self.voxel_edges[i] = np.arange(
-                self.origin_coordinates[len(axes_end) - 1 - i],
+                self.dose_image.origin[len(axes_end) - 1 - i],
                 axes_end[len(axes_end) - 1 - i],
-                self.voxel_size[len(axes_end) - 1 - i],
+                self.dose_image.spacing[len(axes_end) - 1 - i],
                 dtype=np.float32,
             )
-            if np.absolute(self.num_voxels[::-1][i] - self.voxel_edges[i].shape[0]) > 1:
+            if np.absolute(
+                self.dose_image.gridSize[::-1][i]
+                - self.voxel_edges[i].shape[0]
+                ) > 1:
                 self.voxel_edges[i] = self.voxel_edges[i][:-1]
+  
         return self.voxel_edges
 
     def get_voxel_centers(self):

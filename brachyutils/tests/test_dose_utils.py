@@ -8,13 +8,10 @@ from brachyutils.dose_utils import BrachyDose, DoseComparison
 
 
 def test_load_from_3ddose():
-    # pth_3ddose =  "../../data_test/run_1_old.3ddose"
-
-    # testing on maude's file
-    pth_3ddose = "../../data_test/maude.3ddose"
+    pth_file = "../../data_test/rectal-jgh-planFiles/combined.3ddose"
 
     dose_obj = BrachyDose()
-    dose_obj.load_from_3ddose(pth_3ddose)
+    dose_obj.load_from_3ddose(pth_file)
     dose_obj.is_not_empty()
 
 
@@ -221,5 +218,6 @@ def test_crop_by_body_contour():
 
 
 if __name__ == "__main__":
+    test_load_from_3ddose()
     # test_load_from_dicom()
-    test_convert_to_nrrd()
+    # test_convert_to_nrrd()

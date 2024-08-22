@@ -1,5 +1,5 @@
 import os
-from typing import Union, Literal, List
+from typing import Union, Literal, List, Optional
 from pathlib import Path
 from glob import glob
 import warnings
@@ -55,10 +55,10 @@ class BrachyDicom:
     def __init__(
         self,
         pth_dir_dicom: str,
-        load_image: bool = True,
-        load_structure: bool = True,
-        load_dose: bool = False,
-        load_plan: bool = False,
+        load_image: Optional[bool] = True,
+        load_structure: Optional[bool] = True,
+        load_dose: Optional[bool] = False,
+        load_plan: Optional[bool] = False,
     ):
         r"""
         Purpose:
