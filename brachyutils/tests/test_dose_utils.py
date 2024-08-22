@@ -13,6 +13,7 @@ def test_load_from_3ddose():
     dose_obj = BrachyDose()
     dose_obj.load_from_3ddose(pth_file)
     dose_obj.is_not_empty()
+    dose_obj.info()
 
 
 def test_load_file_to_brachydose():
@@ -216,6 +217,6 @@ def test_crop_by_body_contour():
 
 
 if __name__ == "__main__":
-    # test_load_from_3ddose()
-    test_load_from_dicom()
+    test_load_from_3ddose()
+    # test_load_from_dicom()
     # test_convert_to_nrrd()

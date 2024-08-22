@@ -39,13 +39,6 @@ class BrachyDose:
         - voxel_edges:np.ndarray := coorindates of voxel edges along z, y and x axis.
         - interpolation_function := RegularGridInterpolator object that allows for sampling of dose at arbitrary points [z, y, x].
 
-        grid:np.ndarray := 3D numpy array holding dose at each voxel. [z, y, x]
-        uncertainty:np.ndarray := 3D numpy array holding dose uncertainity at each voxel. [z, y, x]
-        num_voxels:np.ndarray := 1D numpy array holding the number of grid points on x, y, z axis.
-        voxel_size:np.ndarray := 1D numpy array holding the resolution of each voxel along x, y, z axis in centimeters.
-        origin_coordinates:np.ndarray := The spatial coordinate of the "bottom" left corner of the image in centrimeters. [x, y, z]
-        
-
     Functions:
         load_file_to_brachydose()
         load_from_3ddose()
@@ -248,13 +241,13 @@ class BrachyDose:
                     print("Warning: No uncertainty in the 3ddose file", filename, "\n")
             self.dose_image = DoseImage(
                 imageArray = bench_dose,
-                origin = (bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]),
-                spacing = (bench_x_spacing, bench_y_spacing, bench_slice_thick),
+                origin = ( bench_z_pos[0], bench_y_pos[0], bench_x_pos[0]),
+                spacing = (bench_slice_thick, bench_y_spacing, bench_x_spacing),
             )
             self.uncertainty_image = DoseImage(
                 imageArray = bench_uncert,
-                origin = (bench_x_pos[0], bench_y_pos[0], bench_z_pos[0]),
-                spacing = (bench_x_spacing, bench_y_spacing, bench_slice_thick),
+                origin = (bench_z_pos[0], bench_y_pos[0], bench_x_pos[0]),
+                spacing = (bench_slice_thick, bench_y_spacing, bench_x_spacing),
             )
             self.voxel_edges = self.calculate_voxel_edges()
 
