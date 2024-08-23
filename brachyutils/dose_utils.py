@@ -721,7 +721,7 @@ class BrachyDose:
             writes the contents of self:BrachyDose to the file_name.
         """
 
-        assert os.path.splitext(file_name)[-1] == ".npz"
+        assert os.path.splitext(file_name)[-1] == ".npz", "the file name should have '.npz' extension."
 
         np.savez_compressed(
             file=file_name,
@@ -749,21 +749,21 @@ class BrachyDose:
         with open(file_name, "wb") as newfile:
 
             # the first line is the number of voxels along each dimension [x, y , z]
-            dims_array = array("i", self.num_voxels)
+            dims_array = array("i", np.flip(self.dose_image.gridSize))
             dims_array.tofile(newfile)
 
             # lines 2,3 and 4 are the voxel sizes x, y, z
-            float_array_x = array("f", [self.voxel_size[0]])
+            float_array_x = array("f", [self.dose_image.spacing[2]])
             float_array_x.tofile(newfile)
-            float_array_y = array("f", [self.voxel_size[1]])
+            float_array_y = array("f", [self.dose_image.spacing[1]])
             float_array_y.tofile(newfile)
-            float_array_z = array("f", [self.voxel_size[2]])
+            float_array_z = array("f", [self.dose_image.spacing[0]])
             float_array_z.tofile(newfile)
 
             # lines 5, 6, 7 are the origins x, y, and z
-            originx_array = array("f", [self.origin_coordinates[0]])
-            originy_array = array("f", [self.origin_coordinates[1]])
-            originz_array = array("f", [self.origin_coordinates[2]])
+            originx_array = array("f", [self.dose_image.origin[2]])
+            originy_array = array("f", [self.dose_image.origin[1]])
+            originz_array = array("f", [self.dose_image.origin[0]])
 
             originx_array.tofile(newfile)
             originy_array.tofile(newfile)
@@ -774,7 +774,7 @@ class BrachyDose:
             zero.tofile(newfile)
 
             # line 9-infinit is the dose per voxel array
-            for d in self.grid.flatten():
+            for d in self.dose_image.imageArray.flatten():
                 array("f", [d]).tofile(newfile)
 
     def write_to_xz(self, fileName):
