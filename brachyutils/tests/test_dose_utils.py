@@ -51,7 +51,7 @@ def test_load_from_nrrd():
     dose_obj = BrachyDose(pth_file)
     dose_obj.info()
 
-def test_convert_to_nrrd():
+def test_write_to_nrrd():
     r"""
     Purpose:
         simulatenously test write_to_nrrd() and load_from_nrrd()
@@ -77,8 +77,7 @@ def test_convert_to_nrrd():
 
     dose_obj.write_to_nrrd(pth_out)
 
-    dose_obj_from_nrrd = BrachyDose()
-    dose_obj_from_nrrd.load_file_to_brachydose(pth_out)
+    dose_obj_from_nrrd = BrachyDose(pth_out)
 
     dose_obj.is_equal(dose_obj_from_nrrd)
 
