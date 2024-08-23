@@ -57,17 +57,12 @@ def test_write_to_nrrd():
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
     pth_out = "../../data_test/test_export_plan"
-    pth_input = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
-    # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
-    
+    # pth_input = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
+    pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     pth_out = os.path.join(pth_out, os.path.basename(pth_input))
-
     dose_obj = BrachyDose(pth_input)
-
     dose_obj.write_to_nrrd(pth_out)
-
     dose_obj_from_nrrd = BrachyDose(pth_out)
-
     dose_obj.is_equal(dose_obj_from_nrrd)
 
 

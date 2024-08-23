@@ -316,12 +316,10 @@ class BrachyDose:
         ), "the file extension should be npz"
 
         loaded_brachydose = np.load(pth_npz, allow_pickle=True)
-        self.uncertainty = loaded_brachydose["uncertainty"]
-        self.grid = loaded_brachydose["grid"]
-        self.num_voxels = loaded_brachydose["num_voxels"]
-        self.voxel_size = loaded_brachydose["voxel_size"]
-        self.origin_coordinates = loaded_brachydose["origin_coordinates"]
-        self.voxel_edges = loaded_brachydose["axis"]
+        self.dose_image = loaded_brachydose.get("dose_image")
+        self.uncertainty_image = loaded_brachydose.get("uncertainty_image", None)
+        self.calculate_voxel_edges()
+        self.create_interpolation_function()
 
     def load_from_dicom(self, pth_RD_dicom:Path):
         r"""
@@ -727,11 +725,8 @@ class BrachyDose:
 
         np.savez_compressed(
             file=file_name,
-            grid=self.grid,
-            uncertainty=self.uncertainty,
-            num_voxels=self.num_voxels,
-            voxel_size=self.voxel_size,
-            origin_coordinates=self.origin_coordinates,
+            dose_image = self.dose_image,
+            uncertainty_image = self.uncertainty_image if self.uncertainty_image is not None else None, 
             axis=self.voxel_edges,
         )
 
