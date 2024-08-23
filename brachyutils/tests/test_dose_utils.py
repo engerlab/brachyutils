@@ -44,6 +44,13 @@ def test_write_to_3ddose():
     dose_obj.is_equal(new_dose_obj)
 
 
+def test_load_from_nrrd():
+    pth_file = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
+    # pth_file = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
+
+    dose_obj = BrachyDose(pth_file)
+    dose_obj.info()
+
 def test_convert_to_nrrd():
     r"""
     Purpose:
@@ -218,5 +225,6 @@ def test_crop_by_body_contour():
 if __name__ == "__main__":
     # test_load_from_3ddose()
     # test_load_from_dicom()
-    test_write_to_3ddose()
+    test_load_from_nrrd()
+    # test_write_to_3ddose()
     # test_convert_to_nrrd()
