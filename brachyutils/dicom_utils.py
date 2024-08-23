@@ -84,7 +84,7 @@ class BrachyDicom:
                 # in python, images are represented as [z, y, x] but in dicom it's [x, y, z]
                 image_xyz = readDicomCT(ct_files)
                 self.image = CTImage(
-                    imageArray=np.swapaxes(image_xyz, 0, 2),
+                    imageArray=np.swapaxes(image_xyz.imageArray, 0, 2),
                     origin=np.flip(image_xyz.origin),
                     spacing=np.flip(image_xyz.spacing),
                     angles=np.flip(image_xyz.angles),
@@ -98,7 +98,7 @@ class BrachyDicom:
                 # in python, images are represented as [z, y, x] but in dicom it's [x, y, z]
                 image_xyz = readDicomMRI(mr_files)
                 self.image = MRImage(
-                    imageArray=np.swapaxes(image_xyz, 0, 2),
+                    imageArray=np.swapaxes(image_xyz.imageArray, 0, 2),
                     origin=np.flip(image_xyz.origin),
                     spacing=np.flip(image_xyz.spacing),
                     angles=np.flip(image_xyz.angles),
@@ -228,7 +228,7 @@ class BrachyDicom:
         if self.dose is not None:
             print(f"the shape of dose: {self.dose.dose_image.gridSize}")
             print(f"origin of the dose: {self.dose.dose_image.origin}")
-            print(f"voxel size of the dose: {self.dose.spacing}")
+            print(f"voxel size of the dose: {self.dose.dose_image.spacing}")
         else:
             print("no dose file was loaded")
         if self.catheter_table is not None:
