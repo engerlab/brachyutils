@@ -120,7 +120,7 @@ def test_write_to_xz():
 
 
 def test_write_to_zstd():
-
+    
     # pth_3ddose =  "../../data_test/combined.3ddose"
     # pth_zstd = "../../data_test/combined.zst"
 
@@ -135,9 +135,8 @@ def test_write_to_zstd():
 
 
 def test_crop_by_coordinates():
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
+    pth_input = "../../data_test/run_1_old.3ddose"
+    dose_obj = BrachyDose(pth_input)
     dose_obj.info()
 
     coords = np.array([[-14, 8], [3, 15], [-115, -100]], dtype=np.float32)

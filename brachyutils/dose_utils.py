@@ -2,6 +2,8 @@ import difflib
 import logging
 import lzma
 import os
+import copy
+
 from pathlib import Path
 # trunk-ignore(bandit/B403)
 import pickle
@@ -23,6 +25,7 @@ from scipy.interpolate import RegularGridInterpolator
 
 from opentps.core.data.images import DoseImage
 from opentps.core.io.dicomIO import readDicomDose
+from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
 
 class BrachyDose:
     r"""
@@ -897,7 +900,7 @@ class BrachyDose:
         Inputs:
             - self: BrachyDose object
             - coord_range := a 3 x 2 array holding the min and max on x, y and axis
-                [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
+                [[z_min, z_max], [y_min, y_max], [x_min, x_max]]
         Output:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the coordinate range.
                 it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
@@ -905,33 +908,45 @@ class BrachyDose:
             -self.crop_by_index()
         """
         self.is_not_empty()
+        assert coord_range.shape == (3, 2), "coord_range should be a 3x2 array in z, y, x order"
+        if inplace:
+            crop3DDataAroundBox(self.dose_image, coord_range)
+            if self.uncertainty_image is not None:
+                crop3DDataAroundBox(self.uncertainty_image, coord_range)
+            self.calculate_voxel_edges()
+            self.create_interpolation_function()
+        else:
+            new_dose:BrachyDose = copy.deepcopy(self).crop_by_coordinates(coord_range, inplace=True)            
+            new_dose.calculate_voxel_edges()
+            new_dose.create_interpolation_function()
+            return new_dose
 
-        # make sure the ending coordinate of the new range is larger than its origin
-        for ax in coord_range:
-            assert (
-                ax[1] > ax[0]
-            ), "axis ending coordinate should be larger than its begining coordinate"
+        # # make sure the ending coordinate of the new range is larger than its origin
+        # for ax in coord_range:
+        #     assert (
+        #         ax[1] > ax[0]
+        #     ), "axis ending coordinate should be larger than its begining coordinate"
 
-        # assert coordinate range falls into the image
-        axes_name = ["x axis(2)", "y axis(1)", "z axis(0)"]
-        coords_flipped = np.flip(coord_range, 0)
-        for i in range(self.voxel_edges.shape[0]):
-            assert (
-                coords_flipped[i][0] > self.voxel_edges[i][0]
-            ), f"cropping lower limit must be larger than the lowest coordinate on {axes_name[i]}"
+        # # assert coordinate range falls into the image
+        # axes_name = ["x axis(2)", "y axis(1)", "z axis(0)"]
+        # coords_flipped = np.flip(coord_range, 0)
+        # for i in range(self.voxel_edges.shape[0]):
+        #     assert (
+        #         coords_flipped[i][0] > self.voxel_edges[i][0]
+        #     ), f"cropping lower limit must be larger than the lowest coordinate on {axes_name[i]}"
 
-        # convert new coordinates to indicies for both beggingn and ending (may not be exact)
-        new_origin_distance = coord_range[:, 0] - self.origin_coordinates
+        # # convert new coordinates to indicies for both beggingn and ending (may not be exact)
+        # new_origin_distance = coord_range[:, 0] - self.origin_coordinates
 
-        new_origin_index = np.floor(new_origin_distance / self.voxel_size).astype(int)
+        # new_origin_index = np.floor(new_origin_distance / self.voxel_size).astype(int)
 
-        new_ending_index = np.floor(
-            (coord_range[:, 1] - self.origin_coordinates) / self.voxel_size
-        ).astype(int)
+        # new_ending_index = np.floor(
+        #     (coord_range[:, 1] - self.origin_coordinates) / self.voxel_size
+        # ).astype(int)
 
-        new_index_range = np.column_stack([new_origin_index, new_ending_index])
+        # new_index_range = np.column_stack([new_origin_index, new_ending_index])
 
-        return self.crop_by_index(new_index_range, inplace)
+        # return self.crop_by_index(new_index_range, inplace)
 
     def crop_by_fraction(self, crop_fraction, inplace: Optional[bool] = True):
         r"""
@@ -1141,12 +1156,19 @@ def dose_with_empty_grid_like(doseObj: BrachyDose):
         empty_dose: BrachyDose object with empty grid and uncertainty
     """
     new_dose = BrachyDose()
-    new_dose.grid = np.zeros_like(doseObj.grid)
-    new_dose.uncertainty = np.zeros_like(doseObj.grid)
-    new_dose.num_voxels = doseObj.num_voxels
-    new_dose.voxel_size = doseObj.voxel_size
-    new_dose.origin_coordinates = doseObj.origin_coordinates
-    new_dose.voxel_edges = doseObj.voxel_edges
+    new_dose.dose_image = DoseImage(
+        imageArray=np.zeros_like(doseObj.dose_image.imageArray),
+        gridSize=doseObj.dose_image.gridSize,
+        origin=doseObj.dose_image.origin,
+    )
+    if doseObj.uncertainty_image is not None:
+        new_dose.uncertainty_image = DoseImage(
+            imageArray=np.zeros_like(doseObj.dose_image.imageArray),
+            gridSize=doseObj.dose_image.gridSize,
+            origin=doseObj.dose_image.origin,
+        )
+    new_dose.calculate_voxel_edges()
+    new_dose.create_interpolation_function()
     return new_dose
 
 
