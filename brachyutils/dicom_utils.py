@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 
 import pydicom
-from DicomRTTool.ReaderWriter import DicomReaderWriter
+# from DicomRTTool.ReaderWriter import DicomReaderWriter
 
 from brachyutils.dose_utils import BrachyDose
 
@@ -37,10 +37,8 @@ class BrachyDicom:
         - A wrapper around the DicomReaderWriter class to get the images, the structure masks
         and the index range of the structure masks.
     Attributes:
-        - dicom_reader:DicomReaderWriter := an instance of the DicomReaderWriter class.
         - all_rois:list := a list of all the structure names in the dicom file.
         - image:np.array := the image of the patient. [z, y, x]
-        - origin_coordinates:list := the origin of the image. [x, y, z]
         - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value.
         - structure_index_range_dict:dict := a dictionary with the structure name as key and the index range as value.
         - dose: BrachyDose := dose from dicom RD file saved as an instance of the BrachyDose class.
@@ -78,25 +76,36 @@ class BrachyDicom:
         
         file_list: list = glob(pth_dir_dicom + "/*.dcm")
         assert len(file_list) > 0, "there are no dicom files in this directory"
-        
-        # to delete once you are sure
-        # load the structure file into an rt_struct object
-        # self.dicom_reader = DicomReaderWriter(
-            # description="getting structure masks", arg_max=True
-        # )
-        # self.dicom_reader.walk_through_folders(pth_dir_dicom)
-        # self.dicom_reader.get_images()
 
         if load_image:
             if "CT" in file_list[0]:
                 self.image_modality = "CT"
                 ct_files = list(filter(lambda s: "CT" in s, file_list))
-                self.image = readDicomCT(ct_files)
-
+                # in python, images are represented as [z, y, x] but in dicom it's [x, y, z]
+                image_xyz = readDicomCT(ct_files)
+                self.image = CTImage(
+                    imageArray=np.swapaxes(image_xyz, 0, 2),
+                    origin=np.flip(image_xyz.origin),
+                    spacing=np.flip(image_xyz.spacing),
+                    angles=np.flip(image_xyz.angles),
+                    name=image_xyz.name,
+                    seriesInstanceUID=image_xyz.seriesInstanceUID,
+                    frameOfReferenceUID=image_xyz.frameOfReferenceUID,
+                )
             elif "MR" in file_list[0]:
                 self.image_modality = "MR"
                 mr_files = list(filter(lambda s: "MR" in s, file_list))
-                self.image = readDicomMRI(mr_files)
+                # in python, images are represented as [z, y, x] but in dicom it's [x, y, z]
+                image_xyz = readDicomMRI(mr_files)
+                self.image = MRImage(
+                    imageArray=np.swapaxes(image_xyz, 0, 2),
+                    origin=np.flip(image_xyz.origin),
+                    spacing=np.flip(image_xyz.spacing),
+                    angles=np.flip(image_xyz.angles),
+                    name=image_xyz.name,
+                    seriesInstanceUID=image_xyz.seriesInstanceUID,
+                    frameOfReferenceUID=image_xyz.frameOfReferenceUID,
+                )
             else:
                 raise ValueError("Image modality not recognized")
 
@@ -217,8 +226,8 @@ class BrachyDicom:
         print(f"voxel size of the image: {self.image.spacing}")
         print(f"all the structures in the dicom: {self.structure_mask_dict.keys()}")
         if self.dose is not None:
-            print(f"the shape of dose: {self.dose.gridSize}")
-            print(f"origin of the dose: {self.dose.origin}")
+            print(f"the shape of dose: {self.dose.dose_image.gridSize}")
+            print(f"origin of the dose: {self.dose.dose_image.origin}")
             print(f"voxel size of the dose: {self.dose.spacing}")
         else:
             print("no dose file was loaded")
