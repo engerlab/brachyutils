@@ -260,32 +260,46 @@ class BrachyDose:
         loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO="NrrdImageIO")
 
         dose_uncertainty = sitk.GetArrayFromImage(loaded_image_nrrd)
+
         if dose_uncertainty.shape[0] == 2:
             dose_array = dose_uncertainty[0]
             uncertainty_array = dose_uncertainty[1]
-            self.voxel_size = np.round(
+            voxel_size = np.round(
                 np.array(loaded_image_nrrd.GetSpacing()[1:]).astype(np.float32), 1
             )
-            self.origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()[1:]).astype(
+            origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()[1:]).astype(
                 np.float32
             )
-        else:
-            dose_array = dose_uncertainty[:, :, :, 0]
-            uncertainty_array = dose_uncertainty[:, :, :, 1]
-            self.voxel_size = np.round(
+        else: 
+            if dose_uncertainty.shape[-1] == 2:
+                dose_array = dose_uncertainty[:, :, :, 0]
+                dose_array = np.swapaxes(dose_array, 0, 2).astype(np.float32)
+                uncertainty_array = dose_uncertainty[:, :, :, 1]
+                uncertainty_array = np.swapaxes(uncertainty_array, 0, 2).astype(np.float32)
+            else:
+                print("Uncertainty not found in the nrrd file")
+                dose_array = np.swapaxes(dose_uncertainty, 0, 2).astype(np.float32)
+                uncertainty_array = None
+                
+            voxel_size = np.round(
                 np.array(loaded_image_nrrd.GetSpacing()).astype(np.float32), 1
             )
-            self.origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()).astype(np.float32)
+            origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()).astype(np.float32)
+                
+        voxel_size = np.flip(voxel_size)
+        origin_coordinates = np.flip(origin_coordinates)
 
-        dose_array = np.swapaxes(dose_array, 0, 2)
-        uncertainty_array = np.swapaxes(uncertainty_array, 0, 2)
-
-        self.uncertainty = uncertainty_array.astype(np.float32)
-        self.grid = dose_array.astype(np.float32)
-        self.num_voxels = np.array(np.flip((dose_array.shape), axis=0)).astype(
-            np.float32
+        self.dose_image = DoseImage(
+            imageArray = dose_array,
+            origin = origin_coordinates,
+            spacing = voxel_size,
         )
-
+        self.uncertainty_image = DoseImage(
+            imageArray = uncertainty_array,
+            origin = origin_coordinates,
+            spacing = voxel_size,
+        ) if uncertainty_array is not None else None
+        
         self.voxel_edges = self.calculate_voxel_edges()
 
     def load_from_npz(self, pth_npz:Path):
