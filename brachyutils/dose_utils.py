@@ -89,7 +89,7 @@ class BrachyDose:
         pth_dose_file: Optional[Path] = None,
         load_uncertainty: Optional[bool] = True,
     ):
-
+        self.path = pth_dose_file
         self.dose_image: DoseImage = None
         self.uncertainty_image: DoseImage = None
         self.voxel_edges: np.ndarray = None
@@ -863,8 +863,8 @@ class BrachyDose:
             np.concatenate(new_brachy_dose.voxel_edges),
         ), "axis is not the same"
         assert np.array_equal(
-            self.uncertainty, new_brachy_dose.uncertainty
-        ), "uncertainty is not the same"
+            self.uncertainty_image.imageArray, new_brachy_dose.uncertainty_image.imageArray
+        ), "uncertainty is not the same" if self.uncertainty_image is not None else True
         assert np.array_equal(
             self.dose_image.gridSize, new_brachy_dose.dose_image.gridSize
         ), "num_voxels is not the same"
@@ -883,7 +883,7 @@ class BrachyDose:
                 np.concatenate(self.voxel_edges),
                 np.concatenate(new_brachy_dose.voxel_edges),
             )
-            and np.array_equal(self.uncertainty_image.imageArray, new_brachy_dose.uncertainty_image.imageArray) if self.uncertainty is not None else True
+            and np.array_equal(self.uncertainty_image.imageArray, new_brachy_dose.uncertainty_image.imageArray) if self.uncertainty_image is not None else True
             and np.array_equal(self.dose_image.gridSize, new_brachy_dose.dose_image.gridSize)
             and np.array_equal(self.dose_image.spacing, new_brachy_dose.dose_image.spacing)
             and np.array_equal(self.dose_image.origin, new_brachy_dose.dose_image.origin)

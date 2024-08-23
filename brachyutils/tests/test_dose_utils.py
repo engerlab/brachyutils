@@ -45,10 +45,10 @@ def test_write_to_3ddose():
 
 
 def test_load_from_nrrd():
-    pth_file = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
-    # pth_file = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
+    pth_input = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
+    # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
 
-    dose_obj = BrachyDose(pth_file)
+    dose_obj = BrachyDose(pth_input)
     dose_obj.info()
 
 def test_write_to_nrrd():
@@ -57,23 +57,12 @@ def test_write_to_nrrd():
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
     pth_out = "../../data_test/test_export_plan"
-    pth_dose_in = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
-    # 3 mm resolution
-    # pth_3ddose =  "../../data_test/run_1_old.3ddose"
-    # pth_nrrd = "../../data_test/run_1_old.nrrd"
-    #
-    # 1 mm resolution
-    # pth_3ddose =  "../../data_test/combined.3ddose"
-    # pth_nrrd = "../../data_test/combined_old.nrrd"
+    pth_input = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
+    # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
+    
+    pth_out = os.path.join(pth_out, os.path.basename(pth_input))
 
-    # testing on maude's file
-    # pth_dose = "../../data_test/maude.3ddose"
-    # new nrrd format
-
-    pth_out = os.path.join(pth_out, os.path.basename(pth_dose_in))
-
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_dose_in)
+    dose_obj = BrachyDose(pth_input)
 
     dose_obj.write_to_nrrd(pth_out)
 
@@ -224,6 +213,6 @@ def test_crop_by_body_contour():
 if __name__ == "__main__":
     # test_load_from_3ddose()
     # test_load_from_dicom()
-    test_load_from_nrrd()
+    # test_load_from_nrrd()
     # test_write_to_3ddose()
-    # test_convert_to_nrrd()
+    test_write_to_nrrd()
