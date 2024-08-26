@@ -193,9 +193,7 @@ def test_dose_comparison():
     # dose_comparison.compare_dose_distributions_2D(
     #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
 
-
-# XXX: check and fix if neede!
-def test_crop_by_body_contour():
+def test_crop_by_dicom_structure():
     pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
     pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
 

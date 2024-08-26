@@ -1023,8 +1023,17 @@ class BrachyDose:
             - dict_cropped_doses:dict[BrachyDose] := a dictionary where the keys are the structure names and the values are the cropped dose objects.
             """
         from dicom_utils import BrachyDicom
-        # XXX to be completed soon!
-        # for structure_name in structure_name_list:
+        from opentps.core.data import RTStruct
+        from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
+        # load the dicom object both the image and the mask
+        dicom_obj = BrachyDicom(pth_dir_dicom, load_structure=True)
+        # load the mask dictionary for the structures in structure_name_list
+        mask_dictionary = dicom_obj.get_strcuture_mask_from_dicom(structure_name_list, RTStruct)
+        
+        # For each mask get a cropped dose map that tightly fits each mask.
+        for mask in mask_dictionary:
+            
+            box_around_mask = getBoxAroundROI(mask_dictionary[mask])
              
 
         # if body_index_range is None or body_mask_shape is None:

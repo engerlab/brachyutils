@@ -65,7 +65,7 @@ class BrachyDicom:
         """
         self.image: Union[CTImage, MRImage] = None
         self.image_modality: Literal["CT", "MR"] = None
-        self.structures: RTStruct = None
+        self.structures_dcm: RTStruct = None
         self.structure_mask_dict: dict = {}
         self.structure_index_range_dict: dict = {}
         self.dose: BrachyDose = None
@@ -195,7 +195,8 @@ class BrachyDicom:
 
     def get_strcuture_mask_from_dicom(
         self,
-        query_structure_list: List[str]
+        query_structure_list: List[str],
+        mask_type:Union[np.array, RTStruct] = np.array
         ):
         r"""
         Purpose:
@@ -214,7 +215,10 @@ class BrachyDicom:
             for mask_name, mask_numpy in self.structure_mask_dict.items():
                 if query_structure.lower() in mask_name.lower():
                     if np.sum(mask_numpy) > 0:
-                        mask_dict[query_structure] = mask_numpy
+                        mask_dict[query_structure] = (
+                            mask_numpy if mask_type == np.array
+                            else self.structures_dcm.getContour(mask_name)
+                            )
                     else:
                         mask_dict[query_structure] = []
                         warnings.warn(f"mask for {query_structure} is all zeros. returning empty")                        
@@ -272,7 +276,7 @@ class BrachyDicom:
         if self.dose is not None:
             writeRTDose(self.dose, os.path.join(dir_output, "RD.dcm"))
 
-        if self.structures is not None:
+        if self.structures_dcm is not None:
             raise NotImplementedError("writing structures to dicom is not implemented yet")
 
     def write_to_nrrd(self, dir_output: Path):
