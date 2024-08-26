@@ -37,8 +37,9 @@ class BrachyDicom:
         - A wrapper around the DicomReaderWriter class to get the images, the structure masks
         and the index range of the structure masks.
     Attributes:
-        - all_rois:list := a list of all the structure names in the dicom file.
-        - image:np.array := the image of the patient. [z, y, x]
+        - image: CTImage or MRImage := the image of the patient loaded by openTPS.
+        - image_modality: Literal["CT", "MR"] := the modality of the image.
+        - structures: RTStruct := the structure masks of the patient loaded by openTPS.
         - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value.
         - structure_index_range_dict:dict := a dictionary with the structure name as key and the index range as value.
         - dose: BrachyDose := dose from dicom RD file saved as an instance of the BrachyDose class.
