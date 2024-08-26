@@ -24,8 +24,6 @@ from numpy import ma, reshape
 from scipy.interpolate import RegularGridInterpolator
 
 from opentps.core.data.images import DoseImage
-from opentps.core.io.dicomIO import readDicomDose
-from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
 class BrachyDose:
     r"""
     Purpse:
@@ -334,6 +332,8 @@ class BrachyDose:
         Dependencies:
             - pydicom
         """
+        from opentps.core.io.dicomIO import readDicomDose
+
         assert os.path.basename(pth_RD_dicom).startswith(
             "RD"
         ), "the basename should start with RD"
@@ -906,6 +906,8 @@ class BrachyDose:
         Dependencies:
             opentps.core.processing.imageProcessing.resampler3D.crop3DDataAroundBox
         """
+        from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
+
         self.is_not_empty()
         assert coord_range.shape == (3, 2), "coord_range should be a 3x2 array in z, y, x order"
         if inplace:
@@ -1001,50 +1003,48 @@ class BrachyDose:
         )
         print(f"The grid size in world unit is {self.dose_image.gridSizeInWorldUnit}")
         
-    def crop_by_body_contour(
+    def crop_by_dicom_structure(
         self,
-        body_index_range: Optional[np.ndarray] = None,
-        body_mask_shape: Optional[np.ndarray] = None,
-        pth_dir_dicom: Optional[str] = None,
+        pth_dir_dicom: Optional[str],
+        structure_name_list: Optional[List[str]],
     ):
         r"""
         Purpose:
             based on the given dicom structure file, crop the BrachyDose object such
-                that it only has the body contour.
+            that it only contains voxels of the structures in the structure_name_list.
+            This function returns a dictionary where the keys are the structure names and
+            the values are the cropped dose objects.
         Inputs:
             - pth_dir_dicom := pth_dir_dicom := path to the directory with the dicom files of a patient.
                 it should contain both images and RTSTRUCT file. this input is optional
-
-            - body_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
-                [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
-
-            - original_mask_dimensions:np.array := 1 x 3 array holding the dimension of the original mask
-
-
+            - structure_name_list := a list of strings containing the names of the structures that the dose will be cropped to.
+            
         Outputs:
-            - Void := will crop out the dose and uncertainty maps of self to have the range of the body contour
-                    in the dicom structure file. It will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
-        """
+            - dict_cropped_doses:dict[BrachyDose] := a dictionary where the keys are the structure names and the values are the cropped dose objects.
+            """
         from dicom_utils import BrachyDicom
+        # XXX to be completed soon!
+        # for structure_name in structure_name_list:
+             
 
-        if body_index_range is None or body_mask_shape is None:
-            assert (
-                pth_dir_dicom is not None
-            ), "Either path to a dicom directory with dicom structure \
-                file should be given or body_index_range and body_mask_shape"
-            body_mask_shape = BrachyDicom(pth_dir_dicom).structure_index_range_dict[
-                "body"
-            ][
-                "dicom_mask_shape"
-            ]  # the body mask may have a different size than the dose map, we normalize range to the dimension
-        # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.
-        scaled_body_index_range = (
-            body_index_range
-            / np.expand_dims(body_mask_shape, axis=1)
-            * np.expand_dims(self.num_voxels, axis=1)
-        ).astype(int)
+        # if body_index_range is None or body_mask_shape is None:
+        #     assert (
+        #         pth_dir_dicom is not None
+        #     ), "Either path to a dicom directory with dicom structure \
+        #         file should be given or body_index_range and body_mask_shape"
+        #     body_mask_shape = BrachyDicom(pth_dir_dicom).structure_index_range_dict[
+        #         "body"
+        #     ][
+        #         "dicom_mask_shape"
+        #     ]  # the body mask may have a different size than the dose map, we normalize range to the dimension
+        # # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.
+        # scaled_body_index_range = (
+        #     body_index_range
+        #     / np.expand_dims(body_mask_shape, axis=1)
+        #     * np.expand_dims(self.num_voxels, axis=1)
+        # ).astype(int)
 
-        self.crop_by_index(scaled_body_index_range, True)
+        # self.crop_by_index(scaled_body_index_range, True)
 
     def multiply_dose_by_constant(
         self, scale_factor: float, scale_uncert: Optional[bool] = False

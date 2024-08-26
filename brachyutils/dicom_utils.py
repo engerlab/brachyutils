@@ -193,7 +193,10 @@ class BrachyDicom:
             }
         return self.structure_index_range_dict
 
-    def get_strcuture_mask_from_dicom(self, query_structure_list: List[str]):
+    def get_strcuture_mask_from_dicom(
+        self,
+        query_structure_list: List[str]
+        ):
         r"""
         Purpose:
             To return a dictionary with the requested structure masks from BrachyDicom object. The queried
