@@ -147,9 +147,10 @@ def test_crop_by_coordinates():
 
 
 def test_crop_by_index():
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
+    pth_input = "../data_test/batch_uncertainty/combined.3ddose"
+    # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
+    dose_obj.load_file_to_brachydose(pth_input)
     dose_obj.info()
 
     index = np.array([[30, 90], [30, 90], [0, 94]], dtype=np.float32)
@@ -160,12 +161,12 @@ def test_crop_by_index():
 
 
 def test_crop_by_fraction():
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
+    pth_input = "../data_test/batch_uncertainty/combined.3ddose"
+    # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
+    dose_obj = BrachyDose(pth_input)
     dose_obj.info()
 
-    fraction = 0.3
+    fraction = [0.3, 0.5, 1]
 
     dose_obj.crop_by_fraction(fraction)
     dose_obj.info()
@@ -211,4 +212,5 @@ if __name__ == "__main__":
     # test_load_from_nrrd()
     # test_write_to_3ddose()
     # test_write_to_nrrd()
-    test_crop_by_coordinates()
+    # test_crop_by_coordinates()
+    test_crop_by_fraction()

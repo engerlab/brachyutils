@@ -899,13 +899,13 @@ class BrachyDose:
             dose and uncertainty maps and will adjust the rest of the attributes accordingly.
         Inputs:
             - self: BrachyDose object
-            - coord_range := a 3 x 2 array holding the min and max on x, y and axis
+            - coord_range := a 3 x 2 array holding the min and max on z, y and x axis
                 [[z_min, z_max], [y_min, y_max], [x_min, x_max]]
         Output:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the coordinate range.
                 it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         Dependencies:
-            -self.crop_by_index()
+            opentps.core.processing.imageProcessing.resampler3D.crop3DDataAroundBox
         """
         self.is_not_empty()
         assert coord_range.shape == (3, 2), "coord_range should be a 3x2 array in z, y, x order"
@@ -921,43 +921,20 @@ class BrachyDose:
             new_dose.create_interpolation_function()
             return new_dose
 
-        # # make sure the ending coordinate of the new range is larger than its origin
-        # for ax in coord_range:
-        #     assert (
-        #         ax[1] > ax[0]
-        #     ), "axis ending coordinate should be larger than its begining coordinate"
-
-        # # assert coordinate range falls into the image
-        # axes_name = ["x axis(2)", "y axis(1)", "z axis(0)"]
-        # coords_flipped = np.flip(coord_range, 0)
-        # for i in range(self.voxel_edges.shape[0]):
-        #     assert (
-        #         coords_flipped[i][0] > self.voxel_edges[i][0]
-        #     ), f"cropping lower limit must be larger than the lowest coordinate on {axes_name[i]}"
-
-        # # convert new coordinates to indicies for both beggingn and ending (may not be exact)
-        # new_origin_distance = coord_range[:, 0] - self.origin_coordinates
-
-        # new_origin_index = np.floor(new_origin_distance / self.voxel_size).astype(int)
-
-        # new_ending_index = np.floor(
-        #     (coord_range[:, 1] - self.origin_coordinates) / self.voxel_size
-        # ).astype(int)
-
-        # new_index_range = np.column_stack([new_origin_index, new_ending_index])
-
-        # return self.crop_by_index(new_index_range, inplace)
-
-    def crop_by_fraction(self, crop_fraction, inplace: Optional[bool] = True):
+    def crop_by_fraction(
+        self,
+        crop_fraction:List[float],
+        inplace: Optional[bool] = True):
         r"""
         Purpose:
-            given the crop_fraction, this function will crop out 0.5*(1 - crop_fraction)*dimension voxels
-                from the edges of the x and y axis of dose and uncertainty maps and will adjust the rest of the attributes accordingly.
+            given the crop_fraction, this function will crop out 0.5*(1 - crop_fraction)*gridSizeInWorldUnit
+                from the edges of the x and y, and z axis of dose and uncertainty maps and will adjust the rest of 
+                the attributes accordingly.
         Inputs:
             - self: BrachyDose object
-            - crop_fraction := a floating point between 0 and 1, which is the fraction of the image axis that remains in the crop.
-                for example, a crop ratio of 0.5 will keep the center of the x and y axis, plus minus 0.25*dimension of the image.
-                The z axis will not be cropped.
+            - crop_fraction := 3 floating point between 0 and 1 (one per axis for z, y, x axis), which is the fraction of the image axis 
+            that remains in the crop. for example, a crop ratio of [1, 0.5, 0.5] will keep the center of the x and y axis, 
+            plus minus 0.25*dimension of the image. The z axis will not be cropped.
                     +++++++++       ---------
                     +++++++++       --+++++--
                     +++++++++  ===> --+++++--
@@ -967,31 +944,24 @@ class BrachyDose:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the coordinate range.
                 it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         Dependencies:
-            -self.crop_by_index()
+            -self.crop_by_coordinates()
         """
+        crop_fraction = np.array(crop_fraction)
         assert (
-            crop_fraction >= 0 and crop_fraction <= 1
+            np.all(crop_fraction >= 0) and np.all(crop_fraction <= 1)
         ), "the fraction should be between 0 and 1"
-        off_set = 0.5 * (1 - crop_fraction) * self.num_voxels
-        new_origin_index = np.array([off_set[0], off_set[1], 0]).astype(int)
+        
+        off_set = 0.5 * (1 - crop_fraction) * self.dose_image.gridSizeInWorldUnit
+        new_origin_coords = self.dose_image.origin + off_set
         assert np.all(
-            new_origin_index >= 0
-        ), "new origin index cannot be negative, please report this bug"
+            new_origin_coords >= self.dose_image.origin
+        ), "new origin cannot be smaller than the original origin."
+        
+        new_ending_coords = self.dose_image.origin + self.dose_image.gridSizeInWorldUnit - off_set
+        
+        new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
 
-        new_ending_index = np.array(
-            [
-                self.num_voxels[0] - off_set[0],
-                self.num_voxels[1] - off_set[1],
-                self.num_voxels[2],
-            ]
-        ).astype(int)
-        assert np.all(
-            new_ending_index >= 0
-        ), "new ending index cannot be negative, please report this bug"
-
-        new_index_range = np.column_stack([new_origin_index, new_ending_index])
-
-        return self.crop_by_index(new_index_range, inplace)
+        return self.crop_by_coordinates(new_coords_range, inplace)
 
     def crop_by_index(self, index_range: np.array, inplace: Optional[bool] = True):
         r"""
