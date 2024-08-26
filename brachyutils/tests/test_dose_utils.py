@@ -149,11 +149,10 @@ def test_crop_by_coordinates():
 def test_crop_by_index():
     pth_input = "../data_test/batch_uncertainty/combined.3ddose"
     # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_input)
+    dose_obj = BrachyDose(pth_input)
     dose_obj.info()
 
-    index = np.array([[30, 90], [30, 90], [0, 94]], dtype=np.float32)
+    index = np.array([[0, 9], [3, 9], [3, 9]], dtype=np.float32)
 
     dose_obj.crop_by_index(index)
 
@@ -213,4 +212,5 @@ if __name__ == "__main__":
     # test_write_to_3ddose()
     # test_write_to_nrrd()
     # test_crop_by_coordinates()
-    test_crop_by_fraction()
+    # test_crop_by_fraction()
+    test_crop_by_index()

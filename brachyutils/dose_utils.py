@@ -26,7 +26,6 @@ from scipy.interpolate import RegularGridInterpolator
 from opentps.core.data.images import DoseImage
 from opentps.core.io.dicomIO import readDicomDose
 from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
-
 class BrachyDose:
     r"""
     Purpse:
@@ -970,69 +969,20 @@ class BrachyDose:
             dose and uncertainty maps and will adjust the rest of the attributes accordingly.
         Inputs:
             - self: BrachyDose object
-            - index_range := a 3 x 2 array holding the min and max on x, y and axis
-                [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
+            - index_range := a 3 x 2 array holding the min and max on z, y and x axis
+                [[z_min, z_max], [y_min, y_max], [x_min, x_max]]
         Output:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the index range.
-                it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         Dependencies:
-            - None
+            - self.crop_by_coordinates()
         """
-        new_origin_index = index_range[:, 0].astype(int)
-        assert np.all(
-            new_origin_index >= 0
-        ), "new origin index cannot be negative, please report this bug"
-
-        new_ending_index = index_range[:, 1].astype(int)
-        assert np.all(
-            new_ending_index >= 0
-        ), "new ending index cannot be negative, please report this bug"
-
-        # update the attributes
-        if inplace:
-            self.grid = self.grid[
-                new_origin_index[2] : new_ending_index[2],  # z
-                new_origin_index[1] : new_ending_index[1],  # y
-                new_origin_index[0] : new_ending_index[0],  # x
-            ]
-            self.uncertainty = self.uncertainty[
-                new_origin_index[2] : new_ending_index[2],  # z
-                new_origin_index[1] : new_ending_index[1],  # y
-                new_origin_index[0] : new_ending_index[0],  # x
-            ]
-            self.origin_coordinates = np.array(
-                [
-                    self.voxel_edges[2][new_origin_index[0]],  # x
-                    self.voxel_edges[1][new_origin_index[1]],  # y
-                    self.voxel_edges[0][new_origin_index[2]],  # z
-                ]
-            )
-            self.num_voxels = np.flip(self.grid.shape, 0)
-            self.voxel_edges = self.calculate_voxel_edges()
-        else:
-            new_dose_obj = BrachyDose()
-            new_dose_obj.grid = self.grid[
-                new_origin_index[2] : new_ending_index[2],
-                new_origin_index[1] : new_ending_index[1],
-                new_origin_index[0] : new_ending_index[0],
-            ]
-            new_dose_obj.uncertainty = self.uncertainty[
-                new_origin_index[2] : new_ending_index[2],
-                new_origin_index[1] : new_ending_index[1],
-                new_origin_index[0] : new_ending_index[0],
-            ]
-            new_dose_obj.origin_coordinates = np.array(
-                [
-                    self.voxel_edges[2][new_origin_index[0]],  # x
-                    self.voxel_edges[1][new_origin_index[1]],  # y
-                    self.voxel_edges[0][new_origin_index[2]],  # z
-                ]
-            )
-            new_dose_obj.num_voxels = np.flip(self.grid.shape, 0)
-            new_dose_obj.voxel_size = self.voxel_size
-            new_dose_obj.voxel_edges = self.calculate_voxel_edges()
-            return new_dose_obj
-
+        
+        # convert indicies to coordinates
+        new_origin_coords = self.dose_image.getPositionFromVoxelIndex(index_range[:, 0])
+        new_ending_coords = self.dose_image.getPositionFromVoxelIndex(index_range[:, 1])
+        new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
+        return self.crop_by_coordinates(new_coords_range, inplace)
+        
     def is_not_empty(self):
         assert self.dose_image is not None, "error dose image is None"
         assert self.voxel_edges is not None, "error axis is None"
