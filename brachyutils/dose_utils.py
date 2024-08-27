@@ -1055,9 +1055,9 @@ class BrachyDose:
             - Void := will scale the dose and uncertainty maps of self by the scale factor.
         """
         self.is_not_empty()
-        self.grid *= scale_factor
+        self.dose_image.imageArray *= scale_factor
         if scale_uncert and self.uncertainty is not None:
-            self.uncertainty *= scale_factor
+            self.uncertainty_image.imageArray *= scale_factor
 
 
 def dose_with_empty_grid_like(doseObj: BrachyDose):
