@@ -98,8 +98,8 @@ class BrachyDose:
             self.load_file_to_brachydose(pth_dose_file, load_uncertainty)
         if self.dose_image is not None:
             self.create_interpolation_function()
-        # default dose unit length is cm
-        self.unit_length:Literal["mm", "cm"] = "cm"
+        # default dose unit length is mm
+        self.unit_length:Literal["mm", "cm"] = "mm"
 
     def load_file_to_brachydose(
         self, pth_dose_file: Path, load_uncertainty: Optional[bool] = True
@@ -237,13 +237,13 @@ class BrachyDose:
                     print("Warning: No uncertainty in the 3ddose file", filename, "\n")
             self.dose_image = DoseImage(
                 imageArray = bench_dose,
-                origin = ( bench_z_pos[0], bench_y_pos[0], bench_x_pos[0]),
-                spacing = (bench_slice_thick, bench_y_spacing, bench_x_spacing),
+                origin = ( bench_z_pos[0]*10, bench_y_pos[0]*10, bench_x_pos[0]*10),
+                spacing = (bench_slice_thick*10, bench_y_spacing*10, bench_x_spacing*10),
             )
             self.uncertainty_image = DoseImage(
                 imageArray = bench_uncert,
-                origin = (bench_z_pos[0], bench_y_pos[0], bench_x_pos[0]),
-                spacing = (bench_slice_thick, bench_y_spacing, bench_x_spacing),
+                origin = (bench_z_pos[0]*10, bench_y_pos[0]*10, bench_x_pos[0]*10),
+                spacing = (bench_slice_thick*10, bench_y_spacing*10, bench_x_spacing*10),
             )
             self.voxel_edges = self.calculate_voxel_edges()
 
@@ -634,9 +634,9 @@ class BrachyDose:
         file_name = os.path.abspath(file_name)
 
         dimensions = " ".join(map(str, np.flip(self.dose_image.gridSize.astype(int)))) + "\n"
-        x_axis = " ".join(map(str, self.voxel_edges[2])) + "\n"
-        y_axis = " ".join(map(str, self.voxel_edges[1])) + "\n"
-        z_axis = " ".join(map(str, self.voxel_edges[0])) + "\n"
+        x_axis = " ".join(map(str, self.voxel_edges[2]/10)) + "\n"
+        y_axis = " ".join(map(str, self.voxel_edges[1]/10)) + "\n"
+        z_axis = " ".join(map(str, self.voxel_edges[0]/10)) + "\n"
         dose_flattened = " ".join(map(str, self.dose_image.imageArray.flatten("C"))) + "\n"
         if self.uncertainty is not None:
             uncertainty_flattened = (
