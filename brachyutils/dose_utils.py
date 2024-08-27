@@ -12,7 +12,7 @@ import tkinter as tk
 import warnings
 from array import array
 from tkinter import filedialog as fd
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Union
 
 import numpy as np
 import pydicom
@@ -696,8 +696,6 @@ class BrachyDose:
         else: 
             image_nrrd = sitk.GetImageFromArray(dose_array)
 
-        # image_nrrd.SetOrigin(np.append([0], self.origin_coordinates))
-        # image_nrrd.SetSpacing(np.append([1], self.voxel_size))
         image_nrrd.SetOrigin(np.flip(self.dose_image.origin).astype(float))
         image_nrrd.SetSpacing(np.flip(self.dose_image.spacing).astype(float))
 
@@ -893,7 +891,7 @@ class BrachyDose:
 
     def crop_by_coordinates(
         self, coord_range: np.array, inplace: Optional[bool] = True
-    ):
+    ) -> Union[None, "BrachyDose"]:
         r"""
         Purpose:
             given a range of coordinate (mix and max on each axis), this function will crop
@@ -919,7 +917,8 @@ class BrachyDose:
             self.calculate_voxel_edges()
             self.create_interpolation_function()
         else:
-            new_dose:BrachyDose = copy.deepcopy(self).crop_by_coordinates(coord_range, inplace=True)            
+            new_dose:BrachyDose = copy.deepcopy(self)
+            new_dose.crop_by_coordinates(coord_range, inplace=True)           
             new_dose.calculate_voxel_edges()
             new_dose.create_interpolation_function()
             return new_dose
@@ -927,7 +926,8 @@ class BrachyDose:
     def crop_by_fraction(
         self,
         crop_fraction:List[float],
-        inplace: Optional[bool] = True):
+        inplace: Optional[bool] = True
+        ) -> Union[None, "BrachyDose"]:
         r"""
         Purpose:
             given the crop_fraction, this function will crop out 0.5*(1 - crop_fraction)*gridSizeInWorldUnit
@@ -966,7 +966,11 @@ class BrachyDose:
 
         return self.crop_by_coordinates(new_coords_range, inplace)
 
-    def crop_by_index(self, index_range: np.array, inplace: Optional[bool] = True):
+    def crop_by_index(
+        self,
+        index_range: np.array,
+        inplace: Optional[bool] = True
+        ) -> Union[None, "BrachyDose"]:
         r"""
         Purpose:
             given a range of indicies (mix and max on each axis), this function will crop
@@ -987,12 +991,12 @@ class BrachyDose:
         new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
         return self.crop_by_coordinates(new_coords_range, inplace)
         
-    def is_not_empty(self):
+    def is_not_empty(self) -> bool:
         assert self.dose_image is not None, "error dose image is None"
         assert self.voxel_edges is not None, "error axis is None"
         return True
 
-    def info(self):
+    def info(self) -> None:
         self.is_not_empty()
         print(f"shape of dose grid is: {self.dose_image.gridSize}")
         if self.uncertainty_image is not None:
@@ -1007,9 +1011,10 @@ class BrachyDose:
         
     def crop_by_dicom_structure(
         self,
-        pth_dir_dicom: Optional[str],
-        structure_name_list: Optional[List[str]],
-    ):
+        pth_dir_dicom: Path,
+        structure_name: str,
+        inplace: Optional[bool] = False,
+    ) -> Union[None, "BrachyDose"]:
         r"""
         Purpose:
             based on the given dicom structure file, crop the BrachyDose object such
@@ -1027,35 +1032,17 @@ class BrachyDose:
         from brachyutils import BrachyDicom
         from opentps.core.data.images import ROIMask
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
         # load the dicom object both the image and the mask
         dicom_obj = BrachyDicom(pth_dir_dicom, load_structure=True)
         # load the mask dictionary for the structures in structure_name_list
-        mask_dictionary = dicom_obj.get_strcuture_mask_from_dicom(structure_name_list, ROIMask)
+        mask_dict = dicom_obj.get_strcuture_mask_from_dicom([structure_name], ROIMask)
+    
+        # Get a cropped dose map that tightly fits each mask.
+        resampled_mask = resampleImage3DOnImage3D(mask_dict[structure_name], self.dose_image)
+        box_around_mask = np.array(getBoxAroundROI(resampled_mask))
+        return self.crop_by_coordinates(box_around_mask, inplace)
         
-        # For each mask get a cropped dose map that tightly fits each mask.
-        for mask in mask_dictionary:
-            box_around_mask = getBoxAroundROI(mask_dictionary[mask])
-             
-
-        # if body_index_range is None or body_mask_shape is None:
-        #     assert (
-        #         pth_dir_dicom is not None
-        #     ), "Either path to a dicom directory with dicom structure \
-        #         file should be given or body_index_range and body_mask_shape"
-        #     body_mask_shape = BrachyDicom(pth_dir_dicom).structure_index_range_dict[
-        #         "body"
-        #     ][
-        #         "dicom_mask_shape"
-        #     ]  # the body mask may have a different size than the dose map, we normalize range to the dimension
-        # # of original mask and scale it to the dimension of the dose map to get the body index range on the dose image.
-        # scaled_body_index_range = (
-        #     body_index_range
-        #     / np.expand_dims(body_mask_shape, axis=1)
-        #     * np.expand_dims(self.num_voxels, axis=1)
-        # ).astype(int)
-
-        # self.crop_by_index(scaled_body_index_range, True)
-
     def multiply_dose_by_constant(
         self, scale_factor: float, scale_uncert: Optional[bool] = False
     ):

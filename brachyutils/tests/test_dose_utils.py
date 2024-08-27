@@ -196,15 +196,16 @@ def test_dose_comparison():
 def test_crop_by_dicom_structure():
     pth_dicomRS = "../data_test/rectal-jgh-dcm/"
     pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
-    dir_out = "../data_test/test_export_plan"
+    # dir_out = "../data_test/test_export_plan"
 
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()
-    dose_obj.crop_by_dicom_structure(
+    cropped_dose = dose_obj.crop_by_dicom_structure(
         pth_dir_dicom=pth_dicomRS,
-        structure_name_list=["body"]
+        structure_name="body",
+        inplace=False
     )
-
+    cropped_dose.info()
 
 if __name__ == "__main__":
     # test_load_from_3ddose()
