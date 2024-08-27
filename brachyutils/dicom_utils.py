@@ -56,7 +56,6 @@ class BrachyDicom:
         load_structure: Optional[bool] = True,
         load_dose: Optional[bool] = False,
         load_plan: Optional[bool] = False,
-        unit_length: Optional[Literal["cm", "mm"]] = "mm"
     ):
         r"""
         Purpose:
@@ -72,7 +71,7 @@ class BrachyDicom:
         self.catheter_table: dict = None
         self.source_info: dict = None
         # default dicom length unit is mm
-        self.unit_length:Literal["cm", "mm"] = "mm"
+        self.unit_length:Literal["mm"] = "mm"
 
         os.path.abspath(pth_dir_dicom)
         assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"

@@ -99,7 +99,7 @@ class BrachyDose:
         if self.dose_image is not None:
             self.create_interpolation_function()
         # default dose unit length is mm
-        self.unit_length:Literal["mm", "cm"] = "mm"
+        self.unit_length:Literal["mm"] = "mm"
 
     def load_file_to_brachydose(
         self, pth_dose_file: Path, load_uncertainty: Optional[bool] = True
@@ -232,17 +232,17 @@ class BrachyDose:
                         huge_uncert_array,
                         (bench_voxels[2], bench_voxels[1], bench_voxels[0]),
                     )
-                    self.uncertainty = bench_uncert
+                    self.uncertainty_image = DoseImage(
+                        imageArray = bench_uncert,
+                        origin = (bench_z_pos[0]*10, bench_y_pos[0]*10, bench_x_pos[0]*10),
+                        spacing = (bench_slice_thick*10, bench_y_spacing*10, bench_x_spacing*10),
+                    )
                 except ValueError:
                     print("Warning: No uncertainty in the 3ddose file", filename, "\n")
+            
             self.dose_image = DoseImage(
                 imageArray = bench_dose,
                 origin = ( bench_z_pos[0]*10, bench_y_pos[0]*10, bench_x_pos[0]*10),
-                spacing = (bench_slice_thick*10, bench_y_spacing*10, bench_x_spacing*10),
-            )
-            self.uncertainty_image = DoseImage(
-                imageArray = bench_uncert,
-                origin = (bench_z_pos[0]*10, bench_y_pos[0]*10, bench_x_pos[0]*10),
                 spacing = (bench_slice_thick*10, bench_y_spacing*10, bench_x_spacing*10),
             )
             self.voxel_edges = self.calculate_voxel_edges()
@@ -837,6 +837,35 @@ class BrachyDose:
             raise ValueError("Voxel edges are not calculated yet")
         return voxel_centers
 
+    def get_dose_at_coordinates(self, coords:Union[np.ndarray, List[float]]) -> float:
+        r"""
+        Purpose:
+            Given a set of coordinates, this function will return the dose at that point.
+
+        Inputs:
+            - coords := a list of 3 coordinates [z, y, x] or a numpy array of shape (3,)
+
+        Outputs:
+            - dose := the dose at the given coordinates in Gy
+        """
+        assert len(coords) == 3, "coords should be a list of 3 coordinates"
+        return self.dose_image.getDataAtPosition(coords)
+
+    def get_uncertainty_at_coordinates(self, coords:Union[np.ndarray, List[float]]) -> float:
+        r"""
+        Purpose:
+            Given a set of coordinates, this function will return the dose at that point.
+
+        Inputs:
+            - coords := a list of 3 coordinates [z, y, x] or a numpy array of shape (3,)
+
+        Outputs:
+            - dose := the dose at the given coordinates in Gy
+        """
+        assert len(coords) == 3, "coords should be a list of 3 coordinates"
+        assert self.uncertainty_image is not None, "uncertainty image is not defined"
+        return self.uncertainty_image.getDataAtPosition(coords)
+    
     def is_equal(self, new_brachy_dose):
         r"""
         Purpose:
@@ -1056,7 +1085,7 @@ class BrachyDose:
         """
         self.is_not_empty()
         self.dose_image.imageArray *= scale_factor
-        if scale_uncert and self.uncertainty is not None:
+        if scale_uncert and self.uncertainty_image is not None:
             self.uncertainty_image.imageArray *= scale_factor
 
 
