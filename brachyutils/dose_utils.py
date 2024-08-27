@@ -3,6 +3,7 @@ import logging
 import lzma
 import os
 import copy
+import warnings
 
 from pathlib import Path
 # trunk-ignore(bandit/B403)
@@ -392,6 +393,7 @@ class BrachyDose:
 
     def extract_dose_values_from_coordinates(self, x, y, z):
         r""" """
+        raise DeprecationWarning("This function is no longer supported due to migration to open tps. please use self.get_dose_at_coordinates() instead.") 
         self.is_not_empty()
         if self.interpolation_function is None:
             raise ValueError("interpolation function is not defined")
@@ -524,7 +526,7 @@ class BrachyDose:
         average_uncert = ma.average(masked_uncert) * 100
         return average_uncert
 
-    def pad_3ddose(self, new_dims: list, new_top_left: list):
+    def pad_3ddose(self, new_dims: list, new_origin: list) -> "BrachyDose":
         r"""a function to padd the grid and uncertainty in BrachyDose object and bring it to the desired dimensios.
         it will update all the aspects of the dose object to match the new dimensiosn.
         The voxels must have the same size! remember, python does z, y, x.
@@ -534,86 +536,58 @@ class BrachyDose:
             new_dims := a 1 by 3 list containing the new x, y and z dimensions:
                 [new_z_dim, new_y_dim, new_x_dim]
 
-            new_top_left := coordinates of the new origin_coordinates
+            new_origin := coordinates of the new origin_coordinates
                 [x, y, z]
         """
+        warnings.warn("This function is not tested yet", stacklevel=2)
         assert any(
-            new_dims > self.grid.shape
+            new_dims > self.dose_image.gridSize
         ), "since you are padding, the new dimensions should be larger than the input dimensions"
 
         # calculate distances between the new and old origin_coordinates voxels.
         # if for an axis, the distance of origin_coordinatess is larger than the voxel size, use the new origin_coordinates
         # else, use the old top left
-        origin_coordinates_distance = np.abs(new_top_left - self.origin_coordinates)
+        origin_coordinates_distance = np.abs(new_origin - self.dose_image.origin)
         final_origin_coordinates = np.zeros(3)
         for i, distance in zip(range(3), origin_coordinates_distance):
             final_origin_coordinates[i] = (
-                new_top_left[i] if distance > self.voxel_size[i] else self.origin_coordinates[i]
+                new_origin[i] if distance > self.dose_image.spacing[i] else self.dose_image.origin[i]
             )
 
         # figure out how much padding to do before and after each axis
         padding = np.zeros([3, 2])
         for i in range(3):
-            if final_origin_coordinates[i] == self.origin_coordinates[i]:
+            if final_origin_coordinates[i] == self.dose_image.origin[i]:
                 # all padding goes to the end for this dose axis
                 pad_before = 0
-                pad_after = new_dims[2 - i] - self.grid.shape[2 - i]
+                pad_after = new_dims[i] - self.dose_image.gridSize[i]
             else:
                 # all padding goes to the begining of the dose axis
-                pad_before = new_dims[2 - i] - self.grid.shape[2 - i]
+                pad_before = new_dims[i] - self.dose_image.gridSize[i]
                 pad_after = 0
-            padding[2 - i] = [pad_before, pad_after]
+            padding[i] = [pad_before, pad_after]
 
         # pad the old dose grid to get the new grid!
-        new_dose_grid = np.pad(self.grid, tuple(padding.astype(int)), mode="edge")
-        if self.uncertainty is not None:
+        new_dose_grid = np.pad(self.dose_image.imageArray, tuple(padding.astype(int)), mode="edge")
+        if self.uncertainty_image is not None:
             new_uncert = np.pad(
-                self.uncertainty, tuple(padding.astype(int)), mode="edge"
-            )
-
-        # figure out the end coordinates based on the padding
-        # self.voxel_size is a list of x, y and z spacing, we want it to be
-        # a numpy array of z, y, x spacings.
-        voxel_size = np.array(self.voxel_size)[:, np.newaxis][::-1]
-        end_coords_distances = (
-            padding * np.array([[-1, 1], [-1, 1], [-1, 1]]) * voxel_size
-        )
-
-        old_end_coords = np.array(
-            [
-                [self.voxel_edges[0][0], self.voxel_edges[0][-1]],
-                [self.voxel_edges[1][0], self.voxel_edges[1][-1]],
-                [self.voxel_edges[2][0], self.voxel_edges[2][-1]],
-            ]
-        )
-
-        new_end_coords = old_end_coords + end_coords_distances
-
-        # now padd the new axis with respect to the appropriate begin and end coordinates
-        new_axis = np.array(
-            [np.zeros(new_dims[0]), np.zeros(new_dims[1]), np.zeros(new_dims[2])],
-            dtype=object,
-        )
-
-        # pad the new axis with linear ramp
-        for i in range(new_axis.shape[0]):
-            new_axis[i] = np.pad(
-                self.voxel_edges[i],
-                tuple(padding[i].astype(int)),
-                mode="linear_ramp",
-                end_values=new_end_coords[i],
-            )
-
+                self.uncertainty_image.imageArray, tuple(padding.astype(int)), mode="edge"
+            )        
         # fillout the new padded dose dictionary
         padded_dose = BrachyDose()
-
-        padded_dose.grid = new_dose_grid
-        padded_dose.uncert = new_uncert if self.uncertainty is not None else None
-        # voxel size remains unchanged
-        padded_dose.voxel_size = self.voxel_size
-        padded_dose.origin_coordinates = final_origin_coordinates
-        padded_dose.voxel_edges = new_axis
-
+        padded_dose.dose_image = DoseImage(
+            imageArray = new_dose_grid,
+            origin = final_origin_coordinates,
+            spacing = self.dose_image.spacing,
+        )
+        if self.uncertainty_image is not None:
+            padded_dose.uncertainty_image = DoseImage(
+                imageArray = new_uncert,
+                origin = final_origin_coordinates,
+                spacing = self.dose_image.spacing,
+            )
+        self.calculate_voxel_edges()
+        self.create_interpolation_function()
         return padded_dose
 
     def write_to_3ddose(self, file_name: str):
