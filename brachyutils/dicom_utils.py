@@ -56,6 +56,7 @@ class BrachyDicom:
         load_structure: Optional[bool] = True,
         load_dose: Optional[bool] = False,
         load_plan: Optional[bool] = False,
+        unit_length: Optional[Literal["cm", "mm"]] = "cm"
     ):
         r"""
         Purpose:
@@ -70,6 +71,7 @@ class BrachyDicom:
         self.dose: BrachyDose = None
         self.catheter_table: dict = None
         self.source_info: dict = None
+        self.unit_length:Literal["cm", "mm"] = "cm"
 
         os.path.abspath(pth_dir_dicom)
         assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
@@ -82,29 +84,29 @@ class BrachyDicom:
                 self.image_modality = "CT"
                 ct_files = list(filter(lambda s: "CT" in s, file_list))
                 # in python, images are represented as [z, y, x] but in dicom it's [x, y, z]
-                image_xyz = readDicomCT(ct_files)
+                image_xyz_mm = readDicomCT(ct_files)
                 self.image = CTImage(
-                    imageArray=np.swapaxes(image_xyz.imageArray, 0, 2),
-                    origin=np.flip(image_xyz.origin),
-                    spacing=np.flip(image_xyz.spacing),
-                    angles=np.flip(image_xyz.angles),
-                    name=image_xyz.name,
-                    seriesInstanceUID=image_xyz.seriesInstanceUID,
-                    frameOfReferenceUID=image_xyz.frameOfReferenceUID,
+                    imageArray=np.swapaxes(image_xyz_mm.imageArray, 0, 2),
+                    origin=np.flip(image_xyz_mm.origin) ,
+                    spacing=np.flip(image_xyz_mm.spacing) ,
+                    angles=np.flip(image_xyz_mm.angles),
+                    name=image_xyz_mm.name,
+                    seriesInstanceUID=image_xyz_mm.seriesInstanceUID,
+                    frameOfReferenceUID=image_xyz_mm.frameOfReferenceUID,
                 )
             elif "MR" in file_list[0]:
                 self.image_modality = "MR"
                 mr_files = list(filter(lambda s: "MR" in s, file_list))
                 # in python, images are represented as [z, y, x] but in dicom it's [x, y, z]
-                image_xyz = readDicomMRI(mr_files)
+                image_xyz_mm = readDicomMRI(mr_files)
                 self.image = MRImage(
-                    imageArray=np.swapaxes(image_xyz.imageArray, 0, 2),
-                    origin=np.flip(image_xyz.origin),
-                    spacing=np.flip(image_xyz.spacing),
-                    angles=np.flip(image_xyz.angles),
-                    name=image_xyz.name,
-                    seriesInstanceUID=image_xyz.seriesInstanceUID,
-                    frameOfReferenceUID=image_xyz.frameOfReferenceUID,
+                    imageArray=np.swapaxes(image_xyz_mm.imageArray, 0, 2),
+                    origin=np.flip(image_xyz_mm.origin),
+                    spacing=np.flip(image_xyz_mm.spacing),
+                    angles=np.flip(image_xyz_mm.angles),
+                    name=image_xyz_mm.name,
+                    seriesInstanceUID=image_xyz_mm.seriesInstanceUID,
+                    frameOfReferenceUID=image_xyz_mm.frameOfReferenceUID,
                 )
             else:
                 raise ValueError("Image modality not recognized")
@@ -146,7 +148,44 @@ class BrachyDicom:
                 origin=self.image.origin,
                 gridSize=self.image.gridSize,
                 spacing=self.image.spacing,
-                ).imageArray
+                )
+
+    def get_strcuture_mask_from_dicom(
+        self,
+        query_structure_list: List[str],
+        mask_type:Union[np.array, ROIContour, ROIMask] = ROIMask
+        ):
+        r"""
+        Purpose:
+            To return a dictionary with the requested structure masks from BrachyDicom object. The queried
+            structure string should be a subset of the structure string in the dicom file. For example, 
+            if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
+            
+        Inputs:
+            - query_structure_list := list of structure names to find the mask of.
+        Outputs:
+            - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
+        """
+        assert self.structure_mask_dict is not None, "structure masks have not been loaded yet. please run load_structures() first"
+        mask_dict:dict = {}
+        for query_structure in query_structure_list:
+            for mask_name, mask in self.structure_mask_dict.items():
+                if query_structure.lower() in mask_name.lower():
+                    if np.sum(mask.imageArray) > 0:
+                        if mask_type == np.array:
+                            mask_dict[query_structure] = mask.imageArray
+                        elif mask_type == ROIContour:
+                            mask_dict[query_structure] = self.structures_dcm.getContourByName(
+                                mask_name
+                                )
+                        elif mask_type == ROIMask:
+                            mask_dict[query_structure] = mask
+                        else:
+                            raise ValueError("mask_type not recognized")
+                    else:
+                        mask_dict[query_structure] = None
+                        warnings.warn(f"mask for {query_structure} is all zeros. returning empty")                        
+        return mask_dict
 
     def get_structure_index_range(self):
         r"""
@@ -191,49 +230,6 @@ class BrachyDicom:
                 "dicom_mask_shape": np.flip(np.array(mask_numpy.shape)),
             }
         return self.structure_index_range_dict
-
-    def get_strcuture_mask_from_dicom(
-        self,
-        query_structure_list: List[str],
-        mask_type:Union[np.array, ROIContour, ROIMask] = ROIMask
-        ):
-        r"""
-        Purpose:
-            To return a dictionary with the requested structure masks from BrachyDicom object. The queried
-            structure string should be a subset of the structure string in the dicom file. For example, 
-            if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
-            
-        Inputs:
-            - query_structure_list := list of structure names to find the mask of.
-        Outputs:
-            - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
-        """
-        assert self.structure_mask_dict is not None, "structure masks have not been loaded yet. please run load_structures() first"
-        mask_dict:dict = {}
-        for query_structure in query_structure_list:
-            for mask_name, mask_numpy in self.structure_mask_dict.items():
-                if query_structure.lower() in mask_name.lower():
-                    if np.sum(mask_numpy) > 0:
-                        if mask_type == np.array:
-                            mask_dict[query_structure] = mask_numpy
-                        elif mask_type == ROIContour:
-                            mask_dict[query_structure] = self.structures_dcm.getContourByName(
-                                mask_name
-                                )
-                        elif mask_type == ROIMask:
-                            mask_dict[query_structure] = self.structures_dcm.getContourByName(
-                                    mask_name
-                                ).getBinaryMask(
-                                    origin=self.image.origin,
-                                    gridSize=self.image.gridSize,
-                                    spacing=self.image.spacing
-                                )
-                        else:
-                            raise ValueError("mask_type not recognized")
-                    else:
-                        mask_dict[query_structure] = []
-                        warnings.warn(f"mask for {query_structure} is all zeros. returning empty")                        
-        return mask_dict
 
     def reset(self):
         self.structure_mask_dict = {}

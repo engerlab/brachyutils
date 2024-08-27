@@ -1032,7 +1032,6 @@ class BrachyDose:
         
         # For each mask get a cropped dose map that tightly fits each mask.
         for mask in mask_dictionary:
-            
             box_around_mask = getBoxAroundROI(mask_dictionary[mask])
              
 
