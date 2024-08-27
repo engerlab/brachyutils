@@ -15,10 +15,9 @@ from opentps.core.data.images import (
     CTImage,
     MRImage,
     ROIMask,
-    DoseImage
 )
 
-from opentps.core.data import RTStruct
+from opentps.core.data import RTStruct, ROIContour
 
 from opentps.core.io.dicomIO import (
     readDicomCT,
@@ -196,7 +195,7 @@ class BrachyDicom:
     def get_strcuture_mask_from_dicom(
         self,
         query_structure_list: List[str],
-        mask_type:Union[np.array, RTStruct] = np.array
+        mask_type:Union[np.array, ROIContour, ROIMask] = ROIMask
         ):
         r"""
         Purpose:
@@ -215,10 +214,22 @@ class BrachyDicom:
             for mask_name, mask_numpy in self.structure_mask_dict.items():
                 if query_structure.lower() in mask_name.lower():
                     if np.sum(mask_numpy) > 0:
-                        mask_dict[query_structure] = (
-                            mask_numpy if mask_type == np.array
-                            else self.structures_dcm.getContourByName(mask_name)
-                            )
+                        if mask_type == np.array:
+                            mask_dict[query_structure] = mask_numpy
+                        elif mask_type == ROIContour:
+                            mask_dict[query_structure] = self.structures_dcm.getContourByName(
+                                mask_name
+                                )
+                        elif mask_type == ROIMask:
+                            mask_dict[query_structure] = self.structures_dcm.getContourByName(
+                                    mask_name
+                                ).getBinaryMask(
+                                    origin=self.image.origin,
+                                    gridSize=self.image.gridSize,
+                                    spacing=self.image.spacing
+                                )
+                        else:
+                            raise ValueError("mask_type not recognized")
                     else:
                         mask_dict[query_structure] = []
                         warnings.warn(f"mask for {query_structure} is all zeros. returning empty")                        
