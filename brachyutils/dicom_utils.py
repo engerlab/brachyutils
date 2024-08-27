@@ -56,7 +56,7 @@ class BrachyDicom:
         load_structure: Optional[bool] = True,
         load_dose: Optional[bool] = False,
         load_plan: Optional[bool] = False,
-        unit_length: Optional[Literal["cm", "mm"]] = "cm"
+        unit_length: Optional[Literal["cm", "mm"]] = "mm"
     ):
         r"""
         Purpose:
@@ -71,7 +71,8 @@ class BrachyDicom:
         self.dose: BrachyDose = None
         self.catheter_table: dict = None
         self.source_info: dict = None
-        self.unit_length:Literal["cm", "mm"] = "cm"
+        # default dicom length unit is mm
+        self.unit_length:Literal["cm", "mm"] = "mm"
 
         os.path.abspath(pth_dir_dicom)
         assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
@@ -128,6 +129,7 @@ class BrachyDicom:
             self.catheter_table, self.source_info = (
                 get_catheter_table_and_source_info_from_dicom(plan_file)
             )
+            
     def load_structures(self, structure_file: str):
         r"""
         Purpose:

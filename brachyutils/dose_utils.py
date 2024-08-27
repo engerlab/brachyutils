@@ -12,7 +12,7 @@ import tkinter as tk
 import warnings
 from array import array
 from tkinter import filedialog as fd
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 import numpy as np
 import pydicom
@@ -98,6 +98,8 @@ class BrachyDose:
             self.load_file_to_brachydose(pth_dose_file, load_uncertainty)
         if self.dose_image is not None:
             self.create_interpolation_function()
+        # default dose unit length is cm
+        self.unit_length:Literal["mm", "cm"] = "cm"
 
     def load_file_to_brachydose(
         self, pth_dose_file: Path, load_uncertainty: Optional[bool] = True
