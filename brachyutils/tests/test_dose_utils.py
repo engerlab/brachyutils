@@ -194,13 +194,16 @@ def test_dose_comparison():
     #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
 
 def test_crop_by_dicom_structure():
-    pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
-    pth_3ddose = "../../data_test/run_1_glen_prostate_p1.3ddose"
+    pth_dicomRS = "../data_test/rectal-jgh-dcm/"
+    pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
+    dir_out = "../data_test/test_export_plan"
 
-    dose_obj = BrachyDose()
-    dose_obj.load_file_to_brachydose(pth_3ddose)
+    dose_obj = BrachyDose(pth_input)
     dose_obj.info()
-    dose_obj.crop_by_body_contour(pth_dir_dicom=pth_dicomRS)
+    dose_obj.crop_by_dicom_structure(
+        pth_dir_dicom=pth_dicomRS,
+        structure_name_list=["body"]
+    )
 
 
 if __name__ == "__main__":
@@ -211,4 +214,5 @@ if __name__ == "__main__":
     # test_write_to_nrrd()
     # test_crop_by_coordinates()
     # test_crop_by_fraction()
-    test_crop_by_index()
+    # test_crop_by_index()
+    test_crop_by_dicom_structure()

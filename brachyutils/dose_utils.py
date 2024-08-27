@@ -1022,7 +1022,7 @@ class BrachyDose:
         Outputs:
             - dict_cropped_doses:dict[BrachyDose] := a dictionary where the keys are the structure names and the values are the cropped dose objects.
             """
-        from dicom_utils import BrachyDicom
+        from brachyutils import BrachyDicom
         from opentps.core.data import RTStruct
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
         # load the dicom object both the image and the mask

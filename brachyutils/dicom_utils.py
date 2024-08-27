@@ -217,7 +217,7 @@ class BrachyDicom:
                     if np.sum(mask_numpy) > 0:
                         mask_dict[query_structure] = (
                             mask_numpy if mask_type == np.array
-                            else self.structures_dcm.getContour(mask_name)
+                            else self.structures_dcm.getContourByName(mask_name)
                             )
                     else:
                         mask_dict[query_structure] = []
