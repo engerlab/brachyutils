@@ -510,7 +510,7 @@ class BrachyDose:
         """
         max_dose = self.dose_image.imageArray.max()
         dose_mask = self.dose_image.imageArray < 0.2 * max_dose
-        masked_uncert = ma.array(self.uncert, mask=dose_mask)
+        masked_uncert = ma.array(self.uncertainty_image.imageArray, mask=dose_mask)
         masked_dose = ma.array(self.dose_image.imageArray, mask=dose_mask)
         average_uncert = ma.average(masked_uncert / masked_dose) * 100
         return average_uncert
@@ -522,7 +522,7 @@ class BrachyDose:
         """
         max_dose = self.dose_image.imageArray.max()
         dose_mask = self.dose_image.imageArray < 0.2 * max_dose
-        masked_uncert = ma.array(self.uncert, mask=dose_mask)
+        masked_uncert = ma.array(self.uncertainty_image.imageArray, mask=dose_mask)
         average_uncert = ma.average(masked_uncert) * 100
         return average_uncert
 
