@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
+from opentps.core.data.images import Image3D
 from scipy.interpolate import RegularGridInterpolator
 
 # from dicom_utils import get_structure_index_range
@@ -74,16 +75,18 @@ class BrachyEgsphant:
     def __init__(
         self,
         pth_egsphant_file: Optional[Path] = None,
-        image: Optional[BrachyDicom] = None,
+        dicom_image: Optional[Union[BrachyDicom, Path]] = None,
         material_dict: Optional[Union[dict, Path]] = None,
         assign_material_from_ct: Optional[bool] = None,
     ):
 
-        self.material_matrix: np.ndarray = None
-        self.material_interpolation_function = None
+        self.material_image: Image3D = None
+        # XXX delete once done
+        # self.material_interpolation_function = None
 
-        self.density_matrix: np.ndarray = None
-        self.density_interpolation_function = None
+        self.density_image: Image3D = None
+        # XXX delete once done
+        # self.density_interpolation_function = None
 
         self.num_materials: int = None
         self.material_dict: defaultdict = defaultdict(dict)
@@ -92,17 +95,17 @@ class BrachyEgsphant:
             "density": 0.001225,
             "HU_limit": -1000.0,
         }
-
-        self.num_voxels: np.ndarray = None
-        self.voxel_size: np.ndarray = None
-        self.origin_coordinates: np.ndarray = None
-        self.voxel_edges: np.ndarray = None
+        # XXX delete once done
+        # self.num_voxels: np.ndarray = None
+        # self.voxel_size: np.ndarray = None
+        # self.origin_coordinates: np.ndarray = None
+        # self.voxel_edges: np.ndarray = None
         self._sanity_axis: np.ndarray = None
 
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
 
-        if image is not None and material_dict is not None:
+        if dicom_image is not None and material_dict is not None:
 
             if isinstance(material_dict, str):
                 if (
@@ -119,19 +122,23 @@ class BrachyEgsphant:
                 self._remove_duplicate_materials()
 
             self.create_egsphant_from_images(
-                image=image,
+                dicom_image=(
+                    dicom_image
+                    if isinstance(dicom_image, BrachyDicom)
+                    else BrachyDicom(dicom_image)
+                ),
                 new_material_dict=self.material_dict,
                 assign_material_from_ct=assign_material_from_ct,
             )
-
-        if self.material_matrix is not None:
-            self.material_interpolation_function = self.create_interpolation_function(
-                self.material_matrix
-            )
-        if self.density_matrix is not None:
-            self.density_interpolation_function = self.create_interpolation_function(
-                self.density_matrix
-            )
+        # XXX delete once done
+        # if self.material_matrix is not None:
+        #     self.material_interpolation_function = self.create_interpolation_function(
+        #         self.material_matrix
+        #     )
+        # if self.density_matrix is not None:
+        #     self.density_interpolation_function = self.create_interpolation_function(
+        #         self.density_matrix
+        #     )
 
     def load_file_to_BrachyEgsphant(self, pth_egsphant_file):
         pth_egsphant_file = os.path.abspath(pth_egsphant_file)
@@ -639,7 +646,7 @@ class BrachyEgsphant:
 
     def create_egsphant_from_images(
         self,
-        image: BrachyDicom,
+        dicom_image: BrachyDicom,
         new_material_dict: dict = None,
         assign_material_from_ct: bool = True,
         background_material: str = "Air",
@@ -664,7 +671,9 @@ class BrachyEgsphant:
             - BrachyDicom
         """
         if not assign_material_from_ct:
-            assert image.structure_mask_dict is not None, "No structure mask was found"
+            assert (
+                dicom_image.structure_mask_dict is not None
+            ), "No structure mask was found"
         for material in new_material_dict:
             assert {"encoding", "density", "HU_limit"}.issubset(
                 set(new_material_dict[material].keys())
@@ -677,12 +686,12 @@ class BrachyEgsphant:
         self.material_dict = new_material_dict
 
         # get the egsphant dimensions and voxel size from the image.
-        self.num_voxels = image.num_voxels
-        self.voxel_size = image.voxel_size
-        self.origin_coordinates = image.origin_coordinates
-        self.voxel_edges = self.calculate_voxel_edges()
-        self.material_matrix = np.ones_like(image.grid, dtype=int)
-        self.density_matrix = np.ones_like(image.grid, dtype=np.float32)
+        # self.num_voxels = image.num_voxels
+        # self.voxel_size = image.voxel_size
+        # self.origin_coordinates = image.origin_coordinates
+        # self.voxel_edges = self.calculate_voxel_edges()
+        material_matrix = np.ones_like(dicom_image.image.imageArray, dtype=int)
+        density_matrix = np.ones_like(dicom_image.image.imageArray, dtype=np.float32)
         self.num_materials = len(self.material_dict)
 
         # loop through the material, get their binary mask from the ct images apply it to the material
@@ -718,12 +727,12 @@ class BrachyEgsphant:
                 # find region of interest mask based on the HU values
                 roi_mask = np.logical_and(
                     np.where(
-                        image.grid >= low_HU_threshold,
+                        dicom_image.image.imageArray >= low_HU_threshold,
                         1,
                         0,
                     ).astype(bool),
                     np.where(
-                        image.grid < high_HU_threshold,
+                        dicom_image.image.imageArray < high_HU_threshold,
                         1,
                         0,
                     ).astype(bool),
@@ -731,15 +740,12 @@ class BrachyEgsphant:
                 # set the density and material of all voxels outside the lowest HU_limit to air
                 if i == 0:
                     complementary_roi_mask = np.logical_not(roi_mask)
-                    self.density_matrix *= roi_mask
-                    self.material_matrix *= roi_mask
-                    self.density_matrix += (
-                        complementary_roi_mask
-                        * self.material_dict.get(background_material, "Air").get(
-                            "density"
-                        )
-                    )
-                    self.material_matrix += (
+                    density_matrix *= roi_mask
+                    material_matrix *= roi_mask
+                    density_matrix += complementary_roi_mask * self.material_dict.get(
+                        background_material, "Air"
+                    ).get("density")
+                    material_matrix += (
                         complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
                             self.material_dict.get(background_material, "Air").get(
@@ -749,67 +755,67 @@ class BrachyEgsphant:
                     )
 
                 # reset the voxel values for the roi enetries
-                self.density_matrix *= np.logical_not(roi_mask)
-                self.material_matrix *= np.logical_not(roi_mask)
+                density_matrix *= np.logical_not(roi_mask)
+                material_matrix *= np.logical_not(roi_mask)
 
                 # update the density and material matricies
                 # interpolate density based on the HU value
-                self.density_matrix += (
-                    image.grid * roi_mask * slope_density_over_HU
+                density_matrix += (
+                    dicom_image.image.imageArray * roi_mask * slope_density_over_HU
                     + intercept_density_over_HU
                 )
-                self.material_matrix += (
+                material_matrix += (
                     roi_mask
                     * BrachyEgsphant._materials_encoding_array.index(
                         self.material_dict.get(material).get("encoding")
                     )
                 )
-                # assert np.all(self.density_matrix >= 0), "density matrix has negative values"
+                # assert np.all(density_matrix >= 0), "density matrix has negative values"
         else:
-            dicom_structure_list = list(image.structure_mask_dict.keys())
-            # get the mask of each material from image
-            for material in self.material_dict:
-                structure_name = self.material_dict.get(material).get(
-                    "structure_name", None
-                )
-                if structure_name is None:
+            # dicom_structure_list = list(dicom_image.structure_mask_dict.keys())
+            # find the materials that have a structure name with them.
+            query_structure_list = []
+            for material in self.material_dict.values():
+                if material.get("structure_name") is None:
                     continue
-                structure_dicom_name = list(
-                    filter(lambda x: structure_name in x, dicom_structure_list)
-                )[0]
+                else:
+                    query_structure_list.append(material.get("structure_name"))
+
+            # get the mask of each material from image
+            mask_dict = dicom_image.get_strcuture_mask_from_dicom(
+                query_structure_list
+            )
+            for material in self.material_dict:
+                # structure_name = self.material_dict.get(material).get(
+                # "structure_name", None
+                # )
+                # if structure_name is None:
+                # continue
+                # structure_dicom_name = list(
+                # filter(lambda x: structure_name in x, dicom_structure_list)
+                # )[0]
+                if self.material_dict.get(material).get("structure_name") is None:
+                    continue
                 self.material_dict.get(material)["structure_size"] = np.sum(
-                    image.structure_mask_dict.get(structure_dicom_name)
+                    mask_dict.get(self.material_dict.get(material).get("structure_name"))
                 )
 
             # sort the material dictionary based on the size of the mask (from largest to smallest)
             self._sort_materials_by("structure_size")
 
             for i, material in enumerate(self.material_dict.keys()):
-                structure_name = self.material_dict.get(material).get(
-                    "structure_name", None
-                )
-                if structure_name is None:
-                    continue
-                # get the mask of each material from image
-                structure_dicom_name = list(
-                    filter(lambda x: structure_name in x, dicom_structure_list)
-                )[0]
-                roi_mask = image.structure_mask_dict.get(structure_dicom_name).astype(
-                    bool
-                )
 
+                roi_mask = mask_dict.get(material.get("structure_name")).astype(bool)
+                
                 # set everything outside the largest mask to air
                 if i == 0:
                     complementary_roi_mask = np.logical_not(roi_mask)
-                    self.density_matrix *= roi_mask
-                    self.material_matrix *= roi_mask
-                    self.density_matrix += (
-                        complementary_roi_mask
-                        * self.material_dict.get(background_material, "Air").get(
-                            "density"
-                        )
-                    )
-                    self.material_matrix += (
+                    density_matrix *= roi_mask
+                    material_matrix *= roi_mask
+                    density_matrix += complementary_roi_mask * self.material_dict.get(
+                        background_material, "Air"
+                    ).get("density")
+                    material_matrix += (
                         complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
                             self.material_dict.get(background_material, "Air").get(
@@ -819,19 +825,32 @@ class BrachyEgsphant:
                     )
 
                 # reset the voxel values for the roi enetries
-                self.density_matrix *= np.logical_not(roi_mask)
-                self.material_matrix *= np.logical_not(roi_mask)
+                density_matrix *= np.logical_not(roi_mask)
+                material_matrix *= np.logical_not(roi_mask)
 
                 # update the density and material matricies
-                self.density_matrix += roi_mask * self.material_dict.get(material).get(
+                density_matrix += roi_mask * self.material_dict.get(material).get(
                     "density"
                 )
-                self.material_matrix += (
+                material_matrix += (
                     roi_mask
                     * BrachyEgsphant._materials_encoding_array.index(
                         self.material_dict.get(material).get("encoding")
                     )
                 )
+
+        self.material_image = Image3D(
+            imageArray=material_matrix,
+            origin=dicom_image.image.origin,
+            spacing=dicom_image.image.spacing,
+            angles=dicom_image.image.angles,
+        )
+        self.density_image = Image3D(
+            imageArray=density_matrix,
+            origin=dicom_image.image.origin,
+            spacing=dicom_image.image.spacing,
+            angles=dicom_image.image.angles,
+        )
 
     def _convert_material_matrix_to(self, dtype: type):
         r"""

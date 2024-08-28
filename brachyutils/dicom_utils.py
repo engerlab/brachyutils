@@ -1,34 +1,29 @@
 import os
-from typing import Union, Literal, List, Optional
-from pathlib import Path
-from glob import glob
 import warnings
+from glob import glob
+from pathlib import Path
+from typing import List, Literal, Optional, Union
 
 import numpy as np
-
 import pydicom
-# from DicomRTTool.ReaderWriter import DicomReaderWriter
-
-from brachyutils.dose_utils import BrachyDose
-
-from opentps.core.data.images import (
-    CTImage,
-    MRImage,
-    ROIMask,
-)
-
-from opentps.core.data import RTStruct, ROIContour
-
-from opentps.core.io.dicomIO import (
+from opentps.core.data import ROIContour, RTStruct
+from opentps.core.data.images import CTImage, MRImage, ROIMask
+from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy; writeRTPlan, dose not work on brachy; writeRTStruct
     readDicomCT,
     readDicomMRI,
-    # readDicomPlan, dose not work on brachy
     readDicomStruct,
     writeDicomCT,
     writeRTDose,
-    # writeRTPlan, dose not work on brachy
-    # writeRTStruct
 )
+
+from brachyutils.dose_utils import BrachyDose
+
+# from DicomRTTool.ReaderWriter import DicomReaderWriter
+
+
+
+
+
 
 class BrachyDicom:
     r"""
@@ -71,11 +66,11 @@ class BrachyDicom:
         self.catheter_table: dict = None
         self.source_info: dict = None
         # default dicom length unit is mm
-        self.unit_length:Literal["mm"] = "mm"
+        self.unit_length: Literal["mm"] = "mm"
 
         os.path.abspath(pth_dir_dicom)
         assert os.path.exists(pth_dir_dicom), "given dicom path does not exist"
-        
+
         file_list: list = glob(pth_dir_dicom + "/*.dcm")
         assert len(file_list) > 0, "there are no dicom files in this directory"
 
@@ -87,8 +82,8 @@ class BrachyDicom:
                 image_xyz_mm = readDicomCT(ct_files)
                 self.image = CTImage(
                     imageArray=np.swapaxes(image_xyz_mm.imageArray, 0, 2),
-                    origin=np.flip(image_xyz_mm.origin) ,
-                    spacing=np.flip(image_xyz_mm.spacing) ,
+                    origin=np.flip(image_xyz_mm.origin),
+                    spacing=np.flip(image_xyz_mm.spacing),
                     angles=np.flip(image_xyz_mm.angles),
                     name=image_xyz_mm.name,
                     seriesInstanceUID=image_xyz_mm.seriesInstanceUID,
@@ -114,25 +109,25 @@ class BrachyDicom:
         if load_structure:
             structure_file = list(filter(lambda s: "RS" in s, file_list)).pop()
             self.load_structures(structure_file)
-            
+
             # self.all_rois = self.dicom_reader.return_rois()
             # # self.get_strcuture_mask_from_dicom(self.all_rois)
             # self.get_structure_index_range(self.all_rois)
 
         if load_dose:
-            dose_file = list(filter(lambda s: "RD" in s, file_list)).pop() 
+            dose_file = list(filter(lambda s: "RD" in s, file_list)).pop()
             self.dose = BrachyDose(dose_file)
-            
+
         if load_plan:
             plan_file = list(filter(lambda s: "RP" in s, file_list)).pop()
             self.catheter_table, self.source_info = (
                 get_catheter_table_and_source_info_from_dicom(plan_file)
             )
-            
+
     def load_structures(self, structure_file: str):
         r"""
         Purpose:
-            To load the structures from the dicom RT structure file. 
+            To load the structures from the dicom RT structure file.
             The structure masks are stored in the structure_mask_dict.
             each structure would have a binary mask with the same dimension as the image.
         Inputs:
@@ -142,50 +137,55 @@ class BrachyDicom:
         """
         assert os.path.exists(structure_file), "given structure file does not exist"
         assert self.image is not None, "image has not been loaded yet"
-        
+
         self.structures_dcm = readDicomStruct(structure_file)
         for contour in self.structures_dcm.contours:
             self.structure_mask_dict[contour.name] = contour.getBinaryMask(
                 origin=self.image.origin,
                 gridSize=self.image.gridSize,
                 spacing=self.image.spacing,
-                )
+            )
 
     def get_strcuture_mask_from_dicom(
         self,
         query_structure_list: List[str],
-        mask_type:Union[np.array, ROIContour, ROIMask] = ROIMask
-        ):
+        mask_type: Union[ROIContour, ROIMask] = ROIMask,
+    ):
         r"""
         Purpose:
             To return a dictionary with the requested structure masks from BrachyDicom object. The queried
-            structure string should be a subset of the structure string in the dicom file. For example, 
+            structure string should be a subset of the structure string in the dicom file. For example,
             if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
-            
+
         Inputs:
             - query_structure_list := list of structure names to find the mask of.
         Outputs:
             - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
-        assert self.structure_mask_dict is not None, "structure masks have not been loaded yet. please run load_structures() first"
-        mask_dict:dict = {}
+        assert (
+            self.structure_mask_dict is not None
+        ), "structure masks have not been loaded yet. please run load_structures() first"
+        mask_dict: dict = {}
         for query_structure in query_structure_list:
             for mask_name, mask in self.structure_mask_dict.items():
                 if query_structure.lower() in mask_name.lower():
                     if np.sum(mask.imageArray) > 0:
-                        if mask_type == np.array:
-                            mask_dict[query_structure] = mask.imageArray
-                        elif mask_type == ROIContour:
-                            mask_dict[query_structure] = self.structures_dcm.getContourByName(
-                                mask_name
-                                )
+                        # if mask_type == np.ndarray:
+                        #     mask_dict[query_structure] = mask.imageArray
+                        if mask_type == ROIContour:
+                            mask_dict[query_structure] = (
+                                self.structures_dcm.getContourByName(mask_name)
+                            )
                         elif mask_type == ROIMask:
                             mask_dict[query_structure] = mask
                         else:
                             raise ValueError("mask_type not recognized")
                     else:
                         mask_dict[query_structure] = None
-                        warnings.warn(f"mask for {query_structure} is all zeros. returning empty")                        
+                        warnings.warn(
+                            f"mask for {query_structure} is all zeros. returning empty",
+                            stacklevel=2,
+                        )
         return mask_dict
 
     def get_structure_index_range(self):
@@ -196,21 +196,23 @@ class BrachyDicom:
         Inputs:
             - query_structure_list := list of structure names to find the index range of.
         Outputs:
-            - structure_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
+            - structure_index_range:np.ndarray :=  a 3 x 2 array holding the min and max on x, y and axis
                 [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
             - body_mask_shape:np.array := 1 x 3 array holding the dimension of the original mask
         Dependencies:
             - get_strcuture_mask_from_dicom()
         """
-        
-        assert self.structure_mask_dict is not None, "structure masks have not been loaded yet. please run load_structures() first"
+
+        assert (
+            self.structure_mask_dict is not None
+        ), "structure masks have not been loaded yet. please run load_structures() first"
 
         self.structure_index_range_dict = {}
         for mask_name, mask_numpy in self.structure_mask_dict.items():
             # so we got the mask but the dimensions may not match the dimension of the dose
             # let's get the relative extent of the body mask compared to the whole grid and resample
             # the extents
-            
+
             # skip the mask if it is empty
             if np.sum(mask_numpy) == 0:
                 continue
@@ -259,7 +261,7 @@ class BrachyDicom:
             print(f"source info: {self.source_info}")
         else:
             print("no plan file was loaded")
-    
+
     def get_materials_dict(self):
         r"""
         Purpose:
@@ -285,7 +287,9 @@ class BrachyDicom:
             writeRTDose(self.dose, os.path.join(dir_output, "RD.dcm"))
 
         if self.structures_dcm is not None:
-            raise NotImplementedError("writing structures to dicom is not implemented yet")
+            raise NotImplementedError(
+                "writing structures to dicom is not implemented yet"
+            )
 
     def write_to_nrrd(self, dir_output: Path):
         r"""
@@ -293,6 +297,7 @@ class BrachyDicom:
             - To write the image, the structure masks, the dose and the plan to a nrrd file.
         """
         raise NotImplementedError("writing to nrrd is not implemented yet")
+
 
 def get_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
     r"""
