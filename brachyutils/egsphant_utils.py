@@ -783,7 +783,8 @@ class BrachyEgsphant:
 
             # get the mask of each material from image
             mask_dict = dicom_image.get_strcuture_mask_from_dicom(
-                query_structure_list
+                query_structure_list,
+                mask_type=np.ndarray
             )
             for material in self.material_dict:
                 # structure_name = self.material_dict.get(material).get(
@@ -804,8 +805,9 @@ class BrachyEgsphant:
             self._sort_materials_by("structure_size")
 
             for i, material in enumerate(self.material_dict.keys()):
-
-                roi_mask = mask_dict.get(material.get("structure_name")).astype(bool)
+                if self.material_dict.get(material).get("structure_name") is None:
+                    continue
+                roi_mask = mask_dict.get(self.material_dict.get(material).get("structure_name")).astype(bool)
                 
                 # set everything outside the largest mask to air
                 if i == 0:

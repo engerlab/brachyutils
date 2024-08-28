@@ -124,7 +124,7 @@ class BrachyDicom:
                 get_catheter_table_and_source_info_from_dicom(plan_file)
             )
 
-    def load_structures(self, structure_file: str):
+    def load_structures(self, structure_file: str) -> None:
         r"""
         Purpose:
             To load the structures from the dicom RT structure file.
@@ -140,16 +140,21 @@ class BrachyDicom:
 
         self.structures_dcm = readDicomStruct(structure_file)
         for contour in self.structures_dcm.contours:
-            self.structure_mask_dict[contour.name] = contour.getBinaryMask(
-                origin=self.image.origin,
-                gridSize=self.image.gridSize,
-                spacing=self.image.spacing,
+            mask_image_xyz = contour.getBinaryMask(
+                origin=np.flip(self.image.origin),
+                gridSize=np.flip(self.image.gridSize),
+                spacing=np.flip(self.image.spacing),
+            )
+            self.structure_mask_dict[contour.name] = ROIMask(
+                imageArray=np.swapaxes(mask_image_xyz.imageArray, 0, 2),
+                origin=np.flip(mask_image_xyz.origin),
+                spacing=np.flip(mask_image_xyz.spacing),
             )
 
     def get_strcuture_mask_from_dicom(
         self,
         query_structure_list: List[str],
-        mask_type: Union[ROIContour, ROIMask] = ROIMask,
+        mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
     ):
         r"""
         Purpose:
@@ -169,10 +174,10 @@ class BrachyDicom:
         for query_structure in query_structure_list:
             for mask_name, mask in self.structure_mask_dict.items():
                 if query_structure.lower() in mask_name.lower():
-                    if np.sum(mask.imageArray) > 0:
-                        # if mask_type == np.ndarray:
-                        #     mask_dict[query_structure] = mask.imageArray
-                        if mask_type == ROIContour:
+                    if np.any(mask.imageArray):
+                        if mask_type == np.ndarray:
+                            mask_dict[query_structure] = mask.imageArray
+                        elif mask_type == ROIContour:
                             mask_dict[query_structure] = (
                                 self.structures_dcm.getContourByName(mask_name)
                             )
