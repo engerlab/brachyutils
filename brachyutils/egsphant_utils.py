@@ -105,7 +105,7 @@ class BrachyEgsphant:
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
 
-        if dicom_image is not None and material_dict is not None:
+        elif dicom_image is not None and material_dict is not None:
 
             if isinstance(material_dict, str):
                 if (
@@ -129,6 +129,10 @@ class BrachyEgsphant:
                 ),
                 new_material_dict=self.material_dict,
                 assign_material_from_ct=assign_material_from_ct,
+            )
+        else:
+            raise Exception(
+                "Either provide a path to an egsphant file or a dicom image and a material dictionary"
             )
         # XXX delete once done
         # if self.material_matrix is not None:
