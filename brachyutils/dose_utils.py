@@ -10,13 +10,11 @@ from pathlib import Path
 import pickle
 import sys
 import tkinter as tk
-import warnings
 from array import array
 from tkinter import filedialog as fd
 from typing import List, Optional, Literal, Union
 
 import numpy as np
-import pydicom
 import pymedphys
 import pyzstd
 import SimpleITK as sitk

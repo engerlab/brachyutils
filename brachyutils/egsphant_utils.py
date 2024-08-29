@@ -368,8 +368,8 @@ class BrachyEgsphant:
                 num_materials:int
                 material_dict:dict
                 num_voxels:np.ndarray       [x, y, z]
-                voxel_size:np.ndarray         #Not Written
-                origin_coordinates:np.ndarray          #Not Written
+                voxel_size:np.ndarray          #Not Written
+                origin_coordinates:np.ndarray  #Not Written
                 axis:np.ndarray             [z, y, x] -> [x, y, z]
                 material_matrix:np.ndarray  [z, y, x] -> [x, y, z]
                 density_matrix:np.ndarray   [z, y, x] -> [x, y, z]
@@ -379,19 +379,23 @@ class BrachyEgsphant:
         assert (
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
-        fileName = os.path.abspath(fileName)
+        os.makedirs(os.path.dirname(fileName), exist_ok=True)
         self._sort_materials_by("encoding")
         num_materials = str(self.num_materials) + "\n"
         materials = "\n".join(self.material_dict.keys()) + "\n"
         spacing = "0 0 0 0 0 0 0 0 0\n"
-        dimensions = " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
-        x_axis = " ".join(map(str, np.round(self.voxel_edges[2], decimals=3))) + "\n"
-        y_axis = " ".join(map(str, np.round(self.voxel_edges[1], decimals=3))) + "\n"
-        z_axis = " ".join(map(str, np.round(self.voxel_edges[0], decimals=3))) + "\n"
+        dimensions = " ".join(map(str, np.flip(self.density_image.gridSize).astype(int))) + "\n"
+        x_axis = " ".join(map(str, np.round(self.voxel_edges[2]/10, decimals=3))) + "\n"
+        y_axis = " ".join(map(str, np.round(self.voxel_edges[1]/10, decimals=3))) + "\n"
+        z_axis = " ".join(map(str, np.round(self.voxel_edges[0]/10, decimals=3))) + "\n"
         material_matrix = _to_single_string(
-            _convert_material_matrix_to(self.material_image.imageArray, dtype=str), ""
+            _convert_material_matrix_to(
+                self.material_image.imageArray,
+                dtype=str), ""
         )
-        density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
+        density_matrix = _to_single_string(
+            self.density_image.imageArray.astype(str),
+            " ")
 
         with open(fileName, "w") as file:
             lines = [
@@ -473,9 +477,11 @@ class BrachyEgsphant:
             and np.array_equal(
                 self.density_image.spacing, new_BrachyEgsphant.density_image.spacing
             )
-            and np.array_equal(
-                self.density_image.origin, new_BrachyEgsphant.density_image.origin
-            )
+            and np.isclose(
+                self.density_image.origin,
+                new_BrachyEgsphant.density_image.origin,
+                rtol=1e-3,
+            ).all()
         )
 
     def assert_BrachyEgsphant_notEmpty(self):

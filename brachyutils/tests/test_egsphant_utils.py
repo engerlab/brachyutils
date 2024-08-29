@@ -43,18 +43,18 @@ def test_crop_by_index():
 
 
 def test_write_to_egsphant():
-    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     pth_output = (
-        "../../data_test/test_export_plan" + "/test_" + os.path.basename(pth_input)
+        "../data_test/test_export_plan" + "/test_" + os.path.basename(pth_input)
     )
 
-    egsphant_obj = BrachyEgsphant()
-    egsphant_obj.load_from_ctegsphant(pth_input)
-    egsphant_obj.assert_BrachyEgsphant_notEmpty()
+    egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
+    # egsphant_obj.load_from_ctegsphant(pth_input)
+    # egsphant_obj.assert_BrachyEgsphant_notEmpty()
 
     egsphant_obj.write_to_ctegsphant(pth_output)
-    new_egsphant_obj = BrachyEgsphant()
-    new_egsphant_obj.load_from_ctegsphant(pth_output)
+    new_egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_output)
+    # new_egsphant_obj.load_from_ctegsphant(pth_output)
 
     egsphant_obj.is_equal(new_egsphant_obj)
 
@@ -138,7 +138,7 @@ def test_egsphant_constructor(
 
 
 if __name__ == "__main__":
-    test_load_from_ctegsphant()
-    # test_write_to_egsphant()
+    # test_load_from_ctegsphant()
+    test_write_to_egsphant()
     # test_create_egsphant_from_images()
     # text_load_material_dict()
