@@ -446,12 +446,20 @@ class BrachyEgsphant:
             self.density_image.spacing, new_BrachyEgsphant.density_image.spacing
         ), "voxel_size is not the same"
         assert np.isclose(
-            self.density_image.origin, new_BrachyEgsphant.density_image.origin, rtol=1e-3
+            self.density_image.origin,
+            new_BrachyEgsphant.density_image.origin,
+            rtol=1e-3,
         ).all(), "origin_coordinates is not the same"
 
         return (
-            np.array_equal(self.material_image.imageArray, new_BrachyEgsphant.material_image.imageArray)
-            and np.array_equal(self.density_image.imageArray, new_BrachyEgsphant.density_image.imageArray)
+            np.array_equal(
+                self.material_image.imageArray,
+                new_BrachyEgsphant.material_image.imageArray,
+            )
+            and np.array_equal(
+                self.density_image.imageArray,
+                new_BrachyEgsphant.density_image.imageArray,
+            )
             and np.isclose(
                 np.concatenate(self.voxel_edges),
                 np.concatenate(new_BrachyEgsphant.voxel_edges),
@@ -483,10 +491,16 @@ class BrachyEgsphant:
 
     def info(self):
         self.assert_BrachyEgsphant_notEmpty()
-        print(f"grid size of material density matrix are {self.material_image.gridSize, self.density_image.gridSize}")
+        print(
+            f"grid size of material density matrix are {self.material_image.gridSize, self.density_image.gridSize}"
+        )
         print(f"grid size in world units is {self.density_image.gridSizeInWorldUnit}")
-        print(f"spacing of material and density matrix is {self.material_image.spacing, self.density_image.spacing}")
-        print(f"origin of material and density matrix is {self.material_image.origin, self.density_image.origin}")
+        print(
+            f"spacing of material and density matrix is {self.material_image.spacing, self.density_image.spacing}"
+        )
+        print(
+            f"origin of material and density matrix is {self.material_image.origin, self.density_image.origin}"
+        )
         print(
             f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
         )
