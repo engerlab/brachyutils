@@ -891,7 +891,7 @@ class BrachyDose:
         # np.array_equal(np.round(np.concatenate(self.voxel_edges), 2), np.concatenate(new_brachy_dose.voxel_edges)) \
 
     def crop_by_coordinates(
-        self, coord_range: np.array, inplace: Optional[bool] = True
+        self, coordinate_range: np.array, inplace: Optional[bool] = True
     ) -> Union[None, "BrachyDose"]:
         r"""
         Purpose:
@@ -899,7 +899,7 @@ class BrachyDose:
             dose and uncertainty maps and will adjust the rest of the attributes accordingly.
         Inputs:
             - self: BrachyDose object
-            - coord_range := a 3 x 2 array holding the min and max on z, y and x axis
+            - coordinate_range := a 3 x 2 array holding the min and max on z, y and x axis
                 [[z_min, z_max], [y_min, y_max], [x_min, x_max]]
         Output:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the coordinate range.
@@ -910,16 +910,16 @@ class BrachyDose:
         from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
 
         self.is_not_empty()
-        assert coord_range.shape == (3, 2), "coord_range should be a 3x2 array in z, y, x order"
+        assert coordinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in z, y, x order"
         if inplace:
-            crop3DDataAroundBox(self.dose_image, coord_range)
+            crop3DDataAroundBox(self.dose_image, coordinate_range)
             if self.uncertainty_image is not None:
-                crop3DDataAroundBox(self.uncertainty_image, coord_range)
+                crop3DDataAroundBox(self.uncertainty_image, coordinate_range)
             self.calculate_voxel_edges()
             self.create_interpolation_function()
         else:
             new_dose:BrachyDose = copy.deepcopy(self)
-            new_dose.crop_by_coordinates(coord_range, inplace=True)           
+            new_dose.crop_by_coordinates(coordinate_range, inplace=True)           
             new_dose.calculate_voxel_edges()
             new_dose.create_interpolation_function()
             return new_dose
