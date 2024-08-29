@@ -7,7 +7,7 @@ setup(
     author="EngerLab",
     packages=find_packages(include=["brachyutils.*"]),
     # namespace_packages=['brachyutils'],
-    package_dir={"": "brachyutils"},
+    package_dir={"": "."},
     install_requires=[
         "cycler",
         "fonttools",
@@ -39,6 +39,7 @@ setup(
         "py7zr",
         "pytest",
         "vtk",
+        "checkpointing"
     ],
     entry_points={"console_scripts": ["brachyutils=brachyutils.cli_utils:main"]},
 )
