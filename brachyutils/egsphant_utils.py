@@ -260,6 +260,8 @@ class BrachyEgsphant:
             "structure_size",
         ], "key is not recognized"
 
+        if len(self.material_dict.keys()) == 1:
+            return #don't sort when there's only one material
         if material_key == "structure_size":
             sorted_list = sorted(
                 self.material_dict.items(),
@@ -371,7 +373,7 @@ class BrachyEgsphant:
             self._convert_material_matrix_to(dtype=str), ""
         )
         density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
-
+        print(fileName)
         with open(fileName, "w") as file:
             lines = [
                 num_materials,
@@ -385,6 +387,62 @@ class BrachyEgsphant:
                 density_matrix,
             ]
             file.writelines(lines)
+
+
+    def write_to_nrrd(self,fileName: Path, metadata: Optional[dict] = None):
+        r"""
+        Purpose:
+            To save the contents of BrachyDose into a nrrd file.
+        inputs:
+            - file_name := path where the dose nrrd file will be written to.
+
+            - metadata := a dictionary containing the following meta data key values (should be changed later):
+                "cancer site":
+                "care center":
+                "number of dwell positions":
+                "number of segmented structures":
+                "patient number":
+                "Image content": "[3D dose, 3D uncertainty]"
+        outputs: Void
+            writes [3D dose, 3D uncertainty], voxel size, origin (origin_coordinates), and metadata to the file_name_dose.nrrd
+            note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z.
+        """
+        # create sitk dose image
+        dose_nda = np.swapaxes(self.grid, 0, 2).astype(np.float32)
+        try:
+            uncertainty_nda = np.swapaxes(self.uncertainty, 0, 2).astype(np.float32)
+        except AttributeError:
+            uncertainty_nda = np.zeros(dose_nda.shape, dtype=np.float32)
+        # # old nrrd format
+        # image_nrrd = sitk.JoinSeries(
+        #     sitk.GetImageFromArray(dose_nda), sitk.GetImageFromArray(uncertainty_nda)
+        # )
+        # # new nrrd format
+        fiter = sitk.ComposeImageFilter()
+        image_nrrd = fiter.Execute(
+            sitk.GetImageFromArray(dose_nda), sitk.GetImageFromArray(uncertainty_nda)
+        )
+        # image_nrrd.SetOrigin(np.append([0], self.origin_coordinates))
+        # image_nrrd.SetSpacing(np.append([1], self.voxel_size))
+        image_nrrd.SetOrigin(self.origin_coordinates.astype(float))
+        image_nrrd.SetSpacing(self.voxel_size.astype(float))
+
+        # set the metadata: all sitk Images belonging to a patient will have the same meta data
+        if metadata is not None:
+            for key in metadata:
+                image_nrrd.SetMetaData(key, metadata[key])
+
+        # write out the files
+        file_name_ospth = os.path.abspath(file_name)
+        assert os.path.exists(
+            os.path.dirname(file_name_ospth)
+        ), f"the input folder does not exist: {os.path.dirname(file_name_ospth)}"
+
+        run_number = file_name_ospth.split(".")[0]
+
+        sitk.WriteImage(
+            image_nrrd, run_number + ".nrrd", useCompression=True, compressionLevel=9
+        )
 
     def is_equal(self, new_BrachyEgsphant):
         r"""
