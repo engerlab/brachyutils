@@ -13,10 +13,10 @@ from brachyutils.egsphant_utils import (
 
 
 def test_crop_by_body_contour():
-    pth_dicomRS = "../../data_test/prostate-glen-p1-dcm/"
+    pth_dicomRS = "../data_test/prostate-glen-p1-dcm/"
     # print("pth_dicomRS: ".format(pth_dicomRS))
 
-    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
 
     egsphant_obj = BrachyEgsphant()
@@ -118,6 +118,17 @@ def text_load_material_dict():
     materials_dict = _load_material_dict(pth_input)
     print(materials_dict)
 
+def test_crop_by_coordinates():
+    pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_output = (
+        "../data_test/test_export_plan" + "/cropped" + os.path.basename(pth_input)
+    )
+    egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
+    egsphant_obj.info()
+    crop_coordinates = np.array([[-1248.5, -1227.5], [0, 200], [-100, 100]], dtype=np.float32)
+    egsphant_obj.crop_by_coordinates(coordinate_range=crop_coordinates)
+    egsphant_obj.info()
+    egsphant_obj.write_to_ctegsphant(pth_output)
 
 @checkpoint()
 def test_egsphant_constructor(
@@ -139,6 +150,7 @@ def test_egsphant_constructor(
 
 if __name__ == "__main__":
     # test_load_from_ctegsphant()
-    test_write_to_egsphant()
+    # test_write_to_egsphant()
     # test_create_egsphant_from_images()
     # text_load_material_dict()
+    test_crop_by_coordinates()

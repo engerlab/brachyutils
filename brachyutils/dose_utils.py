@@ -919,9 +919,7 @@ class BrachyDose:
             self.create_interpolation_function()
         else:
             new_dose:BrachyDose = copy.deepcopy(self)
-            new_dose.crop_by_coordinates(coordinate_range, inplace=True)           
-            new_dose.calculate_voxel_edges()
-            new_dose.create_interpolation_function()
+            new_dose.crop_by_coordinates(coordinate_range, inplace=True)
             return new_dose
 
     def crop_by_fraction(

@@ -1,6 +1,7 @@
 import json
 import os
 import warnings
+import copy
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Union
@@ -601,7 +602,9 @@ class BrachyEgsphant:
             return new_obj
 
     def crop_by_coordinates(
-        self, coordinate_range: np.array, inplace: Optional[bool] = True
+        self,
+        coordinate_range: np.array,
+        inplace: Optional[bool] = True
     ):
         r"""
         Purpose:
@@ -610,23 +613,35 @@ class BrachyEgsphant:
         Inputs:
             - self: BrachyEgsphant object
             - coordinate_range := a 3 x 2 array holding the min and max on x, y and axis
-                [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
+                [[z_min, z_max], [y_min, y_max], [x_min, x_max]]
         Output:
             - Void := will crop out the material and density maps of self to have the range of the index range.
                 it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         Dependencies:
             - None
         """
-        crop_indices = np.zeros((3, 2), dtype=int)
+        from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
+        self.is_not_empty()
+        assert coordinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in z, y, x order"
 
-        for i in range(3):
-            origin = self.density_image.origin[i]
-            for j in range(2):
-                crop_indices[i][j] = int(
-                    (coordinate_range[i][j] - origin) / self.density_image.spacing[i]
-                )
-
-        return self.crop_by_index(crop_indices, inplace=inplace)
+        if inplace:
+            crop3DDataAroundBox(self.material_image, coordinate_range)
+            crop3DDataAroundBox(self.density_image, coordinate_range)
+            self.calculate_voxel_edges()
+        else:
+            new_egsphant: BrachyEgsphant = copy.deepcopy(self)
+            new_egsphant.crop_by_coordinates(coordinate_range, inplace=True)
+            return new_egsphant
+        # crop_indices = np.zeros((3, 2), dtype=int)
+#
+        # for i in range(3):
+            # origin = self.density_image.origin[i]
+            # for j in range(2):
+                # crop_indices[i][j] = int(
+                    # (coordinate_range[i][j] - origin) / self.density_image.spacing[i]
+                # )
+#
+        # return self.crop_by_index(crop_indices, inplace=inplace)
 
     def crop_by_body_contour(
         self,
