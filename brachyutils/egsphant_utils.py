@@ -384,18 +384,24 @@ class BrachyEgsphant:
         num_materials = str(self.num_materials) + "\n"
         materials = "\n".join(self.material_dict.keys()) + "\n"
         spacing = "0 0 0 0 0 0 0 0 0\n"
-        dimensions = " ".join(map(str, np.flip(self.density_image.gridSize).astype(int))) + "\n"
-        x_axis = " ".join(map(str, np.round(self.voxel_edges[2]/10, decimals=3))) + "\n"
-        y_axis = " ".join(map(str, np.round(self.voxel_edges[1]/10, decimals=3))) + "\n"
-        z_axis = " ".join(map(str, np.round(self.voxel_edges[0]/10, decimals=3))) + "\n"
+        dimensions = (
+            " ".join(map(str, np.flip(self.density_image.gridSize).astype(int))) + "\n"
+        )
+        x_axis = (
+            " ".join(map(str, np.round(self.voxel_edges[2] / 10, decimals=3))) + "\n"
+        )
+        y_axis = (
+            " ".join(map(str, np.round(self.voxel_edges[1] / 10, decimals=3))) + "\n"
+        )
+        z_axis = (
+            " ".join(map(str, np.round(self.voxel_edges[0] / 10, decimals=3))) + "\n"
+        )
         material_matrix = _to_single_string(
-            _convert_material_matrix_to(
-                self.material_image.imageArray,
-                dtype=str), ""
+            _convert_material_matrix_to(self.material_image.imageArray, dtype=str), ""
         )
         density_matrix = _to_single_string(
-            self.density_image.imageArray.astype(str),
-            " ")
+            self.density_image.imageArray.astype(str), " "
+        )
 
         with open(fileName, "w") as file:
             lines = [
@@ -707,12 +713,6 @@ class BrachyEgsphant:
                 stacklevel=2,
             )
         self.material_dict = new_material_dict
-        # XXX delete once done
-        # get the egsphant dimensions and voxel size from the image.
-        # self.density_image.gridSize = image.num_voxels
-        # self.density_image.spacing = image.voxel_size
-        # self.density_image.origin = image.origin_coordinates
-        # self.voxel_edges = self.calculate_voxel_edges()
         material_matrix = np.ones_like(dicom_image.image.imageArray, dtype=int)
         density_matrix = np.ones_like(dicom_image.image.imageArray, dtype=np.float32)
         self.num_materials = len(self.material_dict)
@@ -809,14 +809,6 @@ class BrachyEgsphant:
                 query_structure_list, mask_type=np.ndarray
             )
             for material in self.material_dict:
-                # structure_name = self.material_dict.get(material).get(
-                # "structure_name", None
-                # )
-                # if structure_name is None:
-                # continue
-                # structure_dicom_name = list(
-                # filter(lambda x: structure_name in x, dicom_structure_list)
-                # )[0]
                 if self.material_dict.get(material).get("structure_name") is None:
                     continue
                 self.material_dict.get(material)["structure_size"] = np.sum(
