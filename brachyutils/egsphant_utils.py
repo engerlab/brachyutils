@@ -688,7 +688,7 @@ class BrachyEgsphant:
                 stacklevel=2,
             )
         self.material_dict = new_material_dict
-
+        # XXX delete once done
         # get the egsphant dimensions and voxel size from the image.
         # self.num_voxels = image.num_voxels
         # self.voxel_size = image.voxel_size
