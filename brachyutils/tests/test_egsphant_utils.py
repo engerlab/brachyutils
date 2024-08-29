@@ -1,8 +1,9 @@
 import os
+from time import time
 
 import numpy as np
 from checkpointing import checkpoint
-from time import time
+
 from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.egsphant_utils import (
     BrachyEgsphant,
@@ -90,8 +91,8 @@ def test_create_egsphant_from_images():
     # load_structure = True
     # assign_material_from_ct = False
     # dicom_obj = BrachyDicom(
-        # pth_dir_dicom=dir_images,
-        # load_structure=True,
+    # pth_dir_dicom=dir_images,
+    # load_structure=True,
     # )
 
     start_time = time()
@@ -99,7 +100,8 @@ def test_create_egsphant_from_images():
         dir_images,
         pth_materials,
         load_structure,
-        assign_material_from_ct,)
+        assign_material_from_ct,
+    )
     # breakpoint()
     egsphant_obj.write_to_ctegsphant(pth_output)
     end_time = time()
@@ -116,12 +118,14 @@ def text_load_material_dict():
     materials_dict = _load_material_dict(pth_input)
     print(materials_dict)
 
+
 @checkpoint()
 def test_egsphant_constructor(
     dir_images,
     pth_materials,
     load_structure=True,
-    assign_material_from_ct=False,):
+    assign_material_from_ct=False,
+):
     dicom_obj = BrachyDicom(
         pth_dir_dicom=dir_images,
         load_structure=load_structure,
