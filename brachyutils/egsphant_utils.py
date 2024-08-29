@@ -37,7 +37,7 @@ class BrachyEgsphant:
         - crop_by_index()                   done
         - crop_by_coordinates()             done
         - crop_by_body_contour()            done
-        - assert_BrachyEgsphant_notEmpty()  done
+        - is_not_empty()  done
         - info()                            done
         - is_equal()                        done
 
@@ -490,7 +490,7 @@ class BrachyEgsphant:
             ).all()
         )
 
-    def assert_BrachyEgsphant_notEmpty(self):
+    def is_not_empty(self):
         r"""
         Purpose:
             to see which field of a brachyEgsphant object is empty
@@ -502,7 +502,7 @@ class BrachyEgsphant:
         assert self.voxel_edges is not None, "error: axis is None"
 
     def info(self):
-        self.assert_BrachyEgsphant_notEmpty()
+        self.is_not_empty()
         print(
             f"grid size of material density matrix are {self.material_image.gridSize, self.density_image.gridSize}"
         )
