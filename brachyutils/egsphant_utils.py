@@ -90,11 +90,7 @@ class BrachyEgsphant:
             "density": 0.001225,
             "HU_limit": -1000.0,
         }
-        # XXX delete once done
-        # self.density_image.gridSize: np.ndarray = None
-        # self.density_image.spacing: np.ndarray = None
-        # self.density_image.origin: np.ndarray = None
-        # self.voxel_edges: np.ndarray = None
+
         self._sanity_axis: np.ndarray = None
 
         if pth_egsphant_file is not None:
@@ -129,15 +125,6 @@ class BrachyEgsphant:
             raise Exception(
                 "Either provide a path to an egsphant file or a dicom image and a material dictionary"
             )
-        # XXX delete once done
-        # if self.material_matrix is not None:
-        #     self.material_interpolation_function = self.create_interpolation_function(
-        #         self.material_matrix
-        #     )
-        # if self.density_matrix is not None:
-        #     self.density_interpolation_function = self.create_interpolation_function(
-        #         self.density_matrix
-        #     )
 
     def load_file_to_BrachyEgsphant(self, pth_egsphant_file):
         pth_egsphant_file = os.path.abspath(pth_egsphant_file)
@@ -436,10 +423,10 @@ class BrachyEgsphant:
             new_BrachyEgsphant, BrachyEgsphant
         ), "input must be of type BrachyEgsphant"
         assert np.array_equal(
-            self.material_matrix, new_BrachyEgsphant.material_matrix
+            self.material_image.imageArray, new_BrachyEgsphant.material_image.imageArray
         ), "material matrix is not the same"
         assert np.array_equal(
-            self.density_matrix, new_BrachyEgsphant.density_matrix
+            self.density_image.imageArray, new_BrachyEgsphant.density_image.imageArray
         ), "density matrix is not the same"
         assert np.isclose(
             np.concatenate(self.voxel_edges),
@@ -453,18 +440,18 @@ class BrachyEgsphant:
             self.material_dict == new_BrachyEgsphant.material_dict
         ), "the material dictionary is not the same"
         assert np.array_equal(
-            self.density_image.gridSize, new_BrachyEgsphant.num_voxels
+            self.density_image.gridSize, new_BrachyEgsphant.density_image.gridSize
         ), "num_voxels is not the same"
         assert np.array_equal(
-            self.density_image.spacing, new_BrachyEgsphant.voxel_size
+            self.density_image.spacing, new_BrachyEgsphant.density_image.spacing
         ), "voxel_size is not the same"
         assert np.isclose(
-            self.density_image.origin, new_BrachyEgsphant.origin_coordinates, rtol=1e-3
+            self.density_image.origin, new_BrachyEgsphant.density_image.origin, rtol=1e-3
         ).all(), "origin_coordinates is not the same"
 
         return (
-            np.array_equal(self.material_matrix, new_BrachyEgsphant.material_matrix)
-            and np.array_equal(self.density_matrix, new_BrachyEgsphant.density_matrix)
+            np.array_equal(self.material_image.imageArray, new_BrachyEgsphant.material_image.imageArray)
+            and np.array_equal(self.density_image.imageArray, new_BrachyEgsphant.density_image.imageArray)
             and np.isclose(
                 np.concatenate(self.voxel_edges),
                 np.concatenate(new_BrachyEgsphant.voxel_edges),
@@ -473,13 +460,13 @@ class BrachyEgsphant:
             and np.array_equal(self.num_materials, new_BrachyEgsphant.num_materials)
             and self.material_dict == new_BrachyEgsphant.material_dict
             and np.array_equal(
-                self.density_image.gridSize, new_BrachyEgsphant.num_voxels
+                self.density_image.gridSize, new_BrachyEgsphant.density_image.gridSize
             )
             and np.array_equal(
-                self.density_image.spacing, new_BrachyEgsphant.voxel_size
+                self.density_image.spacing, new_BrachyEgsphant.density_image.spacing
             )
             and np.array_equal(
-                self.density_image.origin, new_BrachyEgsphant.origin_coordinates
+                self.density_image.origin, new_BrachyEgsphant.density_image.origin
             )
         )
 
@@ -488,24 +475,18 @@ class BrachyEgsphant:
         Purpose:
             to see which field of a brachyEgsphant object is empty
         """
-        assert self.material_matrix is not None, "error: material_matrix is None"
-        assert self.density_matrix is not None, "error: density_matrix is None"
+        assert self.material_image is not None, "error: material_matrix is None"
+        assert self.density_image is not None, "error: density_matrix is None"
         assert self.num_materials is not None, "error: num_materials is None"
         assert self.material_dict is not None, "error: material_dict is None"
-        assert self.density_image.gridSize is not None, "error: num_voxels is None"
-        assert self.density_image.spacing is not None, "error: voxel_size is None"
-        assert (
-            self.density_image.origin is not None
-        ), "error: origin_coordinates is None"
         assert self.voxel_edges is not None, "error: axis is None"
 
     def info(self):
         self.assert_BrachyEgsphant_notEmpty()
-        print(f"shape of material matrix is: {self.material_matrix.shape}")
-        print(f"shape of density matrix is: {self.density_matrix.shape}")
-        print(f"num voxels attribute is: {self.density_image.gridSize}")
-        print(f"the top left (bottom left in reality) is {self.density_image.origin}")
-        print(f"the voxel size is {self.density_image.spacing}")
+        print(f"grid size of material density matrix are {self.material_image.gridSize, self.density_image.gridSize}")
+        print(f"grid size in world units is {self.density_image.gridSizeInWorldUnit}")
+        print(f"spacing of material and density matrix is {self.material_image.spacing, self.density_image.spacing}")
+        print(f"origin of material and density matrix is {self.material_image.origin, self.density_image.origin}")
         print(
             f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
         )
