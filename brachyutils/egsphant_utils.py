@@ -9,7 +9,6 @@ import numpy as np
 from opentps.core.data.images import Image3D
 from scipy.interpolate import RegularGridInterpolator
 
-# from dicom_utils import get_structure_index_range
 from brachyutils.dicom_utils import BrachyDicom
 
 
@@ -96,9 +95,9 @@ class BrachyEgsphant:
             "HU_limit": -1000.0,
         }
         # XXX delete once done
-        # self.num_voxels: np.ndarray = None
-        # self.voxel_size: np.ndarray = None
-        # self.origin_coordinates: np.ndarray = None
+        # self.density_image.gridSize: np.ndarray = None
+        # self.density_image.spacing: np.ndarray = None
+        # self.density_image.origin: np.ndarray = None
         # self.voxel_edges: np.ndarray = None
         self._sanity_axis: np.ndarray = None
 
@@ -187,9 +186,7 @@ class BrachyEgsphant:
             egsphant.readline()
 
             # load number of voxels
-            self.num_voxels = np.array(
-                [int(i) for i in egsphant.readline().strip().split()]
-            )
+            gridSize = np.array([int(i) for i in egsphant.readline().strip().split()])
 
             # load the axis grid points
             self._sanity_axis = np.array(
@@ -211,7 +208,7 @@ class BrachyEgsphant:
             )
             self._sanity_axis = np.flip(self._sanity_axis, axis=0)
 
-            self.origin_coordinates = np.array(
+            origin = np.array(
                 [
                     self._sanity_axis[2][0],
                     self._sanity_axis[1][0],
@@ -220,12 +217,46 @@ class BrachyEgsphant:
                 dtype=np.float32,
             )
 
-            self.voxel_size = np.array(
+            spacing = np.array(
                 [
                     self._sanity_axis[2][1] - self._sanity_axis[2][0],
                     self._sanity_axis[1][1] - self._sanity_axis[1][0],
                     self._sanity_axis[0][1] - self._sanity_axis[0][0],
                 ]
+            )
+
+            # prepare empty matricies to hold material and density images
+            material_matrix = np.zeros(
+                (gridSize[2], gridSize[1], gridSize[0]), dtype=str
+            )
+            density_matrix = np.zeros(
+                (gridSize[2], gridSize[1], gridSize[0]),
+                dtype=np.float32,
+            )
+
+            # load the material composition data in to the matrix
+            for k in range(gridSize[2]):
+                for j in range(gridSize[1]):
+                    material_matrix[k][j] = list(egsphant.readline().strip())
+                egsphant.readline()
+
+            # load the density data into the matrix
+            for k in range(gridSize[2]):
+                for j in range(gridSize[1]):
+                    density_matrix[k][j] = egsphant.readline().strip().split()
+                egsphant.readline()
+
+            material_matrix = _convert_material_matrix_to(material_matrix, dtype=int)
+
+            self.material_image = Image3D(
+                imageArray=material_matrix,
+                origin=origin,
+                spacing=spacing,
+            )
+            self.density_image = Image3D(
+                imageArray=density_matrix,
+                origin=origin,
+                spacing=spacing,
             )
             # this line maybe useless in the future
             self.voxel_edges = self.calculate_voxel_edges()
@@ -240,29 +271,6 @@ class BrachyEgsphant:
                 np.concatenate(self._sanity_axis),
                 rtol=1e-1,
             ).all(), "axis is not the same"
-
-            # prepare empty matricies to hold material and density images
-            self.material_matrix = np.zeros(
-                (self.num_voxels[2], self.num_voxels[1], self.num_voxels[0]), dtype=str
-            )
-            self.density_matrix = np.zeros(
-                (self.num_voxels[2], self.num_voxels[1], self.num_voxels[0]),
-                dtype=np.float32,
-            )
-
-            # load the material composition data in to the matrix
-            for k in range(self.num_voxels[2]):
-                for j in range(self.num_voxels[1]):
-                    self.material_matrix[k][j] = list(egsphant.readline().strip())
-                egsphant.readline()
-
-            # load the density data into the matrix
-            for k in range(self.num_voxels[2]):
-                for j in range(self.num_voxels[1]):
-                    self.density_matrix[k][j] = egsphant.readline().strip().split()
-                egsphant.readline()
-
-            self.material_matrix = self._convert_material_matrix_to(dtype=int)
 
     def _sort_materials_by(self, material_key="encoding"):
         r"""
@@ -322,20 +330,25 @@ class BrachyEgsphant:
         # calculate the end point of axis in 3D space
         axes_end = np.array(
             # one voxel size is added because np.arange stops at an index before the end
-            self.origin_coordinates
-            + self.num_voxels * self.voxel_size
-            + self.voxel_size
+            self.density_image.origin
+            + self.density_image.gridSize * self.density_image.spacing
+            + self.density_image.spacing
         )
 
         self.voxel_edges = np.empty(len(axes_end), dtype=object)
         for i in range(len(axes_end)):
             self.voxel_edges[i] = np.arange(
-                self.origin_coordinates[len(axes_end) - 1 - i],
+                self.density_image.origin[len(axes_end) - 1 - i],
                 axes_end[len(axes_end) - 1 - i],
-                self.voxel_size[len(axes_end) - 1 - i],
+                self.density_image.spacing[len(axes_end) - 1 - i],
                 dtype=np.float32,
             )
-            if np.absolute(self.num_voxels[::-1][i] - self.voxel_edges[i].shape[0]) > 1:
+            if (
+                np.absolute(
+                    self.density_image.gridSize[::-1][i] - self.voxel_edges[i].shape[0]
+                )
+                > 1
+            ):
                 self.voxel_edges[i] = self.voxel_edges[i][:-1]
         return self.voxel_edges
 
@@ -352,7 +365,9 @@ class BrachyEgsphant:
         voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
         if self.voxel_edges is not None:
             for i in range(len(self.voxel_edges)):
-                voxel_centers[i] = self.voxel_edges[i] + self.voxel_size[i] / 2.0
+                voxel_centers[i] = (
+                    self.voxel_edges[i] + self.density_image.spacing[i] / 2.0
+                )
                 voxel_centers[i] = voxel_centers[i][:-1]
         else:
             raise ValueError("Voxel edges are not calculated yet")
@@ -385,12 +400,12 @@ class BrachyEgsphant:
         num_materials = str(self.num_materials) + "\n"
         materials = "\n".join(self.material_dict.keys()) + "\n"
         spacing = "0 0 0 0 0 0 0 0 0\n"
-        dimensions = " ".join(map(str, self.num_voxels.astype(int))) + "\n"
+        dimensions = " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
         x_axis = " ".join(map(str, np.round(self.voxel_edges[2], decimals=3))) + "\n"
         y_axis = " ".join(map(str, np.round(self.voxel_edges[1], decimals=3))) + "\n"
         z_axis = " ".join(map(str, np.round(self.voxel_edges[0], decimals=3))) + "\n"
         material_matrix = _to_single_string(
-            self._convert_material_matrix_to(dtype=str), ""
+            _convert_material_matrix_to(self.material_image.imageArray, dtype=str), ""
         )
         density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
 
@@ -441,13 +456,13 @@ class BrachyEgsphant:
             self.material_dict == new_BrachyEgsphant.material_dict
         ), "the material dictionary is not the same"
         assert np.array_equal(
-            self.num_voxels, new_BrachyEgsphant.num_voxels
+            self.density_image.gridSize, new_BrachyEgsphant.num_voxels
         ), "num_voxels is not the same"
         assert np.array_equal(
-            self.voxel_size, new_BrachyEgsphant.voxel_size
+            self.density_image.spacing, new_BrachyEgsphant.voxel_size
         ), "voxel_size is not the same"
         assert np.isclose(
-            self.origin_coordinates, new_BrachyEgsphant.origin_coordinates, rtol=1e-3
+            self.density_image.origin, new_BrachyEgsphant.origin_coordinates, rtol=1e-3
         ).all(), "origin_coordinates is not the same"
 
         return (
@@ -460,10 +475,14 @@ class BrachyEgsphant:
             ).all()
             and np.array_equal(self.num_materials, new_BrachyEgsphant.num_materials)
             and self.material_dict == new_BrachyEgsphant.material_dict
-            and np.array_equal(self.num_voxels, new_BrachyEgsphant.num_voxels)
-            and np.array_equal(self.voxel_size, new_BrachyEgsphant.voxel_size)
             and np.array_equal(
-                self.origin_coordinates, new_BrachyEgsphant.origin_coordinates
+                self.density_image.gridSize, new_BrachyEgsphant.num_voxels
+            )
+            and np.array_equal(
+                self.density_image.spacing, new_BrachyEgsphant.voxel_size
+            )
+            and np.array_equal(
+                self.density_image.origin, new_BrachyEgsphant.origin_coordinates
             )
         )
 
@@ -476,18 +495,20 @@ class BrachyEgsphant:
         assert self.density_matrix is not None, "error: density_matrix is None"
         assert self.num_materials is not None, "error: num_materials is None"
         assert self.material_dict is not None, "error: material_dict is None"
-        assert self.num_voxels is not None, "error: num_voxels is None"
-        assert self.voxel_size is not None, "error: voxel_size is None"
-        assert self.origin_coordinates is not None, "error: origin_coordinates is None"
+        assert self.density_image.gridSize is not None, "error: num_voxels is None"
+        assert self.density_image.spacing is not None, "error: voxel_size is None"
+        assert (
+            self.density_image.origin is not None
+        ), "error: origin_coordinates is None"
         assert self.voxel_edges is not None, "error: axis is None"
 
     def info(self):
         self.assert_BrachyEgsphant_notEmpty()
         print(f"shape of material matrix is: {self.material_matrix.shape}")
         print(f"shape of density matrix is: {self.density_matrix.shape}")
-        print(f"num voxels attribute is: {self.num_voxels}")
-        print(f"the top left (bottom left in reality) is {self.origin_coordinates}")
-        print(f"the voxel size is {self.voxel_size}")
+        print(f"num voxels attribute is: {self.density_image.gridSize}")
+        print(f"the top left (bottom left in reality) is {self.density_image.origin}")
+        print(f"the voxel size is {self.density_image.spacing}")
         print(
             f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
         )
@@ -540,14 +561,14 @@ class BrachyEgsphant:
                 new_origin_index[1] : new_ending_index[1],  # y
                 new_origin_index[0] : new_ending_index[0],  # x
             ]
-            self.origin_coordinates = np.array(
+            self.density_image.origin = np.array(
                 [
                     self.voxel_edges[2][new_origin_index[0]],  # x
                     self.voxel_edges[1][new_origin_index[1]],  # y
                     self.voxel_edges[0][new_origin_index[2]],  # z
                 ]
             )
-            self.num_voxels = np.flip(self.material_matrix.shape, 0)
+            self.density_image.gridSize = np.flip(self.material_matrix.shape, 0)
             self.voxel_edges = self.calculate_voxel_edges()
         else:
             new_obj = BrachyEgsphant()
@@ -570,7 +591,7 @@ class BrachyEgsphant:
             )
             new_obj.material_dict = self.material_dict
             new_obj.num_voxels = np.flip(new_obj.material_matrix.shape, 0)
-            new_obj.voxel_size = self.voxel_size
+            new_obj.voxel_size = self.density_image.spacing
             new_obj.voxel_edges = new_obj.calculate_voxel_edges()
             new_obj.num_materials = self.num_materials
             return new_obj
@@ -595,10 +616,10 @@ class BrachyEgsphant:
         crop_indices = np.zeros((3, 2), dtype=int)
 
         for i in range(3):
-            origin = self.origin_coordinates[i]
+            origin = self.density_image.origin[i]
             for j in range(2):
                 crop_indices[i][j] = int(
-                    (coordinate_range[i][j] - origin) / self.voxel_size[i]
+                    (coordinate_range[i][j] - origin) / self.density_image.spacing[i]
                 )
 
         return self.crop_by_index(crop_indices, inplace=inplace)
@@ -643,7 +664,7 @@ class BrachyEgsphant:
         scaled_body_index_range = (
             body_index_range
             / np.expand_dims(body_mask_shape, axis=1)
-            * np.expand_dims(self.num_voxels, axis=1)
+            * np.expand_dims(self.density_image.gridSize, axis=1)
         ).astype(int)
         print(scaled_body_index_range)
         self.crop_by_index(scaled_body_index_range, True)
@@ -690,9 +711,9 @@ class BrachyEgsphant:
         self.material_dict = new_material_dict
         # XXX delete once done
         # get the egsphant dimensions and voxel size from the image.
-        # self.num_voxels = image.num_voxels
-        # self.voxel_size = image.voxel_size
-        # self.origin_coordinates = image.origin_coordinates
+        # self.density_image.gridSize = image.num_voxels
+        # self.density_image.spacing = image.voxel_size
+        # self.density_image.origin = image.origin_coordinates
         # self.voxel_edges = self.calculate_voxel_edges()
         material_matrix = np.ones_like(dicom_image.image.imageArray, dtype=int)
         density_matrix = np.ones_like(dicom_image.image.imageArray, dtype=np.float32)
@@ -787,8 +808,7 @@ class BrachyEgsphant:
 
             # get the mask of each material from image
             mask_dict = dicom_image.get_strcuture_mask_from_dicom(
-                query_structure_list,
-                mask_type=np.ndarray
+                query_structure_list, mask_type=np.ndarray
             )
             for material in self.material_dict:
                 # structure_name = self.material_dict.get(material).get(
@@ -802,7 +822,9 @@ class BrachyEgsphant:
                 if self.material_dict.get(material).get("structure_name") is None:
                     continue
                 self.material_dict.get(material)["structure_size"] = np.sum(
-                    mask_dict.get(self.material_dict.get(material).get("structure_name"))
+                    mask_dict.get(
+                        self.material_dict.get(material).get("structure_name")
+                    )
                 )
 
             # sort the material dictionary based on the size of the mask (from largest to smallest)
@@ -811,8 +833,10 @@ class BrachyEgsphant:
             for i, material in enumerate(self.material_dict.keys()):
                 if self.material_dict.get(material).get("structure_name") is None:
                     continue
-                roi_mask = mask_dict.get(self.material_dict.get(material).get("structure_name")).astype(bool)
-                
+                roi_mask = mask_dict.get(
+                    self.material_dict.get(material).get("structure_name")
+                ).astype(bool)
+
                 # set everything outside the largest mask to air
                 if i == 0:
                     complementary_roi_mask = np.logical_not(roi_mask)
@@ -857,38 +881,6 @@ class BrachyEgsphant:
             spacing=dicom_image.image.spacing,
             angles=dicom_image.image.angles,
         )
-
-    def _convert_material_matrix_to(self, dtype: type):
-        r"""
-        Purpose:
-            To convert a numpy array of dtype string to an integer numpy array or the other way around.
-            Integer array is the desired data type over string since it allows for more operational functionality.
-            String array is desired for outputting the egsphant file.
-        Inputs:
-            - self.material_matrix:np.array(dtype=str) := a numpy array with string enteries
-            - BrachyEgsphant._encoding_array:list := a list of strings that will be used to encode the string enteries
-        Outputs:
-            - Void := will update the material_dict with the density and HU lower limit thresholds.
-        """
-        assert dtype in [int, str], "dtype is not recognized"
-
-        flattened_array = self.material_matrix.flatten()
-
-        if dtype is int:
-
-            int_array = np.zeros_like(flattened_array, dtype=int)
-
-            for i, string in enumerate(flattened_array):
-                int_array[i] = BrachyEgsphant._materials_encoding_array.index(string)
-
-            return int_array.reshape(self.material_matrix.shape)
-
-        else:
-            str_array = np.zeros_like(flattened_array, dtype=str)
-            for i, integer in enumerate(flattened_array):
-                str_array[i] = BrachyEgsphant._materials_encoding_array[integer]
-
-            return str_array.reshape(self.material_matrix.shape)
 
     def export_material_dict(self, pth_file: Path):
         r"""
@@ -935,6 +927,43 @@ class BrachyEgsphant:
             self.material_dict.get(material)["encoding"] = (
                 BrachyEgsphant._materials_encoding_array[i]
             )
+
+
+def _convert_material_matrix_to(
+    material_matrix: np.ndarray, dtype: Union[int, str]
+) -> np.ndarray:
+    r"""
+    Purpose:
+        To convert a numpy array of dtype string to an integer numpy array or the other way around.
+        Integer array is the desired data type over string since it allows for more operational functionality.
+        String array is desired for outputting the egsphant file.
+    Inputs:
+        - self.material_matrix:np.array(dtype=str) := a numpy array with string enteries
+        - BrachyEgsphant._encoding_array:list := a list of strings that will be used to encode the string enteries
+    Outputs:
+        - np.array(dtype=int) := a numpy array with integer or string enteries
+    """
+    # assert dtype in [int, str], "dtype is not recognized"
+
+    flattened_array = material_matrix.flatten()
+
+    if dtype is int:
+
+        int_array = np.zeros_like(flattened_array, dtype=int)
+
+        for i, string in enumerate(flattened_array):
+            int_array[i] = BrachyEgsphant._materials_encoding_array.index(string)
+
+        return int_array.reshape(material_matrix.shape)
+
+    elif dtype is str:
+        str_array = np.zeros_like(flattened_array, dtype=str)
+        for i, integer in enumerate(flattened_array):
+            str_array[i] = BrachyEgsphant._materials_encoding_array[integer]
+
+        return str_array.reshape(material_matrix.shape)
+    else:
+        raise Exception("dtype is not recognized")
 
 
 def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
