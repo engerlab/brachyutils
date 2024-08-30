@@ -18,30 +18,24 @@ from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy;
 
 from brachyutils.dose_utils import BrachyDose
 
-# from DicomRTTool.ReaderWriter import DicomReaderWriter
-
-
-
-
-
 
 class BrachyDicom:
     r"""
     Puprose:
-        - A wrapper around the DicomReaderWriter class to get the images, the structure masks
-        and the index range of the structure masks.
+        - A class to load DICOM files of an HDR brachytherapy patient and perform some operations.
+        
     Attributes:
-        - image: CTImage or MRImage := the image of the patient loaded by openTPS.
+        - image: CTImage or MRImage := the image of the patient loaded by openTPS. [z, y, x]
         - image_modality: Literal["CT", "MR"] := the modality of the image.
-        - structures: RTStruct := the structure masks of the patient loaded by openTPS.
-        - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value.
-        - structure_index_range_dict:dict := a dictionary with the structure name as key and the index range as value.
-        - dose: BrachyDose := dose from dicom RD file saved as an instance of the BrachyDose class.
-        - catheter_table := a dictionary returned by get_catheter_table_and_source_info_from_dicom()
+        - structures_dcm: RTStruct := the structure masks of the patient loaded by openTPS. [x, y, z]
+        - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value. 
+        The mask format is ROIMask from open TPS. [z, y, x]
+        - dose: BrachyDose := dose from dicom RD file saved as an instance of the BrachyDose class. [z, y, x]
+        - catheter_table := a dictionary returned by get_catheter_table_and_source_info_from_dicom() [x, y, z]?
         - source_info: dict := a dictionary with the source information.
+        - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
     Dependencies:
-        - DicomRTTool: https://www.sciencedirect.com/science/article/abs/pii/S1879850021000485
-
+        - openTPS.core
     """
 
     def __init__(
@@ -51,7 +45,7 @@ class BrachyDicom:
         load_structure: Optional[bool] = True,
         load_dose: Optional[bool] = False,
         load_plan: Optional[bool] = False,
-    ):
+    ) -> "BrachyDicom":
         r"""
         Purpose:
             - To gatheter all the information provided by the dicom files of a patient. You can choose to load the image,
@@ -61,7 +55,7 @@ class BrachyDicom:
         self.image_modality: Literal["CT", "MR"] = None
         self.structures_dcm: RTStruct = None
         self.structure_mask_dict: dict = {}
-        self.structure_index_range_dict: dict = {}
+        # self.structure_index_range_dict: dict = {}
         self.dose: BrachyDose = None
         self.catheter_table: dict = None
         self.source_info: dict = None
@@ -133,7 +127,7 @@ class BrachyDicom:
         Inputs:
             - structure_file:str := the path to the dicom RT structure file.
         Outputs:
-            - void: self.structure_mask_dict will be updated.
+            - void: self.structure_mask_dict will be updated with ROIMask objects for each structure. [z, y, x]
         """
         assert os.path.exists(structure_file), "given structure file does not exist"
         assert self.image is not None, "image has not been loaded yet"
@@ -155,13 +149,13 @@ class BrachyDicom:
         self,
         query_structure_list: List[str],
         mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
-    ):
+    ) -> dict:
         r"""
         Purpose:
             To return a dictionary with the requested structure masks from BrachyDicom object. The queried
             structure string should be a subset of the structure string in the dicom file. For example,
             if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
-
+            The keys in the dictionary match the query_structure_list and the values are the masks.
         Inputs:
             - query_structure_list := list of structure names to find the mask of.
         Outputs:
@@ -193,57 +187,80 @@ class BrachyDicom:
                         )
         return mask_dict
 
-    def get_structure_index_range(self):
-        r"""
-        Purpose:
-            To find the index extent of the structure voxels along each axis using dicom RT structure file.
-            If the object already has this feature, it will return the stored value instead of over-writing it.
-        Inputs:
-            - query_structure_list := list of structure names to find the index range of.
-        Outputs:
-            - structure_index_range:np.ndarray :=  a 3 x 2 array holding the min and max on x, y and axis
-                [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
-            - body_mask_shape:np.array := 1 x 3 array holding the dimension of the original mask
-        Dependencies:
-            - get_strcuture_mask_from_dicom()
-        """
+    # def get_structure_index_range(self):
+    #     r"""
+    #     Purpose:
+    #         To find the index extent of the structure voxels along each axis using dicom RT structure file.
+    #         If the object already has this feature, it will return the stored value instead of over-writing it.
+    #     Inputs:
+    #         - query_structure_list := list of structure names to find the index range of.
+    #     Outputs:
+    #         - structure_index_range:np.ndarray :=  a 3 x 2 array holding the min and max on x, y and axis
+    #             [[x_min, x_max], [y_min, y_max], [z_min, z_max]],
+    #         - body_mask_shape:np.array := 1 x 3 array holding the dimension of the original mask
+    #     Dependencies:
+    #         - get_strcuture_mask_from_dicom()
+    #     """
 
-        assert (
-            self.structure_mask_dict is not None
-        ), "structure masks have not been loaded yet. please run load_structures() first"
+    #     assert (
+    #         self.structure_mask_dict is not None
+    #     ), "structure masks have not been loaded yet. please run load_structures() first"
 
-        self.structure_index_range_dict = {}
-        for mask_name, mask_numpy in self.structure_mask_dict.items():
-            # so we got the mask but the dimensions may not match the dimension of the dose
-            # let's get the relative extent of the body mask compared to the whole grid and resample
-            # the extents
+    #     self.structure_index_range_dict = {}
+    #     for mask_name, mask_numpy in self.structure_mask_dict.items():
+    #         # so we got the mask but the dimensions may not match the dimension of the dose
+    #         # let's get the relative extent of the body mask compared to the whole grid and resample
+    #         # the extents
 
-            # skip the mask if it is empty
-            if np.sum(mask_numpy) == 0:
-                continue
-            structure_index_range = np.zeros([3, 2], dtype=int)
-            for i in range(3):
-                structure_index_range[i, :] = np.floor(
-                    np.array(
-                        [
-                            np.argwhere(mask_numpy == 1)[:, i].min(),
-                            # off set of +1 is added to acount for python stopping before range end
-                            np.argwhere(mask_numpy == 1)[:, i].max() + 1,
-                        ]
-                    )
-                ).astype(int)
-            structure_index_range = np.flip(structure_index_range, axis=0)
-            self.structure_index_range_dict[mask_name] = {
-                "structure_index_range": structure_index_range,
-                "dicom_mask_shape": np.flip(np.array(mask_numpy.shape)),
-            }
-        return self.structure_index_range_dict
+    #         # skip the mask if it is empty
+    #         if np.sum(mask_numpy) == 0:
+    #             continue
+    #         structure_index_range = np.zeros([3, 2], dtype=int)
+    #         for i in range(3):
+    #             structure_index_range[i, :] = np.floor(
+    #                 np.array(
+    #                     [
+    #                         np.argwhere(mask_numpy == 1)[:, i].min(),
+    #                         # off set of +1 is added to acount for python stopping before range end
+    #                         np.argwhere(mask_numpy == 1)[:, i].max() + 1,
+    #                     ]
+    #                 )
+    #             ).astype(int)
+    #         structure_index_range = np.flip(structure_index_range, axis=0)
+    #         self.structure_index_range_dict[mask_name] = {
+    #             "structure_index_range": structure_index_range,
+    #             "dicom_mask_shape": np.flip(np.array(mask_numpy.shape)),
+    #         }
+    #     return self.structure_index_range_dict
 
     def reset(self):
-        self.structure_mask_dict = {}
-        self.structure_index_range_dict = {}
+        r"""
+        Purpose:
+            - To reset the object to its initial state.
+        Inputs:
+            - None
+        Outputs:
+            - void
+        """
+        self.image = None
+        self.structures_dcm = None
+        self.dose = None
+        self.catheter_table = None
+        self.source_info = None
+        # self.structure_mask_dict = {}
+        # self.structure_index_range_dict = {}
 
-    def info(self):
+    def info(self) -> None:
+        r"""
+        Purpose:
+            - To print the information of the dicom files loaded in the object.
+            These information are the shape of the dicom image, the origin, the voxel size, 
+            the structures in the dicom
+        Inputs:
+            - None
+        Outputs:
+            - void
+        """
         print(f"shape of the image: {self.image.gridSize}")
         print(f"origin of the image: {self.image.origin}")
         print(f"voxel size of the image: {self.image.spacing}")
@@ -275,7 +292,7 @@ class BrachyDicom:
         """
         raise NotImplementedError("this function is not implemented yet")
 
-    def write_to_dicom(self, dir_output: Path):
+    def write_to_dicom(self, dir_output: Path) -> None:
         r"""
         Purpose:
             - To write the image and the dose to a dicom file.
@@ -304,7 +321,7 @@ class BrachyDicom:
         raise NotImplementedError("writing to nrrd is not implemented yet")
 
 
-def get_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
+def get_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str) -> tuple:
     r"""
     Purpose:
         - To load the catheter table from the dicom plan file.
@@ -322,8 +339,8 @@ def get_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str):
                 - rotation:np.array := the rotation of the dwell point.
                 - time:float := the time of the dwell point.
                 - weight:float := the weight of the dwell point.
-
         - source_info:dict := a dictionary with the source information.
+            - TotalReferenceAirKerma:float := the total reference air kerma.
     Dependencies:
         - pydicom: https://pydicom.github.io/
     """
