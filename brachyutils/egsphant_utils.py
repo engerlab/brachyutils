@@ -469,34 +469,6 @@ class BrachyEgsphant:
             return False
         else:
             return True
-        # return (
-            # np.array_equal(
-                # self.material_image.imageArray,
-                # new_BrachyEgsphant.material_image.imageArray,
-            # )
-            # and np.array_equal(
-                # self.density_image.imageArray,
-                # new_BrachyEgsphant.density_image.imageArray,
-            # )
-            # and np.isclose(
-                # np.concatenate(self.voxel_edges),
-                # np.concatenate(new_BrachyEgsphant.voxel_edges),
-                # rtol=1e-3,
-            # ).all()
-            # and np.array_equal(self.num_materials, new_BrachyEgsphant.num_materials)
-            # and self.material_dict == new_BrachyEgsphant.material_dict
-            # and np.array_equal(
-                # self.density_image.gridSize, new_BrachyEgsphant.density_image.gridSize
-            # )
-            # and np.array_equal(
-                # self.density_image.spacing, new_BrachyEgsphant.density_image.spacing
-            # )
-            # and np.isclose(
-                # self.density_image.origin,
-                # new_BrachyEgsphant.density_image.origin,
-                # rtol=1e-3,
-            # ).all()
-        # )
 
     def is_not_empty(self):
         r"""
