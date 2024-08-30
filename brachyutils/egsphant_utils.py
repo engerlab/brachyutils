@@ -430,66 +430,73 @@ class BrachyEgsphant:
             True if attributes of new_BrachyEgsphant are the same as self
             False otherwise
         """
-        assert isinstance(
-            new_BrachyEgsphant, BrachyEgsphant
-        ), "input must be of type BrachyEgsphant"
-        assert np.array_equal(
-            self.material_image.imageArray, new_BrachyEgsphant.material_image.imageArray
-        ), "material matrix is not the same"
-        assert np.array_equal(
-            self.density_image.imageArray, new_BrachyEgsphant.density_image.imageArray
-        ), "density matrix is not the same"
-        assert np.isclose(
+        if not isinstance(new_BrachyEgsphant, BrachyEgsphant):
+            warnings.warn("input must be of type BrachyEgsphant", stacklevel=2)
+            return False
+        elif not np.array_equal(self.material_image.imageArray, new_BrachyEgsphant.material_image.imageArray):
+            warnings.warn("material matrix is not the same", stacklevel=2)
+            return False
+        elif not np.array_equal(self.density_image.imageArray, new_BrachyEgsphant.density_image.imageArray):
+            warnings.warn("density matrix is not the same", stacklevel=2)
+            return False
+        elif not np.isclose(
             np.concatenate(self.voxel_edges),
             np.concatenate(new_BrachyEgsphant.voxel_edges),
-            rtol=1e-3,
-        ).all(), "axis is not the same"
-        assert np.array_equal(
-            self.num_materials, new_BrachyEgsphant.num_materials
-        ), "number of materials is not the same"
-        assert (
-            self.material_dict == new_BrachyEgsphant.material_dict
-        ), "the material dictionary is not the same"
-        assert np.array_equal(
-            self.density_image.gridSize, new_BrachyEgsphant.density_image.gridSize
-        ), "num_voxels is not the same"
-        assert np.array_equal(
-            self.density_image.spacing, new_BrachyEgsphant.density_image.spacing
-        ), "voxel_size is not the same"
-        assert np.isclose(
+            rtol=1e-3).all():
+            warnings.warn("axis is not the same", stacklevel=2)
+            return False
+        elif not np.array_equal(self.num_materials, new_BrachyEgsphant.num_materials):
+            warnings.warn("number of materials is not the same", stacklevel=2)
+            return False
+        elif not (self.material_dict == new_BrachyEgsphant.material_dict):
+            warnings.warn("the material dictionary is not the same", stacklevel=2)
+            return False
+        elif not np.array_equal(
+            self.density_image.gridSize,
+            new_BrachyEgsphant.density_image.gridSize):
+            warnings.warn("num_voxels is not the same", stacklevel=2)
+            return False
+        elif not np.array_equal(
+            self.density_image.spacing,
+            new_BrachyEgsphant.density_image.spacing):
+            warnings.warn("voxel_size is not the same", stacklevel=2)
+            return False
+        elif not np.isclose(
             self.density_image.origin,
             new_BrachyEgsphant.density_image.origin,
-            rtol=1e-3,
-        ).all(), "origin_coordinates is not the same"
-
-        return (
-            np.array_equal(
-                self.material_image.imageArray,
-                new_BrachyEgsphant.material_image.imageArray,
-            )
-            and np.array_equal(
-                self.density_image.imageArray,
-                new_BrachyEgsphant.density_image.imageArray,
-            )
-            and np.isclose(
-                np.concatenate(self.voxel_edges),
-                np.concatenate(new_BrachyEgsphant.voxel_edges),
-                rtol=1e-3,
-            ).all()
-            and np.array_equal(self.num_materials, new_BrachyEgsphant.num_materials)
-            and self.material_dict == new_BrachyEgsphant.material_dict
-            and np.array_equal(
-                self.density_image.gridSize, new_BrachyEgsphant.density_image.gridSize
-            )
-            and np.array_equal(
-                self.density_image.spacing, new_BrachyEgsphant.density_image.spacing
-            )
-            and np.isclose(
-                self.density_image.origin,
-                new_BrachyEgsphant.density_image.origin,
-                rtol=1e-3,
-            ).all()
-        )
+            rtol=1e-3).all():
+            warnings.warn("origin_coordinates is not the same", stacklevel=2)
+            return False
+        else:
+            return True
+        # return (
+            # np.array_equal(
+                # self.material_image.imageArray,
+                # new_BrachyEgsphant.material_image.imageArray,
+            # )
+            # and np.array_equal(
+                # self.density_image.imageArray,
+                # new_BrachyEgsphant.density_image.imageArray,
+            # )
+            # and np.isclose(
+                # np.concatenate(self.voxel_edges),
+                # np.concatenate(new_BrachyEgsphant.voxel_edges),
+                # rtol=1e-3,
+            # ).all()
+            # and np.array_equal(self.num_materials, new_BrachyEgsphant.num_materials)
+            # and self.material_dict == new_BrachyEgsphant.material_dict
+            # and np.array_equal(
+                # self.density_image.gridSize, new_BrachyEgsphant.density_image.gridSize
+            # )
+            # and np.array_equal(
+                # self.density_image.spacing, new_BrachyEgsphant.density_image.spacing
+            # )
+            # and np.isclose(
+                # self.density_image.origin,
+                # new_BrachyEgsphant.density_image.origin,
+                # rtol=1e-3,
+            # ).all()
+        # )
 
     def is_not_empty(self):
         r"""
@@ -867,8 +874,8 @@ class BrachyEgsphant:
 
 
 def _convert_material_matrix_to(
-    material_matrix: np.ndarray, dtype: Union[int, str]
-) -> np.ndarray:
+    material_matrix: np.ndarray,
+    dtype: Union[int, str]) -> np.ndarray:
     r"""
     Purpose:
         To convert a numpy array of dtype string to an integer numpy array or the other way around.

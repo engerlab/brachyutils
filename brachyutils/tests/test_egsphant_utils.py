@@ -57,7 +57,7 @@ def test_write_to_egsphant():
     new_egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_output)
     # new_egsphant_obj.load_from_ctegsphant(pth_output)
 
-    egsphant_obj.is_equal(new_egsphant_obj)
+    print(egsphant_obj.is_equal(new_egsphant_obj))
 
 
 def test_to_single_string():
@@ -151,9 +151,9 @@ def test_egsphant_constructor(
 
 if __name__ == "__main__":
     # test_load_from_ctegsphant()
-    # test_write_to_egsphant()
+    test_write_to_egsphant()
     # test_create_egsphant_from_images()
     # text_load_material_dict()
     # test_crop_by_coordinates()
     # test_crop_by_index()
-    test_crop_by_dicom_structure()
+    # test_crop_by_dicom_structure()
