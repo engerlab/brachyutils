@@ -1017,16 +1017,15 @@ class BrachyDose:
         r"""
         Purpose:
             based on the given dicom structure file, crop the BrachyDose object such
-            that it only contains voxels of the structures in the structure_name_list.
-            This function returns a dictionary where the keys are the structure names and
-            the values are the cropped dose objects.
+            that it only contains the smallest bounding box around the structure structures.
+            
         Inputs:
             - pth_dir_dicom := pth_dir_dicom := path to the directory with the dicom files of a patient.
                 it should contain both images and RTSTRUCT file. this input is optional
             - structure_name_list := a list of strings containing the names of the structures that the dose will be cropped to.
             
         Outputs:
-            - dict_cropped_doses:dict[BrachyDose] := a dictionary where the keys are the structure names and the values are the cropped dose objects.
+            - Void := will crop the dose and uncertainty maps of self to have the range of the structure.
             """
         from brachyutils import BrachyDicom
         from opentps.core.data.images import ROIMask

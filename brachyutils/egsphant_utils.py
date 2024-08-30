@@ -541,12 +541,12 @@ class BrachyEgsphant:
         Inputs:
             - self: BrachyEgsphant object
             - index_range := a 3 x 2 array holding the min and max index on x, y and axis
-                [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
+                [[iz_min, iz_max], [iy_min, iy_max], [ix_min, ix_max]]
         Output:
             - Void := will crop out the material and density maps of self to have the range of the index range.
                 it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         Dependencies:
-            - None
+            - self.crop_by_coordinates()
         """
         assert index_range.shape == (3, 2), "index_range should be a 3x2 array in z, y, x order"
         assert np.all(self.density_image.gridSize == self.material_image.gridSize), "material and density matrix should have the same size"
@@ -555,63 +555,6 @@ class BrachyEgsphant:
         new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
         return self.crop_by_coordinates(new_coords_range, inplace)
     
-        # new_origin_index = index_range[:, 0].astype(int)
-        # assert np.all(
-        #     new_origin_index >= 0
-        # ), "new origin index cannot be negative, please report this bug"
-
-        # new_ending_index = index_range[:, 1].astype(int)
-        # assert np.all(
-        #     new_ending_index >= 0
-        # ), "new ending index cannot be negative, please report this bug"
-
-        # # update the attributes
-        # if inplace:
-        #     self.material_matrix = self.material_matrix[
-        #         new_origin_index[2] : new_ending_index[2],  # z
-        #         new_origin_index[1] : new_ending_index[1],  # y
-        #         new_origin_index[0] : new_ending_index[0],  # x
-        #     ]
-        #     self.density_matrix = self.density_matrix[
-        #         new_origin_index[2] : new_ending_index[2],  # z
-        #         new_origin_index[1] : new_ending_index[1],  # y
-        #         new_origin_index[0] : new_ending_index[0],  # x
-        #     ]
-        #     self.density_image.origin = np.array(
-        #         [
-        #             self.voxel_edges[2][new_origin_index[0]],  # x
-        #             self.voxel_edges[1][new_origin_index[1]],  # y
-        #             self.voxel_edges[0][new_origin_index[2]],  # z
-        #         ]
-        #     )
-        #     self.density_image.gridSize = np.flip(self.material_matrix.shape, 0)
-        #     self.voxel_edges = self.calculate_voxel_edges()
-        # else:
-        #     new_obj = BrachyEgsphant()
-        #     new_obj.material_matrix = self.material_matrix[
-        #         new_origin_index[2] : new_ending_index[2],
-        #         new_origin_index[1] : new_ending_index[1],
-        #         new_origin_index[0] : new_ending_index[0],
-        #     ]
-        #     new_obj.density_matrix = self.density_matrix[
-        #         new_origin_index[2] : new_ending_index[2],
-        #         new_origin_index[1] : new_ending_index[1],
-        #         new_origin_index[0] : new_ending_index[0],
-        #     ]
-        #     new_obj.origin_coordinates = np.array(
-        #         [
-        #             self.voxel_edges[2][new_origin_index[0]],  # x
-        #             self.voxel_edges[1][new_origin_index[1]],  # y
-        #             self.voxel_edges[0][new_origin_index[2]],  # z
-        #         ]
-        #     )
-        #     new_obj.material_dict = self.material_dict
-        #     new_obj.num_voxels = np.flip(new_obj.material_matrix.shape, 0)
-        #     new_obj.voxel_size = self.density_image.spacing
-        #     new_obj.voxel_edges = new_obj.calculate_voxel_edges()
-        #     new_obj.num_materials = self.num_materials
-        #     return new_obj
-
     def crop_by_coordinates(
         self,
         coordinate_range: np.array,
@@ -644,50 +587,56 @@ class BrachyEgsphant:
             new_egsphant.crop_by_coordinates(coordinate_range, inplace=True)
             return new_egsphant
 
-    def crop_by_body_contour(
+    def crop_by_dicom_structure(
         self,
-        body_index_range: Optional[np.ndarray] = None,
-        body_mask_shape: Optional[np.ndarray] = None,
-        pth_dir_dicom: Optional[Path] = None,
-    ):
+        pth_dir_dicom: Path,
+        structure_name: str,
+        inplace: Optional[bool] = True,
+    ) -> Union[None, "BrachyEgsphant"]:
         r"""
         Purpose:
             based on the given dicom structure file, crop the BrachyEgsphant object such
-                that it only has the body contour.
+            that it contains the tightest bounding box surrounding a strcture.
         Inputs:
-            - body_index_range:np.array :=  a 3 x 2 array holding the min and max on x, y and axis
-                [[x_min, x_max], [y_min, y_max], [z_min, z_max]]. If this is not available, provide
-                the third input.
-
-            - original_mask_dimensions:np.array := 1 x 3 array holding the dimension of the original mask.
-                If this is not available, provide the third input.
-
-            - pth_dir_dicom := pth_dir_dicom := path to the directory with the dicom files of a patient.
-                it should contain both images and RTSTRUCT file. this input is used when the first 2 inputs
-                are not available
-
+            - pth_dir_dicom := path to the directory with the dicom files of a patient.
+            it should contain both images and RTSTRUCT file.
+            - structure_name := the name of the structure in the dicom file that will be used to crop the BrachyEgsphant object.
+            - inplace := if True, the function will modify the object in place, otherwise it will return a new object.
         Outputs:
-            - Void := will crop out the material and density maps of self to have the range of the body contour
-                    in the dicom structure file. It will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
+            - Void := will crop out the material and density maps of self to have the range the contour
+            in the dicom structure file.
         """
+        from brachyutils import BrachyDicom
+        from opentps.core.data.images import ROIMask
+        from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+        # load the dicom object both the image and the mask
+        dicom_obj = BrachyDicom(pth_dir_dicom, load_structure=True)
+        # load the mask dictionary for the structures in structure_name_list
+        mask_dict = dicom_obj.get_strcuture_mask_from_dicom([structure_name], ROIMask)
+    
+        # Get a cropped dose map that tightly fits each mask.
+        resampled_mask = resampleImage3DOnImage3D(mask_dict[structure_name], self.density_image)
+        box_around_mask = np.array(getBoxAroundROI(resampled_mask))
+        return self.crop_by_coordinates(box_around_mask, inplace)
 
-        if body_index_range is None or body_mask_shape is None:
-            assert (
-                pth_dir_dicom is not None
-            ), "Either path to a dicom directory with dicom structure \
-                file should be given or body_index_range and body_mask_shape"
-            body_mask_info = BrachyDicom(pth_dir_dicom, query_structure_list=["body"])
-            body_index_range = body_mask_info["body"]["structure_index_range"]
-            body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]
+        # if body_index_range is None or body_mask_shape is None:
+            # assert (
+                # pth_dir_dicom is not None
+            # ), "Either path to a dicom directory with dicom structure \
+                # file should be given or body_index_range and body_mask_shape"
+            # body_mask_info = BrachyDicom(pth_dir_dicom, query_structure_list=["body"])
+            # body_index_range = body_mask_info["body"]["structure_index_range"]
+            # body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]
         # the body mask may have a different size than the material map, we normalize range to the dimension
         # of original mask and scale it to the dimension of the material map to get the body index range on the material image.
-        scaled_body_index_range = (
-            body_index_range
-            / np.expand_dims(body_mask_shape, axis=1)
-            * np.expand_dims(self.density_image.gridSize, axis=1)
-        ).astype(int)
-        print(scaled_body_index_range)
-        self.crop_by_index(scaled_body_index_range, True)
+        # scaled_body_index_range = (
+            # body_index_range
+            # / np.expand_dims(body_mask_shape, axis=1)
+            # * np.expand_dims(self.density_image.gridSize, axis=1)
+        # ).astype(int)
+        # print(scaled_body_index_range)
+        # self.crop_by_index(scaled_body_index_range, True)
 
     def create_egsphant_from_images(
         self,

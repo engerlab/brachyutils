@@ -12,18 +12,20 @@ from brachyutils.egsphant_utils import (
 )
 
 
-def test_crop_by_body_contour():
+def test_crop_by_dicom_structure():
     pth_dicomRS = "../data_test/prostate-glen-p1-dcm/"
     # print("pth_dicomRS: ".format(pth_dicomRS))
 
     pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
 
-    egsphant_obj = BrachyEgsphant()
-    egsphant_obj.load_from_ctegsphant(pth_input)
+    egsphant_obj = BrachyEgsphant(pth_input)
     egsphant_obj.info()
 
-    egsphant_obj.crop_by_body_contour(pth_dir_dicom=pth_dicomRS)
+    egsphant_obj.crop_by_dicom_structure(
+        pth_dir_dicom=pth_dicomRS,
+        structure_name="body",
+        )
     egsphant_obj.info()
 
 
@@ -153,4 +155,5 @@ if __name__ == "__main__":
     # test_create_egsphant_from_images()
     # text_load_material_dict()
     # test_crop_by_coordinates()
-    test_crop_by_index()
+    # test_crop_by_index()
+    test_crop_by_dicom_structure()
