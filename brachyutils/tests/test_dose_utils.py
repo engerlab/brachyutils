@@ -58,13 +58,12 @@ def test_write_to_nrrd():
     """
     pth_out = "../../data_test/test_export_plan"
     # pth_input = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
-    pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
+    pth_input = "../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     pth_out = os.path.join(pth_out, os.path.basename(pth_input))
     dose_obj = BrachyDose(pth_input)
     dose_obj.write_to_nrrd(pth_out)
     dose_obj_from_nrrd = BrachyDose(pth_out)
     dose_obj.is_equal(dose_obj_from_nrrd)
-
 
 def test_convert_to_npz_file():
     r"""
@@ -84,27 +83,6 @@ def test_convert_to_npz_file():
     new_dose_obj = BrachyDose()
     new_dose_obj.load_from_npz(pth_out)
     dose_obj.is_equal(new_dose_obj)
-
-
-# def test_write_to_minidos():
-#     r"""
-#     Purpose:
-#         simulatenously test write_to_minidos() and load_from_minidos()
-#     """
-#     # pth_3ddose =  "../../data_test/combined.3ddose"
-
-#     # testing on maude's file
-#     pth_3ddose = "../../data_test/maude.3ddose"
-#     pth_out = os.path.splitext(pth_3ddose)[0]+'.minidos'
-#     dose_obj = BrachyDose()
-#     dose_obj.load_file_to_brachydose(pth_3ddose)
-
-#     dose_obj.write_to_minidos(pth_out, compress_program='zstd')
-
-#     new_dose_obj = BrachyDose()
-# new_dose_obj.load_from_minidos(pth_out)
-# dose_obj.is_equal(new_dose_obj)
-
 
 def test_write_to_xz():
 
@@ -212,8 +190,8 @@ if __name__ == "__main__":
     # test_load_from_dicom()
     # test_load_from_nrrd()
     # test_write_to_3ddose()
-    # test_write_to_nrrd()
+    test_write_to_nrrd()
     # test_crop_by_coordinates()
     # test_crop_by_fraction()
     # test_crop_by_index()
-    test_crop_by_dicom_structure()
+    # test_crop_by_dicom_structure()

@@ -850,45 +850,45 @@ class BrachyDose:
             True if attributes of new_brachy_dose are the same as self
             False otherwise
         """
-        assert isinstance(
-            new_brachy_dose, BrachyDose
-        ), "input must be of type BrachyDose"
-        assert np.array_equal(
-            self.dose_image.imageArray, new_brachy_dose.dose_image.imageArray
-        ), "dose values are not the same"
-        assert np.array_equal(
+        if not isinstance(new_brachy_dose, BrachyDose):
+            warnings.warn("input must be of type BrachyDose")
+            return False
+        elif not np.array_equal(
+            self.dose_image.imageArray,
+            new_brachy_dose.dose_image.imageArray
+            ):
+            warnings.warn("dose values are not the same")
+            return False
+        elif not np.array_equal(
             np.concatenate(self.voxel_edges),
             np.concatenate(new_brachy_dose.voxel_edges),
-        ), "axis is not the same"
-        assert np.array_equal(
-            self.uncertainty_image.imageArray, new_brachy_dose.uncertainty_image.imageArray
-        ), "uncertainty is not the same" if self.uncertainty_image is not None else True
-        assert np.array_equal(
+        ):
+            warnings.warn("axis is not the same")
+            return False
+        elif not self.uncertainty_image is not None:
+            if np.array_equal(
+                self.uncertainty_image.imageArray,
+                new_brachy_dose.uncertainty_image.imageArray
+            ):
+                warnings.warn("uncertainty is not the same")
+                return False
+        elif not np.array_equal(
             self.dose_image.gridSize, new_brachy_dose.dose_image.gridSize
-        ), "num_voxels is not the same"
-        assert np.array_equal(
+        ):
+            warnings.warn("num_voxels is not the same")
+            return False
+        elif not np.array_equal(
             self.dose_image.spacing, new_brachy_dose.dose_image.spacing
-        ), "voxel_size is not the same"
-        assert np.array_equal(
+        ):
+            warnings.warn("voxel_size is not the same")
+            return False
+        elif not np.array_equal(
             self.dose_image.origin, new_brachy_dose.dose_image.origin
-        ), "origin_coordinates is not the same"
-        # assert np.array_equal(np.round(self.voxel_size, 2), np.round(new_brachy_dose.voxel_size, 2)), "voxel_size is not the same"
-        # assert np.array_equal(np.round(self.origin_coordinates, 2), np.round(new_brachy_dose.origin_coordinates), 2), "origin_coordinates is not the same"
-
-        return (
-            np.array_equal(self.dose_image.imageArray, new_brachy_dose.dose_image.imageArray)
-            and np.array_equal(
-                np.concatenate(self.voxel_edges),
-                np.concatenate(new_brachy_dose.voxel_edges),
-            )
-            and np.array_equal(self.uncertainty_image.imageArray, new_brachy_dose.uncertainty_image.imageArray) if self.uncertainty_image is not None else True
-            and np.array_equal(self.dose_image.gridSize, new_brachy_dose.dose_image.gridSize)
-            and np.array_equal(self.dose_image.spacing, new_brachy_dose.dose_image.spacing)
-            and np.array_equal(self.dose_image.origin, new_brachy_dose.dose_image.origin)
-        )
-        # and np.array_equal(np.round(self.voxel_size, 2), np.round(new_brachy_dose.voxel_size, 2)) \
-        # and np.array_equal(np.round(self.origin_coordinates, 2), np.round(new_brachy_dose.origin_coordinates), 2)
-        # np.array_equal(np.round(np.concatenate(self.voxel_edges), 2), np.concatenate(new_brachy_dose.voxel_edges)) \
+        ):
+            warnings.warn("origin_coordinates is not the same")
+            return False
+        else:
+            return True
 
     def crop_by_coordinates(
         self, coordinate_range: np.array, inplace: Optional[bool] = True
