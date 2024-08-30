@@ -28,16 +28,15 @@ def test_crop_by_body_contour():
 
 
 def test_crop_by_index():
-    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    pth_output = os.path.dirname(pth_input) + "/test_" + os.path.basename(pth_input)
-
-    egsphant_obj = BrachyEgsphant()
-    egsphant_obj.load_from_ctegsphant(pth_input)
+    pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_output = (
+        "../data_test/test_export_plan" + "/cropped" + os.path.basename(pth_input)
+    )
+    egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
     egsphant_obj.info()
-
-    index = np.array([[30, 90], [30, 90], [0, 94]], dtype=np.float32)
-
-    egsphant_obj.crop_by_index(index)
+    
+    crop_index = np.array([[10, 40], [0, 90], [10, 100]], dtype=np.float32)
+    egsphant_obj.crop_by_index(index_range=crop_index)
     egsphant_obj.info()
     egsphant_obj.write_to_ctegsphant(pth_output)
 
@@ -153,4 +152,5 @@ if __name__ == "__main__":
     # test_write_to_egsphant()
     # test_create_egsphant_from_images()
     # text_load_material_dict()
-    test_crop_by_coordinates()
+    # test_crop_by_coordinates()
+    test_crop_by_index()

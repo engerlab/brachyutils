@@ -529,7 +529,11 @@ class BrachyEgsphant:
         print(f"The number of materials is {self.num_materials}")
         print(f"the material dictionary is {self.material_dict}")
 
-    def crop_by_index(self, index_range: np.array, inplace: Optional[bool] = True):
+    def crop_by_index(
+        self,
+        index_range: np.ndarray,
+        inplace: Optional[bool] = True
+        ) -> Union[None, "BrachyEgsphant"]:
         r"""
         Purpose:
             given a range of indicies (mix and max on each axis), this function will crop
@@ -544,68 +548,75 @@ class BrachyEgsphant:
         Dependencies:
             - None
         """
-        new_origin_index = index_range[:, 0].astype(int)
-        assert np.all(
-            new_origin_index >= 0
-        ), "new origin index cannot be negative, please report this bug"
+        assert index_range.shape == (3, 2), "index_range should be a 3x2 array in z, y, x order"
+        assert np.all(self.density_image.gridSize == self.material_image.gridSize), "material and density matrix should have the same size"
+        new_origin_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 0])
+        new_ending_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 1])
+        new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
+        return self.crop_by_coordinates(new_coords_range, inplace)
+    
+        # new_origin_index = index_range[:, 0].astype(int)
+        # assert np.all(
+        #     new_origin_index >= 0
+        # ), "new origin index cannot be negative, please report this bug"
 
-        new_ending_index = index_range[:, 1].astype(int)
-        assert np.all(
-            new_ending_index >= 0
-        ), "new ending index cannot be negative, please report this bug"
+        # new_ending_index = index_range[:, 1].astype(int)
+        # assert np.all(
+        #     new_ending_index >= 0
+        # ), "new ending index cannot be negative, please report this bug"
 
-        # update the attributes
-        if inplace:
-            self.material_matrix = self.material_matrix[
-                new_origin_index[2] : new_ending_index[2],  # z
-                new_origin_index[1] : new_ending_index[1],  # y
-                new_origin_index[0] : new_ending_index[0],  # x
-            ]
-            self.density_matrix = self.density_matrix[
-                new_origin_index[2] : new_ending_index[2],  # z
-                new_origin_index[1] : new_ending_index[1],  # y
-                new_origin_index[0] : new_ending_index[0],  # x
-            ]
-            self.density_image.origin = np.array(
-                [
-                    self.voxel_edges[2][new_origin_index[0]],  # x
-                    self.voxel_edges[1][new_origin_index[1]],  # y
-                    self.voxel_edges[0][new_origin_index[2]],  # z
-                ]
-            )
-            self.density_image.gridSize = np.flip(self.material_matrix.shape, 0)
-            self.voxel_edges = self.calculate_voxel_edges()
-        else:
-            new_obj = BrachyEgsphant()
-            new_obj.material_matrix = self.material_matrix[
-                new_origin_index[2] : new_ending_index[2],
-                new_origin_index[1] : new_ending_index[1],
-                new_origin_index[0] : new_ending_index[0],
-            ]
-            new_obj.density_matrix = self.density_matrix[
-                new_origin_index[2] : new_ending_index[2],
-                new_origin_index[1] : new_ending_index[1],
-                new_origin_index[0] : new_ending_index[0],
-            ]
-            new_obj.origin_coordinates = np.array(
-                [
-                    self.voxel_edges[2][new_origin_index[0]],  # x
-                    self.voxel_edges[1][new_origin_index[1]],  # y
-                    self.voxel_edges[0][new_origin_index[2]],  # z
-                ]
-            )
-            new_obj.material_dict = self.material_dict
-            new_obj.num_voxels = np.flip(new_obj.material_matrix.shape, 0)
-            new_obj.voxel_size = self.density_image.spacing
-            new_obj.voxel_edges = new_obj.calculate_voxel_edges()
-            new_obj.num_materials = self.num_materials
-            return new_obj
+        # # update the attributes
+        # if inplace:
+        #     self.material_matrix = self.material_matrix[
+        #         new_origin_index[2] : new_ending_index[2],  # z
+        #         new_origin_index[1] : new_ending_index[1],  # y
+        #         new_origin_index[0] : new_ending_index[0],  # x
+        #     ]
+        #     self.density_matrix = self.density_matrix[
+        #         new_origin_index[2] : new_ending_index[2],  # z
+        #         new_origin_index[1] : new_ending_index[1],  # y
+        #         new_origin_index[0] : new_ending_index[0],  # x
+        #     ]
+        #     self.density_image.origin = np.array(
+        #         [
+        #             self.voxel_edges[2][new_origin_index[0]],  # x
+        #             self.voxel_edges[1][new_origin_index[1]],  # y
+        #             self.voxel_edges[0][new_origin_index[2]],  # z
+        #         ]
+        #     )
+        #     self.density_image.gridSize = np.flip(self.material_matrix.shape, 0)
+        #     self.voxel_edges = self.calculate_voxel_edges()
+        # else:
+        #     new_obj = BrachyEgsphant()
+        #     new_obj.material_matrix = self.material_matrix[
+        #         new_origin_index[2] : new_ending_index[2],
+        #         new_origin_index[1] : new_ending_index[1],
+        #         new_origin_index[0] : new_ending_index[0],
+        #     ]
+        #     new_obj.density_matrix = self.density_matrix[
+        #         new_origin_index[2] : new_ending_index[2],
+        #         new_origin_index[1] : new_ending_index[1],
+        #         new_origin_index[0] : new_ending_index[0],
+        #     ]
+        #     new_obj.origin_coordinates = np.array(
+        #         [
+        #             self.voxel_edges[2][new_origin_index[0]],  # x
+        #             self.voxel_edges[1][new_origin_index[1]],  # y
+        #             self.voxel_edges[0][new_origin_index[2]],  # z
+        #         ]
+        #     )
+        #     new_obj.material_dict = self.material_dict
+        #     new_obj.num_voxels = np.flip(new_obj.material_matrix.shape, 0)
+        #     new_obj.voxel_size = self.density_image.spacing
+        #     new_obj.voxel_edges = new_obj.calculate_voxel_edges()
+        #     new_obj.num_materials = self.num_materials
+        #     return new_obj
 
     def crop_by_coordinates(
         self,
         coordinate_range: np.array,
         inplace: Optional[bool] = True
-    ):
+    ) -> Union[None, "BrachyEgsphant"]:
         r"""
         Purpose:
             given a range of coordinates (mix and max on each axis), this function will crop
@@ -632,16 +643,6 @@ class BrachyEgsphant:
             new_egsphant: BrachyEgsphant = copy.deepcopy(self)
             new_egsphant.crop_by_coordinates(coordinate_range, inplace=True)
             return new_egsphant
-        # crop_indices = np.zeros((3, 2), dtype=int)
-#
-        # for i in range(3):
-            # origin = self.density_image.origin[i]
-            # for j in range(2):
-                # crop_indices[i][j] = int(
-                    # (coordinate_range[i][j] - origin) / self.density_image.spacing[i]
-                # )
-#
-        # return self.crop_by_index(crop_indices, inplace=inplace)
 
     def crop_by_body_contour(
         self,
