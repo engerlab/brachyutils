@@ -620,24 +620,6 @@ class BrachyEgsphant:
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace)
 
-        # if body_index_range is None or body_mask_shape is None:
-            # assert (
-                # pth_dir_dicom is not None
-            # ), "Either path to a dicom directory with dicom structure \
-                # file should be given or body_index_range and body_mask_shape"
-            # body_mask_info = BrachyDicom(pth_dir_dicom, query_structure_list=["body"])
-            # body_index_range = body_mask_info["body"]["structure_index_range"]
-            # body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]
-        # the body mask may have a different size than the material map, we normalize range to the dimension
-        # of original mask and scale it to the dimension of the material map to get the body index range on the material image.
-        # scaled_body_index_range = (
-            # body_index_range
-            # / np.expand_dims(body_mask_shape, axis=1)
-            # * np.expand_dims(self.density_image.gridSize, axis=1)
-        # ).astype(int)
-        # print(scaled_body_index_range)
-        # self.crop_by_index(scaled_body_index_range, True)
-
     def create_egsphant_from_images(
         self,
         dicom_image: BrachyDicom,
