@@ -36,11 +36,35 @@ class BrachyDose:
             spacing, origin, and rotation ([z, y, x]) information.
         - voxel_edges:np.ndarray := coorindates of voxel edges along z, y and x axis.
         - interpolation_function := RegularGridInterpolator object that allows for sampling of dose at arbitrary points [z, y, x].
+    Functions:
+        - load_file_to_brachydose
+        - write_brachydose_to_file
+        - load_from_3ddose
+        - load_from_nrrd
+        - load_from_npz
+        - load_from_dicom
+        - load_from_minidos
+        - create_interpolation_function
+        - extract_dose_values_from_coordinates
+        - extract_profile_2d
+        - extract_profile_1d
+        - get_average_uncert
+        - get_average_uncert_benchmark
+        - pad_3ddose
+        - write_to_3ddose
+        - write_to_nrrd
+        - write_to_npz
+        - write_to_minidos
+        - crop_by_coordinates
+        - crop_by_index
+        - crop_by_fraction
 
     Dependencies:
         - opentps.core
         - matplotlib
-        
+        - scipy
+        - pymedphys
+        - SimpleITK
     """
 
     def __init__(

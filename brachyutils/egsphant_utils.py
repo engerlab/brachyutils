@@ -16,8 +16,8 @@ from brachyutils.dicom_utils import BrachyDicom
 class BrachyEgsphant:
     r"""
     Purpose:
-        An object to allow for loading and manipulating the .egsphant files
-
+        - An object to allow for loading and manipulating the .egsphant files
+        
     Attributes:
         - material_image: opentps.core.data.images.Image3D [z, y, x] := a 3D image object holding material per voxel
         - density_image: opentps.core.data.images.Image3D [z, y, x] := a 3D image object holding density per voxel
@@ -27,7 +27,6 @@ class BrachyEgsphant:
         - axis:np.ndarray := coorindates of grid points along z, y and x axis in mm.
         - unit_length:str := the unit of the length of the axis is mm.
         - voxel_edges:np.ndarray := the edges of the voxels in the material and density matrix
-
     Functions:
         - load_file_to_BrachyEgsphant()     done
         - load_from_ctegsphant()            done
@@ -38,28 +37,16 @@ class BrachyEgsphant:
         - crop_by_index()                   done
         - crop_by_coordinates()             done
         - crop_by_body_contour()            done
-        - is_not_empty()  done
+        - is_not_empty()                    done
         - info()                            done
         - is_equal()                        done
+        - create_egsphant_from_images()     done
+        - create_interpolation_function()   done
+        - get_voxel_centers()               done
+        - sort_materials_by()               done
 
     Dependencies:
-        numpy
-        re
-        os
-        glob
-        SimpleITK
-        difflib
-        typing
-        collections
-        pytest
-        lzma
-        pickle
-        pyzstd
-        typer
-        tqdm
-        DicomRTTool
-        pydicom
-        json
+        - opentps
     """
 
     # each voxel in the material matrix is encoded with a single character
