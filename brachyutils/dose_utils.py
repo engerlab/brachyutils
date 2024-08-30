@@ -26,11 +26,10 @@ from opentps.core.data.images import DoseImage
 class BrachyDose:
     r"""
     Purpse:
-        This class holds information regarding a dose distribution as well as the fundamental
-    functions that are applied on the dose. All doses are expressed in Gy.
+        - This class holds information regarding a dose and uncertainty distribution as well as the fundamental
+    functions that are applied on the dose. All doses are expressed in Gy and all the unit length is mm.
 
     Attributes:
-    
         - dose_image:DoseImage := DoseImage object holding the dose grid ([z, y, x]), as well as
             spacing, origin, and rotation ([z, y, x]) information.
         - uncertainty_image:DoseImage := DoseImage object holding the dose uncertainity grid([z, y, x]), as well as
@@ -38,49 +37,10 @@ class BrachyDose:
         - voxel_edges:np.ndarray := coorindates of voxel edges along z, y and x axis.
         - interpolation_function := RegularGridInterpolator object that allows for sampling of dose at arbitrary points [z, y, x].
 
-    Functions:
-        load_file_to_brachydose()
-        load_from_3ddose()
-        load_from_nrrd()
-        load_from_npz()
-        make_profile()
-        make_pdd()
-        get_average_uncert()
-        get_average_uncert_benchmark()
-        pad_3ddose()
-        multiply_dose_by_constant()
-        write_to_3ddose()
-        write_to_nrrd()
-        write_to_npz()
-        write_to_minidos()
-        write_to_xz()
-        write_to_zstd()
-        calculate_voxel_edges()
-        is_equal()
-        crop_by_coordinates()
-        crop_by_fraction()
-        crop_by_index()
-        is_not_empty()
-        info()
-
     Dependencies:
-        numpy
-        re
-        os
-        glob
-        SimpleITK
-        difflib
-        typing
-        collections
-        pytest
-        lzma
-        pickle
-        pyzstd
-        typer
-        tqdm
-        DicomRTTool
-        pydicom
-        json
+        - opentps.core
+        - matplotlib
+        
     """
 
     def __init__(
@@ -102,19 +62,23 @@ class BrachyDose:
 
     def load_file_to_brachydose(
         self, pth_dose_file: Path, load_uncertainty: Optional[bool] = True
-    ):
+    ) -> None:
         r"""
         Purpose:
-        given the path to a file holding dose information, it will return
-        a BrachyDose object with the populated available attributes. It will give a warning
-        for the missing attributes.
+            - given the path to a file holding dose information, it will return
+        a BrachyDose object with the populated available attributes.
 
         Inputs:
             - pth_dose_file := path directory where the file containing the dose is. The file
                 extension could be ".3ddose", ".nrrd", ".dcm", or ".minidos"
-
+            - load_uncertainty := a boolean flag to load the uncertainty image if it is available.
         Output:
-        self : BrachyDose
+            - None := the contents of the file are loaded into the BrachyDose object.
+        Dependencies:
+            - load_from_3ddose()
+            - load_from_nrrd()
+            - load_from_dicom()
+            - load_from_minidos()
         """
         pth_dose_file = os.path.abspath(pth_dose_file)
 
@@ -138,20 +102,25 @@ class BrachyDose:
         # print(len(self.voxel_edges))
         if self.interpolation_function is None and self.dose_image is not None:
             self.create_interpolation_function()
-        return self
+        # return self
 
-    def write_brachydose_to_file(self, pth_dose_file: str):
+    def write_brachydose_to_file(self, pth_dose_file: Path) -> None:
         r"""
         Purpose:
-        To write a brachy dose object to the given file path. this function will automatically
+            - To write a brachy dose object to the given file path. this function will automatically
         detect the type of the output file and will call the right brachyDose writer function.
-
         Inputs:
             - pth_dose_file := path where the BrachyDose contents will be written to. The options
             for output type are "3ddose", "nrrd", "npz", "minidos", "xz", and "zstd".
-
+        Dependencies:
+            - write_to_3ddose()
+            - write_to_nrrd()
+            - write_to_npz()
+            - write_to_minidos()
+            - write_to_xz()
+            - write_to_zstd()
         Output:
-            - void := contents of self is written to "pth_dose_file"
+            - None := contents of self is written to "pth_dose_file"
         """
         file_extension = os.path.splitext(pth_dose_file)[-1]
 
@@ -182,13 +151,17 @@ class BrachyDose:
             file types are '.3ddose', '.nrrd', '.npz', '.minidos', '.xz', and '.zstd'"
             )
 
-    def load_from_3ddose(self, filename: Path, load_uncertainty: Optional[bool] = True):
+    def load_from_3ddose(self, filename: Path, load_uncertainty: Optional[bool] = True) -> None:
         r"""
         Purpose:
-            Given the path to a 3ddose file, load its content into self:BrachyDose.
-
+            - Given the path to a 3ddose file, load its content into self:BrachyDose.
         Input:
             - filename := path to a ".3ddose" file
+        Outputs:
+            - void := contents of self is updated.
+        Dependencies:
+            - numpy
+            - os
         """
         assert (
             os.path.splitext(filename)[-1] == ".3ddose"
@@ -246,14 +219,14 @@ class BrachyDose:
             )
             self.voxel_edges = self.calculate_voxel_edges()
 
-    def load_from_nrrd(self, pth_nrrd:Path):
+    def load_from_nrrd(self, pth_nrrd:Path) -> None:
         r"""
         Purpose:
-            given the path to a nrrd dose file, it will load its content into self:BrachyDose
-
+            - given the path to a nrrd dose file, it will load its content into self:BrachyDose
         Inputs:
             - pth_nrrd := Path to a nrrd file writtern by self.to_nrrd()
-
+        Outputs:
+            - void := contents of self is updated.
         Dependencies:
             - SimpleITK
             - calculate_voxel_edges()
@@ -303,13 +276,16 @@ class BrachyDose:
         
         self.voxel_edges = self.calculate_voxel_edges()
 
-    def load_from_npz(self, pth_npz:Path):
+    def load_from_npz(self, pth_npz:Path) -> None:
         r"""
         Purpose:
-            Given the path to an npz file, load its content into self:BrachyDose.
-
+            - Given the path to an npz file, load its content into self:BrachyDose.
         Input:
             - filename := path to a ".npz" file
+        Outputs:
+            - void := contents of self is updated.
+        Dependencies:
+            - numpy
         """
 
         assert (
@@ -366,18 +342,15 @@ class BrachyDose:
         # with open(pth_minidos, "rb") as file:
         #     line_content = np.frombuffer(file.readline())
 
-    def create_interpolation_function(self):
+    def create_interpolation_function(self) -> None:
         r"""
         Purpose:
-            To create an interpolation function for the dose grid.
+            - To create an interpolation function for the dose grid.
             it allows for sampling of dose at any arbitrary set of points.
-
         Inputs:
             - self:BrachyDose := the object must have the grid attribute populated.
-
         Outputs:
             - void := the interpolation function is stored in the object.
-
         Dependencies:
             - scipy.interpolate.RegularGridInterpolator()
         """
@@ -504,7 +477,7 @@ class BrachyDose:
     def get_average_uncert(self) -> float:
         r"""
         Purpose:
-            Documentation is missing
+            XXX Documentation is missing
         """
         max_dose = self.dose_image.imageArray.max()
         dose_mask = self.dose_image.imageArray < 0.2 * max_dose
@@ -686,11 +659,9 @@ class BrachyDose:
         r"""
         Purpose:
             To save the contents of BrachyDose into a npz file, which is numpy compressed.
-
         inputs:
             - self := BrachyDose object
             - file_name := path where the dose npz file will be written to.
-
         outputs: Void
             writes the contents of self:BrachyDose to the file_name.
         """
@@ -707,7 +678,7 @@ class BrachyDose:
     def write_to_minidos(self, file_name: str):
         r"""
         Purpose:
-            To save the contents of BrachyDose into a minidos file, which is just a binary file written line by line.
+            - To save the contents of BrachyDose into a minidos file, which is just a binary file written line by line.
             This code is based on Maude Robitaille's implementation.
             This script was developed by Maude Robitaille.
         inputs:
@@ -765,11 +736,10 @@ class BrachyDose:
 
     def calculate_voxel_edges(self):
         r"""
-        Purpose: will calculate the axes coordinates for a 3ddose dictionary.
-
+        Purpose:
+        - will calculate the axes coordinates for a 3ddose dictionary.
         Input:
             - self:BrachyDose
-
         Output:
             - axes:numpy.array() :=
             [[z_min:voxel_size:z_max],
@@ -791,12 +761,6 @@ class BrachyDose:
                 self.dose_image.spacing[i],
                 dtype=np.float32,
             )
-            # if np.absolute(
-            #     self.dose_image.gridSize[::-1][i]
-            #     - self.voxel_edges[i].shape[0]
-            #     ) > 1:
-            #     self.voxel_edges[i] = self.voxel_edges[i][:-1]
-
         return self.voxel_edges
 
     def get_voxel_centers(self):
@@ -812,11 +776,9 @@ class BrachyDose:
     def get_dose_at_coordinates(self, coords:Union[np.ndarray, List[float]]) -> float:
         r"""
         Purpose:
-            Given a set of coordinates, this function will return the dose at that point.
-
+            - Given a set of coordinates, this function will return the dose at that point.
         Inputs:
             - coords := a list of 3 coordinates [z, y, x] or a numpy array of shape (3,)
-
         Outputs:
             - dose := the dose at the given coordinates in Gy
         """
@@ -826,11 +788,9 @@ class BrachyDose:
     def get_uncertainty_at_coordinates(self, coords:Union[np.ndarray, List[float]]) -> float:
         r"""
         Purpose:
-            Given a set of coordinates, this function will return the dose at that point.
-
+            - Given a set of coordinates, this function will return the dose at that point.
         Inputs:
             - coords := a list of 3 coordinates [z, y, x] or a numpy array of shape (3,)
-
         Outputs:
             - dose := the dose at the given coordinates in Gy
         """
@@ -838,54 +798,53 @@ class BrachyDose:
         assert self.uncertainty_image is not None, "uncertainty image is not defined"
         return self.uncertainty_image.getDataAtPosition(coords)
     
-    def is_equal(self, new_brachy_dose):
+    def is_equal(self, new_brachy_dose) -> bool:
         r"""
         Purpose:
-            To compare if self:BrachyDose has the same attributes as an input BrachyDose
-
+            - To compare if self:BrachyDose has the same attributes as an input BrachyDose
         Inputs:
-            - new_brachy_dose: another BrachyDose object whose attributes may or may not contain equal info as the attributes of self.
-
+            - new_brachy_dose: another BrachyDose object whose attributes may or may not contain
+            equal info as the attributes of self.
         Outputs:
             True if attributes of new_brachy_dose are the same as self
             False otherwise
         """
         if not isinstance(new_brachy_dose, BrachyDose):
-            warnings.warn("input must be of type BrachyDose")
+            warnings.warn("input must be of type BrachyDose", stacklevel=2)
             return False
         elif not np.array_equal(
             self.dose_image.imageArray,
             new_brachy_dose.dose_image.imageArray
             ):
-            warnings.warn("dose values are not the same")
+            warnings.warn("dose values are not the same", stacklevel=2)
             return False
         elif not np.array_equal(
             np.concatenate(self.voxel_edges),
             np.concatenate(new_brachy_dose.voxel_edges),
         ):
-            warnings.warn("axis is not the same")
+            warnings.warn("axis is not the same", stacklevel=2)
             return False
         elif not self.uncertainty_image is not None:
             if np.array_equal(
                 self.uncertainty_image.imageArray,
                 new_brachy_dose.uncertainty_image.imageArray
             ):
-                warnings.warn("uncertainty is not the same")
+                warnings.warn("uncertainty is not the same", stacklevel=2)
                 return False
         elif not np.array_equal(
             self.dose_image.gridSize, new_brachy_dose.dose_image.gridSize
         ):
-            warnings.warn("num_voxels is not the same")
+            warnings.warn("num_voxels is not the same", stacklevel=2)
             return False
         elif not np.array_equal(
             self.dose_image.spacing, new_brachy_dose.dose_image.spacing
         ):
-            warnings.warn("voxel_size is not the same")
+            warnings.warn("voxel_size is not the same", stacklevel=2)
             return False
         elif not np.array_equal(
             self.dose_image.origin, new_brachy_dose.dose_image.origin
         ):
-            warnings.warn("origin_coordinates is not the same")
+            warnings.warn("origin_coordinates is not the same", stacklevel=2)
             return False
         else:
             return True
@@ -895,7 +854,7 @@ class BrachyDose:
     ) -> Union[None, "BrachyDose"]:
         r"""
         Purpose:
-            given a range of coordinate (mix and max on each axis), this function will crop
+            - given a range of coordinate (mix and max on each axis), this function will crop
             dose and uncertainty maps and will adjust the rest of the attributes accordingly.
         Inputs:
             - self: BrachyDose object
@@ -929,9 +888,9 @@ class BrachyDose:
         ) -> Union[None, "BrachyDose"]:
         r"""
         Purpose:
-            given the crop_fraction, this function will crop out 0.5*(1 - crop_fraction)*gridSizeInWorldUnit
-                from the edges of the x and y, and z axis of dose and uncertainty maps and will adjust the rest of 
-                the attributes accordingly.
+            - given the crop_fraction, this function will crop out 0.5*(1 - crop_fraction)*gridSizeInWorldUnit
+            from the edges of the x and y, and z axis of dose and uncertainty maps and will adjust the rest of 
+            the attributes accordingly.
         Inputs:
             - self: BrachyDose object
             - crop_fraction := 3 floating point between 0 and 1 (one per axis for z, y, x axis), which is the fraction of the image axis 
@@ -972,7 +931,7 @@ class BrachyDose:
         ) -> Union[None, "BrachyDose"]:
         r"""
         Purpose:
-            given a range of indicies (mix and max on each axis), this function will crop
+            - given a range of indicies (mix and max on each axis), this function will crop
             dose and uncertainty maps and will adjust the rest of the attributes accordingly.
         Inputs:
             - self: BrachyDose object
@@ -1016,7 +975,7 @@ class BrachyDose:
     ) -> Union[None, "BrachyDose"]:
         r"""
         Purpose:
-            based on the given dicom structure file, crop the BrachyDose object such
+            - based on the given dicom structure file, crop the BrachyDose object such
             that it only contains the smallest bounding box around the structure structures.
             
         Inputs:
@@ -1043,10 +1002,10 @@ class BrachyDose:
         
     def multiply_dose_by_constant(
         self, scale_factor: float, scale_uncert: Optional[bool] = False
-    ):
+    ) -> None:
         r"""
         Purpose:
-            scale the dose and uncertainty maps by a constant factor.
+            - to scale the dose and uncertainty maps by a constant factor.
         Inputs:
             - scale_factor := a floating point number that the dose and uncertainty maps will be scaled by.
         Outputs:
@@ -1061,11 +1020,11 @@ class BrachyDose:
 def dose_with_empty_grid_like(doseObj: BrachyDose):
     r"""
     Purpose:
-        To create a new dose object with the same attributes as the input dose object,
+        - To create a new dose object with the same attributes as the input dose object,
         but with an empty grid and uncertainty.
 
     Inputs:
-        doseObj: BrachyDose object
+        - doseObj: BrachyDose object
 
     Outputs:
         empty_dose: BrachyDose object with empty grid and uncertainty

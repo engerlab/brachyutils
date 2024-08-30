@@ -1,11 +1,12 @@
 import os
 import warnings
+import numpy as np
+import pydicom
+
 from glob import glob
 from pathlib import Path
 from typing import List, Literal, Optional, Union
 
-import numpy as np
-import pydicom
 from opentps.core.data import ROIContour, RTStruct
 from opentps.core.data.images import CTImage, MRImage, ROIMask
 from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy; writeRTPlan, dose not work on brachy; writeRTStruct
@@ -23,12 +24,12 @@ class BrachyDicom:
     r"""
     Puprose:
         - A class to load DICOM files of an HDR brachytherapy patient and perform some operations.
-        
+
     Attributes:
         - image: CTImage or MRImage := the image of the patient loaded by openTPS. [z, y, x]
         - image_modality: Literal["CT", "MR"] := the modality of the image.
         - structures_dcm: RTStruct := the structure masks of the patient loaded by openTPS. [x, y, z]
-        - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value. 
+        - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value.
         The mask format is ROIMask from open TPS. [z, y, x]
         - dose: BrachyDose := dose from dicom RD file saved as an instance of the BrachyDose class. [z, y, x]
         - catheter_table := a dictionary returned by get_catheter_table_and_source_info_from_dicom() [x, y, z]?
@@ -45,7 +46,7 @@ class BrachyDicom:
         load_structure: Optional[bool] = True,
         load_dose: Optional[bool] = False,
         load_plan: Optional[bool] = False,
-    ) -> "BrachyDicom":
+    ):
         r"""
         Purpose:
             - To gatheter all the information provided by the dicom files of a patient. You can choose to load the image,
@@ -254,7 +255,7 @@ class BrachyDicom:
         r"""
         Purpose:
             - To print the information of the dicom files loaded in the object.
-            These information are the shape of the dicom image, the origin, the voxel size, 
+            These information are the shape of the dicom image, the origin, the voxel size,
             the structures in the dicom
         Inputs:
             - None
