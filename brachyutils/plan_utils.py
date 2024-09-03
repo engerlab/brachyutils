@@ -212,6 +212,7 @@ class BrachyApplicator:
         - load_json(pth_input:str)
         - to_dict()
         - to_json(pth_output:str)
+        - to_mac(pth_output: str)
     """
 
     def __init__(
