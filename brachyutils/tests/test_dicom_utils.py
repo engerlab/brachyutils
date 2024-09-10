@@ -4,11 +4,11 @@ from brachyutils.dicom_utils import BrachyDicom
 
 def test_load_dicom():
     # CT Prostate image:
-    pth_dicom = "../../data_test/prostate-glen-p1-dcm/"
+    pth_dicom = "../data_test/prostate-glen-p1-dcm/"
     # MR Prostate image:
-    # pth_dicom = "../../data_test/prostate-glen-p5-dcm/"
+    # pth_dicom = "../data_test/prostate-glen-p5-dcm/"
     # CT rectal image:
-    # pth_dicom = "../../data_test/rectal-jgh-dcm"
+    # pth_dicom = "../data_test/rectal-jgh-dcm"
     # especial patient case
     dicom_obj = BrachyDicom(
         pth_dicom,
@@ -44,6 +44,8 @@ def test_get_structure_index_range():
     print(structure_index_range)
     # assert structure_index_range is not None, "structure index range is empty"
 
+def test_write_to_dicom():
+    
 
 if __name__ == "__main__":
     print("running tests")
