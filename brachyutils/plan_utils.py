@@ -347,7 +347,7 @@ class BrachyApplicator:
         Outputs:
             - bool := True if the two applicators are equal, False otherwise.
         """
-        if type(self) != type(other):
+        if type(self) is not type(other):
             return False
         if self.name != other.name:
             return False

@@ -45,11 +45,22 @@ def test_get_structure_index_range():
     # assert structure_index_range is not None, "structure index range is empty"
 
 def test_write_to_dicom():
+    # CT Prostate image:
+    pth_dicom = "../data_test/prostate-glen-p1-dcm/"
+    pth_output = "../data_test/prostate-glen-p1-dcm/"
+    dicom_obj = BrachyDicom(
+        pth_dicom,
+        load_image=True,
+        load_structure=False,
+        load_dose=False,
+        load_plan=False,
+    )
+    dicom_obj.write_to_dicom(pth_output)
     
-
 if __name__ == "__main__":
     print("running tests")
-    test_load_dicom()
+    # test_load_dicom()
     # test_get_strcuture_mask_from_dicom()
     # test_get_structure_index_range()
     # test_get_dvh_metrics_from_dicom_dose()
+    test_write_to_dicom()
