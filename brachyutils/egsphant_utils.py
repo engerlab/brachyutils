@@ -304,22 +304,25 @@ class BrachyEgsphant:
             raise ValueError(f"The target nrrd file {filePath} does not exist!")
 
         image = sitk.ReadImage(filePath)
-        self.num_voxels = np.array(image.GetSize(), dtype=int)[::-1]
-        self.voxel_size = np.array(image.GetSpacing(), dtype=float)[::-1]
+        self.num_voxels = np.array(image.GetSize(), dtype=int)#[::-1]
+        self.voxel_size = np.array(image.GetSpacing(), dtype=float)#[::-1]
         #origin_coordinates is the bottom left corner of the image
         #but in sitk, it's the center of the first voxel
-        self.origin_coordinates = np.array(image.GetOrigin(), dtype=float)[::-1] - 0.5 * self.voxel_size
+        self.origin_coordinates = np.array(image.GetOrigin(), dtype=float)- 0.5 * self.voxel_size#[::-1] - 0.5 * self.voxel_size
 
-        self.material_matrix = np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 0], 0, 2)
-        self.density_matrix = np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
-        try: #try to load the material dictionary from the me
+        self.material_matrix = sitk.GetArrayFromImage(image)[:,:,:,0]#np.swapaxes([:, :, :, 0], 0, 2)
+        self.density_matrix = sitk.GetArrayFromImage(image)[:,:,:,1]#np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
+        self.num_materials = np.max(self.material_matrix).astype(int)
+
+        try: #try to load the material dictionary from the metadata
             self.material_dict = json.loads(image.GetMetaData("material_dict"))
+            self.num_materials = len(self.material_dict.keys()) #if the material dict
+            #is found, update a more accurate count of the number of materials
         except Exception:
             warnings.warn("Material dictionary not found in the nrrd file. \
             Please provide the dictionary manually before exporting the file in \
             .egsphant format", stacklevel=2)
         self.calculate_voxel_edges()
-        self.num_materials = np.max(self.material_matrix).astype(int)
 
     def calculate_voxel_edges(self):
         r"""
@@ -440,16 +443,16 @@ class BrachyEgsphant:
             note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z.
         """
         # create sitk dose image
-        material_grid = np.swapaxes(self.material_matrix, 0, 2).astype(np.float32)
-        density_grid = np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
+        material_grid = self.material_matrix.astype(np.float32)#np.swapaxes(self.material_matrix, 0, 2).astype(np.float32)
+        density_grid = self.density_matrix.astype(np.float32)#np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
 
         compose_filter = sitk.ComposeImageFilter()
         image_nrrd = compose_filter.Execute(
             sitk.GetImageFromArray(material_grid), sitk.GetImageFromArray(density_grid)
         )
 
-        image_nrrd.SetOrigin((self.origin_coordinates + self.voxel_size / 2).astype(float))
-        image_nrrd.SetSpacing(self.voxel_size.astype(float))
+        image_nrrd.SetOrigin((self.origin_coordinates + self.voxel_size / 2).astype(float))#[::-1])
+        image_nrrd.SetSpacing(self.voxel_size.astype(float))#[::-1])
 
         #write the static metadata that will be written to all nrrd files
         static_metadata = {}
@@ -458,7 +461,7 @@ class BrachyEgsphant:
             static_metadata["material_dict"] = self.material_dict
 
         for key in static_metadata:
-            image_nrrd.SetMetaData(key, str(static_metadata[key]))
+            image_nrrd.SetMetaData(key, json.dumps(static_metadata[key]))
         # set the metadata: all sitk Images belonging to a patient will have the same meta data
         if metadata is not None:
             for key in metadata:
@@ -484,7 +487,6 @@ class BrachyEgsphant:
             True if attributes of new_BrachyEgsphant are the same as self
             False otherwise
         """
-        print(self.voxel_edges, new_BrachyEgsphant.voxel_edges)
         assert isinstance(
             new_BrachyEgsphant, BrachyEgsphant
         ), "input must be of type BrachyEgsphant"
