@@ -4,6 +4,7 @@ import warnings
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Union
+import SimpleITK as sitk
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
@@ -21,8 +22,12 @@ class BrachyEgsphant:
         - material_matrix:np.ndarray
         - density_matrix:np.ndarray
         - num_materials:int := the number of different material composition options a voxel has
-        - material_dict:dict := a dictionary containing the name of the elements for each voxel,
-            their density and HU lower limit threshold as well as their number coding
+        - material_dict:dict := a dictionary containing each material, each having a
+        dictionary with its character encoding, min HU value, and min density
+            example: {
+            "Air": {"encoding": 1, "density": 0.001225,"HU_limit": -1000.0},
+            "Water": {"encoding": 2, "density": 0.998, "HU_limit": 0.0}
+        }
         - num_voxels:np.ndarray := 1D numpy array holding the number of grid points
         on x, y, z axis.
         - voxel_size:np.ndarray := 1D numpy array holding the resolution of each voxel
@@ -34,10 +39,10 @@ class BrachyEgsphant:
     Functions:
         - load_file_to_BrachyEgsphant()     done
         - load_from_ctegsphant()            done
-        - load_from_nrrd()                  not implemented
+        - load_from_nrrd()                  done
         - calculate_axis()                  done
         - write_to_ctegsphant()             done
-        - write_to_nrrd()                   not implemented
+        - write_to_nrrd()                   done
         - crop_by_index()                   done
         - crop_by_coordinates()             done
         - crop_by_body_contour()            done
@@ -67,7 +72,8 @@ class BrachyEgsphant:
 
     # each voxel in the material matrix is encoded with a single character
     # from this array that represents a unique material recognized by RapidBrachyMC.
-    _materials_encoding_array = [str(i) for i in range(0, 10)] + [
+    # reminder that egsphants start from index 1
+    _materials_encoding_array = [str(i) for i in range(1, 10)] + [
         chr(i) for i in range(ord("A"), ord("Z") + 1)
     ]
 
@@ -287,14 +293,33 @@ class BrachyEgsphant:
         for key, value in sorted_list:
             self.material_dict[key] = value
 
-    def load_from_nrrd(self, pth_file: Path):
+    def load_from_nrrd(self, filePath: Path):
         r"""
         Purpose:
             to load a nrrd file containing egsphant data.
         Input:
             - pth_file := directory path to the .nrrd file
         """
-        raise Exception("This function is not implemented yet!")
+        if not os.path.exists(filePath):
+            raise ValueError(f"The target nrrd file {filePath} does not exist!")
+
+        image = sitk.ReadImage(filePath)
+        self.num_voxels = np.array(image.GetSize(), dtype=int)[::-1]
+        self.voxel_size = np.array(image.GetSpacing(), dtype=float)[::-1]
+        #origin_coordinates is the bottom left corner of the image
+        #but in sitk, it's the center of the first voxel
+        self.origin_coordinates = np.array(image.GetOrigin(), dtype=float)[::-1] - 0.5 * self.voxel_size
+
+        self.material_matrix = np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 0], 0, 2)
+        self.density_matrix = np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
+        try: #try to load the material dictionary from the me
+            self.material_dict = json.loads(image.GetMetaData("material_dict"))
+        except Exception:
+            warnings.warn("Material dictionary not found in the nrrd file. \
+            Please provide the dictionary manually before exporting the file in \
+            .egsphant format", stacklevel=2)
+        self.calculate_voxel_edges()
+        self.num_materials = np.max(self.material_matrix).astype(int)
 
     def calculate_voxel_edges(self):
         r"""
@@ -332,12 +357,13 @@ class BrachyEgsphant:
 
     def create_interpolation_function(self, grid):
         voxel_centers = self.get_voxel_centers()
-        self.interpolation_function = RegularGridInterpolator(
+        interpolation_function = RegularGridInterpolator(
             (voxel_centers[0], voxel_centers[1], voxel_centers[2]),
             grid,
             bounds_error=False,
             fill_value=0,
         )
+        return interpolation_function
 
     def get_voxel_centers(self):
         voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
@@ -381,9 +407,8 @@ class BrachyEgsphant:
         y_axis = " ".join(map(str, np.round(self.voxel_edges[1], decimals=3))) + "\n"
         z_axis = " ".join(map(str, np.round(self.voxel_edges[0], decimals=3))) + "\n"
         material_matrix = _to_single_string(
-            self._convert_material_matrix_to(dtype=str), ""
-        )
-        density_matrix = _to_single_string(self.density_matrix.astype(str), " ")
+            self._convert_material_matrix_to(dtype=str), "", True)
+        density_matrix = _to_single_string(self.density_matrix.astype(str), " ", True)
         print(fileName)
         with open(fileName, "w") as file:
             lines = [
@@ -403,59 +428,51 @@ class BrachyEgsphant:
     def write_to_nrrd(self,fileName: Path, metadata: Optional[dict] = None):
         r"""
         Purpose:
-            To save the contents of BrachyDose into a nrrd file.
+            To save the contents of an egsphant as a nrrd file.
         inputs:
-            - file_name := path where the dose nrrd file will be written to.
+            - fileName := path where the dose nrrd file will be written to.
 
-            - metadata := a dictionary containing the following meta data key values (should be changed later):
-                "cancer site":
-                "care center":
-                "number of dwell positions":
-                "number of segmented structures":
-                "patient number":
-                "Image content": "[3D dose, 3D uncertainty]"
+            - metadata := a dictionary containing the following meta data key values:
+                "material_dict:" {material_name: {"encoding": int, "density": float, "HU_limit": float}}
+                "Image content": "[material_matrix, density_matrix]"
         outputs: Void
-            writes [3D dose, 3D uncertainty], voxel size, origin (origin_coordinates), and metadata to the file_name_dose.nrrd
+            writes [material_matrix, density_matrix], voxel size, origin (origin_coordinates), and metadata to the file_name_dose.nrrd
             note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z.
         """
         # create sitk dose image
-        dose_nda = np.swapaxes(self.grid, 0, 2).astype(np.float32)
-        try:
-            uncertainty_nda = np.swapaxes(self.uncertainty, 0, 2).astype(np.float32)
-        except AttributeError:
-            uncertainty_nda = np.zeros(dose_nda.shape, dtype=np.float32)
-        # # old nrrd format
-        # image_nrrd = sitk.JoinSeries(
-        #     sitk.GetImageFromArray(dose_nda), sitk.GetImageFromArray(uncertainty_nda)
-        # )
-        # # new nrrd format
-        fiter = sitk.ComposeImageFilter()
-        image_nrrd = fiter.Execute(
-            sitk.GetImageFromArray(dose_nda), sitk.GetImageFromArray(uncertainty_nda)
+        material_grid = np.swapaxes(self.material_matrix, 0, 2).astype(np.float32)
+        density_grid = np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
+
+        compose_filter = sitk.ComposeImageFilter()
+        image_nrrd = compose_filter.Execute(
+            sitk.GetImageFromArray(material_grid), sitk.GetImageFromArray(density_grid)
         )
-        # image_nrrd.SetOrigin(np.append([0], self.origin_coordinates))
-        # image_nrrd.SetSpacing(np.append([1], self.voxel_size))
-        image_nrrd.SetOrigin(self.origin_coordinates.astype(float))
+
+        image_nrrd.SetOrigin((self.origin_coordinates + self.voxel_size / 2).astype(float))
         image_nrrd.SetSpacing(self.voxel_size.astype(float))
 
+        #write the static metadata that will be written to all nrrd files
+        static_metadata = {}
+        static_metadata["Image content"] = "[material_matrix, density_matrix]"
+        if self.material_dict is not None:
+            static_metadata["material_dict"] = self.material_dict
+
+        for key in static_metadata:
+            image_nrrd.SetMetaData(key, str(static_metadata[key]))
         # set the metadata: all sitk Images belonging to a patient will have the same meta data
         if metadata is not None:
             for key in metadata:
                 image_nrrd.SetMetaData(key, metadata[key])
 
         # write out the files
-        file_name_ospth = os.path.abspath(file_name)
-        assert os.path.exists(
-            os.path.dirname(file_name_ospth)
-        ), f"the input folder does not exist: {os.path.dirname(file_name_ospth)}"
-
-        run_number = file_name_ospth.split(".")[0]
+        if not os.path.exists(os.path.dirname(fileName)):
+            raise ValueError(f"the input folder does not exist: {os.path.dirname(fileName)}")
 
         sitk.WriteImage(
-            image_nrrd, run_number + ".nrrd", useCompression=True, compressionLevel=9
+            image_nrrd, fileName, useCompression=True, compressionLevel=9
         )
 
-    def is_equal(self, new_BrachyEgsphant):
+    def is_equal(self, new_BrachyEgsphant ):
         r"""
         Purpose:
             To compare if self:BrachyEgsphant has the same attributes as an input BrachyEgsphant
@@ -467,6 +484,7 @@ class BrachyEgsphant:
             True if attributes of new_BrachyEgsphant are the same as self
             False otherwise
         """
+        print(self.voxel_edges, new_BrachyEgsphant.voxel_edges)
         assert isinstance(
             new_BrachyEgsphant, BrachyEgsphant
         ), "input must be of type BrachyEgsphant"
@@ -970,7 +988,8 @@ class BrachyEgsphant:
             )
 
 
-def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
+def _to_single_string(matrix: np.ndarray, delimiter: Optional[str] = "",
+    add_terminating_newline: Optional[bool] = False):
     r"""
     Purpose:
         given a 3D matrix with string entries, this function concatenates all the
@@ -978,20 +997,24 @@ def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
             "\n" is added at the end of each row and
     Input:
         matrix := 3D ndarray full of string enteries
-        deliminator := the string text inbetween the enteries.
+        delimiter := the string text inbetween the enteries.
     Output:
-        a single string containing all the enteries with added \n at the end of each row of
-            matrix and an addiation \n added to each slide in the input matrix
+        a single string containing all the entries with added \n at the end of each row of
+            matrix and an additional \n added to each slice in the input matrix
 
     """
-    matrix_single_string = []
-    for slide in matrix:
-        slide_single_string = []
-        for row in slide:
-            slide_single_string.append(deliminator.join(row) + "\n")
-        matrix_single_string.append(deliminator.join(slide_single_string) + "\n")
+    zslice_strings = []
+    for zslice in matrix:
+        yrow_strings = []
+        for yrow in zslice:
+            x_row_str = delimiter.join(yrow)
+            yrow_strings.append(x_row_str)
+        zslice_strings.append("\n".join(yrow_strings))
+    full_string = "\n\n".join(zslice_strings)
+    if add_terminating_newline:
+        full_string += "\n\n"
+    return full_string
 
-    return "".join(matrix_single_string)
 
 
 def _load_json(pth_json: Path):
