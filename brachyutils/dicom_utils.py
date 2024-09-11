@@ -115,74 +115,74 @@ class BrachyDicom:
                 get_catheter_table_and_source_info_from_dicom(plan_file)
             )
 
-    def load_structures(self, structure_file: str) -> None:
-        r"""
-        Purpose:
-            To load the structures from the dicom RT structure file.
-            The structure masks are stored in the structure_mask_dict.
-            each structure would have a binary mask with the same dimension as the image.
-        Inputs:
-            - structure_file:str := the path to the dicom RT structure file.
-        Outputs:
-            - void: self.structure_mask_dict will be updated with ROIMask objects for each structure. [z, y, x]
-        """
-        assert os.path.exists(structure_file), "given structure file does not exist"
-        assert self.image is not None, "image has not been loaded yet"
+    # def load_structures(self, structure_file: str) -> None:
+    #     r"""
+    #     Purpose:
+    #         To load the structures from the dicom RT structure file.
+    #         The structure masks are stored in the structure_mask_dict.
+    #         each structure would have a binary mask with the same dimension as the image.
+    #     Inputs:
+    #         - structure_file:str := the path to the dicom RT structure file.
+    #     Outputs:
+    #         - void: self.structure_mask_dict will be updated with ROIMask objects for each structure. [z, y, x]
+    #     """
+    #     assert os.path.exists(structure_file), "given structure file does not exist"
+    #     assert self.image is not None, "image has not been loaded yet"
 
-        self.structures_dcm = readDicomStruct(structure_file)
-        for contour in self.structures_dcm.contours:
-            mask_image_xyz = contour.getBinaryMask(
-                origin=np.flip(self.image.origin),
-                gridSize=np.flip(self.image.gridSize),
-                spacing=np.flip(self.image.spacing),
-            )
-            self.structure_mask_dict[contour.name] = ROIMask(
-                imageArray=np.swapaxes(mask_image_xyz.imageArray, 0, 2),
-                origin=np.flip(mask_image_xyz.origin),
-                spacing=np.flip(mask_image_xyz.spacing),
-            )
+    #     self.structures_dcm = readDicomStruct(structure_file)
+    #     for contour in self.structures_dcm.contours:
+    #         mask_image_xyz = contour.getBinaryMask(
+    #             origin=np.flip(self.image.origin),
+    #             gridSize=np.flip(self.image.gridSize),
+    #             spacing=np.flip(self.image.spacing),
+    #         )
+    #         self.structure_mask_dict[contour.name] = ROIMask(
+    #             imageArray=np.swapaxes(mask_image_xyz.imageArray, 0, 2),
+    #             origin=np.flip(mask_image_xyz.origin),
+    #             spacing=np.flip(mask_image_xyz.spacing),
+    #         )
 
-    def get_strcuture_mask_from_dicom(
-        self,
-        query_structure_list: List[str],
-        mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
-    ) -> dict:
-        r"""
-        Purpose:
-            To return a dictionary with the requested structure masks from BrachyDicom object. The queried
-            structure string should be a subset of the structure string in the dicom file. For example,
-            if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
-            The keys in the dictionary match the query_structure_list and the values are the masks.
-        Inputs:
-            - query_structure_list := list of structure names to find the mask of.
-        Outputs:
-            - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
-        """
-        assert (
-            self.structure_mask_dict is not None
-        ), "structure masks have not been loaded yet. please run load_structures() first"
-        mask_dict: dict = {}
-        for query_structure in query_structure_list:
-            for mask_name, mask in self.structure_mask_dict.items():
-                if query_structure.lower() in mask_name.lower():
-                    if np.any(mask.imageArray):
-                        if mask_type == np.ndarray:
-                            mask_dict[query_structure] = mask.imageArray
-                        elif mask_type == ROIContour:
-                            mask_dict[query_structure] = (
-                                self.structures_dcm.getContourByName(mask_name)
-                            )
-                        elif mask_type == ROIMask:
-                            mask_dict[query_structure] = mask
-                        else:
-                            raise ValueError("mask_type not recognized")
-                    else:
-                        mask_dict[query_structure] = None
-                        warnings.warn(
-                            f"mask for {query_structure} is all zeros. returning empty",
-                            stacklevel=2,
-                        )
-        return mask_dict
+    # def get_strcuture_mask_from_dicom(
+    #     self,
+    #     query_structure_list: List[str],
+    #     mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
+    # ) -> dict:
+    #     r"""
+    #     Purpose:
+    #         To return a dictionary with the requested structure masks from BrachyDicom object. The queried
+    #         structure string should be a subset of the structure string in the dicom file. For example,
+    #         if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
+    #         The keys in the dictionary match the query_structure_list and the values are the masks.
+    #     Inputs:
+    #         - query_structure_list := list of structure names to find the mask of.
+    #     Outputs:
+    #         - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
+    #     """
+    #     assert (
+    #         self.structure_mask_dict is not None
+    #     ), "structure masks have not been loaded yet. please run load_structures() first"
+    #     mask_dict: dict = {}
+    #     for query_structure in query_structure_list:
+    #         for mask_name, mask in self.structure_mask_dict.items():
+    #             if query_structure.lower() in mask_name.lower():
+    #                 if np.any(mask.imageArray):
+    #                     if mask_type == np.ndarray:
+    #                         mask_dict[query_structure] = mask.imageArray
+    #                     elif mask_type == ROIContour:
+    #                         mask_dict[query_structure] = (
+    #                             self.structures_dcm.getContourByName(mask_name)
+    #                         )
+    #                     elif mask_type == ROIMask:
+    #                         mask_dict[query_structure] = mask
+    #                     else:
+    #                         raise ValueError("mask_type not recognized")
+    #                 else:
+    #                     mask_dict[query_structure] = None
+    #                     warnings.warn(
+    #                         f"mask for {query_structure} is all zeros. returning empty",
+    #                         stacklevel=2,
+    #                     )
+    #     return mask_dict
 
     def reset(self):
         r"""
