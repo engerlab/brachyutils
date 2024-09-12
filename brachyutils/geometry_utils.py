@@ -248,25 +248,42 @@ class BrachyPhantom:
                 "The input object is not a BrachyPhantom object.", stacklevel=2
             )
             return False
-        if not self.image_modality == other.image_modality:
+        elif not self.image_modality == other.image_modality:
             warnings.warn("The image modalities are not the same.", stacklevel=2)
             return False
-        if not self.unit_length == other.unit_length:
+        elif not self.unit_length == other.unit_length:
             warnings.warn("The unit lengths are not the same.", stacklevel=2)
             return False
-        if not np.array_equal(self.image_obj.imageArray, other.image_obj.imageArray):
+        elif not np.array_equal(self.image_obj.imageArray, other.image_obj.imageArray):
             warnings.warn("The image arrays are not the same.", stacklevel=2)
             return False
-        for structure_name in self.structure_names_dcm:
-            if self.structure_set.getContourByName(
-                structure_name
-            ) != other.structure_set.getContourByName(structure_name):
-                warnings.warn(
-                    f"The structure masks for {structure_name} are not the same.",
-                    stacklevel=2,
-                )
-                return False
-
+        elif self.structure_set is not None and other.structure_set is not None:
+            for structure_name in self.structure_names_dcm:
+                if self.structure_set.getContourByName(
+                    structure_name
+                ) != other.structure_set.getContourByName(structure_name):
+                    warnings.warn(
+                        f"The structure masks for {structure_name} are not the same.",
+                        stacklevel=2,
+                    )
+                    return False
+        else:
+            return True
+    
+    def write_image_to_dicom(self, dir_output: Path) -> None:
+        r"""
+        Purpose:
+            - To write the image and the dose to a dicom file.
+        """
+        if self.image_obj is not None:
+            if self.image_modality == "CT":
+                writeDicomCT(self.image_obj, dir_output)
+            elif self.image_modality == "MR":
+                raise NotImplementedError("MR image writing is not implemented yet")
+            elif self.image_modality == "US":
+                raise NotImplementedError("US image writing is not implemented yet")
+            else:
+                raise ValueError("Image modality not recognized")
 
 # helper functions
 def readDicomUS(image_files):

@@ -20,7 +20,23 @@ def test_get_structure_mask():
         )
     print(phantom_obj.get_structure_mask(['ctv']))
 
+def test_write_image_to_dicom():
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_structure = glob(pth_dicom+"/RS*.dcm")[0]
+    pth_out = "../data_test/test_export_plan/test_p1_image"
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        # pth_structures_file=pth_structure
+        )
+    phantom_obj.write_image_to_dicom(pth_out)
+
+    new_phantom = BrachyPhantom(
+        dir_dicom=pth_out,
+    )
+    new_phantom.is_equal(phantom_obj)
+
 if __name__ == "__main__":
     print("testing BrachyPhantom")
     # test_BrachyPhantom()
-    test_get_structure_mask()
+    # test_get_structure_mask()
+    test_write_image_to_dicom()
