@@ -58,6 +58,21 @@ def test_write_to_egsphant():
     egsphant_obj.is_equal(new_egsphant_obj)
 
 
+def test_write_to_nrrd():
+    egsphant_directory = "../../data_test/prostate-glen-p1-planFiles/"
+    pth_input = egsphant_directory + "ct.egsphant"
+    pth_output = egsphant_directory + "ct.nrrd"
+
+    egsphant_obj = BrachyEgsphant()
+    egsphant_obj.load_from_ctegsphant(pth_input)
+    egsphant_obj.assert_BrachyEgsphant_notEmpty()
+
+    egsphant_obj.write_to_nrrd(pth_output)
+    new_egsphant_obj = BrachyEgsphant()
+    new_egsphant_obj.load_from_nrrd(pth_output)
+
+    egsphant_obj.is_equal(new_egsphant_obj)
+
 def test_to_single_string():
     pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
@@ -74,6 +89,14 @@ def test_load_from_ctegsphant():
 
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_ctegsphant(pth_input)
+    egsphant_obj.assert_BrachyEgsphant_notEmpty()
+    egsphant_obj.info()
+
+def test_load_from_nrrd():
+    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.nrrd"
+
+    egsphant_obj = BrachyEgsphant()
+    egsphant_obj.load_from_nrrd(pth_input)
     egsphant_obj.assert_BrachyEgsphant_notEmpty()
     egsphant_obj.info()
 
