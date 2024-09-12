@@ -37,7 +37,7 @@ class BrachyPhantom:
         dir_dicom: Optional[Path] = None,
         pth_phantom_file: Optional[Path] = None,
         pth_structures_file: Optional[Path] = None,
-    ):
+    ) -> None:
         r"""
         Purpose:
             - Initialize the BrachyPhantom class based on the input path. The input path can be either
@@ -79,7 +79,7 @@ class BrachyPhantom:
             assert os.path.exists(pth_structures_file), "The input path does not exist."
             self._load_structure_file(pth_structures_file)
 
-    def _load_dicom_image_files(self, pth_image: Path):
+    def _load_dicom_image_files(self, pth_image: Path) -> None:
         r"""
         Purpose:
             - Load the DICOM image files.
@@ -107,7 +107,7 @@ class BrachyPhantom:
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
 
-    def _load_nrrd_image_file(self, pth_image: Path):
+    def _load_nrrd_image_file(self, pth_image: Path) -> None:
         r"""
         Purpose:
             - Load the NRRD image file.
@@ -120,7 +120,7 @@ class BrachyPhantom:
         """
         raise NotImplementedError("NRRD files are not supported yet.")
 
-    def _load_structure_file(self, pth_structure: Path):
+    def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
         Purpose:
             - Load the structure file.
@@ -148,7 +148,7 @@ class BrachyPhantom:
         self,
         query_structure_list: List[str],
         mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
-    ) -> dict:
+    ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         Purpose:
             To return a dictionary with the requested structure masks from BrachyDicom object. The queried
@@ -197,7 +197,7 @@ class BrachyPhantom:
                         )
         return mask_dict
 
-    def info(self):
+    def info(self) -> None:
         r"""
         Purpose:
             - Print the information of the BrachyPhantom object.
@@ -269,7 +269,13 @@ class BrachyPhantom:
                     return False
         else:
             return True
-    
+    def get_image_ndarray(self) -> np.ndarray:
+        r"""
+        Purpose:
+            - To return the image as a numpy array in z y x format.
+        """
+        return np.swapaxes(self.image_obj.imageArray, 0, 2)
+
     def write_image_to_dicom(self, dir_output: Path) -> None:
         r"""
         Purpose:
@@ -286,6 +292,29 @@ class BrachyPhantom:
             else:
                 raise ValueError("Image modality not recognized")
 
+    def write_image_to_nrrd(self, pth_output: Path) -> None:
+        r"""
+        Purpose:
+            - To write the image to a nrrd file.
+        """
+        assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
+        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        import SimpleITK as sitk 
+        image_array_zyx = self.get_image_ndarray()
+        image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
+        image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
+        image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
+        sitk.WriteImage(image_nrrd, str(pth_output))
+
+    def write_structures_to_dicom(self, dir_output: Path) -> None:
+        r"""
+        Purpose:
+            - To write the structures to a dicom file.
+        """
+        if self.structure_set is not None:
+            os.makedirs(dir_output, exist_ok=True)
+            writeRTStruct(self.structure_set, dir_output)
+            
 # helper functions
 def readDicomUS(image_files):
     r"""
@@ -299,3 +328,17 @@ def readDicomUS(image_files):
         - openTPS.core
     """
     raise NotImplementedError("US DICOM files are not supported yet.")
+
+def writeRTStruct(structure_set, dir_output):
+    r"""
+    Purpose:
+        - Write the structure set to a DICOM file.
+    Inputs:
+        - structure_set: RTStruct := the structure set object.
+        - dir_output: Path := the directory to write the DICOM file.
+    Outputs:
+        - None
+    Dependencies:
+        - openTPS.core
+    """
+    raise NotImplementedError("Writing RTStruct is not implemented yet.")
