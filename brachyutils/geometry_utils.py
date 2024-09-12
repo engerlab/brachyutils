@@ -118,7 +118,17 @@ class BrachyPhantom:
         Dependencies:
             - openTPS.core
         """
-        raise NotImplementedError("NRRD files are not supported yet.")
+        # raise NotImplementedError("NRRD files are not supported yet.")
+        import SimpleITK as sitk
+        image_nrrd = sitk.ReadImage(pth_image, imageIO="NrrdImageIO")
+        self.pth_image = pth_image
+        self.image_obj = CTImage(
+            imageArray=np.swapaxes(sitk.GetArrayFromImage(image_nrrd), 0, 2),
+            origin=np.array(image_nrrd.GetOrigin()),
+            spacing=np.array(image_nrrd.GetSpacing()),
+        )
+        self.image_modality = image_nrrd.GetMetaData("Modality")
+
 
     def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
@@ -304,6 +314,7 @@ class BrachyPhantom:
         image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
         image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
         image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
+        image_nrrd.SetMetaData("Modality", self.image_modality)
         sitk.WriteImage(image_nrrd, str(pth_output))
 
     def write_structures_to_dicom(self, dir_output: Path) -> None:
