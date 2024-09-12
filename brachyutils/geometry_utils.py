@@ -91,17 +91,20 @@ class BrachyPhantom:
             - openTPS.core
         """
         # Load the image and structure set
-        image_files = glob(str(pth_image / "*.dcm"))
+        image_files = glob((pth_image+"/*.dcm"))
         if len(image_files) == 0:
             raise ValueError("No DICOM files found in the input directory.")
         if "CT" in image_files[0]:
-            self.image_obj = readDicomCT(image_files)
+            ct_files = list(filter(lambda s: "CT" in s, image_files))
+            self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
         elif "MR" in image_files[0]:
-            self.image_obj = readDicomMRI(image_files)
+            mr_files = list(filter(lambda s: "MR" in s, image_files))
+            self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
         elif "US" in image_files[0]:
-            self.image_obj = readDicomUS(image_files)
+            us_files = list(filter(lambda s: "US" in s, image_files))
+            self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
 
     def _load_nrrd_image_file(self, pth_image: Path):
@@ -137,8 +140,8 @@ class BrachyPhantom:
             )
         else:
             raise ValueError("The structure file type is currently not supported.")
-        for structure in self.structure_set.structures:
-            self.structure_names_dcm = []
+        self.structure_names_dcm = []
+        for structure in self.structure_set.contours:
             self.structure_names_dcm.append(structure.name)
 
     def get_strcuture_mask_from_dicom(
@@ -198,7 +201,7 @@ class BrachyPhantom:
         Outputs:
             - None
         """
-        print(f"Geometry ID: {self.id}")
+        print(f"Geometry File source: {self.pth_image}")
         print(f"Image Modality: {self.image_modality}")
         print(f"Unit Length: {self.unit_length}")
         print(f"Image Shape [x, y, z]: {self.image_obj.gridSize}")
