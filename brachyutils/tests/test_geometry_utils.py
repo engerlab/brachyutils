@@ -11,6 +11,16 @@ def test_BrachyPhantom():
         )
     phantom_obj.info()
 
+def test_get_structure_mask():
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_structure = glob(pth_dicom+"/RS*.dcm")[0]
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structure
+        )
+    print(phantom_obj.get_structure_mask(['ctv']))
+
 if __name__ == "__main__":
     print("testing BrachyPhantom")
-    test_BrachyPhantom()
+    # test_BrachyPhantom()
+    test_get_structure_mask()

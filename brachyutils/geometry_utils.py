@@ -144,7 +144,7 @@ class BrachyPhantom:
         for structure in self.structure_set.contours:
             self.structure_names_dcm.append(structure.name)
 
-    def get_strcuture_mask_from_dicom(
+    def get_structure_mask(
         self,
         query_structure_list: List[str],
         mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
@@ -165,12 +165,17 @@ class BrachyPhantom:
             - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
         assert (
-            self.structure_mask_dict is not None
+            self.structure_set is not None
         ), "structure masks have not been loaded yet. please run load_structures() first"
         mask_dict: dict = {}
         for query_structure in query_structure_list:
-            for mask_name, mask in self.structure_mask_dict.items():
+            for mask_name in self.structure_names_dcm:
                 if query_structure.lower() in mask_name.lower():
+                    mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
+                        origin=self.image_obj.origin,
+                        gridSize=self.image_obj.gridSize,
+                        spacing=self.image_obj.spacing,
+                    )
                     if np.any(mask.imageArray):
                         if mask_type == np.ndarray:
                             mask_dict[query_structure] = np.swapaxes(
