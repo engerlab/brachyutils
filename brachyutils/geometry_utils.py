@@ -94,16 +94,16 @@ class BrachyPhantom:
         image_files = glob((pth_image+"/*.dcm"))
         if len(image_files) == 0:
             raise ValueError("No DICOM files found in the input directory.")
-        if "CT" in image_files[0]:
-            ct_files = list(filter(lambda s: "CT" in s, image_files))
+        if "CT" in image_files[0].upper():
+            ct_files = list(filter(lambda s: "CT" in s.upper(), image_files))
             self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
-        elif "MR" in image_files[0]:
-            mr_files = list(filter(lambda s: "MR" in s, image_files))
+        elif "MR" in image_files[0].upper():
+            mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
-        elif "US" in image_files[0]:
-            us_files = list(filter(lambda s: "US" in s, image_files))
+        elif "US" in image_files[0].upper():
+            us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
 
@@ -276,6 +276,7 @@ class BrachyPhantom:
             - To write the image and the dose to a dicom file.
         """
         if self.image_obj is not None:
+            os.makedirs(dir_output, exist_ok=True)
             if self.image_modality == "CT":
                 writeDicomCT(self.image_obj, dir_output)
             elif self.image_modality == "MR":

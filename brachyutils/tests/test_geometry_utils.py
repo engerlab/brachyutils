@@ -23,7 +23,7 @@ def test_get_structure_mask():
 def test_write_image_to_dicom():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom+"/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/test_p1_image"
+    pth_out = "../data_test/test_export_plan/test_p1_ct"
     phantom_obj = BrachyPhantom(
         dir_dicom=pth_dicom,
         # pth_structures_file=pth_structure
