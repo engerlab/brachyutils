@@ -15,7 +15,7 @@ from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy;
     writeDicomCT,
     writeRTDose,
 )
-
+import SimpleITK as sitk
 
 class BrachyPhantom:
     r"""
@@ -119,7 +119,6 @@ class BrachyPhantom:
             - openTPS.core
         """
         # raise NotImplementedError("NRRD files are not supported yet.")
-        import SimpleITK as sitk
         image_nrrd = sitk.ReadImage(pth_image, imageIO="NrrdImageIO")
         self.pth_image = pth_image
         self.image_obj = CTImage(
@@ -302,21 +301,6 @@ class BrachyPhantom:
             else:
                 raise ValueError("Image modality not recognized")
 
-    def write_image_to_nrrd(self, pth_output: Path) -> None:
-        r"""
-        Purpose:
-            - To write the image to a nrrd file.
-        """
-        assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
-        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
-        import SimpleITK as sitk 
-        image_array_zyx = self.get_image_ndarray()
-        image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
-        image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
-        image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
-        image_nrrd.SetMetaData("Modality", self.image_modality)
-        sitk.WriteImage(image_nrrd, str(pth_output))
-
     def write_structures_to_dicom(self, dir_output: Path) -> None:
         r"""
         Purpose:
@@ -325,7 +309,32 @@ class BrachyPhantom:
         if self.structure_set is not None:
             os.makedirs(dir_output, exist_ok=True)
             writeRTStruct(self.structure_set, dir_output)
-            
+
+    def write_image_to_nrrd(self, pth_output: Path) -> None:
+        r"""
+        Purpose:
+            - To write the image to a nrrd file.
+        """
+        assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
+        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        image_array_zyx = self.get_image_ndarray()
+        image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
+        image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
+        image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
+        image_nrrd.SetMetaData("Modality", self.image_modality)
+        sitk.WriteImage(image_nrrd, str(pth_output))
+    
+    def write_structures_to_nrrd(self, pth_output: Path) -> None:
+        r"""
+        Purpose:
+            - To write the structures to a nrrd file.
+        Inputs:
+            - pth_output: Path := the path to write the structures to.
+        """
+        assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
+        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        # XXX: implement this function
+
 # helper functions
 def readDicomUS(image_files):
     r"""
