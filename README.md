@@ -16,6 +16,7 @@ It is recommended to use the singularity image (`brachyutils_opentps.sif`) on Co
 
 ```bash
 # on compute Canada only{
+module load StdEnv/2023
 module load apptainer
 # }
 apptainer run --containall --bind YourDesiredLocation/brachyutils:/root/brachyutils --bind YourDataLocation:/root/data brachyutils_opentps.sif
