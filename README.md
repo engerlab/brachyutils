@@ -12,9 +12,12 @@ git clone -b opentps https://github.com/engerlab/brachyutils.git
 
 To free the users from the hassle of installing brachutils and all its requirements, we have created an Apptainer image and a Docker image that could be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/Elfn1nAw30xNqRhQ6xmA1cwBvxbYVmstWFjqSlJ4dptytg?e=ROqLfn).
 
-It is recommended to use the singularity image (`brachyutils_opentps.sif`) on Compute Canada or in general on systems where `Sudo` access is not possible or Docker is not available. You can bind the folder where your data is located as well.
+It is recommended to use the singularity image (`brachyutils_opentps.sif`) on Compute Canada or in general on systems where `Sudo` access is **not possible** or Docker is not available. You can bind the folder where your data is located as well.
 
 ```bash
+# on compute Canada only{
+module load apptainer
+# }
 apptainer run --containall --bind YourDesiredLocation/brachyutils:/root/brachyutils --bind YourDataLocation:/root/data brachyutils_opentps.sif
 # Once apptainer is running interactively
 cd /root
