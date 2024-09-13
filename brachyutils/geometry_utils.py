@@ -2,7 +2,7 @@ import os
 import warnings
 from glob import glob
 from pathlib import Path
-from typing import Literal, Union, Optional, List, Tuple, Dict
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pydicom
@@ -15,7 +15,7 @@ from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy;
     writeDicomCT,
     writeRTDose,
 )
-
+import SimpleITK as sitk
 
 class BrachyPhantom:
     r"""
@@ -31,48 +31,55 @@ class BrachyPhantom:
     Dependencies:
         - openTPS.core
     """
+
     def __init__(
         self,
-        pth_image: Path,
-        input_file_type: Literal["DICOM", "NRRD"],
-        pth_structure: Optional[Path] = None,
-    ):
+        dir_dicom: Optional[Path] = None,
+        pth_phantom_file: Optional[Path] = None,
+        pth_structures_file: Optional[Path] = None,
+    ) -> None:
         r"""
         Purpose:
-            - Initialize the BrachyPhantom class based on the input path.
+            - Initialize the BrachyPhantom class based on the input path. The input path can be either
+            the directory of the DICOM files or the path of the phantom file (in .nrrd). The structures file
+            is optional. It is also possible to load the structures only without a phantom file. in that case,
+            an empty image_obj is created with the dimensions matching the structures file.
         Inputs:
-            - pth_image: Path := the path of the geometry source files (if DICOM) or file (if NRRD).
-            - input_file_type: Literal["DICOM", "NRRD"] := the type of the input file.
-            - pth_structure: Optional[Path] := the path of the structure source file
-             (could be a single DICOM or NRRD file).    
+            - dir_dicom: Path := the directory of the DICOM files.
+            - pth_phantom_file: Path := the path of the phantom file.
+            - pth_structures_file: Path := the path of the structure file.
         Outputs:
             - None
         Dependencies:
             - openTPS.core
             - BrachyEgsphant
         """
-        self.id: Path = pth_image
+        if dir_dicom is not None and pth_phantom_file is not None:
+            raise ValueError(
+                "Please provide either the directory of the DICOM files or the path of the phantom file."
+            )
+        self.pth_image: Path = dir_dicom if dir_dicom is not None else pth_phantom_file
         self.image_obj: Union[CTImage, MRImage] = None
         self.image_modality: Literal["CT", "MR", "US"] = None
         self.structure_set: RTStruct = None
         self.structure_names_dcm: List[str] = []
         self.unit_length: Literal["mm"] = "mm"
-        self.xyz_format:bool = True
-        
-        assert os.path.exists(pth_image), "The input path does not exist."
-        
-        if input_file_type == "DICOM":
-            self._load_dicom_image_files(pth_image)
-        elif input_file_type == "NRRD":
-            self._load_nrrd_image_file(pth_image)
+        self.xyz_format: bool = True
+
+        assert os.path.exists(self.pth_image), "The input path does not exist."
+
+        if dir_dicom is not None:
+            self._load_dicom_image_files(self.pth_image)
+        elif pth_phantom_file is not None:
+            self._load_nrrd_image_file(self.pth_image)
         else:
             raise ValueError("The input file type is not supported.")
-        
-        if pth_structure is not None:
-            assert os.path.exists(pth_structure), "The input path does not exist."
-            self._load_structure_file(pth_structure)
-            
-    def _load_dicom_image_files(self, pth_image: Path):
+
+        if pth_structures_file is not None:
+            assert os.path.exists(pth_structures_file), "The input path does not exist."
+            self._load_structure_file(pth_structures_file)
+
+    def _load_dicom_image_files(self, pth_image: Path) -> None:
         r"""
         Purpose:
             - Load the DICOM image files.
@@ -84,20 +91,23 @@ class BrachyPhantom:
             - openTPS.core
         """
         # Load the image and structure set
-        image_files = glob(str(pth_image / "*.dcm"))
+        image_files = glob((pth_image+"/*.dcm"))
         if len(image_files) == 0:
             raise ValueError("No DICOM files found in the input directory.")
-        if "CT" in image_files[0]:
-            self.image_obj = readDicomCT(image_files)
+        if "CT" in image_files[0].upper():
+            ct_files = list(filter(lambda s: "CT" in s.upper(), image_files))
+            self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
-        elif "MR" in image_files[0]:
-            self.image_obj = readDicomMRI(image_files)
+        elif "MR" in image_files[0].upper():
+            mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
+            self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
-        elif "US" in image_files[0]:
-            self.image_obj = readDicomUS(image_files)
+        elif "US" in image_files[0].upper():
+            us_files = list(filter(lambda s: "US" in s.upper(), image_files))
+            self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
 
-    def _load_nrrd_image_file(self, pth_image: Path):
+    def _load_nrrd_image_file(self, pth_image: Path) -> None:
         r"""
         Purpose:
             - Load the NRRD image file.
@@ -108,9 +118,18 @@ class BrachyPhantom:
         Dependencies:
             - openTPS.core
         """
-        raise NotImplementedError("NRRD files are not supported yet.")
-    
-    def _load_structure_file(self, pth_structure: Path):
+        # raise NotImplementedError("NRRD files are not supported yet.")
+        image_nrrd = sitk.ReadImage(pth_image, imageIO="NrrdImageIO")
+        self.pth_image = pth_image
+        self.image_obj = CTImage(
+            imageArray=np.swapaxes(sitk.GetArrayFromImage(image_nrrd), 0, 2),
+            origin=np.array(image_nrrd.GetOrigin()),
+            spacing=np.array(image_nrrd.GetSpacing()),
+        )
+        self.image_modality = image_nrrd.GetMetaData("Modality")
+
+
+    def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
         Purpose:
             - Load the structure file.
@@ -125,18 +144,20 @@ class BrachyPhantom:
         if structure_file_type == ".dcm":
             self.structure_set = readDicomStruct(pth_structure)
         elif structure_file_type == ".nrrd":
-            raise NotImplementedError("NRRD files are not supported for structures yet.")
+            raise NotImplementedError(
+                "NRRD files are not supported for structures yet."
+            )
         else:
             raise ValueError("The structure file type is currently not supported.")
-        for structure in self.structure_set.structures:
-            self.structure_names_dcm = []
+        self.structure_names_dcm = []
+        for structure in self.structure_set.contours:
             self.structure_names_dcm.append(structure.name)
 
-    def get_strcuture_mask_from_dicom(
+    def get_structure_mask(
         self,
         query_structure_list: List[str],
         mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
-    ) -> dict:
+    ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         Purpose:
             To return a dictionary with the requested structure masks from BrachyDicom object. The queried
@@ -153,15 +174,22 @@ class BrachyPhantom:
             - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
         assert (
-            self.structure_mask_dict is not None
+            self.structure_set is not None
         ), "structure masks have not been loaded yet. please run load_structures() first"
         mask_dict: dict = {}
         for query_structure in query_structure_list:
-            for mask_name, mask in self.structure_mask_dict.items():
+            for mask_name in self.structure_names_dcm:
                 if query_structure.lower() in mask_name.lower():
+                    mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
+                        origin=self.image_obj.origin,
+                        gridSize=self.image_obj.gridSize,
+                        spacing=self.image_obj.spacing,
+                    )
                     if np.any(mask.imageArray):
                         if mask_type == np.ndarray:
-                            mask_dict[query_structure] = np.swapaxes(mask.imageArray, 0, 2)
+                            mask_dict[query_structure] = np.swapaxes(
+                                mask.imageArray, 0, 2
+                            )
                         elif mask_type == ROIContour:
                             mask_dict[query_structure] = (
                                 self.structures_dcm.getContourByName(mask_name)
@@ -178,7 +206,7 @@ class BrachyPhantom:
                         )
         return mask_dict
 
-    def info(self):
+    def info(self) -> None:
         r"""
         Purpose:
             - Print the information of the BrachyPhantom object.
@@ -187,11 +215,13 @@ class BrachyPhantom:
         Outputs:
             - None
         """
-        print(f"Geometry ID: {self.id}")
+        print(f"Geometry File source: {self.pth_image}")
         print(f"Image Modality: {self.image_modality}")
         print(f"Unit Length: {self.unit_length}")
         print(f"Image Shape [x, y, z]: {self.image_obj.gridSize}")
-        print(f"Image size in world unit [x, y, z]: {self.image_obj.gridSizeInWorldUnit}")
+        print(
+            f"Image size in world unit [x, y, z]: {self.image_obj.gridSizeInWorldUnit}"
+        )
         print(f"Image Origin [x, y, z]: {self.image_obj.origin}")
         print(f"Image Spacing [x, y, z]: {self.image_obj.spacing}")
         print(f"Structure Names: {self.structure_names_dcm}")
@@ -223,22 +253,87 @@ class BrachyPhantom:
             - bool := True if the two objects are equal, False otherwise.
         """
         if not isinstance(other, BrachyPhantom):
-            warnings.warn("The input object is not a BrachyPhantom object.")
+            warnings.warn(
+                "The input object is not a BrachyPhantom object.", stacklevel=2
+            )
             return False
-        if not self.image_modality == other.image_modality:
-            warnings.warn("The image modalities are not the same.")
+        elif not self.image_modality == other.image_modality:
+            warnings.warn("The image modalities are not the same.", stacklevel=2)
             return False
-        if not self.unit_length == other.unit_length:
-            warnings.warn("The unit lengths are not the same.")
+        elif not self.unit_length == other.unit_length:
+            warnings.warn("The unit lengths are not the same.", stacklevel=2)
             return False
-        if not np.array_equal(self.image_obj.imageArray, other.image_obj.imageArray):
-            warnings.warn("The image arrays are not the same.")
+        elif not np.array_equal(self.image_obj.imageArray, other.image_obj.imageArray):
+            warnings.warn("The image arrays are not the same.", stacklevel=2)
             return False
-        for structure_name in self.structure_names_dcm:
-            if self.structure_set.getContourByName(structure_name) != other.structure_set.getContourByName(structure_name):
-                warnings.warn(f"The structure masks for {structure_name} are not the same.")
-                return False
-        
+        elif self.structure_set is not None and other.structure_set is not None:
+            for structure_name in self.structure_names_dcm:
+                if self.structure_set.getContourByName(
+                    structure_name
+                ) != other.structure_set.getContourByName(structure_name):
+                    warnings.warn(
+                        f"The structure masks for {structure_name} are not the same.",
+                        stacklevel=2,
+                    )
+                    return False
+        else:
+            return True
+    def get_image_ndarray(self) -> np.ndarray:
+        r"""
+        Purpose:
+            - To return the image as a numpy array in z y x format.
+        """
+        return np.swapaxes(self.image_obj.imageArray, 0, 2)
+
+    def write_image_to_dicom(self, dir_output: Path) -> None:
+        r"""
+        Purpose:
+            - To write the image and the dose to a dicom file.
+        """
+        if self.image_obj is not None:
+            os.makedirs(dir_output, exist_ok=True)
+            if self.image_modality == "CT":
+                writeDicomCT(self.image_obj, dir_output)
+            elif self.image_modality == "MR":
+                raise NotImplementedError("MR image writing is not implemented yet")
+            elif self.image_modality == "US":
+                raise NotImplementedError("US image writing is not implemented yet")
+            else:
+                raise ValueError("Image modality not recognized")
+
+    def write_structures_to_dicom(self, dir_output: Path) -> None:
+        r"""
+        Purpose:
+            - To write the structures to a dicom file.
+        """
+        if self.structure_set is not None:
+            os.makedirs(dir_output, exist_ok=True)
+            writeRTStruct(self.structure_set, dir_output)
+
+    def write_image_to_nrrd(self, pth_output: Path) -> None:
+        r"""
+        Purpose:
+            - To write the image to a nrrd file.
+        """
+        assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
+        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        image_array_zyx = self.get_image_ndarray()
+        image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
+        image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
+        image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
+        image_nrrd.SetMetaData("Modality", self.image_modality)
+        sitk.WriteImage(image_nrrd, str(pth_output))
+    
+    def write_structures_to_nrrd(self, pth_output: Path) -> None:
+        r"""
+        Purpose:
+            - To write the structures to a nrrd file.
+        Inputs:
+            - pth_output: Path := the path to write the structures to.
+        """
+        assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
+        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        # XXX: implement this function
 
 # helper functions
 def readDicomUS(image_files):
@@ -253,3 +348,17 @@ def readDicomUS(image_files):
         - openTPS.core
     """
     raise NotImplementedError("US DICOM files are not supported yet.")
+
+def writeRTStruct(structure_set, dir_output):
+    r"""
+    Purpose:
+        - Write the structure set to a DICOM file.
+    Inputs:
+        - structure_set: RTStruct := the structure set object.
+        - dir_output: Path := the directory to write the DICOM file.
+    Outputs:
+        - None
+    Dependencies:
+        - openTPS.core
+    """
+    raise NotImplementedError("Writing RTStruct is not implemented yet.")

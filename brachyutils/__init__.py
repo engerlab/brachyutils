@@ -18,3 +18,4 @@ from brachyutils.film_utils import CalibrationCurve, FilmCalibration
 from brachyutils.plan_utils import BrachyApplicator, BrachyPlan, BrachyStructure
 # trunk-ignore(ruff/F401)
 from brachyutils.simulation_utils import BrachySimulation
+from brachyutils.geometry_utils import BrachyPhantom

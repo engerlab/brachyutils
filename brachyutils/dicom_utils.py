@@ -184,91 +184,91 @@ class BrachyDicom:
     #                     )
     #     return mask_dict
 
-    def reset(self):
-        r"""
-        Purpose:
-            - To reset the object to its initial state.
-        Inputs:
-            - None
-        Outputs:
-            - void
-        """
-        self.image = None
-        self.structures_dcm = None
-        self.dose = None
-        self.catheter_table = None
-        self.source_info = None
-        self.structure_mask_dict = {}
+    # def reset(self):
+    #     r"""
+    #     Purpose:
+    #         - To reset the object to its initial state.
+    #     Inputs:
+    #         - None
+    #     Outputs:
+    #         - void
+    #     """
+    #     self.image = None
+    #     self.structures_dcm = None
+    #     self.dose = None
+    #     self.catheter_table = None
+    #     self.source_info = None
+    #     self.structure_mask_dict = {}
 
-    def info(self) -> None:
-        r"""
-        Purpose:
-            - To print the information of the dicom files loaded in the object.
-            These information are the shape of the dicom image, the origin, the voxel size,
-            the structures in the dicom
-        Inputs:
-            - None
-        Outputs:
-            - void
-        """
-        print(f"shape of the image: {self.image.gridSize}")
-        print(f"origin of the image: {self.image.origin}")
-        print(f"voxel size of the image: {self.image.spacing}")
-        print(f"all the structures in the dicom: {self.structure_mask_dict.keys()}")
-        if self.dose is not None:
-            print(f"the shape of dose: {self.dose.dose_image.gridSize}")
-            print(f"origin of the dose: {self.dose.dose_image.origin}")
-            print(f"voxel size of the dose: {self.dose.dose_image.spacing}")
-        else:
-            print("no dose file was loaded")
-        if self.catheter_table is not None:
-            num_dwell_positions = np.sum(
-                [len(catheter["dwells"]) for catheter in self.catheter_table]
-            )
-            print(f"number of dwell positions: {num_dwell_positions}")
-            treatment_time = np.sum(
-                [catheter["channel_total_time"] for catheter in self.catheter_table]
-            )
-            print(f"treatment time: {treatment_time}")
-            print(f"source info: {self.source_info}")
-        else:
-            print("no plan file was loaded")
+    # def info(self) -> None:
+    #     r"""
+    #     Purpose:
+    #         - To print the information of the dicom files loaded in the object.
+    #         These information are the shape of the dicom image, the origin, the voxel size,
+    #         the structures in the dicom
+    #     Inputs:
+    #         - None
+    #     Outputs:
+    #         - void
+    #     """
+    #     print(f"shape of the image: {self.image.gridSize}")
+    #     print(f"origin of the image: {self.image.origin}")
+    #     print(f"voxel size of the image: {self.image.spacing}")
+    #     print(f"all the structures in the dicom: {self.structure_mask_dict.keys()}")
+    #     if self.dose is not None:
+    #         print(f"the shape of dose: {self.dose.dose_image.gridSize}")
+    #         print(f"origin of the dose: {self.dose.dose_image.origin}")
+    #         print(f"voxel size of the dose: {self.dose.dose_image.spacing}")
+    #     else:
+    #         print("no dose file was loaded")
+    #     if self.catheter_table is not None:
+    #         num_dwell_positions = np.sum(
+    #             [len(catheter["dwells"]) for catheter in self.catheter_table]
+    #         )
+    #         print(f"number of dwell positions: {num_dwell_positions}")
+    #         treatment_time = np.sum(
+    #             [catheter["channel_total_time"] for catheter in self.catheter_table]
+    #         )
+    #         print(f"treatment time: {treatment_time}")
+    #         print(f"source info: {self.source_info}")
+    #     else:
+    #         print("no plan file was loaded")
 
-    def get_materials_dict(self):
-        r"""
-        Purpose:
-            - To get the materials dictionary from the dicom file.
-            The material table contains the following attributes for each structure
-        """
-        raise NotImplementedError("this function is not implemented yet")
+    # def get_materials_dict(self):
+    #     r"""
+    #     Purpose:
+    #         - To get the materials dictionary from the dicom file.
+    #         The material table contains the following attributes for each structure
+    #     """
+    #     raise NotImplementedError("this function is not implemented yet")
 
-    def write_to_dicom(self, dir_output: Path) -> None:
-        r"""
-        Purpose:
-            - To write the image and the dose to a dicom file.
-        """
-        if self.image is not None:
-            if self.image_modality == "CT":
-                writeDicomCT(self.image, dir_output)
-            elif self.image_modality == "MR":
-                raise NotImplementedError("MR image writing is not implemented yet")
-            else:
-                raise ValueError("Image modality not recognized")
+    # def write_to_dicom(self, dir_output: Path) -> None:
+    #     r"""
+    #     Purpose:
+    #         - To write the image and the dose to a dicom file.
+    #     """
+    #     if self.image is not None:
+    #         if self.image_modality == "CT":
+    #             writeDicomCT(self.image, dir_output)
+    #         elif self.image_modality == "MR":
+    #             raise NotImplementedError("MR image writing is not implemented yet")
+    #         else:
+    #             raise ValueError("Image modality not recognized")
 
-        if self.dose is not None:
-            writeRTDose(self.dose, os.path.join(dir_output, "RD.dcm"))
+    #     if self.dose is not None:
+    #         writeRTDose(self.dose, os.path.join(dir_output, "RD.dcm"))
 
-        if self.structures_dcm is not None:
-            raise NotImplementedError(
-                "writing structures to dicom is not implemented yet"
-            )
+    #     if self.structures_dcm is not None:
+    #         raise NotImplementedError(
+    #             "writing structures to dicom is not implemented yet"
+    #         )
 
-    def write_to_nrrd(self, dir_output: Path):
-        r"""
-        Purpose:
-            - To write the image, the structure masks, the dose and the plan to a nrrd file.
-        """
-        raise NotImplementedError("writing to nrrd is not implemented yet")
+    # def write_to_nrrd(self, dir_output: Path):
+    #     r"""
+    #     Purpose:
+    #         - To write the image, the structure masks, the dose and the plan to a nrrd file.
+    #     """
+    #     raise NotImplementedError("writing to nrrd is not implemented yet")
 
 
 def get_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str) -> tuple:
