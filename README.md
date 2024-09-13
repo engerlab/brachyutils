@@ -2,6 +2,27 @@
 
 This package implements Brachytherapy dose, egsphant dicom and film dosimetry functionalities.
 
+Start by clonning this repository to `YourDesiredLocation`:
+
+```bash
+git clone https://github.com/engerlab/brachyutils.git
+```
+
+## Using Apptainer Image
+
+To free the users from the hassle of installing brachutils and all its requirements, we have created an Apptainer image and a Docker image that could be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/Elfn1nAw30xNqRhQ6xmA1cwBvxbYVmstWFjqSlJ4dptytg?e=ROqLfn).
+
+It is recommended to use the singularity image (`brachyutils_opentps.sif`) on Compute Canada or in general on systems where `Sudo` access is not possible or Docker is not available. You can bind the folder where your data is located as well.
+
+```bash
+apptainer run --containall --bind YourDesiredLocation/brachyutils:/root/brachyutils --bind YourDataLocation:/root/data brachyutils_opentps.sif
+# Once apptainer is running interactively
+cd /root
+source .bashrc
+```
+
+The virtual enviornment called `env_brachyutils` should be activated automatically. You can make changes to the brachyutils source code by editing source files in `/root/brachyutils`. Your data can be found at `/root/data`.
+
 ## Installation
 
 To get the package run:
@@ -10,13 +31,13 @@ To get the package run:
 git clone https://github.com/engerlab/brachyutils.git
 ```
 
-If you are installing this package on a remote cluster managed by the Digital Research Alliance of Canada (Compute Canada), you need to load some required modules:
+<!-- If you are installing this package on a remote cluster managed by the Digital Research Alliance of Canada (Compute Canada), you need to load some required modules:
 
 ```bash
 module load StdEnv/2023
 
 module load opencv
-```
+``` -->
 
 Then, create a virtual envionrment and activate:
 
@@ -29,14 +50,14 @@ source ENV_brachyutils/bin/activate
 
 Else, if using [conda](https://docs.anaconda.com/miniconda/):
 
-```
+```bash
 conda create -n ENV_brachy
 conda activate ENV_brachy
 ```
 
 After this process finishes, run `pip install .` to install the brachyutils package.
 
-### Optional:
+### Optional
 
 `python3 -m pip install --upgrade pip`
 

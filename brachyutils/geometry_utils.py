@@ -2,10 +2,10 @@ import os
 import warnings
 from glob import glob
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import numpy as np
-import pydicom
+# import pydicom
 from opentps.core.data import ROIContour, RTStruct
 from opentps.core.data.images import CTImage, MRImage, ROIMask
 from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy; writeRTPlan, dose not work on brachy; writeRTStruct
@@ -13,7 +13,7 @@ from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy;
     readDicomMRI,
     readDicomStruct,
     writeDicomCT,
-    writeRTDose,
+    # writeRTDose,
 )
 import SimpleITK as sitk
 
