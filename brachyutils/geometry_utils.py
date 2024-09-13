@@ -17,7 +17,7 @@ from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy;
 )
 
 
-class BrachyGeometry:
+class BrachyPhantom:
     r"""
     Puprose:
         - A class to load any voxelized geometry related to an HDR brachytherapy patient or phantom
@@ -39,7 +39,7 @@ class BrachyGeometry:
     ):
         r"""
         Purpose:
-            - Initialize the BrachyGeometry class based on the input path.
+            - Initialize the BrachyPhantom class based on the input path.
         Inputs:
             - pth_image: Path := the path of the geometry source files (if DICOM) or file (if NRRD).
             - input_file_type: Literal["DICOM", "NRRD"] := the type of the input file.
@@ -181,7 +181,7 @@ class BrachyGeometry:
     def info(self):
         r"""
         Purpose:
-            - Print the information of the BrachyGeometry object.
+            - Print the information of the BrachyPhantom object.
         Inputs:
             - None
         Outputs:
@@ -200,7 +200,7 @@ class BrachyGeometry:
     def reset(self):
         r"""
         Purpose:
-            - Reset the BrachyGeometry object.
+            - Reset the BrachyPhantom object.
         Inputs:
             - None
         Outputs:
@@ -213,17 +213,17 @@ class BrachyGeometry:
         self.unit_length = None
         self.structure_names_dcm = []
 
-    def is_equal(self, other: "BrachyGeometry") -> bool:
+    def is_equal(self, other: "BrachyPhantom") -> bool:
         r"""
         Purpose:
-            - Check if two BrachyGeometry objects have equal image_obj.
+            - Check if two BrachyPhantom objects have equal image_obj.
         Inputs:
-            - other: BrachyGeometry := the other BrachyGeometry object.
+            - other: BrachyPhantom := the other BrachyPhantom object.
         Outputs:
             - bool := True if the two objects are equal, False otherwise.
         """
-        if not isinstance(other, BrachyGeometry):
-            warnings.warn("The input object is not a BrachyGeometry object.")
+        if not isinstance(other, BrachyPhantom):
+            warnings.warn("The input object is not a BrachyPhantom object.")
             return False
         if not self.image_modality == other.image_modality:
             warnings.warn("The image modalities are not the same.")
