@@ -16,6 +16,7 @@ from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy;
     # writeRTDose,
 )
 import SimpleITK as sitk
+import slicerio
 
 class BrachyPhantom:
     r"""
@@ -26,7 +27,8 @@ class BrachyPhantom:
         - id: str := the path of the geometry source file or files.
         - image_obj: CTImage or MRImage := the image of the patient loaded by openTPS. [x, y, z]
         - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
-        - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z]
+        - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
+        Other names for structure are contours, masks, segmentations.
         - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
     Dependencies:
         - openTPS.core
@@ -144,9 +146,7 @@ class BrachyPhantom:
         if structure_file_type == ".dcm":
             self.structure_set = readDicomStruct(pth_structure)
         elif structure_file_type == ".nrrd":
-            raise NotImplementedError(
-                "NRRD files are not supported for structures yet."
-            )
+            self.structure_set = _load_seg_nrrd(pth_structure)
         else:
             raise ValueError("The structure file type is currently not supported.")
         self.structure_names_dcm = []
@@ -335,26 +335,69 @@ class BrachyPhantom:
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         structure_mask_dict: dict = self.get_structure_mask(self.structure_names_dcm, mask_type=np.ndarray)
         all_masks = np.stack(list(structure_mask_dict.values()), axis=0)
-        header = {
-            'type': 'unsigned char',
-            'dimension': 4,
-            'space': 'left-posterior-superior',
-            'sizes': all_masks.shape,
-            'space directions': np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]),
-            'kinds': ['list', 'domain', 'domain', 'domain'],
-            'encoding': 'gzip',
-            'space origin': self.image_obj.origin,
+        # sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
+        # all_masks = _convert_many_binary_masks_to_1_int_mask(sorted_by_size)
+        spacing = self.image_obj.spacing
+        origin = self.image_obj.origin
+        segmentation = {
+            "voxels": all_masks,
+            "encoding": "gzip",
+            "ijkToLPS": [
+                [ spacing[0], 0., 0., origin[0]],
+                [ 0., spacing[1], 0., origin[1]],
+                [ 0., 0., spacing[2], origin[2]],
+                [ 0., 0., 0., 1. ]
+                ],
+            "segmentation": {
+                "containedRepresentationNames": ["Binary labelmap", "Closed surface"],
+                # "masterRepresentation": "Binary labelmap",
+                # "referenceImageExtentOffset": [0, 0, 0],
+            },
+        "segments": [
+                {
+                    "id": f"Segment_{i+1}",
+                    "LabelValue": i+1,
+                    # "Color": f"{[i, i, i]}",
+                    "name": seg_name,
+                    # "terminology": {},
+                }
+             for i, seg_name in enumerate(structure_mask_dict.keys())]
         }
-        # Add segmentation-specific metadata
-        for i, structure_name in enumerate(structure_mask_dict):
-            header[f'Segment{i}_ID'] = f'Segment_{i+1}'
-            header[f'Segment{i}_Name'] = structure_name
-            header[f'Segment{i}_Color'] = f'{np.random.rand(3)}'
-
-        sitk.WriteImage(sitk.GetImageFromArray(all_masks), str(pth_output), True, header)
-
+        slicerio.write_segmentation(pth_output, segmentation)
 
 # helper functions
+def _sort_segementation_dict_by_size(seg_dict) -> dict:
+    r"""
+    Purpose:
+        - will sort the items in a mask dictionary by the size of the segmentation.
+    Inputs:
+        - seg_dict: dict := the dictionary of the masks. the values are numpy arrays in
+        [z, y, x] format.
+    Outputs:
+        - sorted_dict: dict := the sorted dictionary.
+    """
+    sorted_dict_list = sorted(
+        seg_dict.items(), key=lambda x: np.sum(x[1]), reverse=True
+    )
+    return dict(sorted_dict_list)
+
+def _convert_many_binary_masks_to_1_int_mask(seg_dict: dict) -> np.ndarray:
+    r"""
+    Purpose:
+        - Convert many binary masks to one integer mask. The masks should be ordered 
+        from largest to smallest as the smallest mask will overwrite the larger mask.
+        use _sort_segementation_dict_by_size() to sort the masks.
+    Inputs:
+        - seg_dict: dict := the dictionary of the masks. the values are numpy arrays in
+        [z, y, x] format.
+    Outputs:
+        - int_mask: np.ndarray := the integer mask.
+    """
+    int_mask = np.zeros_like(list(seg_dict.values())[0], dtype=int)
+    for i, (key, mask) in enumerate(seg_dict.items()):
+        int_mask[mask] = i + 1
+    return int_mask
+
 def readDicomUS(image_files):
     r"""
     Purpose:
@@ -381,3 +424,19 @@ def writeRTStruct(structure_set, dir_output):
         - openTPS.core
     """
     raise NotImplementedError("Writing RTStruct is not implemented yet.")
+
+def _load_seg_nrrd(pth_structure: Path) -> RTStruct:
+    r"""
+    Purpose:
+        - Load the NRRD structure file.
+    Inputs:
+        - pth_structure: Path := the path of the structure source file.
+    Outputs:
+        - RTStruct := the structure set object.
+    Dependencies:
+        - openTPS.core
+    """
+    if ".seg.nrrd" in pth_structure:
+        print("using slicerio to lead .seg.nrrd file")
+        segmentation = slicerio.read_segmentation(pth_structure)
+        print("BP")
