@@ -45,9 +45,20 @@ def test_write_image_to_nrrd():
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom)
     phantom_obj.write_image_to_nrrd(pth_out)
 
+def test_write_structures_to_nrrd():
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_structure = glob(pth_dicom+"/RS*.dcm")[0]
+    pth_out = "../data_test/prostate_glen_p1_structs.nrrd"
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structure
+        )
+    phantom_obj.write_structures_to_nrrd(pth_out)
+
 if __name__ == "__main__":
     print("testing BrachyPhantom")
     # test_brachy_phantom()
     # test_get_structure_mask()
     # test_write_image_to_dicom()
     # test_write_image_to_nrrd()
+    test_write_structures_to_nrrd()

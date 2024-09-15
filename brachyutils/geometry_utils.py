@@ -333,7 +333,26 @@ class BrachyPhantom:
         """
         assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
-        # XXX: implement this function
+        structure_mask_dict: dict = self.get_structure_mask(self.structure_names_dcm, mask_type=np.ndarray)
+        all_masks = np.stack(list(structure_mask_dict.values()), axis=0)
+        header = {
+            'type': 'unsigned char',
+            'dimension': 4,
+            'space': 'left-posterior-superior',
+            'sizes': all_masks.shape,
+            'space directions': np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]),
+            'kinds': ['list', 'domain', 'domain', 'domain'],
+            'encoding': 'gzip',
+            'space origin': self.image_obj.origin,
+        }
+        # Add segmentation-specific metadata
+        for i, structure_name in enumerate(structure_mask_dict):
+            header[f'Segment{i}_ID'] = f'Segment_{i+1}'
+            header[f'Segment{i}_Name'] = structure_name
+            header[f'Segment{i}_Color'] = f'{np.random.rand(3)}'
+
+        sitk.WriteImage(sitk.GetImageFromArray(all_masks), str(pth_output), True, header)
+
 
 # helper functions
 def readDicomUS(image_files):
