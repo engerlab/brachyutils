@@ -334,36 +334,25 @@ class BrachyPhantom:
         assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         structure_mask_dict: dict = self.get_structure_mask(self.structure_names_dcm, mask_type=np.ndarray)
-        all_masks = np.stack(list(structure_mask_dict.values()), axis=0)
+        all_masks = np.stack(list(structure_mask_dict.values()), axis=3)
         # sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
         # all_masks = _convert_many_binary_masks_to_1_int_mask(sorted_by_size)
-        spacing = self.image_obj.spacing
-        origin = self.image_obj.origin
-        segmentation = {
-            "voxels": all_masks,
-            "encoding": "gzip",
-            "ijkToLPS": [
-                [ spacing[0], 0., 0., origin[0]],
-                [ 0., spacing[1], 0., origin[1]],
-                [ 0., 0., spacing[2], origin[2]],
-                [ 0., 0., 0., 1. ]
-                ],
-            "segmentation": {
-                "containedRepresentationNames": ["Binary labelmap", "Closed surface"],
-                # "masterRepresentation": "Binary labelmap",
-                # "referenceImageExtentOffset": [0, 0, 0],
-            },
-        "segments": [
-                {
-                    "id": f"Segment_{i+1}",
-                    "LabelValue": i+1,
-                    # "Color": f"{[i, i, i]}",
-                    "name": seg_name,
-                    # "terminology": {},
-                }
-             for i, seg_name in enumerate(structure_mask_dict.keys())]
-        }
-        slicerio.write_segmentation(pth_output, segmentation)
+        sitk_image = sitk.GetImageFromArray(all_masks.astype(int))
+
+        # Set metadata
+        sitk_image.SetSpacing(self.image_obj.spacing)  # Set appropriate spacing
+        sitk_image.SetOrigin(self.image_obj.origin)  # Set appropriate origin
+        sitk_image.SetDirection([1,0,0, 0,1,0, 0,0,1])  # Set direction cosines
+
+        # Add necessary metadata for Slicer to recognize it as a segmentation
+        for i, name in enumerate(structure_mask_dict):
+            sitk_image.SetMetaData(f"Segment{i}_Name", f"{name}")
+
+        # Write the image
+        writer = sitk.ImageFileWriter()
+        writer.SetFileName(pth_output)
+        writer.SetUseCompression(True)
+        writer.Execute(sitk_image)
 
 # helper functions
 def _sort_segementation_dict_by_size(seg_dict) -> dict:
