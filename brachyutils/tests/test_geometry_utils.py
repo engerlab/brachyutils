@@ -53,7 +53,7 @@ def test_write_structures_to_nrrd():
         dir_dicom=pth_dicom,
         pth_structures_file=pth_structure
         )
-    phantom_obj.write_structures_to_nrrd(pth_out)
+    phantom_obj.write_structures_to_nrrd(pth_out, True)
 
 if __name__ == "__main__":
     print("testing BrachyPhantom")
