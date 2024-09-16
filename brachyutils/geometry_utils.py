@@ -324,7 +324,7 @@ class BrachyPhantom:
         image_nrrd.SetMetaData("Modality", self.image_modality)
         sitk.WriteImage(image_nrrd, str(pth_output))
     
-    def write_structures_to_nrrd(self, pth_output: Path) -> None:
+    def write_structures_to_nrrd(self, pth_output: Path, allow_overlap:bool) -> None:
         r"""
         Purpose:
             - To write the structures to a nrrd file.
@@ -334,20 +334,21 @@ class BrachyPhantom:
         assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         structure_mask_dict: dict = self.get_structure_mask(self.structure_names_dcm, mask_type=np.ndarray)
-        all_masks = np.stack(list(structure_mask_dict.values()), axis=3)
-        # sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
-        # all_masks = _convert_many_binary_masks_to_1_int_mask(sorted_by_size)
-        sitk_image = sitk.GetImageFromArray(all_masks.astype(int))
+        if allow_overlap:
+            all_masks = np.stack(list(structure_mask_dict.values()), axis=3)
+            sitk_image = sitk.GetImageFromArray(all_masks.astype(int))
 
-        # Set metadata
-        sitk_image.SetSpacing(self.image_obj.spacing)  # Set appropriate spacing
-        sitk_image.SetOrigin(self.image_obj.origin)  # Set appropriate origin
-        sitk_image.SetDirection([1,0,0, 0,1,0, 0,0,1])  # Set direction cosines
+            # Set metadata
+            sitk_image.SetSpacing(self.image_obj.spacing)  # Set appropriate spacing
+            sitk_image.SetOrigin(self.image_obj.origin)  # Set appropriate origin
+            sitk_image.SetDirection([1,0,0, 0,1,0, 0,0,1])  # Set direction cosines
 
-        # Add necessary metadata for Slicer to recognize it as a segmentation
-        for i, name in enumerate(structure_mask_dict):
-            sitk_image.SetMetaData(f"Segment{i}_Name", f"{name}")
-
+            # Add necessary metadata for Slicer to recognize it as a segmentation
+            for i, name in enumerate(structure_mask_dict):
+                sitk_image.SetMetaData(f"Segment{i}_Name", f"{name}")
+        else:
+            sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
+            all_masks = _convert_many_binary_masks_to_1_int_mask(sorted_by_size)
         # Write the image
         writer = sitk.ImageFileWriter()
         writer.SetFileName(pth_output)

@@ -625,7 +625,10 @@ class BrachyDose:
             ]
             file.writelines(lines)
 
-    def write_to_nrrd(self, pth_output: Path, metadata: Optional[dict] = None):
+    def write_to_nrrd(
+            self, pth_output: Path,
+            metadata: Optional[dict] = None,
+            format: Optional[Literal["rapidbrachy", "slicer"]] = "rapidbrachy"):
         r"""
         Purpose:
             To save the contents of BrachyDose into a nrrd file.
@@ -657,16 +660,21 @@ class BrachyDose:
         #     sitk.GetImageFromArray(dose_array), sitk.GetImageFromArray(uncertainty_array)
         # )
         # # new nrrd format
-        fiter = sitk.ComposeImageFilter()
-        if self.uncertainty_image is not None:
-            image_nrrd = fiter.Execute(
-                sitk.GetImageFromArray(dose_array), sitk.GetImageFromArray(uncertainty_array)
-            )
-        else: 
-            image_nrrd = sitk.GetImageFromArray(dose_array)
+        if format == "rapidbrachy":
+            fiter = sitk.ComposeImageFilter()
+            if self.uncertainty_image is not None:
+                image_nrrd = fiter.Execute(
+                    sitk.GetImageFromArray(dose_array), sitk.GetImageFromArray(uncertainty_array)
+                )
+            else: 
+                image_nrrd = sitk.GetImageFromArray(dose_array)
 
-        image_nrrd.SetOrigin(np.flip(self.dose_image.origin).astype(float))
-        image_nrrd.SetSpacing(np.flip(self.dose_image.spacing).astype(float))
+            image_nrrd.SetOrigin(np.flip(self.dose_image.origin).astype(float))
+            image_nrrd.SetSpacing(np.flip(self.dose_image.spacing).astype(float))
+        elif format == "slicer":
+            raise NotImplementedError("slicer format is not implemented yet")
+        else:
+            raise ValueError("format should be either 'rapidbrachy' or 'slicer'")
 
         # set the metadata: all sitk Images belonging to a patient will have the same meta data
         if metadata is not None:
@@ -674,7 +682,6 @@ class BrachyDose:
                 image_nrrd.SetMetaData(key, metadata[key])
 
         # write out the files
-
         sitk.WriteImage(
             image_nrrd, pth_output, useCompression=True, compressionLevel=9
         )
