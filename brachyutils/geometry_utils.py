@@ -327,61 +327,48 @@ class BrachyPhantom:
     def write_structures_to_nrrd(
         self,
         pth_output: Path,
-        allow_overlap:Optional[bool] = False
+        no_overlap:Optional[bool] = False
         ) -> None:
         r"""
         Purpose:
-            - To write the structures to a nrrd file.
+            - To write the structures to a nrrd file. By defualt, we remove the overlap between the structures. the smaller structures
+            overwrite the larger structures if there is an overlap.
         Inputs:
             - pth_output: Path := the path to write the structures to.
         """
         assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         structure_mask_dict: dict = self.get_structure_mask(self.structure_names_dcm, mask_type=np.ndarray)
-        sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
-        if allow_overlap:
-            img_sitk_list = [
-                sitk.GetImageFromArray(mask.astype(int))
-                for mask in structure_mask_dict.values()
-                ]
-            sitk_image = sitk.JoinSeries(img_sitk_list)
+        
+        if no_overlap:
+            # create the sitk segmentation image
+            sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
+            all_masks = _convert_many_binary_masks_to_1_int_mask(sorted_by_size) # this removes overlap
+            sitk_image = sitk.GetImageFromArray(all_masks.astype(int))
+            sitk_image.SetSpacing(self.image_obj.spacing)
+            sitk_image.SetOrigin(self.image_obj.origin)
+            sitk_image = sitk.Cast(sitk_image, sitk.sitkUInt8)
+
+            # Add necessary metadata for Slicer to recognize it as a segmentation
             sitk_image.SetMetaData("Segmentation_MasterRepresentation", "Binary labelmap")
             sitk_image.SetMetaData("Segmentation_ReferenceImageExtentOffset", "0 0 0")
             sitk_image.SetMetaData(
                 "Segmentation_ContainedRepresentationNames", "Binary labelmap|"
             )
-            # Add necessary metadata for Slicer to recognize it as a segmentation
             for i, name in enumerate(structure_mask_dict):
-                label_extent_tag = f"Segment{i+1}_Extent"
-                value_extent_tag = f"0 {self.image_obj.gridSize[0]} 0 {self.image_obj.gridSize[1]} 0 {self.image_obj.gridSize[2]}"
-                label_base_seg_tag = f"Segment{i+1}_Tags"
-                value_base_seg_tag = "Segmentation category and type - 3D Slicer General Anatomy list~SCT^85756007^Tissue~SCT^85756007^Tissue~^^~Anatomic codes - DICOM master list~^^~^^|"
-                label_name_tag = f"Segment{i+1}"
-                value_name_tag = name
-                label_LavleValue_tag = f"Segment{i+1}_LabelValue"
-                value_LavleValue_tag = i+1
-                # base_color_tag = f"Segment{i+1}_Color"
-                label_id_tag = f"Segment{i+1}_ID"
-                value_id_tag = f"{i+1}"
-                label_layer_tag = f"Segment{i+1}_Layer"
-                value_layer_tag = f"i"
-                
-                label_list: List[str] = [
-                    label_extent_tag, label_base_seg_tag, label_name_tag,
-                    label_LavleValue_tag, label_id_tag, label_layer_tag]
-                value_list: List[str] = [
-                    value_extent_tag, value_base_seg_tag, value_name_tag,
-                    value_LavleValue_tag, value_id_tag, value_layer_tag]
-
+                label_dict = {
+                    f"Segment{i+1}_Extent": f"0 {self.image_obj.gridSize[0]} 0 {self.image_obj.gridSize[1]} 0 {self.image_obj.gridSize[2]}",
+                    f"Segment{i+1}_Tags": "Segmentation category and type - 3D Slicer General Anatomy list~SCT^85756007^Tissue~SCT^85756007^Tissue~^^~Anatomic codes - DICOM master list~^^~^^|",
+                    f"Segment{i+1}": name,
+                    f"Segment{i+1}_LabelValue": f"{i+1}",
+                    f"Segment{i+1}_ID": f"{i+1}",
+                    f"Segment{i+1}_Layer": "0",
+                }
+                for key, value in label_dict.items():
+                    sitk_image.SetMetaData(key, value)
         else:
-            all_masks = _convert_many_binary_masks_to_1_int_mask(sorted_by_size)
-            sitk_image = sitk.GetImageFromArray(all_masks.astype(int))
+            raise NotImplementedError("Overlapping structures are not supported yet.")
         
-        # set origin
-        sitk_image.SetSpacing(self.image_obj.spacing)  # Set appropriate spacing
-        sitk_image.SetOrigin(self.image_obj.origin)  # Set appropriate origin
-        # sitk_image.SetDirection([1,0,0, 0,1,0, 0,0,1])  # Set direction cosines
-    
         # Write the image
         writer = sitk.ImageFileWriter()
         writer.SetFileName(pth_output)
