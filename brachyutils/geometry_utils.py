@@ -74,6 +74,7 @@ class BrachyPhantom:
         elif pth_phantom_file is not None:
             self._load_nrrd_image_file(self.pth_image)
         else:
+            raise ValueError("No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file.")
             warnings.warn("No geometry source file provided.", stacklevel=2)
 
         if pth_structures_file is not None:
@@ -147,7 +148,7 @@ class BrachyPhantom:
             self.structure_set = readDicomStruct(pth_structure)
         elif structure_file_type == ".nrrd":
             self.structure_set = readNrrdStruct(pth_structure)
-            self.structure_set.setPatient(self.image_obj.patient)
+            self.structure_set.setPatient(self.image_obj.patient if self.image_obj is not None else None)
             # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
             # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         else:
@@ -187,7 +188,6 @@ class BrachyPhantom:
                         origin=self.image_obj.origin,
                         gridSize=self.image_obj.gridSize,
                         spacing=self.image_obj.spacing,
-                        name=mask_name,
                     )
                     if np.any(mask.imageArray):
                         if mask_type == np.ndarray:

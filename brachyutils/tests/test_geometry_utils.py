@@ -69,13 +69,13 @@ def test_write_structures_to_dicom():
 def test_read_structures_from_nrrd():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_structures = "../data_test/prostate_glen_p1_structs.seg.nrrd"
-    pth_out = "../data_test/test_export_plan/test_p1_dcm"
+    pth_out = "../data_test/test_export_plan/test_p1_dcm/rs.seg.nrrd"
     phantom_obj = BrachyPhantom(
         dir_dicom=pth_dicom,
         pth_structures_file=pth_structures
         )
-    phantom_obj.write_image_to_dicom(pth_out)
-    phantom_obj.write_structures_to_dicom(pth_out)
+    # phantom_obj.write_image_to_nrrd(pth_out)
+    phantom_obj.write_structures_to_nrrd(pth_out)
     
 
 if __name__ == "__main__":
