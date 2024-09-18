@@ -13,6 +13,7 @@ from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy;
     readDicomMRI,
     readDicomStruct,
     writeDicomCT,
+    writeRTStruct
     # writeRTDose,
 )
 import SimpleITK as sitk
@@ -68,14 +69,12 @@ class BrachyPhantom:
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
 
-        assert os.path.exists(self.pth_image), "The input path does not exist."
-
         if dir_dicom is not None:
             self._load_dicom_image_files(self.pth_image)
         elif pth_phantom_file is not None:
             self._load_nrrd_image_file(self.pth_image)
         else:
-            raise ValueError("The input file type is not supported.")
+            warnings.warn("No geometry source file provided.", stacklevel=2)
 
         if pth_structures_file is not None:
             assert os.path.exists(pth_structures_file), "The input path does not exist."
@@ -92,6 +91,7 @@ class BrachyPhantom:
         Dependencies:
             - openTPS.core
         """
+        assert os.path.exists(pth_image), "The input path does not exist."
         # Load the image and structure set
         image_files = glob((pth_image+"/*.dcm"))
         if len(image_files) == 0:
@@ -120,7 +120,7 @@ class BrachyPhantom:
         Dependencies:
             - openTPS.core
         """
-        # raise NotImplementedError("NRRD files are not supported yet.")
+        assert os.path.exists(pth_image), "The input path does not exist."
         image_nrrd = sitk.ReadImage(pth_image, imageIO="NrrdImageIO")
         self.pth_image = pth_image
         self.image_obj = CTImage(
@@ -146,7 +146,10 @@ class BrachyPhantom:
         if structure_file_type == ".dcm":
             self.structure_set = readDicomStruct(pth_structure)
         elif structure_file_type == ".nrrd":
-            self.structure_set = _load_seg_nrrd(pth_structure)
+            self.structure_set = readNrrdStruct(pth_structure)
+            self.structure_set.setPatient(self.image_obj.patient)
+            # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
+            # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         else:
             raise ValueError("The structure file type is currently not supported.")
         self.structure_names_dcm = []
@@ -184,6 +187,7 @@ class BrachyPhantom:
                         origin=self.image_obj.origin,
                         gridSize=self.image_obj.gridSize,
                         spacing=self.image_obj.spacing,
+                        name=mask_name,
                     )
                     if np.any(mask.imageArray):
                         if mask_type == np.ndarray:
@@ -215,17 +219,17 @@ class BrachyPhantom:
         Outputs:
             - None
         """
-        print(f"Geometry File source: {self.pth_image}")
-        print(f"Image Modality: {self.image_modality}")
-        print(f"Unit Length: {self.unit_length}")
-        print(f"Image Shape [x, y, z]: {self.image_obj.gridSize}")
+        print(f"Geometry File source: {self.pth_image}" if self.pth_image is not None else "No geometry file source.")
+        print(f"Image Modality: {self.image_modality}" if self.image_modality is not None else "No image modality.")
+        print(f"Unit Length: {self.unit_length}" if self.unit_length is not None else "No unit length.")
+        print(f"Image Shape [x, y, z]: {self.image_obj.gridSize}" if self.image_obj is not None else "No image object.")
         print(
-            f"Image size in world unit [x, y, z]: {self.image_obj.gridSizeInWorldUnit}"
+            f"Image size in world unit [x, y, z]: {self.image_obj.gridSizeInWorldUnit}" if self.image_obj is not None else "No image object."
         )
-        print(f"Image Origin [x, y, z]: {self.image_obj.origin}")
-        print(f"Image Spacing [x, y, z]: {self.image_obj.spacing}")
-        print(f"Structure Names: {self.structure_names_dcm}")
-        print(f"Structure Count: {len(self.structure_names_dcm)}")
+        print(f"Image Origin [x, y, z]: {self.image_obj.origin}" if self.image_obj is not None else "No image object.")
+        print(f"Image Spacing [x, y, z]: {self.image_obj.spacing}" if self.image_obj is not None else "No image object.")
+        print(f"Structure Names: {self.structure_names_dcm}" if self.structure_names_dcm is not None else "No structure names.")
+        print(f"Structure Count: {len(self.structure_names_dcm)}" if self.structure_names_dcm is not None else "No structure names.")
 
     def reset(self):
         r"""
@@ -350,16 +354,16 @@ class BrachyPhantom:
             sitk_image.SetOrigin(self.image_obj.origin)
 
             # Add necessary metadata for Slicer to recognize it as a segmentation
-            sitk_image.SetMetaData("Segmentation_MasterRepresentation", "Fractional labelmap")
+            # sitk_image.SetMetaData("Segmentation_MasterRepresentation", "Fractional labelmap")
             # sitk_image.SetMetaData("Segmentation_ReferenceImageExtentOffset", "0 0 0")
-            sitk_image.SetMetaData("Segmentation_SourceRepresentation", "Fractional")
+            # sitk_image.SetMetaData("Segmentation_SourceRepresentation", "Fractional")
             for i, name in enumerate(structure_mask_dict):
                 label_dict = {
                     # f"Segment{i+1}_Tags": "Segmentation category and type - 3D Slicer General Anatomy list~SCT^85756007^Tissue~SCT^85756007^Tissue~^^~Anatomic codes - DICOM master list~^^~^^|",
                     f"Segment{i+1}_Name": f"{name}",
                     f"Segment{i+1}_NameAutoGenerated": "0",
                     f"Segment{i+1}_LabelValue": f"{i+1}",
-                    f"Segment{i+1}_ID": f"Segment_{i+1}",
+                    f"Segment{i+1}_ID": f"Segment{i+1}",
                     f"Segment{i+1}_Layer": "0",
                 }
                 for key, value in label_dict.items():
@@ -419,21 +423,7 @@ def readDicomUS(image_files):
     """
     raise NotImplementedError("US DICOM files are not supported yet.")
 
-def writeRTStruct(structure_set, dir_output):
-    r"""
-    Purpose:
-        - Write the structure set to a DICOM file.
-    Inputs:
-        - structure_set: RTStruct := the structure set object.
-        - dir_output: Path := the directory to write the DICOM file.
-    Outputs:
-        - None
-    Dependencies:
-        - openTPS.core
-    """
-    raise NotImplementedError("Writing RTStruct is not implemented yet.")
-
-def _load_seg_nrrd(pth_structure: Path) -> RTStruct:
+def readNrrdStruct(pth_structure: Path) -> RTStruct:
     r"""
     Purpose:
         - Load the NRRD structure file.
@@ -444,4 +434,27 @@ def _load_seg_nrrd(pth_structure: Path) -> RTStruct:
     Dependencies:
         - openTPS.core
     """
-    raise NotImplementedError("NRRD files are not supported yet.")
+    assert os.path.exists(pth_structure), "The input path does not exist."
+    assert ".seg.nrrd" in pth_structure, "The input file is not a NRRD structure file."
+    sitk_image = sitk.ReadImage(pth_structure, imageIO="NrrdImageIO")
+    segment_all_masks = sitk.GetArrayFromImage(sitk_image)
+    origin = sitk_image.GetOrigin()
+    spacing = sitk_image.GetSpacing()
+
+    meta_data_keys = sitk_image.GetMetaDataKeys()
+    structure_set = RTStruct()
+    for key in meta_data_keys:
+        if "_ID" in key:
+            segment_id = sitk_image.GetMetaData(key)
+            segment_name = sitk_image.GetMetaData(segment_id + "_Name")
+            segment_label = sitk_image.GetMetaData(segment_id + "_LabelValue")
+            segment_mask = segment_all_masks == int(segment_label)
+            segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+            roi_mask = ROIMask(
+                imageArray=np.swapaxes(segment_mask, 0, 2),
+                origin=origin,
+                spacing=spacing,
+                name=segment_name,
+            )
+            structure_set.appendContour(roi_mask.getROIContour())
+    return structure_set
