@@ -784,9 +784,9 @@ class BrachyDose:
             - self:BrachyDose
         Output:
             - axes:numpy.array() :=
-            [[z_min:voxel_size:z_max],
+            [[x_min:voxel_size:x_max],
             [y_min:voxel_size:y_max],
-            [x_min:voxel_size:x_max]]
+            [z_min:voxel_size:z_max]]
         """
         assert self.dose_image is not None, "dose image is not defined. please load a dose image first"
         axes_end = np.array(
