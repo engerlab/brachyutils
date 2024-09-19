@@ -229,17 +229,19 @@ class BrachyDose:
                         (bench_voxels[2], bench_voxels[1], bench_voxels[0]),
                     )
                     self.uncertainty_image = DoseImage(
-                        imageArray = bench_uncert,
-                        origin = (bench_z_pos[0]*10, bench_y_pos[0]*10, bench_x_pos[0]*10),
-                        spacing = (bench_slice_thick*10, bench_y_spacing*10, bench_x_spacing*10),
+                        # convert numpy zyx to xyz in opentps.
+                        imageArray = np.swapaxes(bench_uncert, 0, 2),
+                        origin = (bench_x_pos[0]*10, bench_y_pos[0]*10, bench_z_pos[0]*10),
+                        spacing = (bench_x_spacing*10, bench_y_spacing*10, bench_slice_thick*10),
                     )
                 except ValueError:
                     print("Warning: No uncertainty in the 3ddose file", filename, "\n")
             
             self.dose_image = DoseImage(
-                imageArray = bench_dose,
-                origin = ( bench_z_pos[0]*10, bench_y_pos[0]*10, bench_x_pos[0]*10),
-                spacing = (bench_slice_thick*10, bench_y_spacing*10, bench_x_spacing*10),
+                # convert numpy zyx to xyz in opentps.
+                imageArray = np.swapaxes(bench_dose, 0, 2),
+                origin = ( bench_x_pos[0]*10, bench_y_pos[0]*10, bench_z_pos[0]*10),
+                spacing = (bench_x_spacing*10, bench_y_spacing*10, bench_slice_thick*10),
             )
             self.voxel_edges = self.calculate_voxel_edges()
 
