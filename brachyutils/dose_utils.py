@@ -271,12 +271,15 @@ class BrachyDose:
         else: 
             if dose_uncertainty.shape[-1] == 2:
                 dose_array = dose_uncertainty[:, :, :, 0]
-                dose_array = np.swapaxes(dose_array, 0, 2).astype(np.float32)
+                # no flipping to have everything xyz.
+                # dose_array = np.swapaxes(dose_array, 0, 2).astype(np.float32)
                 uncertainty_array = dose_uncertainty[:, :, :, 1]
-                uncertainty_array = np.swapaxes(uncertainty_array, 0, 2).astype(np.float32)
+                # no flipping to have everything xyz.
+                # uncertainty_array = np.swapaxes(uncertainty_array, 0, 2).astype(np.float32)
             else:
                 print("Uncertainty not found in the nrrd file")
-                dose_array = np.swapaxes(dose_uncertainty, 0, 2).astype(np.float32)
+                # no flipping to have everything xyz.
+                # dose_array = np.swapaxes(dose_uncertainty, 0, 2).astype(np.float32)
                 uncertainty_array = None
                 
             voxel_size = np.round(
@@ -284,8 +287,8 @@ class BrachyDose:
             )
             origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()).astype(np.float32)
                 
-        voxel_size = np.flip(voxel_size)
-        origin_coordinates = np.flip(origin_coordinates)
+        # voxel_size = np.flip(voxel_size)
+        # origin_coordinates = np.flip(origin_coordinates)
 
         self.dose_image = DoseImage(
             imageArray = dose_array,
@@ -339,15 +342,16 @@ class BrachyDose:
             "RD"
         ), "the basename should start with RD"
         dose_image_xyz = readDicomDose(pth_RD_dicom)
-        self.dose_image = DoseImage(
-            imageArray = np.swapaxes(dose_image_xyz.imageArray, 0, 2),
-            origin = np.flip(dose_image_xyz.origin),
-            spacing = np.flip(dose_image_xyz.spacing),
-            name = dose_image_xyz.name,
-            angles = np.flip(dose_image_xyz.angles),
-            seriesInstanceUID=dose_image_xyz.seriesInstanceUID,
-            sopInstanceUID=dose_image_xyz.sopInstanceUID,
-        )
+        # no flipping to have everything xyz.
+        # self.dose_image = DoseImage(
+        #     imageArray = np.swapaxes(dose_image_xyz.imageArray, 0, 2),
+        #     origin = np.flip(dose_image_xyz.origin),
+        #     spacing = np.flip(dose_image_xyz.spacing),
+        #     name = dose_image_xyz.name,
+        #     angles = np.flip(dose_image_xyz.angles),
+        #     seriesInstanceUID=dose_image_xyz.seriesInstanceUID,
+        #     sopInstanceUID=dose_image_xyz.sopInstanceUID,
+        # )
         self.voxel_edges = self.calculate_voxel_edges()
 
     def load_from_minidos(self, pth_minidos):
@@ -602,10 +606,11 @@ class BrachyDose:
         """
         file_name = os.path.abspath(file_name)
 
-        dimensions = " ".join(map(str, np.flip(self.dose_image.gridSize.astype(int)))) + "\n"
-        x_axis = " ".join(map(str, self.voxel_edges[2]/10)) + "\n"
+        # dimensions = " ".join(map(str, np.flip(self.dose_image.gridSize.astype(int)))) + "\n"
+        dimensions = " ".join(map(str, self.dose_image.gridSize.astype(int))) + "\n"
+        x_axis = " ".join(map(str, self.voxel_edges[0]/10)) + "\n"
         y_axis = " ".join(map(str, self.voxel_edges[1]/10)) + "\n"
-        z_axis = " ".join(map(str, self.voxel_edges[0]/10)) + "\n"
+        z_axis = " ".join(map(str, self.voxel_edges[2]/10)) + "\n"
         dose_flattened = " ".join(map(str, self.dose_image.imageArray.flatten("C"))) + "\n"
         if self.uncertainty is not None:
             uncertainty_flattened = (
@@ -651,9 +656,13 @@ class BrachyDose:
         assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
         
         # create sitk dose image
-        dose_array = np.swapaxes(self.dose_image.imageArray, 0, 2).astype(np.float32)
+        dose_array = self.dose_image.imageArray.astype(np.float32)
+        # no flipping to have everything xyz.
+        # dose_array = np.swapaxes(self.dose_image.imageArray, 0, 2).astype(np.float32)
         if self.uncertainty_image is not None:
-            uncertainty_array = np.swapaxes(self.uncertainty_image.imageArray, 0, 2).astype(np.float32)
+            uncertainty_array = self.uncertainty_image.imageArray.astype(np.float32)
+            # no flipping to have everything xyz.
+            # uncertainty_array = np.swapaxes(self.uncertainty_image.imageArray, 0, 2).astype(np.float32)
         
         # # old nrrd format
         # image_nrrd = sitk.JoinSeries(
@@ -666,11 +675,11 @@ class BrachyDose:
                 image_nrrd = fiter.Execute(
                     sitk.GetImageFromArray(dose_array), sitk.GetImageFromArray(uncertainty_array)
                 )
-            else: 
+            else:
                 image_nrrd = sitk.GetImageFromArray(dose_array)
 
-            image_nrrd.SetOrigin(np.flip(self.dose_image.origin).astype(float))
-            image_nrrd.SetSpacing(np.flip(self.dose_image.spacing).astype(float))
+            image_nrrd.SetOrigin(self.dose_image.origin).astype(float)
+            image_nrrd.SetSpacing(self.dose_image.spacing).astype(float)
         elif format == "slicer":
             raise NotImplementedError("slicer format is not implemented yet")
         else:
@@ -725,7 +734,7 @@ class BrachyDose:
         with open(file_name, "wb") as newfile:
 
             # the first line is the number of voxels along each dimension [x, y , z]
-            dims_array = array("i", np.flip(self.dose_image.gridSize))
+            dims_array = array("i", self.dose_image.gridSize)
             dims_array.tofile(newfile)
 
             # lines 2,3 and 4 are the voxel sizes x, y, z
