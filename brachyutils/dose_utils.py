@@ -342,6 +342,8 @@ class BrachyDose:
             "RD"
         ), "the basename should start with RD"
         self.dose_image = readDicomDose(pth_RD_dicom)
+        if self.dose_image.spacing[2] == 0:
+            self.dose_image.spacing[2] = 1.
         # no flipping to have everything xyz.
         # self.dose_image = DoseImage(
         #     imageArray = np.swapaxes(dose_image_xyz.imageArray, 0, 2),
@@ -787,31 +789,51 @@ class BrachyDose:
             [z_min:voxel_size:z_max]]
         """
         assert self.dose_image is not None, "dose image is not defined. please load a dose image first"
-        axes_end = np.array(
-            self.dose_image.origin
-            + self.dose_image.spacing * self.dose_image.gridSize
-            # one voxel size is added because np.arange stops at an index before the end
-            + self.dose_image.spacing
-        )
-        self.voxel_edges = np.empty(len(axes_end), dtype=object)
-        for i in range(len(axes_end)):
-            self.voxel_edges[i] = np.arange(
-                self.dose_image.origin[i],
-                axes_end[i],
-                self.dose_image.spacing[i],
-                dtype=np.float32,
-            )
+        voxel_centers = self.get_voxel_centers()
+        self.voxel_edges = np.empty(len(voxel_centers), dtype=object)
+        for i in range(len(voxel_centers)):
+            self.voxel_edges[i] = voxel_centers[i] - self.dose_image.spacing[i] / 2.0
         return self.voxel_edges
+        # axes_end = np.array(
+        #     self.dose_image.origin
+        #     + self.dose_image.spacing * self.dose_image.gridSize
+        #     # one voxel size is added because np.arange stops at an index before the end
+        #     + self.dose_image.spacing
+        # )
+        # self.voxel_edges = np.empty(len(axes_end), dtype=object)
+        # for i in range(len(axes_end)):
+        #     self.voxel_edges[i] = np.arange(
+        #         self.dose_image.origin[i],
+        #         axes_end[i],
+        #         self.dose_image.spacing[i],
+        #         dtype=np.float32,
+        #     )
+        # return self.voxel_edges
 
     def get_voxel_centers(self):
-        voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
-        if self.voxel_edges is not None:
-            for i in range(len(self.voxel_edges)):
-                voxel_centers[i] = self.voxel_edges[i] + self.dose_image.spacing[i] / 2.0
-                voxel_centers[i] = voxel_centers[i][:-1]
-        else:
-            raise ValueError("Voxel edges are not calculated yet")
+        r"""
+        Purpose:
+            - To calculate the voxel centers of the dose grid.
+        Inputs:
+            - self:BrachyDose
+        Outputs:
+            - voxel_centers := a numpy array containing the coordinates of the voxel centers for each axis.
+        Dependencies:
+            - Image3D.getMeshGridPositions()
+        """
+        assert self.dose_image is not None, "dose image is not defined. please load a dose image first"
+        voxel_centers = np.empty(len(self.dose_image.origin), dtype=object)
+        for i in range(len(self.dose_image.origin)):
+            voxel_centers[i] = self.dose_image.origin[i] + np.arange(self.dose_image.gridSize[i]) * self.dose_image.spacing[i]
         return voxel_centers
+        # voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
+        # if self.voxel_edges is not None:
+        #     for i in range(len(self.voxel_edges)):
+        #         voxel_centers[i] = self.voxel_edges[i] + self.dose_image.spacing[i] / 2.0
+        #         voxel_centers[i] = voxel_centers[i][:-1]
+        # else:
+        #     raise ValueError("Voxel edges are not calculated yet")
+        # return voxel_centers
 
     def get_dose_at_coordinates(self, coords:Union[np.ndarray, List[float]]) -> float:
         r"""

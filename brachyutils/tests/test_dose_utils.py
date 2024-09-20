@@ -17,7 +17,7 @@ def test_load_from_3ddose():
 
 
 def test_load_file_to_brachydose():
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
+    pth_3ddose = "../data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.is_not_empty()
