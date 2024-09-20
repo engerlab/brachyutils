@@ -30,12 +30,12 @@ class BrachyDose:
     functions that are applied on the dose. All doses are expressed in Gy and all the unit length is mm.
 
     Attributes:
-        - dose_image:DoseImage := DoseImage object holding the dose grid ([z, y, x]), as well as
-            spacing, origin, and rotation ([z, y, x]) information.
-        - uncertainty_image:DoseImage := DoseImage object holding the dose uncertainity grid([z, y, x]), as well as
-            spacing, origin, and rotation ([z, y, x]) information.
-        - voxel_edges:np.ndarray := coorindates of voxel edges along z, y and x axis.
-        - interpolation_function := RegularGridInterpolator object that allows for sampling of dose at arbitrary points [z, y, x].
+        - dose_image:DoseImage := DoseImage object holding the dose grid ([x, y, z]), as well as
+            spacing, origin, and rotation ([x, y, z]) information.
+        - uncertainty_image:DoseImage := DoseImage object holding the dose uncertainity grid ([x, y, z]), as well as
+            spacing, origin, and rotation ([x, y, z]) information.
+        - voxel_edges:np.ndarray := coorindates of voxel edges along x, y and z axis.
+        - interpolation_function := RegularGridInterpolator object that allows for sampling of dose at arbitrary points ([x, y, z]).
     Functions:
         - load_file_to_brachydose
         - write_brachydose_to_file
@@ -83,6 +83,7 @@ class BrachyDose:
             self.create_interpolation_function()
         # default dose unit length is mm
         self.unit_length:Literal["mm"] = "mm"
+        self.xyz_format: bool = True
 
     def load_file_to_brachydose(
         self, pth_dose_file: Path, load_uncertainty: Optional[bool] = True
@@ -102,7 +103,7 @@ class BrachyDose:
             - load_from_3ddose()
             - load_from_nrrd()
             - load_from_dicom()
-            - load_from_minidos()
+            - create_interpolation_function()
         """
         pth_dose_file = os.path.abspath(pth_dose_file)
 
@@ -126,7 +127,6 @@ class BrachyDose:
         # print(len(self.voxel_edges))
         if self.interpolation_function is None and self.dose_image is not None:
             self.create_interpolation_function()
-        # return self
 
     def write_brachydose_to_file(self, pth_dose_file: Path) -> None:
         r"""
@@ -284,9 +284,7 @@ class BrachyDose:
                 # dose_array = np.swapaxes(dose_uncertainty, 0, 2).astype(np.float32)
                 uncertainty_array = None
                 
-            voxel_size = np.round(
-                np.array(loaded_image_nrrd.GetSpacing()).astype(np.float32), 1
-            )
+            voxel_size = np.array(loaded_image_nrrd.GetSpacing()).astype(np.float32)
             origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()).astype(np.float32)
                 
         # voxel_size = np.flip(voxel_size)
@@ -1005,7 +1003,7 @@ class BrachyDose:
         print(f"the origin of dose image is {self.dose_image.origin}")
         print(f"the voxel size is {self.dose_image.spacing}")
         print(
-            f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
+            f"the size of the x, y and z axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
         )
         print(f"The grid size in world unit is {self.dose_image.gridSizeInWorldUnit}")
         
