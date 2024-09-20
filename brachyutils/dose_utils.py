@@ -283,10 +283,10 @@ class BrachyDose:
                 # no flipping to have everything xyz.
                 # dose_array = np.swapaxes(dose_uncertainty, 0, 2).astype(np.float32)
                 uncertainty_array = None
-                
+
             voxel_size = np.array(loaded_image_nrrd.GetSpacing()).astype(np.float32)
             origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()).astype(np.float32)
-                
+
         # voxel_size = np.flip(voxel_size)
         # origin_coordinates = np.flip(origin_coordinates)
 
@@ -598,11 +598,11 @@ class BrachyDose:
 
         inputs:
             - self := a BrachyDose object containing the following keys:
-                grid [z, y, x]
-                uncert [z, y, x]
+                grid [x, y, z]
+                uncert [x, y, z]
                 voxel_size [x, y, z]
                 origin_coordinates [x, y, z]
-                axis [z, y, x]
+                axis [x, y, z]
 
             - file_name := the directory path where the file will be written
         """
@@ -614,7 +614,7 @@ class BrachyDose:
         y_axis = " ".join(map(str, self.voxel_edges[1]/10)) + "\n"
         z_axis = " ".join(map(str, self.voxel_edges[2]/10)) + "\n"
         dose_flattened = " ".join(map(str, self.dose_image.imageArray.flatten("C"))) + "\n"
-        if self.uncertainty is not None:
+        if self.uncertainty_image is not None:
             uncertainty_flattened = (
                 " ".join(map(str, self.uncertainty_image.imageArray.flatten("C"))) + "\n"
             )
@@ -665,7 +665,7 @@ class BrachyDose:
             uncertainty_array = self.uncertainty_image.imageArray.astype(np.float32)
             # no flipping to have everything xyz.
             # uncertainty_array = np.swapaxes(self.uncertainty_image.imageArray, 0, 2).astype(np.float32)
-        
+
         # # old nrrd format
         # image_nrrd = sitk.JoinSeries(
         #     sitk.GetImageFromArray(dose_array), sitk.GetImageFromArray(uncertainty_array)
@@ -680,8 +680,8 @@ class BrachyDose:
             else:
                 image_nrrd = sitk.GetImageFromArray(dose_array)
 
-            image_nrrd.SetOrigin(self.dose_image.origin).astype(float)
-            image_nrrd.SetSpacing(self.dose_image.spacing).astype(float)
+            image_nrrd.SetOrigin(self.dose_image.origin.astype(float))
+            image_nrrd.SetSpacing(self.dose_image.spacing.astype(float))
         elif format == "slicer":
             raise NotImplementedError("slicer format is not implemented yet")
         else:
@@ -901,7 +901,7 @@ class BrachyDose:
         Inputs:
             - self: BrachyDose object
             - coordinate_range := a 3 x 2 array holding the min and max on z, y and x axis
-                [[z_min, z_max], [y_min, y_max], [x_min, x_max]]
+                [[x_min, x_max], [y_min, y_max], [z_min, z_max],]
         Output:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the coordinate range.
                 it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
@@ -911,13 +911,14 @@ class BrachyDose:
         from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
 
         self.is_not_empty()
-        assert coordinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in z, y, x order"
+        assert coordinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
         if inplace:
             crop3DDataAroundBox(self.dose_image, coordinate_range)
             if self.uncertainty_image is not None:
                 crop3DDataAroundBox(self.uncertainty_image, coordinate_range)
             self.calculate_voxel_edges()
             self.create_interpolation_function()
+            self.calculate_voxel_edges()
         else:
             new_dose:BrachyDose = copy.deepcopy(self)
             new_dose.crop_by_coordinates(coordinate_range, inplace=True)
@@ -935,7 +936,7 @@ class BrachyDose:
             the attributes accordingly.
         Inputs:
             - self: BrachyDose object
-            - crop_fraction := 3 floating point between 0 and 1 (one per axis for z, y, x axis), which is the fraction of the image axis 
+            - crop_fraction := 3 floating point between 0 and 1 (one per axis for x, y, z axis), which is the fraction of the image axis 
             that remains in the crop. for example, a crop ratio of [1, 0.5, 0.5] will keep the center of the x and y axis, 
             plus minus 0.25*dimension of the image. The z axis will not be cropped.
                     +++++++++       ---------
@@ -978,7 +979,7 @@ class BrachyDose:
         Inputs:
             - self: BrachyDose object
             - index_range := a 3 x 2 array holding the min and max on z, y and x axis
-                [[z_min, z_max], [y_min, y_max], [x_min, x_max]]
+                [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
         Output:
             - Void := will crop out the dose and uncertainty maps of self to have the range of the index range.
         Dependencies:
