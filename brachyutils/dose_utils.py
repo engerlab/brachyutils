@@ -740,17 +740,17 @@ class BrachyDose:
             dims_array.tofile(newfile)
 
             # lines 2,3 and 4 are the voxel sizes x, y, z
-            float_array_x = array("f", [self.dose_image.spacing[2]])
+            float_array_x = array("f", [self.dose_image.spacing[0]])
             float_array_x.tofile(newfile)
             float_array_y = array("f", [self.dose_image.spacing[1]])
             float_array_y.tofile(newfile)
-            float_array_z = array("f", [self.dose_image.spacing[0]])
+            float_array_z = array("f", [self.dose_image.spacing[2]])
             float_array_z.tofile(newfile)
 
             # lines 5, 6, 7 are the origins x, y, and z
-            originx_array = array("f", [self.dose_image.origin[2]])
+            originx_array = array("f", [self.dose_image.origin[0]])
             originy_array = array("f", [self.dose_image.origin[1]])
-            originz_array = array("f", [self.dose_image.origin[0]])
+            originz_array = array("f", [self.dose_image.origin[2]])
 
             originx_array.tofile(newfile)
             originy_array.tofile(newfile)
