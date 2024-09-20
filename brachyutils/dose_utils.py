@@ -341,7 +341,7 @@ class BrachyDose:
         assert os.path.basename(pth_RD_dicom).startswith(
             "RD"
         ), "the basename should start with RD"
-        dose_image_xyz = readDicomDose(pth_RD_dicom)
+        self.dose_image = readDicomDose(pth_RD_dicom)
         # no flipping to have everything xyz.
         # self.dose_image = DoseImage(
         #     imageArray = np.swapaxes(dose_image_xyz.imageArray, 0, 2),

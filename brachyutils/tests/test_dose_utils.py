@@ -8,7 +8,7 @@ from brachyutils.dose_utils import BrachyDose, DoseComparison
 
 
 def test_load_from_3ddose():
-    pth_file = "../../data_test/rectal-jgh-planFiles/combined.3ddose"
+    pth_file = "../data_test/rectal-jgh-planFiles/combined.3ddose"
 
     dose_obj = BrachyDose()
     dose_obj.load_from_3ddose(pth_file)
@@ -24,7 +24,7 @@ def test_load_file_to_brachydose():
 
 
 def test_load_from_dicom():
-    pth_dicom = "../../data_test/prostate-glen-p1-dcm/RD1.3.6.1.4.1.2452.6.350102904.1117384417.1751574951.1257637737.dcm"
+    pth_dicom = "../data_test/prostate-glen-p1-dcm/RD1.3.6.1.4.1.2452.6.350102904.1117384417.1751574951.1257637737.dcm"
     dose_obj = BrachyDose(pth_dicom)
     dose_obj.info()
     dose_obj.is_not_empty()
@@ -39,8 +39,10 @@ def test_write_to_3ddose():
 
     dose_obj = BrachyDose(pth_file)
 
-    dose_obj.write_to_3ddose(os.path.join(dir_out, "test"+os.path.basename(pth_file)))
-    new_dose_obj = BrachyDose(os.path.join(dir_out,"test"+os.path.basename(pth_file)))
+    dose_obj.write_to_3ddose(os.path.join(dir_out, "test" + os.path.basename(pth_file)))
+    new_dose_obj = BrachyDose(
+        os.path.join(dir_out, "test" + os.path.basename(pth_file))
+    )
     dose_obj.is_equal(new_dose_obj)
 
 
@@ -50,6 +52,7 @@ def test_load_from_nrrd():
 
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()
+
 
 def test_write_to_nrrd():
     r"""
@@ -64,6 +67,7 @@ def test_write_to_nrrd():
     dose_obj.write_to_nrrd(pth_out)
     dose_obj_from_nrrd = BrachyDose(pth_out)
     dose_obj.is_equal(dose_obj_from_nrrd)
+
 
 def test_convert_to_npz_file():
     r"""
@@ -84,6 +88,7 @@ def test_convert_to_npz_file():
     new_dose_obj.load_from_npz(pth_out)
     dose_obj.is_equal(new_dose_obj)
 
+
 def test_write_to_xz():
 
     # pth_3ddose =  "../../data_test/combined.3ddose"
@@ -98,7 +103,7 @@ def test_write_to_xz():
 
 
 def test_write_to_zstd():
-    
+
     # pth_3ddose =  "../../data_test/combined.3ddose"
     # pth_zstd = "../../data_test/combined.zst"
 
@@ -171,6 +176,7 @@ def test_dose_comparison():
     # dose_comparison.compare_dose_distributions_2D(
     #    dose_obj.voxel_edges[2], dose_obj.voxel_edges[1], dose_obj.voxel_edges[0][0], 'z')
 
+
 def test_crop_by_dicom_structure():
     pth_dicomRS = "../data_test/rectal-jgh-dcm/"
     pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
@@ -179,18 +185,17 @@ def test_crop_by_dicom_structure():
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()
     cropped_dose = dose_obj.crop_by_dicom_structure(
-        pth_dir_dicom=pth_dicomRS,
-        structure_name="body",
-        inplace=False
+        pth_dir_dicom=pth_dicomRS, structure_name="body", inplace=False
     )
     cropped_dose.info()
 
+
 if __name__ == "__main__":
     # test_load_from_3ddose()
-    # test_load_from_dicom()
+    test_load_from_dicom()
     # test_load_from_nrrd()
     # test_write_to_3ddose()
-    test_write_to_nrrd()
+    # test_write_to_nrrd()
     # test_crop_by_coordinates()
     # test_crop_by_fraction()
     # test_crop_by_index()
