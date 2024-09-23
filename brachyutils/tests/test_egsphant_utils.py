@@ -150,8 +150,8 @@ def test_egsphant_constructor(
 
 
 if __name__ == "__main__":
-    test_load_from_ctegsphant()
-    # test_write_to_egsphant()
+    # test_load_from_ctegsphant()
+    test_write_to_egsphant()
     # test_create_egsphant_from_images()
     # text_load_material_dict()
     # test_crop_by_coordinates()

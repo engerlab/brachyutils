@@ -394,21 +394,26 @@ class BrachyEgsphant:
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
         os.makedirs(os.path.dirname(fileName), exist_ok=True)
+        egsphant_voxel_edges = np.array(
+            [
+                np.append(axis, axis[-1]+self.density_image.spacing) for axis in self.voxel_edges
+            ],
+            dtype=object) / 10
         self._sort_materials_by("encoding")
         num_materials = str(self.num_materials) + "\n"
         materials = "\n".join(self.material_dict.keys()) + "\n"
         spacing = "0 0 0 0 0 0 0 0 0\n"
         dimensions = (
-            " ".join(map(str, np.flip(self.density_image.gridSize).astype(int))) + "\n"
+            " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
         )
         x_axis = (
-            " ".join(map(str, np.round(self.voxel_edges[0] / 10, decimals=3))) + "\n"
+            " ".join(map(str, np.round(egsphant_voxel_edges[0], decimals=3))) + "\n"
         )
         y_axis = (
-            " ".join(map(str, np.round(self.voxel_edges[1] / 10, decimals=3))) + "\n"
+            " ".join(map(str, np.round(egsphant_voxel_edges[1], decimals=3))) + "\n"
         )
         z_axis = (
-            " ".join(map(str, np.round(self.voxel_edges[2] / 10, decimals=3))) + "\n"
+            " ".join(map(str, np.round(egsphant_voxel_edges[2], decimals=3))) + "\n"
         )
         material_matrix = self.get_material_array()
         material_matrix = _to_single_string(
