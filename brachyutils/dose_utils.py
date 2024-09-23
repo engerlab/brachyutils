@@ -286,7 +286,7 @@ class BrachyDose:
 
             voxel_size = np.array(loaded_image_nrrd.GetSpacing()).astype(np.float32)
             origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()).astype(np.float32)
-
+        # no flipping to have everything xyz.
         # voxel_size = np.flip(voxel_size)
         # origin_coordinates = np.flip(origin_coordinates)
 
