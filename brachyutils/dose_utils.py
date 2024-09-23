@@ -196,17 +196,27 @@ class BrachyDose:
             bench_voxels = [int(i) for i in newfile.readline().split()]
             bench_x_pos = np.round(
                 np.array(newfile.readline().split(), dtype=np.float32), decimals=6
-            )
+            ) * 10
             bench_y_pos = np.round(
                 np.array(newfile.readline().split(), dtype=np.float32), decimals=6
-            )
+            ) * 10
             bench_z_pos = np.round(
                 np.array(newfile.readline().split(), dtype=np.float32), decimals=6
-            )
+            ) * 10
 
-            bench_x_spacing = bench_x_pos[1] - bench_x_pos[0]
-            bench_y_spacing = bench_y_pos[1] - bench_y_pos[0]
-            bench_slice_thick = bench_z_pos[1] - bench_z_pos[0]
+            bench_spacing = np.array([
+                bench_x_pos[1] - bench_x_pos[0],
+                bench_y_pos[1] - bench_y_pos[0],
+                bench_z_pos[1] - bench_z_pos[0],
+            ])
+            bench_origin = np.array(
+                [
+                    bench_x_pos[0] + bench_spacing[0] / 2,
+                    bench_y_pos[0] + bench_spacing[1] / 2,
+                    bench_z_pos[0] + bench_spacing[2] / 2,
+                ],
+                dtype=np.float32
+            )
 
             huge_dose_array = np.array(
                 newfile.readline().strip().split(), dtype=np.float32
@@ -231,8 +241,8 @@ class BrachyDose:
                     self.uncertainty_image = DoseImage(
                         # convert numpy zyx to xyz in opentps.
                         imageArray = np.swapaxes(bench_uncert, 0, 2),
-                        origin = (bench_x_pos[0]*10, bench_y_pos[0]*10, bench_z_pos[0]*10),
-                        spacing = (bench_x_spacing*10, bench_y_spacing*10, bench_slice_thick*10),
+                        origin = bench_origin,
+                        spacing = bench_spacing,
                     )
                 except ValueError:
                     print("Warning: No uncertainty in the 3ddose file", filename, "\n")
@@ -240,8 +250,8 @@ class BrachyDose:
             self.dose_image = DoseImage(
                 # convert numpy zyx to xyz in opentps.
                 imageArray = np.swapaxes(bench_dose, 0, 2),
-                origin = ( bench_x_pos[0]*10, bench_y_pos[0]*10, bench_z_pos[0]*10),
-                spacing = (bench_x_spacing*10, bench_y_spacing*10, bench_slice_thick*10),
+                origin = bench_origin,
+                spacing = bench_spacing,
             )
             self.voxel_edges = self.calculate_voxel_edges()
 

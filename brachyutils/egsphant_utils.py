@@ -19,12 +19,12 @@ class BrachyEgsphant:
         - An object to allow for loading and manipulating the .egsphant files
         
     Attributes:
-        - material_image: opentps.core.data.images.Image3D [z, y, x] := a 3D image object holding material per voxel
-        - density_image: opentps.core.data.images.Image3D [z, y, x] := a 3D image object holding density per voxel
+        - material_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding material per voxel
+        - density_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding density per voxel
         - num_materials:int := the number of different material composition options a voxel has
         - material_dict:dict := a dictionary containing the name of the elements for each voxel,
             their density and HU lower limit threshold as well as their number coding
-        - axis:np.ndarray := coorindates of grid points along z, y and x axis in mm.
+        - axis:np.ndarray := coorindates of grid points along x, y and z axis in mm.
         - unit_length:str := the unit of the length of the axis is mm.
         - voxel_edges:np.ndarray := the edges of the voxels in the material and density matrix
     Functions:
@@ -64,13 +64,9 @@ class BrachyEgsphant:
     ):
         self.unit_length = "mm"
         self.material_image: Image3D = None
-        # XXX delete once done
-        # self.material_interpolation_function = None
-
+        
         self.density_image: Image3D = None
-        # XXX delete once done
-        # self.density_interpolation_function = None
-
+        
         self.num_materials: int = None
         self.material_dict: defaultdict = defaultdict(dict)
         self.material_dict["Air"] = {
@@ -80,6 +76,8 @@ class BrachyEgsphant:
         }
 
         self._sanity_axis: np.ndarray = None
+        self.voxel_edges: np.ndarray = None
+        self.xyz_format: bool = True
 
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
@@ -177,17 +175,10 @@ class BrachyEgsphant:
                 ],
                 dtype=object,
             )
-            # convert sanity axis to z, y, x and convert cm to mm
-            self._sanity_axis = np.flip(self._sanity_axis, axis=0)
-
-            origin = np.array(
-                [
-                    self._sanity_axis[0][0],
-                    self._sanity_axis[1][0],
-                    self._sanity_axis[2][0],
-                ],
-                dtype=np.float32,
-            )
+            # convert sanity axis to z, y, x
+            # self._sanity_axis = np.flip(self._sanity_axis, axis=0)
+            # convert sanity axis from cm to mm
+            self._sanity_axis = self._sanity_axis * 10
 
             spacing = np.array(
                 [
@@ -195,6 +186,14 @@ class BrachyEgsphant:
                     self._sanity_axis[1][1] - self._sanity_axis[1][0],
                     self._sanity_axis[2][1] - self._sanity_axis[2][0],
                 ]
+            )
+            origin = np.array(
+                [
+                    self._sanity_axis[0][0] + spacing[0] / 2,
+                    self._sanity_axis[1][0] + spacing[0] / 2,
+                    self._sanity_axis[2][0] + spacing[0] / 2,
+                ],
+                dtype=np.float32,
             )
 
             # prepare empty matricies to hold material and density images
@@ -221,14 +220,16 @@ class BrachyEgsphant:
             material_matrix = _convert_material_matrix_to(material_matrix, dtype=int)
 
             self.material_image = Image3D(
-                imageArray=material_matrix,
-                origin=origin * 10,
-                spacing=spacing * 10,
+                # convert array from zyx to xyz.
+                imageArray=np.swapaxes(material_matrix, 0, 2),
+                origin=origin,
+                spacing=spacing,
             )
             self.density_image = Image3D(
-                imageArray=density_matrix,
-                origin=origin * 10,
-                spacing=spacing * 10,
+                # convert array from zyx to xyz.
+                imageArray=np.swapaxes(density_matrix, 0, 2),
+                origin=origin,
+                spacing=spacing,
             )
             # this line maybe useless in the future
             self.voxel_edges = self.calculate_voxel_edges()
@@ -240,7 +241,7 @@ class BrachyEgsphant:
             # }
             assert np.isclose(
                 np.concatenate(self.voxel_edges),
-                np.concatenate(self._sanity_axis * 10),
+                np.concatenate(self._sanity_axis),
                 rtol=1e-1,
             ).all(), "axis is not the same"
 
@@ -295,34 +296,42 @@ class BrachyEgsphant:
                 "voxel_size":}
         Output:
             - axes:numpy.array() :=
-            [[z_min:voxel_size:z_max],
+            [[x_min:voxel_size:x_max],
             [y_min:voxel_size:y_max],
-            [x_min:voxel_size:x_max]]
+            [z_min:voxel_size:z_max]]
         """
-        # calculate the end point of axis in 3D space
-        axes_end = np.array(
-            # one voxel size is added because np.arange stops at an index before the end
-            self.density_image.origin
-            + self.density_image.gridSize * self.density_image.spacing
-            + self.density_image.spacing
-        )
-
-        self.voxel_edges = np.empty(len(axes_end), dtype=object)
-        for i in range(len(axes_end)):
-            self.voxel_edges[i] = np.arange(
-                self.density_image.origin[i],
-                axes_end[i],
-                self.density_image.spacing[i],
-                dtype=np.float32,
-            )
-            # if (
-            #     np.absolute(
-            #         self.density_image.gridSize[::-1][i] - self.voxel_edges[i].shape[0]
-            #     )
-            #     > 1
-            # ):
-            #     self.voxel_edges[i] = self.voxel_edges[i][:-1]
+        assert self.density_image is not None, "density matrix is not loaded"
+        voxel_centers = self.get_voxel_centers()
+        self.voxel_edges = np.empty(len(voxel_centers), dtype=object)
+        for i in range(len(voxel_centers)):
+            self.voxel_edges[i] = voxel_centers[i] - self.density_image.spacing[i] / 2.0
         return self.voxel_edges
+
+        # XXX: delete when done
+        # # calculate the end point of axis in 3D space
+        # axes_end = np.array(
+        #     # one voxel size is added because np.arange stops at an index before the end
+        #     self.density_image.origin
+        #     + self.density_image.gridSize * self.density_image.spacing
+        #     + self.density_image.spacing
+        # )
+
+        # self.voxel_edges = np.empty(len(axes_end), dtype=object)
+        # for i in range(len(axes_end)):
+        #     self.voxel_edges[i] = np.arange(
+        #         self.density_image.origin[i],
+        #         axes_end[i],
+        #         self.density_image.spacing[i],
+        #         dtype=np.float32,
+        #     )
+        #     # if (
+        #     #     np.absolute(
+        #     #         self.density_image.gridSize[::-1][i] - self.voxel_edges[i].shape[0]
+        #     #     )
+        #     #     > 1
+        #     # ):
+        #     #     self.voxel_edges[i] = self.voxel_edges[i][:-1]
+        # return self.voxel_edges
 
     def create_interpolation_function(self, grid):
         voxel_centers = self.get_voxel_centers()
@@ -334,16 +343,31 @@ class BrachyEgsphant:
         )
 
     def get_voxel_centers(self):
-        voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
-        if self.voxel_edges is not None:
-            for i in range(len(self.voxel_edges)):
-                voxel_centers[i] = (
-                    self.voxel_edges[i] + self.density_image.spacing[i] / 2.0
-                )
-                voxel_centers[i] = voxel_centers[i][:-1]
-        else:
-            raise ValueError("Voxel edges are not calculated yet")
+        r"""
+        Purpose:
+            - to calculate the center of each voxel in the BrachyEgsphant object.
+        Output:
+            - voxel_centers:np.ndarray := the center of each voxel in the BrachyEgsphant object.
+        """
+        assert self.density_image is not None, "density matrix is not loaded"
+        voxel_centers = np.empty(len(self.density_image.gridSize), dtype=object)
+        for i in range(len(self.density_image.gridSize)):
+            voxel_centers[i] = (
+                self.density_image.origin[i]
+                + np.arange(self.density_image.gridSize[i]) * self.density_image.spacing[i]
+            )
         return voxel_centers
+        # XXX: delete when done
+        # voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
+        # if self.voxel_edges is not None:
+        #     for i in range(len(self.voxel_edges)):
+        #         voxel_centers[i] = (
+        #             self.voxel_edges[i] + self.density_image.spacing[i] / 2.0
+        #         )
+        #         voxel_centers[i] = voxel_centers[i][:-1]
+        # else:
+        #     raise ValueError("Voxel edges are not calculated yet")
+        # return voxel_centers
 
     def write_to_ctegsphant(self, fileName: Path):
         r"""
@@ -832,7 +856,7 @@ class BrachyEgsphant:
             )
 
 
-def _convert_material_matrix_to(
+def _convert_material_matrix_to( 
     material_matrix: np.ndarray,
     dtype: Union[int, str]) -> np.ndarray:
     r"""
