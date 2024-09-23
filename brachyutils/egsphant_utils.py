@@ -175,7 +175,7 @@ class BrachyEgsphant:
                 ],
                 dtype=object,
             )
-            # convert sanity axis to z, y, x
+            # convert sanity axis to z, y, x: no need to flip the axis anymore. everything is xyz
             # self._sanity_axis = np.flip(self._sanity_axis, axis=0)
             # convert sanity axis from cm to mm
             self._sanity_axis = self._sanity_axis * 10
@@ -384,9 +384,9 @@ class BrachyEgsphant:
                 num_voxels:np.ndarray       [x, y, z]
                 voxel_size:np.ndarray          #Not Written
                 origin_coordinates:np.ndarray  #Not Written
-                axis:np.ndarray             [z, y, x] -> [x, y, z]
-                material_matrix:np.ndarray  [z, y, x] -> [x, y, z]
-                density_matrix:np.ndarray   [z, y, x] -> [x, y, z]
+                axis:np.ndarray             [x, y, z]
+                material_matrix:np.ndarray  [x, y, z]
+                density_matrix:np.ndarray   [x, y, z]
 
             - fileName := the directory path where the file will be written
         """
@@ -402,19 +402,21 @@ class BrachyEgsphant:
             " ".join(map(str, np.flip(self.density_image.gridSize).astype(int))) + "\n"
         )
         x_axis = (
-            " ".join(map(str, np.round(self.voxel_edges[2] / 10, decimals=3))) + "\n"
+            " ".join(map(str, np.round(self.voxel_edges[0] / 10, decimals=3))) + "\n"
         )
         y_axis = (
             " ".join(map(str, np.round(self.voxel_edges[1] / 10, decimals=3))) + "\n"
         )
         z_axis = (
-            " ".join(map(str, np.round(self.voxel_edges[0] / 10, decimals=3))) + "\n"
+            " ".join(map(str, np.round(self.voxel_edges[2] / 10, decimals=3))) + "\n"
         )
+        material_matrix = self.get_material_array()
         material_matrix = _to_single_string(
-            _convert_material_matrix_to(self.material_image.imageArray, dtype=str), ""
+            _convert_material_matrix_to(material_matrix, dtype=str), ""
         )
+        density_matrix = self.get_density_array()
         density_matrix = _to_single_string(
-            self.density_image.imageArray.astype(str), " "
+            density_matrix.astype(str), " "
         )
 
         with open(fileName, "w") as file:
@@ -532,15 +534,15 @@ class BrachyEgsphant:
             material and density matricies and will adjust the rest of the attributes accordingly.
         Inputs:
             - self: BrachyEgsphant object
-            - index_range := a 3 x 2 array holding the min and max index on x, y and axis
-                [[iz_min, iz_max], [iy_min, iy_max], [ix_min, ix_max]]
+            - index_range := a 3 x 2 array holding the min and max index on x, y and z axis
+                [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
         Output:
             - Void := will crop out the material and density maps of self to have the range of the index range.
                 it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         Dependencies:
             - self.crop_by_coordinates()
         """
-        assert index_range.shape == (3, 2), "index_range should be a 3x2 array in z, y, x order"
+        assert index_range.shape == (3, 2), "index_range should be a 3x2 array in x, y, z order"
         assert np.all(self.density_image.gridSize == self.material_image.gridSize), "material and density matrix should have the same size"
         new_origin_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 0])
         new_ending_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 1])
@@ -558,8 +560,8 @@ class BrachyEgsphant:
             material and density matricies and will adjust the rest of the attributes accordingly.
         Inputs:
             - self: BrachyEgsphant object
-            - coordinate_range := a 3 x 2 array holding the min and max on x, y and axis
-                [[z_min, z_max], [y_min, y_max], [x_min, x_max]]
+            - coordinate_range := a 3 x 2 array holding the min and max on x, y and z axis
+                [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
         Output:
             - Void := will crop out the material and density maps of self to have the range of the index range.
                 it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
@@ -568,7 +570,7 @@ class BrachyEgsphant:
         """
         from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
         self.is_not_empty()
-        assert coordinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in z, y, x order"
+        assert coordinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
 
         if inplace:
             crop3DDataAroundBox(self.material_image, coordinate_range)
@@ -611,6 +613,24 @@ class BrachyEgsphant:
         resampled_mask = resampleImage3DOnImage3D(mask_dict[structure_name], self.density_image)
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace)
+
+    def get_material_array(self):
+        r"""
+        Purpose:
+            - to get the material matrix as a numpy array in [z, y, x].
+        Output:
+            - material_matrix:np.ndarray := the material matrix in [z, y, x]
+        """
+        return np.swapaxes(self.material_image.imageArray, 0, 2)
+
+    def get_density_array(self):
+        r"""
+        Purpose:
+            - to get the density matrix as a numpy array in [z, y, x].
+        Output:
+            - density_matrix:np.ndarray := the density matrix in [z, y, x]
+        """
+        return np.swapaxes(self.density_image.imageArray, 0, 2)
 
     def create_egsphant_from_images(
         self,
