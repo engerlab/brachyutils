@@ -253,7 +253,7 @@ class BrachyDose:
                 origin = bench_origin,
                 spacing = bench_spacing,
             )
-            self.voxel_edges = self.calculate_voxel_edges()
+            self.voxel_edges = self.get_voxel_edges()
 
     def load_from_nrrd(self, pth_nrrd:Path) -> None:
         r"""
@@ -265,7 +265,7 @@ class BrachyDose:
             - void := contents of self is updated.
         Dependencies:
             - SimpleITK
-            - calculate_voxel_edges()
+            - get_voxel_edges()
         """
         loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO="NrrdImageIO")
 
@@ -311,7 +311,7 @@ class BrachyDose:
             spacing = voxel_size,
         ) if uncertainty_array is not None else None
         
-        self.voxel_edges = self.calculate_voxel_edges()
+        self.voxel_edges = self.get_voxel_edges()
 
     def load_from_npz(self, pth_npz:Path) -> None:
         r"""
@@ -332,7 +332,7 @@ class BrachyDose:
         loaded_brachydose = np.load(pth_npz, allow_pickle=True)
         self.dose_image = loaded_brachydose.get("dose_image")
         self.uncertainty_image = loaded_brachydose.get("uncertainty_image", None)
-        self.calculate_voxel_edges()
+        self.get_voxel_edges()
         self.create_interpolation_function()
 
     def load_from_dicom(self, pth_RD_dicom:Path):
@@ -359,7 +359,7 @@ class BrachyDose:
                 self.dose_image.spacing[2] = 1.
                 warnings.warn("The z spacing is not defined in the dicom file and the x and y spacing are not the same. Z spacing is set to 1mm.")
 
-        self.voxel_edges = self.calculate_voxel_edges()
+        self.voxel_edges = self.get_voxel_edges()
 
     def load_from_minidos(self, pth_minidos):
         r"""
@@ -592,7 +592,7 @@ class BrachyDose:
                 origin = final_origin_coordinates,
                 spacing = self.dose_image.spacing,
             )
-        self.calculate_voxel_edges()
+        self.get_voxel_edges()
         self.create_interpolation_function()
         return padded_dose
 
@@ -781,7 +781,7 @@ class BrachyDose:
         with pyzstd.open(file_name, "wb", level_or_option=22) as file:
             pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def calculate_voxel_edges(self):
+    def get_voxel_edges(self):
         r"""
         Purpose:
         - will calculate the axes coordinates for a 3ddose dictionary.
@@ -933,9 +933,9 @@ class BrachyDose:
             crop3DDataAroundBox(self.dose_image, coordinate_range)
             if self.uncertainty_image is not None:
                 crop3DDataAroundBox(self.uncertainty_image, coordinate_range)
-            self.calculate_voxel_edges()
+            self.get_voxel_edges()
             self.create_interpolation_function()
-            self.calculate_voxel_edges()
+            self.get_voxel_edges()
         else:
             new_dose:BrachyDose = copy.deepcopy(self)
             new_dose.crop_by_coordinates(coordinate_range, inplace=True)
@@ -1122,7 +1122,7 @@ def dose_with_empty_grid_like(doseObj: BrachyDose):
             gridSize=doseObj.dose_image.gridSize,
             origin=doseObj.dose_image.origin,
         )
-    new_dose.calculate_voxel_edges()
+    new_dose.get_voxel_edges()
     new_dose.create_interpolation_function()
     return new_dose
 

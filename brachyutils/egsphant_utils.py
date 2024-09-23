@@ -232,9 +232,9 @@ class BrachyEgsphant:
                 spacing=spacing,
             )
             # this line maybe useless in the future
-            self.voxel_edges = self.calculate_voxel_edges()
+            self.voxel_edges = self.get_voxel_edges()
             # {for debugging
-            # print(f"The axis calculated from calculate_voxel_edges() are \n {self.voxel_edges}")
+            # print(f"The axis calculated from get_voxel_edges() are \n {self.voxel_edges}")
             # print(f"The axis from the text file are: \n {self._sanity_axis}")
             # print(f"the size of the axis in the z, y, x for axis from calcAxis() are {self.voxel_edges[0].shape}, {self.voxel_edges[1].shape}, {self.voxel_edges[2].shape}")
             # print(f"the size of the axis in the z, y, x for axis from file are {self._sanity_axis[0].shape}, {self._sanity_axis[1].shape}, {self._sanity_axis[2].shape}")
@@ -286,7 +286,7 @@ class BrachyEgsphant:
         """
         raise Exception("This function is not implemented yet!")
 
-    def calculate_voxel_edges(self):
+    def get_voxel_edges(self):
         r"""
         Purpose: will calculate the axies coordinates for a BrachyEgsphant object.
         Input:
@@ -571,7 +571,7 @@ class BrachyEgsphant:
         if inplace:
             crop3DDataAroundBox(self.material_image, coordinate_range)
             crop3DDataAroundBox(self.density_image, coordinate_range)
-            self.calculate_voxel_edges()
+            self.get_voxel_edges()
         else:
             new_egsphant: BrachyEgsphant = copy.deepcopy(self)
             new_egsphant.crop_by_coordinates(coordinate_range, inplace=True)
