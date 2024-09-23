@@ -181,7 +181,7 @@ class BrachyEgsphant:
             self._sanity_axis = self._sanity_axis * 10
             # remove the last entry in each axis because it is one more than
             # there are desity or material values on that axis.
-            self._sanity_axis = np.array([axis[:-1] for axis in self._sanity_axis])
+            self._sanity_axis = np.array([axis[:-1] for axis in self._sanity_axis], dtype=object)
             spacing = np.array(
                 [
                     self._sanity_axis[0][1] - self._sanity_axis[0][0],
