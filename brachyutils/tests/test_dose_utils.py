@@ -60,9 +60,8 @@ def test_write_to_nrrd():
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
     pth_out = "../data_test/test_export_plan"
-    # pth_input = "../../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
-    pth_input = "../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
-    pth_out = os.path.join(pth_out, os.path.basename(pth_input))
+    pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
+    pth_out = os.path.join(pth_out, os.path.splitext(os.path.basename(pth_input))[0] + ".nrrd")
     dose_obj = BrachyDose(pth_input)
     dose_obj.write_to_nrrd(pth_out)
     dose_obj_from_nrrd = BrachyDose(pth_out)
@@ -195,8 +194,8 @@ if __name__ == "__main__":
     # test_load_from_dicom()
     # test_load_from_nrrd()
     # test_write_to_3ddose()
-    # test_write_to_nrrd()
-    test_crop_by_coordinates()
+    test_write_to_nrrd()
+    # test_crop_by_coordinates()
     # test_crop_by_fraction()
     # test_crop_by_index()
     # test_crop_by_dicom_structure()

@@ -260,7 +260,7 @@ class BrachyDose:
         loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO="NrrdImageIO")
 
         dose_uncertainty = sitk.GetArrayFromImage(loaded_image_nrrd)
-
+        dose_uncertainty = np.swapaxes(dose_uncertainty, 0, 2)
         if dose_uncertainty.shape[0] == 2:
             dose_array = dose_uncertainty[0]
             uncertainty_array = dose_uncertainty[1]
@@ -348,16 +348,7 @@ class BrachyDose:
             else:
                 self.dose_image.spacing[2] = 1.
                 warnings.warn("The z spacing is not defined in the dicom file and the x and y spacing are not the same. Z spacing is set to 1mm.")
-        # no flipping to have everything xyz.
-        # self.dose_image = DoseImage(
-        #     imageArray = np.swapaxes(dose_image_xyz.imageArray, 0, 2),
-        #     origin = np.flip(dose_image_xyz.origin),
-        #     spacing = np.flip(dose_image_xyz.spacing),
-        #     name = dose_image_xyz.name,
-        #     angles = np.flip(dose_image_xyz.angles),
-        #     seriesInstanceUID=dose_image_xyz.seriesInstanceUID,
-        #     sopInstanceUID=dose_image_xyz.sopInstanceUID,
-        # )
+
         self.voxel_edges = self.calculate_voxel_edges()
 
     def load_from_minidos(self, pth_minidos):
@@ -660,13 +651,13 @@ class BrachyDose:
         # check if the directory exists, if not create it. make sure the file extension is write.
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
-        
+
         # create sitk dose image
-        dose_array = self.dose_image.imageArray.astype(np.float32)
+        dose_array = self.get_dose_array() #self.dose_image.imageArray.astype(np.float32)
         # no flipping to have everything xyz.
         # dose_array = np.swapaxes(self.dose_image.imageArray, 0, 2).astype(np.float32)
         if self.uncertainty_image is not None:
-            uncertainty_array = self.uncertainty_image.imageArray.astype(np.float32)
+            uncertainty_array = self.get_uncertainty_array() #self.uncertainty_image.imageArray.astype(np.float32)
             # no flipping to have everything xyz.
             # uncertainty_array = np.swapaxes(self.uncertainty_image.imageArray, 0, 2).astype(np.float32)
 
@@ -858,23 +849,29 @@ class BrachyDose:
         if not isinstance(new_brachy_dose, BrachyDose):
             warnings.warn("input must be of type BrachyDose", stacklevel=2)
             return False
-        elif not np.array_equal(
-            self.dose_image.imageArray,
-            new_brachy_dose.dose_image.imageArray
+        elif not np.all(
+            np.isclose(
+                self.dose_image.imageArray,
+                new_brachy_dose.dose_image.imageArray,
+                rtol=1e-6)
             ):
             warnings.warn("dose values are not the same", stacklevel=2)
             return False
-        elif not np.array_equal(
-            np.concatenate(self.voxel_edges),
-            np.concatenate(new_brachy_dose.voxel_edges),
-        ):
+        elif not np.all(
+            np.isclose(
+                np.concatenate(self.voxel_edges),
+                np.concatenate(new_brachy_dose.voxel_edges),
+                atol=1e-3)
+            ):
             warnings.warn("axis is not the same", stacklevel=2)
             return False
         elif not self.uncertainty_image is not None:
-            if np.array_equal(
-                self.uncertainty_image.imageArray,
-                new_brachy_dose.uncertainty_image.imageArray
-            ):
+            if np.all(
+                np.isclose(
+                    self.uncertainty_image.imageArray,
+                    new_brachy_dose.uncertainty_image.imageArray,
+                    rtol=1e-6)
+                ):
                 warnings.warn("uncertainty is not the same", stacklevel=2)
                 return False
         elif not np.array_equal(
@@ -882,13 +879,19 @@ class BrachyDose:
         ):
             warnings.warn("num_voxels is not the same", stacklevel=2)
             return False
-        elif not np.array_equal(
-            self.dose_image.spacing, new_brachy_dose.dose_image.spacing
+        elif not np.all(
+            np.isclose(
+            self.dose_image.spacing,
+            new_brachy_dose.dose_image.spacing,
+            atol=1e-3)
         ):
             warnings.warn("voxel_size is not the same", stacklevel=2)
             return False
-        elif not np.array_equal(
-            self.dose_image.origin, new_brachy_dose.dose_image.origin
+        elif not np.all(
+            np.isclose(
+                self.dose_image.origin,
+                new_brachy_dose.dose_image.origin,
+                atol=1e-3)
         ):
             warnings.warn("origin_coordinates is not the same", stacklevel=2)
             return False
@@ -1063,6 +1066,27 @@ class BrachyDose:
         if scale_uncert and self.uncertainty_image is not None:
             self.uncertainty_image.imageArray *= scale_factor
 
+    def get_dose_array(self) -> np.ndarray:
+        r"""
+        Purpose:
+            - To return the dose grid as a numpy array.
+        Inputs:
+            - self:BrachyDose
+        Outputs:
+            - dose_array := a numpy array containing the dose grid. in zyx order.
+        """
+        return np.swapaxes(self.dose_image.imageArray, 0, 2)
+
+    def get_uncertainty_array(self) -> np.ndarray:
+        r"""
+        Purpose:
+            - To return the dose grid as a numpy array.
+        Inputs:
+            - self:BrachyDose
+        Outputs:
+            - dose_array := a numpy array containing the uncertainty grid. in zyx order.
+        """
+        return np.swapaxes(self.uncertainty_image.imageArray, 0, 2)
 
 def dose_with_empty_grid_like(doseObj: BrachyDose):
     r"""
