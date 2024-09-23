@@ -343,7 +343,11 @@ class BrachyDose:
         ), "the basename should start with RD"
         self.dose_image = readDicomDose(pth_RD_dicom)
         if self.dose_image.spacing[2] == 0:
-            self.dose_image.spacing[2] = 1.
+            if self.dose_image.spacing[0] == self.dose_image.spacing[1]:
+                self.dose_image.spacing[2] = self.dose_image.spacing[0]
+            else:
+                self.dose_image.spacing[2] = 1.
+                warnings.warn("The z spacing is not defined in the dicom file and the x and y spacing are not the same. Z spacing is set to 1mm.")
         # no flipping to have everything xyz.
         # self.dose_image = DoseImage(
         #     imageArray = np.swapaxes(dose_image_xyz.imageArray, 0, 2),
