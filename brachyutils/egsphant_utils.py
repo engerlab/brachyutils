@@ -179,7 +179,9 @@ class BrachyEgsphant:
             # self._sanity_axis = np.flip(self._sanity_axis, axis=0)
             # convert sanity axis from cm to mm
             self._sanity_axis = self._sanity_axis * 10
-
+            # remove the last entry in each axis because it is one more than
+            # there are desity or material values on that axis.
+            self._sanity_axis = np.array([axis[:-1] for axis in self._sanity_axis])
             spacing = np.array(
                 [
                     self._sanity_axis[0][1] - self._sanity_axis[0][0],
@@ -350,8 +352,8 @@ class BrachyEgsphant:
             - voxel_centers:np.ndarray := the center of each voxel in the BrachyEgsphant object.
         """
         assert self.density_image is not None, "density matrix is not loaded"
-        voxel_centers = np.empty(len(self.density_image.gridSize), dtype=object)
-        for i in range(len(self.density_image.gridSize)):
+        voxel_centers = np.empty(len(self.density_image.origin), dtype=object)
+        for i in range(len(self.density_image.origin)):
             voxel_centers[i] = (
                 self.density_image.origin[i]
                 + np.arange(self.density_image.gridSize[i]) * self.density_image.spacing[i]
@@ -505,16 +507,16 @@ class BrachyEgsphant:
             f"origin of material and density matrix is {self.material_image.origin, self.density_image.origin}"
         )
         print(
-            f"the size of the z, y and x axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
+            f"the size of the x, y and z axes are {self.voxel_edges[0].shape, self.voxel_edges[1].shape, self.voxel_edges[2].shape}"
         )
         print(
-            f"the range of the z axis is {self.voxel_edges[0][0], self.voxel_edges[0][-1]}"
+            f"the range of the x axis is {self.voxel_edges[0][0], self.voxel_edges[0][-1]}"
         )
         print(
             f"the range of the y axis is {self.voxel_edges[1][0], self.voxel_edges[1][-1]}"
         )
         print(
-            f"the range of the x axis is {self.voxel_edges[2][0], self.voxel_edges[2][-1]}"
+            f"the range of the z axis is {self.voxel_edges[2][0], self.voxel_edges[2][-1]}"
         )
         print(f"The number of materials is {self.num_materials}")
         print(f"the material dictionary is {self.material_dict}")
