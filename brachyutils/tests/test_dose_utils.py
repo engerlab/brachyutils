@@ -117,19 +117,19 @@ def test_write_to_zstd():
 
 
 def test_crop_by_coordinates():
-    pth_input = "../data_test/batch_uncertainty/combined.3ddose"
+    pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
     # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()
 
-    coords = np.array([[2, 7], [2, 7], [2, 7]], dtype=np.float32)
+    coords = np.array([[-150, 150], [-300, -100], [50, 200]], dtype=np.float32)
 
     dose_obj.crop_by_coordinates(coords)
     dose_obj.info()
 
 
 def test_crop_by_index():
-    pth_input = "../data_test/batch_uncertainty/combined.3ddose"
+    pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
     # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()
@@ -142,7 +142,7 @@ def test_crop_by_index():
 
 
 def test_crop_by_fraction():
-    pth_input = "../data_test/batch_uncertainty/combined.3ddose"
+    pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
     # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()
@@ -194,8 +194,8 @@ if __name__ == "__main__":
     # test_load_from_dicom()
     # test_load_from_nrrd()
     # test_write_to_3ddose()
-    test_write_to_nrrd()
+    # test_write_to_nrrd()
     # test_crop_by_coordinates()
-    # test_crop_by_fraction()
+    test_crop_by_fraction()
     # test_crop_by_index()
     # test_crop_by_dicom_structure()
