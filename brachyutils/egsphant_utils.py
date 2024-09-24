@@ -10,8 +10,7 @@ import numpy as np
 from opentps.core.data.images import Image3D
 from scipy.interpolate import RegularGridInterpolator
 
-from brachyutils.dicom_utils import BrachyDicom
-
+from brachyutils import BrachyPhantom
 
 class BrachyEgsphant:
     r"""
@@ -58,15 +57,15 @@ class BrachyEgsphant:
     def __init__(
         self,
         pth_egsphant_file: Optional[Path] = None,
-        dicom_image: Optional[Union[BrachyDicom, Path]] = None,
+        phantom_obj: Optional[Union[BrachyPhantom, Path]] = None,
         material_dict: Optional[Union[dict, Path]] = None,
         assign_material_from_ct: Optional[bool] = None,
     ):
         self.unit_length = "mm"
         self.material_image: Image3D = None
-        
+
         self.density_image: Image3D = None
-        
+
         self.num_materials: int = None
         self.material_dict: defaultdict = defaultdict(dict)
         self.material_dict["Air"] = {
@@ -82,7 +81,7 @@ class BrachyEgsphant:
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
 
-        elif dicom_image is not None and material_dict is not None:
+        elif phantom_obj is not None and material_dict is not None:
 
             if isinstance(material_dict, str):
                 if (
@@ -99,10 +98,10 @@ class BrachyEgsphant:
                 self._remove_duplicate_materials()
 
             self.create_egsphant_from_images(
-                dicom_image=(
-                    dicom_image
-                    if isinstance(dicom_image, BrachyDicom)
-                    else BrachyDicom(dicom_image)
+                phantom_obj=(
+                    phantom_obj
+                    if isinstance(phantom_obj, BrachyPhantom)
+                    else BrachyPhantom(phantom_obj)
                 ),
                 new_material_dict=self.material_dict,
                 assign_material_from_ct=assign_material_from_ct,
@@ -836,6 +835,7 @@ class BrachyEgsphant:
             spacing=dicom_image.image.spacing,
             angles=dicom_image.image.angles,
         )
+        self.voxel_edges = self.get_voxel_edges()
 
     def export_material_dict(self, pth_file: Path):
         r"""
