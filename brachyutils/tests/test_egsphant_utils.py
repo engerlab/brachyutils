@@ -3,8 +3,8 @@ from time import time
 
 import numpy as np
 from checkpointing import checkpoint
-
-from brachyutils.dicom_utils import BrachyDicom
+from glob import glob
+from brachyutils import BrachyPhantom
 from brachyutils.egsphant_utils import (
     BrachyEgsphant,
     _load_material_dict,
@@ -80,12 +80,12 @@ def test_create_egsphant_from_images():
     dir_images = "../data_test/prostate-glen-p1-dcm"
     # materials from CT
     pth_materials = "../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
-    pth_output = "../data_test/test_export_plan/prostate_from_images_ct.egsphant"
+    pth_output = "../data_test/test_export_plan/test_ct.egsphant"
     load_structure = False
     assign_material_from_ct = True
     # # materials from contours
     # pth_materials = "../data_test/prostate_material_dict.json"
-    # pth_output = "../data_test/test_export_plan/prostate_from_contours.egsphant"
+    # pth_output = "../data_test/test_export_plan/test_ct.egsphant"
     # load_structure = True
     # assign_material_from_ct = False
     # dicom_obj = BrachyDicom(
@@ -135,12 +135,10 @@ def test_egsphant_constructor(
     load_structure=True,
     assign_material_from_ct=False,
 ):
-    dicom_obj = BrachyDicom(
-        pth_dir_dicom=dir_images,
-        load_structure=load_structure,
-    )
+    pth_structure_file = glob(os.path.join(dir_images, "RS*.dcm"))[0] if load_structure else None
+    phantom = BrachyPhantom(dir_dicom=dir_images, pth_structures_file=pth_structure_file)
     return BrachyEgsphant(
-        dicom_image=dicom_obj,
+        dicom_image=phantom,
         material_dict=pth_materials,
         assign_material_from_ct=assign_material_from_ct,
     )
@@ -148,8 +146,8 @@ def test_egsphant_constructor(
 
 if __name__ == "__main__":
     # test_load_from_ctegsphant()
-    test_write_to_egsphant()
-    # test_create_egsphant_from_images()
+    # test_write_to_egsphant()
+    test_create_egsphant_from_images()
     # text_load_material_dict()
     # test_crop_by_coordinates()
     # test_crop_by_index()
