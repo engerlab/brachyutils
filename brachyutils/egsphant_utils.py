@@ -396,7 +396,7 @@ class BrachyEgsphant:
         os.makedirs(os.path.dirname(fileName), exist_ok=True)
         egsphant_voxel_edges = np.array(
             [
-                np.append(axis, axis[-1]+self.density_image.spacing) for axis in self.voxel_edges
+                np.append(axis, axis[-1]+self.density_image.spacing[i]) for i, axis in enumerate(self.voxel_edges)
             ],
             dtype=object) / 10
         self._sort_materials_by("encoding")
@@ -476,9 +476,10 @@ class BrachyEgsphant:
             new_BrachyEgsphant.density_image.gridSize):
             warnings.warn("num_voxels is not the same", stacklevel=2)
             return False
-        elif not np.array_equal(
+        elif not np.isclose(
             self.density_image.spacing,
-            new_BrachyEgsphant.density_image.spacing):
+            new_BrachyEgsphant.density_image.spacing,
+            atol=1e-3).all():
             warnings.warn("voxel_size is not the same", stacklevel=2)
             return False
         elif not np.isclose(
@@ -920,7 +921,11 @@ def _convert_material_matrix_to(
         raise Exception("dtype is not recognized")
 
 
-def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
+def _to_single_string(
+    matrix: np.ndarray,
+    delimiter: Optional[str] = "",
+    add_terminating_newline: Optional[bool] = True
+    ):
     r"""
     Purpose:
         given a 3D matrix with string entries, this function concatenates all the
@@ -928,20 +933,24 @@ def _to_single_string(matrix: np.ndarray, deliminator: Optional[str] = ""):
             "\n" is added at the end of each row and
     Input:
         matrix := 3D ndarray full of string enteries
-        deliminator := the string text inbetween the enteries.
+        delimiter := the string text inbetween the enteries.
+        add_terminating_newline := if True, an additional \n will be added at the end of the string
     Output:
-        a single string containing all the enteries with added \n at the end of each row of
-            matrix and an addiation \n added to each slide in the input matrix
+        a single string containing all the entries with added \n at the end of each row of
+            matrix and an additional \n added to each slice in the input matrix
 
     """
-    matrix_single_string = []
-    for slide in matrix:
-        slide_single_string = []
-        for row in slide:
-            slide_single_string.append(deliminator.join(row) + "\n")
-        matrix_single_string.append(deliminator.join(slide_single_string) + "\n")
-
-    return "".join(matrix_single_string)
+    zslice_strings = []
+    for zslice in matrix:
+        yrow_strings = []
+        for yrow in zslice:
+            x_row_str = delimiter.join(yrow)
+            yrow_strings.append(x_row_str)
+        zslice_strings.append("\n".join(yrow_strings))
+    full_string = "\n\n".join(zslice_strings)
+    if add_terminating_newline:
+        full_string += "\n\n"
+    return full_string
 
 
 def _load_json(pth_json: Path):
