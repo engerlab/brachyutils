@@ -57,7 +57,7 @@ class BrachyEgsphant:
     def __init__(
         self,
         pth_egsphant_file: Optional[Path] = None,
-        phantom_obj: Optional[Union[BrachyPhantom, Path]] = None,
+        phantom: Optional[Union[BrachyPhantom, Path]] = None,
         material_dict: Optional[Union[dict, Path]] = None,
         assign_material_from_ct: Optional[bool] = None,
     ):
@@ -81,7 +81,7 @@ class BrachyEgsphant:
         if pth_egsphant_file is not None:
             self.load_file_to_BrachyEgsphant(pth_egsphant_file)
 
-        elif phantom_obj is not None and material_dict is not None:
+        elif phantom is not None and material_dict is not None:
 
             if isinstance(material_dict, str):
                 if (
@@ -98,10 +98,10 @@ class BrachyEgsphant:
                 self._remove_duplicate_materials()
 
             self.create_egsphant_from_images(
-                phantom_obj=(
-                    phantom_obj
-                    if isinstance(phantom_obj, BrachyPhantom)
-                    else BrachyPhantom(phantom_obj)
+                phantom=(
+                    phantom
+                    if isinstance(phantom, BrachyPhantom)
+                    else BrachyPhantom(phantom)
                 ),
                 new_material_dict=self.material_dict,
                 assign_material_from_ct=assign_material_from_ct,
