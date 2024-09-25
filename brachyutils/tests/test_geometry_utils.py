@@ -77,6 +77,24 @@ def test_read_structures_from_nrrd():
     # phantom_obj.write_image_to_nrrd(pth_out)
     phantom_obj.write_structures_to_nrrd(pth_out)
     
+def test_write_to_egsphant():
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_structure = glob(pth_dicom+"/RS*.dcm")[0]
+    pth_out = "../data_test/test_export_plan/test_ct.egsphant"
+    # pth_materials = "../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
+    # assign_material_from_ct = True
+    pth_materials = "../data_test/prostate_material_dict.json"
+    assign_material_from_ct = False
+
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structure,
+    )
+    phantom_obj.write_to_egsphant(
+        pth_output=pth_out,
+        material_dict=pth_materials,
+        assign_material_from_ct=assign_material_from_ct
+    )
 
 if __name__ == "__main__":
     print("testing BrachyPhantom")
@@ -86,4 +104,5 @@ if __name__ == "__main__":
     # test_write_image_to_nrrd()
     # test_write_structures_to_nrrd()
     # test_write_structures_to_dicom()
-    test_read_structures_from_nrrd()
+    # test_read_structures_from_nrrd()
+    test_write_to_egsphant()

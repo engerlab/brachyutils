@@ -19,8 +19,6 @@ from opentps.core.io.dicomIO import (
 import SimpleITK as sitk
 # import slicerio
 
-from brachyutils.egsphant_utils import BrachyEgsphant
-
 class BrachyPhantom:
     r"""
     Puprose:
@@ -399,6 +397,7 @@ class BrachyPhantom:
             - pth_output: Path := the path to write the Egsphant file to.
         """
         assert os.path.splitext(pth_output)[-1] == ".egsphant", "the file should have '.egsphant' extension"
+        from brachyutils.egsphant_utils import BrachyEgsphant
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         if self.egsphant_obj is not None:
             self.egsphant_obj.write_to_ctegsphant(pth_output)

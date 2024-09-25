@@ -57,7 +57,7 @@ class BrachyEgsphant:
     def __init__(
         self,
         pth_egsphant_file: Optional[Path] = None,
-        phantom: Optional[Union[BrachyPhantom, Path]] = None,
+        phantom: Optional[Union[BrachyPhantom | Path]] = None,
         material_dict: Optional[Union[dict, Path]] = None,
         assign_material_from_ct: Optional[bool] = None,
     ):
