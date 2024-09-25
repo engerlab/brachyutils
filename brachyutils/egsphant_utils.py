@@ -39,7 +39,7 @@ class BrachyEgsphant:
         - is_not_empty()                    done
         - info()                            done
         - is_equal()                        done
-        - create_egsphant_from_images()     done
+        - create_egsphant_from_phantom()     done
         - create_interpolation_function()   done
         - get_voxel_centers()               done
         - sort_materials_by()               done
@@ -97,7 +97,7 @@ class BrachyEgsphant:
                 )
                 self._remove_duplicate_materials()
 
-            self.create_egsphant_from_images(
+            self.create_egsphant_from_phantom(
                 phantom=(
                     phantom
                     if isinstance(phantom, BrachyPhantom)
@@ -308,32 +308,6 @@ class BrachyEgsphant:
             self.voxel_edges[i] = voxel_centers[i] - self.density_image.spacing[i] / 2.0
         return self.voxel_edges
 
-        # XXX: delete when done
-        # # calculate the end point of axis in 3D space
-        # axes_end = np.array(
-        #     # one voxel size is added because np.arange stops at an index before the end
-        #     self.density_image.origin
-        #     + self.density_image.gridSize * self.density_image.spacing
-        #     + self.density_image.spacing
-        # )
-
-        # self.voxel_edges = np.empty(len(axes_end), dtype=object)
-        # for i in range(len(axes_end)):
-        #     self.voxel_edges[i] = np.arange(
-        #         self.density_image.origin[i],
-        #         axes_end[i],
-        #         self.density_image.spacing[i],
-        #         dtype=np.float32,
-        #     )
-        #     # if (
-        #     #     np.absolute(
-        #     #         self.density_image.gridSize[::-1][i] - self.voxel_edges[i].shape[0]
-        #     #     )
-        #     #     > 1
-        #     # ):
-        #     #     self.voxel_edges[i] = self.voxel_edges[i][:-1]
-        # return self.voxel_edges
-
     def create_interpolation_function(self, grid):
         voxel_centers = self.get_voxel_centers()
         self.interpolation_function = RegularGridInterpolator(
@@ -358,17 +332,6 @@ class BrachyEgsphant:
                 + np.arange(self.density_image.gridSize[i]) * self.density_image.spacing[i]
             )
         return voxel_centers
-        # XXX: delete when done
-        # voxel_centers = np.empty(len(self.voxel_edges), dtype=object)
-        # if self.voxel_edges is not None:
-        #     for i in range(len(self.voxel_edges)):
-        #         voxel_centers[i] = (
-        #             self.voxel_edges[i] + self.density_image.spacing[i] / 2.0
-        #         )
-        #         voxel_centers[i] = voxel_centers[i][:-1]
-        # else:
-        #     raise ValueError("Voxel edges are not calculated yet")
-        # return voxel_centers
 
     def write_to_ctegsphant(self, fileName: Path):
         r"""
@@ -637,9 +600,9 @@ class BrachyEgsphant:
         """
         return np.swapaxes(self.density_image.imageArray, 0, 2)
 
-    def create_egsphant_from_images(
+    def create_egsphant_from_phantom(
         self,
-        dicom_image: BrachyDicom,
+        phantom_obj: BrachyPhantom,
         new_material_dict: dict = None,
         assign_material_from_ct: bool = True,
         background_material: str = "Air",
@@ -665,7 +628,7 @@ class BrachyEgsphant:
         """
         if not assign_material_from_ct:
             assert (
-                dicom_image.structure_mask_dict is not None
+                phantom_obj.structure_set is not None
             ), "No structure mask was found"
         for material in new_material_dict:
             assert {"encoding", "density", "HU_limit"}.issubset(
@@ -677,8 +640,8 @@ class BrachyEgsphant:
                 stacklevel=2,
             )
         self.material_dict = new_material_dict
-        material_matrix = np.ones_like(dicom_image.image.imageArray, dtype=int)
-        density_matrix = np.ones_like(dicom_image.image.imageArray, dtype=np.float32)
+        material_matrix = np.ones_like(phantom_obj.get_image_array(), dtype=int)
+        density_matrix = np.ones_like(phantom_obj.get_image_array(), dtype=np.float32)
         self.num_materials = len(self.material_dict)
 
         # loop through the material, get their binary mask from the ct images apply it to the material
@@ -714,12 +677,12 @@ class BrachyEgsphant:
                 # find region of interest mask based on the HU values
                 roi_mask = np.logical_and(
                     np.where(
-                        dicom_image.image.imageArray >= low_HU_threshold,
+                        phantom_obj.get_image_array() >= low_HU_threshold,
                         1,
                         0,
                     ).astype(bool),
                     np.where(
-                        dicom_image.image.imageArray < high_HU_threshold,
+                        phantom_obj.get_image_array() < high_HU_threshold,
                         1,
                         0,
                     ).astype(bool),
@@ -748,7 +711,7 @@ class BrachyEgsphant:
                 # update the density and material matricies
                 # interpolate density based on the HU value
                 density_matrix += (
-                    dicom_image.image.imageArray * roi_mask * slope_density_over_HU
+                    phantom_obj.get_image_array() * roi_mask * slope_density_over_HU
                     + intercept_density_over_HU
                 )
                 material_matrix += (
@@ -759,7 +722,7 @@ class BrachyEgsphant:
                 )
                 # assert np.all(density_matrix >= 0), "density matrix has negative values"
         else:
-            # dicom_structure_list = list(dicom_image.structure_mask_dict.keys())
+            # dicom_structure_list = list(phantom_obj.structure_mask_dict.keys())
             # find the materials that have a structure name with them.
             query_structure_list = []
             for material in self.material_dict.values():
@@ -769,7 +732,7 @@ class BrachyEgsphant:
                     query_structure_list.append(material.get("structure_name"))
 
             # get the mask of each material from image
-            mask_dict = dicom_image.get_strcuture_mask_from_dicom(
+            mask_dict = phantom_obj.get_structure_mask(
                 query_structure_list, mask_type=np.ndarray
             )
             for material in self.material_dict:
@@ -825,15 +788,15 @@ class BrachyEgsphant:
 
         self.material_image = Image3D(
             imageArray=material_matrix,
-            origin=dicom_image.image.origin,
-            spacing=dicom_image.image.spacing,
-            angles=dicom_image.image.angles,
+            origin=phantom_obj.image_obj.origin,
+            spacing=phantom_obj.image_obj.spacing,
+            angles=phantom_obj.image_obj.angles,
         )
         self.density_image = Image3D(
             imageArray=density_matrix,
-            origin=dicom_image.image.origin,
-            spacing=dicom_image.image.spacing,
-            angles=dicom_image.image.angles,
+            origin=phantom_obj.image_obj.origin,
+            spacing=phantom_obj.image_obj.spacing,
+            angles=phantom_obj.image_obj.angles,
         )
         self.voxel_edges = self.get_voxel_edges()
 

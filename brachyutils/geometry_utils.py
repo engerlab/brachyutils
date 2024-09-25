@@ -282,7 +282,7 @@ class BrachyPhantom:
                     return False
         else:
             return True
-    def get_image_ndarray(self) -> np.ndarray:
+    def get_image_array(self) -> np.ndarray:
         r"""
         Purpose:
             - To return the image as a numpy array in z y x format.
@@ -321,7 +321,7 @@ class BrachyPhantom:
         """
         assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
-        image_array_zyx = self.get_image_ndarray()
+        image_array_zyx = self.get_image_array()
         image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
         image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
         image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
