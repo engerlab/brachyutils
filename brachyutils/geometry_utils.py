@@ -19,6 +19,8 @@ from opentps.core.io.dicomIO import (
 import SimpleITK as sitk
 # import slicerio
 
+from brachyutils.egsphant_utils import BrachyEgsphant
+
 class BrachyPhantom:
     r"""
     Puprose:
@@ -40,6 +42,7 @@ class BrachyPhantom:
         dir_dicom: Optional[Path] = None,
         pth_phantom_file: Optional[Path] = None,
         pth_structures_file: Optional[Path] = None,
+        pth_egsphant_file: Optional[Path] = None,
     ) -> None:
         r"""
         Purpose:
@@ -61,6 +64,7 @@ class BrachyPhantom:
             raise ValueError(
                 "Please provide either the directory of the DICOM files or the path of the phantom file."
             )
+        # Attributes for patient images
         self.pth_image: Path = dir_dicom if dir_dicom is not None else pth_phantom_file
         self.image_obj: Union[CTImage, MRImage] = None
         self.image_modality: Literal["CT", "MR", "US"] = None
@@ -68,6 +72,9 @@ class BrachyPhantom:
         self.structure_names_dcm: List[str] = []
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
+
+        # Attributes for Egsphant files
+        self.egsphant_obj:BrachyEgsphant = None
 
         if dir_dicom is not None:
             self._load_dicom_image_files(self.pth_image)
@@ -80,6 +87,9 @@ class BrachyPhantom:
         if pth_structures_file is not None:
             assert os.path.exists(pth_structures_file), "The input path does not exist."
             self._load_structure_file(pth_structures_file)
+
+        if pth_egsphant_file is not None:
+            self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
 
     def _load_dicom_image_files(self, pth_image: Path) -> None:
         r"""
@@ -377,6 +387,30 @@ class BrachyPhantom:
         writer.SetUseCompression(True)
         writer.Execute(sitk_image)
 
+    def write_to_egsphant(
+        self,
+        pth_output: Path,
+        material_dict: dict | Path,
+        assign_material_from_ct: bool) -> None:
+        r"""
+        Purpose:
+            - Write the BrachyPhantom object to an Egsphant file.
+        Inputs:
+            - pth_output: Path := the path to write the Egsphant file to.
+        """
+        assert os.path.splitext(pth_output)[-1] == ".egsphant", "the file should have '.egsphant' extension"
+        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        if self.egsphant_obj is not None:
+            self.egsphant_obj.write_to_ctegsphant(pth_output)
+        elif self.image_obj is not None:
+            self.egsphant_obj = BrachyEgsphant(
+                phantom=self,
+                material_dict=material_dict,
+                assign_material_from_ct=assign_material_from_ct,
+            )
+            self.egsphant_obj.write_to_ctegsphant(pth_output)
+        else:
+            raise ValueError("No image object or egsphant object to write to Egsphant file. Please load the image object first.")
 # helper functions
 def _sort_segementation_dict_by_size(seg_dict) -> dict:
     r"""

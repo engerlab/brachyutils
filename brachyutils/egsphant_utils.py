@@ -627,7 +627,7 @@ class BrachyEgsphant:
         if not assign_material_from_ct:
             assert (
                 phantom_obj.structure_set is not None
-            ), "No structure mask was found"
+            ), "No structure mask was found. please load structure file into the phantom object"
         for material in new_material_dict:
             assert {"encoding", "density", "HU_limit"}.issubset(
                 set(new_material_dict[material].keys())
