@@ -128,7 +128,7 @@ def test_crop_by_coordinates():
     egsphant_obj.info()
     egsphant_obj.write_to_ctegsphant(pth_output)
 
-@checkpoint()
+# @checkpoint()
 def test_egsphant_constructor(
     dir_images,
     pth_materials,
