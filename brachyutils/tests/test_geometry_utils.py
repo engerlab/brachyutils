@@ -96,6 +96,15 @@ def test_write_to_egsphant():
         assign_material_from_ct=assign_material_from_ct
     )
 
+def test_load_egsphant():
+    pth_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_out = "../data_test/test_export_plan/test_ct.egsphant"
+
+    phantom_obj = BrachyPhantom(pth_egsphant_file=pth_egsphant)
+    phantom_obj.write_to_egsphant(
+        pth_output=pth_out,
+    )
+
 if __name__ == "__main__":
     print("testing BrachyPhantom")
     # test_brachy_phantom()
@@ -105,4 +114,5 @@ if __name__ == "__main__":
     # test_write_structures_to_nrrd()
     # test_write_structures_to_dicom()
     # test_read_structures_from_nrrd()
-    test_write_to_egsphant()
+    # test_write_to_egsphant()
+    test_load_egsphant()

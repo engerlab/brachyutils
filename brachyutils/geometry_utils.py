@@ -72,12 +72,15 @@ class BrachyPhantom:
         self.xyz_format: bool = True
 
         # Attributes for Egsphant files
-        self.egsphant_obj:BrachyEgsphant = None
+        from brachyutils.egsphant_utils import BrachyEgsphant
+        self.egsphant_obj:"BrachyEgsphant" = None
 
         if dir_dicom is not None:
             self._load_dicom_image_files(self.pth_image)
         elif pth_phantom_file is not None:
             self._load_nrrd_image_file(self.pth_image)
+        elif pth_egsphant_file is not None:
+            self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
         else:
             raise ValueError("No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file.")
             warnings.warn("No geometry source file provided.", stacklevel=2)
@@ -388,8 +391,8 @@ class BrachyPhantom:
     def write_to_egsphant(
         self,
         pth_output: Path,
-        material_dict: dict | Path,
-        assign_material_from_ct: bool) -> None:
+        material_dict: dict | Path = None,
+        assign_material_from_ct: bool = None) -> None:
         r"""
         Purpose:
             - Write the BrachyPhantom object to an Egsphant file.
@@ -397,11 +400,11 @@ class BrachyPhantom:
             - pth_output: Path := the path to write the Egsphant file to.
         """
         assert os.path.splitext(pth_output)[-1] == ".egsphant", "the file should have '.egsphant' extension"
-        from brachyutils.egsphant_utils import BrachyEgsphant
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         if self.egsphant_obj is not None:
             self.egsphant_obj.write_to_ctegsphant(pth_output)
         elif self.image_obj is not None:
+            from brachyutils.egsphant_utils import BrachyEgsphant
             self.egsphant_obj = BrachyEgsphant(
                 phantom=self,
                 material_dict=material_dict,
