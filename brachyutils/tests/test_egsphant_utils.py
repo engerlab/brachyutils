@@ -103,7 +103,7 @@ def test_create_egsphant_from_images():
     # breakpoint()
     egsphant_obj.write_to_ctegsphant(pth_output)
     end_time = time()
-    print("Time elapsed: ", end_time - start_time)
+    print("Time elapsed: ", end_time - start_time) 
     # egsphant_obj.export_material_dict(
     # os.path.join(
     # os.path.dirname(pth_output),
@@ -138,7 +138,7 @@ def test_egsphant_constructor(
     pth_structure_file = glob(os.path.join(dir_images, "RS*.dcm"))[0] if load_structure else None
     phantom = BrachyPhantom(dir_dicom=dir_images, pth_structures_file=pth_structure_file)
     return BrachyEgsphant(
-        dicom_image=phantom,
+        phantom=phantom,
         material_dict=pth_materials,
         assign_material_from_ct=assign_material_from_ct,
     )

@@ -10,7 +10,7 @@ import numpy as np
 from opentps.core.data.images import Image3D
 from scipy.interpolate import RegularGridInterpolator
 
-from brachyutils import BrachyPhantom
+from brachyutils.geometry_utils import BrachyPhantom
 
 class BrachyEgsphant:
     r"""
@@ -98,7 +98,7 @@ class BrachyEgsphant:
                 self._remove_duplicate_materials()
 
             self.create_egsphant_from_phantom(
-                phantom=(
+                phantom_obj=(
                     phantom
                     if isinstance(phantom, BrachyPhantom)
                     else BrachyPhantom(phantom)
@@ -343,12 +343,10 @@ class BrachyEgsphant:
             - self := a BrachyEgsphant object containing the following keys:
                 num_materials:int
                 material_dict:dict
-                num_voxels:np.ndarray       [x, y, z]
-                voxel_size:np.ndarray          #Not Written
-                origin_coordinates:np.ndarray  #Not Written
-                axis:np.ndarray             [x, y, z]
-                material_matrix:np.ndarray  [x, y, z]
-                density_matrix:np.ndarray   [x, y, z]
+                density_image.gridSize:np.ndarray       [x, y, z]
+                voxel_edges:np.ndarray                  [x, y, z]
+                material_matrix:np.ndarray              [x, y, z]
+                density_matrix:np.ndarray               [x, y, z]
 
             - fileName := the directory path where the file will be written
         """
@@ -787,13 +785,13 @@ class BrachyEgsphant:
                 )
 
         self.material_image = Image3D(
-            imageArray=material_matrix,
+            imageArray=np.swapaxes(material_matrix, 0, 2),
             origin=phantom_obj.image_obj.origin,
             spacing=phantom_obj.image_obj.spacing,
             angles=phantom_obj.image_obj.angles,
         )
         self.density_image = Image3D(
-            imageArray=density_matrix,
+            imageArray=np.swapaxes(density_matrix, 0, 2),
             origin=phantom_obj.image_obj.origin,
             spacing=phantom_obj.image_obj.spacing,
             angles=phantom_obj.image_obj.angles,

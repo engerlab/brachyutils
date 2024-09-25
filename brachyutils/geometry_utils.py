@@ -8,7 +8,7 @@ import numpy as np
 # import pydicom
 from opentps.core.data import ROIContour, RTStruct
 from opentps.core.data.images import CTImage, MRImage, ROIMask
-from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy; writeRTPlan, dose not work on brachy; writeRTStruct
+from opentps.core.io.dicomIO import (
     readDicomCT,
     readDicomMRI,
     readDicomStruct,
