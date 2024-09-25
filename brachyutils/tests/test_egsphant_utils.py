@@ -79,15 +79,15 @@ def test_create_egsphant_from_images():
     # dir_images = "../data_test/rectal-jgh-dcm"
     dir_images = "../data_test/prostate-glen-p1-dcm"
     # materials from CT
-    pth_materials = "../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
-    pth_output = "../data_test/test_export_plan/test_ct.egsphant"
-    load_structure = False
-    assign_material_from_ct = True
-    # # materials from contours
-    # pth_materials = "../data_test/prostate_material_dict.json"
+    # pth_materials = "../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
     # pth_output = "../data_test/test_export_plan/test_ct.egsphant"
-    # load_structure = True
-    # assign_material_from_ct = False
+    # load_structure = False
+    # assign_material_from_ct = True
+    # # materials from contours
+    pth_materials = "../data_test/prostate_material_dict.json"
+    pth_output = "../data_test/test_export_plan/test_ct.egsphant"
+    load_structure = True
+    assign_material_from_ct = False
     # dicom_obj = BrachyDicom(
     # pth_dir_dicom=dir_images,
     # load_structure=True,
