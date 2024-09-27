@@ -39,7 +39,7 @@ class BrachyEgsphant:
         - is_not_empty()                    done
         - info()                            done
         - is_equal()                        done
-        - create_egsphant_from_phantom()     done
+        - create_egsphant_from_phantom()    done
         - create_interpolation_function()   done
         - get_voxel_centers()               done
         - sort_materials_by()               done
