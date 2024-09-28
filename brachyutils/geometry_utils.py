@@ -434,7 +434,8 @@ class BrachyPhantom:
         crop_coordinates = np.array(crop_coordinates)
         assert crop_coordinates.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
         if inplace:
-            crop3DDataAroundBox(self.image_obj, crop_coordinates)
+            crop3DDataAroundBox(self.image_obj, crop_coordinates, marginInMM=[1,1,1])
+            self.crop_structures_by_coordinates(crop_coordinates)
         else:
             new_phantom: BrachyPhantom = copy.deepcopy(self)
             new_phantom.crop_by_coordinates(crop_coordinates, inplace=True)
@@ -486,6 +487,44 @@ class BrachyPhantom:
         )
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace)
+
+    def crop_structures_by_coordinates(
+            self,
+            crop_coordinates: List[float] | np.array
+            ) -> None:
+        r"""
+        Purpose:
+            - Crop the structures by the input coordinates.
+        Inputs:
+            - crop_coordinates := a 3 x 2 array holding the min and max on x, y and z axis
+                [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
+        Outputs:
+            - None
+        """
+        from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
+        crop_coordinates = np.array(crop_coordinates)
+        assert crop_coordinates.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
+        mask_dict = self.get_structure_mask(self.structure_names_dcm, mask_type=ROIMask)
+        for structure_name in mask_dict:
+            crop3DDataAroundBox(mask_dict[structure_name], crop_coordinates, marginInMM=[1,1,1])
+        self.set_structure_set(mask_dict)
+    
+    def set_structure_set(
+            self,
+            mask_dict: dict
+            ) -> None:
+        r"""
+        Purpose:
+            - Set the structure set with the input mask dictionary.
+        Inputs:
+            - mask_dict: dict := the dictionary of the masks. the values are numpy arrays in
+            [z, y, x] format.
+        Outputs:
+            - None
+        """
+        for structure_name in mask_dict:
+            self.structure_set.removeContour(self.structure_set.getContourByName(structure_name))
+            self.structure_set.appendContour(mask_dict.get(structure_name).getROIContour())
 
 # helper functions
 def _sort_segementation_dict_by_size(seg_dict) -> dict:
