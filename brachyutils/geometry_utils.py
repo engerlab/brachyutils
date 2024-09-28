@@ -444,7 +444,7 @@ class BrachyPhantom:
             self,
             index_range: List[int] | np.array,
             inplace: Optional[None | "BrachyPhantom"] = True
-            ) -> None:
+            ) -> None | "BrachyPhantom":
         r"""
         Purpose:
             - given a range of indicies (mix and max on each axis), this function will crop
@@ -463,6 +463,29 @@ class BrachyPhantom:
         new_ending_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 1])
         new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
         return self.crop_by_coordinates(new_coords_range, inplace)
+
+    def crop_by_contour(
+            self,
+            contour_name: str,
+            inplace: Optional[None | "BrachyPhantom"] = True
+            ) -> None | "BrachyPhantom":
+        r"""
+        Purpose:
+            - Crop the phantom by the input contours.
+        Inputs:
+            - contour_name: str := the name of the contour to crop by.
+            - inplace: Optional[None | "BrachyPhantom"] := if True, the cropping will be done in place. if False, a new BrachyPhantom object will be returned.
+        Outputs:
+            - None
+        """
+        from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+        mask_dict = self.get_structure_mask([contour_name], mask_type=ROIMask)
+        resampled_mask = resampleImage3DOnImage3D(
+            mask_dict[contour_name], self.image_obj
+        )
+        box_around_mask = np.array(getBoxAroundROI(resampled_mask))
+        return self.crop_by_coordinates(box_around_mask, inplace)
 
 # helper functions
 def _sort_segementation_dict_by_size(seg_dict) -> dict:
