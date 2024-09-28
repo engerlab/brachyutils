@@ -435,12 +435,34 @@ class BrachyPhantom:
         assert crop_coordinates.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
         if inplace:
             crop3DDataAroundBox(self.image_obj, crop_coordinates)
-            # if self.structure_set is not None:
-                
         else:
             new_phantom: BrachyPhantom = copy.deepcopy(self)
             new_phantom.crop_by_coordinates(crop_coordinates, inplace=True)
             return new_phantom
+
+    def crop_by_index(
+            self,
+            index_range: List[int] | np.array,
+            inplace: Optional[None | "BrachyPhantom"] = True
+            ) -> None:
+        r"""
+        Purpose:
+            - given a range of indicies (mix and max on each axis), this function will crop
+            image_obj and will adjust the rest of the attributes accordingly.
+        Inputs:
+            - self: BrachyEgsphant object
+            - index_range := a 3 x 2 array holding the min and max index on x, y and z axis
+                [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
+            - inplace := if True, the cropping will be done in place. if False, a new BrachyPhantom object will be returned.
+        Outputs:
+            - None
+        """
+        index_range = np.array(index_range)
+        assert index_range.shape == (3, 2), "index_range should be a 3x2 array in x, y, z order"
+        new_origin_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 0])
+        new_ending_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 1])
+        new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
+        return self.crop_by_coordinates(new_coords_range, inplace)
 
 # helper functions
 def _sort_segementation_dict_by_size(seg_dict) -> dict:
