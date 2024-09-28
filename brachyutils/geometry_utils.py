@@ -413,6 +413,35 @@ class BrachyPhantom:
             self.egsphant_obj.write_to_ctegsphant(pth_output)
         else:
             raise ValueError("No image object or egsphant object to write to Egsphant file. Please load the image object first.")
+    
+    def crop_by_coordinates(
+            self,
+            croodinate_range: List[float] | np.array,
+            inplace: Optional[None | "BrachyPhantom"] = True
+            ) -> None:
+        r"""
+        Purpose:
+            - Crop the phantom by the input coordinates.
+        Inputs:
+            - coordinate_range := a 3 x 2 array holding the min and max on x, y and z axis
+                [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
+            - inplace := if True, the cropping will be done in place. if False, a new BrachyPhantom object will be returned.
+        Outputs:
+            - None
+        """
+        from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
+        import copy
+        crop_coordinates = np.array(crop_coordinates)
+        assert crop_coordinates.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
+        if inplace:
+            crop3DDataAroundBox(self.image_obj, crop_coordinates)
+            # if self.structure_set is not None:
+                
+        else:
+            new_phantom: BrachyPhantom = copy.deepcopy(self)
+            new_phantom.crop_by_coordinates(crop_coordinates, inplace=True)
+            return new_phantom
+
 # helper functions
 def _sort_segementation_dict_by_size(seg_dict) -> dict:
     r"""
