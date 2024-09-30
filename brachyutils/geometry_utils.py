@@ -435,7 +435,7 @@ class BrachyPhantom:
         assert croodinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
         if inplace:
             crop3DDataAroundBox(self.image_obj, croodinate_range, marginInMM=[1,1,1])
-            self.crop_structures_by_coordinates(croodinate_range)
+            # self.crop_structures_by_coordinates(croodinate_range)
         else:
             new_phantom: BrachyPhantom = copy.deepcopy(self)
             new_phantom.crop_by_coordinates(croodinate_range, inplace=True)
@@ -501,12 +501,23 @@ class BrachyPhantom:
         Outputs:
             - None
         """
+
         from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
+        from opentps.core.processing.imageProcessing.resampler3D import resample
         crop_coordinates = np.array(crop_coordinates)
         assert crop_coordinates.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
         mask_dict = self.get_structure_mask(self.structure_names_dcm, mask_type=ROIMask)
         for structure_name in mask_dict:
-            crop3DDataAroundBox(mask_dict[structure_name], crop_coordinates, marginInMM=[1,1,1])
+            mask_3d = mask_dict[structure_name]
+            crop3DDataAroundBox(mask_3d, crop_coordinates, marginInMM=[1,1,1])
+            mask_dict[structure_name] = resample(
+                data=mask_3d,
+                origin=mask_3d.origin,
+                spacing=mask_3d.spacing,
+                gridSize=mask_3d.gridSize+1,
+                fillValue=0,
+                inPlace=False
+            )
         self.set_structure_set(mask_dict)
     
     def set_structure_set(
