@@ -487,38 +487,6 @@ class BrachyPhantom:
         )
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace)
-
-    def crop_structures_by_coordinates(
-            self,
-            crop_coordinates: List[float] | np.array
-            ) -> None:
-        r"""
-        Purpose:
-            - Crop the structures by the input coordinates.
-        Inputs:
-            - crop_coordinates := a 3 x 2 array holding the min and max on x, y and z axis
-                [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
-        Outputs:
-            - None
-        """
-
-        from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
-        from opentps.core.processing.imageProcessing.resampler3D import resample
-        crop_coordinates = np.array(crop_coordinates)
-        assert crop_coordinates.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
-        mask_dict = self.get_structure_mask(self.structure_names_dcm, mask_type=ROIMask)
-        for structure_name in mask_dict:
-            mask_3d = mask_dict[structure_name]
-            crop3DDataAroundBox(mask_3d, crop_coordinates, marginInMM=[1,1,1])
-            mask_dict[structure_name] = resample(
-                data=mask_3d,
-                origin=mask_3d.origin,
-                spacing=mask_3d.spacing,
-                gridSize=mask_3d.gridSize+1,
-                fillValue=0,
-                inPlace=False
-            )
-        self.set_structure_set(mask_dict)
     
     def set_structure_set(
             self,
