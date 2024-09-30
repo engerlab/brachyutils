@@ -417,7 +417,7 @@ class BrachyPhantom:
     def crop_by_coordinates(
             self,
             croodinate_range: List[float] | np.array,
-            inplace: Optional[None | "BrachyPhantom"] = True
+            inplace:  "BrachyPhantom" = True
             ) -> None:
         r"""
         Purpose:
@@ -431,21 +431,21 @@ class BrachyPhantom:
         """
         from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
         import copy
-        crop_coordinates = np.array(crop_coordinates)
-        assert crop_coordinates.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
+        croodinate_range = np.array(croodinate_range)
+        assert croodinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
         if inplace:
-            crop3DDataAroundBox(self.image_obj, crop_coordinates, marginInMM=[1,1,1])
-            self.crop_structures_by_coordinates(crop_coordinates)
+            crop3DDataAroundBox(self.image_obj, croodinate_range, marginInMM=[1,1,1])
+            self.crop_structures_by_coordinates(croodinate_range)
         else:
             new_phantom: BrachyPhantom = copy.deepcopy(self)
-            new_phantom.crop_by_coordinates(crop_coordinates, inplace=True)
+            new_phantom.crop_by_coordinates(croodinate_range, inplace=True)
             return new_phantom
 
     def crop_by_index(
             self,
             index_range: List[int] | np.array,
-            inplace: Optional[None | "BrachyPhantom"] = True
-            ) -> None | "BrachyPhantom":
+            inplace: Optional[bool]= True
+            ) -> Union[None,  "BrachyPhantom"]:
         r"""
         Purpose:
             - given a range of indicies (mix and max on each axis), this function will crop
@@ -468,8 +468,8 @@ class BrachyPhantom:
     def crop_by_contour(
             self,
             contour_name: str,
-            inplace: Optional[None | "BrachyPhantom"] = True
-            ) -> None | "BrachyPhantom":
+            inplace: Optional[bool] = True
+            ) -> Union[None,  "BrachyPhantom"]:
         r"""
         Purpose:
             - Crop the phantom by the input contours.

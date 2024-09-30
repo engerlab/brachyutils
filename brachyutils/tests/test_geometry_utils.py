@@ -1,6 +1,7 @@
 from brachyutils import BrachyPhantom
 from glob import glob
 from pathlib import Path
+import numpy as np
 
 def test_brachy_phantom():
     pth_dicom = "../data_test/prostate-glen-p1-dcm" 
@@ -105,6 +106,19 @@ def test_load_egsphant():
         pth_output=pth_out,
     )
 
+def test_crop_phantom():
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_structure = glob(pth_dicom+"/RS*.dcm")[0]
+    pth_out = "../data_test/test_export_plan"
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structure
+        )
+    crop_coordinates = np.array([[-100, 100], [-150, 200], [-1280, -1140]])
+    phantom_obj.crop_by_coordinates(crop_coordinates)
+    phantom_obj.write_image_to_nrrd(pth_out+"/test_ct.nrrd")
+    phantom_obj.write_structures_to_nrrd(pth_out+"/test_rs.seg.nrrd")
+
 if __name__ == "__main__":
     print("testing BrachyPhantom")
     # test_brachy_phantom()
@@ -115,4 +129,5 @@ if __name__ == "__main__":
     # test_write_structures_to_dicom()
     # test_read_structures_from_nrrd()
     # test_write_to_egsphant()
-    test_load_egsphant()
+    # test_load_egsphant()
+    test_crop_phantom()
