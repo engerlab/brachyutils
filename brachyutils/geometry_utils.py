@@ -435,7 +435,6 @@ class BrachyPhantom:
         assert croodinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
         if inplace:
             crop3DDataAroundBox(self.image_obj, croodinate_range, marginInMM=[1,1,1])
-            # self.crop_structures_by_coordinates(croodinate_range)
         else:
             new_phantom: BrachyPhantom = copy.deepcopy(self)
             new_phantom.crop_by_coordinates(croodinate_range, inplace=True)
