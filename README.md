@@ -65,9 +65,9 @@ To get the package run:
 
 ```bash
 git clone https://github.com/engerlab/brachyutils.git
+cd brachyutils
+pip install .
 ```
-
-After this process finishes, run `pip install .` to install the brachyutils package.
 
 ### Optional
 
