@@ -56,7 +56,7 @@ The PyPi package of OpenTPS is not up to date with their Gitlab repository. Ther
 ```bash
 git clone https://gitlab.com/openmcsquare/opentps.git
 cd opentps
-pip install opentps
+pip install .
 ```
 
 ### Install BrachyUtils
