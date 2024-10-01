@@ -509,26 +509,23 @@ class BrachyDose:
         # pdd_dict["y_axis"] = np.array(dose_values)
         # return pdd_dict
 
-    def get_average_uncert(self) -> float:
+    def get_average_uncertainty(
+        self,
+        mask:Optional[np.ndarray]=None
+        ) -> float:
         r"""
         Purpose:
-            XXX Documentation is missing
+            - To calculate the average uncertainty normalized by dose
+            in an optinal mask. The unit of uncertainty is in percentage.
+        Inputs:
+            - self:BrachyDose
+            - mask: Optional[np.ndarray] := a mask to apply to the dose grid in [z, y, x] format.
+        Outputs:
+            - average_uncert:float := the average uncertainty in the dose grid in percentage.
         """
-        max_dose = self.dose_image.imageArray.max()
-        dose_mask = self.dose_image.imageArray < 0.2 * max_dose
-        masked_uncert = ma.array(self.uncertainty_image.imageArray, mask=dose_mask)
-        masked_dose = ma.array(self.dose_image.imageArray, mask=dose_mask)
-        average_uncert = ma.average(masked_uncert / masked_dose) * 100
-        return average_uncert
-
-    def get_average_uncert_benchmark(self) -> float:
-        r"""
-        Purpose:
-            Documentation is missing
-        """
-        max_dose = self.dose_image.imageArray.max()
-        dose_mask = self.dose_image.imageArray < 0.2 * max_dose
-        masked_uncert = ma.array(self.uncertainty_image.imageArray, mask=dose_mask)
+        # max_dose = self.dose_image.imageArray.max()
+        # dose_mask = self.dose_image.imageArray < 0.2 * max_dose
+        masked_uncert = ma.array(self.get_uncertainty_array(), mask=mask)
         average_uncert = ma.average(masked_uncert) * 100
         return average_uncert
 
@@ -546,6 +543,7 @@ class BrachyDose:
                 [x, y, z]
         """
         warnings.warn("This function is not tested yet", stacklevel=2)
+        raise NotImplementedError("This function is not needed. use resample from opentps instead!")
         assert any(
             new_dims > self.dose_image.gridSize
         ), "since you are padding, the new dimensions should be larger than the input dimensions"
