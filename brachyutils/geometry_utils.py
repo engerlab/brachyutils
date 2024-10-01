@@ -171,7 +171,7 @@ class BrachyPhantom:
     def get_structure_mask(
         self,
         query_structure_list: List[str],
-        mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
+        mask_type: Union[np.ndarray, ROIContour, ROIMask],
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         Purpose:

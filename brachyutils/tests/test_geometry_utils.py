@@ -21,7 +21,7 @@ def test_get_structure_mask():
         dir_dicom=pth_dicom,
         pth_structures_file=pth_structure
         )
-    print(phantom_obj.get_structure_mask(['ctv']))
+    print(phantom_obj.get_structure_mask(['ctv'], mask_type=np.ndarray))
 
 def test_write_image_to_dicom():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"

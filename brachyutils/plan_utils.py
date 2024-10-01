@@ -17,12 +17,14 @@ from scipy import interpolate, ndimage
 # from typing import Optional
 from tqdm import tqdm
 
-from brachyutils.dicom_utils import BrachyDicom
+# from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
 from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.simulation_utils import BrachySimulation
 
-from geometry_utils import BrachyApplicator
+from brachyutils.geometry_utils import BrachyApplicator
+
+from opentps.core.data import ROIContour, DVH
 
 class BrachyStructure:
     r"""
@@ -71,9 +73,18 @@ class BrachyStructure:
         - to_dict(export_format:str)
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        name: str = None,
+        mask_contour: ROIContour = None,
+        target_volume: bool = None,
+        in_dvh: bool = None,
+        dvh_metric_name: str = None,
+        dvh_metric_clinical_goal: float = None,
+        ) -> None:
+
         self.name: str = None
-        self.mask: np.array = None  # shape: (z, y, x)
+        self.mask_contour: ROIContour = None
         self.target_volume: bool = None
 
         # dose volume histogram
@@ -104,39 +115,48 @@ class BrachyStructure:
         self.density: float = None  # 0
         self.density_mode: str = None  # ""
         self.material: str = None  # "CT Material"
+        
+        self.name = name
+        self.mask_contour = mask_contour
+        self.target_volume = target_volume
+        self.in_dvh = in_dvh
+        self.dvh_metric_name = dvh_metric_name
+        self.dvh_metric_clinical_goal = dvh_metric_clinical_goal
 
     def get_dvh_metric(self, combined_dose: BrachyDose):
-        assert self.mask is not None, "mask is not loaded"
+        assert self.mask_contour is not None, "mask is not loaded"
         assert self.dvh_metric_name is not None, "dvh metric name is not set"
         assert (
             self.dvh_metric_clinical_goal is not None
         ), "dvh metric clinical goal is not set"
+        assert isinstance(combined_dose, BrachyDose), "combined dose is not a BrachyDose object"
+        dvh = DVH(self.mask_contour, combined_dose.dose_image)
+        
+        # num_bins = int(combined_dose.grid.max() * 10) + 1
+        # total_dose_max = combined_dose.grid.max()
 
-        num_bins = int(combined_dose.grid.max() * 10) + 1
-        total_dose_max = combined_dose.grid.max()
+        # structure_dose = combined_dose.grid * self.mask_contour
+        # structure_dose = structure_dose[structure_dose != 0].flatten()
+        # voxel_volume = np.prod(combined_dose.voxel_size)
+        # num_voxels_in_structure = np.sum(self.mask_contour)
 
-        structure_dose = combined_dose.grid * self.mask
-        structure_dose = structure_dose[structure_dose != 0].flatten()
-        voxel_volume = np.prod(combined_dose.voxel_size)
-        num_voxels_in_structure = np.sum(self.mask)
+        # if "%" in self.dvh_metric_name:
+        #     histogram_limit = float(*re.findall(r"-?\d+\.?\d*", self.dvh_metric_name))
+        # elif "cc" in self.dvh_metric_name:
+        #     histogram_limit = (
+        #         float(*re.findall(r"-?\d+\.?\d*", self.dvh_metric_name))
+        #         / (voxel_volume * num_voxels_in_structure)
+        #         * 100
+        #     )
+        # else:
+        #     raise ValueError(
+        #         "invalid name for DVH metric name. \
+        #         The metric should have percent sign (%) or cc."
+        #     )
 
-        if "%" in self.dvh_metric_name:
-            histogram_limit = float(*re.findall(r"-?\d+\.?\d*", self.dvh_metric_name))
-        elif "cc" in self.dvh_metric_name:
-            histogram_limit = (
-                float(*re.findall(r"-?\d+\.?\d*", self.dvh_metric_name))
-                / (voxel_volume * num_voxels_in_structure)
-                * 100
-            )
-        else:
-            raise ValueError(
-                "invalid name for DVH metric name. \
-                The metric should have percent sign (%) or cc."
-            )
-
-        self.dvh_metric_observed, self.normalized_cummulative_dvh = dvh_metric(
-            structure_dose, num_bins, total_dose_max, histogram_limit, voxel_volume
-        )
+        # self.dvh_metric_observed, self.normalized_cummulative_dvh = dvh_metric(
+        #     structure_dose, num_bins, total_dose_max, histogram_limit, voxel_volume
+        # )
 
     def to_dict(self, export_format: str):
         r"""
@@ -179,7 +199,9 @@ class BrachyStructure:
                 "type": "Target volume" if self.target_volume else "Organ at risk",
                 "uniformity_weight": self.penalty_weight_uniformity,
             }
-
+    
+    def info(self):
+        print(self.to_dict("RapidBrachy"))
 
 class BrachyPlan:
     r"""
