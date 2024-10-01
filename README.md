@@ -29,21 +29,9 @@ The virtual enviornment called `env_brachyutils` should be activated automatical
 
 ## Installation
 
-To get the package run:
+### Create a Python virtual environment
 
-```bash
-git clone https://github.com/engerlab/brachyutils.git
-```
-
-<!-- If you are installing this package on a remote cluster managed by the Digital Research Alliance of Canada (Compute Canada), you need to load some required modules:
-
-```bash
-module load StdEnv/2023
-
-module load opencv
-``` -->
-
-Then, create a virtual envionrment and activate:
+create a virtual envionrment and activate:
 
 If using [venv](https://docs.python.org/3/library/venv.html):
 
@@ -57,6 +45,24 @@ Else, if using [conda](https://docs.anaconda.com/miniconda/):
 ```bash
 conda create -n ENV_brachy
 conda activate ENV_brachy
+```
+
+### Install OpenTPS from source code
+
+The PyPi package of OpenTPS is not up to date with their Gitlab repository. Therefore, we recommend that you clone the repository and install the package.
+
+```bash
+git clone https://gitlab.com/openmcsquare/opentps.git
+cd opentps
+pip install opentps
+```
+
+### Install BrachyUtils
+
+To get the package run:
+
+```bash
+git clone https://github.com/engerlab/brachyutils.git
 ```
 
 After this process finishes, run `pip install .` to install the brachyutils package.
