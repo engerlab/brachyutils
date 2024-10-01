@@ -131,7 +131,7 @@ class BrachyStructure:
         ), "dvh metric clinical goal is not set"
         assert isinstance(combined_dose, BrachyDose), "combined dose is not a BrachyDose object"
         dvh = DVH(self.mask_contour, combined_dose.dose_image)
-        
+        # XXX : complete this function!
         # num_bins = int(combined_dose.grid.max() * 10) + 1
         # total_dose_max = combined_dose.grid.max()
 
