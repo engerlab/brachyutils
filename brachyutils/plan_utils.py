@@ -36,15 +36,15 @@ class BrachyStructure:
 
         Basic Attributes
         - name:str
-        - mask
-        - target_volume
+        - mask: ROIContour
+        - target_volume: bool
 
         DVH Attributes:
-        - in_dvh
-        - dvh_metric_name
-        - dvh_metric_clinical_goal
-        - dvh_metric_observed
-        - normalized_cummulative_dvh
+        - in_dvh: bool
+        - dvh_metric_name: str
+        - dvh_metric_clinical_goal: str
+        - dvh_metric_observed: float
+        - dvh_obj: opentps.core.data.DVH
 
         Uncertainty Attributes:
         - uvh
