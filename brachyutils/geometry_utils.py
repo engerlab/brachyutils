@@ -1,3 +1,4 @@
+import json
 import os
 import warnings
 from glob import glob
@@ -5,19 +6,33 @@ from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union
 
 import numpy as np
+import SimpleITK as sitk
+
 # import pydicom
 from opentps.core.data import ROIContour, RTStruct
 from opentps.core.data.images import CTImage, MRImage, ROIMask
-from opentps.core.io.dicomIO import (
+from opentps.core.io.dicomIO import (  # writeRTDose,
     readDicomCT,
     readDicomMRI,
     readDicomStruct,
     writeDicomCT,
-    writeRTStruct
-    # writeRTDose,
+    writeRTStruct,
 )
-import SimpleITK as sitk
+
+# Imports for brachy applicator
+from vtk import (
+    vtkCellArray,
+    vtkPoints,
+    vtkPolyData,
+    vtkTransform,
+    vtkTransformPolyDataFilter,
+)
+from vtk.util import numpy_support
+from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
+
 # import slicerio
+
+
 
 class BrachyPhantom:
     r"""
@@ -73,7 +88,8 @@ class BrachyPhantom:
 
         # Attributes for Egsphant files
         from brachyutils.egsphant_utils import BrachyEgsphant
-        self.egsphant_obj:"BrachyEgsphant" = None
+
+        self.egsphant_obj: "BrachyEgsphant" = None
 
         if dir_dicom is not None:
             self._load_dicom_image_files(self.pth_image)
@@ -82,7 +98,9 @@ class BrachyPhantom:
         elif pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
         else:
-            raise ValueError("No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file.")
+            raise ValueError(
+                "No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file."
+            )
             warnings.warn("No geometry source file provided.", stacklevel=2)
 
         if pth_structures_file is not None:
@@ -105,7 +123,7 @@ class BrachyPhantom:
         """
         assert os.path.exists(pth_image), "The input path does not exist."
         # Load the image and structure set
-        image_files = glob((pth_image+"/*.dcm"))
+        image_files = glob((pth_image + "/*.dcm"))
         if len(image_files) == 0:
             raise ValueError("No DICOM files found in the input directory.")
         if "CT" in image_files[0].upper():
@@ -142,7 +160,6 @@ class BrachyPhantom:
         )
         self.image_modality = image_nrrd.GetMetaData("Modality")
 
-
     def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
         Purpose:
@@ -159,7 +176,9 @@ class BrachyPhantom:
             self.structure_set = readDicomStruct(pth_structure)
         elif structure_file_type == ".nrrd":
             self.structure_set = readNrrdStruct(pth_structure)
-            self.structure_set.setPatient(self.image_obj.patient if self.image_obj is not None else None)
+            self.structure_set.setPatient(
+                self.image_obj.patient if self.image_obj is not None else None
+            )
             # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
             # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         else:
@@ -230,17 +249,51 @@ class BrachyPhantom:
         Outputs:
             - None
         """
-        print(f"Geometry File source: {self.pth_image}" if self.pth_image is not None else "No geometry file source.")
-        print(f"Image Modality: {self.image_modality}" if self.image_modality is not None else "No image modality.")
-        print(f"Unit Length: {self.unit_length}" if self.unit_length is not None else "No unit length.")
-        print(f"Image Shape [x, y, z]: {self.image_obj.gridSize}" if self.image_obj is not None else "No image object.")
         print(
-            f"Image size in world unit [x, y, z]: {self.image_obj.gridSizeInWorldUnit}" if self.image_obj is not None else "No image object."
+            f"Geometry File source: {self.pth_image}"
+            if self.pth_image is not None
+            else "No geometry file source."
         )
-        print(f"Image Origin [x, y, z]: {self.image_obj.origin}" if self.image_obj is not None else "No image object.")
-        print(f"Image Spacing [x, y, z]: {self.image_obj.spacing}" if self.image_obj is not None else "No image object.")
-        print(f"Structure Names: {self.structure_names_dcm}" if self.structure_names_dcm is not None else "No structure names.")
-        print(f"Structure Count: {len(self.structure_names_dcm)}" if self.structure_names_dcm is not None else "No structure names.")
+        print(
+            f"Image Modality: {self.image_modality}"
+            if self.image_modality is not None
+            else "No image modality."
+        )
+        print(
+            f"Unit Length: {self.unit_length}"
+            if self.unit_length is not None
+            else "No unit length."
+        )
+        print(
+            f"Image Shape [x, y, z]: {self.image_obj.gridSize}"
+            if self.image_obj is not None
+            else "No image object."
+        )
+        print(
+            f"Image size in world unit [x, y, z]: {self.image_obj.gridSizeInWorldUnit}"
+            if self.image_obj is not None
+            else "No image object."
+        )
+        print(
+            f"Image Origin [x, y, z]: {self.image_obj.origin}"
+            if self.image_obj is not None
+            else "No image object."
+        )
+        print(
+            f"Image Spacing [x, y, z]: {self.image_obj.spacing}"
+            if self.image_obj is not None
+            else "No image object."
+        )
+        print(
+            f"Structure Names: {self.structure_names_dcm}"
+            if self.structure_names_dcm is not None
+            else "No structure names."
+        )
+        print(
+            f"Structure Count: {len(self.structure_names_dcm)}"
+            if self.structure_names_dcm is not None
+            else "No structure names."
+        )
 
     def reset(self):
         r"""
@@ -293,6 +346,7 @@ class BrachyPhantom:
                     return False
         else:
             return True
+
     def get_image_array(self) -> np.ndarray:
         r"""
         Purpose:
@@ -330,7 +384,9 @@ class BrachyPhantom:
         Purpose:
             - To write the image to a nrrd file.
         """
-        assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
+        assert (
+            os.path.splitext(pth_output)[-1] == ".nrrd"
+        ), "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         image_array_zyx = self.get_image_array()
         image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
@@ -338,12 +394,12 @@ class BrachyPhantom:
         image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
         image_nrrd.SetMetaData("Modality", self.image_modality)
         sitk.WriteImage(image_nrrd, str(pth_output))
-    
+
     def write_structures_to_nrrd(
         self,
         pth_output: Path,
-        no_overlap:Optional[bool] = True,
-        ) -> None:
+        no_overlap: Optional[bool] = True,
+    ) -> None:
         r"""
         Purpose:
             - To write the structures to a nrrd file. By defualt, we remove the overlap between the structures. the smaller structures
@@ -351,14 +407,20 @@ class BrachyPhantom:
         Inputs:
             - pth_output: Path := the path to write the structures to.
         """
-        assert os.path.splitext(pth_output)[-1] == ".nrrd", "the file should have '.nrrd' extension"
+        assert (
+            os.path.splitext(pth_output)[-1] == ".nrrd"
+        ), "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
-        structure_mask_dict: dict = self.get_structure_mask(self.structure_names_dcm, mask_type=np.ndarray)
-        
+        structure_mask_dict: dict = self.get_structure_mask(
+            self.structure_names_dcm, mask_type=np.ndarray
+        )
+
         if no_overlap:
             # create the sitk segmentation image
             sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
-            all_masks = _convert_many_binary_masks_to_1_int_mask(sorted_by_size) # this removes overlap
+            all_masks = _convert_many_binary_masks_to_1_int_mask(
+                sorted_by_size
+            )  # this removes overlap
             sitk_image = sitk.GetImageFromArray(all_masks.astype(int))
             sitk_image = sitk.Cast(sitk_image, sitk.sitkUInt8)
             sitk_image.SetSpacing(self.image_obj.spacing)
@@ -381,7 +443,7 @@ class BrachyPhantom:
                     sitk_image.SetMetaData(key, value)
         else:
             raise NotImplementedError("Overlapping structures are not supported yet.")
-        
+
         # Write the image
         writer = sitk.ImageFileWriter()
         writer.SetFileName(pth_output)
@@ -392,19 +454,23 @@ class BrachyPhantom:
         self,
         pth_output: Path,
         material_dict: dict | Path = None,
-        assign_material_from_ct: bool = None) -> None:
+        assign_material_from_ct: bool = None,
+    ) -> None:
         r"""
         Purpose:
             - Write the BrachyPhantom object to an Egsphant file.
         Inputs:
             - pth_output: Path := the path to write the Egsphant file to.
         """
-        assert os.path.splitext(pth_output)[-1] == ".egsphant", "the file should have '.egsphant' extension"
+        assert (
+            os.path.splitext(pth_output)[-1] == ".egsphant"
+        ), "the file should have '.egsphant' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         if self.egsphant_obj is not None:
             self.egsphant_obj.write_to_ctegsphant(pth_output)
         elif self.image_obj is not None:
             from brachyutils.egsphant_utils import BrachyEgsphant
+
             self.egsphant_obj = BrachyEgsphant(
                 phantom=self,
                 material_dict=material_dict,
@@ -412,13 +478,13 @@ class BrachyPhantom:
             )
             self.egsphant_obj.write_to_ctegsphant(pth_output)
         else:
-            raise ValueError("No image object or egsphant object to write to Egsphant file. Please load the image object first.")
-    
+            raise ValueError(
+                "No image object or egsphant object to write to Egsphant file. Please load the image object first."
+            )
+
     def crop_by_coordinates(
-            self,
-            croodinate_range: List[float] | np.array,
-            inplace:  "BrachyPhantom" = True
-            ) -> None:
+        self, croodinate_range: List[float] | np.array, inplace: "BrachyPhantom" = True
+    ) -> None:
         r"""
         Purpose:
             - Crop the phantom by the input coordinates.
@@ -429,22 +495,27 @@ class BrachyPhantom:
         Outputs:
             - None
         """
-        from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
         import copy
+
+        from opentps.core.processing.imageProcessing.resampler3D import (
+            crop3DDataAroundBox,
+        )
+
         croodinate_range = np.array(croodinate_range)
-        assert croodinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
+        assert croodinate_range.shape == (
+            3,
+            2,
+        ), "coordinate_range should be a 3x2 array in x, y, z order"
         if inplace:
-            crop3DDataAroundBox(self.image_obj, croodinate_range, marginInMM=[1,1,1])
+            crop3DDataAroundBox(self.image_obj, croodinate_range, marginInMM=[1, 1, 1])
         else:
             new_phantom: BrachyPhantom = copy.deepcopy(self)
             new_phantom.crop_by_coordinates(croodinate_range, inplace=True)
             return new_phantom
 
     def crop_by_index(
-            self,
-            index_range: List[int] | np.array,
-            inplace: Optional[bool]= True
-            ) -> Union[None,  "BrachyPhantom"]:
+        self, index_range: List[int] | np.array, inplace: Optional[bool] = True
+    ) -> Union[None, "BrachyPhantom"]:
         r"""
         Purpose:
             - given a range of indicies (mix and max on each axis), this function will crop
@@ -458,17 +529,22 @@ class BrachyPhantom:
             - None
         """
         index_range = np.array(index_range)
-        assert index_range.shape == (3, 2), "index_range should be a 3x2 array in x, y, z order"
-        new_origin_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 0])
-        new_ending_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 1])
+        assert index_range.shape == (
+            3,
+            2,
+        ), "index_range should be a 3x2 array in x, y, z order"
+        new_origin_coords = self.density_image.getPositionFromVoxelIndex(
+            index_range[:, 0]
+        )
+        new_ending_coords = self.density_image.getPositionFromVoxelIndex(
+            index_range[:, 1]
+        )
         new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
         return self.crop_by_coordinates(new_coords_range, inplace)
 
     def crop_by_contour(
-            self,
-            contour_name: str,
-            inplace: Optional[bool] = True
-            ) -> Union[None,  "BrachyPhantom"]:
+        self, contour_name: str, inplace: Optional[bool] = True
+    ) -> Union[None, "BrachyPhantom"]:
         r"""
         Purpose:
             - Crop the phantom by the input contours.
@@ -478,19 +554,19 @@ class BrachyPhantom:
         Outputs:
             - None
         """
+        from opentps.core.processing.imageProcessing.resampler3D import (
+            resampleImage3DOnImage3D,
+        )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
-        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+
         mask_dict = self.get_structure_mask([contour_name], mask_type=ROIMask)
         resampled_mask = resampleImage3DOnImage3D(
             mask_dict[contour_name], self.image_obj
         )
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace)
-    
-    def set_structure_set(
-            self,
-            mask_dict: dict
-            ) -> None:
+
+    def set_structure_set(self, mask_dict: dict) -> None:
         r"""
         Purpose:
             - Set the structure set with the input mask dictionary.
@@ -501,8 +577,13 @@ class BrachyPhantom:
             - None
         """
         for structure_name in mask_dict:
-            self.structure_set.removeContour(self.structure_set.getContourByName(structure_name))
-            self.structure_set.appendContour(mask_dict.get(structure_name).getROIContour())
+            self.structure_set.removeContour(
+                self.structure_set.getContourByName(structure_name)
+            )
+            self.structure_set.appendContour(
+                mask_dict.get(structure_name).getROIContour()
+            )
+
 
 # helper functions
 def _sort_segementation_dict_by_size(seg_dict) -> dict:
@@ -520,10 +601,11 @@ def _sort_segementation_dict_by_size(seg_dict) -> dict:
     )
     return dict(sorted_dict_list)
 
+
 def _convert_many_binary_masks_to_1_int_mask(seg_dict: dict) -> np.ndarray:
     r"""
     Purpose:
-        - Convert many binary masks to one integer mask. The masks should be ordered 
+        - Convert many binary masks to one integer mask. The masks should be ordered
         from largest to smallest as the smallest mask will overwrite the larger mask.
         use _sort_segementation_dict_by_size() to sort the masks.
     Inputs:
@@ -533,9 +615,10 @@ def _convert_many_binary_masks_to_1_int_mask(seg_dict: dict) -> np.ndarray:
         - int_mask: np.ndarray := the integer mask.
     """
     int_mask = np.zeros_like(list(seg_dict.values())[0], dtype=int)
-    for i, (key, mask) in enumerate(seg_dict.items()):
+    for i, (_, mask) in enumerate(seg_dict.items()):
         int_mask[mask] = i + 1
     return int_mask
+
 
 def readDicomUS(image_files):
     r"""
@@ -549,6 +632,7 @@ def readDicomUS(image_files):
         - openTPS.core
     """
     raise NotImplementedError("US DICOM files are not supported yet.")
+
 
 def readNrrdStruct(pth_structure: Path) -> RTStruct:
     r"""
@@ -586,16 +670,6 @@ def readNrrdStruct(pth_structure: Path) -> RTStruct:
             structure_set.appendContour(roi_mask.getROIContour())
     return structure_set
 
-# Imports for brachy applicator
-from vtk import (
-    vtkCellArray,
-    vtkPoints,
-    vtkPolyData,
-    vtkTransform,
-    vtkTransformPolyDataFilter,
-)
-from vtk.util import numpy_support
-from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
 
 class BrachyApplicator:
     r"""
@@ -1015,4 +1089,3 @@ class BrachyApplicator:
         stl_writer.SetFileName(pth_output)
         stl_writer.SetInputData(self.applicator_mesh)
         stl_writer.Write()
-

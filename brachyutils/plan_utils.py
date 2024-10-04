@@ -1,15 +1,17 @@
 import gc
 import json
 import os
-import re
+
+# import re
 import warnings
 from copy import deepcopy
 from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
-from typing import List
+from typing import List, Union
 
 import numpy as np
+from opentps.core.data import DVH, ROIContour
 
 # from multipledispatch import dispatch
 from scipy import interpolate, ndimage
@@ -20,11 +22,9 @@ from tqdm import tqdm
 # from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
 from brachyutils.egsphant_utils import BrachyEgsphant
+from brachyutils.geometry_utils import BrachyApplicator, BrachyPhantom
 from brachyutils.simulation_utils import BrachySimulation
 
-from brachyutils.geometry_utils import BrachyApplicator
-
-from opentps.core.data import ROIContour, DVH
 
 class BrachyStructure:
     r"""
@@ -81,7 +81,7 @@ class BrachyStructure:
         in_dvh: bool = None,
         dvh_metric_name: str = None,
         dvh_metric_clinical_goal: float = None,
-        ) -> None:
+    ) -> None:
         r"""
         Purpose:
             - To initialize the BrachyStructure object.
@@ -132,15 +132,17 @@ class BrachyStructure:
         self.density: float = None  # 0
         self.density_mode: str = None  # ""
         self.material: str = None  # "CT Material"
-        
+
         self.name = name
         self.mask_contour = mask_contour
         self.target_volume = target_volume
         self.in_dvh = in_dvh
         self.dvh_metric_name = dvh_metric_name
         self.dvh_metric_clinical_goal = dvh_metric_clinical_goal
-        
-        assert self.name.lower() in self.dvh_metric_name.lower(), "name should be in dvh metric name enclosed by paranthesis"
+
+        assert (
+            self.name.lower() in self.dvh_metric_name.lower()
+        ), "name should be in dvh metric name enclosed by paranthesis"
 
     def get_dvh_metric(self, combined_dose: BrachyDose):
         r"""
@@ -161,10 +163,12 @@ class BrachyStructure:
         assert (
             self.dvh_metric_clinical_goal is not None
         ), "dvh metric clinical goal is not set"
-        assert isinstance(combined_dose, BrachyDose), "combined dose is not a BrachyDose object"
+        assert isinstance(
+            combined_dose, BrachyDose
+        ), "combined dose is not a BrachyDose object"
         self.dvh_obj = DVH(self.mask_contour, combined_dose.dose_image)
         metric_string = self.dvh_metric_name.split("(")[0]
-        
+
         if "D" in metric_string:
             if "%" in metric_string:
                 threshold = float(metric_string.split("%")[0].split("D")[-1])
@@ -238,9 +242,10 @@ class BrachyStructure:
                 "type": "Target volume" if self.target_volume else "Organ at risk",
                 "uniformity_weight": self.penalty_weight_uniformity,
             }
-    
+
     def info(self):
         print(self.to_dict("RapidBrachy"))
+
 
 class BrachyPlan:
     r"""
@@ -283,12 +288,16 @@ class BrachyPlan:
 
     def __init__(
         self,
-        # for loading dicom
-        dir_dicom: str = None,
+        # for geometry definition:
+        phantom: Union[str, BrachyPhantom] = None,
+        # pth_structure_source: str = None,
+        # dir_egsphant: str = None,
+        applicator: Union[str, BrachyApplicator] = None,
+        # pth_applicator_list_json: str = None,
+        # applicator_format: str = "RapidBrachy",
         # for structure creation:
         dvh_metric_goals: dict = None,
-        pth_structure_source: str = None,
-        dose_cropped_by_body: bool = False,
+        # dose_cropped_by_body: bool = False,
         # for loading catheter table:
         pth_catheter_table_json: str = None,
         # for loading dose or uncertainty:
@@ -298,10 +307,6 @@ class BrachyPlan:
         multi_processing: bool = False,
         # for simulation setup:
         combined_simulation_dict: dict = None,
-        dir_egsphant: str = None,
-        # for applicator setup
-        pth_applicator_list_json: str = None,
-        applicator_format: str = "RapidBrachy",
     ):
         r"""
         Purpose:
@@ -331,7 +336,15 @@ class BrachyPlan:
         # patient origin is used as a reference point for the catheter table,
         # the dwell coordinates, image origin, egsphant, and the dose objects.
         # XXX: figure out how to sort out patient origin to match all above.
-        self.patient_origin = np.array([0, 0, 0])  # x,y,z
+
+        # phantom and geometry attributes
+        self.phantom = None
+        self.dvh_metric_goals: dict = None
+        self.dvh_metric_observed: dict = None
+        self.structure_list: List[BrachyStructure] = []
+        self.phantom_origin = None  # np.array([0, 0, 0])  # x,y,z
+        self.organ_bounds = None
+
         # catheter table attributes
         self.catheter_table = None
         self.num_catheters = None
@@ -349,15 +362,6 @@ class BrachyPlan:
         self.uncertainty_tensor = np.array(
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
-
-        # sturctures attributes
-        # self.organ_bounds = None
-        self.dvh_metric_goals: dict = None
-        self.dvh_metric_observed: dict = None
-        self.structure_list: List[BrachyStructure] = []
-
-        # dicom image
-        self.dicom_obj: BrachyDicom = None
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
