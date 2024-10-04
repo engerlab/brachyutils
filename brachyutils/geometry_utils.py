@@ -30,10 +30,6 @@ from vtk import (
 from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
 
-# import slicerio
-
-
-
 class BrachyPhantom:
     r"""
     Puprose:
