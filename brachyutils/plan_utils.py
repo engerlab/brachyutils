@@ -82,7 +82,23 @@ class BrachyStructure:
         dvh_metric_name: str = None,
         dvh_metric_clinical_goal: float = None,
         ) -> None:
-
+        r"""
+        Purpose:
+            - To initialize the BrachyStructure object.
+        Inputs:
+            - name:str := the name of the structure.
+            - mask_contour:ROIContour := the mask contour of the structure.
+            - target_volume:bool := flag to indicate whether the structure is a target volume or not.
+            - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
+            - dvh_metric_name:str := the name of the DVH metric in the format of "D#cc|%(organName)",
+            "V#Gy|%(organName)", where # represents the numerical threshold and "|" is or for example D95%(organName).
+            - dvh_metric_clinical_goal:float := the clinical goal for the DVH metric.
+        Outputs:
+            - Void := will initialize the BrachyStructure object
+        Dependencies:
+            - opentps.core.data.ROIContour
+            - opentps.core.data.DVH
+        """
         self.name: str = None
         self.mask_contour: ROIContour = None
         self.target_volume: bool = None
@@ -92,7 +108,8 @@ class BrachyStructure:
         self.dvh_metric_name: str = None
         self.dvh_metric_clinical_goal: float = None
         self.dvh_metric_observed: float = None
-        self.normalized_cummulative_dvh: np.array = None
+        # self.normalized_cummulative_dvh: np.array = None
+        self.dvh_obj: DVH = None
 
         # uncertainty volume histogram
         self.uvh: np.array = None
@@ -122,41 +139,63 @@ class BrachyStructure:
         self.in_dvh = in_dvh
         self.dvh_metric_name = dvh_metric_name
         self.dvh_metric_clinical_goal = dvh_metric_clinical_goal
+        
+        assert self.name.lower() in self.dvh_metric_name.lower(), "name should be in dvh metric name enclosed by paranthesis"
 
     def get_dvh_metric(self, combined_dose: BrachyDose):
+        r"""
+        Purpose:
+            - To calculate the DVH metric for the structure given the combined dose.
+            The mask contour and DVH metrics should be set before calling this function.
+            We expect the the dvh metric name to be in the format of "D#cc(organName)",
+            "D#%(organName)", "V#Gy(organName)" or "V#%(organName)", where # is the threshold
+            value. for example "D95%(organName)".
+        Inputs:
+            - combined_dose := the combined dose object for the patient.
+        Outputs:
+            - Void := will update the BrachyStructure.dvh_metric_observed and
+            BrachyStructure.dvh_obj attributes.
+        """
         assert self.mask_contour is not None, "mask is not loaded"
         assert self.dvh_metric_name is not None, "dvh metric name is not set"
         assert (
             self.dvh_metric_clinical_goal is not None
         ), "dvh metric clinical goal is not set"
         assert isinstance(combined_dose, BrachyDose), "combined dose is not a BrachyDose object"
-        dvh = DVH(self.mask_contour, combined_dose.dose_image)
-        # XXX : complete this function!
-        # num_bins = int(combined_dose.grid.max() * 10) + 1
-        # total_dose_max = combined_dose.grid.max()
-
-        # structure_dose = combined_dose.grid * self.mask_contour
-        # structure_dose = structure_dose[structure_dose != 0].flatten()
-        # voxel_volume = np.prod(combined_dose.voxel_size)
-        # num_voxels_in_structure = np.sum(self.mask_contour)
-
-        # if "%" in self.dvh_metric_name:
-        #     histogram_limit = float(*re.findall(r"-?\d+\.?\d*", self.dvh_metric_name))
-        # elif "cc" in self.dvh_metric_name:
-        #     histogram_limit = (
-        #         float(*re.findall(r"-?\d+\.?\d*", self.dvh_metric_name))
-        #         / (voxel_volume * num_voxels_in_structure)
-        #         * 100
-        #     )
-        # else:
-        #     raise ValueError(
-        #         "invalid name for DVH metric name. \
-        #         The metric should have percent sign (%) or cc."
-        #     )
-
-        # self.dvh_metric_observed, self.normalized_cummulative_dvh = dvh_metric(
-        #     structure_dose, num_bins, total_dose_max, histogram_limit, voxel_volume
-        # )
+        self.dvh_obj = DVH(self.mask_contour, combined_dose.dose_image)
+        metric_string = self.dvh_metric_name.split("(")[0]
+        
+        if "D" in metric_string:
+            if "%" in metric_string:
+                threshold = float(metric_string.split("%")[0].split("D")[-1])
+                self.dvh_metric_observed = self.dvh_obj.computeDx(threshold)
+            elif "cc" in metric_string:
+                threshold = float(metric_string.split("cc")[0].split("D")[-1])
+                self.dvh_metric_observed = self.dvh_obj.computeDcc(threshold)
+            else:
+                raise ValueError(
+                    "invalid name for DVH metric name. \
+                    The metrics starting with 'D' should have percent sign (%) or cc.\
+                    for example 'D95%(organ name)' or 'D2cc(organ name)'"
+                )
+        elif "V" in metric_string:
+            if "%" in metric_string:
+                threshold = float(metric_string.split("%")[0].split("V")[-1])
+                self.dvh_metric_observed = self.dvh_obj.computeVx(threshold)
+            elif "Gy" in metric_string:
+                threshold = float(metric_string.split("Gy")[0].split("V")[-1])
+                self.dvh_metric_observed = self.dvh_obj.computeVx(threshold)
+            else:
+                raise ValueError(
+                    "invalid name for DVH metric name. \
+                    The metrics starting with 'V' should have percent sign (%) or Gy.\
+                    for example 'V95%(organ name)' or 'V2Gy(organ name)'"
+                )
+        else:
+            raise ValueError(
+                "invalid name for DVH metric name. \
+                The metric should should start with D followed by cc or %, or V followed by Gy or %."
+            )
 
     def to_dict(self, export_format: str):
         r"""

@@ -365,7 +365,7 @@ def test_brachy_structure():
     pth_structure = glob(pth_dicom+ "/RS*.dcm")[0]
     pth_dose = glob(pth_dicom+ "/RD*.dcm")[0]
     structure_name = "CTV"
-    dvh_name = "D95%"
+    dvh_name = "D95%(CTV)"
     dvh_goal = 15
     dose = BrachyDose(pth_dose)
 
@@ -375,7 +375,7 @@ def test_brachy_structure():
         )
     mask_dict:dict = phantom_obj.get_structure_mask([structure_name], ROIContour)
     mask_contour = mask_dict[structure_name]
-      
+
     structure_obj = BrachyStructure(
         name=structure_name,
         mask_contour=mask_contour,
