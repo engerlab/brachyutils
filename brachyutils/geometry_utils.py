@@ -30,6 +30,7 @@ from vtk import (
 from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
 
+
 class BrachyPhantom:
     r"""
     Puprose:
@@ -61,7 +62,7 @@ class BrachyPhantom:
             an empty image_obj is created with the dimensions matching the structures file.
         Inputs:
             - dir_dicom: Path := the directory of the DICOM files.
-            - pth_phantom_file: Path := the path of the phantom file.
+            - pth_phantom_file: Path := the path of the phantom .nrrd file.
             - pth_structures_file: Path := the path of the structure file.
         Outputs:
             - None

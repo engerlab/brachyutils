@@ -1,7 +1,7 @@
 import gc
 import json
 import os
-
+from pathlib import Path
 # import re
 import warnings
 from copy import deepcopy
@@ -289,19 +289,19 @@ class BrachyPlan:
     def __init__(
         self,
         # for geometry definition:
-        phantom: Union[str, BrachyPhantom] = None,
+        phantom: Union[Path, BrachyPhantom] = None,
         # pth_structure_source: str = None,
         # dir_egsphant: str = None,
-        applicator: Union[str, BrachyApplicator] = None,
+        applicator: Union[Path, BrachyApplicator] = None,
         # pth_applicator_list_json: str = None,
         # applicator_format: str = "RapidBrachy",
         # for structure creation:
         dvh_metric_goals: dict = None,
         # dose_cropped_by_body: bool = False,
         # for loading catheter table:
-        pth_catheter_table_json: str = None,
+        pth_catheter_table_json: Path = None,
         # for loading dose or uncertainty:
-        dir_dose_rate: str = None,
+        dir_dose_rate: Path = None,
         type_dose_file: str = ".nrrd",
         load_dose_or_uncertainty: str = "dose",
         multi_processing: bool = False,
@@ -389,7 +389,7 @@ class BrachyPlan:
             if isinstance(phantom, BrachyPhantom):
                 self.phantom = phantom
             elif isinstance(phantom, str):
-                self.load_brachy_plan_from_dicom(phantom)
+                self.load_phantom(phantom)
             else:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
         # load the catheter table if the path is provided
@@ -422,75 +422,145 @@ class BrachyPlan:
         if pth_applicator_list_json is not None:
             self.load_applicator_list(pth_applicator_list_json, applicator_format)
 
-    def load_brachy_plan_from_dicom(
-        self, dir_dicom: str, dose_cropped_by_body: bool = False
-    ):
+    def load_phantom(self, pth_phantom: Path):
         r"""
         Purpose:
-            - To load the brachytherapy plan from a directory containing the dicom files.
-            depending on the availability of the RP, RS and RD dicom files, the plan will be
-            loaded in different ways.
+            - To load phantom from file path into Brachy Plan. Not that if a directory is provided,
+            it should have only one phantom file.
         Inputs:
-            - dir_dicom := path to the directory containing the dicom files.
+            - pth_phantom:str := The phantom path could be a directory of DICOM files
+            or a directory of NRRD files. In addition, it could be the path to a json
+            file containing paths to specific phantom files. Look at the inputs of BrachPhantom
+            for more information on the expected keys of the json file.
         Outputs:
-            - Void := will update the BrachyPlan.dicom_obj as well other attribute
-        Dependencies:
-            - BrachyDicom
+            - Void := will update the BrachyPlan.phantom attribute
         """
-        file_list_dcm = glob(os.path.join(dir_dicom, "*.dcm"))
-        file_list_dcm = [os.path.basename(file).split(".")[0] for file in file_list_dcm]
-        all_names = ",".join(file_list_dcm)
-
-        load_structure = True if "RS" in all_names else False
-        load_plan = True if "RP" in all_names else False
-        load_dose = True if "RD" in all_names else False
-
-        try:
-            self.dicom_obj = BrachyDicom(
-                pth_dir_dicom=dir_dicom,
-                load_structure=load_structure,
-                load_plan=load_plan,
-                load_dose=load_dose,
-            )
-        except Exception as e:
-            print(f"Error in loading all dicom files: {e}")
-            try:
-                self.dicom_obj = BrachyDicom(
-                    pth_dir_dicom=dir_dicom,
-                    load_structure=load_structure,
-                    load_plan=load_plan,
-                    load_dose=False,
-                )
-            except Exception as e:
-                print(f"Error in loading dicom dose file: {e}")
-                try:
-                    self.dicom_obj = BrachyDicom(
-                        pth_dir_dicom=dir_dicom,
-                        load_structure=load_structure,
-                        load_plan=False,
-                        load_dose=False,
+        os.path.exists(pth_phantom), f"phantom path does not exist: {pth_phantom}"
+        # initialize the inputs to the BrachyPhantom object
+        dir_dicom = None
+        pth_phantom_file = None
+        pth_structures_file = None
+        pth_egsphant_file = None
+        # check if the pth_phantom is a directory or a json file
+        if os.path.isdir(pth_phantom):
+            print("loading phantom from directory")
+            # check if the directory contains dicom files or nrrd files
+            file_list = glob(os.path.join(pth_phantom, "*.dcm"))
+            if len(file_list) > 0:
+                dir_dicom = pth_phantom
+                pth_phantom_file = list(filter(lambda x: "RS" in x, file_list))[0]
+            else:
+                file_list = glob(os.path.join(pth_phantom, "*.nrrd"))
+                if len(file_list) > 0:
+                    for file_name in file_list:
+                        if file_name.endswith(".seg.nrrd"):
+                            pth_structures_file = file_name
+                        elif file_name.endswith(".egsphant.nrrd"):
+                            pth_egsphant_file = file_name
+                        elif file_name.endswith(".nrrd"):
+                            pth_phantom_file = file_name
+                    if pth_egsphant_file is None:
+                        pth_egsphant_file = glob(os.path.join(pth_phantom, "ct.egsphant.nrrd"))
+                        if len(pth_egsphant_file) == 0:
+                            pth_egsphant_file = None
+                else:
+                    raise ValueError(
+                        "invalid directory. Please provide a directory containing dicom or nrrd files"
                     )
-                except Exception as e:
-                    print(f"Error in loading dicom plan file: {e}")
-                    self.dicom_obj = BrachyDicom(
-                        pth_dir_dicom=dir_dicom,
-                        load_structure=False,
-                        load_plan=False,
-                        load_dose=False,
-                    )
+        else:
+            assert (
+                os.path.splitext(pth_phantom)[1] == ".json"
+            ), "invalid file format. Please provide a json file"
+            with open(pth_phantom, "r") as json_file:
+                phantom_config = json.load(json_file)
+            for key in phantom_config:
+                if key == "dir_dicom":
+                    dir_dicom = phantom_config.get(key)
+                elif key == "pth_phantom_file":
+                    pth_phantom_file = phantom_config.get(key)
+                elif key == "pth_structures_file":
+                    pth_structures_file = phantom_config.get(key)
+                elif key == "pth_egsphant_file":
+                    pth_egsphant_file = phantom_config.get(key)
 
-        if load_structure:
-            self.create_structures(
-                structure_mask_dict=self.dicom_obj.structure_mask_dict,
-                dose_cropped_by_body=dose_cropped_by_body,
-            )
+        # load the phantom
+        self.phantom = BrachyPhantom(
+            dir_dicom=dir_dicom,
+            pth_phantom_file=pth_phantom_file,
+            pth_structures_file=pth_structures_file,
+            pth_egsphant_file=pth_egsphant_file,
+        )
+        self.phantom_origin = self.phantom.image_obj.origin
 
-        if load_plan:
-            self.catheter_table = self.dicom_obj.catheter_table
-            self._extract_dwell_numbers_times_coordinates_from_catheterTable()
+    # def load_brachy_plan_from_dicom(
+    #     self, dir_dicom: str, dose_cropped_by_body: bool = False
+    # ):
+    #     r"""
+    #     Purpose:
+    #         - To load the brachytherapy plan from a directory containing the dicom files.
+    #         depending on the availability of the RP, RS and RD dicom files, the plan will be
+    #         loaded in different ways.
+    #     Inputs:
+    #         - dir_dicom := path to the directory containing the dicom files.
+    #     Outputs:
+    #         - Void := will update the BrachyPlan.dicom_obj as well other attribute
+    #     Dependencies:
+    #         - BrachyDicom
+    #     """
+    #     file_list_dcm = glob(os.path.join(dir_dicom, "*.dcm"))
+    #     file_list_dcm = [os.path.basename(file).split(".")[0] for file in file_list_dcm]
+    #     all_names = ",".join(file_list_dcm)
 
-        if load_dose:
-            self.combined_dose = self.dicom_obj.dose
+    #     load_structure = True if "RS" in all_names else False
+    #     load_plan = True if "RP" in all_names else False
+    #     load_dose = True if "RD" in all_names else False
+
+    #     try:
+    #         self.dicom_obj = BrachyDicom(
+    #             pth_dir_dicom=dir_dicom,
+    #             load_structure=load_structure,
+    #             load_plan=load_plan,
+    #             load_dose=load_dose,
+    #         )
+    #     except Exception as e:
+    #         print(f"Error in loading all dicom files: {e}")
+    #         try:
+    #             self.dicom_obj = BrachyDicom(
+    #                 pth_dir_dicom=dir_dicom,
+    #                 load_structure=load_structure,
+    #                 load_plan=load_plan,
+    #                 load_dose=False,
+    #             )
+    #         except Exception as e:
+    #             print(f"Error in loading dicom dose file: {e}")
+    #             try:
+    #                 self.dicom_obj = BrachyDicom(
+    #                     pth_dir_dicom=dir_dicom,
+    #                     load_structure=load_structure,
+    #                     load_plan=False,
+    #                     load_dose=False,
+    #                 )
+    #             except Exception as e:
+    #                 print(f"Error in loading dicom plan file: {e}")
+    #                 self.dicom_obj = BrachyDicom(
+    #                     pth_dir_dicom=dir_dicom,
+    #                     load_structure=False,
+    #                     load_plan=False,
+    #                     load_dose=False,
+    #                 )
+
+    #     if load_structure:
+    #         self.create_structures(
+    #             structure_mask_dict=self.dicom_obj.structure_mask_dict,
+    #             dose_cropped_by_body=dose_cropped_by_body,
+    #         )
+
+    #     if load_plan:
+    #         self.catheter_table = self.dicom_obj.catheter_table
+    #         self._extract_dwell_numbers_times_coordinates_from_catheterTable()
+
+    #     if load_dose:
+    #         self.combined_dose = self.dicom_obj.dose
 
     def load_catheterTable_json(self, pth_catheter_table_json: str):
         r"""
