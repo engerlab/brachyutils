@@ -354,6 +354,13 @@ class BrachyPlan:
         self.dwell_times = np.array([], dtype=np.float32)  # shape: (num_dwells, 1)
         self.dwell_coordinates = []  # shape: (num_dwells, 3)
 
+        # applicator attributes
+        self.applicator_list: List[BrachyApplicator] = []
+        # XXX: figure out if the two below are dwell or applicator attributes?
+        # they are dwell attributes that are impacted by applicator rotation. for now, leave them be.
+        self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
+        self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
+
         # dose attributes
         self.dose_rate_tensor = np.array(
             [], dtype=np.float32
@@ -365,17 +372,11 @@ class BrachyPlan:
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
-        self.egsphant: BrachyEgsphant = None
-        self.applicator_list: List[BrachyApplicator] = []
-        # XXX: figure out if the two below are dwell or applicator attributes?
-        # they are dwell attributes that are impacted by applicator rotation. for now, leave them be.
-        self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
-        self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
         # optimization attributes
         self.optimizer = None
 
-        # fill the attributes depending on the inputs to the constructor
+        ## fill the attributes depending on the inputs to the constructor
         # set the dvh metric goals if provided
         (
             self.set_dvh_metric_goals(dvh_metric_goals)
@@ -384,9 +385,13 @@ class BrachyPlan:
         )
 
         # load the dicom plan if the path is provided
-        if dir_dicom is not None:
-            self.load_brachy_plan_from_dicom(dir_dicom, dose_cropped_by_body)
-
+        if phantom is not None:
+            if isinstance(phantom, BrachyPhantom):
+                self.phantom = phantom
+            elif isinstance(phantom, str):
+                self.load_brachy_plan_from_dicom(phantom)
+            else:
+                raise ValueError("phantom should be a BrachyPhantom object or a path")
         # load the catheter table if the path is provided
         if pth_catheter_table_json is not None:
             self.load_catheterTable_json(pth_catheter_table_json)
