@@ -388,6 +388,12 @@ def test_brachy_structure():
     structure_obj.info()
     structure_obj.get_dvh_metric(dose)
 
+def test_load_phantom():
+    pth_dicom = "../data_test/prostate-glen-p1-dcm/"
+    # pth_structure = glob(pth_dicom+ "/RS*.dcm")[0]
+    plan_obj = BrachyPlan(phantom=pth_dicom)
+    plan_obj.info()
+
 if __name__ == "__main__":
     # test_load_catheterTable_json()
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
@@ -406,4 +412,5 @@ if __name__ == "__main__":
     # test_BrachyApplicator_set_rotation()
     # test_load_applicator_list()
     # test__export_applicator_geometry()
-    test_brachy_structure()
+    # test_brachy_structure()
+    test_load_phantom()
