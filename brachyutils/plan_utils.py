@@ -295,9 +295,6 @@ class BrachyPlan:
         # for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
         applicator: Union[Path, BrachyApplicator] = None,
-        # pth_applicator_list_json: str = None,
-        # applicator_format: str = "RapidBrachy",
-        
         # dose_cropped_by_body: bool = False,
         # for loading catheter table:
         pth_catheter_table_json: Path = None,
@@ -316,19 +313,20 @@ class BrachyPlan:
             ### For geometry definition:
             - phantom:Union[Path, BrachyPhantom, dict] := the phantom object, the path to the phantom directory,
             or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
+
             ### For Structure optimization and dosimetry
             - dvh_metric_goals:dict := dictionary containing the DVH metric goals.
+
             ### for loading catheter table:
             - pth_catheter_table_json:str := path to a json file containing the information of the catheter table.
+
             ### for loading dose or uncertainty:
             - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
             - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
             - load_dose_or_uncertainty:str = "dose" := specify whether to load "dose" or "uncertainty" or "both" (default is "dose").
             - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
-            ### for structure creation:
-            - dvh_metric_goals:dict = None := dictionary containing the DVH metric goals (default is None).
-            - pth_structure_source:str = None := path to the directory containing the structures (default is None).
-            - dose_cropped_by_body:bool = True := flag to indicate whether the dose is cropped by body (default is True).
+
+            ### for simulation setup:
             - combined_simulation_dict = None := dictionary containing the simulation setup,
             - dir_egsphant = None := path to the directory containing the egsphant file,
             - pth_applicator_list_json := path to the json file containing the applicator list. See load_applicator_list() for more info.
@@ -394,7 +392,7 @@ class BrachyPlan:
         if phantom is not None:
             if isinstance(phantom, BrachyPhantom):
                 self.phantom = phantom
-            elif isinstance(phantom, str):
+            elif isinstance(phantom, Path) or isinstance(phantom, dict):
                 self.load_phantom(phantom)
             else:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
@@ -509,78 +507,6 @@ class BrachyPlan:
             pth_egsphant_file=pth_egsphant_file,
         )
         self.phantom_origin = self.phantom.image_obj.origin
-        if self.phantom.structure_set is not None:
-            
-
-    # def load_brachy_plan_from_dicom(
-    #     self, dir_dicom: str, dose_cropped_by_body: bool = False
-    # ):
-    #     r"""
-    #     Purpose:
-    #         - To load the brachytherapy plan from a directory containing the dicom files.
-    #         depending on the availability of the RP, RS and RD dicom files, the plan will be
-    #         loaded in different ways.
-    #     Inputs:
-    #         - dir_dicom := path to the directory containing the dicom files.
-    #     Outputs:
-    #         - Void := will update the BrachyPlan.dicom_obj as well other attribute
-    #     Dependencies:
-    #         - BrachyDicom
-    #     """
-    #     file_list_dcm = glob(os.path.join(dir_dicom, "*.dcm"))
-    #     file_list_dcm = [os.path.basename(file).split(".")[0] for file in file_list_dcm]
-    #     all_names = ",".join(file_list_dcm)
-
-    #     load_structure = True if "RS" in all_names else False
-    #     load_plan = True if "RP" in all_names else False
-    #     load_dose = True if "RD" in all_names else False
-
-    #     try:
-    #         self.dicom_obj = BrachyDicom(
-    #             pth_dir_dicom=dir_dicom,
-    #             load_structure=load_structure,
-    #             load_plan=load_plan,
-    #             load_dose=load_dose,
-    #         )
-    #     except Exception as e:
-    #         print(f"Error in loading all dicom files: {e}")
-    #         try:
-    #             self.dicom_obj = BrachyDicom(
-    #                 pth_dir_dicom=dir_dicom,
-    #                 load_structure=load_structure,
-    #                 load_plan=load_plan,
-    #                 load_dose=False,
-    #             )
-    #         except Exception as e:
-    #             print(f"Error in loading dicom dose file: {e}")
-    #             try:
-    #                 self.dicom_obj = BrachyDicom(
-    #                     pth_dir_dicom=dir_dicom,
-    #                     load_structure=load_structure,
-    #                     load_plan=False,
-    #                     load_dose=False,
-    #                 )
-    #             except Exception as e:
-    #                 print(f"Error in loading dicom plan file: {e}")
-    #                 self.dicom_obj = BrachyDicom(
-    #                     pth_dir_dicom=dir_dicom,
-    #                     load_structure=False,
-    #                     load_plan=False,
-    #                     load_dose=False,
-    #                 )
-
-    #     if load_structure:
-    #         self.create_structures(
-    #             structure_mask_dict=self.dicom_obj.structure_mask_dict,
-    #             dose_cropped_by_body=dose_cropped_by_body,
-    #         )
-
-    #     if load_plan:
-    #         self.catheter_table = self.dicom_obj.catheter_table
-    #         self._extract_dwell_numbers_times_coordinates_from_catheterTable()
-
-    #     if load_dose:
-    #         self.combined_dose = self.dicom_obj.dose
 
     def load_catheterTable_json(self, pth_catheter_table_json: str):
         r"""
@@ -875,7 +801,7 @@ class BrachyPlan:
             #     self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
             #     axis=0)
 
-    def set_dvh_metric_goals(self, dvh_metric_goals: dict):
+    def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
         Purpose:
             - To set the dvh metric list of the BrachyPlan object.
@@ -885,6 +811,10 @@ class BrachyPlan:
         Outputs:
             - Void := will update the BrachyPlan.dvh_metric_goals attribute
         """
+        if isinstance(dvh_metric_goals, Path):
+            with open(dvh_metric_goals, "r") as json_file:
+                dvh_metric_goals = json.load(json_file)
+
         for dvh_metric in dvh_metric_goals:
             assert (
                 "D" in dvh_metric
