@@ -396,6 +396,10 @@ class BrachyPlan:
                 self.load_phantom(phantom)
             else:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
+        # create structures based on the phantom structures and DVH metric goals
+        if self.phantom.structure_set is not None and self.dvh_metric_goals is not None:
+            self.create_structures()
+        
         # load the catheter table if the path is provided
         if pth_catheter_table_json is not None:
             self.load_catheterTable_json(pth_catheter_table_json)
@@ -817,41 +821,33 @@ class BrachyPlan:
 
         for dvh_metric in dvh_metric_goals:
             assert (
-                "D" in dvh_metric
+                dvh_metric.startswith("D") or dvh_metric.startswith("V")
             ), "dvh metric name should start with D as we are only supporting dose metrics for now"
             assert (
                 "cc" in dvh_metric or "%" in dvh_metric
             ), "dvh metric name should end with cc or '%' to signify the absolute or relative volume"
             assert (
                 dvh_metric_goals[dvh_metric] is not None
-            ), "for each dvh metric, the clinical threshold should be provided in Gy."
+            ), "for each dvh metric, the clinical threshold should be provided in Gy or %."
 
         self.dvh_metric_goals = dvh_metric_goals
 
-    def create_structures(
-        self,
-        structure_mask_dict: dict = None,
-        dir_structures_source: str = None,
-        dose_cropped_by_body: bool = False,
-    ):
+    # XXX: do this next!
+    def create_structures(self):
         r"""
         Purpose:
-            - To create a list of BrachyStructure objects given the path to the directory
-            containing the structure masks. the list is stored in the BrachyPlan.structure_list attribute.
-            Eeach BrachyStructure object will have attributes for the structure mask, the dose volume
+            - To create a list of BrachyStructure objects from the structures in the phantom and 
+            the DVH metric goals. The list is stored in the BrachyPlan.structure_list attribute.
+            Eeach BrachyStructure object will have attributes for the structure contour, the DVH
             and uncertainty volume histograms, optimization attributes, and simulation attributes.
 
-            The basic (mandatory) attributes are the structure name, mask and whether it is a target volume or not.
+            The basic (mandatory) attributes are the structure contours, mask and whether it is a target volume or not.
             If dvh metric goals are set, the BrachyStructure object will automatically update the DVH attributes
             in the BrachyStructure object.
 
         Inputes:
-            - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value. This
-            dictionary can be obtained from self.dicom_obj.structure_mask_dict.
-
-            - dir_structures_source := path to the directory containing the structure masks.
-            this could be dicom file (starting with RS) or nrrd files. If self.dicom_obj is not None,
-            using this parameter will over-ride the previous structure objects.
+            - self.phantom.structure_set := the structure set of the phantom
+            - self.dvh_metric_goals := the dvh metric goals dictionary
 
         Outputs:
             - Void := will update the BrachyPlan.structure_list attribute
