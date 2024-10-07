@@ -155,3 +155,10 @@ class BrachySimulation:
 /run/printProgress {self.PrintProgress}
 /sim/beamOn {self.beam_on}
 """
+
+class BrachySource:
+    r"""
+    Purpose:
+    
+    Attributes:
+    """

@@ -1086,3 +1086,13 @@ class BrachyApplicator:
         stl_writer.SetFileName(pth_output)
         stl_writer.SetInputData(self.applicator_mesh)
         stl_writer.Write()
+
+
+class CatheterTable:
+    r"""
+    Purpose:
+        - This class holds the information regarding the catheter table.
+        as well as all the functions to support the necessary catheter table operations.
+
+    Attributes:
+    """
