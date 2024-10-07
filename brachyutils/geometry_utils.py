@@ -1096,20 +1096,77 @@ class CatheterTable(list):
 
     Attributes:
     """
-    def __init__(
-        self,
-        iterable: list = None,
-        pth_json:Path = None) -> None:
-        
-        if pth_json is not None:
-            assert os.path.exists(pth_json), "The input json file does not exist."
-            with open(pth_json, "r") as json_file:
-                catheter_table_list = json.load(json_file)
 
+    def __init__(self, iterable: list = None, pth_catheter_table: Path = None) -> None:
 
+        if pth_catheter_table is not None:
+            assert os.path.exists(
+                pth_catheter_table
+            ), "The input json file does not exist."
+            extension = os.path.splitext(pth_catheter_table)[1]
+            if extension == ".json":
+                iterable = self.load_from_json(pth_catheter_table)
+            elif extension == ".dcm"
+                iterable = self.load_from_dicom(pth_catheter_table)
         super().__init__(iterable)
 
-class DwellPosition():
+    def load_from_json(self, pth_json: Path) -> list:
+        r"""
+        Purpose:
+            - Load the catheter table from a json file.
+        Inputs:
+            - pth_json: Path := the path to the json file containing the catheter table.
+        Outputs:
+            - Void := will update the catheter table based on the json file.
+        """
+        raw_catheter_table:list = []
+        with open(pth_json, "r") as json_file:
+            catheter_table_list = json.load(json_file)
+            assert isinstance(
+                catheter_table_list, list
+            ), "The json file, should contain a list of catheters."
+            for catheter_dict in catheter_table_list:
+                raw_catheter_table.append(
+                    {
+                        "dwells": [
+                            DwellPosition(dwell_dict)
+                            for dwell_dict in catheter_dict.get("dwells")
+                        ],
+                        "id": catheter_dict.get("id"),
+                        "points": catheter_dict.get("points", []),
+                    }
+                )
+            return raw_catheter_table
+    
+    def load_from_dicom(self, pth_dicom: Path) -> list:
+        r"""
+        Purpose:
+            - Load the catheter table from a dicom file.
+        Inputs:
+            - pth_dicom: Path := the path to the dicom file containing the catheter table.
+        Outputs:
+            - Void := will update the catheter table based on the dicom file.
+        """
+        raise NotImplementedError("to be implemented soon")
+    
+    def to_dict(self) -> dict:
+        r"""
+        Purpose:
+            - To convert the catheter table to a dictionary.
+        Inputs:
+            - self := the CatheterTable object.
+        Outputs:
+            - dict := the dictionary containing the catheter table.
+        """
+        return [
+            {
+                "id": catheter.get("id"),
+                "points": catheter.get("points"),
+                "dwells": [dwell.to_dict() for dwell in catheter.get("dwells")],
+            } for catheter in self
+            ]
+
+class DwellPosition:
     r"""
     Purpose:
         - This class holds the information regarding a dwell position.
@@ -1122,6 +1179,7 @@ class DwellPosition():
         - time: float := dwell time for this dwell position
         - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
     """
+
     def __init__(
         self,
         dwell_dict: dict = None,
@@ -1131,15 +1189,15 @@ class DwellPosition():
         rotation: np.array = None,
         time: float = None,
         weight: float = None,
-        ) -> None:
-        
+    ) -> None:
+
         if dwell_dict is not None:
-            angle = dwell_dict.get("angle", 0)
-            position = np.array(dwell_dict.get("position"), None)
-            relativePos = dwell_dict.get("relativePos", None)
-            rotation = np.array(dwell_dict.get("rotation"), None)
-            time = dwell_dict.get("time", None)
-            weight = dwell_dict.get("weight", None)
+            angle = dwell_dict.get("angle")
+            position = np.array(dwell_dict.get("position"))
+            relativePos = dwell_dict.get("relativePos")
+            rotation = np.array(dwell_dict.get("rotation"))
+            time = dwell_dict.get("time")
+            weight = dwell_dict.get("weight")
 
         self.angle = angle
         self.position = position
@@ -1147,7 +1205,7 @@ class DwellPosition():
         self.rotation = rotation
         self.time = time
         self.weight = weight
-    
+
     def to_dict(self) -> dict:
         r"""
         Purpose:
