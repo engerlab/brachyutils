@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Literal, Optional, Union#, List
 
 import numpy as np
-import pydicom
-from opentps.core.data import RTStruct #ROIContour, RTStruct
-from opentps.core.data.images import CTImage, MRImage#, ROIMask
+# import pydicom
+# from opentps.core.data import RTStruct #ROIContour, RTStruct
+# from opentps.core.data.images import CTImage, MRImage#, ROIMask
 from opentps.core.io.dicomIO import (  # readDicomPlan, dose not work on brachy; writeRTPlan, dose not work on brachy; writeRTStruct
     readDicomCT,
     readDicomMRI,
@@ -53,9 +53,9 @@ class BrachyDicom:
             the structure masks, the dose and the plan. by default, the image and the structure masks are loaded.
         """
         self.id: Path = pth_dir_dicom if pth_dir_dicom is not None else None
-        self.image: Union[CTImage, MRImage] = None
+        # self.image: Union[CTImage, MRImage] = None
         self.image_modality: Literal["CT", "MR"] = None
-        self.structures_dcm: RTStruct = None
+        # self.structures_dcm: RTStruct = None
         self.structure_mask_dict: dict = {}
         self.dose: BrachyDose = None
         self.catheter_table: dict = None
@@ -69,45 +69,45 @@ class BrachyDicom:
         file_list: list = glob(pth_dir_dicom + "/*.dcm")
         assert len(file_list) > 0, "there are no dicom files in this directory"
 
-        if load_image:
-            if "CT" in file_list[0]:
-                self.image_modality = "CT"
-                ct_files = list(filter(lambda s: "CT" in s, file_list))
-                # in python, images are represented as [z, y, x] but in dicom it's [x, y, z]
-                image_xyz_mm = readDicomCT(ct_files)
-                self.image = CTImage(
-                    imageArray=np.swapaxes(image_xyz_mm.imageArray, 0, 2),
-                    origin=np.flip(image_xyz_mm.origin),
-                    spacing=np.flip(image_xyz_mm.spacing),
-                    angles=np.flip(image_xyz_mm.angles),
-                    name=image_xyz_mm.name,
-                    seriesInstanceUID=image_xyz_mm.seriesInstanceUID,
-                    frameOfReferenceUID=image_xyz_mm.frameOfReferenceUID,
-                )
-            elif "MR" in file_list[0]:
-                self.image_modality = "MR"
-                mr_files = list(filter(lambda s: "MR" in s, file_list))
-                # in python, images are represented as [z, y, x] but in dicom it's [x, y, z]
-                image_xyz_mm = readDicomMRI(mr_files)
-                self.image = MRImage(
-                    imageArray=np.swapaxes(image_xyz_mm.imageArray, 0, 2),
-                    origin=np.flip(image_xyz_mm.origin),
-                    spacing=np.flip(image_xyz_mm.spacing),
-                    angles=np.flip(image_xyz_mm.angles),
-                    name=image_xyz_mm.name,
-                    seriesInstanceUID=image_xyz_mm.seriesInstanceUID,
-                    frameOfReferenceUID=image_xyz_mm.frameOfReferenceUID,
-                )
-            else:
-                raise ValueError("Image modality not recognized")
+        # if load_image:
+        #     if "CT" in file_list[0]:
+        #         self.image_modality = "CT"
+        #         ct_files = list(filter(lambda s: "CT" in s, file_list))
+        #         # in python, images are represented as [z, y, x] but in dicom it's [x, y, z]
+        #         image_xyz_mm = readDicomCT(ct_files)
+        #         self.image = CTImage(
+        #             imageArray=np.swapaxes(image_xyz_mm.imageArray, 0, 2),
+        #             origin=np.flip(image_xyz_mm.origin),
+        #             spacing=np.flip(image_xyz_mm.spacing),
+        #             angles=np.flip(image_xyz_mm.angles),
+        #             name=image_xyz_mm.name,
+        #             seriesInstanceUID=image_xyz_mm.seriesInstanceUID,
+        #             frameOfReferenceUID=image_xyz_mm.frameOfReferenceUID,
+        #         )
+        #     elif "MR" in file_list[0]:
+        #         self.image_modality = "MR"
+        #         mr_files = list(filter(lambda s: "MR" in s, file_list))
+        #         # in python, images are represented as [z, y, x] but in dicom it's [x, y, z]
+        #         image_xyz_mm = readDicomMRI(mr_files)
+        #         self.image = MRImage(
+        #             imageArray=np.swapaxes(image_xyz_mm.imageArray, 0, 2),
+        #             origin=np.flip(image_xyz_mm.origin),
+        #             spacing=np.flip(image_xyz_mm.spacing),
+        #             angles=np.flip(image_xyz_mm.angles),
+        #             name=image_xyz_mm.name,
+        #             seriesInstanceUID=image_xyz_mm.seriesInstanceUID,
+        #             frameOfReferenceUID=image_xyz_mm.frameOfReferenceUID,
+        #         )
+        #     else:
+        #         raise ValueError("Image modality not recognized")
 
-        if load_structure:
-            structure_file = list(filter(lambda s: "RS" in s, file_list)).pop()
-            self.load_structures(structure_file)
+        # if load_structure:
+        #     structure_file = list(filter(lambda s: "RS" in s, file_list)).pop()
+        #     self.load_structures(structure_file)
 
-        if load_dose:
-            dose_file = list(filter(lambda s: "RD" in s, file_list)).pop()
-            self.dose = BrachyDose(dose_file)
+        # if load_dose:
+        #     dose_file = list(filter(lambda s: "RD" in s, file_list)).pop()
+        #     self.dose = BrachyDose(dose_file)
 
         if load_plan:
             plan_file = list(filter(lambda s: "RP" in s, file_list)).pop()

@@ -292,14 +292,11 @@ class BrachyPlan:
         self,
         # for geometry definition:
         phantom: Union[Path, BrachyPhantom, dict] = None,
-        # pth_structure_source: str = None,
-        # dir_egsphant: str = None,
         # for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
+        # for loading catheter table and/or applicators:
+        catheter_table: Union[Path, BrachyCatheterTable] = None,
         applicator: Union[Path, BrachyApplicator] = None,
-        # dose_cropped_by_body: bool = False,
-        # for loading catheter table:
-        pth_catheter_table_json: Path = None,
         # for loading dose or uncertainty:
         dir_dose_rate: Path = None,
         type_dose_file: str = ".nrrd",
@@ -317,10 +314,11 @@ class BrachyPlan:
             or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
 
             ### For Structure optimization and dosimetry
-            - dvh_metric_goals:dict := dictionary containing the DVH metric goals.
+            - dvh_metric_goals:dict := Dictionary containing the DVH metric goals. Look at BrachyStructure for more info.
+            The phantom should be loaded with structures for the Brachy stuctures to be created.
 
             ### for loading catheter table:
-            - pth_catheter_table_json:str := path to a json file containing the information of the catheter table.
+            - catheter_table:str := path to a json file containing the information of the catheter table.
 
             ### for loading dose or uncertainty:
             - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
@@ -406,8 +404,8 @@ class BrachyPlan:
             )
 
         # load the catheter table if the path is provided
-        if pth_catheter_table_json is not None:
-            self.load_catheterTable_json(pth_catheter_table_json)
+        if catheter_table is not None:
+            self.load_catheterTable_json(catheter_table)
 
         # load the dose rate tensor if the path is provided
         if dir_dose_rate is not None:
@@ -418,16 +416,7 @@ class BrachyPlan:
                 multi_processing=multi_processing,
             )
 
-        # # create the structures if the path is provided
-        # if pth_structure_source is not None:
-        #     self.create_brachy_structure_set(
-        #         dir_structures_source=pth_structure_source,
-        #         dose_cropped_by_body=dose_cropped_by_body,
-        #     )
-
         # # load the simulation setup if the dictionary is provided
-        # if dir_egsphant is not None:
-        #     self.egsphant = BrachyEgsphant(dir_egsphant)
         if combined_simulation_dict is not None:
             self.combined_simulation_setup = BrachySimulation(combined_simulation_dict)
 
