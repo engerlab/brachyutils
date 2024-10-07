@@ -120,7 +120,7 @@ class BrachyPhantom:
         """
         assert os.path.exists(pth_image), "The input path does not exist."
         # Load the image and structure set
-        image_files = glob((pth_image + "/*.dcm"))
+        image_files = glob((str(pth_image) + "/*.dcm"))
         if len(image_files) == 0:
             raise ValueError("No DICOM files found in the input directory.")
         if "CT" in image_files[0].upper():

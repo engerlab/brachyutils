@@ -389,10 +389,18 @@ def test_brachy_structure():
     structure_obj.get_dvh_metric(dose)
 
 def test_load_phantom():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm/"
-    # pth_structure = glob(pth_dicom+ "/RS*.dcm")[0]
-    plan_obj = BrachyPlan(phantom=pth_dicom)
+    from pathlib import Path
+    pth_dicom = Path("../data_test/prostate-glen-p1-dcm/")
+
+    dvh_metric_goals = {
+        "D95%(ctv)": 15,
+        "D1cc(rectum)": 11.25,
+        "D0.1cc(urethra)": 18.75,
+    }
+
+    plan_obj = BrachyPlan(phantom=pth_dicom, dvh_metric_goals=dvh_metric_goals)
     plan_obj.info()
+
 
 if __name__ == "__main__":
     # test_load_catheterTable_json()

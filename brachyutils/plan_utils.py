@@ -281,7 +281,7 @@ class BrachyPlan:
         - load_dose_rate_or_uncertainty_tensor()
         - _calculate_combined_dose()
         - set_dvh_metric_goals()
-        - create_structures()
+        - create_brachy_structure_set()
         - calculate_dvh_metrics()
         - _calculate_combined_uncertainty()
         - calculate_uncertainty_per_structure()
@@ -400,8 +400,8 @@ class BrachyPlan:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
         # create structures based on the phantom structures and DVH metric goals
         if self.phantom is not None and self.dvh_metric_goals is not None:
-            self.create_structures(
-                structure_set=self.phantom,
+            self.create_brachy_structure_set(
+                phantom=self.phantom,
                 dvh_metric_goals=self.dvh_metric_goals,
             )
 
@@ -420,7 +420,7 @@ class BrachyPlan:
 
         # # create the structures if the path is provided
         # if pth_structure_source is not None:
-        #     self.create_structures(
+        #     self.create_brachy_structure_set(
         #         dir_structures_source=pth_structure_source,
         #         dose_cropped_by_body=dose_cropped_by_body,
         #     )
@@ -839,7 +839,7 @@ class BrachyPlan:
 
         self.dvh_metric_goals = dvh_metric_goals
 
-    def create_structures(self, phantom: BrachyPhantom, dvh_metric_goals: dict):
+    def create_brachy_structure_set(self, phantom: BrachyPhantom, dvh_metric_goals: dict):
         r"""
         Purpose:
             - To create a list of BrachyStructure objects from the structures in the phantom and
