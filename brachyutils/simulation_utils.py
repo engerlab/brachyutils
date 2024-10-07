@@ -11,10 +11,10 @@ class BrachySimulation:
         self.core_material: str = "G4_Ir"
         self.mass_number: int = 192
         self.atomic_number: int = 77
-        self.pth_plan: str = None
-        self.pth_phantom: str = None
         self.air_kerma_per_history: float = 1.149000e-11
         self.reference_air_kerma: float = 4.278729e04
+        self.pth_plan: str = None
+        self.pth_phantom: str = None
         self.number_histories: int = None
         self.total_time: float = None
         self.dose_format: str = "3ddose"
@@ -162,3 +162,11 @@ class BrachySource:
     
     Attributes:
     """
+    def __init__(self) -> None:
+        self.treatment_type: str = "HDR"
+        self.source_geometry: str = "MicroSelectronV2"
+        self.core_material: str = "G4_Ir"
+        self.mass_number: int = 192
+        self.atomic_number: int = 77
+        self.air_kerma_per_history: float = 1.149000e-11
+        self.reference_air_kerma: float = 4.278729e04
