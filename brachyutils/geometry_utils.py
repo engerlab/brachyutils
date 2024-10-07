@@ -1088,7 +1088,7 @@ class BrachyApplicator:
         stl_writer.Write()
 
 
-class CatheterTable:
+class CatheterTable(list):
     r"""
     Purpose:
         - This class holds the information regarding the catheter table.
@@ -1096,3 +1096,72 @@ class CatheterTable:
 
     Attributes:
     """
+    def __init__(
+        self,
+        iterable: list = None,
+        pth_json:Path = None) -> None:
+        
+        if pth_json is not None:
+            assert os.path.exists(pth_json), "The input json file does not exist."
+            with open(pth_json, "r") as json_file:
+                catheter_table_list = json.load(json_file)
+
+
+        super().__init__(iterable)
+
+class DwellPosition():
+    r"""
+    Purpose:
+        - This class holds the information regarding a dwell position.
+
+    Attributes:
+        - angle := angle of the IMBT shield
+        - position:dict: np.array := dwell position in the patient coordinate system [x, y, z]
+        - relativePos: int := dwell coordinate along the catheter from the reference point. increments of 5 mm
+        - rotation: np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
+        - time: float := dwell time for this dwell position
+        - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
+    """
+    def __init__(
+        self,
+        dwell_dict: dict = None,
+        angle: float = 0,
+        position: np.array = None,
+        relativePos: int = None,
+        rotation: np.array = None,
+        time: float = None,
+        weight: float = None,
+        ) -> None:
+        
+        if dwell_dict is not None:
+            angle = dwell_dict.get("angle", 0)
+            position = np.array(dwell_dict.get("position"), None)
+            relativePos = dwell_dict.get("relativePos", None)
+            rotation = np.array(dwell_dict.get("rotation"), None)
+            time = dwell_dict.get("time", None)
+            weight = dwell_dict.get("weight", None)
+
+        self.angle = angle
+        self.position = position
+        self.relativePos = relativePos
+        self.rotation = rotation
+        self.time = time
+        self.weight = weight
+    
+    def to_dict(self) -> dict:
+        r"""
+        Purpose:
+            - To convert the dwell position to a dictionary.
+        Inputs:
+            - self := the DwellPosition object.
+        Outputs:
+            - dict := the dictionary containing the dwell position.
+        """
+        return {
+            "angle": self.angle,
+            "position": self.position.tolist(),
+            "relativePos": self.relativePos,
+            "rotation": self.rotation.tolist(),
+            "time": self.time,
+            "weight": self.weight,
+        }

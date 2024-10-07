@@ -295,7 +295,7 @@ class BrachyPlan:
         # for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
         # for loading catheter table and/or applicators:
-        catheter_table: Union[Path, BrachyCatheterTable] = None,
+        catheter_table: Union[Path, CatheterTable] = None,
         applicator: Union[Path, BrachyApplicator] = None,
         # for loading dose or uncertainty:
         dir_dose_rate: Path = None,
@@ -517,7 +517,7 @@ class BrachyPlan:
             here is the expected contents of the catheter table json:
             [
                 {
-                    "dwells":[
+                    "dwells":
                         "angle":= angle of the IMBT shield
                         "position":{ := dwell position in the patient coordinate system
                             "x",
