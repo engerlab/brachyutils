@@ -1,13 +1,14 @@
 import gc
 import json
 import os
-from pathlib import Path
+
 # import re
 import warnings
 from copy import deepcopy
 from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
+from pathlib import Path
 from typing import List, Union
 
 import numpy as np
@@ -21,7 +22,8 @@ from tqdm import tqdm
 
 # from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
-from brachyutils.egsphant_utils import BrachyEgsphant
+
+# from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry_utils import BrachyApplicator, BrachyPhantom
 from brachyutils.simulation_utils import BrachySimulation
 
@@ -397,9 +399,12 @@ class BrachyPlan:
             else:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
         # create structures based on the phantom structures and DVH metric goals
-        if self.phantom.structure_set is not None and self.dvh_metric_goals is not None:
-            self.create_structures()
-        
+        if self.phantom is not None and self.dvh_metric_goals is not None:
+            self.create_structures(
+                structure_set=self.phantom,
+                dvh_metric_goals=self.dvh_metric_goals,
+            )
+
         # load the catheter table if the path is provided
         if pth_catheter_table_json is not None:
             self.load_catheterTable_json(pth_catheter_table_json)
@@ -480,7 +485,9 @@ class BrachyPlan:
                         elif file_name.endswith(".nrrd"):
                             pth_phantom_file = file_name
                     if pth_egsphant_file is None:
-                        pth_egsphant_file = glob(os.path.join(pth_phantom, "ct.egsphant.nrrd"))
+                        pth_egsphant_file = glob(
+                            os.path.join(pth_phantom, "ct.egsphant.nrrd")
+                        )
                         if len(pth_egsphant_file) == 0:
                             pth_egsphant_file = None
                 else:
@@ -820,8 +827,8 @@ class BrachyPlan:
                 dvh_metric_goals = json.load(json_file)
 
         for dvh_metric in dvh_metric_goals:
-            assert (
-                dvh_metric.startswith("D") or dvh_metric.startswith("V")
+            assert dvh_metric.startswith("D") or dvh_metric.startswith(
+                "V"
             ), "dvh metric name should start with D as we are only supporting dose metrics for now"
             assert (
                 "cc" in dvh_metric or "%" in dvh_metric
@@ -832,114 +839,120 @@ class BrachyPlan:
 
         self.dvh_metric_goals = dvh_metric_goals
 
-    # XXX: do this next!
-    def create_structures(self):
+    def create_structures(self, phantom: BrachyPhantom, dvh_metric_goals: dict):
         r"""
         Purpose:
-            - To create a list of BrachyStructure objects from the structures in the phantom and 
-            the DVH metric goals. The list is stored in the BrachyPlan.structure_list attribute.
-            Eeach BrachyStructure object will have attributes for the structure contour, the DVH
-            and uncertainty volume histograms, optimization attributes, and simulation attributes.
-
-            The basic (mandatory) attributes are the structure contours, mask and whether it is a target volume or not.
-            If dvh metric goals are set, the BrachyStructure object will automatically update the DVH attributes
-            in the BrachyStructure object.
-
+            - To create a list of BrachyStructure objects from the structures in the phantom and
+            the DVH metric goals. Each BrachyStructure object will have attributes for the structure
+            contour, the DVH and uncertainty volume histograms, optimization attributes, and simulation attributes.
         Inputes:
-            - self.phantom.structure_set := the structure set of the phantom
+            - self.phantom := the phantom with its structures fully loaded.
             - self.dvh_metric_goals := the dvh metric goals dictionary
-
         Outputs:
             - Void := will update the BrachyPlan.structure_list attribute
         Dependencies:
             - BrachyDicom
         """
-        # contour names are assigned based on the keys in the structure mask dictionary
-        if structure_mask_dict is None:
-            # assert dir_structures_source is not None, "dir_structures_source is not provided"
-            try:
-                structure_mask_dict = _load_structure_mask(dir_structures_source)
-            except Exception:
-                raise ValueError(
-                    "Either structure mask should be provided or dir_structure_source"
-                ) from None
-
-        # get the key corresponding to the body contour, which is used to squeeze the structure mask
-        body_key = list(
-            filter(lambda x: "body" in x.lower(), structure_mask_dict.keys())
-        )[0]
-
-        for structure_name in structure_mask_dict.keys():
-            structure_obj = BrachyStructure()
-            # get the name based on the structure mask dictionary key
-            structure_obj.name = structure_name
-
-            # get the mask from the structure mask dictionary
-            structure_obj.mask = structure_mask_dict[structure_name]
-            if dose_cropped_by_body:
-                # obtain the range of body contour on each axis.
-                # we assume that the body contour contains the word "body" in its name
-                body_index_range = np.zeros([3, 2], dtype=int)
-                for i in range(3):
-                    body_index_range[i, :] = np.floor(
-                        np.array(
-                            [
-                                np.argwhere(structure_mask_dict[body_key] == 1)[
-                                    :, i
-                                ].min(),
-                                # off set of +1 is added to acount for python stopping before range end
-                                np.argwhere(structure_mask_dict[body_key] == 1)[
-                                    :, i
-                                ].max()
-                                + 1,
-                            ]
-                        )
-                    ).astype(int)
-                # apply body contour mask to the structure mask
-                structure_obj.mask = structure_obj.mask[
-                    body_index_range[0][0] : body_index_range[0][1],
-                    body_index_range[1][0] : body_index_range[1][1],
-                    body_index_range[2][0] : body_index_range[2][1],
-                ]
-            # resize the mask to match the dose grid if dose grid exists
-            structure_obj.mask = (
-                _resize_structure_mask(
-                    structure_obj.mask, self.combined_dose.grid.shape
-                )
-                if self.combined_dose is not None
-                else structure_obj.mask
+        self.structure_list = []
+        structure_names_in_dvh = [x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()]
+        structure_masks:dict = phantom.get_structure_mask(structure_names_in_dvh, ROIContour)
+        for metric_key, mask_key in zip(dvh_metric_goals, structure_masks):
+            structure_obj = BrachyStructure(
+                name=mask_key,
+                mask_contour=structure_masks[mask_key],
+                target_volume=True if "tv" in metric_key.lower() else False,
+                in_dvh=True,
+                dvh_metric_name=metric_key,
+                dvh_metric_clinical_goal=dvh_metric_goals[metric_key],
             )
-
-            # get the dvh metric goals if they are set
-            if self.dvh_metric_goals is not None:
-                try:
-                    dvh_metric = list(
-                        filter(
-                            lambda x: x.split("(")[-1].split(")")[0].lower()
-                            in structure_obj.name,
-                            self.dvh_metric_goals.keys(),
-                        )
-                    )[0]
-                except IndexError as e:
-                    print(f"{structure_obj.name} is not in the dvh metric goals. {e}")
-                    structure_obj.in_dvh = False
-                    continue
-
-                structure_obj.in_dvh = True
-                structure_obj.dvh_metric_name = dvh_metric.split("(")[0]
-                structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[
-                    dvh_metric
-                ]
-
-            # get the simulation parameters for that structure
-            if self.simulation_setup is not None:
-                raise NotImplementedError("to be implemented soon")
-
-            if self.optimizer is not None:
-                raise NotImplementedError("to be implemented soon")
-
-            # add the structure object to the structure list
             self.structure_list.append(structure_obj)
+
+        # # contour names are assigned based on the keys in the structure mask dictionary
+        # if structure_mask_dict is None:
+        #     # assert dir_structures_source is not None, "dir_structures_source is not provided"
+        #     try:
+        #         structure_mask_dict = _load_structure_mask(dir_structures_source)
+        #     except Exception:
+        #         raise ValueError(
+        #             "Either structure mask should be provided or dir_structure_source"
+        #         ) from None
+
+        # # get the key corresponding to the body contour, which is used to squeeze the structure mask
+        # body_key = list(
+        #     filter(lambda x: "body" in x.lower(), structure_mask_dict.keys())
+        # )[0]
+
+        # for structure_name in structure_mask_dict.keys():
+        #     structure_obj = BrachyStructure()
+        #     # get the name based on the structure mask dictionary key
+        #     structure_obj.name = structure_name
+
+        #     # get the mask from the structure mask dictionary
+        #     structure_obj.mask = structure_mask_dict[structure_name]
+        #     if dose_cropped_by_body:
+        #         # obtain the range of body contour on each axis.
+        #         # we assume that the body contour contains the word "body" in its name
+        #         body_index_range = np.zeros([3, 2], dtype=int)
+        #         for i in range(3):
+        #             body_index_range[i, :] = np.floor(
+        #                 np.array(
+        #                     [
+        #                         np.argwhere(structure_mask_dict[body_key] == 1)[
+        #                             :, i
+        #                         ].min(),
+        #                         # off set of +1 is added to acount for python stopping before range end
+        #                         np.argwhere(structure_mask_dict[body_key] == 1)[
+        #                             :, i
+        #                         ].max()
+        #                         + 1,
+        #                     ]
+        #                 )
+        #             ).astype(int)
+        #         # apply body contour mask to the structure mask
+        #         structure_obj.mask = structure_obj.mask[
+        #             body_index_range[0][0] : body_index_range[0][1],
+        #             body_index_range[1][0] : body_index_range[1][1],
+        #             body_index_range[2][0] : body_index_range[2][1],
+        #         ]
+        #     # resize the mask to match the dose grid if dose grid exists
+        #     structure_obj.mask = (
+        #         _resize_structure_mask(
+        #             structure_obj.mask, self.combined_dose.grid.shape
+        #         )
+        #         if self.combined_dose is not None
+        #         else structure_obj.mask
+        #     )
+
+        #     # get the dvh metric goals if they are set
+        #     if self.dvh_metric_goals is not None:
+        #         try:
+        #             dvh_metric = list(
+        #                 filter(
+        #                     lambda x: x.split("(")[-1].split(")")[0].lower()
+        #                     in structure_obj.name,
+        #                     self.dvh_metric_goals.keys(),
+        #                 )
+        #             )[0]
+        #         except IndexError as e:
+        #             print(f"{structure_obj.name} is not in the dvh metric goals. {e}")
+        #             structure_obj.in_dvh = False
+        #             continue
+
+        #         structure_obj.in_dvh = True
+        #         structure_obj.dvh_metric_name = dvh_metric.split("(")[0]
+        #         structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[
+        #             dvh_metric
+        #         ]
+
+        #     # get the simulation parameters for that structure
+        #     if self.simulation_setup is not None:
+        #         raise NotImplementedError("to be implemented soon")
+
+        #     if self.optimizer is not None:
+        #         raise NotImplementedError("to be implemented soon")
+
+        #     # add the structure object to the structure list
+        #     self.structure_list.append(structure_obj)
 
     def load_applicator_list(
         self,
