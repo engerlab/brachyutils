@@ -1346,3 +1346,43 @@ class DwellPosition:
             "time": self.time,
             "weight": self.weight,
         }
+        
+class Catheter:
+    r"""
+    Purpose:
+        - This class holds the information regarding a catheter.
+    Attributes:
+        - id:int := the id of the catheter.
+        - points:List[np.array] := the list of points of the catheter.
+        - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
+    """ 
+    def __init__(
+        self,
+        id:int=None,
+        dwells:list=None,
+        points:list=[],
+        catheter_dict:dict=None) -> None:
+        
+        if catheter_dict is not None:
+            id = catheter_dict.get("id")
+            points = catheter_dict.get("points")
+            dwells = [DwellPosition(dwell_dict) for dwell_dict in catheter_dict.get("dwells")]
+
+        self.id = id
+        self.points = points
+        self.dwells = dwells
+    
+    def to_dict(self) -> dict:
+        r"""
+        Purpose:
+            - To convert the catheter to a dictionary.
+        Inputs:
+            - self := the Catheter object.
+        Outputs:
+            - dict := the dictionary containing the catheter.
+        """
+        return {
+            "id": self.id,
+            "points": self.points,
+            "dwells": [dwell.to_dict() for dwell in self.dwells],
+        }
