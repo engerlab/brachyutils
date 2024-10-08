@@ -316,122 +316,122 @@ def get_catheter_table_and_source_info_from_dicom(pth_dicom_plan: str) -> tuple:
         # ActiveSourceLength
         # SourceEncapsulationNominalThickness and many more is possible...
     }
-    # loop through the channels
-    for catheter_dcm in plan.ApplicationSetupSequence[0].ChannelSequence:
-        control_points = []
-        catheter_time = (
-            float(catheter_dcm.ChannelTotalTime)
-            if hasattr(catheter_dcm, "ChannelTotalTime")
-            else 0
-        )
-        channel_final_time_weight = (
-            float(catheter_dcm.FinalCumulativeTimeWeight)
-            if hasattr(catheter_dcm, "FinalCumulativeTimeWeight")
-            else 0
-        )
-        # loop through the control points.
-        # Each dwell position has 2 control points, get them all.
-        for control_point_dcm in catheter_dcm.BrachyControlPointSequence:
-            if control_point_dcm.CumulativeTimeWeight is None:
-                continue
+    # # loop through the channels
+    # for catheter_dcm in plan.ApplicationSetupSequence[0].ChannelSequence:
+    #     control_points = []
+    #     catheter_time = (
+    #         float(catheter_dcm.ChannelTotalTime)
+    #         if hasattr(catheter_dcm, "ChannelTotalTime")
+    #         else 0
+    #     )
+    #     channel_final_time_weight = (
+    #         float(catheter_dcm.FinalCumulativeTimeWeight)
+    #         if hasattr(catheter_dcm, "FinalCumulativeTimeWeight")
+    #         else 0
+    #     )
+    #     # loop through the control points.
+    #     # Each dwell position has 2 control points, get them all.
+    #     for control_point_dcm in catheter_dcm.BrachyControlPointSequence:
+    #         if control_point_dcm.CumulativeTimeWeight is None:
+    #             continue
 
-            cumulative_time_weight = (
-                float(control_point_dcm.CumulativeTimeWeight)
-                if hasattr(control_point_dcm, "CumulativeTimeWeight")
-                else 0
-            )
-            control_points.append(
-                {
-                    "index": (
-                        int(control_point_dcm.ControlPointIndex)
-                        if hasattr(control_point_dcm, "ControlPointIndex")
-                        else None
-                    ),
-                    "angle": (
-                        control_point_dcm.ControlPointShieldAngle
-                        if hasattr(control_point_dcm, "ControlPointShieldAngle")
-                        else 0
-                    ),
-                    "position": (
-                        np.array(
-                            control_point_dcm.ControlPoint3DPosition, dtype=np.float32
-                        )
-                        if hasattr(control_point_dcm, "ControlPoint3DPosition")
-                        else None
-                    ),
-                    "relativePos": (
-                        float(control_point_dcm.ControlPointRelativePosition)
-                        if hasattr(control_point_dcm, "ControlPointRelativePosition")
-                        else None
-                    ),
-                    "rotation": (
-                        np.array(
-                            control_point_dcm.ControlPointOrientation, dtype=np.float32
-                        )
-                        if hasattr(control_point_dcm, "ControlPointOrientation")
-                        else np.array([0, 0, 0], dtype=np.float32)
-                    ),
-                    "cumulative_weight": cumulative_time_weight,
-                    # "total rerence air kerma": total_reference_air_kerma,
-                }
-            )
-        catheter_table.append(
-            {
-                "id": int(catheter_dcm.ChannelNumber) - 1,
-                "points": [],
-                "channel_total_time": catheter_time,
-                "channel_final_time_weight": channel_final_time_weight,
-                "control_points": control_points,
-            }
-        )
-    # # Convert control points to dwell positions:
-    # # after extracting the final cummulative time weight of the catheters,
-    # # the time of the catheter, and the cummulative time weight of the control points,
-    # # we need to calculate the dwell time and time weight of the dwell positions.
-    # # the formula is:
-    # #     time_weight = (cumulative_time_weight - previous_cumulative_time_weight) / channel_final_time_weight
-    # #     dwell time = time_weight * channel_total_time
-    # #     dwell weight = dwell time / sum(channel_total_time)
-    # get total treatment time
-    treatment_time = np.sum(
-        [catheter["channel_total_time"] for catheter in catheter_table]
-    )
-    final_catheter_table = []
-    # loop through the catheters
-    for catheter in catheter_table:
-        dwells = []
-        # loop through the control points
-        # each dwell position has 2 control points:
-        #   arrive time and depart time for the source
-        for idx, control_point in enumerate(catheter["control_points"]):
-            # if idx == len(catheter["control_points"]) - 1:
-            #     break
-            if idx % 2 == 1:
-                continue
-            dwell_time_weight = (
-                catheter["control_points"][idx + 1]["cumulative_weight"]
-                - control_point["cumulative_weight"]
-            ) / catheter["channel_final_time_weight"]
-            dwell_time = dwell_time_weight * catheter["channel_total_time"]
-            dwell_weight = dwell_time / treatment_time
-            dwells.append(
-                {
-                    "index": control_point["index"] / 2,
-                    "angle": control_point["angle"],
-                    "position": control_point["position"],
-                    "relativePos": control_point["relativePos"],
-                    "rotation": control_point["rotation"],
-                    "time": dwell_time,
-                    "weight": dwell_weight,
-                }
-            )
-        final_catheter_table.append(
-            {
-                "id": catheter["id"],
-                "points": catheter["points"],
-                "channel_total_time": catheter["channel_total_time"],
-                "dwells": dwells,
-            }
-        )
+    #         cumulative_time_weight = (
+    #             float(control_point_dcm.CumulativeTimeWeight)
+    #             if hasattr(control_point_dcm, "CumulativeTimeWeight")
+    #             else 0
+    #         )
+    #         control_points.append(
+    #             {
+    #                 "index": (
+    #                     int(control_point_dcm.ControlPointIndex)
+    #                     if hasattr(control_point_dcm, "ControlPointIndex")
+    #                     else None
+    #                 ),
+    #                 "angle": (
+    #                     control_point_dcm.ControlPointShieldAngle
+    #                     if hasattr(control_point_dcm, "ControlPointShieldAngle")
+    #                     else 0
+    #                 ),
+    #                 "position": (
+    #                     np.array(
+    #                         control_point_dcm.ControlPoint3DPosition, dtype=np.float32
+    #                     )
+    #                     if hasattr(control_point_dcm, "ControlPoint3DPosition")
+    #                     else None
+    #                 ),
+    #                 "relativePos": (
+    #                     float(control_point_dcm.ControlPointRelativePosition)
+    #                     if hasattr(control_point_dcm, "ControlPointRelativePosition")
+    #                     else None
+    #                 ),
+    #                 "rotation": (
+    #                     np.array(
+    #                         control_point_dcm.ControlPointOrientation, dtype=np.float32
+    #                     )
+    #                     if hasattr(control_point_dcm, "ControlPointOrientation")
+    #                     else np.array([0, 0, 0], dtype=np.float32)
+    #                 ),
+    #                 "cumulative_weight": cumulative_time_weight,
+    #                 # "total rerence air kerma": total_reference_air_kerma,
+    #             }
+    #         )
+    #     catheter_table.append(
+    #         {
+    #             "id": int(catheter_dcm.ChannelNumber) - 1,
+    #             "points": [],
+    #             "channel_total_time": catheter_time,
+    #             "channel_final_time_weight": channel_final_time_weight,
+    #             "control_points": control_points,
+    #         }
+    #     )
+    # # # Convert control points to dwell positions:
+    # # # after extracting the final cummulative time weight of the catheters,
+    # # # the time of the catheter, and the cummulative time weight of the control points,
+    # # # we need to calculate the dwell time and time weight of the dwell positions.
+    # # # the formula is:
+    # # #     time_weight = (cumulative_time_weight - previous_cumulative_time_weight) / channel_final_time_weight
+    # # #     dwell time = time_weight * channel_total_time
+    # # #     dwell weight = dwell time / sum(channel_total_time)
+    # # get total treatment time
+    # treatment_time = np.sum(
+    #     [catheter["channel_total_time"] for catheter in catheter_table]
+    # )
+    # final_catheter_table = []
+    # # loop through the catheters
+    # for catheter in catheter_table:
+    #     dwells = []
+    #     # loop through the control points
+    #     # each dwell position has 2 control points:
+    #     #   arrive time and depart time for the source
+    #     for idx, control_point in enumerate(catheter["control_points"]):
+    #         # if idx == len(catheter["control_points"]) - 1:
+    #         #     break
+    #         if idx % 2 == 1:
+    #             continue
+    #         dwell_time_weight = (
+    #             catheter["control_points"][idx + 1]["cumulative_weight"]
+    #             - control_point["cumulative_weight"]
+    #         ) / catheter["channel_final_time_weight"]
+    #         dwell_time = dwell_time_weight * catheter["channel_total_time"]
+    #         dwell_weight = dwell_time / treatment_time
+    #         dwells.append(
+    #             {
+    #                 "index": control_point["index"] / 2,
+    #                 "angle": control_point["angle"],
+    #                 "position": control_point["position"],
+    #                 "relativePos": control_point["relativePos"],
+    #                 "rotation": control_point["rotation"],
+    #                 "time": dwell_time,
+    #                 "weight": dwell_weight,
+    #             }
+    #         )
+    #     final_catheter_table.append(
+    #         {
+    #             "id": catheter["id"],
+    #             "points": catheter["points"],
+    #             "channel_total_time": catheter["channel_total_time"],
+    #             "dwells": dwells,
+    #         }
+    #     )
 
-    return final_catheter_table, source_info
+    # return final_catheter_table, source_info
