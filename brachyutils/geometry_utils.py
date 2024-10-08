@@ -1104,7 +1104,6 @@ class DwellPosition:
 
     def __init__(
         self,
-        dwell_dict: dict = None,
         index: int = None,
         angle: float = 0,
         position: np.array = None,
@@ -1112,7 +1111,24 @@ class DwellPosition:
         rotation: np.array = None,
         time: float = None,
         weight: float = None,
-    ) -> None:
+        dwell_dict: dict = None,
+        ) -> None:
+        r"""
+        Purpose:
+            - Initialize the DwellPosition object.
+        Inputs:
+            - index:int := the index of the dwell position.
+            - angle:float := angle of the IMBT shield
+            - position:np.array := dwell position in the patient coordinate system [x, y, z]
+            - relativePos:int := dwell coordinate along the catheter from the reference point. increments of 5 mm
+            - rotation:np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
+            - time:float := dwell time for this dwell position
+            - weight:float := ratio of this dwell time over the sum of all dwell times in all catheters.
+            - dwell_dict:dict := the dictionary containing the dwell position. 
+            either provide the index, angle, position, relativePos, rotation, time and weight or provide the dwell_dict. Not both.
+        """
+        assert (all((index, angle, position, relativePos, rotation, time, weight is not None)) != (dwell_dict is not None),
+        "Either provide index, angle, position, relativePos, rotation, time and weight or provide catheter_dict. Not both.")
 
         if dwell_dict is not None:
             index = dwell_dict.get("index")
@@ -1141,6 +1157,7 @@ class DwellPosition:
             - dict := the dictionary containing the dwell position.
         """
         return {
+            "index": self.index,
             "angle": self.angle,
             "position": self.position.tolist(),
             "relativePos": self.relativePos,
@@ -1163,9 +1180,19 @@ class Catheter:
         self,
         iD:int=None,
         dwells:list=None,
-        points:list=[],
+        points:list=[DwellPosition],
         catheter_dict:dict=None) -> None:
-        
+        r"""
+        Purpose:
+            - Initialize the Catheter object.
+        Inputs:
+            - iD:int := the id of the catheter.
+            - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
+            - points:List[np.array] := the list of points of the catheter.
+            - catheter_dict:dict := the dictionary containing the catheter.
+        """
+        assert (all((iD, dwells, points is not None)) != (catheter_dict is not None),
+        "Either provide iD, dwells and points or provide catheter_dict. Not both.")
         if catheter_dict is not None:
             iD = catheter_dict.get("id")
             points = catheter_dict.get("points")
