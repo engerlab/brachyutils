@@ -1234,9 +1234,8 @@ class CatheterTable:
     r"""
     Purpose:
         - This class holds the information regarding the catheter table.
-
     Attributes:
-        - catheter_list:List[Catheter] := the list of catheters in the catheter table.
+        - catheter_list : List[Catheter] := the list of catheters in the catheter table.
     """
 
     def __init__(
@@ -1244,7 +1243,14 @@ class CatheterTable:
         catheter_list: List[Catheter] = None,
         pth_catheter_table: Path = None
         ) -> None:
-        
+        r"""
+        Purpose:
+            - Initialize the CatheterTable object. from a list or a file. please provide only one of the inputs.
+        Inputs:
+            - catheter_list:List[Catheter] := the list of catheters in the catheter table.
+            - pth_catheter_table:Path := the path to the catheter table file, which could be 
+            a dicom plan or a json file.
+        """
         assert ((catheter_list is not None) != (pth_catheter_table is not None),
         "Either the catheter list or the path to the catheter table should be provided.")
 
@@ -1258,6 +1264,7 @@ class CatheterTable:
             elif extension == ".dcm":
                 catheter_list = self.load_from_dicom(pth_catheter_table)
         
+        assert isinstance(catheter_list[0], Catheter), "The catheter list should contain Catheter objects."
         self.catheter_list:list = catheter_list
 
     def load_from_json(self, pth_json: Path) -> list:

@@ -405,7 +405,13 @@ class BrachyPlan:
 
         # load the catheter table if the path is provided
         if catheter_table is not None:
-            self.load_catheterTable_json(catheter_table)
+            if isinstance(catheter_table, Path):
+                self.catheter_table = CatheterTable(catheter_table)
+            elif isinstance(catheter_table, CatheterTable):
+                self.catheter_table = catheter_table
+            else:
+                raise ValueError("catheter_table should be a path or a CatheterTable object")
+            self._extract_dwell_numbers_times_coordinates_from_catheterTable()
 
         # load the dose rate tensor if the path is provided
         if dir_dose_rate is not None:
@@ -582,17 +588,17 @@ class BrachyPlan:
         # extract the attributes above from the catheter table
         dwell_counter = 1
         for catheter in self.catheter_table:
-            self.catheter_numbers = np.append(self.catheter_numbers, catheter["id"])
-            for dwell in catheter["dwells"]:
+            self.catheter_numbers = np.append(self.catheter_numbers, catheter.id)
+            for dwell in catheter.dwells:
                 self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
-                self.dwell_times = np.append(self.dwell_times, dwell["time"])
+                self.dwell_times = np.append(self.dwell_times, dwell.time)
                 self.dwell_coordinates.append(
                     {
-                        "angle": dwell["angle"],
-                        "position": dwell["position"],
-                        "rotation": dwell["rotation"],
-                        "relativePos": dwell["relativePos"],
-                        "catheterId": catheter["id"],
+                        "angle": dwell.angle,
+                        "position": dwell.position,
+                        "rotation": dwell.rotation,
+                        "relativePos": dwell.relativePos,
+                        "catheterId": catheter.id,
                     }
                 )
                 dwell_counter += 1
