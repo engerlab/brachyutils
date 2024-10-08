@@ -1088,16 +1088,126 @@ class BrachyApplicator:
         stl_writer.Write()
 
 
-class CatheterTable(list):
+class DwellPosition:
+    r"""
+    Purpose:
+        - This class holds the information regarding a dwell position.
+
+    Attributes:
+        - angle := angle of the IMBT shield
+        - position:dict: np.array := dwell position in the patient coordinate system [x, y, z]
+        - relativePos: int := dwell coordinate along the catheter from the reference point. increments of 5 mm
+        - rotation: np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
+        - time: float := dwell time for this dwell position
+        - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
+    """
+
+    def __init__(
+        self,
+        dwell_dict: dict = None,
+        index: int = None,
+        angle: float = 0,
+        position: np.array = None,
+        relativePos: int = None,
+        rotation: np.array = None,
+        time: float = None,
+        weight: float = None,
+    ) -> None:
+
+        if dwell_dict is not None:
+            index = dwell_dict.get("index")
+            angle = dwell_dict.get("angle")
+            position = np.array(dwell_dict.get("position"))
+            relativePos = dwell_dict.get("relativePos")
+            rotation = np.array(dwell_dict.get("rotation"))
+            time = dwell_dict.get("time")
+            weight = dwell_dict.get("weight")
+
+        self.index = index
+        self.angle = angle
+        self.position = position
+        self.relativePos = relativePos
+        self.rotation = rotation
+        self.time = time
+        self.weight = weight
+
+    def to_dict(self) -> dict:
+        r"""
+        Purpose:
+            - To convert the dwell position to a dictionary.
+        Inputs:
+            - self := the DwellPosition object.
+        Outputs:
+            - dict := the dictionary containing the dwell position.
+        """
+        return {
+            "angle": self.angle,
+            "position": self.position.tolist(),
+            "relativePos": self.relativePos,
+            "rotation": self.rotation.tolist(),
+            "time": self.time,
+            "weight": self.weight,
+        }
+        
+        
+class Catheter:
+    r"""
+    Purpose:
+        - This class holds the information regarding a catheter.
+    Attributes:
+        - id:int := the id of the catheter.
+        - points:List[np.array] := the list of points of the catheter.
+        - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
+    """ 
+    def __init__(
+        self,
+        iD:int=None,
+        dwells:list=None,
+        points:list=[],
+        catheter_dict:dict=None) -> None:
+        
+        if catheter_dict is not None:
+            iD = catheter_dict.get("id")
+            points = catheter_dict.get("points")
+            dwells = [DwellPosition(dwell_dict) for dwell_dict in catheter_dict.get("dwells")]
+
+        self.id = iD
+        self.points = points
+        self.dwells = dwells
+    
+    def to_dict(self) -> dict:
+        r"""
+        Purpose:
+            - To convert the catheter to a dictionary.
+        Inputs:
+            - self := the Catheter object.
+        Outputs:
+            - dict := the dictionary containing the catheter.
+        """
+        return {
+            "id": self.id,
+            "points": self.points,
+            "dwells": [dwell.to_dict() for dwell in self.dwells],
+        }
+
+
+class CatheterTable:
     r"""
     Purpose:
         - This class holds the information regarding the catheter table.
-        as well as all the functions to support the necessary catheter table operations.
 
     Attributes:
+        - catheter_list:List[Catheter] := the list of catheters in the catheter table.
     """
 
-    def __init__(self, iterable: list = None, pth_catheter_table: Path = None) -> None:
+    def __init__(
+        self,
+        catheter_list: List[Catheter] = None,
+        pth_catheter_table: Path = None
+        ) -> None:
+        
+        assert ((catheter_list is not None) != (pth_catheter_table is not None),
+        "Either the catheter list or the path to the catheter table should be provided.")
 
         if pth_catheter_table is not None:
             assert os.path.exists(
@@ -1105,10 +1215,11 @@ class CatheterTable(list):
             ), "The input json file does not exist."
             extension = os.path.splitext(pth_catheter_table)[1]
             if extension == ".json":
-                iterable = self.load_from_json(pth_catheter_table)
+                catheter_list = self.load_from_json(pth_catheter_table)
             elif extension == ".dcm":
-                iterable = self.load_from_dicom(pth_catheter_table)
-        super().__init__(iterable)
+                catheter_list = self.load_from_dicom(pth_catheter_table)
+        
+        self.catheter_list:list = catheter_list
 
     def load_from_json(self, pth_json: Path) -> list:
         r"""
@@ -1127,14 +1238,7 @@ class CatheterTable(list):
             ), "The json file, should contain a list of catheters."
             for catheter_dict in catheter_table_list:
                 raw_catheter_table.append(
-                    {
-                        "dwells": [
-                            DwellPosition(dwell_dict)
-                            for dwell_dict in catheter_dict.get("dwells")
-                        ],
-                        "id": catheter_dict.get("id"),
-                        "points": catheter_dict.get("points", []),
-                    }
+                    Catheter(catheter_dict=catheter_dict)
                 )
             return raw_catheter_table
     
@@ -1249,23 +1353,23 @@ class CatheterTable(list):
                 dwell_time = dwell_time_weight * catheter["channel_total_time"]
                 dwell_weight = dwell_time / treatment_time
                 dwells.append(
-                    DwellPosition(
-                        index = control_point["index"] / 2,
-                        angle = control_point["angle"],
-                        position = control_point["position"],
-                        relativePos = control_point["relativePos"],
-                        rotation = control_point["rotation"],
-                        time = dwell_time,
-                        weight = dwell_weight,   
-                    )
+                    {
+                        "index": control_point["index"] / 2,
+                        "angle": control_point["angle"],
+                        "position": control_point["position"],
+                        "relativePos": control_point["relativePos"],
+                        "rotation": control_point["rotation"],
+                        "time": dwell_time,
+                        "weight": dwell_weight,   
+                    }
                 )
             final_catheter_table.append(
-                {
-                    "id": catheter["id"],
-                    "points": catheter["points"],
-                    "channel_total_time": catheter["channel_total_time"],
-                    "dwells": dwells,
-                }
+                Catheter(
+                    _id = catheter["id"],
+                    points = catheter["points"],
+                    channel_total_time = catheter["channel_total_time"],
+                    dwells = dwells,
+                )
             )
         return final_catheter_table
     
@@ -1279,110 +1383,5 @@ class CatheterTable(list):
             - dict := the dictionary containing the catheter table.
         """
         return [
-            {
-                "id": catheter.get("id"),
-                "points": catheter.get("points"),
-                "dwells": [dwell.to_dict() for dwell in catheter.get("dwells")],
-            } for catheter in self
+            catheter.to_dict() for catheter in self.catheter_list
             ]
-
-class DwellPosition:
-    r"""
-    Purpose:
-        - This class holds the information regarding a dwell position.
-
-    Attributes:
-        - angle := angle of the IMBT shield
-        - position:dict: np.array := dwell position in the patient coordinate system [x, y, z]
-        - relativePos: int := dwell coordinate along the catheter from the reference point. increments of 5 mm
-        - rotation: np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
-        - time: float := dwell time for this dwell position
-        - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
-    """
-
-    def __init__(
-        self,
-        dwell_dict: dict = None,
-        index: int = None,
-        angle: float = 0,
-        position: np.array = None,
-        relativePos: int = None,
-        rotation: np.array = None,
-        time: float = None,
-        weight: float = None,
-    ) -> None:
-
-        if dwell_dict is not None:
-            index = dwell_dict.get("index")
-            angle = dwell_dict.get("angle")
-            position = np.array(dwell_dict.get("position"))
-            relativePos = dwell_dict.get("relativePos")
-            rotation = np.array(dwell_dict.get("rotation"))
-            time = dwell_dict.get("time")
-            weight = dwell_dict.get("weight")
-
-        self.index = index
-        self.angle = angle
-        self.position = position
-        self.relativePos = relativePos
-        self.rotation = rotation
-        self.time = time
-        self.weight = weight
-
-    def to_dict(self) -> dict:
-        r"""
-        Purpose:
-            - To convert the dwell position to a dictionary.
-        Inputs:
-            - self := the DwellPosition object.
-        Outputs:
-            - dict := the dictionary containing the dwell position.
-        """
-        return {
-            "angle": self.angle,
-            "position": self.position.tolist(),
-            "relativePos": self.relativePos,
-            "rotation": self.rotation.tolist(),
-            "time": self.time,
-            "weight": self.weight,
-        }
-        
-class Catheter:
-    r"""
-    Purpose:
-        - This class holds the information regarding a catheter.
-    Attributes:
-        - id:int := the id of the catheter.
-        - points:List[np.array] := the list of points of the catheter.
-        - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
-    """ 
-    def __init__(
-        self,
-        id:int=None,
-        dwells:list=None,
-        points:list=[],
-        catheter_dict:dict=None) -> None:
-        
-        if catheter_dict is not None:
-            id = catheter_dict.get("id")
-            points = catheter_dict.get("points")
-            dwells = [DwellPosition(dwell_dict) for dwell_dict in catheter_dict.get("dwells")]
-
-        self.id = id
-        self.points = points
-        self.dwells = dwells
-    
-    def to_dict(self) -> dict:
-        r"""
-        Purpose:
-            - To convert the catheter to a dictionary.
-        Inputs:
-            - self := the Catheter object.
-        Outputs:
-            - dict := the dictionary containing the catheter.
-        """
-        return {
-            "id": self.id,
-            "points": self.points,
-            "dwells": [dwell.to_dict() for dwell in self.dwells],
-        }
