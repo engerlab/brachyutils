@@ -1131,13 +1131,13 @@ class DwellPosition:
         "Either provide index, angle, position, relativePos, rotation, time and weight or provide catheter_dict. Not both.")
 
         if dwell_dict is not None:
-            index = dwell_dict.get("index")
+            index = dwell_dict.get("index", None)
             angle = dwell_dict.get("angle")
             position = np.array(dwell_dict.get("position"))
             relativePos = dwell_dict.get("relativePos")
             rotation = np.array(dwell_dict.get("rotation"))
             time = dwell_dict.get("time")
-            weight = dwell_dict.get("weight")
+            weight = dwell_dict.get("weight", None)
 
         self.index = index
         self.angle = angle
@@ -1165,8 +1165,7 @@ class DwellPosition:
             "time": self.time,
             "weight": self.weight,
         }
-        
-        
+
 class Catheter:
     r"""
     Purpose:
@@ -1181,6 +1180,7 @@ class Catheter:
         iD:int=None,
         dwells:list=None,
         points:list=[DwellPosition],
+        channel_total_time: float = None,
         catheter_dict:dict=None) -> None:
         r"""
         Purpose:
@@ -1191,16 +1191,17 @@ class Catheter:
             - points:List[np.array] := the list of points of the catheter.
             - catheter_dict:dict := the dictionary containing the catheter.
         """
-        assert (all((iD, dwells, points is not None)) != (catheter_dict is not None),
+        assert (all((iD, dwells, points, channel_total_time is not None)) != (catheter_dict is not None),
         "Either provide iD, dwells and points or provide catheter_dict. Not both.")
         if catheter_dict is not None:
             iD = catheter_dict.get("id")
             points = catheter_dict.get("points")
             dwells = [DwellPosition(dwell_dict) for dwell_dict in catheter_dict.get("dwells")]
-
+            channel_total_time = catheter_dict.get("channel_total_time", None)
         self.id = iD
         self.points = points
         self.dwells = dwells
+        self.channel_total_time = channel_total_time
     
     def to_dict(self) -> dict:
         r"""
@@ -1392,7 +1393,7 @@ class CatheterTable:
                 )
             final_catheter_table.append(
                 Catheter(
-                    _id = catheter["id"],
+                    iD = catheter["id"],
                     points = catheter["points"],
                     channel_total_time = catheter["channel_total_time"],
                     dwells = dwells,
@@ -1412,3 +1413,9 @@ class CatheterTable:
         return [
             catheter.to_dict() for catheter in self.catheter_list
             ]
+    def info(self) -> None:
+        r"""
+        Purpose:
+            - To print the information about the catheter table.
+        """
+        print(self.to_dict())

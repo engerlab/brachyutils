@@ -24,7 +24,7 @@ from tqdm import tqdm
 from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
-from brachyutils.geometry_utils import BrachyApplicator, BrachyPhantom
+from brachyutils.geometry_utils import BrachyApplicator, BrachyPhantom, CatheterTable
 from brachyutils.simulation_utils import BrachySimulation
 
 
