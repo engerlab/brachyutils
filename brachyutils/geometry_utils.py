@@ -1138,13 +1138,20 @@ class DwellPosition:
             rotation = np.array(dwell_dict.get("rotation"))
             time = dwell_dict.get("time")
             weight = dwell_dict.get("weight", None)
-
+        
+        assert isinstance(index, int), "index should be an integer"
         self.index = index
+        assert isinstance(angle, float), "index should be an integer"
         self.angle = angle
+        assert isinstance(position, np.ndarray), "position should be a numpy array"
         self.position = position
+        assert isinstance(relativePos, int), "relativePos should be an integer"
         self.relativePos = relativePos
+        assert isinstance(rotation, np.ndarray), "rotation should be a numpy array"
         self.rotation = rotation
+        assert isinstance(time, float), "time should be a float"
         self.time = time
+        assert isinstance(weight, float), "weight should be a float"
         self.weight = weight
 
     def to_dict(self) -> dict:
@@ -1196,11 +1203,15 @@ class Catheter:
         if catheter_dict is not None:
             iD = catheter_dict.get("id")
             points = catheter_dict.get("points")
-            dwells = [DwellPosition(dwell_dict) for dwell_dict in catheter_dict.get("dwells")]
+            dwells = [DwellPosition(dwell_dict=dwell_dict) for dwell_dict in catheter_dict.get("dwells")]
             channel_total_time = catheter_dict.get("channel_total_time", None)
+        assert isinstance(iD, int), "iD should be an integer"
         self.id = iD
+        assert isinstance(points, list), "points should be a list"
         self.points = points
+        assert isinstance(dwells, List[DwellPosition]), "dwells should be a list"
         self.dwells = dwells
+        assert isinstance(channel_total_time, float), "channel_total_time should be a float"
         self.channel_total_time = channel_total_time
     
     def to_dict(self) -> dict:
@@ -1391,13 +1402,9 @@ class CatheterTable:
                         "weight": dwell_weight,   
                     }
                 )
+                catheter["dwells"] = dwells
             final_catheter_table.append(
-                Catheter(
-                    iD = catheter["id"],
-                    points = catheter["points"],
-                    channel_total_time = catheter["channel_total_time"],
-                    dwells = dwells,
-                )
+                Catheter(catheter_dict=catheter)
             )
         return final_catheter_table
     
