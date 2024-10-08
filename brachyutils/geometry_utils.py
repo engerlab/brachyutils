@@ -1141,7 +1141,7 @@ class DwellPosition:
         
         assert isinstance(index, int), "index should be an integer"
         self.index = index
-        assert isinstance(angle, float), "index should be an integer"
+        assert isinstance(angle, float), "index should be a floating point number"
         self.angle = angle
         assert isinstance(position, np.ndarray), "position should be a numpy array"
         self.position = position
@@ -1209,7 +1209,7 @@ class Catheter:
         self.id = iD
         assert isinstance(points, list), "points should be a list"
         self.points = points
-        assert isinstance(dwells, List[DwellPosition]), "dwells should be a list"
+        assert isinstance(dwells, list), "dwells should be a list"
         self.dwells = dwells
         assert isinstance(channel_total_time, float), "channel_total_time should be a float"
         self.channel_total_time = channel_total_time
@@ -1393,10 +1393,10 @@ class CatheterTable:
                 dwell_weight = dwell_time / treatment_time
                 dwells.append(
                     {
-                        "index": control_point["index"] / 2,
-                        "angle": control_point["angle"],
+                        "index": int(control_point["index"] / 2),
+                        "angle": float(control_point["angle"]),
                         "position": control_point["position"],
-                        "relativePos": control_point["relativePos"],
+                        "relativePos": int(control_point["relativePos"]),
                         "rotation": control_point["rotation"],
                         "time": dwell_time,
                         "weight": dwell_weight,   
