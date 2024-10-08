@@ -350,7 +350,7 @@ class BrachyPlan:
         self.organ_bounds = None
 
         # catheter table attributes
-        self.catheter_table = None
+        self.catheter_table: CatheterTable = None
         self.num_catheters = None
         self.catheter_numbers = np.array([], dtype=int)  # shape: (num_catheters, 1)
         self.num_dwells = None
@@ -514,50 +514,6 @@ class BrachyPlan:
         )
         self.phantom_origin = self.phantom.image_obj.origin
 
-    def load_catheterTable_json(self, pth_catheter_table_json: str):
-        r"""
-        Purpose:
-            - To load the contents of a catheter table into the Brachy plan.
-        Inputs:
-            - pth_catheter_table_json := path to a json file having the info on the catheter table.
-            here is the expected contents of the catheter table json:
-            [
-                {
-                    "dwells":
-                        "angle":= angle of the IMBT shield
-                        "position":{ := dwell position in the patient coordinate system
-                            "x",
-                            "y",
-                            "z"
-                        },
-                        "relativePos":= dwell coordinate along the catheter from the reference point. increments of 5 mm
-                        "rotation": { := rotation of the dwell position in the patient coordinate system
-                            "x",
-                            "y",
-                            "z"
-                        },
-                        "time" := dwell time for this dwell position
-                        "weight" := ratio of this dwell time over the sum of all dwell times in all catheters.
-                        ...,
-                    ],
-                    "id":= the id of the caheter,
-                    "points":[] := i do not know what this is. in all plans i have seen, it has been lefty empty
-                }
-            ]
-        Outputs:
-            - Void := will update the BrachyPlan.catheter_table attribute
-        Dependencies:
-            - json
-        """
-        # reset catheter table in case of a re-read
-        self.catheter_table = None
-        # load the json file
-        with open(pth_catheter_table_json, "r") as json_file:
-            catheter_table = json.load(json_file)
-
-        self.catheter_table = catheter_table
-        self._extract_dwell_numbers_times_coordinates_from_catheterTable()
-
     def _extract_dwell_numbers_times_coordinates_from_catheterTable(self):
         r"""
         Purpose:
@@ -602,12 +558,10 @@ class BrachyPlan:
                     }
                 )
                 dwell_counter += 1
-
         assert (
             len(self.catheter_numbers) - 1 == self.catheter_numbers[-1]
         ), "catheter numbers are not extracted correctly"
         self.num_catheters = len(self.catheter_numbers)
-
         assert (
             len(self.dwell_numbers) == self.dwell_numbers[-1]
         ), "dwell numbers are not extracted correctly"
@@ -628,7 +582,7 @@ class BrachyPlan:
         assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
         assert self.num_dwells is not None, "number of dwells is not extracted"
 
-        self.catheter_table = []
+        new_catheter_table = []
 
         for catheter_i in self.catheter_numbers:
             catheter = {}
@@ -655,7 +609,8 @@ class BrachyPlan:
                 )
                 catheter["dwells"].append(deepcopy(dwell))
 
-            self.catheter_table.append(deepcopy(catheter))
+            new_catheter_table.append(deepcopy(catheter))
+        self.catheter_table = CatheterTable(catheter_list=new_catheter_table)
 
     def _update_dose_after_change_in_plan(self):
         r"""
@@ -1283,7 +1238,7 @@ class BrachyPlan:
         """
         file_path = dir_export + "/catheter_table.json"
         with open(file_path, "w") as file:
-            json.dump(self.catheter_table, file, indent=4)
+            json.dump(self.catheter_table.to_dict(), file, indent=4)
 
     def _export_plan_file(self, dir_export: str):
         r"""

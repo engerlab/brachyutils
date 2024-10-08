@@ -1240,7 +1240,7 @@ class CatheterTable:
 
     def __init__(
         self,
-        catheter_list: List[Catheter] = None,
+        catheter_list: List[Union[Catheter, dict]] = None,
         pth_catheter_table: Path = None
         ) -> None:
         r"""
@@ -1263,7 +1263,9 @@ class CatheterTable:
                 catheter_list = self.load_from_json(pth_catheter_table)
             elif extension == ".dcm":
                 catheter_list = self.load_from_dicom(pth_catheter_table)
-        
+        if isinstance(catheter_list[0], dict):
+            catheter_list = [Catheter(catheter_dict=catheter_dict) for catheter_dict in catheter_list]
+
         assert isinstance(catheter_list[0], Catheter), "The catheter list should contain Catheter objects."
         self.catheter_list:list = catheter_list
 
