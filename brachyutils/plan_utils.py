@@ -1207,9 +1207,10 @@ class BrachyPlan:
                 ) from None
 
         # get the key corresponding to the body contour, which is used to squeeze the structure mask
-        body_key = list(
+        filtered_keys = list(
             filter(lambda x: "body" in x.lower(), structure_mask_dict.keys())
-        )[0]
+        )
+        body_key = filtered_keys[0] if filtered_keys else None
 
         for structure_name in structure_mask_dict.keys():
             structure_obj = BrachyStructure()
@@ -1561,7 +1562,7 @@ class BrachyPlan:
             or ".nrrd". The keys are:
 
                 - "dose":bool,
-                - "dose type":str := "nrrd", "minidos" or "3ddose",
+                - "dose_type":str := "nrrd", "minidos" or "3ddose",
                 - "uncertainty", "dose rate maps",
                 - "catheter_table", "plan", "mac", "egsphant",
                 - "ApplicatorMaterials", applicator_geometry", "structure_set",

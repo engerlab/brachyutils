@@ -367,13 +367,13 @@ class BrachyEgsphant:
             " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
         )
         x_axis = (
-            " ".join(map(str, np.round(egsphant_voxel_edges[0], decimals=3))) + "\n"
+            " ".join(map(str, np.round(egsphant_voxel_edges[0].astype(float), decimals=3))) + "\n"
         )
         y_axis = (
-            " ".join(map(str, np.round(egsphant_voxel_edges[1], decimals=3))) + "\n"
+            " ".join(map(str, np.round(egsphant_voxel_edges[1].astype(float), decimals=3))) + "\n"
         )
         z_axis = (
-            " ".join(map(str, np.round(egsphant_voxel_edges[2], decimals=3))) + "\n"
+            " ".join(map(str, np.round(egsphant_voxel_edges[2].astype(float), decimals=3))) + "\n"
         )
         material_matrix = self.get_material_array()
         material_matrix = _to_single_string(

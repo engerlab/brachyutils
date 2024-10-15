@@ -6,7 +6,7 @@ class BrachySimulation:
     """
 
     def __init__(self, simulation_dict: dict = None):
-        self.treatment_type: str = "HDR"
+        self.treatment_type: str = "HDR" #HDR or LDR
         self.source_geometry: str = "MicroSelectronV2"
         self.core_material: str = "G4_Ir"
         self.mass_number: int = 192
@@ -15,15 +15,14 @@ class BrachySimulation:
         self.pth_phantom: str = None
         self.air_kerma_per_history: float = 1.149000e-11
         self.reference_air_kerma: float = 4.278729e04
-        self.number_histories: int = None
+        self.number_histories: int = int(1e7)
         self.total_time: float = None
-        self.dose_format: str = "3ddose"
-        self.number_of_threads: int = None
+        self.dose_format: str = "nrrd"
+        self.number_of_threads: int = 16
         self.control_verbose: int = 0
         self.run_verbose: int = 0
         self.tracking_verbose: int = 0
-        self.PrintProgress: int = None
-        self.beam_on: int = None
+        self.print_progress: int = self.number_histories / 100
 
         if simulation_dict is not None:
             self.treatment_type = (
@@ -106,16 +105,44 @@ class BrachySimulation:
                 if "tracking_verbose" in simulation_dict
                 else self.tracking_verbose
             )
-            self.PrintProgress = (
-                simulation_dict["PrintProgress"]
-                if "PrintProgress" in simulation_dict
-                else self.PrintProgress
+            self.print_progress = (
+                simulation_dict["print_progress"]
+                if "print_progress" in simulation_dict
+                else self.print_progress
             )
-            self.beam_on = (
-                simulation_dict["beam_on"]
-                if "beam_on" in simulation_dict
-                else self.beam_on
-            )
+
+    def validate(self, verbose = False):
+        r"""
+        Purpose:
+            - to validate the simulation object.
+        Returns:
+            - True if the fields are valid for export, False otherwise.
+        """
+        required_types = {
+            self.treatment_type: str,
+            self.source_geometry: str,
+            self.core_material: str,
+            self.mass_number: int,
+            self.atomic_number: int,
+            self.pth_plan: str,
+            self.pth_phantom: str,
+            self.air_kerma_per_history: float,
+            self.reference_air_kerma: float,
+            self.number_histories: int,
+            self.total_time: float,
+            self.dose_format: str,
+            self.number_of_threads: int,
+            self.control_verbose: int,
+            self.run_verbose: int,
+            self.tracking_verbose: int,
+            self.print_progress: int
+            }
+        for key, value in required_types.items():
+            if not isinstance(key, value):
+                if verbose:
+                    print(f"BrachySimulation: field {key} is not of type {value}")
+                return False
+
 
     def run_simulation(self):
         r"""
@@ -135,23 +162,23 @@ class BrachySimulation:
         Dependencies:
             - None
         """
-        return f"""/source_world/treatmentType {self.treatment_type}
-/source_world/switch {self.source_geometry}
-/source_world/coreMaterial {self.core_material}
-/source_world/core/A {self.mass_number}
-/source_world/core/Z {self.atomic_number}
-/sim/plan {self.pth_plan}
-/world/phantom {self.pth_phantom}
-/parallel_world/ak_per_history {self.air_kerma_per_history}
-/parallel_world/ref_ak {self.reference_air_kerma}
-/parallel_world/H {self.number_histories}
-/parallel_world/total_time {self.total_time}
-/dose/format {self.dose_format}
-/run/numberOfThreads {self.number_of_threads}
-/run/initialize
-/control/verbose {self.control_verbose}
-/run/verbose {self.run_verbose}
-/tracking/verbose {self.tracking_verbose}
-/run/printProgress {self.PrintProgress}
-/sim/beamOn {self.beam_on}
-"""
+        self.validate()
+        return f"""/source/treatmentType {self.treatment_type}
+            /source/switch {self.source_geometry}
+            /source/coreMaterial {self.core_material}
+            /source/core/A {self.mass_number}
+            /source/core/Z {self.atomic_number}
+            /sim/plan {self.pth_plan}
+            /world/phantom {self.pth_phantom}
+            /parallel_world/ak_per_history {self.air_kerma_per_history}
+            /parallel_world/ref_ak {self.reference_air_kerma}
+            /parallel_world/total_time {self.total_time}
+            /dose/format {self.dose_format}
+            /run/numberOfThreads {self.number_of_threads}
+            /run/initialize
+            /control/verbose {self.control_verbose}
+            /run/verbose {self.run_verbose}
+            /tracking/verbose {self.tracking_verbose}
+            /run/printProgress {self.PrintProgress}
+            /sim/beamOn {self.number_histories}
+            """
