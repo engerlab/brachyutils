@@ -177,6 +177,6 @@ class BrachySimulation:
             /control/verbose {self.control_verbose}
             /run/verbose {self.run_verbose}
             /tracking/verbose {self.tracking_verbose}
-            /run/printProgress {self.PrintProgress}
+            /run/printProgress {self.print_progress}
             /sim/beamOn {self.number_histories}
             """
