@@ -27,11 +27,13 @@ source .bashrc
 
 The virtual enviornment called `env_brachyutils` should be activated automatically. You can make changes to the brachyutils source code by editing source files in `/root/brachyutils`. Your data can be found at `/root/data`.
 
+**VS Code Support**: Using vscode, you can directly code and debug inside a docker container. Simply install the extension [Dev Containers](https://code.visualstudio.com/docs/devcontainers/create-dev-container). While the docker container is running, open VS Code, press `F1`, type `Dev Containers: Attach to running container`. Then select the container running brachyutils. 
+
 ## Installation
 
 ### Create a Python virtual environment
 
-create a virtual envionrment and activate:
+We recommend python 3.11. Create a virtual envionrment and activate it:
 
 If using [venv](https://docs.python.org/3/library/venv.html):
 
@@ -43,7 +45,7 @@ source ENV_brachyutils/bin/activate
 Else, if using [conda](https://docs.anaconda.com/miniconda/):
 
 ```bash
-conda create -n ENV_brachy
+conda create -n ENV_brachy python=3.11
 conda activate ENV_brachy
 ```
 
@@ -54,8 +56,16 @@ The PyPi package of OpenTPS is not up to date with their Gitlab repository. Ther
 ```bash
 git clone https://gitlab.com/openmcsquare/opentps.git
 cd opentps
-pip install opentps
 ```
+
+Ensure that in `pyproject.toml` file inside the `opentps` folder, the following configuration is used for `python` and `pymedphys`: 
+
+```python
+python = "~3.11"
+pymedphys = "*"
+```
+
+Then run `pip install .` to install opentps.
 
 ### Install BrachyUtils
 
@@ -63,9 +73,9 @@ To get the package run:
 
 ```bash
 git clone https://github.com/engerlab/brachyutils.git
+cd brachyutils
+pip install .
 ```
-
-After this process finishes, run `pip install .` to install the brachyutils package.
 
 ### Optional
 

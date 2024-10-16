@@ -21,7 +21,7 @@ def test_get_structure_mask():
         dir_dicom=pth_dicom,
         pth_structures_file=pth_structure
         )
-    print(phantom_obj.get_structure_mask(['ctv']))
+    print(phantom_obj.get_structure_mask(['ctv'], mask_type=np.ndarray))
 
 def test_write_image_to_dicom():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
@@ -119,6 +119,14 @@ def test_crop_phantom():
     phantom_obj.write_image_to_nrrd(pth_out+"/test_ct.nrrd")
     phantom_obj.write_structures_to_nrrd(pth_out+"/test_rs.seg.nrrd")
 
+def test_catheter_table():
+    from brachyutils.geometry_utils import CatheterTable
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_plan = glob(pth_dicom+"/RP*.dcm")[0]
+
+    catheter_table = CatheterTable(pth_catheter_table=pth_plan)
+    catheter_table.info()
+
 if __name__ == "__main__":
     print("testing BrachyPhantom")
     # test_brachy_phantom()
@@ -130,4 +138,5 @@ if __name__ == "__main__":
     # test_read_structures_from_nrrd()
     # test_write_to_egsphant()
     # test_load_egsphant()
-    test_crop_phantom()
+    # test_crop_phantom()
+    test_catheter_table()

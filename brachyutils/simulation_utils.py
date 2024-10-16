@@ -11,11 +11,9 @@ class BrachySimulation:
         self.core_material: str = "G4_Ir"
         self.mass_number: int = 192
         self.atomic_number: int = 77
-        self.pth_plan: str = None
-        self.pth_phantom: str = None
         self.air_kerma_per_history: float = 1.149000e-11
         self.reference_air_kerma: float = 4.278729e04
-        self.number_histories: int = int(1e7)
+        self.number_histories: int = None
         self.total_time: float = None
         self.dose_format: str = "nrrd"
         self.number_of_threads: int = 16
