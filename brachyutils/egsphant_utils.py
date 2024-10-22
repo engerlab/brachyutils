@@ -97,6 +97,9 @@ class BrachyEgsphant:
                 )
                 self._remove_duplicate_materials()
 
+            elif isinstance(material_dict, dict):
+                self.material_dict = material_dict
+
             self.create_egsphant_from_phantom(
                 phantom_obj=(
                     phantom
@@ -763,9 +766,9 @@ class BrachyEgsphant:
                     material_matrix += (
                         complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
-                            self.material_dict.get(background_material, "Air").get(
+                            str(self.material_dict.get(background_material, "Air").get(
                                 "encoding"
-                            )
+                            ))
                         )
                     )
 
@@ -780,7 +783,7 @@ class BrachyEgsphant:
                 material_matrix += (
                     roi_mask
                     * BrachyEgsphant._materials_encoding_array.index(
-                        self.material_dict.get(material).get("encoding")
+                        str(self.material_dict.get(material).get("encoding"))
                     )
                 )
 
