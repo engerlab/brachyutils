@@ -573,7 +573,10 @@ class BrachyEgsphant:
             return new_egsphant
 
     def crop_by_contour(
-        self, phantom_obj: BrachyPhantom, contour_name: str, inplace
+        self,
+        phantom_obj: BrachyPhantom,
+        contour_name: str,
+        inplace: Optional[bool] = True,
     ) -> Union[None, "BrachyEgsphant"]:
         r"""
         Purpose:
@@ -583,7 +586,7 @@ class BrachyEgsphant:
             - contour_name:str := the name of the structure in the phantom object
             - inplace:bool := if True, the function will crop the current object, if False, it will return a new object
         Output:
-            - Void := will crop the material and density matrix based on the structure mask of the contour_name
+            - None or BrachyEgsphant := if inplace is True, the function will crop the current object, if False, it will return a new object
         """
         from opentps.core.data import ROIMask
         from opentps.core.processing.imageProcessing.resampler3D import (

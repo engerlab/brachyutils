@@ -10,14 +10,16 @@ import sys
 import tkinter as tk
 import warnings
 from array import array
+from glob import glob
 from pathlib import Path
 from tkinter import filedialog as fd
 from typing import List, Literal, Optional, Union
-from glob import glob
+
 import numpy as np
 import pymedphys
 import pyzstd
 import SimpleITK as sitk
+from geometry_utils import BrachyPhantom
 from matplotlib import pyplot as plt
 from numpy import ma, reshape
 from opentps.core.data.images import DoseImage
@@ -1081,44 +1083,31 @@ class BrachyDose:
 
     def crop_by_contour(
         self,
-        pth_dir_dicom: Path,
-        structure_name: str,
-        inplace: Optional[bool] = False,
+        phantom_obj: BrachyPhantom,
+        contour_name: str,
+        inplace: Optional[bool] = True,
     ) -> Union[None, "BrachyDose"]:
         r"""
         Purpose:
-            - based on the given dicom structure file, crop the BrachyDose object such
-            that it only contains the smallest bounding box around the structure structures.
-
+            - based on the given phantom object, crop the BrachyDose object such
+            that it only contains the smallest bounding box around the contour.
         Inputs:
-            - pth_dir_dicom := pth_dir_dicom := path to the directory with the dicom files of a patient.
-                it should contain both images and RTSTRUCT file. this input is optional
-            - structure_name_list := a list of strings containing the names of the structures that the dose will be cropped to.
-
+            - self: BrachyDose object
+            - phantom_obj: BrachyPhantom object
+            - contour_name: str := the name of the contour to crop the dose around
+            - inplace: bool := if True, the function will crop the dose in place, otherwise it will return a new dose object
         Outputs:
-            - Void := will crop the dose and uncertainty maps of self to have the range of the structure.
+            - None or BrachyDose := if inplace is True, the function will return None, otherwise it will return a new BrachyDose object
         """
-        from opentps.core.data.images import ROIMask
+        from opentps.core.data import ROIMask
         from opentps.core.processing.imageProcessing.resampler3D import (
             resampleImage3DOnImage3D,
         )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
 
-        from brachyutils.geometry_utils import BrachyPhantom
-
-        # load the dicom object both the image and the mask
-        # dicom_obj = BrachyDicom(pth_dir_dicom, load_structure=True)
-        # XXX: Debug this!
-        phantom_obj = BrachyPhantom(
-            dir_dicom=pth_dir_dicom,
-            pth_structures_file=glob(pth_dir_dicom + "/RS*.dcm")[0],
-            )
-        # load the mask dictionary for the structures in structure_name_list
-        mask_dict = phantom_obj.get_strcuture_mask_from_dicom([structure_name], ROIMask)
-
-        # Get a cropped dose map that tightly fits each mask.
+        mask_dict = phantom_obj.get_structure_mask([contour_name], mask_type=ROIMask)
         resampled_mask = resampleImage3DOnImage3D(
-            mask_dict[structure_name], self.dose_image
+            mask_dict[contour_name], self.density_image
         )
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace)

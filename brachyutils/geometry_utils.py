@@ -1112,7 +1112,7 @@ class DwellPosition:
         time: float = None,
         weight: float = None,
         dwell_dict: dict = None,
-        ) -> None:
+    ) -> None:
         r"""
         Purpose:
             - Initialize the DwellPosition object.
@@ -1124,11 +1124,24 @@ class DwellPosition:
             - rotation:np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
             - time:float := dwell time for this dwell position
             - weight:float := ratio of this dwell time over the sum of all dwell times in all catheters.
-            - dwell_dict:dict := the dictionary containing the dwell position. 
+            - dwell_dict:dict := the dictionary containing the dwell position.
             either provide the index, angle, position, relativePos, rotation, time and weight or provide the dwell_dict. Not both.
         """
-        assert (all((index, angle, position, relativePos, rotation, time, weight is not None)) != (dwell_dict is not None),
-        "Either provide index, angle, position, relativePos, rotation, time and weight or provide catheter_dict. Not both.")
+        assert (
+            all(
+                (
+                    index,
+                    angle,
+                    position,
+                    relativePos,
+                    rotation,
+                    time,
+                    weight is not None,
+                )
+            )
+            != (dwell_dict is not None),
+            "Either provide index, angle, position, relativePos, rotation, time and weight or provide catheter_dict. Not both.",
+        )
 
         if dwell_dict is not None:
             index = dwell_dict.get("index", None)
@@ -1138,7 +1151,7 @@ class DwellPosition:
             rotation = np.array(dwell_dict.get("rotation"))
             time = dwell_dict.get("time")
             weight = dwell_dict.get("weight", None)
-        
+
         assert isinstance(index, int), "index should be an integer"
         self.index = index
         assert isinstance(angle, float), "index should be a floating point number"
@@ -1173,6 +1186,7 @@ class DwellPosition:
             "weight": self.weight,
         }
 
+
 class Catheter:
     r"""
     Purpose:
@@ -1181,14 +1195,16 @@ class Catheter:
         - id:int := the id of the catheter.
         - points:List[np.array] := the list of points of the catheter.
         - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
-    """ 
+    """
+
     def __init__(
         self,
-        iD:int=None,
-        dwells:list=None,
-        points:list=[DwellPosition],
+        iD: int = None,
+        dwells: list = None,
+        points: list = [DwellPosition],
         channel_total_time: float = None,
-        catheter_dict:dict=None) -> None:
+        catheter_dict: dict = None,
+    ) -> None:
         r"""
         Purpose:
             - Initialize the Catheter object.
@@ -1198,12 +1214,18 @@ class Catheter:
             - points:List[np.array] := the list of points of the catheter.
             - catheter_dict:dict := the dictionary containing the catheter.
         """
-        assert (all((iD, dwells, points, channel_total_time is not None)) != (catheter_dict is not None),
-        "Either provide iD, dwells and points or provide catheter_dict. Not both.")
+        assert (
+            all((iD, dwells, points, channel_total_time is not None))
+            != (catheter_dict is not None),
+            "Either provide iD, dwells and points or provide catheter_dict. Not both.",
+        )
         if catheter_dict is not None:
             iD = catheter_dict.get("id")
             points = catheter_dict.get("points")
-            dwells = [DwellPosition(dwell_dict=dwell_dict) for dwell_dict in catheter_dict.get("dwells")]
+            dwells = [
+                DwellPosition(dwell_dict=dwell_dict)
+                for dwell_dict in catheter_dict.get("dwells")
+            ]
             channel_total_time = catheter_dict.get("channel_total_time", None)
         assert isinstance(iD, int), "iD should be an integer"
         self.id = iD
@@ -1211,9 +1233,11 @@ class Catheter:
         self.points = points
         assert isinstance(dwells, list), "dwells should be a list"
         self.dwells = dwells
-        assert isinstance(channel_total_time, float), "channel_total_time should be a float"
+        assert isinstance(
+            channel_total_time, float
+        ), "channel_total_time should be a float"
         self.channel_total_time = channel_total_time
-    
+
     def to_dict(self) -> dict:
         r"""
         Purpose:
@@ -1241,18 +1265,20 @@ class CatheterTable:
     def __init__(
         self,
         catheter_list: List[Union[Catheter, dict]] = None,
-        pth_catheter_table: Path = None
-        ) -> None:
+        pth_catheter_table: Path = None,
+    ) -> None:
         r"""
         Purpose:
             - Initialize the CatheterTable object. from a list or a file. please provide only one of the inputs.
         Inputs:
             - catheter_list:List[Catheter] := the list of catheters in the catheter table.
-            - pth_catheter_table:Path := the path to the catheter table file, which could be 
+            - pth_catheter_table:Path := the path to the catheter table file, which could be
             a dicom plan or a json file.
         """
-        assert ((catheter_list is not None) != (pth_catheter_table is not None),
-        "Either the catheter list or the path to the catheter table should be provided.")
+        assert (
+            (catheter_list is not None) != (pth_catheter_table is not None),
+            "Either the catheter list or the path to the catheter table should be provided.",
+        )
 
         if pth_catheter_table is not None:
             assert os.path.exists(
@@ -1264,10 +1290,14 @@ class CatheterTable:
             elif extension == ".dcm":
                 catheter_list = self.load_from_dicom(pth_catheter_table)
         if isinstance(catheter_list[0], dict):
-            catheter_list = [Catheter(catheter_dict=catheter_dict) for catheter_dict in catheter_list]
+            catheter_list = [
+                Catheter(catheter_dict=catheter_dict) for catheter_dict in catheter_list
+            ]
 
-        assert isinstance(catheter_list[0], Catheter), "The catheter list should contain Catheter objects."
-        self.catheter_list:list = catheter_list
+        assert isinstance(
+            catheter_list[0], Catheter
+        ), "The catheter list should contain Catheter objects."
+        self.catheter_list: list = catheter_list
 
     def load_from_json(self, pth_json: Path) -> list:
         r"""
@@ -1278,18 +1308,16 @@ class CatheterTable:
         Outputs:
             - Void := will update the catheter table based on the json file.
         """
-        raw_catheter_table:list = []
+        raw_catheter_table: list = []
         with open(pth_json, "r") as json_file:
             catheter_table_list = json.load(json_file)
             assert isinstance(
                 catheter_table_list, list
             ), "The json file, should contain a list of catheters."
             for catheter_dict in catheter_table_list:
-                raw_catheter_table.append(
-                    Catheter(catheter_dict=catheter_dict)
-                )
+                raw_catheter_table.append(Catheter(catheter_dict=catheter_dict))
             return raw_catheter_table
-    
+
     def load_from_dicom(self, pth_dicom: Path) -> list:
         r"""
         Purpose:
@@ -1300,6 +1328,7 @@ class CatheterTable:
             - Void := will update the catheter table based on the dicom file.
         """
         import pydicom
+
         plan = pydicom.dcmread(pth_dicom)
         catheter_table = []
         # loop through the channels
@@ -1340,19 +1369,23 @@ class CatheterTable:
                         ),
                         "position": (
                             np.array(
-                                control_point_dcm.ControlPoint3DPosition, dtype=np.float32
+                                control_point_dcm.ControlPoint3DPosition,
+                                dtype=np.float32,
                             )
                             if hasattr(control_point_dcm, "ControlPoint3DPosition")
                             else None
                         ),
                         "relativePos": (
                             float(control_point_dcm.ControlPointRelativePosition)
-                            if hasattr(control_point_dcm, "ControlPointRelativePosition")
+                            if hasattr(
+                                control_point_dcm, "ControlPointRelativePosition"
+                            )
                             else None
                         ),
                         "rotation": (
                             np.array(
-                                control_point_dcm.ControlPointOrientation, dtype=np.float32
+                                control_point_dcm.ControlPointOrientation,
+                                dtype=np.float32,
                             )
                             if hasattr(control_point_dcm, "ControlPointOrientation")
                             else np.array([0, 0, 0], dtype=np.float32)
@@ -1408,15 +1441,13 @@ class CatheterTable:
                         "relativePos": int(control_point["relativePos"]),
                         "rotation": control_point["rotation"],
                         "time": dwell_time,
-                        "weight": dwell_weight,   
+                        "weight": dwell_weight,
                     }
                 )
                 catheter["dwells"] = dwells
-            final_catheter_table.append(
-                Catheter(catheter_dict=catheter)
-            )
+            final_catheter_table.append(Catheter(catheter_dict=catheter))
         return final_catheter_table
-    
+
     def to_dict(self) -> dict:
         r"""
         Purpose:
@@ -1426,9 +1457,8 @@ class CatheterTable:
         Outputs:
             - dict := the dictionary containing the catheter table.
         """
-        return [
-            catheter.to_dict() for catheter in self.catheter_list
-            ]
+        return [catheter.to_dict() for catheter in self.catheter_list]
+
     def info(self) -> None:
         r"""
         Purpose:
