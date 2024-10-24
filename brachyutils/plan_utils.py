@@ -1536,59 +1536,6 @@ def _export_single_dose_rate(
 
     doseObj.write_brachydose_to_file(dir_export + f"/run_{dwell_number}" + dose_type)
 
-
-# def _load_structure_mask(
-#     pth_structure_source: str,
-#     structure_name_list: list = None,
-# ):
-#     """
-#     Load structure mask from different file formats. The acceptable formats are dicom, nrrd, and json.
-#     In the case of dicom files, providng a folder containing the dicom RS files is also acceptable.
-
-#     Inputs:
-#         pth_structure_source (str): The path to the structure source file.
-#         structure_name_list (list): A list of structure names to load.
-
-#     Returns:
-#         dict: A dictionary containing the structure masks.
-
-#     Raises:
-#         NotImplementedError: If the structure source type is not implemented yet.
-#         ValueError: If the structure source type is not recognized.
-#     """
-#     # if a folder is given, we assume that the structure source is dicom files
-#     if os.path.isdir(pth_structure_source):
-#         pth_structure_source = glob(os.path.join(pth_structure_source, "RS*.dcm"))[0]
-#         if pth_structure_source is None:
-#             raise ValueError(
-#                 "No dicom structure file starting with RS, ending with .dcm is found in the directory"
-#             )
-
-#     structure_source_type = os.path.splitext(pth_structure_source)[1]
-
-#     if structure_source_type == ".dcm":
-#         print("loading structure set from dicom files")
-#         structure_mask_dict = BrachyDicom(
-#             os.path.dirname(pth_structure_source)
-#         ).structure_mask_dict
-
-#     elif structure_source_type == ".nrrd":
-#         print("loading structure set from nrrd file")
-#         raise NotImplementedError(
-#             "loading structure set from .nrrd file is not implemented yet"
-#         )
-
-#     elif structure_source_type == ".json":
-#         raise NotImplementedError(
-#             "loading structure set from .json file is not implemented yet"
-#         )
-
-#     else:
-#         raise ValueError("structure source type is not recognized")
-
-#     return structure_mask_dict
-
-
 def dvh_metric(
     dose: np.array,
     num_bins: int,
