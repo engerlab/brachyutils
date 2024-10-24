@@ -8,7 +8,7 @@ from multiprocessing import Pool
 
 import numpy as np
 import typer
-from brachyutils.dicom_utils import BrachyDicom
+# from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose
 from brachyutils.egsphant_utils import BrachyEgsphant, _load_json
 from brachyutils.plan_utils import BrachyPlan
@@ -92,9 +92,10 @@ def get_body_contour_range_from_dicom_many_patients(
         if ".dcm" not in ",".join(os.listdir(patient_dir)):
             continue
         try:
-            body_mask_info = BrachyDicom(
-                patient_dir, load_dose=True
-            ).get_structure_index_range(["body"])
+            # body_mask_info = BrachyDicom(
+                # patient_dir, load_dose=True
+            # ).get_structure_index_range(["body"])
+            body_mask_info = None
             body_index_range = body_mask_info["body"]["structure_index_range"]
             body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]
             patient_dict_list.append(
