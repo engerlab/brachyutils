@@ -1,7 +1,7 @@
+import copy
 import json
 import os
 import warnings
-import copy
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Union
@@ -12,11 +12,12 @@ from scipy.interpolate import RegularGridInterpolator
 
 from brachyutils.geometry_utils import BrachyPhantom
 
+
 class BrachyEgsphant:
     r"""
     Purpose:
         - An object to allow for loading and manipulating the .egsphant files
-        
+
     Attributes:
         - material_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding material per voxel
         - density_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding density per voxel
@@ -180,7 +181,9 @@ class BrachyEgsphant:
             self._sanity_axis = self._sanity_axis * 10
             # remove the last entry in each axis because it is one more than
             # there are desity or material values on that axis.
-            self._sanity_axis = np.array([axis[:-1] for axis in self._sanity_axis], dtype=object)
+            self._sanity_axis = np.array(
+                [axis[:-1] for axis in self._sanity_axis], dtype=object
+            )
             spacing = np.array(
                 [
                     self._sanity_axis[0][1] - self._sanity_axis[0][0],
@@ -329,7 +332,8 @@ class BrachyEgsphant:
         for i in range(len(self.density_image.origin)):
             voxel_centers[i] = (
                 self.density_image.origin[i]
-                + np.arange(self.density_image.gridSize[i]) * self.density_image.spacing[i]
+                + np.arange(self.density_image.gridSize[i])
+                * self.density_image.spacing[i]
             )
         return voxel_centers
 
@@ -354,18 +358,21 @@ class BrachyEgsphant:
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
         os.makedirs(os.path.dirname(fileName), exist_ok=True)
-        egsphant_voxel_edges = np.array(
-            [
-                np.append(axis, axis[-1]+self.density_image.spacing[i]) for i, axis in enumerate(self.voxel_edges)
-            ],
-            dtype=object) / 10
+        egsphant_voxel_edges = (
+            np.array(
+                [
+                    np.append(axis, axis[-1] + self.density_image.spacing[i])
+                    for i, axis in enumerate(self.voxel_edges)
+                ],
+                dtype=object,
+            )
+            / 10
+        )
         self._sort_materials_by("encoding")
         num_materials = str(self.num_materials) + "\n"
         materials = "\n".join(self.material_dict.keys()) + "\n"
         spacing = "0 0 0 0 0 0 0 0 0\n"
-        dimensions = (
-            " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
-        )
+        dimensions = " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
         x_axis = (
             " ".join(map(str, np.round(egsphant_voxel_edges[0], decimals=3))) + "\n"
         )
@@ -380,9 +387,7 @@ class BrachyEgsphant:
             _convert_material_matrix_to(material_matrix, dtype=str), ""
         )
         density_matrix = self.get_density_array()
-        density_matrix = _to_single_string(
-            density_matrix.astype(str), " "
-        )
+        density_matrix = _to_single_string(density_matrix.astype(str), " ")
 
         with open(fileName, "w") as file:
             lines = [
@@ -413,16 +418,21 @@ class BrachyEgsphant:
         if not isinstance(new_BrachyEgsphant, BrachyEgsphant):
             warnings.warn("input must be of type BrachyEgsphant", stacklevel=2)
             return False
-        elif not np.array_equal(self.material_image.imageArray, new_BrachyEgsphant.material_image.imageArray):
+        elif not np.array_equal(
+            self.material_image.imageArray, new_BrachyEgsphant.material_image.imageArray
+        ):
             warnings.warn("material matrix is not the same", stacklevel=2)
             return False
-        elif not np.array_equal(self.density_image.imageArray, new_BrachyEgsphant.density_image.imageArray):
+        elif not np.array_equal(
+            self.density_image.imageArray, new_BrachyEgsphant.density_image.imageArray
+        ):
             warnings.warn("density matrix is not the same", stacklevel=2)
             return False
         elif not np.isclose(
             np.concatenate(self.voxel_edges),
             np.concatenate(new_BrachyEgsphant.voxel_edges),
-            rtol=1e-3).all():
+            rtol=1e-3,
+        ).all():
             warnings.warn("axis is not the same", stacklevel=2)
             return False
         elif not np.array_equal(self.num_materials, new_BrachyEgsphant.num_materials):
@@ -432,20 +442,22 @@ class BrachyEgsphant:
             warnings.warn("the material dictionary is not the same", stacklevel=2)
             return False
         elif not np.array_equal(
-            self.density_image.gridSize,
-            new_BrachyEgsphant.density_image.gridSize):
+            self.density_image.gridSize, new_BrachyEgsphant.density_image.gridSize
+        ):
             warnings.warn("num_voxels is not the same", stacklevel=2)
             return False
         elif not np.isclose(
             self.density_image.spacing,
             new_BrachyEgsphant.density_image.spacing,
-            atol=1e-3).all():
+            atol=1e-3,
+        ).all():
             warnings.warn("voxel_size is not the same", stacklevel=2)
             return False
         elif not np.isclose(
             self.density_image.origin,
             new_BrachyEgsphant.density_image.origin,
-            rtol=1e-3).all():
+            rtol=1e-3,
+        ).all():
             warnings.warn("origin_coordinates is not the same", stacklevel=2)
             return False
         else:
@@ -490,10 +502,8 @@ class BrachyEgsphant:
         print(f"the material dictionary is {self.material_dict}")
 
     def crop_by_index(
-        self,
-        index_range: np.ndarray,
-        inplace: Optional[bool] = True
-        ) -> Union[None, "BrachyEgsphant"]:
+        self, index_range: np.ndarray, inplace: Optional[bool] = True
+    ) -> Union[None, "BrachyEgsphant"]:
         r"""
         Purpose:
             given a range of indicies (mix and max on each axis), this function will crop
@@ -508,17 +518,24 @@ class BrachyEgsphant:
         Dependencies:
             - self.crop_by_coordinates()
         """
-        assert index_range.shape == (3, 2), "index_range should be a 3x2 array in x, y, z order"
-        assert np.all(self.density_image.gridSize == self.material_image.gridSize), "material and density matrix should have the same size"
-        new_origin_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 0])
-        new_ending_coords = self.density_image.getPositionFromVoxelIndex(index_range[:, 1])
+        assert index_range.shape == (
+            3,
+            2,
+        ), "index_range should be a 3x2 array in x, y, z order"
+        assert np.all(
+            self.density_image.gridSize == self.material_image.gridSize
+        ), "material and density matrix should have the same size"
+        new_origin_coords = self.density_image.getPositionFromVoxelIndex(
+            index_range[:, 0]
+        )
+        new_ending_coords = self.density_image.getPositionFromVoxelIndex(
+            index_range[:, 1]
+        )
         new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
         return self.crop_by_coordinates(new_coords_range, inplace)
-    
+
     def crop_by_coordinates(
-        self,
-        coordinate_range: np.array,
-        inplace: Optional[bool] = True
+        self, coordinate_range: np.array, inplace: Optional[bool] = True
     ) -> Union[None, "BrachyEgsphant"]:
         r"""
         Purpose:
@@ -534,9 +551,15 @@ class BrachyEgsphant:
         Dependencies:
             - None
         """
-        from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
+        from opentps.core.processing.imageProcessing.resampler3D import (
+            crop3DDataAroundBox,
+        )
+
         self.is_not_empty()
-        assert coordinate_range.shape == (3, 2), "coordinate_range should be a 3x2 array in x, y, z order"
+        assert coordinate_range.shape == (
+            3,
+            2,
+        ), "coordinate_range should be a 3x2 array in x, y, z order"
 
         if inplace:
             crop3DDataAroundBox(self.material_image, coordinate_range)
@@ -548,10 +571,8 @@ class BrachyEgsphant:
             return new_egsphant
 
     def crop_by_contour(
-        self,
-        phantom_obj: BrachyPhantom,
-        contour_name: str,
-        inplace) -> Union[None, "BrachyEgsphant"]:
+        self, phantom_obj: BrachyPhantom, contour_name: str, inplace
+    ) -> Union[None, "BrachyEgsphant"]:
         r"""
         Purpose:
             - to crop the material and density matrix based on the contour of a structure in the phantom object.
@@ -562,12 +583,12 @@ class BrachyEgsphant:
         Output:
             - Void := will crop the material and density matrix based on the structure mask of the contour_name
         """
+        from opentps.core.data import ROIMask
         from opentps.core.processing.imageProcessing.resampler3D import (
             resampleImage3DOnImage3D,
         )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
-        from opentps.core.data import ROIMask
-        
+
         mask_dict = phantom_obj.get_structure_mask([contour_name], mask_type=ROIMask)
         resampled_mask = resampleImage3DOnImage3D(
             mask_dict[contour_name], self.density_image
@@ -840,9 +861,9 @@ class BrachyEgsphant:
             )
 
 
-def _convert_material_matrix_to( 
-    material_matrix: np.ndarray,
-    dtype: Union[int, str]) -> np.ndarray:
+def _convert_material_matrix_to(
+    material_matrix: np.ndarray, dtype: Union[int, str]
+) -> np.ndarray:
     r"""
     Purpose:
         To convert a numpy array of dtype string to an integer numpy array or the other way around.
@@ -880,8 +901,8 @@ def _convert_material_matrix_to(
 def _to_single_string(
     matrix: np.ndarray,
     delimiter: Optional[str] = "",
-    add_terminating_newline: Optional[bool] = True
-    ):
+    add_terminating_newline: Optional[bool] = True,
+):
     r"""
     Purpose:
         given a 3D matrix with string entries, this function concatenates all the

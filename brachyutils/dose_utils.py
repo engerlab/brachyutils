@@ -1079,7 +1079,7 @@ class BrachyDose:
         )
         print(f"The grid size in world unit is {self.dose_image.gridSizeInWorldUnit}")
 
-    def crop_by_dicom_structure(
+    def crop_by_contour(
         self,
         pth_dir_dicom: Path,
         structure_name: str,
