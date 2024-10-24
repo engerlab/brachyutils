@@ -546,39 +546,34 @@ class BrachyEgsphant:
             new_egsphant: BrachyEgsphant = copy.deepcopy(self)
             new_egsphant.crop_by_coordinates(coordinate_range, inplace=True)
             return new_egsphant
-# 
-    # def crop_by_dicom_structure(
-        # self,
-        # pth_dir_dicom: Path,
-        # structure_name: str,
-        # inplace: Optional[bool] = True,
-    # ) -> Union[None, "BrachyEgsphant"]:
-        # r"""
-        # Purpose:
-            # based on the given dicom structure file, crop the BrachyEgsphant object such
-            # that it contains the tightest bounding box surrounding a strcture.
-        # Inputs:
-            # - pth_dir_dicom := path to the directory with the dicom files of a patient.
-            # it should contain both images and RTSTRUCT file.
-            # - structure_name := the name of the structure in the dicom file that will be used to crop the BrachyEgsphant object.
-            # - inplace := if True, the function will modify the object in place, otherwise it will return a new object.
-        # Outputs:
-            # - Void := will crop out the material and density maps of self to have the range the contour
-            # in the dicom structure file.
-        # """
-        # from brachyutils import BrachyDicom
-        # from opentps.core.data.images import ROIMask
-        # from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
-        # from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
-        # load the dicom object both the image and the mask
-        # dicom_obj = BrachyDicom(pth_dir_dicom, load_structure=True)
-        # load the mask dictionary for the structures in structure_name_list
-        # mask_dict = dicom_obj.get_strcuture_mask_from_dicom([structure_name], ROIMask)
-    # 
-        # Get a cropped dose map that tightly fits each mask.
-        # resampled_mask = resampleImage3DOnImage3D(mask_dict[structure_name], self.density_image)
-        # box_around_mask = np.array(getBoxAroundROI(resampled_mask))
-        # return self.crop_by_coordinates(box_around_mask, inplace)
+
+    def crop_by_contour(
+        self,
+        phantom_obj: BrachyPhantom,
+        contour_name: str,
+        inplace) -> Union[None, "BrachyEgsphant"]:
+        r"""
+        Purpose:
+            - to crop the material and density matrix based on the contour of a structure in the phantom object.
+        Inputs:
+            - phantom_obj:BrachyPhantom := a BrachyPhantom object containing the structure mask
+            - contour_name:str := the name of the structure in the phantom object
+            - inplace:bool := if True, the function will crop the current object, if False, it will return a new object
+        Output:
+            - Void := will crop the material and density matrix based on the structure mask of the contour_name
+        """
+        from opentps.core.processing.imageProcessing.resampler3D import (
+            resampleImage3DOnImage3D,
+        )
+        from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
+        from opentps.core.data import ROIMask
+        
+        mask_dict = phantom_obj.get_structure_mask([contour_name], mask_type=ROIMask)
+        resampled_mask = resampleImage3DOnImage3D(
+            mask_dict[contour_name], self.density_image
+        )
+        box_around_mask = np.array(getBoxAroundROI(resampled_mask))
+        return self.crop_by_coordinates(box_around_mask, inplace)
 
     def get_material_array(self):
         r"""
