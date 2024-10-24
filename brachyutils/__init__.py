@@ -8,7 +8,7 @@ __all__ = [
     "geometry_utils",
 ]
 # trunk-ignore(ruff/F401)
-from brachyutils.dicom_utils import BrachyDicom
+# from brachyutils.dicom_utils import BrachyDicom
 
 # trunk-ignore(ruff/F401)
 from brachyutils.dose_utils import BrachyDose, DoseComparison
