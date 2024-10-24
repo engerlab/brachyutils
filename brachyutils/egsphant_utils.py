@@ -20,23 +20,23 @@ class BrachyEgsphant:
     Attributes:
         - material_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding material per voxel
         - density_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding density per voxel
-        - num_materials:int := the number of different material composition options a voxel has
-        - material_dict:dict := a dictionary containing the name of the elements for each voxel,
+        - num_materials: int := the number of different material composition options a voxel has
+        - material_dict: dict := a dictionary containing the name of the elements for each voxel,
             their density and HU lower limit threshold as well as their number coding
-        - axis:np.ndarray := coorindates of grid points along x, y and z axis in mm.
-        - unit_length:str := the unit of the length of the axis is mm.
-        - voxel_edges:np.ndarray := the edges of the voxels in the material and density matrix
-        - xyz_format:bool := if True, the axis is in the format [x, y, z], if False, the axis is in the format [z, y, x]
+        - axis: np.ndarray := coordinates of grid points along x, y, and z axis in mm.
+        - unit_length: str := the unit of the length of the axis is mm.
+        - voxel_edges: np.ndarray := the edges of the voxels in the material and density matrix
+        - xyz_format: bool := if True, the axis is in the format [x, y, z], if False, the axis is in the format [z, y, x]
     Functions:
         - load_file_to_BrachyEgsphant()     done
         - load_from_ctegsphant()            done
-        - load_from_nrrd()                  done
-        - calculate_axis()                  done
+        - load_from_nrrd()                  not implemented
+        - get_voxel_edges()                 done
         - write_to_ctegsphant()             done
         - write_to_nrrd()                   not implemented
         - crop_by_index()                   done
         - crop_by_coordinates()             done
-        - crop_by_body_contour()            done
+        - crop_by_contour()                 done
         - is_not_empty()                    done
         - info()                            done
         - is_equal()                        done
@@ -44,6 +44,8 @@ class BrachyEgsphant:
         - create_interpolation_function()   done
         - get_voxel_centers()               done
         - sort_materials_by()               done
+        - export_material_dict()            done
+        - _remove_duplicate_materials()     done
 
     Dependencies:
         - opentps
