@@ -29,7 +29,7 @@ class BrachyEgsphant:
     Functions:
         - load_file_to_BrachyEgsphant()     done
         - load_from_ctegsphant()            done
-        - load_from_nrrd()                  not implemented
+        - load_from_nrrd()                  done
         - calculate_axis()                  done
         - write_to_ctegsphant()             done
         - write_to_nrrd()                   not implemented
