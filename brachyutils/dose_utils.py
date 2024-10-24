@@ -19,7 +19,7 @@ import numpy as np
 import pymedphys
 import pyzstd
 import SimpleITK as sitk
-from geometry_utils import BrachyPhantom
+from brachyutils.geometry_utils import BrachyPhantom
 from matplotlib import pyplot as plt
 from numpy import ma, reshape
 from opentps.core.data.images import DoseImage

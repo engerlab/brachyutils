@@ -5,29 +5,10 @@ import numpy as np
 
 from glob import glob
 
-# from plan_utils import BrachyStructure
 from brachyutils.plan_utils import (
-    BrachyApplicator,
     BrachyPlan,
     _load_single_dose_or_uncertainty_to_dict,
 )
-
-
-def test_load_catheterTable_json():
-    pth_cathTable_json = (
-        "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    )
-
-    with open(pth_cathTable_json, "r") as json_file:
-        ground_truth_catheter_table = json.load(json_file)
-
-    plan_obj = BrachyPlan()
-    plan_obj.load_catheterTable_json(pth_cathTable_json)
-
-    # print(plan_obj.catheter_table)
-    assert [
-        i for i in ground_truth_catheter_table if i not in plan_obj.catheter_table
-    ] == [], "loading catheter table did not work as expected"
 
 
 def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
@@ -35,8 +16,7 @@ def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
         "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     )
 
-    plan_obj = BrachyPlan()
-    plan_obj.load_catheterTable_json(pth_cathTable_json)
+    plan_obj = BrachyPlan(catheter_table=pth_cathTable_json)
 
     assert plan_obj.dwell_numbers is not None, "dwell numbers not extracted"
     assert plan_obj.dwell_times is not None, "dwell times not extracted"
@@ -403,8 +383,7 @@ def test_load_phantom():
 
 
 if __name__ == "__main__":
-    # test_load_catheterTable_json()
-    # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
+    test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     # test_load_dose_rate_or_uncertainty_tensor()
     # test_set_dvh_metric_goals()
     # test_create_structures_and_calc_dvh_metrics()
@@ -421,4 +400,4 @@ if __name__ == "__main__":
     # test_load_applicator_list()
     # test__export_applicator_geometry()
     # test_brachy_structure()
-    test_load_phantom()
+    # test_load_phantom()

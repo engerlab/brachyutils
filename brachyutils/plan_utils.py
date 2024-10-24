@@ -257,11 +257,7 @@ class BrachyPlan:
 
     Attributes:
         - num_dwells:int := the number of dwell positions in the plan
-        - catheter_table:list := a list of catheter dictionaries. each catheter dictionary
-        contains the keys "dwells", "id", and points. the value belonging to the "dwells" key
-        is a list of dwell position dictionary. The dwell position dictionary contains the keys:
-        "angle", "position", "relativePos", "rotation", "time", and "weight". for more info,
-        look at the function BrachyPlan.load_catheterTable_json()
+        - catheter_table:CatheterTable := an instance of the geometry_utils.CatheterTable class
         - dwell_numbers:np.array := the dwell number of each dwell position in the plan
         - dwell_times:np.array := the dwell time of each dwell position in the plan
         - dwell_coordinates:list := a list of dictionaries. each dictionary contains the
@@ -274,7 +270,6 @@ class BrachyPlan:
         - brachy_structure:list[BrachyStructure] := the list of patient structures in the plan.
 
     Functions:
-        - load_catheterTable_json()
         - _extract_dwell_numbers_times_coordinates_from_catheterTable()
         - _update_catheter_table_from_plan()
         - _update_dose_after_change_in_plan()
@@ -310,15 +305,15 @@ class BrachyPlan:
             - To initialize the BrachyPlan object.
         Inputs:
             ### For geometry definition:
-            - phantom:Union[Path, BrachyPhantom, dict] := the phantom object, the path to the phantom directory,
+            - phantom: Path|BrachyPhantom|dict := the phantom object, the path to the phantom directory,
             or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
 
             ### For Structure optimization and dosimetry
-            - dvh_metric_goals:dict := Dictionary containing the DVH metric goals. Look at BrachyStructure for more info.
+            - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
             The phantom should be loaded with structures for the Brachy stuctures to be created.
 
             ### for loading catheter table:
-            - catheter_table:str := path to a json file containing the information of the catheter table.
+            - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
 
             ### for loading dose or uncertainty:
             - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
@@ -405,8 +400,8 @@ class BrachyPlan:
 
         # load the catheter table if the path is provided
         if catheter_table is not None:
-            if isinstance(catheter_table, Path):
-                self.catheter_table = CatheterTable(catheter_table)
+            if isinstance(catheter_table, Path) or isinstance(catheter_table, str):
+                self.catheter_table = CatheterTable(pth_catheter_table=catheter_table)
             elif isinstance(catheter_table, CatheterTable):
                 self.catheter_table = catheter_table
             else:

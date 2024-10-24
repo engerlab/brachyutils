@@ -1128,24 +1128,20 @@ class DwellPosition:
             either provide the index, angle, position, relativePos, rotation, time and weight or provide the dwell_dict. Not both.
         """
         assert (
-            all(
-                (
-                    index,
-                    angle,
-                    position,
-                    relativePos,
-                    rotation,
-                    time,
-                    weight is not None,
-                )
-            )
-            != (dwell_dict is not None),
-            "Either provide index, angle, position, relativePos, rotation, time and weight or provide catheter_dict. Not both.",
-        )
+            (index is not None)
+            and (angle is not None)
+            and (position is not None)
+            and (relativePos is not None)
+            and (rotation is not None)
+            and (time is not None)
+            and (weight is not None)
+        ) != (
+            dwell_dict is not None
+        ), "Either provide index, angle, position, relativePos, rotation, time and weight or provide catheter_dict. Not both."
 
         if dwell_dict is not None:
             index = dwell_dict.get("index", None)
-            angle = dwell_dict.get("angle")
+            angle = float(dwell_dict.get("angle"))
             position = np.array(dwell_dict.get("position"))
             relativePos = dwell_dict.get("relativePos")
             rotation = np.array(dwell_dict.get("rotation"))
@@ -1154,7 +1150,9 @@ class DwellPosition:
 
         assert isinstance(index, int), "index should be an integer"
         self.index = index
-        assert isinstance(angle, float), "index should be a floating point number"
+        assert isinstance(
+            angle, float or int
+        ), "index should be a floating point number"
         self.angle = angle
         assert isinstance(position, np.ndarray), "position should be a numpy array"
         self.position = position
@@ -1201,7 +1199,7 @@ class Catheter:
         self,
         iD: int = None,
         dwells: list = None,
-        points: list = [DwellPosition],
+        points: List[DwellPosition] = None,
         channel_total_time: float = None,
         catheter_dict: dict = None,
     ) -> None:
@@ -1215,17 +1213,23 @@ class Catheter:
             - catheter_dict:dict := the dictionary containing the catheter.
         """
         assert (
-            all((iD, dwells, points, channel_total_time is not None))
-            != (catheter_dict is not None),
-            "Either provide iD, dwells and points or provide catheter_dict. Not both.",
-        )
+            iD is not None
+            and dwells is not None
+            and points is not None
+            and channel_total_time is not None
+        ) != (
+            catheter_dict is not None
+        ), "Either provide iD, dwells and points or provide catheter_dict. Not both."
         if catheter_dict is not None:
             iD = catheter_dict.get("id")
             points = catheter_dict.get("points")
-            dwells = [
-                DwellPosition(dwell_dict=dwell_dict)
-                for dwell_dict in catheter_dict.get("dwells")
-            ]
+
+            dwells = []
+            for i, dwell_dict in enumerate(catheter_dict.get("dwells")):
+                if "index" not in dwell_dict:
+                    dwell_dict["index"] = i
+                dwells.append(DwellPosition(dwell_dict=dwell_dict))
+
             channel_total_time = catheter_dict.get("channel_total_time", None)
         assert isinstance(iD, int), "iD should be an integer"
         self.id = iD
@@ -1259,7 +1263,10 @@ class CatheterTable:
     Purpose:
         - This class holds the information regarding the catheter table.
     Attributes:
-        - catheter_list : List[Catheter] := the list of catheters in the catheter table.
+        - catheter_list : List[Catheter] := the list of catheter objects in the catheter table.
+    Functions:
+        - load_from_json(pth_json:Path) -> list
+        - load_from_dicom(pth_dicom:Path) -> list
     """
 
     def __init__(
@@ -1275,10 +1282,8 @@ class CatheterTable:
             - pth_catheter_table:Path := the path to the catheter table file, which could be
             a dicom plan or a json file.
         """
-        assert (
-            (catheter_list is not None) != (pth_catheter_table is not None),
-            "Either the catheter list or the path to the catheter table should be provided.",
-        )
+        assert (catheter_list is not None) != (pth_catheter_table is not None), \
+            "Either the catheter list or the path to the catheter table should be provided."
 
         if pth_catheter_table is not None:
             assert os.path.exists(
