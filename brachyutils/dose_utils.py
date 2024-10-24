@@ -1198,7 +1198,13 @@ def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
 
 
 class DoseComparison:
-
+    gamma_kwargs:dict = {
+            "lower_percent_dose_cutoff": 5,
+            "interp_fraction": 10,
+            "local_gamma": False,
+            "global_normalisation": None,
+            "skip_once_passed": False,
+        },
     def __init__(
         self,
         dose1: BrachyDose,
@@ -1210,14 +1216,7 @@ class DoseComparison:
         prescription_dose: float = None,
         max_gamma=None,
         path=None,
-        gamma_kwargs: dict = {
-            "lower_percent_dose_cutoff": 5,
-            "interp_fraction": 10,
-            "local_gamma": False,
-            "global_normalisation": None,
-            "skip_once_passed": False,
-        },
-    ):
+        gamma_kwargs: dict = gamma_kwargs):
         # provide no dose to just load a file
         if dose1 is None and dose2 is None:
             self.load_comparison_object(path)
@@ -1260,14 +1259,14 @@ class DoseComparison:
         plane: str,
         plot_titles: tuple,
     ):
-        import itertools
+        # import itertools
 
         import matplotlib
-        from matplotlib.ticker import (
-            AutoMinorLocator,
-            FormatStrFormatter,
-            MultipleLocator,
-        )
+        # from matplotlib.ticker import (
+            # AutoMinorLocator,
+            # FormatStrFormatter,
+            # MultipleLocator,
+        # )
 
         matplotlib.rcParams.update({"font.size": 8})
         plt.rcParams.update({"figure.dpi": 300})

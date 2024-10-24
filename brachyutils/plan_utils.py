@@ -410,7 +410,9 @@ class BrachyPlan:
             elif isinstance(catheter_table, CatheterTable):
                 self.catheter_table = catheter_table
             else:
-                raise ValueError("catheter_table should be a path or a CatheterTable object")
+                raise ValueError(
+                    "catheter_table should be a path or a CatheterTable object"
+                )
             self._extract_dwell_numbers_times_coordinates_from_catheterTable()
 
         # load the dose rate tensor if the path is provided
@@ -789,7 +791,9 @@ class BrachyPlan:
 
         self.dvh_metric_goals = dvh_metric_goals
 
-    def create_brachy_structure_set(self, phantom: BrachyPhantom, dvh_metric_goals: dict):
+    def create_brachy_structure_set(
+        self, phantom: BrachyPhantom, dvh_metric_goals: dict
+    ):
         r"""
         Purpose:
             - To create a list of BrachyStructure objects from the structures in the phantom and
@@ -804,8 +808,12 @@ class BrachyPlan:
             # - BrachyDicom
         """
         self.structure_list = []
-        structure_names_in_dvh = [x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()]
-        structure_masks:dict = phantom.get_structure_mask(structure_names_in_dvh, ROIContour)
+        structure_names_in_dvh = [
+            x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()
+        ]
+        structure_masks: dict = phantom.get_structure_mask(
+            structure_names_in_dvh, ROIContour
+        )
         for metric_key, mask_key in zip(dvh_metric_goals, structure_masks):
             structure_obj = BrachyStructure(
                 name=mask_key,
