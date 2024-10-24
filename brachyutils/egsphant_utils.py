@@ -17,7 +17,6 @@ class BrachyEgsphant:
     r"""
     Purpose:
         - An object to allow for loading and manipulating the .egsphant files
-
     Attributes:
         - material_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding material per voxel
         - density_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding density per voxel
@@ -27,6 +26,7 @@ class BrachyEgsphant:
         - axis:np.ndarray := coorindates of grid points along x, y and z axis in mm.
         - unit_length:str := the unit of the length of the axis is mm.
         - voxel_edges:np.ndarray := the edges of the voxels in the material and density matrix
+        - xyz_format:bool := if True, the axis is in the format [x, y, z], if False, the axis is in the format [z, y, x]
     Functions:
         - load_file_to_BrachyEgsphant()     done
         - load_from_ctegsphant()            done
