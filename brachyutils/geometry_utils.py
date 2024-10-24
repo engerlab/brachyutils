@@ -191,7 +191,7 @@ class BrachyPhantom:
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         Purpose:
-            To return a dictionary with the requested structure masks from BrachyDicom object. The queried
+            To return a dictionary with the requested structure masks from BrachyPhantom object. The queried
             structure string should be a subset of the structure string in the dicom file. For example,
             if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
             The keys in the dictionary match the query_structure_list and the values are the masks.

@@ -546,39 +546,39 @@ class BrachyEgsphant:
             new_egsphant: BrachyEgsphant = copy.deepcopy(self)
             new_egsphant.crop_by_coordinates(coordinate_range, inplace=True)
             return new_egsphant
-
-    def crop_by_dicom_structure(
-        self,
-        pth_dir_dicom: Path,
-        structure_name: str,
-        inplace: Optional[bool] = True,
-    ) -> Union[None, "BrachyEgsphant"]:
-        r"""
-        Purpose:
-            based on the given dicom structure file, crop the BrachyEgsphant object such
-            that it contains the tightest bounding box surrounding a strcture.
-        Inputs:
-            - pth_dir_dicom := path to the directory with the dicom files of a patient.
-            it should contain both images and RTSTRUCT file.
-            - structure_name := the name of the structure in the dicom file that will be used to crop the BrachyEgsphant object.
-            - inplace := if True, the function will modify the object in place, otherwise it will return a new object.
-        Outputs:
-            - Void := will crop out the material and density maps of self to have the range the contour
-            in the dicom structure file.
-        """
-        from brachyutils import BrachyDicom
-        from opentps.core.data.images import ROIMask
-        from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
-        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+# 
+    # def crop_by_dicom_structure(
+        # self,
+        # pth_dir_dicom: Path,
+        # structure_name: str,
+        # inplace: Optional[bool] = True,
+    # ) -> Union[None, "BrachyEgsphant"]:
+        # r"""
+        # Purpose:
+            # based on the given dicom structure file, crop the BrachyEgsphant object such
+            # that it contains the tightest bounding box surrounding a strcture.
+        # Inputs:
+            # - pth_dir_dicom := path to the directory with the dicom files of a patient.
+            # it should contain both images and RTSTRUCT file.
+            # - structure_name := the name of the structure in the dicom file that will be used to crop the BrachyEgsphant object.
+            # - inplace := if True, the function will modify the object in place, otherwise it will return a new object.
+        # Outputs:
+            # - Void := will crop out the material and density maps of self to have the range the contour
+            # in the dicom structure file.
+        # """
+        # from brachyutils import BrachyDicom
+        # from opentps.core.data.images import ROIMask
+        # from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
+        # from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
         # load the dicom object both the image and the mask
-        dicom_obj = BrachyDicom(pth_dir_dicom, load_structure=True)
+        # dicom_obj = BrachyDicom(pth_dir_dicom, load_structure=True)
         # load the mask dictionary for the structures in structure_name_list
-        mask_dict = dicom_obj.get_strcuture_mask_from_dicom([structure_name], ROIMask)
-    
+        # mask_dict = dicom_obj.get_strcuture_mask_from_dicom([structure_name], ROIMask)
+    # 
         # Get a cropped dose map that tightly fits each mask.
-        resampled_mask = resampleImage3DOnImage3D(mask_dict[structure_name], self.density_image)
-        box_around_mask = np.array(getBoxAroundROI(resampled_mask))
-        return self.crop_by_coordinates(box_around_mask, inplace)
+        # resampled_mask = resampleImage3DOnImage3D(mask_dict[structure_name], self.density_image)
+        # box_around_mask = np.array(getBoxAroundROI(resampled_mask))
+        # return self.crop_by_coordinates(box_around_mask, inplace)
 
     def get_material_array(self):
         r"""
@@ -622,7 +622,7 @@ class BrachyEgsphant:
         Outputs:
             - Void := will generate a BrachyEgsphant object from the images and structure file.
         Dependencies:
-            - BrachyDicom
+            - BrachyPhantom
         """
         if not assign_material_from_ct:
             assert (
