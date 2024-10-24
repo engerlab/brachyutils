@@ -13,7 +13,7 @@ from array import array
 from pathlib import Path
 from tkinter import filedialog as fd
 from typing import List, Literal, Optional, Union
-
+from glob import glob
 import numpy as np
 import pymedphys
 import pyzstd
@@ -1104,12 +1104,17 @@ class BrachyDose:
         )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
 
-        from brachyutils import BrachyDicom
+        from brachyutils.geometry_utils import BrachyPhantom
 
         # load the dicom object both the image and the mask
-        dicom_obj = BrachyDicom(pth_dir_dicom, load_structure=True)
+        # dicom_obj = BrachyDicom(pth_dir_dicom, load_structure=True)
+        # XXX: Debug this!
+        phantom_obj = BrachyPhantom(
+            dir_dicom=pth_dir_dicom,
+            pth_structures_file=glob(pth_dir_dicom + "/RS*.dcm")[0],
+            )
         # load the mask dictionary for the structures in structure_name_list
-        mask_dict = dicom_obj.get_strcuture_mask_from_dicom([structure_name], ROIMask)
+        mask_dict = phantom_obj.get_strcuture_mask_from_dicom([structure_name], ROIMask)
 
         # Get a cropped dose map that tightly fits each mask.
         resampled_mask = resampleImage3DOnImage3D(
