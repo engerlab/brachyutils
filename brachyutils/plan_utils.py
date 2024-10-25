@@ -563,7 +563,7 @@ class BrachyPlan:
             len(self.dwell_numbers) == self.dwell_numbers[-1]
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
-    # XXX: do this next
+
     def _update_catheter_table_from_plan(self):
         r"""
         Purpose:
@@ -592,13 +592,13 @@ class BrachyPlan:
                     continue
                 dwell["angle"] = float(self.dwell_coordinates[dwell_i - 1]["angle"])
                 dwell["position"] = list(
-                    self.dwell_coordinates[dwell_i - 1]["position"].astype(np.float64)
+                    self.dwell_coordinates[dwell_i - 1]["position"].astype(np.float32)
                 )
                 dwell["relativePos"] = float(
                     self.dwell_coordinates[dwell_i - 1]["relativePos"]
                 )
                 dwell["rotation"] = list(
-                    self.dwell_coordinates[dwell_i - 1]["rotation"].astype(np.float64)
+                    self.dwell_coordinates[dwell_i - 1]["rotation"].astype(np.float32)
                 )
                 dwell["time"] = float(self.dwell_times[dwell_i - 1].item())
                 dwell["weight"] = float(

@@ -1142,9 +1142,9 @@ class DwellPosition:
         if dwell_dict is not None:
             index = dwell_dict.get("index", None)
             angle = float(dwell_dict.get("angle"))
-            position = np.array(dwell_dict.get("position"))
+            position = np.array(list(dwell_dict.get('position').values()))
             relativePos = dwell_dict.get("relativePos")
-            rotation = np.array(dwell_dict.get("rotation"))
+            rotation = np.array(list(dwell_dict.get('rotation').values()))
             time = float(dwell_dict.get("time"))
             weight = float(dwell_dict.get("weight", None))
 
@@ -1177,13 +1177,12 @@ class DwellPosition:
         return {
             "index": self.index,
             "angle": self.angle,
-            "position": self.position.tolist(),
+            "position": {"x":self.position[0], "y":self.position[1], "z":self.position[2]},
             "relativePos": self.relativePos,
-            "rotation": self.rotation.tolist(),
+            "rotation": {"x":self.rotation[0], "y":self.rotation[1], "z":self.rotation[2]},
             "time": self.time,
             "weight": self.weight,
         }
-
 
 class Catheter:
     r"""

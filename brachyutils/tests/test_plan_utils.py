@@ -1,20 +1,15 @@
 # import json
 import os
 import time
-import numpy as np
-
 from glob import glob
 
-from brachyutils.plan_utils import (
-    BrachyPlan,
-    _load_single_dose_or_uncertainty_to_dict,
-)
+import numpy as np
+
+from brachyutils.plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_to_dict
 
 
 def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
-    pth_cathTable_json = (
-        "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    )
+    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
 
     plan_obj = BrachyPlan(catheter_table=pth_cathTable_json)
 
@@ -27,10 +22,17 @@ def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
     print(f"The shape of the dwell_coordinates is {len(plan_obj.dwell_coordinates)}")
 
 
+def test_update_catheter_table_from_plan():
+    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
+
+    plan_obj = BrachyPlan(catheter_table=pth_cathTable_json)
+    plan_obj.catheter_table.info()
+    plan_obj._update_catheter_table_from_plan()
+    plan_obj.catheter_table.info()
+
+
 def test_load_dose_rate_or_uncertainty_tensor():
-    pth_cathTable_json = (
-        "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    )
+    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../data_test/prostate-glen-p1-dose"
 
     plan_obj = BrachyPlan()
@@ -61,9 +63,7 @@ def test_set_dvh_metric_goals():
 
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_cathTable_json = (
-        "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    )
+    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../data_test/prostate-glen-p1-dose"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
@@ -90,9 +90,7 @@ def test_create_structures_and_calc_dvh_metrics():
 
 
 def test_calculate_combined_uncertainty():
-    pth_cathTable_json = (
-        "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    )
+    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../data_test/prostate-glen-p1-dose"
 
     plan_obj = BrachyPlan()
@@ -176,9 +174,7 @@ def test__load_single_dose_or_uncertainty_to_dict():
 
 
 def test_export_brachy_plan():
-    pth_cathTable_json = (
-        "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    )
+    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../data_test/prostate-glen-p1-dose"
     dir_dicom = "../data_test/prostate-glen-p1-dcm/"
     dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
@@ -336,24 +332,22 @@ def test__export_applicator_geometry():
         export_format="RapidBrachy",
     )
 
+
 def test_brachy_structure():
-    from brachyutils import BrachyStructure
-    from brachyutils import BrachyPhantom
     from opentps.core.data import ROIContour
-    from brachyutils import BrachyDose
+
+    from brachyutils import BrachyDose, BrachyPhantom, BrachyStructure
+
     pth_dicom = "../data_test/prostate-glen-p1-dcm/"
-    pth_structure = glob(pth_dicom+ "/RS*.dcm")[0]
-    pth_dose = glob(pth_dicom+ "/RD*.dcm")[0]
+    pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
+    pth_dose = glob(pth_dicom + "/RD*.dcm")[0]
     structure_name = "CTV"
     dvh_name = "D95%(CTV)"
     dvh_goal = 15
     dose = BrachyDose(pth_dose)
 
-    phantom_obj = BrachyPhantom(
-        dir_dicom=pth_dicom,
-        pth_structures_file=pth_structure
-        )
-    mask_dict:dict = phantom_obj.get_structure_mask([structure_name], ROIContour)
+    phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
+    mask_dict: dict = phantom_obj.get_structure_mask([structure_name], ROIContour)
     mask_contour = mask_dict[structure_name]
 
     structure_obj = BrachyStructure(
@@ -362,14 +356,16 @@ def test_brachy_structure():
         target_volume=True if "tv" in structure_name.lower() else False,
         in_dvh=True,
         dvh_metric_name=dvh_name,
-        dvh_metric_clinical_goal=dvh_goal
-        )
+        dvh_metric_clinical_goal=dvh_goal,
+    )
 
     structure_obj.info()
     structure_obj.get_dvh_metric(dose)
 
+
 def test_load_phantom():
     from pathlib import Path
+
     pth_dicom = Path("../data_test/prostate-glen-p1-dcm/")
 
     dvh_metric_goals = {
@@ -383,7 +379,8 @@ def test_load_phantom():
 
 
 if __name__ == "__main__":
-    test_extract_dwell_numbers_times_coordinates_from_catheterTable()
+    # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
+    test_update_catheter_table_from_plan()
     # test_load_dose_rate_or_uncertainty_tensor()
     # test_set_dvh_metric_goals()
     # test_create_structures_and_calc_dvh_metrics()
