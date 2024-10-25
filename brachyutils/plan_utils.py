@@ -591,15 +591,19 @@ class BrachyPlan:
                 if self.dwell_coordinates[dwell_i - 1]["catheterId"] != catheter_i:
                     continue
                 dwell["angle"] = float(self.dwell_coordinates[dwell_i - 1]["angle"])
-                dwell["position"] = list(
-                    self.dwell_coordinates[dwell_i - 1]["position"].astype(np.float32)
-                )
-                dwell["relativePos"] = float(
+                dwell["position"] = {
+                    "x": float(self.dwell_coordinates[dwell_i - 1]["position"][0]),
+                    "y": float(self.dwell_coordinates[dwell_i - 1]["position"][1]),
+                    "z": float(self.dwell_coordinates[dwell_i - 1]["position"][2]),
+                }
+                dwell["relativePos"] = int(
                     self.dwell_coordinates[dwell_i - 1]["relativePos"]
                 )
-                dwell["rotation"] = list(
-                    self.dwell_coordinates[dwell_i - 1]["rotation"].astype(np.float32)
-                )
+                dwell["rotation"] = {
+                    "x": float(self.dwell_coordinates[dwell_i - 1]["rotation"][0]),
+                    "y": float(self.dwell_coordinates[dwell_i - 1]["rotation"][1]),
+                    "z": float(self.dwell_coordinates[dwell_i - 1]["rotation"][2]),
+                }
                 dwell["time"] = float(self.dwell_times[dwell_i - 1].item())
                 dwell["weight"] = float(
                     (self.dwell_times[dwell_i - 1] / np.sum(self.dwell_times)).item()

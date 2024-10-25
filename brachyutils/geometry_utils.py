@@ -1142,9 +1142,9 @@ class DwellPosition:
         if dwell_dict is not None:
             index = dwell_dict.get("index", None)
             angle = float(dwell_dict.get("angle"))
-            position = np.array(list(dwell_dict.get('position').values()))
+            position = np.array(list(dwell_dict.get("position").values()))
             relativePos = dwell_dict.get("relativePos")
-            rotation = np.array(list(dwell_dict.get('rotation').values()))
+            rotation = np.array(list(dwell_dict.get("rotation").values()))
             time = float(dwell_dict.get("time"))
             weight = float(dwell_dict.get("weight", None))
 
@@ -1177,12 +1177,21 @@ class DwellPosition:
         return {
             "index": self.index,
             "angle": self.angle,
-            "position": {"x":self.position[0], "y":self.position[1], "z":self.position[2]},
+            "position": {
+                "x": self.position[0],
+                "y": self.position[1],
+                "z": self.position[2],
+            },
             "relativePos": self.relativePos,
-            "rotation": {"x":self.rotation[0], "y":self.rotation[1], "z":self.rotation[2]},
+            "rotation": {
+                "x": self.rotation[0],
+                "y": self.rotation[1],
+                "z": self.rotation[2],
+            },
             "time": self.time,
             "weight": self.weight,
         }
+
 
 class Catheter:
     r"""
@@ -1222,14 +1231,15 @@ class Catheter:
         if catheter_dict is not None:
             iD = catheter_dict.get("id")
             points = catheter_dict.get("points")
-
             dwells = []
+            channel_total_time = catheter_dict.get("channel_total_time", 0.0)
             for i, dwell_dict in enumerate(catheter_dict.get("dwells")):
                 if "index" not in dwell_dict:
                     dwell_dict["index"] = i
                 dwells.append(DwellPosition(dwell_dict=dwell_dict))
+                if "channel_total_time" not in catheter_dict:
+                    channel_total_time += dwell_dict.get("time")
 
-            channel_total_time = float(catheter_dict.get("channel_total_time", None))
         assert isinstance(iD, int), "iD should be an integer"
         self.id = iD
         assert isinstance(points, list), "points should be a list"
@@ -1281,8 +1291,9 @@ class CatheterTable:
             - pth_catheter_table:Path := the path to the catheter table file, which could be
             a dicom plan or a json file.
         """
-        assert (catheter_list is not None) != (pth_catheter_table is not None), \
-            "Either the catheter list or the path to the catheter table should be provided."
+        assert (catheter_list is not None) != (
+            pth_catheter_table is not None
+        ), "Either the catheter list or the path to the catheter table should be provided."
 
         if pth_catheter_table is not None:
             assert os.path.exists(
@@ -1319,10 +1330,6 @@ class CatheterTable:
                 catheter_table_list, list
             ), "The json file, should contain a list of catheters."
             for catheter_dict in catheter_table_list:
-                if "channel_total_time" not in catheter_dict:
-                    catheter_dict["channel_total_time"] = 0
-                    for dwell in catheter_dict.get("dwells"):
-                        catheter_dict["channel_total_time"] += dwell.get("time")
                 raw_catheter_table.append(Catheter(catheter_dict=catheter_dict))
             return raw_catheter_table
 
@@ -1472,4 +1479,10 @@ class CatheterTable:
         Purpose:
             - To print the information about the catheter table.
         """
-        print(self.to_dict())
+        # print(self.to_dict())
+        print("Catheter table info is as follows:")
+        print(f"Number of catheters: {len(self.catheter_list)}")
+        for catheter in self.catheter_list:
+            print(f"Catheter ID: {catheter.id}")
+            print(f"Number of dwell positions: {len(catheter.dwells)}")
+            print(f"Total channel time: {catheter.channel_total_time}")
