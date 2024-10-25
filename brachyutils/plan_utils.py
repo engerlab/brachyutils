@@ -540,7 +540,7 @@ class BrachyPlan:
 
         # extract the attributes above from the catheter table
         dwell_counter = 1
-        for catheter in self.catheter_table:
+        for catheter in self.catheter_table.catheter_list:
             self.catheter_numbers = np.append(self.catheter_numbers, catheter.id)
             for dwell in catheter.dwells:
                 self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)

@@ -1145,8 +1145,8 @@ class DwellPosition:
             position = np.array(dwell_dict.get("position"))
             relativePos = dwell_dict.get("relativePos")
             rotation = np.array(dwell_dict.get("rotation"))
-            time = dwell_dict.get("time")
-            weight = dwell_dict.get("weight", None)
+            time = float(dwell_dict.get("time"))
+            weight = float(dwell_dict.get("weight", None))
 
         assert isinstance(index, int), "index should be an integer"
         self.index = index
@@ -1230,7 +1230,7 @@ class Catheter:
                     dwell_dict["index"] = i
                 dwells.append(DwellPosition(dwell_dict=dwell_dict))
 
-            channel_total_time = catheter_dict.get("channel_total_time", None)
+            channel_total_time = float(catheter_dict.get("channel_total_time", None))
         assert isinstance(iD, int), "iD should be an integer"
         self.id = iD
         assert isinstance(points, list), "points should be a list"
@@ -1320,6 +1320,10 @@ class CatheterTable:
                 catheter_table_list, list
             ), "The json file, should contain a list of catheters."
             for catheter_dict in catheter_table_list:
+                if "channel_total_time" not in catheter_dict:
+                    catheter_dict["channel_total_time"] = 0
+                    for dwell in catheter_dict.get("dwells"):
+                        catheter_dict["channel_total_time"] += dwell.get("time")
                 raw_catheter_table.append(Catheter(catheter_dict=catheter_dict))
             return raw_catheter_table
 
