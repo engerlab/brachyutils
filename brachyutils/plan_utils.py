@@ -563,7 +563,7 @@ class BrachyPlan:
             len(self.dwell_numbers) == self.dwell_numbers[-1]
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
-
+    # XXX: do this next
     def _update_catheter_table_from_plan(self):
         r"""
         Purpose:
