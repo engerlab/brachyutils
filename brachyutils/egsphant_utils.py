@@ -22,7 +22,11 @@ class BrachyEgsphant:
         - density_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding density per voxel
         - num_materials: int := the number of different material composition options a voxel has
         - material_dict: dict := a dictionary containing the name of the elements for each voxel,
-            their density and HU lower limit threshold as well as their number coding
+        and the following keys: [
+            "density" := the density of the material in g/cm^3,
+            "HU_limit" := the lower HU limit threshold of the material,
+            "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
+            ]
         - axis: np.ndarray := coordinates of grid points along x, y, and z axis in mm.
         - unit_length: str := the unit of the length of the axis is mm.
         - voxel_edges: np.ndarray := the edges of the voxels in the material and density matrix
@@ -63,7 +67,24 @@ class BrachyEgsphant:
         phantom: Optional[Union[BrachyPhantom | Path]] = None,
         material_dict: Optional[Union[dict, Path]] = None,
         assign_material_from_ct: Optional[bool] = None,
-    ):
+    ) -> None:
+        r"""
+        Purpose:
+            - to initialize a BrachyEgsphant object, which represents the material and density matrix of a phantom.
+            if loading from a file, do not provide any other input other than pth_egsphant_file.
+        Inputs:
+            - pth_egsphant_file:Path := the directory path to the .egsphant file
+            - phantom:BrachyPhantom := a BrachyPhantom object containing the structure mask
+            - material_dict: dict := a dictionary containing the name of the elements for each voxel,
+                and the following keys: [
+                    "density" := the density of the material in g/cm^3,
+                    "HU_limit" := the lower HU limit threshold of the material,
+                    "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
+                ]
+            - assign_material_from_ct:bool := if True, the function will assign the material based on the HU values in the CT image.
+        Outputs:
+            - Void := will initialize a BrachyEgsphant object
+        """
         self.unit_length = "mm"
         self.material_image: Image3D = None
 

@@ -519,8 +519,8 @@ class BrachyPlan:
         Inputs:
             - self := the BrachyPlan object
         Outputs:
-            - Void := will update the BrachyPlan.dwell_numbers, BrachyPlan.dwell_times,
-            and BrachyPlan.dwell_coordinates attributes
+            - Void := will update the self.dwell_numbers, self.dwell_times,
+            and self.dwell_coordinates attributes
         """
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
@@ -572,7 +572,7 @@ class BrachyPlan:
         Inputs:
             - self := the BrachyPlan object
         Outputs:
-            - Void := will update the BrachyPlan.catheter_table attribute
+            - Void := will update the self.catheter_table attribute
         """
         assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
         assert self.dwell_times.size != 0, "dwell times are not extracted"
@@ -1357,19 +1357,34 @@ class BrachyPlan:
         with open(dir_export + "/combined.mac", "w") as file:
             file.write(self.combined_simulation_setup.to_string())
 
-    def _export_egsphant(self, dir_export: str):
+    def _export_egsphant(
+        self,
+        dir_export: Union[str, Path],
+        material_dict: Union[dict, Path],
+        assign_material_from_ct: bool):
         r"""
         Purpose:
             - to export the egsphant file of the plan into dir_export
         Inputs:
             - dir_export := path to the directory where the export happens
+            - material_dict := a dictionary containing the material names and their corresponding
+            
+            
         Outputs:
-            - void := self.egsphant is written to ct.egsphant
+            - void := egsphant file is generated from phantom and is written to ct.egsphant
         Dependencies:
             - BrachyEgsphant
         """
         file_path = dir_export + "/ct.egsphant"
-        self.egsphant.write_to_ctegsphant(file_path)
+        if isinstance(material_dict, Path):
+            with open(material_dict, "r") as json_file:
+                material_dict = json.load(json_file)
+        
+        self.phantom.write_to_egsphant(
+            pth_output=Path(file_path),
+            material_dict=material_dict,
+            assign_material_from_ct=assign_material_from_ct
+            )
 
     def _export_applicator_geometry(
         self, dir_export: str, export_format: str = "RapidBrachy"
@@ -1534,6 +1549,7 @@ def _export_single_dose_rate(
         doseObj.uncertainty = uncertainty
 
     doseObj.write_brachydose_to_file(dir_export + f"/run_{dwell_number}" + dose_type)
+
 
 def dvh_metric(
     dose: np.array,
