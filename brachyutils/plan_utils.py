@@ -756,14 +756,10 @@ class BrachyPlan:
         ), "dwell times array is empty. Run _extract_dwell_numbers_times_coordinates_from_catheterTable()"
 
         # calculate the combined dose and store the result in the combined_dose attribute
-        # this implementation is a little slow, and very very memory efficient
         temp_dose_array = np.zeros_like(self.dose_rate_tensor[0])
         for i in range(self.num_dwells):
             temp_dose_array += self.dose_rate_tensor[i] * self.dwell_times[i]
-            # this implementation is a bit faster, but very memory inefficient
-            # self.combined_dose.grid = np.sum(
-            #     self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
-            #     axis=0)
+
         self.combined_dose.set_dose_array(temp_dose_array)
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
@@ -1006,19 +1002,13 @@ class BrachyPlan:
 
         normalized_times = self.dwell_times / np.sum(self.dwell_times)
 
-        # This implementation is a little slow, and very very memory efficient
-        self.combined_dose.uncertainty = np.zeros_like(self.combined_dose.grid)
+        uncertainty = np.zeros_like(self.combined_dose.get_dose_array())
         for i in range(self.num_dwells):
-            self.combined_dose.uncertainty += (
+            uncertainty += (
                 self.uncertainty_tensor[i] * normalized_times[i]
             ) ** 2
-        self.combined_dose.uncertainty = np.sqrt(self.combined_dose.uncertainty)
-
-        # This implementation is a bit faster, but very memory inefficient
-        # self.combined_dose.uncertainty = np.sqrt(
-        #     np.sum(
-        #         (self.uncertainty_tensor * normalized_times[:, np.newaxis, np.newaxis, np.newaxis])**2,
-        #         axis=0))
+        uncertainty = np.sqrt(uncertainty)
+        self.combined_dose.set_uncertainty_array(uncertainty)
 
     def calculate_dvh_metrics(self):
         r"""
@@ -1629,16 +1619,14 @@ def _load_single_dose_or_uncertainty_to_dict(
     """
     dose_obj = BrachyDose(pth_dose_rate)
     if load_dose_or_uncertainty == "both":
-        dose_or_uncert_map = np.zeros((2, *dose_obj.grid.shape), dtype=np.float32)
-        dose_or_uncert_map[0] = dose_obj.grid
-        dose_or_uncert_map[1] = dose_obj.uncertainty
+        dose_or_uncert_map = np.zeros((2, *dose_obj.get_dose_array().shape), dtype=np.float32)
+        dose_or_uncert_map[0] = dose_obj.get_dose_array()
+        dose_or_uncert_map[1] = dose_obj.get_uncertainty_array()
 
     elif load_dose_or_uncertainty == "uncertainty":
         try:
-            dose_or_uncert_map = np.zeros_like(
-                BrachyDose(pth_dose_rate).grid, dtype=np.float32
-            )
-            dose_or_uncert_map = dose_obj.uncertainty
+            dose_or_uncert_map = np.zeros_like(dose_obj.get_dose_array(), dtype=np.float32)
+            dose_or_uncert_map = dose_obj.get_uncertainty_array()
         except AttributeError:
             warnings.warn(
                 f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...",

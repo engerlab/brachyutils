@@ -38,12 +38,14 @@ def test_load_dose_rate_or_uncertainty_tensor():
     plan_obj = BrachyPlan(
         catheter_table=pth_cathTable_json,
         dir_dose_rate=dir_dose_rate,
-        load_dose_or_uncertainty="dose",
+        load_dose_or_uncertainty="uncertainty",
         multi_processing=False,
     )
 
     print(f"The shape of the dose rate tensor is {plan_obj.dose_rate_tensor.shape}")
-    print(f"The shape of the combined dose is {plan_obj.combined_dose.dose_image.gridSize}")
+    print(
+        f"The shape of the combined dose is {plan_obj.combined_dose.dose_image.gridSize}"
+    )
 
 
 def test_set_dvh_metric_goals():
