@@ -9,7 +9,7 @@ from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Literal
 
 import numpy as np
 from opentps.core.data import DVH, ROIContour
@@ -294,8 +294,8 @@ class BrachyPlan:
         applicator: Union[Path, BrachyApplicator] = None,
         # for loading dose or uncertainty:
         dir_dose_rate: Path = None,
-        type_dose_file: str = ".nrrd",
-        load_dose_or_uncertainty: str = "dose",
+        type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
+        load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
         multi_processing: bool = False,
         # for simulation setup:
         combined_simulation_dict: dict = None,
@@ -630,8 +630,8 @@ class BrachyPlan:
     def load_dose_rate_or_uncertainty_tensor(
         self,
         dir_dose_rate: str,
-        type_dose_file: str = ".nrrd",
-        load_dose_or_uncertainty: str = "dose",
+        type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
+        load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
         multi_processing: bool = False,
     ):
         r"""
