@@ -38,7 +38,7 @@ def test_load_dose_rate_or_uncertainty_tensor():
     plan_obj = BrachyPlan(
         catheter_table=pth_cathTable_json,
         dir_dose_rate=dir_dose_rate,
-        load_dose_or_uncertainty="uncertainty",
+        load_dose_or_uncertainty="both",
         multi_processing=False,
     )
 

@@ -707,11 +707,11 @@ class BrachyPlan:
 
         if load_dose_or_uncertainty == "both":
             self.dose_rate_tensor = np.array(
-                dose_or_uncertainty_list[:, 0], dtype=np.float32
-            )
+                dose_or_uncertainty_list, dtype=np.float32
+            )[:, 0]
             self.uncertainty_tensor = np.array(
-                dose_or_uncertainty_list[:, 1], dtype=np.float32
-            )
+                dose_or_uncertainty_list, dtype=np.float32
+            )[:, 1]
         elif load_dose_or_uncertainty == "dose":
             self.dose_rate_tensor = np.array(dose_or_uncertainty_list, dtype=np.float32)
         elif load_dose_or_uncertainty == "uncertainty":
