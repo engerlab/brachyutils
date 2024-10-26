@@ -10,7 +10,7 @@ import sys
 import tkinter as tk
 import warnings
 from array import array
-from glob import glob
+# from glob import glob
 from pathlib import Path
 from tkinter import filedialog as fd
 from typing import List, Literal, Optional, Union
@@ -19,11 +19,12 @@ import numpy as np
 import pymedphys
 import pyzstd
 import SimpleITK as sitk
-from brachyutils.geometry_utils import BrachyPhantom
 from matplotlib import pyplot as plt
 from numpy import ma, reshape
 from opentps.core.data.images import DoseImage
 from scipy.interpolate import RegularGridInterpolator
+
+from brachyutils.geometry_utils import BrachyPhantom
 
 
 class BrachyDose:
@@ -284,10 +285,11 @@ class BrachyDose:
             - get_voxel_edges()
         """
         loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO="NrrdImageIO")
-
+        # GetArrayFromImage returns the array in zyx format
         dose_uncertainty = sitk.GetArrayFromImage(loaded_image_nrrd)
-        dose_uncertainty = np.swapaxes(dose_uncertainty, 0, 2)
         if dose_uncertainty.shape[0] == 2:
+            # Converting to xyz format
+            # dose_uncertainty = np.swapaxes(dose_uncertainty, 1, 3)
             dose_array = dose_uncertainty[0]
             uncertainty_array = dose_uncertainty[1]
             voxel_size = np.round(
@@ -296,19 +298,18 @@ class BrachyDose:
             origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()[1:]).astype(
                 np.float32
             )
+        elif dose_uncertainty.shape[-1] == 2:
+            dose_array = dose_uncertainty[:, :, :, 0]
+            # no flipping to have everything xyz.
+            # dose_array = np.swapaxes(dose_array, 0, 2).astype(np.float32)
+            uncertainty_array = dose_uncertainty[:, :, :, 1]
+            # no flipping to have everything xyz.
+            # uncertainty_array = np.swapaxes(uncertainty_array, 0, 2).astype(np.float32)
         else:
-            if dose_uncertainty.shape[-1] == 2:
-                dose_array = dose_uncertainty[:, :, :, 0]
-                # no flipping to have everything xyz.
-                # dose_array = np.swapaxes(dose_array, 0, 2).astype(np.float32)
-                uncertainty_array = dose_uncertainty[:, :, :, 1]
-                # no flipping to have everything xyz.
-                # uncertainty_array = np.swapaxes(uncertainty_array, 0, 2).astype(np.float32)
-            else:
-                print("Uncertainty not found in the nrrd file")
-                # no flipping to have everything xyz.
-                # dose_array = np.swapaxes(dose_uncertainty, 0, 2).astype(np.float32)
-                uncertainty_array = None
+            print("Uncertainty not found in the nrrd file")
+            # no flipping to have everything xyz.
+            # dose_array = np.swapaxes(dose_uncertainty, 0, 2).astype(np.float32)
+            uncertainty_array = None
 
             voxel_size = np.array(loaded_image_nrrd.GetSpacing()).astype(np.float32)
             origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()).astype(
@@ -1139,6 +1140,18 @@ class BrachyDose:
         """
         return np.swapaxes(self.dose_image.imageArray, 0, 2)
 
+    def set_dose_array(self, dose_array: np.ndarray) -> None:
+        r"""
+        Purpose:
+            - To set the dose grid to a numpy array.
+        Inputs:
+            - self:BrachyDose
+            - dose_array := a numpy array containing the dose grid. in zyx order.
+        Outputs:
+            - Void
+        """
+        self.dose_image.imageArray = np.swapaxes(dose_array, 0, 2)
+
     def get_uncertainty_array(self) -> np.ndarray:
         r"""
         Purpose:
@@ -1150,6 +1163,17 @@ class BrachyDose:
         """
         return np.swapaxes(self.uncertainty_image.imageArray, 0, 2)
 
+    def set_uncertainty_array(self, uncertainty_array: np.ndarray) -> None:
+        r"""
+        Purpose:
+            - To set the uncertainty grid to a numpy array.
+        Inputs:
+            - self:BrachyDose
+            - uncertainty_array := a numpy array containing the uncertainty grid. in zyx order.
+        Outputs:
+            - Void
+        """
+        self.uncertainty_image.imageArray = np.swapaxes(uncertainty_array, 0, 2)
 
 def dose_with_empty_grid_like(doseObj: BrachyDose):
     r"""
@@ -1164,21 +1188,12 @@ def dose_with_empty_grid_like(doseObj: BrachyDose):
         empty_dose: BrachyDose object with empty grid and uncertainty
     """
     new_dose = BrachyDose()
-    new_dose.dose_image = DoseImage(
-        imageArray=np.zeros_like(doseObj.dose_image.imageArray),
-        gridSize=doseObj.dose_image.gridSize,
-        origin=doseObj.dose_image.origin,
-    )
+    new_dose.dose_image = DoseImage.createEmptyDoseWithSameMetaData(doseObj.dose_image)
     if doseObj.uncertainty_image is not None:
-        new_dose.uncertainty_image = DoseImage(
-            imageArray=np.zeros_like(doseObj.dose_image.imageArray),
-            gridSize=doseObj.dose_image.gridSize,
-            origin=doseObj.dose_image.origin,
-        )
+        new_dose.uncertainty_image = DoseImage.createEmptyDoseWithSameMetaData(doseObj.uncertainty_image)
     new_dose.get_voxel_edges()
     new_dose.create_interpolation_function()
     return new_dose
-
 
 def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
     # old_file_dir = load_3ddose(pth1_3ddose)
@@ -1198,13 +1213,16 @@ def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
 
 
 class DoseComparison:
-    gamma_kwargs:dict = {
+    gamma_kwargs: dict = (
+        {
             "lower_percent_dose_cutoff": 5,
             "interp_fraction": 10,
             "local_gamma": False,
             "global_normalisation": None,
             "skip_once_passed": False,
         },
+    )
+
     def __init__(
         self,
         dose1: BrachyDose,
@@ -1216,7 +1234,8 @@ class DoseComparison:
         prescription_dose: float = None,
         max_gamma=None,
         path=None,
-        gamma_kwargs: dict = gamma_kwargs):
+        gamma_kwargs: dict = gamma_kwargs,
+    ):
         # provide no dose to just load a file
         if dose1 is None and dose2 is None:
             self.load_comparison_object(path)
@@ -1262,10 +1281,11 @@ class DoseComparison:
         # import itertools
 
         import matplotlib
+
         # from matplotlib.ticker import (
-            # AutoMinorLocator,
-            # FormatStrFormatter,
-            # MultipleLocator,
+        # AutoMinorLocator,
+        # FormatStrFormatter,
+        # MultipleLocator,
         # )
 
         matplotlib.rcParams.update({"font.size": 8})

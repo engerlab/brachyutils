@@ -697,12 +697,13 @@ class BrachyPlan:
                 )
 
         else:
-            dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
+            # dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
+            dose_or_uncertainty_list = [None] * len(dose_rate_files)
             for i, pth_dose_rate in tqdm(enumerate(dose_rate_files)):
                 dose_or_uncertainty_list[i] = _load_single_dose_or_uncertainty_to_dict(
                     pth_dose_rate, load_dose_or_uncertainty
                 )
-            print(dose_or_uncertainty_list.shape)
+            # print(dose_or_uncertainty_list.shape)
 
         if load_dose_or_uncertainty == "both":
             self.dose_rate_tensor = np.array(
@@ -756,12 +757,14 @@ class BrachyPlan:
 
         # calculate the combined dose and store the result in the combined_dose attribute
         # this implementation is a little slow, and very very memory efficient
+        temp_dose_array = np.zeros_like(self.dose_rate_tensor[0])
         for i in range(self.num_dwells):
-            self.combined_dose.grid += self.dose_rate_tensor[i] * self.dwell_times[i]
+            temp_dose_array += self.dose_rate_tensor[i] * self.dwell_times[i]
             # this implementation is a bit faster, but very memory inefficient
             # self.combined_dose.grid = np.sum(
             #     self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
             #     axis=0)
+        self.combined_dose.set_dose_array(temp_dose_array)
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
@@ -1361,15 +1364,16 @@ class BrachyPlan:
         self,
         dir_export: Union[str, Path],
         material_dict: Union[dict, Path],
-        assign_material_from_ct: bool):
+        assign_material_from_ct: bool,
+    ):
         r"""
         Purpose:
             - to export the egsphant file of the plan into dir_export
         Inputs:
             - dir_export := path to the directory where the export happens
             - material_dict := a dictionary containing the material names and their corresponding
-            
-            
+
+
         Outputs:
             - void := egsphant file is generated from phantom and is written to ct.egsphant
         Dependencies:
@@ -1379,12 +1383,12 @@ class BrachyPlan:
         if isinstance(material_dict, Path):
             with open(material_dict, "r") as json_file:
                 material_dict = json.load(json_file)
-        
+
         self.phantom.write_to_egsphant(
             pth_output=Path(file_path),
             material_dict=material_dict,
-            assign_material_from_ct=assign_material_from_ct
-            )
+            assign_material_from_ct=assign_material_from_ct,
+        )
 
     def _export_applicator_geometry(
         self, dir_export: str, export_format: str = "RapidBrachy"
@@ -1642,10 +1646,8 @@ def _load_single_dose_or_uncertainty_to_dict(
             )
 
     elif load_dose_or_uncertainty == "dose":
-        dose_or_uncert_map = np.zeros_like(
-            BrachyDose(pth_dose_rate).grid, dtype=np.float32
-        )
-        dose_or_uncert_map = dose_obj.grid
+        dose_or_uncert_map = np.zeros_like(dose_obj.get_dose_array(), dtype=np.float32)
+        dose_or_uncert_map = dose_obj.get_dose_array()
     else:
         raise ValueError(
             "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
