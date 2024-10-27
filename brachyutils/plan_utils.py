@@ -293,10 +293,12 @@ class BrachyPlan:
         catheter_table: Union[Path, CatheterTable] = None,
         applicator: Union[Path, BrachyApplicator] = None,
         # for loading dose or uncertainty:
+        combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
         type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
         load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
         multi_processing: bool = False,
+        combined_dose_only: bool = False,
         # for simulation setup:
         combined_simulation_dict: dict = None,
     ):
@@ -315,11 +317,12 @@ class BrachyPlan:
             ### for loading catheter table:
             - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
 
-            ### for loading dose or uncertainty:
+            ### for loading dose rates or uncertainty maps per dwell position:
             - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
             - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
             - load_dose_or_uncertainty:str = "dose" := specify whether to load "dose" or "uncertainty" or "both" (default is "dose").
             - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
+            - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
             ### for simulation setup:
             - combined_simulation_dict = None := dictionary containing the simulation setup,
@@ -387,7 +390,7 @@ class BrachyPlan:
         if phantom is not None:
             if isinstance(phantom, BrachyPhantom):
                 self.phantom = phantom
-            elif isinstance(phantom, Path) or isinstance(phantom, dict):
+            elif isinstance(phantom, Path) or isinstance(phantom, str) or isinstance(phantom, dict):
                 self.load_phantom(phantom)
             else:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
@@ -411,13 +414,21 @@ class BrachyPlan:
             self._extract_dwell_numbers_times_coordinates_from_catheterTable()
 
         # load the dose rate tensor if the path is provided
-        if dir_dose_rate is not None:
+        if dir_dose_rate is not None and combined_dose is None:
             self.load_dose_rate_or_uncertainty_tensor(
                 dir_dose_rate,
                 type_dose_file=type_dose_file,
                 load_dose_or_uncertainty=load_dose_or_uncertainty,
                 multi_processing=multi_processing,
+                combined_dose_only=combined_dose_only
             )
+        elif dir_dose_rate is None and combined_dose is not None:
+            if isinstance(combined_dose, BrachyDose):
+                self.combined_dose = combined_dose
+            elif isinstance(combined_dose, Path) or isinstance(combined_dose, str):
+                self.combined_dose = BrachyDose(Path(combined_dose))
+        elif dir_dose_rate is not None and combined_dose is not None:
+            raise ValueError("invalid input. Please provide either dir_dose_rate or combined_dose but not both")
 
         # # load the simulation setup if the dictionary is provided
         if combined_simulation_dict is not None:
@@ -633,6 +644,7 @@ class BrachyPlan:
         type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
         load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
         multi_processing: bool = False,
+        combined_dose_only: bool = False,
     ):
         r"""
         Purpose:
@@ -648,6 +660,7 @@ class BrachyPlan:
             - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
             - multi_processing := if True, the dose rate files will be loaded in parallel. By default,
             we use 8 cores for parallel processing.
+            - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
         Outputs:
             - Void := will update the BrachyPlan.dose_rate_tensor attribute
         Dependencies:
@@ -732,12 +745,16 @@ class BrachyPlan:
             self._calculate_combined_dose()
         if load_dose_or_uncertainty != "dose":
             self._calculate_combined_uncertainty()
-
-        if len(self.structure_list) != 0:
-            for structure in self.structure_list:
-                structure.mask = _resize_structure_mask(
-                    structure.mask, self.combined_dose.grid.shape
-                )
+        # free up memory
+        if combined_dose_only:
+            self.dose_rate_tensor = None
+            self.uncertainty_tensor = None
+        
+        # if len(self.structure_list) != 0:
+        #     for structure in self.structure_list:
+        #         structure.mask = _resize_structure_mask(
+        #             structure.mask, self.combined_dose.grid.shape
+        #         )
 
     def _calculate_combined_dose(self):
         """

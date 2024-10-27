@@ -38,8 +38,8 @@ def test_load_dose_rate_or_uncertainty_tensor():
     plan_obj = BrachyPlan(
         catheter_table=pth_cathTable_json,
         dir_dose_rate=dir_dose_rate,
-        load_dose_or_uncertainty="both",
-        multi_processing=False,
+        load_dose_or_uncertainty="dose",
+        multi_processing=True,
     )
 
     print(f"The shape of the dose rate tensor is {plan_obj.dose_rate_tensor.shape}")
@@ -47,45 +47,25 @@ def test_load_dose_rate_or_uncertainty_tensor():
         f"The shape of the combined dose is {plan_obj.combined_dose.dose_image.gridSize}"
     )
 
-
-def test_set_dvh_metric_goals():
-    dvh_metric_goals = {
-        "D95%(ctv)": 15,
-        "D1cc(rectum)": 11.25,
-        "D0.1cc(urethra)": 18.75,
-    }
-    plan_obj = BrachyPlan()
-    plan_obj.set_dvh_metric_goals(dvh_metric_goals)
-    assert (
-        plan_obj.dvh_metric_goals == dvh_metric_goals
-    ), "dvh metric list not set correctly"
-    print(plan_obj.dvh_metric_goals)
-
-
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    dir_dose_rate = "../data_test/prostate-glen-p1-dose"
+    # dir_dose_rate = "../data_test/prostate-glen-p1-dose"
+    pth_dose = glob(dir_dicom + "/RD*.dcm")[0]
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
         "D0.1cc(urethra)": 18.75,
     }
 
-    plan_obj = BrachyPlan()
-    plan_obj.load_catheterTable_json(pth_cathTable_json)
-
-    plan_obj.load_dose_rate_or_uncertainty_tensor(
-        dir_dose_rate, load_dose_or_uncertainty="dose", multi_processing=True
+    plan_obj = BrachyPlan(
+        phantom=dir_dicom,
+        dvh_metric_goals=dvh_metric_goals,
+        catheter_table=pth_cathTable_json,
+        combined_dose=pth_dose,
     )
-    plan_obj.set_dvh_metric_goals(dvh_metric_goals)
 
-    plan_obj.create_structures(
-        dir_structures_source=dir_dicom,
-        dose_cropped_by_body=True,
-    )
     plan_obj.calculate_dvh_metrics()
-    # XXX: structure list is empty. fix it tomorrow!
     for structure in plan_obj.structure_list:
         print(f"{structure.name}: {structure.dvh_metric_observed}")
 
@@ -382,9 +362,8 @@ def test_load_phantom():
 if __name__ == "__main__":
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     # test_update_catheter_table_from_plan()
-    test_load_dose_rate_or_uncertainty_tensor()
-    # test_set_dvh_metric_goals()
-    # test_create_structures_and_calc_dvh_metrics()
+    # test_load_dose_rate_or_uncertainty_tensor()
+    test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
