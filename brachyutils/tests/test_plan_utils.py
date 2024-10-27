@@ -74,13 +74,13 @@ def test_calculate_combined_uncertainty():
     pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../data_test/prostate-glen-p1-dose"
 
-    plan_obj = BrachyPlan()
-    plan_obj.load_catheterTable_json(pth_cathTable_json)
-
-    plan_obj.load_dose_rate_or_uncertainty_tensor(
-        dir_dose_rate, load_dose_or_uncertainty="uncertainty", multi_processing=True
+    plan_obj = BrachyPlan(
+        catheter_table=pth_cathTable_json,
+        dir_dose_rate=dir_dose_rate,
+        load_dose_or_uncertainty="uncertainty",
+        multi_processing=True,
     )
-    plan_obj._calculate_combined_uncertainty()
+
     print(
         f"The shape of the combined uncertainty is {plan_obj.combined_dose.uncertainty.shape}"
     )
@@ -133,15 +133,10 @@ def test_BrachyPlan():
         "D0.1cc(urethra)": 18.75,
     }
     t0 = time.time()
-    BrachyPlan(
-        # dir_dicom=dir_dicom,
+    plan_obj = BrachyPlan(
+        catheter_table=pth_catheter_table_json,
+        phantom=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
-        dose_cropped_by_body=True,
-        pth_catheter_table_json=pth_catheter_table_json,
-        dir_dose_rate=dir_dose_rate,
-        load_dose_or_uncertainty="dose",
-        multi_processing=True,
-        pth_structure_source=dir_dicom,
     )
     t1 = time.time()
     print(f"loading the plan took {t1-t0} seconds")
