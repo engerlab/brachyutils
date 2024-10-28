@@ -5,6 +5,7 @@ from glob import glob
 
 import numpy as np
 
+from brachyutils.geometry_utils import BrachyApplicator
 from brachyutils.plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_to_dict
 
 
@@ -46,6 +47,7 @@ def test_load_dose_rate_or_uncertainty_tensor():
     print(
         f"The shape of the combined dose is {plan_obj.combined_dose.dose_image.gridSize}"
     )
+
 
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "../data_test/prostate-glen-p1-dcm"
@@ -153,7 +155,7 @@ def test_export_brachy_plan():
     pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../data_test/prostate-glen-p1-dose"
     dir_dicom = "../data_test/prostate-glen-p1-dcm/"
-    dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -194,15 +196,13 @@ def test_export_brachy_plan():
     }
 
     plan_obj = BrachyPlan(
-        dir_dicom=dir_dicom,
+        phantom=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
-        dose_cropped_by_body=True,
-        pth_catheter_table_json=pth_cathTable_json,
+        catheter_table=pth_cathTable_json,
         dir_dose_rate=dir_dose_rate,
-        load_dose_or_uncertainty="uncertainty",
-        multi_processing=True,
-        dir_egsphant=dir_egsphant,
-        combined_simulation_dict=sim_dict,
+        load_dose_or_uncertainty="dose",
+        multi_processing=False,
+        # combined_simulation_dict=sim_dict,
     )
     # # This function tests all the exporting functions.
     plan_obj.export_brachy_plan(export_format, dir_export, content_to_export)
@@ -358,12 +358,12 @@ if __name__ == "__main__":
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     # test_update_catheter_table_from_plan()
     # test_load_dose_rate_or_uncertainty_tensor()
-    test_create_structures_and_calc_dvh_metrics()
+    # test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
-    # test_export_brachy_plan()
+    test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
     # test_BrachyApplicator()
     # test_BrachyApplicator_to_mac()

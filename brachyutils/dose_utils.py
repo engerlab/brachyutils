@@ -1236,6 +1236,41 @@ class DoseComparison:
         path=None,
         gamma_kwargs: dict = gamma_kwargs,
     ):
+        r"""
+        Purpose:
+            - to compare two BrachyDose objects. The comparison is done by computing the percent difference and gamma index.
+            The gamma index is computed using the pymedphys gamma function. The result of the comparison is stored in the object and
+            can be viewed using the plot_2d_dose_comparison function.
+        Inputs:
+            - dose1: BrachyDose object
+            - dose2: BrachyDose object
+            - gamma_dose_percent_threshold: float := the gamma dose percent threshold
+            - gamma_distance_threshold_mm: float := the gamma distance threshold in mm
+            - compute_percent_difference: bool := if True, the percent difference will be computed
+            - compute_gamma_index: bool := if True, the gamma index will be computed
+            - prescription_dose: float := the prescription dose of the dose grid
+            - max_gamma: float := the maximum gamma index value
+            - path: str := the path to the comparison object
+            - gamma_kwargs: dict := the kwargs for the gamma index function
+        Outputs:
+            Object containing the following attributes:
+                - dose1: BrachyDose object
+                - dose2: BrachyDose object
+                - voxel_centers: numpy array := the voxel centers of the dose grid
+                - dose_2_grid_resampled: numpy array := the dose grid of dose2 resampled to the grid of dose1
+                - percent_difference: BrachyDose object := the percent difference between dose1 and dose2
+                - gamma_index: BrachyDose object := the gamma index between dose1 and dose2
+                - gamma_dose_percent_threshold: float := the gamma dose percent threshold
+                - gamma_distance_threshold: float := the gamma distance threshold in mm
+                - gamma_kwargs: dict := the kwargs for the gamma index function
+
+            and The following functions
+                - compute_percent_difference: void := to compute the percent difference between dose1 and dose2
+                - compute_gamma_index: void := to compute the gamma index between dose1 and dose2
+                - plot_2d_dose_comparison: void := to plot the 2d dose comparison
+                - save_comparison_object
+                - load_comparison_object
+        """
         # provide no dose to just load a file
         if dose1 is None and dose2 is None:
             self.load_comparison_object(path)
