@@ -121,6 +121,9 @@ class BrachyEgsphant:
                 )
                 self._remove_duplicate_materials()
 
+            elif isinstance(material_dict, dict):
+                self.material_dict = material_dict
+
             self.create_egsphant_from_phantom(
                 phantom_obj=(
                     phantom
@@ -397,13 +400,13 @@ class BrachyEgsphant:
         spacing = "0 0 0 0 0 0 0 0 0\n"
         dimensions = " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
         x_axis = (
-            " ".join(map(str, np.round(egsphant_voxel_edges[0], decimals=3))) + "\n"
+            " ".join(map(str, np.round(egsphant_voxel_edges[0].astype(float), decimals=3))) + "\n"
         )
         y_axis = (
-            " ".join(map(str, np.round(egsphant_voxel_edges[1], decimals=3))) + "\n"
+            " ".join(map(str, np.round(egsphant_voxel_edges[1].astype(float), decimals=3))) + "\n"
         )
         z_axis = (
-            " ".join(map(str, np.round(egsphant_voxel_edges[2], decimals=3))) + "\n"
+            " ".join(map(str, np.round(egsphant_voxel_edges[2].astype(float), decimals=3))) + "\n"
         )
         material_matrix = self.get_material_array()
         material_matrix = _to_single_string(
@@ -805,9 +808,9 @@ class BrachyEgsphant:
                     material_matrix += (
                         complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
-                            self.material_dict.get(background_material, "Air").get(
+                            str(self.material_dict.get(background_material, "Air").get(
                                 "encoding"
-                            )
+                            ))
                         )
                     )
 
@@ -822,7 +825,7 @@ class BrachyEgsphant:
                 material_matrix += (
                     roi_mask
                     * BrachyEgsphant._materials_encoding_array.index(
-                        self.material_dict.get(material).get("encoding")
+                        str(self.material_dict.get(material).get("encoding"))
                     )
                 )
 
