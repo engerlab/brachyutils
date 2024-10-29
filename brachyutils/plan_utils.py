@@ -416,7 +416,7 @@ class BrachyPlan:
         # load the dose rate tensor if the path is provided
         if dir_dose_rate is not None and combined_dose is None:
             self.load_dose_rate_or_uncertainty_tensor(
-                dir_dose_rate,
+                dir_dose_rate=dir_dose_rate,
                 type_dose_file=type_dose_file,
                 load_dose_or_uncertainty=load_dose_or_uncertainty,
                 multi_processing=multi_processing,
@@ -429,6 +429,8 @@ class BrachyPlan:
                 self.combined_dose = BrachyDose(Path(combined_dose))
         elif dir_dose_rate is not None and combined_dose is not None:
             raise ValueError("invalid input. Please provide either dir_dose_rate or combined_dose but not both")
+        else:
+            warnings.warn("no dose rate is loaded")
 
         # # load the simulation setup if the dictionary is provided
         if combined_simulation_dict is not None:

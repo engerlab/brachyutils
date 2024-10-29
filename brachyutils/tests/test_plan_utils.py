@@ -155,6 +155,7 @@ def test_export_brachy_plan():
     pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../data_test/prostate-glen-p1-dose"
     dir_dicom = "../data_test/prostate-glen-p1-dcm/"
+    pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
     # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
@@ -199,9 +200,7 @@ def test_export_brachy_plan():
         phantom=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
         catheter_table=pth_cathTable_json,
-        dir_dose_rate=dir_dose_rate,
-        load_dose_or_uncertainty="dose",
-        multi_processing=False,
+        combined_dose=pth_combined_dose,
         # combined_simulation_dict=sim_dict,
     )
     # # This function tests all the exporting functions.
