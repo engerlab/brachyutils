@@ -305,12 +305,16 @@ class BrachyDose:
             uncertainty_array = dose_uncertainty[:, :, :, 1]
             # no flipping to have everything xyz.
             # uncertainty_array = np.swapaxes(uncertainty_array, 0, 2).astype(np.float32)
+            voxel_size = np.array(loaded_image_nrrd.GetSpacing()).astype(np.float32)
+            origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()).astype(
+                np.float32
+            )
         else:
             print("Uncertainty not found in the nrrd file")
             # no flipping to have everything xyz.
             # dose_array = np.swapaxes(dose_uncertainty, 0, 2).astype(np.float32)
+            dose_array = dose_uncertainty[:, :, :, 0]
             uncertainty_array = None
-
             voxel_size = np.array(loaded_image_nrrd.GetSpacing()).astype(np.float32)
             origin_coordinates = np.array(loaded_image_nrrd.GetOrigin()).astype(
                 np.float32

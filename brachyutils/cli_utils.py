@@ -8,7 +8,6 @@ from multiprocessing import Pool
 
 import numpy as np
 import typer
-# from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose
 from brachyutils.egsphant_utils import BrachyEgsphant, _load_json
 from brachyutils.plan_utils import BrachyPlan
@@ -92,10 +91,9 @@ def get_body_contour_range_from_dicom_many_patients(
         if ".dcm" not in ",".join(os.listdir(patient_dir)):
             continue
         try:
-            # body_mask_info = BrachyDicom(
-                # patient_dir, load_dose=True
-            # ).get_structure_index_range(["body"])
-            body_mask_info = None
+            body_mask_info = BrachyDicom(
+                patient_dir, load_dose=True
+            ).get_structure_index_range(["body"])
             body_index_range = body_mask_info["body"]["structure_index_range"]
             body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]
             patient_dict_list.append(
@@ -607,7 +605,7 @@ def get_dose_map(dose_file):
         # print("\n Start Processing", dose_file)
         dose_obj = BrachyDose(dose_file, load_uncertainty=False)
         # print("\n End Processing", dose_file)
-        return dose_obj.grid
+        return dose_obj.get_dose_array()
     except (TypeError, ValueError, IndexError, IOError) as e:
         print("Error loading dose file ", dose_file, e)
         return None
@@ -646,7 +644,7 @@ def combined_dose_per_patient(
         - type_out := Format of the output file.
         - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
     """
-
+    from brachyutils.dose_utils import dose_with_empty_grid_like
     # change to absolute path since execution directory is not dir_dose_maps
     dir_dose_maps = os.path.abspath(dir_dose_maps)
 
@@ -679,16 +677,15 @@ def combined_dose_per_patient(
     progress_bar_length = n_batches
 
     # get information about the dose grid from the first file
-    dose_obj = BrachyDose(dose_files[0])
-    combined_dose_obj = BrachyDose()
+    dose_obj = BrachyDose(
+        pth_dose_file=dose_files[0]
+        )
+    combined_dose_obj = dose_with_empty_grid_like(dose_obj)
 
-    combined_dose_obj.num_voxels = dose_obj.num_voxels
-    combined_dose_obj.voxel_size = dose_obj.voxel_size
-    combined_dose_obj.origin_coordinates = dose_obj.origin_coordinates
-    combined_dose_obj.voxel_edges = dose_obj.voxel_edges
+    combined_dose_obj.set_dose_array(dose_obj.get_dose_array())
 
-    sum_dose = dose_obj.grid
-    uncertainty = np.zeros(dose_obj.grid.shape)
+    sum_dose = dose_obj.get_dose_array()
+    uncertainty = np.zeros(dose_obj.get_dose_array().shape)
 
     # chunksize =
     # multiprocessing loop
@@ -716,16 +713,16 @@ def combined_dose_per_patient(
     else:
         for dose_file in tqdm(dose_files[1:]):
             dose_obj = BrachyDose(dose_file)
-            if dose_obj.grid is not None:
-                sum_dose += dose_obj.grid
+            if dose_obj.get_dose_array() is not None:
+                sum_dose += dose_obj.get_dose_array()
             else:
                 n_batches -= 1
         mean_dose = sum_dose / n_batches
         uncertainty = np.zeros(mean_dose.shape)
         for dose_file in tqdm(dose_files):
             dose_obj = BrachyDose(dose_file)
-            if dose_obj.grid is not None:
-                uncertainty += (dose_obj.grid - mean_dose) ** 2
+            if dose_obj.get_dose_array() is not None:
+                uncertainty += (dose_obj.get_dose_array() - mean_dose) ** 2
 
     # finish uncertainty calculation
     uncertainty = np.sqrt(uncertainty / (n_batches * (n_batches - 1)))
@@ -734,8 +731,8 @@ def combined_dose_per_patient(
     )  # avoid divide by 0 with small perturbation
 
     # write the combined dose to file
-    combined_dose_obj.grid = mean_dose
-    combined_dose_obj.uncertainty = uncertainty
+    combined_dose_obj.set_dose_array(mean_dose)
+    combined_dose_obj.set_uncertainty_array(uncertainty)
 
     print(
         "Combining ",
