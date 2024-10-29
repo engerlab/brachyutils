@@ -1269,8 +1269,8 @@ class BrachyPlan:
         for dwell_i in range(self.num_dwells):
 
             dwell_coordinates_str = np.array(
-                list(self.dwell_coordinates[dwell_i]["position"].values())
-                + list(self.dwell_coordinates[dwell_i]["rotation"].values())
+                list(self.dwell_coordinates[dwell_i]["position"])
+                + list(self.dwell_coordinates[dwell_i]["rotation"])
                 + [self.dwell_coordinates[dwell_i]["angle"]]
                 + list(self.applicator_rotation_axis)
                 + list(self.applicator_rotation_origin),

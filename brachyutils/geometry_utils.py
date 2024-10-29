@@ -458,6 +458,8 @@ class BrachyPhantom:
             - Write the BrachyPhantom object to an Egsphant file.
         Inputs:
             - pth_output: Path := the path to write the Egsphant file to.
+            - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
+            - assign_material_from_ct: bool := if True, the material will be assigned from the CT image.
         """
         assert (
             os.path.splitext(pth_output)[-1] == ".egsphant"
@@ -1268,6 +1270,10 @@ class CatheterTable:
 
         assert isinstance(catheter_list[0], Catheter), "The catheter list should contain Catheter objects."
         self.catheter_list:list = catheter_list
+
+    def __iter__(self):
+        for catheter in self.catheter_list:
+            yield catheter
 
     def load_from_json(self, pth_json: Path) -> list:
         r"""

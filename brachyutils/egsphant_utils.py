@@ -576,8 +576,7 @@ class BrachyEgsphant:
         # load the dicom object both the image and the mask
         dicom_obj = BrachyDicom(pth_dir_dicom, load_structure=True)
         # load the mask dictionary for the structures in structure_name_list
-        mask_dict = dicom_obj.get_strcuture_mask_from_dicom([structure_name], ROIMask)
-    
+        mask_dict = dicom_obj.structure_mask_dict
         # Get a cropped dose map that tightly fits each mask.
         resampled_mask = resampleImage3DOnImage3D(mask_dict[structure_name], self.density_image)
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))

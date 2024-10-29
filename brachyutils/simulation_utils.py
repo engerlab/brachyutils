@@ -9,18 +9,19 @@ class BrachySimulation:
         self.treatment_type: str = "HDR" #HDR or LDR
         self.source_geometry: str = "MicroSelectronV2"
         self.core_material: str = "G4_Ir"
+        self.world_material: str = "Air"
         self.mass_number: int = 192
         self.atomic_number: int = 77
         self.air_kerma_per_history: float = 1.149000e-11
         self.reference_air_kerma: float = 4.278729e04
-        self.number_histories: int = None
+        self.number_histories: int = 2e9
         self.total_time: float = None
         self.dose_format: str = "nrrd"
         self.number_of_threads: int = 16
         self.control_verbose: int = 0
         self.run_verbose: int = 0
         self.tracking_verbose: int = 0
-        self.print_progress: int = self.number_histories / 100
+        self.print_progress: int = int(self.number_histories / 100)
 
         if simulation_dict is not None:
             self.treatment_type = (
@@ -37,6 +38,11 @@ class BrachySimulation:
                 simulation_dict["core_material"]
                 if "core_material" in simulation_dict
                 else self.core_material
+            )
+            self.world_material = (
+                simulation_dict["world_material"]
+                if "world_material" in simulation_dict
+                else self.world_material
             )
             self.mass_number = (
                 simulation_dict["mass_number"]
@@ -120,6 +126,7 @@ class BrachySimulation:
             self.treatment_type: str,
             self.source_geometry: str,
             self.core_material: str,
+            self.world_material: str,
             self.mass_number: int,
             self.atomic_number: int,
             self.pth_plan: str,
@@ -137,10 +144,15 @@ class BrachySimulation:
             }
         for key, value in required_types.items():
             if not isinstance(key, value):
+                try:
+                    key = value(key)
+                    continue
+                except ValueError:
+                    pass
                 if verbose:
                     print(f"BrachySimulation: field {key} is not of type {value}")
                 return False
-
+        return True
 
     def run_simulation(self):
         r"""
@@ -162,21 +174,22 @@ class BrachySimulation:
         """
         self.validate()
         return f"""/source/treatmentType {self.treatment_type}
-            /source/switch {self.source_geometry}
-            /source/coreMaterial {self.core_material}
-            /source/core/A {self.mass_number}
-            /source/core/Z {self.atomic_number}
-            /sim/plan {self.pth_plan}
-            /world/phantom {self.pth_phantom}
-            /parallel_world/ak_per_history {self.air_kerma_per_history}
-            /parallel_world/ref_ak {self.reference_air_kerma}
-            /parallel_world/total_time {self.total_time}
-            /dose/format {self.dose_format}
-            /run/numberOfThreads {self.number_of_threads}
-            /run/initialize
-            /control/verbose {self.control_verbose}
-            /run/verbose {self.run_verbose}
-            /tracking/verbose {self.tracking_verbose}
-            /run/printProgress {self.print_progress}
-            /sim/beamOn {self.number_histories}
-            """
+/source/switch {self.source_geometry}
+/source/coreMaterial {self.core_material}
+/source/core/A {self.mass_number}
+/source/core/Z {self.atomic_number}
+/sim/plan {self.pth_plan}
+/world/phantom {self.pth_phantom}
+/world/material {self.world_material}
+/parallel_world/ak_per_history {self.air_kerma_per_history}
+/parallel_world/ref_ak {self.reference_air_kerma}
+/parallel_world/total_time {self.total_time}
+/dose/format {self.dose_format}
+/run/numberOfThreads {self.number_of_threads}
+/run/initialize
+/control/verbose {self.control_verbose}
+/run/verbose {self.run_verbose}
+/tracking/verbose {self.tracking_verbose}
+/run/printProgress {self.print_progress}
+/sim/beamOn {self.number_histories}
+"""
