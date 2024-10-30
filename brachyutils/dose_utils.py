@@ -285,6 +285,7 @@ class BrachyDose:
             - get_voxel_edges()
         """
         loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO="NrrdImageIO")
+        loaded_image_nrrd = sitk.DICOMOrient(loaded_image_nrrd, "LPS")
         # GetArrayFromImage returns the array in zyx format
         dose_uncertainty = sitk.GetArrayFromImage(loaded_image_nrrd)
         if dose_uncertainty.shape[0] == 2:

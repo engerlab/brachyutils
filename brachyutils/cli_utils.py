@@ -634,6 +634,12 @@ def combined_dose_per_patient(
             help="""If set to true, multiprocessing will be used to load the dose files in parallel."""
         ),
     ] = True,
+    file_name: Annotated[
+        str,
+        typer.Option(
+            help="""Name of the output file (without the extension). If not provided, the default name will be combined"""
+        ),
+    ] = "combined",
 ):
     r"""
     Purpose:
@@ -737,17 +743,17 @@ def combined_dose_per_patient(
     print(
         "Combining ",
         n_batches,
-        " 3ddose files complete",
+        " dose files complete",
         "writing to ",
-        dir_dose_maps + "combined" + type_out,
+        dir_dose_maps + file_name + type_out,
     )
 
     if type_out == ".3ddose":
-        combined_dose_obj.write_to_3ddose(dir_dose_maps + "combined.3ddose")
+        combined_dose_obj.write_to_3ddose(dir_dose_maps + file_name + ".3ddose")
     elif type_out == ".nrrd":
-        combined_dose_obj.write_to_nrrd(dir_dose_maps + "combined.nrrd")
+        combined_dose_obj.write_to_nrrd(dir_dose_maps + file_name + ".nrrd")
     elif type_out == ".minidos":
-        combined_dose_obj.write_to_minidos(dir_dose_maps + "combined.minidos")
+        combined_dose_obj.write_to_minidos(dir_dose_maps + file_name + ".minidos")
 
 
 def export_plan_single_patient(
