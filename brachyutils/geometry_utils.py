@@ -26,6 +26,7 @@ from vtk import (
     vtkPolyData,
     vtkTransform,
     vtkTransformPolyDataFilter,
+    vtkFillHolesFilter
 )
 from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
@@ -864,6 +865,10 @@ class BrachyApplicator:
         for face in self.faces:
             cell_array.InsertNextCell(3, face)
         self.applicator_mesh.SetPolys(cell_array)
+        fill_holes_filter = vtkFillHolesFilter()
+        fill_holes_filter.SetInputData(self.applicator_mesh)
+        fill_holes_filter.Update()
+        self.applicator_mesh = fill_holes_filter.GetOutput()
 
     def _update_brachy_applicator_from_applicator_mesh(self) -> None:
         r"""
