@@ -724,7 +724,7 @@ class BrachyApplicator:
         Outputs:
             - Void: an applicator object is created dependeing on the inputs.
         """
-        assert os.path.exists(pth_input_file), "input file does not exist"
+        assert os.path.exists(pth_input_file), f"input file {pth_input_file} does not exist"
         self.path = pth_input_file
         self.name = os.path.splitext(os.path.basename(self.path))[0]
         self.applicator_mesh: vtkPolyData = None
@@ -1050,25 +1050,25 @@ class BrachyApplicator:
         # add in the vertex info
         float_formatter = "{:.3f}".format
         for vertex in self.verticies:
-            macfile_string += f"/source_world/vertex {float_formatter(vertex[0])} {float_formatter(vertex[1])} {float_formatter(vertex[2])} mm\n"
+            macfile_string += f"/applicator/vertex {float_formatter(vertex[0])} {float_formatter(vertex[1])} {float_formatter(vertex[2])} mm\n"
 
         # add in the face info
         for face in self.faces:
-            macfile_string += f"/source_world/face {face[0]} {face[1]} {face[2]}\n"
+            macfile_string += f"/applicator/face {face[0]} {face[1]} {face[2]}\n"
         # add in the material info
-        macfile_string += f"/source_world/material {self.material}\n"
+        macfile_string += f"/applicator/material {self.material}\n"
         # add in the density info
-        macfile_string += f"/source_world/density {self.density}\n"
+        macfile_string += f"/applicator/density {self.density}\n"
         # add in the origin info
-        macfile_string += "/source_world/xPosition 0 mm\n"
-        macfile_string += "/source_world/yPosition 0 mm\n"
-        macfile_string += "/source_world/zPosition 0 mm\n"
+        macfile_string += "/applicator/xPosition 0 mm\n"
+        macfile_string += "/applicator/yPosition 0 mm\n"
+        macfile_string += "/applicator/zPosition 0 mm\n"
         # add in rotation nfo
-        macfile_string += "/source_world/xRotation 0 deg\n"
-        macfile_string += "/source_world/yRotation 0 deg\n"
-        macfile_string += "/source_world/zRotation 0 deg\n"
+        macfile_string += "/applicator/xRotation 0 deg\n"
+        macfile_string += "/applicator/yRotation 0 deg\n"
+        macfile_string += "/applicator/zRotation 0 deg\n"
         # add in the done flag
-        macfile_string += "/source_world/done\n"
+        macfile_string += "/applicator/done\n"
 
         with open(pth_output, "w") as mac_file:
             mac_file.write(macfile_string)
@@ -1144,9 +1144,9 @@ class DwellPosition:
         if dwell_dict is not None:
             index = dwell_dict.get("index", None)
             angle = float(dwell_dict.get("angle"))
-            position = np.array(list(dwell_dict.get("position").values()))
+            position = np.array(list(dwell_dict.get("position")))
             relativePos = dwell_dict.get("relativePos")
-            rotation = np.array(list(dwell_dict.get("rotation").values()))
+            rotation = np.array(list(dwell_dict.get("rotation")))
             time = float(dwell_dict.get("time"))
             weight = float(dwell_dict.get("weight", None))
 
