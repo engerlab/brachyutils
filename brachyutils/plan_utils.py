@@ -9,7 +9,7 @@ from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
-from typing import List, Union, Literal
+from typing import List, Literal, Union
 
 import numpy as np
 from opentps.core.data import DVH, ROIContour
@@ -390,7 +390,11 @@ class BrachyPlan:
         if phantom is not None:
             if isinstance(phantom, BrachyPhantom):
                 self.phantom = phantom
-            elif isinstance(phantom, Path) or isinstance(phantom, str) or isinstance(phantom, dict):
+            elif (
+                isinstance(phantom, Path)
+                or isinstance(phantom, str)
+                or isinstance(phantom, dict)
+            ):
                 self.load_phantom(phantom)
             else:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
@@ -420,7 +424,7 @@ class BrachyPlan:
                 type_dose_file=type_dose_file,
                 load_dose_or_uncertainty=load_dose_or_uncertainty,
                 multi_processing=multi_processing,
-                combined_dose_only=combined_dose_only
+                combined_dose_only=combined_dose_only,
             )
         elif dir_dose_rate is None and combined_dose is not None:
             if isinstance(combined_dose, BrachyDose):
@@ -428,9 +432,11 @@ class BrachyPlan:
             elif isinstance(combined_dose, Path) or isinstance(combined_dose, str):
                 self.combined_dose = BrachyDose(Path(combined_dose))
         elif dir_dose_rate is not None and combined_dose is not None:
-            raise ValueError("invalid input. Please provide either dir_dose_rate or combined_dose but not both")
+            raise ValueError(
+                "invalid input. Please provide either dir_dose_rate or combined_dose but not both"
+            )
         else:
-            warnings.warn("no dose rate is loaded")
+            warnings.warn("no dose rate is loaded", stacklevel=2)
 
         # # load the simulation setup if the dictionary is provided
         if combined_simulation_dict is not None:
@@ -751,7 +757,7 @@ class BrachyPlan:
         if combined_dose_only:
             self.dose_rate_tensor = None
             self.uncertainty_tensor = None
-        
+
         # if len(self.structure_list) != 0:
         #     for structure in self.structure_list:
         #         structure.mask = _resize_structure_mask(
@@ -1023,9 +1029,7 @@ class BrachyPlan:
 
         uncertainty = np.zeros_like(self.combined_dose.get_dose_array())
         for i in range(self.num_dwells):
-            uncertainty += (
-                self.uncertainty_tensor[i] * normalized_times[i]
-            ) ** 2
+            uncertainty += (self.uncertainty_tensor[i] * normalized_times[i]) ** 2
         uncertainty = np.sqrt(uncertainty)
         self.combined_dose.set_uncertainty_array(uncertainty)
 
@@ -1638,13 +1642,17 @@ def _load_single_dose_or_uncertainty_to_dict(
     """
     dose_obj = BrachyDose(pth_dose_rate)
     if load_dose_or_uncertainty == "both":
-        dose_or_uncert_map = np.zeros((2, *dose_obj.get_dose_array().shape), dtype=np.float32)
+        dose_or_uncert_map = np.zeros(
+            (2, *dose_obj.get_dose_array().shape), dtype=np.float32
+        )
         dose_or_uncert_map[0] = dose_obj.get_dose_array()
         dose_or_uncert_map[1] = dose_obj.get_uncertainty_array()
 
     elif load_dose_or_uncertainty == "uncertainty":
         try:
-            dose_or_uncert_map = np.zeros_like(dose_obj.get_dose_array(), dtype=np.float32)
+            dose_or_uncert_map = np.zeros_like(
+                dose_obj.get_dose_array(), dtype=np.float32
+            )
             dose_or_uncert_map = dose_obj.get_uncertainty_array()
         except AttributeError:
             warnings.warn(

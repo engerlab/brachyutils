@@ -22,11 +22,11 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
 # Imports for brachy applicator
 from vtk import (
     vtkCellArray,
+    vtkFillHolesFilter,
     vtkPoints,
     vtkPolyData,
     vtkTransform,
     vtkTransformPolyDataFilter,
-    vtkFillHolesFilter
 )
 from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
@@ -725,7 +725,9 @@ class BrachyApplicator:
         Outputs:
             - Void: an applicator object is created dependeing on the inputs.
         """
-        assert os.path.exists(pth_input_file), f"input file {pth_input_file} does not exist"
+        assert os.path.exists(
+            pth_input_file
+        ), f"input file {pth_input_file} does not exist"
         self.path = pth_input_file
         self.name = os.path.splitext(os.path.basename(self.path))[0]
         self.applicator_mesh: vtkPolyData = None
@@ -1149,9 +1151,21 @@ class DwellPosition:
         if dwell_dict is not None:
             index = dwell_dict.get("index", None)
             angle = float(dwell_dict.get("angle"))
-            position = np.array(list(dwell_dict.get("position")))
+            position = np.array(
+                [
+                    dwell_dict.get("position").get("x"),
+                    dwell_dict.get("position").get("y"),
+                    dwell_dict.get("position").get("z")
+                ]
+            )
             relativePos = dwell_dict.get("relativePos")
-            rotation = np.array(list(dwell_dict.get("rotation")))
+            rotation = np.array(
+                [
+                    dwell_dict.get("rotation").get("x"),
+                    dwell_dict.get("rotation").get("y"),
+                    dwell_dict.get("rotation").get("z")
+                ]
+            )
             time = float(dwell_dict.get("time"))
             weight = float(dwell_dict.get("weight", None))
 
