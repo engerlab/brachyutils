@@ -1557,9 +1557,9 @@ def _export_single_dose_rate(
         - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
     """
     doseObj = dose_with_empty_grid_like(doseObj_template)
-    doseObj.grid = dose_grid
+    doseObj.set_dose_array(dose_grid)
     if uncertainty is not None:
-        doseObj.uncertainty = uncertainty
+        doseObj.set_uncertainty_array(uncertainty)
 
     doseObj.write_brachydose_to_file(dir_export + f"/run_{dwell_number}" + dose_type)
 

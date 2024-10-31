@@ -186,14 +186,14 @@ def test_export_brachy_plan():
         "dose": True,
         "dose_type": ".nrrd",
         "dose_rate_maps": True,
-        "uncertainty": False,
-        "catheter_table": False,
-        "egsphant": False,
-        "structure_set": False,
-        "plan": False,
-        "mac": False,
-        "ApplicatorMaterials": False,
-        "applicator_geometry": False,
+        "uncertainty": True,
+        "catheter_table": True,
+        "egsphant": True,
+        "structure_set": True,
+        "plan": True,
+        "mac": True,
+        "ApplicatorMaterials": True,
+        "applicator_geometry": True,
     }
 
     plan_obj = BrachyPlan(
@@ -201,7 +201,7 @@ def test_export_brachy_plan():
         dvh_metric_goals=dvh_metric_goals,
         catheter_table=pth_cathTable_json,
         combined_dose=pth_combined_dose,
-        # combined_simulation_dict=sim_dict,
+        combined_simulation_dict=sim_dict,
     )
     # # This function tests all the exporting functions.
     plan_obj.export_brachy_plan(export_format, dir_export, content_to_export)
