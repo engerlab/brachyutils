@@ -5,7 +5,6 @@ from glob import glob
 
 import numpy as np
 
-from brachyutils.geometry_utils import BrachyApplicator
 from brachyutils.plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_to_dict
 
 
@@ -223,76 +222,13 @@ def test_load_brachy_plan_from_dicom():
     plan_obj = BrachyPlan(pth_dicom, dvh_metric_goals=dvh_metric_goals)
     plan_obj.info()
 
-
-def test_BrachyApplicator():
-    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
-    applicator_obj = BrachyApplicator(pth_applicator_stl)
-    applicator_obj.info()
-
-
-def test_BrachyApplicator_to_mac():
-    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
-    origin = np.array([0, 0, 0])
-    rotation = np.array([0, 0, 0])
-    material = "Tungsten"
-    density = 19.3
-    pth_outfile = "../data_test/test_export_plan/applicator_0.mac"
-    applicator_obj = BrachyApplicator(
-        pth_input_file=pth_applicator_stl,
-        material=material,
-        density=density,
-        origin=origin,
-        rotation=rotation,
-    )
-    applicator_obj.to_mac(pth_outfile)
-
-
-def test_BrachyApplicator_to_stl():
-    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
-    origin = np.array([0, 0, 0])
-    rotation = np.array([90, 1, 0, 0])
-    coordinates = np.array([0, 0, 0])
-    material = "Tungsten"
-    density = 19.3
-    pth_outfile = "../data_test/test_export_plan/applicator_0_tilted.stl"
-    applicator_obj = BrachyApplicator(
-        pth_input_file=pth_applicator_stl,
-        material=material,
-        density=density,
-        origin=origin,
-        rotation=rotation,
-        coordinates=coordinates,
-    )
-    applicator_obj.to_stl(pth_outfile)
-
-
-def test_BrachyApplicator_set_rotation():
-    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
-    origin = np.array([0, 0, 0])
-    coordinates = np.array([50, 50, 50])
-    rotation = np.array([90, 0, 1, 0])
-    rotation_origin = np.array([50, 50, 50])
-    material = "Tungsten"
-    density = 19.3
-    pth_outfile = "../data_test/test_export_plan/applicator_0_tilted.stl"
-    applicator_obj = BrachyApplicator(
-        pth_input_file=pth_applicator_stl,
-        material=material,
-        density=density,
-        origin=origin,
-        coordinates=coordinates,
-    )
-    applicator_obj.set_rotation(rotation, rotation_origin)
-    applicator_obj.to_stl(pth_outfile)
-
-
 def test_load_applicator_list():
     dir_dicom = "../data_test/rectal-jgh-dcm"
     dir_plan = "../data_test/rectal-jgh-planFiles"
     pth_applicator_geometry = os.path.join(dir_plan, "applicator_geometry.json")
 
     plan_obj = BrachyPlan(
-        dir_dicom=dir_dicom, pth_applicator_list_json=pth_applicator_geometry
+        phantom=dir_dicom, applicator_pth_list=pth_applicator_geometry
     )
 
     for applicator in plan_obj.applicator_list:
@@ -305,7 +241,8 @@ def test__export_applicator_geometry():
     pth_applicator_geometry = os.path.join(dir_plan, "applicator_geometry.json")
     dir_export = "../data_test/test_export_plan"
     plan_obj = BrachyPlan(
-        dir_dicom=dir_dicom, pth_applicator_list_json=pth_applicator_geometry
+        phantom=dir_dicom,
+        applicator=pth_applicator_geometry,
     )
 
     plan_obj._export_applicator_geometry(
@@ -368,13 +305,9 @@ if __name__ == "__main__":
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
-    test_export_brachy_plan()
+    # test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
-    # test_BrachyApplicator()
-    # test_BrachyApplicator_to_mac()
-    # test_BrachyApplicator_to_stl()
-    # test_BrachyApplicator_set_rotation()
-    # test_load_applicator_list()
+    test_load_applicator_list()
     # test__export_applicator_geometry()
     # test_brachy_structure()
     # test_load_phantom()

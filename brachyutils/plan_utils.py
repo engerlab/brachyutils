@@ -291,7 +291,7 @@ class BrachyPlan:
         dvh_metric_goals: Union[dict, Path] = None,
         # for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable] = None,
-        applicator: Union[Path, BrachyApplicator] = None,
+        applicator_pth_list: Union[Path, str, list] = None,
         # for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
@@ -327,7 +327,7 @@ class BrachyPlan:
             ### for simulation setup:
             - combined_simulation_dict = None := dictionary containing the simulation setup,
             - dir_egsphant = None := path to the directory containing the egsphant file,
-            - pth_applicator_list_json := path to the json file containing the applicator list. See load_applicator_list() for more info.
+            - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
             - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
         Outputs:
             - Void := will initialize the BrachyPlan object
@@ -443,8 +443,8 @@ class BrachyPlan:
             self.combined_simulation_setup = BrachySimulation(combined_simulation_dict)
 
         # load the applicator list if the path is provided
-        # if pth_applicator_list_json is not None:
-        #     self.load_applicator_list(pth_applicator_list_json, applicator_format)
+        if applicator_pth_list is not None and applicator_format is not None:
+            self.load_applicator_list(applicator_pth_list, applicator_format)
 
     def load_phantom(self, pth_phantom: Union[Path, dict]):
         r"""
@@ -850,14 +850,14 @@ class BrachyPlan:
 
     def load_applicator_list(
         self,
-        pth_applicator_list_json: str,
+        applicator_list_pth: Union[list, Path, str],
         format: str = "WebApp",
     ):
         r"""
         Purpose:
             - To load the applicator list from a json file containing the applicator geometry.
         Inputs:
-            - pth_applicator_list_json:str := path to the json file containing the applicator list with N applicators.
+            - applicator_list_pth:str := path to the json file containing the applicator list with N applicators.
             The items inside this list have the attributes bellow. If any left empty, the default value will be used.
             these attributes could be changed later using the setter functions.
 
@@ -891,8 +891,9 @@ class BrachyPlan:
         Outputs:
             - Void := will update the BrachyPlan.applicator_list attribute
         """
-        with open(pth_applicator_list_json, "r") as json_file:
-            applicator_list = json.load(json_file)
+        if isinstance(applicator_list_pth, Path) or isinstance(applicator_list_pth, str):
+            with open(applicator_list_pth, "r") as json_file:
+                applicator_list = json.load(json_file)
         if format == "RapidBrachy":
             num_applicators = len(applicator_list["densities"])
 

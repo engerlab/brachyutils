@@ -4,7 +4,7 @@ from glob import glob
 import numpy as np
 
 from brachyutils import BrachyPhantom
-
+from brachyutils.geometry_utils import BrachyApplicator
 
 def test_brachy_phantom():
     # pth_dicom = "../data_test/prostate-glen-p1-dcm"
@@ -127,8 +127,69 @@ def test_catheter_table():
     catheter_table.info()
 
 
+def test_BrachyApplicator():
+    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
+    applicator_obj = BrachyApplicator(pth_applicator_stl)
+    applicator_obj.info()
+
+
+def test_BrachyApplicator_to_mac():
+    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
+    origin = np.array([0, 0, 0])
+    rotation = np.array([0, 0, 0])
+    material = "Tungsten"
+    density = 19.3
+    pth_outfile = "../data_test/test_export_plan/applicator_0.mac"
+    applicator_obj = BrachyApplicator(
+        pth_input_file=pth_applicator_stl,
+        material=material,
+        density=density,
+        origin=origin,
+        rotation=rotation,
+    )
+    applicator_obj.to_mac(pth_outfile)
+
+
+def test_BrachyApplicator_to_stl():
+    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
+    origin = np.array([0, 0, 0])
+    rotation = np.array([90, 1, 0, 0])
+    coordinates = np.array([0, 0, 0])
+    material = "Tungsten"
+    density = 19.3
+    pth_outfile = "../data_test/test_export_plan/applicator_0_tilted.stl"
+    applicator_obj = BrachyApplicator(
+        pth_input_file=pth_applicator_stl,
+        material=material,
+        density=density,
+        origin=origin,
+        rotation=rotation,
+        coordinates=coordinates,
+    )
+    applicator_obj.to_stl(pth_outfile)
+
+
+def test_BrachyApplicator_set_rotation():
+    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
+    origin = np.array([0, 0, 0])
+    coordinates = np.array([50, 50, 50])
+    rotation = np.array([90, 0, 1, 0])
+    rotation_origin = np.array([50, 50, 50])
+    material = "Tungsten"
+    density = 19.3
+    pth_outfile = "../data_test/test_export_plan/applicator_0_tilted.stl"
+    applicator_obj = BrachyApplicator(
+        pth_input_file=pth_applicator_stl,
+        material=material,
+        density=density,
+        origin=origin,
+        coordinates=coordinates,
+    )
+    applicator_obj.set_rotation(rotation, rotation_origin)
+    applicator_obj.to_stl(pth_outfile)
+
 if __name__ == "__main__":
-    print("testing BrachyPhantom")
+    # print("testing BrachyPhantom")
     # test_brachy_phantom()
     # test_get_structure_mask()
     # test_write_image_to_dicom()
@@ -139,4 +200,10 @@ if __name__ == "__main__":
     # test_write_to_egsphant()
     # test_load_egsphant()
     # test_crop_phantom()
-    test_catheter_table()
+    # print("testing CatheterTable")
+    # test_catheter_table()
+    print("testing BrachyApplicator")
+    test_BrachyApplicator()
+    # test_BrachyApplicator_to_mac()
+    # test_BrachyApplicator_to_stl()
+    # test_BrachyApplicator_set_rotation()
