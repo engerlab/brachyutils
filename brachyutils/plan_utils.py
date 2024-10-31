@@ -1175,7 +1175,10 @@ class BrachyPlan:
 
             if content_to_export["structure_set"]:
                 # assumes file name is "structure_set.json"
-                self._export_structure_set(dir_export)
+                self._export_structure_set(
+                    dir_export,
+                    content_to_export.get("materials_table", None)
+                )
                 print("structure set file was exported successfully")
 
         else:
@@ -1488,13 +1491,23 @@ class BrachyPlan:
             applicator.to_mac(os.path.join(dir_export, f"{applicator.name}.mac"))
 
     def _export_structure_set(
-        self, dir_export: str, export_format: str = "RapidBrachy"
+        self,
+        dir_export: str,
+        materials_table: Union[dict, Path] = None,
+        export_format: str = "RapidBrachy"
     ):
         r"""
         Purpose:
             - to export the structure set of the plan into dir_export
         Inputs:
             - dir_export := path to the directory where the export happens
+            - material_table: dict | Path := the dictionary of the materials. if Path, the path to the material file.
+            The dictionary contains the name of the elements for each voxel,
+            and the following keys: [
+                "density" := the density of the material in g/cm^3,
+                "HU_limit" := the lower HU limit threshold of the material,
+                "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
+            ]
         Outputs:
             - void := self.structure_list is exported as a dictionary and
             written to structure_set.json
@@ -1504,6 +1517,13 @@ class BrachyPlan:
         structure_set = []
         for structure in self.structure_list:
             structure_set.append(structure.to_dict(export_format))
+
+            if materials_table is not None:
+                from brachyutils.egsphant_utils import _load_material_dict
+                material_dict = _load_material_dict(materials_table)
+                for material in material_dict:
+                    if material_dict[material]["structure_name"] == structure.name:
+                        structure_set[-1]["density"] = material_dict[material]["density"]
 
         file_path = os.path.join(dir_export, "structure_set.json")
         with open(file_path, "w") as file:

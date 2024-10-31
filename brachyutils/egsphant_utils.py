@@ -990,7 +990,7 @@ def _load_material_dict(material_source: Union[Path, dict]):
     Outputs:
         - dict := a dictionary containing the density and HU lower limit thresholds for each material.
     """
-    if isinstance(material_source, Path):
+    if isinstance(material_source, Path) or isinstance(material_source, str):
         pth_file = material_source
         assert os.path.exists(
             pth_file
