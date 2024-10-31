@@ -400,13 +400,22 @@ class BrachyEgsphant:
         spacing = "0 0 0 0 0 0 0 0 0\n"
         dimensions = " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
         x_axis = (
-            " ".join(map(str, np.round(egsphant_voxel_edges[0].astype(float), decimals=3))) + "\n"
+            " ".join(
+                map(str, np.round(egsphant_voxel_edges[0].astype(float), decimals=3))
+            )
+            + "\n"
         )
         y_axis = (
-            " ".join(map(str, np.round(egsphant_voxel_edges[1].astype(float), decimals=3))) + "\n"
+            " ".join(
+                map(str, np.round(egsphant_voxel_edges[1].astype(float), decimals=3))
+            )
+            + "\n"
         )
         z_axis = (
-            " ".join(map(str, np.round(egsphant_voxel_edges[2].astype(float), decimals=3))) + "\n"
+            " ".join(
+                map(str, np.round(egsphant_voxel_edges[2].astype(float), decimals=3))
+            )
+            + "\n"
         )
         material_matrix = self.get_material_array()
         material_matrix = _to_single_string(
@@ -808,9 +817,11 @@ class BrachyEgsphant:
                     material_matrix += (
                         complementary_roi_mask
                         * BrachyEgsphant._materials_encoding_array.index(
-                            str(self.material_dict.get(background_material, "Air").get(
-                                "encoding"
-                            ))
+                            str(
+                                self.material_dict.get(background_material, "Air").get(
+                                    "encoding"
+                                )
+                            )
                         )
                     )
 

@@ -157,6 +157,7 @@ def test_export_brachy_plan():
     dir_dicom = "../data_test/prostate-glen-p1-dcm/"
     pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
     # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_material_dict = "../data_test/prostate_material_dict.json"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -189,6 +190,7 @@ def test_export_brachy_plan():
         "uncertainty": True,
         "catheter_table": True,
         "egsphant": True,
+        "assign_material_from_ct": False,
         "structure_set": True,
         "plan": True,
         "mac": True,
@@ -202,6 +204,7 @@ def test_export_brachy_plan():
         catheter_table=pth_cathTable_json,
         combined_dose=pth_combined_dose,
         combined_simulation_dict=sim_dict,
+        material_dict=pth_material_dict,
     )
     # # This function tests all the exporting functions.
     plan_obj.export_brachy_plan(export_format, dir_export, content_to_export)

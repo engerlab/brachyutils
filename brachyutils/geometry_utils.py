@@ -460,6 +460,12 @@ class BrachyPhantom:
         Inputs:
             - pth_output: Path := the path to write the Egsphant file to.
             - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
+            The dictionary contains the name of the elements for each voxel,
+            and the following keys: [
+                "density" := the density of the material in g/cm^3,
+                "HU_limit" := the lower HU limit threshold of the material,
+                "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
+            ]
             - assign_material_from_ct: bool := if True, the material will be assigned from the CT image.
         """
         assert (

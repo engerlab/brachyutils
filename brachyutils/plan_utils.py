@@ -287,6 +287,7 @@ class BrachyPlan:
         self,
         # for geometry definition:
         phantom: Union[Path, BrachyPhantom, dict] = None,
+        material_dict: Union[Path, dict] = None,
         # for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
         # for loading catheter table and/or applicators:
@@ -404,6 +405,18 @@ class BrachyPlan:
                 phantom=self.phantom,
                 dvh_metric_goals=self.dvh_metric_goals,
             )
+
+        # load the material dictionary if the path is provided
+        if material_dict is not None:
+            if isinstance(material_dict, Path) or isinstance(material_dict, str):
+                with open(material_dict, "r") as json_file:
+                    self.material_dict = json.load(json_file)
+            elif isinstance(material_dict, dict):
+                self.material_dict = material_dict
+            else:
+                raise ValueError(
+                    "material_dict should be a path or a dictionary object"
+                )
 
         # load the catheter table if the path is provided
         if catheter_table is not None:
@@ -1161,7 +1174,11 @@ class BrachyPlan:
 
             if content_to_export["egsphant"]:
                 # assumes file name is "ct.egsphant"
-                self._export_egsphant(dir_export)
+                self._export_egsphant(
+                    dir_export,
+                    self.material_dict,
+                    content_to_export.get("assign_material_from_ct", True)
+                    )
                 print("Egsphant file was exported successfully")
 
             if content_to_export["applicator_geometry"]:
@@ -1384,9 +1401,14 @@ class BrachyPlan:
             - to export the egsphant file of the plan into dir_export
         Inputs:
             - dir_export := path to the directory where the export happens
-            - material_dict := a dictionary containing the material names and their corresponding
-
-
+            - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
+            The dictionary contains the name of the elements for each voxel,
+            and the following keys: [
+                "density" := the density of the material in g/cm^3,
+                "HU_limit" := the lower HU limit threshold of the material,
+                "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
+            ]
+            - assign_material_from_ct := if True, the material names will be assigned from the ct.egsphant file.
         Outputs:
             - void := egsphant file is generated from phantom and is written to ct.egsphant
         Dependencies:
