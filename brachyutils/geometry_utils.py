@@ -1155,7 +1155,7 @@ class DwellPosition:
                 [
                     dwell_dict.get("position").get("x"),
                     dwell_dict.get("position").get("y"),
-                    dwell_dict.get("position").get("z")
+                    dwell_dict.get("position").get("z"),
                 ]
             )
             relativePos = dwell_dict.get("relativePos")
@@ -1163,7 +1163,7 @@ class DwellPosition:
                 [
                     dwell_dict.get("rotation").get("x"),
                     dwell_dict.get("rotation").get("y"),
-                    dwell_dict.get("rotation").get("z")
+                    dwell_dict.get("rotation").get("z"),
                 ]
             )
             time = float(dwell_dict.get("time"))
@@ -1196,21 +1196,21 @@ class DwellPosition:
             - dict := the dictionary containing the dwell position.
         """
         return {
-            "index": self.index,
-            "angle": self.angle,
+            "index": int(self.index),
+            "angle": float(self.angle),
             "position": {
-                "x": self.position[0],
-                "y": self.position[1],
-                "z": self.position[2],
+                "x": float(self.position[0]),
+                "y": float(self.position[1]),
+                "z": float(self.position[2]),
             },
-            "relativePos": self.relativePos,
+            "relativePos": int(self.relativePos),
             "rotation": {
-                "x": self.rotation[0],
-                "y": self.rotation[1],
-                "z": self.rotation[2],
+                "x": float(self.rotation[0]),
+                "y": float(self.rotation[1]),
+                "z": float(self.rotation[2]),
             },
-            "time": self.time,
-            "weight": self.weight,
+            "time": float(self.time),
+            "weight": float(self.weight),
         }
 
 
