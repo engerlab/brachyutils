@@ -1415,9 +1415,9 @@ class BrachyPlan:
             - BrachyEgsphant
         """
         file_path = dir_export + "/ct.egsphant"
-        if isinstance(material_dict, Path):
-            with open(material_dict, "r") as json_file:
-                material_dict = json.load(json_file)
+        # if isinstance(material_dict, Path):
+        #     with open(material_dict, "r") as json_file:
+        #         material_dict = json.load(json_file)
 
         self.phantom.write_to_egsphant(
             pth_output=Path(file_path),

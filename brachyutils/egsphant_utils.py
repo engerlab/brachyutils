@@ -114,15 +114,13 @@ class BrachyEgsphant:
                 ):
                     raise Exception(
                         "CT to density text file should be used only when assign_material_from_ct is True.\n \
-                        If assigning materials by contours, please provide a json file containing material dictionary."
+                        If assigning materials by contours, please provide a json file or a dictionary containing structure_name\
+                        for each material."
                     )
-                self.material_dict = self.material_dict | _load_material_dict(
+            self.material_dict = self.material_dict | _load_material_dict(
                     material_dict
-                )
-                self._remove_duplicate_materials()
-
-            elif isinstance(material_dict, dict):
-                self.material_dict = material_dict
+                )            
+            self._remove_duplicate_materials()
 
             self.create_egsphant_from_phantom(
                 phantom_obj=(
@@ -979,61 +977,66 @@ def _load_json(pth_json: Path):
         return json.load(file_json)
 
 
-def _load_material_dict(pth_file: Path):
+def _load_material_dict(material_source: Union[Path, dict]):
     r"""
     Purpose:
-        To load material dictionary from a ct to density.txt file or from a json file that
-        contains the density and HU lower limit threshold for each material.
+        To load material dictionary and give it the proper keys from simple material dictionary,
+        a ct to density.txt file or from a json file that contains the density and HU lower 
+        limit threshold for each material.
     Inputs:
-        - pth_file := directory path to the ct2density.txt file
+        - material_source := directory path to the ct2density.txt file, json file or the material dictionary
     Outputs:
         - dict := a dictionary containing the density and HU lower limit thresholds for each material.
     """
-    assert os.path.exists(
-        pth_file
-    ), f"no such ct2density.txt file was found at this directory: \n {pth_file}"
+    if isinstance(material_source, Path):
+        pth_file = material_source
+        assert os.path.exists(
+            pth_file
+        ), f"no such ct2density.txt file was found at this directory: \n {pth_file}"
 
-    extension = os.path.splitext(pth_file)[-1]
-
-    material_dict = defaultdict(dict)
-
-    if extension == ".txt":
-        with open(pth_file, "r") as file:
-            lines = file.readlines()
-
-        for i, line in enumerate(lines):
-            material, density, HU_limit = line.strip().split()
-            material_dict[material] = {
-                "density": float(density),
-                "HU_limit": float(HU_limit),
-                "encoding": BrachyEgsphant._materials_encoding_array[i],
-            }
-    elif extension == ".json":
-        material_dict = _load_json(pth_file)
-
-        for i, material in enumerate(material_dict):
-            assert (
-                material_dict.get(material).get("density") is not None
-            ), "density is not available"
-
-            if material_dict.get(material).get("HU_limit") is None:
-                warnings.warn(
-                    f"no HU limit was found for {material}, material assignment by ct will not be possible",
-                    stacklevel=2,
-                )
-                material_dict.get(material)["HU_limit"] = float("-inf")
-
-            if material_dict.get(material).get("encoding") is None:
-                warnings.warn(
-                    f"no encoding was found for {material}, encoding will be set by the order of the material in the json file",
-                    stacklevel=2,
-                )
-                material_dict.get(material)["encoding"] = (
-                    BrachyEgsphant._materials_encoding_array[i]
-                )
+        extension = os.path.splitext(pth_file)[-1]
+    
+        material_dict = defaultdict(dict)
+    
+        if extension == ".txt":
+            with open(pth_file, "r") as file:
+                lines = file.readlines()
+    
+            for i, line in enumerate(lines):
+                material, density, HU_limit = line.strip().split()
+                material_dict[material] = {
+                    "density": float(density),
+                    "HU_limit": float(HU_limit),
+                    "encoding": BrachyEgsphant._materials_encoding_array[i],
+                }
+        elif extension == ".json":
+            material_dict = _load_json(pth_file)
+        else:
+            raise Exception("file extension is not recognized")
+    elif isinstance(material_source, dict):
+        material_dict = material_source
     else:
-        raise Exception(
-            f"Loading from file extension {extension} is not supported! only .txt and .json are supported."
-        )
+        raise Exception("material source is not recognized, please provide the dictionary, json file or ct2density.txt file")
+
+    for i, material in enumerate(material_dict):
+        assert (
+            material_dict.get(material).get("density") is not None
+        ), "density is not available"
+
+        if material_dict.get(material).get("HU_limit") is None:
+            warnings.warn(
+                f"no HU limit was found for {material}, material assignment by ct will not be possible",
+                stacklevel=2,
+            )
+            material_dict.get(material)["HU_limit"] = float("-inf")
+
+        if material_dict.get(material).get("encoding") is None:
+            warnings.warn(
+                f"no encoding was found for {material}, encoding will be set by the order of the material in the json file",
+                stacklevel=2,
+            )
+            material_dict.get(material)["encoding"] = (
+                BrachyEgsphant._materials_encoding_array[i]
+            )
 
     return material_dict
