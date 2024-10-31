@@ -117,6 +117,8 @@ class BrachyEgsphant:
                         If assigning materials by contours, please provide a json file or a dictionary containing structure_name\
                         for each material."
                     )
+                material_dict = Path(material_dict)
+
             self.material_dict = self.material_dict | _load_material_dict(
                     material_dict
                 )            
