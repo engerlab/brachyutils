@@ -13,17 +13,16 @@ from brachyutils.cli_utils import (
 from brachyutils.dose_utils import BrachyDose
 
 
-def test_get_body_contour_range_from_dicom_many_patients():
-    # input_dir = "../../data_test/prostate-glen-p1-dcm/"
-    input_dir = "../../data_test/"
-    pth_json = "../../data_test/patient_body_bounds_output.json"
+# def test_get_body_contour_range_from_dicom_many_patients():
+#     input_dir = "../data_test"
+#     pth_json = "../data_test/test_export_plan/patient_body_bounds_output.json"
 
-    get_body_contour_range_from_dicom_many_patients(input_dir, pth_json)
+#     get_body_contour_range_from_dicom_many_patients(input_dir, pth_json)
 
-    with open(pth_json, "r") as file:
-        data_json = json.load(file)
+#     with open(pth_json, "r") as file:
+#         data_json = json.load(file)
 
-    print(data_json)
+#     print(data_json)
 
 
 def test_crop_egsphant_by_body_contour_many_patients():
@@ -86,8 +85,8 @@ def test_combined_dose_per_patient():
 
 
 if __name__ == "__main__":
-    # test_get_body_contour_range_from_dicom_many_patients()
-    test_crop_egsphant_by_body_contour_many_patients()
+    test_get_body_contour_range_from_dicom_many_patients()
+    # test_crop_egsphant_by_body_contour_many_patients()
     # test_convert_many_files()
     # test_crop_dose_by_body_contour_many_files()
     # test_combined_dose_per_patient()
