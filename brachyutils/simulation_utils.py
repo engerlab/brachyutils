@@ -1,3 +1,33 @@
+class BrachySource:
+    r"""
+    Purpose:
+        - This class holds the information needed for simulating a brachytherapy source using the
+        RapidBrachyMC software.
+    """
+
+    def __init__(
+        self,
+        source_type: str = "MicroSelectronV2",
+        core_material: str = "G4_Ir",
+        mass_number: int = 192,
+        atomic_number: int = 77,
+        air_kerma_per_history: float = 1.149000e-11,
+        reference_air_kerma: float = 4.278729e04,
+        source_dict: dict = None,
+        ) -> None:
+        r"""
+        Purpose:
+        
+        """
+        self.source_type: str = source_type 
+        self.core_material: str = core_material
+        self.mass_number: int = mass_number 
+        self.atomic_number: int = atomic_number 
+        self.air_kerma_per_history: float = air_kerma_per_history 
+        self.reference_air_kerma: float = reference_air_kerma 
+
+        
+
 class BrachySimulation:
     r"""
     Purpose:

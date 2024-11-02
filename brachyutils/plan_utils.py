@@ -292,6 +292,7 @@ class BrachyPlan:
         # for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable] = None,
         applicator_pth_list: Union[Path, str, list] = None,
+        applicator_format:Literal["RapidBrachy", "WebApp"] = None,
         # for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
