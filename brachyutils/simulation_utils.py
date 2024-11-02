@@ -124,7 +124,6 @@ class BrachySource:
         """
         return (
             f"/treatmentType {self.treatment_type}\n" +
-            f"/source/switch {self.source_type}\n" +
             f"/source/switch {self.source_geometry}\n" +
             f"/source/coreMaterial {self.core_material}\n" +
             f"/source/core/A {self.mass_number}\n" +
@@ -141,14 +140,7 @@ class BrachySimulation:
     """
 
     def __init__(self, simulation_dict: dict = None):
-        self.treatment_type: str = "HDR" #HDR or LDR
-        self.source_geometry: str = "MicroSelectronV2"
-        self.core_material: str = "G4_Ir"
         self.world_material: str = "Air"
-        self.mass_number: int = 192
-        self.atomic_number: int = 77
-        self.air_kerma_per_history: float = 1.149000e-11
-        self.reference_air_kerma: float = 4.278729e04
         self.number_histories: int = 2e9
         self.total_time: float = None
         self.dose_format: str = "nrrd"
@@ -159,35 +151,10 @@ class BrachySimulation:
         self.print_progress: int = int(self.number_histories / 100)
 
         if simulation_dict is not None:
-            self.treatment_type = (
-                simulation_dict["treatment_type"]
-                if "treatment_type" in simulation_dict
-                else self.treatment_type
-            )
-            self.source_geometry = (
-                simulation_dict["source_geometry"]
-                if "source_geometry" in simulation_dict
-                else self.source_geometry
-            )
-            self.core_material = (
-                simulation_dict["core_material"]
-                if "core_material" in simulation_dict
-                else self.core_material
-            )
             self.world_material = (
                 simulation_dict["world_material"]
                 if "world_material" in simulation_dict
                 else self.world_material
-            )
-            self.mass_number = (
-                simulation_dict["mass_number"]
-                if "mass_number" in simulation_dict
-                else self.mass_number
-            )
-            self.atomic_number = (
-                simulation_dict["atomic_number"]
-                if "atomic_number" in simulation_dict
-                else self.atomic_number
             )
             self.pth_plan = (
                 simulation_dict["pth_plan"]
@@ -198,16 +165,6 @@ class BrachySimulation:
                 simulation_dict["pth_phantom"]
                 if "pth_phantom" in simulation_dict
                 else self.pth_phantom
-            )
-            self.air_kerma_per_history = (
-                simulation_dict["air_kerma_per_history"]
-                if "air_kerma_per_history" in simulation_dict
-                else self.air_kerma_per_history
-            )
-            self.reference_air_kerma = (
-                simulation_dict["reference_air_kerma"]
-                if "reference_air_kerma" in simulation_dict
-                else self.reference_air_kerma
             )
             self.number_histories = (
                 simulation_dict["number_histories"]
@@ -258,16 +215,9 @@ class BrachySimulation:
             - True if the fields are valid for export, False otherwise.
         """
         required_types = {
-            self.treatment_type: str,
-            self.source_geometry: str,
-            self.core_material: str,
             self.world_material: str,
-            self.mass_number: int,
-            self.atomic_number: int,
             self.pth_plan: str,
             self.pth_phantom: str,
-            self.air_kerma_per_history: float,
-            self.reference_air_kerma: float,
             self.number_histories: int,
             self.total_time: float,
             self.dose_format: str,
@@ -301,8 +251,7 @@ class BrachySimulation:
             - None
         """
         self.validate()
-        return f"""/source/treatmentType {self.treatment_type}
-/source/switch {self.source_geometry}
+        return f"""/source/switch {self.source_geometry}
 /source/coreMaterial {self.core_material}
 /source/core/A {self.mass_number}
 /source/core/Z {self.atomic_number}
