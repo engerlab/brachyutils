@@ -152,7 +152,7 @@ class BrachySimulation:
 
     def __init__(
         self,
-        brachy_source: BrachySource,
+        brachy_source: BrachySource = None,
         world_material: str = "Air",
         number_histories: int = 2e9,
         total_time: float = None,
@@ -162,6 +162,8 @@ class BrachySimulation:
         run_verbose: int = 0,
         tracking_verbose: int = 0,
         print_progress: int = 1e6,
+        pth_plan: str = None,
+        pth_phantom: str = None,
         simulation_dict: dict = None
         ) -> None:
         r"""
@@ -178,6 +180,8 @@ class BrachySimulation:
             - run_verbose: int
             - tracking_verbose: int
             - print_progress: int
+            - pth_plan: str
+            - pth_phantom: str
             - simulation_dict: dict
         Attributes:
             - brachy_source: BrachySource
@@ -190,6 +194,8 @@ class BrachySimulation:
             - run_verbose: int
             - tracking_verbose: int
             - print_progress: int
+            - pth_plan: str
+            - pth_phantom: str
         Functions:
             - validate(): checks if the fields are valid for export.
             - to_string(): converts the object to a string.
@@ -206,14 +212,16 @@ class BrachySimulation:
             and (run_verbose is not None)
             and (tracking_verbose is not None)
             and (print_progress is not None)
+            and (pth_plan is not None)
+            and (pth_phantom is not None)
         ) != (
             simulation_dict is not None
         ), "Either provide , brachy_source, world_material, number_histories, total_time,\
-            dose_format, number_of_threads, control_verbose, run_verbose, tracking_verbose, and\
-            print_progress or provide source_dict. Not both."
+            dose_format, number_of_threads, control_verbose, run_verbose, tracking_verbose,\
+            print_progress, pth_plan and pth_phantom or provide source_dict. Not both."
         
         if simulation_dict is not None:
-            brachy_source = BrachySource(simulation_dict.get("source_dict", None))
+            brachy_source = BrachySource(source_dict=simulation_dict.get("source_dict", None))
             world_material = simulation_dict.get("world_material", None)
             number_histories = simulation_dict.get("number_histories", None)
             total_time = simulation_dict.get("total_time", None)
@@ -223,18 +231,22 @@ class BrachySimulation:
             run_verbose = simulation_dict.get("run_verbose", None)
             tracking_verbose = simulation_dict.get("tracking_verbose", None)
             print_progress = simulation_dict.get("print_progress", None)
+            pth_plan = simulation_dict.get("pth_plan", None)
+            pth_phantom = simulation_dict.get("pth_phantom", None)
 
         self.brachy_source: BrachySource = brachy_source
         self.world_material: str = world_material
         self.number_histories: int = number_histories
-        self.total_time: float = total_time
+        self.total_time: float = float(total_time)
         self.dose_format: str = dose_format
         self.number_of_threads: int = number_of_threads
         self.control_verbose: int = control_verbose
         self.run_verbose: int = run_verbose
         self.tracking_verbose: int = tracking_verbose
         self.print_progress: int = print_progress
-
+        self.pth_plan: str = pth_plan
+        self.pth_phantom: str = pth_phantom
+        
         self.validate()
 
     def validate(self, verbose = False):
@@ -245,6 +257,7 @@ class BrachySimulation:
             - True if the fields are valid for export, False otherwise.
         """
         required_types = {
+            self.brachy_source: BrachySource,
             self.world_material: str,
             self.pth_plan: str,
             self.pth_phantom: str,
