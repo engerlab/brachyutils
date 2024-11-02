@@ -281,26 +281,27 @@ class BrachySimulation:
             - None
         """
         self.validate()
-        return f"""/treatmentType {self.brachy_source.treatment_type}
-/source/switch {self.brachy_source.source_geometry}
-/source/coreMaterial {self.brachy_source.core_material}
-/source/core/A {self.brachy_source.mass_number}
-/source/core/Z {self.brachy_source.atomic_number}
-/sim/plan {self.pth_plan}
-/world/phantom {self.pth_phantom}
-/world/material {self.world_material}
-/parallel_world/ak_per_history {self.brachy_source.air_kerma_per_history}
-/parallel_world/ref_ak {self.brachy_source.reference_air_kerma}
-/parallel_world/total_time {self.total_time}
-/dose/format {self.dose_format}
-/run/numberOfThreads {self.number_of_threads}
-/run/initialize
-/control/verbose {self.control_verbose}
-/run/verbose {self.run_verbose}
-/tracking/verbose {self.tracking_verbose}
-/run/printProgress {self.print_progress}
-/sim/beamOn {self.number_histories}
-"""
+        return (
+            f"/treatmentType {self.brachy_source.treatment_type}\n" +
+            f"/source/switch {self.brachy_source.source_geometry}\n" +
+            f"/source/coreMaterial {self.brachy_source.core_material}\n" +
+            f"/source/core/A {self.brachy_source.mass_number}\n" +
+            f"/source/core/Z {self.brachy_source.atomic_number}\n" +
+            f"/sim/plan {self.pth_plan}\n" +
+            f"/world/phantom {self.pth_phantom}\n" +
+            f"/world/material {self.world_material}\n" +
+            f"/parallel_world/ak_per_history {self.brachy_source.air_kerma_per_history}\n" +
+            f"/parallel_world/ref_ak {self.brachy_source.reference_air_kerma}\n" +
+            f"/parallel_world/total_time {self.total_time}\n" +
+            f"/dose/format {self.dose_format}\n" +
+            f"/run/numberOfThreads {self.number_of_threads}\n" +
+            f"/run/initialize\n" +
+            f"/control/verbose {self.control_verbose}\n" +
+            f"/run/verbose {self.run_verbose}\n" +
+            f"/tracking/verbose {self.tracking_verbose}\n" +
+            f"/run/printProgress {self.print_progress}\n" +
+            f"/sim/beamOn {self.number_histories}" 
+            )
 
     def to_dict(self):
         r"""
