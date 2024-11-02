@@ -144,31 +144,26 @@ class BrachySource:
             )
 
 class BrachySimulation:
-    r"""
-    Purpose:
-        - This class holds the information needed for simulating a brachytherapy plan using the
-        RapidBrachyMC software.
-    """
-
     def __init__(
         self,
-        brachy_source: BrachySource = None,
+        brachy_source: BrachySource = BrachySource(),
         world_material: str = "Air",
-        number_histories: int = 2e9,
+        number_histories: int = 1e6,
         total_time: float = None,
         dose_format: str = "nrrd",
-        number_of_threads: int = 16,
+        number_of_threads: int = 12,
         control_verbose: int = 0,
         run_verbose: int = 0,
         tracking_verbose: int = 0,
-        print_progress: int = 1e6,
+        print_progress: int = 1e4,
         pth_plan: str = None,
         pth_phantom: str = None,
         simulation_dict: dict = None
         ) -> None:
         r"""
         Purpose:
-            - A class to hold the information of a brachytherapy simulation.
+            - A class to hold the information of a brachytherapy simulation. The 
+            simulations are done using the RapidBrachyMC software.
         Inputs:
             - brachy_source: BrachySource
             - world_material: str
@@ -221,16 +216,20 @@ class BrachySimulation:
             print_progress, pth_plan and pth_phantom or provide source_dict. Not both."
         
         if simulation_dict is not None:
-            brachy_source = BrachySource(source_dict=simulation_dict.get("source_dict", None))
-            world_material = simulation_dict.get("world_material", None)
-            number_histories = simulation_dict.get("number_histories", None)
+            brachy_source = BrachySource(
+                source_dict=simulation_dict.get(
+                    "source_dict", BrachySource().to_dict()
+                    )
+                )
+            world_material = simulation_dict.get("world_material", "Air")
+            number_histories = simulation_dict.get("number_histories", 1e6)
             total_time = simulation_dict.get("total_time", None)
-            dose_format = simulation_dict.get("dose_format", None)
-            number_of_threads = simulation_dict.get("number_of_threads", None)
-            control_verbose = simulation_dict.get("control_verbose", None)
-            run_verbose = simulation_dict.get("run_verbose", None)
-            tracking_verbose = simulation_dict.get("tracking_verbose", None)
-            print_progress = simulation_dict.get("print_progress", None)
+            dose_format = simulation_dict.get("dose_format", "nrrd")
+            number_of_threads = simulation_dict.get("number_of_threads", 12)
+            control_verbose = simulation_dict.get("control_verbose", 0)
+            run_verbose = simulation_dict.get("run_verbose", 0)
+            tracking_verbose = simulation_dict.get("tracking_verbose", 0)
+            print_progress = simulation_dict.get("print_progress", 1e4)
             pth_plan = simulation_dict.get("pth_plan", None)
             pth_phantom = simulation_dict.get("pth_phantom", None)
 
