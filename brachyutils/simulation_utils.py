@@ -55,13 +55,13 @@ class BrachySource:
             atomic_number, air_kerma_per_history, reference_air_kerma or provide source_dict. Not both."
         
         if source_dict is not None:
-            treatment_type = source_dict.get("treatment_type", None)
-            source_geometry = source_dict.get("source_geometry", None)
-            core_material = source_dict.get("core_material", None)
-            mass_number = source_dict.get("mass_number", None)
-            atomic_number = source_dict.get("atomic_number", None)
-            air_kerma_per_history = source_dict.get("air_kerma_per_history", None)
-            reference_air_kerma = source_dict.get("reference_air_kerma", None)
+            treatment_type = source_dict.get("treatment_type", "HDR")
+            source_geometry = source_dict.get("source_geometry", "MicroSelectronV2")
+            core_material = source_dict.get("core_material", "G4_Ir")
+            mass_number = source_dict.get("mass_number", 192)
+            atomic_number = source_dict.get("atomic_number", 77)
+            air_kerma_per_history = source_dict.get("air_kerma_per_history", 1.149000e-11)
+            reference_air_kerma = source_dict.get("reference_air_kerma", 4.278729e04)
         
         self.treatment_type: str = treatment_type 
         self.source_geometry: str = source_geometry
