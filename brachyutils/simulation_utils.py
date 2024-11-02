@@ -281,15 +281,16 @@ class BrachySimulation:
             - None
         """
         self.validate()
-        return f"""/source/switch {self.source_geometry}
-/source/coreMaterial {self.core_material}
-/source/core/A {self.mass_number}
-/source/core/Z {self.atomic_number}
+        return f"""/treatmentType {self.brachy_source.treatment_type}
+/source/switch {self.brachy_source.source_geometry}
+/source/coreMaterial {self.brachy_source.core_material}
+/source/core/A {self.brachy_source.mass_number}
+/source/core/Z {self.brachy_source.atomic_number}
 /sim/plan {self.pth_plan}
 /world/phantom {self.pth_phantom}
 /world/material {self.world_material}
-/parallel_world/ak_per_history {self.air_kerma_per_history}
-/parallel_world/ref_ak {self.reference_air_kerma}
+/parallel_world/ak_per_history {self.brachy_source.air_kerma_per_history}
+/parallel_world/ref_ak {self.brachy_source.reference_air_kerma}
 /parallel_world/total_time {self.total_time}
 /dose/format {self.dose_format}
 /run/numberOfThreads {self.number_of_threads}
