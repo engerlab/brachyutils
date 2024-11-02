@@ -7,7 +7,8 @@ class BrachySource:
 
     def __init__(
         self,
-        source_type: str = "MicroSelectronV2",
+        treatment_type:str = "HDR",
+        source_geometry: str = "MicroSelectronV2",
         core_material: str = "G4_Ir",
         mass_number: int = 192,
         atomic_number: int = 77,
@@ -17,16 +18,120 @@ class BrachySource:
         ) -> None:
         r"""
         Purpose:
-        
+            - A class to hold the information of a brachytherapy source.
+        Inputs:
+            - treatment_type: str
+            - source_geometry: str
+            - core_material: str
+            - mass_number: int
+            - atomic_number: int
+            - air_kerma_per_history: float
+            - reference_air_kerma: float
+            - source_dict: dict
+        Attributes:
+            - treatment_type: str
+            - source_geometry: str
+            - core_material: str
+            - mass_number: int
+            - atomic_number: int
+            - air_kerma_per_history: float
+            - reference_air_kerma: float
+        Functions:
+            - validate(): checks if the fields are valid for export.
+            - to_dict(): converts the object to a dictionary.
         """
-        self.source_type: str = source_type 
+        
+        assert (
+            (treatment_type is not None)
+            and (source_geometry is not None)
+            and (core_material is not None)
+            and (mass_number is not None)
+            and (atomic_number is not None)
+            and (air_kerma_per_history is not None)
+            and (reference_air_kerma is not None)
+        ) != (
+            source_dict is not None
+        ), "Either provide treatment_type, source_geometry, core_material, mass_number, atomic_number, air_kerma_per_history, reference_air_kerma or provide source_dict. Not both."
+        
+        self.treatment_type: str = treatment_type 
+        self.source_geometry: str = source_geometry
         self.core_material: str = core_material
         self.mass_number: int = mass_number 
         self.atomic_number: int = atomic_number 
         self.air_kerma_per_history: float = air_kerma_per_history 
         self.reference_air_kerma: float = reference_air_kerma 
 
-        
+    def validate(self, verbose = False):
+        r"""
+        Purpose:
+            - to validate the source object.
+        Returns:
+            - True if the fields are valid for export, False otherwise.
+        """
+        required_types = {
+            self.treatment_type: str,
+            self.source_geometry: str,
+            self.core_material: str,
+            self.mass_number: int,
+            self.atomic_number: int,
+            self.air_kerma_per_history: float,
+            self.reference_air_kerma: float
+            }
+        for key, value in required_types.items():
+            if not isinstance(key, value):
+                try:
+                    key = value(key)
+                    continue
+                except ValueError:
+                    pass
+                if verbose:
+                    print(f"BrachySource: field {key} is not of type {value}")
+                return False
+        return True
+    
+    def to_dict(self):
+        r"""
+        Purpose:
+            - to convert the object to a dictionary.
+        Input:
+            - self: BrachySource
+        Output:
+            - a dictionary containing the information of the source.
+        Dependencies:
+            - None
+        """
+        self.validate()
+        return {
+            "treatment_type": self.treatment_type,
+            "source_geometry": self.source_geometry,
+            "core_material": self.core_material,
+            "mass_number": self.mass_number,
+            "atomic_number": self.atomic_number,
+            "air_kerma_per_history": self.air_kerma_per_history,
+            "reference_air_kerma": self.reference_air_kerma
+        }
+
+    def to_string(self):
+        r"""
+        Purpose:
+            - to convert the object to a string.
+        Input:
+            - self: BrachySource
+        Output:
+            - a string containing the information of the source with the proper macro commands.
+        Dependencies:
+            - None
+        """
+        return (
+            f"/treatmentType {self.treatment_type}\n" +
+            f"/source/switch {self.source_type}\n" +
+            f"/source/switch {self.source_geometry}\n" +
+            f"/source/coreMaterial {self.core_material}\n" +
+            f"/source/core/A {self.mass_number}\n" +
+            f"/source/core/Z {self.atomic_number}\n"
+            f"/parallel_world/ak_per_history {self.air_kerma_per_history}\n" +
+            f"/parallel_world/ref_ak {self.reference_air_kerma}\n"
+            )
 
 class BrachySimulation:
     r"""
@@ -183,13 +288,6 @@ class BrachySimulation:
                     print(f"BrachySimulation: field {key} is not of type {value}")
                 return False
         return True
-
-    def run_simulation(self):
-        r"""
-        Purpose:
-            - to use RapidBrachyMC to simulate the brachytherapy plan.
-        """
-        raise NotImplementedError
 
     def to_string(self):
         r"""
