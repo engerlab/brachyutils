@@ -37,6 +37,6 @@ class DoseGenerator(ABC):
         # this will be set by the generate_dose() method
         self.dose: BrachyDose = None
         
-        @abstractmethod
-        def generate_dose(self, filename: Optional[Path] = None):
-            pass
+    @abstractmethod
+    def generate_dose(self, filename: Optional[Path] = None):
+        pass
