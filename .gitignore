@@ -16,3 +16,4 @@ dist/*
 *tar.zst
 .checkpointing
 build/*
+*.trunk*
