@@ -1,10 +1,12 @@
+import json
 from pathlib import Path
 from typing import Union
-import json
+
+
 class BrachySource:
     def __init__(
         self,
-        treatment_type:str = "HDR",
+        treatment_type: str = "HDR",
         source_geometry: str = "MicroSelectronV2",
         core_material: str = "G4_Ir",
         mass_number: int = 192,
@@ -12,7 +14,7 @@ class BrachySource:
         air_kerma_per_history: float = 1.149000e-11,
         reference_air_kerma: float = 4.278729e04,
         source_dict: Union[dict, Path, str] = None,
-        ) -> None:
+    ) -> None:
         r"""
         Purpose:
             - A class to hold the information of a brachytherapy source.
@@ -37,7 +39,7 @@ class BrachySource:
             - validate(): checks if the fields are valid for export.
             - to_dict(): converts the object to a dictionary.
         """
-        
+
         assert (
             (treatment_type is not None)
             and (source_geometry is not None)
@@ -50,11 +52,13 @@ class BrachySource:
             source_dict is not None
         ), "Either provide treatment_type, source_geometry, core_material, mass_number,\
             atomic_number, air_kerma_per_history, reference_air_kerma or provide source_dict. Not both."
-        
+
         if source_dict is not None:
             if isinstance(source_dict, (Path, str)):
                 assert Path(source_dict).exists(), f"Path {source_dict} does not exist."
-                assert Path(source_dict).suffix == ".json", f"Path {source_dict} is not a json file."
+                assert (
+                    Path(source_dict).suffix == ".json"
+                ), f"Path {source_dict} is not a json file."
 
                 with open(source_dict, "r") as f:
                     source_dict = json.load(f)
@@ -64,20 +68,22 @@ class BrachySource:
             core_material = source_dict.get("core_material", "G4_Ir")
             mass_number = source_dict.get("mass_number", 192)
             atomic_number = source_dict.get("atomic_number", 77)
-            air_kerma_per_history = source_dict.get("air_kerma_per_history", 1.149000e-11)
+            air_kerma_per_history = source_dict.get(
+                "air_kerma_per_history", 1.149000e-11
+            )
             reference_air_kerma = source_dict.get("reference_air_kerma", 4.278729e04)
-        
-        self.treatment_type: str = treatment_type 
+
+        self.treatment_type: str = treatment_type
         self.source_geometry: str = source_geometry
         self.core_material: str = core_material
-        self.mass_number: int = mass_number 
-        self.atomic_number: int = atomic_number 
-        self.air_kerma_per_history: float = air_kerma_per_history 
-        self.reference_air_kerma: float = reference_air_kerma 
-        
+        self.mass_number: int = mass_number
+        self.atomic_number: int = atomic_number
+        self.air_kerma_per_history: float = air_kerma_per_history
+        self.reference_air_kerma: float = reference_air_kerma
+
         self.validate()
 
-    def validate(self, verbose = False):
+    def validate(self, verbose=False):
         r"""
         Purpose:
             - to validate the source object.
@@ -91,8 +97,8 @@ class BrachySource:
             self.mass_number: int,
             self.atomic_number: int,
             self.air_kerma_per_history: float,
-            self.reference_air_kerma: float
-            }
+            self.reference_air_kerma: float,
+        }
         for key, value in required_types.items():
             if not isinstance(key, value):
                 try:
@@ -104,7 +110,7 @@ class BrachySource:
                     print(f"BrachySource: field {key} is not of type {value}")
                 return False
         return True
-    
+
     def to_dict(self):
         r"""
         Purpose:
@@ -123,7 +129,7 @@ class BrachySource:
             "mass_number": self.mass_number,
             "atomic_number": self.atomic_number,
             "air_kerma_per_history": self.air_kerma_per_history,
-            "reference_air_kerma": self.reference_air_kerma
+            "reference_air_kerma": self.reference_air_kerma,
         }
 
     def to_string(self):
@@ -138,15 +144,15 @@ class BrachySource:
             - None
         """
         return (
-            f"/treatmentType {self.treatment_type}\n" +
-            f"/source/switch {self.source_geometry}\n" +
-            f"/source/coreMaterial {self.core_material}\n" +
-            f"/source/core/A {self.mass_number}\n" +
-            f"/source/core/Z {self.atomic_number}\n"
-            f"/parallel_world/ak_per_history {self.air_kerma_per_history}\n" +
-            f"/parallel_world/ref_ak {self.reference_air_kerma}\n"
-            )
-    
+            f"/treatmentType {self.treatment_type}\n"
+            + f"/source/switch {self.source_geometry}\n"
+            + f"/source/coreMaterial {self.core_material}\n"
+            + f"/source/core/A {self.mass_number}\n"
+            + f"/source/core/Z {self.atomic_number}\n"
+            + f"/parallel_world/ak_per_history {self.air_kerma_per_history}\n"
+            + f"/parallel_world/ref_ak {self.reference_air_kerma}\n"
+        )
+
     def to_json(self, output_path: Union[str, Path]):
         r"""
         Purpose:
@@ -162,10 +168,13 @@ class BrachySource:
         with open(output_path, "w") as f:
             json.dump(self.to_dict(), f)
 
+
 class BrachySimulation:
+    default_source = BrachySource()
+
     def __init__(
         self,
-        brachy_source: BrachySource = BrachySource(),
+        brachy_source: BrachySource = default_source,
         world_material: str = "Air",
         number_histories: int = 1e6,
         total_time: float = None,
@@ -177,11 +186,11 @@ class BrachySimulation:
         print_progress: int = 1e4,
         pth_plan: str = None,
         pth_phantom: str = None,
-        simulation_dict: Union[dict, Path, str] = None
-        ) -> None:
+        simulation_dict: Union[dict, Path, str] = None,
+    ) -> None:
         r"""
         Purpose:
-            - A class to hold the information of a brachytherapy simulation. The 
+            - A class to hold the information of a brachytherapy simulation. The
             simulations are done using the RapidBrachyMC software.
         Inputs:
             - brachy_source: BrachySource
@@ -214,7 +223,7 @@ class BrachySimulation:
             - validate(): checks if the fields are valid for export.
             - to_string(): converts the object to a string.
         """
-        
+
         assert (
             (brachy_source is not None)
             and (world_material is not None)
@@ -233,20 +242,22 @@ class BrachySimulation:
         ), "Either provide , brachy_source, world_material, number_histories, total_time,\
             dose_format, number_of_threads, control_verbose, run_verbose, tracking_verbose,\
             print_progress, pth_plan and pth_phantom or provide source_dict. Not both."
-        
+
         if simulation_dict is not None:
             if isinstance(simulation_dict, (Path, str)):
-                assert Path(simulation_dict).exists(), f"Path {simulation_dict} does not exist."
-                assert Path(simulation_dict).suffix == ".json", f"Path {simulation_dict} is not a json file."
+                assert Path(
+                    simulation_dict
+                ).exists(), f"Path {simulation_dict} does not exist."
+                assert (
+                    Path(simulation_dict).suffix == ".json"
+                ), f"Path {simulation_dict} is not a json file."
 
                 with open(simulation_dict, "r") as f:
                     simulation_dict = json.load(f)
 
             brachy_source = BrachySource(
-                source_dict=simulation_dict.get(
-                    "source_dict", BrachySource().to_dict()
-                    )
-                )
+                source_dict=simulation_dict.get("source_dict", BrachySource().to_dict())
+            )
             world_material = simulation_dict.get("world_material", "Air")
             number_histories = simulation_dict.get("number_histories", 1e6)
             total_time = simulation_dict.get("total_time", None)
@@ -271,10 +282,10 @@ class BrachySimulation:
         self.print_progress: int = print_progress
         self.pth_plan: str = pth_plan
         self.pth_phantom: str = pth_phantom
-        
+
         self.validate()
 
-    def validate(self, verbose = False):
+    def validate(self, verbose=False):
         r"""
         Purpose:
             - to validate the simulation object.
@@ -293,8 +304,8 @@ class BrachySimulation:
             self.control_verbose: int,
             self.run_verbose: int,
             self.tracking_verbose: int,
-            self.print_progress: int
-            }
+            self.print_progress: int,
+        }
         for key, value in required_types.items():
             if not isinstance(key, value):
                 try:
@@ -320,26 +331,26 @@ class BrachySimulation:
         """
         self.validate()
         return (
-            f"/treatmentType {self.brachy_source.treatment_type}\n" +
-            f"/source/switch {self.brachy_source.source_geometry}\n" +
-            f"/source/coreMaterial {self.brachy_source.core_material}\n" +
-            f"/source/core/A {self.brachy_source.mass_number}\n" +
-            f"/source/core/Z {self.brachy_source.atomic_number}\n" +
-            f"/sim/plan {self.pth_plan}\n" +
-            f"/world/phantom {self.pth_phantom}\n" +
-            f"/world/material {self.world_material}\n" +
-            f"/parallel_world/ak_per_history {self.brachy_source.air_kerma_per_history}\n" +
-            f"/parallel_world/ref_ak {self.brachy_source.reference_air_kerma}\n" +
-            f"/parallel_world/total_time {self.total_time}\n" +
-            f"/dose/format {self.dose_format}\n" +
-            f"/run/numberOfThreads {self.number_of_threads}\n" +
-            f"/run/initialize\n" +
-            f"/control/verbose {self.control_verbose}\n" +
-            f"/run/verbose {self.run_verbose}\n" +
-            f"/tracking/verbose {self.tracking_verbose}\n" +
-            f"/run/printProgress {self.print_progress}\n" +
-            f"/sim/beamOn {self.number_histories}" 
-            )
+            f"/treatmentType {self.brachy_source.treatment_type}\n"
+            + f"/source/switch {self.brachy_source.source_geometry}\n"
+            + f"/source/coreMaterial {self.brachy_source.core_material}\n"
+            + f"/source/core/A {self.brachy_source.mass_number}\n"
+            + f"/source/core/Z {self.brachy_source.atomic_number}\n"
+            + f"/sim/plan {self.pth_plan}\n"
+            + f"/world/phantom {self.pth_phantom}\n"
+            + f"/world/material {self.world_material}\n"
+            + f"/parallel_world/ak_per_history {self.brachy_source.air_kerma_per_history}\n"
+            + f"/parallel_world/ref_ak {self.brachy_source.reference_air_kerma}\n"
+            + f"/parallel_world/total_time {self.total_time}\n"
+            + f"/dose/format {self.dose_format}\n"
+            + f"/run/numberOfThreads {self.number_of_threads}\n"
+            + "/run/initialize\n"
+            + f"/control/verbose {self.control_verbose}\n"
+            + f"/run/verbose {self.run_verbose}\n"
+            + f"/tracking/verbose {self.tracking_verbose}\n"
+            + f"/run/printProgress {self.print_progress}\n"
+            + f"/sim/beamOn {self.number_histories}"
+        )
 
     def to_dict(self):
         r"""
@@ -362,9 +373,9 @@ class BrachySimulation:
             "control_verbose": self.control_verbose,
             "run_verbose": self.run_verbose,
             "tracking_verbose": self.tracking_verbose,
-            "print_progress": self.print_progress
+            "print_progress": self.print_progress,
         }
-    
+
     def to_json(self, output_path: Union[str, Path]):
         r"""
         Purpose:
