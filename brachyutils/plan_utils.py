@@ -1070,7 +1070,7 @@ class BrachyPlan:
         assert self.structure_list is not None, "structure list is not created yet"
         from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
         for structure_obj in self.structure_list:
-            # Apply structure mask to the uncertainty map
+            # resample the uncertainty image on the structure
             masked_uncertainty = resampleImage3DOnImage3D(
                 self.combined_dose.uncertainty_image,
                 structure_obj.mask
