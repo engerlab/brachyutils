@@ -22,7 +22,6 @@ def memory_limit():
     # Convert KiB to bytes, and divide in two to half
     resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * 0.98), hard))
 
-
 def get_memory():
     with open("/proc/meminfo", "r") as mem:
         free_memory = 0
@@ -32,9 +31,7 @@ def get_memory():
                 free_memory += int(sline[1])
     return free_memory  # KiB
 
-
 app = typer.Typer()
-
 
 @app.command(
     help="""Purpose: to crop the egsphant file of all patients in a directory."""
@@ -113,8 +110,8 @@ def crop_egsphant_by_body_contour_many_patients(
 
         print(f"loading the patient egsphant {pth_egsphant}")
         egsphant_obj = BrachyEgsphant(pth_egsphant)
-        egsphant_obj.crop_by_body_contour(
-            patient["body_index_range"], patient["body_mask_shape"]
+        egsphant_obj.crop_by_index(
+            index_range=patient["body_index_range"],
         )
         pth_cropped_egsphant = (
             os.path.dirname(pth_egsphant) + "/cropped_" + os.path.basename(pth_egsphant)
