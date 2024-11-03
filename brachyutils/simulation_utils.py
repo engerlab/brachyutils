@@ -1,10 +1,7 @@
+from pathlib import Path
+from typing import Union
+import json
 class BrachySource:
-    r"""
-    Purpose:
-        - This class holds the information needed for simulating a brachytherapy source using the
-        RapidBrachyMC software.
-    """
-
     def __init__(
         self,
         treatment_type:str = "HDR",
@@ -14,7 +11,7 @@ class BrachySource:
         atomic_number: int = 77,
         air_kerma_per_history: float = 1.149000e-11,
         reference_air_kerma: float = 4.278729e04,
-        source_dict: dict = None,
+        source_dict: Union[dict, Path, str] = None,
         ) -> None:
         r"""
         Purpose:
@@ -55,6 +52,13 @@ class BrachySource:
             atomic_number, air_kerma_per_history, reference_air_kerma or provide source_dict. Not both."
         
         if source_dict is not None:
+            if isinstance(source_dict, (Path, str)):
+                assert Path(source_dict).exists(), f"Path {source_dict} does not exist."
+                assert Path(source_dict).suffix == ".json", f"Path {source_dict} is not a json file."
+
+                with open(source_dict, "r") as f:
+                    source_dict = json.load(f)
+
             treatment_type = source_dict.get("treatment_type", "HDR")
             source_geometry = source_dict.get("source_geometry", "MicroSelectronV2")
             core_material = source_dict.get("core_material", "G4_Ir")
@@ -158,7 +162,7 @@ class BrachySimulation:
         print_progress: int = 1e4,
         pth_plan: str = None,
         pth_phantom: str = None,
-        simulation_dict: dict = None
+        simulation_dict: Union[dict, Path, str] = None
         ) -> None:
         r"""
         Purpose:
@@ -216,6 +220,13 @@ class BrachySimulation:
             print_progress, pth_plan and pth_phantom or provide source_dict. Not both."
         
         if simulation_dict is not None:
+            if isinstance(simulation_dict, (Path, str)):
+                assert Path(simulation_dict).exists(), f"Path {simulation_dict} does not exist."
+                assert Path(simulation_dict).suffix == ".json", f"Path {simulation_dict} is not a json file."
+
+                with open(simulation_dict, "r") as f:
+                    simulation_dict = json.load(f)
+
             brachy_source = BrachySource(
                 source_dict=simulation_dict.get(
                     "source_dict", BrachySource().to_dict()
