@@ -5,23 +5,22 @@ import resource
 from functools import partial
 from glob import glob
 from multiprocessing import Pool
+from pathlib import Path
 
 import numpy as np
 import typer
-from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose
 from brachyutils.egsphant_utils import BrachyEgsphant, _load_json
 from brachyutils.plan_utils import BrachyPlan
 from tqdm import tqdm
 from typing_extensions import Annotated
-
+from brachyutils.geometry_utils import BrachyPhantom
 
 def memory_limit():
     """Limit max memory usage to half."""
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     # Convert KiB to bytes, and divide in two to half
     resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * 0.98), hard))
-
 
 def get_memory():
     with open("/proc/meminfo", "r") as mem:
@@ -32,86 +31,7 @@ def get_memory():
                 free_memory += int(sline[1])
     return free_memory  # KiB
 
-
 app = typer.Typer()
-
-
-@app.command(
-    help="""Purpose: to exract body contour extent on each axis
-    for all the patients in input_dir and save them to a json 
-    file located at output_json"""
-)
-def get_body_contour_range_from_dicom_many_patients(
-    input_dir: Annotated[
-        str,
-        typer.Argument(
-            help="""
-    path to the directory where folders of many patients with dicom files exist. this script will loop through patient folders. \n
-    Example:
-    input_dir/p1/,
-    input_dir/p2/ ..."""
-        ),
-    ],
-    pth_output_json: Annotated[
-        str,
-        typer.Argument(
-            help="""path to the json file where the following
-        information for each patient is stored"""
-        ),
-    ],
-):
-    r"""
-    Purpose:
-        to exract body contour extent on each axis for all the patients in input_dir and save them
-        to a json file located at "output_json"
-    Input:
-        - input_dir := path to the directory where folders of many patients with dicom files exist.
-            this script will loop through patient folders. Example:
-                input_dir/p1/
-                input_dir/p2/ ...
-        - output_json := path to the json file where the following information for each patient is stored
-    Output:
-        - Void := the following content will be written to output_json for each patient:
-            {
-                patient_number:=str,
-                body_index_range:[
-                    [x_min:int, x_max:int],
-                    [y_min:int, y_max:int],
-                    [z_min:int, z_max:int],
-                ]
-                body_mask_shape:[len(x):int, len(y):int, len(z):/int]
-            }
-    """
-
-    input_dir = os.path.abspath(input_dir)
-
-    patient_dir_list = glob(input_dir + "/*/")
-    patient_dict_list = []
-
-    for patient_dir in patient_dir_list:
-        if ".dcm" not in ",".join(os.listdir(patient_dir)):
-            continue
-        try:
-            body_mask_info = BrachyDicom(
-                patient_dir, load_dose=True
-            ).get_structure_index_range(["body"])
-            body_index_range = body_mask_info["body"]["structure_index_range"]
-            body_mask_shape = body_mask_info["body"]["dicom_mask_shape"]
-            patient_dict_list.append(
-                {
-                    "patient_number": patient_dir.split("/")[-2],
-                    "body_index_range": body_index_range.tolist(),
-                    "body_mask_shape": body_mask_shape.tolist(),
-                }
-            )
-        except NameError:
-            print(f"WARNING: no body contour for patient {patient_dir}, moving on")
-            # body_index_range , body_mask_shape = np.array([]), np.array([])
-
-    json_object = json.dumps(patient_dict_list, indent=4)
-    with open(pth_output_json, "w") as outfile:
-        outfile.write(json_object)
-
 
 @app.command(
     help="""Purpose: to crop the egsphant file of all patients in a directory."""
@@ -190,8 +110,8 @@ def crop_egsphant_by_body_contour_many_patients(
 
         print(f"loading the patient egsphant {pth_egsphant}")
         egsphant_obj = BrachyEgsphant(pth_egsphant)
-        egsphant_obj.crop_by_body_contour(
-            patient["body_index_range"], patient["body_mask_shape"]
+        egsphant_obj.crop_by_index(
+            index_range=patient["body_index_range"],
         )
         pth_cropped_egsphant = (
             os.path.dirname(pth_egsphant) + "/cropped_" + os.path.basename(pth_egsphant)
@@ -268,95 +188,6 @@ def convert_dose_many_files(
                 convert_single_dose_file(single_file, type_out)
 
 
-@app.command(help="""Purpose: to crop all the dose files in a folder""")
-def crop_dose_by_body_contour_many_files(
-    patient_dose_dir: Annotated[
-        str,
-        typer.Argument(
-            help="""the directory holding patient dose files inside which there is .3ddose files to be cropped. Example: p1/run_1.3ddose, p1/run_2.3ddose"""
-        ),
-    ],
-    patient_body_range_json: Annotated[
-        str,
-        typer.Argument(
-            help="""a json file holding the list of the patient directory names as well as the index bounding range of the body contour and the original size of the body mask. This file can be generated by running the function dicom_utils.get_body_contour_range_from_many_patients_dicom().\n \
-        Example: [{"patient_number": "p1", "body_index_range": [[x_min, x_max], [y_min, y_max], [z_min,z_max]], "body_mask_shape": [512, 512, 42]}, ...] """
-        ),
-    ],
-    type_in: Annotated[
-        str,
-        typer.Option(
-            help="""could be ".3ddose", ".nrrd", ".minidos", other types could be added """
-        ),
-    ] = ".3ddose",
-    type_out: Annotated[
-        str,
-        typer.Option(
-            help="""could be ".3ddose", ".nrrd", ".minidos", other types could be added """
-        ),
-    ] = ".nrrd",
-):
-    r"""
-    Purpose:
-        to crop all the dose files in a folder
-    Input:
-        patient_dose_dir := the directory holding patient dose files inside which
-            there is .3ddose files to be cropped. Example:
-                p1/run_1.3ddose
-                p1/run_2.3ddose
-            ...
-        patient_body_range_json := a json file holding the list of the patient directory names
-            as well as the index bounding range of the body contour and the original size of the body mask.
-            This file can be generated by running the function dicom_utils.get_body_contour_range_from_many_patients_dicom().
-            run "python dicom_utils.py get_body_contour_range_from_many_patients_dicom --help" for more details.
-            Example:
-                [
-                    {
-                    "patient_number": "p1",
-                    "body_index_range": [
-                        [x_min, x_max],
-                        [y_min, y_max],
-                        [z_min,z_max]
-                    ],
-                    "body_mask_shape": [512, 512, 42]
-                    }
-                ]
-    Output:
-        - Void: the cropped dose file in .nrrd format will be written to patient_dir/cropped_basename.nrrd
-    """
-    type_in_out = [type_in, type_out]
-    list_3ddose = glob(patient_dose_dir + "/*" + type_in_out[0])
-
-    body_range_dict = _load_json(pth_json=patient_body_range_json)
-    print(patient_dose_dir)
-    patient_number = os.path.basename(patient_dose_dir)
-    patient = list(
-        filter(lambda x: patient_number == x["patient_number"], body_range_dict)
-    )[0]
-
-    print(f"the patient body mask is {patient}")
-
-    for dose_file in tqdm(list_3ddose):
-        pth_cropped_dose = (
-            os.path.dirname(dose_file)
-            + "/cropped_"
-            + os.path.basename(dose_file).split(".")[0]
-            + type_in_out[1]
-        )
-        # skip the nrrd files that already exist
-        if os.path.exists(pth_cropped_dose):
-            print(f"file already exists: {pth_cropped_dose}")
-            continue
-
-        print(f"loading the patient dose file at {dose_file}")
-        dose_obj = BrachyDose()
-        dose_obj.load_file_to_brachydose(dose_file)
-        dose_obj.crop_by_body_contour(
-            patient["body_index_range"], patient["body_mask_shape"]
-        )
-
-        print(f"writing the cropped egsphant to {pth_cropped_dose}")
-        dose_obj.write_to_nrrd(pth_cropped_dose)
 
 
 @app.command(
@@ -414,79 +245,6 @@ def crop_dose_by_ratio_many_files(
         file_base_no_extension = os.path.splitext(file)[0]
 
         dose_obj.write_brachydose_to_file(file_base_no_extension + type_out)
-
-
-@app.command()
-def padd_dose_many_files(input_dir: str, type_in: str, dim_out: str):
-    r"""
-    Purpose:
-        Will padd all files in the "input_dir" of type "type_in" with zeros to
-            have the dimensions "dim_out"
-    Inputs:
-        input_dir := directory where there are files to be converted
-        type_in := could be ".3ddose", ".nrrd", ".minidos", other types could be added
-        dim_out := the new dimensions in [z, y, x] format
-    """
-    raise Exception("This feature is not implementated yet")
-
-
-def multiply_dose_by_constant_single_file(input_name, scale_factor):
-    assert os.path.exists(input_name)
-    output_name = (
-        os.path.dirname(input_name) + "/scaled_" + os.path.basename(input_name)
-    )
-    if not os.path.exists(output_name):
-        dose_obj = BrachyDose(input_name)
-        dose_obj.multiply_dose_by_constant(scale_factor)
-        dose_obj.write_brachydose_to_file(output_name)
-
-
-@app.command(
-    help="""Purpose: Will scale all files in the "input_dir" of type "type_in" by multiplying them by "scale_factor" """
-)
-def multiply_dose_by_constant_many_files(
-    input_dir: Annotated[
-        str, typer.Argument(help="""directory where there are files to be converted""")
-    ],
-    type_in: Annotated[
-        str,
-        typer.Argument(
-            help="""could be ".3ddose", ".nrrd", ".minidos", other types could be added"""
-        ),
-    ],
-    scale_factor: Annotated[
-        float, typer.Argument(help="""the factor by which the dose will be scaled""")
-    ],
-    multi_proc: Annotated[
-        bool,
-        typer.Option(
-            help="""if set to true, multiprocessing will be used to convert files in parallel"""
-        ),
-    ] = False,
-):
-    r"""
-    Purpose:
-        Will scale all files in the "input_dir" of type "type_in"
-        by multiplying them by "scale_factor".
-    Inputs:
-        input_dir := directory where there are files to be converted
-        type_in := could be ".3ddose", ".nrrd", ".minidos", other types could be added
-        scale_factor := the factor by which the dose will be scaled
-    """
-    # raise Exception("This feature is not implementated yet")
-    assert os.path.exists(input_dir)
-
-    file_list = glob(input_dir + "/*" + type_in)
-
-    if multi_proc:
-        with Pool() as our_pool:
-            partial_dose_writer = partial(
-                multiply_dose_by_constant_single_file, scale_factor=scale_factor
-            )
-            our_pool.map(partial_dose_writer, file_list)
-    else:
-        for single_file in tqdm(file_list):
-            multiply_dose_by_constant_single_file(single_file, scale_factor)
 
 
 @app.command(
@@ -559,14 +317,19 @@ def get_uncertainty_one_patient(
     pth_dose = dir_doserate_maps + "/"
     assert os.path.exists(pth_dose)
 
+    structure_file = glob(pth_dicom + "/RS*.dcm")[0]
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=structure_file,
+        )
+
     plan_obj = BrachyPlan(
-        pth_catheterTable_json=pth_plan,
+        phantom=phantom_obj,
+        dvh_metric_goals=dvh_metric_goals,
+        catheter_table=pth_plan,
         dir_dose_rate=pth_dose,
         load_dose_or_uncertainty="uncertainty",
         multi_processing=multi_proc,
-        dvh_metric_goals=dvh_metric_goals,
-        dir_structure_source=pth_dicom,
-        dose_cropped_by_body=True,
     )
     plan_obj.calculate_uncertainty_per_structure()
 
@@ -606,7 +369,7 @@ def get_dose_map(dose_file):
         # print("\n Start Processing", dose_file)
         dose_obj = BrachyDose(dose_file, load_uncertainty=False)
         # print("\n End Processing", dose_file)
-        return dose_obj.grid
+        return dose_obj.get_dose_array()
     except (TypeError, ValueError, IndexError, IOError) as e:
         print("Error loading dose file ", dose_file, e)
         return None
@@ -635,6 +398,12 @@ def combined_dose_per_patient(
             help="""If set to true, multiprocessing will be used to load the dose files in parallel."""
         ),
     ] = True,
+    file_name: Annotated[
+        str,
+        typer.Option(
+            help="""Name of the output file (without the extension). If not provided, the default name will be combined"""
+        ),
+    ] = "combined",
 ):
     r"""
     Purpose:
@@ -645,7 +414,7 @@ def combined_dose_per_patient(
         - type_out := Format of the output file.
         - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
     """
-
+    from brachyutils.dose_utils import dose_with_empty_grid_like
     # change to absolute path since execution directory is not dir_dose_maps
     dir_dose_maps = os.path.abspath(dir_dose_maps)
 
@@ -678,16 +447,15 @@ def combined_dose_per_patient(
     progress_bar_length = n_batches
 
     # get information about the dose grid from the first file
-    dose_obj = BrachyDose(dose_files[0])
-    combined_dose_obj = BrachyDose()
+    dose_obj = BrachyDose(
+        pth_dose_file=dose_files[0]
+        )
+    combined_dose_obj = dose_with_empty_grid_like(dose_obj)
 
-    combined_dose_obj.num_voxels = dose_obj.num_voxels
-    combined_dose_obj.voxel_size = dose_obj.voxel_size
-    combined_dose_obj.origin_coordinates = dose_obj.origin_coordinates
-    combined_dose_obj.voxel_edges = dose_obj.voxel_edges
+    combined_dose_obj.set_dose_array(dose_obj.get_dose_array())
 
-    sum_dose = dose_obj.grid
-    uncertainty = np.zeros(dose_obj.grid.shape)
+    sum_dose = dose_obj.get_dose_array()
+    uncertainty = np.zeros(dose_obj.get_dose_array().shape)
 
     # chunksize =
     # multiprocessing loop
@@ -715,16 +483,16 @@ def combined_dose_per_patient(
     else:
         for dose_file in tqdm(dose_files[1:]):
             dose_obj = BrachyDose(dose_file)
-            if dose_obj.grid is not None:
-                sum_dose += dose_obj.grid
+            if dose_obj.get_dose_array() is not None:
+                sum_dose += dose_obj.get_dose_array()
             else:
                 n_batches -= 1
         mean_dose = sum_dose / n_batches
         uncertainty = np.zeros(mean_dose.shape)
         for dose_file in tqdm(dose_files):
             dose_obj = BrachyDose(dose_file)
-            if dose_obj.grid is not None:
-                uncertainty += (dose_obj.grid - mean_dose) ** 2
+            if dose_obj.get_dose_array() is not None:
+                uncertainty += (dose_obj.get_dose_array() - mean_dose) ** 2
 
     # finish uncertainty calculation
     uncertainty = np.sqrt(uncertainty / (n_batches * (n_batches - 1)))
@@ -733,36 +501,23 @@ def combined_dose_per_patient(
     )  # avoid divide by 0 with small perturbation
 
     # write the combined dose to file
-    combined_dose_obj.grid = mean_dose
-    combined_dose_obj.uncertainty = uncertainty
+    combined_dose_obj.set_dose_array(mean_dose)
+    combined_dose_obj.set_uncertainty_array(uncertainty)
 
     print(
         "Combining ",
         n_batches,
-        " 3ddose files complete",
+        " dose files complete",
         "writing to ",
-        dir_dose_maps + "combined" + type_out,
+        dir_dose_maps + file_name + type_out,
     )
 
     if type_out == ".3ddose":
-        combined_dose_obj.write_to_3ddose(dir_dose_maps + "combined.3ddose")
+        combined_dose_obj.write_to_3ddose(dir_dose_maps + file_name + ".3ddose")
     elif type_out == ".nrrd":
-        combined_dose_obj.write_to_nrrd(dir_dose_maps + "combined.nrrd")
+        combined_dose_obj.write_to_nrrd(dir_dose_maps + file_name + ".nrrd")
     elif type_out == ".minidos":
-        combined_dose_obj.write_to_minidos(dir_dose_maps + "combined.minidos")
-
-
-def export_plan_single_patient(
-    dir_images_and_structures: str,
-    pth_plan: str,
-    pth_material_table: str,
-    dir_plan_export: str,
-):
-    r"""
-    Purpose:
-        - To export the simulation of a single patient to a directory.
-    """
-    raise NotImplementedError
+        combined_dose_obj.write_to_minidos(dir_dose_maps + file_name + ".minidos")
 
 
 def main():
