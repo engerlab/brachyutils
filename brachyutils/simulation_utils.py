@@ -146,6 +146,21 @@ class BrachySource:
             f"/parallel_world/ak_per_history {self.air_kerma_per_history}\n" +
             f"/parallel_world/ref_ak {self.reference_air_kerma}\n"
             )
+    
+    def to_json(self, output_path: Union[str, Path]):
+        r"""
+        Purpose:
+            - to convert the object to a json string.
+        Input:
+            - self: BrachySource
+            - output_path: Union[str, Path]
+        Output:
+            - a json string containing the information of the source.
+        Dependencies:
+            - json
+        """
+        with open(output_path, "w") as f:
+            json.dump(self.to_dict(), f)
 
 class BrachySimulation:
     def __init__(
@@ -349,3 +364,18 @@ class BrachySimulation:
             "tracking_verbose": self.tracking_verbose,
             "print_progress": self.print_progress
         }
+    
+    def to_json(self, output_path: Union[str, Path]):
+        r"""
+        Purpose:
+            - to convert the object to a json string.
+        Input:
+            - self: BrachySimulation
+            - output_path: Union[str, Path]
+        Output:
+            - a json string containing the information of the simulation.
+        Dependencies:
+            - json
+        """
+        with open(output_path, "w") as f:
+            json.dump(self.to_dict(), f)
