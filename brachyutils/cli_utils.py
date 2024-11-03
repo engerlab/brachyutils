@@ -317,14 +317,19 @@ def get_uncertainty_one_patient(
     pth_dose = dir_doserate_maps + "/"
     assert os.path.exists(pth_dose)
 
+    structure_file = glob(pth_dicom + "/RS*.dcm")[0]
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=structure_file,
+        )
+
     plan_obj = BrachyPlan(
-        pth_catheterTable_json=pth_plan,
+        phantom=phantom_obj,
+        dvh_metric_goals=dvh_metric_goals,
+        catheter_table=pth_plan,
         dir_dose_rate=pth_dose,
         load_dose_or_uncertainty="uncertainty",
         multi_processing=multi_proc,
-        dvh_metric_goals=dvh_metric_goals,
-        dir_structure_source=pth_dicom,
-        dose_cropped_by_body=True,
     )
     plan_obj.calculate_uncertainty_per_structure()
 

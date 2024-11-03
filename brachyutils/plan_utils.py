@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import List, Literal, Union
 
 import numpy as np
-from opentps.core.data import DVH, ROIContour
+from opentps.core.data import DVH, ROIMask
 
 # from multipledispatch import dispatch
 from scipy import interpolate, ndimage
@@ -38,7 +38,7 @@ class BrachyStructure:
 
         Basic Attributes
         - name:str
-        - mask: ROIContour
+        - mask: ROIMask
         - target_volume: bool
 
         DVH Attributes:
@@ -78,7 +78,7 @@ class BrachyStructure:
     def __init__(
         self,
         name: str = None,
-        mask_contour: ROIContour = None,
+        mask_contour: ROIMask = None,
         target_volume: bool = None,
         in_dvh: bool = None,
         dvh_metric_name: str = None,
@@ -89,7 +89,7 @@ class BrachyStructure:
             - To initialize the BrachyStructure object.
         Inputs:
             - name:str := the name of the structure.
-            - mask_contour:ROIContour := the mask contour of the structure.
+            - mask_contour:ROIMask := the mask contour of the structure.
             - target_volume:bool := flag to indicate whether the structure is a target volume or not.
             - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
             - dvh_metric_name:str := the name of the DVH metric in the format of "D#cc|%(organName)",
@@ -98,11 +98,11 @@ class BrachyStructure:
         Outputs:
             - Void := will initialize the BrachyStructure object
         Dependencies:
-            - opentps.core.data.ROIContour
+            - opentps.core.data.ROIMask
             - opentps.core.data.DVH
         """
         self.name: str = None
-        self.mask_contour: ROIContour = None
+        self.mask_contour: ROIMask = None
         self.target_volume: bool = None
 
         # dose volume histogram
@@ -836,7 +836,7 @@ class BrachyPlan:
             x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()
         ]
         structure_masks: dict = phantom.get_structure_mask(
-            structure_names_in_dvh, ROIContour
+            structure_names_in_dvh, ROIMask
         )
         for metric_key, mask_key in zip(dvh_metric_goals, structure_masks):
             structure_obj = BrachyStructure(
@@ -1065,16 +1065,18 @@ class BrachyPlan:
             - Void := will update the BrachyStructure.uncertainty attribute
         """
         assert (
-            self.combined_dose.uncertainty is not None
+            self.combined_dose.uncertainty_image is not None
         ), "combined uncertainty is not calculated yet"
         assert self.structure_list is not None, "structure list is not created yet"
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
         for structure_obj in self.structure_list:
             # Apply structure mask to the uncertainty map
-            masked_uncertainty = self.combined_dose.uncertainty * structure_obj.mask
+            masked_uncertainty = resampleImage3DOnImage3D(
+                self.combined_dose.uncertainty_image,
+                structure_obj.mask
+                )
             # isolate the uncertainty values that are in the mask
-            flattened_uncertainty = masked_uncertainty[
-                structure_obj.mask != 0
-            ].flatten()
+            flattened_uncertainty = masked_uncertainty.imageArray.flatten()
             # generate a histogram from the masked uncertainty
             histogram, bins_edges = np.histogram(
                 flattened_uncertainty,
