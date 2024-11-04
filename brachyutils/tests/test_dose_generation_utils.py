@@ -71,10 +71,11 @@ def make_plan_and_export_it() -> Path:
     return Path(dir_export)
 
 def test_DoseTG43():
-    dose_setup = make_plan_and_export_it()
+    # dose_setup = make_plan_and_export_it()
+    dose_setup = Path("../data_test/test_export_plan")
     dose_generator = DoseTG43(
         dir_dose_setup=dose_setup,
-        pth_dose_executable="path/to/dose/executable",
+        pth_dose_executable=dose_setup,
     )
     dose_generator.validate_inputs()
 
