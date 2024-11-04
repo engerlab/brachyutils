@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import List, Literal, Union
 
 import numpy as np
-from opentps.core.data import DVH, ROIMask
+from opentps.core.data import DVH
+from opentps.core.data.images import ROIMask
 
 # from multipledispatch import dispatch
 from scipy import interpolate, ndimage
@@ -441,7 +442,7 @@ class BrachyPlan:
 
         # # load the simulation setup if the dictionary is provided
         if combined_simulation_dict is not None:
-            self.combined_simulation_setup = BrachySimulation(combined_simulation_dict)
+            self.combined_simulation_setup = BrachySimulation(simulation_dict=combined_simulation_dict)
 
         # load the applicator list if the path is provided
         if applicator_pth_list is not None and applicator_format is not None:

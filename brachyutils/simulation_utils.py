@@ -12,7 +12,7 @@ class BrachySource:
         mass_number: int = 192,
         atomic_number: int = 77,
         air_kerma_per_history: float = 1.149000e-11,
-        reference_air_kerma: float = 4.278729e04,
+        reference_air_kerma: float = None,#4.278729e04,
         source_dict: Union[dict, Path, str] = None,
     ) -> None:
         r"""
@@ -51,7 +51,7 @@ class BrachySource:
         ) != (
             source_dict is not None
         ), "Either provide treatment_type, source_geometry, core_material, mass_number,\
-            atomic_number, air_kerma_per_history, reference_air_kerma or provide source_dict. Not both."
+        atomic_number, air_kerma_per_history, reference_air_kerma or provide source_dict. Not both."
 
         if source_dict is not None:
             if isinstance(source_dict, (Path, str)):
@@ -170,7 +170,7 @@ class BrachySource:
 
 
 class BrachySimulation:
-    default_source = BrachySource()
+    default_source = BrachySource(reference_air_kerma=4.278729e04)
 
     def __init__(
         self,
@@ -256,7 +256,9 @@ class BrachySimulation:
                     simulation_dict = json.load(f)
 
             brachy_source = BrachySource(
-                source_dict=simulation_dict.get("source_dict", BrachySource().to_dict())
+                source_dict=simulation_dict.get(
+                    "source_dict",
+                    BrachySimulation.default_source.to_dict())
             )
             world_material = simulation_dict.get("world_material", "Air")
             number_histories = simulation_dict.get("number_histories", 1e6)
