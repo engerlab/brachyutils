@@ -36,7 +36,49 @@ class DoseGenerator(ABC):
 
         # this will be set by the generate_dose() method
         self.dose: BrachyDose = None
-        
+    
     @abstractmethod
+    def validate_inputs(self):
+        r"""
+        Purpose:
+            - Abstract method to validate the inputs of the dose generator.
+            Each dose generator should implement this method.
+        """
+        pass
+    
+    @abstractmethod
+    def generate_dose(self, pth_output: Optional[Path] = None):
+        r"""
+        Purpose:
+            - Abstract method to generate the dose distribution.
+            Each dose generator should implement this method.
+        Inputs:
+            - pth_output: Optional[Path]: If provided, the dose distribution will be saved to this path.     
+        """
+        if pth_output is not None:
+            self.dose.write_brachydose_to_file(pth_output)
+
+class DoseTG43(DoseGenerator):
+    def __init__(
+        self,
+        egsphant: BrachyEgsphant,
+        brachysource: BrachySource,
+        catheter_table: CatheterTable,
+        ) -> None:
+        r"""
+        Purpose:
+            - A class to generate dose distribution using the TG43 formalism. 
+            This class uses RapidBrachyTG43 to calculate the dose distribution.
+        """
+        super().__init__(egsphant, brachysource, catheter_table)
+    
     def generate_dose(self, filename: Optional[Path] = None):
+        r"""
+        Purpose:
+            - Generate the dose distribution using the TG43 formalism.
+        Inputs:
+            - filename: Optional[Path] = None
+        """
+        # do the dose calculation here
+        # self.dose = BrachyDose(...)
         pass
