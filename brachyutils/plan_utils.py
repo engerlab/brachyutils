@@ -1,34 +1,31 @@
 import gc
 import json
 import os
-import re
+
+# import re
 import warnings
 from copy import deepcopy
 from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
-from typing import List
+from pathlib import Path
+from typing import List, Literal, Union
 
 import numpy as np
+from opentps.core.data import DVH
+from opentps.core.data.images import ROIMask
 
 # from multipledispatch import dispatch
 from scipy import interpolate, ndimage
 
 # from typing import Optional
 from tqdm import tqdm
-from vtk import (
-    vtkCellArray,
-    vtkPoints,
-    vtkPolyData,
-    vtkTransform,
-    vtkTransformPolyDataFilter,
-)
-from vtk.util import numpy_support
-from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
 
-from brachyutils.dicom_utils import BrachyDicom
+# from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
-from brachyutils.egsphant_utils import BrachyEgsphant
+
+# from brachyutils.egsphant_utils import BrachyEgsphant
+from brachyutils.geometry_utils import BrachyApplicator, BrachyPhantom, CatheterTable
 from brachyutils.simulation_utils import BrachySimulation
 
 
@@ -42,15 +39,15 @@ class BrachyStructure:
 
         Basic Attributes
         - name:str
-        - mask
-        - target_volume
+        - mask: ROIMask
+        - target_volume: bool
 
         DVH Attributes:
-        - in_dvh
-        - dvh_metric_name
-        - dvh_metric_clinical_goal
-        - dvh_metric_observed
-        - normalized_cummulative_dvh
+        - in_dvh: bool
+        - dvh_metric_name: str
+        - dvh_metric_clinical_goal: str
+        - dvh_metric_observed: float
+        - dvh_obj: opentps.core.data.DVH
 
         Uncertainty Attributes:
         - uvh
@@ -79,9 +76,34 @@ class BrachyStructure:
         - to_dict(export_format:str)
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        name: str = None,
+        mask_contour: ROIMask = None,
+        target_volume: bool = None,
+        in_dvh: bool = None,
+        dvh_metric_name: str = None,
+        dvh_metric_clinical_goal: float = None,
+    ) -> None:
+        r"""
+        Purpose:
+            - To initialize the BrachyStructure object.
+        Inputs:
+            - name:str := the name of the structure.
+            - mask_contour:ROIMask := the mask contour of the structure.
+            - target_volume:bool := flag to indicate whether the structure is a target volume or not.
+            - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
+            - dvh_metric_name:str := the name of the DVH metric in the format of "D#cc|%(organName)",
+            "V#Gy|%(organName)", where # represents the numerical threshold and "|" is or for example D95%(organName).
+            - dvh_metric_clinical_goal:float := the clinical goal for the DVH metric.
+        Outputs:
+            - Void := will initialize the BrachyStructure object
+        Dependencies:
+            - opentps.core.data.ROIMask
+            - opentps.core.data.DVH
+        """
         self.name: str = None
-        self.mask: np.array = None  # shape: (z, y, x)
+        self.mask_contour: ROIMask = None
         self.target_volume: bool = None
 
         # dose volume histogram
@@ -89,7 +111,8 @@ class BrachyStructure:
         self.dvh_metric_name: str = None
         self.dvh_metric_clinical_goal: float = None
         self.dvh_metric_observed: float = None
-        self.normalized_cummulative_dvh: np.array = None
+        # self.normalized_cummulative_dvh: np.array = None
+        self.dvh_obj: DVH = None
 
         # uncertainty volume histogram
         self.uvh: np.array = None
@@ -113,38 +136,73 @@ class BrachyStructure:
         self.density_mode: str = None  # ""
         self.material: str = None  # "CT Material"
 
+        self.name = name
+        self.mask_contour = mask_contour
+        self.target_volume = target_volume
+        self.in_dvh = in_dvh
+        self.dvh_metric_name = dvh_metric_name
+        self.dvh_metric_clinical_goal = dvh_metric_clinical_goal
+
+        assert (
+            self.name.lower() in self.dvh_metric_name.lower()
+        ), "name should be in dvh metric name enclosed by paranthesis"
+
     def get_dvh_metric(self, combined_dose: BrachyDose):
-        assert self.mask is not None, "mask is not loaded"
+        r"""
+        Purpose:
+            - To calculate the DVH metric for the structure given the combined dose.
+            The mask contour and DVH metrics should be set before calling this function.
+            We expect the the dvh metric name to be in the format of "D#cc(organName)",
+            "D#%(organName)", "V#Gy(organName)" or "V#%(organName)", where # is the threshold
+            value. for example "D95%(organName)".
+        Inputs:
+            - combined_dose := the combined dose object for the patient.
+        Outputs:
+            - Void := will update the BrachyStructure.dvh_metric_observed and
+            BrachyStructure.dvh_obj attributes.
+        """
+        assert self.mask_contour is not None, "mask is not loaded"
         assert self.dvh_metric_name is not None, "dvh metric name is not set"
         assert (
             self.dvh_metric_clinical_goal is not None
         ), "dvh metric clinical goal is not set"
+        assert isinstance(
+            combined_dose, BrachyDose
+        ), "combined dose is not a BrachyDose object"
+        self.dvh_obj = DVH(self.mask_contour, combined_dose.dose_image)
+        metric_string = self.dvh_metric_name.split("(")[0]
 
-        num_bins = int(combined_dose.grid.max() * 10) + 1
-        total_dose_max = combined_dose.grid.max()
-
-        structure_dose = combined_dose.grid * self.mask
-        structure_dose = structure_dose[structure_dose != 0].flatten()
-        voxel_volume = np.prod(combined_dose.voxel_size)
-        num_voxels_in_structure = np.sum(self.mask)
-
-        if "%" in self.dvh_metric_name:
-            histogram_limit = float(*re.findall(r"-?\d+\.?\d*", self.dvh_metric_name))
-        elif "cc" in self.dvh_metric_name:
-            histogram_limit = (
-                float(*re.findall(r"-?\d+\.?\d*", self.dvh_metric_name))
-                / (voxel_volume * num_voxels_in_structure)
-                * 100
-            )
+        if "D" in metric_string:
+            if "%" in metric_string:
+                threshold = float(metric_string.split("%")[0].split("D")[-1])
+                self.dvh_metric_observed = self.dvh_obj.computeDx(threshold)
+            elif "cc" in metric_string:
+                threshold = float(metric_string.split("cc")[0].split("D")[-1])
+                self.dvh_metric_observed = self.dvh_obj.computeDcc(threshold)
+            else:
+                raise ValueError(
+                    "invalid name for DVH metric name. \
+                    The metrics starting with 'D' should have percent sign (%) or cc.\
+                    for example 'D95%(organ name)' or 'D2cc(organ name)'"
+                )
+        elif "V" in metric_string:
+            if "%" in metric_string:
+                threshold = float(metric_string.split("%")[0].split("V")[-1])
+                self.dvh_metric_observed = self.dvh_obj.computeVx(threshold)
+            elif "Gy" in metric_string:
+                threshold = float(metric_string.split("Gy")[0].split("V")[-1])
+                self.dvh_metric_observed = self.dvh_obj.computeVx(threshold)
+            else:
+                raise ValueError(
+                    "invalid name for DVH metric name. \
+                    The metrics starting with 'V' should have percent sign (%) or Gy.\
+                    for example 'V95%(organ name)' or 'V2Gy(organ name)'"
+                )
         else:
             raise ValueError(
                 "invalid name for DVH metric name. \
-                The metric should have percent sign (%) or cc."
+                The metric should should start with D followed by cc or %, or V followed by Gy or %."
             )
-
-        self.dvh_metric_observed, self.normalized_cummulative_dvh = dvh_metric(
-            structure_dose, num_bins, total_dose_max, histogram_limit, voxel_volume
-        )
 
     def to_dict(self, export_format: str):
         r"""
@@ -188,426 +246,8 @@ class BrachyStructure:
                 "uniformity_weight": self.penalty_weight_uniformity,
             }
 
-
-class BrachyApplicator:
-    r"""
-    Purpose:
-        - This class holds the information regarding the brachytherapy applicator.
-        as well as all the functions to support the necessary applicator operations.
-
-    Attributes:
-        - path:str := path to the applicator geometry file.
-        - name:str := name of the applicator, which is taken as the basename of the path.
-        - applicator_mesh := the vtk mesh of the applicator.
-        - verticies:np.array := the verticies of the applicator mesh.
-        - faces:np.array := the faces of the applicator mesh.
-        - origin:np.array := the origin of the applicator.
-        - rotation:np.array := the rotation of the applicator.
-        - material:str := the material of the applicator.
-        - density:float := the density of the applicator.
-        - normal:np.array := the normal of the applicator in the patient coordinate system. this is used for RapidBrachy only.
-
-    Functions:
-        - load_stl(pth_input:str)
-        - load_json(pth_input:str)
-        - to_dict()
-        - to_json(pth_output:str)
-        - to_mac(pth_output: str)
-    """
-
-    def __init__(
-        self,
-        pth_input_file: str,
-        material: str = None,
-        density: float = None,
-        origin: np.array = None,
-        rotation: np.array = None,
-        rotation_origin: np.array = None,
-        coordinates: np.array = None,
-        normal: np.array = None,
-        catheter_trajectory: list = None,
-    ) -> None:
-        """
-        Purpose:
-            - Initialize the Applicator object.
-        Inputs:
-            - pth_input_file (str): The path to the input file.
-            - material (str, optional): The material of the applicator. Defaults to None.
-            - density (float, optional): The density of the applicator. Defaults to None.
-            - origin (np.array, optional): The origin of the applicator in [x,y,z] . Defaults to None.
-            - rotation (np.array, optional): The rotation vector of the applicator in [w,x,y,z]. Defaults to None.
-            - rotation_origin (np.array, optional): The origin point with respect to which the rotaion vector is created.
-            - coordinates (np.array, optional): The coordinates of the applicator in patient frame. Defaults to None.
-            - normal (np.array, optional): The normal of the applicator in the patient frame. Defaults to None.
-            - catheter_trajectory: (list, optional): The list of start dwell poisition and end dwell position of the catheter inside
-            the applicator [[x,y,z,x,y,z]]. Defaults to None.
-        Outputs:
-            - Void: an applicator object is created dependeing on the inputs.
-        """
-        assert os.path.exists(pth_input_file), "input file does not exist"
-        self.path = pth_input_file
-        self.name = os.path.splitext(os.path.basename(self.path))[0]
-        self.applicator_mesh: vtkPolyData = None
-        self.verticies: np.array = None
-        self.faces: np.array = None
-        self.origin: np.array = np.array([0, 0, 0])  # [x, y, z]
-        self.rotation: np.array = np.array([0, 0, 0, 0])  # [w, x, y, z]
-        self.coordinates: np.array = np.array([0, 0, 0])  # [x, y, z]
-        self.material: str = None
-        self.density: float = None
-        self.normal: np.array = None
-        self.catheter_trajectory: np.array = None
-
-        input_extension = os.path.splitext(self.path)[1]
-        if input_extension == ".stl":
-            self.load_stl(self.path)
-        elif input_extension == ".json":
-            self.load_json(self.path)
-        else:
-            raise ValueError("invalid input file extension")
-
-        if material is not None:
-            self.material = material
-        if density is not None:
-            self.density = density
-        if origin is not None:
-            self.set_origin(origin)
-        if rotation is not None and rotation_origin is not None:
-            self.set_rotation(rotation, rotation_origin)
-        if coordinates is not None:
-            self.set_coordinates(coordinates)
-        if normal is not None:
-            self.normal = normal
-        if catheter_trajectory is not None:
-            self.catheter_trajectory = catheter_trajectory
-
-    def load_stl(self, pth_input: str) -> None:
-        r"""
-        Purpose:
-            - To load the applicator geometry from an stl file.
-        Inputs:
-            - pth_input:str := path to the stl file containing the applicator geometry.
-        Outputs:
-            - Void := will update the BrachyApplicator object based on the stl file.
-        """
-        reader = vtkSTLReader()
-        reader.SetFileName(pth_input)
-        reader.Update()
-        self.applicator_mesh = reader.GetOutput()
-        self._update_brachy_applicator_from_applicator_mesh()
-
-    def load_json(self, pth_input: str) -> None:
-        r"""
-        Purpose:
-            - To load the applicator geometry from a json file.
-        Inputs:
-            - pth_input:str := path to the stl file containing the applicator geometry.
-        Outputs:
-            - Void := will update the BrachyApplicator object based on the json file.
-        """
-        with open(pth_input, "r") as json_file:
-            applicator_dict = json.load(json_file)
-
-        self.verticies = np.array(applicator_dict["verticies"], dtype=np.float32)
-        self.faces = np.array(applicator_dict["faces"], dtype=np.int32)
-        self.set_origin(np.array(applicator_dict["origin"]))
-        self.set_rotation(np.array(applicator_dict["rotation"]))
-        self.set_coordinates(np.array(applicator_dict["coordinates"]))
-        self.material = applicator_dict["material"]
-        self.density = applicator_dict["density"]
-
-    def load_mac(self, pth_input: str) -> None:
-        r"""
-        Purpose:
-            - To load the applicator geometry from a mac file.
-        Inputs:
-            - pth_input:str := path to the mac file containing the applicator geometry.
-        Outputs:
-            - Void := will update the BrachyApplicator object based on the mac file.
-        """
-        raise NotImplementedError("to be implemented soon")
-
-    def info(self) -> None:
-        r"""
-        Purpose:
-            - To print the information about the applicator.
-        Inputs:
-            - self := the BrachyApplicator object.
-        Outputs:
-            - Void := will print the information about the applicator.
-        """
-        print("Applicator info is as follows:")
-        print(self.to_dict())
-
-    def is_equal(self, other) -> bool:
-        r"""
-        Purpose:
-            - To compare the current applicator with another applicator.
-        Inputs:
-            - other:BrachyApplicator := the other applicator to compare with.
-        Outputs:
-            - bool := True if the two applicators are equal, False otherwise.
-        """
-        if type(self) != type(other):
-            return False
-        if self.name != other.name:
-            return False
-        if not np.isclose(self.verticies, other.verticies, atol=1e-6).all():
-            return False
-        if not np.isclose(self.faces, other.faces, atol=1e-6).all():
-            return False
-        if not np.isclose(self.origin, other.origin, atol=1e-6).all():
-            return False
-        if not np.isclose(self.rotation, other.rotation, atol=1e-6).all():
-            return False
-        if self.material != other.material:
-            return False
-        if self.density != other.density:
-            return False
-        return True
-
-    def _update_applicator_mesh_from_brachy_applicator(self) -> None:
-        r"""
-        Purpose:
-            - To update the applicator mesh from the verticies and faces.
-        Inputs:
-            - self := the BrachyApplicator object.
-        Outputs:
-            - Void := will update the applicator mesh from the verticies and faces.
-        """
-        points = vtkPoints()
-        for vertex in self.verticies:
-            points.InsertNextPoint(vertex)
-        self.applicator_mesh.SetPoints(points)
-
-        cell_array = vtkCellArray()
-        for face in self.faces:
-            cell_array.InsertNextCell(3, face)
-        self.applicator_mesh.SetPolys(cell_array)
-
-    def _update_brachy_applicator_from_applicator_mesh(self) -> None:
-        r"""
-        Purpose:
-            - To update the brachy applicator from the applicator mesh.
-        Inputs:
-            - self := the BrachyApplicator object.
-        Outputs:
-            - Void := will update the brachy applicator from the applicator mesh.
-        """
-        self.verticies = numpy_support.vtk_to_numpy(
-            self.applicator_mesh.GetPoints().GetData()
-        )
-        self.faces = numpy_support.vtk_to_numpy(
-            self.applicator_mesh.GetPolys().GetData()
-        )
-        self.faces = self.faces.reshape(-1, 4)[:, 1:]
-
-    def set_origin(self, origin: np.array) -> None:
-        r"""
-        Purpose:
-            - To set the origin of the applicator.
-        Inputs:
-            - origin:np.array := the origin of the applicator.
-        Outputs:
-            - Void := will update the applicator verticies based on the new origin.
-        """
-        old_origin = self.origin
-        change_in_origin = np.ones_like(self.verticies) * (origin - old_origin)
-        self.origin = origin
-        self.verticies += change_in_origin
-        self._update_applicator_mesh_from_brachy_applicator()
-
-    def set_rotation(
-        self, rotation: np.array, rotation_origin: np.array = None
-    ) -> None:
-        r"""
-        Purpose:
-            - To set the rotation of the applicator.
-            the rotation origin is assumed to be the origin of applicator. To rotate the
-            applicator around its center, coordinates of the center of applicator should
-            be provided. The rotation angle is the first element of the rotation vector. the rotation
-            axis is the last three elements of the rotation vector [w,x,y,z].
-        Inputs:
-            - rotation:np.array := the rotation of the applicator.
-            The rotation vector is in quaternion ([w, x, y, z]).
-            - rotation_origin:np.array := the origin of the rotation. if not provided, the
-            origin of the applicator will be used.
-        Outputs:
-            - Void := will update the applicator verticies based on the new rotation.
-        """
-        # set the rotation attribute
-        self.rotation = rotation
-        # by default, the rotation origin is the origin of the applicator
-        # if rotation is provided, the applicator is translated to the rotation origin
-        # then it is rotated and translated back to the original position.
-        if rotation_origin is not None:
-            transform_translate = vtkTransform()
-            transform_translate.Translate(
-                -rotation_origin[0], -rotation_origin[1], -rotation_origin[2]
-            )
-            transform_translate_filter = vtkTransformPolyDataFilter()
-            transform_translate_filter.SetTransform(transform_translate)
-            transform_translate_filter.SetInputData(self.applicator_mesh)
-            transform_translate_filter.Update()
-            self.applicator_mesh = transform_translate_filter.GetOutput()
-
-        # # now apply the rotation
-        # create the transformation matrix
-        transform = vtkTransform()
-        transform.RotateWXYZ(rotation[0], rotation[1], rotation[2], rotation[3])
-
-        # apply the transformation
-        transform_filter = vtkTransformPolyDataFilter()
-        transform_filter.SetTransform(transform)
-        transform_filter.SetInputData(self.applicator_mesh)
-        transform_filter.Update()
-        self.applicator_mesh = transform_filter.GetOutput()
-
-        # if rotation origin is provided, translate the applicator back to the original position
-        if rotation_origin is not None:
-            transform_translate = vtkTransform()
-            transform_translate.Translate(
-                rotation_origin[0], rotation_origin[1], rotation_origin[2]
-            )
-            transform_translate_filter = vtkTransformPolyDataFilter()
-            transform_translate_filter.SetTransform(transform_translate)
-            transform_translate_filter.SetInputData(self.applicator_mesh)
-            transform_translate_filter.Update()
-            self.applicator_mesh = transform_translate_filter.GetOutput()
-
-        # update the BrachyApplicator based on the transformation
-        self._update_brachy_applicator_from_applicator_mesh()
-
-    def set_coordinates(self, coordinates: np.array) -> None:
-        r"""
-        Purpose:
-            - to located the applicator at a given coordinate with respect to
-            self.origin.
-        Inputs:
-            - coordinates:np.array := the coordinates of the applicator.
-        Outputs:
-            - Void := will update the applicator verticies based on the new coordinates.
-        """
-        # set the coordinate attributes
-        self.coordinates = coordinates
-
-        # create transformation matrix
-        transform = vtkTransform()
-        transform.Translate(coordinates[0], coordinates[1], coordinates[2])
-
-        # apply the transformation
-        transform_filter = vtkTransformPolyDataFilter()
-        transform_filter.SetTransform(transform)
-        transform_filter.SetInputData(self.applicator_mesh)
-        transform_filter.Update()
-        self.applicator_mesh = transform_filter.GetOutput()
-
-        # update the BrachyApplicator based on the transformation
-        self._update_brachy_applicator_from_applicator_mesh()
-
-    def _update_catheter_trajectory(
-        self,
-    ) -> None:
-        r"""
-        Purpose:
-            - to update the trajectory of the dwell positions inside the applicator after the applicator has
-            been rotated or translated.
-        Inputs:
-            - self := the BrachyApplicator object.
-        Outputs:
-            - Void := will update the catheter trajectory.
-        """
-
-        raise NotImplementedError("to be implemented soon")
-
-    def to_dict(self) -> dict:
-        r"""
-        Purpose:
-            - To convert the applicator geometry to a dictionary.
-        Inputs:
-            - self := the BrachyApplicator object.
-        Outputs:
-            - dict := the dictionary containing the applicator geometry.
-        """
-        return {
-            "name": self.name,
-            "path": self.path,
-            # "verticies": self.verticies.tolist(),
-            # "faces": self.faces.tolist(),
-            "origin": self.origin,
-            "rotation": self.rotation,
-            "material": self.material,
-            "density": self.density,
-            "normal": self.normal,
-            "catheter_trajectory": self.catheter_trajectory,
-        }
-
-    def to_json(self, pth_output: str) -> None:
-        r"""
-        Purpose:
-            - To save the applicator geometry to a json file.
-        Inputs:
-            - pth_output:str := path to the output json file.
-        Outputs:
-            - Void := will save the applicator geometry to a json file.
-        """
-        applicator_dict = self.to_dict()
-
-        with open(pth_output, "w") as json_file:
-            json.dump(applicator_dict, json_file, indent=4)
-
-    def to_mac(self, pth_output: str) -> None:
-        r"""
-        Purpose:
-            - To save the applicator geometry to a mac file.
-        Inputs:
-            - pth_output:str := path to the output mac file.
-        Outputs:
-            - Void := will save the applicator geometry to a mac file.
-        """
-        macfile_string = ""
-
-        # add in the vertex info
-        float_formatter = "{:.3f}".format
-        for vertex in self.verticies:
-            macfile_string += f"/source_world/vertex {float_formatter(vertex[0])} {float_formatter(vertex[1])} {float_formatter(vertex[2])} mm\n"
-
-        # add in the face info
-        for face in self.faces:
-            macfile_string += f"/source_world/face {face[0]} {face[1]} {face[2]}\n"
-        # add in the material info
-        macfile_string += f"/source_world/material {self.material}\n"
-        # add in the density info
-        macfile_string += f"/source_world/density {self.density}\n"
-        # add in the origin info
-        macfile_string += "/source_world/xPosition 0 mm\n"
-        macfile_string += "/source_world/yPosition 0 mm\n"
-        macfile_string += "/source_world/zPosition 0 mm\n"
-        # add in rotation nfo
-        macfile_string += "/source_world/xRotation 0 deg\n"
-        macfile_string += "/source_world/yRotation 0 deg\n"
-        macfile_string += "/source_world/zRotation 0 deg\n"
-        # add in the done flag
-        macfile_string += "/source_world/done\n"
-
-        with open(pth_output, "w") as mac_file:
-            mac_file.write(macfile_string)
-
-    def to_stl(self, pth_output: str) -> None:
-        r"""
-        Purpose:
-            - To save the applicator geometry to an stl file.
-        Inputs:
-            - pth_output:str := path to the output stl file.
-        Outputs:
-            - Void := will save the applicator geometry to an stl file.
-        """
-        self._update_applicator_mesh_from_brachy_applicator()
-        # write the polydata to an stl file
-        stl_writer = vtkSTLWriter()
-        stl_writer.SetFileName(pth_output)
-        stl_writer.SetInputData(self.applicator_mesh)
-        stl_writer.Write()
+    def info(self):
+        print(self.to_dict("RapidBrachy"))
 
 
 class BrachyPlan:
@@ -618,11 +258,7 @@ class BrachyPlan:
 
     Attributes:
         - num_dwells:int := the number of dwell positions in the plan
-        - catheter_table:list := a list of catheter dictionaries. each catheter dictionary
-        contains the keys "dwells", "id", and points. the value belonging to the "dwells" key
-        is a list of dwell position dictionary. The dwell position dictionary contains the keys:
-        "angle", "position", "relativePos", "rotation", "time", and "weight". for more info,
-        look at the function BrachyPlan.load_catheterTable_json()
+        - catheter_table:CatheterTable := an instance of the geometry_utils.CatheterTable class
         - dwell_numbers:np.array := the dwell number of each dwell position in the plan
         - dwell_times:np.array := the dwell time of each dwell position in the plan
         - dwell_coordinates:list := a list of dictionaries. each dictionary contains the
@@ -635,14 +271,13 @@ class BrachyPlan:
         - brachy_structure:list[BrachyStructure] := the list of patient structures in the plan.
 
     Functions:
-        - load_catheterTable_json()
         - _extract_dwell_numbers_times_coordinates_from_catheterTable()
         - _update_catheter_table_from_plan()
         - _update_dose_after_change_in_plan()
         - load_dose_rate_or_uncertainty_tensor()
         - _calculate_combined_dose()
         - set_dvh_metric_goals()
-        - create_structures()
+        - create_brachy_structure_set()
         - calculate_dvh_metrics()
         - _calculate_combined_uncertainty()
         - calculate_uncertainty_per_structure()
@@ -651,44 +286,50 @@ class BrachyPlan:
 
     def __init__(
         self,
-        # for loading dicom
-        dir_dicom: str = None,
+        # for geometry definition:
+        phantom: Union[Path, BrachyPhantom, dict] = None,
         # for structure creation:
-        dvh_metric_goals: dict = None,
-        pth_structure_source: str = None,
-        dose_cropped_by_body: bool = False,
-        # for loading catheter table:
-        pth_catheter_table_json: str = None,
+        dvh_metric_goals: Union[dict, Path] = None,
+        # for loading catheter table and/or applicators:
+        catheter_table: Union[Path, CatheterTable] = None,
+        applicator_pth_list: Union[Path, str, list] = None,
+        applicator_format:Literal["RapidBrachy", "WebApp"] = None,
         # for loading dose or uncertainty:
-        dir_dose_rate: str = None,
-        type_dose_file: str = ".nrrd",
-        load_dose_or_uncertainty: str = "dose",
+        combined_dose: Union[Path, str, BrachyDose] = None,
+        dir_dose_rate: Path = None,
+        type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
+        load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
         multi_processing: bool = False,
+        combined_dose_only: bool = False,
         # for simulation setup:
         combined_simulation_dict: dict = None,
-        dir_egsphant: str = None,
-        # for applicator setup
-        pth_applicator_list_json: str = None,
-        applicator_format: str = "RapidBrachy",
     ):
         r"""
         Purpose:
             - To initialize the BrachyPlan object.
         Inputs:
-            # for loading catheter table:
-            - pth_catheter_table_json:str := path to a json file containing the information of the catheter table.
-            # for loading dose or uncertainty:
+            ### For geometry definition:
+            - phantom: Path|BrachyPhantom|dict := the phantom object, the path to the phantom directory,
+            or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
+
+            ### For Structure optimization and dosimetry
+            - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
+            The phantom should be loaded with structures for the Brachy stuctures to be created.
+
+            ### for loading catheter table:
+            - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
+
+            ### for loading dose rates or uncertainty maps per dwell position:
             - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
             - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
             - load_dose_or_uncertainty:str = "dose" := specify whether to load "dose" or "uncertainty" or "both" (default is "dose").
             - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
-            # for structure creation:
-            - dvh_metric_goals:dict = None := dictionary containing the DVH metric goals (default is None).
-            - pth_structure_source:str = None := path to the directory containing the structures (default is None).
-            - dose_cropped_by_body:bool = True := flag to indicate whether the dose is cropped by body (default is True).
+            - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
+
+            ### for simulation setup:
             - combined_simulation_dict = None := dictionary containing the simulation setup,
             - dir_egsphant = None := path to the directory containing the egsphant file,
-            - pth_applicator_list_json := path to the json file containing the applicator list. See load_applicator_list() for more info.
+            - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
             - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
         Outputs:
             - Void := will initialize the BrachyPlan object
@@ -699,15 +340,30 @@ class BrachyPlan:
         # patient origin is used as a reference point for the catheter table,
         # the dwell coordinates, image origin, egsphant, and the dose objects.
         # XXX: figure out how to sort out patient origin to match all above.
-        self.patient_origin = np.array([0, 0, 0])  # x,y,z
+
+        # phantom and geometry attributes
+        self.phantom = None
+        self.dvh_metric_goals: dict = None
+        self.dvh_metric_observed: dict = None
+        self.structure_list: List[BrachyStructure] = []
+        self.phantom_origin = None  # np.array([0, 0, 0])  # x,y,z
+        self.organ_bounds = None
+
         # catheter table attributes
-        self.catheter_table = None
+        self.catheter_table: CatheterTable = None
         self.num_catheters = None
         self.catheter_numbers = np.array([], dtype=int)  # shape: (num_catheters, 1)
         self.num_dwells = None
         self.dwell_numbers = np.array([], dtype=int)  # shape: (num_dwells, 1)
         self.dwell_times = np.array([], dtype=np.float32)  # shape: (num_dwells, 1)
         self.dwell_coordinates = []  # shape: (num_dwells, 3)
+
+        # applicator attributes
+        self.applicator_list: List[BrachyApplicator] = []
+        # XXX: figure out if the two below are dwell or applicator attributes?
+        # they are dwell attributes that are impacted by applicator rotation. for now, leave them be.
+        self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
+        self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
         # dose attributes
         self.dose_rate_tensor = np.array(
@@ -718,28 +374,13 @@ class BrachyPlan:
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
 
-        # sturctures attributes
-        # self.organ_bounds = None
-        self.dvh_metric_goals: dict = None
-        self.dvh_metric_observed: dict = None
-        self.structure_list: List[BrachyStructure] = []
-
-        # dicom image
-        self.dicom_obj: BrachyDicom = None
-
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
-        self.egsphant: BrachyEgsphant = None
-        self.applicator_list: List[BrachyApplicator] = []
-        # XXX: figure out if the two below are dwell or applicator attributes?
-        # they are dwell attributes that are impacted by applicator rotation. for now, leave them be.
-        self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
-        self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
         # optimization attributes
         self.optimizer = None
 
-        # fill the attributes depending on the inputs to the constructor
+        ## fill the attributes depending on the inputs to the constructor
         # set the dvh metric goals if provided
         (
             self.set_dvh_metric_goals(dvh_metric_goals)
@@ -748,152 +389,148 @@ class BrachyPlan:
         )
 
         # load the dicom plan if the path is provided
-        if dir_dicom is not None:
-            self.load_brachy_plan_from_dicom(dir_dicom, dose_cropped_by_body)
+        if phantom is not None:
+            if isinstance(phantom, BrachyPhantom):
+                self.phantom = phantom
+            elif (
+                isinstance(phantom, Path)
+                or isinstance(phantom, str)
+                or isinstance(phantom, dict)
+            ):
+                self.load_phantom(phantom)
+            else:
+                raise ValueError("phantom should be a BrachyPhantom object or a path")
+        # create structures based on the phantom structures and DVH metric goals
+        if self.phantom is not None and self.dvh_metric_goals is not None:
+            self.create_brachy_structure_set(
+                phantom=self.phantom,
+                dvh_metric_goals=self.dvh_metric_goals,
+            )
 
         # load the catheter table if the path is provided
-        if pth_catheter_table_json is not None:
-            self.load_catheterTable_json(pth_catheter_table_json)
+        if catheter_table is not None:
+            if isinstance(catheter_table, Path) or isinstance(catheter_table, str):
+                self.catheter_table = CatheterTable(pth_catheter_table=catheter_table)
+            elif isinstance(catheter_table, CatheterTable):
+                self.catheter_table = catheter_table
+            else:
+                raise ValueError(
+                    "catheter_table should be a path or a CatheterTable object"
+                )
+            self._extract_dwell_numbers_times_coordinates_from_catheterTable()
 
         # load the dose rate tensor if the path is provided
-        if dir_dose_rate is not None:
+        if dir_dose_rate is not None and combined_dose is None:
             self.load_dose_rate_or_uncertainty_tensor(
-                dir_dose_rate,
+                dir_dose_rate=dir_dose_rate,
                 type_dose_file=type_dose_file,
                 load_dose_or_uncertainty=load_dose_or_uncertainty,
                 multi_processing=multi_processing,
+                combined_dose_only=combined_dose_only,
             )
-
-        # create the structures if the path is provided
-        if pth_structure_source is not None:
-            self.create_structures(
-                dir_structures_source=pth_structure_source,
-                dose_cropped_by_body=dose_cropped_by_body,
+        elif dir_dose_rate is None and combined_dose is not None:
+            if isinstance(combined_dose, BrachyDose):
+                self.combined_dose = combined_dose
+            elif isinstance(combined_dose, Path) or isinstance(combined_dose, str):
+                self.combined_dose = BrachyDose(Path(combined_dose))
+        elif dir_dose_rate is not None and combined_dose is not None:
+            raise ValueError(
+                "invalid input. Please provide either dir_dose_rate or combined_dose but not both"
             )
+        else:
+            warnings.warn("no dose rate is loaded", stacklevel=2)
 
-        # load the simulation setup if the dictionary is provided
-        if dir_egsphant is not None:
-            self.egsphant = BrachyEgsphant(dir_egsphant)
+        # # load the simulation setup if the dictionary is provided
         if combined_simulation_dict is not None:
-            self.combined_simulation_setup = BrachySimulation(combined_simulation_dict)
+            self.combined_simulation_setup = BrachySimulation(simulation_dict=combined_simulation_dict)
 
         # load the applicator list if the path is provided
-        if pth_applicator_list_json is not None:
-            self.load_applicator_list(pth_applicator_list_json, applicator_format)
+        if applicator_pth_list is not None and applicator_format is not None:
+            self.load_applicator_list(applicator_pth_list, applicator_format)
 
-    def load_brachy_plan_from_dicom(
-        self, dir_dicom: str, dose_cropped_by_body: bool = False
-    ):
+    def load_phantom(self, pth_phantom: Union[Path, dict]):
         r"""
         Purpose:
-            - To load the brachytherapy plan from a directory containing the dicom files.
-            depending on the availability of the RP, RS and RD dicom files, the plan will be
-            loaded in different ways.
+            - To load phantom from file path into Brachy Plan. Not that if a directory is provided,
+            it should have only one phantom file.
         Inputs:
-            - dir_dicom := path to the directory containing the dicom files.
+            - pth_phantom:str := The phantom path could be a directory of DICOM files
+            or a directory of NRRD files. In addition, it could be the path to a json
+            file containing paths to specific phantom files. Look at the inputs of BrachPhantom
+            for more information on the expected keys of the json file.
         Outputs:
-            - Void := will update the BrachyPlan.dicom_obj as well other attribute
-        Dependencies:
-            - BrachyDicom
+            - Void := will update the BrachyPlan.phantom attribute
         """
-        file_list_dcm = glob(os.path.join(dir_dicom, "*.dcm"))
-        file_list_dcm = [os.path.basename(file).split(".")[0] for file in file_list_dcm]
-        all_names = ",".join(file_list_dcm)
-
-        load_structure = True if "RS" in all_names else False
-        load_plan = True if "RP" in all_names else False
-        load_dose = True if "RD" in all_names else False
-
-        try:
-            self.dicom_obj = BrachyDicom(
-                pth_dir_dicom=dir_dicom,
-                load_structure=load_structure,
-                load_plan=load_plan,
-                load_dose=load_dose,
-            )
-        except Exception as e:
-            print(f"Error in loading all dicom files: {e}")
-            try:
-                self.dicom_obj = BrachyDicom(
-                    pth_dir_dicom=dir_dicom,
-                    load_structure=load_structure,
-                    load_plan=load_plan,
-                    load_dose=False,
-                )
-            except Exception as e:
-                print(f"Error in loading dicom dose file: {e}")
-                try:
-                    self.dicom_obj = BrachyDicom(
-                        pth_dir_dicom=dir_dicom,
-                        load_structure=load_structure,
-                        load_plan=False,
-                        load_dose=False,
+        os.path.exists(pth_phantom), f"phantom path does not exist: {pth_phantom}"
+        # initialize the inputs to the BrachyPhantom object
+        dir_dicom = None
+        pth_phantom_file = None
+        pth_structures_file = None
+        pth_egsphant_file = None
+        # if the paths are provided as a dictionary
+        if isinstance(pth_phantom, dict):
+            phantom_config = pth_phantom
+            for key in phantom_config:
+                if key == "dir_dicom":
+                    dir_dicom = phantom_config.get(key)
+                elif key == "pth_phantom_file":
+                    pth_phantom_file = phantom_config.get(key)
+                elif key == "pth_structures_file":
+                    pth_structures_file = phantom_config.get(key)
+                elif key == "pth_egsphant_file":
+                    pth_egsphant_file = phantom_config.get(key)
+        # check if the pth_phantom is a directory or a json file
+        elif os.path.isdir(pth_phantom):
+            print("loading phantom from directory")
+            # check if the directory contains dicom files or nrrd files
+            file_list = glob(os.path.join(pth_phantom, "*.dcm"))
+            if len(file_list) > 0:
+                dir_dicom = pth_phantom
+                pth_structures_file = list(filter(lambda x: "RS" in x, file_list))[0]
+            else:
+                file_list = glob(os.path.join(pth_phantom, "*.nrrd"))
+                if len(file_list) > 0:
+                    for file_name in file_list:
+                        if file_name.endswith(".seg.nrrd"):
+                            pth_structures_file = file_name
+                        elif file_name.endswith(".egsphant.nrrd"):
+                            pth_egsphant_file = file_name
+                        elif file_name.endswith(".nrrd"):
+                            pth_phantom_file = file_name
+                    if pth_egsphant_file is None:
+                        pth_egsphant_file = glob(
+                            os.path.join(pth_phantom, "ct.egsphant.nrrd")
+                        )
+                        if len(pth_egsphant_file) == 0:
+                            pth_egsphant_file = None
+                else:
+                    raise ValueError(
+                        "invalid directory. Please provide a directory containing dicom or nrrd files"
                     )
-                except Exception as e:
-                    print(f"Error in loading dicom plan file: {e}")
-                    self.dicom_obj = BrachyDicom(
-                        pth_dir_dicom=dir_dicom,
-                        load_structure=False,
-                        load_plan=False,
-                        load_dose=False,
-                    )
+        else:
+            assert (
+                os.path.splitext(pth_phantom)[1] == ".json"
+            ), "invalid file format. Please provide a json file"
+            with open(pth_phantom, "r") as json_file:
+                phantom_config = json.load(json_file)
+            for key in phantom_config:
+                if key == "dir_dicom":
+                    dir_dicom = phantom_config.get(key)
+                elif key == "pth_phantom_file":
+                    pth_phantom_file = phantom_config.get(key)
+                elif key == "pth_structures_file":
+                    pth_structures_file = phantom_config.get(key)
+                elif key == "pth_egsphant_file":
+                    pth_egsphant_file = phantom_config.get(key)
 
-        if load_structure:
-            self.create_structures(
-                structure_mask_dict=self.dicom_obj.structure_mask_dict,
-                dose_cropped_by_body=dose_cropped_by_body,
-            )
-
-        if load_plan:
-            self.catheter_table = self.dicom_obj.catheter_table
-            self._extract_dwell_numbers_times_coordinates_from_catheterTable()
-
-        if load_dose:
-            self.combined_dose = self.dicom_obj.dose
-
-    def load_catheterTable_json(self, pth_catheter_table_json: str):
-        r"""
-        Purpose:
-            - To load the contents of a catheter table into the Brachy plan.
-        Inputs:
-            - pth_catheter_table_json := path to a json file having the info on the catheter table.
-            here is the expected contents of the catheter table json:
-            [
-                {
-                    "dwells":[
-                        "angle":= angle of the IMBT shield
-                        "position":{ := dwell position in the patient coordinate system
-                            "x",
-                            "y",
-                            "z"
-                        },
-                        "relativePos":= dwell coordinate along the catheter from the reference point. increments of 5 mm
-                        "rotation": { := rotation of the dwell position in the patient coordinate system
-                            "x",
-                            "y",
-                            "z"
-                        },
-                        "time" := dwell time for this dwell position
-                        "weight" := ratio of this dwell time over the sum of all dwell times in all catheters.
-                        ...,
-                    ],
-                    "id":= the id of the caheter,
-                    "points":[] := i do not know what this is. in all plans i have seen, it has been lefty empty
-                }
-            ]
-        Outputs:
-            - Void := will update the BrachyPlan.catheter_table attribute
-        Dependencies:
-            - json
-        """
-        # reset catheter table in case of a re-read
-        self.catheter_table = None
-        # load the json file
-        with open(pth_catheter_table_json, "r") as json_file:
-            catheter_table = json.load(json_file)
-
-        self.catheter_table = catheter_table
-        self._extract_dwell_numbers_times_coordinates_from_catheterTable()
+        # load the phantom
+        self.phantom = BrachyPhantom(
+            dir_dicom=dir_dicom,
+            pth_phantom_file=pth_phantom_file,
+            pth_structures_file=pth_structures_file,
+            pth_egsphant_file=pth_egsphant_file,
+        )
+        self.phantom_origin = self.phantom.image_obj.origin
 
     def _extract_dwell_numbers_times_coordinates_from_catheterTable(self):
         r"""
@@ -903,8 +540,8 @@ class BrachyPlan:
         Inputs:
             - self := the BrachyPlan object
         Outputs:
-            - Void := will update the BrachyPlan.dwell_numbers, BrachyPlan.dwell_times,
-            and BrachyPlan.dwell_coordinates attributes
+            - Void := will update the self.dwell_numbers, self.dwell_times,
+            and self.dwell_coordinates attributes
         """
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
@@ -924,27 +561,25 @@ class BrachyPlan:
 
         # extract the attributes above from the catheter table
         dwell_counter = 1
-        for catheter in self.catheter_table:
-            self.catheter_numbers = np.append(self.catheter_numbers, catheter["id"])
-            for dwell in catheter["dwells"]:
+        for catheter in self.catheter_table.catheter_list:
+            self.catheter_numbers = np.append(self.catheter_numbers, catheter.id)
+            for dwell in catheter.dwells:
                 self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
-                self.dwell_times = np.append(self.dwell_times, dwell["time"])
+                self.dwell_times = np.append(self.dwell_times, dwell.time)
                 self.dwell_coordinates.append(
                     {
-                        "angle": dwell["angle"],
-                        "position": dwell["position"],
-                        "rotation": dwell["rotation"],
-                        "relativePos": dwell["relativePos"],
-                        "catheterId": catheter["id"],
+                        "angle": dwell.angle,
+                        "position": dwell.position,
+                        "rotation": dwell.rotation,
+                        "relativePos": dwell.relativePos,
+                        "catheterId": catheter.id,
                     }
                 )
                 dwell_counter += 1
-
         assert (
             len(self.catheter_numbers) - 1 == self.catheter_numbers[-1]
         ), "catheter numbers are not extracted correctly"
         self.num_catheters = len(self.catheter_numbers)
-
         assert (
             len(self.dwell_numbers) == self.dwell_numbers[-1]
         ), "dwell numbers are not extracted correctly"
@@ -958,14 +593,14 @@ class BrachyPlan:
         Inputs:
             - self := the BrachyPlan object
         Outputs:
-            - Void := will update the BrachyPlan.catheter_table attribute
+            - Void := will update the self.catheter_table attribute
         """
         assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
         assert self.dwell_times.size != 0, "dwell times are not extracted"
         assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
         assert self.num_dwells is not None, "number of dwells is not extracted"
 
-        self.catheter_table = []
+        new_catheter_table = []
 
         for catheter_i in self.catheter_numbers:
             catheter = {}
@@ -977,22 +612,27 @@ class BrachyPlan:
                 if self.dwell_coordinates[dwell_i - 1]["catheterId"] != catheter_i:
                     continue
                 dwell["angle"] = float(self.dwell_coordinates[dwell_i - 1]["angle"])
-                dwell["position"] = list(
-                    self.dwell_coordinates[dwell_i - 1]["position"].astype(np.float64)
-                )
-                dwell["relativePos"] = float(
+                dwell["position"] = {
+                    "x": float(self.dwell_coordinates[dwell_i - 1]["position"][0]),
+                    "y": float(self.dwell_coordinates[dwell_i - 1]["position"][1]),
+                    "z": float(self.dwell_coordinates[dwell_i - 1]["position"][2]),
+                }
+                dwell["relativePos"] = int(
                     self.dwell_coordinates[dwell_i - 1]["relativePos"]
                 )
-                dwell["rotation"] = list(
-                    self.dwell_coordinates[dwell_i - 1]["rotation"].astype(np.float64)
-                )
+                dwell["rotation"] = {
+                    "x": float(self.dwell_coordinates[dwell_i - 1]["rotation"][0]),
+                    "y": float(self.dwell_coordinates[dwell_i - 1]["rotation"][1]),
+                    "z": float(self.dwell_coordinates[dwell_i - 1]["rotation"][2]),
+                }
                 dwell["time"] = float(self.dwell_times[dwell_i - 1].item())
                 dwell["weight"] = float(
                     (self.dwell_times[dwell_i - 1] / np.sum(self.dwell_times)).item()
                 )
                 catheter["dwells"].append(deepcopy(dwell))
 
-            self.catheter_table.append(deepcopy(catheter))
+            new_catheter_table.append(deepcopy(catheter))
+        self.catheter_table = CatheterTable(catheter_list=new_catheter_table)
 
     def _update_dose_after_change_in_plan(self):
         r"""
@@ -1011,9 +651,10 @@ class BrachyPlan:
     def load_dose_rate_or_uncertainty_tensor(
         self,
         dir_dose_rate: str,
-        type_dose_file: str = ".nrrd",
-        load_dose_or_uncertainty: str = "dose",
+        type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
+        load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
         multi_processing: bool = False,
+        combined_dose_only: bool = False,
     ):
         r"""
         Purpose:
@@ -1029,6 +670,7 @@ class BrachyPlan:
             - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
             - multi_processing := if True, the dose rate files will be loaded in parallel. By default,
             we use 8 cores for parallel processing.
+            - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
         Outputs:
             - Void := will update the BrachyPlan.dose_rate_tensor attribute
         Dependencies:
@@ -1078,20 +720,21 @@ class BrachyPlan:
                 )
 
         else:
-            dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
+            # dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
+            dose_or_uncertainty_list = [None] * len(dose_rate_files)
             for i, pth_dose_rate in tqdm(enumerate(dose_rate_files)):
                 dose_or_uncertainty_list[i] = _load_single_dose_or_uncertainty_to_dict(
                     pth_dose_rate, load_dose_or_uncertainty
                 )
-            print(dose_or_uncertainty_list.shape)
+            # print(dose_or_uncertainty_list.shape)
 
         if load_dose_or_uncertainty == "both":
             self.dose_rate_tensor = np.array(
-                dose_or_uncertainty_list[:, 0], dtype=np.float32
-            )
+                dose_or_uncertainty_list, dtype=np.float32
+            )[:, 0]
             self.uncertainty_tensor = np.array(
-                dose_or_uncertainty_list[:, 1], dtype=np.float32
-            )
+                dose_or_uncertainty_list, dtype=np.float32
+            )[:, 1]
         elif load_dose_or_uncertainty == "dose":
             self.dose_rate_tensor = np.array(dose_or_uncertainty_list, dtype=np.float32)
         elif load_dose_or_uncertainty == "uncertainty":
@@ -1112,12 +755,16 @@ class BrachyPlan:
             self._calculate_combined_dose()
         if load_dose_or_uncertainty != "dose":
             self._calculate_combined_uncertainty()
+        # free up memory
+        if combined_dose_only:
+            self.dose_rate_tensor = None
+            self.uncertainty_tensor = None
 
-        if len(self.structure_list) != 0:
-            for structure in self.structure_list:
-                structure.mask = _resize_structure_mask(
-                    structure.mask, self.combined_dose.grid.shape
-                )
+        # if len(self.structure_list) != 0:
+        #     for structure in self.structure_list:
+        #         structure.mask = _resize_structure_mask(
+        #             structure.mask, self.combined_dose.grid.shape
+        #         )
 
     def _calculate_combined_dose(self):
         """
@@ -1136,15 +783,13 @@ class BrachyPlan:
         ), "dwell times array is empty. Run _extract_dwell_numbers_times_coordinates_from_catheterTable()"
 
         # calculate the combined dose and store the result in the combined_dose attribute
-        # this implementation is a little slow, and very very memory efficient
+        temp_dose_array = np.zeros_like(self.dose_rate_tensor[0])
         for i in range(self.num_dwells):
-            self.combined_dose.grid += self.dose_rate_tensor[i] * self.dwell_times[i]
-            # this implementation is a bit faster, but very memory inefficient
-            # self.combined_dose.grid = np.sum(
-            #     self.dose_rate_tensor * self.dwell_times[:, np.newaxis, np.newaxis, np.newaxis],
-            #     axis=0)
+            temp_dose_array += self.dose_rate_tensor[i] * self.dwell_times[i]
 
-    def set_dvh_metric_goals(self, dvh_metric_goals: dict):
+        self.combined_dose.set_dose_array(temp_dose_array)
+
+    def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
         Purpose:
             - To set the dvh metric list of the BrachyPlan object.
@@ -1154,146 +799,67 @@ class BrachyPlan:
         Outputs:
             - Void := will update the BrachyPlan.dvh_metric_goals attribute
         """
+        if isinstance(dvh_metric_goals, Path):
+            with open(dvh_metric_goals, "r") as json_file:
+                dvh_metric_goals = json.load(json_file)
+
         for dvh_metric in dvh_metric_goals:
-            assert (
-                "D" in dvh_metric
+            assert dvh_metric.startswith("D") or dvh_metric.startswith(
+                "V"
             ), "dvh metric name should start with D as we are only supporting dose metrics for now"
             assert (
                 "cc" in dvh_metric or "%" in dvh_metric
             ), "dvh metric name should end with cc or '%' to signify the absolute or relative volume"
             assert (
                 dvh_metric_goals[dvh_metric] is not None
-            ), "for each dvh metric, the clinical threshold should be provided in Gy."
+            ), "for each dvh metric, the clinical threshold should be provided in Gy or %."
 
         self.dvh_metric_goals = dvh_metric_goals
 
-    def create_structures(
-        self,
-        structure_mask_dict: dict = None,
-        dir_structures_source: str = None,
-        dose_cropped_by_body: bool = False,
+    def create_brachy_structure_set(
+        self, phantom: BrachyPhantom, dvh_metric_goals: dict
     ):
         r"""
         Purpose:
-            - To create a list of BrachyStructure objects given the path to the directory
-            containing the structure masks. the list is stored in the BrachyPlan.structure_list attribute.
-            Eeach BrachyStructure object will have attributes for the structure mask, the dose volume
-            and uncertainty volume histograms, optimization attributes, and simulation attributes.
-
-            The basic (mandatory) attributes are the structure name, mask and whether it is a target volume or not.
-            If dvh metric goals are set, the BrachyStructure object will automatically update the DVH attributes
-            in the BrachyStructure object.
-
+            - To create a list of BrachyStructure objects from the structures in the phantom and
+            the DVH metric goals. Each BrachyStructure object will have attributes for the structure
+            contour, the DVH and uncertainty volume histograms, optimization attributes, and simulation attributes.
         Inputes:
-            - structure_mask_dict:dict := a dictionary with the structure name as key and the mask as value. This
-            dictionary can be obtained from self.dicom_obj.structure_mask_dict.
-
-            - dir_structures_source := path to the directory containing the structure masks.
-            this could be dicom file (starting with RS) or nrrd files. If self.dicom_obj is not None,
-            using this parameter will over-ride the previous structure objects.
-
+            - self.phantom := the phantom with its structures fully loaded.
+            - self.dvh_metric_goals := the dvh metric goals dictionary
         Outputs:
             - Void := will update the BrachyPlan.structure_list attribute
         Dependencies:
-            - BrachyDicom
+            # - BrachyDicom
         """
-        # contour names are assigned based on the keys in the structure mask dictionary
-        if structure_mask_dict is None:
-            # assert dir_structures_source is not None, "dir_structures_source is not provided"
-            try:
-                structure_mask_dict = _load_structure_mask(dir_structures_source)
-            except Exception:
-                raise ValueError(
-                    "Either structure mask should be provided or dir_structure_source"
-                ) from None
-
-        # get the key corresponding to the body contour, which is used to squeeze the structure mask
-        body_key = list(
-            filter(lambda x: "body" in x.lower(), structure_mask_dict.keys())
-        )[0]
-
-        for structure_name in structure_mask_dict.keys():
-            structure_obj = BrachyStructure()
-            # get the name based on the structure mask dictionary key
-            structure_obj.name = structure_name
-
-            # get the mask from the structure mask dictionary
-            structure_obj.mask = structure_mask_dict[structure_name]
-            if dose_cropped_by_body:
-                # obtain the range of body contour on each axis.
-                # we assume that the body contour contains the word "body" in its name
-                body_index_range = np.zeros([3, 2], dtype=int)
-                for i in range(3):
-                    body_index_range[i, :] = np.floor(
-                        np.array(
-                            [
-                                np.argwhere(structure_mask_dict[body_key] == 1)[
-                                    :, i
-                                ].min(),
-                                # off set of +1 is added to acount for python stopping before range end
-                                np.argwhere(structure_mask_dict[body_key] == 1)[
-                                    :, i
-                                ].max()
-                                + 1,
-                            ]
-                        )
-                    ).astype(int)
-                # apply body contour mask to the structure mask
-                structure_obj.mask = structure_obj.mask[
-                    body_index_range[0][0] : body_index_range[0][1],
-                    body_index_range[1][0] : body_index_range[1][1],
-                    body_index_range[2][0] : body_index_range[2][1],
-                ]
-            # resize the mask to match the dose grid if dose grid exists
-            structure_obj.mask = (
-                _resize_structure_mask(
-                    structure_obj.mask, self.combined_dose.grid.shape
-                )
-                if self.combined_dose is not None
-                else structure_obj.mask
+        self.structure_list = []
+        structure_names_in_dvh = [
+            x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()
+        ]
+        structure_masks: dict = phantom.get_structure_mask(
+            structure_names_in_dvh, ROIMask
+        )
+        for metric_key, mask_key in zip(dvh_metric_goals, structure_masks):
+            structure_obj = BrachyStructure(
+                name=mask_key,
+                mask_contour=structure_masks[mask_key],
+                target_volume=True if "tv" in metric_key.lower() else False,
+                in_dvh=True,
+                dvh_metric_name=metric_key,
+                dvh_metric_clinical_goal=dvh_metric_goals[metric_key],
             )
-
-            # get the dvh metric goals if they are set
-            if self.dvh_metric_goals is not None:
-                try:
-                    dvh_metric = list(
-                        filter(
-                            lambda x: x.split("(")[-1].split(")")[0].lower()
-                            in structure_obj.name,
-                            self.dvh_metric_goals.keys(),
-                        )
-                    )[0]
-                except IndexError as e:
-                    print(f"{structure_obj.name} is not in the dvh metric goals. {e}")
-                    structure_obj.in_dvh = False
-                    continue
-
-                structure_obj.in_dvh = True
-                structure_obj.dvh_metric_name = dvh_metric.split("(")[0]
-                structure_obj.dvh_metric_clinical_goal = self.dvh_metric_goals[
-                    dvh_metric
-                ]
-
-            # get the simulation parameters for that structure
-            if self.simulation_setup is not None:
-                raise NotImplementedError("to be implemented soon")
-
-            if self.optimizer is not None:
-                raise NotImplementedError("to be implemented soon")
-
-            # add the structure object to the structure list
             self.structure_list.append(structure_obj)
 
     def load_applicator_list(
         self,
-        pth_applicator_list_json: str,
+        applicator_list_pth: Union[list, Path, str],
         format: str = "WebApp",
     ):
         r"""
         Purpose:
             - To load the applicator list from a json file containing the applicator geometry.
         Inputs:
-            - pth_applicator_list_json:str := path to the json file containing the applicator list with N applicators.
+            - applicator_list_pth:str := path to the json file containing the applicator list with N applicators.
             The items inside this list have the attributes bellow. If any left empty, the default value will be used.
             these attributes could be changed later using the setter functions.
 
@@ -1327,8 +893,9 @@ class BrachyPlan:
         Outputs:
             - Void := will update the BrachyPlan.applicator_list attribute
         """
-        with open(pth_applicator_list_json, "r") as json_file:
-            applicator_list = json.load(json_file)
+        if isinstance(applicator_list_pth, Path) or isinstance(applicator_list_pth, str):
+            with open(applicator_list_pth, "r") as json_file:
+                applicator_list = json.load(json_file)
         if format == "RapidBrachy":
             num_applicators = len(applicator_list["densities"])
 
@@ -1463,19 +1030,11 @@ class BrachyPlan:
 
         normalized_times = self.dwell_times / np.sum(self.dwell_times)
 
-        # This implementation is a little slow, and very very memory efficient
-        self.combined_dose.uncertainty = np.zeros_like(self.combined_dose.grid)
+        uncertainty = np.zeros_like(self.combined_dose.get_dose_array())
         for i in range(self.num_dwells):
-            self.combined_dose.uncertainty += (
-                self.uncertainty_tensor[i] * normalized_times[i]
-            ) ** 2
-        self.combined_dose.uncertainty = np.sqrt(self.combined_dose.uncertainty)
-
-        # This implementation is a bit faster, but very memory inefficient
-        # self.combined_dose.uncertainty = np.sqrt(
-        #     np.sum(
-        #         (self.uncertainty_tensor * normalized_times[:, np.newaxis, np.newaxis, np.newaxis])**2,
-        #         axis=0))
+            uncertainty += (self.uncertainty_tensor[i] * normalized_times[i]) ** 2
+        uncertainty = np.sqrt(uncertainty)
+        self.combined_dose.set_uncertainty_array(uncertainty)
 
     def calculate_dvh_metrics(self):
         r"""
@@ -1507,16 +1066,18 @@ class BrachyPlan:
             - Void := will update the BrachyStructure.uncertainty attribute
         """
         assert (
-            self.combined_dose.uncertainty is not None
+            self.combined_dose.uncertainty_image is not None
         ), "combined uncertainty is not calculated yet"
         assert self.structure_list is not None, "structure list is not created yet"
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
         for structure_obj in self.structure_list:
-            # Apply structure mask to the uncertainty map
-            masked_uncertainty = self.combined_dose.uncertainty * structure_obj.mask
+            # resample the uncertainty image on the structure
+            masked_uncertainty = resampleImage3DOnImage3D(
+                self.combined_dose.uncertainty_image,
+                structure_obj.mask
+                )
             # isolate the uncertainty values that are in the mask
-            flattened_uncertainty = masked_uncertainty[
-                structure_obj.mask != 0
-            ].flatten()
+            flattened_uncertainty = masked_uncertainty.imageArray.flatten()
             # generate a histogram from the masked uncertainty
             histogram, bins_edges = np.histogram(
                 flattened_uncertainty,
@@ -1562,7 +1123,7 @@ class BrachyPlan:
             or ".nrrd". The keys are:
 
                 - "dose":bool,
-                - "dose type":str := "nrrd", "minidos" or "3ddose",
+                - "dose_type":str := "nrrd", "minidos" or "3ddose",
                 - "uncertainty", "dose rate maps",
                 - "catheter_table", "plan", "mac", "egsphant",
                 - "ApplicatorMaterials", applicator_geometry", "structure_set",
@@ -1605,7 +1166,11 @@ class BrachyPlan:
 
             if content_to_export["egsphant"]:
                 # assumes file name is "ct.egsphant"
-                self._export_egsphant(dir_export)
+                self._export_egsphant(
+                    dir_export,
+                    content_to_export.get("materials_table", None),
+                    content_to_export.get("assign_material_from_ct", True)
+                    )
                 print("Egsphant file was exported successfully")
 
             if content_to_export["applicator_geometry"]:
@@ -1615,7 +1180,10 @@ class BrachyPlan:
 
             if content_to_export["structure_set"]:
                 # assumes file name is "structure_set.json"
-                self._export_structure_set(dir_export)
+                self._export_structure_set(
+                    dir_export,
+                    content_to_export.get("materials_table", None)
+                )
                 print("structure set file was exported successfully")
 
         else:
@@ -1705,7 +1273,7 @@ class BrachyPlan:
         """
         file_path = dir_export + "/catheter_table.json"
         with open(file_path, "w") as file:
-            json.dump(self.catheter_table, file, indent=4)
+            json.dump(self.catheter_table.to_dict(), file, indent=4)
 
     def _export_plan_file(self, dir_export: str):
         r"""
@@ -1736,8 +1304,8 @@ class BrachyPlan:
         for dwell_i in range(self.num_dwells):
 
             dwell_coordinates_str = np.array(
-                list(self.dwell_coordinates[dwell_i]["position"].values())
-                + list(self.dwell_coordinates[dwell_i]["rotation"].values())
+                list(self.dwell_coordinates[dwell_i]["position"])
+                + list(self.dwell_coordinates[dwell_i]["rotation"])
                 + [self.dwell_coordinates[dwell_i]["angle"]]
                 + list(self.applicator_rotation_axis)
                 + list(self.applicator_rotation_origin),
@@ -1817,19 +1385,40 @@ class BrachyPlan:
         with open(dir_export + "/combined.mac", "w") as file:
             file.write(self.combined_simulation_setup.to_string())
 
-    def _export_egsphant(self, dir_export: str):
+    def _export_egsphant(
+        self,
+        dir_export: Union[str, Path],
+        material_dict: Union[dict, Path],
+        assign_material_from_ct: bool,
+    ):
         r"""
         Purpose:
             - to export the egsphant file of the plan into dir_export
         Inputs:
             - dir_export := path to the directory where the export happens
+            - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
+            The dictionary contains the name of the elements for each voxel,
+            and the following keys: [
+                "density" := the density of the material in g/cm^3,
+                "HU_limit" := the lower HU limit threshold of the material,
+                "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
+            ]
+            - assign_material_from_ct := if True, the material names will be assigned from the ct.egsphant file.
         Outputs:
-            - void := self.egsphant is written to ct.egsphant
+            - void := egsphant file is generated from phantom and is written to ct.egsphant
         Dependencies:
             - BrachyEgsphant
         """
         file_path = dir_export + "/ct.egsphant"
-        self.egsphant.write_to_ctegsphant(file_path)
+        # if isinstance(material_dict, Path):
+        #     with open(material_dict, "r") as json_file:
+        #         material_dict = json.load(json_file)
+
+        self.phantom.write_to_egsphant(
+            pth_output=Path(file_path),
+            material_dict=material_dict,
+            assign_material_from_ct=assign_material_from_ct,
+        )
 
     def _export_applicator_geometry(
         self, dir_export: str, export_format: str = "RapidBrachy"
@@ -1907,13 +1496,23 @@ class BrachyPlan:
             applicator.to_mac(os.path.join(dir_export, f"{applicator.name}.mac"))
 
     def _export_structure_set(
-        self, dir_export: str, export_format: str = "RapidBrachy"
+        self,
+        dir_export: str,
+        materials_table: Union[dict, Path] = None,
+        export_format: str = "RapidBrachy"
     ):
         r"""
         Purpose:
             - to export the structure set of the plan into dir_export
         Inputs:
             - dir_export := path to the directory where the export happens
+            - material_table: dict | Path := the dictionary of the materials. if Path, the path to the material file.
+            The dictionary contains the name of the elements for each voxel,
+            and the following keys: [
+                "density" := the density of the material in g/cm^3,
+                "HU_limit" := the lower HU limit threshold of the material,
+                "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
+            ]
         Outputs:
             - void := self.structure_list is exported as a dictionary and
             written to structure_set.json
@@ -1923,6 +1522,13 @@ class BrachyPlan:
         structure_set = []
         for structure in self.structure_list:
             structure_set.append(structure.to_dict(export_format))
+
+            if materials_table is not None:
+                from brachyutils.egsphant_utils import _load_material_dict
+                material_dict = _load_material_dict(materials_table)
+                for material in material_dict:
+                    if material_dict[material]["structure_name"] == structure.name:
+                        structure_set[-1]["density"] = material_dict[material]["density"]
 
         file_path = os.path.join(dir_export, "structure_set.json")
         with open(file_path, "w") as file:
@@ -1989,63 +1595,11 @@ def _export_single_dose_rate(
         - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
     """
     doseObj = dose_with_empty_grid_like(doseObj_template)
-    doseObj.grid = dose_grid
+    doseObj.set_dose_array(dose_grid)
     if uncertainty is not None:
-        doseObj.uncertainty = uncertainty
+        doseObj.set_uncertainty_array(uncertainty)
 
     doseObj.write_brachydose_to_file(dir_export + f"/run_{dwell_number}" + dose_type)
-
-
-def _load_structure_mask(
-    pth_structure_source: str,
-    structure_name_list: list = None,
-):
-    """
-    Load structure mask from different file formats. The acceptable formats are dicom, nrrd, and json.
-    In the case of dicom files, providng a folder containing the dicom RS files is also acceptable.
-
-    Inputs:
-        pth_structure_source (str): The path to the structure source file.
-        structure_name_list (list): A list of structure names to load.
-
-    Returns:
-        dict: A dictionary containing the structure masks.
-
-    Raises:
-        NotImplementedError: If the structure source type is not implemented yet.
-        ValueError: If the structure source type is not recognized.
-    """
-    # if a folder is given, we assume that the structure source is dicom files
-    if os.path.isdir(pth_structure_source):
-        pth_structure_source = glob(os.path.join(pth_structure_source, "RS*.dcm"))[0]
-        if pth_structure_source is None:
-            raise ValueError(
-                "No dicom structure file starting with RS, ending with .dcm is found in the directory"
-            )
-
-    structure_source_type = os.path.splitext(pth_structure_source)[1]
-
-    if structure_source_type == ".dcm":
-        print("loading structure set from dicom files")
-        structure_mask_dict = BrachyDicom(
-            os.path.dirname(pth_structure_source)
-        ).structure_mask_dict
-
-    elif structure_source_type == ".nrrd":
-        print("loading structure set from nrrd file")
-        raise NotImplementedError(
-            "loading structure set from .nrrd file is not implemented yet"
-        )
-
-    elif structure_source_type == ".json":
-        raise NotImplementedError(
-            "loading structure set from .json file is not implemented yet"
-        )
-
-    else:
-        raise ValueError("structure source type is not recognized")
-
-    return structure_mask_dict
 
 
 def dvh_metric(
@@ -2122,16 +1676,18 @@ def _load_single_dose_or_uncertainty_to_dict(
     """
     dose_obj = BrachyDose(pth_dose_rate)
     if load_dose_or_uncertainty == "both":
-        dose_or_uncert_map = np.zeros((2, *dose_obj.grid.shape), dtype=np.float32)
-        dose_or_uncert_map[0] = dose_obj.grid
-        dose_or_uncert_map[1] = dose_obj.uncertainty
+        dose_or_uncert_map = np.zeros(
+            (2, *dose_obj.get_dose_array().shape), dtype=np.float32
+        )
+        dose_or_uncert_map[0] = dose_obj.get_dose_array()
+        dose_or_uncert_map[1] = dose_obj.get_uncertainty_array()
 
     elif load_dose_or_uncertainty == "uncertainty":
         try:
             dose_or_uncert_map = np.zeros_like(
-                BrachyDose(pth_dose_rate).grid, dtype=np.float32
+                dose_obj.get_dose_array(), dtype=np.float32
             )
-            dose_or_uncert_map = dose_obj.uncertainty
+            dose_or_uncert_map = dose_obj.get_uncertainty_array()
         except AttributeError:
             warnings.warn(
                 f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...",
@@ -2139,10 +1695,8 @@ def _load_single_dose_or_uncertainty_to_dict(
             )
 
     elif load_dose_or_uncertainty == "dose":
-        dose_or_uncert_map = np.zeros_like(
-            BrachyDose(pth_dose_rate).grid, dtype=np.float32
-        )
-        dose_or_uncert_map = dose_obj.grid
+        dose_or_uncert_map = np.zeros_like(dose_obj.get_dose_array(), dtype=np.float32)
+        dose_or_uncert_map = dose_obj.get_dose_array()
     else:
         raise ValueError(
             "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"

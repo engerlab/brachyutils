@@ -17,7 +17,7 @@ if [[ $command_list == *"save"* ]]; then
     # save the docker image to a tar file
     docker save\
         -o brachyutils.tar\
-        brachyutils:latest
+        brachyutils:opentps
     tar -cvfz brachyutils.tar.gz brachyutils.tar
 fi
 
@@ -25,5 +25,5 @@ if [[ $command_list == *"run"* ]]; then
     # run the docker image
     docker run --rm \
         -it -v $(pwd):/root/brachyutils \
-        brachyutils:latest /bin/bash
+        brachyutils:opentps /bin/bash
 fi

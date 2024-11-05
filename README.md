@@ -2,23 +2,38 @@
 
 This package implements Brachytherapy dose, egsphant dicom and film dosimetry functionalities.
 
+Start by clonning this repository to `YourDesiredLocation`:
+
+```bash
+git clone -b opentps https://github.com/engerlab/brachyutils.git
+```
+
+## Using Apptainer Image
+
+To free the users from the hassle of installing brachutils and all its requirements, we have created an Apptainer image and a Docker image that could be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/Elfn1nAw30xNqRhQ6xmA1cwBvxbYVmstWFjqSlJ4dptytg?e=ROqLfn).
+
+It is recommended to use the singularity image (`brachyutils_opentps.sif`) on Compute Canada or in general on systems where `Sudo` access is **not possible** or Docker is not available. You can bind the folder where your data is located as well.
+
+```bash
+# on compute Canada only{
+module load StdEnv/2023
+module load apptainer
+# }
+apptainer run --containall --bind YourDesiredLocation/brachyutils:/root/brachyutils --bind YourDataLocation:/root/data brachyutils_opentps.sif
+# Once apptainer is running interactively
+cd /root
+source .bashrc
+```
+
+The virtual enviornment called `env_brachyutils` should be activated automatically. You can make changes to the brachyutils source code by editing source files in `/root/brachyutils`. Your data can be found at `/root/data`.
+
+**VS Code Support**: Using vscode, you can directly code and debug inside a docker container. Simply install the extension [Dev Containers](https://code.visualstudio.com/docs/devcontainers/create-dev-container). While the docker container is running, open VS Code, press `F1`, type `Dev Containers: Attach to running container`. Then select the container running brachyutils. 
+
 ## Installation
 
-To get the package run:
+### Create a Python virtual environment
 
-```bash
-git clone https://github.com/engerlab/brachyutils.git
-```
-
-If you are installing this package on a remote cluster managed by the Digital Research Alliance of Canada (Compute Canada), you need to load some required modules:
-
-```bash
-module load StdEnv/2023
-
-module load opencv
-```
-
-Then, create a virtual envionrment and activate:
+We recommend python 3.11. Create a virtual envionrment and activate it:
 
 If using [venv](https://docs.python.org/3/library/venv.html):
 
@@ -29,14 +44,40 @@ source ENV_brachyutils/bin/activate
 
 Else, if using [conda](https://docs.anaconda.com/miniconda/):
 
-```
-conda create -n ENV_brachy
+```bash
+conda create -n ENV_brachy python=3.11
 conda activate ENV_brachy
 ```
 
-After this process finishes, run `pip install .` to install the brachyutils package.
+### Install OpenTPS from source code
 
-### Optional:
+The PyPi package of OpenTPS is not up to date with their Gitlab repository. Therefore, we recommend that you clone the repository and install the package.
+
+```bash
+git clone https://gitlab.com/openmcsquare/opentps.git
+cd opentps
+```
+
+Ensure that in `pyproject.toml` file inside the `opentps` folder, the following configuration is used for `python` and `pymedphys`: 
+
+```python
+python = "~3.11"
+pymedphys = "*"
+```
+
+Then run `pip install .` to install opentps.
+
+### Install BrachyUtils
+
+To get the package run:
+
+```bash
+git clone https://github.com/engerlab/brachyutils.git
+cd brachyutils
+pip install .
+```
+
+### Optional
 
 `python3 -m pip install --upgrade pip`
 
