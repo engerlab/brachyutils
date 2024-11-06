@@ -318,7 +318,7 @@ class BrachyEgsphant:
             raise ValueError(f"The target nrrd file {filePath} does not exist!")
 
         image = sitk.ReadImage(filePath)
-        gridSize = np.array(image.GetSize(), dtype=int)  # [::-1]
+        # gridSize = np.array(image.GetSize(), dtype=int)  # [::-1]
         spacing = np.array(image.GetSpacing(), dtype=float)  # [::-1]
         # origin_coordinates is the bottom left corner of the image
         # but in sitk, it's the center of the first voxel
