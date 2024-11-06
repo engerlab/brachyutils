@@ -1,0 +1,19 @@
+services:
+  BrachyUtils:
+    build:
+      context: ../
+      dockerfile: docker_src/Dockerfile
+    image: brachyutils:opentps
+    container_name: BrachyUtils
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    environment:
+      - HOST_HOME=${HOST_HOME}
+      # - DEBIAN_FRONTEND=noninteractive
+    volumes:
+      - ../:/root/brachyutils
+      - ${HOST_HOME}:/root/YourLocalHome
+    # to write data to the DoseCalcTG43 container
+      - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone/temp_data:/root/brachyutils/temp_data  
+    # ports:
+    # - "8080:8080"
