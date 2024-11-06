@@ -1,11 +1,12 @@
-from glob import glob
 import os
+from glob import glob
 from pathlib import Path
 
 from brachyutils.dose_generation_utils import DoseTG43
 from brachyutils.plan_utils import BrachyPlan
 
-def make_plan_and_export_it() -> Path:
+
+def make_plan_and_export_it(dir_export) -> Path:
     pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../data_test/prostate-glen-p1-dose"
     dir_dicom = "../data_test/prostate-glen-p1-dcm/"
@@ -38,7 +39,7 @@ def make_plan_and_export_it() -> Path:
         "PrintProgress": 10000,
         "beam_on": 10000,
     }
-    dir_export = "../data_test/test_export_plan"
+    # dir_export = "../data_test/test_export_plan"
     export_format = "RapidBrachy"
     os.makedirs(dir_export, exist_ok=True)
 
@@ -55,7 +56,7 @@ def make_plan_and_export_it() -> Path:
         "plan": True,
         "mac": True,
         "ApplicatorMaterials": True,
-        "applicator_geometry": True,
+        "applicator_geometry": False,
     }
 
     plan_obj = BrachyPlan(
@@ -71,8 +72,9 @@ def make_plan_and_export_it() -> Path:
     return Path(dir_export)
 
 def test_DoseTG43():
-    # dose_setup = make_plan_and_export_it()
-    dose_setup = Path("../data_test/test_export_plan")
+    dir_export = "../temp_data/test_export_plan"
+    dose_setup = make_plan_and_export_it(dir_export)
+    # dose_setup = Path("../data_test/test_export_plan")
     dose_generator = DoseTG43(
         dir_dose_setup=dose_setup,
         pth_dose_executable=dose_setup,
