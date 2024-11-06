@@ -1499,7 +1499,8 @@ class BrachyPlan:
         self,
         dir_export: str,
         materials_table: Union[dict, Path] = None,
-        export_format: str = "RapidBrachy"
+        export_format: str = "RapidBrachy",
+        
     ):
         r"""
         Purpose:
@@ -1527,7 +1528,7 @@ class BrachyPlan:
                 from brachyutils.egsphant_utils import _load_material_dict
                 material_dict = _load_material_dict(materials_table)
                 for material in material_dict:
-                    if material_dict[material]["structure_name"] == structure.name:
+                    if material_dict[material].get("structure_name", "") == structure.name:
                         structure_set[-1]["density"] = material_dict[material]["density"]
 
         file_path = os.path.join(dir_export, "structure_set.json")
