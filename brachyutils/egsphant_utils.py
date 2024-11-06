@@ -5,9 +5,9 @@ import warnings
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Union
-import SimpleITK as sitk
 
 import numpy as np
+import SimpleITK as sitk
 from opentps.core.data.images import Image3D
 from scipy.interpolate import RegularGridInterpolator
 
@@ -28,14 +28,13 @@ class BrachyEgsphant:
             "HU_limit" := the lower HU limit threshold of the material,
             "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
             ]
-        - axis: np.ndarray := coordinates of grid points along x, y, and z axis in mm.
         - unit_length: str := the unit of the length of the axis is mm.
         - voxel_edges: np.ndarray := the edges of the voxels in the material and density matrix
         - xyz_format: bool := if True, the axis is in the format [x, y, z], if False, the axis is in the format [z, y, x]
     Functions:
         - load_file_to_BrachyEgsphant()     done
         - load_from_ctegsphant()            done
-        - load_from_nrrd()                  not implemented
+        - load_from_nrrd()                  done
         - get_voxel_edges()                 done
         - write_to_ctegsphant()             done
         - write_to_nrrd()                   done
@@ -120,9 +119,7 @@ class BrachyEgsphant:
                     )
                 material_dict = Path(material_dict)
 
-            self.material_dict = self.material_dict | _load_material_dict(
-                    material_dict
-                )
+            self.material_dict = self.material_dict | _load_material_dict(material_dict)
             self._remove_duplicate_materials()
 
             self.create_egsphant_from_phantom(
@@ -295,7 +292,7 @@ class BrachyEgsphant:
         ], "key is not recognized"
 
         if len(self.material_dict.keys()) == 1:
-            return #don't sort when there's only one material
+            return  # don't sort when there's only one material
         if material_key == "structure_size":
             sorted_list = sorted(
                 self.material_dict.items(),
@@ -321,25 +318,49 @@ class BrachyEgsphant:
             raise ValueError(f"The target nrrd file {filePath} does not exist!")
 
         image = sitk.ReadImage(filePath)
-        self.num_voxels = np.array(image.GetSize(), dtype=int)#[::-1]
-        self.voxel_size = np.array(image.GetSpacing(), dtype=float)#[::-1]
-        #origin_coordinates is the bottom left corner of the image
-        #but in sitk, it's the center of the first voxel
-        self.origin_coordinates = np.array(image.GetOrigin(), dtype=float)- 0.5 * self.voxel_size#[::-1] - 0.5 * self.voxel_size
+        # gridSize = np.array(image.GetSize(), dtype=int)  # [::-1]
+        spacing = np.array(image.GetSpacing(), dtype=float)  # [::-1]
+        # origin_coordinates is the bottom left corner of the image
+        # but in sitk, it's the center of the first voxel
+        origin = (
+            np.array(image.GetOrigin(), dtype=float) - 0.5 * spacing
+        )  # [::-1] - 0.5 * self.voxel_size
 
-        self.material_matrix = sitk.GetArrayFromImage(image)[:,:,:,0]#np.swapaxes([:, :, :, 0], 0, 2)
-        self.density_matrix = sitk.GetArrayFromImage(image)[:,:,:,1]#np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
-        self.num_materials = np.max(self.material_matrix).astype(int)
+        material_matrix = sitk.GetArrayFromImage(image)[
+            :, :, :, 0
+        ]  # np.swapaxes([:, :, :, 0], 0, 2)
+        density_matrix = sitk.GetArrayFromImage(image)[
+            :, :, :, 1
+        ]  # np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
+        # self.num_materials = np.max(self.material_matrix).astype(int)
 
-        try: #try to load the material dictionary from the metadata
-            self.material_dict = json.loads(image.GetMetaData("material_dict"))
-            self.num_materials = len(self.material_dict.keys()) #if the material dict
-            #is found, update a more accurate count of the number of materials
+        try:  # try to load the material dictionary from the metadata
+            self.material_dict = _load_material_dict(json.loads(image.GetMetaData("material_dict")))
+            self.num_materials = len(self.material_dict.keys())  # if the material dict
+            # is found, update a more accurate count of the number of materials
         except Exception:
-            warnings.warn("Material dictionary not found in the nrrd file. \
+            warnings.warn(
+                "Material dictionary not found in the nrrd file. \
             Please provide the dictionary manually before exporting the file in \
-            .egsphant format", stacklevel=2)
-        self.calculate_voxel_edges()
+            .egsphant format",
+                stacklevel=2,
+            )
+            
+        self.material_image = Image3D(
+            # convert array from zyx to xyz.
+            imageArray=np.swapaxes(material_matrix, 0, 2),
+            origin=origin,
+            spacing=spacing,
+        )
+        self.density_image = Image3D(
+            # convert array from zyx to xyz.
+            imageArray=np.swapaxes(density_matrix, 0, 2),
+            origin=origin,
+            spacing=spacing,
+        )
+        
+        self.get_voxel_edges()
+        self.unit_length = "mm"
 
     def get_voxel_edges(self):
         r"""
@@ -464,8 +485,7 @@ class BrachyEgsphant:
             ]
             file.writelines(lines)
 
-
-    def write_to_nrrd(self,fileName: Path, metadata: Optional[dict] = None):
+    def write_to_nrrd(self, fileName: Path, metadata: Optional[dict] = None):
         r"""
         Purpose:
             To save the contents of an egsphant as a nrrd file.
@@ -480,18 +500,24 @@ class BrachyEgsphant:
             note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z.
         """
         # create sitk dose image
-        material_grid = self.material_matrix.astype(np.float32)#np.swapaxes(self.material_matrix, 0, 2).astype(np.float32)
-        density_grid = self.density_matrix.astype(np.float32)#np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
+        material_grid = (
+            self.get_material_array().astype(np.float32)
+        )  # np.swapaxes(self.material_matrix, 0, 2).astype(np.float32)
+        density_grid = (
+            self.get_density_array().astype(np.float32)
+        )  # np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
 
         compose_filter = sitk.ComposeImageFilter()
         image_nrrd = compose_filter.Execute(
             sitk.GetImageFromArray(material_grid), sitk.GetImageFromArray(density_grid)
         )
 
-        image_nrrd.SetOrigin((self.origin_coordinates + self.voxel_size / 2).astype(float))#[::-1])
-        image_nrrd.SetSpacing(self.voxel_size.astype(float))#[::-1])
+        image_nrrd.SetOrigin(
+            (self.density_image.origin + self.density_image.spacing / 2).astype(float)
+        )  # [::-1])
+        image_nrrd.SetSpacing(self.density_image.spacing.astype(float))  # [::-1])
 
-        #write the static metadata that will be written to all nrrd files
+        # write the static metadata that will be written to all nrrd files
         static_metadata = {}
         static_metadata["Image content"] = "[material_matrix, density_matrix]"
         if self.material_dict is not None:
@@ -506,13 +532,13 @@ class BrachyEgsphant:
 
         # write out the files
         if not os.path.exists(os.path.dirname(fileName)):
-            raise ValueError(f"the input folder does not exist: {os.path.dirname(fileName)}")
+            raise ValueError(
+                f"the input folder does not exist: {os.path.dirname(fileName)}"
+            )
 
-        sitk.WriteImage(
-            image_nrrd, fileName, useCompression=True, compressionLevel=9
-        )
+        sitk.WriteImage(image_nrrd, fileName, useCompression=True, compressionLevel=9)
 
-    def is_equal(self, new_BrachyEgsphant ):
+    def is_equal(self, new_BrachyEgsphant):
         r"""
         Purpose:
             To compare if self:BrachyEgsphant has the same attributes as an input BrachyEgsphant
@@ -1057,7 +1083,7 @@ def _load_material_dict(material_source: Union[Path, dict]):
     r"""
     Purpose:
         To load material dictionary and give it the proper keys from simple material dictionary,
-        a ct to density.txt file or from a json file that contains the density and HU lower 
+        a ct to density.txt file or from a json file that contains the density and HU lower
         limit threshold for each material.
     Inputs:
         - material_source := directory path to the ct2density.txt file, json file or the material dictionary
@@ -1071,13 +1097,13 @@ def _load_material_dict(material_source: Union[Path, dict]):
         ), f"no such ct2density.txt file was found at this directory: \n {pth_file}"
 
         extension = os.path.splitext(pth_file)[-1]
-    
+
         material_dict = defaultdict(dict)
-    
+
         if extension == ".txt":
             with open(pth_file, "r") as file:
                 lines = file.readlines()
-    
+
             for i, line in enumerate(lines):
                 material, density, HU_limit = line.strip().split()
                 material_dict[material] = {
@@ -1092,7 +1118,9 @@ def _load_material_dict(material_source: Union[Path, dict]):
     elif isinstance(material_source, dict):
         material_dict = material_source
     else:
-        raise Exception("material source is not recognized, please provide the dictionary, json file or ct2density.txt file")
+        raise Exception(
+            "material source is not recognized, please provide the dictionary, json file or ct2density.txt file"
+        )
 
     for i, material in enumerate(material_dict):
         assert (
