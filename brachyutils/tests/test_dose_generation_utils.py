@@ -73,9 +73,9 @@ def make_plan_and_export_it(dir_export) -> Path:
 
 
 def test_DoseTG43():
-    dir_export = "../temp_data/test_export_plan"
-    dose_setup = make_plan_and_export_it(dir_export)
-    # dose_setup = Path("../data_test/test_export_plan")
+    # dir_export = "../temp_data/test_export_plan"
+    # dose_setup = make_plan_and_export_it(dir_export)
+    dose_setup = Path("../temp_data/test_export_plan")
     dose_generator = DoseTG43(
         dir_dose_setup=dose_setup,
         pth_dose_executable=dose_setup,
