@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from glob import glob
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Literal
 
 from brachyutils.dose_utils import BrachyDose
 
@@ -24,12 +24,10 @@ class DoseGenerator(ABC):
             - pth_dose_executable: Union[Path, str]: The path to the dose executable.
         Functions:
             - generate_dose(): generates the dose distribution as well as its uncertaity per voxel.
-            - validate_dose_setup(): validates the dose setup directory.
+            - validate_inputs(): validates the dose setup directory.
         """
         self.dir_plan_export: Path = Path(dir_plan_export)
-        self.pth_dose_executable: Path = Path(pth_dose_executable)
-        # this will be set by the generate_dose() method
-        self.dose: BrachyDose = None
+        self.pth_dose_executable: Path = pth_dose_executable
 
     @abstractmethod
     def validate_inputs(self):
@@ -49,9 +47,7 @@ class DoseGenerator(ABC):
         Inputs:
             - pth_output: Optional[Path]: If provided, the dose distribution will be saved to this path.
         """
-        if pth_output is not None:
-            self.dose.write_brachydose_to_file(pth_output)
-
+        pass
 
 class DoseTG43(DoseGenerator):
     def __init__(
@@ -65,26 +61,52 @@ class DoseTG43(DoseGenerator):
             This class uses RapidBrachyTG43 to calculate the dose distribution.
         """
         super().__init__(dir_plan_export, pth_dose_executable)
-        if "http" in self.pth_dose_executable:
-            # use fast api post to request the dose calculation
-            from fastapi import Request
-            requester = Request()
-            requester.base_url = self.pth_dose_executable
 
-        elif ".py" in self.pth_dose_executable:
-            # use subprocess to run the python script
-            raise NotImplementedError("This feature is not implemented yet.")
 
-    def generate_dose(self, filename: Optional[Path] = None):
+    def generate_dose(
+        self,
+        dir_output: Optional[str] = None,
+        dose_output_extension: Optional[Literal[".3ddose", ".nrrd"]] = ".nrrd",
+        num_threads: Optional[int] = 4,
+        dir_source_parameters: Optional[str] = "./SourceParameters/microSelectron-v2",
+        using_imbt_plan: Optional[bool] = False,
+        shield_model: Optional[Literal["step", "tanh"]] = None,
+        critical_angle: Optional[float] = None,
+        correction_angle: Optional[float] = None,
+        rotation_angle_config: Optional[str] = None,
+        ):
         r"""
         Purpose:
             - Generate the dose distribution using the TG43 formalism.
         Inputs:
             - filename: Optional[Path] = None
         """
-        # do the dose calculation here
-        # self.dose = BrachyDose(...)
-        super().generate_dose(filename)
+        if "http" in self.pth_dose_executable:
+            # use fast api post to request the dose calculation
+            import requests
+            response = requests.post(
+                self.pth_dose_executable,
+                json={
+                    "dir_dose_setup": str(self.dir_plan_export),
+                    "dir_output": str(dir_output),
+                    "dose_output_extension": str(dose_output_extension),
+                    "num_threads":  str(num_threads),
+                    "dir_source_parameters": str(dir_source_parameters),
+                    "using_imbt_plan": str(using_imbt_plan),
+                    "shield_model": str(shield_model),
+                    "critical_angle": str(critical_angle),
+                    "correction_angle": (correction_angle),
+                    "rotation_angle_config": str(rotation_angle_config),
+                },
+                timeout=None
+                )
+        elif ".py" in self.pth_dose_executable:
+            # use subprocess to run the python script
+            raise NotImplementedError("This feature is not implemented yet.")
+        else:
+            raise ValueError("The dose executable is not supported. It should be a URL or a python script.")
+
+        return response
 
     def validate_inputs(self):
         r"""
@@ -92,8 +114,11 @@ class DoseTG43(DoseGenerator):
             - Validate the inputs of the TG43 dose generator.
         """
         assert self.dir_plan_export.exists(), "The dose setup directory does not exist."
-        assert self.pth_dose_executable.exists(), "The dose executable does not exist."
+        # assert self.pth_dose_executable.exists(), "The dose executable does not exist."
 
         # look through the files in dose setup directory
         all_files: list = glob(str(self.dir_plan_export / "*"))
         assert len(all_files) > 0, "The dose setup directory is empty."
+        assert any(".plan" in file for file in all_files), "The plan file is missing."
+        assert any(".egsphant" in file for file in all_files), "The egsphant file is missing."
+        assert any(".mac" in file for file in all_files), "The mac file is missing."
