@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from glob import glob
 from pathlib import Path
-from typing import Optional, Union, Literal
+from typing import Literal, Optional, Union
 
-from brachyutils.dose_utils import BrachyDose
+# from brachyutils.dose_utils import BrachyDose
 
 
 class DoseGenerator(ABC):
@@ -49,6 +49,7 @@ class DoseGenerator(ABC):
         """
         pass
 
+
 class DoseTG43(DoseGenerator):
     def __init__(
         self,
@@ -62,7 +63,6 @@ class DoseTG43(DoseGenerator):
         """
         super().__init__(dir_plan_export, pth_dose_executable)
 
-
     def generate_dose(
         self,
         dir_output: Optional[str] = None,
@@ -74,7 +74,7 @@ class DoseTG43(DoseGenerator):
         critical_angle: Optional[float] = None,
         correction_angle: Optional[float] = None,
         rotation_angle_config: Optional[str] = None,
-        ):
+    ):
         r"""
         Purpose:
             - Generate the dose distribution using the TG43 formalism.
@@ -84,13 +84,14 @@ class DoseTG43(DoseGenerator):
         if "http" in self.pth_dose_executable:
             # use fast api post to request the dose calculation
             import requests
+
             response = requests.post(
                 self.pth_dose_executable,
                 json={
                     "dir_dose_setup": str(self.dir_plan_export),
                     "dir_output": str(dir_output),
                     "dose_output_extension": str(dose_output_extension),
-                    "num_threads":  str(num_threads),
+                    "num_threads": str(num_threads),
                     "dir_source_parameters": str(dir_source_parameters),
                     "using_imbt_plan": str(using_imbt_plan),
                     "shield_model": str(shield_model),
@@ -98,13 +99,15 @@ class DoseTG43(DoseGenerator):
                     "correction_angle": (correction_angle),
                     "rotation_angle_config": str(rotation_angle_config),
                 },
-                timeout=None
-                )
+                timeout=None,
+            )
         elif ".py" in self.pth_dose_executable:
             # use subprocess to run the python script
             raise NotImplementedError("This feature is not implemented yet.")
         else:
-            raise ValueError("The dose executable is not supported. It should be a URL or a python script.")
+            raise ValueError(
+                "The dose executable is not supported. It should be a URL or a python script."
+            )
 
         return response
 
@@ -120,5 +123,7 @@ class DoseTG43(DoseGenerator):
         all_files: list = glob(str(self.dir_plan_export / "*"))
         assert len(all_files) > 0, "The dose setup directory is empty."
         assert any(".plan" in file for file in all_files), "The plan file is missing."
-        assert any(".egsphant" in file for file in all_files), "The egsphant file is missing."
+        assert any(
+            ".egsphant" in file for file in all_files
+        ), "The egsphant file is missing."
         assert any(".mac" in file for file in all_files), "The mac file is missing."
