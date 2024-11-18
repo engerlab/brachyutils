@@ -79,7 +79,20 @@ class DoseTG43(DoseGenerator):
         Purpose:
             - Generate the dose distribution using the TG43 formalism.
         Inputs:
-            - filename: Optional[Path] = None
+            - dir_output: str := The directory to save the dose distribution. If left empty,
+            the dose will be saved to dir_plan_export.
+            - dose_output_extension: Literal[".3ddose", ".nrrd"] := The format of the dose files.
+            - num_threads: int := The number of threads to use for the dose calculation. leave it at 4.
+            - dir_source_parameters: str:= The directory to the source parameters. Leave it at the default.
+            - using_imbt_plan: bool := Whether the plan is using the IMBT technique.
+            - shield_model: Optional[Literal["step", "tanh"]] := The model to use for the shield. The default is None.
+            - critical_angle: Optional[float] := The critical angle for the phi dependence function, if necessary.
+            - correction_angle: Optional[float] := The correction angle for the phi dependence function, if necessary.
+            - rotation_angle_config- [optional] either a nine-character string representing the start, end, and increment
+            angles (e.g. 000220015 for IMBT delievered from 0-220 degree increments) or a path to the
+            catheter_table.json file where this information can be extracted.
+        Outputs:
+            - response: The response from the dose executable. God know what it is.
         """
         if "http" in self.pth_dose_executable:
             # use fast api post to request the dose calculation
@@ -127,3 +140,20 @@ class DoseTG43(DoseGenerator):
             ".egsphant" in file for file in all_files
         ), "The egsphant file is missing."
         assert any(".mac" in file for file in all_files), "The mac file is missing."
+
+
+class DoseMonteCarlo(DoseGenerator):
+    def __init__(
+        self, dir_plan_export: Path | str, pth_dose_executable: Path | str
+    ) -> None:
+        r"""
+        Purpose:
+            - A class to generate dose distribution using Monte Carlo simulations.
+            This class uses RapidBrachyMC to calculate the dose distribution.
+        """
+        super().__init__(dir_plan_export, pth_dose_executable)
+
+    def generate_dose(
+        self):
+        r""""""
+        raise NotImplementedError("This feature is not implemented yet.")
