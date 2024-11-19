@@ -655,11 +655,11 @@ class BrachyDose:
         y_axis = " ".join(map(str, self.voxel_edges[1] / 10)) + "\n"
         z_axis = " ".join(map(str, self.voxel_edges[2] / 10)) + "\n"
         dose_flattened = (
-            " ".join(map(str, self.dose_image.imageArray.flatten("C"))) + "\n"
+            " ".join(map(str, self.get_dose_array().flatten("C"))) + "\n"
         )
         if self.uncertainty_image is not None:
             uncertainty_flattened = (
-                " ".join(map(str, self.uncertainty_image.imageArray.flatten("C")))
+                " ".join(map(str, self.get_uncertainty_array().flatten("C")))
                 + "\n"
             )
         else:
