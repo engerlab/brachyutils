@@ -10,6 +10,7 @@ import sys
 import tkinter as tk
 import warnings
 from array import array
+
 # from glob import glob
 from pathlib import Path
 from tkinter import filedialog as fd
@@ -654,13 +655,10 @@ class BrachyDose:
         x_axis = " ".join(map(str, self.voxel_edges[0] / 10)) + "\n"
         y_axis = " ".join(map(str, self.voxel_edges[1] / 10)) + "\n"
         z_axis = " ".join(map(str, self.voxel_edges[2] / 10)) + "\n"
-        dose_flattened = (
-            " ".join(map(str, self.get_dose_array().flatten("C"))) + "\n"
-        )
+        dose_flattened = " ".join(map(str, self.get_dose_array().flatten("C"))) + "\n"
         if self.uncertainty_image is not None:
             uncertainty_flattened = (
-                " ".join(map(str, self.get_uncertainty_array().flatten("C")))
-                + "\n"
+                " ".join(map(str, self.get_uncertainty_array().flatten("C"))) + "\n"
             )
         else:
             uncertainty_flattened = ""
@@ -1160,7 +1158,7 @@ class BrachyDose:
     def get_uncertainty_array(self) -> np.ndarray:
         r"""
         Purpose:
-            - To return the dose grid as a numpy array.
+            - To return the uncersitainty grid as a numpy array.
         Inputs:
             - self:BrachyDose
         Outputs:
@@ -1180,6 +1178,7 @@ class BrachyDose:
         """
         self.uncertainty_image.imageArray = np.swapaxes(uncertainty_array, 0, 2)
 
+
 def dose_with_empty_grid_like(doseObj: BrachyDose):
     r"""
     Purpose:
@@ -1195,10 +1194,13 @@ def dose_with_empty_grid_like(doseObj: BrachyDose):
     new_dose = BrachyDose()
     new_dose.dose_image = DoseImage.createEmptyDoseWithSameMetaData(doseObj.dose_image)
     if doseObj.uncertainty_image is not None:
-        new_dose.uncertainty_image = DoseImage.createEmptyDoseWithSameMetaData(doseObj.uncertainty_image)
+        new_dose.uncertainty_image = DoseImage.createEmptyDoseWithSameMetaData(
+            doseObj.uncertainty_image
+        )
     new_dose.get_voxel_edges()
     new_dose.create_interpolation_function()
     return new_dose
+
 
 def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
     # old_file_dir = load_3ddose(pth1_3ddose)
