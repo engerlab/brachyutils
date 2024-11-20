@@ -286,7 +286,7 @@ class BrachyDose:
             - get_voxel_edges()
         """
         loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO="NrrdImageIO")
-        loaded_image_nrrd = sitk.DICOMOrient(loaded_image_nrrd, "LPS")
+        # loaded_image_nrrd = sitk.DICOMOrient(loaded_image_nrrd, "LPS")
         # GetArrayFromImage returns the array in zyx format
         dose_uncertainty = sitk.GetArrayFromImage(loaded_image_nrrd)
         if dose_uncertainty.shape[0] == 2:
@@ -652,7 +652,7 @@ class BrachyDose:
 
         # dimensions = " ".join(map(str, np.flip(self.dose_image.gridSize.astype(int)))) + "\n"
         dimensions = " ".join(map(str, self.dose_image.gridSize.astype(int))) + "\n"
-        x_axis = " ".join(map(str, self.voxel_edges[0] / 10)) + "\n"
+        x_axis = " ".join(map(str, (-1*self.voxel_edges[0]) / 10)) + "\n"
         y_axis = " ".join(map(str, self.voxel_edges[1] / 10)) + "\n"
         z_axis = " ".join(map(str, self.voxel_edges[2] / 10)) + "\n"
         dose_flattened = " ".join(map(str, self.get_dose_array().flatten("C"))) + "\n"
