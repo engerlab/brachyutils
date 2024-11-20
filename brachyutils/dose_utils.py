@@ -783,6 +783,7 @@ class BrachyDose:
         outputs: Void
             writes the contents of self:BrachyDose to the file_name.
         """
+        raise NotImplementedError("Writing to .minidos is no longer supported")
         assert (
             os.path.splitext(file_name)[-1] == ".minidos"
         ), f"the file name {file_name} should have '.minidos' extension."
