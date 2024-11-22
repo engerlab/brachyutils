@@ -299,10 +299,6 @@ class BrachyDose:
             # dose_uncertainty = np.swapaxes(dose_uncertainty, 1, 3)
             dose_array = dose_uncertainty[0]
             uncertainty_array = dose_uncertainty[1]
-            voxel_size = np.array(header.get("spacing", [1,1,1])).astype(np.float32)
-            origin_coordinates = np.array(header.get("space origin")).astype(
-                np.float32
-            )
         elif dose_uncertainty.shape[-1] == 2:
             dose_array = dose_uncertainty[:, :, :, 0]
             # no flipping to have everything xyz.
@@ -310,20 +306,19 @@ class BrachyDose:
             uncertainty_array = dose_uncertainty[:, :, :, 1]
             # no flipping to have everything xyz.
             # uncertainty_array = np.swapaxes(uncertainty_array, 0, 2).astype(np.float32)
-            voxel_size = np.array(header.get("spacing", [1,1,1])).astype(np.float32)
-            origin_coordinates = np.array(header.get("space origin")).astype(
-                np.float32
-            )
         else:
             print("Uncertainty not found in the nrrd file")
             # no flipping to have everything xyz.
             # dose_array = np.swapaxes(dose_uncertainty, 0, 2).astype(np.float32)
             dose_array = dose_uncertainty
             uncertainty_array = None
-            voxel_size = np.array(header.get("spacing", [1,1,1])).astype(np.float32)
-            origin_coordinates = np.array(header.get("space origin")).astype(
-                np.float32
+        voxel_size = np.array(
+            header.get("spacing", "[1,1,1]").replace("[", "").replace(']',"").split(","),
+            dtype=np.float32,
             )
+        origin_coordinates = np.array(header.get("space origin")).astype(
+            np.float32
+        )
         # no flipping to have everything xyz.
         # voxel_size = np.flip(voxel_size)
         # origin_coordinates = origin_coordinates * [-1, 1, 1]
@@ -724,25 +719,31 @@ class BrachyDose:
             if self.uncertainty_image is not None 
             else " ".join(map(str, self.dose_image.gridSize.tolist()))
             )
+        # header["space directions"] = (
+        #     """array([[nan, nan, nan],[1., 0., 0.],[0., 1., 0.],[0., 0., 1.]])"""
+        # )
         header["space directions"] = (
-            array(
-                [
-                    [float("nan"), float("nan"), float("nan")],
-                    [1., 0., 0.],
-                    [0., 1., 0.],
-                    [0., 0., 1.],
-                ]
-            )
+            [
+                [np.nan, np.nan, np.nan],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ]
         )
         header["kinds"] = ["2-vector", "space", "space", "space"]
         header["labels"] = ["", "x", "y", "z"]
         header["endian"] = "little"
         header["encoding"] = "gzip"
-        header['space origin'] = self.dose_image.origin.tolist()
-        header["spacing"] = self.dose_image.spacing.tolist()
-        header["space units"] = ["", "mm", "mm", "mm"]
-        
-        nrrd.write(pth_output, dose_array, header, index_order="C")
+        header["space origin"] = self.dose_image.origin.tolist()
+        header["voxel spacing"] = self.dose_image.spacing.tolist()
+        # header["space units"] = ["", "mm", "mm", "mm"]
+
+        dose_uncertainty_array = (
+            np.stack([dose_array, uncertainty_array], axis=0)
+            if self.uncertainty_image is not None
+            else dose_array
+            )
+        nrrd.write(pth_output, dose_uncertainty_array, header, index_order="F")
         # # old nrrd format
         # image_nrrd = sitk.JoinSeries(
         #     sitk.GetImageFromArray(dose_array), sitk.GetImageFromArray(uncertainty_array)
