@@ -313,9 +313,9 @@ class BrachyDose:
             dose_array = dose_uncertainty
             uncertainty_array = None
         voxel_size = np.array(
-            header.get("spacing", "[1,1,1]").replace("[", "").replace(']',"").split(","),
+            header.get("spacing", "[nan,1,1,1]").replace("[", "").replace(']',"").split(","),
             dtype=np.float32,
-            )
+            )[-3:]
         origin_coordinates = np.array(header.get("space origin")).astype(
             np.float32
         )
@@ -735,7 +735,12 @@ class BrachyDose:
         header["endian"] = "little"
         header["encoding"] = "gzip"
         header["space origin"] = self.dose_image.origin.tolist()
-        header["voxel spacing"] = self.dose_image.spacing.tolist()
+        header["spacing"] = (
+            [np.nan] + 
+            self.dose_image.spacing.tolist() 
+            if self.uncertainty_image is not None 
+            else self.dose_image.spacing.tolist()
+        )
         # header["space units"] = ["", "mm", "mm", "mm"]
 
         dose_uncertainty_array = (
