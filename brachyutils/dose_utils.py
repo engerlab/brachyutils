@@ -286,7 +286,7 @@ class BrachyDose:
             - SimpleITK
             - get_voxel_edges()
         """
-        # XXX: delete when done{
+        # XXX: update the documentation. delete when done{
         # loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO="NrrdImageIO")
         # loaded_image_nrrd = sitk.DICOMOrient(loaded_image_nrrd, "RAS")
         # GetArrayFromImage returns the array in zyx format
