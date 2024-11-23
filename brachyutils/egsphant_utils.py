@@ -6,9 +6,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Union
 
-import numpy as np
-import SimpleITK as sitk
 import nrrd
+import numpy as np
 from opentps.core.data.images import Image3D
 from scipy.interpolate import RegularGridInterpolator
 
@@ -262,14 +261,15 @@ class BrachyEgsphant:
             # this line maybe useless in the future
             self.voxel_edges = self.get_voxel_edges()
             self.unit_length = "mm"
-            # XXX: extract material density from the density matrix and update the material dictionary
+            # Extract material density from the density matrix and update the material dictionary
             for material in self.material_dict:
                 encoding = int(self.material_dict[material]["encoding"])
                 density = np.unique(
                     self.density_image.imageArray[
                         self.material_image.imageArray == encoding
                     ]
-                ).min()
+                )
+                density = density.min() if len(density) != 0 else 0
                 self.material_dict[material]["density"] = density
             # {for debugging
             # print(f"The axis calculated from get_voxel_edges() are \n {self.voxel_edges}")
@@ -349,20 +349,21 @@ class BrachyEgsphant:
         density_matrix = material_density[1]
 
         voxel_size = np.array(
-        header.get("spacing", "[nan,1,1,1]")
-        .replace("[", "")
-        .replace("]", "")
-        .split(","),
-        dtype=np.float32,
+            header.get("spacing", "[nan,1,1,1]")
+            .replace("[", "")
+            .replace("]", "")
+            .split(","),
+            dtype=np.float32,
         )[-3:]
         origin_coordinates = np.array(header.get("space origin")).astype(np.float32)
 
         try:  # try to load the material dictionary from the metadata
             # self.material_dict = _load_material_dict(json.loads(nrrd_image.GetMetaData("material_dict")))
             import ast
+
             self.material_dict = _load_material_dict(
                 ast.literal_eval(
-                    header.get("material_dict", None).split('>,')[-1].split(')')[0]
+                    header.get("material_dict", None).split(">,")[-1].split(")")[0]
                 )
             )
             self.num_materials = len(self.material_dict.keys())  # if the material dict
@@ -529,17 +530,16 @@ class BrachyEgsphant:
             note that 3D density files are written in z, y, x, but the sitk image is written in x, y, z.
         """
         # write out the files
-        assert (
-            os.path.exists(os.path.dirname(fileName)),
-            f"the input folder does not exist: {os.path.dirname(fileName)}"
-            )
+        assert os.path.exists(
+            os.path.dirname(fileName)
+        ), f"the input folder does not exist: {os.path.dirname(fileName)}"
 
         # create sitk density image
-        material_grid = (
-            self.get_material_array().astype(np.float32)
+        material_grid = self.get_material_array().astype(
+            np.float32
         )  # np.swapaxes(self.material_matrix, 0, 2).astype(np.float32)
-        density_grid = (
-            self.get_density_array().astype(np.float32)
+        density_grid = self.get_density_array().astype(
+            np.float32
         )  # np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
         material_density = np.stack([material_grid, density_grid], axis=0)
 
@@ -549,9 +549,7 @@ class BrachyEgsphant:
         header["type"] = "double"
         header["dimension"] = "4"
         header["space"] = "left-anterior-superior"
-        header["sizes"] = (
-            " ".join(map(str, [2] + self.density_image.gridSize.tolist()))
-        )
+        header["sizes"] = " ".join(map(str, [2] + self.density_image.gridSize.tolist()))
 
         header["space directions"] = [
             [np.nan, np.nan, np.nan],
@@ -564,9 +562,7 @@ class BrachyEgsphant:
         header["endian"] = "little"
         header["encoding"] = "gzip"
         header["space origin"] = self.density_image.origin.tolist()
-        header["spacing"] = (
-            [np.nan] + self.density_image.spacing.tolist()
-        )
+        header["spacing"] = [np.nan] + self.density_image.spacing.tolist()
         header = header | {"material_dict": dict(self.material_dict)}
         # header["space units"] = ["", "mm", "mm", "mm"]
         header = header | metadata if metadata is not None else header
@@ -1142,6 +1138,7 @@ def _load_json(pth_json: Path):
 
     with open(pth_json, "r") as file_json:
         return json.load(file_json)
+
 
 def _load_material_dict(material_source: Union[Path, dict]):
     r"""
