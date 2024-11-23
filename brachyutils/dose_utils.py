@@ -16,11 +16,10 @@ from pathlib import Path
 from tkinter import filedialog as fd
 from typing import List, Literal, Optional, Union
 
+import nrrd
 import numpy as np
 import pymedphys
 import pyzstd
-# import SimpleITK as sitk
-import nrrd
 from matplotlib import pyplot as plt
 from numpy import ma, reshape
 from opentps.core.data.images import DoseImage
@@ -277,51 +276,35 @@ class BrachyDose:
     def load_from_nrrd(self, pth_nrrd: Path) -> None:
         r"""
         Purpose:
-            - given the path to a nrrd dose file, it will load its content into self:BrachyDose
+            - given the path to a .nrrd dose file, it will load its content into self:BrachyDose
         Inputs:
-            - pth_nrrd := Path to a nrrd file writtern by self.to_nrrd()
+            - pth_nrrd := Path to a .nrrd file writtern.
         Outputs:
             - void := contents of self is updated.
         Dependencies:
-            - SimpleITK
+            - nrrd
             - get_voxel_edges()
         """
-        # XXX: update the documentation. delete when done{
-        # loaded_image_nrrd = sitk.ReadImage(pth_nrrd, imageIO="NrrdImageIO")
-        # loaded_image_nrrd = sitk.DICOMOrient(loaded_image_nrrd, "RAS")
-        # GetArrayFromImage returns the array in zyx format
-        # dose_uncertainty = sitk.GetArrayFromImage(loaded_image_nrrd)
-        # }
         dose_uncertainty, header = nrrd.read(pth_nrrd)
-        
+
         if dose_uncertainty.shape[0] == 2:
-            # Converting to xyz format
-            # dose_uncertainty = np.swapaxes(dose_uncertainty, 1, 3)
             dose_array = dose_uncertainty[0]
             uncertainty_array = dose_uncertainty[1]
         elif dose_uncertainty.shape[-1] == 2:
             dose_array = dose_uncertainty[:, :, :, 0]
-            # no flipping to have everything xyz.
-            # dose_array = np.swapaxes(dose_array, 0, 2).astype(np.float32)
             uncertainty_array = dose_uncertainty[:, :, :, 1]
-            # no flipping to have everything xyz.
-            # uncertainty_array = np.swapaxes(uncertainty_array, 0, 2).astype(np.float32)
         else:
             print("Uncertainty not found in the nrrd file")
-            # no flipping to have everything xyz.
-            # dose_array = np.swapaxes(dose_uncertainty, 0, 2).astype(np.float32)
             dose_array = dose_uncertainty
             uncertainty_array = None
         voxel_size = np.array(
-            header.get("spacing", "[nan,1,1,1]").replace("[", "").replace(']',"").split(","),
+            header.get("spacing", "[nan,1,1,1]")
+            .replace("[", "")
+            .replace("]", "")
+            .split(","),
             dtype=np.float32,
-            )[-3:]
-        origin_coordinates = np.array(header.get("space origin")).astype(
-            np.float32
-        )
-        # no flipping to have everything xyz.
-        # voxel_size = np.flip(voxel_size)
-        # origin_coordinates = origin_coordinates * [-1, 1, 1]
+        )[-3:]
+        origin_coordinates = np.array(header.get("space origin")).astype(np.float32)
 
         self.dose_image = DoseImage(
             imageArray=np.swapaxes(dose_array, 0, 2),
@@ -650,7 +633,7 @@ class BrachyDose:
 
         # dimensions = " ".join(map(str, np.flip(self.dose_image.gridSize.astype(int)))) + "\n"
         dimensions = " ".join(map(str, self.dose_image.gridSize.astype(int))) + "\n"
-        x_axis = " ".join(map(str, (-1*self.voxel_edges[0]) / 10)) + "\n"
+        x_axis = " ".join(map(str, (-1 * self.voxel_edges[0]) / 10)) + "\n"
         y_axis = " ".join(map(str, self.voxel_edges[1] / 10)) + "\n"
         z_axis = " ".join(map(str, self.voxel_edges[2] / 10)) + "\n"
         dose_flattened = " ".join(map(str, self.get_dose_array().flatten("C"))) + "\n"
@@ -702,82 +685,45 @@ class BrachyDose:
         ), "the file should have '.nrrd' extension"
 
         # create sitk dose image
-        dose_array = (
-            self.get_dose_array()
-        )
+        dose_array = self.get_dose_array()
         if self.uncertainty_image is not None:
-            uncertainty_array = (
-                self.get_uncertainty_array()
-            )
+            uncertainty_array = self.get_uncertainty_array()
         from collections import defaultdict
+
         header = defaultdict(str)
         header["type"] = "double"
         header["dimension"] = "4" if self.uncertainty_image is not None else "3"
         header["space"] = "left-anterior-superior"
         header["sizes"] = (
-            " ".join(map(str, [2]+ self.dose_image.gridSize.tolist())) 
-            if self.uncertainty_image is not None 
+            " ".join(map(str, [2] + self.dose_image.gridSize.tolist()))
+            if self.uncertainty_image is not None
             else " ".join(map(str, self.dose_image.gridSize.tolist()))
-            )
-        # header["space directions"] = (
-        #     """array([[nan, nan, nan],[1., 0., 0.],[0., 1., 0.],[0., 0., 1.]])"""
-        # )
-        header["space directions"] = (
-            [
-                [np.nan, np.nan, np.nan],
-                [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [0.0, 0.0, 1.0],
-            ]
         )
+
+        header["space directions"] = [
+            [np.nan, np.nan, np.nan],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
         header["kinds"] = ["2-vector", "space", "space", "space"]
         header["labels"] = ["", "x", "y", "z"]
         header["endian"] = "little"
         header["encoding"] = "gzip"
         header["space origin"] = self.dose_image.origin.tolist()
         header["spacing"] = (
-            [np.nan] + 
-            self.dose_image.spacing.tolist() 
-            if self.uncertainty_image is not None 
+            [np.nan] + self.dose_image.spacing.tolist()
+            if self.uncertainty_image is not None
             else self.dose_image.spacing.tolist()
         )
         # header["space units"] = ["", "mm", "mm", "mm"]
-
+        header = header | metadata if metadata is not None else header
         dose_uncertainty_array = (
             np.stack([dose_array, uncertainty_array], axis=0)
             if self.uncertainty_image is not None
             else dose_array
-            )
+        )
         nrrd.write(pth_output, dose_uncertainty_array, header, index_order="F")
-        # # old nrrd format
-        # image_nrrd = sitk.JoinSeries(
-        #     sitk.GetImageFromArray(dose_array), sitk.GetImageFromArray(uncertainty_array)
-        # )
-        # # new nrrd format
-        # if format == "rapidbrachy":
-        # fiter = sitk.ComposeImageFilter()
-        # if self.uncertainty_image is not None:
-        #     image_nrrd = fiter.Execute(
-        #         sitk.GetImageFromArray(dose_array),
-        #         sitk.GetImageFromArray(uncertainty_array),
-        #     )
-        # else:
-        #     image_nrrd = sitk.GetImageFromArray(dose_array)
-
-        # image_nrrd.SetOrigin(self.dose_image.origin.astype(float)* [-1, 1, 1])
-        # image_nrrd.SetSpacing(self.dose_image.spacing.astype(float))
-        # # elif format == "slicer":
-        # #     raise NotImplementedError("slicer format is not implemented yet")
-        # # else:
-        # #     raise ValueError("format should be either 'rapidbrachy' or 'slicer'")
-
-        # # set the metadata: all sitk Images belonging to a patient will have the same meta data
-        # if metadata is not None:
-        #     for key in metadata:
-        #         image_nrrd.SetMetaData(key, metadata[key])
-        # image_nrrd = sitk.DICOMOrient(image_nrrd, "LPS")
-        # write out the files
-        # sitk.WriteImage(image_nrrd, pth_output, useCompression=True, compressionLevel=9)
 
     def write_to_npz(self, file_name: str):
         r"""

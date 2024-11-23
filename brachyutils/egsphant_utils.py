@@ -8,6 +8,7 @@ from typing import Optional, Union
 
 import numpy as np
 import SimpleITK as sitk
+import nrrd
 from opentps.core.data.images import Image3D
 from scipy.interpolate import RegularGridInterpolator
 
@@ -175,7 +176,6 @@ class BrachyEgsphant:
                 }
 
             self._sort_materials_by("encoding")
-
             egsphant.readline()
 
             # load number of voxels
@@ -261,6 +261,16 @@ class BrachyEgsphant:
             )
             # this line maybe useless in the future
             self.voxel_edges = self.get_voxel_edges()
+            self.unit_length = "mm"
+            # XXX: extract material density from the density matrix and update the material dictionary
+            for material in self.material_dict:
+                encoding = int(self.material_dict[material]["encoding"])
+                density = np.unique(
+                    self.density_image.imageArray[
+                        self.material_image.imageArray == encoding
+                    ]
+                ).min()
+                self.material_dict[material]["density"] = density
             # {for debugging
             # print(f"The axis calculated from get_voxel_edges() are \n {self.voxel_edges}")
             # print(f"The axis from the text file are: \n {self._sanity_axis}")
@@ -317,25 +327,44 @@ class BrachyEgsphant:
         if not os.path.exists(filePath):
             raise ValueError(f"The target nrrd file {filePath} does not exist!")
 
-        image = sitk.ReadImage(filePath)
-        # gridSize = np.array(image.GetSize(), dtype=int)  # [::-1]
-        spacing = np.array(image.GetSpacing(), dtype=float)  # [::-1]
-        # origin_coordinates is the bottom left corner of the image
-        # but in sitk, it's the center of the first voxel
-        origin = (
-            np.array(image.GetOrigin(), dtype=float) - 0.5 * spacing
-        )  # [::-1] - 0.5 * self.voxel_size
+        # image = sitk.ReadImage(filePath)
+        # # gridSize = np.array(image.GetSize(), dtype=int)  # [::-1]
+        # spacing = np.array(image.GetSpacing(), dtype=float)  # [::-1]
+        # # origin_coordinates is the bottom left corner of the image
+        # # but in sitk, it's the center of the first voxel
+        # origin = (
+        #     np.array(image.GetOrigin(), dtype=float) - 0.5 * spacing
+        # )  # [::-1] - 0.5 * self.voxel_size
 
-        material_matrix = sitk.GetArrayFromImage(image)[
-            :, :, :, 0
-        ]  # np.swapaxes([:, :, :, 0], 0, 2)
-        density_matrix = sitk.GetArrayFromImage(image)[
-            :, :, :, 1
-        ]  # np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
+        # material_matrix = sitk.GetArrayFromImage(image)[
+        #     :, :, :, 0
+        # ]  # np.swapaxes([:, :, :, 0], 0, 2)
+        # density_matrix = sitk.GetArrayFromImage(image)[
+        #     :, :, :, 1
+        # ]  # np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
         # self.num_materials = np.max(self.material_matrix).astype(int)
 
+        material_density, header = nrrd.read(filePath)
+        material_matrix = material_density[0]
+        density_matrix = material_density[1]
+
+        voxel_size = np.array(
+        header.get("spacing", "[nan,1,1,1]")
+        .replace("[", "")
+        .replace("]", "")
+        .split(","),
+        dtype=np.float32,
+        )[-3:]
+        origin_coordinates = np.array(header.get("space origin")).astype(np.float32)
+
         try:  # try to load the material dictionary from the metadata
-            self.material_dict = _load_material_dict(json.loads(image.GetMetaData("material_dict")))
+            # self.material_dict = _load_material_dict(json.loads(nrrd_image.GetMetaData("material_dict")))
+            import ast
+            self.material_dict = _load_material_dict(
+                ast.literal_eval(
+                    header.get("material_dict", None).split('>,')[-1].split(')')[0]
+                )
+            )
             self.num_materials = len(self.material_dict.keys())  # if the material dict
             # is found, update a more accurate count of the number of materials
         except Exception:
@@ -345,20 +374,20 @@ class BrachyEgsphant:
             .egsphant format",
                 stacklevel=2,
             )
-            
+
         self.material_image = Image3D(
             # convert array from zyx to xyz.
             imageArray=np.swapaxes(material_matrix, 0, 2),
-            origin=origin,
-            spacing=spacing,
+            origin=origin_coordinates,
+            spacing=voxel_size,
         )
         self.density_image = Image3D(
             # convert array from zyx to xyz.
             imageArray=np.swapaxes(density_matrix, 0, 2),
-            origin=origin,
-            spacing=spacing,
+            origin=origin_coordinates,
+            spacing=voxel_size,
         )
-        
+
         self.get_voxel_edges()
         self.unit_length = "mm"
 
@@ -490,53 +519,89 @@ class BrachyEgsphant:
         Purpose:
             To save the contents of an egsphant as a nrrd file.
         inputs:
-            - fileName := path where the dose nrrd file will be written to.
+            - fileName := path where the density nrrd file will be written to.
 
             - metadata := a dictionary containing the following meta data key values:
                 "material_dict:" {material_name: {"encoding": int, "density": float, "HU_limit": float}}
                 "Image content": "[material_matrix, density_matrix]"
         outputs: Void
-            writes [material_matrix, density_matrix], voxel size, origin (origin_coordinates), and metadata to the file_name_dose.nrrd
-            note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z.
+            writes [material_matrix, density_matrix], voxel size, origin (origin_coordinates), and metadata to the file_name_density.nrrd
+            note that 3D density files are written in z, y, x, but the sitk image is written in x, y, z.
         """
-        # create sitk dose image
+        # write out the files
+        assert (
+            os.path.exists(os.path.dirname(fileName)),
+            f"the input folder does not exist: {os.path.dirname(fileName)}"
+            )
+
+        # create sitk density image
         material_grid = (
             self.get_material_array().astype(np.float32)
         )  # np.swapaxes(self.material_matrix, 0, 2).astype(np.float32)
         density_grid = (
             self.get_density_array().astype(np.float32)
         )  # np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
+        material_density = np.stack([material_grid, density_grid], axis=0)
 
-        compose_filter = sitk.ComposeImageFilter()
-        image_nrrd = compose_filter.Execute(
-            sitk.GetImageFromArray(material_grid), sitk.GetImageFromArray(density_grid)
+        from collections import defaultdict
+
+        header = defaultdict(str)
+        header["type"] = "double"
+        header["dimension"] = "4"
+        header["space"] = "left-anterior-superior"
+        header["sizes"] = (
+            " ".join(map(str, [2] + self.density_image.gridSize.tolist()))
         )
 
-        image_nrrd.SetOrigin(
-            (self.density_image.origin + self.density_image.spacing / 2).astype(float)
-        )  # [::-1])
-        image_nrrd.SetSpacing(self.density_image.spacing.astype(float))  # [::-1])
+        header["space directions"] = [
+            [np.nan, np.nan, np.nan],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+        header["kinds"] = ["2-vector", "space", "space", "space"]
+        header["labels"] = ["", "x", "y", "z"]
+        header["endian"] = "little"
+        header["encoding"] = "gzip"
+        header["space origin"] = self.density_image.origin.tolist()
+        header["spacing"] = (
+            [np.nan] + self.density_image.spacing.tolist()
+        )
+        header = header | {"material_dict": dict(self.material_dict)}
+        # header["space units"] = ["", "mm", "mm", "mm"]
+        header = header | metadata if metadata is not None else header
+        nrrd.write(fileName, material_density, header)
 
-        # write the static metadata that will be written to all nrrd files
-        static_metadata = {}
-        static_metadata["Image content"] = "[material_matrix, density_matrix]"
-        if self.material_dict is not None:
-            static_metadata["material_dict"] = self.material_dict
+        # compose_filter = sitk.ComposeImageFilter()
+        # image_nrrd = compose_filter.Execute(
+        #     sitk.GetImageFromArray(material_grid), sitk.GetImageFromArray(density_grid)
+        # )
 
-        for key in static_metadata:
-            image_nrrd.SetMetaData(key, json.dumps(static_metadata[key]))
-        # set the metadata: all sitk Images belonging to a patient will have the same meta data
-        if metadata is not None:
-            for key in metadata:
-                image_nrrd.SetMetaData(key, metadata[key])
+        # image_nrrd.SetOrigin(
+        #     (self.density_image.origin + self.density_image.spacing / 2).astype(float)
+        # )  # [::-1])
+        # image_nrrd.SetSpacing(self.density_image.spacing.astype(float))  # [::-1])
 
-        # write out the files
-        if not os.path.exists(os.path.dirname(fileName)):
-            raise ValueError(
-                f"the input folder does not exist: {os.path.dirname(fileName)}"
-            )
+        # # write the static metadata that will be written to all nrrd files
+        # static_metadata = {}
+        # static_metadata["Image content"] = "[material_matrix, density_matrix]"
+        # if self.material_dict is not None:
+        #     static_metadata["material_dict"] = self.material_dict
 
-        sitk.WriteImage(image_nrrd, fileName, useCompression=True, compressionLevel=9)
+        # for key in static_metadata:
+        #     image_nrrd.SetMetaData(key, json.dumps(static_metadata[key]))
+        # # set the metadata: all sitk Images belonging to a patient will have the same meta data
+        # if metadata is not None:
+        #     for key in metadata:
+        #         image_nrrd.SetMetaData(key, metadata[key])
+
+        # # write out the files
+        # if not os.path.exists(os.path.dirname(fileName)):
+        #     raise ValueError(
+        #         f"the input folder does not exist: {os.path.dirname(fileName)}"
+        #     )
+
+        # sitk.WriteImage(image_nrrd, fileName, useCompression=True, compressionLevel=9)
 
     def is_equal(self, new_BrachyEgsphant):
         r"""
@@ -1077,7 +1142,6 @@ def _load_json(pth_json: Path):
 
     with open(pth_json, "r") as file_json:
         return json.load(file_json)
-
 
 def _load_material_dict(material_source: Union[Path, dict]):
     r"""
