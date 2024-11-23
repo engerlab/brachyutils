@@ -271,6 +271,7 @@ class BrachyEgsphant:
                 )
                 density = density.min() if len(density) != 0 else 0
                 self.material_dict[material]["density"] = density
+                self.material_dict[material]["HU_limit"] = None
             # {for debugging
             # print(f"The axis calculated from get_voxel_edges() are \n {self.voxel_edges}")
             # print(f"The axis from the text file are: \n {self._sanity_axis}")
