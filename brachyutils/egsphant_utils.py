@@ -160,6 +160,7 @@ class BrachyEgsphant:
         Input:
             - pth_file := directory path to the .egsphant file
         """
+        assert os.path.exists(pth_file), "The target egsphant file does not exist!"
         assert (
             os.path.splitext(pth_file)[-1] == ".egsphant"
         ), "target file does not have .egsphant extension"
