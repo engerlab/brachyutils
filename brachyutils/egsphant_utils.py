@@ -923,12 +923,20 @@ class BrachyEgsphant:
                 density_matrix *= np.logical_not(roi_mask)
                 material_matrix *= np.logical_not(roi_mask)
 
-                # update the density and material matricies
+                # XXX update the density and material matricies
                 # interpolate density based on the HU value
                 density_matrix += (
-                    phantom_obj.get_image_array() * roi_mask * slope_density_over_HU
-                    + intercept_density_over_HU
+                    phantom_obj.get_image_array()
+                    * roi_mask
+                    * slope_density_over_HU
+                    # + intercept_density_over_HU
+                    # + density_low_bound
+                    # + 1
                 )
+                # density_matrix += (
+                #     ((phantom_obj.get_image_array() * roi_mask) + 1000) /
+                #     ((1000 * density_low_bound) + 1000)
+                # )
                 material_matrix += (
                     roi_mask
                     * BrachyEgsphant._materials_encoding_array.index(
