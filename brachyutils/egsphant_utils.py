@@ -926,11 +926,10 @@ class BrachyEgsphant:
                 # XXX update the density and material matricies
                 # interpolate density based on the HU value
                 density_matrix += (
-                    phantom_obj.get_image_array()
-                    * roi_mask
+                    ((phantom_obj.get_image_array() * roi_mask) - low_HU_threshold)
                     * slope_density_over_HU
                     # + intercept_density_over_HU
-                    # + density_low_bound
+                    + density_low_bound
                     # + 1
                 )
                 # density_matrix += (

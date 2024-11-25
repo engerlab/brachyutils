@@ -1,9 +1,11 @@
 import os
+
+# from checkpointing import checkpoint
+from glob import glob
 from time import time
 
 import numpy as np
-# from checkpointing import checkpoint
-from glob import glob
+
 from brachyutils import BrachyPhantom
 from brachyutils.egsphant_utils import (
     BrachyEgsphant,
@@ -25,7 +27,7 @@ def test_crop_by_dicom_structure():
     egsphant_obj.crop_by_dicom_structure(
         pth_dir_dicom=pth_dicomRS,
         structure_name="body",
-        )
+    )
     egsphant_obj.info()
 
 
@@ -36,7 +38,7 @@ def test_crop_by_index():
     )
     egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
     egsphant_obj.info()
-    
+
     crop_index = np.array([[10, 40], [0, 90], [10, 100]], dtype=np.float32)
     egsphant_obj.crop_by_index(index_range=crop_index)
     egsphant_obj.info()
@@ -71,6 +73,7 @@ def test_write_to_nrrd():
 
     egsphant_obj.is_equal(new_egsphant_obj)
 
+
 def test_to_single_string():
     pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
@@ -87,6 +90,7 @@ def test_load_from_ctegsphant():
 
     egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
     egsphant_obj.info()
+
 
 def test_load_from_nrrd():
     pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.nrrd"
@@ -140,6 +144,7 @@ def text_load_material_dict():
     materials_dict = _load_material_dict(pth_input)
     print(materials_dict)
 
+
 def test_crop_by_coordinates():
     pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     pth_output = (
@@ -147,10 +152,13 @@ def test_crop_by_coordinates():
     )
     egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
     egsphant_obj.info()
-    crop_coordinates = np.array([[-1248.5, -1227.5], [0, 200], [-100, 100]], dtype=np.float32)
+    crop_coordinates = np.array(
+        [[-1248.5, -1227.5], [0, 200], [-100, 100]], dtype=np.float32
+    )
     egsphant_obj.crop_by_coordinates(coordinate_range=crop_coordinates)
     egsphant_obj.info()
     egsphant_obj.write_to_ctegsphant(pth_output)
+
 
 # @checkpoint()
 def test_egsphant_constructor(
@@ -159,8 +167,12 @@ def test_egsphant_constructor(
     load_structure=True,
     assign_material_from_ct=False,
 ):
-    pth_structure_file = glob(os.path.join(dir_images, "RS*.dcm"))[0] if load_structure else None
-    phantom = BrachyPhantom(dir_dicom=dir_images, pth_structures_file=pth_structure_file)
+    pth_structure_file = (
+        glob(os.path.join(dir_images, "RS*.dcm"))[0] if load_structure else None
+    )
+    phantom = BrachyPhantom(
+        dir_dicom=dir_images, pth_structures_file=pth_structure_file
+    )
     return BrachyEgsphant(
         phantom=phantom,
         material_dict=pth_materials,
