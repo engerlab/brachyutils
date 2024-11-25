@@ -854,95 +854,70 @@ class BrachyEgsphant:
                 f"Background material {background_material} not found in the material dictionary. Will default to Air",
                 stacklevel=2,
             )
+        # update the material dictionary
         self.material_dict = new_material_dict
-        material_matrix = np.ones_like(phantom_obj.get_image_array(), dtype=int)
-        density_matrix = np.ones_like(phantom_obj.get_image_array(), dtype=np.float32)
-        self.num_materials = len(self.material_dict)
-
+        # get the phantom ct image, as well as background encoding and density
+        phantom_ct_image = phantom_obj.get_image_array()
+        background_encoding= BrachyEgsphant._materials_encoding_array.index(
+                        self.material_dict.get(background_material).get("encoding")
+                    )
+        background_density = self.material_dict.get(background_material).get("density")
+        # prepare matricies to hold material and density images. initialize them with background values
+        material_matrix = np.ones_like(phantom_ct_image, dtype=int) * background_encoding
+        density_matrix = np.ones_like(phantom_ct_image, dtype=np.float32) * background_density
+        
+        # self.num_materials = len(self.material_dict)
         # loop through the material, get their binary mask from the ct images apply it to the material
         # density materix.
-        materials_list = list(self.material_dict.keys())
+        # materials_list = list(self.material_dict.keys())
 
         if assign_material_from_ct:
             # sort out the materials and density based on the HU values
+            # sort out the materials and density based on the HU values
             self._sort_materials_by("HU_limit")
+            low_HU_threshold = np.min([phantom_ct_image.min(), self.material_dict.get(background_material).get("HU_limit")]) #-np.inf #self.material_dict.get(background_material).get("HU_limit")
+            density_low_bound = background_density #self.material_dict.get(background_material).get("density")
 
-            for i, material in enumerate(self.material_dict.keys()):
-
+            for i, material in enumerate(list(self.material_dict.keys())):
                 # numerically interpolate the density and material based on the HU values
-                low_HU_threshold = self.material_dict.get(material).get("HU_limit")
-                high_HU_threshold = (
-                    self.material_dict.get(materials_list[i + 1]).get("HU_limit")
-                    if i + 1 < len(materials_list)
-                    else float("inf")
+                high_HU_threshold = self.material_dict.get(material).get("HU_limit")
+                if low_HU_threshold == high_HU_threshold:
+                    # we have background materials
+                    continue
+                # find region of interest mask based on the HU values
+                roi_mask = np.logical_and(
+                    phantom_ct_image > low_HU_threshold,
+                    phantom_ct_image <= high_HU_threshold,
                 )
-                density_low_bound = self.material_dict.get(material).get("density")
-                density_high_bound = (
-                    self.material_dict.get(materials_list[i + 1]).get("density")
-                    if i + 1 < len(materials_list)
-                    else density_low_bound
-                )
+                # if i == 0:
+                #     density_matrix[roi_mask] = self.material_dict.get(material).get(
+                #         "density"
+                #     )
+                #     material_encoding = BrachyEgsphant._materials_encoding_array.index(
+                #         self.material_dict.get(material).get("encoding")
+                #     )
+                #     material_matrix[roi_mask] = material_encoding
 
+                # else:
+                density_high_bound = self.material_dict.get(material).get("density")
                 slope_density_over_HU = (density_high_bound - density_low_bound) / (
                     high_HU_threshold - low_HU_threshold
                 )
-                intercept_density_over_HU = density_low_bound - (
-                    slope_density_over_HU * low_HU_threshold
-                )
-                # find region of interest mask based on the HU values
-                roi_mask = np.logical_and(
-                    np.where(
-                        phantom_obj.get_image_array() >= low_HU_threshold,
-                        1,
-                        0,
-                    ).astype(bool),
-                    np.where(
-                        phantom_obj.get_image_array() < high_HU_threshold,
-                        1,
-                        0,
-                    ).astype(bool),
-                )
-                # set the density and material of all voxels outside the lowest HU_limit to air
-                if i == 0:
-                    complementary_roi_mask = np.logical_not(roi_mask)
-                    density_matrix *= roi_mask
-                    material_matrix *= roi_mask
-                    density_matrix += complementary_roi_mask * self.material_dict.get(
-                        background_material, "Air"
-                    ).get("density")
-                    material_matrix += (
-                        complementary_roi_mask
-                        * BrachyEgsphant._materials_encoding_array.index(
-                            self.material_dict.get(background_material, "Air").get(
-                                "encoding"
-                            )
-                        )
-                    )
-
-                # reset the voxel values for the roi enetries
-                density_matrix *= np.logical_not(roi_mask)
-                material_matrix *= np.logical_not(roi_mask)
-
-                # XXX update the density and material matricies
                 # interpolate density based on the HU value
-                density_matrix += (
-                    ((phantom_obj.get_image_array() * roi_mask) - low_HU_threshold)
-                    * slope_density_over_HU
-                    # + intercept_density_over_HU
-                    + density_low_bound
-                    # + 1
+                density_matrix = np.where(
+                    roi_mask,
+                    ((phantom_ct_image - low_HU_threshold)
+                    * slope_density_over_HU)
+                    + density_low_bound,
+                    density_matrix,
                 )
-                # density_matrix += (
-                #     ((phantom_obj.get_image_array() * roi_mask) + 1000) /
-                #     ((1000 * density_low_bound) + 1000)
-                # )
-                material_matrix += (
-                    roi_mask
-                    * BrachyEgsphant._materials_encoding_array.index(
+                material_matrix = np.where(
+                    roi_mask,
+                    np.ones_like(material_matrix) * BrachyEgsphant._materials_encoding_array.index(
                         self.material_dict.get(material).get("encoding")
-                    )
+                    ),
+                    material_matrix
                 )
-                # assert np.all(density_matrix >= 0), "density matrix has negative values"
         else:
             # dicom_structure_list = list(phantom_obj.structure_mask_dict.keys())
             # find the materials that have a structure name with them.
