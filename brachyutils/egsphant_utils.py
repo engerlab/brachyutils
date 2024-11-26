@@ -280,8 +280,8 @@ class BrachyEgsphant:
             # print(f"the size of the axis in the z, y, x for axis from file are {self._sanity_axis[0].shape}, {self._sanity_axis[1].shape}, {self._sanity_axis[2].shape}")
             # }
             assert np.isclose(
-                np.round(np.concatenate(self.voxel_edges), decimals=1),
-                np.round(np.concatenate(self._sanity_axis), decimals=1),
+                np.concatenate(self.voxel_edges),
+                np.concatenate(self._sanity_axis),
                 rtol=0.25,
             ).all(), "axis is not the same"
 
