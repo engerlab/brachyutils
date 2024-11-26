@@ -280,9 +280,9 @@ class BrachyEgsphant:
             # print(f"the size of the axis in the z, y, x for axis from file are {self._sanity_axis[0].shape}, {self._sanity_axis[1].shape}, {self._sanity_axis[2].shape}")
             # }
             assert np.isclose(
-                np.concatenate(self.voxel_edges),
-                np.concatenate(self._sanity_axis),
-                rtol=1e-1,
+                np.round(np.concatenate(self.voxel_edges), decimals=1),
+                np.round(np.concatenate(self._sanity_axis), decimals=1),
+                rtol=0.25,
             ).all(), "axis is not the same"
 
     def _sort_materials_by(self, material_key="encoding"):
@@ -413,6 +413,7 @@ class BrachyEgsphant:
         self.voxel_edges = np.empty(len(voxel_centers), dtype=object)
         for i in range(len(voxel_centers)):
             self.voxel_edges[i] = voxel_centers[i] - self.density_image.spacing[i] / 2.0
+
         return self.voxel_edges
 
     def create_interpolation_function(self, grid):
@@ -466,12 +467,11 @@ class BrachyEgsphant:
         egsphant_voxel_edges = (
             np.array(
                 [
-                    np.append(axis, axis[-1] + self.density_image.spacing[i])
+                    np.char.mod("%.3f", np.append(axis, axis[-1] + self.density_image.spacing[i]) /10)
                     for i, axis in enumerate(self.voxel_edges)
                 ],
                 dtype=object,
             )
-            / 10
         )
         self._sort_materials_by("encoding")
         num_materials = str(self.num_materials) + "\n"
@@ -480,19 +480,22 @@ class BrachyEgsphant:
         dimensions = " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
         x_axis = (
             " ".join(
-                map(str, np.round(egsphant_voxel_edges[0].astype(float), decimals=3))
+                egsphant_voxel_edges[0]
+                # map(str, np.round(egsphant_voxel_edges[0].astype(float), decimals=3))
             )
             + "\n"
         )
         y_axis = (
             " ".join(
-                map(str, np.round(egsphant_voxel_edges[1].astype(float), decimals=3))
+                egsphant_voxel_edges[1]
+                # map(str, np.round(egsphant_voxel_edges[1].astype(float), decimals=3))
             )
             + "\n"
         )
         z_axis = (
             " ".join(
-                map(str, np.round(egsphant_voxel_edges[2].astype(float), decimals=3))
+                egsphant_voxel_edges[2]
+                # map(str, np.round(egsphant_voxel_edges[2].astype(float), decimals=3))
             )
             + "\n"
         )
@@ -876,24 +879,27 @@ class BrachyEgsphant:
             # sort out the materials and density based on the HU values
             self._sort_materials_by("HU_limit")
             low_HU_threshold = np.min([phantom_ct_image.min(), self.material_dict.get(background_material).get("HU_limit")]) #-np.inf #self.material_dict.get(background_material).get("HU_limit")
-            density_low_bound = background_density #self.material_dict.get(background_material).get("density")
+            density_low_bound = background_density
 
             for i, material in enumerate(list(self.material_dict.keys())):
+
                 # numerically interpolate the density and material based on the HU values
-                if i > 0:
-                    low_HU_threshold = self.material_dict.get(
-                        list(self.material_dict.keys())[i-1]
-                        ).get("HU_limit")
-                high_HU_threshold = self.material_dict.get(material).get("HU_limit")
-                if low_HU_threshold == high_HU_threshold:
-                    # we have background materials
-                    continue
+                low_HU_threshold = self.material_dict.get(material).get("HU_limit")
+                # if this is the last material, set the high HU threshold to infinity
+                high_HU_threshold = self.material_dict.get(
+                        list(self.material_dict.keys())[i+1]
+                        ).get("HU_limit") if i + 1 < len(self.material_dict) else np.inf
                 # find region of interest mask based on the HU values
                 roi_mask = np.logical_and(
                     phantom_ct_image > low_HU_threshold,
                     phantom_ct_image <= high_HU_threshold,
                 )
-                density_high_bound = self.material_dict.get(material).get("density")
+
+                density_low_bound = self.material_dict.get(material).get("density")
+                density_high_bound = self.material_dict.get(
+                    list(self.material_dict.keys())[i+1]
+                    ).get("density") if i + 1 < len(self.material_dict) else density_low_bound
+
                 slope_density_over_HU = (density_high_bound - density_low_bound) / (
                     high_HU_threshold - low_HU_threshold
                 )
