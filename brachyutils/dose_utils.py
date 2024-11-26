@@ -659,7 +659,10 @@ class BrachyDose:
         self,
         pth_output: Path,
         metadata: Optional[dict] = None,
-        # format: Optional[Literal["rapidbrachy", "slicer"]] = "rapidbrachy",
+        coordinate_system = Literal[
+            "left-posterior-superior",
+            "right-anterior-superior"
+            ] = "left-posterior-superior",
     ):
         r"""
         Purpose:
@@ -692,7 +695,7 @@ class BrachyDose:
         header = defaultdict(str)
         header["type"] = "double"
         header["dimension"] = "4" if self.uncertainty_image is not None else "3"
-        header["space"] = "left-anterior-superior"
+        header["space"] = coordinate_system
         header["sizes"] = (
             " ".join(map(str, [2] + self.dose_image.gridSize.tolist()))
             if self.uncertainty_image is not None
