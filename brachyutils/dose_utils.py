@@ -669,7 +669,6 @@ class BrachyDose:
             To save the contents of BrachyDose into a nrrd file.
         inputs:
             - pth_output := path where the dose nrrd file will be written to.
-
             - metadata := a dictionary containing the following meta data key values (should be changed later):
                 "cancer site":
                 "care center":
@@ -677,6 +676,9 @@ class BrachyDose:
                 "number of segmented structures":
                 "patient number":
                 "Image content": "[3D dose, 3D uncertainty]"
+            - coordinate_system := the coordinate system of the dose grid. should be one of the following:
+                "left-posterior-superior"
+                "right-anterior-superior"
         outputs: Void
             writes [3D dose, 3D uncertainty], voxel size, origin (origin_coordinates), and metadata to the file_name_dose.nrrd
         """

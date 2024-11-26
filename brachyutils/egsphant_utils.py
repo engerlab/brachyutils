@@ -4,7 +4,7 @@ import os
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Literal
 
 import nrrd
 import numpy as np
@@ -50,7 +50,6 @@ class BrachyEgsphant:
         - sort_materials_by()               done
         - export_material_dict()            done
         - _remove_duplicate_materials()     done
-
     Dependencies:
         - opentps
     """
@@ -60,7 +59,6 @@ class BrachyEgsphant:
     _materials_encoding_array = [str(i) for i in range(1, 10)] + [
         chr(i) for i in range(ord("A"), ord("Z") + 1)
     ]
-
     def __init__(
         self,
         pth_egsphant_file: Optional[Path] = None,
@@ -520,7 +518,15 @@ class BrachyEgsphant:
             ]
             file.writelines(lines)
 
-    def write_to_nrrd(self, fileName: Path, metadata: Optional[dict] = None):
+    def write_to_nrrd(
+        self,
+        fileName: Path,
+        metadata: Optional[dict] = None,
+        coordinate_system = Literal[
+            "left-posterior-superior",
+            "right-anterior-superior"
+            ] = "left-posterior-superior",
+        ):
         r"""
         Purpose:
             To save the contents of an egsphant as a nrrd file.
@@ -530,6 +536,9 @@ class BrachyEgsphant:
             - metadata := a dictionary containing the following meta data key values:
                 "material_dict:" {material_name: {"encoding": int, "density": float, "HU_limit": float}}
                 "Image content": "[material_matrix, density_matrix]"
+            - coordinate_system := the coordinate system of the dose grid. should be one of the following:
+                "left-posterior-superior"
+                "right-anterior-superior"
         outputs: Void
             writes [material_matrix, density_matrix], voxel size, origin (origin_coordinates), and metadata to the file_name_density.nrrd
             note that 3D density files are written in z, y, x, but the sitk image is written in x, y, z.
@@ -553,7 +562,7 @@ class BrachyEgsphant:
         header = defaultdict(str)
         header["type"] = "double"
         header["dimension"] = "4"
-        header["space"] = "left-anterior-superior"
+        header["space"] = coordinate_system
         header["sizes"] = " ".join(map(str, [2] + self.density_image.gridSize.tolist()))
 
         header["space directions"] = [
@@ -572,37 +581,6 @@ class BrachyEgsphant:
         # header["space units"] = ["", "mm", "mm", "mm"]
         header = header | metadata if metadata is not None else header
         nrrd.write(fileName, material_density, header)
-
-        # compose_filter = sitk.ComposeImageFilter()
-        # image_nrrd = compose_filter.Execute(
-        #     sitk.GetImageFromArray(material_grid), sitk.GetImageFromArray(density_grid)
-        # )
-
-        # image_nrrd.SetOrigin(
-        #     (self.density_image.origin + self.density_image.spacing / 2).astype(float)
-        # )  # [::-1])
-        # image_nrrd.SetSpacing(self.density_image.spacing.astype(float))  # [::-1])
-
-        # # write the static metadata that will be written to all nrrd files
-        # static_metadata = {}
-        # static_metadata["Image content"] = "[material_matrix, density_matrix]"
-        # if self.material_dict is not None:
-        #     static_metadata["material_dict"] = self.material_dict
-
-        # for key in static_metadata:
-        #     image_nrrd.SetMetaData(key, json.dumps(static_metadata[key]))
-        # # set the metadata: all sitk Images belonging to a patient will have the same meta data
-        # if metadata is not None:
-        #     for key in metadata:
-        #         image_nrrd.SetMetaData(key, metadata[key])
-
-        # # write out the files
-        # if not os.path.exists(os.path.dirname(fileName)):
-        #     raise ValueError(
-        #         f"the input folder does not exist: {os.path.dirname(fileName)}"
-        #     )
-
-        # sitk.WriteImage(image_nrrd, fileName, useCompression=True, compressionLevel=9)
 
     def is_equal(self, new_BrachyEgsphant):
         r"""
