@@ -676,7 +676,6 @@ class BrachyDose:
                 "Image content": "[3D dose, 3D uncertainty]"
         outputs: Void
             writes [3D dose, 3D uncertainty], voxel size, origin (origin_coordinates), and metadata to the file_name_dose.nrrd
-            note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z.
         """
         # check if the directory exists, if not create it. make sure the file extension is write.
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
@@ -857,7 +856,7 @@ class BrachyDose:
         Purpose:
             - Given a set of coordinates, this function will return the dose at that point.
         Inputs:
-            - coords := a list of 3 coordinates [z, y, x] or a numpy array of shape (3,)
+            - coords := a list of 3 coordinates [x, y, z] or a numpy array of shape (3,)
         Outputs:
             - dose := the dose at the given coordinates in Gy
         """
@@ -871,7 +870,7 @@ class BrachyDose:
         Purpose:
             - Given a set of coordinates, this function will return the dose at that point.
         Inputs:
-            - coords := a list of 3 coordinates [z, y, x] or a numpy array of shape (3,)
+            - coords := a list of 3 coordinates [x, y, z] or a numpy array of shape (3,)
         Outputs:
             - dose := the dose at the given coordinates in Gy
         """
