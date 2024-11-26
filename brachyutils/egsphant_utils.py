@@ -880,6 +880,10 @@ class BrachyEgsphant:
 
             for i, material in enumerate(list(self.material_dict.keys())):
                 # numerically interpolate the density and material based on the HU values
+                if i > 0:
+                    low_HU_threshold = self.material_dict.get(
+                        list(self.material_dict.keys())[i-1]
+                        ).get("HU_limit")
                 high_HU_threshold = self.material_dict.get(material).get("HU_limit")
                 if low_HU_threshold == high_HU_threshold:
                     # we have background materials
@@ -889,21 +893,12 @@ class BrachyEgsphant:
                     phantom_ct_image > low_HU_threshold,
                     phantom_ct_image <= high_HU_threshold,
                 )
-                # if i == 0:
-                #     density_matrix[roi_mask] = self.material_dict.get(material).get(
-                #         "density"
-                #     )
-                #     material_encoding = BrachyEgsphant._materials_encoding_array.index(
-                #         self.material_dict.get(material).get("encoding")
-                #     )
-                #     material_matrix[roi_mask] = material_encoding
-
-                # else:
                 density_high_bound = self.material_dict.get(material).get("density")
                 slope_density_over_HU = (density_high_bound - density_low_bound) / (
                     high_HU_threshold - low_HU_threshold
                 )
                 # interpolate density based on the HU value
+                # density_matrix *= np.logical_not(roi_mask)
                 density_matrix = np.where(
                     roi_mask,
                     ((phantom_ct_image - low_HU_threshold)
@@ -911,9 +906,10 @@ class BrachyEgsphant:
                     + density_low_bound,
                     density_matrix,
                 )
+                # material_matrix *= np.logical_not(roi_mask) 
                 material_matrix = np.where(
                     roi_mask,
-                    np.ones_like(material_matrix) * BrachyEgsphant._materials_encoding_array.index(
+                    BrachyEgsphant._materials_encoding_array.index(
                         self.material_dict.get(material).get("encoding")
                     ),
                     material_matrix
@@ -984,7 +980,7 @@ class BrachyEgsphant:
                         str(self.material_dict.get(material).get("encoding"))
                     )
                 )
-
+        self.num_materials = len(self.material_dict)
         self.material_image = Image3D(
             imageArray=np.swapaxes(material_matrix, 0, 2),
             origin=phantom_obj.image_obj.origin,
