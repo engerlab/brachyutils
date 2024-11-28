@@ -337,10 +337,11 @@ class FilmCalibration:
                 "Enter the number of possible pixel values (e.g. 2^16 for 16 bit images):"
             )
             pixel_range_str = input()
-        try:
-            self.pixel_range = int(pixel_range_str)
-        except ValueError:
-            print("Invalid input. Please enter an integer.")
+            try:
+                self.pixel_range = int(pixel_range_str)
+                print(pixel_range_str, self.pixel_range)
+            except ValueError:
+                print("Invalid input. Please enter an integer.")
         print(
             "Begin selecting calibration film files. Enter a dose and select the calibration films at that dose or enter 'Done' to finish."
         )
