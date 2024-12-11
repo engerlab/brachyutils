@@ -9,7 +9,10 @@ __all__ = [
 ]
 
 # trunk-ignore(ruff/F401)
-from brachyutils.dose_utils import BrachyDose, DoseComparison
+from brachyutils.dose_utils import BrachyDose
+
+# trunk-ignore(ruff/F401)
+from brachyutils.dose_comparison_utils import DoseComparison
 
 # trunk-ignore(ruff/F401)
 from brachyutils.egsphant_utils import BrachyEgsphant
