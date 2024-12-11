@@ -14,6 +14,7 @@ services:
       - ../:/root/brachyutils
       - ${HOST_HOME}:/root/YourLocalHome
     # to write data to the DoseCalcTG43 container
-      - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone/temp_data:/root/brachyutils/temp_data  
+      - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone/temp_data:/root/brachyutils/temp_data/tg43  
+      - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data:/root/brachyutils/temp_data/mc
     # ports:
     # - "8080:8080"
