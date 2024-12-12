@@ -333,7 +333,7 @@ class BrachySimulation:
         """
         self.validate()
         return (
-            f"/treatmentType {self.brachy_source.treatment_type}\n"
+            f"/source/treatmentType {self.brachy_source.treatment_type}\n"
             + f"/source/switch {self.brachy_source.source_geometry}\n"
             + f"/source/coreMaterial {self.brachy_source.core_material}\n"
             + f"/source/core/A {self.brachy_source.mass_number}\n"
