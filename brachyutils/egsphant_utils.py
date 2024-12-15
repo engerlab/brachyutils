@@ -1119,7 +1119,7 @@ def _load_material_dict(material_source: Union[Path, dict]):
         pth_file = material_source
         assert os.path.exists(
             pth_file
-        ), f"no such ct2density.txt file was found at this directory: \n {pth_file}"
+        ), f"no such file was found at this directory: \n {pth_file}"
 
         extension = os.path.splitext(pth_file)[-1]
 
