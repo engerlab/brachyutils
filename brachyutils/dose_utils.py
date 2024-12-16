@@ -1,11 +1,12 @@
 import copy
 import difflib
-import logging
+
+# import logging
 import lzma
 import os
 
 # trunk-ignore(bandit/B403)
-import sys
+# import sys
 import warnings
 from array import array
 
@@ -15,9 +16,7 @@ from typing import List, Literal, Optional, Union
 
 import nrrd
 import numpy as np
-import pymedphys
 import pyzstd
-from matplotlib import pyplot as plt
 from numpy import ma, reshape
 from opentps.core.data.images import DoseImage
 from scipy.interpolate import RegularGridInterpolator
@@ -408,12 +407,12 @@ class BrachyDose:
         )
 
     def extract_dose_values_from_coordinates(self, x, y, z):
-        #r""" """
-        #raise DeprecationWarning(
+        # r""" """
+        # raise DeprecationWarning(
         #    "This function is no longer supported due to migration to open tps. please use self.get_dose_at_coordinates() instead."
-        #)
-        #self.is_not_empty()
-        #if self.interpolation_function is None:
+        # )
+        # self.is_not_empty()
+        # if self.interpolation_function is None:
         #    raise ValueError("interpolation function is not defined")
         shape = []
         axis = []
@@ -430,7 +429,10 @@ class BrachyDose:
         coord_grid_z, coord_grid_y, coord_grid_x = np.meshgrid(
             [z], [y], [x], indexing="ij"
         )
-        dose_grid_lambda = lambda xs, ys, zs: self.dose_image.getDataAtPosition((xs, ys, zs))
+        # trunk-ignore(ruff/E731)
+        dose_grid_lambda = lambda xs, ys, zs: self.dose_image.getDataAtPosition(
+            (xs, ys, zs)
+        )
         dose_grid_function = np.vectorize(dose_grid_lambda)
         dose_grid = dose_grid_function(coord_grid_x, coord_grid_y, coord_grid_z)
         dose_grid.reshape(shape)
@@ -656,9 +658,9 @@ class BrachyDose:
         pth_output: Path,
         metadata: Optional[dict] = None,
         coordinate_system: Literal[
-            "left-posterior-superior",
-            "right-anterior-superior"]
-            = "left-posterior-superior"):
+            "left-posterior-superior", "right-anterior-superior"
+        ] = "left-posterior-superior",
+    ):
         r"""
         Purpose:
             To save the contents of BrachyDose into a nrrd file.
@@ -798,13 +800,13 @@ class BrachyDose:
 
     def write_to_xz(self, fileName):
         assert os.path.splitext(fileName)[-1] == ".xz"
-
+        import pickle
         with lzma.open(fileName, "wb") as file:
             pickle.dump(self, file)
 
     def write_to_zstd(self, file_name):
         assert os.path.splitext(file_name)[-1] == ".zst"
-
+        import pickle
         with pyzstd.open(file_name, "wb", level_or_option=22) as file:
             pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -1171,7 +1173,9 @@ class BrachyDose:
             empty_dose: BrachyDose object with empty grid and uncertainty
         """
         new_dose = BrachyDose()
-        new_dose.dose_image = DoseImage.createEmptyDoseWithSameMetaData(dose_obj.dose_image)
+        new_dose.dose_image = DoseImage.createEmptyDoseWithSameMetaData(
+            dose_obj.dose_image
+        )
         if dose_obj.uncertainty_image is not None:
             new_dose.uncertainty_image = DoseImage.createEmptyDoseWithSameMetaData(
                 dose_obj.uncertainty_image
@@ -1194,5 +1198,7 @@ class BrachyDose:
         else:
             print("write 3ddose does not work fine")
             print("here are the differences")
-            diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
+            diff_list = list(
+                difflib.ndiff(contents1.splitlines(), contents2.splitlines())
+            )
             print("\n".join(diff_list))

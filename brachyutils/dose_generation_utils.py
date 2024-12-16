@@ -159,19 +159,21 @@ class DoseMonteCarlo(DoseGenerator):
             - Validate the inputs of the Monte Carlo dose generator.
         """
         pass
-    
+
     def generate_dose(
         self,
-        pth_mac:Path = None,
-        random_seed:int = 1,
+        pth_mac: Path = None,
+        random_seed: int = 1,
         all_dwells: bool = False,
-        ):
+    ):
         r""""""
 
         if pth_mac is None:
             assert all_dwells, "If pth_mac is not provided, all_dwells must be True."
             pth_all_mac = glob(str(self.dir_plan_export / "*.mac"))
-            assert len(pth_all_mac) > 0, f"no mac file is found at {self.dir_plan_export}."
+            assert (
+                len(pth_all_mac) > 0
+            ), f"no mac file is found at {self.dir_plan_export}."
             for pth_mac in pth_all_mac:
                 self.generate_dose(
                     pth_mac=pth_mac,
@@ -182,6 +184,7 @@ class DoseMonteCarlo(DoseGenerator):
             if "http" in self.pth_dose_executable:
                 # use fast api post to request the dose calculation
                 import requests
+
                 response = requests.post(
                     self.pth_dose_executable,
                     json={

@@ -6,11 +6,14 @@ __all__ = [
     "simulation_utils",
     "film_utils",
     "geometry_utils",
-    "dose_comparison_utils"
+    "dose_comparison_utils",
 ]
 
 # trunk-ignore(ruff/F401)
-from brachyutils.dose_utils import BrachyDose, DoseComparison
+from brachyutils.dose_comparison_utils import DoseComparison
+
+# trunk-ignore(ruff/F401)
+from brachyutils.dose_utils import BrachyDose
 
 # trunk-ignore(ruff/F401)
 from brachyutils.egsphant_utils import BrachyEgsphant
@@ -26,6 +29,3 @@ from brachyutils.plan_utils import BrachyPlan, BrachyStructure
 
 # trunk-ignore(ruff/F401)
 from brachyutils.simulation_utils import BrachySimulation
-
-# trunk-ignore(ruff/F401)
-from brachyutils.dose_comparison_utils import DoseComparison

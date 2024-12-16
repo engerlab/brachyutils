@@ -4,7 +4,7 @@ import os
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Union, Literal
+from typing import Literal, Optional, Union
 
 import nrrd
 import numpy as np
@@ -59,6 +59,7 @@ class BrachyEgsphant:
     _materials_encoding_array = [str(i) for i in range(1, 10)] + [
         chr(i) for i in range(ord("A"), ord("Z") + 1)
     ]
+
     def __init__(
         self,
         pth_egsphant_file: Optional[Path] = None,
@@ -462,14 +463,15 @@ class BrachyEgsphant:
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
         os.makedirs(os.path.dirname(fileName), exist_ok=True)
-        egsphant_voxel_edges = (
-            np.array(
-                [
-                    np.char.mod("%.3f", np.append(axis, axis[-1] + self.density_image.spacing[i]) /10)
-                    for i, axis in enumerate(self.voxel_edges)
-                ],
-                dtype=object,
-            )
+        egsphant_voxel_edges = np.array(
+            [
+                np.char.mod(
+                    "%.3f",
+                    np.append(axis, axis[-1] + self.density_image.spacing[i]) / 10,
+                )
+                for i, axis in enumerate(self.voxel_edges)
+            ],
+            dtype=object,
         )
         self._sort_materials_by("encoding")
         num_materials = str(self.num_materials) + "\n"
@@ -522,11 +524,10 @@ class BrachyEgsphant:
         self,
         fileName: Path,
         metadata: Optional[dict] = None,
-        coordinate_system : Literal[
-            "left-posterior-superior",
-            "right-anterior-superior"
-            ] = "left-posterior-superior",
-        ):
+        coordinate_system: Literal[
+            "left-posterior-superior", "right-anterior-superior"
+        ] = "left-posterior-superior",
+    ):
         r"""
         Purpose:
             To save the contents of an egsphant as a nrrd file.
@@ -839,14 +840,18 @@ class BrachyEgsphant:
         self.material_dict = new_material_dict
         # get the phantom ct image, as well as background encoding and density
         phantom_ct_image = phantom_obj.get_image_array()
-        background_encoding= BrachyEgsphant._materials_encoding_array.index(
-                        self.material_dict.get(background_material).get("encoding")
-                    )
+        background_encoding = BrachyEgsphant._materials_encoding_array.index(
+            self.material_dict.get(background_material).get("encoding")
+        )
         background_density = self.material_dict.get(background_material).get("density")
         # prepare matricies to hold material and density images. initialize them with background values
-        material_matrix = np.ones_like(phantom_ct_image, dtype=int) * background_encoding
-        density_matrix = np.ones_like(phantom_ct_image, dtype=np.float32) * background_density
-        
+        material_matrix = (
+            np.ones_like(phantom_ct_image, dtype=int) * background_encoding
+        )
+        density_matrix = (
+            np.ones_like(phantom_ct_image, dtype=np.float32) * background_density
+        )
+
         # self.num_materials = len(self.material_dict)
         # loop through the material, get their binary mask from the ct images apply it to the material
         # density materix.
@@ -856,7 +861,12 @@ class BrachyEgsphant:
             # sort out the materials and density based on the HU values
             # sort out the materials and density based on the HU values
             self._sort_materials_by("HU_limit")
-            low_HU_threshold = np.min([phantom_ct_image.min(), self.material_dict.get(background_material).get("HU_limit")]) #-np.inf #self.material_dict.get(background_material).get("HU_limit")
+            low_HU_threshold = np.min(
+                [
+                    phantom_ct_image.min(),
+                    self.material_dict.get(background_material).get("HU_limit"),
+                ]
+            )  # -np.inf #self.material_dict.get(background_material).get("HU_limit")
             density_low_bound = background_density
 
             for i, material in enumerate(list(self.material_dict.keys())):
@@ -864,9 +874,13 @@ class BrachyEgsphant:
                 # numerically interpolate the density and material based on the HU values
                 low_HU_threshold = self.material_dict.get(material).get("HU_limit")
                 # if this is the last material, set the high HU threshold to infinity
-                high_HU_threshold = self.material_dict.get(
-                        list(self.material_dict.keys())[i+1]
-                        ).get("HU_limit") if i + 1 < len(self.material_dict) else np.inf
+                high_HU_threshold = (
+                    self.material_dict.get(list(self.material_dict.keys())[i + 1]).get(
+                        "HU_limit"
+                    )
+                    if i + 1 < len(self.material_dict)
+                    else np.inf
+                )
                 # find region of interest mask based on the HU values
                 roi_mask = np.logical_and(
                     phantom_ct_image > low_HU_threshold,
@@ -874,9 +888,13 @@ class BrachyEgsphant:
                 )
 
                 density_low_bound = self.material_dict.get(material).get("density")
-                density_high_bound = self.material_dict.get(
-                    list(self.material_dict.keys())[i+1]
-                    ).get("density") if i + 1 < len(self.material_dict) else density_low_bound
+                density_high_bound = (
+                    self.material_dict.get(list(self.material_dict.keys())[i + 1]).get(
+                        "density"
+                    )
+                    if i + 1 < len(self.material_dict)
+                    else density_low_bound
+                )
 
                 slope_density_over_HU = (density_high_bound - density_low_bound) / (
                     high_HU_threshold - low_HU_threshold
@@ -885,18 +903,17 @@ class BrachyEgsphant:
                 # density_matrix *= np.logical_not(roi_mask)
                 density_matrix = np.where(
                     roi_mask,
-                    ((phantom_ct_image - low_HU_threshold)
-                    * slope_density_over_HU)
+                    ((phantom_ct_image - low_HU_threshold) * slope_density_over_HU)
                     + density_low_bound,
                     density_matrix,
                 )
-                # material_matrix *= np.logical_not(roi_mask) 
+                # material_matrix *= np.logical_not(roi_mask)
                 material_matrix = np.where(
                     roi_mask,
                     BrachyEgsphant._materials_encoding_array.index(
                         self.material_dict.get(material).get("encoding")
                     ),
-                    material_matrix
+                    material_matrix,
                 )
         else:
             # dicom_structure_list = list(phantom_obj.structure_mask_dict.keys())
