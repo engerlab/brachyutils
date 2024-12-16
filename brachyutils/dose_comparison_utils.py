@@ -1,13 +1,20 @@
-import numpy as np
-from opentps.core.processing.dataComparison.gammaIndex import gammaIndex
-from matplotlib import pyplot as plt
-import pickle
-import os
-import sys
 import logging
+import os
+import pickle
+import sys
 import tkinter as tk
 from tkinter import filedialog as fd
+
+import numpy as np
+import pymedphys
+from matplotlib import pyplot as plt
+from opentps.core.processing.dataComparison.gammaIndex import gammaIndex
+from opentps.gui.viewer.dataViewerComponents.doseComparisonImageProvider import (
+    DoseComparisonImageProvider,
+)
+
 from brachyutils import BrachyDose
+
 
 class DoseComparison:
     gamma_kwargs: dict = (
@@ -69,8 +76,8 @@ class DoseComparison:
                 - save_comparison_object
                 - load_comparison_object
         """
-        #note: we will not use DoseComparisonImageProvider from OpenTPS
-        #since the gamma index capabilities are not yet implemented
+        # note: we will not use DoseComparisonImageProvider from OpenTPS
+        # since the gamma index capabilities are not yet implemented
         # provide no dose to just load a file
         if dose1 is None and dose2 is None:
             self.load_comparison_object(path)
@@ -80,11 +87,11 @@ class DoseComparison:
         self.dose2 = dose2
         # axis is taken from the first dose provided
         self.voxel_centers = dose1.get_voxel_centers()
-        #print("Before resample", self.dose2.dose_image is None)
+        # print("Before resample", self.dose2.dose_image is None)
         self.dose2.dose_image.resampleOn(dose1.dose_image, fillValue=0)
-        #print("After resample", self.dose2.dose_image is None)
+        # print("After resample", self.dose2.dose_image is None)
         self.percent_difference: BrachyDose = None
-        #self.dose_comparision_image_provider = DoseComparisonImageProvider()
+        # self.dose_comparision_image_provider = DoseComparisonImageProvider()
         self.gamma_index: BrachyDose = None
         self.gamma_dose_percent_threshold = gamma_dose_percent_threshold
         self.gamma_kwargs = gamma_kwargs
@@ -243,19 +250,25 @@ class DoseComparison:
     def compute_percent_difference(self):
 
         self.percent_difference = BrachyDose.dose_with_empty_grid_like(self.dose1)
-        #print(self.dose1.dose_image is None, self.dose2.dose_image is None)
+        # print(self.dose1.dose_image is None, self.dose2.dose_image is None)
         self.percent_difference.dose_image.imageArray = (
             np.abs(self.dose1.dose_image.imageArray - self.dose2.dose_image.imageArray)
-            / self.dose1.dose_image.imageArray  * 100.
+            / self.dose1.dose_image.imageArray
+            * 100.0
         )
 
     def compute_gamma_index(self):
         self.gamma_index = BrachyDose.dose_with_empty_grid_like(self.dose1)
         print("Computing gamma index may take time")
         logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-        self.gamma_index.dose_image = gammaIndex(self.dose1.dose_image, self.dose2.dose_image, \
-            self.gamma_dose_percent_threshold, self.gamma_distance_threshold, **self.gamma_kwargs)
-        #gamma_index_grid = pymedphys.gamma(
+        self.gamma_index.dose_image = gammaIndex(
+            self.dose1.dose_image,
+            self.dose2.dose_image,
+            self.gamma_dose_percent_threshold,
+            self.gamma_distance_threshold,
+            **self.gamma_kwargs,
+        )
+        # gamma_index_grid = pymedphys.gamma(
         #    tuple(self.voxel_centers),
         #    self.dose1.dose_image.imageArray,
         #    tuple(self.voxel_centers),
@@ -263,14 +276,14 @@ class DoseComparison:
         #    self.gamma_dose_percent_threshold,
         #    self.gamma_distance_threshold,
         #    **self.gamma_kwargs,
-        #)
+        # )
         # cast the NaNs to 0s
         gamma_index_grid = self.gamma_index.dose_image.imageArray
         number_excluded = np.sum(np.isnan(gamma_index_grid))
         gamma_index_grid[np.isnan(gamma_index_grid)] = -1
-        self.gamma_pass_ratio = (
-            np.sum(gamma_index_grid <= 1) - number_excluded
-        ) / (gamma_index_grid.size - number_excluded)
+        self.gamma_pass_ratio = (np.sum(gamma_index_grid <= 1) - number_excluded) / (
+            gamma_index_grid.size - number_excluded
+        )
 
     def save_comparison_object(self, path: str = None):
         r"""
