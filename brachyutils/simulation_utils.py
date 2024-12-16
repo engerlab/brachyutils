@@ -12,7 +12,7 @@ class BrachySource:
         mass_number: int = 192,
         atomic_number: int = 77,
         air_kerma_per_history: float = 1.149000e-11,
-        reference_air_kerma: float = None,#4.278729e04,
+        reference_air_kerma: float = None,  # 4.278729e04,
         source_dict: Union[dict, Path, str] = None,
     ) -> None:
         r"""
@@ -257,8 +257,8 @@ class BrachySimulation:
 
             brachy_source = BrachySource(
                 source_dict=simulation_dict.get(
-                    "source_dict",
-                    BrachySimulation.default_source.to_dict())
+                    "source_dict", BrachySimulation.default_source.to_dict()
+                )
             )
             world_material = simulation_dict.get("world_material", "Air")
             number_histories = simulation_dict.get("number_histories", 1e6)
