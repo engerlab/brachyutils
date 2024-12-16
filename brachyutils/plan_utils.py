@@ -22,7 +22,7 @@ from scipy import interpolate, ndimage
 from tqdm import tqdm
 
 # from brachyutils.dicom_utils import BrachyDicom
-from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
+from brachyutils.dose_utils import BrachyDose
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry_utils import BrachyApplicator, BrachyPhantom, CatheterTable

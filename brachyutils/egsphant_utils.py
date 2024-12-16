@@ -522,7 +522,7 @@ class BrachyEgsphant:
         self,
         fileName: Path,
         metadata: Optional[dict] = None,
-        coordinate_system = Literal[
+        coordinate_system: Literal[
             "left-posterior-superior",
             "right-anterior-superior"
             ] = "left-posterior-superior",
