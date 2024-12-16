@@ -1331,7 +1331,7 @@ class BrachyPlan:
             run_i_plan += "Control Point\nweight = 1.0\n"
             run_i_plan += "1 Dwell Position\n"
             run_i_plan += dwell_coordinates_str
-            with open(dir_export + f"/run_{dwell_i + 1}.plan", "w") as file:
+            with open(dir_export + f"/dwell_{dwell_i + 1}.plan", "w") as file:
                 file.write(run_i_plan)
 
         with open(dir_export + "/combined.plan", "w") as file:

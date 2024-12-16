@@ -2,7 +2,7 @@ import os
 from glob import glob
 from pathlib import Path
 
-from brachyutils.dose_generation_utils import DoseTG43
+from brachyutils.dose_generation_utils import DoseTG43, DoseMonteCarlo
 from brachyutils.plan_utils import BrachyPlan
 
 
@@ -12,10 +12,10 @@ def make_plan_and_export_it(dir_export) -> Path:
     dir_dicom = "../data_test/prostate-glen-p1-dcm/"
     pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
     # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    # assign material based on contours:
-    # pth_material = "../data_test/prostate_material_dict.json"
-    # assign materials based on CT values:
-    pth_material = "../data_test/CTtoDensityProstate.txt"
+    # # assign material based on contours:
+    pth_material = "../data_test/prostate_material_dict.json"
+    # # assign materials based on CT values:
+    # pth_material = "../data_test/CTtoDensityProstate.txt"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -51,7 +51,7 @@ def make_plan_and_export_it(dir_export) -> Path:
         "catheter_table": True,
         "egsphant": True,
         "materials_table": pth_material,
-        "assign_material_from_ct": True,
+        "assign_material_from_ct": False,
         "structure_set": True,
         "plan": True,
         "mac": True,
@@ -73,9 +73,9 @@ def make_plan_and_export_it(dir_export) -> Path:
 
 
 def test_DoseTG43():
-    # dir_export = "../temp_data/test_export_plan"
+    # dir_export = "../temp_data/tg43/test_export_plan"
     # dose_setup = make_plan_and_export_it(dir_export)
-    dose_setup = Path("../temp_data/test_export_plan")
+    dose_setup = Path("../temp_data/tg43/test_export_plan")
     pth_exectuable = "http://127.0.0.1:8000/calculate_dose_tg43"
     dose_generator = DoseTG43(
         dir_plan_export=dose_setup,
@@ -84,6 +84,16 @@ def test_DoseTG43():
     dose_generator.validate_inputs()
     dose_generator.generate_dose()
 
+def test_DoseMC():
+    dir_export = "../temp_data/mc/test_export_plan"
+    dose_setup = make_plan_and_export_it(dir_export)
+    # dose_setup = Path("../temp_data/mc/test_export_plan")
+    # pth_exectuable = "http://http://127.0.0.1:8000/calculate_dose_mc"
+    # dose_generator = DoseMonteCarlo(
+        # dir_plan_export=dose_setup,
+        # pth_dose_executable=pth_exectuable,
+    # )
 
 if __name__ == "__main__":
-    test_DoseTG43()
+    # test_DoseTG43()
+    test_DoseMC()
