@@ -12,9 +12,9 @@ def make_plan_and_export_it(dir_export) -> Path:
     dir_dicom = "../data_test/prostate-glen-p1-dcm/"
     pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
     # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    # assign material based on contours:
+    # # assign material based on contours:
     pth_material = "../data_test/prostate_material_dict.json"
-    # assign materials based on CT values:
+    # # assign materials based on CT values:
     # pth_material = "../data_test/CTtoDensityProstate.txt"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
