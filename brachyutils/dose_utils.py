@@ -801,12 +801,14 @@ class BrachyDose:
     def write_to_xz(self, fileName):
         assert os.path.splitext(fileName)[-1] == ".xz"
         import pickle
+
         with lzma.open(fileName, "wb") as file:
             pickle.dump(self, file)
 
     def write_to_zstd(self, file_name):
         assert os.path.splitext(file_name)[-1] == ".zst"
         import pickle
+
         with pyzstd.open(file_name, "wb", level_or_option=22) as file:
             pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)
 
