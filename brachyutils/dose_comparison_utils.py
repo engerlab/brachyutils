@@ -4,9 +4,7 @@ from matplotlib import pyplot as plt
 import pickle
 import os
 import sys
-import pymedphys
 import logging
-from opentps.gui.viewer.dataViewerComponents.doseComparisonImageProvider import DoseComparisonImageProvider
 import tkinter as tk
 from tkinter import filedialog as fd
 from brachyutils import BrachyDose
@@ -90,6 +88,7 @@ class DoseComparison:
         self.gamma_index: BrachyDose = None
         self.gamma_dose_percent_threshold = gamma_dose_percent_threshold
         self.gamma_kwargs = gamma_kwargs
+        self.prescription_dose = prescription_dose
         # we can index the dose cutoff to the prescription dose
         if isinstance(prescription_dose, float) or isinstance(prescription_dose, int):
             self.gamma_kwargs["global_normalisation"] = prescription_dose
@@ -157,7 +156,7 @@ class DoseComparison:
             axis_2_coords,
             dose_1_profile,
             vmin=0,
-            vmax=30,
+            vmax= 5 * self.prescription_dose,
             cmap="turbo",
             rasterized=True,
             antialiased=True,
@@ -174,7 +173,7 @@ class DoseComparison:
             axis_2_coords,
             dose_2_profile,
             vmin=0,
-            vmax=30,
+            vmax= 5 * self.prescription_dose,
             cmap="turbo",
             rasterized=True,
             antialiased=True,
@@ -227,7 +226,18 @@ class DoseComparison:
         ax[1, 1].invert_yaxis()
         ax[1, 1].set_xlabel("x (cm)", fontsize=10)
         plt.tight_layout()
-        plt.savefig("dose_comparison.eps", dpi=300)
+        root = tk.Tk()
+        root.withdraw()
+        f = fd.asksaveasfile(
+            mode="wb",
+            defaultextension=".eps",
+            initialdir=os.getcwd(),
+            title="Save dose comparison plots",
+            confirmoverwrite=True,
+        )
+        plt.savefig(f, dpi=300)
+        root.destroy()
+        f.close()
         plt.show()
 
     def compute_percent_difference(self):
