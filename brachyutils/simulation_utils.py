@@ -268,7 +268,7 @@ class BrachySimulation:
             control_verbose = simulation_dict.get("control_verbose", 0)
             run_verbose = simulation_dict.get("run_verbose", 0)
             tracking_verbose = simulation_dict.get("tracking_verbose", 0)
-            print_progress = simulation_dict.get("print_progress", 1e4)
+            print_progress = int(simulation_dict.get("print_progress", 1e4))
             pth_plan = simulation_dict.get("pth_plan", None)
             pth_phantom = simulation_dict.get("pth_phantom", None)
 
