@@ -6,17 +6,40 @@ import tkinter as tk
 from tkinter import filedialog as fd
 
 import numpy as np
-import pymedphys
 from matplotlib import pyplot as plt
 from opentps.core.processing.dataComparison.gammaIndex import gammaIndex
-from opentps.gui.viewer.dataViewerComponents.doseComparisonImageProvider import (
-    DoseComparisonImageProvider,
-)
 
 from brachyutils import BrachyDose
 
 
 class DoseComparison:
+    r"""
+    A class to compare two BrachyDose objects by computing the percent difference and gamma index.
+    Attributes:
+        gamma_kwargs (dict): Keuword arguments for the pymedphys gamma index function. Please
+            see pymedphys.gamma for more details
+        dose1 (BrachyDose): The first BrachyDose object (reference).
+        dose2 (BrachyDose): The second BrachyDose object (test), to resampled on the grid of dose1 with extrapolated points set to 0.
+        voxel_centers (np.ndarray): The voxel centers of the dose grid.
+        dose_2_grid_resampled (np.ndarray): The dose grid of dose2 resampled to the grid of dose1.
+        percent_difference (BrachyDose): The percent difference between dose1 and dose2.
+        gamma_index (BrachyDose): The gamma index between dose1 and dose2.
+        gamma_dose_percent_threshold (float): The gamma dose percent threshold.
+        gamma_distance_threshold (float): The gamma distance threshold in mm.
+        gamma_kwargs (dict): The kwargs for the gamma index function.
+        prescription_dose (float): The prescription dose of the dose grid.
+        max_gamma (float): The maximum gamma index value.
+        gamma_pass_ratio (float): The ratio of gamma index values passing the threshold.
+    Methods:
+        __init__(dose1, dose2, gamma_dose_percent_threshold, gamma_distance_threshold_mm, compute_percent_difference=True, compute_gamma_index=True, prescription_dose=None, max_gamma=None, path=None, gamma_kwargs=gamma_kwargs)
+        plot_2d_dose_comparison(axis_1_coords, axis_2_coords, plane_coord, plane, plot_titles)
+        compute_percent_difference()
+        compute_gamma_index()
+        save_comparison_object(path=None)
+        load_comparison_object(path=None)
+
+    """
+
     gamma_kwargs: dict = (
         {
             "lower_percent_dose_cutoff": 5,
@@ -122,6 +145,30 @@ class DoseComparison:
         plane: str,
         plot_titles: tuple,
     ):
+        """
+        Plots a 2D dose comparison between two dose profiles, along with their percent difference and gamma index.
+        Parameters:
+        -----------
+        axis_1_coords : np.ndarray
+            Coordinates along the first axis (e.g., x-axis).
+        axis_2_coords : np.ndarray
+            Coordinates along the second axis (e.g., y-axis).
+        plane_coord : float
+            Coordinate of the plane in which the profiles are extracted.
+        plane : str
+            The plane in which the profiles are extracted (e.g., 'axial', 'sagittal', 'coronal').
+        plot_titles : tuple
+            Titles for the dose plots (dose 1 and dose 2).
+        Raises:
+        -------
+        NotImplementedError
+            If neither percent difference nor gamma index is computed.
+        Notes:
+        ------
+        The function generates a figure suitable for a double column figure in medical physics publications.
+        The figure is saved as an EPS file (user is prompted for the filename) and displayed.
+        """
+
         # import itertools
 
         import matplotlib
@@ -163,7 +210,7 @@ class DoseComparison:
             axis_2_coords,
             dose_1_profile,
             vmin=0,
-            vmax= 5 * self.prescription_dose,
+            vmax=5 * self.prescription_dose,
             cmap="turbo",
             rasterized=True,
             antialiased=True,
@@ -180,7 +227,7 @@ class DoseComparison:
             axis_2_coords,
             dose_2_profile,
             vmin=0,
-            vmax= 5 * self.prescription_dose,
+            vmax=5 * self.prescription_dose,
             cmap="turbo",
             rasterized=True,
             antialiased=True,
@@ -248,7 +295,15 @@ class DoseComparison:
         plt.show()
 
     def compute_percent_difference(self):
-
+        """
+        Compute the percent difference between two dose images.
+        This method calculates the percent difference between the dose images
+        of `dose1` and `dose2` and stores the result in `self.percent_difference`.
+        The percent difference is computed using the formula:
+            percent_difference = |dose1 - dose2| / dose1 * 100
+        Returns:
+            None
+        """
         self.percent_difference = BrachyDose.dose_with_empty_grid_like(self.dose1)
         # print(self.dose1.dose_image is None, self.dose2.dose_image is None)
         self.percent_difference.dose_image.imageArray = (
@@ -258,6 +313,26 @@ class DoseComparison:
         )
 
     def compute_gamma_index(self):
+        """
+        Compute the gamma index between two dose distributions.
+        This method calculates the gamma index, which is a quantitative measure
+        of the agreement between two dose distributions. The gamma index is
+        computed using the dose images from `self.dose1` and `self.dose2`,
+        along with specified dose percent and distance thresholds.
+        The resulting gamma index is stored in `self.gamma_index`, and the
+        pass ratio (the fraction of points with a gamma index less than or
+        equal to 1) is stored in `self.gamma_pass_ratio`.
+        Note:
+            Computing the gamma index may take some time.
+        Attributes:
+            self.gamma_index (BrachyDose): A BrachyDose object with the computed
+                gamma index.
+            self.gamma_pass_ratio (float): The ratio of points with a gamma index
+                less than or equal to 1.
+        Raises:
+            Any exceptions raised by the `gammaIndex` function or numpy operations
+            will propagate up to the caller.
+        """
         self.gamma_index = BrachyDose.dose_with_empty_grid_like(self.dose1)
         print("Computing gamma index may take time")
         logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
