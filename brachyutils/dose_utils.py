@@ -408,13 +408,13 @@ class BrachyDose:
         )
 
     def extract_dose_values_from_coordinates(self, x, y, z):
-        r""" """
-        raise DeprecationWarning(
-            "This function is no longer supported due to migration to open tps. please use self.get_dose_at_coordinates() instead."
-        )
-        self.is_not_empty()
-        if self.interpolation_function is None:
-            raise ValueError("interpolation function is not defined")
+        #r""" """
+        #raise DeprecationWarning(
+        #    "This function is no longer supported due to migration to open tps. please use self.get_dose_at_coordinates() instead."
+        #)
+        #self.is_not_empty()
+        #if self.interpolation_function is None:
+        #    raise ValueError("interpolation function is not defined")
         shape = []
         axis = []
         for coord in [z, y, x]:
@@ -430,10 +430,9 @@ class BrachyDose:
         coord_grid_z, coord_grid_y, coord_grid_x = np.meshgrid(
             [z], [y], [x], indexing="ij"
         )
-        # print(coord_grid.shape())
-        dose_grid = self.interpolation_function(
-            (coord_grid_z, coord_grid_y, coord_grid_x)
-        )
+        dose_grid_lambda = lambda xs, ys, zs: self.dose_image.getDataAtPosition((xs, ys, zs))
+        dose_grid_function = np.vectorize(dose_grid_lambda)
+        dose_grid = dose_grid_function(coord_grid_x, coord_grid_y, coord_grid_z)
         dose_grid.reshape(shape)
         return dose_grid.squeeze()
 
@@ -1158,42 +1157,42 @@ class BrachyDose:
         """
         self.uncertainty_image.imageArray = np.swapaxes(uncertainty_array, 0, 2)
 
+    @staticmethod
+    def dose_with_empty_grid_like(dose_obj: "BrachyDose"):
+        r"""
+        Purpose:
+            - To create a new dose object with the same attributes as the input dose object,
+            but with an empty grid and uncertainty.
 
-def dose_with_empty_grid_like(doseObj: BrachyDose):
-    r"""
-    Purpose:
-        - To create a new dose object with the same attributes as the input dose object,
-        but with an empty grid and uncertainty.
+        Inputs:
+            - doseObj: BrachyDose object
 
-    Inputs:
-        - doseObj: BrachyDose object
+        Outputs:
+            empty_dose: BrachyDose object with empty grid and uncertainty
+        """
+        new_dose = BrachyDose()
+        new_dose.dose_image = DoseImage.createEmptyDoseWithSameMetaData(dose_obj.dose_image)
+        if dose_obj.uncertainty_image is not None:
+            new_dose.uncertainty_image = DoseImage.createEmptyDoseWithSameMetaData(
+                dose_obj.uncertainty_image
+            )
+        new_dose.get_voxel_edges()
+        new_dose.create_interpolation_function()
+        return new_dose
 
-    Outputs:
-        empty_dose: BrachyDose object with empty grid and uncertainty
-    """
-    new_dose = BrachyDose()
-    new_dose.dose_image = DoseImage.createEmptyDoseWithSameMetaData(doseObj.dose_image)
-    if doseObj.uncertainty_image is not None:
-        new_dose.uncertainty_image = DoseImage.createEmptyDoseWithSameMetaData(
-            doseObj.uncertainty_image
-        )
-    new_dose.get_voxel_edges()
-    new_dose.create_interpolation_function()
-    return new_dose
+    @staticmethod
+    def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
+        # old_file_dir = load_3ddose(pth1_3ddose)
+        # new_file_dir = load_3ddose(pth2_3ddose)
 
+        with open(pth1_3ddose, "r") as file1, open(pth2_3ddose) as file2:
+            contents1 = file1.read()
+            contents2 = file2.read()
 
-def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
-    # old_file_dir = load_3ddose(pth1_3ddose)
-    # new_file_dir = load_3ddose(pth2_3ddose)
-
-    with open(pth1_3ddose, "r") as file1, open(pth2_3ddose) as file2:
-        contents1 = file1.read()
-        contents2 = file2.read()
-
-    if contents1 == contents2:
-        print("write 3ddose works fine")
-    else:
-        print("write 3ddose does not work fine")
-        print("here are the differences")
-        diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
-        print("\n".join(diff_list))
+        if contents1 == contents2:
+            print("write 3ddose works fine")
+        else:
+            print("write 3ddose does not work fine")
+            print("here are the differences")
+            diff_list = list(difflib.ndiff(contents1.splitlines(), contents2.splitlines()))
+            print("\n".join(diff_list))

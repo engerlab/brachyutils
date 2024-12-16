@@ -747,6 +747,7 @@ class FilmCalibration:
         else:
             raise ValueError("Invalid input. Please enter N or L.")
         film_calibration.display_calibration_films()
+        film_calibration.calibration_curve.plot_calibration_and_response_curve()
 
 
 def main():
