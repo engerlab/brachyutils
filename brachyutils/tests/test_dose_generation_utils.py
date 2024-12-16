@@ -13,9 +13,9 @@ def make_plan_and_export_it(dir_export) -> Path:
     pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
     # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # assign material based on contours:
-    # pth_material = "../data_test/prostate_material_dict.json"
+    pth_material = "../data_test/prostate_material_dict.json"
     # assign materials based on CT values:
-    pth_material = "../data_test/CTtoDensityProstate.txt"
+    # pth_material = "../data_test/CTtoDensityProstate.txt"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -51,7 +51,7 @@ def make_plan_and_export_it(dir_export) -> Path:
         "catheter_table": True,
         "egsphant": True,
         "materials_table": pth_material,
-        "assign_material_from_ct": True,
+        "assign_material_from_ct": False,
         "structure_set": True,
         "plan": True,
         "mac": True,
