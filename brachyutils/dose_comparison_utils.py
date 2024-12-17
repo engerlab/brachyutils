@@ -40,15 +40,14 @@ class DoseComparison:
 
     """
 
-    gamma_kwargs: dict = (
-        {
-            "lower_percent_dose_cutoff": 5,
-            "interp_fraction": 10,
-            "local_gamma": False,
-            "global_normalisation": None,
-            "skip_once_passed": False,
-        },
-    )
+    default_gamma_kwargs : dict = {
+        "lower_percent_dose_cutoff": 5,
+        "interp_fraction": 10,
+        "local_gamma": False,
+        "global_normalisation": None,
+        "skip_once_passed": True,
+        "max_gamma": 1.1
+    }
 
     def __init__(
         self,
@@ -58,10 +57,8 @@ class DoseComparison:
         gamma_distance_threshold_mm: float,
         compute_percent_difference=True,
         compute_gamma_index=True,
-        prescription_dose: float = None,
-        max_gamma=None,
         path=None,
-        gamma_kwargs: dict = gamma_kwargs,
+        gamma_kwargs: dict = default_gamma_kwargs
     ):
         r"""
         Purpose:
@@ -91,6 +88,7 @@ class DoseComparison:
                 - gamma_dose_percent_threshold: float := the gamma dose percent threshold
                 - gamma_distance_threshold: float := the gamma distance threshold in mm
                 - gamma_kwargs: dict := the kwargs for the gamma index function
+                - plot_max_dose_percent_of_prescription : int = default 300%, can be tuned to get a good dynamic range for plots
 
             and The following functions
                 - compute_percent_difference: void := to compute the percent difference between dose1 and dose2
@@ -117,16 +115,11 @@ class DoseComparison:
         # self.dose_comparision_image_provider = DoseComparisonImageProvider()
         self.gamma_index: BrachyDose = None
         self.gamma_dose_percent_threshold = gamma_dose_percent_threshold
-        self.gamma_kwargs = gamma_kwargs
-        self.prescription_dose = prescription_dose
-        # we can index the dose cutoff to the prescription dose
-        if isinstance(prescription_dose, float) or isinstance(prescription_dose, int):
-            self.gamma_kwargs["global_normalisation"] = prescription_dose
-        if isinstance(max_gamma, float) or isinstance(prescription_dose, int):
-            self.max_gamma = max_gamma
-            self.gamma_kwargs["max_gamma"] = max_gamma
-        else:
-            self.max_gamma = 2
+        self.gamma_kwargs = DoseComparison.default_gamma_kwargs
+        self.gamma_kwargs.update(gamma_kwargs) #in case the user wants to change the default
+        self.plot_max_dose_percent_of_prescription : int = 200
+        self.prescription_dose = gamma_kwargs.get("global_normalisation", 1.0)
+        self.max_gamma = gamma_kwargs.get("max_gamma", 1.1)
         # axes values are assumed in cm from the 3ddose formalism
         # gamma distance thresholds are usually provided in mm
         # pymedphys documentation indicates that the threshold unit must match the axis
@@ -179,6 +172,7 @@ class DoseComparison:
         # MultipleLocator,
         # )
 
+        plot_vmax = self.plot_max_dose_percent_of_prescription / 100 * self.prescription_dose
         matplotlib.rcParams.update({"font.size": 8})
         plt.rcParams.update({"figure.dpi": 300})
         dose_1_profile = self.dose1.extract_profile_2d(
@@ -210,7 +204,7 @@ class DoseComparison:
             axis_2_coords,
             dose_1_profile,
             vmin=0,
-            vmax=5 * self.prescription_dose,
+            vmax=plot_vmax,
             cmap="turbo",
             rasterized=True,
             antialiased=True,
@@ -221,13 +215,13 @@ class DoseComparison:
         cbar00.set_label(label="Dose [Gy]", size=10, labelpad=5)
         # cbar00.mappable.set_clim(0, max_dose)
         ax[0, 0].invert_yaxis()
-        ax[0, 0].set_ylabel("y (cm)", fontsize=10)
+        ax[0, 0].set_ylabel("y (mm)", fontsize=10)
         c01 = ax[0, 1].pcolormesh(
             axis_1_coords,
             axis_2_coords,
             dose_2_profile,
             vmin=0,
-            vmax=5 * self.prescription_dose,
+            vmax=plot_vmax,
             cmap="turbo",
             rasterized=True,
             antialiased=True,
@@ -254,8 +248,8 @@ class DoseComparison:
         cbar10 = fig.colorbar(c10, ax=ax[1, 0], shrink=0.9, pad=0.04)
         cbar10.set_label(label="[%]", size=10, labelpad=5)
         ax[1, 0].invert_yaxis()
-        ax[1, 0].set_xlabel("x (cm)", fontsize=10)
-        ax[1, 0].set_ylabel("y (cm)", fontsize=10)
+        ax[1, 0].set_xlabel("x (mm)", fontsize=10)
+        ax[1, 0].set_ylabel("y (mm)", fontsize=10)
 
         c11 = ax[1, 1].pcolormesh(
             axis_1_coords,
@@ -268,7 +262,7 @@ class DoseComparison:
             antialiased=True,
         )
         ax[1, 1].set_title(
-            f"Gamma ({self.gamma_dose_percent_threshold}% / {int(10.*self.gamma_distance_threshold)} mm)",
+            f"Gamma ({self.gamma_dose_percent_threshold}% / {int(self.gamma_distance_threshold)} mm)",
             fontsize=12,
             pad=5,
             fontweight="bold",
@@ -278,7 +272,7 @@ class DoseComparison:
         cbar11 = fig.colorbar(c11, ax=ax[1, 1], shrink=0.9, pad=0.04)
         cbar11.set_label(label="Gamma", size=10, labelpad=5)
         ax[1, 1].invert_yaxis()
-        ax[1, 1].set_xlabel("x (cm)", fontsize=10)
+        ax[1, 1].set_xlabel("x (mm)", fontsize=10)
         plt.tight_layout()
         root = tk.Tk()
         root.withdraw()
@@ -335,7 +329,8 @@ class DoseComparison:
         """
         self.gamma_index = BrachyDose.dose_with_empty_grid_like(self.dose1)
         print("Computing gamma index may take time")
-        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
         self.gamma_index.dose_image = gammaIndex(
             self.dose1.dose_image,
             self.dose2.dose_image,
@@ -343,6 +338,7 @@ class DoseComparison:
             self.gamma_distance_threshold,
             **self.gamma_kwargs,
         )
+        logger.setLevel(logging.INFO)
         # gamma_index_grid = pymedphys.gamma(
         #    tuple(self.voxel_centers),
         #    self.dose1.dose_image.imageArray,

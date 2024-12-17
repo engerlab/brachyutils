@@ -8,12 +8,11 @@ __all__ = [
     "geometry_utils",
     "dose_comparison_utils",
 ]
+# trunk-ignore(ruff/F401)
+from brachyutils.dose_utils import BrachyDose
 
 # trunk-ignore(ruff/F401)
 from brachyutils.dose_comparison_utils import DoseComparison
-
-# trunk-ignore(ruff/F401)
-from brachyutils.dose_utils import BrachyDose
 
 # trunk-ignore(ruff/F401)
 from brachyutils.egsphant_utils import BrachyEgsphant
