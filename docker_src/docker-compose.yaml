@@ -34,11 +34,12 @@ services:
       - HOST_HOME=${HOST_HOME}
       - DEBIAN_FRONTEND=noninteractive
     volumes:
-      - ../:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
+      - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
       - ${HOST_HOME}:/root/YourLocalHome
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.11
+    command: /bin/bash /root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/run_api.sh
 
   DoseCalcTG43:
     build:
@@ -52,12 +53,13 @@ services:
       - HOST_HOME=${HOST_HOME}
       # - DEBIAN_FRONTEND=noninteractive
     volumes:
-      - ../:/root/Software/TG43_Dose_Calculation_Standalone
+      - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/root/Software/TG43_Dose_Calculation_Standalone
       - ${HOST_HOME}:/root/YourLocalHome
       - ../temp_data:/root/temp_data
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.12
+    # entrypoint: ["/bin/bash", "/root/Software/TG43_Dose_Calculation_Standalone/run_api.sh"]
 
 networks:
   net_brachyutils:
