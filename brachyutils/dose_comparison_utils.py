@@ -338,6 +338,7 @@ class DoseComparison:
             self.gamma_distance_threshold,
             **self.gamma_kwargs,
         )
+        logger.setLevel(logging.INFO)
         # gamma_index_grid = pymedphys.gamma(
         #    tuple(self.voxel_centers),
         #    self.dose1.dose_image.imageArray,
