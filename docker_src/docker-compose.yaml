@@ -16,8 +16,10 @@ services:
     # to write data to the DoseCalcTG43 container
       - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone/temp_data:/root/brachyutils/temp_data/tg43  
       - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data:/root/brachyutils/temp_data/mc
-    ports:
-    - "8000:8000"
+    # ports:
+    # - "8000:8000"
+    expose:
+      - "8000"
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.10
@@ -69,3 +71,6 @@ networks:
     ipam:
       config:
         - subnet: 192.168.1.0/24
+
+volumes:
+  temp_data:
