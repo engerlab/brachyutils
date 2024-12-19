@@ -16,6 +16,7 @@ services:
     # to write data to the DoseCalcTG43 container
       - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone/temp_data:/root/brachyutils/temp_data/tg43  
       - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data:/root/brachyutils/temp_data/mc
+      # - temp_data:/root/test_temp
     # ports:
     # - "8000:8000"
     expose:
@@ -38,6 +39,7 @@ services:
     volumes:
       - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
       - ${HOST_HOME}:/root/YourLocalHome
+      # - temp_data:/root/test_temp
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.11
@@ -58,7 +60,7 @@ services:
     volumes:
       - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/root/Software/TG43_Dose_Calculation_Standalone
       - ${HOST_HOME}:/root/YourLocalHome
-      - ../temp_data:/root/temp_data
+      # - ../temp_data:/root/temp_data
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.12
@@ -72,5 +74,7 @@ networks:
       config:
         - subnet: 192.168.1.0/24
 
-volumes:
-  temp_data:
+# a volume could be defined on the RAM to share data 
+# between the containers.
+# volumes:
+#   temp_data:
