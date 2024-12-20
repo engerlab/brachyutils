@@ -105,15 +105,15 @@ if __name__ == "__main__":
     # test_DoseMC()
     import requests
 
-    headers = {
-        'accept': 'application/json',
-        'Content-Type': 'application/json',
-    }
+    # headers = {
+    #     'accept': 'application/json',
+    #     'Content-Type': 'application/json',
+    # }
 
     json_data = {
         'pth_mac': 'temp_data/test_export_plan/run_1.mac',
         'random_seed': 1,
     }
 
-    response = requests.post('http://192.168.1.11:8000/calculate_dose_mc', headers=headers, json=json_data)
+    response = requests.post('http://192.168.1.11:8000/calculate_dose_mc', json=json_data, timeout=None)
     print(response.json())
