@@ -54,15 +54,8 @@ conda activate ENV_brachy
 The PyPi package of OpenTPS is not up to date with their Gitlab repository. Therefore, we recommend that you clone the repository and install the package.
 
 ```bash
-git clone https://gitlab.com/openmcsquare/opentps.git
+git clone https://github.com/engerlab/OpenTPS-brachyutils
 cd opentps
-```
-
-Ensure that in `pyproject.toml` file inside the `opentps` folder, the following configuration is used for `python` and `pymedphys`: 
-
-```python
-python = "~3.11"
-pymedphys = "*"
 ```
 
 Then run `pip install .` to install opentps.
