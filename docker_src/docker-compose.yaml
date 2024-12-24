@@ -23,7 +23,7 @@ services:
       - "8000"
     networks:
       net_brachyutils:
-  #       ipv4_address: 192.168.1.10
+        ipv4_address: 192.168.1.10
 
   # DoseCalcMC:
   #   build:
@@ -46,51 +46,27 @@ services:
   #   entrypoint: ["/bin/bash"]
   #   command: ["/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/run_api.sh"]
 
-<<<<<<< HEAD
-  # DoseCalcTG43:
-  #   build:
-  #     context: ../
-  #     dockerfile: docker_src/Dockerfile
-  #   image: rapidbrachy_tg43
-  #   container_name: DoseCalcTG43
-  #   stdin_open: true # docker run -i
-  #   tty: true # docker run -t
-  #   environment:
-  #     - HOST_HOME=${HOST_HOME}
-  #     # - DEBIAN_FRONTEND=noninteractive
-  #   volumes:
-  #     - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/root/Software/TG43_Dose_Calculation_Standalone
-  #     - ${HOST_HOME}:/root/YourLocalHome
-  #     # - ../temp_data:/root/temp_data
-  #   networks:
-  #     net_brachyutils:
-  #       ipv4_address: 192.168.1.12
-  #   entrypoint: ["/bin/bash"]
-  #   command: ["/root/Software/TG43_Dose_Calculation_Standalone/run_api.sh"]
- 
-=======
-  DoseCalcTG43:
-    build:
-      context: ../
-      dockerfile: docker_src/Dockerfile
-    image: rapidbrachy_tg43
-    container_name: DoseCalcTG43
-    stdin_open: true # docker run -i
-    tty: true # docker run -t
-    environment:
-      - HOST_HOME=${HOST_HOME}
-      - DEBIAN_FRONTEND=noninteractive
-    volumes:
-      - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/root/Software/TG43_Dose_Calculation_Standalone
-      - ${HOST_HOME}:/root/YourLocalHome
-      # - ../temp_data:/root/temp_data
-    networks:
-      net_brachyutils:
-        ipv4_address: 192.168.1.12
-    entrypoint: ["/bin/bash"]
-    command: ["/root/Software/TG43_Dose_Calculation_Standalone/run_api.sh"]
+#   DoseCalcTG43:
+#     build:
+#       context: ../
+#       dockerfile: docker_src/Dockerfile
+#     image: rapidbrachy_tg43
+#     container_name: DoseCalcTG43
+#     stdin_open: true # docker run -i
+#     tty: true # docker run -t
+#     environment:
+#       - HOST_HOME=${HOST_HOME}
+#       - DEBIAN_FRONTEND=noninteractive
+#     volumes:
+#       - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/root/Software/TG43_Dose_Calculation_Standalone
+#       - ${HOST_HOME}:/root/YourLocalHome
+#       # - ../temp_data:/root/temp_data
+#     networks:
+#       net_brachyutils:
+#         ipv4_address: 192.168.1.12
+#     entrypoint: ["/bin/bash"]
+#     command: ["/root/Software/TG43_Dose_Calculation_Standalone/run_api.sh"]
 
->>>>>>> 90b446293bc37ddf6c10ed044efed9c41186801c
 networks:
   net_brachyutils:
     driver: bridge
