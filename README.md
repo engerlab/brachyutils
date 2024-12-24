@@ -45,7 +45,7 @@ source ENV_brachyutils/bin/activate
 Else, if using [conda](https://docs.anaconda.com/miniconda/):
 
 ```bash
-conda create -n ENV_brachy python=3.11
+conda create -n ENV_brachy python=3.13
 conda activate ENV_brachy
 ```
 
@@ -54,6 +54,7 @@ conda activate ENV_brachy
 The PyPi package of OpenTPS is not up to date with their Gitlab repository. Therefore, we recommend that you clone the repository and install the package.
 
 ```bash
+apt install libbz2-dev
 git clone https://github.com/engerlab/OpenTPS-brachyutils
 cd opentps
 ```
@@ -65,6 +66,7 @@ Then run `pip install .` to install opentps.
 To get the package run:
 
 ```bash
+apt install liblzma-dev
 git clone https://github.com/engerlab/brachyutils.git
 cd brachyutils
 pip install .
