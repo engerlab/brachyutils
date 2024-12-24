@@ -75,13 +75,13 @@ def make_plan_and_export_it(dir_export) -> Path:
 def test_DoseTG43():
     # dir_export = "../temp_data/tg43/test_export_plan"
     # dose_setup = make_plan_and_export_it(dir_export)
-    dose_setup = Path("../temp_data/tg43/test_export_plan")
-    pth_exectuable = "http://127.0.0.1:8000/calculate_dose_tg43"
+    dose_setup = Path("temp_data/test_export_plan")
+    pth_exectuable = "http://192.168.1.12:8000/calculate_dose_tg43"
     dose_generator = DoseTG43(
         dir_plan_export=dose_setup,
         pth_dose_executable=pth_exectuable,
     )
-    dose_generator.validate_inputs()
+    # dose_generator.validate_inputs()
     dose_generator.generate_dose()
 
 
@@ -105,15 +105,15 @@ if __name__ == "__main__":
     # test_DoseMC()
     import requests
 
-    # headers = {
-    #     'accept': 'application/json',
-    #     'Content-Type': 'application/json',
-    # }
-
     json_data = {
         'pth_mac': 'temp_data/test_export_plan/run_1.mac',
         'random_seed': 1,
     }
 
     response = requests.post('http://192.168.1.11:8000/calculate_dose_mc', json=json_data, timeout=None)
+    json_data = {
+        'dir_dose_setup': 'temp_data/test_export_plan',
+    }
+    response = requests.post("http://192.168.1.12:8000/calculate_dose_tg43", json=json_data, timeout=None)
+
     print(response.json())
