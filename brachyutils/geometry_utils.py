@@ -65,6 +65,8 @@ class BrachyPhantom:
             - dir_dicom: Path := the directory of the DICOM files.
             - pth_phantom_file: Path := the path of the phantom .nrrd file.
             - pth_structures_file: Path := the path of the structure file.
+            - pth_egsphant_file: Path := the path of the Egsphant file to be loaded.
+            note that it is possible to generate an Egsphant from BrachyPhantom object.
         Outputs:
             - None
         Dependencies:
@@ -83,7 +85,6 @@ class BrachyPhantom:
         self.structure_names_dcm: List[str] = []
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
-
         # Attributes for Egsphant files
         from brachyutils.egsphant_utils import BrachyEgsphant
 
