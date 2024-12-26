@@ -54,7 +54,7 @@ conda activate ENV_brachy
 The PyPi package of OpenTPS is not up to date with their Gitlab repository. Therefore, we recommend that you clone the repository and install the package.
 
 ```bash
-apt install libbz2-dev
+apt install -y libbz2-dev liblzma-dev libxrender1 python3-tk python3-distutils
 git clone https://github.com/engerlab/OpenTPS-brachyutils
 cd opentps
 ```
