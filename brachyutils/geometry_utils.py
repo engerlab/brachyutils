@@ -593,6 +593,26 @@ class BrachyPhantom:
 
 
 # helper functions
+def phantom_with_empty_image_like(phantom: BrachyPhantom) -> BrachyPhantom:
+    r"""
+    Purpose:
+        - Create a new BrachyPhantom object with the same structure set as the input phantom but with an empty image.
+    Inputs:
+        - phantom: BrachyPhantom := the input phantom object.
+    Outputs:
+        - new_phantom: BrachyPhantom := the new phantom object.
+    """
+    new_phantom = BrachyPhantom()
+    new_phantom.pth_image = None
+    new_phantom.image_obj = None
+    new_phantom.image_modality = phantom.image_modality
+    new_phantom.structure_set = phantom.structure_set
+    new_phantom.structure_names_dcm = phantom.structure_names_dcm
+    new_phantom.unit_length = phantom.unit_length
+    new_phantom.xyz_format = phantom.xyz_format
+
+    return new_phantom
+
 def _sort_segementation_dict_by_size(seg_dict) -> dict:
     r"""
     Purpose:
