@@ -4,9 +4,18 @@ from glob import glob
 from pathlib import Path
 from typing import Literal, Optional, Union
 
-class ImageRegistration(ABC):
+from brachyutils.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
+
+
+class PhantomRegistration(ABC):
     def __init__(
         self,
+        static_phantom: BrachyPhantom,
+        moving_phantom: BrachyPhantom,
+        deformable: bool = False,
+        algorithm: Literal["demons", "morphons"] = None,
+        backend: Literal["elastix", "plastimatch", "opentps"] = None,
+        dir_phantom_export: Union[Path, str] = None,
     ) -> None:
         r"""
         Purpose:
@@ -15,14 +24,155 @@ class ImageRegistration(ABC):
         Attributes:
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
-            - type_algorithm: Literal["static", "deformable-demons", ""]: The type of registration algorithm.
-            - registration_backend: Literal["elastix", "plastimatch", "opentps"] = "opentps
+            - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
+            - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
+            - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
+            the registration process.
             - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
         Inputs:
             - dir_plan_export: Union[Path, str]: The path to the dose setup directory.
             - pth_dose_executable: Union[Path, str]: The path to the dose executable.
+        Outputs:
+            - None
         Functions:
-            - generate_dose(): generates the dose distribution as well as its uncertaity per voxel.
-            - validate_inputs(): validates the dose setup directory.
+            - register: Register the moving phantom to the static phantom.
+        """
+        self.static_phantom = static_phantom
+        self.moving_phantom = moving_phantom
+        self.deformable = deformable
+        self.algorithm = algorithm
+        self.backend = backend
+        self.dir_phantom_export = dir_phantom_export
+        # the following attributes will be computed during the registration process
+        self.deformed_phantom = None
+        self.deformation = None
+
+    @abstractmethod
+    def register(self) -> BrachyPhantom:
+        r"""
+        Purpose:
+            - Register the moving phantom to the static phantom.
+        Outputs:
+            - BrachyPhantom: The registered phantom object.
         """
         pass
+
+class RegistrationWithOpenTPS(PhantomRegistration):
+    def __init__(
+        self,
+        static_phantom: BrachyPhantom,
+        moving_phantom: BrachyPhantom,
+        deformable: bool = False,
+        algorithm: Literal["demons", "morphons"] = None,
+        backend = "opentps",
+        dir_phantom_export: Union[Path, str] = None,
+        ):
+        r"""
+        Purpose:
+            - A class to wrap around the OpenTPS image registration method.
+        Inputs:
+            - static_phantom: BrachyPhantom: The static phantom object.
+            - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
+            - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
+            - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
+            - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
+            the registration process.
+            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+        Outputs:
+            - None
+        Functions:
+            - register: Register the moving phantom to the static phantom.
+        Dependencies:
+            - OpenTPS
+        """
+
+        super().__init__(
+            static_phantom,
+            moving_phantom,
+            deformable,
+            algorithm,
+            backend,
+            dir_phantom_export
+            )
+
+
+    def register(
+        self,
+        baseResolution:float = 2.0,
+        tryGPU: bool = False,
+        multimodal: bool = False,
+        ) -> BrachyPhantom:
+        r"""
+        Purpose:
+            - Register the moving phantom to the static phantom using the OpenTPS package.
+        Inputs:
+            - baseResolution: float = 2.0: The base resolution of the registration algorithm in mm.
+            - tryGPU: bool = False: A flag to indicate whether to use the GPU for the registration process.
+            - multimodal: bool = False: A flag to indicate whether the registration is multimodal or not.
+        Outputs:
+            - BrachyPhantom: The registered phantom object.
+        """
+        assert self.static_phantom is not None, "The static phantom is not defined."
+        assert self.moving_phantom is not None, "The moving phantom is not defined."
+        if self.deforemable:
+            assert self.algorithm is not None, "The registration algorithm is not defined."
+        
+        if self.deformable:
+
+            if self.algorithm == "demons":
+                from opentps.core.processing.registration.registrationDemons import RegistrationDemons
+                
+                reg = RegistrationDemons(
+                    fixed=self.static_phantom.image_obj,
+                    moving=self.moving_phantom.image_obj,
+                    baseResolution=baseResolution,
+                    tryGPU=tryGPU
+                )
+                self.deformation = reg.compute()
+                self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
+                self.deformed_phantom.image_obj = reg.deformed
+                
+                reg.deformed
+
+            elif self.algorithm == "morphons":
+                from opentps.core.processing.registration.registrationMorphons import RegistrationMorphons
+    
+                reg = RegistrationMorphons(
+                    fixed=self.static_phantom.image_obj,
+                    moving=self.moving_phantom.image_obj,
+                    baseResolution=baseResolution,
+                    tryGPU=tryGPU
+                )
+                self.deformation = reg.compute()
+                self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
+                self.deformed_phantom.image_obj = reg.deformed
+
+            elif self.algorithm == "quick":
+                from opentps.core.processing.registration.registrationQuick import RegistrationQuick
+
+                reg = RegistrationQuick(
+                    fixed=self.static_phantom.image_obj,
+                    moving=self.moving_phantom.image_obj,
+                )
+                self.deformation = reg.compute(tryGPU=tryGPU)
+                self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
+                self.deformed_phantom.image_obj = reg.deformed
+
+            else:
+                raise ValueError("The registration algorithm is not supported. Please choose between 'demons' and 'morphons'.")
+
+        else:
+            from opentps.core.processing.registration.registrationRigid import RegistrationRigid
+
+            reg = RegistrationRigid(
+                fixed=self.static_phantom.image_obj,
+                moving=self.moving_phantom.image_obj,
+                multimodal=multimodal
+            )
+            self.deformation = reg.compute()
+            self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
+            self.deformed_phantom.image_obj = reg.deformed
+
+            
+if __name__ == "__main__":
+    print("testing the registration class")
