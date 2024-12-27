@@ -10,12 +10,11 @@ from brachyutils.geometry_utils import BrachyPhantom, phantom_with_empty_image_l
 class PhantomRegistration(ABC):
     def __init__(
         self,
-        static_phantom: BrachyPhantom,
-        moving_phantom: BrachyPhantom,
+        static_phantom: Union[BrachyPhantom, str],
+        moving_phantom: Union[BrachyPhantom, str],
         deformable: bool = False,
         algorithm: Literal["demons", "morphons"] = None,
         backend: Literal["elastix", "plastimatch", "opentps"] = None,
-        dir_phantom_export: Union[Path, str] = None,
     ) -> None:
         r"""
         Purpose:
@@ -42,7 +41,6 @@ class PhantomRegistration(ABC):
         self.deformable = deformable
         self.algorithm = algorithm
         self.backend = backend
-        self.dir_phantom_export = dir_phantom_export
         # the following attributes will be computed during the registration process
         self.deformed_phantom = None
         self.deformation = None
@@ -63,9 +61,8 @@ class RegistrationWithOpenTPS(PhantomRegistration):
         static_phantom: BrachyPhantom,
         moving_phantom: BrachyPhantom,
         deformable: bool = False,
-        algorithm: Literal["demons", "morphons"] = None,
+        algorithm: Literal["demons", "morphons", "quick"] = None,
         backend = "opentps",
-        dir_phantom_export: Union[Path, str] = None,
         ):
         r"""
         Purpose:
@@ -92,7 +89,6 @@ class RegistrationWithOpenTPS(PhantomRegistration):
             deformable,
             algorithm,
             backend,
-            dir_phantom_export
             )
 
 
@@ -173,6 +169,4 @@ class RegistrationWithOpenTPS(PhantomRegistration):
             self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
             self.deformed_phantom.image_obj = reg.deformed
 
-            
-if __name__ == "__main__":
-    print("testing the registration class")
+        return self.deformed_phantom
