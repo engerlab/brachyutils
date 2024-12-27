@@ -5,6 +5,7 @@ services:
       dockerfile: docker_src/Dockerfile
     image: brachyutils
     container_name: BrachyUtils
+    working_dir: /root
     stdin_open: true # docker run -i
     tty: true # docker run -t
     environment:
@@ -31,6 +32,7 @@ services:
   #     dockerfile: docker_src/Dockerfile
   #   image: rapidbrachy_mc
   #   container_name: DoseCalcMC
+  #   working_dir: /root
   #   stdin_open: true # docker run -i
   #   tty: true # docker run -t
   #   environment:
@@ -52,6 +54,7 @@ services:
   #     dockerfile: docker_src/Dockerfile
   #   image: rapidbrachy_tg43
   #   container_name: DoseCalcTG43
+  #   working_dir: /root
   #   stdin_open: true # docker run -i
   #   tty: true # docker run -t
   #   environment:
