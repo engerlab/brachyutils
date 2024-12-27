@@ -2,10 +2,10 @@
 from abc import ABC, abstractmethod
 from glob import glob
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Union, List
 
 from brachyutils.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
-
+from opentps.core.data._transform3D import Transform3D
 
 class PhantomRegistration(ABC):
     def __init__(
@@ -42,11 +42,11 @@ class PhantomRegistration(ABC):
         self.algorithm = algorithm
         self.backend = backend
         # the following attributes will be computed during the registration process
-        self.deformed_phantom = None
-        self.deformation = None
+        self.deformed_phantom: BrachyPhantom = None
+        self.deformation: Transform3D = None
 
     @abstractmethod
-    def register(self) -> BrachyPhantom:
+    def register(self) -> List[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom.
@@ -97,7 +97,7 @@ class RegistrationWithOpenTPS(PhantomRegistration):
         baseResolution:float = 2.0,
         tryGPU: bool = False,
         multimodal: bool = False,
-        ) -> BrachyPhantom:
+        ) -> List[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom using the OpenTPS package.
@@ -169,4 +169,4 @@ class RegistrationWithOpenTPS(PhantomRegistration):
             self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
             self.deformed_phantom.image_obj = reg.deformed
 
-        return self.deformed_phantom
+        return self.deformed_phantom, self.deformation
