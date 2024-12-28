@@ -1,4 +1,3 @@
-
 from abc import ABC, abstractmethod
 from glob import glob
 from pathlib import Path

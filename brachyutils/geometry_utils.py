@@ -159,6 +159,23 @@ class BrachyPhantom:
         )
         self.image_modality = image_nrrd.GetMetaData("Modality")
 
+    def _load_nifti_image_file(self, pth_image: Path) -> None:
+        r"""
+        Purpose:
+            - Load the NIFTI image file.
+        Inputs:
+            - pth_image: Path := the path of the geometry source file.
+        Outputs:
+            - None
+        Dependencies:
+            - nibabel
+        """
+        import nibabel as nib
+        
+        assert pth_image.exists(), "The input path does not exist."
+        image_nifti = nib.load(pth_image)
+        
+        
     def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
         Purpose:
@@ -353,6 +370,13 @@ class BrachyPhantom:
         """
         return np.swapaxes(self.image_obj.imageArray, 0, 2)
 
+    def set_image_array(self, image_array: np.ndarray) -> None:
+        r"""
+        Purpose:
+            - To set the image array.
+        """
+        self.image_obj.imageArray = np.swapaxes(image_array, 0, 2)
+    
     def write_image_to_dicom(self, dir_output: Path) -> None:
         r"""
         Purpose:
