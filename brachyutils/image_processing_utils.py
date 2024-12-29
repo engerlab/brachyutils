@@ -45,7 +45,7 @@ class PhantomRegistration(ABC):
         self.deformation: Transform3D = None
 
     @abstractmethod
-    def register(self) -> List[BrachyPhantom, Transform3D]:
+    def register(self) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom.
@@ -90,13 +90,12 @@ class RegistrationWithOpenTPS(PhantomRegistration):
             backend,
             )
 
-
     def register(
         self,
         baseResolution:float = 2.0,
         tryGPU: bool = False,
         multimodal: bool = False,
-        ) -> List[BrachyPhantom, Transform3D]:
+        ) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom using the OpenTPS package.

@@ -39,3 +39,4 @@ def test_register_opentps():
 
 if __name__ == "__main__":
     print("testing the registration class")
+    test_register_opentps()

@@ -78,13 +78,14 @@ class BrachyPhantom:
                 "Please provide either the directory of the DICOM files or the path of the phantom file."
             )
         # Attributes for patient images
-        self.pth_image: Path = dir_dicom if dir_dicom is not None else pth_phantom_file
+        self.pth_image: Path = Path(dir_dicom if dir_dicom is not None else pth_phantom_file)
         self.image_obj: Union[CTImage, MRImage] = None
         self.image_modality: Literal["CT", "MR", "US"] = None
         self.structure_set: RTStruct = None
         self.structure_names_dcm: List[str] = []
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
+        self.orientation: Literal["LAS", "RAS", "LPS"] = "LPS"
         # Attributes for Egsphant files
         from brachyutils.egsphant_utils import BrachyEgsphant
 
@@ -93,7 +94,11 @@ class BrachyPhantom:
         if dir_dicom is not None:
             self._load_dicom_image_files(self.pth_image)
         elif pth_phantom_file is not None:
-            self._load_nrrd_image_file(self.pth_image)
+            extension = "".join(pth_phantom_file.suffixes)
+            if extension == ".nrrd":
+                self._load_nrrd_image_file(self.pth_image)
+            elif extension == ".nii.gz":
+                self._load_nifti_image_file(self.pth_image)
         elif pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
         else:
@@ -102,10 +107,12 @@ class BrachyPhantom:
             )
             warnings.warn("No geometry source file provided.", stacklevel=2)
 
+        self._convert_orientation_to_LPS()
+        
         if pth_structures_file is not None:
             assert os.path.exists(pth_structures_file), "The input path does not exist."
             self._load_structure_file(pth_structures_file)
-
+        
         if pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
 
@@ -129,14 +136,17 @@ class BrachyPhantom:
             ct_files = list(filter(lambda s: "CT" in s.upper(), image_files))
             self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
+            self.orientation = _get_image_orientation(Path(ct_files[0]))
         elif "MR" in image_files[0].upper():
             mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
+            self.orientation = _get_image_orientation(Path(mr_files[0]))
         elif "US" in image_files[0].upper():
             us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
+            self.orientation = _get_image_orientation(Path(us_files[0]))
 
     def _load_nrrd_image_file(self, pth_image: Path) -> None:
         r"""
@@ -151,7 +161,6 @@ class BrachyPhantom:
         """
         assert os.path.exists(pth_image), "The input path does not exist."
         image_nrrd = sitk.ReadImage(pth_image, imageIO="NrrdImageIO")
-        self.pth_image = pth_image
         self.image_obj = CTImage(
             imageArray=np.swapaxes(sitk.GetArrayFromImage(image_nrrd), 0, 2),
             origin=np.array(image_nrrd.GetOrigin()),
@@ -173,9 +182,16 @@ class BrachyPhantom:
         import nibabel as nib
         
         assert pth_image.exists(), "The input path does not exist."
-        image_nifti = nib.load(pth_image)
-        
-        
+        image_nifti = nib.load(self.pth_image)
+        if image_nifti.ndim == 4:
+            image_array = np.ascontiguousarray(
+                image_nifti.get_fdata()[:, :, :, 0]
+                )
+        origin = image_nifti.affine[:3, 3]
+        spacing = np.diag(image_nifti.affine)[:3]
+        self.image_modality = image_nifti.header.get("modality", "unknown")
+        print("debug")
+
     def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
         Purpose:
@@ -187,7 +203,7 @@ class BrachyPhantom:
         Dependencies:
             - openTPS.core
         """
-        structure_file_type = os.path.splitext(pth_structure)[-1]
+        structure_file_type = "".join(pth_structure.suffixes)
         if structure_file_type == ".dcm":
             self.structure_set = readDicomStruct(pth_structure)
         elif structure_file_type == ".nrrd":
@@ -197,8 +213,11 @@ class BrachyPhantom:
             )
             # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
             # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
+        elif structure_file_type == ".nii.gz":
+            self.ReadNiftiStruct(pth_structure)
         else:
-            raise ValueError("The structure file type is currently not supported.")
+            readNiftiStruct(pth_structure)
+
         self.structure_names_dcm = []
         for structure in self.structure_set.contours:
             self.structure_names_dcm.append(structure.name)
@@ -615,6 +634,28 @@ class BrachyPhantom:
                 mask_dict.get(structure_name).getROIContour()
             )
 
+    def _convert_orientation_to_LPS(self) -> None:
+        r"""
+        Purpose:
+            - Convert the orientation of the image from what ever it is to LPS.
+        Inputs:
+            - None
+        Outputs:
+            - None
+        """
+        assert self.image_obj is not None, "No image object to convert orientation."
+        assert self.orientation is not None, "Orientation is not set."
+        if self.orientation == "LAS":
+            self.set_image_array(np.flip(self.get_image_array(), axis=2))
+            self.image_obj.origin = [1, -1, 1] * self.image_obj.origin
+        elif self.orientation == "RAS":
+            self.set_image_array(np.flip(self.get_image_array(), axis=(1, 2)))
+            self.image_obj.origin = [-1, -1, 1] * self.image_obj.origin
+        elif self.orientation == "LPS":
+            pass
+        else:
+            raise ValueError("The orientation is not recognized. please leave an issue on github.")
+        self.orientation = "LPS"
 
 # helper functions
 def phantom_with_empty_image_like(phantom: BrachyPhantom) -> BrachyPhantom:
@@ -721,6 +762,108 @@ def readNrrdStruct(pth_structure: Path) -> RTStruct:
             structure_set.appendContour(roi_mask.getROIContour())
     return structure_set
 
+def readNiftiStruct(pth_structure: Path) -> RTStruct:
+    r"""
+    Purpose:
+        - Load the NIFTI structure file.
+    Inputs:
+        - pth_structure: Path := the path of the structure source file.
+    Outputs:
+        - RTStruct := the structure set object.
+    Dependencies:
+        - nibabel
+    """
+    assert os.path.exists(pth_structure), "The input path does not exist."
+    assert ".nii.gz" in pth_structure, "The input file is not a NIFTI structure file."
+    import nibabel as nib
+    nifti_image = nib.load(pth_structure)
+    nifti_data = nifti_image.get_fdata()
+    nifti_affine = nifti_image.affine
+    nifti_header = nifti_image.header
+    nifti_meta_data = nifti_header.get_fdata()
+    nifti_meta_data_keys = nifti_header.keys()
+    structure_set = RTStruct()
+    for key in nifti_meta_data_keys:
+        if "_ID" in key:
+            segment_id = nifti_meta_data[key]
+            segment_name = nifti_meta_data[segment_id + "_Name"]
+            segment_label = nifti_meta_data[segment_id + "_LabelValue"]
+            segment_mask = nifti_data == int(segment_label)
+            segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+            roi_mask = ROIMask(
+                imageArray=np.swapaxes(segment_mask, 0, 2),
+                origin=nifti_affine[:3, 3],
+                spacing=nifti_affine[:3, :3],
+                name=segment_name,
+            )
+            structure_set.appendContour(roi_mask.getROIContour())
+    return structure_set
+
+def _get_image_orientation(pth_image: Path) -> str:
+    """
+    Purpose:
+        - Get the image orientation from the DICOM, NRRD or NIFTI files.
+        The orientation could be LAS, RAS, or LPS. BrachyUtils by default
+        uses LPS orientation, which is the default in DICOM standard and likely
+        the origin of all medical images.
+    Inputs:
+        - pth_image: Path := the path of the image file. Hopefully
+        it has some sort of header information.
+    Outputs:
+        - orientation: str := the orientation of the image.
+    Depenedencies:
+        - pydicom
+        - nibabel
+        - pynrrd
+    """
+    extension = "".join(pth_image.suffixes)
+    if extension == ".dcm":
+        import pydicom
+        header = pydicom.read_file(pth_image)
+        orientation = header.get((0x0010, 0x2210))
+        if orientation is not None:
+            return orientation
+        else:
+            # default orientation in dicom is LPS
+            return "LPS"
+    elif extension == ".nrrd":
+        warnings.warn("NRRD orientation is not tested yet")
+        import nrrd
+        nrrd_header = nrrd.read(pth_image)[1]
+        orientation = nrrd_header.get("space directions")
+        if orientation is not None:
+            if "left" in orientation[0] and "posterior" in orientation[1]:
+                return "LAS"
+            elif "right" in orientation[0] and "posterior" in orientation[1]:
+                return "RAS"
+            elif "left" in orientation[0] and "anterior" in orientation[1]:
+                return "LPS"
+            elif "right" in orientation[0] and "anterior" in orientation[1]:
+                return "RPS"
+            else:
+                return "LAS"
+        else:
+            return "LPS"
+    elif extension == ".nii.gz":
+        import nibabel as nib
+
+        nifti_header = nib.load(pth_image).header
+        orientation = nifti_header.get("qform_code")
+        if orientation is not None:
+            if orientation == 1:
+                return "LAS"
+            elif orientation == 2:
+                return "RAS"
+            elif orientation == 3:
+                return "LPS"
+            elif orientation == 4:
+                return "RPS"
+            else:
+                return "LAS"
+        else:
+            return "LPS"
+    else:
+        return "LPS"
 
 class BrachyApplicator:
     r"""
