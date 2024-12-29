@@ -188,8 +188,9 @@ class BrachyPhantom:
                 image_nifti.get_fdata()[:, :, :, 0]
                 )
         origin = image_nifti.affine[:3, 3]
-        spacing = np.diag(image_nifti.affine)[:3]
+        spacing = image_nifti.header.get("pixdim")[1:4]
         self.image_modality = image_nifti.header.get("modality", "unknown")
+        self.orientation = _get_image_orientation(pth_image)
         print("debug")
 
     def _load_structure_file(self, pth_structure: Path) -> None:
@@ -846,7 +847,7 @@ def _get_image_orientation(pth_image: Path) -> str:
             return "LPS"
     elif extension == ".nii.gz":
         import nibabel as nib
-
+        # XXX: figure out how to get the orientation from nifti
         nifti_header = nib.load(pth_image).header
         orientation = nifti_header.get("qform_code")
         if orientation is not None:
