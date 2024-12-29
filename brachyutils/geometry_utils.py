@@ -10,7 +10,7 @@ import SimpleITK as sitk
 
 # import pydicom
 from opentps.core.data import ROIContour, RTStruct
-from opentps.core.data.images import CTImage, MRImage, ROIMask
+from opentps.core.data.images import CTImage, MRImage, ROIMask, Image3D
 from opentps.core.io.dicomIO import (  # writeRTDose,
     readDicomCT,
     readDicomMRI,
@@ -38,12 +38,16 @@ class BrachyPhantom:
         - A class to load any voxelized geometry related to an HDR brachytherapy patient or phantom
         and perform some operations.
     Attributes:
-        - id: str := the path of the geometry source file or files.
+        - pth_image: Path := the path of the geometry source file or files.
         - image_obj: CTImage or MRImage := the image of the patient loaded by openTPS. [x, y, z]
         - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
         - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
         Other names for structure are contours, masks, segmentations.
+        - structure_names_dcm: List[str] := the names of the structures in the dicom file.
         - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
+        - xyz_format: bool := the format of the image. if True, the image is in [z, y, x] format.
+        - orientation: Literal["LAS", "RAS", "LPS"] := the orientation of the image. default is LPS, same as 
+        DICOM and slicer.
     Dependencies:
         - openTPS.core
     """
@@ -190,8 +194,22 @@ class BrachyPhantom:
         origin = image_nifti.affine[:3, 3]
         spacing = image_nifti.header.get("pixdim")[1:4]
         self.image_modality = image_nifti.header.get("modality", "unknown")
+        if self.image_modality == "unknown":
+            if "ct" in self.pth_image.name.lower():
+                self.image_modality = "CT"
+            elif "mr" in self.pth_image.name.lower():
+                self.image_modality = "MR"
+            elif "us" in self.pth_image.name.lower():
+                self.image_modality = "US"
+            else:
+                warnings.warn("The modality of the image is not recognized.")
+
         self.orientation = _get_image_orientation(pth_image)
-        print("debug")
+        self.image_obj = Image3D(
+            origin=origin,
+            spacing=spacing,
+        )
+        self.set_image_array(image_array)
 
     def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
@@ -848,21 +866,18 @@ def _get_image_orientation(pth_image: Path) -> str:
     elif extension == ".nii.gz":
         import nibabel as nib
         # XXX: figure out how to get the orientation from nifti
-        nifti_header = nib.load(pth_image).header
-        orientation = nifti_header.get("qform_code")
-        if orientation is not None:
-            if orientation == 1:
-                return "LAS"
-            elif orientation == 2:
-                return "RAS"
-            elif orientation == 3:
-                return "LPS"
-            elif orientation == 4:
-                return "RPS"
-            else:
-                return "LAS"
-        else:
+        nifti_image = nib.load(pth_image)
+        # Get the affine matrix
+        affine = nifti_image.affine
+        # Check the signs of the first two columns
+        if affine[0, 0] > 0 and affine[1, 1] > 0:
+            return "RAS"
+        elif affine[0, 0] < 0 and affine[1, 1] < 0:
             return "LPS"
+        elif affine[0, 0] < 0 and affine[1, 1] > 0:
+            return "RAS"
+        else:
+            print("The orientation is neither RAS nor LPS")
     else:
         return "LPS"
 
