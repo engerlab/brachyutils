@@ -189,10 +189,17 @@ def test_BrachyApplicator_set_rotation():
     applicator_obj.to_stl(pth_outfile)
 
 def test_load_nifti_image_file():
-    pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
-    pth_img_out = Path("../data_test/test_export_plan/test_mr_image_case000000.nrrd")
-    pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
-    pth_label_out = Path("../data_test/test_export_plan/test_mr_label_case000000.nrrd")
+    # mri images
+    # pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
+    # pth_img_out = Path("../data_test/test_export_plan/test_mr_image_case000000.nrrd")
+    # pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
+    # pth_label_out = Path("../data_test/test_export_plan/test_mr_label_case000000.nrrd")
+    
+    # ultrasound images
+    pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
+    pth_img_out = Path("../data_test/test_export_plan/test_us_image_case000000.nrrd")
+    pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
+    pth_label_out = Path("../data_test/test_export_plan/test_us_label_case000000.nrrd")
     
     phantom_obj = BrachyPhantom(
         pth_phantom_file=pth_img_nifti,
