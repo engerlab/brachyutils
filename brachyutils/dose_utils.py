@@ -658,8 +658,8 @@ class BrachyDose:
         pth_output: Path,
         metadata: Optional[dict] = None,
         anatomical_coordinate_system: Literal[
-            "left-posterior-superior", "right-anterior-superior"
-        ] = "left-posterior-superior",
+            "LPS", "RAS"
+        ] = "LPS",
     ):
         r"""
         Purpose:
@@ -693,8 +693,12 @@ class BrachyDose:
 
         header = defaultdict(str)
         header["type"] = "double"
-        header["dimension"] = "4" if self.uncertainty_image is not None else "3"
-        header["space"] = anatomical_coordinate_system
+        # header["dimension"] = "4" if self.uncertainty_image is not None else "3"
+        header["space"] = (
+            anatomical_coordinate_system 
+            if self.uncertainty_image is None
+            else anatomical_coordinate_system + "T"
+            )
         header["sizes"] = (
             " ".join(map(str, [2] + self.dose_image.gridSize.tolist()))
             if self.uncertainty_image is not None
@@ -703,21 +707,21 @@ class BrachyDose:
 
         header["space directions"] = [
             [np.nan, np.nan, np.nan],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
+            [self.dose_image.spacing[0], 0.0, 0.0],
+            [0.0, self.dose_image.spacing[1], 0.0],
+            [0.0, 0.0, self.dose_image.spacing[2]],
         ]
         header["kinds"] = ["2-vector", "space", "space", "space"]
         header["labels"] = ["", "x", "y", "z"]
         header["endian"] = "little"
         header["encoding"] = "gzip"
         header["space origin"] = self.dose_image.origin.tolist()
-        header["spacing"] = (
+        header["voxel spacing"] = (
             [np.nan] + self.dose_image.spacing.tolist()
             if self.uncertainty_image is not None
             else self.dose_image.spacing.tolist()
         )
-        # header["space units"] = ["", "mm", "mm", "mm"]
+        header["space units"] = ["None", "mm", "mm", "mm"]
         header = header | metadata if metadata is not None else header
         dose_uncertainty_array = (
             np.stack([dose_array, uncertainty_array], axis=0)
