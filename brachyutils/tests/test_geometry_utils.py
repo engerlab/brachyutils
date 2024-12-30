@@ -45,7 +45,7 @@ def test_write_image_to_dicom():
 
 def test_write_image_to_nrrd():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_out = "../data_test/prostate_glen_p1_ct.nrrd"
+    pth_out = "../data_test/test_export_plan/prostate_glen_p1_ct.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom)
     phantom_obj.write_image_to_nrrd(pth_out)
 
@@ -214,7 +214,7 @@ if __name__ == "__main__":
     # test_brachy_phantom()
     # test_get_structure_mask()
     # test_write_image_to_dicom()
-    # test_write_image_to_nrrd()
+    test_write_image_to_nrrd()
     # test_write_structures_to_nrrd()
     # test_write_structures_to_dicom()
     # test_read_structures_from_nrrd()
@@ -228,4 +228,4 @@ if __name__ == "__main__":
     # test_BrachyApplicator_to_mac()
     # test_BrachyApplicator_to_stl()
     # test_BrachyApplicator_set_rotation()
-    test_load_nifti_image_file()
+    # test_load_nifti_image_file()

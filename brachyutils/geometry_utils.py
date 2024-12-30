@@ -475,25 +475,24 @@ class BrachyPhantom:
         header["dimension"] = "3"
         header["space"] = "left-posterior-superior"
         header["sizes"] = (
-            " ".join(map(str, self.dose_image.gridSize.tolist()))
+            " ".join(map(str, self.image_obj.gridSize.tolist()))
         )
-
-        header["space directions"] = [
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
-        ]
+        # header["space directions"] = [
+            # [1.0, 0.0, 0.0],
+            # [0.0, 1.0, 0.0],
+            # [0.0, 0.0, 1.0],
+        # ]
         header["kinds"] = ["space", "space", "space"]
         header["labels"] = ["x", "y", "z"]
         header["endian"] = "little"
         header["encoding"] = "gzip"
-        header["space origin"] = self.dose_image.origin.tolist()
-        header["spacing"] = self.dose_image.spacing.tolist()
+        header["space origin"] = self.image_obj.origin.tolist()
+        header["spacing"] = self.image_obj.spacing.tolist()
 
         # header["space units"] = ["", "mm", "mm", "mm"]
         header = header | metadata if metadata is not None else header
-        
-        
+        nrrd.write(str(pth_output), image_array_zyx, header, index_order="C")
+
         # image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
         # image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
         # image_nrrd.SetOrigin(self.image_obj.origin.astype(float))

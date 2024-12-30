@@ -724,7 +724,7 @@ class BrachyDose:
             if self.uncertainty_image is not None
             else dose_array
         )
-        nrrd.write(pth_output, dose_uncertainty_array, header, index_order="F")
+        nrrd.write(pth_output, dose_uncertainty_array, header, index_order="C")
 
     def write_to_npz(self, file_name: str):
         r"""
