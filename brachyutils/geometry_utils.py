@@ -472,24 +472,23 @@ class BrachyPhantom:
         image_array_zyx = self.get_image_array()
         header = defaultdict(str)
         header["type"] = "double"
-        header["dimension"] = "3"
-        header["space"] = "left-posterior-superior"
+        # header["space dimension"] = "3"
+        header["space"] = self.anatomical_coordinate_system
         header["sizes"] = (
             " ".join(map(str, self.image_obj.gridSize.tolist()))
         )
-        # header["space directions"] = [
-            # [1.0, 0.0, 0.0],
-            # [0.0, 1.0, 0.0],
-            # [0.0, 0.0, 1.0],
-        # ]
+        header["space directions"] = [
+            [self.image_obj.spacing[0], 0.0, 0.0],
+            [0.0, self.image_obj.spacing[1], 0.0],
+            [0.0, 0.0, self.image_obj.spacing[2]],
+        ]
         header["kinds"] = ["space", "space", "space"]
         header["labels"] = ["x", "y", "z"]
         header["endian"] = "little"
         header["encoding"] = "gzip"
         header["space origin"] = self.image_obj.origin.tolist()
         header["spacing"] = self.image_obj.spacing.tolist()
-
-        # header["space units"] = ["", "mm", "mm", "mm"]
+        header["space units"] = ["mm", "mm", "mm"]
         header = header | metadata if metadata is not None else header
         nrrd.write(str(pth_output), image_array_zyx, header, index_order="C")
 
