@@ -233,9 +233,9 @@ class BrachyPhantom:
             # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
             # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         elif structure_file_type == ".nii.gz":
-            self.ReadNiftiStruct(pth_structure)
+            self.structure_set = readNiftiStruct(pth_structure)
         else:
-            readNiftiStruct(pth_structure)
+            raise ValueError("The structure file type is not recognized.")
 
         self.structure_names_dcm = []
         for structure in self.structure_set.contours:
@@ -484,8 +484,8 @@ class BrachyPhantom:
             )  # this removes overlap
             sitk_image = sitk.GetImageFromArray(all_masks.astype(int))
             sitk_image = sitk.Cast(sitk_image, sitk.sitkUInt8)
-            sitk_image.SetSpacing(self.image_obj.spacing)
-            sitk_image.SetOrigin(self.image_obj.origin)
+            sitk_image.SetSpacing(self.image_obj.spacing.astype(float))
+            sitk_image.SetOrigin(self.image_obj.origin.astype(float))
 
             # Add necessary metadata for Slicer to recognize it as a segmentation
             # sitk_image.SetMetaData("Segmentation_MasterRepresentation", "Fractional labelmap")
@@ -507,7 +507,7 @@ class BrachyPhantom:
 
         # Write the image
         writer = sitk.ImageFileWriter()
-        writer.SetFileName(pth_output)
+        writer.SetFileName(str(pth_output))
         writer.SetUseCompression(True)
         writer.Execute(sitk_image)
 
@@ -793,29 +793,45 @@ def readNiftiStruct(pth_structure: Path) -> RTStruct:
         - nibabel
     """
     assert os.path.exists(pth_structure), "The input path does not exist."
-    assert ".nii.gz" in pth_structure, "The input file is not a NIFTI structure file."
     import nibabel as nib
-    nifti_image = nib.load(pth_structure)
-    nifti_data = nifti_image.get_fdata()
-    nifti_affine = nifti_image.affine
-    nifti_header = nifti_image.header
-    nifti_meta_data = nifti_header.get_fdata()
-    nifti_meta_data_keys = nifti_header.keys()
+    structure_obj = nib.load(pth_structure)
+    structure_mask = structure_obj.get_fdata()
+    nifti_affine = structure_obj.affine
+    origin = structure_obj.affine[:3, 3]
+    spacing = structure_obj.header.get("pixdim")[1:4]
+    # God knows what is the name of the structures in the nifti files
+    # I will just number them and hope for the best
+    num_structures = structure_mask.shape[-1]
     structure_set = RTStruct()
-    for key in nifti_meta_data_keys:
-        if "_ID" in key:
-            segment_id = nifti_meta_data[key]
-            segment_name = nifti_meta_data[segment_id + "_Name"]
-            segment_label = nifti_meta_data[segment_id + "_LabelValue"]
-            segment_mask = nifti_data == int(segment_label)
-            segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
-            roi_mask = ROIMask(
-                imageArray=np.swapaxes(segment_mask, 0, 2),
-                origin=nifti_affine[:3, 3],
-                spacing=nifti_affine[:3, :3],
-                name=segment_name,
-            )
-            structure_set.appendContour(roi_mask.getROIContour())
+    for i in range(num_structures):
+        # generate segment labels
+        segment_id = f"Segment{i+1}"
+        segment_name = segment_id + "_Name"
+        segment_label =  segment_id + "_LabelValue"
+        # get the segment mask
+        segment_mask = structure_mask[:, :, :, i]
+        segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+
+        # based on spline, ensure LPS orientation
+        orientation = _get_image_orientation(pth_structure)
+        if orientation == "LAS":
+            segment_mask = np.flip(segment_mask, axis=2)
+            origin = [1, -1, 1] * origin
+        elif orientation == "RAS":
+            segment_mask = np.flip(segment_mask, axis=(1, 2))
+            origin = [-1, -1, 1] * origin
+        elif orientation == "LPS":
+            pass
+        else:
+            raise ValueError("The orientation is not recognized. please leave an issue on github.")
+        # create the ROI mask and contour from it
+        roi_mask = ROIMask(
+            imageArray=np.swapaxes(segment_mask, 0, 2),
+            origin=origin,
+            spacing=spacing,
+            name=segment_name,
+        )
+        structure_set.appendContour(roi_mask.getROIContour())
     return structure_set
 
 def _get_image_orientation(pth_image: Path) -> str:
@@ -865,7 +881,6 @@ def _get_image_orientation(pth_image: Path) -> str:
             return "LPS"
     elif extension == ".nii.gz":
         import nibabel as nib
-        # XXX: figure out how to get the orientation from nifti
         nifti_image = nib.load(pth_image)
         # Get the affine matrix
         affine = nifti_image.affine
