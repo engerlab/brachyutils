@@ -487,16 +487,10 @@ class BrachyPhantom:
         header["endian"] = "little"
         header["encoding"] = "gzip"
         header["space origin"] = self.image_obj.origin.tolist()
-        header["spacing"] = self.image_obj.spacing.tolist()
+        header["voxel spacing"] = self.image_obj.spacing.tolist()
         header["space units"] = ["mm", "mm", "mm"]
         header = header | metadata if metadata is not None else header
         nrrd.write(str(pth_output), image_array_zyx, header, index_order="C")
-
-        # image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
-        # image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
-        # image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
-        # image_nrrd.SetMetaData("Modality", self.image_modality)
-        # sitk.WriteImage(image_nrrd, str(pth_output))
 
     def write_structures_to_nrrd(
         self,
