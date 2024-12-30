@@ -115,6 +115,7 @@ class BrachyPhantom:
         self._convert_orientation_to_LPS()
         
         if pth_structures_file is not None:
+            pth_structures_file = Path(pth_structures_file)
             assert os.path.exists(pth_structures_file), "The input path does not exist."
             self._load_structure_file(pth_structures_file)
         
@@ -223,17 +224,17 @@ class BrachyPhantom:
         Dependencies:
             - openTPS.core
         """
-        structure_file_type = "".join(pth_structure.suffixes)
-        if structure_file_type == ".dcm":
+        # structure_file_type = "".join(pth_structure.suffixes)
+        if str(pth_structure).endswith(".dcm"):
             self.structure_set = readDicomStruct(pth_structure)
-        elif structure_file_type == ".nrrd":
+        elif str(pth_structure).endswith(".nrrd"):
             self.structure_set = readNrrdStruct(pth_structure)
             self.structure_set.setPatient(
                 self.image_obj.patient if self.image_obj is not None else None
             )
             # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
             # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
-        elif structure_file_type == ".nii.gz":
+        elif str(pth_structure).endswith(".nii.gz"):
             self.structure_set = readNiftiStruct(pth_structure)
         else:
             raise ValueError("The structure file type is not recognized.")
@@ -887,8 +888,8 @@ def _get_image_orientation(pth_image: Path) -> str:
         - nibabel
         - pynrrd
     """
-    extension = "".join(pth_image.suffixes)
-    if extension == ".dcm":
+    # extension = "".join(pth_image.suffixes)
+    if str(pth_image).endswith(".dcm"):
         import pydicom
         header = pydicom.read_file(pth_image)
         orientation = header.get((0x0010, 0x2210))
@@ -897,7 +898,7 @@ def _get_image_orientation(pth_image: Path) -> str:
         else:
             # default orientation in dicom is LPS
             return "LPS"
-    elif extension == ".nrrd":
+    elif str(pth_image).endswith(".nrrd"):
         warnings.warn("NRRD orientation is not tested yet")
         import nrrd
         nrrd_header = nrrd.read(pth_image)[1]
@@ -915,7 +916,7 @@ def _get_image_orientation(pth_image: Path) -> str:
                 return "LAS"
         else:
             return "LPS"
-    elif extension == ".nii.gz":
+    elif str(pth_image).endswith(".nii.gz"):
         import nibabel as nib
         nifti_image = nib.load(pth_image)
         # Get the affine matrix
