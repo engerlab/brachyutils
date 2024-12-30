@@ -657,7 +657,7 @@ class BrachyDose:
         self,
         pth_output: Path,
         metadata: Optional[dict] = None,
-        coordinate_system: Literal[
+        anatomical_coordinate_system: Literal[
             "left-posterior-superior", "right-anterior-superior"
         ] = "left-posterior-superior",
     ):
@@ -673,7 +673,7 @@ class BrachyDose:
                 "number of segmented structures":
                 "patient number":
                 "Image content": "[3D dose, 3D uncertainty]"
-            - coordinate_system := the coordinate system of the dose grid. should be one of the following:
+            - anatomical_coordinate_system := the coordinate system of the dose grid. should be one of the following:
                 "left-posterior-superior"
                 "right-anterior-superior"
         outputs: Void
@@ -694,7 +694,7 @@ class BrachyDose:
         header = defaultdict(str)
         header["type"] = "double"
         header["dimension"] = "4" if self.uncertainty_image is not None else "3"
-        header["space"] = coordinate_system
+        header["space"] = anatomical_coordinate_system
         header["sizes"] = (
             " ".join(map(str, [2] + self.dose_image.gridSize.tolist()))
             if self.uncertainty_image is not None
