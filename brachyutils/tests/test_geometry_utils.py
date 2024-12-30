@@ -200,7 +200,7 @@ def test_load_nifti_image_file():
     pth_img_out = Path("../data_test/test_export_plan/test_us_image_case000000.nrrd")
     pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
     pth_label_out = Path("../data_test/test_export_plan/test_us_label_case000000.nrrd")
-    
+
     phantom_obj = BrachyPhantom(
         pth_phantom_file=pth_img_nifti,
         pth_structures_file=pth_label_nifti

@@ -31,6 +31,7 @@ from vtk import (
 from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
 
+import nrrd
 
 class BrachyPhantom:
     r"""
@@ -89,7 +90,7 @@ class BrachyPhantom:
         self.structure_names_dcm: List[str] = []
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
-        self.orientation: Literal["LAS", "RAS", "LPS"] = "LPS"
+        self.anatomical_coordinate_system: Literal["LAS", "RAS", "LPS"] = "LPS"
         # Attributes for Egsphant files
         from brachyutils.egsphant_utils import BrachyEgsphant
 
@@ -140,17 +141,17 @@ class BrachyPhantom:
             ct_files = list(filter(lambda s: "CT" in s.upper(), image_files))
             self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
-            self.orientation = _get_image_orientation(Path(ct_files[0]))
+            self.anatomical_coordinate_system = _get_image_orientation(Path(ct_files[0]))
         elif "MR" in image_files[0].upper():
             mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
-            self.orientation = _get_image_orientation(Path(mr_files[0]))
+            self.anatomical_coordinate_system = _get_image_orientation(Path(mr_files[0]))
         elif "US" in image_files[0].upper():
             us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
-            self.orientation = _get_image_orientation(Path(us_files[0]))
+            self.anatomical_coordinate_system = _get_image_orientation(Path(us_files[0]))
 
     def _load_nrrd_image_file(self, pth_image: Path) -> None:
         r"""
@@ -204,7 +205,7 @@ class BrachyPhantom:
             else:
                 warnings.warn("The modality of the image is not recognized.")
 
-        self.orientation = _get_image_orientation(pth_image)
+        self.anatomical_coordinate_system = _get_image_orientation(pth_image)
         self.image_obj = Image3D(
             origin=origin,
             spacing=spacing,
@@ -440,21 +441,64 @@ class BrachyPhantom:
             os.makedirs(dir_output, exist_ok=True)
             writeRTStruct(self.structure_set, dir_output)
 
-    def write_image_to_nrrd(self, pth_output: Path) -> None:
+    def write_image_to_nrrd(
+        self,
+        pth_output: Path,
+        metadata: Optional[Dict[str, str]] = None,
+        ) -> None:
         r"""
         Purpose:
-            - To write the image to a nrrd file.
+            - To write the image to a nrrd file. By default, all images are written as Left Posterior Superior.
+        Inputs:
+            - pth_output: Path := the path to write the image to.
+            - metadata := a dictionary containing the following meta data key values (should be changed later):
+                "cancer site":
+                "care center":
+                "number of dwell positions":
+                "number of segmented structures":
+                "patient number":
+                "Image content": "[3D dose, 3D uncertainty]"
+        Outputs
+            - None
+        Dependencies:
+            - pynrrd
         """
         assert (
             os.path.splitext(pth_output)[-1] == ".nrrd"
         ), "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        from collections import defaultdict
+        
         image_array_zyx = self.get_image_array()
-        image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
-        image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
-        image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
-        image_nrrd.SetMetaData("Modality", self.image_modality)
-        sitk.WriteImage(image_nrrd, str(pth_output))
+        header = defaultdict(str)
+        header["type"] = "double"
+        header["dimension"] = "3"
+        header["space"] = "left-posterior-superior"
+        header["sizes"] = (
+            " ".join(map(str, self.dose_image.gridSize.tolist()))
+        )
+
+        header["space directions"] = [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+        header["kinds"] = ["space", "space", "space"]
+        header["labels"] = ["x", "y", "z"]
+        header["endian"] = "little"
+        header["encoding"] = "gzip"
+        header["space origin"] = self.dose_image.origin.tolist()
+        header["spacing"] = self.dose_image.spacing.tolist()
+
+        # header["space units"] = ["", "mm", "mm", "mm"]
+        header = header | metadata if metadata is not None else header
+        
+        
+        # image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
+        # image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
+        # image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
+        # image_nrrd.SetMetaData("Modality", self.image_modality)
+        # sitk.WriteImage(image_nrrd, str(pth_output))
 
     def write_structures_to_nrrd(
         self,
@@ -663,18 +707,18 @@ class BrachyPhantom:
             - None
         """
         assert self.image_obj is not None, "No image object to convert orientation."
-        assert self.orientation is not None, "Orientation is not set."
-        if self.orientation == "LAS":
+        assert self.anatomical_coordinate_system is not None, "Orientation is not set."
+        if self.anatomical_coordinate_system == "LAS":
             self.set_image_array(np.flip(self.get_image_array(), axis=2))
             self.image_obj.origin = [1, -1, 1] * self.image_obj.origin
-        elif self.orientation == "RAS":
+        elif self.anatomical_coordinate_system == "RAS":
             self.set_image_array(np.flip(self.get_image_array(), axis=(1, 2)))
             self.image_obj.origin = [-1, -1, 1] * self.image_obj.origin
-        elif self.orientation == "LPS":
+        elif self.anatomical_coordinate_system == "LPS":
             pass
         else:
             raise ValueError("The orientation is not recognized. please leave an issue on github.")
-        self.orientation = "LPS"
+        self.anatomical_coordinate_system = "LPS"
 
 # helper functions
 def phantom_with_empty_image_like(phantom: BrachyPhantom) -> BrachyPhantom:
