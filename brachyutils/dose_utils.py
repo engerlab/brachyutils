@@ -711,7 +711,7 @@ class BrachyDose:
             [0.0, self.dose_image.spacing[1], 0.0],
             [0.0, 0.0, self.dose_image.spacing[2]],
         ]
-        header["kinds"] = ["2-vector", "space", "space", "space"]
+        header["kinds"] = ["space", "space", "space"] if self.uncertainty_image is None else ["2-vector", "space", "space", "space"]
         header["labels"] = ["", "x", "y", "z"]
         header["endian"] = "little"
         header["encoding"] = "gzip"
