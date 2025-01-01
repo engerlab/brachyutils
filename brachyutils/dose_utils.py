@@ -682,7 +682,7 @@ class BrachyDose:
         # check if the directory exists, if not create it. make sure the file extension is write.
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         assert (
-            os.path.splitext(pth_output)[-1] == ".nrrd"
+            str(pth_output).endswith(".nrrd")
         ), "the file should have '.nrrd' extension"
 
         # create sitk dose image
@@ -697,7 +697,7 @@ class BrachyDose:
         header["space"] = (
             anatomical_coordinate_system 
             if self.uncertainty_image is None
-            else anatomical_coordinate_system + "T"
+            else anatomical_coordinate_system #+ "T"
             )
         header["sizes"] = (
             " ".join(map(str, [2] + self.dose_image.gridSize.tolist()))
