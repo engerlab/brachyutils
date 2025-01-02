@@ -61,9 +61,9 @@ def test_write_to_nrrd():
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
     pth_out = "../data_test/test_export_plan"
-    pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
-    # pth_input = "../data_test/new_nrrd/P5Fx1_tra/combined.nrrd"
-    pth_out = os.path.join(pth_out, os.path.splitext(os.path.basename(pth_input))[0] + ".nrrd")
+    pth_input = "../data_test/rectal-jgh-planFiles/combined_200batches.3ddose"
+    # pth_input = "../data_test/new_nrrd/P5Fx1_tra/combined.nrrds"
+    pth_out = os.path.join(pth_out, os.path.splitext(os.path.basename(pth_input))[0] + ".seq.nrrd")
     dose_obj = BrachyDose(pth_input)
     dose_obj.write_to_nrrd(pth_out)
     dose_obj_from_nrrd = BrachyDose(pth_out)
