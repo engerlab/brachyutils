@@ -560,13 +560,13 @@ class BrachyPhantom:
             #XXX: this does not work on slicer yet!
             # stack up all the masks
             sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
-            all_masks = np.stack(list(sorted_by_size.values()), axis=0).astype(np.uint8)
+            all_masks = np.stack(list(sorted_by_size.values()), axis=3).astype(np.uint8)
             from collections import defaultdict
             # # Generic phantom meta data
             header = defaultdict(str)
-            header["type"] = "unsigned char"
-            # header["space dimension"] = "4"
-            header["space"] = self.anatomical_coordinate_system
+            # header["type"] = "unsigned char"
+            header["space dimension"] = "4"
+            header["space"] = "left-posterior-superior" if self.anatomical_coordinate_system == "LPS" else "right-anterior-superior"
             header["sizes"] = (
                 " ".join(map(str, [all_masks.shape[0]]+self.image_obj.gridSize.tolist()))
             )
@@ -581,8 +581,8 @@ class BrachyPhantom:
             header["endian"] = "little"
             header["encoding"] = "gzip"
             header["space origin"] = self.image_obj.origin.tolist()
-            header["voxel spacing"] = self.image_obj.spacing.tolist()
-            header["space units"] = ["mm", "mm", "mm"]
+            # header["voxel spacing"] = self.image_obj.spacing.tolist()
+            # header["space units"] = ["mm", "mm", "mm"]
 
         # # Generic Segmentation meta data
         header["Segmentation_ContainedRepresentationNames"] = "Binary labelmap|Closed surface|"
