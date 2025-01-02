@@ -274,14 +274,14 @@ class BrachyDose:
         Purpose:
             - given the path to a .nrrd dose file, it will load its content into self:BrachyDose
         Inputs:
-            - pth_nrrd := Path to a .nrrd file writtern.
+            - pth_nrrd := Path to a .nrrd file writtern. by default, we assume c index ordering is done.
         Outputs:
             - void := contents of self is updated.
         Dependencies:
             - nrrd
             - get_voxel_edges()
         """
-        dose_uncertainty, header = nrrd.read(pth_nrrd)
+        dose_uncertainty, header = nrrd.read(pth_nrrd, index_order="C")
 
         if dose_uncertainty.shape[0] == 2:
             dose_array = dose_uncertainty[0]
@@ -289,34 +289,32 @@ class BrachyDose:
         elif dose_uncertainty.shape[-1] == 2:
             dose_array = dose_uncertainty[:, :, :, 0]
             uncertainty_array = dose_uncertainty[:, :, :, 1]
+            affine = header.get("space directions")[1:]
         else:
             print("Uncertainty not found in the nrrd file")
             dose_array = dose_uncertainty
             uncertainty_array = None
-        voxel_size = np.array(
-            header.get("spacing", "[nan,1,1,1]")
-            .replace("[", "")
-            .replace("]", "")
-            .split(","),
-            dtype=np.float32,
-        )[-3:]
+            affine = header.get("space directions")
+
+        voxel_size = affine.diagonal()
         origin_coordinates = np.array(header.get("space origin")).astype(np.float32)
 
         self.dose_image = DoseImage(
-            imageArray=np.swapaxes(dose_array, 0, 2),
+            # imageArray=np.swapaxes(dose_array, 0, 2),
             origin=origin_coordinates,
             spacing=voxel_size,
         )
+        self.set_dose_array(dose_array)
         self.uncertainty_image = (
             DoseImage(
-                imageArray=np.swapaxes(uncertainty_array, 0, 2),
+                # imageArray=np.swapaxes(uncertainty_array, 0, 2),
                 origin=origin_coordinates,
                 spacing=voxel_size,
             )
             if uncertainty_array is not None
             else None
         )
-
+        self.set_uncertainty_array(uncertainty_array)
         self.voxel_edges = self.get_voxel_edges()
 
     def load_from_npz(self, pth_npz: Path) -> None:
@@ -684,53 +682,47 @@ class BrachyDose:
         assert (
             str(pth_output).endswith(".nrrd")
         ), "the file should have '.nrrd' extension"
-
-        # create sitk dose image
-        dose_array = self.get_dose_array()
-        if self.uncertainty_image is not None:
-            uncertainty_array = self.get_uncertainty_array()
+        
         from collections import defaultdict
-
         header = defaultdict(str)
-        header["type"] = "double"
-        header["dimension"] = "4" if self.uncertainty_image is not None else "3"
-        header["space"] = (
-            anatomical_coordinate_system 
-            if self.uncertainty_image is None
-            else anatomical_coordinate_system #+ "T"
-            )
-        header["sizes"] = (
-            " ".join(map(str, [2] + self.dose_image.gridSize.tolist()))
-            if self.uncertainty_image is not None
-            else " ".join(map(str, self.dose_image.gridSize.tolist()))
-        )
-
-        header["space directions"] = [
-            [np.nan, np.nan, np.nan],
-            [self.dose_image.spacing[0], 0.0, 0.0],
-            [0.0, self.dose_image.spacing[1], 0.0],
-            [0.0, 0.0, self.dose_image.spacing[2]],
-        ]
-        header["kinds"] = ["list", "space", "space", "space"]# if self.uncertainty_image is None else ["2-vector", "space", "space", "space"]
-        header["labels"] = ["", "x", "y", "z"]
-        header["endian"] = "little"
-        header["encoding"] = "gzip"
-        header["space origin"] = self.dose_image.origin.tolist()
-        header["voxel spacing"] = (
-            [np.nan] + self.dose_image.spacing.tolist()
-            if self.uncertainty_image is not None
-            else self.dose_image.spacing.tolist()
-        )
-        # header["space units"] = ["", "mm", "mm", "mm"]
         header = header | metadata if metadata is not None else header
-        dose_uncertainty_array = (
-            np.stack([dose_array, uncertainty_array], axis=0)
-            if self.uncertainty_image is not None
-            else dose_array
-        )
-        if self.uncertainty_image is not None:
-            pth_output = pth_output.replace(".nrrd", ".seq.nrrd")
-        nrrd.write(pth_output, dose_uncertainty_array, header, index_order="F")
+        # # Common metadata
+        # header["type"] = "double"
+        header["space"] = "left-posterior-superior" if anatomical_coordinate_system == "LPS" else "right-anterior-superior"
+        # header["endian"] = "little"
+        header["encoding"] = "gzip"
+        if self.uncertainty_image is None:
+            # just write dose as a single image
+            dose_array = self.get_dose_array()
+            header["dimension"] = "3"
+            header["sizes"] = " ".join(map(str, self.dose_image.gridSize.tolist()))
+            header["kinds"] = ["domain", "domain", "domain"]
+            header["space origin"] = self.dose_image.origin.tolist()
+            header["space directions"] = [
+                [self.dose_image.spacing[0], 0.0, 0.0],
+                [0.0, self.dose_image.spacing[1], 0.0],
+                [0.0, 0.0, self.dose_image.spacing[2]],
+            ]
+            # header["spacings"] = self.dose_image.spacing.tolist()
+            # header["space units"] = ["mm", "mm", "mm"]
+            # header["labels"] = ["x", "y", "z"]
+            nrrd.write(pth_output, dose_array, header, index_order="C")
+        else:
+            dose_array = self.get_dose_array()
+            uncertainty_array = self.get_uncertainty_array()
+            header["dimension"] = "4"
+            header["kinds"] = ["list", "domain", "domain", "domain"]
+            header["space origin"] = self.dose_image.origin.tolist()
+            header["space directions"] = [
+                [np.nan, np.nan, np.nan],
+                [self.dose_image.spacing[0], 0.0, 0.0],
+                [0.0, self.dose_image.spacing[1], 0.0],
+                [0.0, 0.0, self.dose_image.spacing[2]],
+            ]
+            # header["spacing"] = [np.nan] + self.dose_image.spacing.tolist()
+            # header["space units"] = ["None", "mm", "mm", "mm"]
+            dose_uncertainty_array = np.stack([dose_array, uncertainty_array], axis=3)
+            nrrd.write(pth_output, dose_uncertainty_array, header, index_order="C")
 
     def write_to_npz(self, file_name: str):
         r"""
