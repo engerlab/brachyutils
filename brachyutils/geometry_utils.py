@@ -539,7 +539,7 @@ class BrachyPhantom:
             header = defaultdict(str)
             header["type"] = "double"
             # header["space dimension"] = "3"
-            header["space"] = self.anatomical_coordinate_system
+            header["space"] = "left-posterior-superior" if self.anatomical_coordinate_system == "LPS" else "right-anterior-superior"
             header["sizes"] = (
                 " ".join(map(str, self.image_obj.gridSize.tolist()))
             )
@@ -983,11 +983,11 @@ def _get_image_orientation(pth_image: Path) -> str:
         affine = nifti_image.affine
         # Check the signs of the first two columns
         if affine[0, 0] > 0 and affine[1, 1] > 0:
-            return "RAS"
-        elif affine[0, 0] < 0 and affine[1, 1] < 0:
             return "LPS"
-        elif affine[0, 0] < 0 and affine[1, 1] > 0:
+        elif affine[0, 0] < 0 and affine[1, 1] < 0:
             return "RAS"
+        elif affine[0, 0] > 0 and affine[1, 1] < 0:
+            return "LAS"
         else:
             print("The orientation is neither RAS nor LPS")
     else:
