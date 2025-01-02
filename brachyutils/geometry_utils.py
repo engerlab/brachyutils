@@ -99,10 +99,9 @@ class BrachyPhantom:
         if dir_dicom is not None:
             self._load_dicom_image_files(self.pth_image)
         elif pth_phantom_file is not None:
-            extension = "".join(pth_phantom_file.suffixes)
-            if extension == ".nrrd":
+            if str(pth_phantom_file).endswith(".nrrd"):
                 self._load_nrrd_image_file(self.pth_image)
-            elif extension == ".nii.gz":
+            elif str(pth_phantom_file).endswith(".nii.gz"):
                 self._load_nifti_image_file(self.pth_image)
         elif pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
@@ -166,13 +165,18 @@ class BrachyPhantom:
             - openTPS.core
         """
         assert os.path.exists(pth_image), "The input path does not exist."
-        image_nrrd = sitk.ReadImage(pth_image, imageIO="NrrdImageIO")
-        self.image_obj = CTImage(
-            imageArray=np.swapaxes(sitk.GetArrayFromImage(image_nrrd), 0, 2),
-            origin=np.array(image_nrrd.GetOrigin()),
-            spacing=np.array(image_nrrd.GetSpacing()),
+        image_nrrd, header = nrrd.read(str(pth_image), index_order="C")
+        origin = header["space origin"]
+        affine = header["space directions"]
+        spacing = affine.diagonal()
+        modality = header.get("modality", "unknown")
+        
+        self.image_obj = Image3D(
+            origin=origin,
+            spacing=spacing,
         )
-        self.image_modality = image_nrrd.GetMetaData("Modality")
+        self.set_image_array(image_nrrd)
+        self.image_modality = modality
 
     def _load_nifti_image_file(self, pth_image: Path) -> None:
         r"""
@@ -490,6 +494,7 @@ class BrachyPhantom:
         header["space origin"] = self.image_obj.origin.tolist()
         header["voxel spacing"] = self.image_obj.spacing.tolist()
         header["space units"] = ["mm", "mm", "mm"]
+        header["modality"] = self.image_modality
         header = header | metadata if metadata is not None else header
         nrrd.write(str(pth_output), image_array_zyx, header, index_order="C")
 
