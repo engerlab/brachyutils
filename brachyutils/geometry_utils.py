@@ -559,7 +559,7 @@ class BrachyPhantom:
             from collections import defaultdict
             # # Generic phantom meta data
             header = defaultdict(str)
-            header["type"] = "unsigned char"
+            header["type"] = "double"
             # header["space dimension"] = "4"
             header["space"] = self.anatomical_coordinate_system
             header["sizes"] = (

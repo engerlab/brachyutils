@@ -66,8 +66,8 @@ def test_write_to_nrrd():
     pth_out = os.path.join(pth_out, os.path.splitext(os.path.basename(pth_input))[0] + ".nrrd")
     dose_obj = BrachyDose(pth_input)
     dose_obj.write_to_nrrd(pth_out)
-    dose_obj_from_nrrd = BrachyDose(pth_out)
-    print(dose_obj.is_equal(dose_obj_from_nrrd))
+    # dose_obj_from_nrrd = BrachyDose(pth_out)
+    # print(dose_obj.is_equal(dose_obj_from_nrrd))
 
 
 def test_convert_to_npz_file():

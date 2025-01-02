@@ -693,7 +693,7 @@ class BrachyDose:
 
         header = defaultdict(str)
         header["type"] = "double"
-        # header["dimension"] = "4" if self.uncertainty_image is not None else "3"
+        header["dimension"] = "4" if self.uncertainty_image is not None else "3"
         header["space"] = (
             anatomical_coordinate_system 
             if self.uncertainty_image is None
@@ -711,7 +711,7 @@ class BrachyDose:
             [0.0, self.dose_image.spacing[1], 0.0],
             [0.0, 0.0, self.dose_image.spacing[2]],
         ]
-        header["kinds"] = ["space", "space", "space"] if self.uncertainty_image is None else ["2-vector", "space", "space", "space"]
+        header["kinds"] = ["list", "space", "space", "space"]# if self.uncertainty_image is None else ["2-vector", "space", "space", "space"]
         header["labels"] = ["", "x", "y", "z"]
         header["endian"] = "little"
         header["encoding"] = "gzip"
@@ -721,7 +721,7 @@ class BrachyDose:
             if self.uncertainty_image is not None
             else self.dose_image.spacing.tolist()
         )
-        header["space units"] = ["None", "mm", "mm", "mm"]
+        # header["space units"] = ["", "mm", "mm", "mm"]
         header = header | metadata if metadata is not None else header
         dose_uncertainty_array = (
             np.stack([dose_array, uncertainty_array], axis=0)
@@ -730,7 +730,7 @@ class BrachyDose:
         )
         if self.uncertainty_image is not None:
             pth_output = pth_output.replace(".nrrd", ".seq.nrrd")
-        nrrd.write(pth_output, dose_uncertainty_array, header, index_order="C")
+        nrrd.write(pth_output, dose_uncertainty_array, header, index_order="F")
 
     def write_to_npz(self, file_name: str):
         r"""
