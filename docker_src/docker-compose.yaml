@@ -3,7 +3,7 @@ services:
     build:
       context: ../
       dockerfile: docker_src/Dockerfile
-    image: brachyutils
+    image: brachyutils:opentps
     container_name: BrachyUtils
     working_dir: /root
     stdin_open: true # docker run -i
