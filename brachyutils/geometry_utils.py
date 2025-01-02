@@ -10,7 +10,7 @@ import SimpleITK as sitk
 
 # import pydicom
 from opentps.core.data import ROIContour, RTStruct
-from opentps.core.data.images import CTImage, MRImage, ROIMask
+from opentps.core.data.images import CTImage, MRImage, ROIMask, Image3D
 from opentps.core.io.dicomIO import (  # writeRTDose,
     readDicomCT,
     readDicomMRI,
@@ -31,6 +31,7 @@ from vtk import (
 from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
 
+import nrrd
 
 class BrachyPhantom:
     r"""
@@ -38,12 +39,16 @@ class BrachyPhantom:
         - A class to load any voxelized geometry related to an HDR brachytherapy patient or phantom
         and perform some operations.
     Attributes:
-        - id: str := the path of the geometry source file or files.
+        - pth_image: Path := the path of the geometry source file or files.
         - image_obj: CTImage or MRImage := the image of the patient loaded by openTPS. [x, y, z]
         - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
         - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
         Other names for structure are contours, masks, segmentations.
+        - structure_names_dcm: List[str] := the names of the structures in the dicom file.
         - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
+        - xyz_format: bool := the format of the image. if True, the image is in [z, y, x] format.
+        - orientation: Literal["LAS", "RAS", "LPS"] := the orientation of the image. default is LPS, same as 
+        DICOM and slicer.
     Dependencies:
         - openTPS.core
     """
@@ -65,6 +70,8 @@ class BrachyPhantom:
             - dir_dicom: Path := the directory of the DICOM files.
             - pth_phantom_file: Path := the path of the phantom .nrrd file.
             - pth_structures_file: Path := the path of the structure file.
+            - pth_egsphant_file: Path := the path of the Egsphant file to be loaded.
+            note that it is possible to generate an Egsphant from BrachyPhantom object.
         Outputs:
             - None
         Dependencies:
@@ -76,14 +83,14 @@ class BrachyPhantom:
                 "Please provide either the directory of the DICOM files or the path of the phantom file."
             )
         # Attributes for patient images
-        self.pth_image: Path = dir_dicom if dir_dicom is not None else pth_phantom_file
+        self.pth_image: Path = Path(dir_dicom if dir_dicom is not None else pth_phantom_file)
         self.image_obj: Union[CTImage, MRImage] = None
         self.image_modality: Literal["CT", "MR", "US"] = None
         self.structure_set: RTStruct = None
         self.structure_names_dcm: List[str] = []
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
-
+        self.anatomical_coordinate_system: Literal["LAS", "RAS", "LPS"] = "LPS"
         # Attributes for Egsphant files
         from brachyutils.egsphant_utils import BrachyEgsphant
 
@@ -92,7 +99,10 @@ class BrachyPhantom:
         if dir_dicom is not None:
             self._load_dicom_image_files(self.pth_image)
         elif pth_phantom_file is not None:
-            self._load_nrrd_image_file(self.pth_image)
+            if str(pth_phantom_file).endswith(".nrrd"):
+                self._load_nrrd_image_file(self.pth_image)
+            elif str(pth_phantom_file).endswith(".nii.gz"):
+                self._load_nifti_image_file(self.pth_image)
         elif pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
         else:
@@ -101,10 +111,13 @@ class BrachyPhantom:
             )
             warnings.warn("No geometry source file provided.", stacklevel=2)
 
+        self._convert_orientation_to_LPS()
+        
         if pth_structures_file is not None:
+            pth_structures_file = Path(pth_structures_file)
             assert os.path.exists(pth_structures_file), "The input path does not exist."
             self._load_structure_file(pth_structures_file)
-
+        
         if pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
 
@@ -128,14 +141,17 @@ class BrachyPhantom:
             ct_files = list(filter(lambda s: "CT" in s.upper(), image_files))
             self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
+            self.anatomical_coordinate_system = _get_image_orientation(Path(ct_files[0]))
         elif "MR" in image_files[0].upper():
             mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
+            self.anatomical_coordinate_system = _get_image_orientation(Path(mr_files[0]))
         elif "US" in image_files[0].upper():
             us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
+            self.anatomical_coordinate_system = _get_image_orientation(Path(us_files[0]))
 
     def _load_nrrd_image_file(self, pth_image: Path) -> None:
         r"""
@@ -149,14 +165,57 @@ class BrachyPhantom:
             - openTPS.core
         """
         assert os.path.exists(pth_image), "The input path does not exist."
-        image_nrrd = sitk.ReadImage(pth_image, imageIO="NrrdImageIO")
-        self.pth_image = pth_image
-        self.image_obj = CTImage(
-            imageArray=np.swapaxes(sitk.GetArrayFromImage(image_nrrd), 0, 2),
-            origin=np.array(image_nrrd.GetOrigin()),
-            spacing=np.array(image_nrrd.GetSpacing()),
+        image_nrrd, header = nrrd.read(str(pth_image), index_order="C")
+        origin = header["space origin"]
+        affine = header["space directions"]
+        spacing = affine.diagonal()
+        modality = header.get("modality", "unknown")
+        
+        self.image_obj = Image3D(
+            origin=origin,
+            spacing=spacing,
         )
-        self.image_modality = image_nrrd.GetMetaData("Modality")
+        self.set_image_array(image_nrrd)
+        self.image_modality = modality
+
+    def _load_nifti_image_file(self, pth_image: Path) -> None:
+        r"""
+        Purpose:
+            - Load the NIFTI image file.
+        Inputs:
+            - pth_image: Path := the path of the geometry source file.
+        Outputs:
+            - None
+        Dependencies:
+            - nibabel
+        """
+        import nibabel as nib
+        
+        assert pth_image.exists(), "The input path does not exist."
+        image_nifti = nib.load(self.pth_image)
+        if image_nifti.ndim == 4:
+            image_array = np.ascontiguousarray(
+                image_nifti.get_fdata()[:, :, :, 0]
+                )
+        origin = image_nifti.affine[:3, 3]
+        spacing = image_nifti.header.get("pixdim")[1:4]
+        self.image_modality = image_nifti.header.get("modality", "unknown")
+        if self.image_modality == "unknown":
+            if "ct" in self.pth_image.name.lower():
+                self.image_modality = "CT"
+            elif "mr" in self.pth_image.name.lower():
+                self.image_modality = "MR"
+            elif "us" in self.pth_image.name.lower():
+                self.image_modality = "US"
+            else:
+                warnings.warn("The modality of the image is not recognized.")
+
+        self.anatomical_coordinate_system = _get_image_orientation(pth_image)
+        self.image_obj = Image3D(
+            origin=origin,
+            spacing=spacing,
+        )
+        self.set_image_array(image_array)
 
     def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
@@ -169,18 +228,21 @@ class BrachyPhantom:
         Dependencies:
             - openTPS.core
         """
-        structure_file_type = os.path.splitext(pth_structure)[-1]
-        if structure_file_type == ".dcm":
+        # structure_file_type = "".join(pth_structure.suffixes)
+        if str(pth_structure).endswith(".dcm"):
             self.structure_set = readDicomStruct(pth_structure)
-        elif structure_file_type == ".nrrd":
+        elif str(pth_structure).endswith(".nrrd"):
             self.structure_set = readNrrdStruct(pth_structure)
             self.structure_set.setPatient(
                 self.image_obj.patient if self.image_obj is not None else None
             )
             # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
             # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
+        elif str(pth_structure).endswith(".nii.gz"):
+            self.structure_set = readNiftiStruct(pth_structure)
         else:
-            raise ValueError("The structure file type is currently not supported.")
+            raise ValueError("The structure file type is not recognized.")
+
         self.structure_names_dcm = []
         for structure in self.structure_set.contours:
             self.structure_names_dcm.append(structure.name)
@@ -352,6 +414,13 @@ class BrachyPhantom:
         """
         return np.swapaxes(self.image_obj.imageArray, 0, 2)
 
+    def set_image_array(self, image_array: np.ndarray) -> None:
+        r"""
+        Purpose:
+            - To set the image array.
+        """
+        self.image_obj.imageArray = np.swapaxes(image_array, 0, 2)
+    
     def write_image_to_dicom(self, dir_output: Path) -> None:
         r"""
         Purpose:
@@ -377,26 +446,63 @@ class BrachyPhantom:
             os.makedirs(dir_output, exist_ok=True)
             writeRTStruct(self.structure_set, dir_output)
 
-    def write_image_to_nrrd(self, pth_output: Path) -> None:
+    def write_image_to_nrrd(
+        self,
+        pth_output: Path,
+        metadata: Optional[Dict[str, str]] = None,
+        ) -> None:
         r"""
         Purpose:
-            - To write the image to a nrrd file.
+            - To write the image to a nrrd file. By default, all images are written as Left Posterior Superior.
+        Inputs:
+            - pth_output: Path := the path to write the image to.
+            - metadata := a dictionary containing the following meta data key values (should be changed later):
+                "cancer site":
+                "care center":
+                "number of dwell positions":
+                "number of segmented structures":
+                "patient number":
+                "Image content": "[3D dose, 3D uncertainty]"
+        Outputs
+            - None
+        Dependencies:
+            - pynrrd
         """
         assert (
             os.path.splitext(pth_output)[-1] == ".nrrd"
         ), "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        from collections import defaultdict
+        
         image_array_zyx = self.get_image_array()
-        image_nrrd = sitk.GetImageFromArray(image_array_zyx.astype(float))
-        image_nrrd.SetSpacing(self.image_obj.spacing.astype(float))
-        image_nrrd.SetOrigin(self.image_obj.origin.astype(float))
-        image_nrrd.SetMetaData("Modality", self.image_modality)
-        sitk.WriteImage(image_nrrd, str(pth_output))
+        header = defaultdict(str)
+        header["type"] = "double"
+        # header["space dimension"] = "3"
+        header["space"] = self.anatomical_coordinate_system
+        header["sizes"] = (
+            " ".join(map(str, self.image_obj.gridSize.tolist()))
+        )
+        header["space directions"] = [
+            [self.image_obj.spacing[0], 0.0, 0.0],
+            [0.0, self.image_obj.spacing[1], 0.0],
+            [0.0, 0.0, self.image_obj.spacing[2]],
+        ]
+        header["kinds"] = ["space", "space", "space"]
+        header["labels"] = ["x", "y", "z"]
+        header["endian"] = "little"
+        header["encoding"] = "gzip"
+        header["space origin"] = self.image_obj.origin.tolist()
+        header["voxel spacing"] = self.image_obj.spacing.tolist()
+        header["space units"] = ["mm", "mm", "mm"]
+        header["modality"] = self.image_modality
+        header = header | metadata if metadata is not None else header
+        nrrd.write(str(pth_output), image_array_zyx, header, index_order="C")
 
     def write_structures_to_nrrd(
         self,
         pth_output: Path,
-        no_overlap: Optional[bool] = True,
+        overlap: Optional[bool] = False,
+        metadata: Optional[Dict[str, str]] = None,
     ) -> None:
         r"""
         Purpose:
@@ -404,6 +510,14 @@ class BrachyPhantom:
             overwrite the larger structures if there is an overlap.
         Inputs:
             - pth_output: Path := the path to write the structures to.
+            - overlap: Optional[bool] := if True, the structures will be written with overlap, meaning each structure will be represented
+            by a binary matrix with 1s and 0s. if False, the structures will be written without overlap, an integer is asigned to 
+            each structure and all the structures are represented by a single volume.
+            - metadata: Optional[Dict[str, str]] := a dictionary containing any meta data additional to the minimal required meta data.
+        Outputs:
+            - None
+        Dependencies:
+            - pynrrd
         """
         assert (
             os.path.splitext(pth_output)[-1] == ".nrrd"
@@ -413,40 +527,86 @@ class BrachyPhantom:
             self.structure_names_dcm, mask_type=np.ndarray
         )
 
-        if no_overlap:
-            # create the sitk segmentation image
+        if not overlap:
+
+            # this removes overlap
             sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
             all_masks = _convert_many_binary_masks_to_1_int_mask(
                 sorted_by_size
-            )  # this removes overlap
-            sitk_image = sitk.GetImageFromArray(all_masks.astype(int))
-            sitk_image = sitk.Cast(sitk_image, sitk.sitkUInt8)
-            sitk_image.SetSpacing(self.image_obj.spacing)
-            sitk_image.SetOrigin(self.image_obj.origin)
-
-            # Add necessary metadata for Slicer to recognize it as a segmentation
-            # sitk_image.SetMetaData("Segmentation_MasterRepresentation", "Fractional labelmap")
-            # sitk_image.SetMetaData("Segmentation_ReferenceImageExtentOffset", "0 0 0")
-            # sitk_image.SetMetaData("Segmentation_SourceRepresentation", "Fractional")
-            for i, name in enumerate(structure_mask_dict):
-                label_dict = {
-                    # f"Segment{i+1}_Tags": "Segmentation category and type - 3D Slicer General Anatomy list~SCT^85756007^Tissue~SCT^85756007^Tissue~^^~Anatomic codes - DICOM master list~^^~^^|",
-                    f"Segment{i+1}_Name": f"{name}",
-                    f"Segment{i+1}_NameAutoGenerated": "0",
-                    f"Segment{i+1}_LabelValue": f"{i+1}",
-                    f"Segment{i+1}_ID": f"Segment{i+1}",
-                    f"Segment{i+1}_Layer": "0",
-                }
-                for key, value in label_dict.items():
-                    sitk_image.SetMetaData(key, value)
+            )
+            from collections import defaultdict
+            # # Generic phantom meta data
+            header = defaultdict(str)
+            header["type"] = "double"
+            # header["space dimension"] = "3"
+            header["space"] = self.anatomical_coordinate_system
+            header["sizes"] = (
+                " ".join(map(str, self.image_obj.gridSize.tolist()))
+            )
+            header["space directions"] = [
+                [self.image_obj.spacing[0], 0.0, 0.0],
+                [0.0, self.image_obj.spacing[1], 0.0],
+                [0.0, 0.0, self.image_obj.spacing[2]],
+            ]
+            header["kinds"] = ["space", "space", "space"]
+            header["labels"] = ["x", "y", "z"]
+            header["endian"] = "little"
+            header["encoding"] = "gzip"
+            header["space origin"] = self.image_obj.origin.tolist()
+            header["voxel spacing"] = self.image_obj.spacing.tolist()
+            header["space units"] = ["mm", "mm", "mm"]
+           
         else:
-            raise NotImplementedError("Overlapping structures are not supported yet.")
+            #XXX: this does not work on slicer yet!
+            # stack up all the masks
+            sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
+            all_masks = np.stack(list(sorted_by_size.values()), axis=3).astype(np.uint8)
+            from collections import defaultdict
+            # # Generic phantom meta data
+            header = defaultdict(str)
+            # header["type"] = "unsigned char"
+            header["space dimension"] = "4"
+            header["space"] = "left-posterior-superior" if self.anatomical_coordinate_system == "LPS" else "right-anterior-superior"
+            header["sizes"] = (
+                " ".join(map(str, [all_masks.shape[0]]+self.image_obj.gridSize.tolist()))
+            )
+            header["space directions"] = [
+                [np.nan, np.nan, np.nan],
+                [self.image_obj.spacing[0], 0.0, 0.0],
+                [0.0, self.image_obj.spacing[1], 0.0],
+                [0.0, 0.0, self.image_obj.spacing[2]],
+            ]
+            header["kinds"] = ["list", "space", "space", "space"]
+            # header["labels"] = ["x", "y", "z"]
+            header["endian"] = "little"
+            header["encoding"] = "gzip"
+            header["space origin"] = self.image_obj.origin.tolist()
+            # header["voxel spacing"] = self.image_obj.spacing.tolist()
+            # header["space units"] = ["mm", "mm", "mm"]
 
-        # Write the image
-        writer = sitk.ImageFileWriter()
-        writer.SetFileName(pth_output)
-        writer.SetUseCompression(True)
-        writer.Execute(sitk_image)
+        # # Generic Segmentation meta data
+        header["Segmentation_ContainedRepresentationNames"] = "Binary labelmap|Closed surface|"
+        header["Segmentation_MasterRepresentation"] = "Binary labelmap"
+        header["Segmentation_ReferenceImageExtentOffset"] = "0 0 0"
+        # header["Segmentation_ConversionParameters"] = "None"  this one is crazy long
+        # # Specific segmentation meta data
+        from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
+        for i, name in enumerate(sorted_by_size):
+            # header[f"Segment{i}_Color"] = 
+            # header[f"Segment{i}_ColorAutoGenerated"] =
+            header[f"Segment{i}_ID"] = f"Segment_{i+1}"
+            header[f"Segment{i}_LabelValue"] = f"{i+1}"
+            header[f"Segment{i}_Layer"] = "0"
+            header[f"Segment{i}_Name"] = f"{name}"
+            header[f"Segment{i}_NameAutoGenerated"] = "0"
+            header[f"Segment{i}_Extent"] = _getExtentOfMask(sorted_by_size[name])
+            header[f"Segment{i}_Tags"] = "Segmentation category and type - 3D Slicer General Anatomy list~SCT^85756007^Tissue~SCT^85756007^Tissue~^^~Anatomic codes - DICOM master list~^^~^^|"
+
+        # # any other meta data
+        header = header | metadata if metadata is not None else header
+
+        # # Write the image
+        nrrd.write(str(pth_output), all_masks, header, index_order="C")
 
     def write_to_egsphant(
         self,
@@ -590,8 +750,50 @@ class BrachyPhantom:
                 mask_dict.get(structure_name).getROIContour()
             )
 
+    def _convert_orientation_to_LPS(self) -> None:
+        r"""
+        Purpose:
+            - Convert the orientation of the image from what ever it is to LPS.
+        Inputs:
+            - None
+        Outputs:
+            - None
+        """
+        assert self.image_obj is not None, "No image object to convert orientation."
+        assert self.anatomical_coordinate_system is not None, "Orientation is not set."
+        if self.anatomical_coordinate_system == "LAS":
+            self.set_image_array(np.flip(self.get_image_array(), axis=2))
+            self.image_obj.origin = [1, -1, 1] * self.image_obj.origin
+        elif self.anatomical_coordinate_system == "RAS":
+            self.set_image_array(np.flip(self.get_image_array(), axis=(1, 2)))
+            self.image_obj.origin = [-1, -1, 1] * self.image_obj.origin
+        elif self.anatomical_coordinate_system == "LPS":
+            pass
+        else:
+            raise ValueError("The orientation is not recognized. please leave an issue on github.")
+        self.anatomical_coordinate_system = "LPS"
 
 # helper functions
+def phantom_with_empty_image_like(phantom: BrachyPhantom) -> BrachyPhantom:
+    r"""
+    Purpose:
+        - Create a new BrachyPhantom object with the same structure set as the input phantom but with an empty image.
+    Inputs:
+        - phantom: BrachyPhantom := the input phantom object.
+    Outputs:
+        - new_phantom: BrachyPhantom := the new phantom object.
+    """
+    new_phantom = BrachyPhantom()
+    new_phantom.pth_image = None
+    new_phantom.image_obj = None
+    new_phantom.image_modality = phantom.image_modality
+    new_phantom.structure_set = phantom.structure_set
+    new_phantom.structure_names_dcm = phantom.structure_names_dcm
+    new_phantom.unit_length = phantom.unit_length
+    new_phantom.xyz_format = phantom.xyz_format
+
+    return new_phantom
+
 def _sort_segementation_dict_by_size(seg_dict) -> dict:
     r"""
     Purpose:
@@ -676,6 +878,135 @@ def readNrrdStruct(pth_structure: Path) -> RTStruct:
             structure_set.appendContour(roi_mask.getROIContour())
     return structure_set
 
+def readNiftiStruct(pth_structure: Path) -> RTStruct:
+    r"""
+    Purpose:
+        - Load the NIFTI structure file.
+    Inputs:
+        - pth_structure: Path := the path of the structure source file.
+    Outputs:
+        - RTStruct := the structure set object.
+    Dependencies:
+        - nibabel
+    """
+    assert os.path.exists(pth_structure), "The input path does not exist."
+    import nibabel as nib
+    structure_obj = nib.load(pth_structure)
+    structure_mask = structure_obj.get_fdata()
+    nifti_affine = structure_obj.affine
+    origin = structure_obj.affine[:3, 3]
+    spacing = structure_obj.header.get("pixdim")[1:4]
+    # God knows what is the name of the structures in the nifti files
+    # I will just number them and hope for the best
+    num_structures = structure_mask.shape[-1]
+    structure_set = RTStruct()
+    for i in range(num_structures):
+        # generate segment labels
+        segment_id = f"Segment{i+1}"
+        segment_name = segment_id + "_Name"
+        segment_label =  segment_id + "_LabelValue"
+        # get the segment mask
+        segment_mask = structure_mask[:, :, :, i]
+        segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+
+        # based on spline, ensure LPS orientation
+        orientation = _get_image_orientation(pth_structure)
+        if orientation == "LAS":
+            segment_mask = np.flip(segment_mask, axis=2)
+            origin = [1, -1, 1] * origin
+        elif orientation == "RAS":
+            segment_mask = np.flip(segment_mask, axis=(1, 2))
+            origin = [-1, -1, 1] * origin
+        elif orientation == "LPS":
+            pass
+        else:
+            raise ValueError("The orientation is not recognized. please leave an issue on github.")
+        # create the ROI mask and contour from it
+        roi_mask = ROIMask(
+            imageArray=np.swapaxes(segment_mask, 0, 2),
+            origin=origin,
+            spacing=spacing,
+            name=segment_name,
+        )
+        structure_set.appendContour(roi_mask.getROIContour())
+    return structure_set
+
+def _get_image_orientation(pth_image: Path) -> str:
+    """
+    Purpose:
+        - Get the image orientation from the DICOM, NRRD or NIFTI files.
+        The orientation could be LAS, RAS, or LPS. BrachyUtils by default
+        uses LPS orientation, which is the default in DICOM standard and likely
+        the origin of all medical images.
+    Inputs:
+        - pth_image: Path := the path of the image file. Hopefully
+        it has some sort of header information.
+    Outputs:
+        - orientation: str := the orientation of the image.
+    Depenedencies:
+        - pydicom
+        - nibabel
+        - pynrrd
+    """
+    # extension = "".join(pth_image.suffixes)
+    if str(pth_image).endswith(".dcm"):
+        import pydicom
+        header = pydicom.read_file(pth_image)
+        orientation = header.get((0x0010, 0x2210))
+        if orientation is not None:
+            return orientation
+        else:
+            # default orientation in dicom is LPS
+            return "LPS"
+    elif str(pth_image).endswith(".nrrd"):
+        warnings.warn("NRRD orientation is not tested yet")
+        import nrrd
+        nrrd_header = nrrd.read(pth_image, index_order="C")[1]
+        orientation = nrrd_header.get("space directions")
+        if orientation is not None:
+            if "left" in orientation[0] and "posterior" in orientation[1]:
+                return "LAS"
+            elif "right" in orientation[0] and "posterior" in orientation[1]:
+                return "RAS"
+            elif "left" in orientation[0] and "anterior" in orientation[1]:
+                return "LPS"
+            elif "right" in orientation[0] and "anterior" in orientation[1]:
+                return "RPS"
+            else:
+                return "LAS"
+        else:
+            return "LPS"
+    elif str(pth_image).endswith(".nii.gz"):
+        import nibabel as nib
+        nifti_image = nib.load(pth_image)
+        # Get the affine matrix
+        affine = nifti_image.affine
+        # Check the signs of the first two columns
+        if affine[0, 0] > 0 and affine[1, 1] > 0:
+            return "RAS"
+        elif affine[0, 0] < 0 and affine[1, 1] < 0:
+            return "LPS"
+        elif affine[0, 0] < 0 and affine[1, 1] > 0:
+            return "RAS"
+        else:
+            print("The orientation is neither RAS nor LPS")
+    else:
+        return "LPS"
+
+def _getExtentOfMask(mask: np.array) -> List[int]:
+    r"""
+    Purpose:
+        - Get the extent of the mask in voxel indecies.
+    Inputs:
+        - mask: np.array := the mask, whcih is a binary numpy array (z, y, x).
+    Outputs:
+        - extent: List[int] := the extent of the mask in [xmin, xmax, ymin, ymax, zmin, zmax]
+    """
+    ones = np.where(mask == True)
+    boxInVoxel = [np.min(ones[2]), np.max(ones[2]),
+                np.min(ones[1]), np.max(ones[1]),
+                np.min(ones[0]), np.max(ones[0])]
+    return boxInVoxel
 
 class BrachyApplicator:
     r"""
