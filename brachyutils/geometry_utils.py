@@ -193,10 +193,23 @@ class BrachyPhantom:
         
         assert pth_image.exists(), "The input path does not exist."
         image_nifti = nib.load(self.pth_image)
-        if image_nifti.ndim == 4:
-            image_array = np.ascontiguousarray(
-                image_nifti.get_fdata()[:, :, :, 0]
-                )
+        orientation = "".join(nib.aff2axcodes(image_nifti.affine))
+        image_data = np.ascontiguousarray(image_nifti.get_fdata())[:, :, :, 0]
+
+        # flip the image if the orientation is not LPS
+        if orientation == "RAS":
+            # image_data = np.flip(image_data, axis=0)
+            # image_data = np.flip(image_data, axis=1)
+            image_data = np.swapaxes(image_data, 1, 2)
+            orientation = "LPS"
+        elif orientation == "LAS":
+            image_data = np.flip(image_data, axis=1)
+            orientation = "LPS"
+        elif orientation == "LPS":
+            pass
+        else:
+            raise ValueError("The orientation of the image is not recognized.")
+
         origin = image_nifti.affine[:3, 3]
         spacing = image_nifti.header.get("pixdim")[1:4]
         self.image_modality = image_nifti.header.get("modality", "unknown")
@@ -210,12 +223,12 @@ class BrachyPhantom:
             else:
                 warnings.warn("The modality of the image is not recognized.")
 
-        self.anatomical_coordinate_system = _get_image_orientation(pth_image)
+        self.anatomical_coordinate_system = orientation
         self.image_obj = Image3D(
             origin=origin,
             spacing=spacing,
         )
-        self.set_image_array(image_array)
+        self.set_image_array(image_data)
 
     def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
@@ -557,7 +570,6 @@ class BrachyPhantom:
             header["space units"] = ["mm", "mm", "mm"]
   
         else:
-            #XXX: this does not work on slicer yet!
             # stack up all the masks
             sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
             all_masks = np.stack(list(sorted_by_size.values()), axis=3).astype(np.uint8)

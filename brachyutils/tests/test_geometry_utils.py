@@ -193,13 +193,13 @@ def test_load_nifti_image_file():
     # pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
     # pth_img_out = Path("../data_test/test_export_plan/test_mr_image_case000000.nrrd")
     # pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
-    # pth_label_out = Path("../data_test/test_export_plan/test_mr_label_case000000.nrrd")
+    # pth_label_out = Path("../data_test/test_export_plan/test_mr_label_case000000.seg.nrrd")
     
     # ultrasound images
     pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
     pth_img_out = Path("../data_test/test_export_plan/test_us_image_case000000.nrrd")
     pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
-    pth_label_out = Path("../data_test/test_export_plan/test_us_label_case000000.nrrd")
+    pth_label_out = Path("../data_test/test_export_plan/test_us_label_case000000.seg.nrrd")
 
     phantom_obj = BrachyPhantom(
         pth_phantom_file=pth_img_nifti,
@@ -207,7 +207,7 @@ def test_load_nifti_image_file():
         )
     phantom_obj.info()
     phantom_obj.write_image_to_nrrd(pth_img_out)
-    phantom_obj.write_structures_to_nrrd(pth_label_out)
+    phantom_obj.write_structures_to_nrrd(pth_label_out, overlap=True)
 
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
@@ -215,7 +215,7 @@ if __name__ == "__main__":
     # test_get_structure_mask()
     # test_write_image_to_dicom()
     # test_write_image_to_nrrd()
-    test_write_structures_to_nrrd()
+    # test_write_structures_to_nrrd()
     # test_write_structures_to_dicom()
     # test_read_structures_from_nrrd()
     # test_write_to_egsphant()
@@ -228,4 +228,4 @@ if __name__ == "__main__":
     # test_BrachyApplicator_to_mac()
     # test_BrachyApplicator_to_stl()
     # test_BrachyApplicator_set_rotation()
-    # test_load_nifti_image_file()
+    test_load_nifti_image_file()
