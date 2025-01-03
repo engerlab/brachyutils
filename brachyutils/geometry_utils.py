@@ -770,6 +770,7 @@ class BrachyPhantom:
         Outputs:
             - None
         """
+        raise DeprecationWarning("This function is deprecated. converting to LPS is done when loading from each file type.")
         assert self.image_obj is not None, "No image object to convert orientation."
         assert self.anatomical_coordinate_system is not None, "Orientation is not set."
         if self.anatomical_coordinate_system == "LAS":
@@ -959,6 +960,7 @@ def _get_image_orientation(pth_image: Path) -> str:
         - nibabel
         - pynrrd
     """
+    raise DeprecationWarning("This function will soon be deleted. orientation should be handled in each file type loader.")
     # extension = "".join(pth_image.suffixes)
     if str(pth_image).endswith(".dcm"):
         import pydicom
