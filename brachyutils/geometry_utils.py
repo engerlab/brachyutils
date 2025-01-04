@@ -112,8 +112,8 @@ class BrachyPhantom:
             )
             warnings.warn("No geometry source file provided.", stacklevel=2)
 
-        # self._convert_orientation_to_LPS()
-        
+        self._convert_orientation_to_LPS()
+
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)
             assert os.path.exists(pth_structures_file), "The input path does not exist."
@@ -181,8 +181,39 @@ class BrachyPhantom:
         origin = header["space origin"]
         affine = header["space directions"]
         spacing = affine.diagonal()
+
+        # get the orientation of the image:
+        orientation = header.get("space", "LPS")
+        # orientation could be in spelled out, let's convert it to the 3 letter format
+        if "superior" or "inferior" in orientation.lower():
+            char_list = []
+            if "left" in orientation.lower():
+                char_list.append("L")
+            elif "right" in orientation.lower():
+                char_list.append("R")
+            if "anterior" in orientation.lower():
+                char_list.append("A")
+            elif "posterior" in orientation.lower():
+                char_list.append("P")
+            if "superior" in orientation.lower():
+                char_list.append("S")
+            elif "inferior" in orientation.lower():
+                char_list.append("I")
+            orientation = "".join(char_list)
+
+        self.anatomical_coordinate_system = orientation
+
         modality = header.get("modality", "unknown")
-        
+        if modality == "unknown":
+            if "ct" in pth_image.name.lower():
+                modality = "CT"
+            elif "mr" in pth_image.name.lower():
+                modality = "MR"
+            elif "us" in pth_image.name.lower():
+                modality = "US"
+            else:
+                warnings.warn("The modality of the image is not recognized.")
+
         self.image_obj = Image3D(
             origin=origin,
             spacing=spacing,
@@ -208,7 +239,10 @@ class BrachyPhantom:
         orientation = "".join(nib.aff2axcodes(image_nifti.affine))
         image_data = np.ascontiguousarray(image_nifti.get_fdata())[:, :, :, 0]
 
-        # flip the image if the orientation is not LPS
+        # flip the image if the orientation is not LPS:
+        # this worked for the messed up protate mri images from the micro-registration
+        # challenge. however, be careful with it on a new Nifti images. please
+        # do not modify the file writers.
         if orientation == "RAS":
             # image_data = np.flip(image_data, axis=0)
             # image_data = np.flip(image_data, axis=1)
@@ -564,7 +598,7 @@ class BrachyPhantom:
             header = defaultdict(str)
             header["type"] = "double"
             # header["space dimension"] = "3"
-            header["space"] = "LPS"#"left-posterior-superior" if self.anatomical_coordinate_system == "LPS" else "right-anterior-superior"
+            header["space"] = self.anatomical_coordinate_system
             header["sizes"] = (
                 " ".join(map(str, self.image_obj.gridSize.tolist()))
             )
@@ -590,7 +624,7 @@ class BrachyPhantom:
             header = defaultdict(str)
             header["type"] = "unsigned char"
             header["space dimension"] = "4"
-            header["space"] = "left-posterior-superior" if self.anatomical_coordinate_system == "LPS" else "right-anterior-superior"
+            header["space"] = self.anatomical_coordinate_system
             header["sizes"] = (
                 " ".join(map(str, [all_masks.shape[-1]]+self.image_obj.gridSize.tolist()))
             )
@@ -782,15 +816,13 @@ class BrachyPhantom:
         Outputs:
             - None
         """
-        raise DeprecationWarning("This function is deprecated. converting to LPS is done when loading from each file type.")
+        # raise DeprecationWarning("This function is deprecated. converting to LPS is done when loading from each file type.")
         assert self.image_obj is not None, "No image object to convert orientation."
         assert self.anatomical_coordinate_system is not None, "Orientation is not set."
         if self.anatomical_coordinate_system == "LAS":
-            self.set_image_array(np.flip(self.get_image_array(), axis=2))
-            self.image_obj.origin = [1, -1, 1] * self.image_obj.origin
+            raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
         elif self.anatomical_coordinate_system == "RAS":
-            self.set_image_array(np.flip(self.get_image_array(), axis=(1, 2)))
-            self.image_obj.origin = [-1, -1, 1] * self.image_obj.origin
+            raise NotImplementedError("Conversion from RAS to LPS is not implemented yet.")
         elif self.anatomical_coordinate_system == "LPS":
             pass
         else:
