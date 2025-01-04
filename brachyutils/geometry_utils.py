@@ -32,6 +32,7 @@ from vtk.util import numpy_support
 from vtkmodules.vtkIOGeometry import vtkSTLReader, vtkSTLWriter
 
 import nrrd
+import pydicom
 
 class BrachyPhantom:
     r"""
@@ -111,7 +112,7 @@ class BrachyPhantom:
             )
             warnings.warn("No geometry source file provided.", stacklevel=2)
 
-        self._convert_orientation_to_LPS()
+        # self._convert_orientation_to_LPS()
         
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)
@@ -141,17 +142,28 @@ class BrachyPhantom:
             ct_files = list(filter(lambda s: "CT" in s.upper(), image_files))
             self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
-            self.anatomical_coordinate_system = _get_image_orientation(Path(ct_files[0]))
+            # get the orientation of the image
+            header = pydicom.read_file(ct_files[0])
+            orientation = header.get((0x0010, 0x2210))
+            self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
+        
         elif "MR" in image_files[0].upper():
             mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
-            self.anatomical_coordinate_system = _get_image_orientation(Path(mr_files[0]))
+            header = pydicom.read_file(ct_files[0])
+            orientation = header.get((0x0010, 0x2210))
+            self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
+        
         elif "US" in image_files[0].upper():
             us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
-            self.anatomical_coordinate_system = _get_image_orientation(Path(us_files[0]))
+            header = pydicom.read_file(ct_files[0])
+            orientation = header.get((0x0010, 0x2210))
+            self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
+        else:
+            raise ValueError("The image modality is not recognized. the dicom file names should contain CT, MR or US.")
 
     def _load_nrrd_image_file(self, pth_image: Path) -> None:
         r"""
