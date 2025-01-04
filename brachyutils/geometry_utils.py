@@ -185,7 +185,7 @@ class BrachyPhantom:
         # get the orientation of the image:
         orientation = header.get("space", "LPS")
         # orientation could be in spelled out, let's convert it to the 3 letter format
-        if "superior" or "inferior" in orientation.lower():
+        if "superior" in orientation.lower() or "inferior" in orientation.lower():
             char_list = []
             if "left" in orientation.lower():
                 char_list.append("L")
