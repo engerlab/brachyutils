@@ -144,7 +144,9 @@ class BrachyPhantom:
             self.image_modality = "CT"
             # get the orientation of the image
             header = pydicom.read_file(ct_files[0])
-            orientation = header.get((0x0010, 0x2210))
+            orientation = header.get((0x0010, 0x2210), "LPS")
+            if orientation == "BIPED":
+                orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
         
         elif "MR" in image_files[0].upper():
@@ -152,7 +154,9 @@ class BrachyPhantom:
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
             header = pydicom.read_file(ct_files[0])
-            orientation = header.get((0x0010, 0x2210))
+            orientation = header.get((0x0010, 0x2210), "LPS")
+            if orientation == "BIPED":
+                orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
         
         elif "US" in image_files[0].upper():
@@ -160,7 +164,9 @@ class BrachyPhantom:
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
             header = pydicom.read_file(ct_files[0])
-            orientation = header.get((0x0010, 0x2210))
+            orientation = header.get((0x0010, 0x2210), "LPS")
+            if orientation == "BIPED":
+                orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
         else:
             raise ValueError("The image modality is not recognized. the dicom file names should contain CT, MR or US.")
@@ -290,6 +296,11 @@ class BrachyPhantom:
         # structure_file_type = "".join(pth_structure.suffixes)
         if str(pth_structure).endswith(".dcm"):
             self.structure_set = readDicomStruct(pth_structure)
+            header = pydicom.read_file(pth_structure)
+            orientation = header.get((0x0010, 0x2210), "LPS")
+            if orientation == "BIPED":
+                orientation = "LPS"
+            self.anatomical_coordinate_system = orientation
         elif str(pth_structure).endswith(".nrrd"):
             self.structure_set = readNrrdStruct(pth_structure)
             self.structure_set.setPatient(
