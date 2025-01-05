@@ -297,12 +297,12 @@ class BrachyPhantom:
         if str(pth_structure).endswith(".dcm"):
             self.structure_set = readDicomStruct(pth_structure)
             header = pydicom.read_file(pth_structure)
-            orientation = header.get((0x0010, 0x2210), "LPS")
+            structure_orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
-            self.anatomical_coordinate_system = orientation
+            # self.anatomical_coordinate_system = orientation
         elif str(pth_structure).endswith(".nrrd"):
-            self.structure_set = readNrrdStruct(pth_structure)
+            self.structure_set, structure_orientation = readNrrdStruct(pth_structure)
             self.structure_set.setPatient(
                 self.image_obj.patient if self.image_obj is not None else None
             )
@@ -312,6 +312,11 @@ class BrachyPhantom:
             self.structure_set = readNiftiStruct(pth_structure)
         else:
             raise ValueError("The structure file type is not recognized.")
+
+        if self.anatomical_coordinate_system is None:
+            self.anatomical_coordinate_system = structure_orientation
+        else:
+            assert self.anatomical_coordinate_system == structure_orientation, "The orientation of the structure file is not the same as the image file."
 
         self.structure_names_dcm = []
         for structure in self.structure_set.contours:
@@ -339,7 +344,7 @@ class BrachyPhantom:
         """
         assert (
             self.structure_set is not None
-        ), "structure masks have not been loaded yet. please run load_structures() first"
+        ), "structure masks have not been loaded yet. please run load_structure_file() first"
         mask_dict: dict = {}
         for query_structure in query_structure_list:
             for mask_name in self.structure_names_dcm:
@@ -909,7 +914,7 @@ def readDicomUS(image_files):
     raise NotImplementedError("US DICOM files are not supported yet.")
 
 
-def readNrrdStruct(pth_structure: Path) -> RTStruct:
+def readNrrdStruct(pth_structure: Path) -> Union[RTStruct, str]:
     r"""
     Purpose:
         - Load the NRRD structure file.
@@ -917,33 +922,58 @@ def readNrrdStruct(pth_structure: Path) -> RTStruct:
         - pth_structure: Path := the path of the structure source file.
     Outputs:
         - RTStruct := the structure set object.
+        - str := the orientation of the structure mask, which is recommended to be LPS.
     Dependencies:
         - openTPS.core
     """
     assert os.path.exists(pth_structure), "The input path does not exist."
-    assert ".seg.nrrd" in pth_structure, "The input file is not a NRRD structure file."
-    sitk_image = sitk.ReadImage(pth_structure, imageIO="NrrdImageIO")
-    segment_all_masks = sitk.GetArrayFromImage(sitk_image)
-    origin = sitk_image.GetOrigin()
-    spacing = sitk_image.GetSpacing()
+    assert ".seg.nrrd" in str(pth_structure), "The input file is not a NRRD structure file."
+    structures_data, header = nrrd.read(str(pth_structure), index_order="C")
+    origin = header["space origin"]
+    overlap = True if structures_data.ndim == 4 else False
+    affine = header["space directions"]
+    if overlap:
+        affine = affine[1:]
+    spacing = affine.diagonal()
+    # get orientation of the image:
+    orientation = header.get("space", "LPS")
+        # orientation could be in spelled out, let's convert it to the 3 letter format
+    if "superior" in orientation.lower() or "inferior" in orientation.lower():
+        char_list = []
+        if "left" in orientation.lower():
+            char_list.append("L")
+        elif "right" in orientation.lower():
+            char_list.append("R")
+        if "anterior" in orientation.lower():
+            char_list.append("A")
+        elif "posterior" in orientation.lower():
+            char_list.append("P")
+        if "superior" in orientation.lower():
+            char_list.append("S")
+        elif "inferior" in orientation.lower():
+            char_list.append("I")
+        orientation = "".join(char_list)
 
-    meta_data_keys = sitk_image.GetMetaDataKeys()
     structure_set = RTStruct()
-    for key in meta_data_keys:
-        if "_ID" in key:
-            segment_id = sitk_image.GetMetaData(key)
-            segment_name = sitk_image.GetMetaData(segment_id + "_Name")
-            segment_label = sitk_image.GetMetaData(segment_id + "_LabelValue")
-            segment_mask = segment_all_masks == int(segment_label)
+    i = 0
+    for key in header:
+        if f"Segment{i}_Name" == key:
+            label_value = header[f"Segment{i}_LabelValue"]
+            name = header[f"Segment{i}_Name"]
+            if overlap:
+                segment_mask = structures_data[:, :, :, i]
+            else:
+                segment_mask = structures_data == int(label_value)
             segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
             roi_mask = ROIMask(
                 imageArray=np.swapaxes(segment_mask, 0, 2),
                 origin=origin,
                 spacing=spacing,
-                name=segment_name,
+                name=name,
             )
             structure_set.appendContour(roi_mask.getROIContour())
-    return structure_set
+            i += 1
+    return structure_set, orientation
 
 def readNiftiStruct(pth_structure: Path) -> RTStruct:
     r"""
