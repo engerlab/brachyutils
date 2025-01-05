@@ -309,7 +309,7 @@ class BrachyPhantom:
             # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
             # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         elif str(pth_structure).endswith(".nii.gz"):
-            self.structure_set = readNiftiStruct(pth_structure)
+            self.structure_set, structure_orientation = readNiftiStruct(pth_structure)
         else:
             raise ValueError("The structure file type is not recognized.")
 
@@ -975,7 +975,7 @@ def readNrrdStruct(pth_structure: Path) -> Union[RTStruct, str]:
             i += 1
     return structure_set, orientation
 
-def readNiftiStruct(pth_structure: Path) -> RTStruct:
+def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
     r"""
     Purpose:
         - Load the NIFTI structure file.
@@ -988,14 +988,33 @@ def readNiftiStruct(pth_structure: Path) -> RTStruct:
     """
     assert os.path.exists(pth_structure), "The input path does not exist."
     import nibabel as nib
-    structure_obj = nib.load(pth_structure)
-    structure_mask = structure_obj.get_fdata()
-    nifti_affine = structure_obj.affine
-    origin = structure_obj.affine[:3, 3]
-    spacing = structure_obj.header.get("pixdim")[1:4]
+    structure_nifti = nib.load(pth_structure)
+    orientation = "".join(nib.aff2axcodes(structure_nifti.affine))
+    structure_data = np.ascontiguousarray(structure_nifti.get_fdata())
+    
+    # flip the image if the orientation is not LPS:
+    # this worked for the messed up protate mri images from the micro-registration
+    # challenge. however, be careful with it on a new Nifti images. please
+    # do not modify the file writers.
+    if orientation == "RAS":
+        # structure_data = np.flip(structure_data, axis=0)
+        # structure_data = np.flip(structure_data, axis=1)
+        structure_data = np.swapaxes(structure_data, 1, 2)
+        orientation = "LPS"
+    elif orientation == "LAS":
+        structure_data = np.flip(structure_data, axis=1)
+        orientation = "LPS"
+    elif orientation == "LPS":
+        pass
+    else:
+        raise ValueError("The orientation of the image is not recognized.")
+
+    origin = structure_nifti.affine[:3, 3]
+    spacing = structure_nifti.header.get("pixdim")[1:4]
+
     # God knows what is the name of the structures in the nifti files
     # I will just number them and hope for the best
-    num_structures = structure_mask.shape[-1]
+    num_structures = structure_data.shape[-1]
     structure_set = RTStruct()
     for i in range(num_structures):
         # generate segment labels
@@ -1003,22 +1022,8 @@ def readNiftiStruct(pth_structure: Path) -> RTStruct:
         segment_name = segment_id + "_Name"
         segment_label =  segment_id + "_LabelValue"
         # get the segment mask
-        segment_mask = structure_mask[:, :, :, i]
+        segment_mask = structure_data[:, :, :, i]
         segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
-
-        # based on spline, ensure LPS orientation
-        orientation = _get_image_orientation(pth_structure)
-        if orientation == "LAS":
-            segment_mask = np.flip(segment_mask, axis=2)
-            origin = [1, -1, 1] * origin
-        elif orientation == "RAS":
-            segment_mask = np.flip(segment_mask, axis=(1, 2))
-            origin = [-1, -1, 1] * origin
-        elif orientation == "LPS":
-            pass
-        else:
-            raise ValueError("The orientation is not recognized. please leave an issue on github.")
-        # create the ROI mask and contour from it
         roi_mask = ROIMask(
             imageArray=np.swapaxes(segment_mask, 0, 2),
             origin=origin,
@@ -1026,7 +1031,7 @@ def readNiftiStruct(pth_structure: Path) -> RTStruct:
             name=segment_name,
         )
         structure_set.appendContour(roi_mask.getROIContour())
-    return structure_set
+    return structure_set, orientation    
 
 def _get_image_orientation(pth_image: Path) -> str:
     """
