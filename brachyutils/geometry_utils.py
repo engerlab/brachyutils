@@ -1159,17 +1159,17 @@ class DwellPosition:
             angle = float(dwell_dict.get("angle"))
             position = np.array(
                 [
-                    dwell_dict.get("position").get("x"),
-                    dwell_dict.get("position").get("y"),
-                    dwell_dict.get("position").get("z"),
+                    dwell_dict.get("position")[0],
+                    dwell_dict.get("position")[1],
+                    dwell_dict.get("position")[2]
                 ]
             )
             relativePos = dwell_dict.get("relativePos")
             rotation = np.array(
                 [
-                    dwell_dict.get("rotation").get("x"),
-                    dwell_dict.get("rotation").get("y"),
-                    dwell_dict.get("rotation").get("z"),
+                    dwell_dict.get("rotation")[0],
+                    dwell_dict.get("rotation")[1],
+                    dwell_dict.get("rotation")[2]
                 ]
             )
             time = float(dwell_dict.get("time"))
