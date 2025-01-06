@@ -3,10 +3,19 @@ from brachyutils.image_processing_utils import RegistrationWithOpenTPS
 from brachyutils.geometry_utils import BrachyPhantom
 
 def test_register_opentps():
-    pth_img_static = Path("../data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
-    pth_img_moving = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
-    pth_label_static = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
-    pth_label_moving = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
+
+    # static: US, moving: MR
+    # pth_img_static = Path("../data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
+    # pth_img_moving = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
+    # pth_label_static = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
+    # pth_label_moving = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
+
+    # static: MR, moving: US 
+    pth_img_static = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")    
+    pth_img_moving = Path("../data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
+    pth_label_static = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
+    pth_label_moving = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
+
     pth_output = "../data_test/test_export_plan/registered_phantom_us_mr.nrrd"
 
     for pth in [pth_img_static, pth_img_moving, pth_label_static, pth_label_moving]:
