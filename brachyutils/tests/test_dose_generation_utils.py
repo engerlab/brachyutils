@@ -1,19 +1,20 @@
-from glob import glob
 import os
+from glob import glob
 from pathlib import Path
 
-from brachyutils.dose_generation_utils import DoseTG43
+from brachyutils.dose_generation_utils import DoseMonteCarlo, DoseTG43
 from brachyutils.plan_utils import BrachyPlan
 
-def make_plan_and_export_it() -> Path:
+
+def make_plan_and_export_it(dir_export) -> Path:
     pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "../data_test/prostate-glen-p1-dose"
     dir_dicom = "../data_test/prostate-glen-p1-dcm/"
     pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
     # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    # assign material based on contours:
+    # # assign material based on contours:
     pth_material = "../data_test/prostate_material_dict.json"
-    # assign materials based on CT values:
+    # # assign materials based on CT values:
     # pth_material = "../data_test/CTtoDensityProstate.txt"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
@@ -38,7 +39,7 @@ def make_plan_and_export_it() -> Path:
         "PrintProgress": 10000,
         "beam_on": 10000,
     }
-    dir_export = "../data_test/test_export_plan"
+    # dir_export = "../data_test/test_export_plan"
     export_format = "RapidBrachy"
     os.makedirs(dir_export, exist_ok=True)
 
@@ -55,7 +56,7 @@ def make_plan_and_export_it() -> Path:
         "plan": True,
         "mac": True,
         "ApplicatorMaterials": True,
-        "applicator_geometry": True,
+        "applicator_geometry": False,
     }
 
     plan_obj = BrachyPlan(
@@ -70,13 +71,49 @@ def make_plan_and_export_it() -> Path:
 
     return Path(dir_export)
 
+
 def test_DoseTG43():
-    dose_setup = make_plan_and_export_it()
+    # dir_export = "../temp_data/tg43/test_export_plan"
+    # dose_setup = make_plan_and_export_it(dir_export)
+    dose_setup = Path("temp_data/test_export_plan")
+    pth_exectuable = "http://192.168.1.12:8000/calculate_dose_tg43"
     dose_generator = DoseTG43(
-        dir_dose_setup=dose_setup,
-        pth_dose_executable="path/to/dose/executable",
+        dir_plan_export=dose_setup,
+        pth_dose_executable=pth_exectuable,
     )
-    dose_generator.validate_inputs()
+    # dose_generator.validate_inputs()
+    dose_generator.generate_dose()
+
+
+def test_DoseMC():
+    # dir_export = "../temp_data/mc/test_export_plan"
+    # dose_setup = make_plan_and_export_it(dir_export)
+    dose_setup = Path("temp_data/test_export_plan")
+    pth_exectuable = "http://192.168.1.11:8000/calculate_dose_mc"
+    dose_generator = DoseMonteCarlo(
+        dir_plan_export=dose_setup,
+        pth_dose_executable=pth_exectuable,
+    )
+    dose_generator.generate_dose(
+        pth_mac=dose_setup.joinpath("run_3.mac"),
+        random_seed=1,
+    )
+
 
 if __name__ == "__main__":
-    test_DoseTG43()
+    # test_DoseTG43()
+    # test_DoseMC()
+    import requests
+
+    json_data = {
+        'pth_mac': 'temp_data/test_export_plan/run_1.mac',
+        'random_seed': 1,
+    }
+
+    response = requests.post('http://192.168.1.11:8000/calculate_dose_mc', json=json_data, timeout=None)
+    json_data = {
+        'dir_dose_setup': 'temp_data/test_export_plan',
+    }
+    response = requests.post("http://192.168.1.12:8000/calculate_dose_tg43", json=json_data, timeout=None)
+
+    print(response.json())

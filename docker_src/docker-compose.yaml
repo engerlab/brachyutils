@@ -1,0 +1,83 @@
+services:
+  BrachyUtils:
+    build:
+      context: ../
+      dockerfile: docker_src/Dockerfile
+    image: brachyutils
+    container_name: BrachyUtils
+    working_dir: /root
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    environment:
+      - HOST_HOME=${HOST_HOME}
+      # - DEBIAN_FRONTEND=noninteractive
+    volumes:
+      - ../:/root/Software/brachyutils
+      - ${HOST_HOME}:/root/YourLocalHome
+    # to write data to the DoseCalcTG43 container
+      - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone/temp_data:/root/Software/brachyutils/temp_data/tg43  
+      - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data:/root/Software/brachyutils/temp_data/mc
+      # - temp_data:/root/test_temp
+    # ports:
+    # - "8000:8000"
+    expose:
+      - "8000"
+    networks:
+      net_brachyutils:
+        ipv4_address: 192.168.1.10
+
+  # DoseCalcMC:
+  #   build:
+  #     context: ../
+  #     dockerfile: docker_src/Dockerfile
+  #   image: rapidbrachy_mc
+  #   container_name: DoseCalcMC
+  #   working_dir: /root
+  #   stdin_open: true # docker run -i
+  #   tty: true # docker run -t
+  #   environment:
+  #     - HOST_HOME=${HOST_HOME}
+  #     - DEBIAN_FRONTEND=noninteractive
+  #   volumes:
+  #     - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
+  #     - ${HOST_HOME}:/root/YourLocalHome
+  #     # - temp_data:/root/test_temp
+  #   networks:
+  #     net_brachyutils:
+  #       ipv4_address: 192.168.1.11
+  #   entrypoint: ["/bin/bash"]
+  #   command: ["/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/run_api.sh"]
+
+  # DoseCalcTG43:
+  #   build:
+  #     context: ../
+  #     dockerfile: docker_src/Dockerfile
+  #   image: rapidbrachy_tg43
+  #   container_name: DoseCalcTG43
+  #   working_dir: /root
+  #   stdin_open: true # docker run -i
+  #   tty: true # docker run -t
+  #   environment:
+  #     - HOST_HOME=${HOST_HOME}
+  #     - DEBIAN_FRONTEND=noninteractive
+  #   volumes:
+  #     - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/root/Software/TG43_Dose_Calculation_Standalone
+  #     - ${HOST_HOME}:/root/YourLocalHome
+  #     # - ../temp_data:/root/temp_data
+  #   networks:
+  #     net_brachyutils:
+  #       ipv4_address: 192.168.1.12
+  #   entrypoint: ["/bin/bash"]
+  #   command: ["/root/Software/TG43_Dose_Calculation_Standalone/run_api.sh"]
+
+networks:
+  net_brachyutils:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
+
+# a volume could be defined on the RAM to share data 
+# between the containers.
+# volumes:
+#   temp_data:

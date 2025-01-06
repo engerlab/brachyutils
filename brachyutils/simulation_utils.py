@@ -12,7 +12,7 @@ class BrachySource:
         mass_number: int = 192,
         atomic_number: int = 77,
         air_kerma_per_history: float = 1.149000e-11,
-        reference_air_kerma: float = None,#4.278729e04,
+        reference_air_kerma: float = None,  # 4.278729e04,
         source_dict: Union[dict, Path, str] = None,
     ) -> None:
         r"""
@@ -257,8 +257,8 @@ class BrachySimulation:
 
             brachy_source = BrachySource(
                 source_dict=simulation_dict.get(
-                    "source_dict",
-                    BrachySimulation.default_source.to_dict())
+                    "source_dict", BrachySimulation.default_source.to_dict()
+                )
             )
             world_material = simulation_dict.get("world_material", "Air")
             number_histories = simulation_dict.get("number_histories", 1e6)
@@ -268,7 +268,7 @@ class BrachySimulation:
             control_verbose = simulation_dict.get("control_verbose", 0)
             run_verbose = simulation_dict.get("run_verbose", 0)
             tracking_verbose = simulation_dict.get("tracking_verbose", 0)
-            print_progress = simulation_dict.get("print_progress", 1e4)
+            print_progress = int(simulation_dict.get("print_progress", 1e4))
             pth_plan = simulation_dict.get("pth_plan", None)
             pth_phantom = simulation_dict.get("pth_phantom", None)
 
@@ -333,7 +333,7 @@ class BrachySimulation:
         """
         self.validate()
         return (
-            f"/treatmentType {self.brachy_source.treatment_type}\n"
+            f"/source/treatmentType {self.brachy_source.treatment_type}\n"
             + f"/source/switch {self.brachy_source.source_geometry}\n"
             + f"/source/coreMaterial {self.brachy_source.core_material}\n"
             + f"/source/core/A {self.brachy_source.mass_number}\n"

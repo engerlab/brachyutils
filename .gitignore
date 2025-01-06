@@ -17,3 +17,5 @@ dist/*
 .checkpointing
 build/*
 *.trunk*
+temp_data/*
+!temp_data/.gitkeep

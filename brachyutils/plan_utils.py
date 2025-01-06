@@ -22,7 +22,7 @@ from scipy import interpolate, ndimage
 from tqdm import tqdm
 
 # from brachyutils.dicom_utils import BrachyDicom
-from brachyutils.dose_utils import BrachyDose, dose_with_empty_grid_like
+from brachyutils.dose_utils import BrachyDose
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry_utils import BrachyApplicator, BrachyPhantom, CatheterTable
@@ -293,7 +293,7 @@ class BrachyPlan:
         # for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable] = None,
         applicator_pth_list: Union[Path, str, list] = None,
-        applicator_format:Literal["RapidBrachy", "WebApp"] = None,
+        applicator_format: Literal["RapidBrachy", "WebApp"] = None,
         # for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
@@ -442,7 +442,9 @@ class BrachyPlan:
 
         # # load the simulation setup if the dictionary is provided
         if combined_simulation_dict is not None:
-            self.combined_simulation_setup = BrachySimulation(simulation_dict=combined_simulation_dict)
+            self.combined_simulation_setup = BrachySimulation(
+                simulation_dict=combined_simulation_dict
+            )
 
         # load the applicator list if the path is provided
         if applicator_pth_list is not None and applicator_format is not None:
@@ -749,7 +751,7 @@ class BrachyPlan:
         del dose_or_uncertainty_list
         gc.collect()
 
-        self.combined_dose = dose_with_empty_grid_like(test_dose_obj)
+        self.combined_dose = BrachyDose.dose_with_empty_grid_like(test_dose_obj)
 
         if load_dose_or_uncertainty != "uncertainty":
             self._calculate_combined_dose()
@@ -893,7 +895,9 @@ class BrachyPlan:
         Outputs:
             - Void := will update the BrachyPlan.applicator_list attribute
         """
-        if isinstance(applicator_list_pth, Path) or isinstance(applicator_list_pth, str):
+        if isinstance(applicator_list_pth, Path) or isinstance(
+            applicator_list_pth, str
+        ):
             with open(applicator_list_pth, "r") as json_file:
                 applicator_list = json.load(json_file)
         if format == "RapidBrachy":
@@ -1069,13 +1073,15 @@ class BrachyPlan:
             self.combined_dose.uncertainty_image is not None
         ), "combined uncertainty is not calculated yet"
         assert self.structure_list is not None, "structure list is not created yet"
-        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+        from opentps.core.processing.imageProcessing.resampler3D import (
+            resampleImage3DOnImage3D,
+        )
+
         for structure_obj in self.structure_list:
             # resample the uncertainty image on the structure
             masked_uncertainty = resampleImage3DOnImage3D(
-                self.combined_dose.uncertainty_image,
-                structure_obj.mask
-                )
+                self.combined_dose.uncertainty_image, structure_obj.mask
+            )
             # isolate the uncertainty values that are in the mask
             flattened_uncertainty = masked_uncertainty.imageArray.flatten()
             # generate a histogram from the masked uncertainty
@@ -1169,8 +1175,8 @@ class BrachyPlan:
                 self._export_egsphant(
                     dir_export,
                     content_to_export.get("materials_table", None),
-                    content_to_export.get("assign_material_from_ct", True)
-                    )
+                    content_to_export.get("assign_material_from_ct", True),
+                )
                 print("Egsphant file was exported successfully")
 
             if content_to_export["applicator_geometry"]:
@@ -1181,8 +1187,7 @@ class BrachyPlan:
             if content_to_export["structure_set"]:
                 # assumes file name is "structure_set.json"
                 self._export_structure_set(
-                    dir_export,
-                    content_to_export.get("materials_table", None)
+                    dir_export, content_to_export.get("materials_table", None)
                 )
                 print("structure set file was exported successfully")
 
@@ -1331,7 +1336,7 @@ class BrachyPlan:
             run_i_plan += "Control Point\nweight = 1.0\n"
             run_i_plan += "1 Dwell Position\n"
             run_i_plan += dwell_coordinates_str
-            with open(dir_export + f"/run_{dwell_i + 1}.plan", "w") as file:
+            with open(dir_export + f"/dwell_{dwell_i + 1}.plan", "w") as file:
                 file.write(run_i_plan)
 
         with open(dir_export + "/combined.plan", "w") as file:
@@ -1499,7 +1504,7 @@ class BrachyPlan:
         self,
         dir_export: str,
         materials_table: Union[dict, Path] = None,
-        export_format: str = "RapidBrachy"
+        export_format: str = "RapidBrachy",
     ):
         r"""
         Purpose:
@@ -1525,10 +1530,16 @@ class BrachyPlan:
 
             if materials_table is not None:
                 from brachyutils.egsphant_utils import _load_material_dict
+
                 material_dict = _load_material_dict(materials_table)
                 for material in material_dict:
-                    if material_dict[material]["structure_name"] == structure.name:
-                        structure_set[-1]["density"] = material_dict[material]["density"]
+                    if (
+                        material_dict[material].get("structure_name", "")
+                        == structure.name
+                    ):
+                        structure_set[-1]["density"] = material_dict[material][
+                            "density"
+                        ]
 
         file_path = os.path.join(dir_export, "structure_set.json")
         with open(file_path, "w") as file:
@@ -1594,7 +1605,7 @@ def _export_single_dose_rate(
     Output:
         - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
     """
-    doseObj = dose_with_empty_grid_like(doseObj_template)
+    doseObj = BrachyDose.dose_with_empty_grid_like(doseObj_template)
     doseObj.set_dose_array(dose_grid)
     if uncertainty is not None:
         doseObj.set_uncertainty_array(uncertainty)

@@ -4,10 +4,10 @@ import os
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
+import nrrd
 import numpy as np
-import SimpleITK as sitk
 from opentps.core.data.images import Image3D
 from scipy.interpolate import RegularGridInterpolator
 
@@ -50,7 +50,6 @@ class BrachyEgsphant:
         - sort_materials_by()               done
         - export_material_dict()            done
         - _remove_duplicate_materials()     done
-
     Dependencies:
         - opentps
     """
@@ -160,6 +159,7 @@ class BrachyEgsphant:
         Input:
             - pth_file := directory path to the .egsphant file
         """
+        assert os.path.exists(pth_file), "The target egsphant file does not exist!"
         assert (
             os.path.splitext(pth_file)[-1] == ".egsphant"
         ), "target file does not have .egsphant extension"
@@ -175,7 +175,6 @@ class BrachyEgsphant:
                 }
 
             self._sort_materials_by("encoding")
-
             egsphant.readline()
 
             # load number of voxels
@@ -261,6 +260,18 @@ class BrachyEgsphant:
             )
             # this line maybe useless in the future
             self.voxel_edges = self.get_voxel_edges()
+            self.unit_length = "mm"
+            # Extract material density from the density matrix and update the material dictionary
+            for material in self.material_dict:
+                encoding = int(self.material_dict[material]["encoding"])
+                density = np.unique(
+                    self.density_image.imageArray[
+                        self.material_image.imageArray == encoding
+                    ]
+                )
+                density = density.min() if len(density) != 0 else 0
+                self.material_dict[material]["density"] = density
+                self.material_dict[material]["HU_limit"] = None
             # {for debugging
             # print(f"The axis calculated from get_voxel_edges() are \n {self.voxel_edges}")
             # print(f"The axis from the text file are: \n {self._sanity_axis}")
@@ -270,7 +281,7 @@ class BrachyEgsphant:
             assert np.isclose(
                 np.concatenate(self.voxel_edges),
                 np.concatenate(self._sanity_axis),
-                rtol=1e-1,
+                rtol=0.25,
             ).all(), "axis is not the same"
 
     def _sort_materials_by(self, material_key="encoding"):
@@ -290,13 +301,12 @@ class BrachyEgsphant:
             "structure_name",
             "structure_size",
         ], "key is not recognized"
-
         if len(self.material_dict.keys()) == 1:
             return  # don't sort when there's only one material
         if material_key == "structure_size":
             sorted_list = sorted(
                 self.material_dict.items(),
-                key=lambda x: x[1].get(material_key, 0),
+                key=lambda x: val if (val := x[1].get(material_key, 0)) is not None else 0,
                 reverse=True,
             )
         else:
@@ -317,25 +327,45 @@ class BrachyEgsphant:
         if not os.path.exists(filePath):
             raise ValueError(f"The target nrrd file {filePath} does not exist!")
 
-        image = sitk.ReadImage(filePath)
-        # gridSize = np.array(image.GetSize(), dtype=int)  # [::-1]
-        spacing = np.array(image.GetSpacing(), dtype=float)  # [::-1]
-        # origin_coordinates is the bottom left corner of the image
-        # but in sitk, it's the center of the first voxel
-        origin = (
-            np.array(image.GetOrigin(), dtype=float) - 0.5 * spacing
-        )  # [::-1] - 0.5 * self.voxel_size
+        # image = sitk.ReadImage(filePath)
+        # # gridSize = np.array(image.GetSize(), dtype=int)  # [::-1]
+        # spacing = np.array(image.GetSpacing(), dtype=float)  # [::-1]
+        # # origin_coordinates is the bottom left corner of the image
+        # # but in sitk, it's the center of the first voxel
+        # origin = (
+        #     np.array(image.GetOrigin(), dtype=float) - 0.5 * spacing
+        # )  # [::-1] - 0.5 * self.voxel_size
 
-        material_matrix = sitk.GetArrayFromImage(image)[
-            :, :, :, 0
-        ]  # np.swapaxes([:, :, :, 0], 0, 2)
-        density_matrix = sitk.GetArrayFromImage(image)[
-            :, :, :, 1
-        ]  # np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
+        # material_matrix = sitk.GetArrayFromImage(image)[
+        #     :, :, :, 0
+        # ]  # np.swapaxes([:, :, :, 0], 0, 2)
+        # density_matrix = sitk.GetArrayFromImage(image)[
+        #     :, :, :, 1
+        # ]  # np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
         # self.num_materials = np.max(self.material_matrix).astype(int)
 
+        material_density, header = nrrd.read(filePath)
+        material_matrix = material_density[0]
+        density_matrix = material_density[1]
+
+        voxel_size = np.array(
+            header.get("spacing", "[nan,1,1,1]")
+            .replace("[", "")
+            .replace("]", "")
+            .split(","),
+            dtype=np.float32,
+        )[-3:]
+        origin_coordinates = np.array(header.get("space origin")).astype(np.float32)
+
         try:  # try to load the material dictionary from the metadata
-            self.material_dict = _load_material_dict(json.loads(image.GetMetaData("material_dict")))
+            # self.material_dict = _load_material_dict(json.loads(nrrd_image.GetMetaData("material_dict")))
+            import ast
+
+            self.material_dict = _load_material_dict(
+                ast.literal_eval(
+                    header.get("material_dict", None).split(">,")[-1].split(")")[0]
+                )
+            )
             self.num_materials = len(self.material_dict.keys())  # if the material dict
             # is found, update a more accurate count of the number of materials
         except Exception:
@@ -345,20 +375,20 @@ class BrachyEgsphant:
             .egsphant format",
                 stacklevel=2,
             )
-            
+
         self.material_image = Image3D(
             # convert array from zyx to xyz.
             imageArray=np.swapaxes(material_matrix, 0, 2),
-            origin=origin,
-            spacing=spacing,
+            origin=origin_coordinates,
+            spacing=voxel_size,
         )
         self.density_image = Image3D(
             # convert array from zyx to xyz.
             imageArray=np.swapaxes(density_matrix, 0, 2),
-            origin=origin,
-            spacing=spacing,
+            origin=origin_coordinates,
+            spacing=voxel_size,
         )
-        
+
         self.get_voxel_edges()
         self.unit_length = "mm"
 
@@ -381,6 +411,7 @@ class BrachyEgsphant:
         self.voxel_edges = np.empty(len(voxel_centers), dtype=object)
         for i in range(len(voxel_centers)):
             self.voxel_edges[i] = voxel_centers[i] - self.density_image.spacing[i] / 2.0
+
         return self.voxel_edges
 
     def create_interpolation_function(self, grid):
@@ -431,15 +462,15 @@ class BrachyEgsphant:
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
         os.makedirs(os.path.dirname(fileName), exist_ok=True)
-        egsphant_voxel_edges = (
-            np.array(
-                [
-                    np.append(axis, axis[-1] + self.density_image.spacing[i])
-                    for i, axis in enumerate(self.voxel_edges)
-                ],
-                dtype=object,
-            )
-            / 10
+        egsphant_voxel_edges = np.array(
+            [
+                np.char.mod(
+                    "%.3f",
+                    np.append(axis, axis[-1] + self.density_image.spacing[i]) / 10,
+                )
+                for i, axis in enumerate(self.voxel_edges)
+            ],
+            dtype=object,
         )
         self._sort_materials_by("encoding")
         num_materials = str(self.num_materials) + "\n"
@@ -448,19 +479,22 @@ class BrachyEgsphant:
         dimensions = " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
         x_axis = (
             " ".join(
-                map(str, np.round(egsphant_voxel_edges[0].astype(float), decimals=3))
+                egsphant_voxel_edges[0]
+                # map(str, np.round(egsphant_voxel_edges[0].astype(float), decimals=3))
             )
             + "\n"
         )
         y_axis = (
             " ".join(
-                map(str, np.round(egsphant_voxel_edges[1].astype(float), decimals=3))
+                egsphant_voxel_edges[1]
+                # map(str, np.round(egsphant_voxel_edges[1].astype(float), decimals=3))
             )
             + "\n"
         )
         z_axis = (
             " ".join(
-                map(str, np.round(egsphant_voxel_edges[2].astype(float), decimals=3))
+                egsphant_voxel_edges[2]
+                # map(str, np.round(egsphant_voxel_edges[2].astype(float), decimals=3))
             )
             + "\n"
         )
@@ -485,58 +519,68 @@ class BrachyEgsphant:
             ]
             file.writelines(lines)
 
-    def write_to_nrrd(self, fileName: Path, metadata: Optional[dict] = None):
+    def write_to_nrrd(
+        self,
+        fileName: Path,
+        metadata: Optional[dict] = None,
+        coordinate_system: Literal[
+            "left-posterior-superior", "right-anterior-superior"
+        ] = "left-posterior-superior",
+    ):
         r"""
         Purpose:
             To save the contents of an egsphant as a nrrd file.
         inputs:
-            - fileName := path where the dose nrrd file will be written to.
+            - fileName := path where the density nrrd file will be written to.
 
             - metadata := a dictionary containing the following meta data key values:
                 "material_dict:" {material_name: {"encoding": int, "density": float, "HU_limit": float}}
                 "Image content": "[material_matrix, density_matrix]"
+            - coordinate_system := the coordinate system of the dose grid. should be one of the following:
+                "left-posterior-superior"
+                "right-anterior-superior"
         outputs: Void
-            writes [material_matrix, density_matrix], voxel size, origin (origin_coordinates), and metadata to the file_name_dose.nrrd
-            note that 3D dose files are written in z, y, x, but the sitk image is written in x, y, z.
+            writes [material_matrix, density_matrix], voxel size, origin (origin_coordinates), and metadata to the file_name_density.nrrd
+            note that 3D density files are written in z, y, x, but the sitk image is written in x, y, z.
         """
-        # create sitk dose image
-        material_grid = (
-            self.get_material_array().astype(np.float32)
-        )  # np.swapaxes(self.material_matrix, 0, 2).astype(np.float32)
-        density_grid = (
-            self.get_density_array().astype(np.float32)
-        )  # np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
-
-        compose_filter = sitk.ComposeImageFilter()
-        image_nrrd = compose_filter.Execute(
-            sitk.GetImageFromArray(material_grid), sitk.GetImageFromArray(density_grid)
-        )
-
-        image_nrrd.SetOrigin(
-            (self.density_image.origin + self.density_image.spacing / 2).astype(float)
-        )  # [::-1])
-        image_nrrd.SetSpacing(self.density_image.spacing.astype(float))  # [::-1])
-
-        # write the static metadata that will be written to all nrrd files
-        static_metadata = {}
-        static_metadata["Image content"] = "[material_matrix, density_matrix]"
-        if self.material_dict is not None:
-            static_metadata["material_dict"] = self.material_dict
-
-        for key in static_metadata:
-            image_nrrd.SetMetaData(key, json.dumps(static_metadata[key]))
-        # set the metadata: all sitk Images belonging to a patient will have the same meta data
-        if metadata is not None:
-            for key in metadata:
-                image_nrrd.SetMetaData(key, metadata[key])
-
         # write out the files
-        if not os.path.exists(os.path.dirname(fileName)):
-            raise ValueError(
-                f"the input folder does not exist: {os.path.dirname(fileName)}"
-            )
+        assert os.path.exists(
+            os.path.dirname(fileName)
+        ), f"the input folder does not exist: {os.path.dirname(fileName)}"
 
-        sitk.WriteImage(image_nrrd, fileName, useCompression=True, compressionLevel=9)
+        # create sitk density image
+        material_grid = self.get_material_array().astype(
+            np.float32
+        )  # np.swapaxes(self.material_matrix, 0, 2).astype(np.float32)
+        density_grid = self.get_density_array().astype(
+            np.float32
+        )  # np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
+        material_density = np.stack([material_grid, density_grid], axis=0)
+
+        from collections import defaultdict
+
+        header = defaultdict(str)
+        header["type"] = "double"
+        header["dimension"] = "4"
+        header["space"] = coordinate_system
+        header["sizes"] = " ".join(map(str, [2] + self.density_image.gridSize.tolist()))
+
+        header["space directions"] = [
+            [np.nan, np.nan, np.nan],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+        header["kinds"] = ["2-vector", "space", "space", "space"]
+        header["labels"] = ["", "x", "y", "z"]
+        header["endian"] = "little"
+        header["encoding"] = "gzip"
+        header["space origin"] = self.density_image.origin.tolist()
+        header["spacing"] = [np.nan] + self.density_image.spacing.tolist()
+        header = header | {"material_dict": dict(self.material_dict)}
+        # header["space units"] = ["", "mm", "mm", "mm"]
+        header = header | metadata if metadata is not None else header
+        nrrd.write(fileName, material_density, header)
 
     def is_equal(self, new_BrachyEgsphant):
         r"""
@@ -791,88 +835,85 @@ class BrachyEgsphant:
                 f"Background material {background_material} not found in the material dictionary. Will default to Air",
                 stacklevel=2,
             )
+        # update the material dictionary
         self.material_dict = new_material_dict
-        material_matrix = np.ones_like(phantom_obj.get_image_array(), dtype=int)
-        density_matrix = np.ones_like(phantom_obj.get_image_array(), dtype=np.float32)
-        self.num_materials = len(self.material_dict)
+        # get the phantom ct image, as well as background encoding and density
+        phantom_ct_image = phantom_obj.get_image_array()
+        background_encoding = BrachyEgsphant._materials_encoding_array.index(
+            self.material_dict.get(background_material).get("encoding")
+        )
+        background_density = self.material_dict.get(background_material).get("density")
+        # prepare matricies to hold material and density images. initialize them with background values
+        material_matrix = (
+            np.ones_like(phantom_ct_image, dtype=int) * background_encoding
+        )
+        density_matrix = (
+            np.ones_like(phantom_ct_image, dtype=np.float32) * background_density
+        )
 
+        # self.num_materials = len(self.material_dict)
         # loop through the material, get their binary mask from the ct images apply it to the material
         # density materix.
-        materials_list = list(self.material_dict.keys())
+        # materials_list = list(self.material_dict.keys())
 
         if assign_material_from_ct:
             # sort out the materials and density based on the HU values
+            # sort out the materials and density based on the HU values
             self._sort_materials_by("HU_limit")
+            low_HU_threshold = np.min(
+                [
+                    phantom_ct_image.min(),
+                    self.material_dict.get(background_material).get("HU_limit"),
+                ]
+            )  # -np.inf #self.material_dict.get(background_material).get("HU_limit")
+            density_low_bound = background_density
 
-            for i, material in enumerate(self.material_dict.keys()):
+            for i, material in enumerate(list(self.material_dict.keys())):
 
                 # numerically interpolate the density and material based on the HU values
                 low_HU_threshold = self.material_dict.get(material).get("HU_limit")
+                # if this is the last material, set the high HU threshold to infinity
                 high_HU_threshold = (
-                    self.material_dict.get(materials_list[i + 1]).get("HU_limit")
-                    if i + 1 < len(materials_list)
-                    else float("inf")
+                    self.material_dict.get(list(self.material_dict.keys())[i + 1]).get(
+                        "HU_limit"
+                    )
+                    if i + 1 < len(self.material_dict)
+                    else np.inf
                 )
+                # find region of interest mask based on the HU values
+                roi_mask = np.logical_and(
+                    phantom_ct_image > low_HU_threshold,
+                    phantom_ct_image <= high_HU_threshold,
+                )
+
                 density_low_bound = self.material_dict.get(material).get("density")
                 density_high_bound = (
-                    self.material_dict.get(materials_list[i + 1]).get("density")
-                    if i + 1 < len(materials_list)
+                    self.material_dict.get(list(self.material_dict.keys())[i + 1]).get(
+                        "density"
+                    )
+                    if i + 1 < len(self.material_dict)
                     else density_low_bound
                 )
 
                 slope_density_over_HU = (density_high_bound - density_low_bound) / (
                     high_HU_threshold - low_HU_threshold
                 )
-                intercept_density_over_HU = density_low_bound - (
-                    slope_density_over_HU * low_HU_threshold
-                )
-                # find region of interest mask based on the HU values
-                roi_mask = np.logical_and(
-                    np.where(
-                        phantom_obj.get_image_array() >= low_HU_threshold,
-                        1,
-                        0,
-                    ).astype(bool),
-                    np.where(
-                        phantom_obj.get_image_array() < high_HU_threshold,
-                        1,
-                        0,
-                    ).astype(bool),
-                )
-                # set the density and material of all voxels outside the lowest HU_limit to air
-                if i == 0:
-                    complementary_roi_mask = np.logical_not(roi_mask)
-                    density_matrix *= roi_mask
-                    material_matrix *= roi_mask
-                    density_matrix += complementary_roi_mask * self.material_dict.get(
-                        background_material, "Air"
-                    ).get("density")
-                    material_matrix += (
-                        complementary_roi_mask
-                        * BrachyEgsphant._materials_encoding_array.index(
-                            self.material_dict.get(background_material, "Air").get(
-                                "encoding"
-                            )
-                        )
-                    )
-
-                # reset the voxel values for the roi enetries
-                density_matrix *= np.logical_not(roi_mask)
-                material_matrix *= np.logical_not(roi_mask)
-
-                # update the density and material matricies
                 # interpolate density based on the HU value
-                density_matrix += (
-                    phantom_obj.get_image_array() * roi_mask * slope_density_over_HU
-                    + intercept_density_over_HU
+                # density_matrix *= np.logical_not(roi_mask)
+                density_matrix = np.where(
+                    roi_mask,
+                    ((phantom_ct_image - low_HU_threshold) * slope_density_over_HU)
+                    + density_low_bound,
+                    density_matrix,
                 )
-                material_matrix += (
-                    roi_mask
-                    * BrachyEgsphant._materials_encoding_array.index(
+                # material_matrix *= np.logical_not(roi_mask)
+                material_matrix = np.where(
+                    roi_mask,
+                    BrachyEgsphant._materials_encoding_array.index(
                         self.material_dict.get(material).get("encoding")
-                    )
+                    ),
+                    material_matrix,
                 )
-                # assert np.all(density_matrix >= 0), "density matrix has negative values"
         else:
             # dicom_structure_list = list(phantom_obj.structure_mask_dict.keys())
             # find the materials that have a structure name with them.
@@ -939,7 +980,7 @@ class BrachyEgsphant:
                         str(self.material_dict.get(material).get("encoding"))
                     )
                 )
-
+        self.num_materials = len(self.material_dict)
         self.material_image = Image3D(
             imageArray=np.swapaxes(material_matrix, 0, 2),
             origin=phantom_obj.image_obj.origin,
@@ -1094,7 +1135,7 @@ def _load_material_dict(material_source: Union[Path, dict]):
         pth_file = material_source
         assert os.path.exists(
             pth_file
-        ), f"no such ct2density.txt file was found at this directory: \n {pth_file}"
+        ), f"no such file was found at this directory: \n {pth_file}"
 
         extension = os.path.splitext(pth_file)[-1]
 

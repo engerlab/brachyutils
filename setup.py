@@ -24,7 +24,8 @@ setup(
         "pytz",
         "cmake",
         "scikit-build",
-        "SimpleITK",
+        # "SimpleITK",
+        "pynrrd @ git+https://github.com/mhe/pynrrd.git",
         "six",
         "tzdata",
         "zipp",
@@ -39,7 +40,9 @@ setup(
         "py7zr",
         "pytest",
         "vtk",
-        "checkpointing"
+        "checkpointing",
+        # "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
+        "nibabel",
     ],
     entry_points={"console_scripts": ["brachyutils=brachyutils.cli_utils:main"]},
 )

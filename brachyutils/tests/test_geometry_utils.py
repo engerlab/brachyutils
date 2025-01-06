@@ -1,5 +1,5 @@
 from glob import glob
-# from pathlib import Path
+from pathlib import Path
 
 import numpy as np
 
@@ -31,9 +31,9 @@ def test_write_image_to_dicom():
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
     pth_out = "../data_test/test_export_plan/test_p1_ct"
     phantom_obj = BrachyPhantom(
-        # dir_dicom=pth_dicom,
-        pth_phantom_file=pth_nrrd,
-        pth_structures_file=pth_structure
+        dir_dicom=pth_dicom,
+        # pth_phantom_file=pth_nrrd,
+        # pth_structures_file=pth_structure
     )
     phantom_obj.write_image_to_dicom(pth_out)
 
@@ -42,20 +42,20 @@ def test_write_image_to_dicom():
     )
     new_phantom.is_equal(phantom_obj)
 
-
 def test_write_image_to_nrrd():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_out = "../data_test/prostate_glen_p1_ct.nrrd"
+    pth_out = "../data_test/test_export_plan/prostate_glen_p1_ct.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom)
     phantom_obj.write_image_to_nrrd(pth_out)
-
+    new_phantom = BrachyPhantom(pth_phantom_file=pth_out)
+    assert (new_phantom.is_equal(phantom_obj)), "Test failed the two phantoms are not equal."
 
 def test_write_structures_to_nrrd():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/prostate_glen_p1_structs.seg.nrrd"
+    pth_out = "../data_test/test_export_plan/prostate_glen_p1_structs.seg.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
-    phantom_obj.write_structures_to_nrrd(pth_out, True)
+    phantom_obj.write_structures_to_nrrd(pth_out, overlap=False)
 
 
 def test_write_structures_to_dicom():
@@ -69,12 +69,12 @@ def test_write_structures_to_dicom():
 
 def test_read_structures_from_nrrd():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_structures = "../data_test/prostate_glen_p1_structs.seg.nrrd"
+    pth_structures = "../data_test/test_export_plan/prostate_glen_p1_structs.seg.nrrd"
     pth_out = "../data_test/test_export_plan/test_p1_dcm/rs.seg.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structures)
+    print(phantom_obj.info())
     # phantom_obj.write_image_to_nrrd(pth_out)
-    phantom_obj.write_structures_to_nrrd(pth_out)
-
+    phantom_obj.write_structures_to_nrrd(pth_out, overlap=True)
 
 def test_write_to_egsphant():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
@@ -188,6 +188,27 @@ def test_BrachyApplicator_set_rotation():
     applicator_obj.set_rotation(rotation, rotation_origin)
     applicator_obj.to_stl(pth_outfile)
 
+def test_load_nifti_image_file():
+    # mri images
+    # pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
+    # pth_img_out = Path("../data_test/test_export_plan/test_mr_image_case000000.nrrd")
+    # pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
+    # pth_label_out = Path("../data_test/test_export_plan/test_mr_label_case000000.seg.nrrd")
+    
+    # ultrasound images
+    pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
+    pth_img_out = Path("../data_test/test_export_plan/test_us_image_case000000.nrrd")
+    pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
+    pth_label_out = Path("../data_test/test_export_plan/test_us_label_case000000.seg.nrrd")
+
+    phantom_obj = BrachyPhantom(
+        pth_phantom_file=pth_img_nifti,
+        pth_structures_file=pth_label_nifti
+        )
+    phantom_obj.info()
+    phantom_obj.write_image_to_nrrd(pth_img_out)
+    phantom_obj.write_structures_to_nrrd(pth_label_out, overlap=True)
+
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
     # test_brachy_phantom()
@@ -202,8 +223,9 @@ if __name__ == "__main__":
     # test_crop_phantom()
     # print("testing CatheterTable")
     # test_catheter_table()
-    print("testing BrachyApplicator")
-    test_BrachyApplicator()
+    # print("testing BrachyApplicator")
+    # test_BrachyApplicator()
     # test_BrachyApplicator_to_mac()
     # test_BrachyApplicator_to_stl()
     # test_BrachyApplicator_set_rotation()
+    test_load_nifti_image_file()
