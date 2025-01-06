@@ -991,24 +991,6 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
     structure_nifti = nib.load(pth_structure)
     orientation = "".join(nib.aff2axcodes(structure_nifti.affine))
     structure_data = np.ascontiguousarray(structure_nifti.get_fdata())
-    
-    # flip the image if the orientation is not LPS:
-    # this worked for the messed up protate mri images from the micro-registration
-    # challenge. however, be careful with it on a new Nifti images. please
-    # do not modify the file writers.
-    if orientation == "RAS":
-        # structure_data = np.flip(structure_data, axis=0)
-        # structure_data = np.flip(structure_data, axis=1)
-        structure_data = np.swapaxes(structure_data, 1, 2)
-        orientation = "LPS"
-    elif orientation == "LAS":
-        structure_data = np.flip(structure_data, axis=1)
-        orientation = "LPS"
-    elif orientation == "LPS":
-        pass
-    else:
-        raise ValueError("The orientation of the image is not recognized.")
-
     origin = structure_nifti.affine[:3, 3]
     spacing = structure_nifti.header.get("pixdim")[1:4]
 
@@ -1024,6 +1006,23 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
         # get the segment mask
         segment_mask = structure_data[:, :, :, i]
         segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+        # flip the image if the orientation is not LPS:
+        # this worked for the messed up protate mri images from the micro-registration
+        # challenge. however, be careful with it on a new Nifti images. please
+        # do not modify the file writers.
+        if orientation == "RAS":
+            # segment_mask = np.flip(segment_mask, axis=0)
+            # segment_mask = np.flip(segment_mask, axis=1)
+            segment_mask = np.swapaxes(segment_mask, 1, 2)
+            orientation = "LPS"
+        elif orientation == "LAS":
+            segment_mask = np.flip(segment_mask, axis=1)
+            orientation = "LPS"
+        elif orientation == "LPS":
+            pass
+        else:
+            raise ValueError("The orientation of the image is not recognized.")
+
         roi_mask = ROIMask(
             imageArray=np.swapaxes(segment_mask, 0, 2),
             origin=origin,
