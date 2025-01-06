@@ -40,7 +40,9 @@ setup(
         "py7zr",
         "pytest",
         "vtk",
-        "checkpointing"
+        "checkpointing",
+        # "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
+        "nibabel",
     ],
     entry_points={"console_scripts": ["brachyutils=brachyutils.cli_utils:main"]},
 )

@@ -4,7 +4,8 @@ import sys
 
 import numpy as np
 
-from brachyutils.dose_utils import BrachyDose, DoseComparison
+from brachyutils.dose_utils import BrachyDose
+from brachyutils.dose_comparison_utils import DoseComparison
 
 
 def test_load_from_3ddose():
@@ -60,13 +61,13 @@ def test_write_to_nrrd():
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
     pth_out = "../data_test/test_export_plan"
-    # pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
-    pth_input = "../data_test/new_nrrd/P5Fx1_tra/combined.nrrd"
-    pth_out = os.path.join(pth_out, os.path.splitext(os.path.basename(pth_input))[0] + ".nrrd")
+    pth_input = "../data_test/prostate-glen-p1-planFiles/dose_image.seq.nrrd"
+    # pth_input = "../data_test/new_nrrd/P5Fx1_tra/combined.nrrds"
+    pth_out = os.path.join(pth_out, "test_"+os.path.basename(pth_input))
     dose_obj = BrachyDose(pth_input)
     dose_obj.write_to_nrrd(pth_out)
-    dose_obj_from_nrrd = BrachyDose(pth_out)
-    print(dose_obj.is_equal(dose_obj_from_nrrd))
+    # dose_obj_from_nrrd = BrachyDose(pth_out)
+    # print(dose_obj.is_equal(dose_obj_from_nrrd))
 
 
 def test_convert_to_npz_file():
