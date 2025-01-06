@@ -14,6 +14,7 @@ dist/*
 *DS_STORE
 *tar.gz
 *tar.zst
+*.tar
 .checkpointing
 build/*
 *.trunk*

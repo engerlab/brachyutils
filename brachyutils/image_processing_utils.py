@@ -108,7 +108,7 @@ class RegistrationWithOpenTPS(PhantomRegistration):
         """
         assert self.static_phantom is not None, "The static phantom is not defined."
         assert self.moving_phantom is not None, "The moving phantom is not defined."
-        if self.deforemable:
+        if self.deformable:
             assert self.algorithm is not None, "The registration algorithm is not defined."
         
         if self.deformable:

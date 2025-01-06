@@ -84,7 +84,12 @@ class BrachyPhantom:
                 "Please provide either the directory of the DICOM files or the path of the phantom file."
             )
         # Attributes for patient images
-        self.pth_image: Path = Path(dir_dicom if dir_dicom is not None else pth_phantom_file)
+        if dir_dicom is not None:
+            self.pth_image: Path = Path(dir_dicom)
+        elif pth_phantom_file is not None:
+            self.pth_image: Path = Path(pth_phantom_file)
+        else:
+            self.pth_image = None
         self.image_obj: Union[CTImage, MRImage] = None
         self.image_modality: Literal["CT", "MR", "US"] = None
         self.structure_set: RTStruct = None
@@ -107,12 +112,12 @@ class BrachyPhantom:
         elif pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
         else:
-            raise ValueError(
-                "No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file."
-            )
-            warnings.warn("No geometry source file provided.", stacklevel=2)
-
-        self._convert_orientation_to_LPS()
+            # raise ValueError(
+            #     "No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file."
+            # )
+            warnings.warn("No geometry source file provided. Creating an empty Phantom", stacklevel=2)
+        if self.image_obj is not None:
+            self._convert_orientation_to_LPS()
 
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)

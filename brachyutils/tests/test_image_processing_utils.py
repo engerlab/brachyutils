@@ -7,7 +7,7 @@ def test_register_opentps():
     pth_img_moving = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
     pth_label_static = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
     pth_label_moving = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
-    pth_output = "../data_test/registration_prostate_mr_us/train_"
+    pth_output = "../data_test/test_export_plan/registered_phantom_us_mr.nrrd"
 
     for pth in [pth_img_static, pth_img_moving, pth_label_static, pth_label_moving]:
         assert pth.exists(), f"File {pth} does not exist."
@@ -22,10 +22,11 @@ def test_register_opentps():
         pth_structures_file=pth_label_moving
         )
 
-    mode = {"deformable": False, "algorithm": "quick"}
-    mode = {"deformable": False, "algorithm": "demons"}
-    mode = {"deformable": False, "algorithm": "morphons"}
-    mode = {"deformable": True, "algorithm": None}
+    mode = {"deformable": False, "algorithm": None}
+    # mode = {"deformable": True, "algorithm": "quick"}
+    # mode = {"deformable": True, "algorithm": "demons"}
+    # mode = {"deformable": True, "algorithm": "morphons"}
+
 
     registration_obj = RegistrationWithOpenTPS(
         static_phantom=static_phantom,
