@@ -134,8 +134,10 @@ class BrachyPhantom:
             - openTPS.core
         """
         assert os.path.exists(pth_image), "The input path does not exist."
-        # Load the image and structure set
-        image_files = glob((str(pth_image) + "/*.dcm"))
+        # Load the images only, RD, RS, RP files are not needed here.
+        image_files = [file for file in glob((str(pth_image) + "/*.dcm"))
+                       if not os.path.basename(file).startswith("R")]
+       
         if len(image_files) == 0:
             raise ValueError("No DICOM files found in the input directory.")
         if "CT" in image_files[0].upper():
