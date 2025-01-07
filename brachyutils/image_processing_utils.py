@@ -54,7 +54,7 @@ class PhantomRegistration(ABC):
         """
         pass
 
-class RegistrationWithOpenTPS(PhantomRegistration):
+class OpenTPS(PhantomRegistration):
     def __init__(
         self,
         static_phantom: BrachyPhantom,
@@ -168,3 +168,52 @@ class RegistrationWithOpenTPS(PhantomRegistration):
             self.deformed_phantom.image_obj = reg.deformed
 
         return self.deformed_phantom, self.deformation
+    
+
+
+class MicroRegProBaseline(PhantomRegistration):
+    def __init__(
+        self,
+        static_phantom: BrachyPhantom,
+        moving_phantom: BrachyPhantom,
+        deformable: bool = False,
+        algorithm: Literal["demons", "morphons", "quick"] = None,
+        backend = "opentps",
+        ):
+        r"""
+        Purpose:
+            - A class to wrap around the OpenTPS image registration method.
+        Inputs:
+            - static_phantom: BrachyPhantom: The static phantom object.
+            - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
+            - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
+            - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
+            - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
+            the registration process.
+            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+        Outputs:
+            - None
+        Functions:
+            - register: Register the moving phantom to the static phantom.
+        Dependencies:
+            - OpenTPS
+        """
+
+        super().__init__(
+            static_phantom,
+            moving_phantom,
+            deformable,
+            algorithm,
+            backend,
+            )
+
+    def register(
+        self,
+        ):
+        r"""
+        Purpose:
+            - to call registration using either of the baseline models from the micro-registration
+            challenge. 
+        """
+        pass
+        

@@ -1,5 +1,5 @@
 from pathlib import Path
-from brachyutils.image_processing_utils import RegistrationWithOpenTPS
+from brachyutils.image_processing_utils import OpenTPS
 from brachyutils.geometry_utils import BrachyPhantom
 
 def test_register_opentps():
@@ -37,7 +37,7 @@ def test_register_opentps():
     # mode = {"deformable": True, "algorithm": "morphons"}
 
 
-    registration_obj = RegistrationWithOpenTPS(
+    registration_obj = OpenTPS(
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
         deformable=mode["deformable"],
