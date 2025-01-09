@@ -1,6 +1,6 @@
 # BrachyUtils
 
-This package implements Brachytherapy dose, egsphant dicom and film dosimetry functionalities.
+This package implements Brachytherapy dose, egsphant dicom and film dosimetry functionalities. It also interfaces with various RapidBrachy projects. If you are a developer, please take a look at the bottom of this page.
 
 Start by clonning this repository to `YourDesiredLocation`:
 
