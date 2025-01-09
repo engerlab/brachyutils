@@ -115,7 +115,7 @@ class OpenTPS(PhantomRegistration):
 
             if self.algorithm == "demons":
                 from opentps.core.processing.registration.registrationDemons import RegistrationDemons
-                
+
                 reg = RegistrationDemons(
                     fixed=self.static_phantom.image_obj,
                     moving=self.moving_phantom.image_obj,
@@ -125,7 +125,7 @@ class OpenTPS(PhantomRegistration):
                 self.deformation = reg.compute()
                 self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
                 self.deformed_phantom.image_obj = reg.deformed
-                
+
                 reg.deformed
 
             elif self.algorithm == "morphons":
@@ -157,7 +157,14 @@ class OpenTPS(PhantomRegistration):
 
         else:
             from opentps.core.processing.registration.registrationRigid import RegistrationRigid
-
+            from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+            # just resample the image to a new origin and see what happens
+            # self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
+            # self.deformed_phantom.image_obj = resampleImage3DOnImage3D(
+            #     self.static_phantom.image_obj,
+            #     self.moving_phantom.image_obj,
+            #     inPlace=False)
+# 
             reg = RegistrationRigid(
                 fixed=self.static_phantom.image_obj,
                 moving=self.moving_phantom.image_obj,
@@ -166,7 +173,7 @@ class OpenTPS(PhantomRegistration):
             self.deformation = reg.compute()
             self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
             self.deformed_phantom.image_obj = reg.deformed
-
+# 
         return self.deformed_phantom, self.deformation
     
 
