@@ -23,7 +23,7 @@ docker load -i brachyutils.tar.zst
 
 After the image is loaded, navigate to `brachyutils/docker_src` and run `bash command_docker.sh` to start the container running the image.
 
-To see if the container is running, try `docker ps`. A container named `BrachyUtils` should be there. You can attach to the running container using the command line (run `docker exec -it BrachyUtils bash`).
+To see if the container is running, try `docker ps`. A container named `BrachyUtils` should be there. You can attach to the running container using the command line (run `docker exec -it BrachyUtils bash`). BrachyUtils is installed on the root Python 3.13 environment. You can test it by running `brachyutils` on the command line or import it as a module in python.
 
 **pro tip**
 We recommend attaching using the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension on [Visual Studio Code](https://code.visualstudio.com/). Once these packages are installed and the BrachyUtils container is running:
@@ -60,7 +60,7 @@ The virtual enviornment called `env_brachyutils` should be activated automatical
 
 ### Create a Python virtual environment
 
-We recommend python 3.11. Create a virtual envionrment and activate it:
+We currently use python 3.13. Create a virtual envionrment and activate it:
 
 If using [venv](https://docs.python.org/3/library/venv.html):
 
