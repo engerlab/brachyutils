@@ -8,6 +8,33 @@ Start by clonning this repository to `YourDesiredLocation`:
 git clone -b opentps https://github.com/engerlab/brachyutils.git
 ```
 
+## Using Docker Image
+
+The docker image can be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/Elfn1nAw30xNqRhQ6xmA1cwBvxbYVmstWFjqSlJ4dptytg?e=ROqLfn).
+
+Once the image is downloaded, you can unzip it using `zstd` and load it to docker.
+
+```bash
+# to unzip using zstd
+tar -I zstd -xvf brachyutils.tar.zst
+# to load the image to docker
+docker load -i brachyutils.tar.zst
+```
+
+After the image is loaded, navigate to `brachyutils/docker_src` and run `bash command_docker.sh` to start the container running the image.
+
+To see if the container is running, try `docker ps`. A container named `BrachyUtils` should be there. You can attach to the running container using the command line (run `docker exec -it BrachyUtils bash`).
+
+**pro tip**
+We recommend attaching using the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension on [Visual Studio Code](https://code.visualstudio.com/). Once these packages are installed and the BrachyUtils container is running:
+
+1. open vscode, press `F1`.
+2. type in `Attach to running` until it shows up in the command bar and select it.
+3. You should see BrachyUtils as an option, select it.
+4. A new VS code window will open, and gives you access to the files and the executables inside the container.
+5. Happy coding/debugging
+
+
 ## Using Apptainer Image
 
 To free the users from the hassle of installing brachutils and all its requirements, we have created an Apptainer image and a Docker image that could be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/Elfn1nAw30xNqRhQ6xmA1cwBvxbYVmstWFjqSlJ4dptytg?e=ROqLfn).
@@ -19,13 +46,13 @@ It is recommended to use the singularity image (`brachyutils_opentps.sif`) on Co
 module load StdEnv/2023
 module load apptainer
 # }
-apptainer run --containall --bind YourDesiredLocation/brachyutils:/root/brachyutils --bind YourDataLocation:/root/data brachyutils_opentps.sif
+apptainer run --containall --bind <YourDesiredLocation>/brachyutils:/root/brachyutils --bind <YourDataLocation>:/root/YourLocalHome brachyutils_opentps.sif
 # Once apptainer is running interactively
 cd /root
 source .bashrc
 ```
 
-The virtual enviornment called `env_brachyutils` should be activated automatically. You can make changes to the brachyutils source code by editing source files in `/root/brachyutils`. Your data can be found at `/root/data`.
+The virtual enviornment called `env_brachyutils` should be activated automatically. You can make changes to the brachyutils source code by editing source files in `/root/brachyutils`. Your data can be found at `/root/YourLocalHome`.
 
 **VS Code Support**: Using vscode, you can directly code and debug inside a docker container. Simply install the extension [Dev Containers](https://code.visualstudio.com/docs/devcontainers/create-dev-container). While the docker container is running, open VS Code, press `F1`, type `Dev Containers: Attach to running container`. Then select the container running brachyutils. 
 

@@ -481,6 +481,19 @@ class FilmCalibration:
         g_std = []
         b_std = []
 
+        # check that the ROI bounds are on the image, if not throw an error
+        for dose in doses:
+            print(dose, " ", self.calibration_images[dose].shape)
+            if (
+            self.roi_bounds[0] < 0
+            or self.roi_bounds[1] < 0
+            or self.roi_bounds[2] > self.calibration_images[dose].shape[1]
+            or self.roi_bounds[3] > self.calibration_images[dose].shape[0]
+            ):
+                raise ValueError(
+                    f"ROI bounds {self.roi_bounds} are outside the image with shape {self.calibration_images[dose].shape} at dose {dose}"
+                )
+
         # populate arrays with mean pixel value in ROI as a function of dose
         r_pv = np.array(
             [
@@ -567,10 +580,10 @@ class FilmCalibration:
         if image.shape[2] != 3:
             raise ValueError("Image must have 3 channels")
         norm_image = np.zeros(image.shape)
-        doses = self.calibration_curve["doses"]
-        r_pv = self.calibration_curve["r_pv"]
-        g_pv = self.calibration_curve["g_pv"]
-        b_pv = self.calibration_curve["b_pv"]
+        doses = self.calibration_curve.doses
+        r_pv = self.calibration_curve.r_pv
+        g_pv = self.calibration_curve.g_pv
+        b_pv = self.calibration_curve.b_pv
         if self.calibration_curve_type == "Lewis":
             pv_to_dose = FilmCalibration.lewis_pv_to_dose
             norm_image[:, :, 0] = image[:, :, 0] / r_pv[doses == 0]
@@ -665,13 +678,13 @@ class FilmCalibration:
         pv_to_dose, normed_image = self.normalize_image_by_calibration_type(image)
         dose = np.zeros(image.shape)
         dose[:, :, 0] = pv_to_dose(
-            normed_image[:, :, 0], *self.calibration_curve["r_opt"]
+            normed_image[:, :, 0], *self.calibration_curve.r_opt
         )
         dose[:, :, 1] = pv_to_dose(
-            normed_image[:, :, 1], *self.calibration_curve["g_opt"]
+            normed_image[:, :, 1], *self.calibration_curve.g_opt
         )
         dose[:, :, 2] = pv_to_dose(
-            normed_image[:, :, 2], *self.calibration_curve["b_opt"]
+            normed_image[:, :, 2], *self.calibration_curve.b_opt
         )
         return dose
 

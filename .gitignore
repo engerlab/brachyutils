@@ -1,3 +1,4 @@
+*.tar
 *.pickle
 pyRad
 test_data

@@ -414,7 +414,6 @@ def combined_dose_per_patient(
         - type_out := Format of the output file.
         - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
     """
-    from brachyutils.dose_utils import dose_with_empty_grid_like
     # change to absolute path since execution directory is not dir_dose_maps
     dir_dose_maps = os.path.abspath(dir_dose_maps)
 
@@ -445,12 +444,11 @@ def combined_dose_per_patient(
         )
 
     progress_bar_length = n_batches
-
     # get information about the dose grid from the first file
     dose_obj = BrachyDose(
         pth_dose_file=dose_files[0]
         )
-    combined_dose_obj = dose_with_empty_grid_like(dose_obj)
+    combined_dose_obj = BrachyDose.dose_with_empty_grid_like(dose_obj)
 
     combined_dose_obj.set_dose_array(dose_obj.get_dose_array())
 

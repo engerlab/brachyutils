@@ -301,13 +301,12 @@ class BrachyEgsphant:
             "structure_name",
             "structure_size",
         ], "key is not recognized"
-
         if len(self.material_dict.keys()) == 1:
             return  # don't sort when there's only one material
         if material_key == "structure_size":
             sorted_list = sorted(
                 self.material_dict.items(),
-                key=lambda x: x[1].get(material_key, 0),
+                key=lambda x: val if (val := x[1].get(material_key, 0)) is not None else 0,
                 reverse=True,
             )
         else:
