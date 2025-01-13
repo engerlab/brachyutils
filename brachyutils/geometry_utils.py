@@ -255,25 +255,26 @@ class BrachyPhantom:
             image_data = image_data[:, :, :, 0]
         if image_nifti.header.data_layout == "F":
             image_data = np.swapaxes(image_data, 0, 2)
-        if image_nifti.header.default_x_flip:
-            image_data = np.flip(image_data, axis=0)
+        # if image_nifti.header.default_x_flip:
+        #     image_data = np.flip(image_data, axis=2)
 
         # if image_nifti.header
         # # flip the image if the orientation is not LPS:
         # # this worked for the messed up protate mri images from the micro-registration
         # # challenge. however, be careful with it on a new Nifti images. please
         # # do not modify the file writers.
-        if orientation == "RAS":
-            image_data = np.swapaxes(image_data, 0, 2)
-            # image_data = np.swapaxes(image_data, 1, 2)
-            orientation = "LPS"
-        elif orientation == "LAS":
-            image_data = np.flip(image_data, axis=1)
-            orientation = "LPS"
-        elif orientation == "LPS":
-            pass
-        else:
-            raise ValueError("The orientation of the image is not recognized.")
+        # if orientation == "RAS":
+        #     pass
+        #     # image_data = np.swapaxes(image_data, 0, 2)
+        #     # image_data = np.swapaxes(image_data, 1, 2)
+        #     orientation = "LPS"
+        # elif orientation == "LAS":
+        #     image_data = np.flip(image_data, axis=1)
+        #     orientation = "LPS"
+        # elif orientation == "LPS":
+        #     pass
+        # else:
+        #     raise ValueError("The orientation of the image is not recognized.")
 
         origin = image_nifti.affine[:3, 3]
         spacing = image_nifti.header.get("pixdim")[1:4]
@@ -853,14 +854,15 @@ class BrachyPhantom:
         elif self.anatomical_coordinate_system == "RAS":
             # raise NotImplementedError("Conversion from RAS to LPS is not implemented yet.")
             image_array = self.get_image_array()
-            # image_array = np.flip(image_array, axis=0)
-            # image_array = np.flip(image_array, axis=1)
+            image_array = np.flip(image_array, axis=1)
+            image_array = np.flip(image_array, axis=2)
             self.anatomical_coordinate_system = "LPS"
-            
+
         elif self.anatomical_coordinate_system == "LPS":
             pass
         else:
             raise ValueError("The orientation is not recognized. please leave an issue on github.")
+        self.set_image_array(image_array)
         self.anatomical_coordinate_system = "LPS"
 
 # helper functions
