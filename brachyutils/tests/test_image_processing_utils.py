@@ -21,7 +21,6 @@ def test_register_opentps():
     for pth in [pth_img_static, pth_img_moving, pth_label_static, pth_label_moving]:
         assert pth.exists(), f"File {pth} does not exist."
 
-
     static_phantom = BrachyPhantom(
         pth_phantom_file=pth_img_static,
         pth_structures_file=pth_label_static,
@@ -35,7 +34,6 @@ def test_register_opentps():
     # mode = {"deformable": True, "algorithm": "quick"}
     # mode = {"deformable": True, "algorithm": "demons"}
     # mode = {"deformable": True, "algorithm": "morphons"}
-
 
     registration_obj = OpenTPS(
         static_phantom=static_phantom,

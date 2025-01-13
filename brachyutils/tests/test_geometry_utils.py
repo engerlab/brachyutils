@@ -189,11 +189,17 @@ def test_BrachyApplicator_set_rotation():
     applicator_obj.to_stl(pth_outfile)
 
 def test_load_nifti_image_file():
-    # mri images
-    pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
-    pth_img_out = Path("../data_test/test_export_plan/test_mr_image_case000000.nrrd")
-    pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
-    pth_label_out = Path("../data_test/test_export_plan/test_mr_label_case000000.seg.nrrd")
+    # CT images Abdomen
+    pth_img_nifti = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
+    pth_img_out = Path("../data_test/test_export_plan/abdomin_mr_ct/tr_ct_image_0001.nrrd")
+    pth_label_nifti = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
+    pth_label_out = Path("../data_test/test_export_plan/abdomin_mr_ct/tr_ct_label_0001.seg.nrrd")
+
+    # mri images prostate
+    # pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
+    # pth_img_out = Path("../data_test/test_export_plan/test_mr_image_case000000.nrrd")
+    # pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
+    # pth_label_out = Path("../data_test/test_export_plan/test_mr_label_case000000.seg.nrrd")
     
     # ultrasound images
     # pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
@@ -203,11 +209,11 @@ def test_load_nifti_image_file():
 
     phantom_obj = BrachyPhantom(
         pth_phantom_file=pth_img_nifti,
-        pth_structures_file=pth_label_nifti
+        # pth_structures_file=pth_label_nifti
         )
     phantom_obj.info()
     phantom_obj.write_image_to_nrrd(pth_img_out)
-    phantom_obj.write_structures_to_nrrd(pth_label_out, overlap=True)
+    # phantom_obj.write_structures_to_nrrd(pth_label_out, overlap=True)
 
 if __name__ == "__main__":
     # print("testing BrachyPhantom")

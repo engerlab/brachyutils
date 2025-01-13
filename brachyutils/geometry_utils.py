@@ -246,20 +246,26 @@ class BrachyPhantom:
             - nibabel
         """
         import nibabel as nib
-        
+
         assert pth_image.exists(), "The input path does not exist."
         image_nifti = nib.load(self.pth_image)
         orientation = "".join(nib.aff2axcodes(image_nifti.affine))
-        image_data = np.ascontiguousarray(image_nifti.get_fdata())[:, :, :, 0]
+        image_data = np.ascontiguousarray(image_nifti.get_fdata())
+        if image_data.ndim == 4:
+            image_data = image_data[:, :, :, 0]
+        if image_nifti.header.data_layout == "F":
+            image_data = np.swapaxes(image_data, 0, 2)
+        if image_nifti.header.default_x_flip:
+            image_data = np.flip(image_data, axis=0)
 
-        # flip the image if the orientation is not LPS:
-        # this worked for the messed up protate mri images from the micro-registration
-        # challenge. however, be careful with it on a new Nifti images. please
-        # do not modify the file writers.
+        # if image_nifti.header
+        # # flip the image if the orientation is not LPS:
+        # # this worked for the messed up protate mri images from the micro-registration
+        # # challenge. however, be careful with it on a new Nifti images. please
+        # # do not modify the file writers.
         if orientation == "RAS":
-            # image_data = np.flip(image_data, axis=0)
-            # image_data = np.flip(image_data, axis=1)
-            image_data = np.swapaxes(image_data, 1, 2)
+            image_data = np.swapaxes(image_data, 0, 2)
+            # image_data = np.swapaxes(image_data, 1, 2)
             orientation = "LPS"
         elif orientation == "LAS":
             image_data = np.flip(image_data, axis=1)
@@ -845,7 +851,12 @@ class BrachyPhantom:
         if self.anatomical_coordinate_system == "LAS":
             raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
         elif self.anatomical_coordinate_system == "RAS":
-            raise NotImplementedError("Conversion from RAS to LPS is not implemented yet.")
+            # raise NotImplementedError("Conversion from RAS to LPS is not implemented yet.")
+            image_array = self.get_image_array()
+            # image_array = np.flip(image_array, axis=0)
+            # image_array = np.flip(image_array, axis=1)
+            self.anatomical_coordinate_system = "LPS"
+            
         elif self.anatomical_coordinate_system == "LPS":
             pass
         else:
@@ -996,14 +1007,14 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
     assert os.path.exists(pth_structure), "The input path does not exist."
     import nibabel as nib
     structure_nifti = nib.load(pth_structure)
-    orientation = "".join(nib.aff2axcodes(structure_nifti.affine))
+    orientation = "LPS"#"".join(nib.aff2axcodes(structure_nifti.affine))
     structure_data = np.ascontiguousarray(structure_nifti.get_fdata())
     origin = structure_nifti.affine[:3, 3]
     spacing = structure_nifti.header.get("pixdim")[1:4]
 
     # God knows what is the name of the structures in the nifti files
     # I will just number them and hope for the best
-    num_structures = structure_data.shape[-1]
+    num_structures = structure_nifti.header.get("dim")[0]
     structure_set = RTStruct()
     for i in range(num_structures):
         # generate segment labels
@@ -1011,24 +1022,28 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
         segment_name = segment_id + "_Name"
         segment_label =  segment_id + "_LabelValue"
         # get the segment mask
-        segment_mask = structure_data[:, :, :, i]
+        segment_mask = structure_data
+        if structure_data.ndim == 4:
+            segment_mask = structure_data[:, :, :, i]
+        else:
+            segment_mask = structure_data == i
         segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
         # flip the image if the orientation is not LPS:
         # this worked for the messed up protate mri images from the micro-registration
         # challenge. however, be careful with it on a new Nifti images. please
         # do not modify the file writers.
-        if orientation == "RAS":
-            # segment_mask = np.flip(segment_mask, axis=0)
-            # segment_mask = np.flip(segment_mask, axis=1)
-            segment_mask = np.swapaxes(segment_mask, 1, 2)
-            orientation = "LPS"
-        elif orientation == "LAS":
-            segment_mask = np.flip(segment_mask, axis=1)
-            orientation = "LPS"
-        elif orientation == "LPS":
-            pass
-        else:
-            raise ValueError("The orientation of the image is not recognized.")
+        # if orientation == "RAS":
+        #     # segment_mask = np.flip(segment_mask, axis=0)
+        #     # segment_mask = np.flip(segment_mask, axis=1)
+        #     segment_mask = np.swapaxes(segment_mask, 1, 2)
+        #     orientation = "LPS"
+        # elif orientation == "LAS":
+        #     segment_mask = np.flip(segment_mask, axis=1)
+        #     orientation = "LPS"
+        # elif orientation == "LPS":
+        #     pass
+        # else:
+        #     raise ValueError("The orientation of the image is not recognized.")
 
         roi_mask = ROIMask(
             imageArray=np.swapaxes(segment_mask, 0, 2),
