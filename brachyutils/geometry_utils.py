@@ -258,24 +258,6 @@ class BrachyPhantom:
         # if image_nifti.header.default_x_flip:
         #     image_data = np.flip(image_data, axis=2)
 
-        # if image_nifti.header
-        # # flip the image if the orientation is not LPS:
-        # # this worked for the messed up protate mri images from the micro-registration
-        # # challenge. however, be careful with it on a new Nifti images. please
-        # # do not modify the file writers.
-        # if orientation == "RAS":
-        #     pass
-        #     # image_data = np.swapaxes(image_data, 0, 2)
-        #     # image_data = np.swapaxes(image_data, 1, 2)
-        #     orientation = "LPS"
-        # elif orientation == "LAS":
-        #     image_data = np.flip(image_data, axis=1)
-        #     orientation = "LPS"
-        # elif orientation == "LPS":
-        #     pass
-        # else:
-        #     raise ValueError("The orientation of the image is not recognized.")
-
         origin = image_nifti.affine[:3, 3]
         spacing = image_nifti.header.get("pixdim")[1:4]
         self.image_modality = image_nifti.header.get("modality", "unknown")
