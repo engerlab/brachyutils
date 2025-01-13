@@ -29,7 +29,7 @@ def test_write_image_to_dicom():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_nrrd = "../data_test/prostate_glen_p1_ct.nrrd"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/test_p1_ct"
+    pth_out = "../data_test/test_export_plan/prostate/test_p1_ct"
     phantom_obj = BrachyPhantom(
         dir_dicom=pth_dicom,
         # pth_phantom_file=pth_nrrd,
@@ -44,7 +44,7 @@ def test_write_image_to_dicom():
 
 def test_write_image_to_nrrd():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_out = "../data_test/test_export_plan/prostate_glen_p1_ct.nrrd"
+    pth_out = "../data_test/test_export_plan/prostate/prostate_glen_p1_ct.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom)
     phantom_obj.write_image_to_nrrd(pth_out)
     new_phantom = BrachyPhantom(pth_phantom_file=pth_out)
@@ -53,7 +53,7 @@ def test_write_image_to_nrrd():
 def test_write_structures_to_nrrd():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/prostate_glen_p1_structs.seg.nrrd"
+    pth_out = "../data_test/test_export_plan/prostate/prostate_glen_p1_structs.seg.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
     phantom_obj.write_structures_to_nrrd(pth_out, overlap=False)
 
@@ -61,7 +61,7 @@ def test_write_structures_to_nrrd():
 def test_write_structures_to_dicom():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/test_p1_dcm"
+    pth_out = "../data_test/test_export_plan/prostate/test_p1_dcm"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
     phantom_obj.write_image_to_dicom(pth_out)
     phantom_obj.write_structures_to_dicom(pth_out)
@@ -69,8 +69,8 @@ def test_write_structures_to_dicom():
 
 def test_read_structures_from_nrrd():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_structures = "../data_test/test_export_plan/prostate_glen_p1_structs.seg.nrrd"
-    pth_out = "../data_test/test_export_plan/test_p1_dcm/rs.seg.nrrd"
+    pth_structures = "../data_test/test_export_plan/prostate/prostate_glen_p1_structs.seg.nrrd"
+    pth_out = "../data_test/test_export_plan/prostate/test_p1_dcm/rs.seg.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structures)
     print(phantom_obj.info())
     # phantom_obj.write_image_to_nrrd(pth_out)
@@ -79,7 +79,7 @@ def test_read_structures_from_nrrd():
 def test_write_to_egsphant():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/test_ct.egsphant"
+    pth_out = "../data_test/test_export_plan/prostate/test_ct.egsphant"
     # pth_materials = "../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
     # assign_material_from_ct = True
     pth_materials = "../data_test/prostate_material_dict.json"
@@ -98,7 +98,7 @@ def test_write_to_egsphant():
 
 def test_load_egsphant():
     pth_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    pth_out = "../data_test/test_export_plan/test_ct.egsphant"
+    pth_out = "../data_test/test_export_plan/prostate/test_ct.egsphant"
 
     phantom_obj = BrachyPhantom(pth_egsphant_file=pth_egsphant)
     phantom_obj.write_to_egsphant(

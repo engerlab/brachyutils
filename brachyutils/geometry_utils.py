@@ -251,15 +251,17 @@ class BrachyPhantom:
         image_nifti = nib.load(self.pth_image)
         orientation = "".join(nib.aff2axcodes(image_nifti.affine))
         image_data = np.ascontiguousarray(image_nifti.get_fdata())
+        origin = image_nifti.affine[:3, 3]
+        spacing = image_nifti.header.get("pixdim")[1:4]
+
         if image_data.ndim == 4:
             image_data = image_data[:, :, :, 0]
         if image_nifti.header.data_layout == "F":
             image_data = np.swapaxes(image_data, 0, 2)
         # if image_nifti.header.default_x_flip:
-        #     image_data = np.flip(image_data, axis=2)
+            # image_data = np.flip(image_data, axis=2)
 
-        origin = image_nifti.affine[:3, 3]
-        spacing = image_nifti.header.get("pixdim")[1:4]
+
         self.image_modality = image_nifti.header.get("modality", "unknown")
         if self.image_modality == "unknown":
             if "ct" in self.pth_image.name.lower():
@@ -840,14 +842,12 @@ class BrachyPhantom:
             image_array = np.flip(image_array, axis=2)
             # # only for the micro-registration challenge
             # image_array = np.swapaxes(image_array, 1, 2)
+            self.set_image_array(image_array)
             self.anatomical_coordinate_system = "LPS"
-
         elif self.anatomical_coordinate_system == "LPS":
             pass
         else:
             raise ValueError("The orientation is not recognized. please leave an issue on github.")
-        self.set_image_array(image_array)
-        self.anatomical_coordinate_system = "LPS"
 
 # helper functions
 def phantom_with_empty_image_like(phantom: BrachyPhantom) -> BrachyPhantom:
@@ -1010,30 +1010,26 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
         segment_name = segment_id + "_Name"
         segment_label =  segment_id + "_LabelValue"
         # get the segment mask
-        segment_mask = structure_data
         if structure_data.ndim == 4:
             segment_mask = structure_data[:, :, :, i]
         else:
-            segment_mask = structure_data == i
-        segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+            segment_mask = structure_data == i+1
         # flip the image if the orientation is not LPS:
         # this worked for the messed up protate mri images from the micro-registration
         # challenge. however, be careful with it on a new Nifti images. please
         # do not modify the file writers.
         if orientation == "RAS":
-            segment_mask = np.flip(segment_mask, axis=0)
-            segment_mask = np.flip(segment_mask, axis=1)
+            segment_mask = np.flip(segment_mask, axis=[1, 2])
+            # segment_mask = np.flip(segment_mask, axis=2)
             # # only for the micro-registration challenge
             # segment_mask = np.swapaxes(segment_mask, 1, 2)
-            orientation = "LPS"
         elif orientation == "LAS":
             segment_mask = np.flip(segment_mask, axis=1)
-            orientation = "LPS"
         elif orientation == "LPS":
             pass
         else:
             raise ValueError("The orientation of the image is not recognized.")
-
+        segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
         roi_mask = ROIMask(
             imageArray=np.swapaxes(segment_mask, 0, 2),
             origin=origin,
@@ -1041,7 +1037,8 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
             name=segment_name,
         )
         structure_set.appendContour(roi_mask.getROIContour())
-    return structure_set, orientation    
+        del segment_mask
+    return structure_set, "LPS"
 
 def _get_image_orientation(pth_image: Path) -> str:
     """
