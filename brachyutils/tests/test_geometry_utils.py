@@ -209,11 +209,11 @@ def test_load_nifti_image_file():
 
     phantom_obj = BrachyPhantom(
         pth_phantom_file=pth_img_nifti,
-        # pth_structures_file=pth_label_nifti
+        pth_structures_file=pth_label_nifti
         )
     phantom_obj.info()
     phantom_obj.write_image_to_nrrd(pth_img_out)
-    # phantom_obj.write_structures_to_nrrd(pth_label_out, overlap=True)
+    phantom_obj.write_structures_to_nrrd(pth_label_out, overlap=True)
 
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
