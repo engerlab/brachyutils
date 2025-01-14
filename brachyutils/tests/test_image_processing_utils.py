@@ -34,8 +34,8 @@ def test_register_opentps():
         pth_structures_file=pth_label_moving
         )
 
-    mode = {"deformable": False, "algorithm": None}
-    # mode = {"deformable": True, "algorithm": "quick"}
+    # mode = {"deformable": False, "algorithm": None}
+    mode = {"deformable": True, "algorithm": "quick"}
     # mode = {"deformable": True, "algorithm": "demons"}
     # mode = {"deformable": True, "algorithm": "morphons"}
 
@@ -48,8 +48,8 @@ def test_register_opentps():
 
     deformed_phantom, _ = registration_obj.register()
     deformed_phantom.write_image_to_nrrd(pth_output)
-    static_phantom.write_image_to_nrrd(Path.joinpath(pth_output.parent, pth_img_static.name.split(".")[0]+".nrrd"))
-    moving_phantom.write_image_to_nrrd(Path.joinpath(pth_output.parent, pth_img_moving.name.split(".")[0]+".nrrd"))
+    # static_phantom.write_image_to_nrrd(Path.joinpath(pth_output.parent, pth_img_static.name.split(".")[0]+".nrrd"))
+    # moving_phantom.write_image_to_nrrd(Path.joinpath(pth_output.parent, pth_img_moving.name.split(".")[0]+".nrrd"))
 
 if __name__ == "__main__":
     print("testing the registration class")

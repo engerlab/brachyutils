@@ -103,12 +103,15 @@ class OpenTPS(PhantomRegistration):
             backend,
             )
         # resample the moving image on the static image.
-        new_moving_phantom = phantom_with_empty_image_like(self.moving_phantom)
-        new_moving_phantom.image_obj = resampleImage3DOnImage3D(
-                image=self.moving_phantom.image_obj,
-                fixedImage=self.static_phantom.image_obj,
-                inPlace=False)
-        self.moving_phantom = new_moving_phantom
+        # new_moving_phantom = phantom_with_empty_image_like(
+        #     self.moving_phantom,
+        #     self.moving_phantom.pth_image.stem
+        # )
+        # new_moving_phantom.image_obj = resampleImage3DOnImage3D(
+        #         image=self.moving_phantom.image_obj,
+        #         fixedImage=self.static_phantom.image_obj,
+        #         inPlace=False)
+        # self.moving_phantom = new_moving_phantom
 
     def register(
         self,
@@ -143,10 +146,6 @@ class OpenTPS(PhantomRegistration):
                     tryGPU=tryGPU
                 )
                 self.deformation = reg.compute()
-                self.registered_phantom = phantom_with_empty_image_like(self.static_phantom)
-                self.registered_phantom.image_obj = reg.deformed
-
-                reg.deformed
 
             elif self.algorithm == "morphons":
                 from opentps.core.processing.registration.registrationMorphons import RegistrationMorphons
@@ -158,8 +157,6 @@ class OpenTPS(PhantomRegistration):
                     tryGPU=tryGPU
                 )
                 self.deformation = reg.compute()
-                self.registered_phantom = phantom_with_empty_image_like(self.static_phantom)
-                self.registered_phantom.image_obj = reg.deformed
 
             elif self.algorithm == "quick":
                 from opentps.core.processing.registration.registrationQuick import RegistrationQuick
@@ -169,30 +166,35 @@ class OpenTPS(PhantomRegistration):
                     moving=self.moving_phantom.image_obj,
                 )
                 self.deformation = reg.compute(tryGPU=tryGPU)
-                self.registered_phantom = phantom_with_empty_image_like(self.static_phantom)
-                self.registered_phantom.image_obj = reg.deformed
-
             else:
                 raise ValueError("The registration algorithm is not supported. Please choose between 'demons' and 'morphons'.")
 
         else:
             from opentps.core.processing.registration.registrationRigid import RegistrationRigid
-
             reg = RegistrationRigid(
                 fixed=self.static_phantom.image_obj,
                 moving=self.moving_phantom.image_obj,
                 multimodal=multimodal
             )
             self.deformation = reg.compute()
-            self.registered_phantom = phantom_with_empty_image_like(self.static_phantom)
-            self.registered_phantom.image_obj = resampleImage3DOnImage3D(
-                reg.deformed,
-                self.static_phantom.image_obj
-            )
+
+        self.registered_phantom = phantom_with_empty_image_like(
+            self.static_phantom,
+            new_pth_image=f"reg_{self.moving_phantom.pth_image.stem}")
+
+        self.registered_phantom.image_obj = reg.deformed
+        # self.registered_phantom.image_obj.origin = self.static_phantom.image_obj.origin
+        # self.registered_phantom.image_obj = resampleImage3DOnImage3D(
+        #     reg.deformed,
+        #     self.static_phantom.image_obj
+        # )
 
         return self.registered_phantom, self.deformation
     
-    def export_to(self, pth_phantom_export) -> None:
+    def export_to(
+        self,
+        dir_registered_phantom: Path | str,
+        output_type: Literal[".nrrd", ".dcm"] = ".nrrd") -> None:
         """
         Purpose:
             - To export the obtained registered imag
@@ -202,7 +204,16 @@ class OpenTPS(PhantomRegistration):
             - None     
         """
         assert self.registered_phantom is not None
-        self.registered_phantom.write_to_file(pth_phantom_export)
+        if output_type == ".nrrd":
+            self.registered_phantom.write_to_file(
+                dir_nrrd_out=dir_registered_phantom
+                )
+        elif output_type == ".dcm":
+            self.registered_phantom.write_to_file(
+                dir_dicom_out=dir_registered_phantom
+            )
+        else:
+            raise ValueError(f"The output type {output_type} is not supported. please specify .nrrd or .dcm")
 
 class Sitk(PhantomRegistration):
     def __init__(

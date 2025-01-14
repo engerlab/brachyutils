@@ -900,17 +900,21 @@ class BrachyPhantom:
             raise ValueError("The orientation is not recognized. please leave an issue on github.")
 
 # helper functions
-def phantom_with_empty_image_like(phantom: BrachyPhantom) -> BrachyPhantom:
+def phantom_with_empty_image_like(
+    phantom: BrachyPhantom,
+    new_pth_image: Path | str=None
+    ) -> BrachyPhantom:
     r"""
     Purpose:
         - Create a new BrachyPhantom object with the same structure set as the input phantom but with an empty image.
     Inputs:
         - phantom: BrachyPhantom := the input phantom object.
+        - new_pth_image := the new name for the empty phantom.
     Outputs:
         - new_phantom: BrachyPhantom := the new phantom object.
     """
     new_phantom = BrachyPhantom()
-    new_phantom.pth_image = None
+    new_phantom.pth_image = Path(new_pth_image)
     new_phantom.image_obj = None
     new_phantom.image_modality = phantom.image_modality
     new_phantom.structure_set = phantom.structure_set
