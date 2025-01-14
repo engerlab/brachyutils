@@ -26,7 +26,7 @@ class PhantomRegistration(ABC):
             - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
             - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
             the registration process.
-            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+
         Inputs:
             - dir_plan_export: Union[Path, str]: The path to the dose setup directory.
             - pth_dose_executable: Union[Path, str]: The path to the dose executable.
@@ -41,7 +41,7 @@ class PhantomRegistration(ABC):
         self.algorithm = algorithm
         self.backend = backend
         # the following attributes will be computed during the registration process
-        self.deformed_phantom: BrachyPhantom = None
+        self.registered_phantom: BrachyPhantom = None
         self.deformation: Transform3D = None
 
     @abstractmethod
@@ -53,7 +53,20 @@ class PhantomRegistration(ABC):
             - BrachyPhantom: The registered phantom object.
         """
         pass
+    
+    @abstractmethod
+    def export_to(self, pth_phantom_export) -> None:
+        """
+        Purpose:
+            - To export the obtained registered image to a given path file.
+        Inputs:
+            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+        Output:
+            - None     
+        """
+        pass
 
+from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
 class OpenTPS(PhantomRegistration):
     def __init__(
         self,
@@ -89,6 +102,13 @@ class OpenTPS(PhantomRegistration):
             algorithm,
             backend,
             )
+        # resample the moving image on the static image.
+        new_moving_phantom = phantom_with_empty_image_like(self.moving_phantom)
+        new_moving_phantom.image_obj = resampleImage3DOnImage3D(
+                image=self.moving_phantom.image_obj,
+                fixedImage=self.static_phantom.image_obj,
+                inPlace=False)
+        self.moving_phantom = new_moving_phantom
 
     def register(
         self,
@@ -123,8 +143,8 @@ class OpenTPS(PhantomRegistration):
                     tryGPU=tryGPU
                 )
                 self.deformation = reg.compute()
-                self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
-                self.deformed_phantom.image_obj = reg.deformed
+                self.registered_phantom = phantom_with_empty_image_like(self.static_phantom)
+                self.registered_phantom.image_obj = reg.deformed
 
                 reg.deformed
 
@@ -138,8 +158,8 @@ class OpenTPS(PhantomRegistration):
                     tryGPU=tryGPU
                 )
                 self.deformation = reg.compute()
-                self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
-                self.deformed_phantom.image_obj = reg.deformed
+                self.registered_phantom = phantom_with_empty_image_like(self.static_phantom)
+                self.registered_phantom.image_obj = reg.deformed
 
             elif self.algorithm == "quick":
                 from opentps.core.processing.registration.registrationQuick import RegistrationQuick
@@ -149,33 +169,86 @@ class OpenTPS(PhantomRegistration):
                     moving=self.moving_phantom.image_obj,
                 )
                 self.deformation = reg.compute(tryGPU=tryGPU)
-                self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
-                self.deformed_phantom.image_obj = reg.deformed
+                self.registered_phantom = phantom_with_empty_image_like(self.static_phantom)
+                self.registered_phantom.image_obj = reg.deformed
 
             else:
                 raise ValueError("The registration algorithm is not supported. Please choose between 'demons' and 'morphons'.")
 
         else:
             from opentps.core.processing.registration.registrationRigid import RegistrationRigid
-            from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
-            # # just resample the image to a new origin and see what happens
-            self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
-            self.deformed_phantom.image_obj = resampleImage3DOnImage3D(
-                image=self.moving_phantom.image_obj,
-                fixedImage=self.static_phantom.image_obj,
-                inPlace=False)
-# 
-            # reg = RegistrationRigid(
-            #     fixed=self.static_phantom.image_obj,
-            #     moving=self.moving_phantom.image_obj,
-            #     multimodal=multimodal
-            # )
-            # self.deformation = reg.compute()
-            # self.deformed_phantom = phantom_with_empty_image_like(self.static_phantom)
-            # self.deformed_phantom.image_obj = reg.deformed
-# 
-        return self.deformed_phantom, self.deformation
+
+            reg = RegistrationRigid(
+                fixed=self.static_phantom.image_obj,
+                moving=self.moving_phantom.image_obj,
+                multimodal=multimodal
+            )
+            self.deformation = reg.compute()
+            self.registered_phantom = phantom_with_empty_image_like(self.static_phantom)
+            self.registered_phantom.image_obj = resampleImage3DOnImage3D(
+                reg.deformed,
+                self.static_phantom.image_obj
+            )
+
+        return self.registered_phantom, self.deformation
     
+    def export_to(self, pth_phantom_export) -> None:
+        """
+        Purpose:
+            - To export the obtained registered imag
+        Inputs:
+            - dir_phantom_export: Union[Path, str]: 
+        Output:
+            - None     
+        """
+        assert self.registered_phantom is not None
+        self.registered_phantom.write_to_file(pth_phantom_export)
+
+class Sitk(PhantomRegistration):
+    def __init__(
+        self,
+        static_phantom: BrachyPhantom,
+        moving_phantom: BrachyPhantom,
+        deformable: bool = False,
+        algorithm: Literal[""] = None,
+        backend = "sitk",
+        ):
+        r"""
+        Purpose:
+            - A class to wrap around the sitk image registration methods.
+        Inputs:
+            - static_phantom: BrachyPhantom: The static phantom object.
+            - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
+            - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
+            - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
+            - backend: Literal["XXX"] = "opentps" The backend package used to handle 
+            the registration process.
+            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+        Outputs:
+            - None
+        Functions:
+            - register: Register the moving phantom to the static phantom.
+        Dependencies:
+            - OpenTPS
+        """
+
+        super().__init__(
+            static_phantom,
+            moving_phantom,
+            deformable,
+            algorithm,
+            backend,
+            )
+
+    def register(
+        self,
+        ):
+        r"""
+        Purpose:
+            - to call registration using either of the baseline models from the micro-registration
+            challenge. 
+        """
+        pass
 
 
 class MicroRegProBaseline(PhantomRegistration):
@@ -184,12 +257,12 @@ class MicroRegProBaseline(PhantomRegistration):
         static_phantom: BrachyPhantom,
         moving_phantom: BrachyPhantom,
         deformable: bool = False,
-        algorithm: Literal["demons", "morphons", "quick"] = None,
-        backend = "opentps",
+        algorithm: Literal[""] = None,
+        backend = "micro-registration",
         ):
         r"""
         Purpose:
-            - A class to wrap around the OpenTPS image registration method.
+            - A class to wrap around the base image registration method.
         Inputs:
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
@@ -223,4 +296,4 @@ class MicroRegProBaseline(PhantomRegistration):
             challenge. 
         """
         pass
-        
+
