@@ -719,6 +719,56 @@ class BrachyPhantom:
                 "No image object or egsphant object to write to Egsphant file. Please load the image object first."
             )
 
+    def write_to_file(
+        self,
+        pth_image_out: Path | str = None,
+        pth_structures_out: Path | str = None,
+        dir_dicom_out: Path | str = None,
+        dir_nrrd_out: Path | str = None
+        ):
+        r"""
+        Purpose:
+            - To export the image and/or the structures to file. This function will call the appropriate
+            export function depending on the extension of the given path. If you would like to export
+            to egsphant, please use write_to_egsphant() function.
+        Inputs:
+            pth_image_out:= path to the output image file. If the extension could be .nrrd. To export images
+            to dicom, use dir_dicom_out.
+            pth_structures_out:= path to the output structure file, the extension could be .nrrd or .dcm
+            dir_dicom_out:= path to export all the dicom informatin to. it has to be a directory
+        """
+        pth_image_out = Path(pth_image_out)
+        pth_structures_out = Path(pth_structures_out)
+        dir_dicom_out = Path(dir_dicom_out)
+        dir_nrrd_out = Path(dir_nrrd_out)
+
+        if pth_image_out is not None:
+            assert self.image_obj is not None, "no image is loaded into this BrachyPhantom"
+            if pth_image_out.endswith(".nrrd"):
+                self.write_image_to_nrrd(pth_output=pth_image_out)
+
+        if pth_structures_out is not None:
+            assert self.structure_set is not None, "no structures is loaded into this BrachyPhantom"
+            self.write_structures_to_nrrd(pth_output=pth_structures_out)
+
+        if dir_dicom_out is not None:
+            assert dir_dicom_out.is_dir(), f"the provided path {dir_dicom_out} is not a directory"
+            if self.image_obj is not None:
+                self.write_image_to_dicom(dir_output=dir_dicom_out)
+            if self.structure_set is not None:
+                self.write_structures_to_dicom(dir_output=dir_dicom_out)
+
+        if dir_nrrd_out is not None:
+            assert dir_nrrd_out.is_dir(), f"the provided path {dir_nrrd_out} is not a directory"
+            if self.image_obj is not None:
+                self.write_image_to_nrrd(
+                    pth_output=Path.joinpath(dir_nrrd_out, self.pth_image.stem+".nrrd")
+                    )
+            if self.structure_set is not None:
+                self.write_structures_to_nrrd(
+                    pth_output=Path.joinpath(dir_nrrd_out, self.pth_image.stem+"seg.nrrd")
+                )
+
     def crop_by_coordinates(
         self, croodinate_range: List[float] | np.array, inplace: "BrachyPhantom" = True
     ) -> None:
