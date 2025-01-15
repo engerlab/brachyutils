@@ -5,12 +5,14 @@ from typing import Literal, Optional, Union, List
 
 from brachyutils.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
 from opentps.core.data._transform3D import Transform3D
-
+from opentps.core.data.images import ROIMask
 class PhantomRegistration(ABC):
     def __init__(
         self,
         static_phantom: Union[BrachyPhantom, str],
         moving_phantom: Union[BrachyPhantom, str],
+        register_based_on: Literal["image", "contour"] = "image",
+        contour_name: Optional[str] = None,
         deformable: bool = False,
         algorithm: Literal["demons", "morphons"] = None,
         backend: Literal["elastix", "plastimatch", "opentps"] = None,
@@ -35,8 +37,17 @@ class PhantomRegistration(ABC):
         Functions:
             - register: Register the moving phantom to the static phantom.
         """
+        if register_based_on not in ["image", "contour"]:
+            raise ValueError("register_based_on must be either 'image' or 'contour'")
+        if register_based_on == "contour" and contour_name is None:
+            raise ValueError("contour_name must be provided when register_based_on is set to 'contour'")
+        if register_based_on == "image" and contour_name is not None:
+            raise ValueError("contour_name should not be provided when register_based_on is set to 'image'")
+
         self.static_phantom = static_phantom
         self.moving_phantom = moving_phantom
+        self.register_based_on = register_based_on
+        self.contour_name = contour_name
         self.deformable = deformable
         self.algorithm = algorithm
         self.backend = backend
@@ -53,7 +64,7 @@ class PhantomRegistration(ABC):
             - BrachyPhantom: The registered phantom object.
         """
         pass
-    
+
     @abstractmethod
     def export_to(self, pth_phantom_export) -> None:
         """
@@ -65,6 +76,44 @@ class PhantomRegistration(ABC):
             - None     
         """
         pass
+
+    def synch_image_and_contours(self) -> None:
+        """
+        Purpose:
+            - To match the image and the contours of the registered phantom. If the registration
+            was based on the image, the same deformation will be applied to the contours.
+            If the registration was based on the contours, the deformation will be applied to the image
+            and the contours will be resampled on the deformed image.  
+        Inputs:
+            - None
+        Output:
+            - None
+        """
+        if self.register_based_on == "image":
+            # apply the deformation to the contours
+            contour_mask_dict = self.registered_phantom.get_structure_mask(
+                self.registered_phantom.structure_names,
+                mask_type=ROIMask
+            )
+            for contour_name in contour_mask_dict:
+                new_mask = self.deformation.deformImage(contour_mask_dict[contour_name])
+                self.registered_phantom.structure_set.removeContour(contour_mask_dict[contour_name])
+                self.registered_phantom.structure_set.appendContour(new_mask.getROIContour())
+        else:
+            # apply the deformation to the image and the rest of the contours.
+            self.registered_phantom.image_obj = self.deformation.deformImage(self.registered_phantom.image_obj)
+            contour_mask_dict = self.registered_phantom.get_structure_mask(
+                self.registered_phantom.structure_names,
+                mask_type=ROIMask
+            )
+            for contour_name in contour_mask_dict:
+                # skip the contour that was transformed
+                if contour_name == self.contour_name:
+                    continue
+                new_mask = self.deformation.deformImage(contour_mask_dict[contour_name])
+                self.registered_phantom.structure_set.removeContour(contour_mask_dict[contour_name])
+                self.registered_phantom.structure_set.appendContour(new_mask.getROIContour())
+            
 
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
 class OpenTPS(PhantomRegistration):
