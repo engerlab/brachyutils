@@ -46,8 +46,10 @@ def test_register_opentps():
         algorithm=mode["algorithm"],
         )
 
-    deformed_phantom, _ = registration_obj.register()
-    deformed_phantom.write_image_to_nrrd(pth_output)
+    registration_obj.register()
+    registration_obj.export_to(pth_output.parent)
+    
+    # deformed_phantom.write_image_to_nrrd(pth_output)
     # static_phantom.write_image_to_nrrd(Path.joinpath(pth_output.parent, pth_img_static.name.split(".")[0]+".nrrd"))
     # moving_phantom.write_image_to_nrrd(Path.joinpath(pth_output.parent, pth_img_moving.name.split(".")[0]+".nrrd"))
 

@@ -45,7 +45,7 @@ class BrachyPhantom:
         - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
         - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
         Other names for structure are contours, masks, segmentations.
-        - structure_names_dcm: List[str] := the names of the structures in the dicom file.
+        - structure_names: List[str] := the names of the structures in the dicom file.
         - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
         - xyz_format: bool := the format of the image. if True, the image is in [z, y, x] format.
         - orientation: Literal["LAS", "RAS", "LPS"] := the orientation of the image. default is LPS, same as 
@@ -93,7 +93,7 @@ class BrachyPhantom:
         self.image_obj: Union[CTImage, MRImage] = None
         self.image_modality: Literal["CT", "MR", "US"] = None
         self.structure_set: RTStruct = None
-        self.structure_names_dcm: List[str] = []
+        self.structure_names: List[str] = []
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
         self.anatomical_coordinate_system: Literal["LAS", "RAS", "LPS"] = "LPS"
@@ -316,9 +316,9 @@ class BrachyPhantom:
         else:
             assert self.anatomical_coordinate_system == structure_orientation, "The orientation of the structure file is not the same as the image file."
 
-        self.structure_names_dcm = []
+        self.structure_names = []
         for structure in self.structure_set.contours:
-            self.structure_names_dcm.append(structure.name)
+            self.structure_names.append(structure.name)
 
     def get_structure_mask(
         self,
@@ -345,7 +345,7 @@ class BrachyPhantom:
         ), "structure masks have not been loaded yet. please run load_structure_file() first"
         mask_dict: dict = {}
         for query_structure in query_structure_list:
-            for mask_name in self.structure_names_dcm:
+            for mask_name in self.structure_names:
                 if query_structure.lower() in mask_name.lower():
                     mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
                         origin=self.image_obj.origin,
@@ -418,13 +418,13 @@ class BrachyPhantom:
             else "No image object."
         )
         print(
-            f"Structure Names: {self.structure_names_dcm}"
-            if self.structure_names_dcm is not None
+            f"Structure Names: {self.structure_names}"
+            if self.structure_names is not None
             else "No structure names."
         )
         print(
-            f"Structure Count: {len(self.structure_names_dcm)}"
-            if self.structure_names_dcm is not None
+            f"Structure Count: {len(self.structure_names)}"
+            if self.structure_names is not None
             else "No structure names."
         )
 
@@ -442,7 +442,7 @@ class BrachyPhantom:
         self.image_modality = None
         self.structure_set = None
         self.unit_length = None
-        self.structure_names_dcm = []
+        self.structure_names = []
 
     def is_equal(self, other: "BrachyPhantom") -> bool:
         r"""
@@ -468,7 +468,7 @@ class BrachyPhantom:
             warnings.warn("The image arrays are not the same.", stacklevel=2)
             return False
         elif self.structure_set is not None and other.structure_set is not None:
-            for structure_name in self.structure_names_dcm:
+            for structure_name in self.structure_names:
                 if self.structure_set.getContourByName(
                     structure_name
                 ) != other.structure_set.getContourByName(structure_name):
@@ -597,7 +597,7 @@ class BrachyPhantom:
         ), "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         structure_mask_dict: dict = self.get_structure_mask(
-            self.structure_names_dcm, mask_type=np.ndarray
+            self.structure_names, mask_type=np.ndarray
         )
 
         if not overlap:
@@ -913,12 +913,13 @@ def phantom_with_empty_image_like(
     Outputs:
         - new_phantom: BrachyPhantom := the new phantom object.
     """
+    from copy import deepcopy
     new_phantom = BrachyPhantom()
     new_phantom.pth_image = Path(new_pth_image)
     new_phantom.image_obj = None
     new_phantom.image_modality = phantom.image_modality
-    new_phantom.structure_set = phantom.structure_set
-    new_phantom.structure_names_dcm = phantom.structure_names_dcm
+    new_phantom.structure_set = deepcopy(phantom.structure_set)
+    new_phantom.structure_names = deepcopy(phantom.structure_names)
     new_phantom.unit_length = phantom.unit_length
     new_phantom.xyz_format = phantom.xyz_format
 
