@@ -76,7 +76,8 @@ class PhantomRegistration(ABC):
             - None     
         """
         pass
-
+    
+    @abstractmethod
     def synch_image_and_contours(self) -> None:
         """
         Purpose:
@@ -89,31 +90,7 @@ class PhantomRegistration(ABC):
         Output:
             - None
         """
-        if self.register_based_on == "image":
-            # apply the deformation to the contours
-            contour_mask_dict = self.registered_phantom.get_structure_mask(
-                self.registered_phantom.structure_names,
-                mask_type=ROIMask
-            )
-            for contour_name in contour_mask_dict:
-                new_mask = self.deformation.deformImage(contour_mask_dict[contour_name])
-                self.registered_phantom.structure_set.removeContour(contour_mask_dict[contour_name])
-                self.registered_phantom.structure_set.appendContour(new_mask.getROIContour())
-        else:
-            # apply the deformation to the image and the rest of the contours.
-            self.registered_phantom.image_obj = self.deformation.deformImage(self.registered_phantom.image_obj)
-            contour_mask_dict = self.registered_phantom.get_structure_mask(
-                self.registered_phantom.structure_names,
-                mask_type=ROIMask
-            )
-            for contour_name in contour_mask_dict:
-                # skip the contour that was transformed
-                if contour_name == self.contour_name:
-                    continue
-                new_mask = self.deformation.deformImage(contour_mask_dict[contour_name])
-                self.registered_phantom.structure_set.removeContour(contour_mask_dict[contour_name])
-                self.registered_phantom.structure_set.appendContour(new_mask.getROIContour())
-            
+        pass
 
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
 class OpenTPS(PhantomRegistration):
@@ -263,3 +240,40 @@ class OpenTPS(PhantomRegistration):
             )
         else:
             raise ValueError(f"The output type {output_type} is not supported. please specify .nrrd or .dcm")
+
+    def synch_image_and_contours(self) -> None:
+        """
+        Purpose:
+            - To match the image and the contours of the registered phantom. If the registration
+            was based on the image, the same deformation will be applied to the contours.
+            If the registration was based on the contours, the deformation will be applied to the image
+            and the contours will be resampled on the deformed image.  
+        Inputs:
+            - None
+        Output:
+            - None
+        """
+        if self.register_based_on == "image":
+            # apply the deformation to the contours
+            contour_mask_dict = self.registered_phantom.get_structure_mask(
+                self.registered_phantom.structure_names,
+                mask_type=ROIMask
+            )
+            for contour_name in contour_mask_dict:
+                new_mask = self.deformation.deformImage(contour_mask_dict[contour_name])
+                self.registered_phantom.structure_set.removeContour(contour_mask_dict[contour_name])
+                self.registered_phantom.structure_set.appendContour(new_mask.getROIContour())
+        else:
+            # apply the deformation to the image and the rest of the contours.
+            self.registered_phantom.image_obj = self.deformation.deformImage(self.registered_phantom.image_obj)
+            contour_mask_dict = self.registered_phantom.get_structure_mask(
+                self.registered_phantom.structure_names,
+                mask_type=ROIMask
+            )
+            for contour_name in contour_mask_dict:
+                # skip the contour that was transformed
+                if contour_name == self.contour_name:
+                    continue
+                new_mask = self.deformation.deformImage(contour_mask_dict[contour_name])
+                self.registered_phantom.structure_set.removeContour(contour_mask_dict[contour_name])
+                self.registered_phantom.structure_set.appendContour(new_mask.getROIContour())
