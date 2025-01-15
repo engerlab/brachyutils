@@ -16,6 +16,7 @@ class PhantomRegistration(ABC):
         deformable: bool = False,
         algorithm: Literal["demons", "morphons"] = None,
         backend: Literal["elastix", "plastimatch", "opentps"] = None,
+        tryGPU: bool = False,
     ) -> None:
         r"""
         Purpose:
@@ -24,6 +25,8 @@ class PhantomRegistration(ABC):
         Attributes:
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
+            - register_based_on: Literal["image", "contour"] = "image": The registration target. Could be image or a specific contour.
+            - contour_name: Optional[str] = None: The name of the contour to be used in the registration process.
             - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
             - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
             - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
@@ -47,13 +50,30 @@ class PhantomRegistration(ABC):
         self.static_phantom = static_phantom
         self.moving_phantom = moving_phantom
         self.register_based_on = register_based_on
-        self.contour_name = contour_name
+        self.contour_name = contour_name if self.register_based_on == "contour" else None
         self.deformable = deformable
         self.algorithm = algorithm
         self.backend = backend
+        self.tryGPU = tryGPU
         # the following attributes will be computed during the registration process
         self.registered_phantom: BrachyPhantom = None
         self.deformation: Transform3D = None
+        self.static_data = None
+        self.moving_data = None
+
+        # depending on the registration target we will set the static and moving data
+        if self.register_based_on == "image":
+            self.static_data = self.static_phantom.image_obj
+            self.moving_data = self.moving_phantom.image_obj
+        else:
+            self.static_data = self.static_phantom.get_structure_mask(
+                self.contour_name,
+                mask_type=ROIMask
+            )
+            self.moving_data = self.moving_phantom.get_structure_mask(
+                self.contour_name,
+                mask_type=ROIMask
+            )
 
     @abstractmethod
     def register(self) -> tuple[BrachyPhantom, Transform3D]:
@@ -98,9 +118,12 @@ class OpenTPS(PhantomRegistration):
         self,
         static_phantom: BrachyPhantom,
         moving_phantom: BrachyPhantom,
+        register_based_on: Literal["image", "contour"] = "image",
+        contour_name: Optional[str] = None,
         deformable: bool = False,
         algorithm: Literal["demons", "morphons", "quick"] = None,
         backend = "opentps",
+        tryGPU: bool = False,
         ):
         r"""
         Purpose:
@@ -108,6 +131,8 @@ class OpenTPS(PhantomRegistration):
         Inputs:
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
+            - register_based_on: Literal["image", "contour"] = "image": The registration target. Could be image or a specific contour.
+            - contour_name: Optional[str] = None: The name of the contour to be used in the registration process.
             - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
             - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
             - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
@@ -124,9 +149,12 @@ class OpenTPS(PhantomRegistration):
         super().__init__(
             static_phantom,
             moving_phantom,
+            register_based_on,
+            contour_name,
             deformable,
             algorithm,
             backend,
+            tryGPU
             )
         # resample the moving image on the static image.
         # new_moving_phantom = phantom_with_empty_image_like(
@@ -155,8 +183,8 @@ class OpenTPS(PhantomRegistration):
         Outputs:
             - BrachyPhantom: The registered phantom object.
         """
-        assert self.static_phantom is not None, "The static phantom is not defined."
-        assert self.moving_phantom is not None, "The moving phantom is not defined."
+        assert self.static_data is not None, "The static phantom is not defined."
+        assert self.moving_data is not None, "The moving phantom is not defined."
         if self.deformable:
             assert self.algorithm is not None, "The registration algorithm is not defined."
         
@@ -166,8 +194,8 @@ class OpenTPS(PhantomRegistration):
                 from opentps.core.processing.registration.registrationDemons import RegistrationDemons
 
                 reg = RegistrationDemons(
-                    fixed=self.static_phantom.image_obj,
-                    moving=self.moving_phantom.image_obj,
+                    fixed=self.static_data,
+                    moving=self.moving_data,
                     baseResolution=baseResolution,
                     tryGPU=tryGPU
                 )
@@ -177,8 +205,8 @@ class OpenTPS(PhantomRegistration):
                 from opentps.core.processing.registration.registrationMorphons import RegistrationMorphons
     
                 reg = RegistrationMorphons(
-                    fixed=self.static_phantom.image_obj,
-                    moving=self.moving_phantom.image_obj,
+                    fixed=self.static_data,
+                    moving=self.moving_data,
                     baseResolution=baseResolution,
                     tryGPU=tryGPU
                 )
@@ -188,8 +216,8 @@ class OpenTPS(PhantomRegistration):
                 from opentps.core.processing.registration.registrationQuick import RegistrationQuick
 
                 reg = RegistrationQuick(
-                    fixed=self.static_phantom.image_obj,
-                    moving=self.moving_phantom.image_obj,
+                    fixed=self.static_data,
+                    moving=self.moving_data,
                 )
                 self.deformation = reg.compute(tryGPU=tryGPU)
             else:
@@ -198,8 +226,8 @@ class OpenTPS(PhantomRegistration):
         else:
             from opentps.core.processing.registration.registrationRigid import RegistrationRigid
             reg = RegistrationRigid(
-                fixed=self.static_phantom.image_obj,
-                moving=self.moving_phantom.image_obj,
+                fixed=self.static_data,
+                moving=self.moving_data,
                 multimodal=multimodal
             )
             self.deformation = reg.compute()
@@ -214,7 +242,7 @@ class OpenTPS(PhantomRegistration):
         #     reg.deformed,
         #     self.static_phantom.image_obj
         # )
-
+        self.synch_image_and_contours()
         return self.registered_phantom, self.deformation
     
     def export_to(
