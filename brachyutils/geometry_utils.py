@@ -761,11 +761,11 @@ class BrachyPhantom:
             assert dir_nrrd_out.is_dir(), f"the provided path {dir_nrrd_out} is not a directory"
             if self.image_obj is not None:
                 self.write_image_to_nrrd(
-                    pth_output=Path.joinpath(dir_nrrd_out, self.pth_image.stem+".nrrd")
+                    pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".nrrd")
                     )
             if self.structure_set is not None:
                 self.write_structures_to_nrrd(
-                    pth_output=Path.joinpath(dir_nrrd_out, self.pth_image.stem+"seg.nrrd")
+                    pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".seg.nrrd")
                 )
 
     def crop_by_coordinates(
