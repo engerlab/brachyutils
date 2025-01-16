@@ -272,35 +272,33 @@ class OpenTPS(PhantomRegistration):
         Output:
             - None
         """
-        if self.register_on_contour is None:
-            # apply the deformation to the contours
-            contour_mask_dict = self.registered_phantom.get_structure_mask(
-                self.registered_phantom.structure_names,
-                mask_type=ROIMask
-            )
-            for contour_name in contour_mask_dict:
-                new_mask = self.deformation.deformImage(contour_mask_dict[contour_name])
-                if new_mask.name.endswith("_copy"):
-                    new_mask.name = new_mask.name.replace("_copy", "")
-                self.registered_phantom.structure_set.removeContour(
-                    self.registered_phantom.structure_set.getContourByName(contour_name)
+        # deform the image based on the registered stru
+        if self.register_on_contour is not None:
+            self.registered_phantom.image_obj = self.deformation.deformImage(
+                self.registered_phantom.image_obj
                 )
-                self.registered_phantom.structure_set.appendContour(new_mask.getROIContour())
-        else:
             # apply the deformation to the image and the rest of the contours.
-            self.registered_phantom.image_obj = self.deformation.deformImage(self.registered_phantom.image_obj)
             if self.registered_phantom.image_obj.name.endswith("_copy"):
-                self.registered_phantom.image_obj.name = self.registered_phantom.image_obj.name.replace("_copy", "")
-            contour_mask_dict = self.registered_phantom.get_structure_mask(
-                self.registered_phantom.structure_names,
-                mask_type=ROIMask
-            )
-            for contour_name in contour_mask_dict:
-                # skip the contour that was transformed
-                if contour_name == self.register_on_contour:
-                    continue
-                new_mask = self.deformation.deformImage(contour_mask_dict[contour_name])
-                if new_mask.name.endswith("_copy"):
-                    new_mask.name = new_mask.name.replace("_copy", "")
-                self.registered_phantom.structure_set.removeContour(contour_mask_dict[contour_name])
-                self.registered_phantom.structure_set.appendContour(new_mask.getROIContour())
+                self.registered_phantom.image_obj.name = (
+                    self.registered_phantom.image_obj.name.replace("_copy", "")
+                )
+
+        structure_mask_dict = self.registered_phantom.get_structure_mask(
+            self.registered_phantom.structure_names,
+            mask_type=ROIMask
+        )
+
+        if not structure_mask_dict:
+            print("No structure masks found in the registered phantom.")
+            return
+
+        for contour_name in structure_mask_dict:
+            # skip the contour that was transformed
+            if contour_name == self.register_on_contour:
+                continue
+            new_mask = self.deformation.deformImage(structure_mask_dict[contour_name])
+            if new_mask.name.endswith("_copy"):
+                new_mask.name = new_mask.name.replace("_copy", "")
+            structure_mask_dict[contour_name] = new_mask
+
+        self.registered_phantom.set_structure_set(structure_mask_dict)
