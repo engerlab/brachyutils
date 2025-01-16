@@ -11,8 +11,7 @@ class PhantomRegistration(ABC):
         self,
         static_phantom: Union[BrachyPhantom, str],
         moving_phantom: Union[BrachyPhantom, str],
-        register_based_on: Literal["image", "contour"] = "image",
-        contour_name: Optional[str] = None,
+        register_on_contour: Optional[str] = None,
         deformable: bool = False,
         algorithm: Literal["demons", "morphons"] = None,
         backend: Literal["elastix", "plastimatch", "opentps"] = None,
@@ -25,8 +24,8 @@ class PhantomRegistration(ABC):
         Attributes:
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
-            - register_based_on: Literal["image", "contour"] = "image": The registration target. Could be image or a specific contour.
-            - contour_name: Optional[str] = None: The name of the contour to be used in the registration process.
+            - register_on_contour: Optional[str] = None: The name of the contour to be used in the registration process.
+            if this input is provided, contour based registration is used.
             - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
             - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
             - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
@@ -40,17 +39,10 @@ class PhantomRegistration(ABC):
         Functions:
             - register: Register the moving phantom to the static phantom.
         """
-        if register_based_on not in ["image", "contour"]:
-            raise ValueError("register_based_on must be either 'image' or 'contour'")
-        if register_based_on == "contour" and contour_name is None:
-            raise ValueError("contour_name must be provided when register_based_on is set to 'contour'")
-        if register_based_on == "image" and contour_name is not None:
-            raise ValueError("contour_name should not be provided when register_based_on is set to 'image'")
 
         self.static_phantom = static_phantom
         self.moving_phantom = moving_phantom
-        self.register_based_on = register_based_on
-        self.contour_name = contour_name if self.register_based_on == "contour" else None
+        self.register_on_contour = register_on_contour
         self.deformable = deformable
         self.algorithm = algorithm
         self.backend = backend
@@ -62,18 +54,20 @@ class PhantomRegistration(ABC):
         self.moving_data = None
 
         # depending on the registration target we will set the static and moving data
-        if self.register_based_on == "image":
+        if self.register_on_contour is None:
             self.static_data = self.static_phantom.image_obj
             self.moving_data = self.moving_phantom.image_obj
         else:
             self.static_data = self.static_phantom.get_structure_mask(
-                self.contour_name,
+                self.register_on_contour,
                 mask_type=ROIMask
             )
             self.moving_data = self.moving_phantom.get_structure_mask(
-                self.contour_name,
+                self.register_on_contour,
                 mask_type=ROIMask
             )
+        if self.static_data is None and self.moving_data is None:
+            raise ValueError("The registration target is not defined. If registering based on images, do not provide contour name. else ensure contour is loaded in phantom.")
 
     @abstractmethod
     def register(self) -> tuple[BrachyPhantom, Transform3D]:
@@ -118,8 +112,7 @@ class OpenTPS(PhantomRegistration):
         self,
         static_phantom: BrachyPhantom,
         moving_phantom: BrachyPhantom,
-        register_based_on: Literal["image", "contour"] = "image",
-        contour_name: Optional[str] = None,
+        register_on_contour: Optional[str] = None,
         deformable: bool = False,
         algorithm: Literal["demons", "morphons", "quick"] = None,
         backend = "opentps",
@@ -131,8 +124,8 @@ class OpenTPS(PhantomRegistration):
         Inputs:
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
-            - register_based_on: Literal["image", "contour"] = "image": The registration target. Could be image or a specific contour.
-            - contour_name: Optional[str] = None: The name of the contour to be used in the registration process.
+            - register_on_contour: Optional[str] = None: The name of the contour to be used in the registration process.
+            if this input is provided, contour based registration is used.
             - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
             - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
             - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
@@ -149,8 +142,7 @@ class OpenTPS(PhantomRegistration):
         super().__init__(
             static_phantom,
             moving_phantom,
-            register_based_on,
-            contour_name,
+            register_on_contour,
             deformable,
             algorithm,
             backend,
@@ -170,7 +162,6 @@ class OpenTPS(PhantomRegistration):
     def register(
         self,
         baseResolution:float = 2.0,
-        tryGPU: bool = False,
         multimodal: bool = False,
         ) -> tuple[BrachyPhantom, Transform3D]:
         r"""
@@ -197,7 +188,7 @@ class OpenTPS(PhantomRegistration):
                     fixed=self.static_data,
                     moving=self.moving_data,
                     baseResolution=baseResolution,
-                    tryGPU=tryGPU
+                    tryGPU=self.tryGPU
                 )
                 self.deformation = reg.compute()
 
@@ -208,7 +199,7 @@ class OpenTPS(PhantomRegistration):
                     fixed=self.static_data,
                     moving=self.moving_data,
                     baseResolution=baseResolution,
-                    tryGPU=tryGPU
+                    tryGPU=self.tryGPU
                 )
                 self.deformation = reg.compute()
 
@@ -219,7 +210,7 @@ class OpenTPS(PhantomRegistration):
                     fixed=self.static_data,
                     moving=self.moving_data,
                 )
-                self.deformation = reg.compute(tryGPU=tryGPU)
+                self.deformation = reg.compute(tryGPU=self.tryGPU)
             else:
                 raise ValueError("The registration algorithm is not supported. Please choose between 'demons' and 'morphons'.")
 
@@ -281,7 +272,7 @@ class OpenTPS(PhantomRegistration):
         Output:
             - None
         """
-        if self.register_based_on == "image":
+        if self.register_on_contour is None:
             # apply the deformation to the contours
             contour_mask_dict = self.registered_phantom.get_structure_mask(
                 self.registered_phantom.structure_names,
@@ -289,19 +280,27 @@ class OpenTPS(PhantomRegistration):
             )
             for contour_name in contour_mask_dict:
                 new_mask = self.deformation.deformImage(contour_mask_dict[contour_name])
-                self.registered_phantom.structure_set.removeContour(contour_mask_dict[contour_name])
+                if new_mask.name.endswith("_copy"):
+                    new_mask.name = new_mask.name.replace("_copy", "")
+                self.registered_phantom.structure_set.removeContour(
+                    self.registered_phantom.structure_set.getContourByName(contour_name)
+                )
                 self.registered_phantom.structure_set.appendContour(new_mask.getROIContour())
         else:
             # apply the deformation to the image and the rest of the contours.
             self.registered_phantom.image_obj = self.deformation.deformImage(self.registered_phantom.image_obj)
+            if self.registered_phantom.image_obj.name.endswith("_copy"):
+                self.registered_phantom.image_obj.name = self.registered_phantom.image_obj.name.replace("_copy", "")
             contour_mask_dict = self.registered_phantom.get_structure_mask(
                 self.registered_phantom.structure_names,
                 mask_type=ROIMask
             )
             for contour_name in contour_mask_dict:
                 # skip the contour that was transformed
-                if contour_name == self.contour_name:
+                if contour_name == self.register_on_contour:
                     continue
                 new_mask = self.deformation.deformImage(contour_mask_dict[contour_name])
+                if new_mask.name.endswith("_copy"):
+                    new_mask.name = new_mask.name.replace("_copy", "")
                 self.registered_phantom.structure_set.removeContour(contour_mask_dict[contour_name])
                 self.registered_phantom.structure_set.appendContour(new_mask.getROIContour())

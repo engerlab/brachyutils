@@ -737,21 +737,19 @@ class BrachyPhantom:
             pth_structures_out:= path to the output structure file, the extension could be .nrrd or .dcm
             dir_dicom_out:= path to export all the dicom informatin to. it has to be a directory
         """
-        pth_image_out = Path(pth_image_out)
-        pth_structures_out = Path(pth_structures_out)
-        dir_dicom_out = Path(dir_dicom_out)
-        dir_nrrd_out = Path(dir_nrrd_out)
-
         if pth_image_out is not None:
+            pth_image_out = Path(pth_image_out)
             assert self.image_obj is not None, "no image is loaded into this BrachyPhantom"
             if pth_image_out.endswith(".nrrd"):
                 self.write_image_to_nrrd(pth_output=pth_image_out)
 
         if pth_structures_out is not None:
+            pth_structures_out = Path(pth_structures_out)
             assert self.structure_set is not None, "no structures is loaded into this BrachyPhantom"
             self.write_structures_to_nrrd(pth_output=pth_structures_out)
 
         if dir_dicom_out is not None:
+            dir_dicom_out = Path(dir_dicom_out)
             assert dir_dicom_out.is_dir(), f"the provided path {dir_dicom_out} is not a directory"
             if self.image_obj is not None:
                 self.write_image_to_dicom(dir_output=dir_dicom_out)
@@ -759,6 +757,7 @@ class BrachyPhantom:
                 self.write_structures_to_dicom(dir_output=dir_dicom_out)
 
         if dir_nrrd_out is not None:
+            dir_nrrd_out = Path(dir_nrrd_out)
             assert dir_nrrd_out.is_dir(), f"the provided path {dir_nrrd_out} is not a directory"
             if self.image_obj is not None:
                 self.write_image_to_nrrd(
@@ -918,8 +917,8 @@ def phantom_with_empty_image_like(
     new_phantom.pth_image = Path(new_pth_image)
     new_phantom.image_obj = None
     new_phantom.image_modality = phantom.image_modality
-    new_phantom.structure_set = deepcopy(phantom.structure_set)
-    new_phantom.structure_names = deepcopy(phantom.structure_names)
+    new_phantom.structure_set = phantom.structure_set
+    new_phantom.structure_names = [structure.name for structure in new_phantom.structure_set.contours]
     new_phantom.unit_length = phantom.unit_length
     new_phantom.xyz_format = phantom.xyz_format
 
