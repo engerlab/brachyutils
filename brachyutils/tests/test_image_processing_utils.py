@@ -35,8 +35,8 @@ def test_register_opentps():
         )
 
     # mode = {"deformable": False, "algorithm": None}
-    mode = {"deformable": True, "algorithm": "quick"}
-    # mode = {"deformable": True, "algorithm": "demons"}
+    # mode = {"deformable": True, "algorithm": "quick"}
+    mode = {"deformable": True, "algorithm": "demons"}
     # mode = {"deformable": True, "algorithm": "morphons"}
 
     registration_obj = OpenTPS(

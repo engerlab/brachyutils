@@ -855,20 +855,66 @@ class BrachyPhantom:
     def set_structure_set(self, mask_dict: dict) -> None:
         r"""
         Purpose:
-            - Set the structure set with the input mask dictionary.
+            - Set the structure set with the input mask dictionary mapping structure names to ROIMask.
+            If the name of a structure is in the structure set, the mask will be replaced.
+            If the name of a structure is not in the structure set, a new structure will be added.
         Inputs:
-            - mask_dict: dict := the dictionary of the masks. the values are numpy arrays in
-            [z, y, x] format.
+            - mask_dict: dict := the dictionary of the masks.
+            The values could be numpy arrays, ROIContour or ROIMask objects.
         Outputs:
             - None
         """
         for structure_name in mask_dict:
-            self.structure_set.removeContour(
-                self.structure_set.getContourByName(structure_name)
-            )
-            self.structure_set.appendContour(
-                mask_dict.get(structure_name).getROIContour()
-            )
+            # check if the structure already exists in structure set
+            old_structure = self.structure_set.getContourByName(structure_name)
+            if old_structure is not None:
+                self.structure_set.removeContour(old_structure)
+
+            if isinstance(mask_dict.get(structure_name), np.ndarray):
+                mask = ROIMask(
+                    name=structure_name,
+                    imageArray=np.swapaxes(mask_dict[structure_name], 0, 2),
+                    origin=self.image_obj.origin,
+                    gridSize=self.image_obj.gridSize,
+                    spacing=self.image_obj.spacing,
+                )
+                self.structure_set.appendContour(mask.getROIContour())
+
+            elif isinstance(mask_dict.get(structure_name), ROIContour):
+                self.structure_set.appendContour(mask_dict.get(structure_name))
+
+            elif isinstance(mask_dict.get(structure_name), ROIMask):
+                self.structure_set.appendContour(mask_dict.get(structure_name).getROIContour())
+            else:
+                raise ValueError("The mask type is not recognized.")
+        self._update_structure_names()
+
+    def _update_structure_names(self) -> None:
+        r"""
+        Purpose:
+            - Update the structure names based ont he structure set.
+        Inputs:
+            - None
+        Outputs:
+            - None
+        """
+        self.structure_names = [structure.name for structure in self.structure_set.contours]
+
+    def remove_structure(self, structure_name: str) -> None:
+        r"""
+        Purpose:
+            - Remove the structure from the structure set.
+        Inputs:
+            - structure_name: str := the name of the structure to remove.
+        Outputs:
+            - None
+        """
+        structure = self.structure_set.getContourByName(structure_name)
+        if structure is not None:
+            self.structure_set.removeContour(structure)
+            self._update_structure_names()
+        else:
+            warnings.warn(f"The structure {structure_name} does not exist.")
 
     def _convert_orientation_to_LPS(self) -> None:
         r"""
