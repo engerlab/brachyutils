@@ -719,7 +719,7 @@ class BrachyPhantom:
                 "No image object or egsphant object to write to Egsphant file. Please load the image object first."
             )
 
-    def write_to_file(
+    def export_to(
         self,
         pth_image_out: Path | str = None,
         pth_structures_out: Path | str = None,

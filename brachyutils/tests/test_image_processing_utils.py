@@ -48,10 +48,13 @@ def test_register_opentps():
 
     registration_obj.register()
     registration_obj.export_to(pth_output.parent)
-    
-    # deformed_phantom.write_image_to_nrrd(pth_output)
-    # static_phantom.write_image_to_nrrd(Path.joinpath(pth_output.parent, pth_img_static.name.split(".")[0]+".nrrd"))
-    # moving_phantom.write_image_to_nrrd(Path.joinpath(pth_output.parent, pth_img_moving.name.split(".")[0]+".nrrd"))
+
+    static_phantom.export_to(
+        dir_nrrd_out=pth_output.parent
+    )
+    moving_phantom.export_to(
+        dir_nrrd_out=pth_output.parent
+    )
 
 if __name__ == "__main__":
     print("testing the registration class")

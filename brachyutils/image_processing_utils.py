@@ -250,11 +250,11 @@ class OpenTPS(PhantomRegistration):
         """
         assert self.registered_phantom is not None
         if output_type == ".nrrd":
-            self.registered_phantom.write_to_file(
+            self.registered_phantom.export_to(
                 dir_nrrd_out=dir_registered_phantom
                 )
         elif output_type == ".dcm":
-            self.registered_phantom.write_to_file(
+            self.registered_phantom.export_to(
                 dir_dicom_out=dir_registered_phantom
             )
         else:
