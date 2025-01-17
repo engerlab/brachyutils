@@ -719,7 +719,7 @@ class BrachyPhantom:
                 "No image object or egsphant object to write to Egsphant file. Please load the image object first."
             )
 
-    def write_to_file(
+    def export_to(
         self,
         pth_image_out: Path | str = None,
         pth_structures_out: Path | str = None,
@@ -737,21 +737,19 @@ class BrachyPhantom:
             pth_structures_out:= path to the output structure file, the extension could be .nrrd or .dcm
             dir_dicom_out:= path to export all the dicom informatin to. it has to be a directory
         """
-        pth_image_out = Path(pth_image_out)
-        pth_structures_out = Path(pth_structures_out)
-        dir_dicom_out = Path(dir_dicom_out)
-        dir_nrrd_out = Path(dir_nrrd_out)
-
         if pth_image_out is not None:
+            pth_image_out = Path(pth_image_out)
             assert self.image_obj is not None, "no image is loaded into this BrachyPhantom"
             if pth_image_out.endswith(".nrrd"):
                 self.write_image_to_nrrd(pth_output=pth_image_out)
 
         if pth_structures_out is not None:
+            pth_structures_out = Path(pth_structures_out)
             assert self.structure_set is not None, "no structures is loaded into this BrachyPhantom"
             self.write_structures_to_nrrd(pth_output=pth_structures_out)
 
         if dir_dicom_out is not None:
+            dir_dicom_out = Path(dir_dicom_out)
             assert dir_dicom_out.is_dir(), f"the provided path {dir_dicom_out} is not a directory"
             if self.image_obj is not None:
                 self.write_image_to_dicom(dir_output=dir_dicom_out)
@@ -759,14 +757,15 @@ class BrachyPhantom:
                 self.write_structures_to_dicom(dir_output=dir_dicom_out)
 
         if dir_nrrd_out is not None:
+            dir_nrrd_out = Path(dir_nrrd_out)
             assert dir_nrrd_out.is_dir(), f"the provided path {dir_nrrd_out} is not a directory"
             if self.image_obj is not None:
                 self.write_image_to_nrrd(
-                    pth_output=Path.joinpath(dir_nrrd_out, self.pth_image.stem+".nrrd")
+                    pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".nrrd")
                     )
             if self.structure_set is not None:
                 self.write_structures_to_nrrd(
-                    pth_output=Path.joinpath(dir_nrrd_out, self.pth_image.stem+"seg.nrrd")
+                    pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".seg.nrrd")
                 )
 
     def crop_by_coordinates(
@@ -856,20 +855,66 @@ class BrachyPhantom:
     def set_structure_set(self, mask_dict: dict) -> None:
         r"""
         Purpose:
-            - Set the structure set with the input mask dictionary.
+            - Set the structure set with the input mask dictionary mapping structure names to ROIMask.
+            If the name of a structure is in the structure set, the mask will be replaced.
+            If the name of a structure is not in the structure set, a new structure will be added.
         Inputs:
-            - mask_dict: dict := the dictionary of the masks. the values are numpy arrays in
-            [z, y, x] format.
+            - mask_dict: dict := the dictionary of the masks.
+            The values could be numpy arrays, ROIContour or ROIMask objects.
         Outputs:
             - None
         """
         for structure_name in mask_dict:
-            self.structure_set.removeContour(
-                self.structure_set.getContourByName(structure_name)
-            )
-            self.structure_set.appendContour(
-                mask_dict.get(structure_name).getROIContour()
-            )
+            # check if the structure already exists in structure set
+            old_structure = self.structure_set.getContourByName(structure_name)
+            if old_structure is not None:
+                self.structure_set.removeContour(old_structure)
+
+            if isinstance(mask_dict.get(structure_name), np.ndarray):
+                mask = ROIMask(
+                    name=structure_name,
+                    imageArray=np.swapaxes(mask_dict[structure_name], 0, 2),
+                    origin=self.image_obj.origin,
+                    gridSize=self.image_obj.gridSize,
+                    spacing=self.image_obj.spacing,
+                )
+                self.structure_set.appendContour(mask.getROIContour())
+
+            elif isinstance(mask_dict.get(structure_name), ROIContour):
+                self.structure_set.appendContour(mask_dict.get(structure_name))
+
+            elif isinstance(mask_dict.get(structure_name), ROIMask):
+                self.structure_set.appendContour(mask_dict.get(structure_name).getROIContour())
+            else:
+                raise ValueError("The mask type is not recognized.")
+        self._update_structure_names()
+
+    def _update_structure_names(self) -> None:
+        r"""
+        Purpose:
+            - Update the structure names based ont he structure set.
+        Inputs:
+            - None
+        Outputs:
+            - None
+        """
+        self.structure_names = [structure.name for structure in self.structure_set.contours]
+
+    def remove_structure(self, structure_name: str) -> None:
+        r"""
+        Purpose:
+            - Remove the structure from the structure set.
+        Inputs:
+            - structure_name: str := the name of the structure to remove.
+        Outputs:
+            - None
+        """
+        structure = self.structure_set.getContourByName(structure_name)
+        if structure is not None:
+            self.structure_set.removeContour(structure)
+            self._update_structure_names()
+        else:
+            warnings.warn(f"The structure {structure_name} does not exist.")
 
     def _convert_orientation_to_LPS(self) -> None:
         r"""
@@ -918,8 +963,8 @@ def phantom_with_empty_image_like(
     new_phantom.pth_image = Path(new_pth_image)
     new_phantom.image_obj = None
     new_phantom.image_modality = phantom.image_modality
-    new_phantom.structure_set = deepcopy(phantom.structure_set)
-    new_phantom.structure_names = deepcopy(phantom.structure_names)
+    new_phantom.structure_set = phantom.structure_set
+    new_phantom.structure_names = [structure.name for structure in new_phantom.structure_set.contours]
     new_phantom.unit_length = phantom.unit_length
     new_phantom.xyz_format = phantom.xyz_format
 
