@@ -170,7 +170,6 @@ class OpenTPS(PhantomRegistration):
     def register(
         self,
         baseResolution:float = 2.0,
-        tryGPU: bool = False,
         multimodal: bool = False,
         ) -> tuple[BrachyPhantom, Transform3D]:
         r"""
@@ -197,7 +196,7 @@ class OpenTPS(PhantomRegistration):
                     fixed=self.static_data,
                     moving=self.moving_data,
                     baseResolution=baseResolution,
-                    tryGPU=tryGPU
+                    tryGPU=self.tryGPU
                 )
                 self.deformation = reg.compute()
 
@@ -208,7 +207,7 @@ class OpenTPS(PhantomRegistration):
                     fixed=self.static_data,
                     moving=self.moving_data,
                     baseResolution=baseResolution,
-                    tryGPU=tryGPU
+                    tryGPU=self.tryGPU
                 )
                 self.deformation = reg.compute()
 
@@ -219,7 +218,7 @@ class OpenTPS(PhantomRegistration):
                     fixed=self.static_data,
                     moving=self.moving_data,
                 )
-                self.deformation = reg.compute(tryGPU=tryGPU)
+                self.deformation = reg.compute(tryGPU=self.tryGPU)
             else:
                 raise ValueError("The registration algorithm is not supported. Please choose between 'demons' and 'morphons'.")
 
