@@ -59,13 +59,13 @@ class PhantomRegistration(ABC):
             self.moving_data = self.moving_phantom.image_obj
         else:
             self.static_data = self.static_phantom.get_structure_mask(
-                self.register_on_contour,
+                [self.register_on_contour],
                 mask_type=ROIMask
-            )
+            ).get(self.register_on_contour)
             self.moving_data = self.moving_phantom.get_structure_mask(
-                self.register_on_contour,
+                [self.register_on_contour],
                 mask_type=ROIMask
-            )
+            ).get(self.register_on_contour)
         if self.static_data is None and self.moving_data is None:
             raise ValueError("The registration target is not defined. If registering based on images, do not provide contour name. else ensure contour is loaded in phantom.")
 

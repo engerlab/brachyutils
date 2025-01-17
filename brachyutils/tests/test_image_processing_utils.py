@@ -42,6 +42,7 @@ def test_register_opentps():
     registration_obj = OpenTPS(
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
+        register_on_contour="Segment1_Name",
         deformable=mode["deformable"],
         algorithm=mode["algorithm"],
         )
