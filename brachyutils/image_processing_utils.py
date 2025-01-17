@@ -229,10 +229,11 @@ class OpenTPS(PhantomRegistration):
 
         self.registered_phantom.image_obj = reg.deformed
         # self.registered_phantom.image_obj.origin = self.static_phantom.image_obj.origin
-        # self.registered_phantom.image_obj = resampleImage3DOnImage3D(
-        #     reg.deformed,
-        #     self.static_phantom.image_obj
-        # )
+        # resample the registered image on the static iamge to match the coordinates and contours.
+        self.registered_phantom.image_obj = resampleImage3DOnImage3D(
+            reg.deformed,
+            self.static_phantom.image_obj
+        )
         self.synch_image_and_contours()
         return self.registered_phantom, self.deformation
     
