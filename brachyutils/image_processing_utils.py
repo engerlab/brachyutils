@@ -222,18 +222,29 @@ class OpenTPS(PhantomRegistration):
                 multimodal=multimodal
             )
             self.deformation = reg.compute()
+        # resample the registered image/contour on the static iamge to match the coordinates and contours.
+        registered_data = resampleImage3DOnImage3D(
+                reg.deformed,
+                self.static_phantom.image_obj
+            )
 
         self.registered_phantom = phantom_with_empty_image_like(
             self.static_phantom,
             new_pth_image=f"reg_{self.moving_phantom.pth_image.stem}")
 
-        self.registered_phantom.image_obj = reg.deformed
+        if self.register_on_contour is None:
+            self.registered_phantom.image_obj = registered_data
+        else:
+            self.registered_phantom.image_obj = self.moving_phantom.image_obj
+            new_contour = ROIMask(
+                name=self.register_on_contour,
+                imageArray=registered_data.imageArray,
+                origin=registered_data.origin,
+                spacing=registered_data.spacing,
+            ).getROIContour()
+            self.moving_phantom.set_structure_set({self.register_on_contour: new_contour})
+            
         # self.registered_phantom.image_obj.origin = self.static_phantom.image_obj.origin
-        # resample the registered image on the static iamge to match the coordinates and contours.
-        self.registered_phantom.image_obj = resampleImage3DOnImage3D(
-            reg.deformed,
-            self.static_phantom.image_obj
-        )
         self.synch_image_and_contours()
         return self.registered_phantom, self.deformation
     

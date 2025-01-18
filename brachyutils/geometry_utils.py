@@ -750,6 +750,7 @@ class BrachyPhantom:
 
         if dir_dicom_out is not None:
             dir_dicom_out = Path(dir_dicom_out)
+            os.makedirs(dir_nrrd_out, exist_ok=True)
             assert dir_dicom_out.is_dir(), f"the provided path {dir_dicom_out} is not a directory"
             if self.image_obj is not None:
                 self.write_image_to_dicom(dir_output=dir_dicom_out)
@@ -758,6 +759,7 @@ class BrachyPhantom:
 
         if dir_nrrd_out is not None:
             dir_nrrd_out = Path(dir_nrrd_out)
+            os.makedirs(dir_nrrd_out, exist_ok=True)
             assert dir_nrrd_out.is_dir(), f"the provided path {dir_nrrd_out} is not a directory"
             if self.image_obj is not None:
                 self.write_image_to_nrrd(
