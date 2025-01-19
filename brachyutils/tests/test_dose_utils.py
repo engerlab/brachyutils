@@ -6,7 +6,24 @@ import numpy as np
 
 from brachyutils.dose_utils import BrachyDose
 from brachyutils.dose_comparison_utils import DoseComparison
+from pathlib import Path
+from brachyutils.geometry_utils import BrachyPhantom
 
+def make_dose_from_image():
+    pth_dicom = Path("../data_test/prostate-glen-p1-dcm")
+    pth_dose_nrrd = Path("../data_test/test_export_plan/dose_image.seq.nrrd")
+
+    image = BrachyPhantom(
+        dir_dicom=pth_dicom,
+    )
+    image.info()
+    dose = BrachyDose()
+
+    dose.dose_image = image.image_obj
+    dose.uncertainty_image = image.image_obj
+    dose.get_voxel_edges()
+    dose.info()
+    dose.write_to_nrrd(pth_dose_nrrd)
 
 def test_load_from_3ddose():
     pth_file = "../data_test/rectal-jgh-planFiles/combined.3ddose"
