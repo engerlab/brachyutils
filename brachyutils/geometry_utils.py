@@ -502,7 +502,7 @@ class BrachyPhantom:
         if self.image_obj is not None:
             os.makedirs(dir_output, exist_ok=True)
             if self.image_modality == "CT":
-                writeDicomCT(self.image_obj, dir_output)
+                writeDicomCT(self.image_obj, str(dir_output))
             elif self.image_modality == "MR":
                 raise NotImplementedError("MR image writing is not implemented yet")
             elif self.image_modality == "US":
@@ -517,7 +517,7 @@ class BrachyPhantom:
         """
         if self.structure_set is not None:
             os.makedirs(dir_output, exist_ok=True)
-            writeRTStruct(self.structure_set, dir_output)
+            writeRTStruct(self.structure_set, str(dir_output))
 
     def write_image_to_nrrd(
         self,
@@ -750,7 +750,7 @@ class BrachyPhantom:
 
         if dir_dicom_out is not None:
             dir_dicom_out = Path(dir_dicom_out)
-            os.makedirs(dir_nrrd_out, exist_ok=True)
+            os.makedirs(dir_dicom_out, exist_ok=True)
             assert dir_dicom_out.is_dir(), f"the provided path {dir_dicom_out} is not a directory"
             if self.image_obj is not None:
                 self.write_image_to_dicom(dir_output=dir_dicom_out)
