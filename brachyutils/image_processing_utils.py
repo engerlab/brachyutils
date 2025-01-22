@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from glob import glob
 from pathlib import Path
-from typing import Literal, Optional, Union, List
+from typing import Literal, Optional, Union, List, Dict
 
 from brachyutils.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
 from opentps.core.data._transform3D import Transform3D
@@ -314,3 +314,118 @@ class OpenTPS(PhantomRegistration):
             structure_mask_dict[contour_name] = new_mask
 
         self.registered_phantom.set_structure_set(structure_mask_dict)
+
+class Plastimatch(PhantomRegistration):
+    def __init__(
+        self,
+        pth_plastimatch: Path | str,
+        static_phantom: BrachyPhantom,
+        moving_phantom: BrachyPhantom,
+        register_on_contour: Optional[str] = None,
+        deformable: bool = False,
+        algorithm: Literal["demons", "bspline"] = None,
+        backend = "plastimatch",
+        tryGPU: bool = False,
+        ):
+        r"""
+        Purpose:
+            - A class to wrap around the Plastimatch image registration method.
+        Inputs:
+            - static_phantom: BrachyPhantom: The static phantom object.
+            - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
+            - register_on_contour: Optional[str] = None: The name of the contour to be used in the registration process.
+            if this input is provided, contour based registration is used.
+            - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
+            - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
+            - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
+            the registration process.
+            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+        Outputs:
+            - None
+        Functions:
+            - register: Register the moving phantom to the static phantom.
+        Dependencies:
+            - Plastimatch
+        """
+
+        super().__init__(
+            static_phantom,
+            moving_phantom,
+            register_on_contour,
+            deformable,
+            algorithm,
+            backend,
+            tryGPU
+            )
+        self.pth_plastimatch = pth_plastimatch
+
+    def register(
+        self,
+        stage_params_list: List[Dict[str, str]] = None,
+        ) -> tuple[BrachyPhantom, Transform3D]:
+        r"""
+        Purpose:
+            - Register the moving phantom to the static phantom using the Plastimatch package.
+        Inputs:
+            - stage_params_list: List[dict]: The list of parameters for the registration stages.
+            - stage_params_list: List[Dict[str, str]] := a list of dictionaries containing the stage parameters for the registration.
+            please look at the plastimatch documentation for the full list of possible stage parameters.
+        """
+        if self.static_data is None or self.moving_data is None:
+            raise ValueError("The static or moving phantom is not defined.")
+        # leave some space to figure out the rigidness and options for the registration.
+        
+        # need to write out the images for plastimatch to read them.
+        # first sort out the paths to the images
+        dir_temp_data = Path(__file__).resolve().parent.parent.joinpath("temp_data/registration")
+        pth_static = dir_temp_data.joinpath("static.nrrd")
+        pth_moving = dir_temp_data.joinpath("moving.nrrd")
+        pth_output = dir_temp_data.joinpath("registered.nrrd")
+
+        # create phantoms with empty image data. remember, the image data could be structure masks
+        # or actual image data.
+        for data, pth in zip([self.static_data, self.moving_data], [pth_static, pth_moving]):
+            empty_phant = phantom_with_empty_image_like(
+                self.moving_phantom,
+                new_pth_image=pth
+            )
+            empty_phant.image_obj = data
+            empty_phant.write_image_to_nrrd(
+                pth_output=pth
+            )
+
+        global_params = {
+            "fixed" : f"{str(pth_static).split("temp_data/registration/")[-1]}",
+            "moving" : f"{str(pth_moving).split("temp_data/registration/")[-1]}",
+            "image_out" : f"{str(pth_output).split("temp_data/registration/")[-1]}",
+        }
+
+        stage_params_list = stage_params_list if stage_params_list else[
+            {
+                "xform": "bspline"
+            }
+        ]
+
+        if "http" in self.pth_plastimatch:
+            import requests
+            response = requests.post(
+                url=self.pth_plastimatch,
+                json={
+                    "global_params": global_params,
+                    "stage_params_list": stage_params_list,
+                    },
+                timeout=None
+            )
+            # get the registered image
+            if not pth_output.exists():
+                raise ValueError("The registered image was not generated.")
+
+            # read the registered image
+            # registered_image = BrachyPhantom(
+            #     pth_phantom_file=pth_output
+            # )
+    def export_to(self, pth_phantom_export):
+        pass
+
+    def synch_image_and_contours(self):
+        pass

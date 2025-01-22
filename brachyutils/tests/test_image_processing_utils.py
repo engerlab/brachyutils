@@ -57,6 +57,35 @@ def test_register_opentps():
         dir_nrrd_out=pth_output.parent
     )
 
+def test_register_plastimatch():
+    from brachyutils.image_processing_utils import Plastimatch
+    # Abdominal: static = CT, moving = MR
+    pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
+    pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
+    pth_img_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
+    pth_label_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
+    pth_output = Path("../data_test/test_export_plan/abdomin_mr_ct/registered_abdomin_ct_mr.nrrd")
+    
+    for pth in [pth_img_static, pth_img_moving, pth_label_static, pth_label_moving]:
+        assert pth.exists(), f"File {pth} does not exist."
+
+    static_phantom = BrachyPhantom(
+        pth_phantom_file=pth_img_static,
+        pth_structures_file=pth_label_static,
+        )
+    moving_phantom = BrachyPhantom(
+        pth_phantom_file=pth_img_moving,
+        pth_structures_file=pth_label_moving
+        )
+    registration_obj = Plastimatch(
+        pth_plastimatch="http://192.168.1.13:8000/plastimatch_register",
+        static_phantom=static_phantom,
+        moving_phantom=moving_phantom,
+        backend="plastimatch",
+    )
+    registration_obj.register()
+
 if __name__ == "__main__":
     print("testing the registration class")
-    test_register_opentps()
+    # test_register_opentps()
+    test_register_plastimatch()
