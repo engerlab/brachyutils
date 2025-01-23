@@ -555,11 +555,12 @@ class BrachyEgsphant:
         density_grid = self.get_density_array().astype(
             np.float32
         )  # np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
-        material_density = np.stack([material_grid, density_grid], axis=0)
+        material_density = np.stack([material_grid, density_grid], axis=3)
 
         from collections import defaultdict
 
         header = defaultdict(str)
+        header = header | metadata if metadata is not None else header
         header["type"] = "double"
         header["dimension"] = "4"
         header["space"] = coordinate_system
@@ -567,9 +568,9 @@ class BrachyEgsphant:
 
         header["space directions"] = [
             [np.nan, np.nan, np.nan],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
+            [self.density_image.spacing[0], 0.0, 0.0],
+            [0.0, self.density_image.spacing[1], 0.0],
+            [0.0, 0.0, self.density_image.spacing[2]],
         ]
         header["kinds"] = ["2-vector", "space", "space", "space"]
         header["labels"] = ["", "x", "y", "z"]
@@ -579,8 +580,7 @@ class BrachyEgsphant:
         header["spacing"] = [np.nan] + self.density_image.spacing.tolist()
         header = header | {"material_dict": dict(self.material_dict)}
         # header["space units"] = ["", "mm", "mm", "mm"]
-        header = header | metadata if metadata is not None else header
-        nrrd.write(fileName, material_density, header)
+        nrrd.write(str(fileName), material_density, header, index_order="C")
 
     def is_equal(self, new_BrachyEgsphant):
         r"""

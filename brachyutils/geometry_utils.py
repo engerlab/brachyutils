@@ -688,6 +688,7 @@ class BrachyPhantom:
         r"""
         Purpose:
             - Write the BrachyPhantom object to an Egsphant file.
+
         Inputs:
             - pth_output: Path := the path to write the Egsphant file to.
             - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
@@ -699,9 +700,13 @@ class BrachyPhantom:
             ]
             - assign_material_from_ct: bool := if True, the material will be assigned from the CT image.
         """
-        assert (
-            os.path.splitext(pth_output)[-1] == ".egsphant"
-        ), "the file should have '.egsphant' extension"
+        if str(pth_output).endswith(".egsphant"):
+            pass
+        elif str(pth_output).endswith(".egsphant.nrrd"):
+            pass
+        else:
+            raise ValueError("The output file should have '.egsphant' or '.egsphant.nrrd' extension.")           
+
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         if self.egsphant_obj is not None:
             self.egsphant_obj.write_to_ctegsphant(pth_output)
@@ -713,7 +718,10 @@ class BrachyPhantom:
                 material_dict=material_dict,
                 assign_material_from_ct=assign_material_from_ct,
             )
-            self.egsphant_obj.write_to_ctegsphant(pth_output)
+            if str(pth_output).endswith(".egsphant"):
+                self.egsphant_obj.write_to_egsphant(pth_output)
+            elif str(pth_output).endswith(".egsphant.nrrd"):
+                self.egsphant_obj.write_to_nrrd(pth_output)
         else:
             raise ValueError(
                 "No image object or egsphant object to write to Egsphant file. Please load the image object first."
