@@ -331,6 +331,8 @@ class Plastimatch(PhantomRegistration):
         Purpose:
             - A class to wrap around the Plastimatch image registration method.
         Inputs:
+            - pth_plastimatch: Path | str: The path to the plastimatch executable or the URL where
+            the plastimatch server is running.
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
             - register_on_contour: Optional[str] = None: The name of the contour to be used in the registration process.
