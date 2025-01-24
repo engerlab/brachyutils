@@ -13,9 +13,9 @@ def make_plan_and_export_it(dir_export) -> Path:
     pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
     # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # # assign material based on contours:
-    pth_material = "../data_test/prostate_material_dict.json"
+    # pth_material = "../data_test/prostate_material_dict.json"
     # # assign materials based on CT values:
-    # pth_material = "../data_test/CTtoDensityProstate.txt"
+    pth_material = "../data_test/CTtoDensityProstate.txt"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -51,7 +51,7 @@ def make_plan_and_export_it(dir_export) -> Path:
         "catheter_table": True,
         "egsphant": True,
         "materials_table": pth_material,
-        "assign_material_from_ct": False,
+        "assign_material_from_ct": True,
         "structure_set": True,
         "plan": True,
         "mac": True,
@@ -73,9 +73,9 @@ def make_plan_and_export_it(dir_export) -> Path:
 
 
 def test_DoseTG43():
-    # dir_export = "../temp_data/tg43/test_export_plan"
-    # dose_setup = make_plan_and_export_it(dir_export)
-    dose_setup = Path("temp_data/test_export_plan")
+    dir_export = "../temp_data/tg43/p1"
+    dose_setup = make_plan_and_export_it(dir_export)
+    dose_setup = Path("temp_data/tg43/p1")
     pth_exectuable = "http://192.168.1.12:8000/calculate_dose_tg43"
     dose_generator = DoseTG43(
         dir_plan_export=dose_setup,
@@ -101,19 +101,19 @@ def test_DoseMC():
 
 
 if __name__ == "__main__":
-    # test_DoseTG43()
+    test_DoseTG43()
     # test_DoseMC()
-    import requests
+    # import requests
 
-    json_data = {
-        'pth_mac': 'temp_data/test_export_plan/run_1.mac',
-        'random_seed': 1,
-    }
+    # json_data = {
+    #     'pth_mac': 'temp_data/test_export_plan/combined.mac',
+    #     'random_seed': 1,
+    # }
 
-    response = requests.post('http://192.168.1.11:8000/calculate_dose_mc', json=json_data, timeout=None)
-    json_data = {
-        'dir_dose_setup': 'temp_data/test_export_plan',
-    }
-    response = requests.post("http://192.168.1.12:8000/calculate_dose_tg43", json=json_data, timeout=None)
+    # response = requests.post('http://192.168.1.11:8000/calculate_dose_mc', json=json_data, timeout=None)
+    # json_data = {
+    #     'dir_dose_setup': 'temp_data/test_export_plan',
+    # }
+    # response = requests.post("http://192.168.1.12:8000/calculate_dose_tg43", json=json_data, timeout=None)
 
-    print(response.json())
+    # print(response.json())

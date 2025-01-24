@@ -1,7 +1,7 @@
-from brachyutils.geometry_utils import BrachyPhantom
 from pathlib import Path
 from glob import glob
 def export_phantom_opentps_nrrd_dicom_egsphant():
+    from brachyutils.geometry_utils import BrachyPhantom
     pth_img_dicom = Path("../data_test/prostate-glen-p1-dcm")
     pth_strct_dicom = glob(str(pth_img_dicom)+"/RS*.dcm")[0]
     pth_img_nrrd = Path("../data_test/test_export_plan/opentps/prostate_glen_p1.nrrd")
@@ -24,8 +24,10 @@ def export_phantom_opentps_nrrd_dicom_egsphant():
         assign_material_from_ct=assign_material_from_ct
         )
 
-def register_opentps_on_image_and_contour():
-    
+def compare_dose_mc_tg43():
+    from brachyutils.dose_generation_utils import DoseMonteCarlo, DoseTG43
+    from brachyutils.plan_utils import BrachyPlan
+
 
 if __name__ == "__main__":
     export_phantom_opentps_nrrd_dicom_egsphant()
