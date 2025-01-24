@@ -702,7 +702,7 @@ class BrachyPhantom:
         """
         if str(pth_output).endswith(".egsphant"):
             pass
-        elif str(pth_output).endswith(".egsphant.nrrd"):
+        elif str(pth_output).endswith(".seq.nrrd"):
             pass
         else:
             raise ValueError("The output file should have '.egsphant' or '.egsphant.nrrd' extension.")           
@@ -720,7 +720,7 @@ class BrachyPhantom:
             )
             if str(pth_output).endswith(".egsphant"):
                 self.egsphant_obj.write_to_egsphant(pth_output)
-            elif str(pth_output).endswith(".egsphant.nrrd"):
+            elif str(pth_output).endswith(".seq.nrrd"):
                 self.egsphant_obj.write_to_nrrd(pth_output)
         else:
             raise ValueError(

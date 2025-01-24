@@ -42,7 +42,7 @@ def test_register_opentps():
     registration_obj = OpenTPS(
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
-        register_on_contour="Segment1_Name",
+        # register_on_contour="Segment1_Name",
         deformable=mode["deformable"],
         algorithm=mode["algorithm"],
         )
@@ -87,5 +87,5 @@ def test_register_plastimatch():
 
 if __name__ == "__main__":
     print("testing the registration class")
-    # test_register_opentps()
-    test_register_plastimatch()
+    test_register_opentps()
+    # test_register_plastimatch()

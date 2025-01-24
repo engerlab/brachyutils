@@ -1,7 +1,7 @@
 from brachyutils.geometry_utils import BrachyPhantom
 from pathlib import Path
 from glob import glob
-def compare_structures_nrrd_dicom_opentps():
+def export_phantom_opentps_nrrd_dicom_egsphant():
     pth_img_dicom = Path("../data_test/prostate-glen-p1-dcm")
     pth_strct_dicom = glob(str(pth_img_dicom)+"/RS*.dcm")[0]
     pth_img_nrrd = Path("../data_test/test_export_plan/opentps/prostate_glen_p1.nrrd")
@@ -19,10 +19,13 @@ def compare_structures_nrrd_dicom_opentps():
     #     dir_dicom_out=Path.joinpath(pth_img_nrrd.parent, "dicom/")
     # )
     phantom.write_to_egsphant(
-        pth_output=pth_img_nrrd.parent.joinpath("plan/phantom.egsphant.nrrd"),
+        pth_output=pth_img_nrrd.parent.joinpath("egsphant.seq.nrrd"),
         material_dict=pth_materials,
         assign_material_from_ct=assign_material_from_ct
         )
 
+def register_opentps_on_image_and_contour():
+    
+
 if __name__ == "__main__":
-    compare_structures_nrrd_dicom_opentps()
+    export_phantom_opentps_nrrd_dicom_egsphant()

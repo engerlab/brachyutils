@@ -6,6 +6,7 @@ from typing import Literal, Optional, Union, List, Dict
 from brachyutils.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
 from opentps.core.data._transform3D import Transform3D
 from opentps.core.data.images import ROIMask
+from opentps.core.data import ROIContour
 class PhantomRegistration(ABC):
     def __init__(
         self,
@@ -223,9 +224,10 @@ class OpenTPS(PhantomRegistration):
             )
             self.deformation = reg.compute()
         # resample the registered image/contour on the static iamge to match the coordinates and contours.
+        # registered_data = reg.deformed
         registered_data = resampleImage3DOnImage3D(
                 reg.deformed,
-                self.static_phantom.image_obj
+                self.static_data,
             )
 
         self.registered_phantom = phantom_with_empty_image_like(
@@ -242,9 +244,14 @@ class OpenTPS(PhantomRegistration):
                 origin=registered_data.origin,
                 spacing=registered_data.spacing,
             ).getROIContour()
-            self.moving_phantom.set_structure_set({self.register_on_contour: new_contour})
+            self.registered_phantom.set_structure_set(
+                self.moving_phantom.get_structure_mask(
+                    self.moving_phantom.structure_names,
+                    ROIContour
+                )
+            )
+            self.registered_phantom.set_structure_set({self.register_on_contour: new_contour})
             
-        # self.registered_phantom.image_obj.origin = self.static_phantom.image_obj.origin
         self.synch_image_and_contours()
         return self.registered_phantom, self.deformation
     
@@ -289,6 +296,10 @@ class OpenTPS(PhantomRegistration):
             self.registered_phantom.image_obj = self.deformation.deformImage(
                 self.registered_phantom.image_obj
                 )
+            self.registered_phantom.image_obj = resampleImage3DOnImage3D(
+                self.registered_phantom.image_obj,
+                self.static_data
+            )
             # apply the deformation to the image and the rest of the contours.
             if self.registered_phantom.image_obj.name.endswith("_copy"):
                 self.registered_phantom.image_obj.name = (
@@ -309,6 +320,10 @@ class OpenTPS(PhantomRegistration):
             if contour_name == self.register_on_contour:
                 continue
             new_mask = self.deformation.deformImage(structure_mask_dict[contour_name])
+            new_mask = resampleImage3DOnImage3D(
+                new_mask,
+                self.static_data
+            )
             if new_mask.name.endswith("_copy"):
                 new_mask.name = new_mask.name.replace("_copy", "")
             structure_mask_dict[contour_name] = new_mask
