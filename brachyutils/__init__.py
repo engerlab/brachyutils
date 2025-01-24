@@ -1,12 +1,13 @@
 __all__ = [
     "plan_utils",
-    "dicom_utils",
     "dose_utils",
     "egsphant_utils",
     "simulation_utils",
     "film_utils",
     "geometry_utils",
     "dose_comparison_utils",
+    "image_processing_utils",
+    "dose_generation_utils",
 ]
 # trunk-ignore(ruff/F401)
 from brachyutils.dose_utils import BrachyDose
