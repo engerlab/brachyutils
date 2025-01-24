@@ -18,7 +18,7 @@ Once the image is downloaded, you can unzip it using `zstd` and load it to docke
 # to unzip using zstd
 tar -I zstd -xvf brachyutils.tar.zst
 # to load the image to docker
-docker load -i brachyutils.tar.zst
+docker load -i brachyutils.tar
 ```
 
 After the image is loaded, navigate to `brachyutils/docker_src` and run `bash command_docker.sh` to start the container running the image.
