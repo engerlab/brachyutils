@@ -49,28 +49,28 @@ services:
 #     entrypoint: ["/bin/bash"]
 #     command: ["/root/Software/pyplastimatch/run_api.sh"]
 
-#   DoseCalcMC:
-#     build:
-#       context: ../
-#       dockerfile: docker_src/Dockerfile
-#     image: rapidbrachy_mc
-#     container_name: DoseCalcMC
-#     working_dir: /root
-#     stdin_open: true # docker run -i
-#     tty: true # docker run -t
-#     environment:
-#       - HOST_HOME=${HOST_HOME}
-#       - DEBIAN_FRONTEND=noninteractive
-#     volumes:
-#       - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
-#       - ${HOST_HOME}:/root/YourLocalHome
-#       - mc-volume:/root/Software/brachyutils/temp_data
-#       # - temp_data:/root/test_temp
-#     networks:
-#       net_brachyutils:
-#         ipv4_address: 192.168.1.11
-#     entrypoint: ["/bin/bash"]
-#     command: ["/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/run_api.sh"]
+  DoseCalcMC:
+    build:
+      context: ../
+      dockerfile: docker_src/Dockerfile
+    image: rapidbrachy_mc
+    container_name: DoseCalcMC
+    working_dir: /root
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    environment:
+      - HOST_HOME=${HOST_HOME}
+      - DEBIAN_FRONTEND=noninteractive
+    volumes:
+      - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
+      - ${HOST_HOME}:/root/YourLocalHome
+      - mc-volume:/root/Software/brachyutils/temp_data
+      # - temp_data:/root/test_temp
+    networks:
+      net_brachyutils:
+        ipv4_address: 192.168.1.11
+    entrypoint: ["/bin/bash"]
+    command: ["/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/run_api.sh"]
 
   DoseCalcTG43:
     build:
@@ -116,12 +116,12 @@ volumes:
 #       type: none
 #       o: bind
 #       device: ${HOST_HOME}/Software/brachyutils/temp_data/registration
-#   mc-volume:
-#     driver: local
-#     driver_opts:
-#       type: none
-#       o: bind
-#       device: ${HOST_HOME}/Software/brachyutils/temp_data/mc
+  mc-volume:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOST_HOME}/Software/brachyutils/temp_data/mc
   tg43-volume:
     driver: local
     driver_opts:

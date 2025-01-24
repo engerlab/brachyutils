@@ -900,12 +900,19 @@ class BrachyEgsphant:
                 )
                 # interpolate density based on the HU value
                 # density_matrix *= np.logical_not(roi_mask)
-                density_matrix = np.where(
-                    roi_mask,
-                    ((phantom_ct_image - low_HU_threshold) * slope_density_over_HU)
-                    + density_low_bound,
-                    density_matrix,
-                )
+                if material == "Air":
+                    density_matrix = np.where(
+                        roi_mask,
+                        density_low_bound,
+                        density_matrix,
+                    )
+                else:
+                    density_matrix = np.where(
+                        roi_mask,
+                        ((phantom_ct_image - low_HU_threshold) * slope_density_over_HU)
+                        + density_low_bound,
+                        density_matrix,
+                    )
                 # material_matrix *= np.logical_not(roi_mask)
                 material_matrix = np.where(
                     roi_mask,

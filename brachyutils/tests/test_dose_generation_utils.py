@@ -33,7 +33,7 @@ def make_plan_and_export_it(dir_export) -> Path:
         },
         "pth_plan": "combined.plan",
         "pth_phantom": "ct.egsphant",
-        "number_histories": 1000000,
+        "number_histories": 10000000,
         "total_time": 5983,
         "number_of_threads": 12,
         "PrintProgress": 10000,
@@ -86,23 +86,23 @@ def test_DoseTG43():
 
 
 def test_DoseMC():
-    # dir_export = "../temp_data/mc/test_export_plan"
-    # dose_setup = make_plan_and_export_it(dir_export)
-    dose_setup = Path("temp_data/test_export_plan")
+    dir_export = "../temp_data/mc/p1"
+    dose_setup = make_plan_and_export_it(dir_export)
+    dose_setup = Path("temp_data/mc/p1")
     pth_exectuable = "http://192.168.1.11:8000/calculate_dose_mc"
     dose_generator = DoseMonteCarlo(
         dir_plan_export=dose_setup,
         pth_dose_executable=pth_exectuable,
     )
     dose_generator.generate_dose(
-        pth_mac=dose_setup.joinpath("run_3.mac"),
+        pth_mac=dose_setup.joinpath("combined.mac"),
         random_seed=1,
     )
 
 
 if __name__ == "__main__":
-    test_DoseTG43()
-    # test_DoseMC()
+    # test_DoseTG43()
+    test_DoseMC()
     # import requests
 
     # json_data = {
