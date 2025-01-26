@@ -19,7 +19,7 @@ dist/*
 .checkpointing
 build/*
 *.trunk*
-temp_data/*
-!temp_data/.gitkeep
+data_io/*
+!data_io/.gitkeep
 .env
 !docker_src/.env
