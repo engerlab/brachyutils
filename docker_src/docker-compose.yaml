@@ -33,7 +33,7 @@ services:
 #       - HOST_HOME=${HOST_HOME}
 #       - DEBIAN_FRONTEND=noninteractive
 #     volumes:
-#       - registration-volume:/root/Software/pyplastimatch/data_io
+#       - registration-volume:/root/Software/pyplastimatch/temp_data
 #       # for developement
 #       - ${HOST_HOME}/Software/pyplastimatch:/root/Software/pyplastimatch
 #       - ${HOST_HOME}:/root/YourLocalHome
@@ -58,7 +58,7 @@ services:
     volumes:
       - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
       - ${HOST_HOME}:/root/YourLocalHome
-      - mc-volume:/root/Software/brachyutils/data_io
+      - mc-volume:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.11
@@ -80,7 +80,7 @@ services:
     volumes:
       - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/root/Software/TG43_Dose_Calculation_Standalone
       - ${HOST_HOME}:/root/YourLocalHome
-      - tg43-volume:/root/Software/brachyutils/data_io
+      - tg43-volume:/root/Software/TG43_Dose_Calculation_Standalone/temp_data
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.12
@@ -96,21 +96,23 @@ networks:
 
 # defining a shared volume on hard drive for files
 volumes:
+  registration-volume:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOST_HOME}/Software/brachyutils/temp_data/registration
+
   mc-volume:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ${HOST_HOME}/Software/brachyutils/data_io/mc
+      device: ${HOST_HOME}/Software/brachyutils/temp_data/mc
+  
   tg43-volume:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ${HOST_HOME}/Software/brachyutils/data_io/tg43
-#   registration-volume:
-#     driver: local
-#     driver_opts:
-#       type: none
-#       o: bind
-#       device: ${HOST_HOME}/Software/brachyutils/data_io/registration
+      device: ${HOST_HOME}/Software/brachyutils/temp_data/tg43
