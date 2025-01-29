@@ -188,12 +188,12 @@ def test_BrachyApplicator_set_rotation():
     applicator_obj.set_rotation(rotation, rotation_origin)
     applicator_obj.to_stl(pth_outfile)
 
-def test_load_nifti_image_file():
+def test_load_nifti_image_and_segmentation_file():
     # CT images Abdomen
-    pth_img_nifti = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
-    pth_img_out = Path("../data_test/test_export_plan/abdomin_mr_ct/tr_ct_image_0001.nrrd")
-    pth_label_nifti = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
-    pth_label_out = Path("../data_test/test_export_plan/abdomin_mr_ct/tr_ct_label_0001.seg.nrrd")
+    pth_img_nifti = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
+    pth_img_out = Path("../data_test/test_export_plan/abdomin_mr_ct/tr_mr_image_0001.nrrd")
+    pth_label_nifti = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
+    pth_label_out = Path("../data_test/test_export_plan/abdomin_mr_ct/tr_mr_label_0001.seg.nrrd")
 
     # mri images prostate
     # pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
@@ -234,4 +234,4 @@ if __name__ == "__main__":
     # test_BrachyApplicator_to_mac()
     # test_BrachyApplicator_to_stl()
     # test_BrachyApplicator_set_rotation()
-    test_load_nifti_image_file()
+    test_load_nifti_image_and_segmentation_file()

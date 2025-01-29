@@ -1112,7 +1112,14 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
 
     # God knows what is the name of the structures in the nifti files
     # I will just number them and hope for the best
-    num_structures = structure_nifti.header.get("dim")[0]
+    n_dim = structure_data.ndim
+    if n_dim == 4:
+        # the segments are over lapping, stored in a 4 dimensinal array 
+        num_structures = structure_data.shape[0]
+    else:
+        # the segments are non-overlapping, stored in a 3 dimensional array and
+        # encoded by value. zero is ignored.
+        num_structures = len(np.unique(structure_data))-1
     structure_set = RTStruct()
     for i in range(num_structures):
         # generate segment labels
@@ -1120,7 +1127,7 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
         segment_name = segment_id + "_Name"
         segment_label =  segment_id + "_LabelValue"
         # get the segment mask
-        if structure_data.ndim == 4:
+        if n_dim == 4:
             segment_mask = structure_data[:, :, :, i]
         else:
             segment_mask = structure_data == i+1
@@ -1139,7 +1146,7 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
             pass
         else:
             raise ValueError("The orientation of the image is not recognized.")
-        segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+        # segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
         roi_mask = ROIMask(
             imageArray=np.swapaxes(segment_mask, 0, 2),
             origin=origin,
