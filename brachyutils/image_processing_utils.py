@@ -149,17 +149,7 @@ class OpenTPS(PhantomRegistration):
             backend,
             tryGPU
             )
-        # resample the moving image on the static image.
-        # new_moving_phantom = phantom_with_empty_image_like(
-        #     self.moving_phantom,
-        #     self.moving_phantom.pth_image.stem
-        # )
-        # new_moving_phantom.image_obj = resampleImage3DOnImage3D(
-        #         image=self.moving_phantom.image_obj,
-        #         fixedImage=self.static_phantom.image_obj,
-        #         inPlace=False)
-        # self.moving_phantom = new_moving_phantom
-
+        
     def register(
         self,
         baseResolution:float = 2.0,
@@ -225,33 +215,34 @@ class OpenTPS(PhantomRegistration):
             self.deformation = reg.compute()
         # resample the registered image/contour on the static iamge to match the coordinates and contours.
         # registered_data = reg.deformed
+        # XXX: remove after debugging
+        # registered_data = self.moving_data
         registered_data = resampleImage3DOnImage3D(
                 reg.deformed,
                 self.static_data,
             )
 
         self.registered_phantom = phantom_with_empty_image_like(
-            self.static_phantom,
-            new_pth_image=f"reg_{self.moving_phantom.pth_image.stem}")
+            self.moving_phantom,
+            new_pth_image=f"reg_{self.moving_phantom.pth_image.stem}"
+            )
 
+        # registration based on image
         if self.register_on_contour is None:
             self.registered_phantom.image_obj = registered_data
+        # registration based on contour
         else:
+            # pass the moving image to the registered phantom image
             self.registered_phantom.image_obj = self.moving_phantom.image_obj
+            # create a new contour based on the registered mask.
             new_contour = ROIMask(
                 name=self.register_on_contour,
                 imageArray=registered_data.imageArray,
                 origin=registered_data.origin,
                 spacing=registered_data.spacing,
-            ).getROIContour()
-            self.registered_phantom.set_structure_set(
-                self.moving_phantom.get_structure_mask(
-                    self.moving_phantom.structure_names,
-                    ROIContour
-                )
             )
             self.registered_phantom.set_structure_set({self.register_on_contour: new_contour})
-            
+
         self.synch_image_and_contours()
         return self.registered_phantom, self.deformation
     
@@ -319,6 +310,8 @@ class OpenTPS(PhantomRegistration):
             # skip the contour that was transformed
             if contour_name == self.register_on_contour:
                 continue
+            # XXX for debugging. remove later
+            # new_mask = structure_mask_dict[contour_name]
             new_mask = self.deformation.deformImage(structure_mask_dict[contour_name])
             new_mask = resampleImage3DOnImage3D(
                 new_mask,
