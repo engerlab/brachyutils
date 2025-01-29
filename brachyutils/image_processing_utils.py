@@ -214,9 +214,6 @@ class OpenTPS(PhantomRegistration):
             )
             self.deformation = reg.compute()
         # resample the registered image/contour on the static iamge to match the coordinates and contours.
-        # registered_data = reg.deformed
-        # XXX: remove after debugging
-        # registered_data = self.moving_data
         registered_data = resampleImage3DOnImage3D(
                 reg.deformed,
                 self.static_data,
@@ -310,8 +307,6 @@ class OpenTPS(PhantomRegistration):
             # skip the contour that was transformed
             if contour_name == self.register_on_contour:
                 continue
-            # XXX for debugging. remove later
-            # new_mask = structure_mask_dict[contour_name]
             new_mask = self.deformation.deformImage(structure_mask_dict[contour_name])
             new_mask = resampleImage3DOnImage3D(
                 new_mask,
