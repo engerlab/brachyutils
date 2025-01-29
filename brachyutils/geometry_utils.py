@@ -1078,7 +1078,7 @@ def readNrrdStruct(pth_structure: Path) -> Union[RTStruct, str]:
                 segment_mask = structures_data[:, :, :, i]
             else:
                 segment_mask = structures_data == int(label_value)
-            segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+            # segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
             roi_mask = ROIMask(
                 imageArray=np.swapaxes(segment_mask, 0, 2),
                 origin=origin,
