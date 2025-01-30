@@ -2,11 +2,14 @@ from abc import ABC, abstractmethod
 from glob import glob
 from pathlib import Path
 from typing import Literal, Optional, Union, List, Dict
+from collections import defaultdict
+import numpy as np
 
 from brachyutils.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
 from opentps.core.data._transform3D import Transform3D
 from opentps.core.data.images import ROIMask
-from opentps.core.data import ROIContour
+# from opentps.core.data import 
+
 class PhantomRegistration(ABC):
     def __init__(
         self,
@@ -116,9 +119,13 @@ class PhantomRegistration(ABC):
             - To evaluate the registratin quality by comparing the contours in the registered
             phantom with contours in static phantom. The evaluation metrics are Dice score and
             Hausdorff distance.
+            Note: This function assumes that there are structures with exactly the same names
+            in both registered and static phantoms.
+
         Inputs:
             - None
             expects self.registered_phantom.structure_set and self.static_phantom.structure_set to be defined.
+
         Output:
             - results: Dict[str, Dict[str, float]]: A dictionary containing the evaluation metrics for each contour.
             in the format below:
@@ -136,6 +143,7 @@ class PhantomRegistration(ABC):
                     "std": std_hausdorff_distance
                 }
             }
+
         Dependencies:
             - Scipy
         """
@@ -143,8 +151,38 @@ class PhantomRegistration(ABC):
             raise ValueError("The registered phantom structure set is not defined.")
         if self.static_phantom.structure_set is None:
             raise ValueError("The static phantom structure set is not defined.")
-        pass
-    
+        from scipy.spatial.distance import dice, directed_hausdorff
+        
+        Dice = defaultdict(list)
+        Hausdorf = defaultdict(list)
+        
+        # find common structures in both phantoms
+        common_structures = set(self.registered_phantom.structure_names).intersection(
+            self.static_phantom.structure_names
+        )
+
+        registered_contours = self.registered_phantom.get_structure_mask(
+            common_structures,
+            mask_type=ROIMask
+            )
+        static_contours = self.static_phantom.get_structure_mask(
+            common_structures,
+            mask_type=ROIMask
+            )
+
+        for reg, static in zip(registered_contours, static_contours):
+            dice_score = dice(reg.imageArray.flatten(), static.imageArray.flatten())
+            hausdorff_distance = directed_hausdorff(reg.imageArray, static.imageArray)[0]
+            Dice[reg.name].append(dice_score)
+            Hausdorf[reg.name].append(hausdorff_distance)        
+
+        Dice["mean"] = np.array(Dice.values()).mean()
+        Dice["std"] = np.array(Dice.values()).std()
+        Hausdorf["mean"] = np.array(Hausdorf.values()).mean()
+        Hausdorf["std"] = np.array(Hausdorf.values()).std()
+
+        return {"Dice": Dice, "Hausdorf": Hausdorf}
+        
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
 class Registration_OpenTPS(PhantomRegistration):
     def __init__(
@@ -353,6 +391,10 @@ class Registration_OpenTPS(PhantomRegistration):
             structure_mask_dict[contour_name] = new_mask
 
         self.registered_phantom.set_structure_set(structure_mask_dict)
+
+    def evaluate_on_contours(self):
+        super().evaluate_on_contours()
+
 
 class Registration_Plastimatch(PhantomRegistration):
     def __init__(
