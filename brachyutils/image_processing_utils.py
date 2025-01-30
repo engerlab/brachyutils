@@ -38,10 +38,16 @@ class PhantomRegistration(ABC):
         Inputs:
             - dir_plan_export: Union[Path, str]: The path to the dose setup directory.
             - pth_dose_executable: Union[Path, str]: The path to the dose executable.
+
         Outputs:
             - None
+
         Functions:
             - register: Register the moving phantom to the static phantom.
+            - export_to: Export the registered phantom to a given path.
+            - synch_image_and_contours: Match the image and the contours of the registered phantom.
+            - evaluate_on_contours: Evaluate the registration quality by comparing the contours in the registered
+
         """
 
         self.static_phantom = static_phantom
@@ -78,6 +84,7 @@ class PhantomRegistration(ABC):
         r"""
         Purpose:
             - Register the moving phantom to the static phantom.
+
         Outputs:
             - BrachyPhantom: The registered phantom object.
         """
@@ -90,8 +97,10 @@ class PhantomRegistration(ABC):
         """
         Purpose:
             - To export the obtained registered image to a given path file.
+
         Inputs:
             - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+
         Output:
             - None     
         """
@@ -104,9 +113,11 @@ class PhantomRegistration(ABC):
             - To match the image and the contours of the registered phantom. If the registration
             was based on the image, the same deformation will be applied to the contours.
             If the registration was based on the contours, the deformation will be applied to the image
-            and the contours will be resampled on the deformed image.  
+            and the contours will be resampled on the deformed image.
+
         Inputs:
             - None
+
         Output:
             - None
         """
@@ -121,6 +132,8 @@ class PhantomRegistration(ABC):
             Hausdorff distance.
             Note: This function assumes that there are structures with exactly the same names
             in both registered and static phantoms.
+            Note: The decision to resample the registered contours on static contours is made
+            by register() function.
 
         Inputs:
             - None
