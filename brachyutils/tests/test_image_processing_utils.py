@@ -1,5 +1,5 @@
 from pathlib import Path
-from brachyutils.image_processing_utils import OpenTPS
+from brachyutils.image_processing_utils import Registration_OpenTPS
 from brachyutils.geometry_utils import BrachyPhantom
 
 def test_register_opentps():
@@ -39,7 +39,7 @@ def test_register_opentps():
     # mode = {"deformable": True, "algorithm": "demons"}
     # mode = {"deformable": True, "algorithm": "morphons"}
 
-    registration_obj = OpenTPS(
+    registration_obj = Registration_OpenTPS(
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
         # register_on_contour="Segment1_Name",
@@ -58,7 +58,7 @@ def test_register_opentps():
     )
 
 def test_register_plastimatch():
-    from brachyutils.image_processing_utils import Plastimatch
+    from brachyutils.image_processing_utils import Registration_Plastimatch
     # Abdominal: static = CT, moving = MR
     pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
     pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
@@ -77,7 +77,7 @@ def test_register_plastimatch():
         pth_phantom_file=pth_img_moving,
         pth_structures_file=pth_label_moving
         )
-    registration_obj = Plastimatch(
+    registration_obj = Registration_Plastimatch(
         pth_plastimatch="http://192.168.1.13:8000/plastimatch_register",
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,

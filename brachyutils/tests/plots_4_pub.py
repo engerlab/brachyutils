@@ -28,6 +28,10 @@ def compare_dose_mc_tg43():
     from brachyutils.dose_generation_utils import DoseMonteCarlo, DoseTG43
     from brachyutils.plan_utils import BrachyPlan
 
+def evaluate_registration():
+    from brachyutils.image_processing_utils import Registration_OpenTPS
+    
+    
 
 if __name__ == "__main__":
     export_phantom_opentps_nrrd_dicom_egsphant()

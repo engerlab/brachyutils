@@ -78,6 +78,8 @@ class PhantomRegistration(ABC):
         Outputs:
             - BrachyPhantom: The registered phantom object.
         """
+        if self.static_data is None or self.moving_data is None:
+            raise ValueError("The static or moving phantom is not defined.")
         pass
 
     @abstractmethod
@@ -107,8 +109,44 @@ class PhantomRegistration(ABC):
         """
         pass
 
+    @abstractmethod
+    def evaluate_on_contours(self) -> Dict[str, Dict[str, float]]:
+        """
+        Purpose:
+            - To evaluate the registratin quality by comparing the contours in the registered
+            phantom with contours in static phantom. The evaluation metrics are Dice score and
+            Hausdorff distance.
+        Inputs:
+            - None
+            expects self.registered_phantom.structure_set and self.static_phantom.structure_set to be defined.
+        Output:
+            - results: Dict[str, Dict[str, float]]: A dictionary containing the evaluation metrics for each contour.
+            in the format below:
+            {
+                Dice: {
+                    "contour_name": dice_score
+                    ...
+                    "mean": mean_dice_score
+                    "std": std_dice_score
+                },
+                Hausdorf: {
+                    "contour_name": hausdorff_distance
+                    ...
+                    "mean": mean_hausdorff_distance
+                    "std": std_hausdorff_distance
+                }
+            }
+        Dependencies:
+            - Scipy
+        """
+        if self.registered_phantom.structure_set is None:
+            raise ValueError("The registered phantom structure set is not defined.")
+        if self.static_phantom.structure_set is None:
+            raise ValueError("The static phantom structure set is not defined.")
+        pass
+    
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
-class OpenTPS(PhantomRegistration):
+class Registration_OpenTPS(PhantomRegistration):
     def __init__(
         self,
         static_phantom: BrachyPhantom,
@@ -165,8 +203,6 @@ class OpenTPS(PhantomRegistration):
         Outputs:
             - BrachyPhantom: The registered phantom object.
         """
-        assert self.static_data is not None, "The static phantom is not defined."
-        assert self.moving_data is not None, "The moving phantom is not defined."
         if self.deformable:
             assert self.algorithm is not None, "The registration algorithm is not defined."
         
@@ -318,7 +354,7 @@ class OpenTPS(PhantomRegistration):
 
         self.registered_phantom.set_structure_set(structure_mask_dict)
 
-class Plastimatch(PhantomRegistration):
+class Registration_Plastimatch(PhantomRegistration):
     def __init__(
         self,
         pth_plastimatch: Path | str,
@@ -376,8 +412,6 @@ class Plastimatch(PhantomRegistration):
             - stage_params_list: List[Dict[str, str]] := a list of dictionaries containing the stage parameters for the registration.
             please look at the plastimatch documentation for the full list of possible stage parameters.
         """
-        if self.static_data is None or self.moving_data is None:
-            raise ValueError("The static or moving phantom is not defined.")
         # leave some space to figure out the rigidness and options for the registration.
         
         # need to write out the images for plastimatch to read them.
