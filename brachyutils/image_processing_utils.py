@@ -45,7 +45,7 @@ class PhantomRegistration(ABC):
         Functions:
             - register: Register the moving phantom to the static phantom.
             - export_to: Export the registered phantom to a given path.
-            - synch_image_and_contours: Match the image and the contours of the registered phantom.
+            - synch_registered_phantom_with_data: Match the image and the contours of the registered phantom.
             - evaluate_on_contours: Evaluate the registration quality by comparing the contours in the registered
 
         """
@@ -107,7 +107,7 @@ class PhantomRegistration(ABC):
         pass
     
     @abstractmethod
-    def synch_image_and_contours(self) -> None:
+    def synch_registered_phantom_with_data(self) -> None:
         """
         Purpose:
             - To match the image and the contours of the registered phantom. If the registration
@@ -311,33 +311,12 @@ class Registration_OpenTPS(PhantomRegistration):
             )
             self.deformation = reg.compute()
         # resample the registered image/contour on the static iamge to match the coordinates and contours.
-        registered_data = resampleImage3DOnImage3D(
+        self._registered_data = resampleImage3DOnImage3D(
                 reg.deformed,
                 self._static_data,
             )
 
-        self.registered_phantom = phantom_with_empty_image_like(
-            self.moving_phantom,
-            new_pth_image=f"reg_{self.moving_phantom.pth_image.stem}"
-            )
-
-        # registration based on image
-        if self.register_on_contour is None:
-            self.registered_phantom.image_obj = registered_data
-        # registration based on contour
-        else:
-            # pass the moving image to the registered phantom image
-            self.registered_phantom.image_obj = self.moving_phantom.image_obj
-            # create a new contour based on the registered mask.
-            new_contour = ROIMask(
-                name=self.register_on_contour,
-                imageArray=registered_data.imageArray,
-                origin=registered_data.origin,
-                spacing=registered_data.spacing,
-            )
-            self.registered_phantom.set_structure_set({self.register_on_contour: new_contour})
-
-        self.synch_image_and_contours()
+        self.synch_registered_phantom_with_data()
         return self.registered_phantom, self.deformation
     
     def export_to(
@@ -364,11 +343,11 @@ class Registration_OpenTPS(PhantomRegistration):
         else:
             raise ValueError(f"The output type {output_type} is not supported. please specify .nrrd or .dcm")
 
-    def synch_image_and_contours(self) -> None:
+    def synch_registered_phantom_with_data(self) -> None:
         """
         Purpose:
-            - To match the image and the contours of the registered phantom. If the registration
-            was based on the image, the same deformation will be applied to the contours.
+            - To match the image and the contours of the registered phantom with the registered data.
+            If the registration was based on the image, the same deformation will be applied to the contours.
             If the registration was based on the contours, the deformation will be applied to the image
             and the contours will be resampled on the deformed image.  
         Inputs:
@@ -376,7 +355,32 @@ class Registration_OpenTPS(PhantomRegistration):
         Output:
             - None
         """
-        # deform the image based on the registered stru
+        if self._registered_data is None:
+            raise ValueError("The registered data is not defined.")
+
+        # load the registered data into registered phantom
+        self.registered_phantom = phantom_with_empty_image_like(
+            self.moving_phantom,
+            new_pth_image=f"reg_{self.moving_phantom.pth_image.stem}"
+            )
+
+        # registration based on image
+        if self.register_on_contour is None:
+            self.registered_phantom.image_obj = self._registered_data
+        # registration based on contour
+        else:
+            # pass the moving image to the registered phantom image
+            self.registered_phantom.image_obj = self.moving_phantom.image_obj
+            # create a new contour based on the registered mask.
+            new_contour = ROIMask(
+                name=self.register_on_contour,
+                imageArray=self._registered_data.imageArray,
+                origin=self._registered_data.origin,
+                spacing=self._registered_data.spacing,
+            )
+            self.registered_phantom.set_structure_set({self.register_on_contour: new_contour})
+
+        # deform the image based on the registered structure
         if self.register_on_contour is not None:
             self.registered_phantom.image_obj = self.deformation.deformImage(
                 self.registered_phantom.image_obj
@@ -417,7 +421,6 @@ class Registration_OpenTPS(PhantomRegistration):
 
     def evaluate_on_contours(self):
         return super().evaluate_on_contours()
-
 
 class Registration_Plastimatch(PhantomRegistration):
     def __init__(
@@ -531,5 +534,5 @@ class Registration_Plastimatch(PhantomRegistration):
     def export_to(self, pth_phantom_export):
         pass
 
-    def synch_image_and_contours(self):
+    def synch_registered_phantom_with_data(self):
         pass
