@@ -11,16 +11,17 @@ def test_register_opentps():
     pth_output = Path("../data_test/test_export_plan/abdomin_mr_ct/registered_abdomin_ct_mr.nrrd")
 
     # prostate: static = US, moving = MR
-    # pth_img_static = Path("../data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
-    # pth_img_moving = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
-    # pth_label_static = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
-    # pth_label_moving = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
+    # pth_img_static = Path("../data_test/registration/prostate_mr_us/train_us_image_case000000.nii.gz")
+    # pth_img_moving = Path("../data_test/registration/prostate_mr_us/train_mr_image_case000000.nii.gz")
+    # pth_label_static = Path("../data_test/registration/prostate_mr_us/train_us_label_case000000.nii.gz")
+    # pth_label_moving = Path("../data_test/registration/prostate_mr_us/train_mr_label_case000000.nii.gz")
+    # pth_output = Path("../data_test/test_export_plan/prostate/registered_phantom_us_mr.nrrd")
 
     # prostate: static = MR, moving = US 
-    # pth_img_static = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")    
-    # pth_img_moving = Path("../data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
-    # pth_label_static = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
-    # pth_label_moving = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
+    # pth_img_static = Path("../data_test/registration/prostate_mr_us/train_mr_image_case000000.nii.gz")    
+    # pth_img_moving = Path("../data_test/registration/prostate_mr_us/train_us_image_case000000.nii.gz")
+    # pth_label_static = Path("../data_test/registration/prostate_mr_us/train_mr_label_case000000.nii.gz")
+    # pth_label_moving = Path("../data_test/registration/prostate_mr_us/train_us_label_case000000.nii.gz")
     # pth_output = Path("../data_test/test_export_plan/prostate/registered_phantom_us_mr.nrrd")
     for pth in [pth_img_static, pth_img_moving, pth_label_static, pth_label_moving]:
         assert pth.exists(), f"File {pth} does not exist."
@@ -47,15 +48,18 @@ def test_register_opentps():
         algorithm=mode["algorithm"],
         )
 
-    registration_obj.register()
-    registration_obj.export_to(pth_output.parent)
+    registration_obj.register() 
+    # registration_obj.export_to(pth_output.parent)
+    # static_phantom.export_to(
+    #     dir_nrrd_out=pth_output.parent
+    # )
+    # moving_phantom.export_to(
+    #     dir_nrrd_out=pth_output.parent
+    # )
 
-    static_phantom.export_to(
-        dir_nrrd_out=pth_output.parent
-    )
-    moving_phantom.export_to(
-        dir_nrrd_out=pth_output.parent
-    )
+    reg_eval = registration_obj.evaluate_on_contours()
+    if reg_eval.get("Dice").get("mean") < 0.5:
+        print("Dice score is less than 0.5")
 
 def test_register_plastimatch():
     from brachyutils.image_processing_utils import Registration_Plastimatch

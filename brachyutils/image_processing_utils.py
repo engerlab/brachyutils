@@ -149,7 +149,7 @@ class PhantomRegistration(ABC):
                     "mean": mean_dice_score
                     "std": std_dice_score
                 },
-                Hausdorf: {
+                Hausdorff: {
                     "contour_name": hausdorff_distance
                     ...
                     "mean": mean_hausdorff_distance
@@ -164,8 +164,9 @@ class PhantomRegistration(ABC):
             raise ValueError("The registered phantom structure set is not defined.")
         if self.static_phantom.structure_set is None:
             raise ValueError("The static phantom structure set is not defined.")
-        from scipy.spatial.distance import dice, directed_hausdorff
-        
+        from scipy.spatial.distance import dice
+        from monai.metrics import compute_hausdorff_distance
+
         Dice = defaultdict(list)
         Hausdorf = defaultdict(list)
         
@@ -184,18 +185,27 @@ class PhantomRegistration(ABC):
             )
 
         for reg, static in zip(registered_contours, static_contours):
-            dice_score = dice(reg.imageArray.flatten(), static.imageArray.flatten())
-            hausdorff_distance = directed_hausdorff(reg.imageArray, static.imageArray)[0]
-            Dice[reg.name].append(dice_score)
-            Hausdorf[reg.name].append(hausdorff_distance)        
+            dice_score = 1 - dice(
+                registered_contours.get(reg).imageArray.flatten(),
+                static_contours.get(static).imageArray.flatten()
+            )
+            hausdorff_distance = float(
+                compute_hausdorff_distance(
+                    registered_contours.get(reg).imageArray[None, None, ...],
+                    static_contours.get(static).imageArray[None, None, ...],
+                    percentile=95
+                )
+                )
+            Dice[reg] = (dice_score)
+            Hausdorf[reg] = (hausdorff_distance)
 
-        Dice["mean"] = np.array(Dice.values()).mean()
-        Dice["std"] = np.array(Dice.values()).std()
-        Hausdorf["mean"] = np.array(Hausdorf.values()).mean()
-        Hausdorf["std"] = np.array(Hausdorf.values()).std()
+        Dice["mean"] = np.array(list(Dice.values()), dtype=float).mean()
+        Dice["std"] = np.array(list(Dice.values()), dtype=float).std()
+        Hausdorf["mean"] = np.array(list(Hausdorf.values()), dtype=float).mean()
+        Hausdorf["std"] = np.array(list(Hausdorf.values()), dtype=float).std()
 
-        return {"Dice": Dice, "Hausdorf": Hausdorf}
-        
+        return {"Dice": Dice, "Hausdorff": Hausdorf}
+
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
 class Registration_OpenTPS(PhantomRegistration):
     def __init__(
@@ -406,7 +416,7 @@ class Registration_OpenTPS(PhantomRegistration):
         self.registered_phantom.set_structure_set(structure_mask_dict)
 
     def evaluate_on_contours(self):
-        super().evaluate_on_contours()
+        return super().evaluate_on_contours()
 
 
 class Registration_Plastimatch(PhantomRegistration):
