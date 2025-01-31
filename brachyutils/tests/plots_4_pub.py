@@ -29,7 +29,7 @@ def compare_dose_mc_tg43():
     from brachyutils.plan_utils import BrachyPlan
 
 def evaluate_registration():
-    from brachyutils.image_processing_utils import Registration_OpenTPS
+    from brachyutils.registration_utils import Registration_OpenTPS
     
     
 

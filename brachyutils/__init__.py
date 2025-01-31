@@ -6,7 +6,7 @@ __all__ = [
     "film_utils",
     "geometry_utils",
     "dose_comparison_utils",
-    "image_processing_utils",
+    "registration_utils",
     "dose_generation_utils",
 ]
 # trunk-ignore(ruff/F401)

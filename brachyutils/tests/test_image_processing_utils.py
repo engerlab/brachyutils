@@ -1,5 +1,5 @@
 from pathlib import Path
-from brachyutils.image_processing_utils import Registration_OpenTPS
+from brachyutils.registration_utils import Registration_OpenTPS
 from brachyutils.geometry_utils import BrachyPhantom
 
 def test_register_opentps():
@@ -62,7 +62,7 @@ def test_register_opentps():
         print("Dice score is less than 0.5")
 
 def test_register_plastimatch():
-    from brachyutils.image_processing_utils import Registration_Plastimatch
+    from brachyutils.registration_utils import Registration_Plastimatch
     # Abdominal: static = CT, moving = MR
     pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
     pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
