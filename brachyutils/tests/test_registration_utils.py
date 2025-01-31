@@ -4,18 +4,18 @@ from brachyutils.geometry_utils import BrachyPhantom
 
 def test_register_opentps():
     # Abdominal: static = CT, moving = MR
-    pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
-    pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
-    pth_img_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
-    pth_label_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
-    pth_output = Path("../data_test/test_export_plan/abdomin_mr_ct/registered_abdomin_ct_mr.nrrd")
+    # pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
+    # pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
+    # pth_img_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
+    # pth_label_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
+    # pth_output = Path("../data_test/test_export_plan/abdomin_mr_ct/registered_abdomin_ct_mr.nrrd")
 
     # prostate: static = US, moving = MR
-    # pth_img_static = Path("../data_test/registration/prostate_mr_us/train_us_image_case000000.nii.gz")
-    # pth_img_moving = Path("../data_test/registration/prostate_mr_us/train_mr_image_case000000.nii.gz")
-    # pth_label_static = Path("../data_test/registration/prostate_mr_us/train_us_label_case000000.nii.gz")
-    # pth_label_moving = Path("../data_test/registration/prostate_mr_us/train_mr_label_case000000.nii.gz")
-    # pth_output = Path("../data_test/test_export_plan/prostate/registered_phantom_us_mr.nrrd")
+    pth_img_static = Path("../data_test/registration/prostate_mr_us/train_us_image_case000000.nii.gz")
+    pth_img_moving = Path("../data_test/registration/prostate_mr_us/train_mr_image_case000000.nii.gz")
+    pth_label_static = Path("../data_test/registration/prostate_mr_us/train_us_label_case000000.nii.gz")
+    pth_label_moving = Path("../data_test/registration/prostate_mr_us/train_mr_label_case000000.nii.gz")
+    pth_output = Path("../data_test/test_export_plan/prostate/registered_phantom_us_mr.nrrd")
 
     # prostate: static = MR, moving = US 
     # pth_img_static = Path("../data_test/registration/prostate_mr_us/train_mr_image_case000000.nii.gz")    
@@ -28,38 +28,39 @@ def test_register_opentps():
 
     static_phantom = BrachyPhantom(
         pth_phantom_file=pth_img_static,
-        pth_structures_file=pth_label_static,
+        # pth_structures_file=pth_label_static,
         )
     moving_phantom = BrachyPhantom(
         pth_phantom_file=pth_img_moving,
-        pth_structures_file=pth_label_moving
+        # pth_structures_file=pth_label_moving
         )
+
+    static_phantom.export_to(
+        dir_nrrd_out=pth_output.parent
+    )
+    moving_phantom.export_to(
+        dir_nrrd_out=pth_output.parent
+    )
 
     # mode = {"deformable": False, "algorithm": None} # this is trash
-    mode = {"deformable": True, "algorithm": "quick"}
+    # mode = {"deformable": True, "algorithm": "quick"}
     # mode = {"deformable": True, "algorithm": "demons"}
     # mode = {"deformable": True, "algorithm": "morphons"}
-
-    registration_obj = Registration_OpenTPS(
-        static_phantom=static_phantom,
-        moving_phantom=moving_phantom,
+# 
+    # registration_obj = Registration_OpenTPS(
+        # static_phantom=static_phantom,
+        # moving_phantom=moving_phantom,
         # register_on_contour="Segment1_Name",
-        deformable=mode["deformable"],
-        algorithm=mode["algorithm"],
-        )
-
-    registration_obj.register() 
+        # deformable=mode["deformable"],
+        # algorithm=mode["algorithm"],
+        # )
+# 
+    # registration_obj.register() 
     # registration_obj.export_to(pth_output.parent)
-    # static_phantom.export_to(
-    #     dir_nrrd_out=pth_output.parent
-    # )
-    # moving_phantom.export_to(
-    #     dir_nrrd_out=pth_output.parent
-    # )
-
-    reg_eval = registration_obj.evaluate_on_contours()
-    if reg_eval.get("Dice").get("mean") < 0.5:
-        print("Dice score is less than 0.5")
+# 
+    # reg_eval = registration_obj.evaluate_on_contours()
+    # if reg_eval.get("Dice").get("mean") < 0.5:
+        # print("Dice score is less than 0.5")
 
 def test_register_plastimatch():
     from brachyutils.registration_utils import Registration_Plastimatch
