@@ -1,0 +1,525 @@
+from abc import ABC, abstractmethod
+from glob import glob
+from pathlib import Path
+from typing import Literal, Optional, Union, List, Dict
+from collections import defaultdict
+import numpy as np
+
+from brachyutils.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
+from opentps.core.data._transform3D import Transform3D
+from opentps.core.data.images import ROIMask
+# from opentps.core.data import 
+
+class PhantomRegistration(ABC):
+    def __init__(
+        self,
+        static_phantom: Union[BrachyPhantom, str],
+        moving_phantom: Union[BrachyPhantom, str],
+        register_on_contour: Optional[str] = None,
+        deformable: bool = False,
+        algorithm: Literal["demons", "morphons"] = None,
+        backend: Literal["elastix", "plastimatch", "opentps"] = None,
+        tryGPU: bool = False,
+    ) -> None:
+        r"""
+        Purpose:
+            - A generic class to wrap around all sorts of image registration methods and algorithms. 
+            Each registration method should support the attributes of this class and implements its abstract methods.
+        Attributes:
+            - static_phantom: BrachyPhantom: The static phantom object.
+            - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
+            - register_on_contour: Optional[str] = None: The name of the contour to be used in the registration process.
+            if this input is provided, contour based registration is used.
+            - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
+            - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
+            - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
+            the registration process.
+
+        Inputs:
+            - dir_plan_export: Union[Path, str]: The path to the dose setup directory.
+            - pth_dose_executable: Union[Path, str]: The path to the dose executable.
+
+        Outputs:
+            - None
+
+        Functions:
+            - register: Register the moving phantom to the static phantom.
+            - export_to: Export the registered phantom to a given path.
+            - synch_registered_phantom_with_data: Match the image and the contours of the registered phantom.
+            - evaluate_on_contours: Evaluate the registration quality by comparing the contours in the registered
+
+        """
+
+        self.static_phantom = static_phantom
+        self.moving_phantom = moving_phantom
+        self.register_on_contour = register_on_contour
+        self.deformable = deformable
+        self.algorithm = algorithm
+        self.backend = backend
+        self.tryGPU = tryGPU
+        # the following attributes will be computed during the registration process
+        self.registered_phantom: BrachyPhantom = None
+        self.deformation: Transform3D = None
+        self._static_data = None
+        self._moving_data = None
+        self._registered_data = None
+        # depending on the registration target we will set the static and moving data
+        if self.register_on_contour is None:
+            self._static_data = self.static_phantom.image_obj
+            self._moving_data = self.moving_phantom.image_obj
+        else:
+            self._static_data = self.static_phantom.get_structure_mask(
+                [self.register_on_contour],
+                mask_type=ROIMask
+            ).get(self.register_on_contour)
+            self._moving_data = self.moving_phantom.get_structure_mask(
+                [self.register_on_contour],
+                mask_type=ROIMask
+            ).get(self.register_on_contour)
+        if self._static_data is None and self._moving_data is None:
+            raise ValueError("The registration target is not defined. If registering based on images, do not provide contour name. else ensure contour is loaded in phantom.")
+
+    @abstractmethod
+    def register(self) -> tuple[BrachyPhantom, Transform3D]:
+        r"""
+        Purpose:
+            - Register the moving phantom to the static phantom.
+
+        Outputs:
+            - BrachyPhantom: The registered phantom object.
+        """
+        if self._static_data is None or self._moving_data is None:
+            raise ValueError("The static or moving phantom is not defined.")
+        pass
+
+    @abstractmethod
+    def export_to(self, pth_phantom_export) -> None:
+        """
+        Purpose:
+            - To export the obtained registered image to a given path file.
+
+        Inputs:
+            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+
+        Output:
+            - None     
+        """
+        pass
+    
+    @abstractmethod
+    def synch_registered_phantom_with_data(self) -> None:
+        """
+        Purpose:
+            - To match the image and the contours of the registered phantom with the registered data.
+            If the registration was based on the image, the same deformation will be applied to the contours.
+            If the registration was based on the contours, the deformation will be applied to the image
+            and the contours will be resampled on the deformed image.  
+        Inputs:
+            - None
+        Output:
+            - None
+        """
+        if self._registered_data is None:
+            raise ValueError("The registered data is not defined.")
+
+        # load the registered data into registered phantom
+        self.registered_phantom = phantom_with_empty_image_like(
+            self.moving_phantom,
+            new_pth_image=f"reg_{self.moving_phantom.pth_image.stem}"
+            )
+
+        # registration based on image
+        if self.register_on_contour is None:
+            self.registered_phantom.image_obj = self._registered_data
+        # registration based on contour
+        else:
+            # pass the moving image to the registered phantom image
+            self.registered_phantom.image_obj = self.moving_phantom.image_obj
+            # create a new contour based on the registered mask.
+            new_contour = ROIMask(
+                name=self.register_on_contour,
+                imageArray=self._registered_data.imageArray,
+                origin=self._registered_data.origin,
+                spacing=self._registered_data.spacing,
+            )
+            self.registered_phantom.set_structure_set({self.register_on_contour: new_contour})
+
+        # deform the image based on the registered structure
+        if self.register_on_contour is not None:
+            self.registered_phantom.image_obj = self.deformation.deformImage(
+                self.registered_phantom.image_obj
+                )
+            self.registered_phantom.image_obj = resampleImage3DOnImage3D(
+                self.registered_phantom.image_obj,
+                self._static_data
+            )
+            # apply the deformation to the image and the rest of the contours.
+            if self.registered_phantom.image_obj.name.endswith("_copy"):
+                self.registered_phantom.image_obj.name = (
+                    self.registered_phantom.image_obj.name.replace("_copy", "")
+                )
+
+        structure_mask_dict = self.registered_phantom.get_structure_mask(
+            self.registered_phantom.structure_names,
+            mask_type=ROIMask
+        )
+
+        if not structure_mask_dict:
+            print("No structure masks found in the registered phantom.")
+            return
+
+        for contour_name in structure_mask_dict:
+            # skip the contour that was transformed
+            if contour_name == self.register_on_contour:
+                continue
+            new_mask = self.deformation.deformImage(structure_mask_dict[contour_name])
+            new_mask = resampleImage3DOnImage3D(
+                new_mask,
+                self._static_data
+            )
+            if new_mask.name.endswith("_copy"):
+                new_mask.name = new_mask.name.replace("_copy", "")
+            structure_mask_dict[contour_name] = new_mask
+
+        self.registered_phantom.set_structure_set(structure_mask_dict)
+
+    @abstractmethod
+    def evaluate_on_contours(self) -> Dict[str, Dict[str, float]]:
+        """
+        Purpose:
+            - To evaluate the registratin quality by comparing the contours in the registered
+            phantom with contours in static phantom. The evaluation metrics are Dice score and
+            Hausdorff distance.
+            Note: This function assumes that there are structures with exactly the same names
+            in both registered and static phantoms.
+            Note: The decision to resample the registered contours on static contours is made
+            by register() function.
+
+        Inputs:
+            - None
+            expects self.registered_phantom.structure_set and self.static_phantom.structure_set to be defined.
+
+        Output:
+            - results: Dict[str, Dict[str, float]]: A dictionary containing the evaluation metrics for each contour.
+            in the format below:
+            {
+                Dice: {
+                    "contour_name": dice_score
+                    ...
+                    "mean": mean_dice_score
+                    "std": std_dice_score
+                },
+                Hausdorff: {
+                    "contour_name": hausdorff_distance
+                    ...
+                    "mean": mean_hausdorff_distance
+                    "std": std_hausdorff_distance
+                }
+            }
+
+        Dependencies:
+            - Scipy
+        """
+        if self.registered_phantom.structure_set is None:
+            raise ValueError("The registered phantom structure set is not defined.")
+        if self.static_phantom.structure_set is None:
+            raise ValueError("The static phantom structure set is not defined.")
+        from scipy.spatial.distance import dice
+        from monai.metrics import compute_hausdorff_distance
+
+        Dice = defaultdict(list)
+        Hausdorf = defaultdict(list)
+        
+        # find common structures in both phantoms
+        common_structures = set(self.registered_phantom.structure_names).intersection(
+            self.static_phantom.structure_names
+        )
+
+        registered_contours = self.registered_phantom.get_structure_mask(
+            common_structures,
+            mask_type=ROIMask
+            )
+        static_contours = self.static_phantom.get_structure_mask(
+            common_structures,
+            mask_type=ROIMask
+            )
+
+        for reg, static in zip(registered_contours, static_contours):
+            dice_score = 1 - dice(
+                registered_contours.get(reg).imageArray.flatten(),
+                static_contours.get(static).imageArray.flatten()
+            )
+            hausdorff_distance = float(
+                compute_hausdorff_distance(
+                    registered_contours.get(reg).imageArray[None, None, ...],
+                    static_contours.get(static).imageArray[None, None, ...],
+                    percentile=95
+                )
+                )
+            Dice[reg] = (dice_score)
+            Hausdorf[reg] = (hausdorff_distance)
+
+        Dice["mean"] = np.array(list(Dice.values()), dtype=float).mean()
+        Dice["std"] = np.array(list(Dice.values()), dtype=float).std()
+        Hausdorf["mean"] = np.array(list(Hausdorf.values()), dtype=float).mean()
+        Hausdorf["std"] = np.array(list(Hausdorf.values()), dtype=float).std()
+
+        return {"Dice": Dice, "Hausdorff": Hausdorf}
+
+from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+class Registration_OpenTPS(PhantomRegistration):
+    def __init__(
+        self,
+        static_phantom: BrachyPhantom,
+        moving_phantom: BrachyPhantom,
+        register_on_contour: Optional[str] = None,
+        deformable: bool = False,
+        algorithm: Literal["demons", "morphons", "quick"] = None,
+        backend = "opentps",
+        tryGPU: bool = False,
+        ):
+        r"""
+        Purpose:
+            - A class to wrap around the OpenTPS image registration method.
+        Inputs:
+            - static_phantom: BrachyPhantom: The static phantom object.
+            - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
+            - register_on_contour: Optional[str] = None: The name of the contour to be used in the registration process.
+            if this input is provided, contour based registration is used.
+            - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
+            - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
+            - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
+            the registration process.
+            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+        Outputs:
+            - None
+        Functions:
+            - register: Register the moving phantom to the static phantom.
+        Dependencies:
+            - OpenTPS
+        """
+
+        super().__init__(
+            static_phantom,
+            moving_phantom,
+            register_on_contour,
+            deformable,
+            algorithm,
+            backend,
+            tryGPU
+            )
+        
+    def register(
+        self,
+        baseResolution:float = 2.0,
+        multimodal: bool = False,
+        ) -> tuple[BrachyPhantom, Transform3D]:
+        r"""
+        Purpose:
+            - Register the moving phantom to the static phantom using the OpenTPS package.
+        Inputs:
+            - baseResolution: float = 2.0: The base resolution of the registration algorithm in mm.
+            - tryGPU: bool = False: A flag to indicate whether to use the GPU for the registration process.
+            - multimodal: bool = False: A flag to indicate whether the registration is multimodal or not.
+        Outputs:
+            - BrachyPhantom: The registered phantom object.
+        """
+        if self.deformable:
+            assert self.algorithm is not None, "The registration algorithm is not defined."
+        
+        if self.deformable:
+
+            if self.algorithm == "demons":
+                from opentps.core.processing.registration.registrationDemons import RegistrationDemons
+
+                reg = RegistrationDemons(
+                    fixed=self._static_data,
+                    moving=self._moving_data,
+                    baseResolution=baseResolution,
+                    tryGPU=self.tryGPU
+                )
+                self.deformation = reg.compute()
+
+            elif self.algorithm == "morphons":
+                from opentps.core.processing.registration.registrationMorphons import RegistrationMorphons
+    
+                reg = RegistrationMorphons(
+                    fixed=self._static_data,
+                    moving=self._moving_data,
+                    baseResolution=baseResolution,
+                    tryGPU=self.tryGPU
+                )
+                self.deformation = reg.compute()
+
+            elif self.algorithm == "quick":
+                from opentps.core.processing.registration.registrationQuick import RegistrationQuick
+
+                reg = RegistrationQuick(
+                    fixed=self._static_data,
+                    moving=self._moving_data,
+                )
+                self.deformation = reg.compute(tryGPU=self.tryGPU)
+            else:
+                raise ValueError("The registration algorithm is not supported. Please choose between 'demons' and 'morphons'.")
+
+        else:
+            from opentps.core.processing.registration.registrationRigid import RegistrationRigid
+            reg = RegistrationRigid(
+                fixed=self._static_data,
+                moving=self._moving_data,
+                multimodal=multimodal
+            )
+            self.deformation = reg.compute()
+        # resample the registered image/contour on the static iamge to match the coordinates and contours.
+        self._registered_data = resampleImage3DOnImage3D(
+                reg.deformed,
+                self._static_data,
+            )
+
+        self.synch_registered_phantom_with_data()
+        return self.registered_phantom, self.deformation
+    
+    def export_to(
+        self,
+        dir_registered_phantom: Path | str,
+        output_type: Literal[".nrrd", ".dcm"] = ".nrrd") -> None:
+        """
+        Purpose:
+            - To export the obtained registered imag
+        Inputs:
+            - dir_phantom_export: Union[Path, str]: 
+        Output:
+            - None     
+        """
+        assert self.registered_phantom is not None
+        if output_type == ".nrrd":
+            self.registered_phantom.export_to(
+                dir_nrrd_out=dir_registered_phantom
+                )
+        elif output_type == ".dcm":
+            self.registered_phantom.export_to(
+                dir_dicom_out=dir_registered_phantom
+            )
+        else:
+            raise ValueError(f"The output type {output_type} is not supported. please specify .nrrd or .dcm")
+
+    def synch_registered_phantom_with_data(self) -> None:
+        super().synch_registered_phantom_with_data()
+        
+    def evaluate_on_contours(self):
+        return super().evaluate_on_contours()
+
+class Registration_Plastimatch(PhantomRegistration):
+    def __init__(
+        self,
+        pth_plastimatch: Path | str,
+        static_phantom: BrachyPhantom,
+        moving_phantom: BrachyPhantom,
+        register_on_contour: Optional[str] = None,
+        deformable: bool = False,
+        algorithm: Literal["demons", "bspline"] = None,
+        backend = "plastimatch",
+        tryGPU: bool = False,
+        ):
+        r"""
+        Purpose:
+            - A class to wrap around the Plastimatch image registration method.
+        Inputs:
+            - pth_plastimatch: Path | str: The path to the plastimatch executable or the URL where
+            the plastimatch server is running.
+            - static_phantom: BrachyPhantom: The static phantom object.
+            - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
+            - register_on_contour: Optional[str] = None: The name of the contour to be used in the registration process.
+            if this input is provided, contour based registration is used.
+            - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
+            - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
+            - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
+            the registration process.
+            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+        Outputs:
+            - None
+        Functions:
+            - register: Register the moving phantom to the static phantom.
+        Dependencies:
+            - Plastimatch
+        """
+
+        super().__init__(
+            static_phantom,
+            moving_phantom,
+            register_on_contour,
+            deformable,
+            algorithm,
+            backend,
+            tryGPU
+            )
+        self.pth_plastimatch = pth_plastimatch
+
+    def register(
+        self,
+        stage_params_list: List[Dict[str, str]] = None,
+        ) -> tuple[BrachyPhantom, Transform3D]:
+        r"""
+        Purpose:
+            - Register the moving phantom to the static phantom using the Plastimatch package.
+        Inputs:
+            - stage_params_list: List[dict]: The list of parameters for the registration stages.
+            - stage_params_list: List[Dict[str, str]] := a list of dictionaries containing the stage parameters for the registration.
+            please look at the plastimatch documentation for the full list of possible stage parameters.
+        """
+        # leave some space to figure out the rigidness and options for the registration.
+        
+        # need to write out the images for plastimatch to read them.
+        # first sort out the paths to the images
+        dir_temp_data = Path(__file__).resolve().parent.parent.joinpath("temp_data/registration")
+        pth_static = dir_temp_data.joinpath("static.nrrd")
+        pth_moving = dir_temp_data.joinpath("moving.nrrd")
+        pth_output = dir_temp_data.joinpath("registered.nrrd")
+
+        # create phantoms with empty image data. remember, the image data could be structure masks
+        # or actual image data.
+        for data, pth in zip([self._static_data, self._moving_data], [pth_static, pth_moving]):
+            empty_phant = phantom_with_empty_image_like(
+                self.moving_phantom,
+                new_pth_image=pth
+            )
+            empty_phant.image_obj = data
+            empty_phant.write_image_to_nrrd(
+                pth_output=pth
+            )
+
+        global_params = {
+            "fixed" : f"{str(pth_static).split("temp_data/registration/")[-1]}",
+            "moving" : f"{str(pth_moving).split("temp_data/registration/")[-1]}",
+            "image_out" : f"{str(pth_output).split("temp_data/registration/")[-1]}",
+        }
+
+        stage_params_list = stage_params_list if stage_params_list else[
+            {
+                "xform": "bspline"
+            }
+        ]
+
+        if "http" in self.pth_plastimatch:
+            import requests
+            response = requests.post(
+                url=self.pth_plastimatch,
+                json={
+                    "global_params": global_params,
+                    "stage_params_list": stage_params_list,
+                    },
+                timeout=None
+            )
+            # get the registered image
+            if not pth_output.exists():
+                raise ValueError("The registered image was not generated.")
+
+            # read the registered image
+            # registered_image = BrachyPhantom(
+            #     pth_phantom_file=pth_output
+            # )
+    def export_to(self, pth_phantom_export):
+        pass
+
+    def synch_registered_phantom_with_data(self):
+        pass
