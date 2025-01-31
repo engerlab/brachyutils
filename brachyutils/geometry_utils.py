@@ -1115,7 +1115,7 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
     n_dim = structure_data.ndim
     if n_dim == 4:
         # the segments are over lapping, stored in a 4 dimensinal array 
-        num_structures = structure_data.shape[0]
+        num_structures = structure_data.shape[-1]
     else:
         # the segments are non-overlapping, stored in a 3 dimensional array and
         # encoded by value. zero is ignored.
