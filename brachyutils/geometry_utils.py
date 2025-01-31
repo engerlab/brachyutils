@@ -885,7 +885,6 @@ class BrachyPhantom:
                     name=structure_name,
                     imageArray=np.swapaxes(mask_dict[structure_name], 0, 2),
                     origin=self.image_obj.origin,
-                    gridSize=self.image_obj.gridSize,
                     spacing=self.image_obj.spacing,
                 )
                 self.structure_set.appendContour(mask.getROIContour())
