@@ -862,18 +862,22 @@ class BrachyPhantom:
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace)
 
-    def set_structure_set(self, mask_dict: dict) -> None:
+    def set_structure_set(self, mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]]) -> None:
         r"""
         Purpose:
             - Set the structure set with the input mask dictionary mapping structure names to ROIMask.
             If the name of a structure is in the structure set, the mask will be replaced.
             If the name of a structure is not in the structure set, a new structure will be added.
+            The mask will be resampled to the image object if it exists.
         Inputs:
             - mask_dict: dict := the dictionary of the masks.
             The values could be numpy arrays, ROIContour or ROIMask objects.
         Outputs:
             - None
         """
+        from opentps.core.processing.imageProcessing.resampler3D import (
+            resampleImage3DOnImage3D,
+        )
         for structure_name in mask_dict:
             # check if the structure already exists in structure set
             old_structure = self.structure_set.getContourByName(structure_name)
@@ -887,15 +891,18 @@ class BrachyPhantom:
                     origin=self.image_obj.origin,
                     spacing=self.image_obj.spacing,
                 )
-                self.structure_set.appendContour(mask.getROIContour())
-
             elif isinstance(mask_dict.get(structure_name), ROIContour):
-                self.structure_set.appendContour(mask_dict.get(structure_name))
+                mask = ROIContour.getBinaryMask()
 
             elif isinstance(mask_dict.get(structure_name), ROIMask):
-                self.structure_set.appendContour(mask_dict.get(structure_name).getROIContour())
+                mask = mask_dict.get(structure_name)
             else:
                 raise ValueError("The mask type is not recognized.")
+                
+            if self.image_obj is not None:
+                mask = resampleImage3DOnImage3D(mask, self.image_obj)
+            self.structure_set.appendContour(mask.getROIContour())
+
         self._update_structure_names()
 
     def _update_structure_names(self) -> None:
