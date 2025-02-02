@@ -3,7 +3,7 @@ import os
 import warnings
 from glob import glob
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union, Tuple
 
 import numpy as np
 import SimpleITK as sitk
@@ -92,7 +92,7 @@ class BrachyPhantom:
             self.pth_image = None
         self.image_obj: Union[CTImage, MRImage] = None
         self.image_modality: Literal["CT", "MR", "US"] = None
-        self.structure_set: RTStruct = None
+        self.structure_set = RTStruct()
         self.structure_names: List[str] = []
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
@@ -307,7 +307,7 @@ class BrachyPhantom:
             # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
             # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         elif str(pth_structure).endswith(".nii.gz"):
-            self.structure_set, structure_orientation = readNiftiStruct(pth_structure)
+            structure_mask_dict, structure_orientation = readNiftiStruct(pth_structure)
         else:
             raise ValueError("The structure file type is not recognized.")
 
@@ -316,9 +316,11 @@ class BrachyPhantom:
         else:
             assert self.anatomical_coordinate_system == structure_orientation, "The orientation of the structure file is not the same as the image file."
 
-        self.structure_names = []
-        for structure in self.structure_set.contours:
-            self.structure_names.append(structure.name)
+        self.set_structure_set(structure_mask_dict)
+        
+        # self.structure_names = []
+        # for structure in self.structure_set.contours:
+        #     self.structure_names.append(structure.name)
 
     def get_structure_mask(
         self,
@@ -1097,7 +1099,7 @@ def readNrrdStruct(pth_structure: Path) -> Union[RTStruct, str]:
             i += 1
     return structure_set, orientation
 
-def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
+def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     r"""
     Purpose:
         - Load the NIFTI structure file.
@@ -1128,7 +1130,7 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
         # the segments are non-overlapping, stored in a 3 dimensional array and
         # encoded by value. zero is ignored.
         num_structures = len(np.unique(structure_data))-1
-    structure_set = RTStruct()
+    structure_mask_dict: Dict[str, ROIMask] = {}
     for i in range(num_structures):
         # generate segment labels
         segment_id = f"Segment{i+1}"
@@ -1163,9 +1165,9 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
             spacing=spacing,
             name=segment_name,
         )
-        structure_set.appendContour(roi_mask.getROIContour())
+        structure_mask_dict[segment_name] = roi_mask
         del segment_mask
-    return structure_set, "LPS"
+    return structure_mask_dict, "LPS"
 
 def _get_image_orientation(pth_image: Path) -> str:
     """
