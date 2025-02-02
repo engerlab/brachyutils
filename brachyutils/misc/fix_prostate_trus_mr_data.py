@@ -37,14 +37,13 @@ def fix_one_image_structure(
         phantom_obj.structure_names,
         np.ndarray
         )
+    final_structure_set = {}
     for struc in structure_set:
         struc_array = structure_set[struc]
-        if struc_array is None:
-            continue
         struc_array = struc_array.swapaxes(0, 2)
         struc_array = struc_array.swapaxes(1, 2)
-        structure_set[struc] = struc_array
-    phantom_obj.set_structure_set(structure_set)
+        final_structure_set[struc] = struc_array
+    phantom_obj.set_structure_set(final_structure_set)
 
     phantom_obj.export_to(dir_nrrd_out=pth_output)
 
@@ -72,7 +71,7 @@ def fix_all_prostate_images(dir_img, dir_structure, dir_out):
         structure = structure[0]
         fix_one_image_structure(img, structure, dir_out)
         return
-    
+
 if __name__ == "__main__":
     dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
     dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
