@@ -1047,7 +1047,7 @@ def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     Inputs:
         - pth_structure: Path := the path of the structure source file.
     Outputs:
-        - RTStruct := the structure set object.
+        - structure_mask_dict: Dict[str, ROIMask] := the dictionary of the structure masks.
         - str := the orientation of the structure mask, which is recommended to be LPS.
     Dependencies:
         - openTPS.core
