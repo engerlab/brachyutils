@@ -105,7 +105,6 @@ def test_load_egsphant():
         pth_output=pth_out,
     )
 
-
 def test_crop_phantom():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
@@ -223,7 +222,7 @@ if __name__ == "__main__":
     # test_write_image_to_nrrd()
     # test_write_structures_to_nrrd()
     # test_write_structures_to_dicom()
-    # test_read_structures_from_nrrd()
+    test_read_structures_from_nrrd()
     # test_write_to_egsphant()
     # test_load_egsphant()
     # test_crop_phantom()
@@ -234,4 +233,4 @@ if __name__ == "__main__":
     # test_BrachyApplicator_to_mac()
     # test_BrachyApplicator_to_stl()
     # test_BrachyApplicator_set_rotation()
-    test_load_nifti_image_and_segmentation_file()
+    # test_load_nifti_image_and_segmentation_file()

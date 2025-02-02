@@ -72,8 +72,24 @@ def fix_all_prostate_images(dir_img, dir_structure, dir_out):
         fix_one_image_structure(img, structure, dir_out)
         return
 
+def test_read_nrrd():
+    dir_nrrd = Path("../data_test/test_export_plan/prostate")
+    all_nrrd = glob(str(dir_nrrd.joinpath("*.nrrd")))
+    for pth in all_nrrd:
+        if pth.endswith(".seg.nrrd"):
+            structure_nrrd = Path(pth)
+        else:
+            img_nrrd = Path(pth)
+    phantom_obj = BrachyPhantom(
+        pth_phantom_file=img_nrrd,
+        pth_structures_file=structure_nrrd
+    )
+    phantom_obj.info()
+
 if __name__ == "__main__":
-    dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
-    dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
-    dir_out = Path("../data_test/test_export_plan/prostate")
-    fix_all_prostate_images(dir_img, dir_structure, dir_out)
+    test_read_nrrd()
+
+    # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
+    # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
+    # dir_out = Path("../data_test/test_export_plan/prostate")
+    # fix_all_prostate_images(dir_img, dir_structure, dir_out)

@@ -4,7 +4,7 @@ import warnings
 from glob import glob
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union, Tuple
-
+from collections import defaultdict
 import numpy as np
 import SimpleITK as sitk
 
@@ -298,14 +298,10 @@ class BrachyPhantom:
             structure_orientation = header.get((0x0010, 0x2210), "LPS")
             if structure_orientation == "BIPED":
                 structure_orientation = "LPS"
+            self._update_structure_names()
             # self.anatomical_coordinate_system = orientation
         elif str(pth_structure).endswith(".nrrd"):
-            self.structure_set, structure_orientation = readNrrdStruct(pth_structure)
-            self.structure_set.setPatient(
-                self.image_obj.patient if self.image_obj is not None else None
-            )
-            # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
-            # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
+            structure_mask_dict, structure_orientation = readNrrdStruct(pth_structure)
         elif str(pth_structure).endswith(".nii.gz"):
             structure_mask_dict, structure_orientation = readNiftiStruct(pth_structure)
         else:
@@ -314,10 +310,13 @@ class BrachyPhantom:
         if self.anatomical_coordinate_system is None:
             self.anatomical_coordinate_system = structure_orientation
         else:
-            assert self.anatomical_coordinate_system == structure_orientation, "The orientation of the structure file is not the same as the image file."
+            assert (
+                self.anatomical_coordinate_system == structure_orientation, 
+                "The orientation of the structure file is not the same as the image file."
+            )
 
         self.set_structure_set(structure_mask_dict)
-        
+
         # self.structure_names = []
         # for structure in self.structure_set.contours:
         #     self.structure_names.append(structure.name)
@@ -905,6 +904,11 @@ class BrachyPhantom:
                 mask = resampleImage3DOnImage3D(mask, self.image_obj)
             self.structure_set.appendContour(mask.getROIContour())
 
+        self.structure_set.setPatient(
+                self.image_obj.patient if self.image_obj is not None else None
+            )
+        # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
+        # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         self._update_structure_names()
 
     def _update_structure_names(self) -> None:
@@ -1036,7 +1040,7 @@ def readDicomUS(image_files):
     raise NotImplementedError("US DICOM files are not supported yet.")
 
 
-def readNrrdStruct(pth_structure: Path) -> Union[RTStruct, str]:
+def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     r"""
     Purpose:
         - Load the NRRD structure file.
@@ -1076,7 +1080,7 @@ def readNrrdStruct(pth_structure: Path) -> Union[RTStruct, str]:
             char_list.append("I")
         orientation = "".join(char_list)
 
-    structure_set = RTStruct()
+    structure_mask_dict = defaultdict(ROIMask)
     i = 0
     for key in header:
         if f"Segment{i}_Name" == key:
@@ -1095,18 +1099,19 @@ def readNrrdStruct(pth_structure: Path) -> Union[RTStruct, str]:
                 spacing=spacing,
                 name=name,
             )
-            structure_set.appendContour(roi_mask.getROIContour())
+            structure_mask_dict[name] = roi_mask
             i += 1
-    return structure_set, orientation
+    return structure_mask_dict, orientation
 
 def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     r"""
     Purpose:
-        - Load the NIFTI structure file.
+        - Load the NIFTI structure file into a dictionary of ROIMask objects.
     Inputs:
         - pth_structure: Path := the path of the structure source file.
     Outputs:
-        - RTStruct := the structure set object.
+        - structure_mask_dict: Dict[str, ROIMask] := the dictionary of the structure masks.
+        - orientation: str := the orientation of the structure mask, which is recommended to be LPS.
     Dependencies:
         - nibabel
     """
