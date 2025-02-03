@@ -70,7 +70,7 @@ def fix_all_prostate_images(dir_img, dir_structure, dir_out):
             raise FileNotFoundError(f"No structure file found for {img_name}")
         structure = structure[0]
         fix_one_image_structure(img, structure, dir_out)
-        return
+        # return
 
 def test_read_nrrd():
     dir_nrrd = Path("../data_test/test_export_plan/prostate")
@@ -87,9 +87,9 @@ def test_read_nrrd():
     phantom_obj.info()
 
 if __name__ == "__main__":
-    test_read_nrrd()
+    # test_read_nrrd()
 
-    # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
-    # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
-    # dir_out = Path("../data_test/test_export_plan/prostate")
-    # fix_all_prostate_images(dir_img, dir_structure, dir_out)
+    dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
+    dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
+    dir_out = Path("../temp_data/registration/micro-reg/mr-train")
+    fix_all_prostate_images(dir_img, dir_structure, dir_out)
