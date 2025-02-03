@@ -1162,7 +1162,7 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
         else:
             raise ValueError("The orientation of the image is not recognized.")
         # segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
-        if segment_mask.sum() == 0:
+        if segment_mask is None or segment_mask.sum() == 0:
             continue
         roi_mask = ROIMask(
             imageArray=np.swapaxes(segment_mask, 0, 2),

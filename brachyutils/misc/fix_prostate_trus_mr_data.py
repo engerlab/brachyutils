@@ -2,6 +2,8 @@ from pathlib import Path
 import numpy as np
 from glob import glob
 from brachyutils.geometry_utils import BrachyPhantom
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 def fix_one_image_structure(
     pth_image: Path | str,
@@ -40,6 +42,8 @@ def fix_one_image_structure(
     final_structure_set = {}
     for struc in structure_set:
         struc_array = structure_set[struc]
+        # if struc_array is None:
+        #     continue
         struc_array = struc_array.swapaxes(0, 2)
         struc_array = struc_array.swapaxes(1, 2)
         final_structure_set[struc] = struc_array
@@ -54,7 +58,7 @@ def test_fix_one_image_structure():
 
     fix_one_image_structure(pth_sample_image, pth_sample_structure, pth_out)
 
-def fix_all_prostate_images(dir_img, dir_structure, dir_out):
+def fix_all_prostate_images(dir_img, dir_structure, dir_out, multi_thread: bool = False):
     dir_img = Path(dir_img)
     dir_structure = Path(dir_structure)
     dir_out = Path(dir_out)
@@ -62,15 +66,33 @@ def fix_all_prostate_images(dir_img, dir_structure, dir_out):
     
     all_imgs = glob(str(dir_img.joinpath("*.nii.gz")))
     all_structures = glob(str(dir_structure.joinpath("*.nii.gz")))
-    
-    for img in all_imgs:
-        img_name = Path(img).name
-        structure = [s for s in all_structures if img_name in s]
-        if len(structure) == 0:
-            raise FileNotFoundError(f"No structure file found for {img_name}")
-        structure = structure[0]
-        fix_one_image_structure(img, structure, dir_out)
-        # return
+    if multi_thread:
+        async def run_in_executor(executor, img, structure, dir_out):
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(executor, fix_one_image_structure, img, structure, dir_out)
+
+        async def main():
+            with ThreadPoolExecutor() as executor:
+                tasks = []
+                for img in all_imgs:
+                    img_name = Path(img).name
+                    structure = [s for s in all_structures if img_name in s]
+                    if len(structure) == 0:
+                        raise FileNotFoundError(f"No structure file found for {img_name}")
+                    structure = structure[0]
+                    tasks.append(run_in_executor(executor, img, structure, dir_out))
+                await asyncio.gather(*tasks)
+
+        asyncio.run(main())
+    else:
+        for img in all_imgs:
+            img_name = Path(img).name
+            structure = [s for s in all_structures if img_name in s]
+            if len(structure) == 0:
+                raise FileNotFoundError(f"No structure file found for {img_name}")
+            structure = structure[0]
+            fix_one_image_structure(img, structure, dir_out)
+            # return
 
 def test_read_nrrd():
     dir_nrrd = Path("../data_test/test_export_plan/prostate")
@@ -88,8 +110,14 @@ def test_read_nrrd():
 
 if __name__ == "__main__":
     # test_read_nrrd()
+    # fix the mr images and structures for the prostate
+    # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
+    # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
+    # dir_out = Path("../temp_data/registration/micro-reg/mr-train")
+    # fix_all_prostate_images(dir_img, dir_structure, dir_out)
 
-    dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
-    dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
-    dir_out = Path("../temp_data/registration/micro-reg/mr-train")
-    fix_all_prostate_images(dir_img, dir_structure, dir_out)
+    # fix the ultrasound images and structures for the prostate
+    dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_images")
+    dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_labels")
+    dir_out = Path("../temp_data/registration/micro-reg/us-train")
+    fix_all_prostate_images(dir_img, dir_structure, dir_out, True)
