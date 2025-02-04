@@ -5,6 +5,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 from typing import Dict, List, Union, Tuple
+import pandas as pd
 from brachyutils.registration_utils import PhantomRegistration
 from brachyutils.geometry_utils import BrachyPhantom
 
@@ -68,7 +69,7 @@ def evaluate_contourBased_registration(
     all_static_structs_nrrd = glob(str(dir_static.joinpath(".seg.nrrd")))
     
     # islate the segmentatoin and images for both static and moving files
-    reg_data_list = List(Dict(str, str))
+    reg_data_list = list()
     for static_struct in all_static_structs_nrrd:
         common_name = Path(static_struct.stem).stem
         static_image = glob(dir_static.joinpath(f"{common_name}.nrrd"))
@@ -88,11 +89,13 @@ def evaluate_contourBased_registration(
 
     print(f"number of registration instance data was {len(reg_data_list)}")
 
+    all_results = Dict(Dict)
+    
     if multi_thread:
         pass
     else:
         for single_reg_data in reg_data_list:
-            eval_single_registration(
+            eval_results = eval_single_registration(
                 pth_static_image = single_reg_data.get("static_image"),
                 pth_static_structure = single_reg_data.get("static_structure"),
                 pth_moving_image = single_reg_data.get("moving_image"),
@@ -101,6 +104,11 @@ def evaluate_contourBased_registration(
                 dir_registered = single_reg_data.get("dir_registered_out")
                 **kwargs
             )
+            all_results[single_reg_data.get("static_image").stem] = eval_results
+
+    eval_df = pd.DataFrame(all_results)
+
+    eval_df.to_csv(dir_registered)
 
 def eval_single_registration(
     pth_static_image : Path,
@@ -127,9 +135,25 @@ def eval_single_registration(
     )
 
     reg_obj.register(
-        pth_phantom_export=dir_registered
+        pth_phantom_export=dir_registered,
+        **kwargs
     )
     return reg_obj.evaluate_on_contours()
 
+def run_registeration():
+    dir_static = "../temp_data/registration/micro-reg/us-train"
+    dir_moving = "../temp_data/registration/micro-reg/mr-train"
+    dir_registered = "../temp_data/registration/micro-reg/reg-train"
+
+    from brachyutils.registration_utils import Registration_OpenTPS
+    
+    evaluate_contourBased_registration(
+        dir_static=dir_static,
+        dir_moving=dir_moving,
+        dir_registered=dir_registered,
+        registration_module=Registration_OpenTPS
+    )
+    
 if __name__ == "__main__":
-    export_phantom_opentps_nrrd_dicom_egsphant()
+    # export_phantom_opentps_nrrd_dicom_egsphant()
+    run_registeration()
