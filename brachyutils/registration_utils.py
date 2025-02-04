@@ -80,11 +80,12 @@ class PhantomRegistration(ABC):
             raise ValueError("The registration target is not defined. If registering based on images, do not provide contour name. else ensure contour is loaded in phantom.")
 
     @abstractmethod
-    def register(self) -> tuple[BrachyPhantom, Transform3D]:
+    def register(self, pth_phantom_export: str | Path = None, **kwargs) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom.
-
+        Inputs:
+            - pth_phantom_export := if provided, the registered phantom will be exported to this directory.
         Outputs:
             - BrachyPhantom: The registered phantom object.
         """
@@ -311,13 +312,16 @@ class Registration_OpenTPS(PhantomRegistration):
         
     def register(
         self,
-        baseResolution:float = 2.0,
-        multimodal: bool = False,
+        pth_phantom_export: Path | str = None,
+        **kwargs
         ) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom using the OpenTPS package.
         Inputs:
+            - pth_phantom_export := directory where the registered phantom is exported to.
+            
+            kwargs entries could include:
             - baseResolution: float = 2.0: The base resolution of the registration algorithm in mm.
             - tryGPU: bool = False: A flag to indicate whether to use the GPU for the registration process.
             - multimodal: bool = False: A flag to indicate whether the registration is multimodal or not.
@@ -335,7 +339,7 @@ class Registration_OpenTPS(PhantomRegistration):
                 reg = RegistrationDemons(
                     fixed=self._static_data,
                     moving=self._moving_data,
-                    baseResolution=baseResolution,
+                    baseResolution=kwargs.get("baseResolution", 2.0),
                     tryGPU=self.tryGPU
                 )
                 self.deformation = reg.compute()
@@ -346,7 +350,7 @@ class Registration_OpenTPS(PhantomRegistration):
                 reg = RegistrationMorphons(
                     fixed=self._static_data,
                     moving=self._moving_data,
-                    baseResolution=baseResolution,
+                    baseResolution=kwargs.get("baseResolution", 2.0),
                     tryGPU=self.tryGPU
                 )
                 self.deformation = reg.compute()
@@ -367,7 +371,7 @@ class Registration_OpenTPS(PhantomRegistration):
             reg = RegistrationRigid(
                 fixed=self._static_data,
                 moving=self._moving_data,
-                multimodal=multimodal
+                multimodal=kwargs.get("multimodal", False)
             )
             self.deformation = reg.compute()
         # resample the registered image/contour on the static iamge to match the coordinates and contours.
@@ -377,8 +381,11 @@ class Registration_OpenTPS(PhantomRegistration):
             )
 
         self.synch_registered_phantom_with_data()
+        if pth_phantom_export is not None:
+            self.export_to(pth_phantom_export)
+
         return self.registered_phantom, self.deformation
-    
+
     def export_to(
         self,
         dir_registered_phantom: Path | str,
