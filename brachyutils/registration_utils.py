@@ -280,6 +280,7 @@ class Registration_OpenTPS(PhantomRegistration):
         algorithm: Literal["demons", "morphons", "quick"] = None,
         backend = "opentps",
         tryGPU: bool = False,
+        **kwargs
         ):
         r"""
         Purpose:
@@ -305,7 +306,7 @@ class Registration_OpenTPS(PhantomRegistration):
         super().__init__(
             static_phantom,
             moving_phantom,
-            register_on_contour,
+            register_on_contour if register_on_contour else kwargs.get("register_on_contour", None),
             deformable,
             algorithm,
             backend,

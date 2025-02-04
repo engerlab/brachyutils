@@ -66,15 +66,15 @@ def evaluate_contourBased_registration(
     dir_registered = Path(dir_registered)
 
     # gatheter the data in the path dict
-    all_static_structs_nrrd = glob(str(dir_static.joinpath(".seg.nrrd")))
+    all_static_structs_nrrd = glob(str(dir_static.joinpath("*.seg.nrrd")))
     
     # islate the segmentatoin and images for both static and moving files
     reg_data_list = list()
     for static_struct in all_static_structs_nrrd:
-        common_name = Path(static_struct.stem).stem
-        static_image = glob(dir_static.joinpath(f"{common_name}.nrrd"))
-        moving_image = glob(dir_moving.joinpath(f"{common_name}.nrrd"))
-        moving_struct = glob(dir_moving.joinpath(f"{common_name}.seg.nrrd"))
+        common_name = Path(Path(static_struct).stem).stem
+        static_image = glob(str(dir_static.joinpath(f"{common_name}.nrrd")))
+        moving_image = glob(str(dir_moving.joinpath(f"{common_name}.nrrd")))
+        moving_struct = glob(str(dir_moving.joinpath(f"{common_name}.seg.nrrd")))
 
         if len(static_image) != 1 or len(moving_image) != 1 or len(moving_struct) != 1:
             warnings.warn(f"corresponding data for {static_struct} was not found")
@@ -89,7 +89,7 @@ def evaluate_contourBased_registration(
 
     print(f"number of registration instance data was {len(reg_data_list)}")
 
-    all_results = Dict(Dict)
+    all_results = defaultdict()
     
     if multi_thread:
         pass
@@ -101,7 +101,7 @@ def evaluate_contourBased_registration(
                 pth_moving_image = single_reg_data.get("moving_image"),
                 pth_moving_structure = single_reg_data.get("moving_structure"),
                 registration_module=registration_module,
-                dir_registered = single_reg_data.get("dir_registered_out")
+                dir_registered = single_reg_data.get("dir_registered_out"),
                 **kwargs
             )
             all_results[single_reg_data.get("static_image").stem] = eval_results
@@ -151,7 +151,8 @@ def run_registeration():
         dir_static=dir_static,
         dir_moving=dir_moving,
         dir_registered=dir_registered,
-        registration_module=Registration_OpenTPS
+        registration_module=Registration_OpenTPS,
+        register_on_contour="Prostate"
     )
     
 if __name__ == "__main__":
