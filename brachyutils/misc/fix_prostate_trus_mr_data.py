@@ -48,6 +48,11 @@ def fix_one_image_structure(
         struc_array = struc_array.swapaxes(1, 2)
         final_structure_set[struc] = struc_array
     phantom_obj.set_structure_set(final_structure_set)
+    phantom_obj.rename_structures(
+        {
+            "Segment1_Name": "Prostate",
+        }
+        )
 
     phantom_obj.export_to(dir_nrrd_out=pth_output)
 
@@ -110,13 +115,13 @@ def test_read_nrrd():
 
 if __name__ == "__main__":
     # test_read_nrrd()
-    # fix the mr images and structures for the prostate
-    # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
-    # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
-    # dir_out = Path("../temp_data/registration/micro-reg/mr-train")
-    # fix_all_prostate_images(dir_img, dir_structure, dir_out)
+    # # fix the mr images and structures for the prostate
+    dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
+    dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
+    dir_out = Path("../temp_data/registration/micro-reg/mr-train")
+    fix_all_prostate_images(dir_img, dir_structure, dir_out, True)
 
-    # fix the ultrasound images and structures for the prostate
+    # # fix the ultrasound images and structures for the prostate
     dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_images")
     dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_labels")
     dir_out = Path("../temp_data/registration/micro-reg/us-train")

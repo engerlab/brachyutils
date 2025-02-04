@@ -922,6 +922,26 @@ class BrachyPhantom:
         """
         self.structure_names = [structure.name for structure in self.structure_set.contours]
 
+    def rename_structures(self, structure_name_dict: dict) -> None:
+        r"""
+        Purpose:
+            - Rename the structures in the structure set.
+        
+        Inputs:
+            - structure_name_dict: dict := the dictionary of the structure names to rename.
+            The keys are the old names and the values are the new names.
+        
+        Outputs:
+            - None
+        """
+        for old_name, new_name in structure_name_dict.items():
+            structure = self.structure_set.getContourByName(old_name)
+            if structure is not None:
+                structure.name = new_name
+            else:
+                warnings.warn(f"The structure {old_name} does not exist.")
+        self._update_structure_names()
+    
     def remove_structure(self, structure_name: str) -> None:
         r"""
         Purpose:
