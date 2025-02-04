@@ -80,7 +80,7 @@ class PhantomRegistration(ABC):
             raise ValueError("The registration target is not defined. If registering based on images, do not provide contour name. else ensure contour is loaded in phantom.")
 
     @abstractmethod
-    def register(self, pth_phantom_export: str | Path = None, **kwargs) -> tuple[BrachyPhantom, Transform3D]:
+    def register(self, pth_phantom_export: str | Path = None) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom.
@@ -246,6 +246,8 @@ class PhantomRegistration(ABC):
             )
 
         for reg, static in zip(registered_contours, static_contours):
+            if reg == self.register_on_contour:
+                continue
             dice_score = 1 - dice(
                 registered_contours.get(reg).imageArray.flatten(),
                 static_contours.get(static).imageArray.flatten()

@@ -129,6 +129,7 @@ def eval_single_registration(
     reg_obj.register(
         pth_phantom_export=dir_registered
     )
+    return reg_obj.evaluate_on_contours()
 
 if __name__ == "__main__":
     export_phantom_opentps_nrrd_dicom_egsphant()
