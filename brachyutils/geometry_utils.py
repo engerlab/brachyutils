@@ -367,7 +367,7 @@ class BrachyPhantom:
                         else:
                             raise ValueError("mask_type not recognized")
                     else:
-                        mask_dict[query_structure] = None
+                        # mask_dict[query_structure] = None
                         warnings.warn(
                             f"mask for {query_structure} is all zeros. returning empty",
                             stacklevel=2,
@@ -885,6 +885,8 @@ class BrachyPhantom:
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
 
+            if mask_dict.get(structure_name) is None:
+                continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
                 mask = ROIMask(
                     name=structure_name,

@@ -89,8 +89,8 @@ def evaluate_contourBased_registration(
 
     print(f"number of registration instance data was {len(reg_data_list)}")
 
-    all_results = defaultdict()
-    
+    all_dice = defaultdict()
+    all_hausdorff = defaultdict()
     if multi_thread:
         pass
     else:
@@ -104,11 +104,15 @@ def evaluate_contourBased_registration(
                 dir_registered = single_reg_data.get("dir_registered_out"),
                 **kwargs
             )
-            all_results[single_reg_data.get("static_image").stem] = eval_results
+            
+            all_dice[Path(single_reg_data.get("static_image")).stem] = eval_results.get("Dice")
+            all_hausdorff[Path(single_reg_data.get("static_image")).stem] = eval_results.get("Hausdorff")
 
-    eval_df = pd.DataFrame(all_results)
+    eval_df_dice = pd.DataFrame(all_dice)
+    eval_df_hausdorff = pd.DataFrame(all_hausdorff)
 
-    eval_df.to_csv(dir_registered)
+    eval_df_dice.to_csv(dir_registered.joinpath("dice.csv"))
+    eval_df_hausdorff.to_csv(dir_registered.joinpath("hausdorff.csv"))
 
 def eval_single_registration(
     pth_static_image : Path,

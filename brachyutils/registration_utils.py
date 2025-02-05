@@ -173,6 +173,8 @@ class PhantomRegistration(ABC):
             # skip the contour that was transformed
             if contour_name == self.register_on_contour:
                 continue
+            if structure_mask_dict[contour_name] is None:
+                continue
             new_mask = self.deformation.deformImage(structure_mask_dict[contour_name])
             new_mask = resampleImage3DOnImage3D(
                 new_mask,
@@ -307,10 +309,10 @@ class Registration_OpenTPS(PhantomRegistration):
             static_phantom,
             moving_phantom,
             register_on_contour if register_on_contour else kwargs.get("register_on_contour", None),
-            deformable,
-            algorithm,
+            deformable if deformable else kwargs.get("deformable", False),
+            algorithm if algorithm else kwargs.get("algorithm", None),
             backend,
-            tryGPU
+            tryGPU if tryGPU else kwargs.get("tryGPU", False)
             )
         
     def register(
