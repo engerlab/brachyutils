@@ -42,25 +42,25 @@ def test_register_opentps():
         dir_nrrd_out=pth_output.parent
     )
 
-    # mode = {"deformable": False, "algorithm": None} # this is trash
-    # mode = {"deformable": True, "algorithm": "quick"}
-    # mode = {"deformable": True, "algorithm": "demons"}
-    # mode = {"deformable": True, "algorithm": "morphons"}
-# 
-    # registration_obj = Registration_OpenTPS(
-        # static_phantom=static_phantom,
-        # moving_phantom=moving_phantom,
-        # register_on_contour="Segment1_Name",
-        # deformable=mode["deformable"],
-        # algorithm=mode["algorithm"],
-        # )
-# 
-    # registration_obj.register() 
-    # registration_obj.export_to(pth_output.parent)
-# 
-    # reg_eval = registration_obj.evaluate_on_contours()
-    # if reg_eval.get("Dice").get("mean") < 0.5:
-        # print("Dice score is less than 0.5")
+    mode = {"deformable": False, "algorithm": None} # this is trash
+    mode = {"deformable": True, "algorithm": "quick"}
+    mode = {"deformable": True, "algorithm": "demons"}
+    mode = {"deformable": True, "algorithm": "morphons"}
+
+    registration_obj = Registration_OpenTPS(
+        static_phantom=static_phantom,
+        moving_phantom=moving_phantom,
+        register_on_contour="Segment1_Name",
+        deformable=mode["deformable"],
+        algorithm=mode["algorithm"],
+        )
+
+    registration_obj.register() 
+    registration_obj.export_to(pth_output.parent)
+
+    reg_eval = registration_obj.evaluate_on_contours()
+    if reg_eval.get("Dice").get("mean") < 0.5:
+        print("Dice score is less than 0.5")
 
 def test_register_plastimatch():
     from brachyutils.registration_utils import Registration_Plastimatch
