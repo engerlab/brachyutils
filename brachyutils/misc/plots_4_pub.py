@@ -92,7 +92,28 @@ def evaluate_contourBased_registration(
     all_dice = defaultdict()
     all_hausdorff = defaultdict()
     if multi_thread:
-        pass
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+        async def main():
+            with ThreadPoolExecutor() as executor:
+                tasks = []
+                for single_reg_data in reg_data_list:
+                    task = eval_single_registration(
+                        pth_static_image = single_reg_data.get("static_image"),
+                        pth_static_structure = single_reg_data.get("static_structure"),
+                        pth_moving_image = single_reg_data.get("moving_image"),
+                        pth_moving_structure = single_reg_data.get("moving_structure"),
+                        registration_module=registration_module,
+                        dir_registered = single_reg_data.get("dir_registered_out"),
+                        **kwargs
+                    )
+                    tasks.append(task)
+                all_results = await asyncio.gather(*tasks)
+            for single_result in all_results:
+                all_dice[Path(single_result.get("static_image")).stem] = single_result.get("Dice")
+                all_hausdorff[Path(single_result.get("static_image")).stem] = single_result.get("Hausdorff")
+            return all_dice, all_hausdorff
+        asyncio.run(main())
     else:
         for single_reg_data in reg_data_list:
             eval_results = eval_single_registration(
@@ -156,9 +177,10 @@ def run_registeration():
         dir_moving=dir_moving,
         dir_registered=dir_registered,
         registration_module=Registration_OpenTPS,
-        register_on_contour="Prostate"
+        register_on_contour="Prostate",
+        multi_thread=True
     )
-    
+
 if __name__ == "__main__":
     # export_phantom_opentps_nrrd_dicom_egsphant()
     run_registeration()
