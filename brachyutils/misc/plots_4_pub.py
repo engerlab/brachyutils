@@ -110,9 +110,13 @@ def evaluate_contourBased_registration(
                 for single_reg_data in reg_data_list:
                     tasks.append(run_in_executor(executor, single_reg_data))
                 all_results = await asyncio.gather(*tasks)
-            for case in all_results:
-                    all_dice[case] = all_results.get(case).get("Dice")
-                    all_hausdorff[case] = all_results.get(case).get("Hausdorff")
+            for case_dict in all_results:
+                if case_dict is None:
+                    continue
+                key = list(case_dict.keys())[0]
+                value = list(case_dict.values())[0]
+                all_dice[key] = value.get("Dice")
+                all_hausdorff[key] = value.get("Hausdorff")
             return all_dice, all_hausdorff
 
         asyncio.run(main())
@@ -130,8 +134,8 @@ def evaluate_contourBased_registration(
                 print(e)
                 continue
 
-    eval_df_dice = pd.DataFrame(all_dice)
-    eval_df_hausdorff = pd.DataFrame(all_hausdorff)
+    eval_df_dice = pd.DataFrame(all_dice).transpose()
+    eval_df_hausdorff = pd.DataFrame(all_hausdorff).transpose()
 
     eval_df_dice.to_csv(dir_registered.joinpath("dice.csv"))
     eval_df_hausdorff.to_csv(dir_registered.joinpath("hausdorff.csv"))
