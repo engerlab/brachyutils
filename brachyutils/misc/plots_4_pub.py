@@ -80,11 +80,12 @@ def evaluate_contourBased_registration(
             warnings.warn(f"corresponding data for {static_struct} was not found")
             continue
         single_reg_data = defaultdict(Path)
-        single_reg_data["static_image"] = static_image[0]
-        single_reg_data["static_structure"] = static_struct
-        single_reg_data["moving_image"] = moving_image[0]
-        single_reg_data["moving_structure"] = moving_struct[0]
-        single_reg_data["dir_registered_out"] = dir_registered
+        single_reg_data["pth_static_image"] = static_image[0]
+        single_reg_data["pth_static_structure"] = static_struct
+        single_reg_data["pth_moving_image"] = moving_image[0]
+        single_reg_data["pth_moving_structure"] = moving_struct[0]
+        single_reg_data["dir_registered"] = dir_registered
+        single_reg_data["registration_module"] = registration_module
         reg_data_list.append(single_reg_data)
 
     print(f"number of registration instance data was {len(reg_data_list)}")
@@ -94,40 +95,44 @@ def evaluate_contourBased_registration(
     if multi_thread:
         import asyncio
         from concurrent.futures import ThreadPoolExecutor
+        async def run_in_executor(executor, single_reg_data):
+            loop = asyncio.get_event_loop()
+            try:
+                return await loop.run_in_executor(executor, eval_single_registration, single_reg_data)
+            except Exception as e:
+                print(f"error in evaluating {single_reg_data.get('pth_static_image')}")
+                print(e)
+                return None
+
         async def main():
             with ThreadPoolExecutor() as executor:
                 tasks = []
                 for single_reg_data in reg_data_list:
-                    task = eval_single_registration(
-                        pth_static_image = single_reg_data.get("static_image"),
-                        pth_static_structure = single_reg_data.get("static_structure"),
-                        pth_moving_image = single_reg_data.get("moving_image"),
-                        pth_moving_structure = single_reg_data.get("moving_structure"),
-                        registration_module=registration_module,
-                        dir_registered = single_reg_data.get("dir_registered_out"),
-                        **kwargs
-                    )
-                    tasks.append(task)
+                    tasks.append(run_in_executor(executor, single_reg_data))
                 all_results = await asyncio.gather(*tasks)
-            for single_result in all_results:
-                all_dice[Path(single_result.get("static_image")).stem] = single_result.get("Dice")
-                all_hausdorff[Path(single_result.get("static_image")).stem] = single_result.get("Hausdorff")
+            for eval_results in all_results:
+                for key, value in eval_results.items():
+                    all_dice[key] = value.get("Dice")
+                    all_hausdorff[key] = value.get("Hausdorff")
+            # for single_result in all_results:
+                # all_dice[Path(single_result.get("static_image")).stem] = single_result.get("Dice")
+                # all_hausdorff[Path(single_result.get("static_image")).stem] = single_result.get("Hausdorff")
             return all_dice, all_hausdorff
+
         asyncio.run(main())
     else:
         for single_reg_data in reg_data_list:
-            eval_results = eval_single_registration(
-                pth_static_image = single_reg_data.get("static_image"),
-                pth_static_structure = single_reg_data.get("static_structure"),
-                pth_moving_image = single_reg_data.get("moving_image"),
-                pth_moving_structure = single_reg_data.get("moving_structure"),
-                registration_module=registration_module,
-                dir_registered = single_reg_data.get("dir_registered_out"),
-                **kwargs
-            )
-            
-            all_dice[Path(single_reg_data.get("static_image")).stem] = eval_results.get("Dice")
-            all_hausdorff[Path(single_reg_data.get("static_image")).stem] = eval_results.get("Hausdorff")
+            try:
+                eval_results = eval_single_registration(
+                    essential_inputs = single_reg_data,
+                    **kwargs
+                )
+                all_dice[list(eval_results.keys())[0]] = list(eval_results.values())[0].get("Dice")
+                all_hausdorff[list(eval_results.keys())[0]] = list(eval_results.values())[0].get("Hausdorff")
+            except Exception as e:
+                print(f"error in evaluating {single_reg_data.get('pth_static_image')}")
+                print(e)
+                continue
 
     eval_df_dice = pd.DataFrame(all_dice)
     eval_df_hausdorff = pd.DataFrame(all_hausdorff)
@@ -136,34 +141,45 @@ def evaluate_contourBased_registration(
     eval_df_hausdorff.to_csv(dir_registered.joinpath("hausdorff.csv"))
 
 def eval_single_registration(
-    pth_static_image : Path,
-    pth_static_structure : Path,
-    pth_moving_image : Path,
-    pth_moving_structure : Path,
-    registration_module,
-    dir_registered,
+    essential_inputs: Dict,
     **kwargs
 ):
+    r"""
+    Purpose:
+        - evaluate the registration of the moving image and structures onto the static image.
+    Inputs:
+        - essential_inputs := dictionary containing the essential inputs for the registration, which are
+            - pth_static_image
+            - pth_static_structure
+            - pth_moving_image
+            - pth_moving_structure
+            - registration_module
+            - dir_registered
+    Outputs:
+        - dict containing the evaluation results
+            - Dice
+            - Hausdorff
+    """
     static_phantom = BrachyPhantom(
-        pth_phantom_file=pth_static_image,
-        pth_structures_file=pth_static_structure
+        pth_phantom_file=essential_inputs.get("pth_static_image"),
+        pth_structures_file=essential_inputs.get("pth_static_structure")
     )
     moving_phantom = BrachyPhantom(
-        pth_phantom_file=pth_moving_image,
-        pth_structures_file=pth_moving_structure
+        pth_phantom_file=essential_inputs.get("pth_moving_image"),
+        pth_structures_file=essential_inputs.get("pth_moving_structure")
     )
     
-    reg_obj = registration_module(
+    reg_obj = essential_inputs.get("registration_module")(
         static_phantom = static_phantom,
         moving_phantom = moving_phantom,
         **kwargs
     )
 
     reg_obj.register(
-        pth_phantom_export=dir_registered,
+        pth_phantom_export=essential_inputs.get("dir_registered"),
         **kwargs
     )
-    return reg_obj.evaluate_on_contours()
+    return {Path(essential_inputs.get("pth_static_image")).stem: reg_obj.evaluate_on_contours()}
 
 def run_registeration():
     dir_static = "../temp_data/registration/micro-reg/us-train"
