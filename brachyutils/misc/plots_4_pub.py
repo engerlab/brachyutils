@@ -110,13 +110,9 @@ def evaluate_contourBased_registration(
                 for single_reg_data in reg_data_list:
                     tasks.append(run_in_executor(executor, single_reg_data))
                 all_results = await asyncio.gather(*tasks)
-            for eval_results in all_results:
-                for key, value in eval_results.items():
-                    all_dice[key] = value.get("Dice")
-                    all_hausdorff[key] = value.get("Hausdorff")
-            # for single_result in all_results:
-                # all_dice[Path(single_result.get("static_image")).stem] = single_result.get("Dice")
-                # all_hausdorff[Path(single_result.get("static_image")).stem] = single_result.get("Hausdorff")
+            for case in all_results:
+                    all_dice[case] = all_results.get(case).get("Dice")
+                    all_hausdorff[case] = all_results.get(case).get("Hausdorff")
             return all_dice, all_hausdorff
 
         asyncio.run(main())
