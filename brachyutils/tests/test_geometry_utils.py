@@ -222,7 +222,7 @@ if __name__ == "__main__":
     # test_write_image_to_nrrd()
     # test_write_structures_to_nrrd()
     # test_write_structures_to_dicom()
-    test_read_structures_from_nrrd()
+    # test_read_structures_from_nrrd()
     # test_write_to_egsphant()
     # test_load_egsphant()
     # test_crop_phantom()
