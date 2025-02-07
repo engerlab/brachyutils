@@ -32,6 +32,7 @@ def fix_one_image_structure(
     img_array = phantom_obj.get_image_array()
     img_array = img_array.swapaxes(0, 2)
     img_array = img_array.swapaxes(1, 2)
+    img_array = np.flip(img_array, axis=0)
     phantom_obj.set_image_array(img_array)
 
     # swap the first and last axis for structures
@@ -46,6 +47,7 @@ def fix_one_image_structure(
         #     continue
         struc_array = struc_array.swapaxes(0, 2)
         struc_array = struc_array.swapaxes(1, 2)
+        struc_array = np.flip(struc_array, axis=0)
         final_structure_set[struc] = struc_array
     phantom_obj.set_structure_set(final_structure_set)
     phantom_obj.rename_structures(

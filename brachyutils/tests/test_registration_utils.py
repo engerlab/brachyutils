@@ -42,15 +42,15 @@ def test_register_opentps():
         dir_nrrd_out=pth_output.parent
     )
 
-    mode = {"deformable": False, "algorithm": None} # this is trash
+    # mode = {"deformable": False, "algorithm": None} # this is trash
     mode = {"deformable": True, "algorithm": "quick"}
-    mode = {"deformable": True, "algorithm": "demons"}
-    mode = {"deformable": True, "algorithm": "morphons"}
+    # mode = {"deformable": True, "algorithm": "demons"}
+    # mode = {"deformable": True, "algorithm": "morphons"}
 
     registration_obj = Registration_OpenTPS(
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
-        register_on_contour="Segment1_Name",
+        register_on_contour="Prostate",
         deformable=mode["deformable"],
         algorithm=mode["algorithm"],
         )
