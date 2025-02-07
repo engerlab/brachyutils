@@ -197,6 +197,65 @@ def run_registeration():
         multi_thread=True
     )
 
-if __name__ == "__main__":
+def organize_data(dir_out: str | Path):
+    r"""
+    Purpose:
+        - to gather data from all formats and directories into one static directory,
+        one moving directory, and one registered directory. inside each directory, there
+        is one image .nrrd file and one segmentation file .seg.nrrd. per case.
+    
+    Inputs:
+        - dir_out:= the path where the dir_static, dir_moving and dir_registered will be created.
+    
+    Outputs:
+        - None 
+    """
+    dir_static_img = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/imagesTr")
+    dir_static_seg = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/labelsTr")
+    dir_moving_img = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/imagesTr")
+    dir_moving_seg = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/labelsTr")
+    
+    all_static_img = glob(str(dir_static_img.joinpath("*_0000.nii.gz")))
+    all_moving_img = glob(str(dir_moving_img.joinpath("*_0001.nii.gz")))
+    all_static_segs = glob(str(dir_static_seg.joinpath("*_0000.nii.gz")))
+    all_moving_segs = glob(str(dir_moving_seg.joinpath("*_0001.nii.gz")))
+
+    all_cases = list()
+    for static_img in all_static_img:
+        static_img_name = Path(static_img).name.split("_")[1]
+        pth_static_seg = [seg for seg in all_static_segs if static_img_name in seg]
+        pth_moving_img = [img for img in all_moving_img if static_img_name in img]
+        pth_moving_seg = [seg for seg in all_moving_segs if static_img_name in seg]
+
+        if len(pth_static_seg) == 0 or len(pth_moving_img) == 0 or len(pth_moving_seg) == 0:
+            warnings.warn(f"no corresponding data found for {static_img_name}")
+            continue
+        all_cases.append({
+            "static_img": static_img,
+            "static_seg": pth_static_seg[0],
+            "moving_img": pth_moving_img[0],
+            "moving_seg": pth_moving_seg[0]
+        })
+        
+    dir_out = Path(dir_out)
+    dir_out.mkdir(parents=True, exist_ok=True)
+    dir_static = dir_out.joinpath("static")
+    dir_moving = dir_out.joinpath("moving")
+    dir_registered = dir_out.joinpath("reg")    
+    for case in all_cases:
+        static_phantom = BrachyPhantom(
+            pth_phantom_file=case.get("static_img"),
+            pth_structures_file=case.get("static_seg")
+        )
+        moving_phantom = BrachyPhantom(
+            pth_phantom_file=case.get("moving_img"),
+            pth_structures_file=case.get("moving_seg")
+        )
+        static_phantom.export_to(dir_nrrd_out=dir_static)
+        moving_phantom.export_to(dir_nrrd_out=dir_moving)
+        return
+    
+if __name__ == "__main__": 
     # export_phantom_opentps_nrrd_dicom_egsphant()
-    run_registeration()
+    # run_registeration()
+    organize_data("../temp_data/registration/abdomen-mr-ct")
