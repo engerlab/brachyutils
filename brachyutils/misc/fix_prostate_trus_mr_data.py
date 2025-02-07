@@ -47,7 +47,10 @@ def fix_one_image_structure(
         #     continue
         struc_array = struc_array.swapaxes(0, 2)
         struc_array = struc_array.swapaxes(1, 2)
-        struc_array = np.flip(struc_array, axis=0)
+        if "mr_train" in pth_structure:
+            # struc_array = np.flip(struc_array, axis=0)
+            # struc_array = np.flip(struc_array, axis=1)
+            struc_array = np.flip(struc_array, axis=2)
         final_structure_set[struc] = struc_array
     phantom_obj.set_structure_set(final_structure_set)
     phantom_obj.rename_structures(
@@ -124,7 +127,7 @@ if __name__ == "__main__":
     fix_all_prostate_images(dir_img, dir_structure, dir_out, True)
 
     # # fix the ultrasound images and structures for the prostate
-    dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_images")
-    dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_labels")
-    dir_out = Path("../temp_data/registration/micro-reg/us-train")
-    fix_all_prostate_images(dir_img, dir_structure, dir_out, True)
+    # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_images")
+    # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_labels")
+    # dir_out = Path("../temp_data/registration/micro-reg/us-train")
+    # fix_all_prostate_images(dir_img, dir_structure, dir_out, True)
