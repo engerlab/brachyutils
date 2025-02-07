@@ -20,6 +20,7 @@ def fix_one_image_structure(
         - pth_output: path to the output file
     """
     pth_image = Path(pth_image)
+    pth_structure = Path(pth_structure)
     if pth_image.exists() is False:
         raise FileNotFoundError(f"File {pth_image} does not exist.")
 
@@ -47,10 +48,11 @@ def fix_one_image_structure(
         #     continue
         struc_array = struc_array.swapaxes(0, 2)
         struc_array = struc_array.swapaxes(1, 2)
-        if "mr_train" in pth_structure:
-            # struc_array = np.flip(struc_array, axis=0)
+        if "mr_label" in str(pth_structure):
+            # pass
+            struc_array = np.flip(struc_array, axis=0)
             # struc_array = np.flip(struc_array, axis=1)
-            struc_array = np.flip(struc_array, axis=2)
+            # struc_array = np.flip(struc_array, axis=2)
         final_structure_set[struc] = struc_array
     phantom_obj.set_structure_set(final_structure_set)
     phantom_obj.rename_structures(
@@ -102,7 +104,7 @@ def fix_all_prostate_images(dir_img, dir_structure, dir_out, multi_thread: bool 
                 raise FileNotFoundError(f"No structure file found for {img_name}")
             structure = structure[0]
             fix_one_image_structure(img, structure, dir_out)
-            # return
+            return
 
 def test_read_nrrd():
     dir_nrrd = Path("../data_test/test_export_plan/prostate")
@@ -119,12 +121,12 @@ def test_read_nrrd():
     phantom_obj.info()
 
 if __name__ == "__main__":
-    # test_read_nrrd()
+    test_fix_one_image_structure()
     # # fix the mr images and structures for the prostate
-    dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
-    dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
-    dir_out = Path("../temp_data/registration/micro-reg/mr-train")
-    fix_all_prostate_images(dir_img, dir_structure, dir_out, True)
+    # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
+    # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
+    # dir_out = Path("../temp_data/registration/micro-reg/mr-train")
+    # fix_all_prostate_images(dir_img, dir_structure, dir_out, False)
 
     # # fix the ultrasound images and structures for the prostate
     # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_images")
