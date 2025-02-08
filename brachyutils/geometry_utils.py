@@ -123,7 +123,7 @@ class BrachyPhantom:
             pth_structures_file = Path(pth_structures_file)
             assert os.path.exists(pth_structures_file), "The input path does not exist."
             self._load_structure_file(pth_structures_file)
-        
+
         if pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
 
@@ -975,13 +975,12 @@ class BrachyPhantom:
         if self.anatomical_coordinate_system == "LAS":
             raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
         elif self.anatomical_coordinate_system == "RAS":
-            # raise NotImplementedError("Conversion from RAS to LPS is not implemented yet.")
-            image_array = self.get_image_array()
-            image_array = np.flip(image_array, axis=1)
-            image_array = np.flip(image_array, axis=2)
-            # # only for the micro-registration challenge
-            # image_array = np.swapaxes(image_array, 1, 2)
-            self.set_image_array(image_array)
+            # image_array = self.get_image_array()
+            # image_array = np.flip(image_array, axis=1)
+            # image_array = np.flip(image_array, axis=2)
+            # self.set_image_array(image_array)
+            self.image_obj.origin = self.image_obj.origin * np.array([-1, -1, 1])
+            self.image_obj.spacing = self.image_obj.spacing * np.array([-1, -1, 1])
             self.anatomical_coordinate_system = "LPS"
         elif self.anatomical_coordinate_system == "LPS":
             pass
@@ -1175,8 +1174,6 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
         if orientation == "RAS":
             segment_mask = np.flip(segment_mask, axis=[1, 2])
             # segment_mask = np.flip(segment_mask, axis=2)
-            # # only for the micro-registration challenge
-            # segment_mask = np.swapaxes(segment_mask, 1, 2)
         elif orientation == "LAS":
             segment_mask = np.flip(segment_mask, axis=1)
         elif orientation == "LPS":
