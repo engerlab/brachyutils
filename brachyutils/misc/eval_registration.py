@@ -221,14 +221,14 @@ def organize_data(dir_out: str | Path, multi_thread: bool = False):
     dir_moving_img = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/imagesTr")
     dir_moving_seg = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/labelsTr")
     
-    all_static_img = glob(str(dir_static_img.joinpath("*_0000.nii.gz")))
-    all_moving_img = glob(str(dir_moving_img.joinpath("*_0001.nii.gz")))
-    all_static_segs = glob(str(dir_static_seg.joinpath("*_0000.nii.gz")))
-    all_moving_segs = glob(str(dir_moving_seg.joinpath("*_0001.nii.gz")))
+    all_static_img = glob(str(dir_static_img.joinpath("*_0001.nii.gz")))
+    all_moving_img = glob(str(dir_moving_img.joinpath("*_0000.nii.gz")))
+    all_static_segs = glob(str(dir_static_seg.joinpath("*_0001.nii.gz")))
+    all_moving_segs = glob(str(dir_moving_seg.joinpath("*_0000.nii.gz")))
 
     all_cases = list()
     for static_img in all_static_img:
-        static_img_name = Path(static_img).name.split("_")[1]
+        static_img_name = "_".join(Path(static_img).name.split("_")[0:-1])
         pth_static_seg = [seg for seg in all_static_segs if static_img_name in seg]
         pth_moving_img = [img for img in all_moving_img if static_img_name in img]
         pth_moving_seg = [seg for seg in all_moving_segs if static_img_name in seg]
