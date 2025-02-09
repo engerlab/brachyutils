@@ -235,7 +235,7 @@ class PhantomRegistration(ABC):
         
         # find common structures in both phantoms
         common_structures = set(self.registered_phantom.structure_names).intersection(
-            self.static_phantom.structure_names
+            set(self.static_phantom.structure_names)
         )
 
         registered_contours = self.registered_phantom.get_structure_mask(

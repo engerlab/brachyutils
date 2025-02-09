@@ -200,7 +200,7 @@ def run_registeration():
         dir_registered=dir_registered,
         registration_module=Registration_OpenTPS,
         # register_on_contour="Prostate",
-        multi_thread=True
+        multi_thread=False
     )
 
 def organize_data(dir_out: str | Path, multi_thread: bool = False):
