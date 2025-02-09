@@ -1156,6 +1156,24 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
         # the segments are non-overlapping, stored in a 3 dimensional array and
         # encoded by value. zero is ignored.
         num_structures = len(np.unique(structure_data))-1
+
+    # flip the origina and spacing if the orientation is not LPS:
+    # this worked for the messed up protate mri images from the micro-registration
+    # challenge. however, be careful with it on a new Nifti images. please
+    # do not modify the file writers.
+    if orientation == "RAS":
+        # segment_mask = np.flip(segment_mask, axis=[1, 2])
+        origin = origin * np.array([-1, -1, 1])
+        spacing = spacing * np.array([-1, -1, 1])
+    elif orientation == "LAS":
+        # segment_mask = np.flip(segment_mask, axis=1)
+        origin = origin * np.array([1, -1, 1])
+        spacing = spacing * np.array([1, -1, 1])
+    elif orientation == "LPS":
+        pass
+    else:
+        raise ValueError("The orientation of the segmentation is not recognized.")
+
     structure_mask_dict: Dict[str, ROIMask] = {}
     for i in range(num_structures):
         # generate segment labels
@@ -1167,19 +1185,6 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
             segment_mask = structure_data[:, :, :, i]
         else:
             segment_mask = structure_data == i+1
-        # flip the image if the orientation is not LPS:
-        # this worked for the messed up protate mri images from the micro-registration
-        # challenge. however, be careful with it on a new Nifti images. please
-        # do not modify the file writers.
-        if orientation == "RAS":
-            segment_mask = np.flip(segment_mask, axis=[1, 2])
-            # segment_mask = np.flip(segment_mask, axis=2)
-        elif orientation == "LAS":
-            segment_mask = np.flip(segment_mask, axis=1)
-        elif orientation == "LPS":
-            pass
-        else:
-            raise ValueError("The orientation of the image is not recognized.")
         # segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
         if segment_mask is None or segment_mask.sum() == 0:
             continue
@@ -1190,7 +1195,7 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
             name=segment_name,
         )
         structure_mask_dict[segment_name] = roi_mask
-        del segment_mask
+        # del segment_mask
     return structure_mask_dict, "LPS"
 
 def _get_image_orientation(pth_image: Path) -> str:

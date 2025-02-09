@@ -212,7 +212,7 @@ def test_load_nifti_image_and_segmentation_file():
         )
     phantom_obj.info()
     phantom_obj.write_image_to_nrrd(pth_img_out)
-    # phantom_obj.write_structures_to_nrrd(pth_label_out, overlap=True)
+    phantom_obj.write_structures_to_nrrd(pth_label_out, overlap=True)
 
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
