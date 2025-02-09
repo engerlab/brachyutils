@@ -975,12 +975,17 @@ class BrachyPhantom:
         if self.anatomical_coordinate_system == "LAS":
             raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
         elif self.anatomical_coordinate_system == "RAS":
-            # image_array = self.get_image_array()
-            # image_array = np.flip(image_array, axis=1)
-            # image_array = np.flip(image_array, axis=2)
-            # self.set_image_array(image_array)
-            self.image_obj.origin = self.image_obj.origin * np.array([-1, -1, 1])
-            self.image_obj.spacing = self.image_obj.spacing * np.array([-1, -1, 1])
+            # # flipping the image array allows the registration and segmentation to work.
+            # # the image is shown correctly in 3D slicer, but the coordinates wont match
+            # # the coordinates in the Nifti file.
+            image_array = self.get_image_array()
+            image_array = np.flip(image_array, axis=1)
+            image_array = np.flip(image_array, axis=2)
+            self.set_image_array(image_array)
+            # # negating the x and y origin and spacing allows the image to be 
+            # # displayed in the correct orientation in 3D slicer.
+            # self.image_obj.origin = self.image_obj.origin * np.array([-1, -1, 1])
+            # self.image_obj.spacing = self.image_obj.spacing * np.array([-1, -1, 1])
             self.anatomical_coordinate_system = "LPS"
         elif self.anatomical_coordinate_system == "LPS":
             pass
@@ -1162,13 +1167,19 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     # challenge. however, be careful with it on a new Nifti images. please
     # do not modify the file writers.
     if orientation == "RAS":
-        # segment_mask = np.flip(segment_mask, axis=[1, 2])
-        origin = origin * np.array([-1, -1, 1])
-        spacing = spacing * np.array([-1, -1, 1])
+        structure_data = np.flip(structure_data, axis=[1, 2])
+        # # either flip the mask on x and y axis or negating the origin and spacing. not both.
+        # # flipping allows spacing and origin to be positive, which is required by SITK and correct
+        # # display in 3D slicer.
+        # # negating allows for correct display in 3D slicer and the coordinates will match what
+        # # slicer shows when you load the original Nifti files. However, registration and segmentation
+        # # will not work correctly.
+        # origin = origin * np.array([-1, -1, 1])
+        # spacing = spacing * np.array([-1, -1, 1])
     elif orientation == "LAS":
-        # segment_mask = np.flip(segment_mask, axis=1)
-        origin = origin * np.array([1, -1, 1])
-        spacing = spacing * np.array([1, -1, 1])
+        structure_data = np.flip(structure_data, axis=1)
+        # origin = origin * np.array([1, -1, 1])
+        # spacing = spacing * np.array([1, -1, 1])
     elif orientation == "LPS":
         pass
     else:

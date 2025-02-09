@@ -37,7 +37,7 @@ from brachyutils.geometry_utils import BrachyPhantom
 #     from brachyutils.dose_generation_utils import DoseMonteCarlo, DoseTG43
 #     from brachyutils.plan_utils import BrachyPlan
 
-def evaluate_contourBased_registration(
+def evaluate_registration(
     dir_static: str | Path,
     dir_moving: str | Path,
     dir_registered: str | Path,
@@ -88,7 +88,7 @@ def evaluate_contourBased_registration(
         single_reg_data["registration_module"] = registration_module
         reg_data_list.append(single_reg_data)
 
-    print(f"number of registration instance data was {len(reg_data_list)}")
+    print(f"number of registration cases was {len(reg_data_list)}")
 
     all_dice = defaultdict()
     all_hausdorff = defaultdict()
@@ -182,18 +182,24 @@ def eval_single_registration(
     return {Path(essential_inputs.get("pth_static_image")).stem: reg_obj.evaluate_on_contours()}
 
 def run_registeration():
-    dir_static = "../temp_data/registration/micro-reg/us-train"
-    dir_moving = "../temp_data/registration/micro-reg/mr-train"
-    dir_registered = "../temp_data/registration/micro-reg/reg-train"
+    # # on abdomen MR-CT
+    dir_static = "../temp_data/registration/abdomen-mr-ct/static"
+    dir_moving = "../temp_data/registration/abdomen-mr-ct/moving"
+    dir_registered = "../temp_data/registration/abdomen-mr-ct/reg"
+
+    # # on micro-reg prostate
+    # dir_static = "../temp_data/registration/micro-reg/us-train"
+    # dir_moving = "../temp_data/registration/micro-reg/mr-train"
+    # dir_registered = "../temp_data/registration/micro-reg/reg-train"
 
     from brachyutils.registration_utils import Registration_OpenTPS
     
-    evaluate_contourBased_registration(
+    evaluate_registration(
         dir_static=dir_static,
         dir_moving=dir_moving,
         dir_registered=dir_registered,
         registration_module=Registration_OpenTPS,
-        register_on_contour="Prostate",
+        # register_on_contour="Prostate",
         multi_thread=True
     )
 
@@ -285,5 +291,5 @@ def export_static_moving_phantoms(case: Dict, dir_static: Path, dir_moving: Path
 
 if __name__ == "__main__": 
     # export_phantom_opentps_nrrd_dicom_egsphant()
-    # run_registeration()
-    organize_data("../temp_data/registration/abdomen-mr-ct", True)
+    run_registeration()
+    # organize_data("../temp_data/registration/abdomen-mr-ct", True)
