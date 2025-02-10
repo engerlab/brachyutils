@@ -19,6 +19,13 @@ services:
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.10
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   Pyplastimatch:
     build:
