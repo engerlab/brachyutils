@@ -73,7 +73,7 @@ def evaluate_registration(
     for static_struct in all_static_structs_nrrd:
         common_name = Path(Path(static_struct).stem).stem
         # if "0001" not in common_name:
-        #     continue 
+        #     continue
         static_image = glob(str(dir_static.joinpath(f"{common_name}.nrrd")))
         moving_image = glob(str(dir_moving.joinpath(f"{common_name}.nrrd")))
         moving_struct = glob(str(dir_moving.joinpath(f"{common_name}.seg.nrrd")))
@@ -88,6 +88,7 @@ def evaluate_registration(
         single_reg_data["pth_moving_structure"] = moving_struct[0]
         single_reg_data["dir_registered"] = dir_registered
         single_reg_data["registration_module"] = registration_module
+        # single_reg_data.update(kwargs)
         reg_data_list.append(single_reg_data)
 
     print(f"number of registration cases was {len(reg_data_list)}")
@@ -97,10 +98,11 @@ def evaluate_registration(
     if multi_thread:
         import asyncio
         from concurrent.futures import ThreadPoolExecutor
-        async def run_in_executor(executor, single_reg_data):
+        from functools import partial
+        async def run_in_executor(executor, func, single_reg_data):
             loop = asyncio.get_event_loop()
             try:
-                return await loop.run_in_executor(executor, eval_single_registration, single_reg_data)
+                return await loop.run_in_executor(executor, func, single_reg_data)
             except Exception as e:
                 print(f"error in evaluating {single_reg_data.get('pth_static_image')}")
                 print(e)
@@ -110,7 +112,12 @@ def evaluate_registration(
             with ThreadPoolExecutor() as executor:
                 tasks = []
                 for single_reg_data in reg_data_list:
-                    tasks.append(run_in_executor(executor, single_reg_data))
+                    tasks.append(
+                        run_in_executor(
+                            executor, 
+                            partial(eval_single_registration, **kwargs), 
+                            single_reg_data)
+                        )
                 all_results = await asyncio.gather(*tasks)
             for case_dict in all_results:
                 if case_dict is None:
@@ -202,7 +209,7 @@ def run_registeration():
         dir_registered=dir_registered,
         registration_module=Registration_OpenTPS,
         # register_on_contour="Prostate",
-        multi_thread=False,
+        multi_thread=True,
         deformable=True,
         algorithm="quick"
     )
