@@ -194,7 +194,10 @@ def run_registeration():
     # # on abdomen MR-CT
     dir_static = "../temp_data/registration/abdomen-mr-ct/static"
     dir_moving = "../temp_data/registration/abdomen-mr-ct/moving"
-    dir_registered = "../temp_data/registration/abdomen-mr-ct/reg"
+    backend = "OpenTPS"
+    dir_registered_quick = f"../temp_data/registration/abdomen-mr-ct/{backend}/reg-quick"
+    dir_registered_demons = f"../temp_data/registration/abdomen-mr-ct/{backend}/reg-demons"
+    dir_registered_morphons = f"../temp_data/registration/abdomen-mr-ct/{backend}/reg-morphons"
 
     # # on micro-reg prostate
     # dir_static = "../temp_data/registration/micro-reg/us-train"
@@ -203,16 +206,39 @@ def run_registeration():
 
     from brachyutils.registration_utils import Registration_OpenTPS
     
+    # # image based registration
     evaluate_registration(
         dir_static=dir_static,
         dir_moving=dir_moving,
-        dir_registered=dir_registered,
+        dir_registered=dir_registered_quick,
         registration_module=Registration_OpenTPS,
         # register_on_contour="Prostate",
         multi_thread=True,
         deformable=True,
         algorithm="quick"
     )
+    evaluate_registration(
+        dir_static=dir_static,
+        dir_moving=dir_moving,
+        dir_registered=dir_registered_demons,
+        registration_module=Registration_OpenTPS,
+        # register_on_contour="Prostate",
+        multi_thread=True,
+        deformable=True,
+        algorithm="demons"
+    )
+    evaluate_registration(
+        dir_static=dir_static,
+        dir_moving=dir_moving,
+        dir_registered=dir_registered_morphons,
+        registration_module=Registration_OpenTPS,
+        # register_on_contour="Prostate",
+        multi_thread=True,
+        deformable=True,
+        algorithm="morphons"
+    )
+
+    # # contour based registration
 
 def organize_data(dir_out: str | Path, multi_thread: bool = False):
     r"""
