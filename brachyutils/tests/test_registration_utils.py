@@ -4,10 +4,14 @@ from brachyutils.geometry_utils import BrachyPhantom
 
 def test_register_opentps():
     # Abdominal: static = CT, moving = MR
-    pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
-    pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
-    pth_img_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
-    pth_label_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
+    pth_img_static = Path("../temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0001.nrrd")
+    # pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
+    pth_label_static = Path("../temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0001.seg.nrrd")
+    # pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
+    pth_img_moving = Path("../temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0001.nrrd")
+    # pth_img_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
+    pth_label_moving = Path("../temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0001.seg.nrrd")
+    # pth_label_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
     pth_output = Path("../data_test/test_export_plan/abdomin_mr_ct/registered_abdomin_ct_mr.nrrd")
 
     # # prostate: static = US, moving = MR
@@ -50,7 +54,7 @@ def test_register_opentps():
     registration_obj = Registration_OpenTPS(
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
-        register_on_contour="Prostate",
+        # register_on_contour="Prostate",
         deformable=mode["deformable"],
         algorithm=mode["algorithm"],
         )
@@ -60,15 +64,19 @@ def test_register_opentps():
 
     reg_eval = registration_obj.evaluate_on_contours()
     if reg_eval.get("Dice").get("mean") < 0.5:
-        print("Dice score is less than 0.5")
+        raise ValueError("Dice score is less than 0.5")
 
 def test_register_plastimatch():
     from brachyutils.registration_utils import Registration_Plastimatch
     # Abdominal: static = CT, moving = MR
-    pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
-    pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
-    pth_img_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
-    pth_label_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
+    pth_img_static = Path("../temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0001.nrrd")
+    # pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
+    pth_label_static = Path("../temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0001.seg.nrrd")
+    # pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
+    pth_img_moving = Path("../temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0001.nrrd")
+    # pth_img_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
+    pth_label_moving = Path("../temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0001.seg.nrrd")
+    # pth_label_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
     pth_output = Path("../data_test/test_export_plan/abdomin_mr_ct/registered_abdomin_ct_mr.nrrd")
     
     for pth in [pth_img_static, pth_img_moving, pth_label_static, pth_label_moving]:

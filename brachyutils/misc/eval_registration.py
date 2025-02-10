@@ -60,7 +60,7 @@ def evaluate_registration(
     if not issubclass(registration_module, PhantomRegistration):
         raise ValueError("registration module should extend the abstract class PhantomRegistration")
 
-    from brachyutils.registration_utils import Registration_OpenTPS
+    # from brachyutils.registration_utils import Registration_OpenTPS
     dir_static = Path(dir_static)
     dir_moving = Path(dir_moving)
     dir_registered = Path(dir_registered)
@@ -72,6 +72,8 @@ def evaluate_registration(
     reg_data_list = list()
     for static_struct in all_static_structs_nrrd:
         common_name = Path(Path(static_struct).stem).stem
+        # if "0001" not in common_name:
+        #     continue 
         static_image = glob(str(dir_static.joinpath(f"{common_name}.nrrd")))
         moving_image = glob(str(dir_moving.joinpath(f"{common_name}.nrrd")))
         moving_struct = glob(str(dir_moving.joinpath(f"{common_name}.seg.nrrd")))
@@ -200,7 +202,9 @@ def run_registeration():
         dir_registered=dir_registered,
         registration_module=Registration_OpenTPS,
         # register_on_contour="Prostate",
-        multi_thread=False
+        multi_thread=False,
+        deformable=True,
+        algorithm="quick"
     )
 
 def organize_data(dir_out: str | Path, multi_thread: bool = False):
