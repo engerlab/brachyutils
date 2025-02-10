@@ -884,7 +884,7 @@ class BrachyPhantom:
             old_structure = self.structure_set.getContourByName(structure_name)
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
-
+            print(f"setting structure {structure_name}")
             if mask_dict.get(structure_name) is None:
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
