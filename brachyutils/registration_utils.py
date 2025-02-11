@@ -328,7 +328,7 @@ class Registration_OpenTPS(PhantomRegistration):
             based on all the common structures.
             - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
             - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
-            - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
+            - backend: Literal["opentps"] = "opentps" The backend package used to handle 
             the registration process.
             - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
         Outputs:
@@ -480,7 +480,7 @@ class Registration_Plastimatch(PhantomRegistration):
             based on all the common structures.
             - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
             - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
-            - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
+            - backend: Literal["plastimatch"] = "opentps" The backend package used to handle 
             the registration process.
             - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
         Outputs:
