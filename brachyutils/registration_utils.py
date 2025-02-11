@@ -15,7 +15,7 @@ class PhantomRegistration(ABC):
         self,
         static_phantom: Union[BrachyPhantom, str],
         moving_phantom: Union[BrachyPhantom, str],
-        register_on_contour: Optional[str] = None,
+        register_on_contour: Union[Literal["common"], Optional[str]] = None,
         deformable: bool = False,
         algorithm: Literal["demons", "morphons"] = None,
         backend: Literal["elastix", "plastimatch", "opentps"] = None,
@@ -28,8 +28,9 @@ class PhantomRegistration(ABC):
         Attributes:
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
-            - register_on_contour: Optional[str] = None: The name of the contour to be used in the registration process.
-            if this input is provided, contour based registration is used.
+            - register_on_contour: Optional[str] | "common" = None: The name of the contour to be used in the registration process.
+            if this input is provided, contour based registration is used. If "common" is provided, registeration is done
+            based on all the common structures.
             - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
             - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
             - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
@@ -67,6 +68,38 @@ class PhantomRegistration(ABC):
         if self.register_on_contour is None:
             self._static_data = self.static_phantom.image_obj
             self._moving_data = self.moving_phantom.image_obj
+        elif self.register_on_contour == "common":
+            def get_contour_intersections(
+                input_phantom:BrachyPhantom,
+                common_structures: List[str]
+                ) -> ROIMask:
+                r"""
+                Purpose:
+                    - To get the intersection of the common structures in the input phantom.
+                """
+                mask_dict = input_phantom.get_structure_mask(
+                    common_structures,
+                    mask_type=np.ndarray)
+
+                all_mask_ndarray = np.stack([
+                    mask_dict[structure] for structure in common_structures
+                    ])
+                all_mask_intersection = np.sum(all_mask_ndarray, axis=0)
+                return ROIMask(
+                    name=f"common_{input_phantom.image_obj.name}",
+                    imageArray=np.swapaxes(all_mask_intersection, 0, 2),
+                    origin=input_phantom.image_obj.origin,
+                    spacing=input_phantom.image_obj.spacing
+                )
+                
+            common_structures = set(self.static_phantom.structure_names).intersection(  
+                set(self.moving_phantom.structure_names)
+            )
+            if not common_structures:
+                raise ValueError("No common structures found in the phantoms.")
+            self._static_data = get_contour_intersections(self.static_phantom, common_structures)
+            self._moving_data = get_contour_intersections(self.moving_phantom, common_structures)
+
         else:
             self._static_data = self.static_phantom.get_structure_mask(
                 [self.register_on_contour],
@@ -277,7 +310,7 @@ class Registration_OpenTPS(PhantomRegistration):
         self,
         static_phantom: BrachyPhantom,
         moving_phantom: BrachyPhantom,
-        register_on_contour: Optional[str] = None,
+        register_on_contour: Union[Literal["common"], Optional[str]] = None,
         deformable: bool = False,
         algorithm: Literal["demons", "morphons", "quick"] = None,
         backend = "opentps",
@@ -290,8 +323,9 @@ class Registration_OpenTPS(PhantomRegistration):
         Inputs:
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
-            - register_on_contour: Optional[str] = None: The name of the contour to be used in the registration process.
-            if this input is provided, contour based registration is used.
+            - register_on_contour: Optional[str] | "common" = None: The name of the contour to be used in the registration process.
+            if this input is provided, contour based registration is used. If "common" is provided, registeration is done
+            based on all the common structures.
             - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
             - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
             - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 
@@ -427,7 +461,7 @@ class Registration_Plastimatch(PhantomRegistration):
         pth_plastimatch: Path | str,
         static_phantom: BrachyPhantom,
         moving_phantom: BrachyPhantom,
-        register_on_contour: Optional[str] = None,
+        register_on_contour: Union[Literal["common"], Optional[str]] = None,
         deformable: bool = False,
         algorithm: Literal["demons", "bspline"] = None,
         backend = "plastimatch",
@@ -441,8 +475,9 @@ class Registration_Plastimatch(PhantomRegistration):
             the plastimatch server is running.
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
-            - register_on_contour: Optional[str] = None: The name of the contour to be used in the registration process.
-            if this input is provided, contour based registration is used.
+            - register_on_contour: Optional[str] | "common" = None: The name of the contour to be used in the registration process.
+            if this input is provided, contour based registration is used. If "common" is provided, registeration is done
+            based on all the common structures.
             - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
             - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
             - backend: Literal["elastix", "plastimatch", "opentps"] = "opentps" The backend package used to handle 

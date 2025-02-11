@@ -143,9 +143,11 @@ def evaluate_registration(
                 print(e)
                 continue
 
+            # break
+
     eval_df_dice = pd.DataFrame(all_dice).transpose()
     eval_df_hausdorff = pd.DataFrame(all_hausdorff).transpose()
-
+    dir_registered.mkdir(exist_ok=True, parents=True)
     eval_df_dice.to_csv(dir_registered.joinpath("dice.csv"))
     eval_df_hausdorff.to_csv(dir_registered.joinpath("hausdorff.csv"))
 
@@ -194,10 +196,11 @@ def run_registeration():
     # # on abdomen MR-CT
     dir_static = "../temp_data/registration/abdomen-mr-ct/static"
     dir_moving = "../temp_data/registration/abdomen-mr-ct/moving"
-    backend = "OpenTPS"
-    dir_registered_quick = f"../temp_data/registration/abdomen-mr-ct/{backend}/reg-quick"
-    dir_registered_demons = f"../temp_data/registration/abdomen-mr-ct/{backend}/reg-demons"
-    dir_registered_morphons = f"../temp_data/registration/abdomen-mr-ct/{backend}/reg-morphons"
+    backend = "OpenTPS" # Plastimatch
+    use_contour = "Segment3_Name" # None
+    dir_registered_quick = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-quick"
+    dir_registered_demons = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-demons"
+    dir_registered_morphons = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-morphons"
 
     # # on micro-reg prostate
     # dir_static = "../temp_data/registration/micro-reg/us-train"
@@ -212,30 +215,33 @@ def run_registeration():
         dir_moving=dir_moving,
         dir_registered=dir_registered_quick,
         registration_module=Registration_OpenTPS,
-        # register_on_contour="Prostate",
+        register_on_contour=use_contour,
         multi_thread=True,
         deformable=True,
         algorithm="quick"
     )
-    evaluate_registration(
-        dir_static=dir_static,
-        dir_moving=dir_moving,
-        dir_registered=dir_registered_demons,
-        registration_module=Registration_OpenTPS,
-        # register_on_contour="Prostate",
-        multi_thread=True,
-        deformable=True,
-        algorithm="demons"
-    )
+    # demons does not work!
+    # evaluate_registration(
+    #     dir_static=dir_static,
+    #     dir_moving=dir_moving,
+    #     dir_registered=dir_registered_demons,
+    #     registration_module=Registration_OpenTPS,
+    #     # # register_on_contour="Prostate",
+    #     multi_thread=False,
+    #     deformable=True,
+    #     algorithm="demons",
+    #     tryGPU=True
+    # )
     evaluate_registration(
         dir_static=dir_static,
         dir_moving=dir_moving,
         dir_registered=dir_registered_morphons,
         registration_module=Registration_OpenTPS,
-        # register_on_contour="Prostate",
-        multi_thread=True,
+        register_on_contour=use_contour,
+        multi_thread=False,
         deformable=True,
-        algorithm="morphons"
+        algorithm="morphons",
+        tryGPU=True
     )
 
     # # contour based registration
