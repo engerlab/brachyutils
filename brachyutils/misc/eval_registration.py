@@ -197,7 +197,7 @@ def run_registeration():
     dir_static = "../temp_data/registration/abdomen-mr-ct/static"
     dir_moving = "../temp_data/registration/abdomen-mr-ct/moving"
     backend = "OpenTPS" # Plastimatch
-    use_contour = "Segment3_Name" # None
+    use_contour = "common" # None
     dir_registered_quick = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-quick"
     dir_registered_demons = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-demons"
     dir_registered_morphons = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-morphons"
