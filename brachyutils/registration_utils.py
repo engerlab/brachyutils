@@ -559,8 +559,14 @@ class Registration_Plastimatch(PhantomRegistration):
             # registered_image = BrachyPhantom(
             #     pth_phantom_file=pth_output
             # )
-    def export_to(self, pth_phantom_export):
-        pass
+    def export_to(
+        self,
+        dir_registered_phantom: Path | str,
+        output_type: Literal[".nrrd", ".dcm"] = ".nrrd") -> None:
+        super().export_to(dir_registered_phantom, output_type)
 
-    def synch_registered_phantom_with_data(self):
-        pass
+    def synch_registered_phantom_with_data(self) -> None:
+        super().synch_registered_phantom_with_data()
+        
+    def evaluate_on_contours(self):
+        return super().evaluate_on_contours()
