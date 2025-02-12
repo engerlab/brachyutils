@@ -127,18 +127,30 @@ class PhantomRegistration(ABC):
         pass
 
     @abstractmethod
-    def export_to(self, pth_phantom_export) -> None:
+    def export_to(
+        self,
+        dir_registered_phantom: Path | str,
+        output_type: Literal[".nrrd", ".dcm"] = ".nrrd") -> None:
         """
         Purpose:
-            - To export the obtained registered image to a given path file.
-
+            - To export the obtained registered phantom to a given directory with a given output type.
         Inputs:
-            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
-
+            - dir_phantom_export: Union[Path, str]: 
+            - output_type: Literal[".nrrd", ".dcm"] = ".nrrd": The output type of the registered phantom.
         Output:
             - None     
         """
-        pass
+        assert self.registered_phantom is not None
+        if output_type == ".nrrd":
+            self.registered_phantom.export_to(
+                dir_nrrd_out=dir_registered_phantom
+                )
+        elif output_type == ".dcm":
+            self.registered_phantom.export_to(
+                dir_dicom_out=dir_registered_phantom
+            )
+        else:
+            raise ValueError(f"The output type {output_type} is not supported. please specify .nrrd or .dcm")
     
     @abstractmethod
     def synch_registered_phantom_with_data(self) -> None:
@@ -429,25 +441,7 @@ class Registration_OpenTPS(PhantomRegistration):
         self,
         dir_registered_phantom: Path | str,
         output_type: Literal[".nrrd", ".dcm"] = ".nrrd") -> None:
-        """
-        Purpose:
-            - To export the obtained registered imag
-        Inputs:
-            - dir_phantom_export: Union[Path, str]: 
-        Output:
-            - None     
-        """
-        assert self.registered_phantom is not None
-        if output_type == ".nrrd":
-            self.registered_phantom.export_to(
-                dir_nrrd_out=dir_registered_phantom
-                )
-        elif output_type == ".dcm":
-            self.registered_phantom.export_to(
-                dir_dicom_out=dir_registered_phantom
-            )
-        else:
-            raise ValueError(f"The output type {output_type} is not supported. please specify .nrrd or .dcm")
+        super().export_to(dir_registered_phantom, output_type)
 
     def synch_registered_phantom_with_data(self) -> None:
         super().synch_registered_phantom_with_data()
@@ -463,7 +457,7 @@ class Registration_Plastimatch(PhantomRegistration):
         moving_phantom: BrachyPhantom,
         register_on_contour: Union[Literal["common"], Optional[str]] = None,
         deformable: bool = False,
-        algorithm: Literal["demons", "bspline"] = None,
+        # algorithm: Literal["demons", "bspline"] = None,
         backend = "plastimatch",
         tryGPU: bool = False,
         ):
@@ -496,7 +490,7 @@ class Registration_Plastimatch(PhantomRegistration):
             moving_phantom,
             register_on_contour,
             deformable,
-            algorithm,
+            # algorithm,
             backend,
             tryGPU
             )
@@ -515,7 +509,7 @@ class Registration_Plastimatch(PhantomRegistration):
             please look at the plastimatch documentation for the full list of possible stage parameters.
         """
         # leave some space to figure out the rigidness and options for the registration.
-        
+
         # need to write out the images for plastimatch to read them.
         # first sort out the paths to the images
         dir_temp_data = Path(__file__).resolve().parent.parent.joinpath("temp_data/registration")
