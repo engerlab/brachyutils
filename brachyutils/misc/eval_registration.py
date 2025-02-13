@@ -141,8 +141,7 @@ def evaluate_registration(
                 print(f"error in evaluating {single_reg_data.get('pth_static_image')}")
                 print(e)
                 continue
-
-            break
+            # break
 
     eval_df_dice = pd.DataFrame(all_dice).transpose()
     eval_df_hausdorff = pd.DataFrame(all_hausdorff).transpose()
@@ -250,7 +249,7 @@ def run_registration_plastimatch():
     dir_static = "../temp_data/registration/abdomen-mr-ct/static"
     dir_moving = "../temp_data/registration/abdomen-mr-ct/moving"
     backend = "Plastimatch"
-    use_contour = "" #"common"
+    use_contour = ""
     dir_registered_bspline = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-bspline"
     pth_plastimatch = "http://192.168.1.13:8000/plastimatch_register"
 
