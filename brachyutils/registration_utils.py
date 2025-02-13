@@ -460,6 +460,7 @@ class Registration_Plastimatch(PhantomRegistration):
         # algorithm: Literal["demons", "bspline"] = None,
         backend = "plastimatch",
         tryGPU: bool = False,
+        **kwargs
         ):
         r"""
         Purpose:
@@ -494,25 +495,34 @@ class Registration_Plastimatch(PhantomRegistration):
             backend,
             tryGPU
             )
-        self.pth_plastimatch = pth_plastimatch
+        self.pth_plastimatch = pth_plastimatch if pth_plastimatch else kwargs.popitem("pth_plastimatch", None)
 
     def register(
         self,
         stage_params_list: List[Dict[str, str]] = None,
+        pth_phantom_export: Path | str = None,
+        **kwargs
         ) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom using the Plastimatch package.
+        
         Inputs:
-            - stage_params_list: List[dict]: The list of parameters for the registration stages.
             - stage_params_list: List[Dict[str, str]] := a list of dictionaries containing the stage parameters for the registration.
             please look at the plastimatch documentation for the full list of possible stage parameters.
+            - pth_phantom_export := directory where the registered phantom is exported to.
+        
+        Outputs:
+            - BrachyPhantom: The registered phantom object.
         """
         # leave some space to figure out the rigidness and options for the registration.
 
         # need to write out the images for plastimatch to read them.
         # first sort out the paths to the images
-        dir_temp_data = Path(__file__).resolve().parent.parent.joinpath("temp_data/registration")
+        if "temp_data/registration" in str(pth_phantom_export.resolve()):
+            dir_temp_data = pth_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)
+        else:
+            dir_temp_data = Path(__file__).resolve().parent.parent.joinpath("temp_data/registration")
         pth_static = dir_temp_data.joinpath("static.nrrd")
         pth_moving = dir_temp_data.joinpath("moving.nrrd")
         pth_output = dir_temp_data.joinpath("registered.nrrd")
@@ -533,6 +543,7 @@ class Registration_Plastimatch(PhantomRegistration):
             "fixed" : f"{str(pth_static).split("temp_data/registration/")[-1]}",
             "moving" : f"{str(pth_moving).split("temp_data/registration/")[-1]}",
             "image_out" : f"{str(pth_output).split("temp_data/registration/")[-1]}",
+            "vf_out" : f"{str(dir_temp_data).split("temp_data/registration/")[-1]}/vf.nrrd",
         }
 
         stage_params_list = stage_params_list if stage_params_list else[
@@ -555,10 +566,25 @@ class Registration_Plastimatch(PhantomRegistration):
             if not pth_output.exists():
                 raise ValueError("The registered image was not generated.")
 
-            # read the registered image
-            # registered_image = BrachyPhantom(
-            #     pth_phantom_file=pth_output
-            # )
+        else:
+            raise NotImplementedError("The local plastimatch registration is not implemented yet.")
+
+        # load the registered image
+        self._registered_data = BrachyPhantom(
+            pth_phantom_file=pth_output
+        ).image_obj
+        self._registered_data = resampleImage3DOnImage3D(
+            self._registered_data,
+            self._static_data,
+            )
+        self.deformation = _load_transformations(
+            dir_temp_data.joinpath("vf.nrrd")
+            )
+        self.synch_registered_phantom_with_data()
+        if pth_phantom_export is not None:
+            self.export_to(pth_phantom_export)
+        return self.registered_phantom, self.deformation
+
     def export_to(
         self,
         dir_registered_phantom: Path | str,
@@ -570,3 +596,11 @@ class Registration_Plastimatch(PhantomRegistration):
         
     def evaluate_on_contours(self):
         return super().evaluate_on_contours()
+
+def _load_transformations(pth_transform_nrrd: Path) -> Transform3D:
+    import nrrd
+    data, header = nrrd.read(str(pth_transform_nrrd))
+    return Transform3D(
+        tformMatrix=data,
+        name=pth_transform_nrrd.stem
+    )

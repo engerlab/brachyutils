@@ -88,7 +88,6 @@ def evaluate_registration(
         single_reg_data["pth_moving_structure"] = moving_struct[0]
         single_reg_data["dir_registered"] = dir_registered
         single_reg_data["registration_module"] = registration_module
-        # single_reg_data.update(kwargs)
         reg_data_list.append(single_reg_data)
 
     print(f"number of registration cases was {len(reg_data_list)}")
@@ -143,7 +142,7 @@ def evaluate_registration(
                 print(e)
                 continue
 
-            # break
+            break
 
     eval_df_dice = pd.DataFrame(all_dice).transpose()
     eval_df_hausdorff = pd.DataFrame(all_hausdorff).transpose()
@@ -192,23 +191,21 @@ def eval_single_registration(
     )
     return {Path(essential_inputs.get("pth_static_image")).stem: reg_obj.evaluate_on_contours()}
 
-def run_registeration():
+def run_registeration_opentps():
     # # on abdomen MR-CT
     dir_static = "../temp_data/registration/abdomen-mr-ct/static"
     dir_moving = "../temp_data/registration/abdomen-mr-ct/moving"
-    backend = "OpenTPS" # Plastimatch
-    use_contour = "common" # None
+    backend = "OpenTPS"
+    use_contour = "" # None
     dir_registered_quick = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-quick"
     dir_registered_demons = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-demons"
     dir_registered_morphons = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-morphons"
-
     # # on micro-reg prostate
     # dir_static = "../temp_data/registration/micro-reg/us-train"
     # dir_moving = "../temp_data/registration/micro-reg/mr-train"
     # dir_registered = "../temp_data/registration/micro-reg/reg-train"
 
     from brachyutils.registration_utils import Registration_OpenTPS
-    
     # # image based registration
     evaluate_registration(
         dir_static=dir_static,
@@ -220,7 +217,7 @@ def run_registeration():
         deformable=True,
         algorithm="quick"
     )
-    # demons does not work!
+    # demons does not work well!
     # evaluate_registration(
     #     dir_static=dir_static,
     #     dir_moving=dir_moving,
@@ -245,6 +242,28 @@ def run_registeration():
     )
 
     # # contour based registration
+
+def run_registration_plastimatch():
+    from brachyutils.registration_utils import Registration_Plastimatch
+
+    # # on abdomen MR-CT
+    dir_static = "../temp_data/registration/abdomen-mr-ct/static"
+    dir_moving = "../temp_data/registration/abdomen-mr-ct/moving"
+    backend = "Plastimatch"
+    use_contour = "" #"common"
+    dir_registered_bspline = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-bspline"
+    pth_plastimatch = "http://192.168.1.13:8000/plastimatch_register"
+
+    evaluate_registration(
+        dir_static=dir_static,
+        dir_moving=dir_moving,
+        dir_registered=dir_registered_bspline,
+        registration_module=Registration_Plastimatch,
+        # register_on_contour=use_contour,
+        pth_plastimatch=pth_plastimatch,
+        # multi_thread=True,
+        # deformable=True,
+    )
 
 def organize_data(dir_out: str | Path, multi_thread: bool = False):
     r"""
@@ -333,6 +352,6 @@ def export_static_moving_phantoms(case: Dict, dir_static: Path, dir_moving: Path
     moving_phantom.export_to(dir_nrrd_out=dir_moving)
 
 if __name__ == "__main__": 
-    # export_phantom_opentps_nrrd_dicom_egsphant()
-    run_registeration()
     # organize_data("../temp_data/registration/abdomen-mr-ct", True)
+    # run_registeration_opentps()
+    run_registration_plastimatch()
