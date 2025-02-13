@@ -7,6 +7,7 @@ import numpy as np
 
 from brachyutils.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
 from opentps.core.data._transform3D import Transform3D
+from opentps.core.data.images import Deformation3D, VectorField3D
 from opentps.core.data.images import ROIMask
 # from opentps.core.data import 
 
@@ -577,7 +578,7 @@ class Registration_Plastimatch(PhantomRegistration):
             self._registered_data,
             self._static_data,
             )
-        self.deformation = _load_transformations(
+        self.deformation = _load_deformation_field(
             dir_temp_data.joinpath("vf.nrrd")
             )
         self.synch_registered_phantom_with_data()
@@ -597,10 +598,21 @@ class Registration_Plastimatch(PhantomRegistration):
     def evaluate_on_contours(self):
         return super().evaluate_on_contours()
 
-def _load_transformations(pth_transform_nrrd: Path) -> Transform3D:
+def _load_deformation_field(pth_transform_nrrd: Path) -> Deformation3D:
     import nrrd
-    data, header = nrrd.read(str(pth_transform_nrrd))
-    return Transform3D(
-        tformMatrix=data,
+    data, header = nrrd.read(str(pth_transform_nrrd), index_order="C")
+    spacing = header.get("space directions", [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    if spacing.shape[0] == 4:
+        spacing = spacing[1:, :]
+        spacing = np.diag(spacing)
+
+    displacement= VectorField3D(
+        imageArray=data,
+        # name=pth_transform_nrrd,
+        origin=header.get("space origin", [0, 0, 0]),
+        spacing=spacing
+    )
+    return Deformation3D(
+        displacement=displacement,
         name=pth_transform_nrrd.stem
     )

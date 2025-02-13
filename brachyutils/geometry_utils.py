@@ -749,7 +749,7 @@ class BrachyPhantom:
         if pth_image_out is not None:
             pth_image_out = Path(pth_image_out)
             assert self.image_obj is not None, "no image is loaded into this BrachyPhantom"
-            if pth_image_out.endswith(".nrrd"):
+            if str(pth_image_out).endswith(".nrrd"):
                 self.write_image_to_nrrd(pth_output=pth_image_out)
 
         if pth_structures_out is not None:

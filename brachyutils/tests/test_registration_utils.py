@@ -98,7 +98,24 @@ def test_register_plastimatch():
     )
     registration_obj.register()
 
+def test_load_transformations():
+    pth_transform = Path("../data_test/registration/abdomin_mr_ct/plastimatch/vf.nrrd")
+    pth_moving_img = Path("../data_test/registration/abdomin_mr_ct/plastimatch/moving.nrrd")
+    pth_output = Path("../data_test/test_export_plan/abdomin_mr_ct/vf_transformed_image.nrrd")
+    assert pth_transform.exists(), f"File {pth_transform} does not exist."
+    from brachyutils.registration_utils import _load_deformation_field
+
+    transformation = _load_deformation_field(pth_transform)
+    moving_phantom = BrachyPhantom(
+        pth_phantom_file=pth_moving_img,
+        )
+    deformed_img = transformation.deformImage(moving_phantom.image_obj)
+    assert deformed_img != moving_phantom.image_obj, "Image was not deformed"
+    moving_phantom.image_obj = deformed_img
+    moving_phantom.export_to(pth_image_out=pth_output)
+
 if __name__ == "__main__":
     print("testing the registration class")
-    test_register_opentps()
+    # test_register_opentps()
     # test_register_plastimatch()
+    test_load_transformations()
