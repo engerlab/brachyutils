@@ -593,6 +593,7 @@ class Registration_Plastimatch(PhantomRegistration):
         super().export_to(dir_registered_phantom, output_type)
 
     def synch_registered_phantom_with_data(self) -> None:
+        # XXX: implement this using plastimatch warp!
         super().synch_registered_phantom_with_data()
         
     def evaluate_on_contours(self):
