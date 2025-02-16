@@ -47,7 +47,7 @@ if [[ ${dependencies} == *"python3.13"* ]] || [[ ${dependencies} == "all" ]]; th
     # install python 3.13
     apt install -y build-essential zlib1g zlib1g-dev libncurses5-dev \
         libgdbm-dev pkg-config libnss3-dev libssl-dev libreadline-dev \
-        libffi-dev libsqlite3-dev wget
+        libffi-dev libsqlite3-dev wget nano liblzma-dev
     # install python 3.13
     cd ${dir_software} || exit
     wget -nc https://www.python.org/ftp/python/3.13.1/Python-3.13.1.tgz
