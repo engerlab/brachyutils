@@ -302,7 +302,7 @@ class BrachyPlan:
         multi_processing: bool = False,
         combined_dose_only: bool = False,
         # for simulation setup:
-        combined_simulation_dict: dict = None,
+        combined_simulation_dict: dict | Path | str = None,
     ):
         r"""
         Purpose:
@@ -1732,7 +1732,7 @@ def _type_nested_dict_list(data):
         for item in data:
             _type_nested_dict_list(item)
 
-def load_dicom_to_plan(dir_dicom: Path | str) -> BrachyPlan:
+def load_dicom_to_plan(dir_dicom: Path | str, **kwargs) -> BrachyPlan:
     r"""
     Purpose:
         - To load all the contents of a dicom directory into a BrachyPlan object.
@@ -1758,4 +1758,5 @@ def load_dicom_to_plan(dir_dicom: Path | str) -> BrachyPlan:
         phantom=dir_dicom,
         catheter_table=plan_dcm,
         combined_dose=dose_dcm,
+        **kwargs
     )
