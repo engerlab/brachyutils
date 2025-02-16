@@ -1644,7 +1644,9 @@ def dvh_metric(
         f(threshold): this is D90 or D1cc depending on the input threshold
         cum_dvh: this is the cumulative DVH after adding the new volum to the old one
     """
-
+    raise DeprecationWarning(
+        "This function is deprecated. Please use BrachyStructure.get_dvh_metric() instead."
+    )
     histogram, bins_edges = np.histogram(
         dose, bins=num_bins, range=(0, total_dose_max + 0.1)
     )
