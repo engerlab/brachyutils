@@ -2103,9 +2103,17 @@ class CatheterTable:
                     {
                         "index": int(control_point["index"] / 2),
                         "angle": float(control_point["angle"]),
-                        "position": control_point["position"],
+                        "position": {
+                            "x":control_point["position"][0],
+                            "y":control_point["position"][1],
+                            "z":control_point["position"][2]
+                            },
                         "relativePos": int(control_point["relativePos"]),
-                        "rotation": control_point["rotation"],
+                        "rotation": {
+                            "x":control_point["rotation"][0],
+                            "y":control_point["rotation"][1],
+                            "z":control_point["rotation"][2]
+                            },
                         "time": dwell_time,
                         "weight": dwell_weight,
                     }
