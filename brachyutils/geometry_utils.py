@@ -299,6 +299,7 @@ class BrachyPhantom:
             if structure_orientation == "BIPED":
                 structure_orientation = "LPS"
             self._update_structure_names()
+            return
             # self.anatomical_coordinate_system = orientation
         elif str(pth_structure).endswith(".nrrd"):
             structure_mask_dict, structure_orientation = readNrrdStruct(pth_structure)
