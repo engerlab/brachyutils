@@ -73,7 +73,7 @@ def export_single_dicom_to_plan(
         "ApplicatorMaterials": False,
         "applicator_geometry": False,
     }
-    plan_obj = load_dicom_to_plan(dir_dicom, simulation_dict=sim_dict)
+    plan_obj = load_dicom_to_plan(dir_dicom) #simulation_dict=sim_dict)
 
     dir_export = Path(dir_export)
     dir_export.mkdir(parents=True, exist_ok=True)
@@ -101,5 +101,5 @@ def run_dose_calc():
     generate_single_dose(dir_plan_export, dose_generator_class)
 
 if __name__ == "__main__":
-
-    run_dose_calc()
+    run_export()
+    # run_dose_calc()
