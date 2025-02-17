@@ -7,7 +7,7 @@ from brachyutils.dose_generation_utils import DoseGenerator, DoseMonteCarlo, Dos
 def run_multi_proc(function, input_list, **kwargs):
     pass
 
-def run_single_dose_calc(dir_plan_export, dose_generator_class, **kwargs):
+def generate_single_dose(dir_plan_export, dose_generator_class, **kwargs):
     r"""
     Purpose:
         - To run a single dose calculation for an exported plan.
@@ -27,6 +27,7 @@ def run_single_dose_calc(dir_plan_export, dose_generator_class, **kwargs):
             ),
     )
     dose_gen_obj.generate_dose(
+        pth_mac = dir_plan_export.joinpath("combined.mac"),
         all_dwells=kwargs.get("all_dwells", False),
     )
 
@@ -72,20 +73,20 @@ def export_single_dicom_to_plan(
         "ApplicatorMaterials": False,
         "applicator_geometry": False,
     }
-    plan_obj = load_dicom_to_plan(dir_dicom)
+    plan_obj = load_dicom_to_plan(dir_dicom, simulation_dict=sim_dict)
 
     dir_export = Path(dir_export)
     dir_export.mkdir(parents=True, exist_ok=True)
 
     dir_export_plan = dir_export.joinpath(dir_dicom.stem)
-    
+
     plan_obj.export_brachy_plan(
         dir_export=dir_export_plan,
         content_to_export=content_to_export,
     )
     return dir_export_plan
 
-if __name__ == "__main__":
+def run_export():
     pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p1")
     dir_export = Path("../temp_data/mc/prostate-glen-2023")
     pth_material = Path("/root/YourLocalHome/Data/CTtoDensityProstate.txt")
@@ -93,3 +94,12 @@ if __name__ == "__main__":
     if not pth_material.exists():
         raise FileNotFoundError(f"The material file {pth_material} does not exist.")
     export_single_dicom_to_plan(pth_single_dicom, dir_export, pth_material)
+
+def run_dose_calc():
+    dir_plan_export = Path("../temp_data/mc/prostate-glen-2023/p1")
+    dose_generator_class = DoseMonteCarlo
+    generate_single_dose(dir_plan_export, dose_generator_class)
+
+if __name__ == "__main__":
+
+    run_dose_calc()
