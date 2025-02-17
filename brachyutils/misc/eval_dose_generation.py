@@ -72,7 +72,7 @@ def export_single_dicom_to_plan(
         "ApplicatorMaterials": False,
         "applicator_geometry": False,
     }
-    plan_obj = load_dicom_to_plan(dir_dicom, combined_simulation_dict=sim_dict)
+    plan_obj = load_dicom_to_plan(dir_dicom)
 
     dir_export = Path(dir_export)
     dir_export.mkdir(parents=True, exist_ok=True)
