@@ -58,10 +58,10 @@ class BrachySource:
             if isinstance(source_dict, (Path, str)):
                 if not Path(source_dict).exists():
                     raise ValueError(f"Path {source_dict} does not exist.")
-                if Path(source_dict).suffix != ".json":
+                if Path(source_dict).suffix == ".json":
                     with open(source_dict, "r") as f:
                         source_dict = json.load(f)
-                elif Path(source_dict).suffix != ".dcm":
+                elif Path(source_dict).suffix == ".dcm":
                     source_dict = self.load_from_dicom(source_dict)
                 else:
                     raise ValueError(f"File {source_dict} is not a json nor a dicom file.")
@@ -308,7 +308,9 @@ class BrachySimulation:
             pth_plan = simulation_dict.get("pth_plan", None)
             pth_phantom = simulation_dict.get("pth_phantom", None)
 
-        self.brachy_source: BrachySource = brachy_source
+        self.brachy_source: BrachySource = brachy_source if isinstance(
+            brachy_source, BrachySource
+        ) else BrachySource(source_dict=brachy_source)
         self.world_material: str = world_material
         self.number_histories: int = number_histories
         self.total_time: float = float(total_time)
