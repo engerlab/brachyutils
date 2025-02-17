@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
 from typing import Union
-
+import pydicom
+from collections import defaultdict
 
 class BrachySource:
     def __init__(
@@ -26,7 +27,7 @@ class BrachySource:
             - atomic_number: int
             - air_kerma_per_history: float
             - reference_air_kerma: float
-            - source_dict: dict
+            - source_dict: dict | Path | str: either a dictionary containing the source information, or a path to a json file.
         Attributes:
             - treatment_type: str
             - source_geometry: str
@@ -55,13 +56,21 @@ class BrachySource:
 
         if source_dict is not None:
             if isinstance(source_dict, (Path, str)):
-                assert Path(source_dict).exists(), f"Path {source_dict} does not exist."
-                assert (
-                    Path(source_dict).suffix == ".json"
-                ), f"Path {source_dict} is not a json file."
-
-                with open(source_dict, "r") as f:
-                    source_dict = json.load(f)
+                if not Path(source_dict).exists():
+                    raise ValueError(f"Path {source_dict} does not exist.")
+                if Path(source_dict).suffix != ".json":
+                    with open(source_dict, "r") as f:
+                        source_dict = json.load(f)
+                elif Path(source_dict).suffix != ".dcm":
+                    source_dict = self.load_from_dicom(source_dict)
+                else:
+                    raise ValueError(f"File {source_dict} is not a json nor a dicom file.")
+            elif isinstance(source_dict, dict):
+                source_dict = source_dict
+            else:
+                raise ValueError(
+                    f"source_dict should be either a dictionary, a path to a json file, or a path to a dicom file. Got {source_dict}"
+                )
 
             treatment_type = source_dict.get("treatment_type", "HDR")
             source_geometry = source_dict.get("source_geometry", "MicroSelectronV2")
@@ -168,7 +177,34 @@ class BrachySource:
         with open(output_path, "w") as f:
             json.dump(self.to_dict(), f)
 
+    def load_from_dicom(self, pth_dicom: Union[str, Path]) -> dict:
+        r"""
+        Purpose:
+            - to load the simulation object from a dicom directory.
+        Input:
+            - self: BrachySource
+            - pth_dicom: Union[str, Path]
+        Output:
+            - None
+        Dependencies:
+            - None
+        """
+        # Ensure path exists and is directory
+        pth_dicom = Path(pth_dicom)
+        if not pth_dicom.exists():
+            raise FileNotFoundError(f"Path {pth_dicom} does not exist.")
+        # Find and load the plan file
+        plan_dcm = pydicom.dcmread(str(pth_dicom))
 
+        source_dict = defaultdict(str)
+        source_dict["treatment_type"] = plan_dcm.get("BrachyTreatmentType", "HDR")
+        source_dict["source_geometry"] = plan_dcm.get("SourceModelName", "MicroSelectronV2")
+        source_dict["core_material"] = plan_dcm.get("SourceEncapsulationMaterial", "G4_Ir")
+        source_dict["mass_number"] = 192 if source_dict["core_material"] == "G4_Ir" else 0 
+        source_dict["atomic_number"] = 77 if source_dict["core_material"] == "G4_Ir" else 0
+        source_dict["air_kerma_per_history"] = 1.149000e-11 if source_dict["core_material"] == "G4_Ir" else 0
+        source_dict["reference_air_kerma"] = plan_dcm.get("SourceStrength", 4.278729e04)
+        return source_dict
 class BrachySimulation:
     default_source = BrachySource(reference_air_kerma=4.278729e04)
 
@@ -184,8 +220,8 @@ class BrachySimulation:
         run_verbose: int = 0,
         tracking_verbose: int = 0,
         print_progress: int = 1e4,
-        pth_plan: str = None,
-        pth_phantom: str = None,
+        pth_plan: str = "combined.plan",
+        pth_phantom: str = "ct.egsphant",
         simulation_dict: Union[dict, Path, str] = None,
     ) -> None:
         r"""
@@ -205,7 +241,7 @@ class BrachySimulation:
             - print_progress: int
             - pth_plan: str
             - pth_phantom: str
-            - simulation_dict: dict
+            - simulation_dict: dict | Path | str: either a dictionary containing the simulation information, or a path to a json file.
         Attributes:
             - brachy_source: BrachySource
             - world_material: str
