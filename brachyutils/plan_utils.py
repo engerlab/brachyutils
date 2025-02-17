@@ -291,7 +291,7 @@ class BrachyPlan:
         # for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
         # for loading catheter table and/or applicators:
-        catheter_table: Union[Path, CatheterTable] = None,
+        catheter_table: Union[Path, CatheterTable, str] = None,
         applicator_pth_list: Union[Path, str, list] = None,
         applicator_format: Literal["RapidBrachy", "WebApp"] = None,
         # for loading dose or uncertainty:
@@ -302,7 +302,7 @@ class BrachyPlan:
         multi_processing: bool = False,
         combined_dose_only: bool = False,
         # for simulation setup:
-        combined_simulation_dict: dict | Path | str = None,
+        simulation_dict: dict | Path | str = None,
     ):
         r"""
         Purpose:
@@ -327,7 +327,7 @@ class BrachyPlan:
             - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
             ### for simulation setup:
-            - combined_simulation_dict = None := dictionary containing the simulation setup,
+            - simulation_dict = None := dictionary containing the simulation setup,
             - dir_egsphant = None := path to the directory containing the egsphant file,
             - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
             - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
@@ -441,10 +441,26 @@ class BrachyPlan:
             warnings.warn("no dose rate is loaded", stacklevel=2)
 
         # # load the simulation setup if the dictionary is provided
-        if combined_simulation_dict is not None:
-            self.combined_simulation_setup = BrachySimulation(
-                simulation_dict=combined_simulation_dict
-            )
+        if simulation_dict is not None:
+            if isinstance(simulation_dict, dict):
+                self.simulation_setup = BrachySimulation(
+                    simulation_dict=simulation_dict
+                )
+            elif isinstance(simulation_dict, Path) or isinstance(
+                simulation_dict, str
+            ):
+                # if json file, load the entire simulation dict from json file
+                if str(simulation_dict).endswith(".json"):
+                   self.simulation_setup = BrachySimulation(
+                    simulation_dict=simulation_dict
+                )
+                # if dicom plan file, load the source from the dicom file
+                # and assuming the catheter table is loaded from the same dicom file,
+                # provide the total time from the catheter table
+                elif str(simulation_dict).endswith(".dcm"):
+                    self.simulation_setup = BrachySimulation(
+                        brachy_source=simulation_dict,
+                        total_time=np.sum(self.dwell_times))
 
         # load the applicator list if the path is provided
         if applicator_pth_list is not None and applicator_format is not None:
@@ -1381,15 +1397,15 @@ class BrachyPlan:
             - simulation_utils
         """
         for dwell_i in range(self.num_dwells):
-            sim_obj = deepcopy(self.combined_simulation_setup)
+            sim_obj = deepcopy(self.simulation_setup)
             sim_obj.pth_plan = f"dwell_{dwell_i + 1}.plan"
             sim_obj.total_time = 1
             with open(dir_export + f"/run_{dwell_i + 1}.mac", "w") as file:
                 file.write(sim_obj.to_string())
 
-        self.combined_simulation_setup.total_time = np.sum(self.dwell_times)
+        self.simulation_setup.total_time = np.sum(self.dwell_times)
         with open(dir_export + "/combined.mac", "w") as file:
-            file.write(self.combined_simulation_setup.to_string())
+            file.write(self.simulation_setup.to_string())
 
     def _export_egsphant(
         self,
@@ -1758,5 +1774,6 @@ def load_dicom_to_plan(dir_dicom: Path | str, **kwargs) -> BrachyPlan:
         phantom=dir_dicom,
         catheter_table=plan_dcm,
         combined_dose=dose_dcm,
+        simulation_dict=plan_dcm,
         **kwargs
     )
