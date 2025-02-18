@@ -160,17 +160,17 @@ class BrachyPhantom:
             mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
-            header = pydicom.read_file(ct_files[0])
+            header = pydicom.read_file(mr_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
-        
+
         elif "US" in image_files[0].upper():
             us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
-            header = pydicom.read_file(ct_files[0])
+            header = pydicom.read_file(us_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
