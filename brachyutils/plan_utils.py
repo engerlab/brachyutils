@@ -1770,7 +1770,7 @@ def load_dicom_to_plan(dir_dicom: Path | str, **kwargs) -> BrachyPlan:
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
     simulation_dict = (
-        kwargs.get("simulation_dict") 
+        kwargs.pop("simulation_dict") 
         if kwargs.get("simulation_dict") is not None
         else plan_dcm
         )
