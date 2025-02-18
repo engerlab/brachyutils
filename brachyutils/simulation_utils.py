@@ -388,8 +388,8 @@ class BrachySimulation:
             + f"/control/verbose {self.control_verbose}\n"
             + f"/run/verbose {self.run_verbose}\n"
             + f"/tracking/verbose {self.tracking_verbose}\n"
-            + f"/run/printProgress {self.print_progress}\n"
-            + f"/sim/beamOn {self.number_histories}"
+            + f"/run/printProgress {int(self.print_progress)}\n"
+            + f"/sim/beamOn {int(self.number_histories)}"
         )
 
     def to_dict(self):
