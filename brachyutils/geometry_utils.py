@@ -2170,8 +2170,8 @@ def _get_rotation_from_position(idx, control_points):
     # compute correct angles when they are not provided by the DICOM.
     if len(control_points) == 2:
         return _angle_betwen_2_points(
-            np.array(list(control_points[0]["position"].values()), dtype=np.float32),
             np.array(list(control_points[1]["position"].values()), dtype=np.float32),
+            np.array(list(control_points[0]["position"].values()), dtype=np.float32),
         )
 
     if idx == 0:
