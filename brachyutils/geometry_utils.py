@@ -2069,6 +2069,7 @@ class CatheterTable:
                     "control_points": control_points,
                 }
             )
+
         # # Convert control points to dwell positions:
         # # after extracting the final cummulative time weight of the catheters,
         # # the time of the catheter, and the cummulative time weight of the control points,
@@ -2119,6 +2120,14 @@ class CatheterTable:
                     }
                 )
                 catheter["dwells"] = dwells
+            if (
+                np.all([np.all(list(catheter["dwells"][i]["rotation"].values()) == [0,0,0])
+                        for i in range(len(catheter["dwells"]))])
+                and len(catheter["dwells"]) > 1
+            ):
+                for i in range(len(dwells)):
+                    dwells[i]["rotation"] = _get_rotation_from_position(i, dwells)
+    
             final_catheter_table.append(Catheter(catheter_dict=catheter))
         return final_catheter_table
 
@@ -2145,3 +2154,48 @@ class CatheterTable:
             print(f"Catheter ID: {catheter.id}")
             print(f"Number of dwell positions: {len(catheter.dwells)}")
             print(f"Total channel time: {catheter.channel_total_time}")
+
+def _get_rotation_from_position(idx, control_points):
+    r"""
+    Purpose:
+        - To get the rotation of the dwell point from the position of the dwell point.
+    Inputs:
+        - idx:int := the index of the dwell point.
+        - control_point_dcm:pydicom.dataset.Dataset := the control point object.
+    Outputs:
+        - np.array := the rotation of the dwell point in each axis.
+    """
+    # TODO: Merge this dicom utils script with my catheter setup class.
+    # We need all dwell positions, not only the non 0s ones to be able to 
+    # compute correct angles when they are not provided by the DICOM.
+    if len(control_points) == 2:
+        return _angle_betwen_2_points(
+            np.array(list(control_points[0]["position"].values()), dtype=np.float32),
+            np.array(list(control_points[1]["position"].values()), dtype=np.float32),
+        )
+
+    if idx == 0:
+        return _get_rotation_from_position(idx+1, control_points)
+    elif idx == len(control_points) - 1:
+        return _get_rotation_from_position(idx-1, control_points)
+    else:
+        return _angle_betwen_2_points(
+            np.array(list(control_points[idx-1]["position"].values()), dtype=np.float32),
+            np.array(list(control_points[idx+1]["position"].values()), dtype=np.float32),
+        )
+
+
+def _angle_betwen_2_points(a, b) -> dict:
+    r"""
+    Purpose:
+        - To calculate the angle between two points.
+    Inputs:
+        - a:np.array := the first point.
+        - b:np.array := the second point.      
+    Outputs:
+        - np.array := the angle between the two points in each axis.
+    """
+    vec = a - b
+    normal = np.sqrt(np.sum(vec ** 2))
+    angle_np = vec / normal
+    return {"x":angle_np[0], "y":angle_np[1], "z":angle_np[2]}
