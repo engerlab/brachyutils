@@ -129,15 +129,52 @@ def run_export():
     from functools import partial
     pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023")
     dir_export = Path("../temp_data/mc/prostate-glen-2023")
-    pth_material = Path("/root/YourLocalHome/Data/CTtoDensityProstate.txt")
+    # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
+    # mat_from_ct = True
+    pth_material = Path("../admin/constants/structure_materials_prostate.json")
+    mat_from_ct = False
+    crop_by_contour = "body"
+    sim_dict = {
+        "source_dict": {
+            "treatment_type": "HDR",
+            "source_geometry": "MicroSelectronV2",
+            "core_material": "G4_Ir",
+            "mass_number": "192",
+            "atomic_number": "77",
+            "air_kerma_per_history": 1.149000e-11,
+            "reference_air_kerma": 5e04,
+        },
+        "pth_plan": "combined.plan",
+        "pth_phantom": "ct.egsphant",
+        "number_histories": 1000000,
+        "total_time": 0,
+        "number_of_threads": 32,
+        "PrintProgress": 10000,
+        "beam_on": 10000,
+    }
+    content_to_export = {
+        "egsphant": True,
+        "materials_table": pth_material,
+        "assign_material_from_ct": mat_from_ct,
+        "crop_by_contour": crop_by_contour,
+        "plan": True,
+        "mac": True,
+        "ApplicatorMaterials": False,
+        "applicator_geometry": False,
+    }
 
     all_dicoms = list(pth_single_dicom.glob("*/"))
     all_inputs = []
-    partially_filled_export_func = partial(export_single_dicom_to_plan, dir_export=dir_export, pth_material=pth_material) 
+    partially_filled_export_func = partial(
+        export_single_dicom_to_plan,
+        dir_export=dir_export,
+        sim_dict=sim_dict,
+        content_to_export=content_to_export,
+        )
 
     run_multi_proc(partially_filled_export_func, all_dicoms)
 
 if __name__ == "__main__":
-    test_export()
-    # run_export()
+    # test_export()
+    run_export()
     # test_dose_calc()
