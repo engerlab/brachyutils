@@ -2119,7 +2119,7 @@ class CatheterTable:
                         "weight": dwell_weight,
                     }
                 )
-                catheter["dwells"] = dwells
+            catheter["dwells"] = dwells
             if (
                 np.all([np.all(list(catheter["dwells"][i]["rotation"].values()) == [0,0,0])
                         for i in range(len(catheter["dwells"]))])
