@@ -1,0 +1,22 @@
+{
+    "Water": {
+        "density":1.0,
+        "HU_limit":0.0,
+        "structure_name":"body"
+    },
+    "SoftTissue" : {
+        "density":1.052,
+        "HU_limit":14.0,
+        "structure_name":"urethra"
+    },
+    "Rectum" : {
+        "density":1.094,
+        "HU_limit":69.0,
+        "structure_name":"rectum"
+    },
+    "Prostate" : {
+        "density":1.824,
+        "HU_limit":1230.0,
+        "structure_name":"ptv"
+    }
+}
