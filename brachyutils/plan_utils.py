@@ -1193,6 +1193,7 @@ class BrachyPlan:
                     str(dir_export),
                     content_to_export.get("materials_table", None),
                     content_to_export.get("assign_material_from_ct", True),
+                    content_to_export.get("crop_by_contour", None),
                 )
                 print("Egsphant file was exported successfully")
 
@@ -1412,6 +1413,7 @@ class BrachyPlan:
         dir_export: Union[str, Path],
         material_dict: Union[dict, Path],
         assign_material_from_ct: bool,
+        crop_by_contour: str = None,
     ):
         r"""
         Purpose:
@@ -1440,6 +1442,7 @@ class BrachyPlan:
             pth_output=Path(file_path),
             material_dict=material_dict,
             assign_material_from_ct=assign_material_from_ct,
+            crop_by_contour=crop_by_contour,
         )
 
     def _export_applicator_geometry(

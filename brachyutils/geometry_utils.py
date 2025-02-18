@@ -686,6 +686,7 @@ class BrachyPhantom:
         pth_output: Path,
         material_dict: dict | Path = None,
         assign_material_from_ct: bool = None,
+        crop_by_contour: str = None,
     ) -> None:
         r"""
         Purpose:
@@ -720,6 +721,9 @@ class BrachyPhantom:
                 material_dict=material_dict,
                 assign_material_from_ct=assign_material_from_ct,
             )
+            if crop_by_contour is not None:
+                self.egsphant_obj.crop_by_contour(self, crop_by_contour)
+
             if str(pth_output).endswith(".egsphant"):
                 self.egsphant_obj.write_to_ctegsphant(pth_output)
             elif str(pth_output).endswith(".seq.nrrd"):

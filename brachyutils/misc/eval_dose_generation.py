@@ -86,6 +86,7 @@ def test_export():
     # mat_from_ct = True
     pth_material = Path("../admin/constants/structure_materials_prostate.json")
     mat_from_ct = False
+    crop_by_contour = "body"
     sim_dict = {
         "source_dict": {
             "treatment_type": "HDR",
@@ -108,6 +109,7 @@ def test_export():
         "egsphant": True,
         "materials_table": pth_material,
         "assign_material_from_ct": mat_from_ct,
+        "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
         "ApplicatorMaterials": False,

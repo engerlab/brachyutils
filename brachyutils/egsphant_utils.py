@@ -765,7 +765,7 @@ class BrachyEgsphant:
         Output:
             - None or BrachyEgsphant := if inplace is True, the function will crop the current object, if False, it will return a new object
         """
-        from opentps.core.data import ROIMask
+        from opentps.core.data.images import ROIMask
         from opentps.core.processing.imageProcessing.resampler3D import (
             resampleImage3DOnImage3D,
         )
