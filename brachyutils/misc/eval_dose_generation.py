@@ -177,6 +177,6 @@ def run_export():
     run_multi_proc(partially_filled_export_func, all_dicoms)
 
 if __name__ == "__main__":
-    test_export()
-    # run_export()
+    # test_export()
+    run_export()
     # test_dose_calc()
