@@ -4,7 +4,7 @@ import os
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Union, List
 
 import nrrd
 import numpy as np
@@ -1048,6 +1048,32 @@ class BrachyEgsphant:
                 BrachyEgsphant._materials_encoding_array[i]
             )
 
+    def resample(self, new_spacing: Union[List[float], np.array]):
+        r"""
+        Purpose:
+            To resample the material and density image to a new spacing.
+        Inputs:
+            - new_spacing:List[float] := the new spacing in mm
+        Outputs:
+            - Void := will resample the material and density image to the new spacing.
+        """
+        if len(new_spacing) != 3:
+            raise Exception("new_spacing should be a list of 3 elements for x, y, z")
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
+        resampleImage3D(
+            self.material_image,
+            spacing=new_spacing,
+            origin=self.material_image.origin,
+            inPlace=True,
+            )
+
+        resampleImage3D(
+            self.density_image,
+            spacing=new_spacing,
+            origin=self.material_image.origin,
+            inPlace=True,
+            )
+        self.get_voxel_edges()
 
 def _convert_material_matrix_to(
     material_matrix: np.ndarray, dtype: Union[int, str]

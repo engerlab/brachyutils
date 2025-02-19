@@ -156,6 +156,7 @@ def run_export():
         "egsphant": True,
         "materials_table": pth_material,
         "assign_material_from_ct": mat_from_ct,
+        "resample_egsphant_to": [1., 1., 1.],
         "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
@@ -176,5 +177,5 @@ def run_export():
 
 if __name__ == "__main__":
     # test_export()
-    run_export()
-    # test_dose_calc()
+    # run_export()
+    test_dose_calc()

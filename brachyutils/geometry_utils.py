@@ -687,6 +687,7 @@ class BrachyPhantom:
         material_dict: dict | Path = None,
         assign_material_from_ct: bool = None,
         crop_by_contour: str = None,
+        resample_egsphant_to: List[float] = None,
     ) -> None:
         r"""
         Purpose:
@@ -721,6 +722,10 @@ class BrachyPhantom:
                 material_dict=material_dict,
                 assign_material_from_ct=assign_material_from_ct,
             )
+
+            if resample_egsphant_to is not None:
+                self.egsphant_obj.resample(resample_egsphant_to)
+            
             if crop_by_contour is not None:
                 self.egsphant_obj.crop_by_contour(self, crop_by_contour)
 
