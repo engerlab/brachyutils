@@ -717,15 +717,23 @@ class BrachyPhantom:
         elif self.image_obj is not None:
             from brachyutils.egsphant_utils import BrachyEgsphant
 
+            if resample_egsphant_to is not None:
+                from copy import deepcopy
+                from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
+                resampled_phantom = deepcopy(self)
+                resampled_phantom.image_obj = resampleImage3D(
+                    image=resampled_phantom.image_obj,
+                    spacing=resample_egsphant_to,
+                )
+                phantom_used_for_egsphant = resampled_phantom
+            else:
+                phantom_used_for_egsphant = self
             self.egsphant_obj = BrachyEgsphant(
-                phantom=self,
+                phantom=phantom_used_for_egsphant,
                 material_dict=material_dict,
                 assign_material_from_ct=assign_material_from_ct,
             )
-
-            if resample_egsphant_to is not None:
-                self.egsphant_obj.resample(resample_egsphant_to)
-            
+  
             if crop_by_contour is not None:
                 self.egsphant_obj.crop_by_contour(self, crop_by_contour)
 

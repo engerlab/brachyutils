@@ -109,6 +109,7 @@ def test_export():
         "egsphant": True,
         "materials_table": pth_material,
         "assign_material_from_ct": mat_from_ct,
+        "resample_egsphant_to": [1., 1., 1.],
         "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
@@ -121,7 +122,7 @@ def test_export():
     export_single_dicom_to_plan(pth_single_dicom, dir_export, sim_dict, content_to_export)
 
 def test_dose_calc():
-    dir_plan_export = Path("../temp_data/mc/prostate-glen-2023/p1")
+    dir_plan_export = Path("../temp_data/mc/prostate-glen-2023/p3")
     dose_generator_class = DoseMonteCarlo
     generate_single_dose(dir_plan_export, dose_generator_class)
 
@@ -176,6 +177,6 @@ def run_export():
     run_multi_proc(partially_filled_export_func, all_dicoms)
 
 if __name__ == "__main__":
-    # test_export()
+    test_export()
     # run_export()
-    test_dose_calc()
+    # test_dose_calc()
