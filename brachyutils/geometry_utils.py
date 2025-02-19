@@ -735,7 +735,7 @@ class BrachyPhantom:
             )
   
             if crop_by_contour is not None:
-                self.egsphant_obj.crop_by_contour(self, crop_by_contour)
+                self.egsphant_obj.crop_by_contour(phantom_used_for_egsphant, crop_by_contour)
 
             if str(pth_output).endswith(".egsphant"):
                 self.egsphant_obj.write_to_ctegsphant(pth_output)

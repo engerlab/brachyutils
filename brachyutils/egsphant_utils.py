@@ -954,39 +954,19 @@ class BrachyEgsphant:
                     self.material_dict.get(material).get("structure_name")
                 ).astype(bool)
 
-                # set everything outside the largest mask to air
-                if i == 0:
-                    complementary_roi_mask = np.logical_not(roi_mask)
-                    density_matrix *= roi_mask
-                    material_matrix *= roi_mask
-                    density_matrix += complementary_roi_mask * self.material_dict.get(
-                        background_material, "Air"
-                    ).get("density")
-                    material_matrix += (
-                        complementary_roi_mask
-                        * BrachyEgsphant._materials_encoding_array.index(
-                            str(
-                                self.material_dict.get(background_material, "Air").get(
-                                    "encoding"
-                                )
-                            )
-                        )
+                density_matrix = np.where(
+                    roi_mask,
+                    self.material_dict.get(material).get("density"),
+                    density_matrix,
                     )
-
-                # reset the voxel values for the roi enetries
-                density_matrix *= np.logical_not(roi_mask)
-                material_matrix *= np.logical_not(roi_mask)
-
-                # update the density and material matricies
-                density_matrix += roi_mask * self.material_dict.get(material).get(
-                    "density"
+                material_matrix = np.where(
+                    roi_mask,
+                    BrachyEgsphant._materials_encoding_array.index(
+                        self.material_dict.get(material).get("encoding")
+                    ),
+                    material_matrix,
                 )
-                material_matrix += (
-                    roi_mask
-                    * BrachyEgsphant._materials_encoding_array.index(
-                        str(self.material_dict.get(material).get("encoding"))
-                    )
-                )
+
         self.num_materials = len(self.material_dict)
         self.material_image = Image3D(
             imageArray=np.swapaxes(material_matrix, 0, 2),

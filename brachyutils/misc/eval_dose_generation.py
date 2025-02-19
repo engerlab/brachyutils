@@ -80,7 +80,7 @@ def export_single_dicom_to_plan(
     return dir_export_plan
 
 def test_export():
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p5_body")
+    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p3")
     dir_export = Path("../temp_data/mc/prostate-glen-2023")
     # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
@@ -109,7 +109,7 @@ def test_export():
         "egsphant": True,
         "materials_table": pth_material,
         "assign_material_from_ct": mat_from_ct,
-        "resample_egsphant_to": [1., 1., 1.],
+        "resample_egsphant_to": [1., 1., 3.],
         "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
