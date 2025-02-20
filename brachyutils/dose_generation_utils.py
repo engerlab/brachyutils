@@ -182,6 +182,10 @@ class DoseMonteCarlo(DoseGenerator):
                 )
         else:
             if "http" in self.pth_dose_executable:
+                # # remove .../temp_data/mc from the path of the mac file.
+                # # since the server will have a unique path for .../temp_data/mc
+                if "temp_data/mc" in str(pth_mac.resolve()):
+                    pth_mac = str(pth_mac.resolve()).split("temp_data/mc/")[1]
                 # use fast api post to request the dose calculation
                 import requests
 

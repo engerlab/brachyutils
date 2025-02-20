@@ -356,6 +356,9 @@ class BrachyDose:
             "RD"
         ), "the basename should start with RD"
         self.dose_image = readDicomDose(pth_RD_dicom)
+        if self.dose_image is None:
+            warnings.warn("No dose image found in the dicom file", stacklevel=2)
+            return
         if self.dose_image.spacing[2] == 0:
             if self.dose_image.spacing[0] == self.dose_image.spacing[1]:
                 self.dose_image.spacing[2] = self.dose_image.spacing[0]

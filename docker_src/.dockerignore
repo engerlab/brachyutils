@@ -1,2 +1,9 @@
 .trunk
 .git
+.pytest_cache
+*__pycache__*
+brachyutils.egg-info
+data_test
+temp_data
+admin
+docs

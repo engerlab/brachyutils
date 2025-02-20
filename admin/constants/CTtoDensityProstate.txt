@@ -1,0 +1,9 @@
+Air 0.0012 -1024
+Adipose 0.98 -57.0
+Water 1.0 0.0
+SoftTissue 1.052 14.0
+Rectum 1.094 69.0
+Bladder 1.155 217.0
+Prostate 1.824 1230.0
+Bone 3.0 2000.0
+Metal 19.0 10000 
