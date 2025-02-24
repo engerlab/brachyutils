@@ -66,6 +66,7 @@ class BrachyEgsphant:
         phantom: Optional[Union[BrachyPhantom | Path]] = None,
         material_dict: Optional[Union[dict, Path]] = None,
         assign_material_from_ct: Optional[bool] = None,
+        background_material: Optional[str] = "Air",
     ) -> None:
         r"""
         Purpose:
@@ -129,6 +130,7 @@ class BrachyEgsphant:
                 ),
                 new_material_dict=self.material_dict,
                 assign_material_from_ct=assign_material_from_ct,
+                background_material = background_material
             )
         else:
             raise Exception(

@@ -688,6 +688,7 @@ class BrachyPhantom:
         assign_material_from_ct: bool = None,
         crop_by_contour: str = None,
         resample_egsphant_to: List[float] = None,
+        background_material: Optional[str] = "Air",
     ) -> None:
         r"""
         Purpose:
@@ -703,6 +704,9 @@ class BrachyPhantom:
                 "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
             ]
             - assign_material_from_ct: bool := if True, the material will be assigned from the CT image.
+            - crop_by_contour: str := the name of the structure in the dicom file to crop the phantom by.
+            - resample_egsphant_to: List[float] := the spacing to resample the egsphant to.
+            - background_material: Optional[str] := the name of the background material. default is "Air".
         """
         if str(pth_output).endswith(".egsphant"):
             pass
@@ -732,6 +736,7 @@ class BrachyPhantom:
                 phantom=phantom_used_for_egsphant,
                 material_dict=material_dict,
                 assign_material_from_ct=assign_material_from_ct,
+                background_material=background_material
             )
   
             if crop_by_contour is not None:
