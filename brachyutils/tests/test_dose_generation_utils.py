@@ -13,9 +13,9 @@ def make_plan_and_export_it(dir_export) -> Path:
     pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
     # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # # assign material based on contours:
-    pth_material = "../data_test/prostate_material_dict.json"
+    # pth_material = "../data_test/prostate_material_dict.json"
     # # assign materials based on CT values:
-    # pth_material = "../data_test/CTtoDensityProstate.txt"
+    pth_material = "../data_test/CTtoDensityProstate.txt"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -33,7 +33,7 @@ def make_plan_and_export_it(dir_export) -> Path:
         },
         "pth_plan": "combined.plan",
         "pth_phantom": "ct.egsphant",
-        "number_histories": 1000000,
+        "number_histories": 10000000,
         "total_time": 5983,
         "number_of_threads": 12,
         "PrintProgress": 10000,
@@ -51,7 +51,7 @@ def make_plan_and_export_it(dir_export) -> Path:
         "catheter_table": True,
         "egsphant": True,
         "materials_table": pth_material,
-        "assign_material_from_ct": False,
+        "assign_material_from_ct": True,
         "structure_set": True,
         "plan": True,
         "mac": True,
@@ -73,9 +73,9 @@ def make_plan_and_export_it(dir_export) -> Path:
 
 
 def test_DoseTG43():
-    # dir_export = "../temp_data/tg43/test_export_plan"
-    # dose_setup = make_plan_and_export_it(dir_export)
-    dose_setup = Path("temp_data/test_export_plan")
+    dir_export = "../temp_data/tg43/p1"
+    dose_setup = make_plan_and_export_it(dir_export)
+    dose_setup = Path("temp_data/tg43/p1")
     pth_exectuable = "http://192.168.1.12:8000/calculate_dose_tg43"
     dose_generator = DoseTG43(
         dir_plan_export=dose_setup,
@@ -86,34 +86,34 @@ def test_DoseTG43():
 
 
 def test_DoseMC():
-    # dir_export = "../temp_data/mc/test_export_plan"
-    # dose_setup = make_plan_and_export_it(dir_export)
-    dose_setup = Path("temp_data/test_export_plan")
+    dir_export = "../temp_data/mc/p1"
+    dose_setup = make_plan_and_export_it(dir_export)
+    dose_setup = Path("temp_data/mc/p1")
     pth_exectuable = "http://192.168.1.11:8000/calculate_dose_mc"
     dose_generator = DoseMonteCarlo(
         dir_plan_export=dose_setup,
         pth_dose_executable=pth_exectuable,
     )
     dose_generator.generate_dose(
-        pth_mac=dose_setup.joinpath("run_3.mac"),
+        pth_mac=dose_setup.joinpath("combined.mac"),
         random_seed=1,
     )
 
 
 if __name__ == "__main__":
     # test_DoseTG43()
-    # test_DoseMC()
-    import requests
+    test_DoseMC()
+    # import requests
 
-    json_data = {
-        'pth_mac': 'temp_data/test_export_plan/run_1.mac',
-        'random_seed': 1,
-    }
+    # json_data = {
+    #     'pth_mac': 'temp_data/test_export_plan/combined.mac',
+    #     'random_seed': 1,
+    # }
 
-    response = requests.post('http://192.168.1.11:8000/calculate_dose_mc', json=json_data, timeout=None)
-    json_data = {
-        'dir_dose_setup': 'temp_data/test_export_plan',
-    }
-    response = requests.post("http://192.168.1.12:8000/calculate_dose_tg43", json=json_data, timeout=None)
+    # response = requests.post('http://192.168.1.11:8000/calculate_dose_mc', json=json_data, timeout=None)
+    # json_data = {
+    #     'dir_dose_setup': 'temp_data/test_export_plan',
+    # }
+    # response = requests.post("http://192.168.1.12:8000/calculate_dose_tg43", json=json_data, timeout=None)
 
-    print(response.json())
+    # print(response.json())

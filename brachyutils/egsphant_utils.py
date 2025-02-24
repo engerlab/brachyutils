@@ -4,7 +4,7 @@ import os
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Union, List
 
 import nrrd
 import numpy as np
@@ -555,11 +555,12 @@ class BrachyEgsphant:
         density_grid = self.get_density_array().astype(
             np.float32
         )  # np.swapaxes(self.density_matrix, 0, 2).astype(np.float32)
-        material_density = np.stack([material_grid, density_grid], axis=0)
+        material_density = np.stack([material_grid, density_grid], axis=3)
 
         from collections import defaultdict
 
         header = defaultdict(str)
+        header = header | metadata if metadata is not None else header
         header["type"] = "double"
         header["dimension"] = "4"
         header["space"] = coordinate_system
@@ -567,9 +568,9 @@ class BrachyEgsphant:
 
         header["space directions"] = [
             [np.nan, np.nan, np.nan],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
+            [self.density_image.spacing[0], 0.0, 0.0],
+            [0.0, self.density_image.spacing[1], 0.0],
+            [0.0, 0.0, self.density_image.spacing[2]],
         ]
         header["kinds"] = ["2-vector", "space", "space", "space"]
         header["labels"] = ["", "x", "y", "z"]
@@ -579,8 +580,7 @@ class BrachyEgsphant:
         header["spacing"] = [np.nan] + self.density_image.spacing.tolist()
         header = header | {"material_dict": dict(self.material_dict)}
         # header["space units"] = ["", "mm", "mm", "mm"]
-        header = header | metadata if metadata is not None else header
-        nrrd.write(fileName, material_density, header)
+        nrrd.write(str(fileName), material_density, header, index_order="C")
 
     def is_equal(self, new_BrachyEgsphant):
         r"""
@@ -765,7 +765,7 @@ class BrachyEgsphant:
         Output:
             - None or BrachyEgsphant := if inplace is True, the function will crop the current object, if False, it will return a new object
         """
-        from opentps.core.data import ROIMask
+        from opentps.core.data.images import ROIMask
         from opentps.core.processing.imageProcessing.resampler3D import (
             resampleImage3DOnImage3D,
         )
@@ -900,12 +900,19 @@ class BrachyEgsphant:
                 )
                 # interpolate density based on the HU value
                 # density_matrix *= np.logical_not(roi_mask)
-                density_matrix = np.where(
-                    roi_mask,
-                    ((phantom_ct_image - low_HU_threshold) * slope_density_over_HU)
-                    + density_low_bound,
-                    density_matrix,
-                )
+                if material == "Air":
+                    density_matrix = np.where(
+                        roi_mask,
+                        density_low_bound,
+                        density_matrix,
+                    )
+                else:
+                    density_matrix = np.where(
+                        roi_mask,
+                        ((phantom_ct_image - low_HU_threshold) * slope_density_over_HU)
+                        + density_low_bound,
+                        density_matrix,
+                    )
                 # material_matrix *= np.logical_not(roi_mask)
                 material_matrix = np.where(
                     roi_mask,
@@ -947,39 +954,19 @@ class BrachyEgsphant:
                     self.material_dict.get(material).get("structure_name")
                 ).astype(bool)
 
-                # set everything outside the largest mask to air
-                if i == 0:
-                    complementary_roi_mask = np.logical_not(roi_mask)
-                    density_matrix *= roi_mask
-                    material_matrix *= roi_mask
-                    density_matrix += complementary_roi_mask * self.material_dict.get(
-                        background_material, "Air"
-                    ).get("density")
-                    material_matrix += (
-                        complementary_roi_mask
-                        * BrachyEgsphant._materials_encoding_array.index(
-                            str(
-                                self.material_dict.get(background_material, "Air").get(
-                                    "encoding"
-                                )
-                            )
-                        )
+                density_matrix = np.where(
+                    roi_mask,
+                    self.material_dict.get(material).get("density"),
+                    density_matrix,
                     )
-
-                # reset the voxel values for the roi enetries
-                density_matrix *= np.logical_not(roi_mask)
-                material_matrix *= np.logical_not(roi_mask)
-
-                # update the density and material matricies
-                density_matrix += roi_mask * self.material_dict.get(material).get(
-                    "density"
+                material_matrix = np.where(
+                    roi_mask,
+                    BrachyEgsphant._materials_encoding_array.index(
+                        self.material_dict.get(material).get("encoding")
+                    ),
+                    material_matrix,
                 )
-                material_matrix += (
-                    roi_mask
-                    * BrachyEgsphant._materials_encoding_array.index(
-                        str(self.material_dict.get(material).get("encoding"))
-                    )
-                )
+
         self.num_materials = len(self.material_dict)
         self.material_image = Image3D(
             imageArray=np.swapaxes(material_matrix, 0, 2),
@@ -1040,7 +1027,6 @@ class BrachyEgsphant:
             self.material_dict.get(material)["encoding"] = (
                 BrachyEgsphant._materials_encoding_array[i]
             )
-
 
 def _convert_material_matrix_to(
     material_matrix: np.ndarray, dtype: Union[int, str]

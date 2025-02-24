@@ -10,65 +10,89 @@ services:
     tty: true # docker run -t
     environment:
       - HOST_HOME=${HOST_HOME}
-      # - DEBIAN_FRONTEND=noninteractive
+      - DEBIAN_FRONTEND=noninteractive
     volumes:
-      - ../:/root/Software/brachyutils
+      - ${HOST_HOME}/Software/brachyutils:/root/Software/brachyutils
       - ${HOST_HOME}:/root/YourLocalHome
-    # to write data to the DoseCalcTG43 container
-      - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone/temp_data:/root/Software/brachyutils/temp_data/tg43  
-      - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data:/root/Software/brachyutils/temp_data/mc
-      # - temp_data:/root/test_temp
-    # ports:
-    # - "8000:8000"
     expose:
       - "8000"
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.10
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
-  # DoseCalcMC:
-  #   build:
-  #     context: ../
-  #     dockerfile: docker_src/Dockerfile
-  #   image: rapidbrachy_mc
-  #   container_name: DoseCalcMC
-  #   working_dir: /root
-  #   stdin_open: true # docker run -i
-  #   tty: true # docker run -t
-  #   environment:
-  #     - HOST_HOME=${HOST_HOME}
-  #     - DEBIAN_FRONTEND=noninteractive
-  #   volumes:
-  #     - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
-  #     - ${HOST_HOME}:/root/YourLocalHome
-  #     # - temp_data:/root/test_temp
-  #   networks:
-  #     net_brachyutils:
-  #       ipv4_address: 192.168.1.11
-  #   entrypoint: ["/bin/bash"]
-  #   command: ["/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/run_api.sh"]
+  Pyplastimatch:
+    build:
+      context: ../
+      dockerfile: docker_src/Dockerfile
+    image: pyplastimatch
+    container_name: PyPlastimatch
+    working_dir: /root
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    environment:
+      - HOST_HOME=${HOST_HOME}
+      - DEBIAN_FRONTEND=noninteractive
+    volumes:
+      - registration-volume:/root/Software/pyplastimatch/temp_data
+      # for developement
+      - ${HOST_HOME}/Software/pyplastimatch:/root/Software/pyplastimatch
+      - ${HOST_HOME}:/root/YourLocalHome
+    networks:
+      net_brachyutils:
+        ipv4_address: 192.168.1.13
+    entrypoint: ["/bin/bash"]
+    command: ["/root/Software/pyplastimatch/run_api.sh"]
 
-  # DoseCalcTG43:
-  #   build:
-  #     context: ../
-  #     dockerfile: docker_src/Dockerfile
-  #   image: rapidbrachy_tg43
-  #   container_name: DoseCalcTG43
-  #   working_dir: /root
-  #   stdin_open: true # docker run -i
-  #   tty: true # docker run -t
-  #   environment:
-  #     - HOST_HOME=${HOST_HOME}
-  #     - DEBIAN_FRONTEND=noninteractive
-  #   volumes:
-  #     - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/root/Software/TG43_Dose_Calculation_Standalone
-  #     - ${HOST_HOME}:/root/YourLocalHome
-  #     # - ../temp_data:/root/temp_data
-  #   networks:
-  #     net_brachyutils:
-  #       ipv4_address: 192.168.1.12
-  #   entrypoint: ["/bin/bash"]
-  #   command: ["/root/Software/TG43_Dose_Calculation_Standalone/run_api.sh"]
+  DoseCalcMC:
+    build:
+      context: ../
+      dockerfile: docker_src/Dockerfile
+    image: rapidbrachy_mc
+    container_name: DoseCalcMC
+    working_dir: /root
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    environment:
+      - HOST_HOME=${HOST_HOME}
+      - DEBIAN_FRONTEND=noninteractive
+    volumes:
+      - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
+      - ${HOST_HOME}:/root/YourLocalHome
+      - mc-volume:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data
+    networks:
+      net_brachyutils:
+        ipv4_address: 192.168.1.11
+    entrypoint: ["/bin/bash"]
+    command: ["/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/run_api.sh"]
+
+  DoseCalcTG43:
+    build:
+      context: ../
+      dockerfile: docker_src/Dockerfile
+    image: rapidbrachy_tg43
+    container_name: DoseCalcTG43
+    working_dir: /root
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    environment:
+      - HOST_HOME=${HOST_HOME}
+      - DEBIAN_FRONTEND=noninteractive
+    volumes:
+      - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/root/Software/TG43_Dose_Calculation_Standalone
+      - ${HOST_HOME}:/root/YourLocalHome
+      - tg43-volume:/root/Software/TG43_Dose_Calculation_Standalone/temp_data
+    networks:
+      net_brachyutils:
+        ipv4_address: 192.168.1.12
+    entrypoint: ["/bin/bash"]
+    command: ["/root/Software/TG43_Dose_Calculation_Standalone/run_api.sh"]
 
 networks:
   net_brachyutils:
@@ -77,7 +101,25 @@ networks:
       config:
         - subnet: 192.168.1.0/24
 
-# a volume could be defined on the RAM to share data 
-# between the containers.
-# volumes:
-#   temp_data:
+# defining a shared volume on hard drive for files
+volumes:
+  registration-volume:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOST_HOME}/Software/brachyutils/temp_data/registration
+
+  mc-volume:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOST_HOME}/Software/brachyutils/temp_data/mc
+
+  tg43-volume:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOST_HOME}/Software/brachyutils/temp_data/tg43

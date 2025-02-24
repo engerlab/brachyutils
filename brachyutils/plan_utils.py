@@ -9,7 +9,7 @@ from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
-from typing import List, Literal, Union
+from typing import List, Literal, Union, Dict
 
 import numpy as np
 from opentps.core.data import DVH
@@ -291,7 +291,7 @@ class BrachyPlan:
         # for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
         # for loading catheter table and/or applicators:
-        catheter_table: Union[Path, CatheterTable] = None,
+        catheter_table: Union[Path, CatheterTable, str] = None,
         applicator_pth_list: Union[Path, str, list] = None,
         applicator_format: Literal["RapidBrachy", "WebApp"] = None,
         # for loading dose or uncertainty:
@@ -302,7 +302,7 @@ class BrachyPlan:
         multi_processing: bool = False,
         combined_dose_only: bool = False,
         # for simulation setup:
-        combined_simulation_dict: dict = None,
+        simulation_dict: dict | Path | str = None,
     ):
         r"""
         Purpose:
@@ -327,7 +327,7 @@ class BrachyPlan:
             - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
             ### for simulation setup:
-            - combined_simulation_dict = None := dictionary containing the simulation setup,
+            - simulation_dict = None := dictionary containing the simulation setup,
             - dir_egsphant = None := path to the directory containing the egsphant file,
             - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
             - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
@@ -441,10 +441,26 @@ class BrachyPlan:
             warnings.warn("no dose rate is loaded", stacklevel=2)
 
         # # load the simulation setup if the dictionary is provided
-        if combined_simulation_dict is not None:
-            self.combined_simulation_setup = BrachySimulation(
-                simulation_dict=combined_simulation_dict
-            )
+        if simulation_dict is not None:
+            if isinstance(simulation_dict, dict):
+                self.simulation_setup = BrachySimulation(
+                    simulation_dict=simulation_dict
+                )
+            elif isinstance(simulation_dict, Path) or isinstance(
+                simulation_dict, str
+            ):
+                # if json file, load the entire simulation dict from json file
+                if str(simulation_dict).endswith(".json"):
+                   self.simulation_setup = BrachySimulation(
+                    simulation_dict=simulation_dict
+                )
+                # if dicom plan file, load the source from the dicom file
+                # and assuming the catheter table is loaded from the same dicom file,
+                # provide the total time from the catheter table
+                elif str(simulation_dict).endswith(".dcm"):
+                    self.simulation_setup = BrachySimulation(
+                        brachy_source=simulation_dict,
+                        total_time=np.sum(self.dwell_times))
 
         # load the applicator list if the path is provided
         if applicator_pth_list is not None and applicator_format is not None:
@@ -1097,7 +1113,10 @@ class BrachyPlan:
             structure_obj.uncertainty_min = np.min(flattened_uncertainty)
 
     def export_brachy_plan(
-        self, export_format: str, dir_export: str, content_to_export: dict
+        self,
+        dir_export: str | Path,
+        content_to_export: Dict[str, bool | str] = None,
+        export_format: str = "RapidBrachy"
     ):
         r"""
         Purpose:
@@ -1137,57 +1156,57 @@ class BrachyPlan:
         Outputs:
             - Void := will export the available parts of a plan into the specified export_format.
         """
-        assert os.path.exists(
-            dir_export
-        ), "export directory does not exist. please make the directory first"
-
+        dir_export = Path(dir_export)
+        dir_export.mkdir(parents=True, exist_ok=True)
         if export_format == "WebApp":
 
             raise NotImplementedError("export to WebApp is not implemented yet")
 
         elif export_format == "RapidBrachy":
 
-            if content_to_export["dose"]:
+            if content_to_export.get("dose", False):
                 self._export_dose(
-                    dir_export=dir_export,
-                    with_uncertainty=content_to_export["uncertainty"],
-                    dose_type=content_to_export["dose_type"],
-                    dose_rate_maps=content_to_export["dose_rate_maps"],
+                    dir_export=str(dir_export),
+                    with_uncertainty=content_to_export.get("uncertainty", False),
+                    dose_type=content_to_export.get("dose_type", ".nrrd"),
+                    dose_rate_maps=content_to_export.get("dose_rate_maps", False),
                 )
                 print("Dose exported successfully")
-            if content_to_export["catheter_table"]:
+            if content_to_export.get("catheter_table", False):
                 # assumes file name is "catheter_table.json"
-                self._export_catheter_table(dir_export)
+                self._export_catheter_table(str(dir_export))
                 print("Catheter Table exported successfully")
 
-            if content_to_export["plan"]:
+            if content_to_export.get("plan", False):
                 # assumes file name is "dwell_#.plan"
-                self._export_plan_file(dir_export)
+                self._export_plan_file(str(dir_export))
                 print(".plan files were exported successfully")
 
-            if content_to_export["mac"]:
+            if content_to_export.get("mac", False):
                 # assumes file name is "run_#.mac"
-                self._export_dwell_mac_file(dir_export)
+                self._export_dwell_mac_file(str(dir_export))
                 print(".mac files were exported successfully")
 
-            if content_to_export["egsphant"]:
+            if content_to_export.get("egsphant", False):
                 # assumes file name is "ct.egsphant"
                 self._export_egsphant(
-                    dir_export,
+                    str(dir_export),
                     content_to_export.get("materials_table", None),
                     content_to_export.get("assign_material_from_ct", True),
+                    content_to_export.get("crop_by_contour", None),
+                    content_to_export.get("resample_egsphant_to", None),
                 )
                 print("Egsphant file was exported successfully")
 
-            if content_to_export["applicator_geometry"]:
+            if content_to_export.get("applicator_geometry", False):
                 # assumes file name is "applicator_geometry.json"
-                self._export_applicator_geometry(dir_export, export_format)
+                self._export_applicator_geometry(str(dir_export), export_format)
                 print("applicator geometry file was exported successfully")
 
-            if content_to_export["structure_set"]:
+            if content_to_export.get("structure_set", False):
                 # assumes file name is "structure_set.json"
                 self._export_structure_set(
-                    dir_export, content_to_export.get("materials_table", None)
+                    str(dir_export), content_to_export.get("materials_table", None)
                 )
                 print("structure set file was exported successfully")
 
@@ -1380,21 +1399,23 @@ class BrachyPlan:
             - simulation_utils
         """
         for dwell_i in range(self.num_dwells):
-            sim_obj = deepcopy(self.combined_simulation_setup)
+            sim_obj = deepcopy(self.simulation_setup)
             sim_obj.pth_plan = f"dwell_{dwell_i + 1}.plan"
             sim_obj.total_time = 1
             with open(dir_export + f"/run_{dwell_i + 1}.mac", "w") as file:
                 file.write(sim_obj.to_string())
 
-        self.combined_simulation_setup.total_time = np.sum(self.dwell_times)
+        self.simulation_setup.total_time = np.sum(self.dwell_times)
         with open(dir_export + "/combined.mac", "w") as file:
-            file.write(self.combined_simulation_setup.to_string())
+            file.write(self.simulation_setup.to_string())
 
     def _export_egsphant(
         self,
         dir_export: Union[str, Path],
         material_dict: Union[dict, Path],
         assign_material_from_ct: bool,
+        crop_by_contour: str = None,
+        resample_egsphant_to: List[float] = None,
     ):
         r"""
         Purpose:
@@ -1423,6 +1444,8 @@ class BrachyPlan:
             pth_output=Path(file_path),
             material_dict=material_dict,
             assign_material_from_ct=assign_material_from_ct,
+            crop_by_contour=crop_by_contour,
+            resample_egsphant_to=resample_egsphant_to,
         )
 
     def _export_applicator_geometry(
@@ -1644,7 +1667,9 @@ def dvh_metric(
         f(threshold): this is D90 or D1cc depending on the input threshold
         cum_dvh: this is the cumulative DVH after adding the new volum to the old one
     """
-
+    raise DeprecationWarning(
+        "This function is deprecated. Please use BrachyStructure.get_dvh_metric() instead."
+    )
     histogram, bins_edges = np.histogram(
         dose, bins=num_bins, range=(0, total_dose_max + 0.1)
     )
@@ -1728,3 +1753,37 @@ def _type_nested_dict_list(data):
     elif isinstance(data, list):
         for item in data:
             _type_nested_dict_list(item)
+
+def load_dicom_to_plan(dir_dicom: Path | str, **kwargs) -> BrachyPlan:
+    r"""
+    Purpose:
+        - To load all the contents of a dicom directory into a BrachyPlan object.
+
+    Inputs:
+        - dir_dicom := the path to the dicom directory
+    
+    Outputs:
+        - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
+    """
+    all_dicom_files = list(Path(dir_dicom).rglob("*.dcm"))
+    if len(all_dicom_files) == 0:
+        raise FileNotFoundError("No dicom files found in the directory")
+    # structure_dcm = [dcm for dcm in all_dicom_files if "RS" in dcm.name or "rs" in dcm.name]
+    dose_dcm = [dcm for dcm in all_dicom_files if "RD" in dcm.name or "rd" in dcm.name]
+    plan_dcm = [dcm for dcm in all_dicom_files if "RP" in dcm.name or "rp" in dcm.name]
+    
+    # structure_dcm = structure_dcm[0] if len(structure_dcm) > 0 else None
+    dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
+    plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
+    simulation_dict = (
+        kwargs.pop("simulation_dict") 
+        if kwargs.get("simulation_dict") is not None
+        else plan_dcm
+        )
+    return BrachyPlan(
+        phantom=dir_dicom,
+        catheter_table=plan_dcm,
+        combined_dose=dose_dcm,
+        simulation_dict=simulation_dict,
+        **kwargs
+    )

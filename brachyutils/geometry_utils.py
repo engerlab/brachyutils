@@ -3,8 +3,8 @@ import os
 import warnings
 from glob import glob
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Union
-
+from typing import Dict, List, Literal, Optional, Union, Tuple
+from collections import defaultdict
 import numpy as np
 import SimpleITK as sitk
 
@@ -45,7 +45,7 @@ class BrachyPhantom:
         - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
         - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
         Other names for structure are contours, masks, segmentations.
-        - structure_names_dcm: List[str] := the names of the structures in the dicom file.
+        - structure_names: List[str] := the names of the structures in the dicom file.
         - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
         - xyz_format: bool := the format of the image. if True, the image is in [z, y, x] format.
         - orientation: Literal["LAS", "RAS", "LPS"] := the orientation of the image. default is LPS, same as 
@@ -84,11 +84,16 @@ class BrachyPhantom:
                 "Please provide either the directory of the DICOM files or the path of the phantom file."
             )
         # Attributes for patient images
-        self.pth_image: Path = Path(dir_dicom if dir_dicom is not None else pth_phantom_file)
+        if dir_dicom is not None:
+            self.pth_image: Path = Path(dir_dicom)
+        elif pth_phantom_file is not None:
+            self.pth_image: Path = Path(pth_phantom_file)
+        else:
+            self.pth_image = None
         self.image_obj: Union[CTImage, MRImage] = None
         self.image_modality: Literal["CT", "MR", "US"] = None
-        self.structure_set: RTStruct = None
-        self.structure_names_dcm: List[str] = []
+        self.structure_set = RTStruct()
+        self.structure_names: List[str] = []
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
         self.anatomical_coordinate_system: Literal["LAS", "RAS", "LPS"] = "LPS"
@@ -107,18 +112,18 @@ class BrachyPhantom:
         elif pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
         else:
-            raise ValueError(
-                "No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file."
-            )
-            warnings.warn("No geometry source file provided.", stacklevel=2)
-
-        self._convert_orientation_to_LPS()
+            # raise ValueError(
+            #     "No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file."
+            # )
+            warnings.warn("No geometry source file provided. Creating an empty Phantom", stacklevel=2)
+        if self.image_obj is not None:
+            self._convert_orientation_to_LPS()
 
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)
             assert os.path.exists(pth_structures_file), "The input path does not exist."
             self._load_structure_file(pth_structures_file)
-        
+
         if pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
 
@@ -155,17 +160,17 @@ class BrachyPhantom:
             mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
-            header = pydicom.read_file(ct_files[0])
+            header = pydicom.read_file(mr_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
-        
+
         elif "US" in image_files[0].upper():
             us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
-            header = pydicom.read_file(ct_files[0])
+            header = pydicom.read_file(us_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
@@ -241,31 +246,22 @@ class BrachyPhantom:
             - nibabel
         """
         import nibabel as nib
-        
+
         assert pth_image.exists(), "The input path does not exist."
         image_nifti = nib.load(self.pth_image)
         orientation = "".join(nib.aff2axcodes(image_nifti.affine))
-        image_data = np.ascontiguousarray(image_nifti.get_fdata())[:, :, :, 0]
-
-        # flip the image if the orientation is not LPS:
-        # this worked for the messed up protate mri images from the micro-registration
-        # challenge. however, be careful with it on a new Nifti images. please
-        # do not modify the file writers.
-        if orientation == "RAS":
-            # image_data = np.flip(image_data, axis=0)
-            # image_data = np.flip(image_data, axis=1)
-            image_data = np.swapaxes(image_data, 1, 2)
-            orientation = "LPS"
-        elif orientation == "LAS":
-            image_data = np.flip(image_data, axis=1)
-            orientation = "LPS"
-        elif orientation == "LPS":
-            pass
-        else:
-            raise ValueError("The orientation of the image is not recognized.")
-
+        image_data = np.ascontiguousarray(image_nifti.get_fdata())
         origin = image_nifti.affine[:3, 3]
         spacing = image_nifti.header.get("pixdim")[1:4]
+
+        if image_data.ndim == 4:
+            image_data = image_data[:, :, :, 0]
+        if image_nifti.header.data_layout == "F":
+            image_data = np.swapaxes(image_data, 0, 2)
+        # if image_nifti.header.default_x_flip:
+            # image_data = np.flip(image_data, axis=2)
+
+
         self.image_modality = image_nifti.header.get("modality", "unknown")
         if self.image_modality == "unknown":
             if "ct" in self.pth_image.name.lower():
@@ -302,27 +298,29 @@ class BrachyPhantom:
             structure_orientation = header.get((0x0010, 0x2210), "LPS")
             if structure_orientation == "BIPED":
                 structure_orientation = "LPS"
+            self._update_structure_names()
+            return
             # self.anatomical_coordinate_system = orientation
         elif str(pth_structure).endswith(".nrrd"):
-            self.structure_set, structure_orientation = readNrrdStruct(pth_structure)
-            self.structure_set.setPatient(
-                self.image_obj.patient if self.image_obj is not None else None
-            )
-            # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
-            # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
+            structure_mask_dict, structure_orientation = readNrrdStruct(pth_structure)
         elif str(pth_structure).endswith(".nii.gz"):
-            self.structure_set, structure_orientation = readNiftiStruct(pth_structure)
+            structure_mask_dict, structure_orientation = readNiftiStruct(pth_structure)
         else:
             raise ValueError("The structure file type is not recognized.")
 
         if self.anatomical_coordinate_system is None:
             self.anatomical_coordinate_system = structure_orientation
         else:
-            assert self.anatomical_coordinate_system == structure_orientation, "The orientation of the structure file is not the same as the image file."
+            assert (
+                self.anatomical_coordinate_system == structure_orientation, 
+                "The orientation of the structure file is not the same as the image file."
+            )
 
-        self.structure_names_dcm = []
-        for structure in self.structure_set.contours:
-            self.structure_names_dcm.append(structure.name)
+        self.set_structure_set(structure_mask_dict)
+
+        # self.structure_names = []
+        # for structure in self.structure_set.contours:
+        #     self.structure_names.append(structure.name)
 
     def get_structure_mask(
         self,
@@ -349,7 +347,7 @@ class BrachyPhantom:
         ), "structure masks have not been loaded yet. please run load_structure_file() first"
         mask_dict: dict = {}
         for query_structure in query_structure_list:
-            for mask_name in self.structure_names_dcm:
+            for mask_name in self.structure_names:
                 if query_structure.lower() in mask_name.lower():
                     mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
                         origin=self.image_obj.origin,
@@ -370,7 +368,7 @@ class BrachyPhantom:
                         else:
                             raise ValueError("mask_type not recognized")
                     else:
-                        mask_dict[query_structure] = None
+                        # mask_dict[query_structure] = None
                         warnings.warn(
                             f"mask for {query_structure} is all zeros. returning empty",
                             stacklevel=2,
@@ -422,13 +420,13 @@ class BrachyPhantom:
             else "No image object."
         )
         print(
-            f"Structure Names: {self.structure_names_dcm}"
-            if self.structure_names_dcm is not None
+            f"Structure Names: {self.structure_names}"
+            if self.structure_names is not None
             else "No structure names."
         )
         print(
-            f"Structure Count: {len(self.structure_names_dcm)}"
-            if self.structure_names_dcm is not None
+            f"Structure Count: {len(self.structure_names)}"
+            if self.structure_names is not None
             else "No structure names."
         )
 
@@ -446,7 +444,7 @@ class BrachyPhantom:
         self.image_modality = None
         self.structure_set = None
         self.unit_length = None
-        self.structure_names_dcm = []
+        self.structure_names = []
 
     def is_equal(self, other: "BrachyPhantom") -> bool:
         r"""
@@ -472,7 +470,7 @@ class BrachyPhantom:
             warnings.warn("The image arrays are not the same.", stacklevel=2)
             return False
         elif self.structure_set is not None and other.structure_set is not None:
-            for structure_name in self.structure_names_dcm:
+            for structure_name in self.structure_names:
                 if self.structure_set.getContourByName(
                     structure_name
                 ) != other.structure_set.getContourByName(structure_name):
@@ -506,7 +504,7 @@ class BrachyPhantom:
         if self.image_obj is not None:
             os.makedirs(dir_output, exist_ok=True)
             if self.image_modality == "CT":
-                writeDicomCT(self.image_obj, dir_output)
+                writeDicomCT(self.image_obj, str(dir_output))
             elif self.image_modality == "MR":
                 raise NotImplementedError("MR image writing is not implemented yet")
             elif self.image_modality == "US":
@@ -521,7 +519,7 @@ class BrachyPhantom:
         """
         if self.structure_set is not None:
             os.makedirs(dir_output, exist_ok=True)
-            writeRTStruct(self.structure_set, dir_output)
+            writeRTStruct(self.structure_set, str(dir_output))
 
     def write_image_to_nrrd(
         self,
@@ -601,7 +599,7 @@ class BrachyPhantom:
         ), "the file should have '.nrrd' extension"
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         structure_mask_dict: dict = self.get_structure_mask(
-            self.structure_names_dcm, mask_type=np.ndarray
+            self.structure_names, mask_type=np.ndarray
         )
 
         if not overlap:
@@ -688,10 +686,13 @@ class BrachyPhantom:
         pth_output: Path,
         material_dict: dict | Path = None,
         assign_material_from_ct: bool = None,
+        crop_by_contour: str = None,
+        resample_egsphant_to: List[float] = None,
     ) -> None:
         r"""
         Purpose:
             - Write the BrachyPhantom object to an Egsphant file.
+
         Inputs:
             - pth_output: Path := the path to write the Egsphant file to.
             - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
@@ -703,25 +704,98 @@ class BrachyPhantom:
             ]
             - assign_material_from_ct: bool := if True, the material will be assigned from the CT image.
         """
-        assert (
-            os.path.splitext(pth_output)[-1] == ".egsphant"
-        ), "the file should have '.egsphant' extension"
+        if str(pth_output).endswith(".egsphant"):
+            pass
+        elif str(pth_output).endswith(".seq.nrrd"):
+            pass
+        else:
+            raise ValueError("The output file should have '.egsphant' or '.egsphant.nrrd' extension.")           
+
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         if self.egsphant_obj is not None:
             self.egsphant_obj.write_to_ctegsphant(pth_output)
         elif self.image_obj is not None:
             from brachyutils.egsphant_utils import BrachyEgsphant
 
+            if resample_egsphant_to is not None:
+                from copy import deepcopy
+                from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
+                resampled_phantom = deepcopy(self)
+                resampled_phantom.image_obj = resampleImage3D(
+                    image=resampled_phantom.image_obj,
+                    spacing=resample_egsphant_to,
+                )
+                phantom_used_for_egsphant = resampled_phantom
+            else:
+                phantom_used_for_egsphant = self
             self.egsphant_obj = BrachyEgsphant(
-                phantom=self,
+                phantom=phantom_used_for_egsphant,
                 material_dict=material_dict,
                 assign_material_from_ct=assign_material_from_ct,
             )
-            self.egsphant_obj.write_to_ctegsphant(pth_output)
+  
+            if crop_by_contour is not None:
+                self.egsphant_obj.crop_by_contour(phantom_used_for_egsphant, crop_by_contour)
+
+            if str(pth_output).endswith(".egsphant"):
+                self.egsphant_obj.write_to_ctegsphant(pth_output)
+            elif str(pth_output).endswith(".seq.nrrd"):
+                self.egsphant_obj.write_to_nrrd(pth_output)
         else:
             raise ValueError(
                 "No image object or egsphant object to write to Egsphant file. Please load the image object first."
             )
+
+    def export_to(
+        self,
+        pth_image_out: Path | str = None,
+        pth_structures_out: Path | str = None,
+        dir_dicom_out: Path | str = None,
+        dir_nrrd_out: Path | str = None
+        ):
+        r"""
+        Purpose:
+            - To export the image and/or the structures to file. This function will call the appropriate
+            export function depending on the extension of the given path. If you would like to export
+            to egsphant, please use write_to_egsphant() function.
+        Inputs:
+            pth_image_out:= path to the output image file. If the extension could be .nrrd. To export images
+            to dicom, use dir_dicom_out.
+            pth_structures_out:= path to the output structure file, the extension could be .nrrd or .dcm
+            dir_dicom_out:= path to export all the dicom informatin to. it has to be a directory
+        """
+        if pth_image_out is not None:
+            pth_image_out = Path(pth_image_out)
+            assert self.image_obj is not None, "no image is loaded into this BrachyPhantom"
+            if str(pth_image_out).endswith(".nrrd"):
+                self.write_image_to_nrrd(pth_output=pth_image_out)
+
+        if pth_structures_out is not None:
+            pth_structures_out = Path(pth_structures_out)
+            assert self.structure_set is not None, "no structures is loaded into this BrachyPhantom"
+            self.write_structures_to_nrrd(pth_output=pth_structures_out)
+
+        if dir_dicom_out is not None:
+            dir_dicom_out = Path(dir_dicom_out)
+            os.makedirs(dir_dicom_out, exist_ok=True)
+            assert dir_dicom_out.is_dir(), f"the provided path {dir_dicom_out} is not a directory"
+            if self.image_obj is not None:
+                self.write_image_to_dicom(dir_output=dir_dicom_out)
+            if self.structure_set is not None:
+                self.write_structures_to_dicom(dir_output=dir_dicom_out)
+
+        if dir_nrrd_out is not None:
+            dir_nrrd_out = Path(dir_nrrd_out)
+            os.makedirs(dir_nrrd_out, exist_ok=True)
+            assert dir_nrrd_out.is_dir(), f"the provided path {dir_nrrd_out} is not a directory"
+            if self.image_obj is not None:
+                self.write_image_to_nrrd(
+                    pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".nrrd")
+                    )
+            if self.structure_set is not None:
+                self.write_structures_to_nrrd(
+                    pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".seg.nrrd")
+                )
 
     def crop_by_coordinates(
         self, croodinate_range: List[float] | np.array, inplace: "BrachyPhantom" = True
@@ -807,23 +881,102 @@ class BrachyPhantom:
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace)
 
-    def set_structure_set(self, mask_dict: dict) -> None:
+    def set_structure_set(self, mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]]) -> None:
         r"""
         Purpose:
-            - Set the structure set with the input mask dictionary.
+            - Set the structure set with the input mask dictionary mapping structure names to ROIMask.
+            If the name of a structure is in the structure set, the mask will be replaced.
+            If the name of a structure is not in the structure set, a new structure will be added.
+            The mask will be resampled to the image object if it exists.
         Inputs:
-            - mask_dict: dict := the dictionary of the masks. the values are numpy arrays in
-            [z, y, x] format.
+            - mask_dict: dict := the dictionary of the masks.
+            The values could be numpy arrays, ROIContour or ROIMask objects.
         Outputs:
             - None
         """
+        from opentps.core.processing.imageProcessing.resampler3D import (
+            resampleImage3DOnImage3D,
+        )
         for structure_name in mask_dict:
-            self.structure_set.removeContour(
-                self.structure_set.getContourByName(structure_name)
+            # check if the structure already exists in structure set
+            old_structure = self.structure_set.getContourByName(structure_name)
+            if old_structure is not None:
+                self.structure_set.removeContour(old_structure)
+            print(f"setting structure {structure_name}")
+            if mask_dict.get(structure_name) is None:
+                continue
+            if isinstance(mask_dict.get(structure_name), np.ndarray):
+                mask = ROIMask(
+                    name=structure_name,
+                    imageArray=np.swapaxes(mask_dict[structure_name], 0, 2),
+                    origin=self.image_obj.origin,
+                    spacing=self.image_obj.spacing,
+                )
+            elif isinstance(mask_dict.get(structure_name), ROIContour):
+                mask = ROIContour.getBinaryMask()
+
+            elif isinstance(mask_dict.get(structure_name), ROIMask):
+                mask = mask_dict.get(structure_name)
+            else:
+                raise ValueError("The mask type is not recognized.")
+                
+            if self.image_obj is not None:
+                mask = resampleImage3DOnImage3D(mask, self.image_obj)
+            self.structure_set.appendContour(mask.getROIContour())
+
+        self.structure_set.setPatient(
+                self.image_obj.patient if self.image_obj is not None else None
             )
-            self.structure_set.appendContour(
-                mask_dict.get(structure_name).getROIContour()
-            )
+        # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
+        # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
+        self._update_structure_names()
+
+    def _update_structure_names(self) -> None:
+        r"""
+        Purpose:
+            - Update the structure names based ont he structure set.
+        Inputs:
+            - None
+        Outputs:
+            - None
+        """
+        self.structure_names = [structure.name for structure in self.structure_set.contours]
+
+    def rename_structures(self, structure_name_dict: dict) -> None:
+        r"""
+        Purpose:
+            - Rename the structures in the structure set.
+        
+        Inputs:
+            - structure_name_dict: dict := the dictionary of the structure names to rename.
+            The keys are the old names and the values are the new names.
+        
+        Outputs:
+            - None
+        """
+        for old_name, new_name in structure_name_dict.items():
+            structure = self.structure_set.getContourByName(old_name)
+            if structure is not None:
+                structure.name = new_name
+            else:
+                warnings.warn(f"The structure {old_name} does not exist.")
+        self._update_structure_names()
+    
+    def remove_structure(self, structure_name: str) -> None:
+        r"""
+        Purpose:
+            - Remove the structure from the structure set.
+        Inputs:
+            - structure_name: str := the name of the structure to remove.
+        Outputs:
+            - None
+        """
+        structure = self.structure_set.getContourByName(structure_name)
+        if structure is not None:
+            self.structure_set.removeContour(structure)
+            self._update_structure_names()
+        else:
+            warnings.warn(f"The structure {structure_name} does not exist.")
 
     def _convert_orientation_to_LPS(self) -> None:
         r"""
@@ -840,29 +993,44 @@ class BrachyPhantom:
         if self.anatomical_coordinate_system == "LAS":
             raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
         elif self.anatomical_coordinate_system == "RAS":
-            raise NotImplementedError("Conversion from RAS to LPS is not implemented yet.")
+            # # flipping the image array allows the registration and segmentation to work.
+            # # the image is shown correctly in 3D slicer, but the coordinates wont match
+            # # the coordinates in the Nifti file.
+            image_array = self.get_image_array()
+            image_array = np.flip(image_array, axis=1)
+            image_array = np.flip(image_array, axis=2)
+            self.set_image_array(image_array)
+            # # negating the x and y origin and spacing allows the image to be 
+            # # displayed in the correct orientation in 3D slicer.
+            # self.image_obj.origin = self.image_obj.origin * np.array([-1, -1, 1])
+            # self.image_obj.spacing = self.image_obj.spacing * np.array([-1, -1, 1])
+            self.anatomical_coordinate_system = "LPS"
         elif self.anatomical_coordinate_system == "LPS":
             pass
         else:
             raise ValueError("The orientation is not recognized. please leave an issue on github.")
-        self.anatomical_coordinate_system = "LPS"
 
 # helper functions
-def phantom_with_empty_image_like(phantom: BrachyPhantom) -> BrachyPhantom:
+def phantom_with_empty_image_like(
+    phantom: BrachyPhantom,
+    new_pth_image: Path | str=None
+    ) -> BrachyPhantom:
     r"""
     Purpose:
         - Create a new BrachyPhantom object with the same structure set as the input phantom but with an empty image.
     Inputs:
         - phantom: BrachyPhantom := the input phantom object.
+        - new_pth_image := the new name for the empty phantom.
     Outputs:
         - new_phantom: BrachyPhantom := the new phantom object.
     """
+    from copy import deepcopy
     new_phantom = BrachyPhantom()
-    new_phantom.pth_image = None
+    new_phantom.pth_image = Path(new_pth_image)
     new_phantom.image_obj = None
     new_phantom.image_modality = phantom.image_modality
     new_phantom.structure_set = phantom.structure_set
-    new_phantom.structure_names_dcm = phantom.structure_names_dcm
+    new_phantom.structure_names = [structure.name for structure in new_phantom.structure_set.contours]
     new_phantom.unit_length = phantom.unit_length
     new_phantom.xyz_format = phantom.xyz_format
 
@@ -916,14 +1084,14 @@ def readDicomUS(image_files):
     raise NotImplementedError("US DICOM files are not supported yet.")
 
 
-def readNrrdStruct(pth_structure: Path) -> Union[RTStruct, str]:
+def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     r"""
     Purpose:
         - Load the NRRD structure file.
     Inputs:
         - pth_structure: Path := the path of the structure source file.
     Outputs:
-        - RTStruct := the structure set object.
+        - structure_mask_dict: Dict[str, ROIMask] := the dictionary of the structure masks.
         - str := the orientation of the structure mask, which is recommended to be LPS.
     Dependencies:
         - openTPS.core
@@ -956,7 +1124,7 @@ def readNrrdStruct(pth_structure: Path) -> Union[RTStruct, str]:
             char_list.append("I")
         orientation = "".join(char_list)
 
-    structure_set = RTStruct()
+    structure_mask_dict = defaultdict(ROIMask)
     i = 0
     for key in header:
         if f"Segment{i}_Name" == key:
@@ -966,25 +1134,28 @@ def readNrrdStruct(pth_structure: Path) -> Union[RTStruct, str]:
                 segment_mask = structures_data[:, :, :, i]
             else:
                 segment_mask = structures_data == int(label_value)
-            segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+            # segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+            if segment_mask.sum() == 0:
+                continue
             roi_mask = ROIMask(
                 imageArray=np.swapaxes(segment_mask, 0, 2),
                 origin=origin,
                 spacing=spacing,
                 name=name,
             )
-            structure_set.appendContour(roi_mask.getROIContour())
+            structure_mask_dict[name] = roi_mask
             i += 1
-    return structure_set, orientation
+    return structure_mask_dict, orientation
 
-def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
+def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     r"""
     Purpose:
-        - Load the NIFTI structure file.
+        - Load the NIFTI structure file into a dictionary of ROIMask objects.
     Inputs:
         - pth_structure: Path := the path of the structure source file.
     Outputs:
-        - RTStruct := the structure set object.
+        - structure_mask_dict: Dict[str, ROIMask] := the dictionary of the structure masks.
+        - orientation: str := the orientation of the structure mask, which is recommended to be LPS.
     Dependencies:
         - nibabel
     """
@@ -993,46 +1164,68 @@ def readNiftiStruct(pth_structure: Path) -> Union[RTStruct, str]:
     structure_nifti = nib.load(pth_structure)
     orientation = "".join(nib.aff2axcodes(structure_nifti.affine))
     structure_data = np.ascontiguousarray(structure_nifti.get_fdata())
+    if structure_nifti.header.data_layout == "F":
+        structure_data = np.swapaxes(structure_data, 0, 2)
     origin = structure_nifti.affine[:3, 3]
     spacing = structure_nifti.header.get("pixdim")[1:4]
 
     # God knows what is the name of the structures in the nifti files
     # I will just number them and hope for the best
-    num_structures = structure_data.shape[-1]
-    structure_set = RTStruct()
+    n_dim = structure_data.ndim
+    if n_dim == 4:
+        # the segments are over lapping, stored in a 4 dimensinal array 
+        num_structures = structure_data.shape[-1]
+    else:
+        # the segments are non-overlapping, stored in a 3 dimensional array and
+        # encoded by value. zero is ignored.
+        num_structures = len(np.unique(structure_data))-1
+
+    # flip the origina and spacing if the orientation is not LPS:
+    # this worked for the messed up protate mri images from the micro-registration
+    # challenge. however, be careful with it on a new Nifti images. please
+    # do not modify the file writers.
+    if orientation == "RAS":
+        structure_data = np.flip(structure_data, axis=[1, 2])
+        # # either flip the mask on x and y axis or negating the origin and spacing. not both.
+        # # flipping allows spacing and origin to be positive, which is required by SITK and correct
+        # # display in 3D slicer.
+        # # negating allows for correct display in 3D slicer and the coordinates will match what
+        # # slicer shows when you load the original Nifti files. However, registration and segmentation
+        # # will not work correctly.
+        # origin = origin * np.array([-1, -1, 1])
+        # spacing = spacing * np.array([-1, -1, 1])
+    elif orientation == "LAS":
+        structure_data = np.flip(structure_data, axis=1)
+        # origin = origin * np.array([1, -1, 1])
+        # spacing = spacing * np.array([1, -1, 1])
+    elif orientation == "LPS":
+        pass
+    else:
+        raise ValueError("The orientation of the segmentation is not recognized.")
+
+    structure_mask_dict: Dict[str, ROIMask] = {}
     for i in range(num_structures):
         # generate segment labels
         segment_id = f"Segment{i+1}"
         segment_name = segment_id + "_Name"
         segment_label =  segment_id + "_LabelValue"
         # get the segment mask
-        segment_mask = structure_data[:, :, :, i]
-        segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
-        # flip the image if the orientation is not LPS:
-        # this worked for the messed up protate mri images from the micro-registration
-        # challenge. however, be careful with it on a new Nifti images. please
-        # do not modify the file writers.
-        if orientation == "RAS":
-            # segment_mask = np.flip(segment_mask, axis=0)
-            # segment_mask = np.flip(segment_mask, axis=1)
-            segment_mask = np.swapaxes(segment_mask, 1, 2)
-            orientation = "LPS"
-        elif orientation == "LAS":
-            segment_mask = np.flip(segment_mask, axis=1)
-            orientation = "LPS"
-        elif orientation == "LPS":
-            pass
+        if n_dim == 4:
+            segment_mask = structure_data[:, :, :, i]
         else:
-            raise ValueError("The orientation of the image is not recognized.")
-
+            segment_mask = structure_data == i+1
+        # segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
+        if segment_mask is None or segment_mask.sum() == 0:
+            continue
         roi_mask = ROIMask(
             imageArray=np.swapaxes(segment_mask, 0, 2),
             origin=origin,
             spacing=spacing,
             name=segment_name,
         )
-        structure_set.appendContour(roi_mask.getROIContour())
-    return structure_set, orientation    
+        structure_mask_dict[segment_name] = roi_mask
+        # del segment_mask
+    return structure_mask_dict, "LPS"
 
 def _get_image_orientation(pth_image: Path) -> str:
     """
@@ -1603,17 +1796,17 @@ class DwellPosition:
             angle = float(dwell_dict.get("angle"))
             position = np.array(
                 [
-                    dwell_dict.get("position")[0],
-                    dwell_dict.get("position")[1],
-                    dwell_dict.get("position")[2]
+                    dwell_dict.get("position").get("x"),
+                    dwell_dict.get("position").get("y"),
+                    dwell_dict.get("position").get("z"),
                 ]
             )
             relativePos = dwell_dict.get("relativePos")
             rotation = np.array(
                 [
-                    dwell_dict.get("rotation")[0],
-                    dwell_dict.get("rotation")[1],
-                    dwell_dict.get("rotation")[2]
+                    dwell_dict.get("rotation").get("x"),
+                    dwell_dict.get("rotation").get("y"),
+                    dwell_dict.get("rotation").get("z")
                 ]
             )
             time = float(dwell_dict.get("time"))
@@ -1893,6 +2086,7 @@ class CatheterTable:
                     "control_points": control_points,
                 }
             )
+
         # # Convert control points to dwell positions:
         # # after extracting the final cummulative time weight of the catheters,
         # # the time of the catheter, and the cummulative time weight of the control points,
@@ -1927,14 +2121,30 @@ class CatheterTable:
                     {
                         "index": int(control_point["index"] / 2),
                         "angle": float(control_point["angle"]),
-                        "position": control_point["position"],
+                        "position": {
+                            "x":control_point["position"][0],
+                            "y":control_point["position"][1],
+                            "z":control_point["position"][2]
+                            },
                         "relativePos": int(control_point["relativePos"]),
-                        "rotation": control_point["rotation"],
+                        "rotation": {
+                            "x":control_point["rotation"][0],
+                            "y":control_point["rotation"][1],
+                            "z":control_point["rotation"][2]
+                            },
                         "time": dwell_time,
                         "weight": dwell_weight,
                     }
                 )
-                catheter["dwells"] = dwells
+            catheter["dwells"] = dwells
+            if (
+                np.all([np.all(list(catheter["dwells"][i]["rotation"].values()) == [0,0,0])
+                        for i in range(len(catheter["dwells"]))])
+                and len(catheter["dwells"]) > 1
+            ):
+                for i in range(len(dwells)):
+                    dwells[i]["rotation"] = _get_rotation_from_position(i, dwells)
+    
             final_catheter_table.append(Catheter(catheter_dict=catheter))
         return final_catheter_table
 
@@ -1961,3 +2171,48 @@ class CatheterTable:
             print(f"Catheter ID: {catheter.id}")
             print(f"Number of dwell positions: {len(catheter.dwells)}")
             print(f"Total channel time: {catheter.channel_total_time}")
+
+def _get_rotation_from_position(idx, control_points):
+    r"""
+    Purpose:
+        - To get the rotation of the dwell point from the position of the dwell point.
+    Inputs:
+        - idx:int := the index of the dwell point.
+        - control_point_dcm:pydicom.dataset.Dataset := the control point object.
+    Outputs:
+        - np.array := the rotation of the dwell point in each axis.
+    """
+    # TODO: Merge this dicom utils script with my catheter setup class.
+    # We need all dwell positions, not only the non 0s ones to be able to 
+    # compute correct angles when they are not provided by the DICOM.
+    if len(control_points) == 2:
+        return _angle_betwen_2_points(
+            np.array(list(control_points[1]["position"].values()), dtype=np.float32),
+            np.array(list(control_points[0]["position"].values()), dtype=np.float32),
+        )
+
+    if idx == 0:
+        return _get_rotation_from_position(idx+1, control_points)
+    elif idx == len(control_points) - 1:
+        return _get_rotation_from_position(idx-1, control_points)
+    else:
+        return _angle_betwen_2_points(
+            np.array(list(control_points[idx-1]["position"].values()), dtype=np.float32),
+            np.array(list(control_points[idx+1]["position"].values()), dtype=np.float32),
+        )
+
+
+def _angle_betwen_2_points(a, b) -> dict:
+    r"""
+    Purpose:
+        - To calculate the angle between two points.
+    Inputs:
+        - a:np.array := the first point.
+        - b:np.array := the second point.      
+    Outputs:
+        - np.array := the angle between the two points in each axis.
+    """
+    vec = a - b
+    normal = np.sqrt(np.sum(vec ** 2))
+    angle_np = vec / normal
+    return {"x":angle_np[0], "y":angle_np[1], "z":angle_np[2]}

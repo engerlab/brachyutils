@@ -15,8 +15,11 @@ dist/*
 *DS_STORE
 *tar.gz
 *tar.zst
+*.tar
 .checkpointing
 build/*
 *.trunk*
 temp_data/*
 !temp_data/.gitkeep
+.env
+!docker_src/.env

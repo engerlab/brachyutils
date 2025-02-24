@@ -1,27 +1,25 @@
-FROM ubuntu:22.04
+FROM ubuntu:latest
 
-# Install dependencies
-RUN apt update && apt install -y wget nano tar ca-certificates \
-    libgl1-mesa-glx libglib2.0-0 \
-    libxrender1 libmkl-rt \
-    && rm -rf /var/lib/apt/lists/*
+ARG dir_software="/root/Software"
+ARG clean_source="false"
+ARG num_threads=12
 
-# Install miniconda
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh \
-    && mkdir /root/.conda \
-    && bash /tmp/miniconda.sh -b -p /root/miniconda3 \
-    && rm /tmp/miniconda.sh
+RUN mkdir -p $dir_software/brachyutils
+COPY installation_script.sh $dir_software/brachyutils
 
-ENV PATH=/root/miniconda3/bin:$PATH
+RUN apt update && apt install -y git
 
-# Initialize conda and create environment
-RUN /root/miniconda3/bin/conda init bash
+RUN bash ${dir_software}/brachyutils/installation_script.sh\
+    --dir-software=$dir_software\
+    --dependencies="python3.13"\
+    --num-threads=${num_threads}
 
-RUN conda create -n env_brachyutils python=3.11 -y
-RUN echo "conda activate env_brachyutils" >> ~/.bashrc
+COPY brachyutils $dir_software/brachyutils/brachyutils
+COPY setup.py $dir_software/brachyutils/setup.py
 
-# # Install brachyutils
-COPY ./brachyutils /root/brachyutils/brachyutils/
-COPY ./setup.py /root/brachyutils/
-SHELL ["conda", "run", "-n", "env_brachyutils", "/bin/bash", "-c"]
-RUN python -m pip install -e /root/brachyutils/.
+RUN bash ${dir_software}/brachyutils/installation_script.sh\
+    --dir-software=$dir_software\
+    --dependencies="brachyutils"\
+    --num-threads=${num_threads}
+
+CMD ["/bin/bash"]
