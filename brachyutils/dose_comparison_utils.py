@@ -58,7 +58,8 @@ class DoseComparison:
         compute_percent_difference=True,
         compute_gamma_index=True,
         path=None,
-        gamma_kwargs: dict = default_gamma_kwargs
+        gamma_kwargs: dict = default_gamma_kwargs,
+        positive_percent_difference: bool = True
     ):
         r"""
         Purpose:
@@ -126,7 +127,7 @@ class DoseComparison:
         # despite the name of the function input containing 'mm'
         self.gamma_distance_threshold = gamma_distance_threshold_mm
         if compute_percent_difference:
-            self.compute_percent_difference()
+            self.compute_percent_difference(positive_percent_difference)
         if compute_gamma_index:
             self.compute_gamma_index()
 
@@ -288,7 +289,7 @@ class DoseComparison:
         f.close()
         plt.show()
 
-    def compute_percent_difference(self):
+    def compute_percent_difference(self, positive_percent_difference: bool = True):
         """
         Compute the percent difference between two dose images.
         This method calculates the percent difference between the dose images
@@ -300,11 +301,16 @@ class DoseComparison:
         """
         self.percent_difference = BrachyDose.dose_with_empty_grid_like(self.dose1)
         # print(self.dose1.dose_image is None, self.dose2.dose_image is None)
-        self.percent_difference.dose_image.imageArray = (
-            np.abs(self.dose1.dose_image.imageArray - self.dose2.dose_image.imageArray)
-            / self.dose1.dose_image.imageArray
-            * 100.0
-        )
+        if positive_percent_difference:
+            self.percent_difference.dose_image.imageArray = (
+                np.abs(self.dose1.dose_image.imageArray - self.dose2.dose_image.imageArray)
+                / self.dose1.dose_image.imageArray
+                * 100.0
+            )
+        else:
+            self.percent_difference.dose_image.imageArray = (
+                self.dose2.dose_image.imageArray - self.dose1.dose_image.imageArray) * 100.0 / self.dose1.dose_image.imageArray
+
 
     def compute_gamma_index(self):
         """
