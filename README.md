@@ -5,7 +5,7 @@ This package implements Brachytherapy dose, egsphant dicom and film dosimetry fu
 Start by clonning this repository to `YourDesiredLocation`:
 
 ```bash
-git clone -b opentps https://github.com/engerlab/brachyutils.git
+git clone https://github.com/engerlab/brachyutils.git
 ```
 
 ## Using Docker Image
