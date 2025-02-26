@@ -644,6 +644,8 @@ class Registration_Plastimatch(PhantomRegistration):
         for data_name in all_data:
             # write out the data to be warped by plastimatch
             pth_in = pth_vector_field.parent.joinpath(f"{data_name}.nrrd")
+            pth_warped = pth_vector_field.parent.joinpath(f"{data_name}_warped.nrrd")
+
             empty_phant = phantom_with_empty_image_like(
                 self.moving_phantom,
                 new_pth_image=pth_in
@@ -653,13 +655,25 @@ class Registration_Plastimatch(PhantomRegistration):
                 pth_output=pth_in
             )
             # call plastimatch warp to deform the image and the contours.
-            # XXX: This is not implemented yet.
+            if "http" in self.pth_plastimatch:
+                import requests
+                response = requests.post(
+                    url=self.pth_plastimatch,
+                    json={
+                        "pth_input": str(pth_in),
+                        "pth_output": str(pth_warped),
+                        "xf": pth_vector_field,
+                        },
+                    timeout=None
+                )
+            else:
+                raise NotImplementedError("The local plastimatch registration is not implemented yet.")
 
             # load the deformed image and contours back into the registered phantom.
             if data_name == self.register_on_contour:
                 continue
             deformed_data = BrachyPhantom(
-                pth_phantom_file=pth_in, # XXX check the pack of the output from plastimatch,
+                pth_phantom_file=pth_warped,
             ).image_obj
             deformed_data = resampleImage3DOnImage3D(
                 deformed_data,
@@ -669,9 +683,9 @@ class Registration_Plastimatch(PhantomRegistration):
                 self.registered_phantom.image_obj = deformed_data
             else:
                 structure_mask_dict[data_name] = deformed_data
-                
+
         self.registered_phantom.set_structure_set(structure_mask_dict)
-        
+
     def evaluate_on_contours(self):
         return super().evaluate_on_contours()
 
