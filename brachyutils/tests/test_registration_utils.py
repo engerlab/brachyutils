@@ -78,7 +78,7 @@ def test_register_plastimatch():
     pth_label_moving = Path("../temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0001.seg.nrrd")
     # pth_label_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
     pth_output = Path("../data_test/test_export_plan/abdomin_mr_ct/registered_abdomin_ct_mr.nrrd")
-    
+
     for pth in [pth_img_static, pth_img_moving, pth_label_static, pth_label_moving]:
         assert pth.exists(), f"File {pth} does not exist."
 
@@ -117,5 +117,5 @@ def test_load_transformations():
 if __name__ == "__main__":
     print("testing the registration class")
     # test_register_opentps()
-    # test_register_plastimatch()
-    test_load_transformations()
+    test_register_plastimatch()
+    # test_load_transformations()

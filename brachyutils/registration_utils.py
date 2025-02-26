@@ -556,7 +556,7 @@ class Registration_Plastimatch(PhantomRegistration):
         if "http" in self.pth_plastimatch:
             import requests
             response = requests.post(
-                url=self.pth_plastimatch,
+                url=self.pth_plastimatch+"/plastimatch_register",
                 json={
                     "global_params": global_params,
                     "stage_params_list": stage_params_list,
@@ -658,7 +658,7 @@ class Registration_Plastimatch(PhantomRegistration):
             if "http" in self.pth_plastimatch:
                 import requests
                 response = requests.post(
-                    url=self.pth_plastimatch,
+                    url=self.pth_plastimatch+"/plastimatch_convert",
                     json={
                         "pth_input": str(pth_in),
                         "pth_output": str(pth_warped),
