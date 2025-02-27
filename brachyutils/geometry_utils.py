@@ -346,7 +346,15 @@ class BrachyPhantom:
             self.structure_set is not None
         ), "structure masks have not been loaded yet. please run load_structure_file() first"
         mask_dict: dict = {}
+        flattened_query_structure_list = []
+
         for query_structure in query_structure_list:
+            if isinstance(query_structure, list):
+                flattened_query_structure_list.extend(query_structure)
+            else:
+                flattened_query_structure_list.append(query_structure)
+
+        for query_structure in flattened_query_structure_list:
             for mask_name in self.structure_names:
                 if query_structure.lower() in mask_name.lower():
                     mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
@@ -1967,7 +1975,7 @@ class CatheterTable:
         if pth_catheter_table is not None:
             assert os.path.exists(
                 pth_catheter_table
-            ), "The input json file does not exist."
+            ), f"The input json file does not exist: {pth_catheter_table}"
             extension = os.path.splitext(pth_catheter_table)[1]
             if extension == ".json":
                 catheter_list = self.load_from_json(pth_catheter_table)
@@ -2153,6 +2161,17 @@ class CatheterTable:
             final_catheter_table.append(Catheter(catheter_dict=catheter))
         return final_catheter_table
 
+    def get_treatment_time(self) -> float:
+        r"""
+        Purpose:
+            - To calculate the total treatment time.
+        Inputs:
+            - catheter_table:CatheterTable := the catheter table object.
+        Outputs:
+            - float := the total treatment time.
+        """
+        return np.sum([catheter.channel_total_time for catheter in self.catheter_list])
+
     def to_dict(self) -> dict:
         r"""
         Purpose:
@@ -2221,3 +2240,4 @@ def _angle_betwen_2_points(a, b) -> dict:
     normal = np.sqrt(np.sum(vec ** 2))
     angle_np = vec / normal
     return {"x":angle_np[0], "y":angle_np[1], "z":angle_np[2]}
+

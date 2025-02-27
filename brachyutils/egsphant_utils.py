@@ -924,6 +924,15 @@ class BrachyEgsphant:
                     material_matrix,
                 )
         else:
+            #JK here
+            #Sometimes we need to assign the same material to multiple contours
+            #At the moment, the material dict only allows for the key structure_name to have a string
+            #We will allow this for a list of strings, and for backwards compatability
+            #we will cast all values to a list of strings
+            for material in self.material_dict.keys():
+                if(isinstance(self.material_dict[material].get("structure_name"), str)):
+                    self.material_dict[material]["structure_name"] = [self.material_dict[material]["structure_name"]]
+
             # dicom_structure_list = list(phantom_obj.structure_mask_dict.keys())
             # find the materials that have a structure name with them.
             query_structure_list = []
@@ -938,36 +947,43 @@ class BrachyEgsphant:
                 query_structure_list, mask_type=np.ndarray
             )
             for material in self.material_dict:
-                if self.material_dict.get(material).get("structure_name") is None:
+                structure_name_query = self.material_dict.get(material).get("structure_name")
+                if structure_name_query is None:
                     continue
-                self.material_dict.get(material)["structure_size"] = np.sum(
-                    mask_dict.get(
-                        self.material_dict.get(material).get("structure_name")
-                    )
-                )
+                else:
+                    structure_size = 0
+                    for structure_name in structure_name_query:
+                        structure_size += np.sum(mask_dict.get(structure_name))
+                    self.material_dict.get(material)["structure_size"] = structure_size
 
             # sort the material dictionary based on the size of the mask (from largest to smallest)
-            self._sort_materials_by("structure_size")
+            self._sort_materials_by("structure_size") #JK, this may cause problems in edge cases where 
+            #two substructures with the same material surpass a larger material in size
+
+            warnings.warn("""Sorting structures to ensure proper masking for egsphant material/density
+                        may now be broken due to multiple structures being assigned to the same material.
+                        Please verify the generated egsphant.""", RuntimeWarning)
+
 
             for i, material in enumerate(self.material_dict.keys()):
-                if self.material_dict.get(material).get("structure_name") is None:
+                structures_in_materials = self.material_dict.get(material).get("structure_name")
+                if structures_in_materials is None:
                     continue
-                roi_mask = mask_dict.get(
-                    self.material_dict.get(material).get("structure_name")
-                ).astype(bool)
-
-                density_matrix = np.where(
-                    roi_mask,
-                    self.material_dict.get(material).get("density"),
-                    density_matrix,
-                    )
-                material_matrix = np.where(
-                    roi_mask,
-                    BrachyEgsphant._materials_encoding_array.index(
-                        self.material_dict.get(material).get("encoding")
-                    ),
-                    material_matrix,
-                )
+                else:
+                    for structure in structures_in_materials:
+                        roi_mask = mask_dict.get(structure).astype(bool)
+                        density_matrix = np.where(
+                            roi_mask,
+                            self.material_dict.get(material).get("density"),
+                            density_matrix,
+                            )
+                        material_matrix = np.where(
+                            roi_mask,
+                            BrachyEgsphant._materials_encoding_array.index(
+                                self.material_dict.get(material).get("encoding")
+                            ),
+                            material_matrix,
+                        )
 
         self.num_materials = len(self.material_dict)
         self.material_image = Image3D(

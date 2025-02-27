@@ -313,7 +313,8 @@ class BrachySimulation:
         ) else BrachySource(source_dict=brachy_source)
         self.world_material: str = world_material
         self.number_histories: int = number_histories
-        self.total_time: float = float(total_time)
+        if total_time is not None:
+            self.total_time: float = float(total_time)
         self.dose_format: str = dose_format
         self.number_of_threads: int = number_of_threads
         self.control_verbose: int = control_verbose
