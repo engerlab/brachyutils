@@ -541,10 +541,10 @@ class Registration_Plastimatch(PhantomRegistration):
             )
 
         global_params = {
-            "fixed" : f"{str(pth_static).split("temp_data/registration/")[-1]}",
-            "moving" : f"{str(pth_moving).split("temp_data/registration/")[-1]}",
-            "image_out" : f"{str(pth_output).split("temp_data/registration/")[-1]}",
-            "vf_out" : f"{str(dir_temp_data).split("temp_data/registration/")[-1]}/vf.nrrd",
+            "fixed" : f"{str(pth_static)}",
+            "moving" : f"{str(pth_moving)}",
+            "image_out" : f"{str(pth_output)}",
+            "vf_out" : f"{str(dir_temp_data.joinpath("vf.nrrd"))}",
         }
 
         stage_params_list = stage_params_list if stage_params_list else[
@@ -566,7 +566,6 @@ class Registration_Plastimatch(PhantomRegistration):
             # get the registered image
             if not pth_output.exists():
                 raise ValueError("The registered image was not generated.")
-
         else:
             raise NotImplementedError("The local plastimatch registration is not implemented yet.")
 
@@ -581,7 +580,9 @@ class Registration_Plastimatch(PhantomRegistration):
         # self.deformation = _load_deformation_field(
         #     dir_temp_data.joinpath("vf.nrrd")
         #     )
-        self.synch_registered_phantom_with_data(pth_vector_field=global_params["vf_out"])
+        self.synch_registered_phantom_with_data(
+            pth_vector_field=Path(global_params["vf_out"])
+            )
         if pth_phantom_export is not None:
             self.export_to(pth_phantom_export)
         return self.registered_phantom, self.deformation
@@ -662,7 +663,7 @@ class Registration_Plastimatch(PhantomRegistration):
                     json={
                         "pth_input": str(pth_in),
                         "pth_output": str(pth_warped),
-                        "xf": pth_vector_field,
+                        "xf": str(pth_vector_field),
                         },
                     timeout=None
                 )
@@ -682,7 +683,12 @@ class Registration_Plastimatch(PhantomRegistration):
             if data_name == "image":
                 self.registered_phantom.image_obj = deformed_data
             else:
-                structure_mask_dict[data_name] = deformed_data
+                structure_mask_dict[data_name] = ROIMask(
+                    deformed_data.imageArray,
+                    name=data_name,
+                    spacing=self.registered_phantom.image_obj.spacing,
+                    origin=self.registered_phantom.image_obj.origin
+                    )
 
         self.registered_phantom.set_structure_set(structure_mask_dict)
 
