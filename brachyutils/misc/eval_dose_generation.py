@@ -44,8 +44,10 @@ def generate_single_dose(dir_plan_export, dose_generator_class, **kwargs):
             "http://192.168.1.11:8000/calculate_dose_mc",
             ),
     )
+   
     dose_gen_obj.generate_dose(
-        pth_mac = dir_plan_export.joinpath("run_1.mac"),
+        pth_mac = kwargs.get("pth_mac", None),
+        random_seed = kwargs.get("random_seed", 1),
     )
 
 def export_single_dicom_to_plan(
