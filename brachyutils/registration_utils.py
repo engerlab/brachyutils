@@ -549,7 +549,9 @@ class Registration_Plastimatch(PhantomRegistration):
 
         stage_params_list = stage_params_list if stage_params_list else[
             {
-                "xform": "bspline"
+                "xform": "bspline",
+                # "optim": "versor",
+                # "max_its": "50",
             }
         ]
 

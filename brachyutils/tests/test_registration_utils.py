@@ -69,13 +69,13 @@ def test_register_opentps():
 def test_register_plastimatch():
     from brachyutils.registration_utils import Registration_Plastimatch
     # Abdominal: static = CT, moving = MR
-    pth_img_static = Path("../temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0001.nrrd")
-    # pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0001.nii.gz")
-    pth_label_static = Path("../temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0001.seg.nrrd")
-    # pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0001.nii.gz")
-    pth_img_moving = Path("../temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0001.nrrd")
-    # pth_img_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
-    pth_label_moving = Path("../temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0001.seg.nrrd")
+    pth_img_static = Path("../temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0008.nrrd")
+    # pth_img_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_image_0008.nii.gz")
+    pth_label_static = Path("../temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0008.seg.nrrd")
+    # pth_label_static = Path("../data_test/registration/abdomin_mr_ct/tr_ct_label_0008.nii.gz")
+    pth_img_moving = Path("../temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0008.nrrd")
+    # pth_img_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0008.nii.gz")
+    pth_label_moving = Path("../temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0008.seg.nrrd")
     # pth_label_moving = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
     pth_output = Path("../temp_data/registration/abdomen-mr-ct/test")
 
@@ -95,6 +95,7 @@ def test_register_plastimatch():
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
         backend="plastimatch",
+        # register_on_contour="common",
     )
     registration_obj.register(pth_phantom_export=pth_output)
 
