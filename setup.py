@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="brachyutils",
-    version="1.0",
+    version="0.3",
     description="Python utility packages for handling dose files and egsphant files.",
     author="EngerLab",
     packages=find_packages(include=["brachyutils.*"]),
