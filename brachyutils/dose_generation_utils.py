@@ -159,36 +159,41 @@ class DoseMonteCarlo(DoseGenerator):
             - Validate the inputs of the Monte Carlo dose generator.
         """
         pass
-
+    
+    def generate_batch_plans():
+        r"""
+        Purpose:
+            - Generate the batch plans for the Monte Carlo simulation to achieve the 
+            desired uncertainty with much less time.
+        """
+        raise NotImplementedError("This feature is not implemented yet.")
+    
     def generate_dose(
         self,
         pth_mac: Path = None,
         random_seed: int = 1,
-        all_dwells: bool = False,
     ):
         r""""""
 
         if pth_mac is None:
-            assert all_dwells, "If pth_mac is not provided, all_dwells must be True."
-            pth_all_mac = glob(str(self.dir_plan_export / "*.mac"))
-            assert (
-                len(pth_all_mac) > 0
-            ), f"no mac file is found at {self.dir_plan_export}."
+            print("No mac file is provided. Will use all mac files in the directory. except the combined.mac")
+            pth_all_mac = list(self.dir_plan_export.glob("*.mac")) #glob(str(self.dir_plan_export / "*.mac"))
+            if len(pth_all_mac) == 0:
+                raise ValueError(
+                    f"No mac file is found at {self.dir_plan_export}."
+                )
             for pth_mac in pth_all_mac:
+                if str(pth_mac.name) == "combined.mac":
+                    continue
                 self.generate_dose(
                     pth_mac=pth_mac,
                     random_seed=random_seed,
-                    all_dwells=False,
                 )
         else:
             if "http" in self.pth_dose_executable:
-                # # remove .../temp_data/mc from the path of the mac file.
-                # # since the server will have a unique path for .../temp_data/mc
-                if "temp_data/mc" in str(pth_mac.resolve()):
-                    pth_mac = str(pth_mac.resolve()).split("temp_data/mc/")[1]
+                pth_mac = str(pth_mac.resolve())
                 # use fast api post to request the dose calculation
                 import requests
-
                 response = requests.post(
                     self.pth_dose_executable,
                     json={
@@ -204,5 +209,4 @@ class DoseMonteCarlo(DoseGenerator):
                 raise ValueError(
                     "The dose executable is not supported. It should be a URL or a python script."
                 )
-
             return response
