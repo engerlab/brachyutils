@@ -66,7 +66,7 @@ def test_create_structures_and_calc_dvh_metrics():
         combined_dose=pth_dose,
     )
 
-    plan_obj.calculate_dvh_metrics()
+    plan_obj.get_dvh_metrics()
     for structure in plan_obj.structure_list:
         print(f"{structure.name}: {structure.dvh_metric_observed}")
 

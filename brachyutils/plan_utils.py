@@ -278,7 +278,7 @@ class BrachyPlan:
         - _calculate_combined_dose()
         - set_dvh_metric_goals()
         - create_brachy_structure_set()
-        - calculate_dvh_metrics()
+        - get_dvh_metrics()
         - _calculate_combined_uncertainty()
         - calculate_uncertainty_per_structure()
         - export_brachy_plan ()
@@ -1057,7 +1057,7 @@ class BrachyPlan:
         uncertainty = np.sqrt(uncertainty)
         self.combined_dose.set_uncertainty_array(uncertainty)
 
-    def calculate_dvh_metrics(self):
+    def get_dvh_metrics(self):
         r"""
         Purpose:
             - To get the observed value of the dvh metric for each structure in the BrachyPlan.
