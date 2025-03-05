@@ -1755,7 +1755,11 @@ def _type_nested_dict_list(data):
         for item in data:
             _type_nested_dict_list(item)
 
-def load_dicom_to_plan(dir_dicom: Path | str, **kwargs) -> BrachyPlan:
+def load_dicom_to_plan(
+    dir_dicom: Path | str,
+    load_dicom_dose: bool = True,
+    load_dicom_plan: bool = True,
+    **kwargs) -> BrachyPlan:
     r"""
     Purpose:
         - To load all the contents of a dicom directory into a BrachyPlan object.
@@ -1766,13 +1770,17 @@ def load_dicom_to_plan(dir_dicom: Path | str, **kwargs) -> BrachyPlan:
     Outputs:
         - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
     """
-    all_dicom_files = list(Path(dir_dicom).rglob("*.dcm"))
+    all_dicom_files = list(Path(dir_dicom).glob("*.dcm"))
     if len(all_dicom_files) == 0:
         raise FileNotFoundError("No dicom files found in the directory")
     # structure_dcm = [dcm for dcm in all_dicom_files if "RS" in dcm.name or "rs" in dcm.name]
-    dose_dcm = [dcm for dcm in all_dicom_files if "RD" in dcm.name or "rd" in dcm.name]
-    plan_dcm = [dcm for dcm in all_dicom_files if "RP" in dcm.name or "rp" in dcm.name]
-    
+    dose_dcm = []
+    plan_dcm = []
+    if load_dicom_dose:
+        dose_dcm = [dcm for dcm in all_dicom_files if "RD" in dcm.name or "rd" in dcm.name]
+    if load_dicom_plan:
+        plan_dcm = [dcm for dcm in all_dicom_files if "RP" in dcm.name or "rp" in dcm.name]
+
     # structure_dcm = structure_dcm[0] if len(structure_dcm) > 0 else None
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
