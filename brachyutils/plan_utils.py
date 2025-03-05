@@ -1169,7 +1169,7 @@ class BrachyPlan:
                 self._export_dose(
                     dir_export=str(dir_export),
                     with_uncertainty=content_to_export.get("uncertainty", False),
-                    dose_type=content_to_export.get("dose_type", ".nrrd"),
+                    dose_type=content_to_export.get("dose_type", "seq.nrrd"),
                     dose_rate_maps=content_to_export.get("dose_rate_maps", False),
                 )
                 print("Dose exported successfully")
