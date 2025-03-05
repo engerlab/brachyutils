@@ -305,35 +305,36 @@ class BrachyPlan:
         simulation_dict: dict | Path | str = None,
     ):
         r"""
-        Purpose:
+        ### Purpose:
             - To initialize the BrachyPlan object.
-        Inputs:
-            ### For geometry definition:
+
+        ### Inputs:
+            #### For geometry definition:
             - phantom: Path|BrachyPhantom|dict := the phantom object, the path to the phantom directory,
             or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
 
-            ### For Structure optimization and dosimetry
+            #### For Structure optimization and dosimetry
             - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
             The phantom should be loaded with structures for the Brachy stuctures to be created.
 
-            ### for loading catheter table:
+            #### for loading catheter table:
             - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
 
-            ### for loading dose rates or uncertainty maps per dwell position:
+            #### for loading dose rates or uncertainty maps per dwell position:
             - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
             - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
             - load_dose_or_uncertainty:str = "dose" := specify whether to load "dose" or "uncertainty" or "both" (default is "dose").
             - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
             - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
-            ### for simulation setup:
+            #### for simulation setup:
             - simulation_dict = None := dictionary containing the simulation setup,
             - dir_egsphant = None := path to the directory containing the egsphant file,
             - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
             - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
-        Outputs:
+        ### Outputs:
             - Void := will initialize the BrachyPlan object
-        Dependencies:
+        ### Dependencies:
             -
         """
         # declare the attributes
