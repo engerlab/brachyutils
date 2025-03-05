@@ -1075,7 +1075,8 @@ def _convert_material_matrix_to(
 
     elif dtype is str:
         str_array = np.zeros_like(flattened_array, dtype=str)
-        for i, integer in enumerate(flattened_array):
+        for i, integer_str in enumerate(flattened_array):
+            integer = int(integer_str)
             str_array[i] = BrachyEgsphant._materials_encoding_array[integer]
 
         return str_array.reshape(material_matrix.shape)
