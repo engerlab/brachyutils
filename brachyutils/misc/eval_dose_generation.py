@@ -85,6 +85,7 @@ def get_dvh_metrics_single_plan(
     dir_dicom: Path | str,
     dvh_metric_goals: Dict[str, float],
     dir_plan_export: Path | str,
+    export_combined_dose: bool = True,
 ) -> Dict[str, float]:
     r"""
     ### Purpose:
@@ -92,7 +93,10 @@ def get_dvh_metrics_single_plan(
     
     ### Inputs:
         - dir_plan_export: Path | str: The path to the exported plan.
-    
+        - dvh_metric_goals: Dict[str, float]: The DVH metrics to evaluate the plan.
+        - dir_dicom: Path | str: The path to the dicom directory for one plan. it should have images,
+        and structure file.
+
     ### Outputs:
         - dvh_metrics: Dict: The DVH metrics for the plan.
     """
@@ -106,7 +110,16 @@ def get_dvh_metrics_single_plan(
         )
 
     dvh_metrics_observed = plan_obj.get_dvh_metrics()
+    if export_combined_dose:
+        plan_obj.export_brachy_plan(
+            dir_export=dir_plan_export,
+            content_to_export={
+                "dose": True,
+            }
+        )
     return dvh_metrics_observed
+
+# def get_dvh_metrics_all_plans()
 
 def test_get_dvh_metrics_single_plan():
     pth_single_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023/p1")
