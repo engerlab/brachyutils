@@ -44,7 +44,7 @@ def generate_single_dose(dir_plan_export, dose_generator_class, **kwargs):
             "http://192.168.1.11:8000/calculate_dose_mc",
             ),
     )
-   
+
     dose_gen_obj.generate_dose(
         pth_mac = kwargs.get("pth_mac", None),
         random_seed = kwargs.get("random_seed", 1),
@@ -81,8 +81,50 @@ def export_single_dicom_to_plan(
     )
     return dir_export_plan
 
+def get_dvh_metrics_single_plan(
+    dir_dicom: Path | str,
+    dvh_metric_goals: Dict[str, float],
+    dir_plan_export: Path | str,
+) -> Dict[str, float]:
+    r"""
+    ### Purpose:
+        - To evaluate a single plan's dose distribution based on DVH metrics.
+    
+    ### Inputs:
+        - dir_plan_export: Path | str: The path to the exported plan.
+    
+    ### Outputs:
+        - dvh_metrics: Dict: The DVH metrics for the plan.
+    """
+    plan_obj = load_dicom_to_plan(
+        dir_dicom=dir_dicom,
+        load_dicom_dose=False,
+        dvh_metric_goals=dvh_metric_goals,
+        dir_dose_rate=dir_plan_export,
+        combined_dose_only=True,
+        multi_processing=True
+        )
+
+    dvh_metrics_observed = plan_obj.get_dvh_metrics()
+    return dvh_metrics_observed
+
+def test_get_dvh_metrics_single_plan():
+    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023/p1")
+    dir_export = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023/p1")
+    dvh_metric_goals = {
+        "D95%(ctv)": 15,
+        "D1cc(rectum)": 11.25,
+        "D0.1cc(urethra)": 18.75,
+    }
+    print(
+        get_dvh_metrics_single_plan(
+            dir_dicom=pth_single_dicom,
+            dvh_metric_goals=dvh_metric_goals,
+            dir_plan_export=dir_export)
+        )
+
 def test_export():
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p3")
+    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023/p3")
     dir_export = Path("../temp_data/mc/prostate-glen-2023")
     # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
@@ -130,7 +172,7 @@ def test_dose_calc():
 
 def run_export():
     from functools import partial
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023")
+    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_export = Path("../temp_data/mc/prostate-glen-2023")
     # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
@@ -180,5 +222,6 @@ def run_export():
 
 if __name__ == "__main__":
     # test_export()
-    run_export()
+    # run_export()
     # test_dose_calc()
+    test_get_dvh_metrics_single_plan()
