@@ -1787,3 +1787,12 @@ def load_dicom_to_plan(dir_dicom: Path | str, **kwargs) -> BrachyPlan:
         simulation_dict=simulation_dict,
         **kwargs
     )
+
+def convert_lists_to_arrays(obj, keys_to_convert=["position", "rotation"]):
+    warnings.warn("This function is deprecated.", DeprecationWarning)
+    if isinstance(obj, dict):
+        return {k: convert_lists_to_arrays(v, keys_to_convert) if k in keys_to_convert else v for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return np.array(obj, dtype=np.float32) if isinstance(obj[0], (int, float, list)) else [convert_lists_to_arrays(elem, keys_to_convert) for elem in obj]
+    else:
+        return obj
