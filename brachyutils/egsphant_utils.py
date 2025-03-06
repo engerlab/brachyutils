@@ -346,9 +346,9 @@ class BrachyEgsphant:
         # ]  # np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
         # self.num_materials = np.max(self.material_matrix).astype(int)
 
-        material_density, header = nrrd.read(filePath)
-        material_matrix = material_density[0]
-        density_matrix = material_density[1]
+        material_density, header = nrrd.read(filePath, index_order="C")
+        material_matrix = material_density[:,:,:,0]
+        density_matrix = material_density[:,:,:,1]
 
         voxel_size = np.array(
             header.get("spacing", "[nan,1,1,1]")
