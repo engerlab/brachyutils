@@ -192,6 +192,8 @@ def get_dvh_metrics_all_plans(
     for dir_plan in list_dir_plan:
         if not dir_plan.is_dir():
             continue
+        if dir_plan.stem not in ["p4", "p6_body"]:
+            continue
         dir_dicom = dir_all_dicom_folders.joinpath(dir_plan.stem)
         print(f"dvh from dicom folder: {dir_dicom}")
         dvh_metrics = get_dvh_metrics_single_plan(
