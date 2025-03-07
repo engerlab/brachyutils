@@ -192,7 +192,9 @@ def get_dvh_metrics_all_plans(
     for dir_plan in list_dir_plan:
         if not dir_plan.is_dir():
             continue
-        if dir_plan.stem not in ["p4", "p6_body"]:
+        if dir_plan.stem in [
+            "p1", "p2", "p3", "p4", "p5_body", "p6_body",
+            ]:
             continue
         dir_dicom = dir_all_dicom_folders.joinpath(dir_plan.stem)
         print(f"dvh from dicom folder: {dir_dicom}")
@@ -207,8 +209,12 @@ def get_dvh_metrics_all_plans(
     df_dvhs.to_csv(dir_all_plan_folders/"dvh_metrics.csv")
 
 def run_get_dvh_metrics_all_plans():
-    pth_all_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023")
-    dir_all_plans = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023")
+    # # on alien baby
+    # pth_all_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023")
+    # dir_all_plans = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023")
+    # # on photon
+    pth_all_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023")
+    dir_all_plans = Path("../temp_data/mc/prostate-glen-2023")
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -236,7 +242,7 @@ def test_get_dvh_metrics_single_plan():
         )
 
 def test_export():
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023/p3")
+    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p2")
     dir_export = Path("../temp_data/mc/prostate-glen-2023")
     # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
@@ -275,7 +281,7 @@ def test_export():
 
     if not pth_material.exists():
         raise FileNotFoundError(f"The material file {pth_material} does not exist.")
-    export_single_dicom_to_plan(pth_single_dicom, dir_export, sim_dict, content_to_export)
+    export_single_dicom_to_plan(pth_single_dicom, dir_export)#, sim_dict, content_to_export)
 
 def test_dose_calc():
     dir_plan_export = Path("../temp_data/mc/prostate-glen-2023/p3")
@@ -283,8 +289,8 @@ def test_dose_calc():
     generate_single_dose(dir_plan_export, dose_generator_class)
 
 if __name__ == "__main__":
-    # test_export()
+    test_export()
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
     # run_export()
-    run_get_dvh_metrics_all_plans()
+    # run_get_dvh_metrics_all_plans()
