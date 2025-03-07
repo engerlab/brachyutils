@@ -13,7 +13,7 @@ class BrachySource:
         mass_number: int = 192,
         atomic_number: int = 77,
         air_kerma_per_history: float = 1.149000e-11,
-        reference_air_kerma: float = None,  # 4.278729e04,
+        reference_air_kerma_rate: float = None,  # 4.278729e04,
         source_dict: Union[dict, Path, str] = None,
     ) -> None:
         r"""
@@ -26,7 +26,7 @@ class BrachySource:
             - mass_number: int
             - atomic_number: int
             - air_kerma_per_history: float
-            - reference_air_kerma: float
+            - reference_air_kerma_rate: float
             - source_dict: dict | Path | str: either a dictionary containing the source information, or a path to a json file.
         Attributes:
             - treatment_type: str
@@ -35,7 +35,7 @@ class BrachySource:
             - mass_number: int
             - atomic_number: int
             - air_kerma_per_history: float
-            - reference_air_kerma: float
+            - reference_air_kerma_rate: float
         Functions:
             - validate(): checks if the fields are valid for export.
             - to_dict(): converts the object to a dictionary.
@@ -48,11 +48,11 @@ class BrachySource:
             and (mass_number is not None)
             and (atomic_number is not None)
             and (air_kerma_per_history is not None)
-            and (reference_air_kerma is not None)
+            and (reference_air_kerma_rate is not None)
         ) != (
             source_dict is not None
         ), "Either provide treatment_type, source_geometry, core_material, mass_number,\
-        atomic_number, air_kerma_per_history, reference_air_kerma or provide source_dict. Not both."
+        atomic_number, air_kerma_per_history, reference_air_kerma_rate or provide source_dict. Not both."
 
         if source_dict is not None:
             if isinstance(source_dict, (Path, str)):
@@ -80,7 +80,7 @@ class BrachySource:
             air_kerma_per_history = source_dict.get(
                 "air_kerma_per_history", 1.149000e-11
             )
-            reference_air_kerma = source_dict.get("reference_air_kerma", 4.278729e04)
+            reference_air_kerma_rate = source_dict.get("reference_air_kerma_rate", 4.278729e04)
 
         self.treatment_type: str = treatment_type
         self.source_geometry: str = source_geometry
@@ -88,7 +88,7 @@ class BrachySource:
         self.mass_number: int = mass_number
         self.atomic_number: int = atomic_number
         self.air_kerma_per_history: float = air_kerma_per_history
-        self.reference_air_kerma: float = reference_air_kerma
+        self.reference_air_kerma_rate: float = reference_air_kerma_rate
 
         self.validate()
 
@@ -106,7 +106,7 @@ class BrachySource:
             self.mass_number: int,
             self.atomic_number: int,
             self.air_kerma_per_history: float,
-            self.reference_air_kerma: float,
+            self.reference_air_kerma_rate: float,
         }
         for key, value in required_types.items():
             if not isinstance(key, value):
@@ -138,7 +138,7 @@ class BrachySource:
             "mass_number": self.mass_number,
             "atomic_number": self.atomic_number,
             "air_kerma_per_history": self.air_kerma_per_history,
-            "reference_air_kerma": self.reference_air_kerma,
+            "reference_air_kerma_rate": self.reference_air_kerma_rate,
         }
 
     def to_string(self):
@@ -159,7 +159,7 @@ class BrachySource:
             + f"/source/core/A {self.mass_number}\n"
             + f"/source/core/Z {self.atomic_number}\n"
             + f"/parallel_world/ak_per_history {self.air_kerma_per_history}\n"
-            + f"/parallel_world/ref_ak {self.reference_air_kerma}\n"
+            + f"/parallel_world/AKS {self.reference_air_kerma_rate}\n"
         )
 
     def to_json(self, output_path: Union[str, Path]):
@@ -195,18 +195,25 @@ class BrachySource:
             raise FileNotFoundError(f"Path {pth_dicom} does not exist.")
         # Find and load the plan file
         plan_dcm = pydicom.dcmread(str(pth_dicom))
-
+        # FIXME make a constant dictonary of the sources that RapidBrachy works with and 
+        # pick that source depending on the source geometry. 
+        # Fill in reference air kerma from dicom though.
         source_dict = defaultdict(str)
         source_dict["treatment_type"] = plan_dcm.get("BrachyTreatmentType", "HDR")
-        source_dict["source_geometry"] = plan_dcm.get("SourceModelName", "MicroSelectronV2")
-        source_dict["core_material"] = plan_dcm.get("SourceEncapsulationMaterial", "G4_Ir")
-        source_dict["mass_number"] = 192 if source_dict["core_material"] == "G4_Ir" else 0 
-        source_dict["atomic_number"] = 77 if source_dict["core_material"] == "G4_Ir" else 0
-        source_dict["air_kerma_per_history"] = 1.149000e-11 if source_dict["core_material"] == "G4_Ir" else 0
-        source_dict["reference_air_kerma"] = plan_dcm.get("SourceStrength", 4.278729e04)
+        source_dict["source_geometry"] = plan_dcm.TreatmentMachineSequence[0].ManufacturerModelName
+        if "microselectron-hdr v2" in source_dict["source_geometry"].lower():
+            source_dict["source_geometry"] = "MicroSelectronV2"
+        # source_dict["source_geometry"] = plan_dcm.get("SourceModelName", "MicroSelectronV2")
+        source_dict["core_material"] = plan_dcm.SourceSequence[0].SourceIsotopeName
+        if source_dict["core_material"] == "Ir-192":
+            source_dict["core_material"] = "G4_Ir"
+            source_dict["mass_number"] = 192
+            source_dict["atomic_number"] = 77
+            source_dict["air_kerma_per_history"] = 1.149000e-11
+        source_dict["reference_air_kerma_rate"] = plan_dcm.SourceSequence[0].ReferenceAirKermaRate
         return source_dict
 class BrachySimulation:
-    default_source = BrachySource(reference_air_kerma=4.278729e04)
+    default_source = BrachySource(reference_air_kerma_rate=4.278729e04)
 
     def __init__(
         self,
@@ -381,7 +388,7 @@ class BrachySimulation:
             + f"/world/phantom {self.pth_phantom}\n"
             + f"/world/material {self.world_material}\n"
             + f"/parallel_world/ak_per_history {self.brachy_source.air_kerma_per_history}\n"
-            + f"/parallel_world/ref_ak {self.brachy_source.reference_air_kerma}\n"
+            + f"/parallel_world/AKS {self.brachy_source.reference_air_kerma_rate}\n"
             + f"/parallel_world/total_time {self.total_time}\n"
             + f"/dose/format {self.dose_format}\n"
             + f"/run/numberOfThreads {self.number_of_threads}\n"
