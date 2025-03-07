@@ -1784,11 +1784,9 @@ def load_dicom_to_plan(
     # structure_dcm = structure_dcm[0] if len(structure_dcm) > 0 else None
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
-    simulation_dict = (
-        kwargs.pop("simulation_dict") 
-        if kwargs.get("simulation_dict") is not None
-        else plan_dcm
-        )
+    simulation_dict = kwargs.pop("simulation_dict", None)
+    simulation_dict = simulation_dict if simulation_dict is not None else plan_dcm
+
     return BrachyPlan(
         phantom=dir_dicom,
         catheter_table=plan_dcm,
