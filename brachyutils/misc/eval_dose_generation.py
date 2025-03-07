@@ -288,9 +288,53 @@ def test_dose_calc():
     dose_generator_class = DoseMonteCarlo
     generate_single_dose(dir_plan_export, dose_generator_class)
 
+def scale_by_airkerma(dir_all_plans: str | Path, dir_all_dcms: str | Path):
+    r"""
+        To scale the nrrd dose in a plan directory by the right air kerma.
+        The wrong air keram was 5e4. each dicom plan has a different air kerma.
+        the scaling factor for each dose should be plan_air_kerma/5e4.
+    """
+    from brachyutils.simulation_utils import BrachySource
+    from brachyutils.dose_utils import BrachyDose
+    from functools import partial
+
+    dir_all_plans = Path(dir_all_plans)
+    dir_all_dcms = Path(dir_all_dcms)
+
+    all_plans = list(dir_all_plans.glob("*/"))
+    for plan in all_plans:
+        if not plan.is_dir():
+            continue
+        pth_plan_dcm = list(dir_all_dcms.joinpath(plan.stem).glob("RP*.dcm"))
+        if len(pth_plan_dcm) == 0:
+            print(f"no plan dcm found for {plan}")
+            continue
+        pth_plan_dcm = pth_plan_dcm[0]
+        source_obj = BrachySource(source_dict=pth_plan_dcm)
+        scaling_factor = source_obj.reference_air_kerma_rate/5e4
+        
+        pth_dose_list = list(plan.glob("*.nrrd"))
+        def scale_dose(pth_dose: Path, scaling_factor: float):
+            dose_obj:BrachyDose = BrachyDose(pth_dose)
+            dose_obj.set_dose_array(
+                dose_obj.get_dose_array()*scaling_factor
+            )
+            dose_obj.write_brachydose_to_file(str(pth_dose.parent/f"scaled_{pth_dose.stem.stem}")+".seq.nrrd")
+        print(f"scaling factor for {plan}: {scaling_factor}")
+        run_multi_proc(
+            partial(scale_dose, scaling_factor=scaling_factor),
+            pth_dose_list
+        )
+
+def run_scale_by_airkerma():
+    dir_all_plans = Path("../temp_data/mc/prostate-glen-2023")
+    dir_all_dcms = Path("/root/YourLocalHome/Data/prostate-glen-2023")
+    scale_by_airkerma(dir_all_plans, dir_all_dcms)
+
 if __name__ == "__main__":
-    test_export()
+    # test_export()
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
     # run_export()
     # run_get_dvh_metrics_all_plans()
+    run_scale_by_airkerma()
