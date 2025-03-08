@@ -1761,13 +1761,16 @@ def load_dicom_to_plan(
     load_dicom_plan: bool = True,
     **kwargs) -> BrachyPlan:
     r"""
-    Purpose:
+    ### Purpose:
         - To load all the contents of a dicom directory into a BrachyPlan object.
 
-    Inputs:
+    ### Inputs:
         - dir_dicom := the path to the dicom directory
-    
-    Outputs:
+        - load_dicom_dose := if True, the dose dicom file will be loaded
+        - load_dicom_plan := if True, the plan dicom file will be loaded
+        - **kwargs := additional arguments to be passed to the BrachyPlan constructor
+
+    ### Outputs:
         - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
     """
     all_dicom_files = list(Path(dir_dicom).glob("*.dcm"))
@@ -1790,7 +1793,7 @@ def load_dicom_to_plan(
     return BrachyPlan(
         phantom=dir_dicom,
         catheter_table=plan_dcm,
-        combined_dose=dose_dcm,
+        combined_dose=kwargs.pop("combined_dose", dose_dcm),
         simulation_dict=simulation_dict,
         **kwargs
     )
