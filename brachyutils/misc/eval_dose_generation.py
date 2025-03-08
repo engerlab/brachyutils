@@ -5,7 +5,7 @@ from brachyutils.dose_comparison_utils import DoseComparison
 from brachyutils.dose_generation_utils import DoseGenerator, DoseMonteCarlo, DoseTG43
 from pandas import DataFrame
 
-def run_multi_proc(function, input_list, max_worker=None):
+def run_multi_proc(function, input_list, max_workers=None):
     import asyncio
     from concurrent.futures import ThreadPoolExecutor
     async def run_in_executor(executor, case):
@@ -18,35 +18,13 @@ def run_multi_proc(function, input_list, max_worker=None):
             return None
 
     async def main():
-        with ThreadPoolExecutor(max_worker=max_worker) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             tasks = []
             for case in input_list:
                 tasks.append(run_in_executor(executor, case))
             await asyncio.gather(*tasks)
 
     asyncio.run(main())
-
-# def generate_single_dose(dir_plan_export, dose_generator_class, **kwargs):
-#     r"""
-#     Purpose:
-#         - To run a single dose calculation for an exported plan.
-#     Inputs:
-#         - dir_plan_export: Union[Path, str]: The path to the exported plan.
-#         - dose_generator_class: DoseGenerator: The dose generator class to use.
-#         - dir_export: Union[Path, str]: The path to export the dose calculation.
-#         - **kw_args: dict: Additional keyword arguments to pass to the dose generator.
-#     Outputs:
-#         - None
-#     """
-#     dose_gen_obj = dose_generator_class(
-#         dir_plan_export=dir_plan_export,
-#         pth_dose_executable=kwargs.get("pth_dose_executable")
-#     )
-
-#     dose_gen_obj.generate_dose(
-#         pth_mac = kwargs.get("pth_mac", None),
-#         random_seed = kwargs.get("random_seed", 1),
-#     )
 
 def export_single_dicom_to_plan(
     dir_dicom:Path | str,
@@ -81,7 +59,7 @@ def export_single_dicom_to_plan(
 
 def run_export():
     from functools import partial
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023")
+    dir_all_dicoms = Path("/root/YourLocalHome/Data/prostate-glen-2023")
     dir_export = Path("../temp_data/tg43/prostate-glen-2023")
     # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
@@ -118,7 +96,7 @@ def run_export():
         "applicator_geometry": False,
     }
     dir_export.mkdir(parents=True, exist_ok=True)
-    all_dicoms = list(pth_single_dicom.glob("*/"))
+    all_dicoms = list(dir_all_dicoms.glob("*/"))
     partially_filled_export_func = partial(
         export_single_dicom_to_plan,
         dir_export=dir_export,
@@ -127,6 +105,18 @@ def run_export():
         )
 
     run_multi_proc(partially_filled_export_func, all_dicoms)
+
+def run_dose_generation():
+    # # for TG43
+    dir_plan_export = Path("../temp_data/tg43/prostate-glen-2023")
+    list_plans = list(dir_plan_export.glob("*/"))
+    run_multi_proc(run_single_tg43_dose_generation, list_plans, max_workers=8)    
+
+def run_single_tg43_dose_generation(dir_plan):
+    dose_gen_obj = DoseTG43(
+        dir_plan_export=dir_plan,
+        pth_dose_executable="http://192.168.1.12:8000/calculate_dose_tg43"
+    ).generate_dose()
 
 def get_dvh_metrics_single_plan(
     dir_dicom: Path | str,
@@ -344,8 +334,9 @@ def run_scale_by_airkerma():
 
 if __name__ == "__main__":
     # test_export()
-    test_dose_calc()
+    # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
     # run_export()
+    run_dose_generation()
     # run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
