@@ -199,7 +199,12 @@ def get_dvh_metrics_all_plans(
                 dvh_metric_goals=dvh_metric_goals,
                 dir_plan_export=dir_plan,
             )
-            all_dvhs.append(pd.Series(dvh_metrics), index=dir_plan.stem)
+            # FIXME gathering the data in the dataframe is buggy.
+            all_dvhs = pd.concat(
+                [pd.Series(dvh_metrics, name=dir_plan.stem), all_dvhs],
+                axis=1, 
+                ignore_index=True
+                )
         except Exception as e:
             print(f"error in getting dvh for {dir_plan}")
             print(e)
@@ -224,13 +229,13 @@ def run_get_dvh_metrics_all_plans():
     )
 
 def test_get_dvh_metrics_single_plan():
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p1")
+    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p2")
     # dir_export = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023/p1")
-    dir_export = Path("../temp_data/tg43/prostate-glen-2023/p1")
+    dir_export = Path("../temp_data/tg43/prostate-glen-2023/p2")
     dvh_metric_goals = {
-        "D95%(ctv)": 15,
-        "D1cc(rectum)": 11.25,
-        "D0.1cc(urethra)": 18.75,
+        "D95%(ctv)": 21,
+        "D1cc(rectum)": 21*0.75,
+        "D0.1cc(urethra)": 21*1.25,
     }
     print(
         get_dvh_metrics_single_plan(
