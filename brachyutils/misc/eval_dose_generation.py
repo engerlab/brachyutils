@@ -3,7 +3,7 @@ from pathlib import Path
 from brachyutils.plan_utils import BrachyPlan, load_dicom_to_plan
 from brachyutils.dose_comparison_utils import DoseComparison
 from brachyutils.dose_generation_utils import DoseGenerator, DoseMonteCarlo, DoseTG43
-from pandas import DataFrame
+import pandas as pd
 
 def run_multi_proc(function, input_list, max_workers=None):
     import asyncio
@@ -122,6 +122,7 @@ def get_dvh_metrics_single_plan(
     dir_dicom: Path | str,
     dvh_metric_goals: Dict[str, float],
     dir_plan_export: Path | str,
+    load_dose_rate: bool = False,
     export_combined_dose: bool = True,
 ) -> Dict[str, float]:
     r"""
@@ -137,15 +138,23 @@ def get_dvh_metrics_single_plan(
     ### Outputs:
         - dvh_metrics: Dict: The DVH metrics for the plan.
     """
-    plan_obj = load_dicom_to_plan(
-        dir_dicom=dir_dicom,
-        load_dicom_dose=False,
-        dvh_metric_goals=dvh_metric_goals,
-        dir_dose_rate=dir_plan_export,
-        combined_dose_only=True,
-        multi_processing=True
-        )
-
+    if load_dose_rate:
+        plan_obj = load_dicom_to_plan(
+            dir_dicom=dir_dicom,
+            load_dicom_dose=False,
+            dvh_metric_goals=dvh_metric_goals,
+            dir_dose_rate=dir_plan_export,
+            combined_dose_only=True,
+            multi_processing=True
+            )
+    else:
+        plan_obj = load_dicom_to_plan(
+            dir_dicom=dir_dicom,
+            load_dicom_dose=True,
+            dvh_metric_goals=dvh_metric_goals,
+            # combined_dose=dir_plan_export.joinpath("combined.3ddose"),
+            combined_dose_only=True,
+            )
     dvh_metrics_observed = plan_obj.get_dvh_metrics()
     if export_combined_dose:
         plan_obj.export_brachy_plan(
@@ -174,7 +183,7 @@ def get_dvh_metrics_all_plans(
     dir_all_plan_folders = Path(dir_all_plan_folders)
     
     list_dir_plan = dir_all_plan_folders.glob("*/")
-    all_dvhs = []
+    all_dvhs = pd.DataFrame()
     for dir_plan in list_dir_plan:
         if not dir_plan.is_dir():
             continue
@@ -184,15 +193,17 @@ def get_dvh_metrics_all_plans(
             # continue
         dir_dicom = dir_all_dicom_folders.joinpath(dir_plan.stem)
         print(f"dvh from dicom folder: {dir_dicom}")
-        dvh_metrics = get_dvh_metrics_single_plan(
-            dir_dicom=dir_dicom,
-            dvh_metric_goals=dvh_metric_goals,
-            dir_plan_export=dir_plan,
-        )
-        all_dvhs.append({dir_plan.stem: dvh_metrics})
-
-    df_dvhs = DataFrame(all_dvhs)
-    df_dvhs.to_csv(dir_all_plan_folders/"dvh_metrics.csv")
+        try:
+            dvh_metrics = get_dvh_metrics_single_plan(
+                dir_dicom=dir_dicom,
+                dvh_metric_goals=dvh_metric_goals,
+                dir_plan_export=dir_plan,
+            )
+            all_dvhs.append(pd.Series(dvh_metrics), index=dir_plan.stem)
+        except Exception as e:
+            print(f"error in getting dvh for {dir_plan}")
+            print(e)
+    all_dvhs.to_csv(dir_all_plan_folders/"dvh_metrics.csv")
 
 def run_get_dvh_metrics_all_plans():
     # # on alien baby
@@ -200,7 +211,7 @@ def run_get_dvh_metrics_all_plans():
     # dir_all_plans = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023")
     # # on photon
     pth_all_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023")
-    dir_all_plans = Path("../temp_data/mc/prostate-glen-2023")
+    dir_all_plans = Path("../temp_data/tg43/prostate-glen-2023")
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -213,8 +224,9 @@ def run_get_dvh_metrics_all_plans():
     )
 
 def test_get_dvh_metrics_single_plan():
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023/p1")
-    dir_export = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023/p1")
+    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p1")
+    # dir_export = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023/p1")
+    dir_export = Path("../temp_data/tg43/prostate-glen-2023/p1")
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -337,6 +349,6 @@ if __name__ == "__main__":
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
     # run_export()
-    run_dose_generation()
-    # run_get_dvh_metrics_all_plans()
+    # run_dose_generation()
+    run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
