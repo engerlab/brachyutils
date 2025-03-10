@@ -1,4 +1,4 @@
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Literal
 from pathlib import Path
 from brachyutils.plan_utils import BrachyPlan, load_dicom_to_plan
 from brachyutils.dose_comparison_utils import DoseComparison
@@ -122,7 +122,7 @@ def get_dvh_metrics_single_plan(
     dir_dicom: Path | str,
     dvh_metric_goals: Dict[str, float],
     dir_plan_export: Path | str,
-    load_dose_rate: bool = False,
+    load_dose_from: Literal["dicom"] | Path | str = "dicom",
     export_combined_dose: bool = True,
 ) -> Dict[str, float]:
     r"""
@@ -138,8 +138,26 @@ def get_dvh_metrics_single_plan(
     ### Outputs:
         - dvh_metrics: Dict: The DVH metrics for the plan.
     """
-    if load_dose_rate:
+    if load_dose_from == "dicom":
         plan_obj = load_dicom_to_plan(
+            dir_dicom=dir_dicom,
+            load_dicom_dose=True,
+            dvh_metric_goals=dvh_metric_goals,
+            combined_dose_only=True,
+            )
+    elif isinstance(load_dose_from, str) or isinstance(load_dose_from, Path):
+        load_dose_from = Path(load_dose_from)
+        if str(load_dose_from).endswith(".nrrd") or str(load_dose_from).endswith(".3ddose"):
+            plan_obj = load_dicom_to_plan(
+                dir_dicom=dir_dicom,
+                load_dicom_dose=False,
+                dvh_metric_goals=dvh_metric_goals,
+                combined_dose = load_dose_from,
+                combined_dose_only=True,
+                multi_processing=True
+                )
+        elif load_dose_from.is_dir():
+            plan_obj = load_dicom_to_plan(
             dir_dicom=dir_dicom,
             load_dicom_dose=False,
             dvh_metric_goals=dvh_metric_goals,
@@ -147,14 +165,15 @@ def get_dvh_metrics_single_plan(
             combined_dose_only=True,
             multi_processing=True
             )
+        else:
+            raise ValueError(f"Invalid load_dose_from: {load_dose_from}\
+                             make it is either a path to a dose file or a directory containing\
+                             a dose file per dwell position.")
     else:
-        plan_obj = load_dicom_to_plan(
-            dir_dicom=dir_dicom,
-            load_dicom_dose=True,
-            dvh_metric_goals=dvh_metric_goals,
-            # combined_dose=dir_plan_export.joinpath("combined.3ddose"),
-            combined_dose_only=True,
-            )
+        raise ValueError(f"Invalid load_dose_from: {load_dose_from}. Valid inputs\
+                            are 'dicom', a path to a dose file or directory containing\
+                            dose files per dwell position.")
+
     dvh_metrics_observed = plan_obj.get_dvh_metrics()
     if export_combined_dose:
         plan_obj.export_brachy_plan(
