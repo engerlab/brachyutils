@@ -3,8 +3,9 @@ from pathlib import Path
 from brachyutils.plan_utils import BrachyPlan, load_dicom_to_plan
 from brachyutils.dose_comparison_utils import DoseComparison
 from brachyutils.dose_generation_utils import DoseGenerator, DoseMonteCarlo, DoseTG43
+from pandas import DataFrame
 
-def run_multi_proc(function, input_list):
+def run_multi_proc(function, input_list, max_workers=None):
     import asyncio
     from concurrent.futures import ThreadPoolExecutor
     async def run_in_executor(executor, case):
@@ -17,36 +18,13 @@ def run_multi_proc(function, input_list):
             return None
 
     async def main():
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             tasks = []
             for case in input_list:
                 tasks.append(run_in_executor(executor, case))
             await asyncio.gather(*tasks)
 
     asyncio.run(main())
-
-def generate_single_dose(dir_plan_export, dose_generator_class, **kwargs):
-    r"""
-    Purpose:
-        - To run a single dose calculation for an exported plan.
-    Inputs:
-        - dir_plan_export: Union[Path, str]: The path to the exported plan.
-        - dose_generator_class: DoseGenerator: The dose generator class to use.
-        - dir_export: Union[Path, str]: The path to export the dose calculation.
-        - **kw_args: dict: Additional keyword arguments to pass to the dose generator.
-    Outputs:
-        - None
-    """
-    dose_gen_obj = dose_generator_class(
-        dir_plan_export=dir_plan_export,
-        pth_dose_executable=kwargs.get(
-            "pth_dose_executable",
-            "http://192.168.1.11:8000/calculate_dose_mc",
-            ),
-    )
-    dose_gen_obj.generate_dose(
-        pth_mac = dir_plan_export.joinpath("run_1.mac"),
-    )
 
 def export_single_dicom_to_plan(
     dir_dicom:Path | str,
@@ -79,9 +57,179 @@ def export_single_dicom_to_plan(
     )
     return dir_export_plan
 
+def run_export():
+    from functools import partial
+    dir_all_dicoms = Path("/root/YourLocalHome/Data/prostate-glen-2023")
+    dir_export = Path("../temp_data/tg43/prostate-glen-2023")
+    # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
+    # mat_from_ct = True
+    pth_material = Path("../admin/constants/structure_materials_prostate.json")
+    mat_from_ct = False
+    crop_by_contour = "body"
+    sim_dict = {
+        # "source_dict": {
+        #     "treatment_type": "HDR",
+        #     "source_geometry": "MicroSelectronV2",
+        #     "core_material": "G4_Ir",
+        #     "mass_number": "192",
+        #     "atomic_number": "77",
+        #     "air_kerma_per_history": 1.149000e-11,
+        #     "reference_air_kerma": 5e04,
+        # },
+        "pth_plan": "combined.plan",
+        "pth_phantom": "ct.egsphant",
+        "number_histories": 1000000,
+        "total_time": 0,
+        "number_of_threads": 32,
+        "PrintProgress": 10000,
+        "beam_on": 10000,
+    }
+    content_to_export = {
+        "egsphant": True,
+        "materials_table": pth_material,
+        "assign_material_from_ct": mat_from_ct,
+        "resample_egsphant_to": [1., 1., 1.],
+        "crop_by_contour": crop_by_contour,
+        "plan": True,
+        "mac": True,
+        "ApplicatorMaterials": False,
+        "applicator_geometry": False,
+    }
+    dir_export.mkdir(parents=True, exist_ok=True)
+    all_dicoms = list(dir_all_dicoms.glob("*/"))
+    partially_filled_export_func = partial(
+        export_single_dicom_to_plan,
+        dir_export=dir_export,
+        # sim_dict=sim_dict,
+        content_to_export=content_to_export,
+        )
+
+    run_multi_proc(partially_filled_export_func, all_dicoms)
+
+def run_dose_generation():
+    # # for TG43
+    dir_plan_export = Path("../temp_data/tg43/prostate-glen-2023")
+    list_plans = list(dir_plan_export.glob("*/"))
+    run_multi_proc(run_single_tg43_dose_generation, list_plans, max_workers=8)    
+
+def run_single_tg43_dose_generation(dir_plan):
+    dose_gen_obj = DoseTG43(
+        dir_plan_export=dir_plan,
+        pth_dose_executable="http://192.168.1.12:8000/calculate_dose_tg43"
+    ).generate_dose()
+
+def get_dvh_metrics_single_plan(
+    dir_dicom: Path | str,
+    dvh_metric_goals: Dict[str, float],
+    dir_plan_export: Path | str,
+    export_combined_dose: bool = True,
+) -> Dict[str, float]:
+    r"""
+    ### Purpose:
+        - To evaluate a single plan's dose distribution based on DVH metrics.
+    
+    ### Inputs:
+        - dir_plan_export: Path | str: The path to the exported plan.
+        - dvh_metric_goals: Dict[str, float]: The DVH metrics to evaluate the plan.
+        - dir_dicom: Path | str: The path to the dicom directory for one plan. it should have images,
+        and structure file.
+
+    ### Outputs:
+        - dvh_metrics: Dict: The DVH metrics for the plan.
+    """
+    plan_obj = load_dicom_to_plan(
+        dir_dicom=dir_dicom,
+        load_dicom_dose=False,
+        dvh_metric_goals=dvh_metric_goals,
+        dir_dose_rate=dir_plan_export,
+        combined_dose_only=True,
+        multi_processing=True
+        )
+
+    dvh_metrics_observed = plan_obj.get_dvh_metrics()
+    if export_combined_dose:
+        plan_obj.export_brachy_plan(
+            dir_export=dir_plan_export,
+            content_to_export={
+                "dose": True,
+            }
+        )
+    return dvh_metrics_observed
+
+def get_dvh_metrics_all_plans(
+    dir_all_dicom_folders: str | Path,
+    dir_all_plan_folders: str | Path,
+    dvh_metric_goals: Dict[str, float],
+):
+    r"""
+    ### Purpose:
+        - To get the dvh metrics from all the patients in the given directory.
+    
+    ### Inputs:
+        - dir_dicom_folders: str | Path: The path to the dicom folders.
+        - dir_plan_folders: str | Path: The path to the plan folders.
+        - dvh_metric_goals: Dict[str, float]: The DVH metrics to evaluate the plan.
+    """
+    dir_all_dicom_folders = Path(dir_all_dicom_folders)
+    dir_all_plan_folders = Path(dir_all_plan_folders)
+    
+    list_dir_plan = dir_all_plan_folders.glob("*/")
+    all_dvhs = []
+    for dir_plan in list_dir_plan:
+        if not dir_plan.is_dir():
+            continue
+        # if dir_plan.stem in [
+            # "p1", "p2", "p3", "p4", "p5_body", "p6_body",
+            # ]:
+            # continue
+        dir_dicom = dir_all_dicom_folders.joinpath(dir_plan.stem)
+        print(f"dvh from dicom folder: {dir_dicom}")
+        dvh_metrics = get_dvh_metrics_single_plan(
+            dir_dicom=dir_dicom,
+            dvh_metric_goals=dvh_metric_goals,
+            dir_plan_export=dir_plan,
+        )
+        all_dvhs.append({dir_plan.stem: dvh_metrics})
+
+    df_dvhs = DataFrame(all_dvhs)
+    df_dvhs.to_csv(dir_all_plan_folders/"dvh_metrics.csv")
+
+def run_get_dvh_metrics_all_plans():
+    # # on alien baby
+    # pth_all_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023")
+    # dir_all_plans = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023")
+    # # on photon
+    pth_all_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023")
+    dir_all_plans = Path("../temp_data/mc/prostate-glen-2023")
+    dvh_metric_goals = {
+        "D95%(ctv)": 15,
+        "D1cc(rectum)": 11.25,
+        "D0.1cc(urethra)": 18.75,
+    }
+    get_dvh_metrics_all_plans(
+        dir_all_dicom_folders=pth_all_dicom,
+        dir_all_plan_folders=dir_all_plans,
+        dvh_metric_goals=dvh_metric_goals,
+    )
+
+def test_get_dvh_metrics_single_plan():
+    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023/p1")
+    dir_export = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023/p1")
+    dvh_metric_goals = {
+        "D95%(ctv)": 15,
+        "D1cc(rectum)": 11.25,
+        "D0.1cc(urethra)": 18.75,
+    }
+    print(
+        get_dvh_metrics_single_plan(
+            dir_dicom=pth_single_dicom,
+            dvh_metric_goals=dvh_metric_goals,
+            dir_plan_export=dir_export)
+        )
+
 def test_export():
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p3")
-    dir_export = Path("../temp_data/mc/prostate-glen-2023")
+    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p1")
+    dir_export = Path("../temp_data/tg43/prostate-glen-2023")
     # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
     pth_material = Path("../admin/constants/structure_materials_prostate.json")
@@ -119,64 +267,76 @@ def test_export():
 
     if not pth_material.exists():
         raise FileNotFoundError(f"The material file {pth_material} does not exist.")
-    export_single_dicom_to_plan(pth_single_dicom, dir_export, sim_dict, content_to_export)
+    export_single_dicom_to_plan(pth_single_dicom, dir_export, content_to_export=content_to_export)#, sim_dict, content_to_export)
 
 def test_dose_calc():
-    dir_plan_export = Path("../temp_data/mc/prostate-glen-2023/p3")
-    dose_generator_class = DoseMonteCarlo
-    generate_single_dose(dir_plan_export, dose_generator_class)
+    # # for monte carlo
+    # dir_plan_export = Path("../temp_data/mc/prostate-glen-2023/p3")
+    # pth_dose_executable = "http://192.168.1.11:8000/calculate_dose_mc"
+    # dose_gen_obj = DoseMonteCarlo(
+        # dir_plan_export=dir_plan_export,
+        # pth_dose_executable=pth_dose_executable
+    # )
+    # dose_gen_obj.generate_dose()
+    
+    
+    # # for tg43
+    dir_plan_export = Path("../temp_data/tg43/prostate-glen-2023/p1")
+    pth_dose_executable = "http://192.168.1.12:8000/calculate_dose_tg43"
+    dose_gen_obj = DoseTG43(
+        dir_plan_export=dir_plan_export,
+        pth_dose_executable=pth_dose_executable
+    )
+    dose_gen_obj.generate_dose()
 
-def run_export():
+def scale_by_airkerma(dir_all_plans: str | Path, dir_all_dcms: str | Path):
+    r"""
+        To scale the nrrd dose in a plan directory by the right air kerma.
+        The wrong air keram was 5e4. each dicom plan has a different air kerma.
+        the scaling factor for each dose should be plan_air_kerma/5e4.
+    """
+    from brachyutils.simulation_utils import BrachySource
+    from brachyutils.dose_utils import BrachyDose
     from functools import partial
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023")
-    dir_export = Path("../temp_data/mc/prostate-glen-2023")
-    # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
-    # mat_from_ct = True
-    pth_material = Path("../admin/constants/structure_materials_prostate.json")
-    mat_from_ct = False
-    crop_by_contour = "body"
-    sim_dict = {
-        "source_dict": {
-            "treatment_type": "HDR",
-            "source_geometry": "MicroSelectronV2",
-            "core_material": "G4_Ir",
-            "mass_number": "192",
-            "atomic_number": "77",
-            "air_kerma_per_history": 1.149000e-11,
-            "reference_air_kerma": 5e04,
-        },
-        "pth_plan": "combined.plan",
-        "pth_phantom": "ct.egsphant",
-        "number_histories": 1000000,
-        "total_time": 0,
-        "number_of_threads": 32,
-        "PrintProgress": 10000,
-        "beam_on": 10000,
-    }
-    content_to_export = {
-        "egsphant": True,
-        "materials_table": pth_material,
-        "assign_material_from_ct": mat_from_ct,
-        "resample_egsphant_to": [1., 1., 1.],
-        "crop_by_contour": crop_by_contour,
-        "plan": True,
-        "mac": True,
-        "ApplicatorMaterials": False,
-        "applicator_geometry": False,
-    }
 
-    all_dicoms = list(pth_single_dicom.glob("*/"))
-    all_inputs = []
-    partially_filled_export_func = partial(
-        export_single_dicom_to_plan,
-        dir_export=dir_export,
-        sim_dict=sim_dict,
-        content_to_export=content_to_export,
+    dir_all_plans = Path(dir_all_plans)
+    dir_all_dcms = Path(dir_all_dcms)
+
+    all_plans = list(dir_all_plans.glob("*/"))
+    for plan in all_plans:
+        if not plan.is_dir():
+            continue
+        pth_plan_dcm = list(dir_all_dcms.joinpath(plan.stem).glob("RP*.dcm"))
+        if len(pth_plan_dcm) == 0:
+            print(f"no plan dcm found for {plan}")
+            continue
+        pth_plan_dcm = pth_plan_dcm[0]
+        source_obj = BrachySource(source_dict=pth_plan_dcm)
+        scaling_factor = source_obj.reference_air_kerma_rate/5e4
+        
+        pth_dose_list = list(plan.glob("*.nrrd"))
+        def scale_dose(pth_dose: Path, scaling_factor: float):
+            dose_obj:BrachyDose = BrachyDose(pth_dose)
+            dose_obj.set_dose_array(
+                dose_obj.get_dose_array()*scaling_factor
+            )
+            dose_obj.write_brachydose_to_file(str(pth_dose.parent/f"scaled_{pth_dose.stem.stem}")+".seq.nrrd")
+        print(f"scaling factor for {plan}: {scaling_factor}")
+        run_multi_proc(
+            partial(scale_dose, scaling_factor=scaling_factor),
+            pth_dose_list
         )
 
-    run_multi_proc(partially_filled_export_func, all_dicoms)
+def run_scale_by_airkerma():
+    dir_all_plans = Path("../temp_data/mc/prostate-glen-2023")
+    dir_all_dcms = Path("/root/YourLocalHome/Data/prostate-glen-2023")
+    scale_by_airkerma(dir_all_plans, dir_all_dcms)
 
 if __name__ == "__main__":
     # test_export()
-    run_export()
     # test_dose_calc()
+    # test_get_dvh_metrics_single_plan()
+    # run_export()
+    run_dose_generation()
+    # run_get_dvh_metrics_all_plans()
+    # run_scale_by_airkerma()

@@ -560,7 +560,7 @@ class BrachyPhantom:
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         from collections import defaultdict
         
-        image_array_zyx = self.get_image_array()
+        image_array_zyx = self.get_image_array().astype(float)
         header = defaultdict(str)
         header["type"] = "double"
         # header["space dimension"] = "3"

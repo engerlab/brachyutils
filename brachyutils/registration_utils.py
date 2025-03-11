@@ -541,22 +541,24 @@ class Registration_Plastimatch(PhantomRegistration):
             )
 
         global_params = {
-            "fixed" : f"{str(pth_static).split("temp_data/registration/")[-1]}",
-            "moving" : f"{str(pth_moving).split("temp_data/registration/")[-1]}",
-            "image_out" : f"{str(pth_output).split("temp_data/registration/")[-1]}",
-            "vf_out" : f"{str(dir_temp_data).split("temp_data/registration/")[-1]}/vf.nrrd",
+            "fixed" : f"{str(pth_static)}",
+            "moving" : f"{str(pth_moving)}",
+            "image_out" : f"{str(pth_output)}",
+            "vf_out" : f"{str(dir_temp_data.joinpath("vf.nrrd"))}",
         }
 
         stage_params_list = stage_params_list if stage_params_list else[
             {
-                "xform": "bspline"
+                "xform": "bspline",
+                # "optim": "versor",
+                # "max_its": "50",
             }
         ]
 
         if "http" in self.pth_plastimatch:
             import requests
             response = requests.post(
-                url=self.pth_plastimatch,
+                url=self.pth_plastimatch+"/plastimatch_register",
                 json={
                     "global_params": global_params,
                     "stage_params_list": stage_params_list,
@@ -566,7 +568,6 @@ class Registration_Plastimatch(PhantomRegistration):
             # get the registered image
             if not pth_output.exists():
                 raise ValueError("The registered image was not generated.")
-
         else:
             raise NotImplementedError("The local plastimatch registration is not implemented yet.")
 
@@ -578,10 +579,12 @@ class Registration_Plastimatch(PhantomRegistration):
             self._registered_data,
             self._static_data,
             )
-        self.deformation = _load_deformation_field(
-            dir_temp_data.joinpath("vf.nrrd")
+        # self.deformation = _load_deformation_field(
+        #     dir_temp_data.joinpath("vf.nrrd")
+        #     )
+        self.synch_registered_phantom_with_data(
+            pth_vector_field=Path(global_params["vf_out"])
             )
-        self.synch_registered_phantom_with_data()
         if pth_phantom_export is not None:
             self.export_to(pth_phantom_export)
         return self.registered_phantom, self.deformation
@@ -592,10 +595,105 @@ class Registration_Plastimatch(PhantomRegistration):
         output_type: Literal[".nrrd", ".dcm"] = ".nrrd") -> None:
         super().export_to(dir_registered_phantom, output_type)
 
-    def synch_registered_phantom_with_data(self) -> None:
-        # XXX: implement this using plastimatch warp!
-        super().synch_registered_phantom_with_data()
+    def synch_registered_phantom_with_data(
+        self,
+        pth_vector_field: Path = None
+        ) -> None:
+        r"""
+        Purpose:
+            - To match the image and the contours of the registered phantom with the registered data.
+            by applying the vector field to the image and the contours using plastimatch convert.
         
+        Inputs:
+            - pth_vector_field: Path: The path to the vector field file.
+        
+        Output:
+            - None
+        """        
+        # we have the path to the vf file.
+        # we need to apply this deformation to the image and the contours.
+        # each data needs to be written out to a file and given to plastimatch warp along with vf.
+        # the output of the warp will be the registered image and contours.
+
+        # load the registered data into registered phantom
+        self.registered_phantom = phantom_with_empty_image_like(
+            self.moving_phantom,
+            new_pth_image=f"reg_{self.moving_phantom.pth_image.stem}"
+            )
+        
+        # if registration based on image:
+        # load the image into the registered phantom
+        if self.register_on_contour is None:
+            self.registered_phantom.image_obj = self._registered_data
+        # registration based on contour
+        # create a new contour based on the registered mask.
+        else:
+            # pass the moving image to the registered phantom image
+            self.registered_phantom.image_obj = self.moving_phantom.image_obj
+            # create a new contour based on the registered mask.
+            new_contour = ROIMask(
+                name=self.register_on_contour,
+                imageArray=self._registered_data.imageArray,
+                origin=self._registered_data.origin,
+                spacing=self._registered_data.spacing,
+            )
+            self.registered_phantom.set_structure_set({self.register_on_contour: new_contour})
+
+        structure_mask_dict = self.registered_phantom.get_structure_mask(
+            self.registered_phantom.structure_names,
+            mask_type=ROIMask
+        )
+        all_data = structure_mask_dict | {"image": self.registered_phantom.image_obj}
+        for data_name in all_data:
+            # write out the data to be warped by plastimatch
+            pth_in = pth_vector_field.parent.joinpath(f"{data_name}.nrrd")
+            pth_warped = pth_vector_field.parent.joinpath(f"{data_name}_warped.nrrd")
+
+            empty_phant = phantom_with_empty_image_like(
+                self.moving_phantom,
+                new_pth_image=pth_in
+            )
+            empty_phant.image_obj = all_data.get(data_name)
+            empty_phant.write_image_to_nrrd(
+                pth_output=pth_in
+            )
+            # call plastimatch warp to deform the image and the contours.
+            if "http" in self.pth_plastimatch:
+                import requests
+                response = requests.post(
+                    url=self.pth_plastimatch+"/plastimatch_convert",
+                    json={
+                        "pth_input": str(pth_in),
+                        "pth_output": str(pth_warped),
+                        "xf": str(pth_vector_field),
+                        },
+                    timeout=None
+                )
+            else:
+                raise NotImplementedError("The local plastimatch registration is not implemented yet.")
+
+            # load the deformed image and contours back into the registered phantom.
+            if data_name == self.register_on_contour:
+                continue
+            deformed_data = BrachyPhantom(
+                pth_phantom_file=pth_warped,
+            ).image_obj
+            deformed_data = resampleImage3DOnImage3D(
+                deformed_data,
+                self._static_data
+            )
+            if data_name == "image":
+                self.registered_phantom.image_obj = deformed_data
+            else:
+                structure_mask_dict[data_name] = ROIMask(
+                    deformed_data.imageArray,
+                    name=data_name,
+                    spacing=self.registered_phantom.image_obj.spacing,
+                    origin=self.registered_phantom.image_obj.origin
+                    )
+
+        self.registered_phantom.set_structure_set(structure_mask_dict)
+
     def evaluate_on_contours(self):
         return super().evaluate_on_contours()
 

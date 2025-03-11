@@ -278,7 +278,7 @@ class BrachyPlan:
         - _calculate_combined_dose()
         - set_dvh_metric_goals()
         - create_brachy_structure_set()
-        - calculate_dvh_metrics()
+        - get_dvh_metrics()
         - _calculate_combined_uncertainty()
         - calculate_uncertainty_per_structure()
         - export_brachy_plan ()
@@ -305,35 +305,36 @@ class BrachyPlan:
         simulation_dict: dict | Path | str = None,
     ):
         r"""
-        Purpose:
+        ### Purpose:
             - To initialize the BrachyPlan object.
-        Inputs:
-            ### For geometry definition:
+
+        ### Inputs:
+            #### For geometry definition:
             - phantom: Path|BrachyPhantom|dict := the phantom object, the path to the phantom directory,
             or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
 
-            ### For Structure optimization and dosimetry
+            #### For Structure optimization and dosimetry
             - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
             The phantom should be loaded with structures for the Brachy stuctures to be created.
 
-            ### for loading catheter table:
+            #### for loading catheter table:
             - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
 
-            ### for loading dose rates or uncertainty maps per dwell position:
+            #### for loading dose rates or uncertainty maps per dwell position:
             - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
             - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
             - load_dose_or_uncertainty:str = "dose" := specify whether to load "dose" or "uncertainty" or "both" (default is "dose").
             - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
             - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
-            ### for simulation setup:
+            #### for simulation setup:
             - simulation_dict = None := dictionary containing the simulation setup,
             - dir_egsphant = None := path to the directory containing the egsphant file,
             - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
             - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
-        Outputs:
+        ### Outputs:
             - Void := will initialize the BrachyPlan object
-        Dependencies:
+        ### Dependencies:
             -
         """
         # declare the attributes
@@ -1056,7 +1057,7 @@ class BrachyPlan:
         uncertainty = np.sqrt(uncertainty)
         self.combined_dose.set_uncertainty_array(uncertainty)
 
-    def calculate_dvh_metrics(self):
+    def get_dvh_metrics(self):
         r"""
         Purpose:
             - To get the observed value of the dvh metric for each structure in the BrachyPlan.
@@ -1168,7 +1169,7 @@ class BrachyPlan:
                 self._export_dose(
                     dir_export=str(dir_export),
                     with_uncertainty=content_to_export.get("uncertainty", False),
-                    dose_type=content_to_export.get("dose_type", ".nrrd"),
+                    dose_type=content_to_export.get("dose_type", ".seq.nrrd"),
                     dose_rate_maps=content_to_export.get("dose_rate_maps", False),
                 )
                 print("Dose exported successfully")
@@ -1754,36 +1755,45 @@ def _type_nested_dict_list(data):
         for item in data:
             _type_nested_dict_list(item)
 
-def load_dicom_to_plan(dir_dicom: Path | str, **kwargs) -> BrachyPlan:
+def load_dicom_to_plan(
+    dir_dicom: Path | str,
+    load_dicom_dose: bool = True,
+    load_dicom_plan: bool = True,
+    **kwargs) -> BrachyPlan:
     r"""
-    Purpose:
+    ### Purpose:
         - To load all the contents of a dicom directory into a BrachyPlan object.
 
-    Inputs:
+    ### Inputs:
         - dir_dicom := the path to the dicom directory
-    
-    Outputs:
+        - load_dicom_dose := if True, the dose dicom file will be loaded
+        - load_dicom_plan := if True, the plan dicom file will be loaded
+        - **kwargs := additional arguments to be passed to the BrachyPlan constructor
+
+    ### Outputs:
         - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
     """
-    all_dicom_files = list(Path(dir_dicom).rglob("*.dcm"))
+    all_dicom_files = list(Path(dir_dicom).glob("*.dcm"))
     if len(all_dicom_files) == 0:
         raise FileNotFoundError("No dicom files found in the directory")
     # structure_dcm = [dcm for dcm in all_dicom_files if "RS" in dcm.name or "rs" in dcm.name]
-    dose_dcm = [dcm for dcm in all_dicom_files if "RD" in dcm.name or "rd" in dcm.name]
-    plan_dcm = [dcm for dcm in all_dicom_files if "RP" in dcm.name or "rp" in dcm.name]
-    
+    dose_dcm = []
+    plan_dcm = []
+    if load_dicom_dose:
+        dose_dcm = [dcm for dcm in all_dicom_files if "RD" in dcm.name or "rd" in dcm.name]
+    if load_dicom_plan:
+        plan_dcm = [dcm for dcm in all_dicom_files if "RP" in dcm.name or "rp" in dcm.name]
+
     # structure_dcm = structure_dcm[0] if len(structure_dcm) > 0 else None
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
-    simulation_dict = (
-        kwargs.pop("simulation_dict") 
-        if kwargs.get("simulation_dict") is not None
-        else plan_dcm
-        )
+    simulation_dict = kwargs.pop("simulation_dict", None)
+    simulation_dict = simulation_dict if simulation_dict is not None else plan_dcm
+
     return BrachyPlan(
         phantom=dir_dicom,
         catheter_table=plan_dcm,
-        combined_dose=dose_dcm,
+        combined_dose=kwargs.pop("combined_dose", dose_dcm),
         simulation_dict=simulation_dict,
         **kwargs
     )
