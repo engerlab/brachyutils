@@ -346,9 +346,9 @@ class BrachyEgsphant:
         # ]  # np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
         # self.num_materials = np.max(self.material_matrix).astype(int)
 
-        material_density, header = nrrd.read(filePath)
-        material_matrix = material_density[0]
-        density_matrix = material_density[1]
+        material_density, header = nrrd.read(filePath, index_order="C")
+        material_matrix = material_density[:,:,:,0]
+        density_matrix = material_density[:,:,:,1]
 
         voxel_size = np.array(
             header.get("spacing", "[nan,1,1,1]")
@@ -1075,7 +1075,8 @@ def _convert_material_matrix_to(
 
     elif dtype is str:
         str_array = np.zeros_like(flattened_array, dtype=str)
-        for i, integer in enumerate(flattened_array):
+        for i, integer_str in enumerate(flattened_array):
+            integer = int(integer_str)
             str_array[i] = BrachyEgsphant._materials_encoding_array[integer]
 
         return str_array.reshape(material_matrix.shape)

@@ -59,7 +59,8 @@ class DoseComparison:
         compute_gamma_index=True,
         path=None,
         gamma_kwargs: dict = default_gamma_kwargs,
-        positive_percent_difference: bool = True
+        positive_percent_difference: bool = True,
+        percent_difference_range: tuple = (0, 200)
     ):
         r"""
         Purpose:
@@ -77,6 +78,9 @@ class DoseComparison:
             - max_gamma: float := the maximum gamma index value
             - path: str := the path to the comparison object
             - gamma_kwargs: dict := the kwargs for the gamma index function
+            - positive_percent_difference: bool := if True, the percent difference will be computed with or without absolute value
+            - percent_difference_range: tuple := the range of the percent difference used in plotting
+
         Outputs:
             Object containing the following attributes:
                 - dose1: BrachyDose object
@@ -121,6 +125,7 @@ class DoseComparison:
         self.plot_max_dose_percent_of_prescription : int = 200
         self.prescription_dose = gamma_kwargs.get("global_normalisation", 1.0)
         self.max_gamma = gamma_kwargs.get("max_gamma", 1.1)
+        self.percent_difference_range = percent_difference_range
         # axes values are assumed in cm from the 3ddose formalism
         # gamma distance thresholds are usually provided in mm
         # pymedphys documentation indicates that the threshold unit must match the axis
@@ -176,6 +181,9 @@ class DoseComparison:
         plot_vmax = self.plot_max_dose_percent_of_prescription / 100 * self.prescription_dose
         matplotlib.rcParams.update({"font.size": 8})
         plt.rcParams.update({"figure.dpi": 300})
+
+        dummy_profile = np.zeros((len(axis_2_coords) - 1, len(axis_1_coords) - 1))
+
         dose_1_profile = self.dose1.extract_profile_2d(
             axis_1_coords, axis_2_coords, plane_coord, plane
         )
@@ -186,15 +194,28 @@ class DoseComparison:
             percent_difference_profile = self.percent_difference.extract_profile_2d(
                 axis_1_coords, axis_2_coords, plane_coord, plane
             )
+        else:
+            percent_difference_profile = dummy_profile
         if self.gamma_index is not None:
             gamma_index_profile = self.gamma_index.extract_profile_2d(
                 axis_1_coords, axis_2_coords, plane_coord, plane
             )
         else:
-            raise NotImplementedError(
-                """Plotting of a comparison without computing the percent difference or
-            gamma index is not supported"""
-            )
+            gamma_index_profile = dummy_profile
+
+        #flip the profiles 
+        if plane == 'xy':
+            dose_1_profile = np.flip(dose_1_profile, axis=0)
+            dose_2_profile = np.flip(dose_2_profile, axis=0)
+            percent_difference_profile = np.flip(percent_difference_profile, axis=0)
+            gamma_index_profile = np.flip(gamma_index_profile, axis=0)
+
+
+        # elif self.gamma_index is :
+        #    raise NotImplementedError(
+        #        """Plotting of a comparison without computing the percent difference or
+        #    gamma index is not supported"""
+        #    )
         # we will plot a figure that is suitable as a double column figure for medical physics
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
         fig, ax = plt.subplots(
@@ -238,8 +259,8 @@ class DoseComparison:
             axis_1_coords,
             axis_2_coords,
             percent_difference_profile,
-            vmin=0,
-            vmax=200,
+            vmin=self.percent_difference_range[0],
+            vmax=self.percent_difference_range[1],
             cmap="turbo",
             rasterized=True,
             antialiased=True,
