@@ -206,10 +206,6 @@ def get_dvh_metrics_all_plans(
     for dir_plan in list_dir_plan:
         if not dir_plan.is_dir():
             continue
-        # if dir_plan.stem in [
-            # "p1", "p2", "p3", "p4", "p5_body", "p6_body",
-            # ]:
-            # continue
         dir_dicom = dir_all_dicom_folders.joinpath(dir_plan.stem)
         print(f"dvh from dicom folder: {dir_dicom}")
         try:
@@ -218,15 +214,18 @@ def get_dvh_metrics_all_plans(
                 dvh_metric_goals=dvh_metric_goals,
                 dir_plan_export=dir_plan,
             )
-            # FIXME gathering the data in the dataframe is buggy.
             all_dvhs = pd.concat(
-                [pd.Series(dvh_metrics, name=dir_plan.stem), all_dvhs],
-                axis=1, 
+                    [
+                    pd.DataFrame([dvh_metrics | {"name":dir_plan.name}]),
+                    all_dvhs
+                    ],
                 ignore_index=True
                 )
+            
         except Exception as e:
             print(f"error in getting dvh for {dir_plan}")
             print(e)
+    all_dvhs.set_index("name", inplace=True)
     all_dvhs.to_csv(dir_all_plan_folders/"dvh_metrics.csv")
 
 def run_get_dvh_metrics_all_plans():
