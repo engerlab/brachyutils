@@ -7,8 +7,9 @@ from typing import Dict, List, Literal, Optional, Union, Tuple
 from collections import defaultdict
 import numpy as np
 import SimpleITK as sitk
-
+from copy import deepcopy
 # import pydicom
+from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
 from opentps.core.data import ROIContour, RTStruct
 from opentps.core.data.images import CTImage, MRImage, ROIMask, Image3D
 from opentps.core.io.dicomIO import (  # writeRTDose,
@@ -362,25 +363,27 @@ class BrachyPhantom:
                         gridSize=self.image_obj.gridSize,
                         spacing=self.image_obj.spacing,
                     )
-                    if np.any(mask.imageArray):
-                        if mask_type == np.ndarray:
-                            mask_dict[query_structure] = np.swapaxes(
-                                mask.imageArray, 0, 2
-                            )
-                        elif mask_type == ROIContour:
-                            mask_dict[query_structure] = (
-                                self.structure_set.getContourByName(mask_name)
-                            )
-                        elif mask_type == ROIMask:
-                            mask_dict[query_structure] = mask
-                        else:
-                            raise ValueError("mask_type not recognized")
-                    else:
-                        # mask_dict[query_structure] = None
+                    if not np.any(mask.imageArray):
                         warnings.warn(
-                            f"mask for {query_structure} is all zeros. returning empty",
-                            stacklevel=2,
+                            f"mask for {query_structure} is all zeros",
+                            stacklevel=2
                         )
+                        mask.imageArray = np.zeros(self.image_obj.gridSize)
+                        mask.origin = self.image_obj.origin
+                        mask.spacing = self.image_obj.spacing
+                        mask.gridSize = self.image_obj.gridSize
+                    if mask_type == np.ndarray:
+                        mask_dict[query_structure] = np.swapaxes(
+                            mask.imageArray, 0, 2
+                        )
+                    elif mask_type == ROIContour:
+                        mask_dict[query_structure] = (
+                            self.structure_set.getContourByName(mask_name)
+                        )
+                    elif mask_type == ROIMask:
+                        mask_dict[query_structure] = mask
+                    else:
+                        raise ValueError(f"mask_type {mask_type} not recognized")
         return mask_dict
 
     def info(self) -> None:
@@ -696,6 +699,7 @@ class BrachyPhantom:
         assign_material_from_ct: bool = None,
         crop_by_contour: str = None,
         resample_egsphant_to: List[float] = None,
+        resample_phantom_base: Optional[bool] = False,
         background_material: Optional[str] = "Air",
     ) -> None:
         r"""
@@ -721,25 +725,27 @@ class BrachyPhantom:
         elif str(pth_output).endswith(".seq.nrrd"):
             pass
         else:
-            raise ValueError("The output file should have '.egsphant' or '.egsphant.nrrd' extension.")           
-
+            raise ValueError("The output file should have '.egsphant' or '.seq.nrrd' extension.")
+        #if the egsphant is already made, write it
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
         if self.egsphant_obj is not None:
-            self.egsphant_obj.write_to_ctegsphant(pth_output)
+            if str(pth_output).endswith(".egsphant"):
+                self.egsphant_obj.write_to_ctegsphant(pth_output)
+            elif str(pth_output).endswith(".seq.nrrd"):
+                self.egsphant_obj.write_to_nrrd(pth_output)
+        #prepare the phantom for egsphant conversion
         elif self.image_obj is not None:
+            phantom_used_for_egsphant = deepcopy(self)
             from brachyutils.egsphant_utils import BrachyEgsphant
+            if resample_egsphant_to is not None: #if we want to resample
+                if resample_phantom_base: #resample the phantom and structures that the egsphant is based on
+                    phantom_used_for_egsphant.image_obj = resampleImage3D(
+                        image=phantom_used_for_egsphant.image_obj,
+                        spacing=resample_egsphant_to,
+                    )
+                    for structure in phantom_used_for_egsphant.structure_names:
+                        self.get_structure_mask([structure], ROIMask)[structure].resampleOn(phantom_used_for_egsphant.image_obj)
 
-            if resample_egsphant_to is not None:
-                from copy import deepcopy
-                from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
-                resampled_phantom = deepcopy(self)
-                resampled_phantom.image_obj = resampleImage3D(
-                    image=resampled_phantom.image_obj,
-                    spacing=resample_egsphant_to,
-                )
-                phantom_used_for_egsphant = resampled_phantom
-            else:
-                phantom_used_for_egsphant = self
             self.egsphant_obj = BrachyEgsphant(
                 phantom=phantom_used_for_egsphant,
                 material_dict=material_dict,
@@ -750,6 +756,10 @@ class BrachyPhantom:
             if crop_by_contour is not None:
                 self.egsphant_obj.crop_by_contour(phantom_used_for_egsphant, crop_by_contour)
 
+            if resample_egsphant_to is not None and not resample_phantom_base:
+                self.egsphant_obj.material_image = resampleImage3D(image=self.egsphant_obj.material_image, spacing=resample_egsphant_to, outputType=np.int16)
+                self.egsphant_obj.density_image = resampleImage3D(image=self.egsphant_obj.density_image, spacing=resample_egsphant_to)
+                self.egsphant_obj.get_voxel_edges()
             if str(pth_output).endswith(".egsphant"):
                 self.egsphant_obj.write_to_ctegsphant(pth_output)
             elif str(pth_output).endswith(".seq.nrrd"):
@@ -1941,6 +1951,7 @@ class Catheter:
             "id": self.id,
             "points": self.points,
             "dwells": [dwell.to_dict() for dwell in self.dwells],
+            "channel_total_time": self.channel_total_time,
         }
 
 

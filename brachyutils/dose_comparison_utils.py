@@ -202,6 +202,15 @@ class DoseComparison:
             )
         else:
             gamma_index_profile = dummy_profile
+
+        #flip the profiles 
+        if plane == 'xy':
+            dose_1_profile = np.flip(dose_1_profile, axis=0)
+            dose_2_profile = np.flip(dose_2_profile, axis=0)
+            percent_difference_profile = np.flip(percent_difference_profile, axis=0)
+            gamma_index_profile = np.flip(gamma_index_profile, axis=0)
+
+
         # elif self.gamma_index is :
         #    raise NotImplementedError(
         #        """Plotting of a comparison without computing the percent difference or
