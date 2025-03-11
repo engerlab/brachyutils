@@ -213,6 +213,8 @@ def get_dvh_metrics_all_plans(
                 dir_dicom=dir_dicom,
                 dvh_metric_goals=dvh_metric_goals,
                 dir_plan_export=dir_plan,
+                load_dose_from=dir_plan/"combined.seq.nrrd",
+                export_combined_dose=False,
             )
             all_dvhs = pd.concat(
                     [
@@ -372,6 +374,6 @@ if __name__ == "__main__":
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
     # run_export()
-    # run_dose_generation()
+    run_dose_generation()
     run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
