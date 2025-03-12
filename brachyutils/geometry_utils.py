@@ -146,7 +146,7 @@ class BrachyPhantom:
        
         if len(image_files) == 0:
             raise ValueError("No DICOM files found in the input directory.")
-        if "CT" in image_files[0].upper():
+        if "CT" in str(Path(image_files[0]).stem).upper():
             ct_files = list(filter(lambda s: "CT" in s.upper(), image_files))
             self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
@@ -157,7 +157,7 @@ class BrachyPhantom:
                 orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
         
-        elif "MR" in image_files[0].upper():
+        elif "MR" in  str(Path(image_files[0]).stem).upper():
             mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
@@ -167,7 +167,7 @@ class BrachyPhantom:
                 orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
 
-        elif "US" in image_files[0].upper():
+        elif "US" in str(Path(image_files[0]).stem).upper():
             us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
