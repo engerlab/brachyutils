@@ -214,6 +214,28 @@ def test_load_nifti_image_and_segmentation_file():
     phantom_obj.write_image_to_nrrd(pth_img_out)
     phantom_obj.write_structures_to_nrrd(pth_label_out, overlap=True)
 
+def test_resample_to():
+    r"""
+    Purpose:
+        - to see if the structure sampling is working as expected.
+        I noticed that some structures (body contour exported to dicom by slicer) and
+        represented by opentps are not upsampled properly.
+        Will attempt rttools here.
+    """
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
+    pth_out = "../data_test/test_export_plan/prostate/prostate_glen_p1_structs.seg.nrrd"
+    
+    origin = None
+    spacing = np.array([1., 1., 1.])
+    
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structures
+        )
+    phantom_obj.resample_to(origin, spacing)
+    phantom_obj.write_structures_to_nrrd(pth_out)
+
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
     # test_brachy_phantom()
@@ -233,4 +255,5 @@ if __name__ == "__main__":
     # test_BrachyApplicator_to_mac()
     # test_BrachyApplicator_to_stl()
     # test_BrachyApplicator_set_rotation()
-    test_load_nifti_image_and_segmentation_file()
+    # test_load_nifti_image_and_segmentation_file()
+    test_resample_to()

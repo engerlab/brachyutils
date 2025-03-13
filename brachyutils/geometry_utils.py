@@ -1057,11 +1057,19 @@ class BrachyPhantom:
 
         new_img_obj = resampleImage3D(self.image_obj, origin=origin, spacing=spacing)
         if self.structure_set is not None:
-            structure_dict = self.get_structure_mask(self.structure_names, mask_type=ROIMask)
+            structure_dict = self.get_structure_mask(
+                self.structure_names,
+                mask_type=ROIMask,
+                # mask_type=ROIContour,
+                )
             new_structure_dict = {}
             for struc in structure_dict:
                 new_structure_dict[struc] = resampleImage3DOnImage3D(structure_dict[struc], new_img_obj)
-        
+                # new_structure_dict[struc] = structure_dict[struc].getBinaryMask(
+                #     origin=new_img_obj.origin,
+                #     spacing=new_img_obj.spacing,
+                #     gridSize=new_img_obj.gridSize,
+                # )
         if inplace:
             self.image_obj = new_img_obj
             self.set_structure_set(new_structure_dict)
