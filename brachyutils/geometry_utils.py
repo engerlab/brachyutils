@@ -1033,6 +1033,43 @@ class BrachyPhantom:
         else:
             raise ValueError("The orientation is not recognized. please leave an issue on github.")
 
+    def resample_to(
+        self,
+        origin:np.array=None,
+        spacing:np.array=None,
+        inplace:bool=False) -> "BrachyPhantom":
+        r"""
+        ### Purpose:
+            - resample the phantom and the structures to a new origin and spacing.
+        
+        ### Inputs:
+            - origin:np.array := the new origin of the image.
+            - spacing:np.array := the new spacing of the image.
+            - inplace:bool := if True, the resampling will be done in place.
+        
+        ### Outputs:
+            - BrachyPhantom := the resampled phantom object if the inplace is False
+        """
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+
+        new_phantom = phantom_with_empty_image_like(self, new_pth_image=self.pth_image)
+
+        new_img_obj = resampleImage3D(self.image_obj, origin=origin, spacing=spacing)
+        if self.structure_set is not None:
+            structure_dict = self.get_structure_mask(self.structure_names, mask_type=ROIMask)
+            new_structure_dict = {}
+            for struc in structure_dict:
+                new_structure_dict[struc] = resampleImage3DOnImage3D(structure_dict[struc], new_img_obj)
+        
+        if inplace:
+            self.image_obj = new_img_obj
+            self.set_structure_set(new_structure_dict)
+        else:
+            new_phantom.image_obj = new_img_obj
+            new_phantom.set_structure_set(new_structure_dict)
+            return new_phantom
+
 # helper functions
 def phantom_with_empty_image_like(
     phantom: BrachyPhantom,
