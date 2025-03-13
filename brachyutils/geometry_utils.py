@@ -1093,18 +1093,142 @@ def _convert_many_binary_masks_to_1_int_mask(seg_dict: dict) -> np.ndarray:
     return int_mask
 
 
-def readDicomUS(image_files):
-    r"""
-    Purpose:
-        - Read the US DICOM files.
-    Inputs:
-        - image_files: List[Path] := the list of the US DICOM image files.
-    Outputs:
-        - USImage := the US image object.
-    Dependencies:
-        - openTPS.core
+def readDicomUS(dcmFiles):
+    r""""
+    Generate a MR image object from a list of dicom MR slices.
+
+    Parameters
+    ----------
+    dcmFiles: list
+        List of paths for Dicom MR slices to be imported.
+
+    Returns
+    -------
+    image: mrImage object
+        The function returns the imported MR image
     """
-    raise NotImplementedError("US DICOM files are not supported yet.")
+
+    # read dicom slices
+    images = []
+    sopInstanceUIDs = []
+    sliceLocation = np.zeros(len(dcmFiles), dtype='float')
+    firstdcm = dcmFiles[0]
+    
+    # if hasattr(firstdcm,'RescaleSlope') == False:
+    #     logging.warning('no RescaleSlope, image could be wrong')
+    for i in range(len(dcmFiles)):
+        dcm = pydicom.dcmread(dcmFiles[i])
+        sliceLocation[i] = float(dcm.ImagePositionPatient[2])
+        images.append(dcm.pixel_array)
+        sopInstanceUIDs.append(dcm.SOPInstanceUID)
+    # else :
+    #     for i in range(len(dcmFiles)):
+    #         dcm = pydicom.dcmread(dcmFiles[i])
+    #         sliceLocation[i] = float(dcm.ImagePositionPatient[2])
+    #         images.append(dcm.pixel_array * dcm.RescaleSlope + dcm.RescaleIntercept)
+    #         sopInstanceUIDs.append(dcm.SOPInstanceUID)       
+
+    # sort slices according to their location in order to reconstruct the 3d image
+    sortIndex = np.argsort(sliceLocation)
+    sliceLocation = sliceLocation[sortIndex]
+    sopInstanceUIDs = [sopInstanceUIDs[n] for n in sortIndex]
+    images = [images[n] for n in sortIndex]
+    imageData = np.dstack(images).astype("float32").transpose(1, 0, 2)
+
+    # verify reconstructed volume
+    if imageData.shape[0:2] != (dcm.Columns, dcm.Rows):
+        logging.warning("WARNING: GridSize " + str(imageData.shape[0:2]) + " different from Dicom Columns (" + str(
+            dcm.Columns) + ") and Rows (" + str(dcm.Rows) + ")")
+
+    # collect image information
+    meanSliceDistance = (sliceLocation[-1] - sliceLocation[0]) / (len(images) - 1)
+    if (hasattr(dcm, 'SliceThickness') and (
+            type(dcm.SliceThickness) == int or type(dcm.SliceThickness) == float) and abs(
+            meanSliceDistance - dcm.SliceThickness) > 0.001):
+        logging.warning(
+            "WARNING: Mean Slice Distance (" + str(meanSliceDistance) + ") is different from Slice Thickness (" + str(
+                dcm.SliceThickness) + ")")
+
+    if (hasattr(dcm, 'SeriesDescription') and dcm.SeriesDescription != ""):
+        imgName = dcm.SeriesDescription
+    else:
+        imgName = dcm.SeriesInstanceUID
+
+    pixelSpacing = (float(dcm.PixelSpacing[1]), float(dcm.PixelSpacing[0]), meanSliceDistance)
+    imagePositionPatient = (float(dcm.ImagePositionPatient[0]), float(dcm.ImagePositionPatient[1]), sliceLocation[0])
+
+    # collect patient information
+    if hasattr(dcm, 'PatientID'):
+        from opentps.core.io.dicomIO import Patient
+        birth = dcm.PatientBirthDate if hasattr(dcm, 'PatientBirthDate') else ""
+        sex = dcm.PatientSex if hasattr(dcm, 'PatientSex') else None
+
+        patient = Patient(id=dcm.PatientID, name=str(dcm.PatientName), birthDate=birth, sex=sex)
+    else:
+        patient = Patient()
+
+    # generate MR image object
+    FrameOfReferenceUID = dcm.FrameOfReferenceUID if hasattr(dcm, 'FrameOfReferenceUID') else pydicom.uid.generate_uid()
+        
+    image = MRImage(imageArray=imageData, name=imgName, origin=imagePositionPatient,
+                    spacing=pixelSpacing, seriesInstanceUID=dcm.SeriesInstanceUID,
+                    frameOfReferenceUID=FrameOfReferenceUID, sliceLocation=sliceLocation,
+                    sopInstanceUIDs=sopInstanceUIDs)
+       
+    image.patient = patient
+    # Collect MR information
+    # if hasattr(dcm, 'BodyPartExamined'):
+    #     image.bodyPartExamined = dcm.BodyPartExamined
+    # if hasattr(dcm, 'ScanningSequence'):
+    #     image.scanningSequence = dcm.ScanningSequence
+    # if hasattr(dcm, 'SequenceVariant'):
+    #     image.sequenceVariant = dcm.SequenceVariant
+    # if hasattr(dcm, 'ScanOptions'):
+    #     image.scanOptions = dcm.ScanOptions
+    # if hasattr(dcm, 'MRAcquisitionType'):
+    #     image.mrArcquisitionType = dcm.MRAcquisitionType
+    # if hasattr(dcm, 'RepetitionTime'):
+    #     image.repetitionTime = float(dcm.RepetitionTime)
+    # if hasattr(dcm, 'EchoTime'):
+    #     if dcm.EchoTime is not None:
+    #         image.echoTime = float(dcm.EchoTime)
+    # if hasattr(dcm, 'NumberOfAverages'):
+    #     image.nAverages = float(dcm.NumberOfAverages)
+    # if hasattr(dcm, 'ImagingFrequency'):
+    #     image.imagingFrequency = float(dcm.ImagingFrequency)
+    # if hasattr(dcm, 'EchoNumbers'):
+    #     image.echoNumbers = int(dcm.EchoNumbers)
+    # if hasattr(dcm, 'MagneticFieldStrength'):
+    #     image.magneticFieldStrength = float(dcm.MagneticFieldStrength)
+    # if hasattr(dcm, 'SpacingBetweenSlices'):
+    #     image.spacingBetweenSlices = float(dcm.SpacingBetweenSlices)
+    # if hasattr(dcm, 'NumberOfPhaseEncodingSteps'):
+    #     image.nPhaseSteps = int(dcm.NumberOfPhaseEncodingSteps)
+    # if hasattr(dcm, 'EchoTrainLength'):
+    #     if dcm.EchoTrainLength is not None:
+    #         image.echoTrainLength = int(dcm.EchoTrainLength)
+    # if hasattr(dcm, 'FlipAngle'):
+    #     image.flipAngle = float(dcm.FlipAngle)
+    # if hasattr(dcm, 'SAR'):
+    #     image.sar = float(dcm.SAR)
+    if hasattr(dcm, 'StudyDate'):
+        image.studyDate = float(dcm.StudyDate)
+    # if hasattr(dcm, 'StudyTime'):
+    #     image.studyTime = float(dcm.StudyTime)
+    # if hasattr(dcm, 'AcquisitionTime'):
+    #     image.acquisitionTime = float(dcm.AcquisitionTime)
+    if hasattr(dcm, 'PatientPosition'):
+        image.patientPosition = dcm.PatientPosition
+    if hasattr(dcm, 'SeriesNumber'):
+        image.seriesNumber = dcm.SeriesNumber
+    image.studyInstanceUID = dcm.StudyInstanceUID if hasattr(dcm, 'StudyInstanceUID') else pydicom.uid.generate_uid()
+    image.bitsAllocated = dcm.BitsAllocated if hasattr(dcm, 'BitsAllocated') else "16"
+    image.bitsStored = dcm.BitsStored if hasattr(dcm, 'BitsStored') else ""
+    image.samplesPerPixel = dcm.SamplesPerPixel if hasattr(dcm, 'SamplesPerPixel') else "1"
+    image.hotometricInterpretation = dcm.PhotometricInterpretation if hasattr(dcm ,'PhotometricInterpretation') else 'MONOCHROME2'
+    # image.softwareVersions = 'syngo MR E11'
+    
+    return image
 
 
 def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:

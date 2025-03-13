@@ -1191,11 +1191,12 @@ class BrachyPlan:
             if content_to_export.get("egsphant", False):
                 # assumes file name is "ct.egsphant"
                 self._export_egsphant(
-                    str(dir_export),
-                    content_to_export.get("materials_table", None),
-                    content_to_export.get("assign_material_from_ct", True),
-                    content_to_export.get("crop_by_contour", None),
-                    content_to_export.get("resample_egsphant_to", None),
+                    dir_export=str(dir_export),
+                    material_dict=content_to_export.get("materials_table", None),
+                    assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
+                    crop_by_contour=content_to_export.get("crop_by_contour", None),
+                    resample_egsphant_to=content_to_export.get("resample_egsphant_to", None),
+                    background_material=content_to_export.get("background_material", None),
                 )
                 print("Egsphant file was exported successfully")
 
@@ -1417,6 +1418,7 @@ class BrachyPlan:
         assign_material_from_ct: bool,
         crop_by_contour: str = None,
         resample_egsphant_to: List[float] = None,
+        background_material: str = None
     ):
         r"""
         Purpose:
@@ -1447,6 +1449,7 @@ class BrachyPlan:
             assign_material_from_ct=assign_material_from_ct,
             crop_by_contour=crop_by_contour,
             resample_egsphant_to=resample_egsphant_to,
+            background_material=background_material
         )
 
     def _export_applicator_geometry(
@@ -1780,29 +1783,35 @@ def load_dicom_to_plan(
     dose_dcm = []
     plan_dcm = []
     if load_dicom_dose:
-        dose_dcm = [dcm for dcm in all_dicom_files if "RD" in dcm.name or "rd" in dcm.name]
+        dose_dcm = [dcm for dcm in all_dicom_files if "rd" in str(dcm.name).lower()]
     if load_dicom_plan:
-        plan_dcm = [dcm for dcm in all_dicom_files if "RP" in dcm.name or "rp" in dcm.name]
+        plan_dcm = [
+            dcm for dcm in all_dicom_files if
+            (
+                "rp" in str(dcm.name).lower()
+                or "pl" in str(dcm.name).lower()
+            )
+        ]
 
     # structure_dcm = structure_dcm[0] if len(structure_dcm) > 0 else None
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
     simulation_dict = kwargs.pop("simulation_dict", None)
     simulation_dict = simulation_dict if simulation_dict is not None else plan_dcm
-
+    combined_dose = kwargs.pop("combined_dose", dose_dcm)
     return BrachyPlan(
         phantom=dir_dicom,
         catheter_table=plan_dcm,
-        combined_dose=kwargs.pop("combined_dose", dose_dcm),
+        combined_dose=combined_dose,
         simulation_dict=simulation_dict,
         **kwargs
     )
 
-def convert_lists_to_arrays(obj, keys_to_convert=["position", "rotation"]):
-    warnings.warn("This function is deprecated.", DeprecationWarning)
-    if isinstance(obj, dict):
-        return {k: convert_lists_to_arrays(v, keys_to_convert) if k in keys_to_convert else v for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return np.array(obj, dtype=np.float32) if isinstance(obj[0], (int, float, list)) else [convert_lists_to_arrays(elem, keys_to_convert) for elem in obj]
-    else:
-        return obj
+# def convert_lists_to_arrays(obj, keys_to_convert=["position", "rotation"]):
+    # warnings.warn("This function is deprecated.", DeprecationWarning)
+    # if isinstance(obj, dict):
+        # return {k: convert_lists_to_arrays(v, keys_to_convert) if k in keys_to_convert else v for k, v in obj.items()}
+    # elif isinstance(obj, list):
+        # return np.array(obj, dtype=np.float32) if isinstance(obj[0], (int, float, list)) else [convert_lists_to_arrays(elem, keys_to_convert) for elem in obj]
+    # else:
+        # return obj
