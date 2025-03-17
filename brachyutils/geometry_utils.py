@@ -920,31 +920,66 @@ class BrachyPhantom:
         from opentps.core.processing.imageProcessing.resampler3D import (
             resampleImage3DOnImage3D,
         )
+        from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
+
         for structure_name in mask_dict:
             # check if the structure already exists in structure set
-            old_structure = self.structure_set.getContourByName(structure_name)
+            old_structure = self.structure_set.getContourByName(structure_name.upper())
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
-            print(f"setting structure {structure_name}")
+            print(f"setting structure {structure_name.upper()}")
             if mask_dict.get(structure_name) is None:
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
                 mask = ROIMask(
-                    name=structure_name,
+                    name=structure_name.upper(),
                     imageArray=np.swapaxes(mask_dict[structure_name], 0, 2),
                     origin=self.image_obj.origin,
                     spacing=self.image_obj.spacing,
                 )
             elif isinstance(mask_dict.get(structure_name), ROIContour):
-                mask = ROIContour.getBinaryMask()
+                mask = ROIContour.getBinaryMask(
+                    origin=self.image_obj.origin,
+                    spacing=self.image_obj.spacing,
+                )
+                mask.name = structure_name.upper()
 
             elif isinstance(mask_dict.get(structure_name), ROIMask):
                 mask = mask_dict.get(structure_name)
+                mask.name = structure_name.upper()
             else:
                 raise ValueError("The mask type is not recognized.")
                 
             if self.image_obj is not None:
                 mask = resampleImage3DOnImage3D(mask, self.image_obj)
+            
+            # if mask hits the boundary of the image, set the boundary to 0.
+            tight_box_coordinates = np.round(getBoxAroundROI(mask), decimals=2)
+            mask_edges = np.array(
+                [
+                    mask.getPositionFromVoxelIndex([0, 0, 0]),
+                    mask.getPositionFromVoxelIndex(mask.gridSize-1)
+                    ]
+                )
+            mask_edges = np.round(mask_edges, decimals=2)
+            mask_edges = np.reshape(mask_edges.T, (3, 2))
+            touching_edge = (tight_box_coordinates == mask_edges).flatten()
+            for i, edge in enumerate(touching_edge):
+                if edge:
+                    if i == 0:
+                        mask.imageArray[0, :, :] = 0
+                    elif i == 1:
+                        mask.imageArray[-1, :, :] = 0
+                    elif i == 2:
+                        mask.imageArray[:, 0, :] = 0
+                    elif i == 3:
+                        mask.imageArray[:, -1, :] = 0
+                    # hitting the ends of the z axis is not problematic
+                    # elif i == 4:
+                        # mask.imageArray[:, :, 0] = 0
+                    # elif i == 5:
+                        # mask.imageArray[:, :, -1] = 0
+
             self.structure_set.appendContour(mask.getROIContour())
 
         self.structure_set.setPatient(

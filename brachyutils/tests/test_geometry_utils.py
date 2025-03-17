@@ -254,6 +254,20 @@ def test_dicom_rt_tools():
     dcm_reader = rt_tools.DicomReaderWriter()
     dcm_reader.walk_through_folders(pth_dicom)
     all_rois = dcm_reader.return_rois()
+    dcm_reader.set_contour_names_and_associations(contour_names=all_rois)
+    dcm_reader.get_images_and_mask()
+    image = dcm_reader.images_dictionary.popitem()[1]
+    mask_dict = dcm_reader.mask_dictionary
+    
+    from brachyutils.geometry_utils import sitk_to_Image3D
+    new_mask_dict = {}
+    for mask_name in mask_dict:
+        new_mask_dict[mask_name] = sitk_to_Image3D(mask_dict[mask_name])
+    
+    phantom_obj.set_structure_set(new_mask_dict)
+    # phantom_obj.resample_to(origin, spacing)
+    phantom_obj.export_to(dir_nrrd_out=pth_out)
+
 
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
