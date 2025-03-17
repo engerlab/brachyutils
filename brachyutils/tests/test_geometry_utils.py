@@ -224,7 +224,7 @@ def test_resample_to():
     """
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/prostate/prostate_glen_p1_structs.seg.nrrd"
+    pth_out = "../data_test/test_export_plan/prostate"
     
     origin = None
     spacing = np.array([1., 1., 1.])
@@ -234,7 +234,26 @@ def test_resample_to():
         pth_structures_file=pth_structures
         )
     phantom_obj.resample_to(origin, spacing)
-    phantom_obj.write_structures_to_nrrd(pth_out)
+    phantom_obj.export_to(dir_nrrd_out=pth_out)
+
+def test_dicom_rt_tools():
+
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
+    pth_out = "../data_test/test_export_plan/prostate"
+    
+    origin = None
+    spacing = np.array([1., 1., 1.])
+    
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structures
+        )
+
+    import DicomRTTool as rt_tools
+    dcm_reader = rt_tools.DicomReaderWriter()
+    dcm_reader.walk_through_folders(pth_dicom)
+    all_rois = dcm_reader.return_rois()
 
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
@@ -256,4 +275,5 @@ if __name__ == "__main__":
     # test_BrachyApplicator_to_stl()
     # test_BrachyApplicator_set_rotation()
     # test_load_nifti_image_and_segmentation_file()
-    test_resample_to()
+    # test_resample_to()
+    test_dicom_rt_tools()

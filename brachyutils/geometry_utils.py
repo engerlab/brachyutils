@@ -1064,7 +1064,10 @@ class BrachyPhantom:
                 )
             new_structure_dict = {}
             for struc in structure_dict:
-                new_structure_dict[struc] = resampleImage3DOnImage3D(structure_dict[struc], new_img_obj)
+                new_structure_dict[struc] = resampleImage3DOnImage3D(
+                    structure_dict[struc],
+                    new_img_obj
+                    )
                 # new_structure_dict[struc] = structure_dict[struc].getBinaryMask(
                 #     origin=new_img_obj.origin,
                 #     spacing=new_img_obj.spacing,
@@ -1084,12 +1087,14 @@ def phantom_with_empty_image_like(
     new_pth_image: Path | str=None
     ) -> BrachyPhantom:
     r"""
-    Purpose:
+    ### Purpose:
         - Create a new BrachyPhantom object with the same structure set as the input phantom but with an empty image.
-    Inputs:
+    
+    ### Inputs:
         - phantom: BrachyPhantom := the input phantom object.
         - new_pth_image := the new name for the empty phantom.
-    Outputs:
+    
+    ### Outputs:
         - new_phantom: BrachyPhantom := the new phantom object.
     """
     from copy import deepcopy
