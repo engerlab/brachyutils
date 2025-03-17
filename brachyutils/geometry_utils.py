@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union, Tuple
 from collections import defaultdict
 import numpy as np
-import SimpleITK as sitk
+from SimpleITK import Image, GetArrayFromImage 
 from copy import deepcopy
 # import pydicom
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
@@ -1423,6 +1423,38 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
         structure_mask_dict[segment_name] = roi_mask
         # del segment_mask
     return structure_mask_dict, "LPS"
+
+def sitk_to_Image3D(sitk_image:Image)-> Image3D | ROIMask:
+    r"""
+    ### Purpose:
+        - to convert a sitk image to an openTPS Image3D object.
+    
+    ### Inputs:
+        - sitk_image: SimpleITK.Image := the image to be converted.
+    
+    ### Outputs:
+        - Image3D := the converted image.
+    
+    ### Dependencies:
+        - SimpleITK
+    """    
+    image_array = GetArrayFromImage(sitk_image)
+    origin = sitk_image.GetOrigin()
+    spacing = sitk_image.GetSpacing()
+
+    if image_array.dtype == "uint8":
+        image_array = image_array.astype("bool")
+        return ROIMask(
+            imageArray=np.swapaxes(image_array, 0, 2),
+            origin=origin,
+            spacing=spacing,
+        )
+    else:
+        return Image3D(
+            imageArray=np.swapaxes(image_array, 0, 2),
+            origin=origin,
+            spacing=spacing,
+        )
 
 def _get_image_orientation(pth_image: Path) -> str:
     """
