@@ -700,7 +700,7 @@ class BrachyPhantom:
         crop_by_contour: str = None,
         resampled_spacing: List[float] = None,
         resampled_origin: List[float] = None,
-        resample_phantom_base: Optional[bool] = False,
+        resample_phantom_base: Optional[bool] = True,
         background_material: Optional[str] = "Air",
     ) -> None:
         r"""
