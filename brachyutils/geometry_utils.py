@@ -757,8 +757,8 @@ class BrachyPhantom:
                 self.egsphant_obj.crop_by_contour(phantom_used_for_egsphant, crop_by_contour)
 
             if resampled_spacing is not None and not resample_phantom_base:
-                self.egsphant_obj.material_image = resampleImage3D(image=self.egsphant_obj.material_image, spacing=resample_egsphant_to, outputType=np.int16)
-                self.egsphant_obj.density_image = resampleImage3D(image=self.egsphant_obj.density_image, spacing=resample_egsphant_to)
+                self.egsphant_obj.material_image = resampleImage3D(image=self.egsphant_obj.material_image, spacing=resampled_spacing, outputType=np.int16)
+                self.egsphant_obj.density_image = resampleImage3D(image=self.egsphant_obj.density_image, spacing=resampled_spacing)
                 self.egsphant_obj.get_voxel_edges()
             if str(pth_output).endswith(".egsphant"):
                 self.egsphant_obj.write_to_ctegsphant(pth_output)
