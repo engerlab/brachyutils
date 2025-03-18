@@ -1197,7 +1197,7 @@ class BrachyPlan:
                     crop_by_contour=content_to_export.get("crop_by_contour", None),
                     resampled_spacing=content_to_export.get("resampled_spacing", None),
                     resampled_origin=content_to_export.get("resampled_origin", None),
-                    background_material=content_to_export.get("background_material", None),
+                    background_material=content_to_export.get("background_material", "Air"),
                 )
                 print("Egsphant file was exported successfully")
 
