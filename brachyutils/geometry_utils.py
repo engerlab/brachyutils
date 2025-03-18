@@ -698,7 +698,8 @@ class BrachyPhantom:
         material_dict: dict | Path = None,
         assign_material_from_ct: bool = None,
         crop_by_contour: str = None,
-        resample_egsphant_to: List[float] = None,
+        resampled_spacing: List[float] = None,
+        resampled_origin: List[float] = None,
         resample_phantom_base: Optional[bool] = False,
         background_material: Optional[str] = "Air",
     ) -> None:
@@ -717,7 +718,7 @@ class BrachyPhantom:
             ]
             - assign_material_from_ct: bool := if True, the material will be assigned from the CT image.
             - crop_by_contour: str := the name of the structure in the dicom file to crop the phantom by.
-            - resample_egsphant_to: List[float] := the spacing to resample the egsphant to.
+            - resampled_spacing: List[float] := the spacing to resample the egsphant to.
             - background_material: Optional[str] := the name of the background material. default is "Air".
         """
         if str(pth_output).endswith(".egsphant"):
@@ -737,14 +738,13 @@ class BrachyPhantom:
         elif self.image_obj is not None:
             phantom_used_for_egsphant = deepcopy(self)
             from brachyutils.egsphant_utils import BrachyEgsphant
-            if resample_egsphant_to is not None: #if we want to resample
+            if resampled_spacing is not None or resampled_origin is not None: #if we want to resample
                 if resample_phantom_base: #resample the phantom and structures that the egsphant is based on
-                    phantom_used_for_egsphant.image_obj = resampleImage3D(
-                        image=phantom_used_for_egsphant.image_obj,
-                        spacing=resample_egsphant_to,
+                    phantom_used_for_egsphant.resample_to(
+                        origin=resampled_origin,
+                        spacing=resampled_spacing,
+                        inplace=True
                     )
-                    for structure in phantom_used_for_egsphant.structure_names:
-                        self.get_structure_mask([structure], ROIMask)[structure].resampleOn(phantom_used_for_egsphant.image_obj)
 
             self.egsphant_obj = BrachyEgsphant(
                 phantom=phantom_used_for_egsphant,
@@ -756,7 +756,7 @@ class BrachyPhantom:
             if crop_by_contour is not None:
                 self.egsphant_obj.crop_by_contour(phantom_used_for_egsphant, crop_by_contour)
 
-            if resample_egsphant_to is not None and not resample_phantom_base:
+            if resampled_spacing is not None and not resample_phantom_base:
                 self.egsphant_obj.material_image = resampleImage3D(image=self.egsphant_obj.material_image, spacing=resample_egsphant_to, outputType=np.int16)
                 self.egsphant_obj.density_image = resampleImage3D(image=self.egsphant_obj.density_image, spacing=resample_egsphant_to)
                 self.egsphant_obj.get_voxel_edges()
