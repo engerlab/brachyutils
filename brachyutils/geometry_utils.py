@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union, Tuple
 from collections import defaultdict
 import numpy as np
-import SimpleITK as sitk
+from SimpleITK import Image, GetArrayFromImage 
 from copy import deepcopy
 # import pydicom
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
@@ -698,7 +698,8 @@ class BrachyPhantom:
         material_dict: dict | Path = None,
         assign_material_from_ct: bool = None,
         crop_by_contour: str = None,
-        resample_egsphant_to: List[float] = None,
+        resampled_spacing: List[float] = None,
+        resampled_origin: List[float] = None,
         resample_phantom_base: Optional[bool] = False,
         background_material: Optional[str] = "Air",
     ) -> None:
@@ -717,7 +718,7 @@ class BrachyPhantom:
             ]
             - assign_material_from_ct: bool := if True, the material will be assigned from the CT image.
             - crop_by_contour: str := the name of the structure in the dicom file to crop the phantom by.
-            - resample_egsphant_to: List[float] := the spacing to resample the egsphant to.
+            - resampled_spacing: List[float] := the spacing to resample the egsphant to.
             - background_material: Optional[str] := the name of the background material. default is "Air".
         """
         if str(pth_output).endswith(".egsphant"):
@@ -737,14 +738,13 @@ class BrachyPhantom:
         elif self.image_obj is not None:
             phantom_used_for_egsphant = deepcopy(self)
             from brachyutils.egsphant_utils import BrachyEgsphant
-            if resample_egsphant_to is not None: #if we want to resample
+            if resampled_spacing is not None or resampled_origin is not None: #if we want to resample
                 if resample_phantom_base: #resample the phantom and structures that the egsphant is based on
-                    phantom_used_for_egsphant.image_obj = resampleImage3D(
-                        image=phantom_used_for_egsphant.image_obj,
-                        spacing=resample_egsphant_to,
+                    phantom_used_for_egsphant.resample_to(
+                        origin=resampled_origin,
+                        spacing=resampled_spacing,
+                        inplace=True
                     )
-                    for structure in phantom_used_for_egsphant.structure_names:
-                        self.get_structure_mask([structure], ROIMask)[structure].resampleOn(phantom_used_for_egsphant.image_obj)
 
             self.egsphant_obj = BrachyEgsphant(
                 phantom=phantom_used_for_egsphant,
@@ -756,9 +756,9 @@ class BrachyPhantom:
             if crop_by_contour is not None:
                 self.egsphant_obj.crop_by_contour(phantom_used_for_egsphant, crop_by_contour)
 
-            if resample_egsphant_to is not None and not resample_phantom_base:
-                self.egsphant_obj.material_image = resampleImage3D(image=self.egsphant_obj.material_image, spacing=resample_egsphant_to, outputType=np.int16)
-                self.egsphant_obj.density_image = resampleImage3D(image=self.egsphant_obj.density_image, spacing=resample_egsphant_to)
+            if resampled_spacing is not None and not resample_phantom_base:
+                self.egsphant_obj.material_image = resampleImage3D(image=self.egsphant_obj.material_image, spacing=resampled_spacing, outputType=np.int16)
+                self.egsphant_obj.density_image = resampleImage3D(image=self.egsphant_obj.density_image, spacing=resampled_spacing)
                 self.egsphant_obj.get_voxel_edges()
             if str(pth_output).endswith(".egsphant"):
                 self.egsphant_obj.write_to_ctegsphant(pth_output)
@@ -920,31 +920,66 @@ class BrachyPhantom:
         from opentps.core.processing.imageProcessing.resampler3D import (
             resampleImage3DOnImage3D,
         )
+        from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
+
         for structure_name in mask_dict:
             # check if the structure already exists in structure set
-            old_structure = self.structure_set.getContourByName(structure_name)
+            old_structure = self.structure_set.getContourByName(structure_name.upper())
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
-            print(f"setting structure {structure_name}")
+            print(f"setting structure {structure_name.upper()}")
             if mask_dict.get(structure_name) is None:
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
                 mask = ROIMask(
-                    name=structure_name,
+                    name=structure_name.upper(),
                     imageArray=np.swapaxes(mask_dict[structure_name], 0, 2),
                     origin=self.image_obj.origin,
                     spacing=self.image_obj.spacing,
                 )
             elif isinstance(mask_dict.get(structure_name), ROIContour):
-                mask = ROIContour.getBinaryMask()
+                mask = ROIContour.getBinaryMask(
+                    origin=self.image_obj.origin,
+                    spacing=self.image_obj.spacing,
+                )
+                mask.name = structure_name.upper()
 
             elif isinstance(mask_dict.get(structure_name), ROIMask):
                 mask = mask_dict.get(structure_name)
+                mask.name = structure_name.upper()
             else:
                 raise ValueError("The mask type is not recognized.")
                 
             if self.image_obj is not None:
                 mask = resampleImage3DOnImage3D(mask, self.image_obj)
+            
+            # if mask hits the boundary of the image, set the boundary to 0.
+            tight_box_coordinates = np.round(getBoxAroundROI(mask), decimals=2)
+            mask_edges = np.array(
+                [
+                    mask.getPositionFromVoxelIndex([0, 0, 0]),
+                    mask.getPositionFromVoxelIndex(mask.gridSize-1)
+                    ]
+                )
+            mask_edges = np.round(mask_edges, decimals=2)
+            mask_edges = np.reshape(mask_edges.T, (3, 2))
+            touching_edge = (tight_box_coordinates == mask_edges).flatten()
+            for i, edge in enumerate(touching_edge):
+                if edge:
+                    if i == 0:
+                        mask.imageArray[0, :, :] = 0
+                    elif i == 1:
+                        mask.imageArray[-1, :, :] = 0
+                    elif i == 2:
+                        mask.imageArray[:, 0, :] = 0
+                    elif i == 3:
+                        mask.imageArray[:, -1, :] = 0
+                    # hitting the ends of the z axis is not problematic
+                    # elif i == 4:
+                        # mask.imageArray[:, :, 0] = 0
+                    # elif i == 5:
+                        # mask.imageArray[:, :, -1] = 0
+
             self.structure_set.appendContour(mask.getROIContour())
 
         self.structure_set.setPatient(
@@ -1033,18 +1068,68 @@ class BrachyPhantom:
         else:
             raise ValueError("The orientation is not recognized. please leave an issue on github.")
 
+    def resample_to(
+        self,
+        origin:np.array=None,
+        spacing:np.array=None,
+        inplace:bool=False) -> "BrachyPhantom":
+        r"""
+        ### Purpose:
+            - resample the phantom and the structures to a new origin and spacing.
+        
+        ### Inputs:
+            - origin:np.array := the new origin of the image.
+            - spacing:np.array := the new spacing of the image.
+            - inplace:bool := if True, the resampling will be done in place.
+        
+        ### Outputs:
+            - BrachyPhantom := the resampled phantom object if the inplace is False
+        """
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+
+        new_phantom = phantom_with_empty_image_like(self, new_pth_image=self.pth_image)
+
+        new_img_obj = resampleImage3D(self.image_obj, origin=origin, spacing=spacing)
+        if self.structure_set is not None:
+            structure_dict = self.get_structure_mask(
+                self.structure_names,
+                mask_type=ROIMask,
+                # mask_type=ROIContour,
+                )
+            new_structure_dict = {}
+            for struc in structure_dict:
+                new_structure_dict[struc] = resampleImage3DOnImage3D(
+                    structure_dict[struc],
+                    new_img_obj
+                    )
+                # new_structure_dict[struc] = structure_dict[struc].getBinaryMask(
+                #     origin=new_img_obj.origin,
+                #     spacing=new_img_obj.spacing,
+                #     gridSize=new_img_obj.gridSize,
+                # )
+        if inplace:
+            self.image_obj = new_img_obj
+            self.set_structure_set(new_structure_dict)
+        else:
+            new_phantom.image_obj = new_img_obj
+            new_phantom.set_structure_set(new_structure_dict)
+            return new_phantom
+
 # helper functions
 def phantom_with_empty_image_like(
     phantom: BrachyPhantom,
     new_pth_image: Path | str=None
     ) -> BrachyPhantom:
     r"""
-    Purpose:
+    ### Purpose:
         - Create a new BrachyPhantom object with the same structure set as the input phantom but with an empty image.
-    Inputs:
+    
+    ### Inputs:
         - phantom: BrachyPhantom := the input phantom object.
         - new_pth_image := the new name for the empty phantom.
-    Outputs:
+    
+    ### Outputs:
         - new_phantom: BrachyPhantom := the new phantom object.
     """
     from copy import deepcopy
@@ -1373,6 +1458,38 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
         structure_mask_dict[segment_name] = roi_mask
         # del segment_mask
     return structure_mask_dict, "LPS"
+
+def sitk_to_Image3D(sitk_image:Image)-> Image3D | ROIMask:
+    r"""
+    ### Purpose:
+        - to convert a sitk image to an openTPS Image3D object.
+    
+    ### Inputs:
+        - sitk_image: SimpleITK.Image := the image to be converted.
+    
+    ### Outputs:
+        - Image3D := the converted image.
+    
+    ### Dependencies:
+        - SimpleITK
+    """    
+    image_array = GetArrayFromImage(sitk_image)
+    origin = sitk_image.GetOrigin()
+    spacing = sitk_image.GetSpacing()
+
+    if image_array.dtype == "uint8":
+        image_array = image_array.astype("bool")
+        return ROIMask(
+            imageArray=np.swapaxes(image_array, 0, 2),
+            origin=origin,
+            spacing=spacing,
+        )
+    else:
+        return Image3D(
+            imageArray=np.swapaxes(image_array, 0, 2),
+            origin=origin,
+            spacing=spacing,
+        )
 
 def _get_image_orientation(pth_image: Path) -> str:
     """
