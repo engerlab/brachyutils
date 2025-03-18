@@ -5,13 +5,13 @@ from typing import Literal, Optional, Union, List, Dict
 from collections import defaultdict
 import numpy as np
 
-from brachyutils.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
+from brachyutils.geometry.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
 from opentps.core.data._transform3D import Transform3D
 from opentps.core.data.images import Deformation3D, VectorField3D
 from opentps.core.data.images import ROIMask
 # from opentps.core.data import 
 
-class PhantomRegistration(ABC):
+class BrachyPhantomRegistration(ABC):
     def __init__(
         self,
         static_phantom: Union[BrachyPhantom, str],
@@ -318,7 +318,7 @@ class PhantomRegistration(ABC):
         return {"Dice": Dice, "Hausdorff": Hausdorf}
 
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
-class Registration_OpenTPS(PhantomRegistration):
+class Registration_OpenTPS(BrachyPhantomRegistration):
     def __init__(
         self,
         static_phantom: BrachyPhantom,
@@ -450,7 +450,7 @@ class Registration_OpenTPS(PhantomRegistration):
     def evaluate_on_contours(self):
         return super().evaluate_on_contours()
 
-class Registration_Plastimatch(PhantomRegistration):
+class Registration_Plastimatch(BrachyPhantomRegistration):
     def __init__(
         self,
         pth_plastimatch: Path | str,
@@ -544,7 +544,7 @@ class Registration_Plastimatch(PhantomRegistration):
             "fixed" : f"{str(pth_static)}",
             "moving" : f"{str(pth_moving)}",
             "image_out" : f"{str(pth_output)}",
-            "vf_out" : f"{str(dir_temp_data.joinpath("vf.nrrd"))}",
+            "vf_out" : f"{str(dir_temp_data.joinpath('vf.nrrd'))}",
         }
 
         stage_params_list = stage_params_list if stage_params_list else[

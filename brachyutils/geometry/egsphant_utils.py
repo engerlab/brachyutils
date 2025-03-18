@@ -11,7 +11,7 @@ import numpy as np
 from opentps.core.data.images import Image3D
 from scipy.interpolate import RegularGridInterpolator
 
-from brachyutils.geometry_utils import BrachyPhantom
+from brachyutils.geometry.geometry_utils import BrachyPhantom
 
 
 class BrachyEgsphant:

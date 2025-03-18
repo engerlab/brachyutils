@@ -6,7 +6,7 @@ from typing import Literal, Optional, Union
 # from brachyutils.dose_utils import BrachyDose
 
 
-class DoseGenerator(ABC):
+class BrachyDoseGenerator(ABC):
     def __init__(
         self,
         dir_plan_export: Union[Path, str],
@@ -127,7 +127,7 @@ class DoseTG43(DoseGenerator):
     def validate_inputs(self):
         r"""
         Purpose:
-            - Validate the inputs of the TG43 dose generator.
+            - Validate the inputs o f the TG43 dose generator.
         """
         assert self.dir_plan_export.exists(), "The dose setup directory does not exist."
         # assert self.pth_dose_executable.exists(), "The dose executable does not exist."

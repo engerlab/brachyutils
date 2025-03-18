@@ -9,12 +9,12 @@ from pathlib import Path
 
 import numpy as np
 import typer
-from brachyutils.dose_utils import BrachyDose
-from brachyutils.egsphant_utils import BrachyEgsphant, _load_json
-from brachyutils.plan_utils import BrachyPlan
+from brachyutils import BrachyDose
+from brachyutils import BrachyEgsphant, _load_json
+from brachyutils import BrachyPlan
 from tqdm import tqdm
 from typing_extensions import Annotated
-from brachyutils.geometry_utils import BrachyPhantom
+from brachyutils import BrachyPhantom
 
 def memory_limit():
     """Limit max memory usage to half."""

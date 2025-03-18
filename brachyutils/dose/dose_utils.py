@@ -21,7 +21,7 @@ from numpy import ma, reshape
 from opentps.core.data.images import DoseImage
 from scipy.interpolate import RegularGridInterpolator
 
-from brachyutils.geometry_utils import BrachyPhantom
+from brachyutils.geometry import BrachyPhantom
 
 
 class BrachyDose:

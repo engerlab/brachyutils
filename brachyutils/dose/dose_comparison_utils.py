@@ -9,10 +9,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 from opentps.core.processing.dataComparison.gammaIndex import gammaIndex
 
-from brachyutils import BrachyDose
+from brachyutils.dose.dose_utils import BrachyDose
 
 
-class DoseComparison:
+class BrachyDoseComparison:
     r"""
     A class to compare two BrachyDose objects by computing the percent difference and gamma index.
     Attributes:
@@ -120,7 +120,7 @@ class DoseComparison:
         # self.dose_comparision_image_provider = DoseComparisonImageProvider()
         self.gamma_index: BrachyDose = None
         self.gamma_dose_percent_threshold = gamma_dose_percent_threshold
-        self.gamma_kwargs = DoseComparison.default_gamma_kwargs
+        self.gamma_kwargs = BrachyDoseComparison.default_gamma_kwargs
         self.gamma_kwargs.update(gamma_kwargs) #in case the user wants to change the default
         self.plot_max_dose_percent_of_prescription : int = 200
         self.prescription_dose = gamma_kwargs.get("global_normalisation", 1.0)

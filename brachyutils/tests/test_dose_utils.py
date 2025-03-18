@@ -5,7 +5,7 @@ import sys
 import numpy as np
 
 from brachyutils.dose_utils import BrachyDose
-from brachyutils.dose_comparison_utils import DoseComparison
+from brachyutils.dose_comparison_utils import BrachyDoseComparison
 from pathlib import Path
 from brachyutils.geometry_utils import BrachyPhantom
 
@@ -188,7 +188,7 @@ def test_dose_comparison():
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj2 = BrachyDose()
     dose_obj2.load_file_to_brachydose(pth_3ddose2)
-    dose_comparison = DoseComparison(dose_obj, dose_obj2, 1, 1)
+    dose_comparison = BrachyDoseComparison(dose_obj, dose_obj2, 1, 1)
     # evaluate that the grid contains only 0
     assert not np.any(dose_comparison.percent_difference.grid)
     # dose_comparison.compare_dose_distributions_2D(
