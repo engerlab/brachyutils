@@ -25,230 +25,11 @@ from tqdm import tqdm
 from brachyutils.dose.dose_utils import BrachyDose
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
-from brachyutils.geometry.geometry_utils import BrachyApplicator, BrachyPhantom, CatheterTable
+from brachyutils.geometry.applicator_utils import BrachyApplicator 
+from brachyutils.geometry.phantom_utils import BrachyPhantom
+from brachyutils.geometry.catheter_utils import CatheterTable
+from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
-
-
-class BrachyStructure:
-    r"""
-    Purpose:
-        - this class holds the information regarding a structure inside a brachytherapy
-        treatment plan.
-
-    Attributes:
-
-        Basic Attributes
-        - name:str
-        - mask: ROIMask
-        - target_volume: bool
-
-        DVH Attributes:
-        - in_dvh: bool
-        - dvh_metric_name: str
-        - dvh_metric_clinical_goal: str
-        - dvh_metric_observed: float
-        - dvh_obj: opentps.core.data.DVH
-
-        Uncertainty Attributes:
-        - uvh
-        - uncertainty_mean
-        - uncertainty_std
-        - uncertainty_max
-        - uncertainty_min
-
-        Optimization Attributes:
-        - name_in_gurobiModel
-        - bound_coordinates_in_gurobiModel
-        - penalty_weight_linear
-        - penalty_weight_quadratic
-        - penalty_weight_uniformity
-        - dose_limit
-        - max_dose
-        - min_dose
-
-        Simulation attributes:
-        - density
-        - density_mode
-        - material
-
-    Functions:
-        - get_dvh_metric(combined_dose:BrachyDose)
-        - to_dict(export_format:str)
-    """
-
-    def __init__(
-        self,
-        name: str = None,
-        mask_contour: ROIMask = None,
-        target_volume: bool = None,
-        in_dvh: bool = None,
-        dvh_metric_name: str = None,
-        dvh_metric_clinical_goal: float = None,
-    ) -> None:
-        r"""
-        Purpose:
-            - To initialize the BrachyStructure object.
-        Inputs:
-            - name:str := the name of the structure.
-            - mask_contour:ROIMask := the mask contour of the structure.
-            - target_volume:bool := flag to indicate whether the structure is a target volume or not.
-            - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
-            - dvh_metric_name:str := the name of the DVH metric in the format of "D#cc|%(organName)",
-            "V#Gy|%(organName)", where # represents the numerical threshold and "|" is or for example D95%(organName).
-            - dvh_metric_clinical_goal:float := the clinical goal for the DVH metric.
-        Outputs:
-            - Void := will initialize the BrachyStructure object
-        Dependencies:
-            - opentps.core.data.ROIMask
-            - opentps.core.data.DVH
-        """
-        self.name: str = None
-        self.mask_contour: ROIMask = None
-        self.target_volume: bool = None
-
-        # dose volume histogram
-        self.in_dvh: bool = None
-        self.dvh_metric_name: str = None
-        self.dvh_metric_clinical_goal: float = None
-        self.dvh_metric_observed: float = None
-        # self.normalized_cummulative_dvh: np.array = None
-        self.dvh_obj: DVH = None
-
-        # uncertainty volume histogram
-        self.uvh: np.array = None
-        self.uncertainty_mean: float = None
-        self.uncertainty_std: float = None
-        self.uncertainty_max: float = None
-        self.uncertainty_min: float = None
-
-        # optimization attributes
-        self.name_in_gurobiModel: str = None
-        self.bound_coordinates_in_gurobiModel: list = None
-        self.penalty_weight_linear: float = None
-        self.penalty_weight_quadratic: float = None
-        self.penalty_weight_uniformity: float = None
-        self.dose_limit: float = None
-        self.max_dose: float = 500
-        self.min_dose: float = 0
-
-        # simulation attributes
-        self.density: float = None  # 0
-        self.density_mode: str = None  # ""
-        self.material: str = None  # "CT Material"
-
-        self.name = name
-        self.mask_contour = mask_contour
-        self.target_volume = target_volume
-        self.in_dvh = in_dvh
-        self.dvh_metric_name = dvh_metric_name
-        self.dvh_metric_clinical_goal = dvh_metric_clinical_goal
-
-        assert (
-            self.name.lower() in self.dvh_metric_name.lower()
-        ), "name should be in dvh metric name enclosed by paranthesis"
-
-    def get_dvh_metric(self, combined_dose: BrachyDose):
-        r"""
-        Purpose:
-            - To calculate the DVH metric for the structure given the combined dose.
-            The mask contour and DVH metrics should be set before calling this function.
-            We expect the the dvh metric name to be in the format of "D#cc(organName)",
-            "D#%(organName)", "V#Gy(organName)" or "V#%(organName)", where # is the threshold
-            value. for example "D95%(organName)".
-        Inputs:
-            - combined_dose := the combined dose object for the patient.
-        Outputs:
-            - Void := will update the BrachyStructure.dvh_metric_observed and
-            BrachyStructure.dvh_obj attributes.
-        """
-        assert self.mask_contour is not None, "mask is not loaded"
-        assert self.dvh_metric_name is not None, "dvh metric name is not set"
-        assert (
-            self.dvh_metric_clinical_goal is not None
-        ), "dvh metric clinical goal is not set"
-        assert isinstance(
-            combined_dose, BrachyDose
-        ), "combined dose is not a BrachyDose object"
-        self.dvh_obj = DVH(self.mask_contour, combined_dose.dose_image)
-        metric_string = self.dvh_metric_name.split("(")[0]
-
-        if "D" in metric_string:
-            if "%" in metric_string:
-                threshold = float(metric_string.split("%")[0].split("D")[-1])
-                self.dvh_metric_observed = self.dvh_obj.computeDx(threshold)
-            elif "cc" in metric_string:
-                threshold = float(metric_string.split("cc")[0].split("D")[-1])
-                self.dvh_metric_observed = self.dvh_obj.computeDcc(threshold)
-            else:
-                raise ValueError(
-                    "invalid name for DVH metric name. \
-                    The metrics starting with 'D' should have percent sign (%) or cc.\
-                    for example 'D95%(organ name)' or 'D2cc(organ name)'"
-                )
-        elif "V" in metric_string:
-            if "%" in metric_string:
-                threshold = float(metric_string.split("%")[0].split("V")[-1])
-                self.dvh_metric_observed = self.dvh_obj.computeVx(threshold)
-            elif "Gy" in metric_string:
-                threshold = float(metric_string.split("Gy")[0].split("V")[-1])
-                self.dvh_metric_observed = self.dvh_obj.computeVx(threshold)
-            else:
-                raise ValueError(
-                    "invalid name for DVH metric name. \
-                    The metrics starting with 'V' should have percent sign (%) or Gy.\
-                    for example 'V95%(organ name)' or 'V2Gy(organ name)'"
-                )
-        else:
-            raise ValueError(
-                "invalid name for DVH metric name. \
-                The metric should should start with D followed by cc or %, or V followed by Gy or %."
-            )
-
-    def to_dict(self, export_format: str):
-        r"""
-        Purpose:
-            - To export the BrachyStructure object into a dictionary of a certain format.
-        Inputs:
-            - export_format := the export_format of the exported plan. an example is:
-                - "RapidBrachy":{
-                    "density": 0,
-                    "density_mode": "",
-                    "dose_limit": 0,
-                    "dvhConstraints": "",
-                    "in_dvh": true,
-                    "linear_weight": 1,
-                    "material": "CT Material",
-                    "max_dose": 500,
-                    "min_dose": 0,
-                    "name": "BODY",
-                    "quadratic_weight": 1,
-                    "type": "" or "Target volume" or "Organ at risk",
-                    "uniformity_weight": 1}
-
-                - "WebApp": Not implemented yet
-        """
-        if export_format == "WebApp":
-            raise NotImplementedError("export to WebApp is not implemented yet")
-        elif export_format == "RapidBrachy":
-            return {
-                "density": self.density,
-                "density_mode": self.density_mode,
-                "dose_limit": self.dose_limit,
-                "dvhConstraints": "",
-                "in_dvh": self.in_dvh,
-                "linear_weight": self.penalty_weight_linear,
-                "material": self.material,
-                "max_dose": self.max_dose,
-                "min_dose": self.min_dose,
-                "name": self.name,
-                "quadratic_weight": self.penalty_weight_quadratic,
-                "type": "Target volume" if self.target_volume else "Organ at risk",
-                "uniformity_weight": self.penalty_weight_uniformity,
-            }
-
-    def info(self):
-        print(self.to_dict("RapidBrachy"))
-
 
 class BrachyPlan:
     r"""
@@ -303,6 +84,7 @@ class BrachyPlan:
         combined_dose_only: bool = False,
         # for simulation setup:
         simulation_dict: dict | Path | str = None,
+        prescription_dose: float = None,
     ):
         r"""
         ### Purpose:
@@ -316,6 +98,7 @@ class BrachyPlan:
             #### For Structure optimization and dosimetry
             - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
             The phantom should be loaded with structures for the Brachy stuctures to be created.
+            - prescription_dose 
 
             #### for loading catheter table:
             - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
@@ -345,7 +128,7 @@ class BrachyPlan:
         # phantom and geometry attributes
         self.phantom = None
         self.dvh_metric_goals: dict = None
-        self.dvh_metric_observed: dict = None
+        self.dvh_metrics_observed: dict = None
         self.structure_list: List[BrachyStructure] = []
         self.phantom_origin = None  # np.array([0, 0, 0])  # x,y,z
         self.organ_bounds = None
@@ -383,11 +166,9 @@ class BrachyPlan:
 
         ## fill the attributes depending on the inputs to the constructor
         # set the dvh metric goals if provided
-        (
+        self.prescription_dose = prescription_dose
+        if dvh_metric_goals is not None:
             self.set_dvh_metric_goals(dvh_metric_goals)
-            if dvh_metric_goals is not None
-            else None
-        )
 
         # load the dicom plan if the path is provided
         if phantom is not None:
@@ -852,20 +633,29 @@ class BrachyPlan:
             # - BrachyDicom
         """
         self.structure_list = []
-        structure_names_in_dvh = [
+        structure_names_in_dvh = [ #list of the structure names
             x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()
         ]
+        #separate dvh metric goals into separate dictionaries by structure
+        dvh_metric_goals_by_structure = {}
+        for structure_name in structure_names_in_dvh:
+            dvh_metric_goals_per_struct = {
+                key: value
+                for key, value in dvh_metric_goals.items()
+                if structure_name in key
+            }
+            dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
+
         structure_masks: dict = phantom.get_structure_mask(
             structure_names_in_dvh, ROIMask
         )
-        for metric_key, mask_key in zip(dvh_metric_goals, structure_masks):
+        for structure_name in structure_masks.keys():
             structure_obj = BrachyStructure(
-                name=mask_key,
-                mask_contour=structure_masks[mask_key],
-                target_volume=True if "tv" in metric_key.lower() else False,
+                name=structure_name,
+                mask_contour=structure_masks[structure_name],
+                target_volume=True if "tv" in structure_name.lower() else False,
                 in_dvh=True,
-                dvh_metric_name=metric_key,
-                dvh_metric_clinical_goal=dvh_metric_goals[metric_key],
+                dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
             self.structure_list.append(structure_obj)
 
@@ -1065,17 +855,15 @@ class BrachyPlan:
         Inputs:
             - self := the BrachyPlan object
         Outputs:
-            - Void := will update the BrachyStructure.dvh_metric_observed attribute
+            - Void := will update the BrachyStructure.dvh_metrics_observed attribute
         """
         assert self.structure_list is not None, "structure list is not created yet"
-        self.dvh_metric_observed = {}
+        assert self.prescription_dose is not None, "prescription dose is not set"
+        self.dvh_metrics_observed = {}
         for structure_obj in self.structure_list:
-            structure_obj.get_dvh_metric(self.combined_dose)
-            self.dvh_metric_observed[structure_obj.dvh_metric_name] = (
-                structure_obj.dvh_metric_observed
-            )
-
-        return self.dvh_metric_observed
+            observed_metrics = structure_obj.get_dvh_metric(self.combined_dose, self.prescription_dose)
+            self.dvh_metrics_observed.update(observed_metrics)
+        return self.dvh_metrics_observed
 
     def calculate_uncertainty_per_structure(self):
         r"""
