@@ -6,12 +6,12 @@ __all__ = [
     "_load_json"
 ]
 # trunk-ignore(ruff/F401)
+from .phantom_utils import BrachyPhantom
+
+# trunk-ignore(ruff/F401)
 from .egsphant_utils import BrachyEgsphant
 from .egsphant_utils import _load_json
 #from .egsphant_utils import *
-
-# trunk-ignore(ruff/F401)
-from .phantom_utils import BrachyPhantom
 
 # trunk-ignore(ruff/F401)
 from .applicator_utils import BrachyApplicator

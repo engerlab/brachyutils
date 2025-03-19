@@ -5,7 +5,8 @@ from typing import Literal, Optional, Union, List, Dict
 from collections import defaultdict
 import numpy as np
 
-from brachyutils.geometry.geometry_utils import BrachyPhantom, phantom_with_empty_image_like
+from brachyutils.geometry.phantom_utils import BrachyPhantom
+from brachyutils.geometry.phantom_utils import phantom_with_empty_image_like
 from opentps.core.data._transform3D import Transform3D
 from opentps.core.data.images import Deformation3D, VectorField3D
 from opentps.core.data.images import ROIMask
