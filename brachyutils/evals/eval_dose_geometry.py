@@ -332,8 +332,8 @@ def scale_by_airkerma(dir_all_plans: str | Path, dir_all_dcms: str | Path):
         The wrong air keram was 5e4. each dicom plan has a different air kerma.
         the scaling factor for each dose should be plan_air_kerma/5e4.
     """
-    from brachyutils.simulation_utils import BrachySource
-    from brachyutils.dose_utils import BrachyDose
+    from brachyutils import BrachySource
+    from brachyutils import BrachyDose
     from functools import partial
 
     dir_all_plans = Path(dir_all_plans)

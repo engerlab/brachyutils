@@ -6,8 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 from typing import Dict, List, Union, Tuple
 import pandas as pd
-from brachyutils.registration_utils import PhantomRegistration
-from brachyutils.geometry_utils import BrachyPhantom
+from brachyutils import PhantomRegistration
+from brachyutils import BrachyPhantom
 
 # def export_phantom_opentps_nrrd_dicom_egsphant():
 #     from brachyutils.geometry_utils import BrachyPhantom
@@ -204,7 +204,7 @@ def run_registeration_opentps():
     # dir_moving = "../temp_data/registration/micro-reg/mr-train"
     # dir_registered = "../temp_data/registration/micro-reg/reg-train"
 
-    from brachyutils.registration_utils import Registration_OpenTPS
+    from brachyutils import Registration_OpenTPS
     # # image based registration
     evaluate_registration(
         dir_static=dir_static,
@@ -243,7 +243,7 @@ def run_registeration_opentps():
     # # contour based registration
 
 def run_registration_plastimatch():
-    from brachyutils.registration_utils import Registration_Plastimatch
+    from brachyutils import Registration_Plastimatch
 
     # # on abdomen MR-CT
     dir_static = "../temp_data/registration/abdomen-mr-ct/static"

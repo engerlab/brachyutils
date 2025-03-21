@@ -1,7 +1,7 @@
 from pathlib import Path
 import numpy as np
 from glob import glob
-from brachyutils.geometry_utils import BrachyPhantom
+from brachyutils import BrachyPhantom
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
