@@ -308,13 +308,13 @@ def test_export():
 
 def test_dose_calc():
     # # for monte carlo
-    # dir_plan_export = Path("../temp_data/mc/prostate-glen-2023/p3")
-    # pth_dose_executable = "http://192.168.1.11:8000/calculate_dose_mc"
-    # dose_gen_obj = DoseMonteCarlo(
-        # dir_plan_export=dir_plan_export,
-        # pth_dose_executable=pth_dose_executable
-    # )
-    # dose_gen_obj.generate_dose()
+    dir_plan_export = Path("../temp_data/mc/prostate-glen-2023/p3")
+    pth_dose_executable = "http://192.168.1.11:8000/calculate_dose_mc"
+    dose_gen_obj = DoseMonteCarlo(
+        dir_plan_export=dir_plan_export,
+        pth_dose_executable=pth_dose_executable
+    )
+    dose_gen_obj.generate_dose()
     
     
     # # for tg43

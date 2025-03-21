@@ -1,4 +1,9 @@
 {
+    
+    "Water" : {
+        "density":1.0,
+        "HU_limit":0.0
+    },
     "SoftTissue" : {
         "density":1.052,
         "HU_limit":14.0,
