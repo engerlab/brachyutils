@@ -979,6 +979,7 @@ class BrachyPlan:
             if content_to_export.get("egsphant", False):
                 # assumes file name is "ct.egsphant"
                 self._export_egsphant(
+<<<<<<< HEAD:brachyutils/planning/plan_utils.py
                     dir_export=str(dir_export),
                     material_dict=content_to_export.get("materials_table", None),
                     assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
@@ -986,6 +987,14 @@ class BrachyPlan:
                     resampled_spacing=content_to_export.get("resampled_spacing", None),
                     resampled_origin=content_to_export.get("resampled_origin", None),
                     background_material=content_to_export.get("background_material", "Air"),
+=======
+                    str(dir_export),
+                    content_to_export.get("materials_table", None),
+                    content_to_export.get("assign_material_from_ct", True),
+                    content_to_export.get("crop_by_contour", None),
+                    content_to_export.get("resample_egsphant_to", None),
+                    background_material=content_to_export.get("background_material", None),
+>>>>>>> 9aaf888 (passing background material to egsphant during plan export):brachyutils/plan_utils.py
                 )
                 print("Egsphant file was exported successfully")
 
@@ -1206,8 +1215,12 @@ class BrachyPlan:
         material_dict: Union[dict, Path],
         assign_material_from_ct: bool,
         crop_by_contour: str = None,
+<<<<<<< HEAD:brachyutils/planning/plan_utils.py
         resampled_spacing: List[float] = None,
         resampled_origin: List[float] = None,
+=======
+        resample_egsphant_to: List[float] = None,
+>>>>>>> 9aaf888 (passing background material to egsphant during plan export):brachyutils/plan_utils.py
         background_material: str = None
     ):
         r"""
@@ -1238,8 +1251,12 @@ class BrachyPlan:
             material_dict=material_dict,
             assign_material_from_ct=assign_material_from_ct,
             crop_by_contour=crop_by_contour,
+<<<<<<< HEAD:brachyutils/planning/plan_utils.py
             resampled_spacing=resampled_spacing,
             resampled_origin=resampled_origin,
+=======
+            resample_egsphant_to=resample_egsphant_to,
+>>>>>>> 9aaf888 (passing background material to egsphant during plan export):brachyutils/plan_utils.py
             background_material=background_material
         )
 
