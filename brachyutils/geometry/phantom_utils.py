@@ -725,11 +725,11 @@ class BrachyPhantom:
                 self.egsphant_obj.write_to_ctegsphant(pth_output)
             elif str(pth_output).endswith(".seq.nrrd"):
                 self.egsphant_obj.write_to_nrrd(pth_output)
-        #prepare the phantom for egsphant conversion
+#prepare the phantom for egsphant conversion
         elif self.image_obj is not None:
             phantom_used_for_egsphant = deepcopy(self)
             from brachyutils import BrachyEgsphant
-            if resample_egsphant_to is not None: #if we want to resample
+            if resampled_spacing is not None or resampled_origin is not None: #if we want to resample
                 if resample_phantom_base: #resample the phantom and structures that the egsphant is based on
                     phantom_used_for_egsphant.resample_to(
                         origin=resampled_origin,
