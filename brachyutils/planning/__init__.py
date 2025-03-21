@@ -1,7 +1,8 @@
 __all__ = [
     'BrachyPlan',
     'BrachyStructure',
-    'BrachySimulation'
+    'BrachySimulation',
+    "BrachySource"
 ]
 
 # trunk-ignore(ruff/F401)
@@ -11,4 +12,4 @@ from .plan_utils import BrachyPlan
 from .structure_utils import BrachyStructure
 
 # trunk-ignore(ruff/F401)
-from .simulation_utils import BrachySimulation
+from .simulation_utils import BrachySimulation, BrachySource
