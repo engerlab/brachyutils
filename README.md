@@ -32,7 +32,8 @@ We recommend attaching using the [Dev Containers](https://marketplace.visualstud
 2. type in `Attach to running` until it shows up in the command bar and select it.
 3. You should see BrachyUtils as an option, select it.
 4. A new VS code window will open, and gives you access to the files and the executables inside the container.
-5. Happy coding/debugging
+5. To debug packages using cv2 in vscode, you may need: `export QT_QPA_PLATFORM=offscreen`
+6. Happy coding/debugging
 
 
 ## Using Apptainer Image

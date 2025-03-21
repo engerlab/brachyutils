@@ -329,23 +329,6 @@ class BrachyEgsphant:
         if not os.path.exists(filePath):
             raise ValueError(f"The target nrrd file {filePath} does not exist!")
 
-        # image = sitk.ReadImage(filePath)
-        # # gridSize = np.array(image.GetSize(), dtype=int)  # [::-1]
-        # spacing = np.array(image.GetSpacing(), dtype=float)  # [::-1]
-        # # origin_coordinates is the bottom left corner of the image
-        # # but in sitk, it's the center of the first voxel
-        # origin = (
-        #     np.array(image.GetOrigin(), dtype=float) - 0.5 * spacing
-        # )  # [::-1] - 0.5 * self.voxel_size
-
-        # material_matrix = sitk.GetArrayFromImage(image)[
-        #     :, :, :, 0
-        # ]  # np.swapaxes([:, :, :, 0], 0, 2)
-        # density_matrix = sitk.GetArrayFromImage(image)[
-        #     :, :, :, 1
-        # ]  # np.swapaxes(sitk.GetArrayFromImage(image)[:, :, :, 1], 0, 2)
-        # self.num_materials = np.max(self.material_matrix).astype(int)
-
         material_density, header = nrrd.read(filePath, index_order="C")
         material_matrix = material_density[:,:,:,0]
         density_matrix = material_density[:,:,:,1]
@@ -902,7 +885,7 @@ class BrachyEgsphant:
                 )
                 # interpolate density based on the HU value
                 # density_matrix *= np.logical_not(roi_mask)
-                if material == "Air":
+                if material == background_material:
                     density_matrix = np.where(
                         roi_mask,
                         density_low_bound,

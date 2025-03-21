@@ -214,6 +214,61 @@ def test_load_nifti_image_and_segmentation_file():
     phantom_obj.write_image_to_nrrd(pth_img_out)
     phantom_obj.write_structures_to_nrrd(pth_label_out, overlap=True)
 
+def test_resample_to():
+    r"""
+    Purpose:
+        - to see if the structure sampling is working as expected.
+        I noticed that some structures (body contour exported to dicom by slicer) and
+        represented by opentps are not upsampled properly.
+        Will attempt rttools here.
+    """
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
+    pth_out = "../data_test/test_export_plan/prostate"
+    
+    origin = None
+    spacing = np.array([1., 1., 1.])
+    
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structures
+        )
+    phantom_obj.resample_to(origin, spacing, True)
+    phantom_obj.export_to(dir_nrrd_out=pth_out)
+
+def test_dicom_rt_tools():
+
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
+    pth_out = "../data_test/test_export_plan/prostate"
+    
+    origin = None
+    spacing = np.array([1., 1., 1.])
+    
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structures
+        )
+
+    import DicomRTTool as rt_tools
+    dcm_reader = rt_tools.DicomReaderWriter()
+    dcm_reader.walk_through_folders(pth_dicom)
+    all_rois = dcm_reader.return_rois()
+    dcm_reader.set_contour_names_and_associations(contour_names=all_rois)
+    dcm_reader.get_images_and_mask()
+    image = dcm_reader.images_dictionary.popitem()[1]
+    mask_dict = dcm_reader.mask_dictionary
+    
+    from brachyutils.geometry_utils import sitk_to_Image3D
+    new_mask_dict = {}
+    for mask_name in mask_dict:
+        new_mask_dict[mask_name] = sitk_to_Image3D(mask_dict[mask_name])
+    
+    phantom_obj.set_structure_set(new_mask_dict)
+
+    phantom_obj.export_to(dir_nrrd_out=pth_out)
+
+
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
     # test_brachy_phantom()
@@ -233,4 +288,6 @@ if __name__ == "__main__":
     # test_BrachyApplicator_to_mac()
     # test_BrachyApplicator_to_stl()
     # test_BrachyApplicator_set_rotation()
-    test_load_nifti_image_and_segmentation_file()
+    # test_load_nifti_image_and_segmentation_file()
+    # test_resample_to()
+    test_dicom_rt_tools()

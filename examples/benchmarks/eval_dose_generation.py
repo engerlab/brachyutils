@@ -88,7 +88,7 @@ def run_export():
         "egsphant": True,
         "materials_table": pth_material,
         "assign_material_from_ct": mat_from_ct,
-        "resample_egsphant_to": [1., 1., 1.],
+        "resampled_spacing": [1., 1., 1.],
         "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
@@ -265,7 +265,7 @@ def test_get_dvh_metrics_single_plan():
         )
 
 def test_export():
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p1")
+    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023/p1")
     dir_export = Path("../temp_data/tg43/prostate-glen-2023")
     # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
@@ -294,7 +294,7 @@ def test_export():
         "egsphant": True,
         "materials_table": pth_material,
         "assign_material_from_ct": mat_from_ct,
-        "resample_egsphant_to": [1., 1., 3.],
+        "resampled_spacing": [1., 1., 1.],
         "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
@@ -304,7 +304,7 @@ def test_export():
 
     if not pth_material.exists():
         raise FileNotFoundError(f"The material file {pth_material} does not exist.")
-    export_single_dicom_to_plan(pth_single_dicom, dir_export, content_to_export=content_to_export)#, sim_dict, content_to_export)
+    export_single_dicom_to_plan(pth_single_dicom, dir_export, content_to_export=content_to_export, sim_dict=sim_dict)
 
 def test_dose_calc():
     # # for monte carlo
@@ -370,10 +370,10 @@ def run_scale_by_airkerma():
     scale_by_airkerma(dir_all_plans, dir_all_dcms)
 
 if __name__ == "__main__":
-    # test_export()
+    test_export()
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
     # run_export()
-    run_dose_generation()
-    run_get_dvh_metrics_all_plans()
+    # run_dose_generation()
+    # run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
