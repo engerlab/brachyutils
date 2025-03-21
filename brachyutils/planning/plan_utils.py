@@ -606,10 +606,10 @@ class BrachyPlan:
         for dvh_metric in dvh_metric_goals:
             assert dvh_metric.startswith("D") or dvh_metric.startswith(
                 "V"
-            ), "dvh metric name should start with D as we are only supporting dose metrics for now"
+            ), "dvh metric name should start with D or V"
             assert (
-                "cc" in dvh_metric or "%" in dvh_metric
-            ), "dvh metric name should end with cc or '%' to signify the absolute or relative volume"
+                "cc" in dvh_metric or "%" in dvh_metric or "Gy" in dvh_metric
+            ), f"dvh metric name {dvh_metric} should end with cc or '%' to signify the absolute or relative volume"
             assert (
                 dvh_metric_goals[dvh_metric] is not None
             ), "for each dvh metric, the clinical threshold should be provided in Gy or %."
