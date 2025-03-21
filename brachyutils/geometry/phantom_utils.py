@@ -90,7 +90,7 @@ class BrachyPhantom:
         self.xyz_format: bool = True
         self.anatomical_coordinate_system: Literal["LAS", "RAS", "LPS"] = "LPS"
         # Attributes for Egsphant files
-        from brachyutils import BrachyEgsphant
+        from brachyutils.geometry.egsphant_utils import BrachyEgsphant
 
         self.egsphant_obj: "BrachyEgsphant" = None
 
@@ -725,11 +725,11 @@ class BrachyPhantom:
                 self.egsphant_obj.write_to_ctegsphant(pth_output)
             elif str(pth_output).endswith(".seq.nrrd"):
                 self.egsphant_obj.write_to_nrrd(pth_output)
-        #prepare the phantom for egsphant conversion
+#prepare the phantom for egsphant conversion
         elif self.image_obj is not None:
             phantom_used_for_egsphant = deepcopy(self)
-            from brachyutils import BrachyEgsphant
-            if resample_egsphant_to is not None: #if we want to resample
+            from brachyutils.geometry.egsphant_utils import BrachyEgsphant
+            if resampled_spacing is not None or resampled_origin is not None: #if we want to resample
                 if resample_phantom_base: #resample the phantom and structures that the egsphant is based on
                     phantom_used_for_egsphant.resample_to(
                         origin=resampled_origin,
@@ -1171,19 +1171,19 @@ def _convert_many_binary_masks_to_1_int_mask(seg_dict: dict) -> np.ndarray:
 
 def readDicomUS(dcmFiles):
     r""""
-    Generate a MR image object from a list of dicom MR slices.
+    Generate a US image object from a list of dicom US slices.
 
     Parameters
     ----------
     dcmFiles: list
-        List of paths for Dicom MR slices to be imported.
+        List of paths for Dicom US slices to be imported.
 
     Returns
     -------
     image: mrImage object
-        The function returns the imported MR image
+        The function returns the imported US image
     """
-
+    import logging
     # read dicom slices
     images = []
     sopInstanceUIDs = []

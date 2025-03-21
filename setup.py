@@ -45,5 +45,5 @@ setup(
         "nibabel",
         "monai",
     ],
-    entry_points={"console_scripts": ["brachyutils=brachyutils.misc.cli_utils:main"]},
+    entry_points={"console_scripts": ["brachyutils=brachyutils.cli_utils:main"]},
 )

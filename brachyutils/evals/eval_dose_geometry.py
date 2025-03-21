@@ -1,8 +1,8 @@
+
 from typing import List, Dict, Union, Literal
 from pathlib import Path
-from brachyutils.plan_utils import BrachyPlan, load_dicom_to_plan
-from brachyutils.dose_comparison_utils import DoseComparison
-from brachyutils.dose_generation_utils import DoseGenerator, DoseMonteCarlo, DoseTG43
+from brachyutils import load_dicom_to_plan
+from brachyutils import DoseMonteCarlo, DoseTG43
 import pandas as pd
 
 def run_multi_proc(function, input_list, max_workers=None):
@@ -332,8 +332,8 @@ def scale_by_airkerma(dir_all_plans: str | Path, dir_all_dcms: str | Path):
         The wrong air keram was 5e4. each dicom plan has a different air kerma.
         the scaling factor for each dose should be plan_air_kerma/5e4.
     """
-    from brachyutils.simulation_utils import BrachySource
-    from brachyutils.dose_utils import BrachyDose
+    from brachyutils import BrachySource
+    from brachyutils import BrachyDose
     from functools import partial
 
     dir_all_plans = Path(dir_all_plans)

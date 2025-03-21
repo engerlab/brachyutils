@@ -1,7 +1,7 @@
 __all__ = [
     "dose",
     "geometry",
-    "misc",
+    "evals",
     "planning"
 ]
 # trunk-ignore(ruff/F401)
@@ -11,4 +11,4 @@ from .geometry import *
 # trunk-ignore(ruff/F401)
 from .planning import *
 # trunk-ignore(ruff/F401)
-from .misc import *
+from .evals import *
