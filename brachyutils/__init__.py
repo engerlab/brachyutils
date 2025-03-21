@@ -1,31 +1,14 @@
 __all__ = [
-    "plan_utils",
-    "dose_utils",
-    "egsphant_utils",
-    "simulation_utils",
-    "film_utils",
-    "geometry_utils",
-    "dose_comparison_utils",
-    "registration_utils",
-    "dose_generation_utils",
+    "dose",
+    "geometry",
+    "misc",
+    "planning"
 ]
 # trunk-ignore(ruff/F401)
-from brachyutils.dose_utils import BrachyDose
-
+from .dose import *
 # trunk-ignore(ruff/F401)
-from brachyutils.dose_comparison_utils import DoseComparison
-
+from .geometry import *
 # trunk-ignore(ruff/F401)
-from brachyutils.egsphant_utils import BrachyEgsphant
-
+from .planning import *
 # trunk-ignore(ruff/F401)
-from brachyutils.film_utils import CalibrationCurve, FilmCalibration
-
-# trunk-ignore(ruff/F401)
-from brachyutils.geometry_utils import BrachyApplicator, BrachyPhantom
-
-# trunk-ignore(ruff/F401)
-from brachyutils.plan_utils import BrachyPlan, BrachyStructure
-
-# trunk-ignore(ruff/F401)
-from brachyutils.simulation_utils import BrachySimulation
+from .misc import *
