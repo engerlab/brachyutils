@@ -3,7 +3,7 @@ from opentps.core.data.images import ROIMask
 from opentps.core.data import DVH
 import numpy as np
 import warnings
-from brachyutils import BrachyDose
+from brachyutils.dose.dose_utils import BrachyDose
 
 class BrachyStructure:
     r"""

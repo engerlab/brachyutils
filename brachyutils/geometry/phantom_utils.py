@@ -90,7 +90,7 @@ class BrachyPhantom:
         self.xyz_format: bool = True
         self.anatomical_coordinate_system: Literal["LAS", "RAS", "LPS"] = "LPS"
         # Attributes for Egsphant files
-        from brachyutils import BrachyEgsphant
+        from brachyutils.geometry.egsphant_utils import BrachyEgsphant
 
         self.egsphant_obj: "BrachyEgsphant" = None
 
@@ -728,7 +728,7 @@ class BrachyPhantom:
 #prepare the phantom for egsphant conversion
         elif self.image_obj is not None:
             phantom_used_for_egsphant = deepcopy(self)
-            from brachyutils import BrachyEgsphant
+            from brachyutils.geometry.egsphant_utils import BrachyEgsphant
             if resampled_spacing is not None or resampled_origin is not None: #if we want to resample
                 if resample_phantom_base: #resample the phantom and structures that the egsphant is based on
                     phantom_used_for_egsphant.resample_to(
