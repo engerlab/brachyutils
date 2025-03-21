@@ -1171,19 +1171,19 @@ def _convert_many_binary_masks_to_1_int_mask(seg_dict: dict) -> np.ndarray:
 
 def readDicomUS(dcmFiles):
     r""""
-    Generate a MR image object from a list of dicom MR slices.
+    Generate a US image object from a list of dicom US slices.
 
     Parameters
     ----------
     dcmFiles: list
-        List of paths for Dicom MR slices to be imported.
+        List of paths for Dicom US slices to be imported.
 
     Returns
     -------
     image: mrImage object
-        The function returns the imported MR image
+        The function returns the imported US image
     """
-
+    import logging
     # read dicom slices
     images = []
     sopInstanceUIDs = []
