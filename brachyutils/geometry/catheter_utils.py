@@ -1,9 +1,9 @@
 import numpy as np
 from typing import List, Union
 from pathlib import Path
+from pydantic import BaseModel, model_validator
 
-
-class DwellPosition:
+class DwellPosition(BaseModel):
     r"""
     Purpose:
         - This class holds the information regarding a dwell position.
@@ -16,17 +16,28 @@ class DwellPosition:
         - time: float := dwell time for this dwell position
         - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
     """
+    index: int
+    angle: float = 0.0
+    position: List[float] | np.array
+    relativePos: int
+    rotation: List[float] | np.array
+    time: float
+    weight: float
 
+    @model_validator(pre=True)
+    def parse_input(cls, values):
+        
+    
     def __init__(
         self,
-        index: int = None,
-        angle: float = 0,
-        position: np.array = None,
-        relativePos: int = None,
-        rotation: np.array = None,
-        time: float = None,
-        weight: float = None,
-        dwell_dict: dict = None,
+        # index: int = None,
+        # angle: float = 0,
+        # position: np.array = None,
+        # relativePos: int = None,
+        # rotation: np.array = None,
+        # time: float = None,
+        # weight: float = None,
+        # dwell_dict: dict = None,
     ) -> None:
         r"""
         Purpose:
