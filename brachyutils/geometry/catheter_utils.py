@@ -84,7 +84,7 @@ class DwellPosition(BaseModel):
             "weight": float(self.weight(total_time)),
         }
 
-class Catheter (BaseModel):
+class Catheter(BaseModel):
     r"""
     ### Purpose:
         - This class holds the information regarding a catheter.
@@ -93,11 +93,12 @@ class Catheter (BaseModel):
         - iD:int := the id of the catheter.
         - points:List[np.array] := the list of points of the catheter.
         - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
-        - channel_total_time:float := the total time of the catheter.
         - afterloader_channel_number:int := the afterloader channel number of the catheter.
+        - channel_total_time:float := the total time of the catheter.
 
     ### Functions:
         - to_dict() -> dict := convert the catheter to a dictionary.
+        - add_dwell(dwell:DwellPosition) -> None := add a dwell position to the catheter.
     """
     iD: int
     dwells: List[DwellPosition]
@@ -147,7 +148,7 @@ class Catheter (BaseModel):
         if total_time is None:
             total_time = self.channel_total_time
         return {
-            "id": self.iD,
+            "iD": self.iD,
             "points": self.points,
             "dwells": [dwell.to_dict(total_time) for dwell in self.dwells],
             "channel_total_time": self.channel_total_time,
@@ -164,64 +165,92 @@ class Catheter (BaseModel):
         """
         raise NotImplementedError("This function is not implemented yet.")
 
-class CatheterTable:
+class CatheterTable(BaseModel):
     r"""
-    Purpose:
+    ### Purpose:
         - This class holds the information regarding the catheter table.
-    Attributes:
+    
+    ### Attributes:
         - catheter_list : List[Catheter] := the list of catheter objects in the catheter table.
-    Functions:
+    
+    ### Functions:
         - load_from_json(pth_json:Path) -> list
         - load_from_dicom(pth_dicom:Path) -> list
     """
 
-    def __init__(
-        self,
-        catheter_list: List[Union[Catheter, dict]] = None,
-        pth_catheter_table: Path = None,
-    ) -> None:
+    catheter_list: List[Catheter] | List[dict] | str | Path
+
+    @model_validator(mode="before")
+    def finish_initialization(cls, all_inputs):
         r"""
-        Purpose:
-            - Initialize the CatheterTable object. from a list or a file. please provide only one of the inputs.
-        Inputs:
-            - catheter_list:List[Catheter] := the list of catheters in the catheter table.
-            - pth_catheter_table:Path := the path to the catheter table file, which could be
-            a dicom plan or a json file.
+        ### Purpose:
+            - To handle the different types of inputs for the catheter list.
+            if a file path or a string is provided, load the catheter table from the json or dicom file.
         """
-        assert (catheter_list is not None) != (
-            pth_catheter_table is not None
-        ), "Either the catheter list or the path to the catheter table should be provided."
+        if (isinstance(all_inputs["catheter_list"], str) or
+            isinstance(all_inputs["catheter_list"], Path)
+            ):
+            catheter_file = Path(all_inputs["catheter_list"])
+            if str(catheter_file).endswith(".json"):
+                all_inputs["catheter_list"] = cls.load_from_json(catheter_file)
+            elif str(catheter_file).endswith(".dcm"):
+                all_inputs["catheter_list"] = cls.load_from_dicom(pth_dicom=catheter_file)
 
-        if pth_catheter_table is not None:
-            assert os.path.exists(
-                pth_catheter_table
-            ), f"The input json file does not exist: {pth_catheter_table}"
-            extension = os.path.splitext(pth_catheter_table)[1]
-            if extension == ".json":
-                catheter_list = self.load_from_json(pth_catheter_table)
-            elif extension == ".dcm":
-                catheter_list = self.load_from_dicom(pth_catheter_table)
-        if isinstance(catheter_list[0], dict):
-            catheter_list = [
-                Catheter(catheter_dict=catheter_dict) for catheter_dict in catheter_list
+        if isinstance(all_inputs["catheter_list"][0], dict):
+            all_inputs["catheter_list"] = [
+                Catheter(**catheter_dict) for catheter_dict in all_inputs["catheter_list"]
             ]
-
-        assert isinstance(
-            catheter_list[0], Catheter
-        ), "The catheter list should contain Catheter objects."
-        self.catheter_list: list = catheter_list
+        return all_inputs
 
     def __iter__(self):
         for catheter in self.catheter_list:
             yield catheter
 
-    def load_from_json(self, pth_json: Path) -> list:
+    def get_treatment_time(self) -> float:
         r"""
         Purpose:
-            - Load the catheter table from a json file.
+            - To calculate the total treatment time.
         Inputs:
-            - pth_json: Path := the path to the json file containing the catheter table.
+            - catheter_table:CatheterTable := the catheter table object.
         Outputs:
+            - float := the total treatment time.
+        """
+        return np.sum([catheter.channel_total_time for catheter in self.catheter_list])
+
+    def to_dict(self) -> dict:
+        r"""
+        Purpose:
+            - To convert the catheter table to a dictionary.
+        Inputs:
+            - self := the CatheterTable object.
+        Outputs:
+            - dict := the dictionary containing the catheter table.
+        """
+        return [catheter.to_dict() for catheter in self.catheter_list]
+
+    def info(self) -> None:
+        r"""
+        Purpose:
+            - To print the information about the catheter table.
+        """
+        # print(self.to_dict())
+        print("Catheter table info is as follows:")
+        print(f"Number of catheters: {len(self.catheter_list)}")
+        for catheter in self.catheter_list:
+            print(f"Catheter ID: {catheter.iD}")
+            print(f"Number of dwell positions: {len(catheter.dwells)}")
+            print(f"Total channel time: {catheter.channel_total_time}")
+
+    @classmethod
+    def load_from_json(cls, pth_json: Path) -> list:
+        r"""
+        ### Purpose:
+            - Load the catheter table from a json file.
+        
+        ### Inputs:
+            - pth_json: Path := the path to the json file containing the catheter table.
+        
+        ### Outputs:
             - Void := will update the catheter table based on the json file.
         """
         raw_catheter_table: list = []
@@ -234,7 +263,8 @@ class CatheterTable:
                 raw_catheter_table.append(Catheter(catheter_dict=catheter_dict))
             return raw_catheter_table
 
-    def load_from_dicom(self, pth_dicom: Path) -> list:
+    @classmethod
+    def load_from_dicom(cls, pth_dicom: Path) -> List[dict]:
         r"""
         Purpose:
             - Load the catheter table from a dicom file.
@@ -312,7 +342,7 @@ class CatheterTable:
                 )
             catheter_table.append(
                 {
-                    "id": int(catheter_dcm.ChannelNumber) - 1,
+                    "iD": int(catheter_dcm.ChannelNumber) - 1,
                     "points": [],
                     "channel_total_time": catheter_time,
                     "channel_final_time_weight": channel_final_time_weight,
@@ -378,43 +408,9 @@ class CatheterTable:
                 for i in range(len(dwells)):
                     dwells[i]["rotation"] = _get_rotation_from_position(i, dwells)
     
-            final_catheter_table.append(Catheter(catheter_dict=catheter))
+            final_catheter_table.append(Catheter(**catheter))
         return final_catheter_table
 
-    def get_treatment_time(self) -> float:
-        r"""
-        Purpose:
-            - To calculate the total treatment time.
-        Inputs:
-            - catheter_table:CatheterTable := the catheter table object.
-        Outputs:
-            - float := the total treatment time.
-        """
-        return np.sum([catheter.channel_total_time for catheter in self.catheter_list])
-
-    def to_dict(self) -> dict:
-        r"""
-        Purpose:
-            - To convert the catheter table to a dictionary.
-        Inputs:
-            - self := the CatheterTable object.
-        Outputs:
-            - dict := the dictionary containing the catheter table.
-        """
-        return [catheter.to_dict() for catheter in self.catheter_list]
-
-    def info(self) -> None:
-        r"""
-        Purpose:
-            - To print the information about the catheter table.
-        """
-        # print(self.to_dict())
-        print("Catheter table info is as follows:")
-        print(f"Number of catheters: {len(self.catheter_list)}")
-        for catheter in self.catheter_list:
-            print(f"Catheter ID: {catheter.id}")
-            print(f"Number of dwell positions: {len(catheter.dwells)}")
-            print(f"Total channel time: {catheter.channel_total_time}")
 
 def _get_rotation_from_position(idx, control_points):
     r"""

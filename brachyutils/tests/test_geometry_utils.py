@@ -145,7 +145,7 @@ def test_catheter_table():
         "time": np.random.rand(1) * 100,
         # "weight": 0.003,
     }
-    # dwell_obj = DwellPosition(**dwell_dict_0)
+    dwell_obj = DwellPosition(**dwell_dict_0)
     # print(dwell_obj.to_dict())
     
     catheter_dict = {
@@ -159,14 +159,14 @@ def test_catheter_table():
         "afterloader_channel_number": 0,
     }
     catheter_obj = Catheter(**catheter_dict)
-    print(catheter_obj.to_dict())
-    
-    # test loadin from dicom
-    # pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    # pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
+    # print(catheter_obj.to_dict())
 
-    # catheter_table = CatheterTable(pth_catheter_table=pth_plan)
-    # catheter_table.info()
+    # # test loadin from dicom
+    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
+
+    catheter_table = CatheterTable(catheter_list=pth_plan)
+    catheter_table.info()
 
 
 def test_BrachyApplicator():
