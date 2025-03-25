@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Union
+from typing import List, Union, Dict
 from pathlib import Path
 from pydantic import BaseModel, model_validator
 
@@ -18,90 +18,20 @@ class DwellPosition(BaseModel):
     """
     index: int
     angle: float = 0.0
-    position: List[float] | np.array
+    position: List[float] | Dict[str, float]
     relativePos: int
-    rotation: List[float] | np.array
+    rotation: List[float] | Dict[str, float]
     time: float
     weight: float
 
-    @model_validator(pre=True)
-    def parse_input(cls, values):
-        
-    
-    def __init__(
-        self,
-        # index: int = None,
-        # angle: float = 0,
-        # position: np.array = None,
-        # relativePos: int = None,
-        # rotation: np.array = None,
-        # time: float = None,
-        # weight: float = None,
-        # dwell_dict: dict = None,
-    ) -> None:
-        r"""
-        Purpose:
-            - Initialize the DwellPosition object.
-        Inputs:
-            - index:int := the index of the dwell position.
-            - angle:float := angle of the IMBT shield
-            - position:np.array := dwell position in the patient coordinate system [x, y, z]
-            - relativePos:int := dwell coordinate along the catheter from the reference point. increments of 5 mm
-            - rotation:np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
-            - time:float := dwell time for this dwell position
-            - weight:float := ratio of this dwell time over the sum of all dwell times in all catheters.
-            - dwell_dict:dict := the dictionary containing the dwell position.
-            either provide the index, angle, position, relativePos, rotation, time and weight or provide the dwell_dict. Not both.
-        """
-        assert (
-            (index is not None)
-            and (angle is not None)
-            and (position is not None)
-            and (relativePos is not None)
-            and (rotation is not None)
-            and (time is not None)
-            and (weight is not None)
-        ) != (
-            dwell_dict is not None
-        ), "Either provide index, angle, position, relativePos, rotation, time and weight or provide catheter_dict. Not both."
+    @model_validator(mode="before")
+    def convert_dict_to_list(cls, all_inputs):
+        if isinstance(all_inputs["position"], dict):
+            all_inputs["position"] = list(all_inputs["position"].values())
+        if isinstance(all_inputs["rotation"], dict):
+            all_inputs["rotation"] = list(all_inputs["rotation"].values())
+        return all_inputs
 
-        if dwell_dict is not None:
-            index = dwell_dict.get("index", None)
-            angle = float(dwell_dict.get("angle"))
-            position = np.array(
-                [
-                    dwell_dict.get("position").get("x"),
-                    dwell_dict.get("position").get("y"),
-                    dwell_dict.get("position").get("z"),
-                ]
-            )
-            relativePos = dwell_dict.get("relativePos")
-            rotation = np.array(
-                [
-                    dwell_dict.get("rotation").get("x"),
-                    dwell_dict.get("rotation").get("y"),
-                    dwell_dict.get("rotation").get("z")
-                ]
-            )
-            time = float(dwell_dict.get("time"))
-            weight = float(dwell_dict.get("weight", None))
-
-        assert isinstance(index, int), "index should be an integer"
-        self.index = index
-        assert isinstance(
-            angle, float or int
-        ), "index should be a floating point number"
-        self.angle = angle
-        assert isinstance(position, np.ndarray), "position should be a numpy array"
-        self.position = position
-        assert isinstance(relativePos, int), "relativePos should be an integer"
-        self.relativePos = relativePos
-        assert isinstance(rotation, np.ndarray), "rotation should be a numpy array"
-        self.rotation = rotation
-        assert isinstance(time, float), "time should be a float"
-        self.time = time
-        assert isinstance(weight, float), "weight should be a float"
-        self.weight = weight
 
     def to_dict(self) -> dict:
         r"""

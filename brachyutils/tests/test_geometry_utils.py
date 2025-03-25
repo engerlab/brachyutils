@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 from brachyutils import BrachyPhantom
-from brachyutils.geometry_utils import BrachyApplicator
+from brachyutils.geometry.applicator_utils import BrachyApplicator
 
 def test_brachy_phantom():
     # pth_dicom = "../data_test/prostate-glen-p1-dcm"
@@ -117,13 +117,36 @@ def test_crop_phantom():
 
 
 def test_catheter_table():
-    from brachyutils.geometry_utils import CatheterTable
+    from brachyutils.geometry.catheter_utils import DwellPosition, Catheter, CatheterTable
+    # first test dwell position
+    # dwell_obj = DwellPosition(
+    #     index= 2,
+    #     # angle= 0,
+    #     position= np.array([23.4, 435.2, 32.2]), 
+    #     relativePos= 5,
+    #     rotation= [0, 0, 0],
+    #     time= 45.3,
+    #     weight= 0.003,
+    # )
+    # print(dwell_obj.to_dict())
+    dwell_dict = {
+        "index": 2,
+        # "angle": 0,
+        "position": [23.4, 435.2, 32.2], 
+        "relativePos": 5,
+        'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        "time": 45.3,
+        "weight": 0.003,
+    }
+    dwell_obj = DwellPosition(**dwell_dict)
+    print(dwell_obj.to_dict())
+    
+    # test loadin from dicom
+    # pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    # pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
 
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
-
-    catheter_table = CatheterTable(pth_catheter_table=pth_plan)
-    catheter_table.info()
+    # catheter_table = CatheterTable(pth_catheter_table=pth_plan)
+    # catheter_table.info()
 
 
 def test_BrachyApplicator():
@@ -282,7 +305,7 @@ if __name__ == "__main__":
     # test_load_egsphant()
     # test_crop_phantom()
     # print("testing CatheterTable")
-    # test_catheter_table()
+    test_catheter_table()
     # print("testing BrachyApplicator")
     # test_BrachyApplicator()
     # test_BrachyApplicator_to_mac()
@@ -290,4 +313,4 @@ if __name__ == "__main__":
     # test_BrachyApplicator_set_rotation()
     # test_load_nifti_image_and_segmentation_file()
     # test_resample_to()
-    test_dicom_rt_tools()
+    # test_dicom_rt_tools()
