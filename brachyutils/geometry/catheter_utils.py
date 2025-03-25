@@ -179,7 +179,20 @@ class CatheterTable(BaseModel):
     """
 
     catheter_list: List[Catheter] | List[dict] | str | Path
-
+    @computed_field
+    def treatment_time(self) -> float:
+        r"""
+        ### Purpose:
+            - To calculate the total treatment time.
+        
+        ### Inputs:
+            - catheter_table:CatheterTable := the catheter table object.
+        
+        ### Outputs:
+            - float := the total treatment time.
+        """
+        return np.sum([catheter.channel_total_time for catheter in self.catheter_list])
+    
     @model_validator(mode="before")
     def finish_initialization(cls, all_inputs):
         r"""
@@ -206,17 +219,6 @@ class CatheterTable(BaseModel):
         for catheter in self.catheter_list:
             yield catheter
 
-    def get_treatment_time(self) -> float:
-        r"""
-        Purpose:
-            - To calculate the total treatment time.
-        Inputs:
-            - catheter_table:CatheterTable := the catheter table object.
-        Outputs:
-            - float := the total treatment time.
-        """
-        return np.sum([catheter.channel_total_time for catheter in self.catheter_list])
-
     def to_dict(self) -> dict:
         r"""
         Purpose:
@@ -226,7 +228,7 @@ class CatheterTable(BaseModel):
         Outputs:
             - dict := the dictionary containing the catheter table.
         """
-        return [catheter.to_dict() for catheter in self.catheter_list]
+        return [catheter.to_dict(total_time=self.treatment_time) for catheter in self.catheter_list]
 
     def info(self) -> None:
         r"""
@@ -236,6 +238,7 @@ class CatheterTable(BaseModel):
         # print(self.to_dict())
         print("Catheter table info is as follows:")
         print(f"Number of catheters: {len(self.catheter_list)}")
+        print(f"Total treatment time: {self.treatment_time}")
         for catheter in self.catheter_list:
             print(f"Catheter ID: {catheter.iD}")
             print(f"Number of dwell positions: {len(catheter.dwells)}")
