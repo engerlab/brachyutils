@@ -9,6 +9,7 @@ class DwellPosition(BaseModel):
         - This class holds the information regarding a dwell position.
 
     Attributes:
+        - index
         - angle := angle of the IMBT shield
         - position:dict: np.array := dwell position in the patient coordinate system [x, y, z]
         - relativePos: int := dwell coordinate along the catheter from the reference point. increments of 5 mm
