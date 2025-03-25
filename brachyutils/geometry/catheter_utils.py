@@ -28,7 +28,6 @@ class DwellPosition(BaseModel):
     time: float
     # weight: float = None
 
-    # @computed_field()
     def weight(self, total_time: float) -> float:
         r"""
         ### Purpose:
@@ -153,6 +152,17 @@ class Catheter (BaseModel):
             "dwells": [dwell.to_dict(total_time) for dwell in self.dwells],
             "channel_total_time": self.channel_total_time,
         }
+
+    def add_dwell(self, dwell:DwellPosition) -> None:
+        r"""
+        ### Purpose:
+            - Insert a dwell position to the catheter and update the necessary attributes.
+
+        ### Inputs:
+            - self := the Catheter object.
+            - dwell:DwellPosition := the dwell position to be added.
+        """
+        raise NotImplementedError("This function is not implemented yet.")
 
 class CatheterTable:
     r"""
