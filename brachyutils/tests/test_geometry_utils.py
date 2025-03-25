@@ -118,28 +118,48 @@ def test_crop_phantom():
 
 def test_catheter_table():
     from brachyutils.geometry.catheter_utils import DwellPosition, Catheter, CatheterTable
-    # first test dwell position
-    # dwell_obj = DwellPosition(
-    #     index= 2,
-    #     # angle= 0,
-    #     position= np.array([23.4, 435.2, 32.2]), 
-    #     relativePos= 5,
-    #     rotation= [0, 0, 0],
-    #     time= 45.3,
-    #     weight= 0.003,
-    # )
-    # print(dwell_obj.to_dict())
-    dwell_dict = {
-        "index": 2,
+    dwell_dict_0 = {
+        "index": 0,
         # "angle": 0,
-        "position": [23.4, 435.2, 32.2], 
+        "position": np.random.rand(3), 
         "relativePos": 5,
         'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
         "time": 45.3,
-        "weight": 0.003,
+        # "weight": 0.003,
     }
-    dwell_obj = DwellPosition(**dwell_dict)
-    print(dwell_obj.to_dict())
+    dwell_dict_1 = {
+        "index": 1,
+        # "angle": 0,
+        "position": np.random.rand(3), 
+        "relativePos": 5,
+        'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        "time": np.random.rand(1) * 100,
+        # "weight": 0.003,
+    }
+    dwell_dict_2 = {
+        "index": 2,
+        "angle": 180,
+        "position": np.random.rand(3), 
+        "relativePos": 5,
+        'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        "time": np.random.rand(1) * 100,
+        # "weight": 0.003,
+    }
+    # dwell_obj = DwellPosition(**dwell_dict_0)
+    # print(dwell_obj.to_dict())
+    
+    catheter_dict = {
+        "iD": 0,
+        "dwells": [
+            dwell_dict_0,
+            dwell_dict_1,
+            dwell_dict_2,
+        ],
+        "points" :[],
+        "afterloader_channel_number": 0,
+    }
+    catheter_obj = Catheter(**catheter_dict)
+    print(catheter_obj.to_dict())
     
     # test loadin from dicom
     # pth_dicom = "../data_test/prostate-glen-p1-dcm"

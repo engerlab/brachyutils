@@ -1,14 +1,14 @@
 import numpy as np
 from typing import List, Union, Dict
 from pathlib import Path
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, computed_field
 
 class DwellPosition(BaseModel):
     r"""
-    Purpose:
+    ### Purpose:
         - This class holds the information regarding a dwell position.
 
-    Attributes:
+    ### Attributes:
         - index
         - angle := angle of the IMBT shield
         - position:dict: np.array := dwell position in the patient coordinate system [x, y, z]
@@ -16,6 +16,9 @@ class DwellPosition(BaseModel):
         - rotation: np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
         - time: float := dwell time for this dwell position
         - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
+    
+    ### Functions:
+        - to_dict() -> dict := convert the dwell position to a dictionary.
     """
     index: int
     angle: float = 0.0
@@ -23,18 +26,39 @@ class DwellPosition(BaseModel):
     relativePos: int
     rotation: List[float] | Dict[str, float]
     time: float
-    weight: float
+    # weight: float = None
+
+    # @computed_field()
+    def weight(self, total_time: float) -> float:
+        r"""
+        ### Purpose:
+            - To calculate the weight of the dwell position relative to a total time.
+            The total time could come from the catheter or the treatment plan.
+            
+        ### Inputs:
+            - self := the DwellPosition object.
+            - total_time:float=None := the total time of the catheter or the treatment plan.
+            if this is not provided, the weight of the dwell position will be returned.
+        
+        ### Outputs:
+            - float := the weight of the dwell position.
+        """
+        return self.time / total_time
 
     @model_validator(mode="before")
-    def convert_dict_to_list(cls, all_inputs):
+    def finish_initialization(cls, all_inputs):
+        r"""
+        ### Purpose:
+            - If the position and rotation are provided as dictionaries, convert
+            them to lists.
+        """
         if isinstance(all_inputs["position"], dict):
             all_inputs["position"] = list(all_inputs["position"].values())
         if isinstance(all_inputs["rotation"], dict):
             all_inputs["rotation"] = list(all_inputs["rotation"].values())
         return all_inputs
 
-
-    def to_dict(self) -> dict:
+    def to_dict(self, total_time) -> dict:
         r"""
         Purpose:
             - To convert the dwell position to a dictionary.
@@ -58,84 +82,77 @@ class DwellPosition(BaseModel):
                 "z": float(self.rotation[2]),
             },
             "time": float(self.time),
-            "weight": float(self.weight),
+            "weight": float(self.weight(total_time)),
         }
 
-
-class Catheter:
+class Catheter (BaseModel):
     r"""
-    Purpose:
+    ### Purpose:
         - This class holds the information regarding a catheter.
-    Attributes:
-        - id:int := the id of the catheter.
+    
+    ### Attributes:
+        - iD:int := the id of the catheter.
         - points:List[np.array] := the list of points of the catheter.
         - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
+        - channel_total_time:float := the total time of the catheter.
+        - afterloader_channel_number:int := the afterloader channel number of the catheter.
+
+    ### Functions:
+        - to_dict() -> dict := convert the catheter to a dictionary.
     """
+    iD: int
+    dwells: List[DwellPosition]
+    points: List[List[float]] = None
+    afterloader_channel_number: int = None
 
-    def __init__(
-        self,
-        iD: int = None,
-        dwells: list = None,
-        points: List[DwellPosition] = None,
-        channel_total_time: float = None,
-        catheter_dict: dict = None,
-    ) -> None:
+    @computed_field
+    def channel_total_time(self) -> float:
         r"""
-        Purpose:
-            - Initialize the Catheter object.
-        Inputs:
-            - iD:int := the id of the catheter.
-            - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
-            - points:List[np.array] := the list of points of the catheter.
-            - catheter_dict:dict := the dictionary containing the catheter.
-        """
-        assert (
-            iD is not None
-            and dwells is not None
-            and points is not None
-            and channel_total_time is not None
-        ) != (
-            catheter_dict is not None
-        ), "Either provide iD, dwells and points or provide catheter_dict. Not both."
-        if catheter_dict is not None:
-            iD = catheter_dict.get("id")
-            points = catheter_dict.get("points")
-            dwells = []
-            channel_total_time = catheter_dict.get("channel_total_time", 0.0)
-            for i, dwell_dict in enumerate(catheter_dict.get("dwells")):
-                if "index" not in dwell_dict:
-                    dwell_dict["index"] = i
-                dwells.append(DwellPosition(dwell_dict=dwell_dict))
-                if "channel_total_time" not in catheter_dict:
-                    channel_total_time += dwell_dict.get("time")
-
-        assert isinstance(iD, int), "iD should be an integer"
-        self.id = iD
-        assert isinstance(points, list), "points should be a list"
-        self.points = points
-        assert isinstance(dwells, list), "dwells should be a list"
-        self.dwells = dwells
-        assert isinstance(
-            channel_total_time, float
-        ), "channel_total_time should be a float"
-        self.channel_total_time = channel_total_time
-
-    def to_dict(self) -> dict:
-        r"""
-        Purpose:
-            - To convert the catheter to a dictionary.
-        Inputs:
+        ### Purpose:
+            - To calculate the total time of the catheter by summing over individual dwell times.
+        
+        ### Inputs:
             - self := the Catheter object.
-        Outputs:
+        
+        ### Outputs:
+            - float := the total time of the catheter.
+        """
+        return np.sum([dwell.time for dwell in self.dwells])
+
+    @model_validator(mode="before")
+    def finish_initialization(cls, all_inputs):
+        r"""
+        ### Purpose:
+            - To conver the list of dwell dictionaries to a list of DwellPosition objects.
+            - extract the channel_total_time from the dwells if it is not provided.
+        """
+        if isinstance(all_inputs["dwells"][0], dict):
+            all_inputs["dwells"] = [DwellPosition(**dwell) for dwell in all_inputs["dwells"]]
+        # if "channel_total_time" not in all_inputs:
+        #     all_inputs["channel_total_time"] = np.sum([dwell.time for dwell in all_inputs["dwells"]])
+        return all_inputs
+
+    def to_dict(self, total_time=None) -> dict:
+        r"""
+        ### Purpose:
+            - To convert the catheter to a dictionary.
+
+        ### Inputs:
+            - self := the Catheter object.
+            - total_time:float=None := the total time to be used in weight calculation for
+            each dwell position. if None, channel_total_time will be used.
+
+        ### Outputs:
             - dict := the dictionary containing the catheter.
         """
+        if total_time is None:
+            total_time = self.channel_total_time
         return {
-            "id": self.id,
+            "id": self.iD,
             "points": self.points,
-            "dwells": [dwell.to_dict() for dwell in self.dwells],
+            "dwells": [dwell.to_dict(total_time) for dwell in self.dwells],
             "channel_total_time": self.channel_total_time,
         }
-
 
 class CatheterTable:
     r"""
