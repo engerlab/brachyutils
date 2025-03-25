@@ -2,7 +2,7 @@ import numpy as np
 from typing import List, Union, Dict
 from pathlib import Path
 from pydantic import BaseModel, model_validator, computed_field
-
+import json
 class DwellPosition(BaseModel):
     r"""
     ### Purpose:

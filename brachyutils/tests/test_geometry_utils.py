@@ -302,7 +302,7 @@ def test_dicom_rt_tools():
     image = dcm_reader.images_dictionary.popitem()[1]
     mask_dict = dcm_reader.mask_dictionary
     
-    from brachyutils.geometry_utils import sitk_to_Image3D
+    from brachyutils.geometry.phantom_utils import sitk_to_Image3D
     new_mask_dict = {}
     for mask_name in mask_dict:
         new_mask_dict[mask_name] = sitk_to_Image3D(mask_dict[mask_name])
