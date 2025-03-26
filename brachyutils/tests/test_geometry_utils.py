@@ -163,10 +163,13 @@ def test_catheter_table():
 
     # # test loadin from dicom
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_json = "../data_test/test_export_plan/prostate/test_catheter_table.json"
     pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
-
     catheter_table = CatheterTable(catheter_list=pth_plan)
-    catheter_table.info()
+    catheter_table.write_to_json(pth_json)
+    
+    cat_tab_json = CatheterTable(catheter_list=pth_json)
+    cat_tab_json.info()
 
 
 def test_BrachyApplicator():

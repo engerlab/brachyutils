@@ -244,6 +244,23 @@ class CatheterTable(BaseModel):
             print(f"Number of dwell positions: {len(catheter.dwells)}")
             print(f"Total channel time: {catheter.channel_total_time}")
 
+    def write_to_json(self, pth_json: Path) -> None:
+        r"""
+        ### Purpose:
+            - Write the catheter table to a json file.
+        
+        ### Inputs:
+            - pth_json: Path := the path to the json file where the catheter table will be written.
+        
+        ### Outputs:
+            - Void := will write the catheter table to a json file.
+        """
+        pth_json = Path(pth_json)
+        pth_json.parent.mkdir(parents=True, exist_ok=True)
+        with open(pth_json, "w") as json_file:
+            json.dump(self.to_dict(), json_file, indent=4
+            )
+
     @classmethod
     def load_from_json(cls, pth_json: Path) -> list:
         r"""
@@ -263,7 +280,7 @@ class CatheterTable(BaseModel):
                 catheter_table_list, list
             ), "The json file, should contain a list of catheters."
             for catheter_dict in catheter_table_list:
-                raw_catheter_table.append(Catheter(catheter_dict=catheter_dict))
+                raw_catheter_table.append(Catheter(**catheter_dict))
             return raw_catheter_table
 
     @classmethod
