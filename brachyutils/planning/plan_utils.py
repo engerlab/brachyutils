@@ -192,7 +192,7 @@ class BrachyPlan:
         # load the catheter table if the path is provided
         if catheter_table is not None:
             if isinstance(catheter_table, Path) or isinstance(catheter_table, str):
-                self.catheter_table = CatheterTable(pth_catheter_table=catheter_table)
+                self.catheter_table = CatheterTable(catheter_list=catheter_table)
             elif isinstance(catheter_table, CatheterTable):
                 self.catheter_table = catheter_table
             else:
@@ -362,7 +362,7 @@ class BrachyPlan:
         # extract the attributes above from the catheter table
         dwell_counter = 1
         for catheter in self.catheter_table.catheter_list:
-            self.catheter_numbers = np.append(self.catheter_numbers, catheter.id)
+            self.catheter_numbers = np.append(self.catheter_numbers, catheter.iD)
             for dwell in catheter.dwells:
                 self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
                 self.dwell_times = np.append(self.dwell_times, dwell.time)
@@ -372,7 +372,7 @@ class BrachyPlan:
                         "position": dwell.position,
                         "rotation": dwell.rotation,
                         "relativePos": dwell.relativePos,
-                        "catheterId": catheter.id,
+                        "catheterId": catheter.iD,
                     }
                 )
                 dwell_counter += 1
@@ -404,7 +404,7 @@ class BrachyPlan:
 
         for catheter_i in self.catheter_numbers:
             catheter = {}
-            catheter["id"] = int(catheter_i)
+            catheter["iD"] = int(catheter_i)
             catheter["points"] = []
             catheter["dwells"] = []
             dwell = {}
