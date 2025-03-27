@@ -105,6 +105,8 @@ class Catheter(BaseModel):
     points: List[List[float]] = None
     afterloader_channel_number: int = None
     spline: List[List[float]] = None
+    tip_position: List[float] = None
+    insert_position: List[float] = None
 
     @computed_field
     def channel_total_time(self) -> float:
@@ -461,13 +463,13 @@ class CatheterTable(BaseModel):
                 and len(catheter["dwells"]) > 1
             ):
                 for i in range(len(dwells)):
-                    dwells[i]["rotation"] = _get_rotation_from_position(i, dwells)
+                    dwells[i]["rotation"] = get_rotation_from_position(i, dwells)
     
             final_catheter_table.append(Catheter(**catheter))
         return final_catheter_table
 
 
-def _get_rotation_from_position(idx, control_points):
+def get_rotation_from_position(idx, control_points):
     r"""
     Purpose:
         - To get the rotation of the dwell point from the position of the dwell point.
@@ -487,9 +489,9 @@ def _get_rotation_from_position(idx, control_points):
         )
 
     if idx == 0:
-        return _get_rotation_from_position(idx+1, control_points)
+        return get_rotation_from_position(idx+1, control_points)
     elif idx == len(control_points) - 1:
-        return _get_rotation_from_position(idx-1, control_points)
+        return get_rotation_from_position(idx-1, control_points)
     else:
         return _angle_betwen_2_points(
             np.array(list(control_points[idx-1]["position"].values()), dtype=np.float32),
