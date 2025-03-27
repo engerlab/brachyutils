@@ -91,7 +91,7 @@ class Catheter(BaseModel):
     
     ### Attributes:
         - iD:int := the id of the catheter.
-        - points:List[np.array] := the list of points of the catheter.
+        - points:List[np.array] := the list of digitization points of the catheter.
         - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
         - afterloader_channel_number:int := the afterloader channel number of the catheter.
         - channel_total_time:float := the total time of the catheter.
@@ -101,9 +101,10 @@ class Catheter(BaseModel):
         - add_dwell(dwell:DwellPosition) -> None := add a dwell position to the catheter.
     """
     iD: int
-    dwells: List[DwellPosition]
+    dwells: List[DwellPosition] = None
     points: List[List[float]] = None
     afterloader_channel_number: int = None
+    spline: List[List[float]] = None
 
     @computed_field
     def channel_total_time(self) -> float:
@@ -126,10 +127,16 @@ class Catheter(BaseModel):
             - To conver the list of dwell dictionaries to a list of DwellPosition objects.
             - extract the channel_total_time from the dwells if it is not provided.
         """
-        if isinstance(all_inputs["dwells"][0], dict):
-            all_inputs["dwells"] = [DwellPosition(**dwell) for dwell in all_inputs["dwells"]]
-        # if "channel_total_time" not in all_inputs:
-        #     all_inputs["channel_total_time"] = np.sum([dwell.time for dwell in all_inputs["dwells"]])
+        # load in the dwell positions directry
+        if all_inputs.get("dwells", None) is not None:
+            if isinstance(all_inputs["dwells"][0], dict):
+                all_inputs["dwells"] = [DwellPosition(**dwell) for dwell in all_inputs["dwells"]]
+
+        if all_inputs.get("points", None) is not None:        
+        # TODO: generate spline from points.
+        # TODO: generate dwell positions from spline.
+            pass
+
         return all_inputs
 
     def to_dict(self, total_time=None) -> dict:
@@ -162,6 +169,34 @@ class Catheter(BaseModel):
         ### Inputs:
             - self := the Catheter object.
             - dwell:DwellPosition := the dwell position to be added.
+        """
+        raise NotImplementedError("This function is not implemented yet.")
+
+    @classmethod
+    def get_spline_from_points(cls, points:List[List[float]]) -> List[List[float]]:
+        r"""
+        ### Purpose:
+            - To generate a spline from a list of points.
+
+        ### Inputs:
+            - points:List[List[float]] := the list of points to generate the spline from.
+
+        ### Outputs:
+            - List[List[float]] := the list of points on the spline.
+        """
+        raise NotImplementedError("This function is not implemented yet.")
+
+    @classmethod
+    def get_dwells_from_spline(cls, spline:List[List[float]]) -> List[DwellPosition]:
+        r"""
+        ### Purpose:
+            - To generate dwell positions from a spline.
+
+        ### Inputs:
+            - spline:List[List[float]] := the list of points on the spline.
+
+        ### Outputs:
+            - List[DwellPosition] := the list of dwell positions.
         """
         raise NotImplementedError("This function is not implemented yet.")
 
