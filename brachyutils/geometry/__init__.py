@@ -3,7 +3,11 @@ __all__ = [
     "BrachyPhantom",
     "BrachyPhantomRegistration",
     "BrachyEgsphant",
-    "_load_json"
+    "_load_json",
+    "DwellPosition",
+    "Catheter",
+    "CatheterTable",
+    "get_rotation_from_position"
 ]
 # trunk-ignore(ruff/F401)
 from .phantom_utils import BrachyPhantom
@@ -17,7 +21,7 @@ from .egsphant_utils import _load_json
 from .applicator_utils import BrachyApplicator
 
 # trunk-ignore(ruff/F401)
-from .catheter_utils import DwellPosition, Catheter, CatheterTable
+from .catheter_utils import DwellPosition, Catheter, CatheterTable, get_rotation_from_position
 
 # trunk-ignore(ruff/F401)
 from .registration_utils import BrachyPhantomRegistration
