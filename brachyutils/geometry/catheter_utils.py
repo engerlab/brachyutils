@@ -69,17 +69,19 @@ class DwellPosition(BaseModel):
         return {
             "index": int(self.index),
             "angle": float(self.angle),
-            "position": {
-                "x": float(self.position[0]),
-                "y": float(self.position[1]),
-                "z": float(self.position[2]),
-            },
+            "position": list(self.position),
+            # "position": { # abondonning the b.s. MCTPS format completely.
+            #     "x": float(self.position[0]),
+            #     "y": float(self.position[1]),
+            #     "z": float(self.position[2]),
+            # },
             "relativePos": int(self.relativePos),
-            "rotation": {
-                "x": float(self.rotation[0]),
-                "y": float(self.rotation[1]),
-                "z": float(self.rotation[2]),
-            },
+            "rotation": list(self.rotation),
+            # "rotation": { # abondonning the b.s. MCTPS format completely.
+            #     "x": float(self.rotation[0]),
+            #     "y": float(self.rotation[1]),
+            #     "z": float(self.rotation[2]),
+            # },
             "time": float(self.time),
             "weight": float(self.weight(total_time)),
         }
@@ -441,24 +443,28 @@ class CatheterTable(BaseModel):
                     {
                         "index": int(control_point["index"] / 2),
                         "angle": float(control_point["angle"]),
-                        "position": {
-                            "x":control_point["position"][0],
-                            "y":control_point["position"][1],
-                            "z":control_point["position"][2]
-                            },
+                        "position": list(control_point["position"]),
+                        # "position": { # abondonning the b.s. MCTPS format completely.
+                        #     "x":control_point["position"][0],
+                        #     "y":control_point["position"][1],
+                        #     "z":control_point["position"][2]
+                        #     },
                         "relativePos": int(control_point["relativePos"]),
-                        "rotation": {
-                            "x":control_point["rotation"][0],
-                            "y":control_point["rotation"][1],
-                            "z":control_point["rotation"][2]
-                            },
+                        "rotation": list(control_point["rotation"]),
+                        # "rotation": { # abondonning the b.s. MCTPS format completely.
+                        #     "x":control_point["rotation"][0],
+                        #     "y":control_point["rotation"][1],
+                        #     "z":control_point["rotation"][2]
+                        #     },
                         "time": dwell_time,
                         "weight": dwell_weight,
                     }
                 )
             catheter["dwells"] = dwells
             if (
-                np.all([np.all(list(catheter["dwells"][i]["rotation"].values()) == [0,0,0])
+                np.all([np.all(list(catheter["dwells"][i]["rotation"]) == [0,0,0])
+                # abondonning the b.s. MCTPS format completely.
+                # np.all([np.all(list(catheter["dwells"][i]["rotation"].values()) == [0,0,0])
                         for i in range(len(catheter["dwells"]))])
                 and len(catheter["dwells"]) > 1
             ):
@@ -484,8 +490,11 @@ def get_rotation_from_position(idx, control_points):
     # compute correct angles when they are not provided by the DICOM.
     if len(control_points) == 2:
         return _angle_betwen_2_points(
-            np.array(list(control_points[1]["position"].values()), dtype=np.float32),
-            np.array(list(control_points[0]["position"].values()), dtype=np.float32),
+            np.array(control_points[0]["position"], dtype=np.float32),
+            np.array(control_points[1]["position"], dtype=np.float32),
+            # abondonning the b.s. MCTPS format completely.
+            # np.array(list(control_points[1]["position"].values()), dtype=np.float32),
+            # np.array(list(control_points[0]["position"].values()), dtype=np.float32),
         )
 
     if idx == 0:
@@ -494,8 +503,11 @@ def get_rotation_from_position(idx, control_points):
         return get_rotation_from_position(idx-1, control_points)
     else:
         return _angle_betwen_2_points(
-            np.array(list(control_points[idx-1]["position"].values()), dtype=np.float32),
-            np.array(list(control_points[idx+1]["position"].values()), dtype=np.float32),
+            np.array(control_points[idx-1]["position"], dtype=np.float32),
+            np.array(control_points[idx+1]["position"], dtype=np.float32),
+            # abondonning the b.s. MCTPS format completely.
+            # np.array(list(control_points[idx-1]["position"].values()), dtype=np.float32),
+            # np.array(list(control_points[idx+1]["position"].values()), dtype=np.float32),
         )
 
 
@@ -512,5 +524,7 @@ def _angle_betwen_2_points(a, b) -> dict:
     vec = a - b
     normal = np.sqrt(np.sum(vec ** 2))
     angle_np = vec / normal
-    return {"x":angle_np[0], "y":angle_np[1], "z":angle_np[2]}
+    return angle_np
+    # abondonning the b.s. MCTPS format completely 
+    # return {"x":angle_np[0], "y":angle_np[1], "z":angle_np[2]}
 
