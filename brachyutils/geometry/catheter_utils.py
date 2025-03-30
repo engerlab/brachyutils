@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Any
 from pathlib import Path
 from pydantic import BaseModel, model_validator, computed_field
 import json
@@ -106,7 +106,7 @@ class Catheter(BaseModel):
     dwells: List[DwellPosition] = None
     points: List[List[float]] = None
     afterloader_channel_number: int = None
-    spline: List[List[float]] = None
+    fit:Any = None
     tip_position: List[float] = None
     insert_position: List[float] = None
 
@@ -137,8 +137,8 @@ class Catheter(BaseModel):
                 all_inputs["dwells"] = [DwellPosition(**dwell) for dwell in all_inputs["dwells"]]
 
         if all_inputs.get("points", None) is not None:        
-        # TODO: generate spline from points.
-        # TODO: generate dwell positions from spline.
+        # TODO: generate fit from points.
+        # TODO: generate dwell positions from fit.
             pass
 
         return all_inputs
