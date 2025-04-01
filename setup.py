@@ -24,7 +24,7 @@ setup(
         "pytz",
         "cmake",
         "scikit-build",
-        # "SimpleITK",
+        "SimpleITK",
         "pynrrd @ git+https://github.com/mhe/pynrrd.git",
         "six",
         "tzdata",
@@ -44,6 +44,7 @@ setup(
         # "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
         "nibabel",
         "monai",
+        "pydantic",
     ],
     entry_points={"console_scripts": ["brachyutils=brachyutils.cli_utils:main"]},
 )
