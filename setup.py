@@ -7,7 +7,7 @@ setup(
     author="EngerLab",
     packages=find_packages(include=["brachyutils.*"]),
     # namespace_packages=['brachyutils'],
-    package_dir={"": "."},
+    package_dir={"": "."}, # required for pip install -e .
     install_requires=[
         "cycler",
         "fonttools",
