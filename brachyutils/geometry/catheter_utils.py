@@ -346,21 +346,3 @@ class CatheterTable(BaseModel):
             from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table            
         catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
         return catheter_table_dict
-
-def _angle_betwen_2_points(a, b) -> dict:
-    r"""
-    Purpose:
-        - To calculate the angle between two points.
-    Inputs:
-        - a:np.array := the first point.
-        - b:np.array := the second point.      
-    Outputs:
-        - np.array := the angle between the two points in each axis.
-    """
-    vec = a - b
-    normal = np.sqrt(np.sum(vec ** 2))
-    angle_np = vec / normal
-    return angle_np
-    # abondonning the b.s. MCTPS format completely 
-    # return {"x":angle_np[0], "y":angle_np[1], "z":angle_np[2]}
-
