@@ -149,7 +149,7 @@ def test_catheter_table():
     # print(dwell_obj.to_dict())
     
     catheter_dict = {
-        "iD": 0,
+        "index": 0,
         "dwells": [
             dwell_dict_0,
             dwell_dict_1,
