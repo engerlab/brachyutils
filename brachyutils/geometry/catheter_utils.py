@@ -76,18 +76,8 @@ class DwellPosition(BaseModel):
             "index": int(self.index),
             "angle": float(self.angle),
             "position": list(self.position),
-            # "position": { # abondonning the b.s. MCTPS format completely.
-            #     "x": float(self.position[0]),
-            #     "y": float(self.position[1]),
-            #     "z": float(self.position[2]),
-            # },
             "relativePos": int(self.relativePos),
             "rotation": list(self.rotation),
-            # "rotation": { # abondonning the b.s. MCTPS format completely.
-            #     "x": float(self.rotation[0]),
-            #     "y": float(self.rotation[1]),
-            #     "z": float(self.rotation[2]),
-            # },
             "time": float(self.time),
             "weight": float(self.weight(total_time)),
         }
