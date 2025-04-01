@@ -173,7 +173,7 @@ class Catheter(BaseModel):
         raise NotImplementedError("This function is not implemented yet.")
 
     @classmethod
-    def get_spline_from_points(cls, points:List[List[float]]) -> List[List[float]]:
+    def get_fit_from_points(cls, points:List[List[float]]) -> List[List[float]]:
         r"""
         ### Purpose:
             - To generate a spline from a list of points.
@@ -187,7 +187,7 @@ class Catheter(BaseModel):
         raise NotImplementedError("This function is not implemented yet.")
 
     @classmethod
-    def get_dwells_from_spline(cls, spline:List[List[float]]) -> List[DwellPosition]:
+    def get_dwells_from_fit(cls, spline:List[List[float]]) -> List[DwellPosition]:
         r"""
         ### Purpose:
             - To generate dwell positions from a spline.
