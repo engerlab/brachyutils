@@ -347,42 +347,6 @@ class CatheterTable(BaseModel):
         catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
         return catheter_table_dict
 
-def get_rotation_from_position(idx, control_points):
-    r"""
-    Purpose:
-        - To get the rotation of the dwell point from the position of the dwell point.
-    Inputs:
-        - idx:int := the index of the dwell point.
-        - control_point_dcm:pydicom.dataset.Dataset := the control point object.
-    Outputs:
-        - np.array := the rotation of the dwell point in each axis.
-    """
-    # TODO: Merge this dicom utils script with my catheter setup class.
-    # We need all dwell positions, not only the non 0s ones to be able to 
-    # compute correct angles when they are not provided by the DICOM.
-    if len(control_points) == 2:
-        return _angle_betwen_2_points(
-            np.array(control_points[0]["position"], dtype=np.float32),
-            np.array(control_points[1]["position"], dtype=np.float32),
-            # abondonning the b.s. MCTPS format completely.
-            # np.array(list(control_points[1]["position"].values()), dtype=np.float32),
-            # np.array(list(control_points[0]["position"].values()), dtype=np.float32),
-        )
-
-    if idx == 0:
-        return get_rotation_from_position(idx+1, control_points)
-    elif idx == len(control_points) - 1:
-        return get_rotation_from_position(idx-1, control_points)
-    else:
-        return _angle_betwen_2_points(
-            np.array(control_points[idx-1]["position"], dtype=np.float32),
-            np.array(control_points[idx+1]["position"], dtype=np.float32),
-            # abondonning the b.s. MCTPS format completely.
-            # np.array(list(control_points[idx-1]["position"].values()), dtype=np.float32),
-            # np.array(list(control_points[idx+1]["position"].values()), dtype=np.float32),
-        )
-
-
 def _angle_betwen_2_points(a, b) -> dict:
     r"""
     Purpose:
