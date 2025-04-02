@@ -3,6 +3,7 @@ from typing import List, Union, Dict, Any
 from pathlib import Path
 from pydantic import BaseModel, model_validator, computed_field
 import json
+from opentps.core.data.images import ROIMask
 # from ai_assisted_brachy.catheter.catheter_api import (
 #     dicom_to_catheter_table,
 #     catheter_setup_to_contour,
@@ -200,6 +201,20 @@ class Catheter(BaseModel):
         """
         raise NotImplementedError("This function is not implemented yet.")
 
+    @classmethod
+    def get_contours_from_points(cls, points:List[List[float]]) -> ROIMask:
+        r"""
+        ### Purpose:
+            - To generate contours from a list of points.
+
+        ### Inputs:
+            - points:List[List[float]] := the list of points to generate the contours from.
+
+        ### Outputs:
+            - ROIMask := the contours generated from the points.
+        """
+        raise NotImplementedError("This function is not implemented yet.")
+    
 class CatheterTable(BaseModel):
     r"""
     ### Purpose:
