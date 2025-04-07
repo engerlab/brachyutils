@@ -218,15 +218,15 @@ class Catheter(BaseModel):
 class CatheterTable(BaseModel):
     r"""
     ### Purpose:
-        - This class holds the information regarding the catheter table.
-    
+    - This class holds the information regarding the catheter table.
+
     ### Attributes:
-        - catheter_list : List[Catheter] := the list of catheter objects in the catheter table.
-        - step_size: float := the step size in mm between the dwell positions on the catheter table.
+    - catheter_list : List[Catheter] := the list of catheter objects in the catheter table.
+    - step_size: float := the step size in mm between the dwell positions on the catheter table.
 
     ### Functions:
-        - load_from_json(pth_json:Path) -> list
-        - load_from_dicom(pth_dicom:Path) -> list
+    - load_from_json(pth_json:Path) -> list
+    - load_from_dicom(pth_dicom:Path) -> list
     """
     step_size: float = 5.0
     catheter_list: List[Catheter] | List[dict] | str | Path
