@@ -4,12 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, model_validator, computed_field
 import json
 from opentps.core.data.images import ROIMask
-# from ai_assisted_brachy.catheter.catheter_api import (
-#     dicom_to_catheter_table,
-#     catheter_setup_to_contour,
-#     contour_to_catheter_table
-# )
-
+from brachyutils.planning.simulation_utils import BrachySource
 class DwellPosition(BaseModel):
     r"""
     ### Purpose:
@@ -223,13 +218,19 @@ class CatheterTable(BaseModel):
     ### Attributes:
     - catheter_list : List[Catheter] := the list of catheter objects in the catheter table.
     - step_size: float := the step size in mm between the dwell positions on the catheter table.
-
+    - brachy_source: BrachySource = None
+    - treatment_time: float = None := the total treatment time of the catheter table.
+    this attributed is computed from the catheter list.
+       
     ### Functions:
     - load_from_json(pth_json:Path) -> list
     - load_from_dicom(pth_dicom:Path) -> list
     """
     step_size: float = 5.0
     catheter_list: List[Catheter] | List[dict] | str | Path
+    brachy_source: BrachySource = None
+    channel_length: float = None
+
     @computed_field
     def treatment_time(self) -> float:
         r"""
