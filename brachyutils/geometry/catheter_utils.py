@@ -226,8 +226,8 @@ class CatheterTable(BaseModel):
     - load_from_json(pth_json:Path) -> list
     - load_from_dicom(pth_dicom:Path) -> list
     """
-    step_size: float = 5.0
     catheter_list: List[Catheter] | List[dict] | str | Path
+    step_size: float = 5.0
     brachy_source: BrachySource = None
     channel_length: float = None
 
