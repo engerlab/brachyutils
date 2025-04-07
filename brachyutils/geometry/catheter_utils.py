@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, model_validator, computed_field
 import json
 from opentps.core.data.images import ROIMask
-from brachyutils.planning.simulation_utils import BrachySource
+# from brachyutils.planning.simulation_utils import BrachySource
 class DwellPosition(BaseModel):
     r"""
     ### Purpose:
@@ -218,7 +218,6 @@ class CatheterTable(BaseModel):
     ### Attributes:
     - catheter_list : List[Catheter] := the list of catheter objects in the catheter table.
     - step_size: float := the step size in mm between the dwell positions on the catheter table.
-    - brachy_source: BrachySource = None
     - treatment_time: float = None := the total treatment time of the catheter table.
     this attributed is computed from the catheter list.
        
@@ -228,7 +227,7 @@ class CatheterTable(BaseModel):
     """
     catheter_list: List[Catheter] | List[dict] | str | Path
     step_size: float = 5.0
-    brachy_source: BrachySource = None
+    # brachy_source:Any = None
     channel_length: float = None
 
     @computed_field
@@ -256,10 +255,18 @@ class CatheterTable(BaseModel):
             isinstance(all_inputs["catheter_list"], Path)
             ):
             catheter_file = Path(all_inputs["catheter_list"])
+
             if str(catheter_file).endswith(".json"):
-                all_inputs["catheter_list"] = cls.load_from_json(catheter_file)
+                cat_dict = cls.load_from_json(catheter_file)
+                all_inputs["catheter_list"] = cat_dict["catheter_list"]
+                all_inputs["step_size"] = cat_dict["step_size"]
+                all_inputs["channel_length"] =cat_dict["channel_length"]
+
             elif str(catheter_file).endswith(".dcm"):
-                all_inputs["catheter_list"] = cls.load_from_dicom(pth_dicom=catheter_file)
+                cat_dict = cls.load_from_dicom(pth_dicom=catheter_file)
+                all_inputs["catheter_list"] = cat_dict["catheter_list"]
+                all_inputs["step_size"] = cat_dict["step_size"]
+                all_inputs["channel_length"] = cat_dict["channel_length"]
 
         if isinstance(all_inputs["catheter_list"][0], dict):
             all_inputs["catheter_list"] = [
@@ -280,8 +287,15 @@ class CatheterTable(BaseModel):
         Outputs:
             - dict := the dictionary containing the catheter table.
         """
-        return [catheter.to_dict(total_time=self.treatment_time) for catheter in self.catheter_list]
-
+        return {
+            "catheter_list": [
+                catheter.to_dict(total_time=self.treatment_time) 
+                for catheter in self.catheter_list
+                ],
+            "step_size": self.step_size,
+            "channel_length": self.channel_length,
+            "treatment_time": self.treatment_time
+        }
     def info(self) -> None:
         r"""
         Purpose:
@@ -327,13 +341,27 @@ class CatheterTable(BaseModel):
         """
         raw_catheter_table: list = []
         with open(pth_json, "r") as json_file:
-            catheter_table_list = json.load(json_file)
-            assert isinstance(
-                catheter_table_list, list
-            ), "The json file, should contain a list of catheters."
+            cat_table = json.load(json_file)
+            if isinstance(cat_table, list):
+                catheter_table_list = cat_table
+                step_size = catheter_table_list[0].get("step_size", None)
+                channel_length = catheter_table_list[0].get("channel_length", None)
+            elif isinstance(cat_table, dict):
+                catheter_table_list = cat_table.get("catheter_list", None)
+                step_size = cat_table.get("step_size", None)
+                channel_length = cat_table.get("channel_length", None)
+            else:
+                raise ValueError(f"contents of the catheter file {pth_json} should be a list or dictionary")
+            if catheter_table_list is None:
+                raise ValueError(f"catheter list is missing from file {pth_json}")
+
             for catheter_dict in catheter_table_list:
                 raw_catheter_table.append(Catheter(**catheter_dict))
-            return raw_catheter_table
+            return {
+                "catheter_list":raw_catheter_table,
+                "step_size":step_size,
+                "channel_length":channel_length
+                }
 
     @classmethod
     def load_from_dicom(cls, pth_dicom: Path) -> List[dict]:
