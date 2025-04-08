@@ -141,7 +141,7 @@ class Catheter(BaseModel):
         elif all_inputs.get("fit_function", None) is not None:
             all_inputs["dwells"] = cls.get_dwells_from_fit(
                 fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size", None),
+                step_size=all_inputs.get("step_size"),
                 )
         # create the fit and dwells from points
         elif all_inputs.get("points", None) is not None:
@@ -150,10 +150,21 @@ class Catheter(BaseModel):
             )
             all_inputs["dwells"] = cls.get_dwells_from_fit(
                 fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size", None),
+                step_size=all_inputs.get("step_size"),
+            )
+        elif (all_inputs.get("tip_position", None) is not None
+              and all_inputs.get("last_dwell_position", None) is not None
+        ):
+            all_inputs["fit_function"] = cls.get_fit_from_points(
+                points=[all_inputs["tip_position"], all_inputs["last_dwell_position"]],
+            )
+            all_inputs["dwells"] = cls.get_dwells_from_fit(
+                fit_function=all_inputs["fit_function"],
+                step_size=all_inputs.get("step_size"),
             )
         else:
-            raise ValueError("Either provide dwells, fit_function or points to the create a catheter.")
+            raise ValueError("Either provide dwells, fit_function, points or\
+                tip and last dwell position coordinates to the create a catheter.")
 
         all_inputs["tip_position"] = all_inputs["dwells"][0].position
         all_inputs["last_dwell_position"] = all_inputs["dwells"][-1].position
@@ -249,7 +260,7 @@ class Catheter(BaseModel):
                 dwell_positions[i]["rotation"] = get_rotation_from_position(i, dwell_positions)
 
         elif isinstance(fit_function, NeedleSplineCreator):
-            raise NotImplementedError("This function is not implemented yet.")
+            raise NotImplementedError("This function is not implemented. Do it if you need it.")
 
         else:
             raise ValueError("fit_function should be either PiecewiseLinear3D or NeedleSplineCreator")
@@ -258,7 +269,7 @@ class Catheter(BaseModel):
         return [DwellPosition(**dwell) for dwell in dwell_positions]
 
     @classmethod
-    def get_fit_from_points(cls, points:List[List[float]]) -> List[List[float]]:
+    def get_fit_from_points(cls, points:List[List[float]]) -> PiecewiseLinear3D:
         r"""
         ### Purpose:
         - To generate a spline from a list of points.
@@ -269,8 +280,7 @@ class Catheter(BaseModel):
         ### Outputs:
         - List[List[float]] := the list of points on the spline.
         """
-        raise NotImplementedError("This function is not implemented yet.")
-
+        return PiecewiseLinear3D(points=points)
 
 class CatheterTable(BaseModel):
     r"""
