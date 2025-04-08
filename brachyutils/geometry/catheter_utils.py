@@ -8,19 +8,19 @@ from opentps.core.data.images import ROIMask
 class DwellPosition(BaseModel):
     r"""
     ### Purpose:
-        - This class holds the information regarding a dwell position.
+    - This class holds the information regarding a dwell position.
 
     ### Attributes:
-        - index
-        - angle := angle of the IMBT shield
-        - position:dict: np.array := dwell position in the patient coordinate system [x, y, z]
-        - relativePos: int := dwell coordinate along the catheter from the reference point. increments of 5 mm
-        - rotation: np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
-        - time: float := dwell time for this dwell position
-        - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
+    - index: int := the index of the dwell position along the catheter
+    - angle := angle of the IMBT shield
+    - position:dict: np.array := dwell position in the patient coordinate system [x, y, z]
+    - relativePos: int := dwell coordinate along the catheter from the reference point. increments of 5 mm
+    - rotation: np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
+    - time: float := dwell time for this dwell position
+    - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
     
     ### Functions:
-        - to_dict() -> dict := convert the dwell position to a dictionary.
+    - to_dict() -> dict := convert the dwell position to a dictionary.
     """
     index: int
     angle: float = 0.0
@@ -33,16 +33,16 @@ class DwellPosition(BaseModel):
     def weight(self, total_time: float) -> float:
         r"""
         ### Purpose:
-            - To calculate the weight of the dwell position relative to a total time.
-            The total time could come from the catheter or the treatment plan.
+        - To calculate the weight of the dwell position relative to a total time.
+        The total time could come from the catheter or the treatment plan.
             
         ### Inputs:
-            - self := the DwellPosition object.
-            - total_time:float=None := the total time of the catheter or the treatment plan.
-            if this is not provided, the weight of the dwell position will be returned.
+        - self := the DwellPosition object.
+        - total_time:float=None := the total time of the catheter or the treatment plan.
+        if this is not provided, the weight of the dwell position will be returned.
         
         ### Outputs:
-            - float := the weight of the dwell position.
+        - float := the weight of the dwell position.
         """
         return self.time / total_time
 
@@ -50,8 +50,8 @@ class DwellPosition(BaseModel):
     def finish_initialization(cls, all_inputs):
         r"""
         ### Purpose:
-            - If the position and rotation are provided as dictionaries, convert
-            them to lists.
+        - If the position and rotation are provided as dictionaries, convert
+        them to lists.
         """
         if isinstance(all_inputs["position"], dict):
             all_inputs["position"] = list(all_inputs["position"].values())
@@ -61,12 +61,12 @@ class DwellPosition(BaseModel):
 
     def to_dict(self, total_time) -> dict:
         r"""
-        Purpose:
-            - To convert the dwell position to a dictionary.
-        Inputs:
-            - self := the DwellPosition object.
-        Outputs:
-            - dict := the dictionary containing the dwell position.
+        ### Purpose:
+        - To convert the dwell position to a dictionary.
+        ### Inputs:
+        - self := the DwellPosition object.
+        ### Outputs:
+        - dict := the dictionary containing the dwell position.
         """
         return {
             "index": int(self.index),
@@ -81,18 +81,18 @@ class DwellPosition(BaseModel):
 class Catheter(BaseModel):
     r"""
     ### Purpose:
-        - This class holds the information regarding a catheter.
+    - This class holds the information regarding a catheter.
     
     ### Attributes:
-        - index:int := the index of the catheter.
-        - points:List[np.array] := the list of digitization points of the catheter.
-        - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
-        - afterloader_channel_number:int := the afterloader channel number of the catheter.
-        - channel_total_time:float := the total time of the catheter.
+    - index:int := the index of the catheter.
+    - points:List[np.array] := the list of digitization points of the catheter.
+    - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
+    - afterloader_channel_number:int := the afterloader channel number of the catheter.
+    - channel_total_time:float := the total time of the catheter.
 
     ### Functions:
-        - to_dict() -> dict := convert the catheter to a dictionary.
-        - add_dwell(dwell:DwellPosition) -> None := add a dwell position to the catheter.
+    - to_dict() -> dict := convert the catheter to a dictionary.
+    - add_dwell(dwell:DwellPosition) -> None := add a dwell position to the catheter.
     """
     index: int
     dwells: List[DwellPosition] = None
@@ -106,13 +106,13 @@ class Catheter(BaseModel):
     def channel_total_time(self) -> float:
         r"""
         ### Purpose:
-            - To calculate the total time of the catheter by summing over indivual dwell times.
+        - To calculate the total time of the catheter by summing over indivual dwell times.
         
         ### Inputs:
-            - self := the Catheter object.
+        - self := the Catheter object.
         
         ### Outputs:
-            - float := the total time of the catheter.
+        - float := the total time of the catheter.
         """
         return np.sum([dwell.time for dwell in self.dwells])
 
@@ -120,15 +120,15 @@ class Catheter(BaseModel):
     def finish_initialization(cls, all_inputs):
         r"""
         ### Purpose:
-            - To conver the list of dwell dictionaries to a list of DwellPosition objects.
-            - extract the channel_total_time from the dwells if it is not provided.
+        - To conver the list of dwell dictionaries to a list of DwellPosition objects.
+        - extract the channel_total_time from the dwells if it is not provided.
         """
         # load in the dwell positions directry
         if all_inputs.get("dwells", None) is not None:
             if isinstance(all_inputs["dwells"][0], dict):
                 all_inputs["dwells"] = [DwellPosition(**dwell) for dwell in all_inputs["dwells"]]
 
-        if all_inputs.get("points", None) is not None:        
+        if (all_inputs.get("points", None) is not None):
         # TODO: generate fit from points.
         # TODO: generate dwell positions from fit.
             pass
@@ -138,15 +138,15 @@ class Catheter(BaseModel):
     def to_dict(self, total_time=None) -> dict:
         r"""
         ### Purpose:
-            - To convert the catheter to a dictionary.
+        - To convert the catheter to a dictionary.
 
         ### Inputs:
-            - self := the Catheter object.
-            - total_time:float=None := the total time to be used in weight calculation for
-            each dwell position. if None, channel_total_time will be used.
+        - self := the Catheter object.
+        - total_time:float=None := the total time to be used in weight calculation for
+        each dwell position. if None, channel_total_time will be used.
 
         ### Outputs:
-            - dict := the dictionary containing the catheter.
+        - dict := the dictionary containing the catheter.
         """
         if total_time is None:
             total_time = self.channel_total_time
@@ -160,11 +160,11 @@ class Catheter(BaseModel):
     def add_dwell(self, dwell:DwellPosition) -> None:
         r"""
         ### Purpose:
-            - Insert a dwell position to the catheter and update the necessary attributes.
+        - Insert a dwell position to the catheter and update the necessary attributes.
 
         ### Inputs:
-            - self := the Catheter object.
-            - dwell:DwellPosition := the dwell position to be added.
+        - self := the Catheter object.
+        - dwell:DwellPosition := the dwell position to be added.
         """
         raise NotImplementedError("This function is not implemented yet.")
 
@@ -172,13 +172,13 @@ class Catheter(BaseModel):
     def get_fit_from_points(cls, points:List[List[float]]) -> List[List[float]]:
         r"""
         ### Purpose:
-            - To generate a spline from a list of points.
+        - To generate a spline from a list of points.
 
         ### Inputs:
-            - points:List[List[float]] := the list of points to generate the spline from.
+        - points:List[List[float]] := the list of points to generate the spline from.
 
         ### Outputs:
-            - List[List[float]] := the list of points on the spline.
+        - List[List[float]] := the list of points on the spline.
         """
         raise NotImplementedError("This function is not implemented yet.")
 
@@ -186,13 +186,13 @@ class Catheter(BaseModel):
     def get_dwells_from_fit(cls, spline:List[List[float]]) -> List[DwellPosition]:
         r"""
         ### Purpose:
-            - To generate dwell positions from a spline.
+        - To generate dwell positions from a spline.
 
         ### Inputs:
-            - spline:List[List[float]] := the list of points on the spline.
+        - spline:List[List[float]] := the list of points on the spline.
 
         ### Outputs:
-            - List[DwellPosition] := the list of dwell positions.
+        - List[DwellPosition] := the list of dwell positions.
         """
         raise NotImplementedError("This function is not implemented yet.")
 
@@ -200,13 +200,13 @@ class Catheter(BaseModel):
     def get_contours_from_points(cls, points:List[List[float]]) -> ROIMask:
         r"""
         ### Purpose:
-            - To generate contours from a list of points.
+        - To generate contours from a list of points.
 
         ### Inputs:
-            - points:List[List[float]] := the list of points to generate the contours from.
+        - points:List[List[float]] := the list of points to generate the contours from.
 
         ### Outputs:
-            - ROIMask := the contours generated from the points.
+        - ROIMask := the contours generated from the points.
         """
         raise NotImplementedError("This function is not implemented yet.")
     
@@ -234,13 +234,13 @@ class CatheterTable(BaseModel):
     def treatment_time(self) -> float:
         r"""
         ### Purpose:
-            - To calculate the total treatment time.
+        - To calculate the total treatment time.
         
         ### Inputs:
-            - catheter_table:CatheterTable := the catheter table object.
+        - catheter_table:CatheterTable := the catheter table object.
         
         ### Outputs:
-            - float := the total treatment time.
+        - float := the total treatment time.
         """
         return np.sum([catheter.channel_total_time for catheter in self.catheter_list])
     
@@ -248,8 +248,8 @@ class CatheterTable(BaseModel):
     def finish_initialization(cls, all_inputs):
         r"""
         ### Purpose:
-            - To handle the different types of inputs for the catheter list.
-            if a file path or a string is provided, load the catheter table from the json or dicom file.
+        - To handle the different types of inputs for the catheter list.
+        if a file path or a string is provided, load the catheter table from the json or dicom file.
         """
         if (isinstance(all_inputs["catheter_list"], str) or
             isinstance(all_inputs["catheter_list"], Path)
@@ -280,12 +280,12 @@ class CatheterTable(BaseModel):
 
     def to_dict(self) -> dict:
         r"""
-        Purpose:
-            - To convert the catheter table to a dictionary.
-        Inputs:
-            - self := the CatheterTable object.
-        Outputs:
-            - dict := the dictionary containing the catheter table.
+        ### Purpose:
+        - To convert the catheter table to a dictionary.
+        ### Inputs:
+        - self := the CatheterTable object.
+        ### Outputs:
+        - dict := the dictionary containing the catheter table.
         """
         return {
             "catheter_list": [
@@ -298,8 +298,8 @@ class CatheterTable(BaseModel):
         }
     def info(self) -> None:
         r"""
-        Purpose:
-            - To print the information about the catheter table.
+        ### Purpose:
+        - To print the information about the catheter table.
         """
         # print(self.to_dict())
         print("Catheter table info is as follows:")
@@ -313,13 +313,13 @@ class CatheterTable(BaseModel):
     def write_to_json(self, pth_json: Path) -> None:
         r"""
         ### Purpose:
-            - Write the catheter table to a json file.
+        - Write the catheter table to a json file.
         
         ### Inputs:
-            - pth_json: Path := the path to the json file where the catheter table will be written.
+        - pth_json: Path := the path to the json file where the catheter table will be written.
         
         ### Outputs:
-            - Void := will write the catheter table to a json file.
+        - Void := will write the catheter table to a json file.
         """
         pth_json = Path(pth_json)
         pth_json.parent.mkdir(parents=True, exist_ok=True)
@@ -331,13 +331,13 @@ class CatheterTable(BaseModel):
     def load_from_json(cls, pth_json: Path) -> list:
         r"""
         ### Purpose:
-            - Load the catheter table from a json file.
+        - Load the catheter table from a json file.
         
         ### Inputs:
-            - pth_json: Path := the path to the json file containing the catheter table.
+        - pth_json: Path := the path to the json file containing the catheter table.
         
         ### Outputs:
-            - Void := will update the catheter table based on the json file.
+        - Void := will update the catheter table based on the json file.
         """
         raw_catheter_table: list = []
         with open(pth_json, "r") as json_file:
@@ -367,13 +367,13 @@ class CatheterTable(BaseModel):
     def load_from_dicom(cls, pth_dicom: Path) -> List[dict]:
         r"""
         ### Purpose:
-            - Load the catheter table from a dicom file.
+        - Load the catheter table from a dicom file.
         
         ### Inputs:
-            - pth_dicom: Path := the path to the dicom file containing the catheter table.
+        - pth_dicom: Path := the path to the dicom file containing the catheter table.
         
         ### Outputs:
-            - Void := will update the catheter table based on the dicom file.
+        - Void := will update the catheter table based on the dicom file.
         """
         try:
             from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
