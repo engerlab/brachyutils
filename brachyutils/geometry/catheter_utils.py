@@ -188,9 +188,15 @@ class Catheter(BaseModel):
             total_time = self.channel_total_time
         return {
             "index": self.index,
-            "points": self.points,
             "dwells": [dwell.to_dict(total_time) for dwell in self.dwells],
-            "channel_total_time": self.channel_total_time,
+            # "fit_function": self.fit_function,
+            "tip_position": self.tip_position,
+            "last_dwell_position": self.last_dwell_position,
+            "step_size": self.step_size,
+            "points": self.points,
+            "afterloader_channel_number": self.afterloader_channel_number,
+            "insert_position": self.insert_position,
+            "channel_total_time": total_time,
         }
 
     def add_dwell(self, dwell:DwellPosition) -> None:
