@@ -4,7 +4,9 @@ from pathlib import Path
 from pydantic import BaseModel, model_validator, computed_field
 import json
 from opentps.core.data.images import ROIMask
-# from brachyutils.planning.simulation_utils import BrachySource
+from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
+from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
+from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position
 class DwellPosition(BaseModel):
     r"""
     ### Purpose:
@@ -27,7 +29,7 @@ class DwellPosition(BaseModel):
     position: List[float] | Dict[str, float]
     relativePos: int
     rotation: List[float] | Dict[str, float]
-    time: float
+    time: float = 0.0
     # weight: float = None
 
     def weight(self, total_time: float) -> float:
@@ -139,8 +141,6 @@ class Catheter(BaseModel):
         elif all_inputs.get("fit_function", None) is not None:
             all_inputs["dwells"] = cls.get_dwells_from_fit(
                 fit_function=all_inputs["fit_function"],
-                tip_position=all_inputs.get("tip_position"),
-                last_dwell_position=all_inputs.get("last_dwell_position"),
                 step_size=all_inputs.get("step_size", None),
                 )
         # create the fit and dwells from points
@@ -150,8 +150,6 @@ class Catheter(BaseModel):
             )
             all_inputs["dwells"] = cls.get_dwells_from_fit(
                 fit_function=all_inputs["fit_function"],
-                tip_position=all_inputs["points"][0],
-                last_dwell_position=all_inputs["points"][-1],
                 step_size=all_inputs.get("step_size", None),
             )
         else:
@@ -196,6 +194,66 @@ class Catheter(BaseModel):
         raise NotImplementedError("This function is not implemented yet.")
 
     @classmethod
+    def get_dwells_from_fit(
+        cls,
+        fit_function:PiecewiseLinear3D | NeedleSplineCreator,
+        step_size: float = 5.0,
+        # kwargs: Dict[str, Any] = None,
+        ) -> List[DwellPosition]:
+        r"""
+        ### Purpose:
+        - To generate dwell positions from a 3D fit function. The fit could be a spline or a
+        pieacewise linear function.
+
+        ### Inputs:
+        - fit_function:Any := the fit function to be used.
+        - step_size:float= 5.0 := the step size in mm between the dwell positions.
+
+        ### Outputs:
+        - List[DwellPosition] := the list of dwell positions.
+        """
+        dwell_positions: List[dict] = []
+        if isinstance(fit_function, PiecewiseLinear3D):
+            # the tip is the first point in the first segment
+            previous_pt = fit_function.point_pairs[0][0]
+            t_used = 0.0
+            dwell_index = 1
+            while t_used < 0.9999:
+                point, t, distance_prev_current = fit_function.step_in_pw_line(
+                    previous_pt, step_size, bound_min=t_used
+                )
+                # distance_prev_current = distance(previous_pt, point)
+                if distance_prev_current < 0.99 * step_size:
+                    # Not creating dwell position for the point that hits the 1 bound
+                    # in the step_in_pw_line function if step size is not respected.
+                    # ie. Not adding the last dwell position as the last digi point
+                    # if distance between the two last dwell would be < step size.
+                    # Giving a 1% error on the step size.
+                    break
+                dwell_positions.append(
+                    {
+                        "index":dwell_index,
+                        # angle:kwargs.get("angle"),
+                        "position":point,
+                        "relativePos":dwell_index * step_size,
+                        "rotation":None,
+                        # time:kwargs.get("time"),
+                    }
+                )
+                previous_pt = point
+                t_used = t
+            # generate the rotations for the dwell positions
+            for i in range(len(dwell_positions)):
+                dwell_positions[i]["rotation"] = get_rotation_from_position(i, dwell_positions)
+            # generate the dwell positions and return them
+            return [DwellPosition(**dwell) for dwell in dwell_positions]
+
+        elif isinstance(fit_function, NeedleSplineCreator):
+            pass
+        else:
+            raise ValueError("fit_function should be either PiecewiseLinear3D or NeedleSplineCreator")
+
+    @classmethod
     def get_fit_from_points(cls, points:List[List[float]]) -> List[List[float]]:
         r"""
         ### Purpose:
@@ -209,34 +267,7 @@ class Catheter(BaseModel):
         """
         raise NotImplementedError("This function is not implemented yet.")
 
-    @classmethod
-    def get_dwells_from_fit(cls, spline:List[List[float]]) -> List[DwellPosition]:
-        r"""
-        ### Purpose:
-        - To generate dwell positions from a spline.
 
-        ### Inputs:
-        - spline:List[List[float]] := the list of points on the spline.
-
-        ### Outputs:
-        - List[DwellPosition] := the list of dwell positions.
-        """
-        raise NotImplementedError("This function is not implemented yet.")
-
-    @classmethod
-    def get_contours_from_points(cls, points:List[List[float]]) -> ROIMask:
-        r"""
-        ### Purpose:
-        - To generate contours from a list of points.
-
-        ### Inputs:
-        - points:List[List[float]] := the list of points to generate the contours from.
-
-        ### Outputs:
-        - ROIMask := the contours generated from the points.
-        """
-        raise NotImplementedError("This function is not implemented yet.")
-    
 class CatheterTable(BaseModel):
     r"""
     ### Purpose:
