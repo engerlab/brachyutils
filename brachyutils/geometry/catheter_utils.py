@@ -96,10 +96,16 @@ class Catheter(BaseModel):
     """
     index: int
     dwells: List[DwellPosition] = None
-    points: List[List[float]] = None
-    afterloader_channel_number: int = None
+    # in case dwells are missing and fit, tip, last dwell position and step size is provided
     fit_function:Any = None
     tip_position: List[float] = None
+    last_dwell_position: List[float] = None
+    step_size: float = 5.0
+    # in case dwells and fit is missing and digitization points are provided.
+    # we assume tip is the first digitization point and last dwell is the last digitization point.
+    points: List[List[float]] = None
+    # auxiliary attributes
+    afterloader_channel_number: int = None # if none, will be set to index
     insert_position: List[float] = None
 
     @computed_field
@@ -126,12 +132,33 @@ class Catheter(BaseModel):
         # load in the dwell positions directry
         if all_inputs.get("dwells", None) is not None:
             if isinstance(all_inputs["dwells"][0], dict):
-                all_inputs["dwells"] = [DwellPosition(**dwell) for dwell in all_inputs["dwells"]]
+                all_inputs["dwells"] = [
+                    DwellPosition(**dwell) for dwell in all_inputs["dwells"]
+                    ]
+        # create dwells from fit, tip, last dwell position and step size
+        elif all_inputs.get("fit_function", None) is not None:
+            all_inputs["dwells"] = cls.get_dwells_from_fit(
+                fit_function=all_inputs["fit_function"],
+                tip_position=all_inputs.get("tip_position"),
+                last_dwell_position=all_inputs.get("last_dwell_position"),
+                step_size=all_inputs.get("step_size", None),
+                )
+        # create the fit and dwells from points
+        elif all_inputs.get("points", None) is not None:
+            all_inputs["fit_function"] = cls.get_fit_from_points(
+                points=all_inputs["points"],
+            )
+            all_inputs["dwells"] = cls.get_dwells_from_fit(
+                fit_function=all_inputs["fit_function"],
+                tip_position=all_inputs["points"][0],
+                last_dwell_position=all_inputs["points"][-1],
+                step_size=all_inputs.get("step_size", None),
+            )
+        else:
+            raise ValueError("Either provide dwells, fit_function or points to the create a catheter.")
 
-        if (all_inputs.get("points", None) is not None):
-        # TODO: generate fit from points.
-        # TODO: generate dwell positions from fit.
-            pass
+        all_inputs["tip_position"] = all_inputs["dwells"][0].position
+        all_inputs["last_dwell_position"] = all_inputs["dwells"][-1].position
 
         return all_inputs
 
