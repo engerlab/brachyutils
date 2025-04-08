@@ -453,9 +453,9 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - Void := will update the catheter table based on the dicom file.
         """
-        try:
-            from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
-        except:
-            from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table            
+        # try:
+        from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
+        # except:
+            # from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table            
         catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
         return catheter_table_dict
