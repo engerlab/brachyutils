@@ -249,10 +249,8 @@ class Catheter(BaseModel):
                 dwell_positions[i]["rotation"] = get_rotation_from_position(i, dwell_positions)
 
         elif isinstance(fit_function, NeedleSplineCreator):
-            t_used = 0.0
-            previous_pt = fit_function.get_point_from_spline(t=t_used)
-            dwell_index = 1
-            # while t_used < 0.9999
+            raise NotImplementedError("This function is not implemented yet.")
+
         else:
             raise ValueError("fit_function should be either PiecewiseLinear3D or NeedleSplineCreator")
 
