@@ -242,16 +242,22 @@ class Catheter(BaseModel):
                 )
                 previous_pt = point
                 t_used = t
+                dwell_index += 1
+
             # generate the rotations for the dwell positions
             for i in range(len(dwell_positions)):
                 dwell_positions[i]["rotation"] = get_rotation_from_position(i, dwell_positions)
-            # generate the dwell positions and return them
-            return [DwellPosition(**dwell) for dwell in dwell_positions]
 
         elif isinstance(fit_function, NeedleSplineCreator):
-            pass
+            t_used = 0.0
+            previous_pt = fit_function.get_point_from_spline(t=t_used)
+            dwell_index = 1
+            # while t_used < 0.9999
         else:
             raise ValueError("fit_function should be either PiecewiseLinear3D or NeedleSplineCreator")
+
+        # generate the dwell positions and return them
+        return [DwellPosition(**dwell) for dwell in dwell_positions]
 
     @classmethod
     def get_fit_from_points(cls, points:List[List[float]]) -> List[List[float]]:
