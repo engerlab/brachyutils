@@ -1,25 +1,16 @@
 FROM ubuntu:latest
 
+ARG HOST_HOME
+
 ARG dir_software="/root/Software"
 ARG clean_source="false"
-ARG num_threads=12
 
-RUN mkdir -p $dir_software/brachyutils
-COPY installation_script.sh $dir_software/brachyutils
+# # install python 3.13
 
-RUN apt update && apt install -y git
+# # copy opentps-brachyutils and install it
 
-RUN bash ${dir_software}/brachyutils/installation_script.sh\
-    --dir-software=$dir_software\
-    --dependencies="python3.13"\
-    --num-threads=${num_threads}
+# # copy ai_assisted_brachy source code and install it
 
-COPY brachyutils $dir_software/brachyutils/brachyutils
-COPY setup.py $dir_software/brachyutils/setup.py
-
-RUN bash ${dir_software}/brachyutils/installation_script.sh\
-    --dir-software=$dir_software\
-    --dependencies="brachyutils"\
-    --num-threads=${num_threads}
-
-CMD ["/bin/bash"]
+# # copy brachyutils source code and install it
+COPY ${HOST_HOME}/Software/brachyutils ${dir_software}/brachyutils
+RUN bash ${dir_software}/brachyutils/installation_script.sh

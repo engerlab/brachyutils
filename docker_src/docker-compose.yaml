@@ -3,6 +3,8 @@ services:
     build:
       context: ../
       dockerfile: docker_src/Dockerfile
+      args:
+        - HOST_HOME=${HOST_HOME}
     image: brachyutils
     container_name: BrachyUtils
     user: "${UID}:${GID}"
