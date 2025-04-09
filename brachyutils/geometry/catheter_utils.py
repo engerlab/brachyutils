@@ -3,17 +3,20 @@ from typing import List, Union, Dict, Any, Optional
 from pathlib import Path
 from pydantic import BaseModel, model_validator, computed_field
 import json
-from opentps.core.data.images import ROIMask
+from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
+from brachyutils.geometry.phantom_utils import BrachyPhantom
 try:
     from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
     from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
     from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position
     from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
+    from ai_assisted_brachy.catheter.catheter_api import ct_to_catheter_table
 except:
     from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
     from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
     from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position
     from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
+    from ai_assisted_brachy.catheter.catheter_api import ct_to_catheter_table
 
 class DwellPosition(BaseModel):
     r"""
@@ -107,7 +110,7 @@ class Catheter(BaseModel):
     index: int
     dwells: List[DwellPosition] = None
     # in case dwells are missing and fit, tip, last dwell position and step size is provided
-    fit_function:Optional[PiecewiseLinear3D] = None
+    fit_function:Any = None
     tip_position: List[float] = None
     last_dwell_position: List[float] = None
     step_size: float = 5.0
@@ -344,15 +347,13 @@ class CatheterTable(BaseModel):
 
             if str(catheter_file).endswith(".json"):
                 cat_dict = cls.load_from_json(catheter_file)
-                all_inputs["catheter_list"] = cat_dict["catheter_list"]
-                all_inputs["step_size"] = cat_dict["step_size"]
-                all_inputs["channel_length"] =cat_dict["channel_length"]
 
             elif str(catheter_file).endswith(".dcm"):
                 cat_dict = cls.load_from_dicom(pth_dicom=catheter_file)
-                all_inputs["catheter_list"] = cat_dict["catheter_list"]
-                all_inputs["step_size"] = cat_dict["step_size"]
-                all_inputs["channel_length"] = cat_dict["channel_length"]
+
+        all_inputs["catheter_list"] = cat_dict["catheter_list"]
+        all_inputs["step_size"] = cat_dict["step_size"]
+        all_inputs["channel_length"] = cat_dict["channel_length"]
 
         if isinstance(all_inputs["catheter_list"][0], dict):
             all_inputs["catheter_list"] = [
@@ -450,16 +451,46 @@ class CatheterTable(BaseModel):
                 }
 
     @classmethod
-    def load_from_dicom(cls, pth_dicom: Path) -> List[dict]:
+    def load_from_dicom(cls, pth_dicom: Path, from_ct: bool = False) -> dict:
         r"""
         ### Purpose:
         - Load the catheter table from a dicom file.
         
         ### Inputs:
         - pth_dicom: Path := the path to the dicom file containing the catheter table.
+        - from_ct: bool = False := if True, catheters will be contoured on CT images, then digitized.
+
+        ### Outputs:
+        - catheter_table_dict := the dictionary containing the catheter table.
+        """
+        if from_ct:
+            phantom = BrachyPhantom(dir_dicom=pth_dicom)
+            catheter_table_dict = cls.load_from_phantom(image=phantom)    
+        else:
+            catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+
+        return catheter_table_dict
+
+    @classmethod
+    def load_from_phantom(cls, image: Path | str | BrachyPhantom) -> dict:
+        r"""
+        ### Purpose:
+        - Load the catheter table from a phantom object.
+        
+        ### Inputs:
+        - image: Path | BrachyPhantom := the path to the phantom file or the phantom object.
         
         ### Outputs:
-        - Void := will update the catheter table based on the dicom file.
+        - catheter_table_dict := the dictionary containing the catheter table.
         """
-        catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
-        return catheter_table_dict
+        # if "image" a path to a file, just pass along
+        if isinstance(image, Path) or isinstance(image, str):
+            image = Path(image)                
+        # if "image" is a BrachyPhantom object, convert it to sitk and pass it along 
+        elif isinstance(image, BrachyPhantom):
+            image = imageToSITK(image.image_obj)
+        else:
+            raise ValueError("image should be either a Path or a BrachyPhantom object.")
+
+        cat_table_dict = ct_to_catheter_table(image=image)
+        return cat_table_dict
