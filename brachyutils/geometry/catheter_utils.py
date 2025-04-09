@@ -1,12 +1,20 @@
 import numpy as np
-from typing import List, Union, Dict, Any
+from typing import List, Union, Dict, Any, Optional
 from pathlib import Path
 from pydantic import BaseModel, model_validator, computed_field
 import json
 from opentps.core.data.images import ROIMask
-from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
-from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
-from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position
+try:
+    from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
+    from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
+    from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position
+    from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
+except:
+    from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
+    from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
+    from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position
+    from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
+
 class DwellPosition(BaseModel):
     r"""
     ### Purpose:
@@ -99,7 +107,7 @@ class Catheter(BaseModel):
     index: int
     dwells: List[DwellPosition] = None
     # in case dwells are missing and fit, tip, last dwell position and step size is provided
-    fit_function:Any = None
+    fit_function:Optional[PiecewiseLinear3D] = None
     tip_position: List[float] = None
     last_dwell_position: List[float] = None
     step_size: float = 5.0
@@ -107,8 +115,8 @@ class Catheter(BaseModel):
     # we assume tip is the first digitization point and last dwell is the last digitization point.
     points: List[List[float]] = None
     # auxiliary attributes
-    afterloader_channel_number: int = None # if none, will be set to index
-    insert_position: List[float] = None
+    afterloader_channel_number: Optional[int] = None # if none, will be set to index
+    insert_position: Optional[List[float]] = None
 
     @computed_field
     def channel_total_time(self) -> float:
@@ -453,9 +461,5 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - Void := will update the catheter table based on the dicom file.
         """
-        # try:
-        from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
-        # except:
-            # from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table            
         catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
         return catheter_table_dict
