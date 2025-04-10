@@ -5,7 +5,7 @@ setup(
     version="0.3",
     description="Python utility packages for handling dose files and egsphant files.",
     author="EngerLab",
-    packages=find_packages(include=["brachyutils.*"]),
+    packages=find_packages(include=["brachyutils.*", "brachyutils"]),
     # namespace_packages=['brachyutils'],
     package_dir={"": "."}, # required for pip install -e .
     install_requires=[
