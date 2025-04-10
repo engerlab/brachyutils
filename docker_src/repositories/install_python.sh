@@ -5,7 +5,7 @@ num_threads=10
 apt install -y build-essential zlib1g zlib1g-dev libncurses5-dev \
     libgdbm-dev pkg-config libnss3-dev libssl-dev libreadline-dev \
     libffi-dev libsqlite3-dev wget nano liblzma-dev libbz2-dev \
-    libxrender1 libgl1 libglib2.0-0 python3-tk
+    libxrender1 libgl1 libglib2.0-0 tk-dev
 
 # install python 3.13
 cd ${dir_software} || exit
