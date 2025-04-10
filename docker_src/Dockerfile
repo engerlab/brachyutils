@@ -8,9 +8,9 @@ ARG clean_source="false"
 WORKDIR ${dir_software}
 
 # # install requirements needed for python 3.12
-RUN apt update && apt install -y zip unzip wget curl net-tools nano
+RUN apt update && apt install -y zip unzip wget curl net-tools nano git
 
-COPY install_python.sh ${dir_software}/install_python.sh
+COPY docker_src/repositories/install_python.sh ${dir_software}/install_python.sh
 RUN bash install_python.sh
 
 # # copy opentps-brachyutils and install it
@@ -34,5 +34,8 @@ COPY docker_src/repositories/install_ai_bt.sh ${dir_software}/AI_Assisted_Brachy
 RUN bash ${dir_software}/AI_Assisted_Brachytherapy/install_ai_bt.sh
 
 # copy brachyutils source code and install it
-# COPY ${HOST_HOME}/Software/brachyutils ${dir_software}/brachyutils
-# RUN bash ${dir_software}/brachyutils/installation_script.sh
+COPY docker_src/repositories/brachyutils-new_docker.zip ${dir_software}
+RUN unzip brachyutils-new_docker.zip\
+    && rm brachyutils-new_docker.zip\
+    && mv brachyutils-new_docker brachyutils
+RUN bash ${dir_software}/brachyutils/install_brachyutils.sh
