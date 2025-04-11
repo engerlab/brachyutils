@@ -9,9 +9,9 @@ apt install -y build-essential zlib1g zlib1g-dev libncurses5-dev \
 
 # install python 3.13
 cd ${dir_software} || exit
-wget -nc https://www.python.org/ftp/python/3.13.1/Python-3.13.1.tgz
-tar -xf Python-3.13.1.tgz
-cd Python-3.13.1 || exit
+wget -nc https://www.python.org/ftp/python/3.13.3/Python-3.13.3.tgz
+tar -xf Python-3.13.3.tgz
+cd Python-3.13.3 || exit
 ./configure --enable-optimizations
 make -j${num_threads}
 make altinstall
