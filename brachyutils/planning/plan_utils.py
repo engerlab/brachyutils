@@ -59,7 +59,7 @@ class BrachyPlan:
     - uncertainty_tensor:= sqaure root of the sum of the squares of the uncertainty maps weighted by the 
     dwell times normalized to the treatment time.
     - simulation_setup:= A simulation setup object containing the source info as well as simulation parameters.
-    - optimizer:= An optimzation object to be implemented.
+    - optimizer:= An optimization object to be implemented.
     - prescription_dose:= The dose that is prescribed to the target volume.
 
     ### Functions:
