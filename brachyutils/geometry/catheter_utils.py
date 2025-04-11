@@ -5,18 +5,12 @@ from pydantic import BaseModel, model_validator, computed_field
 import json
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from brachyutils.geometry.phantom_utils import BrachyPhantom
-try:
-    from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
-    from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
-    from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position
-    from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
-    from ai_assisted_brachy.catheter.catheter_api import ct_to_catheter_table
-except:
-    from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
-    from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
-    from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position
-    from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
-    from ai_assisted_brachy.catheter.catheter_api import ct_to_catheter_table
+
+from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
+from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
+from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position
+from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table
+from ai_assisted_brachy.catheter.catheter_api import ct_to_catheter_table
 
 class DwellPosition(BaseModel):
     r"""
