@@ -165,7 +165,7 @@ This approach allows you to make a new image without volume mounting.
 1. Push your changes to either repository, download the repo as a zip file.
 2. Place the zip file inside the folder `docker_src/repositories`
 3. Make sure that the name of the zipped files are written correctly inside `docker_src/Dockerfile` 
-4. Inside `docker_src/docker-compose.yam`, comment out volume mounting
+4. Inside `docker_src/docker-compose.yaml`, comment out volume mounting (lines 20-22)
 5. Inside `docker_src`, run `docker-compose up --build -d BrachyUtils`
 
 Depending on your internet speed should take about 30 minutes to 1 hour.

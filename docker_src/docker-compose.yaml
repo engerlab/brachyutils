@@ -17,9 +17,9 @@ services:
       - GID=${GID}
       - DEBIAN_FRONTEND=noninteractive
       - QT_QPA_PLATFORM=offscreen
-    # volumes:
-      # - ${HOST_HOME}/Software/brachyutils:/root/Software/brachyutils
-      # - ${HOST_HOME}:/root/YourLocalHome
+    volumes:
+      - ${HOST_HOME}/Software/brachyutils:/root/Software/brachyutils
+      - ${HOST_HOME}:/root/YourLocalHome
     expose:
       - "8000"
     networks:
