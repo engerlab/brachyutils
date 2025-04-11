@@ -287,8 +287,6 @@ def test_dicom_rt_tools():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
     pth_out = "../data_test/test_export_plan/prostate"
-    5
-    origin = None
     spacing = np.array([1., 1., 1.])
     
     phantom_obj = BrachyPhantom(
