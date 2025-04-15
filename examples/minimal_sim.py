@@ -14,7 +14,7 @@ def export_plan_air_phantom():
                 dwells=[
                     DwellPosition(
                         index=0,
-                        position=[0.0, 0.0, 0.0],
+                        position=[50, 50, 50],
                         relativePos=0,
                         rotation=[0.0, 0.0, 0.0],
                         time=1.0,
@@ -24,7 +24,7 @@ def export_plan_air_phantom():
     )
     sim_dict = {
         "source_dict": {
-            "treatment_type": "LDR",
+            "treatment_type": "TLDR",
             "source_geometry": "IsoAid_Advantage",
             "core_material": "G4_Pd",
             "mass_number": "103",

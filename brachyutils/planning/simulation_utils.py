@@ -1,13 +1,13 @@
 import json
 from pathlib import Path
-from typing import Union
+from typing import Union, Literal
 import pydicom
 from collections import defaultdict
 
 class BrachySource:
     def __init__(
         self,
-        treatment_type: str = "HDR",
+        treatment_type: Literal["HDR", "PLDR", "TLDR"] = "HDR",
         source_geometry: str = "MicroSelectronV2",
         core_material: str = "G4_Ir",
         mass_number: int = 192,
