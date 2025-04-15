@@ -345,9 +345,9 @@ class CatheterTable(BaseModel):
             elif str(catheter_file).endswith(".dcm"):
                 cat_dict = cls.load_from_dicom(pth_dicom=catheter_file)
 
-        all_inputs["catheter_list"] = cat_dict["catheter_list"]
-        all_inputs["step_size"] = cat_dict["step_size"]
-        all_inputs["channel_length"] = cat_dict["channel_length"]
+            all_inputs["catheter_list"] = cat_dict["catheter_list"]
+            all_inputs["step_size"] = cat_dict["step_size"]
+            all_inputs["channel_length"] = cat_dict["channel_length"]
 
         if isinstance(all_inputs["catheter_list"][0], dict):
             all_inputs["catheter_list"] = [
