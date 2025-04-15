@@ -7,4 +7,4 @@ docker compose up --no-build -d BrachyUtils
 # docker compose up --no-build -d DoseCalcTG43
 # docker compose up --no-build -d Pyplastimatch
 # to enter the container
-# docker exec -it BrachyUtils bash
+docker exec -it BrachyUtils bash

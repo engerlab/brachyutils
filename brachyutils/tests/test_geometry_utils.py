@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 from brachyutils import BrachyPhantom
-from brachyutils.geometry_utils import BrachyApplicator
+from brachyutils.geometry.applicator_utils import BrachyApplicator
 
 def test_brachy_phantom():
     # pth_dicom = "../data_test/prostate-glen-p1-dcm"
@@ -117,13 +117,59 @@ def test_crop_phantom():
 
 
 def test_catheter_table():
-    from brachyutils.geometry_utils import CatheterTable
+    from brachyutils.geometry.catheter_utils import DwellPosition, Catheter, CatheterTable
+    dwell_dict_0 = {
+        "index": 0,
+        # "angle": 0,
+        "position": np.random.rand(3), 
+        "relativePos": 5,
+        'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        "time": 45.3,
+        # "weight": 0.003,
+    }
+    dwell_dict_1 = {
+        "index": 1,
+        # "angle": 0,
+        "position": np.random.rand(3), 
+        "relativePos": 5,
+        'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        "time": np.random.rand(1) * 100,
+        # "weight": 0.003,
+    }
+    dwell_dict_2 = {
+        "index": 2,
+        "angle": 180,
+        "position": np.random.rand(3), 
+        "relativePos": 5,
+        'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        "time": np.random.rand(1) * 100,
+        # "weight": 0.003,
+    }
+    dwell_obj = DwellPosition(**dwell_dict_0)
+    # print(dwell_obj.to_dict())
+    
+    catheter_dict = {
+        "index": 0,
+        "dwells": [
+            dwell_dict_0,
+            dwell_dict_1,
+            dwell_dict_2,
+        ],
+        "points" :[],
+        "afterloader_channel_number": 0,
+    }
+    catheter_obj = Catheter(**catheter_dict)
+    # print(catheter_obj.to_dict())
 
+    # # test loadin from dicom
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_json = "../data_test/test_export_plan/prostate/test_catheter_table.json"
     pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
-
-    catheter_table = CatheterTable(pth_catheter_table=pth_plan)
-    catheter_table.info()
+    catheter_table = CatheterTable(catheter_list=pth_plan)
+    catheter_table.write_to_json(pth_json)
+    
+    cat_tab_json = CatheterTable(catheter_list=pth_json)
+    cat_tab_json.info()
 
 
 def test_BrachyApplicator():
@@ -241,8 +287,6 @@ def test_dicom_rt_tools():
     pth_dicom = "../data_test/prostate-glen-p1-dcm"
     pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
     pth_out = "../data_test/test_export_plan/prostate"
-    
-    origin = None
     spacing = np.array([1., 1., 1.])
     
     phantom_obj = BrachyPhantom(
@@ -259,7 +303,7 @@ def test_dicom_rt_tools():
     image = dcm_reader.images_dictionary.popitem()[1]
     mask_dict = dcm_reader.mask_dictionary
     
-    from brachyutils.geometry_utils import sitk_to_Image3D
+    from brachyutils.geometry.phantom_utils import sitk_to_Image3D
     new_mask_dict = {}
     for mask_name in mask_dict:
         new_mask_dict[mask_name] = sitk_to_Image3D(mask_dict[mask_name])
@@ -282,7 +326,7 @@ if __name__ == "__main__":
     # test_load_egsphant()
     # test_crop_phantom()
     # print("testing CatheterTable")
-    # test_catheter_table()
+    test_catheter_table()
     # print("testing BrachyApplicator")
     # test_BrachyApplicator()
     # test_BrachyApplicator_to_mac()
@@ -290,4 +334,4 @@ if __name__ == "__main__":
     # test_BrachyApplicator_set_rotation()
     # test_load_nifti_image_and_segmentation_file()
     # test_resample_to()
-    test_dicom_rt_tools()
+    # test_dicom_rt_tools()

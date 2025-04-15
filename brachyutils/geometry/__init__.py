@@ -3,7 +3,10 @@ __all__ = [
     "BrachyPhantom",
     "BrachyPhantomRegistration",
     "BrachyEgsphant",
-    "_load_json"
+    "_load_json",
+    "DwellPosition",
+    "Catheter",
+    "CatheterTable",
 ]
 # trunk-ignore(ruff/F401)
 from .phantom_utils import BrachyPhantom

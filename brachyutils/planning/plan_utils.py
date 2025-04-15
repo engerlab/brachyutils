@@ -33,36 +33,47 @@ from brachyutils.planning.simulation_utils import BrachySimulation
 
 class BrachyPlan:
     r"""
-    Purpose:
-        - This class holds the information regarding the brachytherapy treatment plan
-        as well as all the functions to support the necessary plan operations.
+    ### Purpose:
+    - This class holds the information regarding the brachytherapy treatment plan
+    as well as all the functions to support the necessary plan operations.
 
-    Attributes:
-        - num_dwells:int := the number of dwell positions in the plan
-        - catheter_table:CatheterTable := an instance of the geometry_utils.CatheterTable class
-        - dwell_numbers:np.array := the dwell number of each dwell position in the plan
-        - dwell_times:np.array := the dwell time of each dwell position in the plan
-        - dwell_coordinates:list := a list of dictionaries. each dictionary contains the
-        keys "position", "rotation", and "relativePos"
-        - organ_bounds:dict
-        - dose_rate_tensor:np.array := dose rate from dwell position 1 to num_dwells.
-        matches the dwell_number_list. shape: (num_dwells, z, y, x)
-        - uncertainty_tensor:np.array := uncertainty from dwell position 1 to num_dwells.
-        shape: (num_dwells, z, y, x)
-        - brachy_structure:list[BrachyStructure] := the list of patient structures in the plan.
+    ### Attributes:
+    - phantom:= A BrachyPhantom object containing the patient geometry and structures.
+    - dvh_metric_goals:= A dictionary containing the DVH metric goals for the plan.
+    - dvh_metrics_observed:= A dictionary containing the observed DVH metrics for the plan.
+    - structure_list:= A list of BrachyStructure objects containing the patient structures.
+    - phantom_origin:= The origin of the phantom in the patient coordinate system.
+    - organ_bounds:= A dictionary containing the min and max coordinates of the patient organs on each axis. 
+    - catheter_table:= A catheter table object containing the catheter information.
+    - num_catheters:= The number of catheters in the plan.
+    - catheter_numbers:= The catheter id numbers for each catheter in the catheter table.
+    - num_dwells:= The total number of dwell positions along all catheters in the plan.
+    - dwell_numbers:= The dwell number id of each dwell position in the plan.
+    - dwell_times:= The dwell time for each dwell position in the plan.
+    - dwell_coordinates:= The coordinate of each dwell position in patient coordinates?
+    - applicator_list:= The list of all the applicators in the plan.
+    - applicator_rotation_axis:= The rotation axis of each applicator
+    - applicator_rotation_origin:= The rotation origin of each applicator.
+    - dose_rate_tensor:= a tensor holding 3D dose rate maps for each dwell position.
+    - combined_dose:= sum of the dose rate maps weighted by the dwell times.
+    - uncertainty_tensor:= sqaure root of the sum of the squares of the uncertainty maps weighted by the 
+    dwell times normalized to the treatment time.
+    - simulation_setup:= A simulation setup object containing the source info as well as simulation parameters.
+    - optimizer:= An optimization object to be implemented.
+    - prescription_dose:= The dose that is prescribed to the target volume.
 
-    Functions:
-        - _extract_dwell_numbers_times_coordinates_from_catheterTable()
-        - _update_catheter_table_from_plan()
-        - _update_dose_after_change_in_plan()
-        - load_dose_rate_or_uncertainty_tensor()
-        - _calculate_combined_dose()
-        - set_dvh_metric_goals()
-        - create_brachy_structure_set()
-        - get_dvh_metrics()
-        - _calculate_combined_uncertainty()
-        - calculate_uncertainty_per_structure()
-        - export_brachy_plan ()
+    ### Functions:
+    - _extract_dwell_numbers_times_coordinates_from_catheterTable()
+    - _update_catheter_table_from_plan()
+    - _update_dose_after_change_in_plan()
+    - load_dose_rate_or_uncertainty_tensor()
+    - _calculate_combined_dose()
+    - set_dvh_metric_goals()
+    - create_brachy_structure_set()
+    - get_dvh_metrics()
+    - _calculate_combined_uncertainty()
+    - calculate_uncertainty_per_structure()
+    - export_brachy_plan ()
     """
 
     def __init__(
@@ -71,6 +82,7 @@ class BrachyPlan:
         phantom: Union[Path, BrachyPhantom, dict] = None,
         # for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
+        prescription_dose: float = None,
         # for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
         applicator_pth_list: Union[Path, str, list] = None,
@@ -84,41 +96,46 @@ class BrachyPlan:
         combined_dose_only: bool = False,
         # for simulation setup:
         simulation_dict: dict | Path | str = None,
-        prescription_dose: float = None,
     ):
         r"""
         ### Purpose:
-            - To initialize the BrachyPlan object.
+        - To initialize the BrachyPlan object.
 
         ### Inputs:
-            #### For geometry definition:
-            - phantom: Path|BrachyPhantom|dict := the phantom object, the path to the phantom directory,
-            or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
+        #### For geometry definition:
+        - phantom: Path|BrachyPhantom|dict := the phantom object, the path to the phantom directory,
+        or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
 
-            #### For Structure optimization and dosimetry
-            - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
-            The phantom should be loaded with structures for the Brachy stuctures to be created.
-            - prescription_dose 
+        #### For Structure optimization and dosimetry
+        - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
+        The phantom should be loaded with structures for the Brachy stuctures to be created.
+        - prescription_dose: float = None := The dose that is prescribed to the target volume. This is used to calculate the DVH metrics. 
 
-            #### for loading catheter table:
-            - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
+        #### for loading catheter table and applicators:
+        - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
+        - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
+        - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
 
-            #### for loading dose rates or uncertainty maps per dwell position:
-            - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
-            - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
-            - load_dose_or_uncertainty:str = "dose" := specify whether to load "dose" or "uncertainty" or "both" (default is "dose").
-            - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
-            - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
+        #### for loading dose rates or uncertainty maps per dwell position:
+        - combined_dose: Path|BrachyDose := the path to the combined dose file or a BrachyDose object.
+        - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
+        - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
+        - load_dose_or_uncertainty:str = "dose" := specify whether to load "dose" or "uncertainty" or "both" (default is "dose").
+        - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
+        - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
-            #### for simulation setup:
-            - simulation_dict = None := dictionary containing the simulation setup,
-            - dir_egsphant = None := path to the directory containing the egsphant file,
-            - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
-            - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
+        #### for simulation setup:
+        - simulation_dict = None := dictionary containing the simulation setup,
+
         ### Outputs:
             - Void := will initialize the BrachyPlan object
+
         ### Dependencies:
-            -
+            - BrachyPhantom
+            - BrachyDose
+            - BrachyStructure
+            - CatheterTable
+            - BrachySimulation
         """
         # declare the attributes
         # patient origin is used as a reference point for the catheter table,
@@ -126,21 +143,21 @@ class BrachyPlan:
         # XXX: figure out how to sort out patient origin to match all above.
 
         # phantom and geometry attributes
-        self.phantom = None
+        self.phantom: BrachyPhantom = None
         self.dvh_metric_goals: dict = None
         self.dvh_metrics_observed: dict = None
         self.structure_list: List[BrachyStructure] = []
-        self.phantom_origin = None  # np.array([0, 0, 0])  # x,y,z
-        self.organ_bounds = None
+        self.phantom_origin: list = None  # np.array([0, 0, 0])  # x,y,z
+        self.organ_bounds: list = None
 
         # catheter table attributes
         self.catheter_table: CatheterTable = None
-        self.num_catheters = None
-        self.catheter_numbers = np.array([], dtype=int)  # shape: (num_catheters, 1)
-        self.num_dwells = None
-        self.dwell_numbers = np.array([], dtype=int)  # shape: (num_dwells, 1)
-        self.dwell_times = np.array([], dtype=np.float32)  # shape: (num_dwells, 1)
-        self.dwell_coordinates = []  # shape: (num_dwells, 3)
+        self.num_catheters: int = None
+        self.catheter_numbers:list = np.array([], dtype=int)  # shape: (num_catheters, 1)
+        self.num_dwells: int = None
+        self.dwell_numbers: list = np.array([], dtype=int)  # shape: (num_dwells, 1)
+        self.dwell_times: List[float] = np.array([], dtype=np.float32)  # shape: (num_dwells, 1)
+        self.dwell_coordinates: List[list] = []  # shape: (num_dwells, 3)
 
         # applicator attributes
         self.applicator_list: List[BrachyApplicator] = []
@@ -192,7 +209,7 @@ class BrachyPlan:
         # load the catheter table if the path is provided
         if catheter_table is not None:
             if isinstance(catheter_table, Path) or isinstance(catheter_table, str):
-                self.catheter_table = CatheterTable(pth_catheter_table=catheter_table)
+                self.catheter_table = CatheterTable(catheter_list=catheter_table)
             elif isinstance(catheter_table, CatheterTable):
                 self.catheter_table = catheter_table
             else:
@@ -362,7 +379,7 @@ class BrachyPlan:
         # extract the attributes above from the catheter table
         dwell_counter = 1
         for catheter in self.catheter_table.catheter_list:
-            self.catheter_numbers = np.append(self.catheter_numbers, catheter.id)
+            self.catheter_numbers = np.append(self.catheter_numbers, catheter.iD)
             for dwell in catheter.dwells:
                 self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
                 self.dwell_times = np.append(self.dwell_times, dwell.time)
@@ -372,7 +389,7 @@ class BrachyPlan:
                         "position": dwell.position,
                         "rotation": dwell.rotation,
                         "relativePos": dwell.relativePos,
-                        "catheterId": catheter.id,
+                        "catheterId": catheter.iD,
                     }
                 )
                 dwell_counter += 1
@@ -404,7 +421,7 @@ class BrachyPlan:
 
         for catheter_i in self.catheter_numbers:
             catheter = {}
-            catheter["id"] = int(catheter_i)
+            catheter["iD"] = int(catheter_i)
             catheter["points"] = []
             catheter["dwells"] = []
             dwell = {}

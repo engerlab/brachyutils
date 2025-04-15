@@ -18,6 +18,7 @@ import pydicom
 from opentps.core.data.images import CTImage, MRImage, ROIMask, Image3D
 from opentps.core.data import ROIContour, RTStruct
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
+from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.io.dicomIO import (  # writeRTDose,
     readDicomCT,
     readDicomMRI,
@@ -317,7 +318,7 @@ class BrachyPhantom:
     def get_structure_mask(
         self,
         query_structure_list: List[str],
-        mask_type: Union[np.ndarray, ROIContour, ROIMask],
+        mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         Purpose:
