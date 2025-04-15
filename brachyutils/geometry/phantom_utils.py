@@ -1,5 +1,3 @@
-
-
 import warnings
 import os
 import numpy as np
@@ -1135,6 +1133,40 @@ def phantom_with_empty_image_like(
     new_phantom.xyz_format = phantom.xyz_format
 
     return new_phantom
+
+def get_uniform_phantom(
+    voxel_value: float = 0.0,
+    gridSize: List[int] = [100, 100, 100],
+    spacing: List[float] = [1.0, 1.0, 1.0],
+    origin: List[float] = [0.0, 0.0, 0.0],
+    )-> BrachyPhantom:
+    r"""
+    ### Purpose:
+    - Create a uniform cubic phantom object where all the voxels have the same value.
+
+    ### Inputs:
+    - voxel_value: float := the value of the voxels in the phantom.
+    - gridSizeInMilimeters: List[int] := the size of the phantom in millimeters.
+    - spacing: List[float] := the spacing of the phantom in millimeters.
+    - origin: List[float] := the origin of the phantom in millimeters.
+
+    ### Outputs:
+    - phantom: BrachyPhantom := the new phantom object.
+    """
+    phantom = BrachyPhantom()
+    phantom.image_obj = Image3D(
+        imageArray=np.ones(gridSize) * voxel_value,
+        spacing=spacing,
+        origin=origin,
+    )
+    phantom.image_modality = None
+    phantom.structure_set = None
+    phantom.structure_names = []
+    phantom.unit_length = "cm"
+    phantom.xyz_format = "LPS"
+
+    return phantom
+    
 
 def _sort_segementation_dict_by_size(seg_dict) -> dict:
     r"""
