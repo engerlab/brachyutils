@@ -17,9 +17,11 @@ services:
       - GID=${GID}
       - DEBIAN_FRONTEND=noninteractive
       - QT_QPA_PLATFORM=offscreen
+      - DISPLAY=${DISPLAY} # for access to graphical server
     volumes:
       - ${HOST_HOME}/Software/brachyutils:/root/Software/brachyutils
       - ${HOST_HOME}:/root/YourLocalHome
+      - /tmp/.X11-unix:/tmp/.X11-unix # for access to graphical server
     expose:
       - "8000"
     networks:
