@@ -58,7 +58,7 @@ def test_create_devic_calibration_curve():
 
 
 def test_load_calibration_films():
-    test_calibration_films_path = "../../data_test/test_calibration_films/"
+    test_calibration_films_path = "data_test/test_calibration_films/"
     pixel_range = 65535.0  # 2^32 -1
     test_file_dict = dict()  # dict maps dose to array of file names
     test_file_dict[0] = ["0Gy062.tif", "0Gy063.tif"]

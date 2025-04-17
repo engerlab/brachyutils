@@ -27,13 +27,13 @@ from brachyutils.dose_utils import BrachyDose
 
 def test_crop_egsphant_by_body_contour_many_patients():
     # test on testing dataset
-    pth_input = "../../data_test/prostate-glen-p1-planFiles/"
-    pth_json = "../../data_test/test_patient_body_bounds.json"
+    pth_input = "data_test/prostate-glen-p1-planFiles/"
+    pth_json = "data_test/test_patient_body_bounds.json"
     crop_egsphant_by_body_contour_many_patients(pth_input, pth_json)
 
 
 def test_convert_many_files():
-    dir_in = "../../data_test/many_files/"
+    dir_in = "data_test/many_files/"
     type_in = ".nrrd"
     type_out = ".minidos"
 
@@ -54,14 +54,14 @@ def test_convert_many_files():
 
 
 def test_crop_dose_by_body_contour_many_files():
-    pth_3ddose = "../../data_test/3ddose/p1"
-    pth_json = "../../data_test/patient_body_bounds.json"
+    pth_3ddose = "data_test/3ddose/p1"
+    pth_json = "data_test/patient_body_bounds.json"
 
     crop_dose_by_body_contour_many_files(pth_3ddose, pth_json)
 
 
 def test_combined_dose_per_patient():
-    batch_directory = "../../data_test/batch_uncertainty_test/"
+    batch_directory = "data_test/batch_uncertainty_test/"
     combined_dose_per_patient(batch_directory, ".3ddose", ".3ddose", multi_proc=True)
     mp_combined = BrachyDose(f"{batch_directory}/combined.3ddose")
     combined_dose_per_patient(batch_directory, ".3ddose", ".3ddose", multi_proc=False)

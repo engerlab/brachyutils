@@ -75,7 +75,7 @@ def test_write_to_nrrd():
 
 
 def test_to_single_string():
-    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_input = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
 
     egsphant_obj = BrachyEgsphant()
@@ -93,7 +93,7 @@ def test_load_from_ctegsphant():
 
 
 def test_load_from_nrrd():
-    pth_input = "../../data_test/prostate-glen-p1-planFiles/ct.nrrd"
+    pth_input = "data_test/prostate-glen-p1-planFiles/ct.nrrd"
 
     egsphant_obj = BrachyEgsphant()
     egsphant_obj.load_from_nrrd(pth_input)
@@ -140,7 +140,7 @@ def test_create_egsphant_from_images():
 
 
 def text_load_material_dict():
-    pth_input = "../../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
+    pth_input = "data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
     materials_dict = _load_material_dict(pth_input)
     print(materials_dict)
 
