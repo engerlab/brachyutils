@@ -14,8 +14,8 @@ from brachyutils.dose_utils import BrachyDose
 
 
 # def test_get_body_contour_range_from_dicom_many_patients():
-#     input_dir = "../data_test"
-#     pth_json = "../data_test/test_export_plan/patient_body_bounds_output.json"
+#     input_dir = "data_test"
+#     pth_json = "data_test/test_export_plan/patient_body_bounds_output.json"
 
 #     get_body_contour_range_from_dicom_many_patients(input_dir, pth_json)
 

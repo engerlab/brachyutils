@@ -15,10 +15,10 @@ from brachyutils.egsphant_utils import (
 
 
 def test_crop_by_dicom_structure():
-    pth_dicomRS = "../data_test/prostate-glen-p1-dcm/"
+    pth_dicomRS = "data_test/prostate-glen-p1-dcm/"
     # print("pth_dicomRS: ".format(pth_dicomRS))
 
-    pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_input = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # pth_output = os.path.dirname(pth_input) + "/test_"+os.path.basename(pth_input)
 
     egsphant_obj = BrachyEgsphant(pth_input)
@@ -32,9 +32,9 @@ def test_crop_by_dicom_structure():
 
 
 def test_crop_by_index():
-    pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_input = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
     pth_output = (
-        "../data_test/test_export_plan" + "/cropped" + os.path.basename(pth_input)
+        "data_test/test_export_plan" + "/cropped" + os.path.basename(pth_input)
     )
     egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
     egsphant_obj.info()
@@ -46,9 +46,9 @@ def test_crop_by_index():
 
 
 def test_write_to_egsphant():
-    pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_input = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
     pth_output = (
-        "../data_test/test_export_plan" + "/test_" + os.path.basename(pth_input)
+        "data_test/test_export_plan" + "/test_" + os.path.basename(pth_input)
     )
 
     egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
@@ -60,9 +60,9 @@ def test_write_to_egsphant():
 
 
 def test_write_to_nrrd():
-    egsphant_directory = "../data_test/prostate-glen-p1-planFiles/"
+    egsphant_directory = "data_test/prostate-glen-p1-planFiles/"
     pth_input = egsphant_directory + "ct.egsphant"
-    pth_export = "../data_test/test_export_plan/"
+    pth_export = "data_test/test_export_plan/"
     pth_output = pth_export + "ct.nrrd"
 
     egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
@@ -86,7 +86,7 @@ def test_to_single_string():
 
 
 def test_load_from_ctegsphant():
-    pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_input = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
 
     egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
     egsphant_obj.info()
@@ -102,16 +102,16 @@ def test_load_from_nrrd():
 
 
 def test_create_egsphant_from_images():
-    # dir_images = "../data_test/rectal-jgh-dcm"
-    dir_images = "../data_test/prostate-glen-p1-dcm"
+    # dir_images = "data_test/rectal-jgh-dcm"
+    dir_images = "data_test/prostate-glen-p1-dcm"
     # materials from CT
-    pth_materials = "../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
-    pth_output = "../data_test/test_export_plan/test_ct.egsphant"
+    pth_materials = "data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
+    pth_output = "data_test/test_export_plan/test_ct.egsphant"
     load_structure = False
     assign_material_from_ct = True
     # # materials from contours
-    # pth_materials = "../data_test/prostate_material_dict.json"
-    # pth_output = "../data_test/test_export_plan/test_ct.egsphant"
+    # pth_materials = "data_test/prostate_material_dict.json"
+    # pth_output = "data_test/test_export_plan/test_ct.egsphant"
     # load_structure = True
     # assign_material_from_ct = False
     # dicom_obj = BrachyDicom(
@@ -146,9 +146,9 @@ def text_load_material_dict():
 
 
 def test_crop_by_coordinates():
-    pth_input = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_input = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
     pth_output = (
-        "../data_test/test_export_plan" + "/cropped" + os.path.basename(pth_input)
+        "data_test/test_export_plan" + "/cropped" + os.path.basename(pth_input)
     )
     egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_input)
     egsphant_obj.info()

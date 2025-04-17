@@ -9,7 +9,7 @@ from brachyutils.plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_
 
 
 def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
-    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
 
     plan_obj = BrachyPlan(catheter_table=pth_cathTable_json)
 
@@ -23,7 +23,7 @@ def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
 
 
 def test_update_catheter_table_from_plan():
-    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
 
     plan_obj = BrachyPlan(catheter_table=pth_cathTable_json)
     plan_obj.catheter_table.info()
@@ -32,8 +32,8 @@ def test_update_catheter_table_from_plan():
 
 
 def test_load_dose_rate_or_uncertainty_tensor():
-    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    dir_dose_rate = "../data_test/prostate-glen-p1-dose"
+    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    dir_dose_rate = "data_test/prostate-glen-p1-dose"
 
     plan_obj = BrachyPlan(
         catheter_table=pth_cathTable_json,
@@ -49,9 +49,9 @@ def test_load_dose_rate_or_uncertainty_tensor():
 
 
 def test_create_structures_and_calc_dvh_metrics():
-    dir_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    # dir_dose_rate = "../data_test/prostate-glen-p1-dose"
+    dir_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    # dir_dose_rate = "data_test/prostate-glen-p1-dose"
     pth_dose = glob(dir_dicom + "/RD*.dcm")[0]
     dvh_metric_goals = {
         "D95%(ctv)": 15,
@@ -72,8 +72,8 @@ def test_create_structures_and_calc_dvh_metrics():
 
 
 def test_calculate_combined_uncertainty():
-    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    dir_dose_rate = "../data_test/prostate-glen-p1-dose"
+    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    dir_dose_rate = "data_test/prostate-glen-p1-dose"
 
     plan_obj = BrachyPlan(
         catheter_table=pth_cathTable_json,
@@ -92,10 +92,10 @@ def test_calculate_combined_uncertainty():
 
 def test_calculate_uncertainty_per_structure():
     pth_catheter_table_json = (
-        "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
+        "data_test/prostate-glen-p1-planFiles/catheter_table.json"
     )
-    dir_dose_rate = "../data_test/prostate-glen-p1-dose/"
-    dir_dicom = "../data_test/prostate-glen-p1-dcm/"
+    dir_dose_rate = "data_test/prostate-glen-p1-dose/"
+    dir_dicom = "data_test/prostate-glen-p1-dcm/"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -124,10 +124,10 @@ def test_calculate_uncertainty_per_structure():
 
 def test_BrachyPlan():
     pth_catheter_table_json = (
-        "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
+        "data_test/prostate-glen-p1-planFiles/catheter_table.json"
     )
-    dir_dose_rate = "../data_test/prostate-glen-p1-dose/"
-    dir_dicom = "../data_test/prostate-glen-p1-dcm"
+    dir_dose_rate = "data_test/prostate-glen-p1-dose/"
+    dir_dicom = "data_test/prostate-glen-p1-dcm"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -144,22 +144,22 @@ def test_BrachyPlan():
 
 
 def test__load_single_dose_or_uncertainty_to_dict():
-    pth_dose_rate = "../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
+    pth_dose_rate = "data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     dose_rate_dict = _load_single_dose_or_uncertainty_to_dict(pth_dose_rate, "both")
     print(dose_rate_dict[0].shape)  # dose
     print(dose_rate_dict[1].shape)  # uncertainty
 
 
 def test_export_brachy_plan():
-    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    dir_dose_rate = "../data_test/prostate-glen-p1-dose"
-    dir_dicom = "../data_test/prostate-glen-p1-dcm/"
+    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    dir_dose_rate = "data_test/prostate-glen-p1-dose"
+    dir_dicom = "data_test/prostate-glen-p1-dcm/"
     pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
-    # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    # dir_egsphant = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # assign material based on contours:
-    pth_material = "../data_test/prostate_material_dict.json"
+    pth_material = "data_test/prostate_material_dict.json"
     # assign materials based on CT values:
-    # pth_material = "../data_test/CTtoDensityProstate.txt"
+    # pth_material = "data_test/CTtoDensityProstate.txt"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -181,7 +181,7 @@ def test_export_brachy_plan():
         "PrintProgress": 10000,
         "beam_on": 10000,
     }
-    dir_export = "../data_test/test_export_plan"
+    dir_export = "data_test/test_export_plan"
     export_format = "RapidBrachy"
     os.makedirs(dir_export, exist_ok=True)
 
@@ -213,7 +213,7 @@ def test_export_brachy_plan():
 
 
 def test_load_brachy_plan_from_dicom():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm/"
+    pth_dicom = "data_test/prostate-glen-p1-dcm/"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -223,8 +223,8 @@ def test_load_brachy_plan_from_dicom():
     plan_obj.info()
 
 def test_load_applicator_list():
-    dir_dicom = "../data_test/rectal-jgh-dcm"
-    dir_plan = "../data_test/rectal-jgh-planFiles"
+    dir_dicom = "data_test/rectal-jgh-dcm"
+    dir_plan = "data_test/rectal-jgh-planFiles"
     pth_applicator_geometry = os.path.join(dir_plan, "applicator_geometry.json")
 
     plan_obj = BrachyPlan(
@@ -236,10 +236,10 @@ def test_load_applicator_list():
 
 
 def test__export_applicator_geometry():
-    dir_dicom = "../data_test/rectal-jgh-dcm"
-    dir_plan = "../data_test/rectal-jgh-planFiles"
+    dir_dicom = "data_test/rectal-jgh-dcm"
+    dir_plan = "data_test/rectal-jgh-planFiles"
     pth_applicator_geometry = os.path.join(dir_plan, "applicator_geometry.json")
-    dir_export = "../data_test/test_export_plan"
+    dir_export = "data_test/test_export_plan"
     plan_obj = BrachyPlan(
         phantom=dir_dicom,
         applicator=pth_applicator_geometry,
@@ -256,7 +256,7 @@ def test_brachy_structure():
 
     from brachyutils import BrachyDose, BrachyPhantom, BrachyStructure
 
-    pth_dicom = "../data_test/prostate-glen-p1-dcm/"
+    pth_dicom = "data_test/prostate-glen-p1-dcm/"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
     pth_dose = glob(pth_dicom + "/RD*.dcm")[0]
     structure_name = "CTV"
@@ -284,7 +284,7 @@ def test_brachy_structure():
 def test_load_phantom():
     from pathlib import Path
 
-    pth_dicom = Path("../data_test/prostate-glen-p1-dcm/")
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm/")
 
     dvh_metric_goals = {
         "D95%(ctv)": 15,

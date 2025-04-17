@@ -7,15 +7,15 @@ from brachyutils.plan_utils import BrachyPlan
 
 
 def make_plan_and_export_it(dir_export) -> Path:
-    pth_cathTable_json = "../data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    dir_dose_rate = "../data_test/prostate-glen-p1-dose"
-    dir_dicom = "../data_test/prostate-glen-p1-dcm/"
+    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    dir_dose_rate = "data_test/prostate-glen-p1-dose"
+    dir_dicom = "data_test/prostate-glen-p1-dcm/"
     pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
-    # dir_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    # dir_egsphant = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # # assign material based on contours:
-    # pth_material = "../data_test/prostate_material_dict.json"
+    # pth_material = "data_test/prostate_material_dict.json"
     # # assign materials based on CT values:
-    pth_material = "../data_test/CTtoDensityProstate.txt"
+    pth_material = "data_test/CTtoDensityProstate.txt"
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -39,7 +39,7 @@ def make_plan_and_export_it(dir_export) -> Path:
         "PrintProgress": 10000,
         "beam_on": 10000,
     }
-    # dir_export = "../data_test/test_export_plan"
+    # dir_export = "data_test/test_export_plan"
     export_format = "RapidBrachy"
     os.makedirs(dir_export, exist_ok=True)
 
@@ -73,7 +73,7 @@ def make_plan_and_export_it(dir_export) -> Path:
 
 
 def test_DoseTG43():
-    dir_export = "../temp_data/tg43/p1"
+    dir_export = "temp_data/tg43/p1"
     dose_setup = make_plan_and_export_it(dir_export)
     dose_setup = Path("temp_data/tg43/p1")
     pth_exectuable = "http://192.168.1.12:8000/calculate_dose_tg43"
@@ -86,7 +86,7 @@ def test_DoseTG43():
 
 
 def test_DoseMC():
-    dir_export = "../temp_data/mc/p1"
+    dir_export = "temp_data/mc/p1"
     dose_setup = make_plan_and_export_it(dir_export)
     dose_setup = Path("temp_data/mc/p1")
     pth_exectuable = "http://192.168.1.11:8000/calculate_dose_mc"
