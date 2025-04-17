@@ -171,12 +171,19 @@ def test_catheter_table():
     cat_tab_json = CatheterTable(catheter_list=pth_json)
     cat_tab_json.info()
 
+def test_catheter():
+    from brachyutils.geometry.catheter_utils import Catheter, DwellPosition
+    new_catheter = Catheter(
+        index=0,
+        tip_position=[25, 25, 25],
+        last_dwell_coordinate=[0, 0, 0]
+    )
+    print(new_catheter.to_dict())
 
 def test_BrachyApplicator():
     pth_applicator_stl = "data_test/rectal-jgh-planFiles/applicator_0.stl"
     applicator_obj = BrachyApplicator(pth_applicator_stl)
     applicator_obj.info()
-
 
 def test_BrachyApplicator_to_mac():
     pth_applicator_stl = "data_test/rectal-jgh-planFiles/applicator_0.stl"
@@ -328,7 +335,8 @@ if __name__ == "__main__":
     # test_load_egsphant()
     # test_crop_phantom()
     # print("testing CatheterTable")
-    test_catheter_table()
+    # test_catheter_table()
+    test_catheter()
     # print("testing BrachyApplicator")
     # test_BrachyApplicator()
     # test_BrachyApplicator_to_mac()

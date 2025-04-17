@@ -88,14 +88,21 @@ class DwellPosition(BaseModel):
 class Catheter(BaseModel):
     r"""
     ### Purpose:
-    - This class holds the information regarding a catheter.
-    
+    - This class holds the information regarding a catheter. The first catheter is placed at the 
+    tip position and extends back towards the insertion point. The last dwell position is placed
+    at the last_dwell_coordinate.
+
     ### Attributes:
     - index:int := the index of the catheter.
+    - tip_position: The coordinate position of the tip of the catheter.
     - points:List[np.array] := the list of digitization points of the catheter.
     - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
     - afterloader_channel_number:int := the afterloader channel number of the catheter.
     - channel_total_time:float := the total time of the catheter.
+    - step_size: float := distance between the subsequent dwell positions.
+    - fit_function:PiecewiseLinear3D := a line that connects the dwell positions together.
+    - insert_position:list := The coordinates on patient body or insertion grid where the 
+    catheter was inserted from.
 
     ### Functions:
     - to_dict() -> dict := convert the catheter to a dictionary.
@@ -106,7 +113,7 @@ class Catheter(BaseModel):
     # in case dwells are missing and fit, tip, last dwell position and step size is provided
     fit_function:Any = None
     tip_position: List[float] = None
-    last_dwell_position: List[float] = None
+    last_dwell_coordinate: List[float] = None
     step_size: float = 5.0
     # in case dwells and fit is missing and digitization points are provided.
     # we assume tip is the first digitization point and last dwell is the last digitization point.
@@ -146,7 +153,7 @@ class Catheter(BaseModel):
         elif all_inputs.get("fit_function", None) is not None:
             all_inputs["dwells"] = cls.get_dwells_from_fit(
                 fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size"),
+                step_size=all_inputs.get("step_size",5.0),
                 )
         # create the fit and dwells from points
         elif all_inputs.get("points", None) is not None:
@@ -155,24 +162,24 @@ class Catheter(BaseModel):
             )
             all_inputs["dwells"] = cls.get_dwells_from_fit(
                 fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size"),
+                step_size=all_inputs.get("step_size",5.0),
             )
         elif (all_inputs.get("tip_position", None) is not None
-              and all_inputs.get("last_dwell_position", None) is not None
+              and all_inputs.get("last_dwell_coordinate", None) is not None
         ):
             all_inputs["fit_function"] = cls.get_fit_from_points(
-                points=[all_inputs["tip_position"], all_inputs["last_dwell_position"]],
+                points=[all_inputs["tip_position"], all_inputs["last_dwell_coordinate"]],
             )
             all_inputs["dwells"] = cls.get_dwells_from_fit(
                 fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size"),
+                step_size=all_inputs.get("step_size",5.0),
             )
         else:
-            raise ValueError("Either provide dwells, fit_function, points or\
-                tip and last dwell position coordinates to the create a catheter.")
+            raise ValueError("""Either provide dwells, fit_function, points or
+            tip and last dwell coordinate coordinates to the create a catheter.""")
 
         all_inputs["tip_position"] = all_inputs["dwells"][0].position
-        all_inputs["last_dwell_position"] = all_inputs["dwells"][-1].position
+        all_inputs["last_dwell_coordinate"] = all_inputs["dwells"][-1].position
 
         return all_inputs
 
@@ -196,7 +203,7 @@ class Catheter(BaseModel):
             "dwells": [dwell.to_dict(total_time) for dwell in self.dwells],
             # "fit_function": self.fit_function,
             "tip_position": self.tip_position,
-            "last_dwell_position": self.last_dwell_position,
+            "last_dwell_coordinate": self.last_dwell_coordinate,
             "step_size": self.step_size,
             "points": self.points,
             "afterloader_channel_number": self.afterloader_channel_number,
