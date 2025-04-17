@@ -173,12 +173,20 @@ def test_catheter_table():
 
 def test_catheter():
     from brachyutils.geometry.catheter_utils import Catheter, DwellPosition
-    new_catheter = Catheter(
-        index=0,
-        tip_position=[25, 25, 25],
-        last_dwell_coordinate=[0, 0, 0]
-    )
-    print(new_catheter.to_dict())
+    # # create a catheter from tip and last dwell position
+    # new_catheter = Catheter(
+        # index=0,
+        # tip_position=[25, 25, 25],
+        # last_dwell_coordinate=[0, 0, 0]
+    # )
+    # # create a catheter from digitization points
+    coordinates_on_1_axis = np.arange(53, 1.5, -2)
+    points = np.stack([
+        coordinates_on_1_axis,
+        coordinates_on_1_axis,
+        coordinates_on_1_axis], axis=-1)
+    new_catheter = Catheter(index = 0, points=points)
+    print(new_catheter)
 
 def test_BrachyApplicator():
     pth_applicator_stl = "data_test/rectal-jgh-planFiles/applicator_0.stl"

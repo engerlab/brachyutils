@@ -91,6 +91,12 @@ class Catheter(BaseModel):
     - This class holds the information regarding a catheter. The first catheter is placed at the 
     tip position and extends back towards the insertion point. The last dwell position is placed
     at the last_dwell_coordinate.
+    
+    To initiate a catheter, you can provide either of the following:
+    1. tip_position and last_dwell_coordinate
+    2. digitization points
+    3. fit_function
+    4. dwells
 
     ### Attributes:
     - index:int := the index of the catheter.
@@ -155,7 +161,7 @@ class Catheter(BaseModel):
                 fit_function=all_inputs["fit_function"],
                 step_size=all_inputs.get("step_size",5.0),
                 )
-        # create the fit and dwells from points
+        # create the fit and digitization from points
         elif all_inputs.get("points", None) is not None:
             all_inputs["fit_function"] = cls.get_fit_from_points(
                 points=all_inputs["points"],
