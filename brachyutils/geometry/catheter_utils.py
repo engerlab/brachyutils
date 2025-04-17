@@ -420,6 +420,31 @@ class CatheterTable(BaseModel):
         with open(pth_json, "w") as json_file:
             json.dump(self.to_dict(), json_file, indent=4
             )
+    def write_to_slicer_markup(self, pth_mrk_json: Path | str, **kwargs) -> None:
+        r"""
+        ### Purpose:
+        - Write the catheter table to a json file in the slicer markup format.
+        
+        ### Inputs:
+        - pth_json: Path := the path to the json file where the catheter table will be written.
+        
+        ### Outputs:
+        - Void := will write the catheter table to a json file in the slicer markup format.
+        """
+        from ai_assisted_brachy.preprocessing.utils import create_slicer_markup_segments
+        pth_mrk_json = Path(pth_mrk_json)
+        if not str(pth_mrk_json).endswith(".mrk.json"):
+            raise ValueError("The output file name should end with .mrk.json")
+        pth_mrk_json.parent.mkdir(parents=True, exist_ok=True)
+
+        point_list = [catheter.points for catheter in self]
+        
+        create_slicer_markup_segments(
+            output_path=pth_mrk_json,
+            point_list=point_list,
+            color=kwargs.get("color", None),
+            remove_text=kwargs.get("remove_text", True),
+        )
 
     @classmethod
     def load_from_json(cls, pth_json: Path) -> list:
