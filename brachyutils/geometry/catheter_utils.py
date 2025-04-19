@@ -352,11 +352,19 @@ class CatheterTable(BaseModel):
             ):
             catheter_file = Path(all_inputs["catheter_list"])
 
+            if not catheter_file.exists():
+                raise ValueError(f"catheter file {catheter_file} does not exist.")
+            if str(catheter_file).endswith(".mrk.json"):
+                # if the file is a slicer markup file, load it as a json file
+                raise NotImplementedError("this feature is not implemented yet.")
+
             if str(catheter_file).endswith(".json"):
                 cat_dict = cls.load_from_json(catheter_file)
 
             elif str(catheter_file).endswith(".dcm"):
                 cat_dict = cls.load_from_dicom(pth_dicom=catheter_file)
+            elif catheter_file.is_dir():
+                cat_dict = cls.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
 
             all_inputs["catheter_list"] = cat_dict["catheter_list"]
             all_inputs["step_size"] = cat_dict["step_size"]

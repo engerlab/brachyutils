@@ -189,6 +189,13 @@ def test_catheter():
     new_catheter = Catheter(index = 0, points=points)
     print(new_catheter)
 
+def test_catheter_to_mrk_json():
+    from brachyutils.geometry.catheter_utils import CatheterTable
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
+    pth_out = "data_test/test_export_plan/prostate/test_catheter_table.mrk.json"
+    cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
+    cat_table.write_to_slicer_markup(pth_mrk_json=pth_out)
+
 def test_BrachyApplicator():
     pth_applicator_stl = "data_test/rectal-jgh-planFiles/applicator_0.stl"
     applicator_obj = BrachyApplicator(pth_applicator_stl)
@@ -345,7 +352,7 @@ if __name__ == "__main__":
     # test_crop_phantom()
     # print("testing CatheterTable")
     # test_catheter_table()
-    test_catheter()
+    # test_catheter()
     # print("testing BrachyApplicator")
     # test_BrachyApplicator()
     # test_BrachyApplicator_to_mac()
@@ -354,3 +361,4 @@ if __name__ == "__main__":
     # test_load_nifti_image_and_segmentation_file()
     # test_resample_to()
     # test_dicom_rt_tools()
+    test_catheter_to_mrk_json()
