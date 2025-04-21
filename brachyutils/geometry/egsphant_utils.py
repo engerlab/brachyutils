@@ -65,7 +65,7 @@ class BrachyEgsphant:
         pth_egsphant_file: Optional[Path] = None,
         phantom: Optional[Union[BrachyPhantom | Path]] = None,
         material_dict: Optional[Union[dict, Path]] = None,
-        assign_material_from_ct: Optional[bool] = None,
+        assign_material_from_ct: Optional[bool] = True,
         background_material: Optional[str] = "Air",
     ) -> None:
         r"""
@@ -132,9 +132,25 @@ class BrachyEgsphant:
                 assign_material_from_ct=assign_material_from_ct,
                 background_material = background_material
             )
+        elif phantom is not None and material_dict is None:
+            if not assign_material_from_ct:
+                raise Exception(
+                    "No material dict is provided. can only assign material of every voxel to air"
+                )
+            self.create_egsphant_from_phantom(
+                phantom_obj=(
+                    phantom
+                    if isinstance(phantom, BrachyPhantom)
+                    else BrachyPhantom(phantom)
+                ),
+                new_material_dict=self.material_dict,
+                assign_material_from_ct=assign_material_from_ct,
+                background_material = background_material
+            )
+
         else:
             raise Exception(
-                "Either provide a path to an egsphant file or a dicom image and a material dictionary"
+                "Either provide a path to an egsphant file or a phantom and a material dictionary"
             )
 
     def load_file_to_BrachyEgsphant(self, pth_egsphant_file):

@@ -60,7 +60,7 @@ def export_single_dicom_to_plan(
 def run_export():
     from functools import partial
     dir_all_dicoms = Path("/root/YourLocalHome/Data/prostate-glen-2023")
-    dir_export = Path("../temp_data/tg43/prostate-glen-2023")
+    dir_export = Path("temp_data/tg43/prostate-glen-2023")
     # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
     pth_material = Path("../admin/constants/structure_materials_prostate.json")
@@ -108,7 +108,7 @@ def run_export():
 
 def run_dose_generation():
     # # for TG43
-    dir_plan_export = Path("../temp_data/tg43/prostate-glen-2023")
+    dir_plan_export = Path("temp_data/tg43/prostate-glen-2023")
     list_plans = list(dir_plan_export.glob("*/"))
     run_multi_proc(run_single_tg43_dose_generation, list_plans, max_workers=8)    
 
@@ -236,7 +236,7 @@ def run_get_dvh_metrics_all_plans():
     # dir_all_plans = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023")
     # # on photon
     pth_all_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023")
-    dir_all_plans = Path("../temp_data/tg43/prostate-glen-2023")
+    dir_all_plans = Path("temp_data/tg43/prostate-glen-2023")
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -251,7 +251,7 @@ def run_get_dvh_metrics_all_plans():
 def test_get_dvh_metrics_single_plan():
     pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p2")
     # dir_export = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023/p1")
-    dir_export = Path("../temp_data/tg43/prostate-glen-2023/p2")
+    dir_export = Path("temp_data/tg43/prostate-glen-2023/p2")
     dvh_metric_goals = {
         "D95%(ctv)": 21,
         "D1cc(rectum)": 21*0.75,
@@ -266,7 +266,7 @@ def test_get_dvh_metrics_single_plan():
 
 def test_export():
     pth_single_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023/p1")
-    dir_export = Path("../temp_data/tg43/prostate-glen-2023")
+    dir_export = Path("temp_data/tg43/prostate-glen-2023")
     # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
     pth_material = Path("../admin/constants/structure_materials_prostate.json")
@@ -308,7 +308,7 @@ def test_export():
 
 def test_dose_calc():
     # # for monte carlo
-    dir_plan_export = Path("../temp_data/mc/prostate-glen-2023/p3")
+    dir_plan_export = Path("temp_data/mc/prostate-glen-2023/p3")
     pth_dose_executable = "http://192.168.1.11:8000/calculate_dose_mc"
     dose_gen_obj = DoseMonteCarlo(
         dir_plan_export=dir_plan_export,
@@ -318,7 +318,7 @@ def test_dose_calc():
     
     
     # # for tg43
-    dir_plan_export = Path("../temp_data/tg43/prostate-glen-2023/p1")
+    dir_plan_export = Path("temp_data/tg43/prostate-glen-2023/p1")
     pth_dose_executable = "http://192.168.1.12:8000/calculate_dose_tg43"
     dose_gen_obj = DoseTG43(
         dir_plan_export=dir_plan_export,
@@ -365,7 +365,7 @@ def scale_by_airkerma(dir_all_plans: str | Path, dir_all_dcms: str | Path):
         )
 
 def run_scale_by_airkerma():
-    dir_all_plans = Path("../temp_data/mc/prostate-glen-2023")
+    dir_all_plans = Path("temp_data/mc/prostate-glen-2023")
     dir_all_dcms = Path("/root/YourLocalHome/Data/prostate-glen-2023")
     scale_by_airkerma(dir_all_plans, dir_all_dcms)
 

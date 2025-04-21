@@ -379,7 +379,7 @@ class BrachyPlan:
         # extract the attributes above from the catheter table
         dwell_counter = 1
         for catheter in self.catheter_table.catheter_list:
-            self.catheter_numbers = np.append(self.catheter_numbers, catheter.iD)
+            self.catheter_numbers = np.append(self.catheter_numbers, catheter.index)
             for dwell in catheter.dwells:
                 self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
                 self.dwell_times = np.append(self.dwell_times, dwell.time)
@@ -389,7 +389,7 @@ class BrachyPlan:
                         "position": dwell.position,
                         "rotation": dwell.rotation,
                         "relativePos": dwell.relativePos,
-                        "catheterId": catheter.iD,
+                        "catheterId": catheter.index,
                     }
                 )
                 dwell_counter += 1

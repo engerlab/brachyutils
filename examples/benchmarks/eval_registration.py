@@ -11,12 +11,12 @@ from brachyutils.geometry_utils import BrachyPhantom
 
 # def export_phantom_opentps_nrrd_dicom_egsphant():
 #     from brachyutils.geometry_utils import BrachyPhantom
-#     pth_img_dicom = Path("../data_test/prostate-glen-p1-dcm")
+#     pth_img_dicom = Path("data_test/prostate-glen-p1-dcm")
 #     pth_strct_dicom = glob(str(pth_img_dicom)+"/RS*.dcm")[0]
-#     pth_img_nrrd = Path("../data_test/test_export_plan/opentps/prostate_glen_p1.nrrd")
-#     pth_strct_nrrd = Path("../data_test/test_export_plan/opentps/prostate_glen_p1.seg.nrrd")
+#     pth_img_nrrd = Path("data_test/test_export_plan/opentps/prostate_glen_p1.nrrd")
+#     pth_strct_nrrd = Path("data_test/test_export_plan/opentps/prostate_glen_p1.seg.nrrd")
 #     assign_material_from_ct = True
-#     pth_materials = Path("../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt")
+#     pth_materials = Path("data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt")
 #     phantom = BrachyPhantom(
 #         dir_dicom=pth_img_dicom,
 #         pth_structures_file=pth_strct_dicom
@@ -192,17 +192,17 @@ def eval_single_registration(
 
 def run_registeration_opentps():
     # # on abdomen MR-CT
-    dir_static = "../temp_data/registration/abdomen-mr-ct/static"
-    dir_moving = "../temp_data/registration/abdomen-mr-ct/moving"
+    dir_static = "temp_data/registration/abdomen-mr-ct/static"
+    dir_moving = "temp_data/registration/abdomen-mr-ct/moving"
     backend = "OpenTPS"
     use_contour = "" # None
-    dir_registered_quick = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-quick"
-    dir_registered_demons = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-demons"
-    dir_registered_morphons = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-morphons"
+    dir_registered_quick = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-quick"
+    dir_registered_demons = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-demons"
+    dir_registered_morphons = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-morphons"
     # # on micro-reg prostate
-    # dir_static = "../temp_data/registration/micro-reg/us-train"
-    # dir_moving = "../temp_data/registration/micro-reg/mr-train"
-    # dir_registered = "../temp_data/registration/micro-reg/reg-train"
+    # dir_static = "temp_data/registration/micro-reg/us-train"
+    # dir_moving = "temp_data/registration/micro-reg/mr-train"
+    # dir_registered = "temp_data/registration/micro-reg/reg-train"
 
     from brachyutils.registration_utils import Registration_OpenTPS
     # # image based registration
@@ -246,11 +246,11 @@ def run_registration_plastimatch():
     from brachyutils.registration_utils import Registration_Plastimatch
 
     # # on abdomen MR-CT
-    dir_static = "../temp_data/registration/abdomen-mr-ct/static"
-    dir_moving = "../temp_data/registration/abdomen-mr-ct/moving"
+    dir_static = "temp_data/registration/abdomen-mr-ct/static"
+    dir_moving = "temp_data/registration/abdomen-mr-ct/moving"
     backend = "Plastimatch"
     use_contour = ""
-    dir_registered_bspline = f"../temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-bspline"
+    dir_registered_bspline = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-bspline"
     pth_plastimatch = "http://192.168.1.13:8000"
 
     evaluate_registration(
@@ -351,6 +351,6 @@ def export_static_moving_phantoms(case: Dict, dir_static: Path, dir_moving: Path
     moving_phantom.export_to(dir_nrrd_out=dir_moving)
 
 if __name__ == "__main__": 
-    # organize_data("../temp_data/registration/abdomen-mr-ct", True)
+    # organize_data("temp_data/registration/abdomen-mr-ct", True)
     # run_registeration_opentps()
     run_registration_plastimatch()

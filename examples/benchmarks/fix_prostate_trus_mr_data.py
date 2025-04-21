@@ -64,9 +64,9 @@ def fix_one_image_structure(
     phantom_obj.export_to(dir_nrrd_out=pth_output)
 
 def test_fix_one_image_structure():
-    pth_sample_image = Path("../data_test/registration/prostate_mr_us/train_mr_image_case000000.nii.gz")
-    pth_out = Path("../data_test/test_export_plan/prostate/corrected_mr_image.nrrd")
-    pth_sample_structure = Path("../data_test/registration/prostate_mr_us/train_mr_label_case000000.nii.gz")
+    pth_sample_image = Path("data_test/registration/prostate_mr_us/train_mr_image_case000000.nii.gz")
+    pth_out = Path("data_test/test_export_plan/prostate/corrected_mr_image.nrrd")
+    pth_sample_structure = Path("data_test/registration/prostate_mr_us/train_mr_label_case000000.nii.gz")
 
     fix_one_image_structure(pth_sample_image, pth_sample_structure, pth_out)
 
@@ -107,7 +107,7 @@ def fix_all_prostate_images(dir_img, dir_structure, dir_out, multi_thread: bool 
             return
 
 def test_read_nrrd():
-    dir_nrrd = Path("../data_test/test_export_plan/prostate")
+    dir_nrrd = Path("data_test/test_export_plan/prostate")
     all_nrrd = glob(str(dir_nrrd.joinpath("*.nrrd")))
     for pth in all_nrrd:
         if pth.endswith(".seg.nrrd"):
@@ -125,11 +125,11 @@ if __name__ == "__main__":
     # # fix the mr images and structures for the prostate
     # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
     # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
-    # dir_out = Path("../temp_data/registration/micro-reg/mr-train")
+    # dir_out = Path("temp_data/registration/micro-reg/mr-train")
     # fix_all_prostate_images(dir_img, dir_structure, dir_out, False)
 
     # # fix the ultrasound images and structures for the prostate
     # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_images")
     # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_labels")
-    # dir_out = Path("../temp_data/registration/micro-reg/us-train")
+    # dir_out = Path("temp_data/registration/micro-reg/us-train")
     # fix_all_prostate_images(dir_img, dir_structure, dir_out, True)

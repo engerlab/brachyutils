@@ -7,8 +7,8 @@ from brachyutils import BrachyPhantom
 from brachyutils.geometry.applicator_utils import BrachyApplicator
 
 def test_brachy_phantom():
-    # pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_nrrd = "../data_test/prostate_glen_p1_ct.nrrd"
+    # pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_nrrd = "data_test/prostate_glen_p1_ct.nrrd"
     # pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
     phantom_obj = BrachyPhantom(
         # dir_dicom=pth_dicom,
@@ -19,17 +19,17 @@ def test_brachy_phantom():
 
 
 def test_get_structure_mask():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
     print(phantom_obj.get_structure_mask(["ctv"], mask_type=np.ndarray))
 
 
 def test_write_image_to_dicom():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_nrrd = "../data_test/prostate_glen_p1_ct.nrrd"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_nrrd = "data_test/prostate_glen_p1_ct.nrrd"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/prostate/test_p1_ct"
+    pth_out = "data_test/test_export_plan/prostate/test_p1_ct"
     phantom_obj = BrachyPhantom(
         dir_dicom=pth_dicom,
         # pth_phantom_file=pth_nrrd,
@@ -43,46 +43,46 @@ def test_write_image_to_dicom():
     new_phantom.is_equal(phantom_obj)
 
 def test_write_image_to_nrrd():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_out = "../data_test/test_export_plan/prostate/prostate_glen_p1_ct.nrrd"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_out = "data_test/test_export_plan/prostate/prostate_glen_p1_ct.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom)
     phantom_obj.write_image_to_nrrd(pth_out)
     new_phantom = BrachyPhantom(pth_phantom_file=pth_out)
     assert (new_phantom.is_equal(phantom_obj)), "Test failed the two phantoms are not equal."
 
 def test_write_structures_to_nrrd():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/prostate/prostate_glen_p1_structs.seg.nrrd"
+    pth_out = "data_test/test_export_plan/prostate/prostate_glen_p1_structs.seg.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
     phantom_obj.write_structures_to_nrrd(pth_out, overlap=False)
 
 
 def test_write_structures_to_dicom():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/prostate/test_p1_dcm"
+    pth_out = "data_test/test_export_plan/prostate/test_p1_dcm"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
     phantom_obj.write_image_to_dicom(pth_out)
     phantom_obj.write_structures_to_dicom(pth_out)
 
 
 def test_read_structures_from_nrrd():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_structures = "../data_test/test_export_plan/prostate/prostate_glen_p1_structs.seg.nrrd"
-    pth_out = "../data_test/test_export_plan/prostate/test_p1_dcm/rs.seg.nrrd"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_structures = "data_test/test_export_plan/prostate/prostate_glen_p1_structs.seg.nrrd"
+    pth_out = "data_test/test_export_plan/prostate/test_p1_dcm/rs.seg.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structures)
     print(phantom_obj.info())
     # phantom_obj.write_image_to_nrrd(pth_out)
     phantom_obj.write_structures_to_nrrd(pth_out, overlap=True)
 
 def test_write_to_egsphant():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/prostate/test_ct.egsphant"
-    # pth_materials = "../data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
+    pth_out = "data_test/test_export_plan/prostate/test_ct.egsphant"
+    # pth_materials = "data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
     # assign_material_from_ct = True
-    pth_materials = "../data_test/prostate_material_dict.json"
+    pth_materials = "data_test/prostate_material_dict.json"
     assign_material_from_ct = False
 
     phantom_obj = BrachyPhantom(
@@ -97,8 +97,8 @@ def test_write_to_egsphant():
 
 
 def test_load_egsphant():
-    pth_egsphant = "../data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    pth_out = "../data_test/test_export_plan/prostate/test_ct.egsphant"
+    pth_egsphant = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
+    pth_out = "data_test/test_export_plan/prostate/test_ct.egsphant"
 
     phantom_obj = BrachyPhantom(pth_egsphant_file=pth_egsphant)
     phantom_obj.write_to_egsphant(
@@ -106,9 +106,9 @@ def test_load_egsphant():
     )
 
 def test_crop_phantom():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan"
+    pth_out = "data_test/test_export_plan"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
     crop_coordinates = np.array([[-100, 100], [-150, 200], [-1280, -1140]])
     phantom_obj.crop_by_coordinates(crop_coordinates)
@@ -162,8 +162,8 @@ def test_catheter_table():
     # print(catheter_obj.to_dict())
 
     # # test loadin from dicom
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
-    pth_json = "../data_test/test_export_plan/prostate/test_catheter_table.json"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_json = "data_test/test_export_plan/prostate/test_catheter_table.json"
     pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
     catheter_table = CatheterTable(catheter_list=pth_plan)
     catheter_table.write_to_json(pth_json)
@@ -171,20 +171,43 @@ def test_catheter_table():
     cat_tab_json = CatheterTable(catheter_list=pth_json)
     cat_tab_json.info()
 
+def test_catheter():
+    from brachyutils.geometry.catheter_utils import Catheter, DwellPosition
+    # # create a catheter from tip and last dwell position
+    new_catheter = Catheter(
+        index=0,
+        tip_position=[25, 25, 25],
+        last_dwell_coordinate=[0, 0, 0]
+    )
+    print(new_catheter)
+    # create a catheter from digitization points
+    coordinates_on_1_axis = np.arange(53, 1.5, -2)
+    points = np.stack([
+        coordinates_on_1_axis,
+        coordinates_on_1_axis,
+        coordinates_on_1_axis], axis=-1)
+    new_catheter = Catheter(index = 0, points=points)
+    print(new_catheter)
+
+def test_catheter_to_mrk_json():
+    from brachyutils.geometry.catheter_utils import CatheterTable
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
+    pth_out = "data_test/test_export_plan/prostate/test_catheter_table.mrk.json"
+    cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
+    cat_table.write_to_slicer_markup(pth_mrk_json=pth_out)
 
 def test_BrachyApplicator():
-    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
+    pth_applicator_stl = "data_test/rectal-jgh-planFiles/applicator_0.stl"
     applicator_obj = BrachyApplicator(pth_applicator_stl)
     applicator_obj.info()
 
-
 def test_BrachyApplicator_to_mac():
-    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
+    pth_applicator_stl = "data_test/rectal-jgh-planFiles/applicator_0.stl"
     origin = np.array([0, 0, 0])
     rotation = np.array([0, 0, 0])
     material = "Tungsten"
     density = 19.3
-    pth_outfile = "../data_test/test_export_plan/applicator_0.mac"
+    pth_outfile = "data_test/test_export_plan/applicator_0.mac"
     applicator_obj = BrachyApplicator(
         pth_input_file=pth_applicator_stl,
         material=material,
@@ -196,13 +219,13 @@ def test_BrachyApplicator_to_mac():
 
 
 def test_BrachyApplicator_to_stl():
-    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
+    pth_applicator_stl = "data_test/rectal-jgh-planFiles/applicator_0.stl"
     origin = np.array([0, 0, 0])
     rotation = np.array([90, 1, 0, 0])
     coordinates = np.array([0, 0, 0])
     material = "Tungsten"
     density = 19.3
-    pth_outfile = "../data_test/test_export_plan/applicator_0_tilted.stl"
+    pth_outfile = "data_test/test_export_plan/applicator_0_tilted.stl"
     applicator_obj = BrachyApplicator(
         pth_input_file=pth_applicator_stl,
         material=material,
@@ -215,14 +238,14 @@ def test_BrachyApplicator_to_stl():
 
 
 def test_BrachyApplicator_set_rotation():
-    pth_applicator_stl = "../data_test/rectal-jgh-planFiles/applicator_0.stl"
+    pth_applicator_stl = "data_test/rectal-jgh-planFiles/applicator_0.stl"
     origin = np.array([0, 0, 0])
     coordinates = np.array([50, 50, 50])
     rotation = np.array([90, 0, 1, 0])
     rotation_origin = np.array([50, 50, 50])
     material = "Tungsten"
     density = 19.3
-    pth_outfile = "../data_test/test_export_plan/applicator_0_tilted.stl"
+    pth_outfile = "data_test/test_export_plan/applicator_0_tilted.stl"
     applicator_obj = BrachyApplicator(
         pth_input_file=pth_applicator_stl,
         material=material,
@@ -235,22 +258,22 @@ def test_BrachyApplicator_set_rotation():
 
 def test_load_nifti_image_and_segmentation_file():
     # CT images Abdomen
-    pth_img_nifti = Path("../data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
-    pth_img_out = Path("../data_test/test_export_plan/abdomin_mr_ct/tr_mr_image_0001.nrrd")
-    pth_label_nifti = Path("../data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
-    pth_label_out = Path("../data_test/test_export_plan/abdomin_mr_ct/tr_mr_label_0001.seg.nrrd")
+    pth_img_nifti = Path("data_test/registration/abdomin_mr_ct/tr_mr_image_0001.nii.gz")
+    pth_img_out = Path("data_test/test_export_plan/abdomin_mr_ct/tr_mr_image_0001.nrrd")
+    pth_label_nifti = Path("data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
+    pth_label_out = Path("data_test/test_export_plan/abdomin_mr_ct/tr_mr_label_0001.seg.nrrd")
 
     # mri images prostate
-    # pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
-    # pth_img_out = Path("../data_test/test_export_plan/test_mr_image_case000000.nrrd")
-    # pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
-    # pth_label_out = Path("../data_test/test_export_plan/test_mr_label_case000000.seg.nrrd")
+    # pth_img_nifti = Path("data_test/registration_prostate_mr_us/train_mr_image_case000000.nii.gz")
+    # pth_img_out = Path("data_test/test_export_plan/test_mr_image_case000000.nrrd")
+    # pth_label_nifti = Path("data_test/registration_prostate_mr_us/train_mr_label_case000000.nii.gz")
+    # pth_label_out = Path("data_test/test_export_plan/test_mr_label_case000000.seg.nrrd")
     
     # ultrasound images
-    # pth_img_nifti = Path("../data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
-    # pth_img_out = Path("../data_test/test_export_plan/test_us_image_case000000.nrrd")
-    # pth_label_nifti = Path("../data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
-    # pth_label_out = Path("../data_test/test_export_plan/test_us_label_case000000.seg.nrrd")
+    # pth_img_nifti = Path("data_test/registration_prostate_mr_us/train_us_image_case000000.nii.gz")
+    # pth_img_out = Path("data_test/test_export_plan/test_us_image_case000000.nrrd")
+    # pth_label_nifti = Path("data_test/registration_prostate_mr_us/train_us_label_case000000.nii.gz")
+    # pth_label_out = Path("data_test/test_export_plan/test_us_label_case000000.seg.nrrd")
 
     phantom_obj = BrachyPhantom(
         pth_phantom_file=pth_img_nifti,
@@ -268,9 +291,9 @@ def test_resample_to():
         represented by opentps are not upsampled properly.
         Will attempt rttools here.
     """
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/prostate"
+    pth_out = "data_test/test_export_plan/prostate"
     
     origin = None
     spacing = np.array([1., 1., 1.])
@@ -284,9 +307,9 @@ def test_resample_to():
 
 def test_dicom_rt_tools():
 
-    pth_dicom = "../data_test/prostate-glen-p1-dcm"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_out = "../data_test/test_export_plan/prostate"
+    pth_out = "data_test/test_export_plan/prostate"
     spacing = np.array([1., 1., 1.])
     
     phantom_obj = BrachyPhantom(
@@ -326,7 +349,8 @@ if __name__ == "__main__":
     # test_load_egsphant()
     # test_crop_phantom()
     # print("testing CatheterTable")
-    test_catheter_table()
+    # test_catheter_table()
+    # test_catheter()
     # print("testing BrachyApplicator")
     # test_BrachyApplicator()
     # test_BrachyApplicator_to_mac()
@@ -335,3 +359,4 @@ if __name__ == "__main__":
     # test_load_nifti_image_and_segmentation_file()
     # test_resample_to()
     # test_dicom_rt_tools()
+    test_catheter_to_mrk_json()

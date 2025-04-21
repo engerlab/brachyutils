@@ -88,14 +88,27 @@ class DwellPosition(BaseModel):
 class Catheter(BaseModel):
     r"""
     ### Purpose:
-    - This class holds the information regarding a catheter.
+    - This class holds the information regarding a catheter. The first catheter is placed at the 
+    tip position and extends back towards the insertion point. The last dwell position is placed
+    at the last_dwell_coordinate.
     
+    To initiate a catheter, you can provide either of the following:
+    1. tip_position and last_dwell_coordinate
+    2. digitization points
+    3. fit_function
+    4. dwells
+
     ### Attributes:
     - index:int := the index of the catheter.
+    - tip_position: The coordinate position of the tip of the catheter.
     - points:List[np.array] := the list of digitization points of the catheter.
     - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
     - afterloader_channel_number:int := the afterloader channel number of the catheter.
     - channel_total_time:float := the total time of the catheter.
+    - step_size: float := distance between the subsequent dwell positions.
+    - fit_function:PiecewiseLinear3D := a line that connects the dwell positions together.
+    - insert_position:list := The coordinates on patient body or insertion grid where the 
+    catheter was inserted from.
 
     ### Functions:
     - to_dict() -> dict := convert the catheter to a dictionary.
@@ -106,7 +119,7 @@ class Catheter(BaseModel):
     # in case dwells are missing and fit, tip, last dwell position and step size is provided
     fit_function:Any = None
     tip_position: List[float] = None
-    last_dwell_position: List[float] = None
+    last_dwell_coordinate: List[float] = None
     step_size: float = 5.0
     # in case dwells and fit is missing and digitization points are provided.
     # we assume tip is the first digitization point and last dwell is the last digitization point.
@@ -146,33 +159,33 @@ class Catheter(BaseModel):
         elif all_inputs.get("fit_function", None) is not None:
             all_inputs["dwells"] = cls.get_dwells_from_fit(
                 fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size"),
+                step_size=all_inputs.get("step_size",5.0),
                 )
-        # create the fit and dwells from points
+        # create the fit and digitization from points
         elif all_inputs.get("points", None) is not None:
             all_inputs["fit_function"] = cls.get_fit_from_points(
                 points=all_inputs["points"],
             )
             all_inputs["dwells"] = cls.get_dwells_from_fit(
                 fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size"),
+                step_size=all_inputs.get("step_size",5.0),
             )
         elif (all_inputs.get("tip_position", None) is not None
-              and all_inputs.get("last_dwell_position", None) is not None
+              and all_inputs.get("last_dwell_coordinate", None) is not None
         ):
             all_inputs["fit_function"] = cls.get_fit_from_points(
-                points=[all_inputs["tip_position"], all_inputs["last_dwell_position"]],
+                points=[all_inputs["tip_position"], all_inputs["last_dwell_coordinate"]],
             )
             all_inputs["dwells"] = cls.get_dwells_from_fit(
                 fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size"),
+                step_size=all_inputs.get("step_size",5.0),
             )
         else:
-            raise ValueError("Either provide dwells, fit_function, points or\
-                tip and last dwell position coordinates to the create a catheter.")
+            raise ValueError("""Either provide dwells, fit_function, points or
+            tip and last dwell coordinate coordinates to the create a catheter.""")
 
         all_inputs["tip_position"] = all_inputs["dwells"][0].position
-        all_inputs["last_dwell_position"] = all_inputs["dwells"][-1].position
+        all_inputs["last_dwell_coordinate"] = all_inputs["dwells"][-1].position
 
         return all_inputs
 
@@ -196,7 +209,7 @@ class Catheter(BaseModel):
             "dwells": [dwell.to_dict(total_time) for dwell in self.dwells],
             # "fit_function": self.fit_function,
             "tip_position": self.tip_position,
-            "last_dwell_position": self.last_dwell_position,
+            "last_dwell_coordinate": self.last_dwell_coordinate,
             "step_size": self.step_size,
             "points": self.points,
             "afterloader_channel_number": self.afterloader_channel_number,
@@ -339,15 +352,23 @@ class CatheterTable(BaseModel):
             ):
             catheter_file = Path(all_inputs["catheter_list"])
 
+            if not catheter_file.exists():
+                raise ValueError(f"catheter file {catheter_file} does not exist.")
+            if str(catheter_file).endswith(".mrk.json"):
+                # if the file is a slicer markup file, load it as a json file
+                raise NotImplementedError("this feature is not implemented yet.")
+
             if str(catheter_file).endswith(".json"):
                 cat_dict = cls.load_from_json(catheter_file)
 
             elif str(catheter_file).endswith(".dcm"):
                 cat_dict = cls.load_from_dicom(pth_dicom=catheter_file)
+            elif catheter_file.is_dir():
+                cat_dict = cls.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
 
-        all_inputs["catheter_list"] = cat_dict["catheter_list"]
-        all_inputs["step_size"] = cat_dict["step_size"]
-        all_inputs["channel_length"] = cat_dict["channel_length"]
+            all_inputs["catheter_list"] = cat_dict["catheter_list"]
+            all_inputs["step_size"] = cat_dict["step_size"]
+            all_inputs["channel_length"] = cat_dict["channel_length"]
 
         if isinstance(all_inputs["catheter_list"][0], dict):
             all_inputs["catheter_list"] = [
@@ -407,6 +428,31 @@ class CatheterTable(BaseModel):
         with open(pth_json, "w") as json_file:
             json.dump(self.to_dict(), json_file, indent=4
             )
+    def write_to_slicer_markup(self, pth_mrk_json: Path | str, **kwargs) -> None:
+        r"""
+        ### Purpose:
+        - Write the catheter table to a json file in the slicer markup format.
+        
+        ### Inputs:
+        - pth_json: Path := the path to the json file where the catheter table will be written.
+        
+        ### Outputs:
+        - Void := will write the catheter table to a json file in the slicer markup format.
+        """
+        from ai_assisted_brachy.preprocessing.utils import create_slicer_markup_points
+        pth_mrk_json = Path(pth_mrk_json)
+        if not str(pth_mrk_json).endswith(".mrk.json"):
+            raise ValueError("The output file name should end with .mrk.json")
+        pth_mrk_json.parent.mkdir(parents=True, exist_ok=True)
+
+        point_list = [catheter.points for catheter in self]
+        
+        create_slicer_markup_points(
+            output_path=str(pth_mrk_json),
+            point_list=point_list,
+            color=kwargs.get("color", None),
+            remove_text=kwargs.get("remove_text", True),
+        )
 
     @classmethod
     def load_from_json(cls, pth_json: Path) -> list:

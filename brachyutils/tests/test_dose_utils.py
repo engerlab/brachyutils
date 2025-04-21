@@ -10,8 +10,8 @@ from pathlib import Path
 from brachyutils.geometry_utils import BrachyPhantom
 
 def make_dose_from_image():
-    pth_dicom = Path("../data_test/prostate-glen-p1-dcm")
-    pth_dose_nrrd = Path("../data_test/test_export_plan/dose_image.seq.nrrd")
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm")
+    pth_dose_nrrd = Path("data_test/test_export_plan/dose_image.seq.nrrd")
 
     image = BrachyPhantom(
         dir_dicom=pth_dicom,
@@ -26,7 +26,7 @@ def make_dose_from_image():
     dose.write_to_nrrd(pth_dose_nrrd)
 
 def test_load_from_3ddose():
-    pth_file = "../data_test/rectal-jgh-planFiles/combined.3ddose"
+    pth_file = "data_test/rectal-jgh-planFiles/combined.3ddose"
 
     dose_obj = BrachyDose()
     dose_obj.load_from_3ddose(pth_file)
@@ -35,25 +35,25 @@ def test_load_from_3ddose():
 
 
 def test_load_file_to_brachydose():
-    pth_3ddose = "../data_test/run_1_old.3ddose"
+    pth_3ddose = "data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj.is_not_empty()
 
 
 def test_load_from_dicom():
-    pth_dicom = "../data_test/prostate-glen-p1-dcm/RD1.3.6.1.4.1.2452.6.350102904.1117384417.1751574951.1257637737.dcm"
+    pth_dicom = "data_test/prostate-glen-p1-dcm/RD1.3.6.1.4.1.2452.6.350102904.1117384417.1751574951.1257637737.dcm"
     dose_obj = BrachyDose(pth_dicom)
     dose_obj.info()
     dose_obj.is_not_empty()
 
 
 def test_write_to_3ddose():
-    # pth_3ddose =  "../../data_test/run_1_old.3ddose"
+    # pth_3ddose =  "data_test/run_1_old.3ddose"
 
     # testing on maude's file
-    pth_file = "../data_test/rectal-jgh-planFiles/combined.3ddose"
-    dir_out = "../data_test/test_export_plan"
+    pth_file = "data_test/rectal-jgh-planFiles/combined.3ddose"
+    dir_out = "data_test/test_export_plan"
 
     dose_obj = BrachyDose(pth_file)
 
@@ -65,8 +65,8 @@ def test_write_to_3ddose():
 
 
 def test_load_from_nrrd():
-    pth_input = "../data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
-    # pth_input = "../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
+    pth_input = "data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
+    # pth_input = "data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
 
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()
@@ -77,9 +77,9 @@ def test_write_to_nrrd():
     Purpose:
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
-    pth_out = "../data_test/test_export_plan"
-    pth_input = "../data_test/prostate-glen-p1-planFiles/dose_image.seq.nrrd"
-    # pth_input = "../data_test/new_nrrd/P5Fx1_tra/combined.nrrds"
+    pth_out = "data_test/test_export_plan"
+    pth_input = "data_test/prostate-glen-p1-planFiles/dose_image.seq.nrrd"
+    # pth_input = "data_test/new_nrrd/P5Fx1_tra/combined.nrrds"
     pth_out = os.path.join(pth_out, "test_"+os.path.basename(pth_input))
     dose_obj = BrachyDose(pth_input)
     dose_obj.write_to_nrrd(pth_out)
@@ -92,10 +92,10 @@ def test_convert_to_npz_file():
     Purpose:
         simulatenously test write_to_npz() and load_from_npz()
     """
-    # pth_3ddose =  "../../data_test/combined.3ddose"
+    # pth_3ddose =  "data_test/combined.3ddose"
 
     # testing on maude's file
-    pth_3ddose = "../../data_test/maude.3ddose"
+    pth_3ddose = "data_test/maude.3ddose"
     pth_out = os.path.splitext(pth_3ddose)[0] + ".npz"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
@@ -109,10 +109,10 @@ def test_convert_to_npz_file():
 
 def test_write_to_xz():
 
-    # pth_3ddose =  "../../data_test/combined.3ddose"
+    # pth_3ddose =  "data_test/combined.3ddose"
 
     # testing on maude's file
-    pth_3ddose = "../../data_test/maude.3ddose"
+    pth_3ddose = "data_test/maude.3ddose"
     pth_out = os.path.splitext(pth_3ddose)[0] + ".xz"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
@@ -122,11 +122,11 @@ def test_write_to_xz():
 
 def test_write_to_zstd():
 
-    # pth_3ddose =  "../../data_test/combined.3ddose"
-    # pth_zstd = "../../data_test/combined.zst"
+    # pth_3ddose =  "data_test/combined.3ddose"
+    # pth_zstd = "data_test/combined.zst"
 
     # testing on maude's file
-    pth_3ddose = "../../data_test/maude.3ddose"
+    pth_3ddose = "data_test/maude.3ddose"
     pth_out = os.path.splitext(pth_3ddose)[0] + ".zst"
     print(pth_out)
     dose_obj = BrachyDose()
@@ -136,8 +136,8 @@ def test_write_to_zstd():
 
 
 def test_crop_by_coordinates():
-    pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
-    # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
+    pth_input = "data_test/rectal-jgh-planFiles/combined.3ddose"
+    # pth_input = "data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()
 
@@ -148,8 +148,8 @@ def test_crop_by_coordinates():
 
 
 def test_crop_by_index():
-    pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
-    # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
+    pth_input = "data_test/rectal-jgh-planFiles/combined.3ddose"
+    # pth_input = "data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()
 
@@ -161,8 +161,8 @@ def test_crop_by_index():
 
 
 def test_crop_by_fraction():
-    pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
-    # pth_input = "../../data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
+    pth_input = "data_test/rectal-jgh-planFiles/combined.3ddose"
+    # pth_input = "data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()
 
@@ -173,7 +173,7 @@ def test_crop_by_fraction():
 
 
 def test_convert_to_minidos():
-    pth_input = "../../data_test/dwell1_1mm.nrrd"
+    pth_input = "data_test/dwell1_1mm.nrrd"
     pth_minidos = os.path.splitext(pth_input)[0] + ".minidos"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_input)
@@ -182,8 +182,8 @@ def test_convert_to_minidos():
 
 def test_dose_comparison():
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-    pth_3ddose = "../../data_test/run_1_old.3ddose"
-    pth_3ddose2 = "../../data_test/run_1_old.3ddose"
+    pth_3ddose = "data_test/run_1_old.3ddose"
+    pth_3ddose2 = "data_test/run_1_old.3ddose"
     dose_obj = BrachyDose()
     dose_obj.load_file_to_brachydose(pth_3ddose)
     dose_obj2 = BrachyDose()
@@ -196,9 +196,9 @@ def test_dose_comparison():
 
 
 def test_crop_by_dicom_structure():
-    pth_dicomRS = "../data_test/rectal-jgh-dcm/"
-    pth_input = "../data_test/rectal-jgh-planFiles/combined.3ddose"
-    # dir_out = "../data_test/test_export_plan"
+    pth_dicomRS = "data_test/rectal-jgh-dcm/"
+    pth_input = "data_test/rectal-jgh-planFiles/combined.3ddose"
+    # dir_out = "data_test/test_export_plan"
 
     dose_obj = BrachyDose(pth_input)
     dose_obj.info()

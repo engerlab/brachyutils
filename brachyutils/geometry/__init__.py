@@ -7,9 +7,10 @@ __all__ = [
     "DwellPosition",
     "Catheter",
     "CatheterTable",
+    "get_uniform_phantom",
 ]
 # trunk-ignore(ruff/F401)
-from .phantom_utils import BrachyPhantom
+from .phantom_utils import BrachyPhantom, get_uniform_phantom
 
 # trunk-ignore(ruff/F401)
 from .egsphant_utils import BrachyEgsphant
