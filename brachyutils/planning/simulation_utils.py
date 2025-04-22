@@ -42,7 +42,8 @@ class BrachySource(BaseModel):
     def finish_initialization(cls, all_inputs):
         r"""
         ### Purpose:
-        - If a file is provided, load the source information from the file.
+        If a file is provided, load the source information from the file, else just 
+        return the source information.
         """
         if all_inputs.get("source_dict") is not None:
             if isinstance(all_inputs["source_dict"], (Path, str)):
