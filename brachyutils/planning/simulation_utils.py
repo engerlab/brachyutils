@@ -3,122 +3,69 @@ from pathlib import Path
 from typing import Union, Literal
 import pydicom
 from collections import defaultdict
+from pydantic import BaseModel, model_validator
+class BrachySource(BaseModel):
+    r"""
+    ### Purpose:
+    - A class to hold the information of a brachytherapy source.
+    ### Inputs:
+    - treatment_type: str
+    - source_geometry: str
+    - core_material: str
+    - mass_number: int
+    - atomic_number: int
+    - air_kerma_per_history: float
+    - reference_air_kerma_rate: float
+    ### Attributes:
+    - treatment_type: str
+    - source_geometry: str
+    - core_material: str
+    - mass_number: int
+    - atomic_number: int
+    - air_kerma_per_history: float
+    - reference_air_kerma_rate: float
+    ### Functions:
+    - validate(): checks if the fields are valid for export.
+    - to_dict(): converts the object to a dictionary.
+    """
 
-class BrachySource:
-    def __init__(
-        self,
-        treatment_type: Literal["HDR", "PLDR", "TLDR"] = "HDR",
-        source_geometry: str = "MicroSelectronV2",
-        core_material: str = "G4_Ir",
-        mass_number: int = 192,
-        atomic_number: int = 77,
-        air_kerma_per_history: float = 1.149000e-11,
-        reference_air_kerma_rate: float = None,  # 4.278729e04,
-        source_dict: Union[dict, Path, str] = None,
-    ) -> None:
+    treatment_type: Literal["HDR", "PLDR", "TLDR"] = "HDR"
+    source_geometry: str = "MicroSelectronV2"
+    core_material: str = "G4_Ir"
+    mass_number: int = 192
+    atomic_number: int = 77
+    air_kerma_per_history: float = 1.149000e-11
+    reference_air_kerma_rate: float = None  # 4.278729e04,
+    source_dict: Union[dict, Path, str] = None
+
+    @model_validator(mode="before")
+    def finish_initialization(cls, all_inputs):
         r"""
-        Purpose:
-            - A class to hold the information of a brachytherapy source.
-        Inputs:
-            - treatment_type: str
-            - source_geometry: str
-            - core_material: str
-            - mass_number: int
-            - atomic_number: int
-            - air_kerma_per_history: float
-            - reference_air_kerma_rate: float
-            - source_dict: dict | Path | str: either a dictionary containing the source information, or a path to a json file.
-        Attributes:
-            - treatment_type: str
-            - source_geometry: str
-            - core_material: str
-            - mass_number: int
-            - atomic_number: int
-            - air_kerma_per_history: float
-            - reference_air_kerma_rate: float
-        Functions:
-            - validate(): checks if the fields are valid for export.
-            - to_dict(): converts the object to a dictionary.
+        ### Purpose:
+        - If a file is provided, load the source information from the file.
         """
-
-        assert (
-            (treatment_type is not None)
-            and (source_geometry is not None)
-            and (core_material is not None)
-            and (mass_number is not None)
-            and (atomic_number is not None)
-            and (air_kerma_per_history is not None)
-            and (reference_air_kerma_rate is not None)
-        ) != (
-            source_dict is not None
-        ), "Either provide treatment_type, source_geometry, core_material, mass_number,\
-        atomic_number, air_kerma_per_history, reference_air_kerma_rate or provide source_dict. Not both."
-
-        if source_dict is not None:
-            if isinstance(source_dict, (Path, str)):
-                if not Path(source_dict).exists():
-                    raise ValueError(f"Path {source_dict} does not exist.")
-                if Path(source_dict).suffix == ".json":
-                    with open(source_dict, "r") as f:
-                        source_dict = json.load(f)
-                elif Path(source_dict).suffix == ".dcm":
-                    source_dict = self.load_from_dicom(source_dict)
+        if all_inputs.get("source_dict") is not None:
+            if isinstance(all_inputs["source_dict"], (Path, str)):
+                if not Path(all_inputs["source_dict"]).exists():
+                    raise ValueError(f"Path {all_inputs['source_dict']} does not exist.")
+                if Path(all_inputs["source_dict"]).suffix == ".json":
+                    with open(all_inputs["source_dict"], "r") as f:
+                        all_inputs["source_dict"] = json.load(f)
+                elif Path(all_inputs["source_dict"]).suffix == ".dcm":
+                    all_inputs["source_dict"] = cls.load_from_dicom(all_inputs["source_dict"])
                 else:
-                    raise ValueError(f"File {source_dict} is not a json nor a dicom file.")
-            elif isinstance(source_dict, dict):
-                source_dict = source_dict
+                    raise ValueError(
+                        f"File {all_inputs['source_dict']} is not a json nor a dicom file."
+                    )
+            elif isinstance(all_inputs["source_dict"], dict):
+                all_inputs["source_dict"] = all_inputs["source_dict"]
             else:
                 raise ValueError(
-                    f"source_dict should be either a dictionary, a path to a json file, or a path to a dicom file. Got {source_dict}"
+                    f"source_dict should be either a dictionary, a path to a json file, or a path to a dicom file. Got {all_inputs['source_dict']}"
                 )
-
-            treatment_type = source_dict.get("treatment_type", "HDR")
-            source_geometry = source_dict.get("source_geometry", "MicroSelectronV2")
-            core_material = source_dict.get("core_material", "G4_Ir")
-            mass_number = source_dict.get("mass_number", 192)
-            atomic_number = source_dict.get("atomic_number", 77)
-            air_kerma_per_history = source_dict.get(
-                "air_kerma_per_history", 1.149000e-11
-            )
-            reference_air_kerma_rate = source_dict.get("reference_air_kerma_rate", 4.278729e04)
-
-        self.treatment_type: str = treatment_type
-        self.source_geometry: str = source_geometry
-        self.core_material: str = core_material
-        self.mass_number: int = mass_number
-        self.atomic_number: int = atomic_number
-        self.air_kerma_per_history: float = air_kerma_per_history
-        self.reference_air_kerma_rate: float = reference_air_kerma_rate
-
-        self.validate()
-
-    def validate(self, verbose=False):
-        r"""
-        Purpose:
-            - to validate the source object.
-        Returns:
-            - True if the fields are valid for export, False otherwise.
-        """
-        required_types = {
-            self.treatment_type: str,
-            self.source_geometry: str,
-            self.core_material: str,
-            self.mass_number: int,
-            self.atomic_number: int,
-            self.air_kerma_per_history: float,
-            self.reference_air_kerma_rate: float,
-        }
-        for key, value in required_types.items():
-            if not isinstance(key, value):
-                try:
-                    key = value(key)
-                    continue
-                except ValueError:
-                    pass
-                if verbose:
-                    print(f"BrachySource: field {key} is not of type {value}")
-                return False
-        return True
+            return all_inputs["source_dict"]
+        else:
+            return all_inputs
 
     def to_dict(self):
         r"""
@@ -176,8 +123,9 @@ class BrachySource:
         """
         with open(output_path, "w") as f:
             json.dump(self.to_dict(), f)
-
-    def load_from_dicom(self, pth_dicom: Union[str, Path]) -> dict:
+            
+    @classmethod
+    def load_from_dicom(cls, pth_dicom: Union[str, Path]) -> dict:
         r"""
         Purpose:
             - to load the simulation object from a dicom directory.
