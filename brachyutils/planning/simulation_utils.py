@@ -8,14 +8,6 @@ class BrachySource(BaseModel):
     r"""
     ### Purpose:
     - A class to hold the information of a brachytherapy source.
-    ### Inputs:
-    - treatment_type: str
-    - source_geometry: str
-    - core_material: str
-    - mass_number: int
-    - atomic_number: int
-    - air_kerma_per_history: float
-    - reference_air_kerma_rate: float
     ### Attributes:
     - treatment_type: str
     - source_geometry: str
@@ -24,6 +16,7 @@ class BrachySource(BaseModel):
     - atomic_number: int
     - air_kerma_per_history: float
     - reference_air_kerma_rate: float
+    - source_dict: dict | Path | str: either a dictionary containing the source information, or a path to a json or a dicom plan file.
     ### Functions:
     - validate(): checks if the fields are valid for export.
     - to_dict(): converts the object to a dictionary.
@@ -161,159 +154,199 @@ class BrachySource(BaseModel):
             source_dict["air_kerma_per_history"] = 1.149000e-11
         source_dict["reference_air_kerma_rate"] = plan_dcm.SourceSequence[0].ReferenceAirKermaRate
         return source_dict
-class BrachySimulation:
-    default_source = BrachySource(reference_air_kerma_rate=4.278729e04)
-
-    def __init__(
-        self,
-        brachy_source: BrachySource = default_source,
-        world_material: str = "Air",
-        number_histories: int = 1e6,
-        total_time: float = None,
-        dose_format: str = "nrrd",
-        number_of_threads: int = 12,
-        control_verbose: int = 0,
-        run_verbose: int = 0,
-        tracking_verbose: int = 0,
-        print_progress: int = 1e4,
-        pth_plan: str = "combined.plan",
-        pth_phantom: str = "ct.egsphant",
-        simulation_dict: Union[dict, Path, str] = None,
-    ) -> None:
+class BrachySimulation(BaseModel):
+    r"""
+    ### Purpose:
+    - A class to hold the information of a brachytherapy simulation. The
+    simulations are done using the RapidBrachyMC software.
+    ### Attributes:
+    - brachy_source: BrachySource
+    - world_material: str
+    - number_histories: int
+    - total_time: float
+    - dose_format: str
+    - number_of_threads: int
+    - control_verbose: int
+    - run_verbose: int
+    - tracking_verbose: int
+    - print_progress: int
+    - pth_plan: str
+    - pth_phantom: str
+    - simulation_dict: dict | Path | str: either a dictionary containing the simulation information, or a path to a json file.
+    ### Functions:
+    - validate(): checks if the fields are valid for export.
+    - to_string(): converts the object to a string.
+    """
+    brachy_source: BrachySource = BrachySource()
+    world_material: str = "Air"
+    number_histories: int = 1e6
+    total_time: float = None
+    dose_format: str = "nrrd"
+    number_of_threads: int = 12
+    control_verbose: int = 0
+    run_verbose: int = 0
+    tracking_verbose: int = 0
+    print_progress: int = 1e4
+    pth_plan: str = "combined.plan"
+    pth_phantom: str = "ct.egsphant"
+    simulation_dict: Union[dict, Path, str] = None
+    
+    @model_validator(mode="before")
+    def finish_initialization(cls, all_inputs):
         r"""
-        Purpose:
-            - A class to hold the information of a brachytherapy simulation. The
-            simulations are done using the RapidBrachyMC software.
-        Inputs:
-            - brachy_source: BrachySource
-            - world_material: str
-            - number_histories: int
-            - total_time: float
-            - dose_format: str
-            - number_of_threads: int
-            - control_verbose: int
-            - run_verbose: int
-            - tracking_verbose: int
-            - print_progress: int
-            - pth_plan: str
-            - pth_phantom: str
-            - simulation_dict: dict | Path | str: either a dictionary containing the simulation information, or a path to a json file.
-        Attributes:
-            - brachy_source: BrachySource
-            - world_material: str
-            - number_histories: int
-            - total_time: float
-            - dose_format: str
-            - number_of_threads: int
-            - control_verbose: int
-            - run_verbose: int
-            - tracking_verbose: int
-            - print_progress: int
-            - pth_plan: str
-            - pth_phantom: str
-        Functions:
-            - validate(): checks if the fields are valid for export.
-            - to_string(): converts the object to a string.
+        ### Purpose:
+        Handle initialization from either simulation_dict or direct parameters.
+        Process brachy_source in a consistent way.
         """
-
-        assert (
-            (brachy_source is not None)
-            and (world_material is not None)
-            and (number_histories is not None)
-            and (total_time is not None)
-            and (dose_format is not None)
-            and (number_of_threads is not None)
-            and (control_verbose is not None)
-            and (run_verbose is not None)
-            and (tracking_verbose is not None)
-            and (print_progress is not None)
-            and (pth_plan is not None)
-            and (pth_phantom is not None)
-        ) != (
-            simulation_dict is not None
-        ), "Either provide , brachy_source, world_material, number_histories, total_time,\
-            dose_format, number_of_threads, control_verbose, run_verbose, tracking_verbose,\
-            print_progress, pth_plan and pth_phantom or provide source_dict. Not both."
-
-        if simulation_dict is not None:
-            if isinstance(simulation_dict, (Path, str)):
-                assert Path(
-                    simulation_dict
-                ).exists(), f"Path {simulation_dict} does not exist."
-                assert (
-                    Path(simulation_dict).suffix == ".json"
-                ), f"Path {simulation_dict} is not a json file."
-
-                with open(simulation_dict, "r") as f:
-                    simulation_dict = json.load(f)
-
-            brachy_source = BrachySource(
-                source_dict=simulation_dict.get(
-                    "source_dict", BrachySimulation.default_source.to_dict()
-                )
+        def process_simulation_dict(sim_dict):
+            if isinstance(sim_dict, (Path, str)):
+                if not Path(sim_dict).exists():
+                    raise ValueError(f"Path {sim_dict} does not exist.")
+                if Path(sim_dict).suffix != ".json":
+                    raise ValueError(f"File {sim_dict} is not a json file.")
+                with open(sim_dict, "r") as f:
+                    return json.load(f)
+            elif isinstance(sim_dict, dict):
+                return sim_dict
+            raise ValueError(
+                f"simulation_dict should be either a dictionary or a path to a json file. Got {sim_dict}"
             )
-            world_material = simulation_dict.get("world_material", "Air")
-            number_histories = simulation_dict.get("number_histories", 1e6)
-            total_time = simulation_dict.get("total_time", None)
-            dose_format = simulation_dict.get("dose_format", "nrrd")
-            number_of_threads = simulation_dict.get("number_of_threads", 12)
-            control_verbose = simulation_dict.get("control_verbose", 0)
-            run_verbose = simulation_dict.get("run_verbose", 0)
-            tracking_verbose = simulation_dict.get("tracking_verbose", 0)
-            print_progress = int(simulation_dict.get("print_progress", 1e4))
-            pth_plan = simulation_dict.get("pth_plan", None)
-            pth_phantom = simulation_dict.get("pth_phantom", None)
 
-        self.brachy_source: BrachySource = brachy_source if isinstance(
-            brachy_source, BrachySource
-        ) else BrachySource(source_dict=brachy_source)
-        self.world_material: str = world_material
-        self.number_histories: int = number_histories
-        if total_time is not None:
-            self.total_time: float = float(total_time)
-        self.dose_format: str = dose_format
-        self.number_of_threads: int = number_of_threads
-        self.control_verbose: int = control_verbose
-        self.run_verbose: int = run_verbose
-        self.tracking_verbose: int = tracking_verbose
-        self.print_progress: int = print_progress
-        self.pth_plan: str = pth_plan
-        self.pth_phantom: str = pth_phantom
+        def create_brachy_source(source_input):
+            if source_input is None:
+                return BrachySource()
+            if isinstance(source_input, (dict, Path, str)):
+                return BrachySource(source_dict=source_input)
+            if isinstance(source_input, BrachySource):
+                return source_input
+            raise ValueError(
+                f"brachy_source should be either a dictionary, a path to a json file, or a BrachySource object. Got {source_input}"
+            )
 
-        self.validate()
+        if all_inputs.get("simulation_dict") is not None:
+            sim_dict = process_simulation_dict(all_inputs["simulation_dict"])
+            sim_dict["brachy_source"] = create_brachy_source(sim_dict.get("brachy_source"))
+            return sim_dict
+        else:
+            all_inputs["brachy_source"] = create_brachy_source(all_inputs.get("brachy_source"))
+            return all_inputs
 
-    def validate(self, verbose=False):
-        r"""
-        Purpose:
-            - to validate the simulation object.
-        Returns:
-            - True if the fields are valid for export, False otherwise.
-        """
-        required_types = {
-            self.brachy_source: BrachySource,
-            self.world_material: str,
-            self.pth_plan: str,
-            self.pth_phantom: str,
-            self.number_histories: int,
-            self.total_time: float,
-            self.dose_format: str,
-            self.number_of_threads: int,
-            self.control_verbose: int,
-            self.run_verbose: int,
-            self.tracking_verbose: int,
-            self.print_progress: int,
-        }
-        for key, value in required_types.items():
-            if not isinstance(key, value):
-                try:
-                    key = value(key)
-                    continue
-                except ValueError:
-                    pass
-                if verbose:
-                    print(f"BrachySimulation: field {key} is not of type {value}")
-                return False
-        return True
+    # def __init__(
+    #     self,
+    #     brachy_source: BrachySource = default_source,
+    #     world_material: str = "Air",
+    #     number_histories: int = 1e6,
+    #     total_time: float = None,
+    #     dose_format: str = "nrrd",
+    #     number_of_threads: int = 12,
+    #     control_verbose: int = 0,
+    #     run_verbose: int = 0,
+    #     tracking_verbose: int = 0,
+    #     print_progress: int = 1e4,
+    #     pth_plan: str = "combined.plan",
+    #     pth_phantom: str = "ct.egsphant",
+    #     simulation_dict: Union[dict, Path, str] = None,
+    # ) -> None:
+        
+
+    #     assert (
+    #         (brachy_source is not None)
+    #         and (world_material is not None)
+    #         and (number_histories is not None)
+    #         and (total_time is not None)
+    #         and (dose_format is not None)
+    #         and (number_of_threads is not None)
+    #         and (control_verbose is not None)
+    #         and (run_verbose is not None)
+    #         and (tracking_verbose is not None)
+    #         and (print_progress is not None)
+    #         and (pth_plan is not None)
+    #         and (pth_phantom is not None)
+    #     ) != (
+    #         simulation_dict is not None
+    #     ), "Either provide , brachy_source, world_material, number_histories, total_time,\
+    #         dose_format, number_of_threads, control_verbose, run_verbose, tracking_verbose,\
+    #         print_progress, pth_plan and pth_phantom or provide source_dict. Not both."
+
+    #     if simulation_dict is not None:
+    #         if isinstance(simulation_dict, (Path, str)):
+    #             assert Path(
+    #                 simulation_dict
+    #             ).exists(), f"Path {simulation_dict} does not exist."
+    #             assert (
+    #                 Path(simulation_dict).suffix == ".json"
+    #             ), f"Path {simulation_dict} is not a json file."
+
+    #             with open(simulation_dict, "r") as f:
+    #                 simulation_dict = json.load(f)
+
+    #         brachy_source = BrachySource(
+    #             source_dict=simulation_dict.get(
+    #                 "source_dict", BrachySimulation.default_source.to_dict()
+    #             )
+    #         )
+    #         world_material = simulation_dict.get("world_material", "Air")
+    #         number_histories = simulation_dict.get("number_histories", 1e6)
+    #         total_time = simulation_dict.get("total_time", None)
+    #         dose_format = simulation_dict.get("dose_format", "nrrd")
+    #         number_of_threads = simulation_dict.get("number_of_threads", 12)
+    #         control_verbose = simulation_dict.get("control_verbose", 0)
+    #         run_verbose = simulation_dict.get("run_verbose", 0)
+    #         tracking_verbose = simulation_dict.get("tracking_verbose", 0)
+    #         print_progress = int(simulation_dict.get("print_progress", 1e4))
+    #         pth_plan = simulation_dict.get("pth_plan", None)
+    #         pth_phantom = simulation_dict.get("pth_phantom", None)
+
+    #     self.brachy_source: BrachySource = brachy_source if isinstance(
+    #         brachy_source, BrachySource
+    #     ) else BrachySource(source_dict=brachy_source)
+    #     self.world_material: str = world_material
+    #     self.number_histories: int = number_histories
+    #     if total_time is not None:
+    #         self.total_time: float = float(total_time)
+    #     self.dose_format: str = dose_format
+    #     self.number_of_threads: int = number_of_threads
+    #     self.control_verbose: int = control_verbose
+    #     self.run_verbose: int = run_verbose
+    #     self.tracking_verbose: int = tracking_verbose
+    #     self.print_progress: int = print_progress
+    #     self.pth_plan: str = pth_plan
+    #     self.pth_phantom: str = pth_phantom
+
+    #     self.validate()
+
+    # def validate(self, verbose=False):
+    #     r"""
+    #     Purpose:
+    #         - to validate the simulation object.
+    #     Returns:
+    #         - True if the fields are valid for export, False otherwise.
+    #     """
+    #     required_types = {
+    #         self.brachy_source: BrachySource,
+    #         self.world_material: str,
+    #         self.pth_plan: str,
+    #         self.pth_phantom: str,
+    #         self.number_histories: int,
+    #         self.total_time: float,
+    #         self.dose_format: str,
+    #         self.number_of_threads: int,
+    #         self.control_verbose: int,
+    #         self.run_verbose: int,
+    #         self.tracking_verbose: int,
+    #         self.print_progress: int,
+    #     }
+    #     for key, value in required_types.items():
+    #         if not isinstance(key, value):
+    #             try:
+    #                 key = value(key)
+    #                 continue
+    #             except ValueError:
+    #                 pass
+    #             if verbose:
+    #                 print(f"BrachySimulation: field {key} is not of type {value}")
+    #             return False
+    #     return True
 
     def to_string(self):
         r"""
@@ -326,7 +359,7 @@ class BrachySimulation:
         Dependencies:
             - None
         """
-        self.validate()
+        # self.validate()
         return (
             f"/source/treatmentType {self.brachy_source.treatment_type}\n"
             + f"/source/switch {self.brachy_source.source_geometry}\n"
