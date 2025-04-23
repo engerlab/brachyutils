@@ -151,13 +151,14 @@ def test__load_single_dose_or_uncertainty_to_dict():
 
 
 def test_export_brachy_plan():
-    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    # pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
     dir_dose_rate = "data_test/prostate-glen-p1-dose"
     dir_dicom = "data_test/prostate-glen-p1-dcm/"
     pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
+    pth_cathTable_dcm = glob(dir_dicom + "/RP*.dcm")[0]
     # dir_egsphant = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # assign material based on contours:
-    pth_material = "data_test/prostate_material_dict.json"
+    pth_material = "admin/constants/structure_materials_prostate.json"
     # assign materials based on CT values:
     # pth_material = "data_test/CTtoDensityProstate.txt"
     dvh_metric_goals = {
@@ -204,12 +205,12 @@ def test_export_brachy_plan():
     plan_obj = BrachyPlan(
         phantom=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
-        catheter_table=pth_cathTable_json,
+        catheter_table=pth_cathTable_dcm,
         combined_dose=pth_combined_dose,
-        combined_simulation_dict=sim_dict,
+        simulation_dict=sim_dict,
     )
     # # This function tests all the exporting functions.
-    plan_obj.export_brachy_plan(export_format, dir_export, content_to_export)
+    plan_obj.export_brachy_plan(dir_export=dir_export, content_to_export=content_to_export)
 
 
 def test_load_brachy_plan_from_dicom():
