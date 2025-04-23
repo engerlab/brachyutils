@@ -17,6 +17,6 @@
     "Prostate" : {
         "density":1.824,
         "HU_limit":1230.0,
-        "structure_name": "Prostate"
+        "structure_name": "CTV"
     }
 }

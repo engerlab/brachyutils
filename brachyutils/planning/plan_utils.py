@@ -208,7 +208,7 @@ class BrachyPlan:
 
         # load the catheter table if the path is provided
         if catheter_table is not None:
-            if isinstance(catheter_table, Path) or isinstance(catheter_table, str):
+            if isinstance(catheter_table, (str, Path)):
                 self.catheter_table = CatheterTable(catheter_list=catheter_table)
             elif isinstance(catheter_table, CatheterTable):
                 self.catheter_table = catheter_table
@@ -1364,7 +1364,7 @@ class BrachyPlan:
             structure_set.append(structure.to_dict(export_format))
 
             if materials_table is not None:
-                from brachyutils.egsphant_utils import _load_material_dict
+                from brachyutils.geometry.egsphant_utils import _load_material_dict
 
                 material_dict = _load_material_dict(materials_table)
                 for material in material_dict:
