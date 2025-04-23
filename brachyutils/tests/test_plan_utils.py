@@ -5,7 +5,7 @@ from glob import glob
 
 import numpy as np
 
-from brachyutils.plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_to_dict
+from brachyutils.planning.plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_to_dict
 
 
 def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
@@ -181,7 +181,7 @@ def test_export_brachy_plan():
         "PrintProgress": 10000,
         "beam_on": 10000,
     }
-    dir_export = "data_test/test_export_plan"
+    dir_export = "data_test/test_export_plan/prostate/glen_p1/"
     export_format = "RapidBrachy"
     os.makedirs(dir_export, exist_ok=True)
 
@@ -305,9 +305,9 @@ if __name__ == "__main__":
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
-    # test_export_brachy_plan()
+    test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
-    test_load_applicator_list()
+    # test_load_applicator_list()
     # test__export_applicator_geometry()
     # test_brachy_structure()
     # test_load_phantom()
