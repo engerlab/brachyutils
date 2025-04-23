@@ -23,7 +23,7 @@ def export_plan_air_phantom():
             ]
     )
     sim_dict = {
-        "source_dict": {
+        "brachy_source": {
             "treatment_type": "TLDR",
             "source_geometry": "IsoAid_Advantage",
             "core_material": "G4_Pd",
