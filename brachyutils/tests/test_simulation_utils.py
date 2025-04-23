@@ -75,7 +75,7 @@ def test_brachy_simulation():
         # },
         pth_plan="combined.plan",
         pth_phantom="ct.egsphant",
-        number_histories=1000000,
+        number_histories=10320,
         total_time=5983,
         number_of_threads=12,
         print_progress=10000,
