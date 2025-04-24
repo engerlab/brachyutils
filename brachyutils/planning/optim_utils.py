@@ -30,10 +30,10 @@ class Constraint(BaseModel):
     name: str
     expression: Callable = None
 
-class Optimizer(BaseModel, ABC):
+class DwellTimeOptimizer(BaseModel, ABC):
     r"""
     ### Purpose:
-    - An abstract Optimizer class to specify the common components of an optimizer class that 
+    - An abstract dwell time optimizer class to specify the common components of a dwell time optimizer class that 
     easily integrates to BrachyUtils.
     ### Attributes:
     - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
@@ -49,10 +49,10 @@ class Optimizer(BaseModel, ABC):
     - run()
     """
     plan: BrachyPlan
+    solver: str = None
     variables: List[Variable] = None
     constraints: List[Constraint] = None
     penalty_function: Callable = None
-    solver: str = None
     model: Any = None
 
     def __init__(self, plan: BrachyPlan, solver=None):
@@ -78,14 +78,18 @@ class Optimizer(BaseModel, ABC):
     def get_variables_from_plan(self, plan: BrachyPlan) -> List[Variable]:
         r"""
         ### Purpose:
-        - A function to get the variables from the plan.
+        - A function to get the variables from the plan. The variables are dwell times for each dwell positon
+        inside the catehter table.
+        ### Inputs:
+        - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
         """
         pass
     @abstractmethod
     def get_constraints_from_plan(self, plan: BrachyPlan) -> List[Constraint]:
         r"""
         ### Purpose:
-        - A function to get the constraints from the plan.
+        - A function to get the constraints from the plan. The constraints are the dose to the voxels inside
+        the target volume and the organs at risk. At minimum, the target volume should be defined in the plan. 
         """
         pass
     @abstractmethod
