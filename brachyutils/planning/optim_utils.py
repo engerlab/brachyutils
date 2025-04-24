@@ -39,12 +39,11 @@ class Optimizer(BaseModel, ABC):
     - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
     - variables: The set of the variables to be optimized. In HDR brachy, dwell times and catheter positions
     - constraints: A set of relationships between the variables that should not be violated.
-    In HDR brachy, we want all dwell times to be positive and sometimes, a dwell time to be below
-    a certain threshold.
+    In HDR brachy, we want all dwell times to be positive and sometimes have upper or lower bounds.
     - penalty_function: A function that states how good a set of variables are.
     - solver:str := The name   
     - model: The object that incorporates all the attributes above to output the optimal value for
-    each variable 
+    each variable
     ### Functions:
     - get_model_from_plan()
     - run()
@@ -54,6 +53,66 @@ class Optimizer(BaseModel, ABC):
     constraints: List[Constraint] = None
     penalty_function: Callable = None
     solver: str = None
+    model: Any = None
 
-class Gurobi_Optimizer():
-    
+    def __init__(self, plan: BrachyPlan, solver=None):
+        r"""
+        ### Purpose:
+        - A function to initialize the optimizer.
+        ### Parameters:
+        - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
+        """
+        super().__init__(plan=plan)
+        self.plan = plan
+        self.solver = solver
+        self.variables = self.get_variables_from_plan(plan=self.plan)
+        self.constraints = self.get_constraints_from_plan(plan=self.plan)
+        self.penalty_function = self.get_penalty_function_from_plan(plan=self.plan)
+        self.model = self.make_model(
+            variables=self.variables,
+            constraints=self.constraints,
+            penalty_function=self.penalty_function,
+            )
+
+    @abstractmethod
+    def get_variables_from_plan(self, plan: BrachyPlan) -> List[Variable]:
+        r"""
+        ### Purpose:
+        - A function to get the variables from the plan.
+        """
+        pass
+    @abstractmethod
+    def get_constraints_from_plan(self, plan: BrachyPlan) -> List[Constraint]:
+        r"""
+        ### Purpose:
+        - A function to get the constraints from the plan.
+        """
+        pass
+    @abstractmethod
+    def get_penalty_function_from_plan(self, plan: BrachyPlan) -> Callable:
+        r"""
+        ### Purpose:
+        - A function to get the penalty function from the plan.
+        """
+        pass
+    @abstractmethod
+    def make_model(self):
+        r"""
+        ### Purpose:
+        - A function to make the model from the variables, constraints, and penalty function.
+        """
+        pass
+    @abstractmethod
+    def run(self):
+        r"""
+        ### Purpose:
+        - A function to run the optimizer.
+        """
+        pass
+    @abstractmethod
+    def get_optimized_plan_from_model(self) -> BrachyPlan:
+        r"""
+        ### Purpose:
+        - A function to get the optimized plan from the model after the optimizaton is done.
+        """
+        pass
