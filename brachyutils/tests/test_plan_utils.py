@@ -260,27 +260,36 @@ def test_brachy_structure():
     pth_dicom = "data_test/prostate-glen-p1-dcm/"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
     pth_dose = glob(pth_dicom + "/RD*.dcm")[0]
-    structure_name = "CTV"
-    dvh_name = "D95%(CTV)"
-    dvh_goal = 15
+    dvh_metric_goals = {
+        "D95%(ctv)": 15,
+        "D1cc(rectum)": 11.25,
+        "D0.1cc(urethra)": 18.75,
+    }
     dose = BrachyDose(pth_dose)
-
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
-    mask_dict: dict = phantom_obj.get_structure_mask([structure_name], ROIContour)
-    mask_contour = mask_dict[structure_name]
+    mask_dict: dict = phantom_obj.get_structure_mask(phantom_obj.structure_names, ROIContour)
+    for structure_name in mask_dict:
+        mask_contour = mask_dict[structure_name]
+        dvh_metric_goals_per_structure = {}
+        for dvh_metric_name in dvh_metric_goals:
+            structure_name_in_dvh_metrics = dvh_metric_name.split("(")[1].split(")")[0]
+            dvh_metric = dvh_metric_name.split("(")[0]
+            if structure_name_in_dvh_metrics.lower() in structure_name.lower():
+                dvh_metric_goals_per_structure[f"{dvh_metric}({structure_name})"] = dvh_metric_goals[dvh_metric_name]
 
-    structure_obj = BrachyStructure(
-        name=structure_name,
-        mask_contour=mask_contour,
-        target_volume=True if "tv" in structure_name.lower() else False,
-        in_dvh=True,
-        dvh_metric_name=dvh_name,
-        dvh_metric_clinical_goal=dvh_goal,
-    )
+        if not any(dvh_metric_goals_per_structure):
+            print(f"No DVH metric goals for the structure {structure_name}")
+            continue
 
-    structure_obj.info()
-    structure_obj.get_dvh_metric(dose)
-
+        structure_obj = BrachyStructure(
+            name=structure_name,
+            mask_contour=mask_contour,
+            target_volume=True if "ctv" in structure_name.lower() else False,
+            in_dvh=True,
+            dvh_metric_goals=dvh_metric_goals_per_structure
+        )
+        structure_obj.info()
+        structure_obj.get_dvh_metric(dose, 15)
 
 def test_load_phantom():
     from pathlib import Path
@@ -306,9 +315,9 @@ if __name__ == "__main__":
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
-    test_export_brachy_plan()
+    # test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
     # test_load_applicator_list()
     # test__export_applicator_geometry()
-    # test_brachy_structure()
+    test_brachy_structure()
     # test_load_phantom()

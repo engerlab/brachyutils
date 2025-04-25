@@ -17,10 +17,10 @@ class BrachyStructure:
     - target_volume: bool
     #### DVH Attributes:
     - in_dvh: bool
-    - dvh_metric_name: str (deprecated)
-    - dvh_metric_clinical_goal: str (deprecated)
+    - # dvh_metric_name: str (deprecated)
+    - # dvh_metric_clinical_goal: str (deprecated)
     - dvh_metric_goals: Dict[str, float]
-    - dvh_metric_observed: float (deprecated)
+    - # dvh_metric_observed: float (deprecated)
     - dvh_metrics_observed: Dict[str, float]
     - dvh_obj: opentps.core.data.DVH
     #### Uncertainty Attributes:
@@ -30,7 +30,7 @@ class BrachyStructure:
     - uncertainty_max
     - uncertainty_min
     #### Optimization Attributes:
-    - name_in_gurobiModel
+    - optimization_id
     - bound_coordinates_in_gurobiModel
     - penalty_weight_linear
     - penalty_weight_quadratic
@@ -54,9 +54,8 @@ class BrachyStructure:
         target_volume: bool = None,
         in_dvh: bool = None,
         dvh_metric_goals: Dict[str, float] = None,
-        dvh_metric_name: str = None,
-        dvh_metric_clinical_goal: float = None,
-
+        # dvh_metric_name: str = None,
+        # dvh_metric_clinical_goal: float = None,
     ) -> None:
         r"""
         ### Purpose:
@@ -67,26 +66,23 @@ class BrachyStructure:
         - target_volume:bool := flag to indicate whether the structure is a target volume or not.
         - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
         - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
-        - dvh_metric_name:str := (deprecated) the name of the DVH metric in the format of "D#cc|%(organName)",
-        "V#Gy|%(organName)", where # represents the numerical threshold and "|" is or for example D95%(organName).
-        - dvh_metric_clinical_goal:float := (deprecated) the clinical goal for the DVH metric.
+        V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or. For example D95%(organName).
         ### Outputs:
         - Void := will initialize the BrachyStructure object
         ### Dependencies:
         - opentps.core.data.ROIMask
         - opentps.core.data.DVH
         """
-        self.name: str = None
-        self.mask_contour: ROIMask = None
-        self.target_volume: bool = None
+        self.name = name
+        self.mask_contour = mask_contour
+        self.target_volume = target_volume
 
         # dose volume histogram
-        self.in_dvh: bool = None
-        self.dvh_metric_name: str = None
-        self.dvh_metric_clinical_goal: float = None
-        self.dvh_metric_observed: float = None
+        self.in_dvh:bool = in_dvh
+        self.dvh_metric_goals: Dict[str, float] = None
+        # self.dvh_metric_name: str = None
+        # self.dvh_metric_clinical_goal: float = None
         self.dvh_metrics_observed: Dict[str, float] = None
-        # self.normalized_cummulative_dvh: np.array = None
         self.dvh_obj: DVH = None
 
         # uncertainty volume histogram
@@ -97,8 +93,8 @@ class BrachyStructure:
         self.uncertainty_min: float = None
 
         # optimization attributes
-        self.name_in_gurobiModel: str = None
-        self.bound_coordinates_in_gurobiModel: list = None
+        self.optimization_id: str = None
+        self.index_range_constraints: List[int] = None
         self.penalty_weight_linear: float = None
         self.penalty_weight_quadratic: float = None
         self.penalty_weight_uniformity: float = None
@@ -111,34 +107,11 @@ class BrachyStructure:
         self.density_mode: str = None  # ""
         self.material: str = None  # "CT Material"
 
-        self.name = name
-        self.mask_contour = mask_contour
-        self.target_volume = target_volume
-        self.in_dvh = in_dvh
-
-        #JK Mar 2025
-        #To simplify passing multiple DVH constraints to evaluate in parallel, we will
-        #just have users pass the dvh_metric_goals dictionary containing {metric name: goal}.
-        #Plan utils will separate the dictionary by structure
-        #Passing a single metric string and goal will be deprecated
-
-        if dvh_metric_goals is not None:
-            self.dvh_metric_goals = dvh_metric_goals
-        elif dvh_metric_name is not None:
-            warnings.warn("""Passing a single DVH metric name and goal is deprecated. 
-                        Please pass a dictionary of multiple metrics and goals for the structure""", DeprecationWarning)
-            self.dvh_metric_name = dvh_metric_name
-            #for generality, I would like to maintain that the user doesn't need to
-            #pass a goal for each metric, if they're not optimizing
-            if dvh_metric_clinical_goal is not None:
-                self.dvh_metric_clinical_goal = dvh_metric_clinical_goal
-            else:
-                self.dvh_metric_clinical_goal = None
-            self.dvh_metric_goals = {self.dvh_metric_name: self.dvh_metric_clinical_goal}
-        else:
-            raise ValueError("""Please provide BrachyStructure with a single DVH metric name and goal,
-                            or a dictionary of multiple metrics and goals""")
-            
+        if dvh_metric_goals is None:
+            raise ValueError(
+                """Please provide BrachyStructure with a dictionary of multiple metrics and goals"""
+                )
+        self.dvh_metric_goals = dvh_metric_goals
         assert np.all([self.name.lower() in dvh_metric_name.lower() for dvh_metric_name in self.dvh_metric_goals.keys()]),\
              "name should be in dvh metric name enclosed by paranthesis"
 
