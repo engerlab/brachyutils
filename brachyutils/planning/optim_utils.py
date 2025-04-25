@@ -1,16 +1,16 @@
 # from abc import ABC, abstractmethod
-from typing import List, Callable, Dict, Any, Tuple
+from typing import List, Callable, Any
 from brachyutils.planning.plan_utils import BrachyPlan, BrachyStructure
-from pydantic import BaseModel, model_validator
-import inspect
+from pydantic import BaseModel
 
 class Variable(BaseModel):
     """
     ### Purpose:
-    - A class to represent a variable in the optimization problem.
+    - A class to represent a variable in the dwell time optimization problem.
     ### Attributes:
-    - name:str := The name of the variable.
-    - value:float := The value of the variable.
+    - name:str := references the catheter_number and dwell position number in the format
+    catheter_{catheter_number}_dwell_{dwell_position_number}
+    - value:float := The initial value of the variable.
     - lower_bound:float := The lower bound of the variable.
     - upper_bound:float := The upper bound of the variable.
     """
@@ -106,13 +106,22 @@ class DwellTimeOptimizer(BaseModel):
                     upper_bound=upper_bound, 
                 ))
         return variable_list
+
     def get_constraints_from_plan(self, plan: BrachyPlan) -> List[Constraint]:
         r"""
         ### Purpose:
-        - A function to get the constraints from the plan. The constraints are the dose to the voxels inside
+        - A function to get the constraints from the plan. The constraints are the prescirbed dose to the voxels inside
         the target volume and the organs at risk. At minimum, the target volume should be defined in the plan. 
         """
-        pass
+        constraint_list = []
+        for structure in plan.structure_list:
+            if structure.target_volume:
+                pass
+            else:
+                pass
+                
+        
+    
     def get_penalty_function_from_plan(self, plan: BrachyPlan) -> Callable:
         r"""
         ### Purpose:
