@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+# from abc import ABC, abstractmethod
 from typing import List, Callable, Dict, Any, Tuple
 from brachyutils.planning.plan_utils import BrachyPlan, BrachyStructure
 from pydantic import BaseModel, model_validator
@@ -30,7 +30,7 @@ class Constraint(BaseModel):
     name: str
     expression: Callable = None
 
-class DwellTimeOptimizer(BaseModel, ABC):
+class DwellTimeOptimizer(BaseModel):
     r"""
     ### Purpose:
     - An abstract dwell time optimizer class to specify the common components of a dwell time optimizer class that 
@@ -48,6 +48,9 @@ class DwellTimeOptimizer(BaseModel, ABC):
     - get_model_from_plan()
     - run()
     """
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
     plan: BrachyPlan
     solver: str = None
     variables: List[Variable] = None
@@ -74,17 +77,35 @@ class DwellTimeOptimizer(BaseModel, ABC):
             penalty_function=self.penalty_function,
             )
 
-    @abstractmethod
-    def get_variables_from_plan(self, plan: BrachyPlan) -> List[Variable]:
+    def get_variables_from_plan(
+        self,
+        plan: BrachyPlan,
+        initial_value:float=0.,
+        lower_bound:float=0.,
+        upper_bound:float=100) -> List[Variable]:
         r"""
         ### Purpose:
         - A function to get the variables from the plan. The variables are dwell times for each dwell positon
         inside the catehter table.
         ### Inputs:
         - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
+        - initial_value:float := The initial value of the variable. Default is 0.
+        - lower_bound:float := The lower bound of the variable. Default is 0.
+        - upper_bound:float := The upper bound of the variable. Default is 100.
+        ### Outputs:
+        - variable_list:List[Variable] := A list of variables to be optimized. The variables are the dwell times
+        for each dwell position inside the catheter table.
         """
-        pass
-    @abstractmethod
+        variable_list = []
+        for catheter in plan.catheter_table:
+            for dwell_position in catheter.dwells:
+                variable_list.append(Variable(
+                    name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
+                    value=initial_value,
+                    lower_bound=lower_bound,
+                    upper_bound=upper_bound, 
+                ))
+        return variable_list
     def get_constraints_from_plan(self, plan: BrachyPlan) -> List[Constraint]:
         r"""
         ### Purpose:
@@ -92,28 +113,28 @@ class DwellTimeOptimizer(BaseModel, ABC):
         the target volume and the organs at risk. At minimum, the target volume should be defined in the plan. 
         """
         pass
-    @abstractmethod
     def get_penalty_function_from_plan(self, plan: BrachyPlan) -> Callable:
         r"""
         ### Purpose:
         - A function to get the penalty function from the plan.
         """
         pass
-    @abstractmethod
-    def make_model(self):
+    def make_model(
+        self,
+        variables: List[Variable],
+        constraints: List[Constraint],
+        penalty_function: Callable) -> Any:
         r"""
         ### Purpose:
         - A function to make the model from the variables, constraints, and penalty function.
         """
         pass
-    @abstractmethod
     def run(self):
         r"""
         ### Purpose:
         - A function to run the optimizer.
         """
         pass
-    @abstractmethod
     def get_optimized_plan_from_model(self) -> BrachyPlan:
         r"""
         ### Purpose:
