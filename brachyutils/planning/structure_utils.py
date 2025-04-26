@@ -131,7 +131,7 @@ class BrachyStructure:
         to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).
         """
         assert self.mask_contour is not None, "mask is not loaded"
-        assert self.dvh_metric_name is not None or self.dvh_metric_goals is not None, "dvh metric name is not set"
+        assert any(self.dvh_metric_goals), "dvh metric goals are not set"
         #assert (
         #    self.dvh_metric_clinical_goal is not None
         #), "dvh metric clinical goal is not set"

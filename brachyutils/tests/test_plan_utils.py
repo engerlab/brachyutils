@@ -289,7 +289,7 @@ def test_brachy_structure():
             dvh_metric_goals=dvh_metric_goals_per_structure
         )
         structure_obj.info()
-        structure_obj.get_dvh_metric(dose, 15)
+        print(structure_obj.get_dvh_metric(dose, 15))
 
 def test_load_phantom():
     from pathlib import Path
