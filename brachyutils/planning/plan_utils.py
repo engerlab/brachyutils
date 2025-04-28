@@ -854,7 +854,12 @@ class BrachyPlan:
         uncertainty = np.sqrt(uncertainty)
         self.combined_dose.set_uncertainty_array(uncertainty)
 
-    def get_dvh_metrics(self):
+    def get_dvh_metrics(
+        self,
+        combined_dose: BrachyDose=None,
+        prescription_dose: float = None,
+        return_percentage: bool = False,
+        ):
         r"""
         ### Purpose:
         - To get the observed value of the dvh metric for each structure in the BrachyPlan.
@@ -866,9 +871,16 @@ class BrachyPlan:
         """
         assert self.structure_list is not None, "structure list is not created yet"
         assert self.prescription_dose is not None, "prescription dose is not set"
+        if combined_dose is None:
+            combined_dose = self.combined_dose
+        if prescription_dose is None:
+            prescription_dose = self.prescription_dose
         self.dvh_metrics_observed = {}
         for structure_obj in self.structure_list:
-            observed_metrics = structure_obj.get_dvh_metric(self.combined_dose, self.prescription_dose)
+            observed_metrics = structure_obj.get_dvh_metric(
+                combined_dose,
+                prescription_dose,
+                return_percentage)
             self.dvh_metrics_observed.update(observed_metrics)
         return self.dvh_metrics_observed
 
