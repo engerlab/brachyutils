@@ -2,7 +2,7 @@
 import os
 import time
 from glob import glob
-
+from pathlib import Path
 import numpy as np
 
 from brachyutils.planning.plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_to_dict
@@ -50,25 +50,27 @@ def test_load_dose_rate_or_uncertainty_tensor():
 
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "data_test/prostate-glen-p1-dcm"
-    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    pth_cathTable_dcm = list(Path(dir_dicom).glob("RP*.dcm"))[0]
     # dir_dose_rate = "data_test/prostate-glen-p1-dose"
     pth_dose = glob(dir_dicom + "/RD*.dcm")[0]
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
         "D0.1cc(urethra)": 18.75,
+        "CI(ctv)": 100,
+        "HI(ctv)": 0.5,
     }
 
     plan_obj = BrachyPlan(
         phantom=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
-        catheter_table=pth_cathTable_json,
+        catheter_table=pth_cathTable_dcm,
         combined_dose=pth_dose,
+        prescription_dose=21.,
     )
 
-    plan_obj.get_dvh_metrics()
-    for structure in plan_obj.structure_list:
-        print(f"{structure.name}: {structure.dvh_metric_observed}")
+    print(plan_obj.get_dvh_metrics())
+    
 
 
 def test_calculate_combined_uncertainty():
@@ -290,7 +292,7 @@ def test_brachy_structure():
             dvh_metric_goals=dvh_metric_goals_per_structure
         )
         structure_obj.info()
-        print(structure_obj.get_dvh_metric(dose, 21, True, mask_dict.get("BODY")))
+        print(structure_obj.get_dvh_metric(dose, 21, True))
 
 def test_load_phantom():
     from pathlib import Path
@@ -311,7 +313,7 @@ if __name__ == "__main__":
     # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
     # test_update_catheter_table_from_plan()
     # test_load_dose_rate_or_uncertainty_tensor()
-    # test_create_structures_and_calc_dvh_metrics()
+    test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
@@ -320,5 +322,5 @@ if __name__ == "__main__":
     # test_load_brachy_plan_from_dicom()
     # test_load_applicator_list()
     # test__export_applicator_geometry()
-    test_brachy_structure()
+    # test_brachy_structure()
     # test_load_phantom()

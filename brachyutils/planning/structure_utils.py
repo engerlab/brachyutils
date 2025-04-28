@@ -120,7 +120,7 @@ class BrachyStructure:
         combined_dose: BrachyDose,
         prescription_dose: float = None,
         return_percentage: bool = False,
-        body_mask: ROIMask = None):
+        ) -> Dict[str, float]:
         r"""
         ### Purpose:
         - To calculate the DVH metric for the structure given the combined dose.
@@ -134,7 +134,6 @@ class BrachyStructure:
         - prescription_dose := the prescribed dose to the target volume (PTV or CTV).
         - return_percentage := if true, the value of the dvh metric is normalized to
         the prescription dose for Dcc or D% and to the volume of the organName for VGy or V%.
-        - body_mask := The mask of body is needed for CI.
         ### Outputs:
         - Void := will update the BrachyStructure.dvh_metrics_observed dictionary and
         BrachyStructure.dvh_obj attributes. Will also update the last calculated value

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import List, Literal, Union, Dict
 
 import numpy as np
-from opentps.core.data import DVH
+from opentps.core.data import DVH, ROIContour
 from opentps.core.data.images import ROIMask
 
 # from multipledispatch import dispatch
@@ -185,6 +185,8 @@ class BrachyPlan:
         # set the dvh metric goals if provided
         self.prescription_dose = prescription_dose
         if dvh_metric_goals is not None:
+            if self.prescription_dose is None:
+                raise ValueError("prescription dose is not provided. Please provide it.")
             self.set_dvh_metric_goals(dvh_metric_goals)
 
         # load the dicom plan if the path is provided
@@ -619,18 +621,6 @@ class BrachyPlan:
         if isinstance(dvh_metric_goals, Path):
             with open(dvh_metric_goals, "r") as json_file:
                 dvh_metric_goals = json.load(json_file)
-
-        for dvh_metric in dvh_metric_goals:
-            assert dvh_metric.startswith("D") or dvh_metric.startswith(
-                "V"
-            ), "dvh metric name should start with D or V"
-            assert (
-                "cc" in dvh_metric or "%" in dvh_metric or "Gy" in dvh_metric
-            ), f"dvh metric name {dvh_metric} should end with cc or '%' to signify the absolute or relative volume"
-            assert (
-                dvh_metric_goals[dvh_metric] is not None
-            ), "for each dvh metric, the clinical threshold should be provided in Gy or %."
-
         self.dvh_metric_goals = dvh_metric_goals
 
     def create_brachy_structure_set(
@@ -664,12 +654,12 @@ class BrachyPlan:
             dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
 
         structure_masks: dict = phantom.get_structure_mask(
-            structure_names_in_dvh, ROIMask
+            structure_names_in_dvh, ROIContour
         )
         for structure_name in structure_masks.keys():
             structure_obj = BrachyStructure(
                 name=structure_name,
-                mask_contour=structure_masks[structure_name],
+                mask=structure_masks[structure_name],
                 target_volume=True if "tv" in structure_name.lower() else False,
                 in_dvh=True,
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
