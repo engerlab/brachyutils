@@ -1,6 +1,6 @@
 from typing import List, Literal, Union, Dict
 from opentps.core.data.images import ROIMask
-from opentps.core.data import DVH
+from opentps.core.data import DVH, ROIContour
 import numpy as np
 import warnings
 from brachyutils.dose.dose_utils import BrachyDose
@@ -185,7 +185,7 @@ class BrachyStructure:
                 self.dvh_metric_observed[dvh_metric_name] = self.dvh_obj.homogeneityIndex()
             elif metric_string.startswith("CI"):
                 self.dvh_metric_observed[dvh_metric_name] = self.dvh_obj.conformityIndex(
-                    dose=combined_dose,
+                    dose=combined_dose.dose_image,
                     Contour=self.mask,
                     body_contour=body_mask
                 )
