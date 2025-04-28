@@ -182,13 +182,9 @@ class BrachyStructure:
                         for example 'V95%(organ name)' or 'V2Gy(organ name)'"
                     ) 
             elif metric_string.startswith("HI"):
-                self.dvh_metric_observed[dvh_metric_name] = self.dvh_obj.homogeneityIndex()
+                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.homogeneityIndex()
             elif metric_string.startswith("CI"):
-                self.dvh_metric_observed[dvh_metric_name] = self.dvh_obj.conformityIndex(
-                    dose=combined_dose.dose_image,
-                    Contour=self.mask,
-                    body_contour=body_mask
-                )
+                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformityIndex()
             else:
                 raise ValueError(
                     "invalid name for DVH metric name. \
