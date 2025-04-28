@@ -147,29 +147,30 @@ class BrachyStructure:
             if "D" in metric_string:
                 if "%" in metric_string:
                     threshold = float(metric_string.split("%")[0].split("D")[-1])
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeDx(threshold)
                 elif "cc" in metric_string:
                     threshold = float(metric_string.split("cc")[0].split("D")[-1])
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeDcc(threshold)
                 else:
                     raise ValueError(
                         "invalid name for DVH metric name. \
                         The metrics starting with 'D' should have percent sign (%) or cc.\
                         for example 'D95%(organ name)' or 'D2cc(organ name)'"
                     )
-                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeDcc(threshold)
                 
             elif "V" in metric_string:
                 if "%" in metric_string:
                     threshold = float(metric_string.split("%")[0].split("V")[-1])
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeVx(threshold)
                 elif "Gy" in metric_string:
                     threshold = float(metric_string.split("Gy")[0].split("V")[-1])
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeVg(threshold)
                 else:
                     raise ValueError(
                         "invalid name for DVH metric name. \
                         The metrics starting with 'V' should have percent sign (%) or Gy.\
                         for example 'V95%(organ name)' or 'V2Gy(organ name)'"
-                    )
-                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeVx(threshold)
- 
+                    ) 
             else:
                 raise ValueError(
                     "invalid name for DVH metric name. \

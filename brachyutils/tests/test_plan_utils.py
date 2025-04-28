@@ -261,7 +261,7 @@ def test_brachy_structure():
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
     pth_dose = glob(pth_dicom + "/RD*.dcm")[0]
     dvh_metric_goals = {
-        "D95%(ctv)": 15,
+        "D95%(ctv)": 15.,
         "D1cc(rectum)": 11.25,
         "D0.1cc(urethra)": 18.75,
     }
@@ -289,7 +289,7 @@ def test_brachy_structure():
             dvh_metric_goals=dvh_metric_goals_per_structure
         )
         structure_obj.info()
-        print(structure_obj.get_dvh_metric(dose, 15))
+        print(structure_obj.get_dvh_metric(dose, 21))
 
 def test_load_phantom():
     from pathlib import Path
