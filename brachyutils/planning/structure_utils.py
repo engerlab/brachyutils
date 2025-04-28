@@ -50,7 +50,7 @@ class BrachyStructure:
     def __init__(
         self,
         name: str = None,
-        mask_contour: ROIMask = None,
+        mask: ROIMask = None,
         target_volume: bool = None,
         in_dvh: bool = None,
         dvh_metric_goals: Dict[str, float] = None,
@@ -62,7 +62,7 @@ class BrachyStructure:
         - To initialize the BrachyStructure object.
         ### Inputs:
         - name:str := the name of the structure.
-        - mask_contour:ROIMask := the mask contour of the structure.
+        - mask:ROIMask := the mask contour of the structure.
         - target_volume:bool := flag to indicate whether the structure is a target volume or not.
         - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
         - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
@@ -74,7 +74,7 @@ class BrachyStructure:
         - opentps.core.data.DVH
         """
         self.name = name
-        self.mask_contour = mask_contour
+        self.mask = mask
         self.target_volume = target_volume
 
         # dose volume histogram
@@ -115,22 +115,32 @@ class BrachyStructure:
         assert np.all([self.name.lower() in dvh_metric_name.lower() for dvh_metric_name in self.dvh_metric_goals.keys()]),\
              "name should be in dvh metric name enclosed by paranthesis"
 
-    def get_dvh_metric(self, combined_dose: BrachyDose, prescription_dose: float):
+    def get_dvh_metric(
+        self,
+        combined_dose: BrachyDose,
+        prescription_dose: float = None,
+        return_percentage: bool = False,
+        body_mask: ROIMask = None):
         r"""
         ### Purpose:
         - To calculate the DVH metric for the structure given the combined dose.
         The mask contour and DVH metrics should be set before calling this function.
         We expect the the dvh metric name to be in the format of "D#cc(organName)",
-        "D#%(organName)", "V#Gy(organName)" or "V#%(organName)", where # is the threshold
-        value. for example "D95%(organName)".
+        "D#%(organName)", "V#Gy(organName)" or "V#%(organName)", HI(organName) or CI(organName),
+        where # is the threshold value, for example "D95%(organName)". HI is for homogeniety index
+        and CI is for conformity index implemented by OpenTPS.
         ### Inputs:
         - combined_dose := the combined dose object for the patient.
+        - prescription_dose := the prescribed dose to the target volume (PTV or CTV).
+        - return_percentage := if true, the value of the dvh metric is normalized to
+        the prescription dose for Dcc or D% and to the volume of the organName for VGy or V%.
+        - body_mask := The mask of body is needed for CI.
         ### Outputs:
         - Void := will update the BrachyStructure.dvh_metrics_observed dictionary and
         BrachyStructure.dvh_obj attributes. Will also update the last calculated value
         to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).
         """
-        assert self.mask_contour is not None, "mask is not loaded"
+        assert self.mask is not None, "mask is not loaded"
         assert any(self.dvh_metric_goals), "dvh metric goals are not set"
         #assert (
         #    self.dvh_metric_clinical_goal is not None
@@ -138,19 +148,19 @@ class BrachyStructure:
         assert isinstance(
             combined_dose, BrachyDose
         ), "combined dose is not a BrachyDose object"
-        self.dvh_obj = DVH(self.mask_contour, combined_dose.dose_image, prescription=prescription_dose)
+        self.dvh_obj = DVH(self.mask, combined_dose.dose_image, prescription=prescription_dose)
         self.dvh_metrics_observed = {}
 
         for dvh_metric_name in self.dvh_metric_goals.keys():
             metric_string = dvh_metric_name.split("(")[0]
 
-            if "D" in metric_string:
+            if metric_string.startswith("D"):
                 if "%" in metric_string:
                     threshold = float(metric_string.split("%")[0].split("D")[-1])
-                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeDx(threshold)
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeDx(threshold, return_percentage)
                 elif "cc" in metric_string:
                     threshold = float(metric_string.split("cc")[0].split("D")[-1])
-                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeDcc(threshold)
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeDcc(threshold, return_percentage)
                 else:
                     raise ValueError(
                         "invalid name for DVH metric name. \
@@ -158,23 +168,32 @@ class BrachyStructure:
                         for example 'D95%(organ name)' or 'D2cc(organ name)'"
                     )
                 
-            elif "V" in metric_string:
+            elif metric_string.startswith("V"):
                 if "%" in metric_string:
                     threshold = float(metric_string.split("%")[0].split("V")[-1])
-                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeVx(threshold)
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeVx(threshold, return_percentage)
                 elif "Gy" in metric_string:
                     threshold = float(metric_string.split("Gy")[0].split("V")[-1])
-                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeVg(threshold)
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeVg(threshold, return_percentage)
                 else:
                     raise ValueError(
                         "invalid name for DVH metric name. \
                         The metrics starting with 'V' should have percent sign (%) or Gy.\
                         for example 'V95%(organ name)' or 'V2Gy(organ name)'"
                     ) 
+            elif metric_string.startswith("HI"):
+                self.dvh_metric_observed[dvh_metric_name] = self.dvh_obj.homogeneityIndex()
+            elif metric_string.startswith("CI"):
+                self.dvh_metric_observed[dvh_metric_name] = self.dvh_obj.conformityIndex(
+                    dose=combined_dose,
+                    Contour=self.mask,
+                    body_contour=body_mask
+                )
             else:
                 raise ValueError(
                     "invalid name for DVH metric name. \
-                    The metric should should start with D followed by cc or %, or V followed by Gy or %."
+                    The metric should should start with D followed by cc or %, or V followed by Gy or %.\
+                    or HI for homogeniety index or CI for conformityIndex"
                 )
             warnings.warn("""BrachyStructure attribute dvh_metric_observed is deprecated.
                             Please use dvh_metrics_observed dictionary instead.""", DeprecationWarning)
