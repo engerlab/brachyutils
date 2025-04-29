@@ -68,7 +68,6 @@ class DwellTimeOptimizer(BaseModel):
     penalty_function: Callable = None
     model: Any = None
     roi_bounds: List[List[float]] = None # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
-    roi_margin_mm: List[float] = None # [x_margin, y_margin, z_margin]
 
     def __init__(
         self,
@@ -83,14 +82,14 @@ class DwellTimeOptimizer(BaseModel):
         - roi_margin_mm: The distance from the furthest dwell position along each axis
         """
         super().__init__(plan=plan)
+        roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.plan = plan
         self.solver = solver
         self.dwellTimeVariables = self.get_dwellTimeVariables(plan=self.plan)
-        self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
-            roi_margin_mm=self.roi_margin_mm,
+            roi_margin_mm=roi_margin_mm,
             )
         self.penalty_function = self.get_penalty_function(
             plan=self.plan,
