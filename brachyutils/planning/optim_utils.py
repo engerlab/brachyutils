@@ -3,7 +3,8 @@ from typing import List, Callable, Any
 from brachyutils.planning.plan_utils import BrachyPlan, BrachyStructure
 from pydantic import BaseModel
 import numpy as np
-
+from opentps.core.data.images import ROIMask
+# from opentps.core.data import ROIContour
 
 class DwellTimeVariable(BaseModel):
     """
@@ -44,48 +45,65 @@ class DwellTimeOptimizer(BaseModel):
     easily integrates to BrachyUtils.
     ### Attributes:
     - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
-    - DwellTimeVariables: The set of the DwellTimeVariables to be optimized. In HDR brachy, dwell times and catheter positions
-    - constraints: A set of relationships between the DwellTimeVariables that should not be violated.
+    - dwellTimeVariables: The set of the dwellTimeVariables to be optimized. In HDR brachy, dwell times and catheter positions
+    - constraints: A set of relationships between the dwellTimeVariables that should not be violated.
     In HDR brachy, we want all dwell times to be positive and sometimes have upper or lower bounds.
-    - penalty_function: A function that states how good a set of DwellTimeVariables are.
+    - penalty_function: A function that states how good a set of dwellTimeVariables are.
     - solver:str := The name
-    - model: The object that incorporates all the attributes above to output the optimal dwell_time for
-    each DwellTimeVariable
+    - model: The object that incorporates all the attributes above to output the optimal 
+    dwell_time for each DwellTimeVariable.
+    - roi_bounds: The coordinate bounds for the optimization region of interest (roi) from the plan.
+    to consider voxels the dose rate maps. for each axis: 
+    roi_bounds = [first dwell - margin : last dwell + margin]
     ### Functions:
-    - get_model_from_plan()
+    - get_model()
     - run()
     """
 
     model_config = {"arbitrary_types_allowed": True}
     plan: BrachyPlan
     solver: str = None
-    DwellTimeVariables: List[DwellTimeVariable] = None
+    dwellTimeVariables: List[DwellTimeVariable] = None
     constraints: List[Constraint] = None
     penalty_function: Callable = None
     model: Any = None
+    roi_bounds: List[List[float]] = None # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
+    roi_margin_mm: List[float] = None # [x_margin, y_margin, z_margin]
 
-    def __init__(self, plan: BrachyPlan, solver=None):
+    def __init__(
+        self,
+        plan: BrachyPlan,
+        roi_margin_mm: List[float] | float = 5.0,
+        solver=None):
         r"""
         ### Purpose:
         - A function to initialize the optimizer.
         ### Parameters:
         - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
+        - roi_margin_mm: The distance from the furthest dwell position along each axis
         """
         super().__init__(plan=plan)
         self.plan = plan
         self.solver = solver
-        self.DwellTimeVariables = self.get_DwellTimeVariables_from_plan(plan=self.plan)
-        self.penalty_function = self.get_penalty_function_from_plan(
-            plan=self.plan, dwellTimeVariables=self.DwellTimeVariables
-        )
-        self.constraints = self.get_constraints_from_plan(plan=self.plan)
+        self.dwellTimeVariables = self.get_dwellTimeVariables(plan=self.plan)
+        self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
+        self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
+            plan=self.plan,
+            dwellTimeVariables=self.dwellTimeVariables,
+            roi_margin_mm=self.roi_margin_mm,
+            )
+        self.penalty_function = self.get_penalty_function(
+            plan=self.plan,
+            dwellTimeVariables=self.dwellTimeVariables)
+
+        self.constraints = self.get_constraints(plan=self.plan)
         self.model = self.make_model(
-            DwellTimeVariables=self.DwellTimeVariables,
+            dwellTimeVariables=self.dwellTimeVariables,
             constraints=self.constraints,
             penalty_function=self.penalty_function,
         )
 
-    def get_DwellTimeVariables_from_plan(
+    def get_dwellTimeVariables(
         self,
         plan: BrachyPlan,
         initial_dwell_time: float = 0.0,
@@ -94,7 +112,7 @@ class DwellTimeOptimizer(BaseModel):
     ) -> List[DwellTimeVariable]:
         r"""
         ### Purpose:
-        - A function to get the DwellTimeVariables from the plan. The DwellTimeVariables are dwell times for each dwell positon
+        - A function to get the dwellTimeVariables from the plan. The dwellTimeVariables are dwell times for each dwell positon
         inside the catehter table.
         ### Inputs:
         - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
@@ -102,7 +120,7 @@ class DwellTimeOptimizer(BaseModel):
         - lower_bound:float := The lower bound of the DwellTimeVariable. Default is 0.
         - upper_bound:float := The upper bound of the DwellTimeVariable. Default is 100.
         ### Outputs:
-        - DwellTimeVariable_list:List[DwellTimeVariable] := A list of DwellTimeVariables to be optimized. The DwellTimeVariables are the dwell times
+        - DwellTimeVariable_list:List[DwellTimeVariable] := A list of dwellTimeVariables to be optimized. The dwellTimeVariables are the dwell times
         for each dwell position inside the catheter table.
         """
         DwellTimeVariable_list = []
@@ -119,24 +137,67 @@ class DwellTimeOptimizer(BaseModel):
                 )
         return DwellTimeVariable_list
 
-    def get_constraints_from_plan(self, plan: BrachyPlan) -> List[Constraint]:
-        r"""
-        ### Purpose:
-        - A function to get the constraints from the plan. The constraints are the prescirbed dose to the voxels inside
-        the target volume and the organs at risk. At minimum, the target volume should be defined in the plan.
-        """
-        constraint_list = []
-        for structure in plan.structure_list:
-            if structure.target_volume:
-                pass
-            else:
-                pass
-
-    def get_penalty_function_from_plan(
+    def get_optimization_roi_bounds(
         self,
         plan: BrachyPlan,
         dwellTimeVariables: List[DwellTimeVariable],
-        relavance_distance_mm: List[float] = [5.0, 5.0, 5.0],
+        roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
+    ) -> List[List[float]]:
+        r"""
+        ### Purpose:
+        - A function to get the coordinate bounds for the optimization region of
+        interest (roi) from the plan.  The roi is the inclusion mask for the voxels
+        to be included in the optimization. The roi is defined as the region around 
+        the furthest dwell position along each axis plus the margin.
+        ### Inputs:
+        - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
+        - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
+        - roi_margin_mm:List[float] := The distance from the furthest dwell position along each axis
+        to consider voxels the dose rate maps. for each axis:
+            inclusion_space = [
+                closest_dwell_position -relavance_distance :
+                furthest_dwell_position + relavance_distance
+                ]
+        ### Outputs:
+        - roi_optimization:ROIMask := The optimization region of interest (roi) from the plan.
+        """
+        # get the inclusion mask for the voxels to be included
+        inclusion_boundaries = np.ones((3, 2))
+        dwell_bounds = np.zeros((3, 2))
+        for axis in [0, 1, 2]:
+            dwell_bounds[axis, 0] = np.min(
+                [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
+            )
+            dwell_bounds[axis, 1] = np.max(
+                [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
+            )
+            inclusion_boundaries[axis, 0] = (
+                dwell_bounds[axis, 0] - roi_margin_mm[axis]
+            )
+            inclusion_boundaries[axis, 1] = (
+                dwell_bounds[axis, 1] + roi_margin_mm[axis]
+            )
+            # if the inclusion bound is outside the dose image, set it to the dose image bounds
+            if (
+                inclusion_boundaries[axis][0]
+                < plan.combined_dose.dose_image.origin[axis]
+            ):
+                inclusion_boundaries[axis][0] = plan.combined_dose.dose_image.origin[axis]
+            if (
+                inclusion_boundaries[axis][1]
+                > plan.combined_dose.dose_image.origin[axis]
+                + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
+            ):
+                inclusion_boundaries[axis][1] = (
+                    plan.combined_dose.dose_image.origin[axis]
+                    + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
+                )
+        return inclusion_boundaries
+
+    def get_penalty_function(
+        self,
+        plan: BrachyPlan,
+        dwellTimeVariables: List[DwellTimeVariable],
     ) -> Callable:
         r"""
         ### Purpose:
@@ -157,61 +218,37 @@ class DwellTimeOptimizer(BaseModel):
         ### Inputs:
         - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position,
         a target volume defined, and the dose rate maps loaded.
-        - relavance_distance_cm:List[float] := The distance from the furthest dwell position along each axis
-        to consider voxels the dose rate maps. for each axis:
-            inclusion_space = [
-                closest_dwell_position -relavance_distance :
-                furthest_dwell_position + relavance_distance
-                ]
 
         ### Outputs:
-        - penalty_function:Callable := A function that states how good a set of DwellTimeVariables are.
+        - penalty_function:Callable := A function that states how good a set of dwellTimeVariables are.
         The penalty function is a function of the dose rate maps and the prescribed dose.
         """
-        # get the inclusion mask for the voxels to be included
-        inclusion_boundaries = np.ones((3, 2))
-        dwell_bounds = np.zeros((3, 2))
-        for axis in [0, 1, 2]:
-            dwell_bounds[axis, 0] = np.min(
-                [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
-            )
-            dwell_bounds[axis, 1] = np.max(
-                [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
-            )
-            inclusion_boundaries[axis, 0] = (
-                dwell_bounds[axis, 0] - relavance_distance_mm[axis]
-            )
-            inclusion_boundaries[axis, 1] = (
-                dwell_bounds[axis, 1] + relavance_distance_mm[axis]
-            )
-            # if the inclusion bound is outside the dose image, set it to the dose image bounds
-            if (
-                inclusion_boundaries[axis][0]
-                < plan.combined_dose.dose_image.origin[axis]
-            ):
-                inclusion_boundaries[axis][0] = plan.combined_dose.dose_image.origin[axis]
-            if (
-                inclusion_boundaries[axis][1]
-                > plan.combined_dose.dose_image.origin[axis]
-                + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
-            ):
-                inclusion_boundaries[axis][1] = (
-                    plan.combined_dose.dose_image.origin[axis]
-                    + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
-                )
-                
-        
-        print("debug here")
+        pass
+
+
+    def get_constraints(self, plan: BrachyPlan) -> List[Constraint]:
+        r"""
+        ### Purpose:
+        - A function to get the constraints from the plan. The constraints are the prescirbed dose to the voxels inside
+        the target volume and the organs at risk. At minimum, the target volume should be defined in the plan.
+        """
+        constraint_list = []
+        for structure in plan.structure_list:
+            if structure.target_volume:
+                pass
+            else:
+                pass
+
 
     def make_model(
         self,
-        DwellTimeVariables: List[DwellTimeVariable],
+        dwellTimeVariables: List[DwellTimeVariable],
         constraints: List[Constraint],
         penalty_function: Callable,
     ) -> Any:
         r"""
         ### Purpose:
-        - A function to make the model from the DwellTimeVariables, constraints, and penalty function.
+        - A function to make the model from the dwellTimeVariables, constraints, and penalty function.
         """
         pass
 
