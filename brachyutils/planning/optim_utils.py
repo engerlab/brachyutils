@@ -3,19 +3,19 @@ from typing import List, Callable, Any
 from brachyutils.planning.plan_utils import BrachyPlan, BrachyStructure
 from pydantic import BaseModel
 
-class Variable(BaseModel):
+class DwellTimeVariable(BaseModel):
     """
     ### Purpose:
-    - A class to represent a variable in the dwell time optimization problem.
+    - A class to represent a DwellTimeVariable in the dwell time optimization problem.
     ### Attributes:
     - name:str := references the catheter_number and dwell position number in the format
     catheter_{catheter_number}_dwell_{dwell_position_number}
-    - value:float := The initial value of the variable.
-    - lower_bound:float := The lower bound of the variable.
-    - upper_bound:float := The upper bound of the variable.
+    - dwell_time:float := The initial dwell_time of the DwellTimeVariable.
+    - lower_bound:float := The lower bound of the DwellTimeVariable.
+    - upper_bound:float := The upper bound of the DwellTimeVariable.
     """
     name: str
-    value: float = None
+    dwell_time: float = None
     lower_bound: float = None
     upper_bound: float = None
 
@@ -37,13 +37,13 @@ class DwellTimeOptimizer(BaseModel):
     easily integrates to BrachyUtils.
     ### Attributes:
     - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
-    - variables: The set of the variables to be optimized. In HDR brachy, dwell times and catheter positions
-    - constraints: A set of relationships between the variables that should not be violated.
+    - DwellTimeVariables: The set of the DwellTimeVariables to be optimized. In HDR brachy, dwell times and catheter positions
+    - constraints: A set of relationships between the DwellTimeVariables that should not be violated.
     In HDR brachy, we want all dwell times to be positive and sometimes have upper or lower bounds.
-    - penalty_function: A function that states how good a set of variables are.
+    - penalty_function: A function that states how good a set of DwellTimeVariables are.
     - solver:str := The name   
-    - model: The object that incorporates all the attributes above to output the optimal value for
-    each variable
+    - model: The object that incorporates all the attributes above to output the optimal dwell_time for
+    each DwellTimeVariable
     ### Functions:
     - get_model_from_plan()
     - run()
@@ -53,7 +53,7 @@ class DwellTimeOptimizer(BaseModel):
     }
     plan: BrachyPlan
     solver: str = None
-    variables: List[Variable] = None
+    DwellTimeVariables: List[DwellTimeVariable] = None
     constraints: List[Constraint] = None
     penalty_function: Callable = None
     model: Any = None
@@ -68,44 +68,44 @@ class DwellTimeOptimizer(BaseModel):
         super().__init__(plan=plan)
         self.plan = plan
         self.solver = solver
-        self.variables = self.get_variables_from_plan(plan=self.plan)
-        self.constraints = self.get_constraints_from_plan(plan=self.plan)
+        self.DwellTimeVariables = self.get_DwellTimeVariables_from_plan(plan=self.plan)
         self.penalty_function = self.get_penalty_function_from_plan(plan=self.plan)
+        self.constraints = self.get_constraints_from_plan(plan=self.plan)
         self.model = self.make_model(
-            variables=self.variables,
+            DwellTimeVariables=self.DwellTimeVariables,
             constraints=self.constraints,
             penalty_function=self.penalty_function,
             )
 
-    def get_variables_from_plan(
+    def get_DwellTimeVariables_from_plan(
         self,
         plan: BrachyPlan,
-        initial_value:float=0.,
+        initial_dwell_time:float=0.,
         lower_bound:float=0.,
-        upper_bound:float=100) -> List[Variable]:
+        upper_bound:float=100) -> List[DwellTimeVariable]:
         r"""
         ### Purpose:
-        - A function to get the variables from the plan. The variables are dwell times for each dwell positon
+        - A function to get the DwellTimeVariables from the plan. The DwellTimeVariables are dwell times for each dwell positon
         inside the catehter table.
         ### Inputs:
         - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
-        - initial_value:float := The initial value of the variable. Default is 0.
-        - lower_bound:float := The lower bound of the variable. Default is 0.
-        - upper_bound:float := The upper bound of the variable. Default is 100.
+        - initial_dwell_time:float := The initial dwell_time of the DwellTimeVariable. Default is 0.
+        - lower_bound:float := The lower bound of the DwellTimeVariable. Default is 0.
+        - upper_bound:float := The upper bound of the DwellTimeVariable. Default is 100.
         ### Outputs:
-        - variable_list:List[Variable] := A list of variables to be optimized. The variables are the dwell times
+        - DwellTimeVariable_list:List[DwellTimeVariable] := A list of DwellTimeVariables to be optimized. The DwellTimeVariables are the dwell times
         for each dwell position inside the catheter table.
         """
-        variable_list = []
+        DwellTimeVariable_list = []
         for catheter in plan.catheter_table:
             for dwell_position in catheter.dwells:
-                variable_list.append(Variable(
+                DwellTimeVariable_list.append(DwellTimeVariable(
                     name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
-                    value=initial_value,
+                    dwell_time=initial_dwell_time,
                     lower_bound=lower_bound,
                     upper_bound=upper_bound, 
                 ))
-        return variable_list
+        return DwellTimeVariable_list
 
     def get_constraints_from_plan(self, plan: BrachyPlan) -> List[Constraint]:
         r"""
@@ -130,12 +130,12 @@ class DwellTimeOptimizer(BaseModel):
         pass
     def make_model(
         self,
-        variables: List[Variable],
+        DwellTimeVariables: List[DwellTimeVariable],
         constraints: List[Constraint],
         penalty_function: Callable) -> Any:
         r"""
         ### Purpose:
-        - A function to make the model from the variables, constraints, and penalty function.
+        - A function to make the model from the DwellTimeVariables, constraints, and penalty function.
         """
         pass
     def run(self):
