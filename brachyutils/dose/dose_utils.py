@@ -1163,7 +1163,7 @@ class BrachyDose:
         self.uncertainty_image.imageArray = np.swapaxes(uncertainty_array, 0, 2)
 
     @staticmethod
-    def dose_with_empty_grid_like(dose_obj: "BrachyDose"):
+    def dose_with_empty_grid_like(dose_obj: "BrachyDose") -> "BrachyDose":
         r"""
         Purpose:
             - To create a new dose object with the same attributes as the input dose object,

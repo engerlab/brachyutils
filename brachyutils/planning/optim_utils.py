@@ -1,9 +1,10 @@
 # from abc import ABC, abstractmethod
 from typing import List, Callable, Any
 from brachyutils.planning.plan_utils import BrachyPlan, BrachyStructure
+from brachyutils.dose.dose_utils import dose_with_empty_grid_like, BrachyDose
 from pydantic import BaseModel, PrivateAttr
 import numpy as np
-from opentps.core.data.images import ROIMask
+from opentps.core.data.images import Image3D, ROIMask
 # from opentps.core.data import ROIContour
 from gurobipy import Model, Var, GRB
 class DwellTimeVariable(BaseModel):
@@ -26,6 +27,7 @@ class DwellTimeVariable(BaseModel):
     lower_bound: float = None
     upper_bound: float = None
     coordinates: List[float] = None
+    dose_rate_map: np.ndarray = None
     model_variable: Var = None
     def __init__(self, model: Any, **data):
         """
@@ -63,7 +65,6 @@ class Constraint(BaseModel):
 
     name: str
     expression: Callable = None
-
 
 class DwellTimeOptimizer(BaseModel):
     r"""
@@ -113,13 +114,13 @@ class DwellTimeOptimizer(BaseModel):
         self.plan = plan
         self.solver = solver
         self.model = self.initialize_model(self.solver)
-        self.dwellTimeVariables = self.get_dwellTimeVariables(plan=self.plan)
+        self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
             roi_margin_mm=roi_margin_mm,
             )
-        self.penalty_function = self.get_penalty_function(
+        self.penalty_function = self.set_penalty_function(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables)
 
@@ -138,7 +139,7 @@ class DwellTimeOptimizer(BaseModel):
         if solver == "gurobi":
             return Model("dwellTimeOptimizer")
 
-    def get_dwellTimeVariables(
+    def set_dwellTimeVariables(
         self,
         plan: BrachyPlan,
         initial_dwell_time: float = 0.0,
@@ -161,6 +162,7 @@ class DwellTimeOptimizer(BaseModel):
         if self.model is None:
             raise ValueError("Model is not initialized. Please initialize the model first.")
         dwellTimeVariable_list = []
+        dwell_counter = 0
         for catheter in plan.catheter_table:
             for dwell_position in catheter.dwells:
                 dwellTimeVariable_list.append(
@@ -171,8 +173,10 @@ class DwellTimeOptimizer(BaseModel):
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
                         coordinates=dwell_position.position,
+                        dose_rate_map=plan.dose_rate_tensor[dwell_counter]
                     )
                 )
+                dwell_counter += 1
 
         return dwellTimeVariable_list
 
@@ -233,7 +237,7 @@ class DwellTimeOptimizer(BaseModel):
                 )
         return inclusion_boundaries
 
-    def get_penalty_function(
+    def set_penalty_function(
         self,
         plan: BrachyPlan,
         dwellTimeVariables: List[DwellTimeVariable],
@@ -262,10 +266,56 @@ class DwellTimeOptimizer(BaseModel):
         - penalty_function:Callable := A function that states how good a set of dwellTimeVariables are.
         The penalty function is a function of the dose rate maps and the prescribed dose.
         """
-        # we have the followin attributes set:
-        # self.dwellTimeVariables
-        # self.roi_bounds
-        pass
+        from opentps.core.processing.imageProcessing import crop3DDataAroundBox, resampler3D
+        p_per_structure = {}
+        for structure in plan.structure_list:
+            structure_mask = structure.mask
+            optim_spacing = structure.optimization_spacing_mm
+            
+            for variable in self.dwellTimeVariables:
+                # create a dose object from the dose_rate_map tensor.
+                # The coordinates of the dose object is the same as the combined_dose in the plan.
+                masked_dose_rate_obj:BrachyDose = dose_with_empty_grid_like(plan.combined_dose)
+                masked_dose_rate_obj.set_dose_array(variable.dose_rate_map)
+                # apply the optimization roi bounds
+                masked_dose_rate_obj.dose_image = crop3DDataAroundBox(
+                    masked_dose_rate_obj.dose_image,
+                    self.roi_bounds)
+
+                # apply the structure mask to the dose rate map object                
+                if not(structure_mask.hasSameGrid(masked_dose_rate_obj.dose_image)):
+                    structure_mask = resampler3D.resampleImage3DOnImage3D(
+                        structure.mask,
+                        masked_dose_rate_obj.dose_image,
+                        inPlace=False,
+                        fillValue=0
+                    )
+                # structure_mask = structure_mask.imageArray.astype(bool)
+                masked_dose_rate_obj.dose_image = masked_dose_rate_obj.dose_image * structure_mask
+                # resample the dose rate map to the optimization resolution
+                resampler3D.resample(
+                    masked_dose_rate_obj.dose_image,
+                    spacing = optim_spacing,
+                    inPlace=True)
+                
+                # normalize it by the prescribed dose
+                masked_dose_rate_obj.dose_image = masked_dose_rate_obj.dose_image / plan.prescription_dose
+                # get the expected dose rate in the masked region
+                E_dp_dt_per_prescribed_dose = masked_dose_rate_obj.dose_image.imageArray.mean()
+                
+                p_per_structure[f"linear_p({structure.name})"] += variable.model_variable * E_dp_dt_per_prescribed_dose
+                # p_per_structure[f"quad_p({structure.name})"] += variable.model_variable * E_dp_dt
+                
+            if structure.target_volume:
+                # pass the linear penalties to the model objective.
+                self.model.setObjective(
+                    structure.penalty_weight_linear * (1 - p_per_structure[f"linear_p({structure.name})"]),
+                    GRB.MINIMIZE)
+            else:
+                # pass the linear penalties to the model objective.
+                self.model.setObjective(
+                    structure.penalty_weight_linear * p_per_structure[f"linear_p({structure.name})"],
+                    GRB.MINIMIZE)        
 
     def get_constraints(self, plan: BrachyPlan) -> List[Constraint]:
         r"""

@@ -31,7 +31,6 @@ class BrachyStructure:
     - uncertainty_min
     #### Optimization Attributes:
     - optimization_id
-    - bound_coordinates_in_gurobiModel
     - penalty_weight_linear
     - penalty_weight_quadratic
     - penalty_weight_uniformity
@@ -101,7 +100,7 @@ class BrachyStructure:
         self.dose_limit: float = None
         self.max_dose: float = 500
         self.min_dose: float = 0
-
+        self.optimization_spacing_mm: List[float] = 3.0
         # simulation attributes
         self.density: float = None  # 0
         self.density_mode: str = None  # ""
