@@ -1,11 +1,11 @@
 # from abc import ABC, abstractmethod
 from typing import List, Callable, Any
 from brachyutils.planning.plan_utils import BrachyPlan, BrachyStructure
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
 import numpy as np
 from opentps.core.data.images import ROIMask
 # from opentps.core.data import ROIContour
-
+from gurobipy import Model, Var, GRB
 class DwellTimeVariable(BaseModel):
     """
     ### Purpose:
@@ -16,14 +16,40 @@ class DwellTimeVariable(BaseModel):
     - dwell_time:float := The initial dwell_time of the DwellTimeVariable.
     - lower_bound:float := The lower bound of the DwellTimeVariable.
     - upper_bound:float := The upper bound of the DwellTimeVariable.
+    - coordinates:List[float] := The coordinates of the dwell position for this DwellTimeVariable.
+    - model_variable: Any := The variable in the optimization model corresponding to this DwellTimeVariable.
     """
+    model_config = {"arbitrary_types_allowed": True}
 
     name: str
     dwell_time: float = None
     lower_bound: float = None
     upper_bound: float = None
     coordinates: List[float] = None
-
+    model_variable: Var = None
+    def __init__(self, model: Any, **data):
+        """
+        ### Purpose:
+        - A function to initialize the DwellTimeVariable.
+        ### Inputs:
+        - model: Any := The model object.
+        - name:str := references the catheter_number and dwell position number in the format
+        catheter_{catheter_number}_dwell_{dwell_position_number}
+        - dwell_time:float := The initial dwell_time of the DwellTimeVariable.
+        - lower_bound:float := The lower bound of the DwellTimeVariable.
+        - upper_bound:float := The upper bound of the DwellTimeVariable.
+        - coordinates:List[float] := The coordinates of the dwell position for this DwellTimeVariable.
+        """
+        super().__init__(**data)
+        if isinstance(model, Model):
+            self.model_variable = model.addVar(
+                lb=self.lower_bound,
+                ub=self.upper_bound,
+                name=self.name,
+                vtype=GRB.CONTINUOUS
+            )
+        else:
+            raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
 
 class Constraint(BaseModel):
     """
@@ -33,6 +59,7 @@ class Constraint(BaseModel):
     - name: The name of the constraint.
     - expression: The expression of the constraint.
     """
+    model_config = {"arbitrary_types_allowed": True}
 
     name: str
     expression: Callable = None
@@ -59,11 +86,11 @@ class DwellTimeOptimizer(BaseModel):
     - get_model()
     - run()
     """
-
     model_config = {"arbitrary_types_allowed": True}
+
     plan: BrachyPlan
     solver: str = None
-    dwellTimeVariables: List[DwellTimeVariable] = None
+    dwellTimeVariables: List[Var] = None
     constraints: List[Constraint] = None
     penalty_function: Callable = None
     model: Any = None
@@ -73,7 +100,7 @@ class DwellTimeOptimizer(BaseModel):
         self,
         plan: BrachyPlan,
         roi_margin_mm: List[float] | float = 5.0,
-        solver=None):
+        solver="gurobi"):
         r"""
         ### Purpose:
         - A function to initialize the optimizer.
@@ -85,6 +112,7 @@ class DwellTimeOptimizer(BaseModel):
         roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.plan = plan
         self.solver = solver
+        self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.get_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
             plan=self.plan,
@@ -96,11 +124,19 @@ class DwellTimeOptimizer(BaseModel):
             dwellTimeVariables=self.dwellTimeVariables)
 
         self.constraints = self.get_constraints(plan=self.plan)
-        self.model = self.make_model(
-            dwellTimeVariables=self.dwellTimeVariables,
-            constraints=self.constraints,
-            penalty_function=self.penalty_function,
-        )
+
+    def initialize_model(self, solver: str) -> Any:
+        r"""
+        ### Purpose:
+        - A function to initialize the model. The model is the object that incorporates all the attributes above to output the optimal 
+        dwell_time for each DwellTimeVariable.
+        ### Inputs:
+        - solver:str := The name of the solver to be used. Default is None.
+        ### Outputs:
+        - model: Any := The model object.
+        """
+        if solver == "gurobi":
+            return Model("dwellTimeOptimizer")
 
     def get_dwellTimeVariables(
         self,
@@ -108,7 +144,7 @@ class DwellTimeOptimizer(BaseModel):
         initial_dwell_time: float = 0.0,
         lower_bound: float = 0.0,
         upper_bound: float = 100,
-    ) -> List[DwellTimeVariable]:
+    ) -> List[Var]:
         r"""
         ### Purpose:
         - A function to get the dwellTimeVariables from the plan. The dwellTimeVariables are dwell times for each dwell positon
@@ -122,11 +158,14 @@ class DwellTimeOptimizer(BaseModel):
         - DwellTimeVariable_list:List[DwellTimeVariable] := A list of dwellTimeVariables to be optimized. The dwellTimeVariables are the dwell times
         for each dwell position inside the catheter table.
         """
-        DwellTimeVariable_list = []
+        if self.model is None:
+            raise ValueError("Model is not initialized. Please initialize the model first.")
+        dwellTimeVariable_list = []
         for catheter in plan.catheter_table:
             for dwell_position in catheter.dwells:
-                DwellTimeVariable_list.append(
+                dwellTimeVariable_list.append(
                     DwellTimeVariable(
+                        model=self.model,
                         name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
                         dwell_time=initial_dwell_time,
                         lower_bound=lower_bound,
@@ -134,7 +173,8 @@ class DwellTimeOptimizer(BaseModel):
                         coordinates=dwell_position.position,
                     )
                 )
-        return DwellTimeVariable_list
+
+        return dwellTimeVariable_list
 
     def get_optimization_roi_bounds(
         self,
@@ -222,8 +262,10 @@ class DwellTimeOptimizer(BaseModel):
         - penalty_function:Callable := A function that states how good a set of dwellTimeVariables are.
         The penalty function is a function of the dose rate maps and the prescribed dose.
         """
+        # we have the followin attributes set:
+        # self.dwellTimeVariables
+        # self.roi_bounds
         pass
-
 
     def get_constraints(self, plan: BrachyPlan) -> List[Constraint]:
         r"""
