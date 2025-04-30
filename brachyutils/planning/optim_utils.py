@@ -124,7 +124,7 @@ class DwellTimeOptimizer(BaseModel):
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables)
 
-        self.constraints = self.get_constraints(plan=self.plan)
+        self.constraints = self.set_constraints(plan=self.plan)
 
     def initialize_model(self, solver: str) -> Any:
         r"""
@@ -266,43 +266,24 @@ class DwellTimeOptimizer(BaseModel):
         - penalty_function:Callable := A function that states how good a set of dwellTimeVariables are.
         The penalty function is a function of the dose rate maps and the prescribed dose.
         """
-        from opentps.core.processing.imageProcessing import crop3DDataAroundBox, resampler3D
         p_per_structure = {}
         for structure in plan.structure_list:
             structure_mask = structure.mask
             optim_spacing = structure.optimization_spacing_mm
             
             for variable in self.dwellTimeVariables:
-                # create a dose object from the dose_rate_map tensor.
-                # The coordinates of the dose object is the same as the combined_dose in the plan.
-                masked_dose_rate_obj:BrachyDose = dose_with_empty_grid_like(plan.combined_dose)
-                masked_dose_rate_obj.set_dose_array(variable.dose_rate_map)
-                # apply the optimization roi bounds
-                masked_dose_rate_obj.dose_image = crop3DDataAroundBox(
-                    masked_dose_rate_obj.dose_image,
-                    self.roi_bounds)
-
-                # apply the structure mask to the dose rate map object                
-                if not(structure_mask.hasSameGrid(masked_dose_rate_obj.dose_image)):
-                    structure_mask = resampler3D.resampleImage3DOnImage3D(
-                        structure.mask,
-                        masked_dose_rate_obj.dose_image,
-                        inPlace=False,
-                        fillValue=0
-                    )
-                # structure_mask = structure_mask.imageArray.astype(bool)
-                masked_dose_rate_obj.dose_image = masked_dose_rate_obj.dose_image * structure_mask
-                # resample the dose rate map to the optimization resolution
-                resampler3D.resample(
-                    masked_dose_rate_obj.dose_image,
-                    spacing = optim_spacing,
-                    inPlace=True)
                 
+                cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
+                    dose_rate_map=variable.dose_rate_map,
+                    template_dose_obj=plan.combined_dose,
+                    roi_bounds=self.roi_bounds,
+                    structure_mask=structure_mask,
+                    optim_spacing=optim_spacing
+                )
                 # normalize it by the prescribed dose
-                masked_dose_rate_obj.dose_image = masked_dose_rate_obj.dose_image / plan.prescription_dose
+                cropped_resampled_dose_rate_map = cropped_resampled_dose_rate_map / plan.prescription_dose
                 # get the expected dose rate in the masked region
-                E_dp_dt_per_prescribed_dose = masked_dose_rate_obj.dose_image.imageArray.mean()
-                
+                E_dp_dt_per_prescribed_dose = cropped_resampled_dose_rate_map.mean()
                 p_per_structure[f"linear_p({structure.name})"] += variable.model_variable * E_dp_dt_per_prescribed_dose
                 # p_per_structure[f"quad_p({structure.name})"] += variable.model_variable * E_dp_dt
                 
@@ -317,7 +298,7 @@ class DwellTimeOptimizer(BaseModel):
                     structure.penalty_weight_linear * p_per_structure[f"linear_p({structure.name})"],
                     GRB.MINIMIZE)        
 
-    def get_constraints(self, plan: BrachyPlan) -> List[Constraint]:
+    def set_constraints(self, plan: BrachyPlan) -> List[Constraint]:
         r"""
         ### Purpose:
         - A function to get the constraints from the plan. The constraints are the prescirbed dose to the voxels inside
@@ -356,3 +337,43 @@ class DwellTimeOptimizer(BaseModel):
         - A function to get the optimized plan from the model after the optimizaton is done.
         """
         pass
+
+def crop_mask_resample_dose_rate_map(
+    dose_rate_map: np.ndarray,
+    template_dose_obj: BrachyDose,
+    roi_bounds: List[List[float]],
+    structure_mask: ROIMask,
+    optim_spacing: List[float]
+    ) -> np.ndarray:
+    r"""
+    ### Purpose:
+    - A function to crop the dose rate map to the roi bounds, mask it by the structure mask
+    and resample it to the optimization spacing.
+    ### Inputs:
+    """
+    from opentps.core.processing.imageProcessing import crop3DDataAroundBox, resampler3D
+    # create a dose object from the dose_rate_map tensor.
+    # The coordinates of the dose object is the same as the combined_dose in the plan.
+    masked_dose_rate_obj:BrachyDose = dose_with_empty_grid_like(template_dose_obj)
+    masked_dose_rate_obj.set_dose_array(dose_rate_map)
+    # apply the optimization roi bounds
+    masked_dose_rate_obj.dose_image = crop3DDataAroundBox(
+        masked_dose_rate_obj.dose_image,
+        roi_bounds)
+
+    # apply the structure mask to the dose rate map object                
+    if not(structure_mask.hasSameGrid(masked_dose_rate_obj.dose_image)):
+        structure_mask = resampler3D.resampleImage3DOnImage3D(
+            structure_mask,
+            masked_dose_rate_obj.dose_image,
+            inPlace=False,
+            fillValue=0
+        )
+    # structure_mask = structure_mask.imageArray.astype(bool)
+    masked_dose_rate_obj.dose_image = masked_dose_rate_obj.dose_image * structure_mask
+    # resample the dose rate map to the optimization resolution
+    resampler3D.resample(
+        masked_dose_rate_obj.dose_image,
+        spacing = optim_spacing,
+        inPlace=True)
+    return masked_dose_rate_obj.dose_image.imageArray
