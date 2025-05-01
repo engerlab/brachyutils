@@ -4,8 +4,7 @@ from opentps.core.data import DVH, ROIContour
 import numpy as np
 import warnings
 from brachyutils.dose.dose_utils import BrachyDose
-from brachyutils.planning.optim_utils import Optimization_Config
-
+from brachyutils.types import Optimization_Config
 class BrachyStructure:
     r"""
     ### Purpose:
@@ -240,6 +239,7 @@ class BrachyStructure:
         - Void := will update the BrachyStructure object with the optimization id and
         will set the penalty weights to 1.0.
         """
+        from brachyutils.planning.optim_utils import Optimization_Config
         if optimzation_config is not None:
             self.optimization_config = optimzation_config
         else:

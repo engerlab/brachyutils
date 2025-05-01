@@ -30,7 +30,8 @@ from brachyutils.geometry.phantom_utils import BrachyPhantom
 from brachyutils.geometry.catheter_utils import CatheterTable
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
-from brachyutils.planning.optim_utils import Optimization_Config
+from brachyutils.types import Optimization_Config
+
 class BrachyPlan:
     r"""
     ### Purpose:
@@ -77,25 +78,25 @@ class BrachyPlan:
 
     def __init__(
         self,
-        # for geometry definition:
+        #### for geometry definition:
         phantom: Union[Path, BrachyPhantom, dict] = None,
-        # for structure creation:
+        #### for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
         prescription_dose: float = None,
-        # for loading catheter table and/or applicators:
+        #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
         applicator_pth_list: Union[Path, str, list] = None,
         applicator_format: Literal["RapidBrachy", "WebApp"] = None,
-        # for loading dose or uncertainty:
+        #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
         type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
         load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
         multi_processing: bool = False,
         combined_dose_only: bool = False,
-        # for simulation setup:
+        #### for simulation setup:
         simulation_dict: dict | Path | str = None,
-        # for optimization setup:
+        #### for optimization setup:
         optimization_config_list:  List[Optimization_Config] | Path | str = None,
     ):
         r"""

@@ -1,13 +1,13 @@
 # from abc import ABC, abstractmethod
 from typing import List, Callable, Any
-from brachyutils.planning.plan_utils import BrachyPlan, BrachyStructure
-from brachyutils.dose.dose_utils import dose_with_empty_grid_like, BrachyDose
+from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, PrivateAttr
 import numpy as np
 from opentps.core.data.images import Image3D, ROIMask
 # from opentps.core.data import ROIContour
 from gurobipy import Model, Var, GRB
-
+# from brachyutils.planning.plan_utils import BrachyPlan
+from brachyutils.types import BrachyPlan
 class Optimization_Config(BaseModel):
     """
     ### Purpose:
@@ -49,7 +49,10 @@ class DwellTimeVariable(BaseModel):
     - coordinates:List[float] := The coordinates of the dwell position for this DwellTimeVariable.
     - model_variable: Any := The variable in the optimization model corresponding to this DwellTimeVariable.
     """
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = {
+        "arbitrary_types_allowed": True,
+        "defer_build": True
+        }
 
     name: str
     dwell_time: float = None
@@ -90,7 +93,10 @@ class Constraint(BaseModel):
     - name: The name of the constraint.
     - expression: The expression of the constraint.
     """
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = {
+        "arbitrary_types_allowed": True,
+        "defer_build": True
+        }
 
     name: str
     expression: Callable = None
@@ -116,7 +122,10 @@ class DwellTimeOptimizer(BaseModel):
     - get_model()
     - run()
     """
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = {
+        "arbitrary_types_allowed": True,
+        "defer_build": True
+        }
 
     plan: BrachyPlan
     solver: str = None
@@ -373,7 +382,7 @@ def crop_mask_resample_dose_rate_map(
     from opentps.core.processing.imageProcessing import crop3DDataAroundBox, resampler3D
     # create a dose object from the dose_rate_map tensor.
     # The coordinates of the dose object is the same as the combined_dose in the plan.
-    masked_dose_rate_obj:BrachyDose = dose_with_empty_grid_like(template_dose_obj)
+    masked_dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
     masked_dose_rate_obj.set_dose_array(dose_rate_map)
     # apply the optimization roi bounds
     masked_dose_rate_obj.dose_image = crop3DDataAroundBox(
