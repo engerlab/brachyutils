@@ -122,7 +122,8 @@ class DwellTimeOptimizer(BaseModel):
             )
         self.penalty_function = self.set_penalty_function(
             plan=self.plan,
-            dwellTimeVariables=self.dwellTimeVariables)
+            dwellTimeVariables=self.dwellTimeVariables,
+            model=self.model)
 
         self.constraints = self.set_constraints(plan=self.plan)
 
@@ -241,6 +242,7 @@ class DwellTimeOptimizer(BaseModel):
         self,
         plan: BrachyPlan,
         dwellTimeVariables: List[DwellTimeVariable],
+        model: Model = None,
     ) -> Callable:
         r"""
         ### Purpose:
@@ -261,7 +263,8 @@ class DwellTimeOptimizer(BaseModel):
         ### Inputs:
         - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position,
         a target volume defined, and the dose rate maps loaded.
-
+        - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
+        - model:Model := The model object. Default is None.
         ### Outputs:
         - penalty_function:Callable := A function that states how good a set of dwellTimeVariables are.
         The penalty function is a function of the dose rate maps and the prescribed dose.
@@ -271,7 +274,7 @@ class DwellTimeOptimizer(BaseModel):
             structure_mask = structure.mask
             optim_spacing = structure.optimization_spacing_mm
             
-            for variable in self.dwellTimeVariables:
+            for variable in dwellTimeVariables:
                 
                 cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
                     dose_rate_map=variable.dose_rate_map,
@@ -289,12 +292,12 @@ class DwellTimeOptimizer(BaseModel):
                 
             if structure.target_volume:
                 # pass the linear penalties to the model objective.
-                self.model.setObjective(
+                model.setObjective(
                     structure.penalty_weight_linear * (1 - p_per_structure[f"linear_p({structure.name})"]),
                     GRB.MINIMIZE)
             else:
                 # pass the linear penalties to the model objective.
-                self.model.setObjective(
+                model.setObjective(
                     structure.penalty_weight_linear * p_per_structure[f"linear_p({structure.name})"],
                     GRB.MINIMIZE)        
 
@@ -310,19 +313,6 @@ class DwellTimeOptimizer(BaseModel):
                 pass
             else:
                 pass
-
-
-    def make_model(
-        self,
-        dwellTimeVariables: List[DwellTimeVariable],
-        constraints: List[Constraint],
-        penalty_function: Callable,
-    ) -> Any:
-        r"""
-        ### Purpose:
-        - A function to make the model from the dwellTimeVariables, constraints, and penalty function.
-        """
-        pass
 
     def run(self):
         r"""
