@@ -4,6 +4,7 @@ from opentps.core.data import DVH, ROIContour
 import numpy as np
 import warnings
 from brachyutils.dose.dose_utils import BrachyDose
+from brachyutils.planning.optim_utils import Optimization_Config
 
 class BrachyStructure:
     r"""
@@ -30,17 +31,10 @@ class BrachyStructure:
     - uncertainty_max
     - uncertainty_min
     #### Optimization Attributes:
-    - optimization_id
-    - penalty_weight_linear
-    - penalty_weight_quadratic
-    - penalty_weight_uniformity
-    - dose_limit
-    - max_dose
-    - min_dose
-    #### Simulation attributes:
-    - density
-    - density_mode
-    - material
+    - penalty_weight_linear := The coefficient for the linear party of the penalty function.
+    - penalty_weight_quadratic := The coefficient for the quadratic party of the penalty function.
+    - dose_voxel_goal := The dose goal for every voxel given to the optimizer.
+    - spacing_mm := The spacing of the optimization grid in mm.
     ### Functions:
         - get_dvh_metric(combined_dose:BrachyDose)
         - to_dict(export_format:str)
@@ -53,8 +47,7 @@ class BrachyStructure:
         target_volume: bool = None,
         in_dvh: bool = None,
         dvh_metric_goals: Dict[str, float] = None,
-        # dvh_metric_name: str = None,
-        # dvh_metric_clinical_goal: float = None,
+        optimization_config: Optimization_Config = None,
     ) -> None:
         r"""
         ### Purpose:
@@ -92,19 +85,11 @@ class BrachyStructure:
         self.uncertainty_min: float = None
 
         # optimization attributes
-        self.optimization_id: str = None
-        self.index_range_constraints: List[int] = None
-        self.penalty_weight_linear: float = None
-        self.penalty_weight_quadratic: float = None
-        self.penalty_weight_uniformity: float = None
-        self.dose_limit: float = None
-        self.max_dose: float = 500
-        self.min_dose: float = 0
-        self.optimization_spacing_mm: List[float] = 3.0
-        # simulation attributes
-        self.density: float = None  # 0
-        self.density_mode: str = None  # ""
-        self.material: str = None  # "CT Material"
+        self.optimization_config: Optimization_Config = None
+        # # simulation attributes
+        # self.density: float = None  # 0
+        # self.density_mode: str = None  # ""
+        # self.material: str = None  # "CT Material"
 
         if dvh_metric_goals is None:
             raise ValueError(
@@ -113,6 +98,8 @@ class BrachyStructure:
         self.dvh_metric_goals = dvh_metric_goals
         assert np.all([self.name.lower() in dvh_metric_name.lower() for dvh_metric_name in self.dvh_metric_goals.keys()]),\
              "name should be in dvh metric name enclosed by paranthesis"
+        if optimization_config is not None:
+            self.set_optimization_config(optimization_config)
 
     def get_dvh_metric(
         self,
@@ -204,7 +191,7 @@ class BrachyStructure:
             - "RapidBrachy":{
                 "density": 0,
                 "density_mode": "",
-                "dose_limit": 0,
+                "dose_voxel_goal": 0,
                 "dvhConstraints": "",
                 "in_dvh": true,
                 "linear_weight": 1,
@@ -224,7 +211,7 @@ class BrachyStructure:
             return {
                 "density": self.density,
                 "density_mode": self.density_mode,
-                "dose_limit": self.dose_limit,
+                "dose_voxel_goal": self.dose_voxel_goal,
                 "dvhConstraints": "",
                 "in_dvh": self.in_dvh,
                 "linear_weight": self.penalty_weight_linear,
@@ -240,3 +227,22 @@ class BrachyStructure:
     def info(self):
         print(self.to_dict("RapidBrachy"))
 
+    def set_optimization_config(
+        self,
+        optimzation_config: Optimization_Config=None,
+        **kwargs
+        ) -> None:
+        r"""
+        ### Purpose:
+        - To prepare the BrachyStructure object for optimization.
+        ### Inputs:
+
+        - Void := will update the BrachyStructure object with the optimization id and
+        will set the penalty weights to 1.0.
+        """
+        if optimzation_config is not None:
+            self.optimization_config = optimzation_config
+        else:
+            if kwargs is None:
+                raise ValueError("Please provide optimization config")
+            self.optimization_config = Optimization_Config(kwargs)

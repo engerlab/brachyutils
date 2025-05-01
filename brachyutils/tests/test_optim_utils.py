@@ -21,6 +21,19 @@ def test_get_optimization_roi_bounds():
     optim_obj = DwellTimeOptimizer(plan=dicom_plan, roi_margin_mm=[2, 2, 2])
     print(optim_obj.roi_bounds)
     print("breakpoint")
+
+def test_set_penalty_function():
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_dir_dose_rate = ?
+    plan_obj = load_dicom_to_plan(
+        dir_dicom=pth_dicom,
+        load_dicom_dose=False,
+        dir_dose_rate=pth_dir_dose_rate,
+        multi_processing=True
+        )
+    
+    optim_obj = DwellTimeOptimizer(plan=plan_obj)
+
 if __name__ == "__main__":
     # test_DwellTimeVariable()
     test_get_optimization_roi_bounds()

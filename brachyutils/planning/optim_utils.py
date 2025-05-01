@@ -7,6 +7,35 @@ import numpy as np
 from opentps.core.data.images import Image3D, ROIMask
 # from opentps.core.data import ROIContour
 from gurobipy import Model, Var, GRB
+
+class Optimization_Config(BaseModel):
+    """
+    ### Purpose:
+    - This class holds the information regarding the optimization configuration per each structure.
+    When loading the plan the optimization config is created for each structure in the plan.structure_list.
+
+    ### Attributes:
+    - structure_name
+    - dose_voxel_goal
+    - penalty_weight_linear
+    - penalty_weight_quadratic
+    - mask_margin_mm
+    - spacing_mm
+    """
+    structure_name:str = None
+    dose_voxel_goal:float = None
+    penalty_weight_linear:float = None
+    penalty_weight_quadratic:float = None
+    mask_margin_mm:float | List[float]= None
+    spacing_mm:float | List[float]= None
+    # may be needed later
+    # self.optimization_id: str = None
+    # self.index_range_constraints: List[int] = None
+    # self.penalty_weight_uniformity: float = None
+    # self.max_dose: float = 500
+    # self.min_dose: float = 0
+
+
 class DwellTimeVariable(BaseModel):
     """
     ### Purpose:

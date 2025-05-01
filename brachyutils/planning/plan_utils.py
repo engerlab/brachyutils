@@ -30,7 +30,7 @@ from brachyutils.geometry.phantom_utils import BrachyPhantom
 from brachyutils.geometry.catheter_utils import CatheterTable
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
-
+from brachyutils.planning.optim_utils import Optimization_Config
 class BrachyPlan:
     r"""
     ### Purpose:
@@ -59,7 +59,6 @@ class BrachyPlan:
     - uncertainty_tensor:= sqaure root of the sum of the squares of the uncertainty maps weighted by the 
     dwell times normalized to the treatment time.
     - simulation_setup:= A simulation setup object containing the source info as well as simulation parameters.
-    - optimizer:= An optimization object to be implemented.
     - prescription_dose:= The dose that is prescribed to the target volume.
 
     ### Functions:
@@ -96,6 +95,8 @@ class BrachyPlan:
         combined_dose_only: bool = False,
         # for simulation setup:
         simulation_dict: dict | Path | str = None,
+        # for optimization setup:
+        optimization_config_list:  List[Optimization_Config] | Path | str = None,
     ):
         r"""
         ### Purpose:
@@ -177,9 +178,6 @@ class BrachyPlan:
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
-
-        # optimization attributes
-        self.optimizer = None
 
         ## fill the attributes depending on the inputs to the constructor
         # set the dvh metric goals if provided
@@ -266,6 +264,11 @@ class BrachyPlan:
         # load the applicator list if the path is provided
         if applicator_pth_list is not None and applicator_format is not None:
             self.load_applicator_list(applicator_pth_list, applicator_format)
+
+        # # setup optimization
+        if optimization_config_list is not None:
+            self.optimization_config_list = optimization_config_list
+            self.setup_optimization(self.optimization_config_list, self.structure_list)
 
     def load_phantom(self, pth_phantom: Union[Path, dict]):
         r"""
@@ -1399,7 +1402,26 @@ class BrachyPlan:
                 print(f"{attr} := {len(value)}")
             else:
                 print(f"{attr} := {value}")
+    
+    def setup_optimization(
+        self, 
+        optimization_config_list:List[Optimization_Config] | Path | str,
+        structure_list:List[BrachyStructure]):
+        r"""
+        """
+        if isinstance(optimization_config_list, (Path, str)):
+            optimization_config_list = Path(optimization_config_list).resolve()
+            if str(optimization_config_list).endswith(".json"):
+                with open(optimization_config_list, "r") as json_file:
+                    optimization_config_list = json.load(json_file)
+            else:
+                raise ValueError("optimization_config_list can be a json file or a list of Optimization_Config objects")
 
+        for config in optimization_config_list:
+            for struc in structure_list:
+                if config.structure_name == struc.name:
+                    struc.set_optimization_config(config)
+                    break                    
 
 def _resize_structure_mask(structure_mask, target_shape):
     r"""
