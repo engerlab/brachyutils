@@ -664,7 +664,7 @@ class BrachyPlan:
             structure_obj = BrachyStructure(
                 name=structure_name,
                 mask=structure_masks[structure_name],
-                target_volume=True if "tv" in structure_name.lower() else False,
+                target_volume=True if ("ctv" or "ptv") in structure_name.lower() else False,
                 in_dvh=True,
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )

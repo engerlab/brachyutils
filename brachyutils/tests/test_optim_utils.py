@@ -25,14 +25,16 @@ def test_get_optimization_roi_bounds():
 def test_set_penalty_function():
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_dir_dose_rate = "data_test/prostate-glen-p1-dose"
+    target_dose = 21
     dvh_metric_goals = {
-        "D95%(ctv)": 15,
-        "D1cc(rectum)": 11.25,
-        "D0.1cc(urethra)": 18.75,
-        "CI(ctv)": 100,
+        "target_dose": target_dose,
+        "D95%(ctv)": target_dose,
+        "D1cc(rectum)": target_dose * 0.75,
+        "D0.1cc(urethra)": target_dose * 1.25,
+        "CI(ctv)": 1.0,
         "HI(ctv)": 0.5,
     }
-    optmization_config_list=[
+    optimization_config_list=[
         Optimization_Config(
             name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
@@ -53,8 +55,9 @@ def test_set_penalty_function():
         load_dicom_dose=False,
         dir_dose_rate=pth_dir_dose_rate,
         multi_processing=True,
+        prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
-        optmization_config_list=optmization_config_list)
+        optimization_config_list=optimization_config_list)
 
     optim_obj = DwellTimeOptimizer(plan=plan_obj)
 
