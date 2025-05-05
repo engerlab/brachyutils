@@ -336,6 +336,15 @@ def test_dicom_rt_tools():
     phantom_obj.export_to(dir_nrrd_out=pth_out)
 
 
+def test_get_delivered_catheter_table():
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
+    from brachyutils.geometry.catheter_utils import CatheterTable
+    cat_table = CatheterTable(catheter_list=pth_plan)
+    delivered_cat_table = cat_table.get_delivered_catheter_table()
+    assert cat_table.num_catheters >= delivered_cat_table.num_catheters, "Test failed the number of catheters in the delivered table is not equal to the original table."
+    assert cat_table.num_dwell_positions >= delivered_cat_table.num_dwell_positions, "Test failed the number of dwell positions in the delivered table is not equal to the original table."
+
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
     # test_brachy_phantom()
@@ -349,7 +358,7 @@ if __name__ == "__main__":
     # test_load_egsphant()
     # test_crop_phantom()
     # print("testing CatheterTable")
-    test_catheter_table()
+    # test_catheter_table()
     # test_catheter()
     # print("testing BrachyApplicator")
     # test_BrachyApplicator()
@@ -360,3 +369,4 @@ if __name__ == "__main__":
     # test_resample_to()
     # test_dicom_rt_tools()
     # test_catheter_to_mrk_json()
+    test_get_delivered_catheter_table()
