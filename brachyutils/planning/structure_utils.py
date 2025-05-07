@@ -1,55 +1,40 @@
 from typing import List, Literal, Union, Dict
 from opentps.core.data.images import ROIMask
-from opentps.core.data import DVH
+from opentps.core.data import DVH, ROIContour
 import numpy as np
 import warnings
 from brachyutils.dose.dose_utils import BrachyDose
-
+from brachyutils.types import Optimization_Config
 class BrachyStructure:
     r"""
-    Purpose:
-        - this class holds the information regarding a structure inside a brachytherapy
-        treatment plan.
-
-    Attributes:
-
-        Basic Attributes
-        - name:str
-        - mask: ROIMask
-        - target_volume: bool
-
-        DVH Attributes:
-        - in_dvh: bool
-        - dvh_metric_name: str (deprecated)
-        - dvh_metric_clinical_goal: str (deprecated)
-        - dvh_metric_goals: Dict[str, float]
-        - dvh_metric_observed: float (deprecated)
-        - dvh_metrics_observed: Dict[str, float]
-        - dvh_obj: opentps.core.data.DVH
-
-        Uncertainty Attributes:
-        - uvh
-        - uncertainty_mean
-        - uncertainty_std
-        - uncertainty_max
-        - uncertainty_min
-
-        Optimization Attributes:
-        - name_in_gurobiModel
-        - bound_coordinates_in_gurobiModel
-        - penalty_weight_linear
-        - penalty_weight_quadratic
-        - penalty_weight_uniformity
-        - dose_limit
-        - max_dose
-        - min_dose
-
-        Simulation attributes:
-        - density
-        - density_mode
-        - material
-
-    Functions:
+    ### Purpose:
+    - this class holds the information regarding a structure inside a brachytherapy
+    treatment plan.
+    ### Attributes:
+    #### Basic Attributes
+    - name:str
+    - mask: ROIMask
+    - target_volume: bool
+    #### DVH Attributes:
+    - in_dvh: bool
+    - # dvh_metric_name: str (deprecated)
+    - # dvh_metric_clinical_goal: str (deprecated)
+    - dvh_metric_goals: Dict[str, float]
+    - # dvh_metric_observed: float (deprecated)
+    - dvh_metrics_observed: Dict[str, float]
+    - dvh_obj: opentps.core.data.DVH
+    #### Uncertainty Attributes:
+    - uvh
+    - uncertainty_mean
+    - uncertainty_std
+    - uncertainty_max
+    - uncertainty_min
+    #### Optimization Attributes:
+    - penalty_weight_linear := The coefficient for the linear party of the penalty function.
+    - penalty_weight_quadratic := The coefficient for the quadratic party of the penalty function.
+    - dose_voxel_goal := The dose goal for every voxel given to the optimizer.
+    - spacing_mm := The spacing of the optimization grid in mm.
+    ### Functions:
         - get_dvh_metric(combined_dose:BrachyDose)
         - to_dict(export_format:str)
     """
@@ -57,43 +42,38 @@ class BrachyStructure:
     def __init__(
         self,
         name: str = None,
-        mask_contour: ROIMask = None,
+        mask: ROIMask = None,
         target_volume: bool = None,
         in_dvh: bool = None,
         dvh_metric_goals: Dict[str, float] = None,
-        dvh_metric_name: str = None,
-        dvh_metric_clinical_goal: float = None,
-
+        optimization_config: Optimization_Config = None,
     ) -> None:
         r"""
-        Purpose:
-            - To initialize the BrachyStructure object.
-        Inputs:
-            - name:str := the name of the structure.
-            - mask_contour:ROIMask := the mask contour of the structure.
-            - target_volume:bool := flag to indicate whether the structure is a target volume or not.
-            - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
-            - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
-            - dvh_metric_name:str := (deprecated) the name of the DVH metric in the format of "D#cc|%(organName)",
-            "V#Gy|%(organName)", where # represents the numerical threshold and "|" is or for example D95%(organName).
-            - dvh_metric_clinical_goal:float := (deprecated) the clinical goal for the DVH metric.
-        Outputs:
-            - Void := will initialize the BrachyStructure object
-        Dependencies:
-            - opentps.core.data.ROIMask
-            - opentps.core.data.DVH
+        ### Purpose:
+        - To initialize the BrachyStructure object.
+        ### Inputs:
+        - name:str := the name of the structure.
+        - mask:ROIMask := the mask contour of the structure.
+        - target_volume:bool := flag to indicate whether the structure is a target volume or not.
+        - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
+        - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
+        V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or. For example D95%(organName).
+        ### Outputs:
+        - Void := will initialize the BrachyStructure object
+        ### Dependencies:
+        - opentps.core.data.ROIMask
+        - opentps.core.data.DVH
         """
-        self.name: str = None
-        self.mask_contour: ROIMask = None
-        self.target_volume: bool = None
+        self.name = name
+        self.mask = mask
+        self.target_volume = target_volume
 
         # dose volume histogram
-        self.in_dvh: bool = None
-        self.dvh_metric_name: str = None
-        self.dvh_metric_clinical_goal: float = None
-        self.dvh_metric_observed: float = None
+        self.in_dvh:bool = in_dvh
+        self.dvh_metric_goals: Dict[str, float] = None
+        # self.dvh_metric_name: str = None
+        # self.dvh_metric_clinical_goal: float = None
         self.dvh_metrics_observed: Dict[str, float] = None
-        # self.normalized_cummulative_dvh: np.array = None
         self.dvh_obj: DVH = None
 
         # uncertainty volume histogram
@@ -104,110 +84,96 @@ class BrachyStructure:
         self.uncertainty_min: float = None
 
         # optimization attributes
-        self.name_in_gurobiModel: str = None
-        self.bound_coordinates_in_gurobiModel: list = None
-        self.penalty_weight_linear: float = None
-        self.penalty_weight_quadratic: float = None
-        self.penalty_weight_uniformity: float = None
-        self.dose_limit: float = None
-        self.max_dose: float = 500
-        self.min_dose: float = 0
+        self.optimization_config: Optimization_Config = None
+        # # simulation attributes
+        # self.density: float = None  # 0
+        # self.density_mode: str = None  # ""
+        # self.material: str = None  # "CT Material"
 
-        # simulation attributes
-        self.density: float = None  # 0
-        self.density_mode: str = None  # ""
-        self.material: str = None  # "CT Material"
-
-        self.name = name
-        self.mask_contour = mask_contour
-        self.target_volume = target_volume
-        self.in_dvh = in_dvh
-
-        #JK Mar 2025
-        #To simplify passing multiple DVH constraints to evaluate in parallel, we will
-        #just have users pass the dvh_metric_goals dictionary containing {metric name: goal}.
-        #Plan utils will separate the dictionary by structure
-        #Passing a single metric string and goal will be deprecated
-
-        if dvh_metric_goals is not None:
-            self.dvh_metric_goals = dvh_metric_goals
-        elif dvh_metric_name is not None:
-            warnings.warn("""Passing a single DVH metric name and goal is deprecated. 
-                        Please pass a dictionary of multiple metrics and goals for the structure""", DeprecationWarning)
-            self.dvh_metric_name = dvh_metric_name
-            #for generality, I would like to maintain that the user doesn't need to
-            #pass a goal for each metric, if they're not optimizing
-            if dvh_metric_clinical_goal is not None:
-                self.dvh_metric_clinical_goal = dvh_metric_clinical_goal
-            else:
-                self.dvh_metric_clinical_goal = None
-            self.dvh_metric_goals = {self.dvh_metric_name: self.dvh_metric_clinical_goal}
-        else:
-            raise ValueError("""Please provide BrachyStructure with a single DVH metric name and goal,
-                            or a dictionary of multiple metrics and goals""")
-            
+        if dvh_metric_goals is None:
+            raise ValueError(
+                """Please provide BrachyStructure with a dictionary of multiple metrics and goals"""
+                )
+        self.dvh_metric_goals = dvh_metric_goals
         assert np.all([self.name.lower() in dvh_metric_name.lower() for dvh_metric_name in self.dvh_metric_goals.keys()]),\
              "name should be in dvh metric name enclosed by paranthesis"
+        if optimization_config is not None:
+            self.set_optimization_config(optimization_config)
 
-    def get_dvh_metric(self, combined_dose: BrachyDose, prescription_dose: float):
+    def get_dvh_metric(
+        self,
+        combined_dose: BrachyDose,
+        prescription_dose: float = None,
+        return_percentage: bool = False,
+        ) -> Dict[str, float]:
         r"""
-        Purpose:
-            - To calculate the DVH metric for the structure given the combined dose.
-            The mask contour and DVH metrics should be set before calling this function.
-            We expect the the dvh metric name to be in the format of "D#cc(organName)",
-            "D#%(organName)", "V#Gy(organName)" or "V#%(organName)", where # is the threshold
-            value. for example "D95%(organName)".
-        Inputs:
-            - combined_dose := the combined dose object for the patient.
-        Outputs:
-            - Void := will update the BrachyStructure.dvh_metrics_observed dictionary and
-            BrachyStructure.dvh_obj attributes. Will also update the last calculated value
-            to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).
+        ### Purpose:
+        - To calculate the DVH metric for the structure given the combined dose.
+        The mask contour and DVH metrics should be set before calling this function.
+        We expect the the dvh metric name to be in the format of "D#cc(organName)",
+        "D#%(organName)", "V#Gy(organName)" or "V#%(organName)", HI(organName) or CI(organName),
+        where # is the threshold value, for example "D95%(organName)". HI is for homogeniety index
+        and CI is for conformity index implemented by OpenTPS.
+        ### Inputs:
+        - combined_dose := the combined dose object for the patient.
+        - prescription_dose := the prescribed dose to the target volume (PTV or CTV).
+        - return_percentage := if true, the value of the dvh metric is normalized to
+        the prescription dose for Dcc or D% and to the volume of the organName for VGy or V%.
+        ### Outputs:
+        - Void := will update the BrachyStructure.dvh_metrics_observed dictionary and
+        BrachyStructure.dvh_obj attributes. Will also update the last calculated value
+        to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).
         """
-        assert self.mask_contour is not None, "mask is not loaded"
-        assert self.dvh_metric_name is not None or self.dvh_metric_goals is not None, "dvh metric name is not set"
+        assert self.mask is not None, "mask is not loaded"
+        assert any(self.dvh_metric_goals), "dvh metric goals are not set"
         #assert (
         #    self.dvh_metric_clinical_goal is not None
         #), "dvh metric clinical goal is not set"
         assert isinstance(
             combined_dose, BrachyDose
         ), "combined dose is not a BrachyDose object"
-        self.dvh_obj = DVH(self.mask_contour, combined_dose.dose_image, prescription=prescription_dose)
+        self.dvh_obj = DVH(self.mask, combined_dose.dose_image, prescription=prescription_dose)
         self.dvh_metrics_observed = {}
 
         for dvh_metric_name in self.dvh_metric_goals.keys():
             metric_string = dvh_metric_name.split("(")[0]
 
-            if "D" in metric_string:
+            if metric_string.startswith("D"):
                 if "%" in metric_string:
                     threshold = float(metric_string.split("%")[0].split("D")[-1])
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeDx(threshold, return_percentage)
                 elif "cc" in metric_string:
                     threshold = float(metric_string.split("cc")[0].split("D")[-1])
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeDcc(threshold, return_percentage)
                 else:
                     raise ValueError(
                         "invalid name for DVH metric name. \
                         The metrics starting with 'D' should have percent sign (%) or cc.\
                         for example 'D95%(organ name)' or 'D2cc(organ name)'"
                     )
-                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeDcc(threshold)
                 
-            elif "V" in metric_string:
+            elif metric_string.startswith("V"):
                 if "%" in metric_string:
                     threshold = float(metric_string.split("%")[0].split("V")[-1])
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeVx(threshold, return_percentage)
                 elif "Gy" in metric_string:
                     threshold = float(metric_string.split("Gy")[0].split("V")[-1])
+                    self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeVg(threshold, return_percentage)
                 else:
                     raise ValueError(
                         "invalid name for DVH metric name. \
                         The metrics starting with 'V' should have percent sign (%) or Gy.\
                         for example 'V95%(organ name)' or 'V2Gy(organ name)'"
-                    )
-                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.computeVx(threshold)
- 
+                    ) 
+            elif metric_string.startswith("HI"):
+                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.homogeneityIndex()
+            elif metric_string.startswith("CI"):
+                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformityIndex()
             else:
                 raise ValueError(
                     "invalid name for DVH metric name. \
-                    The metric should should start with D followed by cc or %, or V followed by Gy or %."
+                    The metric should should start with D followed by cc or %, or V followed by Gy or %.\
+                    or HI for homogeniety index or CI for conformityIndex"
                 )
             warnings.warn("""BrachyStructure attribute dvh_metric_observed is deprecated.
                             Please use dvh_metrics_observed dictionary instead.""", DeprecationWarning)
@@ -217,26 +183,26 @@ class BrachyStructure:
 
     def to_dict(self, export_format: str):
         r"""
-        Purpose:
-            - To export the BrachyStructure object into a dictionary of a certain format.
-        Inputs:
-            - export_format := the export_format of the exported plan. an example is:
-                - "RapidBrachy":{
-                    "density": 0,
-                    "density_mode": "",
-                    "dose_limit": 0,
-                    "dvhConstraints": "",
-                    "in_dvh": true,
-                    "linear_weight": 1,
-                    "material": "CT Material",
-                    "max_dose": 500,
-                    "min_dose": 0,
-                    "name": "BODY",
-                    "quadratic_weight": 1,
-                    "type": "" or "Target volume" or "Organ at risk",
-                    "uniformity_weight": 1}
+        ### Purpose:
+        - To export the BrachyStructure object into a dictionary of a certain format.
+        ### Inputs:
+        - export_format := the export_format of the exported plan. an example is:
+            - "RapidBrachy":{
+                "density": 0,
+                "density_mode": "",
+                "dose_voxel_goal": 0,
+                "dvhConstraints": "",
+                "in_dvh": true,
+                "linear_weight": 1,
+                "material": "CT Material",
+                "max_dose": 500,
+                "min_dose": 0,
+                "name": "BODY",
+                "quadratic_weight": 1,
+                "type": "" or "Target volume" or "Organ at risk",
+                "uniformity_weight": 1}
 
-                - "WebApp": Not implemented yet
+            - "WebApp": Not implemented yet
         """
         if export_format == "WebApp":
             raise NotImplementedError("export to WebApp is not implemented yet")
@@ -244,7 +210,7 @@ class BrachyStructure:
             return {
                 "density": self.density,
                 "density_mode": self.density_mode,
-                "dose_limit": self.dose_limit,
+                "dose_voxel_goal": self.dose_voxel_goal,
                 "dvhConstraints": "",
                 "in_dvh": self.in_dvh,
                 "linear_weight": self.penalty_weight_linear,
@@ -260,3 +226,23 @@ class BrachyStructure:
     def info(self):
         print(self.to_dict("RapidBrachy"))
 
+    def set_optimization_config(
+        self,
+        optimzation_config: Optimization_Config=None,
+        **kwargs
+        ) -> None:
+        r"""
+        ### Purpose:
+        - To prepare the BrachyStructure object for optimization.
+        ### Inputs:
+
+        - Void := will update the BrachyStructure object with the optimization id and
+        will set the penalty weights to 1.0.
+        """
+        from brachyutils.planning.optim_utils import Optimization_Config
+        if optimzation_config is not None:
+            self.optimization_config = optimzation_config
+        else:
+            if kwargs is None:
+                raise ValueError("Please provide optimization config")
+            self.optimization_config = Optimization_Config(kwargs)

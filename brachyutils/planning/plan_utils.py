@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import List, Literal, Union, Dict
 
 import numpy as np
-from opentps.core.data import DVH
+from opentps.core.data import DVH, ROIContour
 from opentps.core.data.images import ROIMask
 
 # from multipledispatch import dispatch
@@ -30,6 +30,7 @@ from brachyutils.geometry.phantom_utils import BrachyPhantom
 from brachyutils.geometry.catheter_utils import CatheterTable
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
+from brachyutils.types import Optimization_Config
 
 class BrachyPlan:
     r"""
@@ -59,7 +60,6 @@ class BrachyPlan:
     - uncertainty_tensor:= sqaure root of the sum of the squares of the uncertainty maps weighted by the 
     dwell times normalized to the treatment time.
     - simulation_setup:= A simulation setup object containing the source info as well as simulation parameters.
-    - optimizer:= An optimization object to be implemented.
     - prescription_dose:= The dose that is prescribed to the target volume.
 
     ### Functions:
@@ -78,24 +78,26 @@ class BrachyPlan:
 
     def __init__(
         self,
-        # for geometry definition:
+        #### for geometry definition:
         phantom: Union[Path, BrachyPhantom, dict] = None,
-        # for structure creation:
+        #### for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
         prescription_dose: float = None,
-        # for loading catheter table and/or applicators:
+        #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
         applicator_pth_list: Union[Path, str, list] = None,
         applicator_format: Literal["RapidBrachy", "WebApp"] = None,
-        # for loading dose or uncertainty:
+        #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
         type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
         load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
         multi_processing: bool = False,
         combined_dose_only: bool = False,
-        # for simulation setup:
+        #### for simulation setup:
         simulation_dict: dict | Path | str = None,
+        #### for optimization setup:
+        optimization_config_list:  List[Optimization_Config] | Path | str = None,
     ):
         r"""
         ### Purpose:
@@ -178,13 +180,12 @@ class BrachyPlan:
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
 
-        # optimization attributes
-        self.optimizer = None
-
         ## fill the attributes depending on the inputs to the constructor
         # set the dvh metric goals if provided
         self.prescription_dose = prescription_dose
         if dvh_metric_goals is not None:
+            if self.prescription_dose is None:
+                raise ValueError("prescription dose is not provided. Please provide it.")
             self.set_dvh_metric_goals(dvh_metric_goals)
 
         # load the dicom plan if the path is provided
@@ -265,18 +266,23 @@ class BrachyPlan:
         if applicator_pth_list is not None and applicator_format is not None:
             self.load_applicator_list(applicator_pth_list, applicator_format)
 
+        # # setup optimization
+        if optimization_config_list is not None:
+            self.optimization_config_list = optimization_config_list
+            self.setup_optimization(self.optimization_config_list, self.structure_list)
+
     def load_phantom(self, pth_phantom: Union[Path, dict]):
         r"""
-        Purpose:
-            - To load phantom from file path into Brachy Plan. Not that if a directory is provided,
-            it should have only one phantom file.
-        Inputs:
-            - pth_phantom:str := The phantom path could be a directory of DICOM files
-            or a directory of NRRD files. In addition, it could be the path to a json
-            file containing paths to specific phantom files. Look at the inputs of BrachPhantom
-            for more information on the expected keys of the json file.
-        Outputs:
-            - Void := will update the BrachyPlan.phantom attribute
+        ### Purpose:
+        - To load phantom from file path into Brachy Plan. Not that if a directory is provided,
+        it should have only one phantom file.
+        ### Inputs:
+        - pth_phantom:str := The phantom path could be a directory of DICOM files
+        or a directory of NRRD files. In addition, it could be the path to a json
+        file containing paths to specific phantom files. Look at the inputs of BrachPhantom
+        for more information on the expected keys of the json file.
+        ### Outputs:
+        - Void := will update the BrachyPlan.phantom attribute
         """
         os.path.exists(pth_phantom), f"phantom path does not exist: {pth_phantom}"
         # initialize the inputs to the BrachyPhantom object
@@ -351,14 +357,14 @@ class BrachyPlan:
 
     def _extract_dwell_numbers_times_coordinates_from_catheterTable(self):
         r"""
-        Purpose:
-            - To extract the dwell numbers, times, and coordinates from the catheter table
-            and save them as class attributes.
-        Inputs:
-            - self := the BrachyPlan object
-        Outputs:
-            - Void := will update the self.dwell_numbers, self.dwell_times,
-            and self.dwell_coordinates attributes
+        ### Purpose:
+        - To extract the dwell numbers, times, and coordinates from the catheter table
+        and save them as class attributes.
+        ### Inputs:
+        - self := the BrachyPlan object
+        ### Outputs:
+        - Void := will update the self.dwell_numbers, self.dwell_times,
+        and self.dwell_coordinates attributes
         """
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
@@ -404,13 +410,13 @@ class BrachyPlan:
 
     def _update_catheter_table_from_plan(self):
         r"""
-        Purpose:
-            - Assuming that the dwell times or coordinates have changed, we need to update
-            the catheter_table attribute to match the plan.
-        Inputs:
-            - self := the BrachyPlan object
-        Outputs:
-            - Void := will update the self.catheter_table attribute
+        ### Purpose:
+        - Assuming that the dwell times or coordinates have changed, we need to update
+        the catheter_table attribute to match the plan.
+        ### Inputs:
+        - self := the BrachyPlan object
+        ### Outputs:
+        - Void := will update the self.catheter_table attribute
         """
         assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
         assert self.dwell_times.size != 0, "dwell times are not extracted"
@@ -453,14 +459,14 @@ class BrachyPlan:
 
     def _update_dose_after_change_in_plan(self):
         r"""
-        Purpose:
-            - Assuming that the dwell times or coordinates have changed, we need to update
-            the catheter_table attribute and the combined dose to match the plan.
-        Inputs:
-            - self := the BrachyPlan object
-        Outputs:
-            - Void := will update the BrachyPlan.catheter_table and BrachyPlan.combined_dose
-            attributes
+        ### Purpose:
+        - Assuming that the dwell times or coordinates have changed, we need to update
+        the catheter_table attribute and the combined dose to match the plan.
+        ### Inputs:
+        - self := the BrachyPlan object
+        ### Outputs:
+        - Void := will update the BrachyPlan.catheter_table and BrachyPlan.combined_dose
+        attributes
         """
         self._update_catheter_table_from_plan()
         self._calculate_combined_dose()
@@ -474,25 +480,25 @@ class BrachyPlan:
         combined_dose_only: bool = False,
     ):
         r"""
-        Purpose:
-            - To load the dose rate tensor into the BrachyPlan object given a folder with
-            patient's dose rate files and the catheter table loaded into the BrachyPlan object.
-            In addition, combined dose is calculated as a linear combination of the dose rates
-            and dwell times.
-        Inputs:
-            - dir_dose_rate :=  path to the directory containing the dose rate files. we assume
-            that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
-            - type_dose_file := the type of dose rate file. The type could be ".nrrd" or ".3ddose"
-            consult BrachyDose in dose_utils.py for more info on the dose rate file types.
-            - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
-            - multi_processing := if True, the dose rate files will be loaded in parallel. By default,
-            we use 8 cores for parallel processing.
-            - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
-        Outputs:
-            - Void := will update the BrachyPlan.dose_rate_tensor attribute
-        Dependencies:
-            - glob
-            - BrachyDose
+        ### Purpose:
+        - To load the dose rate tensor into the BrachyPlan object given a folder with
+        patient's dose rate files and the catheter table loaded into the BrachyPlan object.
+        In addition, combined dose is calculated as a linear combination of the dose rates
+        and dwell times.
+        ### Inputs:
+        - dir_dose_rate :=  path to the directory containing the dose rate files. we assume
+        that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
+        - type_dose_file := the type of dose rate file. The type could be ".nrrd" or ".3ddose"
+        consult BrachyDose in dose_utils.py for more info on the dose rate file types.
+        - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
+        - multi_processing := if True, the dose rate files will be loaded in parallel. By default,
+        we use 8 cores for parallel processing.
+        - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
+        ### Outputs:
+        - Void := will update the BrachyPlan.dose_rate_tensor attribute
+        ### Dependencies:
+        - glob
+        - BrachyDose
         """
         # make sure catheter table is loaded
         assert self.catheter_table is not None, "catheter table is not loaded"
@@ -585,11 +591,11 @@ class BrachyPlan:
 
     def _calculate_combined_dose(self):
         """
-        Purpose:
+        ### Purpose:
         - To calculate the combined dose by multiplying the dose rate tensor with the dwell times array.
         The result is stored in the combined_dose attribute.
 
-        Raises:
+        ### Raises:
             AssertionError: If the dose rate tensor or dwell times array is empty.
         """
         assert (
@@ -608,46 +614,34 @@ class BrachyPlan:
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
-        Purpose:
-            - To set the dvh metric list of the BrachyPlan object.
-        Inputs:
-            - dvh_metric_goals := a list of dictionaries. each dictionary contains the keys:
-            "structure_name", "clinical_goal", "observed_value", and "penalty_weight"
-        Outputs:
+        ### Purpose:
+        - To set the dvh metric list of the BrachyPlan object.
+        ### Inputs:
+        - dvh_metric_goals := a list of dictionaries. each dictionary contains the keys:
+        "structure_name", "clinical_goal", "observed_value", and "penalty_weight"
+        ### Outputs:
             - Void := will update the BrachyPlan.dvh_metric_goals attribute
         """
         if isinstance(dvh_metric_goals, Path):
             with open(dvh_metric_goals, "r") as json_file:
                 dvh_metric_goals = json.load(json_file)
-
-        for dvh_metric in dvh_metric_goals:
-            assert dvh_metric.startswith("D") or dvh_metric.startswith(
-                "V"
-            ), "dvh metric name should start with D or V"
-            assert (
-                "cc" in dvh_metric or "%" in dvh_metric or "Gy" in dvh_metric
-            ), f"dvh metric name {dvh_metric} should end with cc or '%' to signify the absolute or relative volume"
-            assert (
-                dvh_metric_goals[dvh_metric] is not None
-            ), "for each dvh metric, the clinical threshold should be provided in Gy or %."
-
         self.dvh_metric_goals = dvh_metric_goals
 
     def create_brachy_structure_set(
         self, phantom: BrachyPhantom, dvh_metric_goals: dict
     ):
         r"""
-        Purpose:
-            - To create a list of BrachyStructure objects from the structures in the phantom and
-            the DVH metric goals. Each BrachyStructure object will have attributes for the structure
-            contour, the DVH and uncertainty volume histograms, optimization attributes, and simulation attributes.
-        Inputes:
-            - self.phantom := the phantom with its structures fully loaded.
-            - self.dvh_metric_goals := the dvh metric goals dictionary
-        Outputs:
-            - Void := will update the BrachyPlan.structure_list attribute
-        Dependencies:
-            # - BrachyDicom
+        ### Purpose:
+        - To create a list of BrachyStructure objects from the structures in the phantom and
+        the DVH metric goals. Each BrachyStructure object will have attributes for the structure
+        contour, the DVH and uncertainty volume histograms, optimization attributes, and simulation attributes.
+        ### Inputes:
+        - self.phantom := the phantom with its structures fully loaded.
+        - self.dvh_metric_goals := the dvh metric goals dictionary
+        ### Outputs:
+        - Void := will update the BrachyPlan.structure_list attribute
+        ### Dependencies:
+        - BrachyDicom
         """
         self.structure_list = []
         structure_names_in_dvh = [ #list of the structure names
@@ -664,13 +658,13 @@ class BrachyPlan:
             dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
 
         structure_masks: dict = phantom.get_structure_mask(
-            structure_names_in_dvh, ROIMask
+            structure_names_in_dvh, ROIContour
         )
         for structure_name in structure_masks.keys():
             structure_obj = BrachyStructure(
                 name=structure_name,
-                mask_contour=structure_masks[structure_name],
-                target_volume=True if "tv" in structure_name.lower() else False,
+                mask=structure_masks[structure_name],
+                target_volume=True if ("ctv" or "ptv") in structure_name.lower() else False,
                 in_dvh=True,
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
@@ -682,41 +676,41 @@ class BrachyPlan:
         format: str = "WebApp",
     ):
         r"""
-        Purpose:
-            - To load the applicator list from a json file containing the applicator geometry.
-        Inputs:
-            - applicator_list_pth:str := path to the json file containing the applicator list with N applicators.
-            The items inside this list have the attributes bellow. If any left empty, the default value will be used.
-            these attributes could be changed later using the setter functions.
+        ### Purpose:
+        - To load the applicator list from a json file containing the applicator geometry.
+        ### Inputs:
+        - applicator_list_pth:str := path to the json file containing the applicator list with N applicators.
+        The items inside this list have the attributes bellow. If any left empty, the default value will be used.
+        these attributes could be changed later using the setter functions.
 
-            if the format is WebApp, the attributes are:
-                - "path": path to the applicator geometry file (.stl or .json).
-                - "material": material of the applicator (str).
-                - "density": density of the applicator (str).
-                - "origin": origin of the applicator ([x,y,z]).
-                - "rotation": rotation of the applicator ([w,x,y,z]).
-                - "rotation_origin": origin of the rotation ([x,y,z]).
-                - "coordinates": coordinates of the applicator ([x,y,z]).
+        if the format is WebApp, the attributes are:
+            - "path": path to the applicator geometry file (.stl or .json).
+            - "material": material of the applicator (str).
+            - "density": density of the applicator (str).
+            - "origin": origin of the applicator ([x,y,z]).
+            - "rotation": rotation of the applicator ([w,x,y,z]).
+            - "rotation_origin": origin of the rotation ([x,y,z]).
+            - "coordinates": coordinates of the applicator ([x,y,z]).
 
-            if the format is RapidBrachy, the attributes are:
-                - "densities": list of densities of the applicator.
-                - "filenames": list of filenames of the applicator.
-                - "materials": list of materials of the applicator.
-                - "points": list of points (x,y,z,x,y,z) describing the first and last dwell positions
-                on the applicator in the frame of the applicator.
-                - "shieldNormalx": normal of applicator in the x direction in the frame of CT.
-                - "shieldNormaly": normal of applicator in the y direction in the frame of CT.
-                - "shieldNormalz": normal of applicator in the z direction in the frame of CT.
-                - "wRot": list of wRot of the applicator.
-                - "x": list of x of the applicator.
-                - "xRoti": list of xRot of the applicator i in [1, N].
-                - "y": list of y of the applicator.
-                - "yRoti": list of yRot of the applicator i in [1, N].
-                - "z": list of z of the applicator.
-                - "zRoti": list of zRot of the applicator i in [1, N].
+        if the format is RapidBrachy, the attributes are:
+            - "densities": list of densities of the applicator.
+            - "filenames": list of filenames of the applicator.
+            - "materials": list of materials of the applicator.
+            - "points": list of points (x,y,z,x,y,z) describing the first and last dwell positions
+            on the applicator in the frame of the applicator.
+            - "shieldNormalx": normal of applicator in the x direction in the frame of CT.
+            - "shieldNormaly": normal of applicator in the y direction in the frame of CT.
+            - "shieldNormalz": normal of applicator in the z direction in the frame of CT.
+            - "wRot": list of wRot of the applicator.
+            - "x": list of x of the applicator.
+            - "xRoti": list of xRot of the applicator i in [1, N].
+            - "y": list of y of the applicator.
+            - "yRoti": list of yRot of the applicator i in [1, N].
+            - "z": list of z of the applicator.
+            - "zRoti": list of zRot of the applicator i in [1, N].
 
-            - format:str := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
-        Outputs:
+        - format:str := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
+        ### Outputs:
             - Void := will update the BrachyPlan.applicator_list attribute
         """
         if isinstance(applicator_list_pth, Path) or isinstance(
@@ -845,12 +839,12 @@ class BrachyPlan:
 
     def _calculate_combined_uncertainty(self):
         r"""
-        Purpose:
-            - To calculate the combined uncertainty of the combined dose map.
-        Inputs:
-            - self := the BrachyPlan object
-        Outputs:
-            - Void := will update the BrachyPlan.combined_dose.uncertainty attribute
+        ### Purpose:
+        - To calculate the combined uncertainty of the combined dose map.
+        ### Inputs:
+        - self := the BrachyPlan object
+        ### Outputs:
+        - Void := will update the BrachyPlan.combined_dose.uncertainty attribute
         """
         assert self.uncertainty_tensor is not None, "uncertainty tensor is not loaded"
         assert self.dwell_times is not None, "dwell times are not extracted"
@@ -864,32 +858,44 @@ class BrachyPlan:
         uncertainty = np.sqrt(uncertainty)
         self.combined_dose.set_uncertainty_array(uncertainty)
 
-    def get_dvh_metrics(self):
+    def get_dvh_metrics(
+        self,
+        combined_dose: BrachyDose=None,
+        prescription_dose: float = None,
+        return_percentage: bool = False,
+        ):
         r"""
-        Purpose:
-            - To get the observed value of the dvh metric for each structure in the BrachyPlan.
-            the observed value is calculated from the combined dose map.
-        Inputs:
-            - self := the BrachyPlan object
-        Outputs:
-            - Void := will update the BrachyStructure.dvh_metrics_observed attribute
+        ### Purpose:
+        - To get the observed value of the dvh metric for each structure in the BrachyPlan.
+        the observed value is calculated from the combined dose map.
+        ### Inputs:
+        - self := the BrachyPlan object
+        ### Outputs:
+        - Void := will update the BrachyStructure.dvh_metrics_observed attribute
         """
         assert self.structure_list is not None, "structure list is not created yet"
         assert self.prescription_dose is not None, "prescription dose is not set"
+        if combined_dose is None:
+            combined_dose = self.combined_dose
+        if prescription_dose is None:
+            prescription_dose = self.prescription_dose
         self.dvh_metrics_observed = {}
         for structure_obj in self.structure_list:
-            observed_metrics = structure_obj.get_dvh_metric(self.combined_dose, self.prescription_dose)
+            observed_metrics = structure_obj.get_dvh_metric(
+                combined_dose,
+                prescription_dose,
+                return_percentage)
             self.dvh_metrics_observed.update(observed_metrics)
         return self.dvh_metrics_observed
 
     def calculate_uncertainty_per_structure(self):
         r"""
-        Purpose:
-            - To calculate the uncertainty of each structure in the BrachyPlan.
-        Inputs:
-            - self := the BrachyPlan object
-        Outputs:
-            - Void := will update the BrachyStructure.uncertainty attribute
+        ### Purpose:
+        - To calculate the uncertainty of each structure in the BrachyPlan.
+        ### Inputs:
+        - self := the BrachyPlan object
+        ### Outputs:
+        - Void := will update the BrachyStructure.uncertainty attribute
         """
         assert (
             self.combined_dose.uncertainty_image is not None
@@ -925,41 +931,39 @@ class BrachyPlan:
         export_format: str = "RapidBrachy"
     ):
         r"""
-        Purpose:
-            - To export the treatment plan file into a given export_format.
-            The export_format can be either "RapidBrachy" or "WebApp".
+        ### Purpose:
+        - To export the treatment plan file into a given export_format.
+        The export_format can be either "RapidBrachy" or "WebApp".
+        ### Inputs:
+        - export_format := the export_format of the exported plan. options are:
 
-        Inputs:
-            - export_format := the export_format of the exported plan. options are:
+            - "RapidBrachy":
+                - "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
+                - "catheter_table.json"
+                - "dwell_#.plan",
+                - "run_#.mac",
+                - "ct.egsphant",
+                - "ApplicatorMaterials"
+                - "applicator_geometry.json",
+                - "structure_set.json"
 
-                - "RapidBrachy":
-                    - "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
-                    - "catheter_table.json"
-                    - "dwell_#.plan",
-                    - "run_#.mac",
-                    - "ct.egsphant",
-                    - "ApplicatorMaterials"
-                    - "applicator_geometry.json",
-                    - "structure_set.json"
+            - "WebApp": Not implemented yet
+                - "run_#.nrrd",
+                - "dwell_#.json",
+                - "run_#.json",
 
-                - "WebApp": Not implemented yet
-                    - "run_#.nrrd",
-                    - "dwell_#.json",
-                    - "run_#.json",
+        - dir_export := the directory to which the plan will be exported.
+        - content_to_export := a dictionary with which the user specifies what parts
+        of the plan to export. The keys are plan components, and the values are binary
+        (True or False) except for "dose type", which can be either ".3ddose", ".minidos",
+        or ".nrrd". The keys are:
 
-            - dir_export := the directory to which the plan will be exported.
-            - content_to_export := a dictionary with which the user specifies what parts
-            of the plan to export. The keys are plan components, and the values are binary
-            (True or False) except for "dose type", which can be either ".3ddose", ".minidos",
-            or ".nrrd". The keys are:
-
-                - "dose":bool,
-                - "dose_type":str := "nrrd", "minidos" or "3ddose",
-                - "uncertainty", "dose rate maps",
-                - "catheter_table", "plan", "mac", "egsphant",
-                - "ApplicatorMaterials", applicator_geometry", "structure_set",
-
-        Outputs:
+            - "dose":bool,
+            - "dose_type":str := "nrrd", "minidos" or "3ddose",
+            - "uncertainty", "dose rate maps",
+            - "catheter_table", "plan", "mac", "egsphant",
+            - "ApplicatorMaterials", applicator_geometry", "structure_set",
+        ### Outputs:
             - Void := will export the available parts of a plan into the specified export_format.
         """
         dir_export = Path(dir_export)
@@ -1029,19 +1033,19 @@ class BrachyPlan:
         dose_rate_maps=False,
     ):
         r"""
-        Purpose:
-            to export combined dose map with or without uncertainty in the provided export directory.
-            exporting dose rate maps is optional.
-        Inputs:
-            - dir_export := the directory to which the dose map will be exported.
-            - uncertainty := if True, the uncertainty map will be exported as well.
-            - dose_type := the type of dose map to be exported. options are ".3ddose", ".minidos", or ".nrrd".
-            - dose_rate_maps := if True, the dose rate maps will be exported as well.
-        Outputs:
-            - Void := will export the dose map into the specified export directory.
-        Dependencies:
-            - _export_single_dose_rate()
-            - multiprocessing
+        ### Purpose:
+        - to export combined dose map with or without uncertainty in the provided export directory.
+        exporting dose rate maps is optional.
+        ### Inputs:
+        - dir_export := the directory to which the dose map will be exported.
+        - uncertainty := if True, the uncertainty map will be exported as well.
+        - dose_type := the type of dose map to be exported. options are ".3ddose", ".minidos", or ".nrrd".
+        - dose_rate_maps := if True, the dose rate maps will be exported as well.
+        ### Outputs:
+        - Void := will export the dose map into the specified export directory.
+        ### Dependencies:
+        - _export_single_dose_rate()
+        - multiprocessing
         """
         assert self.combined_dose is not None, "combined dose is not calculated yet"
         # if uncertainty:
@@ -1093,15 +1097,15 @@ class BrachyPlan:
 
     def _export_catheter_table(self, dir_export: str):
         r"""
-        Purpose:
-            - to export catheter table of the plan into a file called catheter_table.json
-            inside dir_export.
-        Inputs:
-            - dir_export := path to the directory where the export happens
-        Outputs:
-            - void := self.catheter_table is written to catheter_table.json
-        Dependencies:
-            - json
+        ### Purpose:
+        - to export catheter table of the plan into a file called catheter_table.json
+        inside dir_export.
+        ### Inputs:
+        - dir_export := path to the directory where the export happens
+        ### Outputs:
+        - void := self.catheter_table is written to catheter_table.json
+        ### Dependencies:
+        - json
         """
         file_path = dir_export + "/catheter_table.json"
         with open(file_path, "w") as file:
@@ -1109,24 +1113,24 @@ class BrachyPlan:
 
     def _export_plan_file(self, dir_export: str):
         r"""
-        Purpose:
-            - To export dwell positions and their normalized times into ".plan" text files in the
-            format required by RapidBrachy.
-        Inputs:
-            - dir_export := path to the directory where the export happens
-        Outputs:
-            - void := Two types of .plan files are written, one named combined.plan and the other
-            named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and
-            their normalized dwell time, and the run_{dwellNumber}.plan contains info of a single
-            dwell position. The format of each .plan file is given in this example:
-                "Treatment Plan
-                56 Control Points
-                Control Point
-                weight = 0.00327228
-                1 Dwell Position
-                -10.2819,82.598,-1224.98,-0.0291444,-0.017922,0.999415,0,0,0,1,0,0,0
-                Control Point ..."
-        Dependencies:
+        ### Purpose:
+        - To export dwell positions and their normalized times into ".plan" text files in the
+        format required by RapidBrachy.
+        ### Inputs:
+        - dir_export := path to the directory where the export happens
+        ### Outputs:
+        - void := Two types of .plan files are written, one named combined.plan and the other
+        named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and
+        their normalized dwell time, and the run_{dwellNumber}.plan contains info of a single
+        dwell position. The format of each .plan file is given in this example:
+            "Treatment Plan
+            56 Control Points
+            Control Point
+            weight = 0.00327228
+            1 Dwell Position
+            -10.2819,82.598,-1224.98,-0.0291444,-0.017922,0.999415,0,0,0,1,0,0,0
+            Control Point ..."
+        ### Dependencies:
             - None
         """
         total_dwell_time = np.sum(self.dwell_times)
@@ -1171,40 +1175,39 @@ class BrachyPlan:
 
     def _export_dwell_mac_file(self, dir_export: str):
         r"""
-        Purpose:
-            - To export the simulation parameters of the plan into a macro files
-            called combine.mac and run_{dwellNumber}.mac
-        Inputs:
-            - dir_export := path to the directory where the export happens
-        Outputs:
-            - void := Two types of .mac files are written, one named combined.mac and the other
-            named run_{dwellNumber}.mac. combined.plan contains
+        ### Purpose:
+        - To export the simulation parameters of the plan into a macro files
+        called combine.mac and run_{dwellNumber}.mac
+        ### Inputs:
+        - dir_export := path to the directory where the export happens
+        ### Outputs:
+        - void := Two types of .mac files are written, one named combined.mac and the other
+        named run_{dwellNumber}.mac. combined.plan contains
 
-            plan contains info of a single dwell position.
+        plan contains info of a single dwell position.
 
-            The format of each .plan file is given in this example:
-                /source_world/treatmentType HDR
-                /source_world/switch MicroSelectronV2
-                /source_world/coreMaterial G4_Ir
-                /source_world/core/A 192
-                /source_world/core/Z 77
-                /sim/plan combined.plan
-                /world/phantom ct.egsphant
-                /parallel_world/ak_per_history 1.149000e-11
-                /parallel_world/ref_ak 4.278729e+04
-                /parallel_world/H 2.500000e+00
-                /parallel_world/total_time 4.531841e+02
-                /dose/format 3ddose
-                /run/numberOfThreads 40
-                /run/initialize
-                /control/verbose 0
-                /run/verbose 0
-                /tracking/verbose 0
-                /run/printProgress 1000000
-                /sim/beamOn 10000000
-
-        Dependencies:
-            - simulation_utils
+        The format of each .plan file is given in this example:
+            /source_world/treatmentType HDR
+            /source_world/switch MicroSelectronV2
+            /source_world/coreMaterial G4_Ir
+            /source_world/core/A 192
+            /source_world/core/Z 77
+            /sim/plan combined.plan
+            /world/phantom ct.egsphant
+            /parallel_world/ak_per_history 1.149000e-11
+            /parallel_world/ref_ak 4.278729e+04
+            /parallel_world/H 2.500000e+00
+            /parallel_world/total_time 4.531841e+02
+            /dose/format 3ddose
+            /run/numberOfThreads 40
+            /run/initialize
+            /control/verbose 0
+            /run/verbose 0
+            /tracking/verbose 0
+            /run/printProgress 1000000
+            /sim/beamOn 10000000
+        ### Dependencies:
+        - simulation_utils
         """
         for dwell_i in range(self.num_dwells):
             sim_obj = deepcopy(self.simulation_setup)
@@ -1228,22 +1231,22 @@ class BrachyPlan:
         background_material: str = None
     ):
         r"""
-        Purpose:
-            - to export the egsphant file of the plan into dir_export
-        Inputs:
-            - dir_export := path to the directory where the export happens
-            - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
-            The dictionary contains the name of the elements for each voxel,
-            and the following keys: [
-                "density" := the density of the material in g/cm^3,
-                "HU_limit" := the lower HU limit threshold of the material,
-                "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
-            ]
-            - assign_material_from_ct := if True, the material names will be assigned from the ct.egsphant file.
-        Outputs:
-            - void := egsphant file is generated from phantom and is written to ct.egsphant
-        Dependencies:
-            - BrachyEgsphant
+        ### Purpose:
+        - to export the egsphant file of the plan into dir_export
+        ### Inputs:
+        - dir_export := path to the directory where the export happens
+        - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
+        The dictionary contains the name of the elements for each voxel,
+        and the following keys: [
+            "density" := the density of the material in g/cm^3,
+            "HU_limit" := the lower HU limit threshold of the material,
+            "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
+        ]
+        - assign_material_from_ct := if True, the material names will be assigned from the ct.egsphant file.
+        ### Outputs:
+        - void := egsphant file is generated from phantom and is written to ct.egsphant
+        ### Dependencies:
+        - BrachyEgsphant
         """
         file_path = dir_export + "/ct.egsphant"
         # if isinstance(material_dict, Path):
@@ -1264,16 +1267,16 @@ class BrachyPlan:
         self, dir_export: str, export_format: str = "RapidBrachy"
     ):
         r"""
-        Purpose:
-            - To export the applicator geometries either in the RapidBrachy Format (mac files and single json file)
-            or in webapp format (json file).
-        Inputs:
-            - dir_export := path to the directory where the export happens
-            - format := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
-        Outputs:
-            - Void := will export the applicator geometries into the specified export directory.
-        Dependencies:
-            - None
+        ### Purpose:
+        - To export the applicator geometries either in the RapidBrachy Format (mac files and single json file)
+        or in webapp format (json file).
+        ### Inputs:
+        - dir_export := path to the directory where the export happens
+        - format := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
+        ### Outputs:
+        - Void := will export the applicator geometries into the specified export directory.
+        ### Dependencies:
+        - None
         """
         if export_format == "RapidBrachy":
 
@@ -1342,21 +1345,21 @@ class BrachyPlan:
         export_format: str = "RapidBrachy",
     ):
         r"""
-        Purpose:
-            - to export the structure set of the plan into dir_export
-        Inputs:
-            - dir_export := path to the directory where the export happens
-            - material_table: dict | Path := the dictionary of the materials. if Path, the path to the material file.
-            The dictionary contains the name of the elements for each voxel,
-            and the following keys: [
-                "density" := the density of the material in g/cm^3,
-                "HU_limit" := the lower HU limit threshold of the material,
-                "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
-            ]
-        Outputs:
-            - void := self.structure_list is exported as a dictionary and
-            written to structure_set.json
-        Dependencies:
+        ### Purpose:
+        - to export the structure set of the plan into dir_export
+        ### Inputs:
+        - dir_export := path to the directory where the export happens
+        - material_table: dict | Path := the dictionary of the materials. if Path, the path to the material file.
+        The dictionary contains the name of the elements for each voxel,
+        and the following keys: [
+            "density" := the density of the material in g/cm^3,
+            "HU_limit" := the lower HU limit threshold of the material,
+            "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
+        ]
+        ### Outputs:
+        - void := self.structure_list is exported as a dictionary and
+        written to structure_set.json
+        ### Dependencies:
         """
 
         structure_set = []
@@ -1382,14 +1385,14 @@ class BrachyPlan:
 
     def info(self):
         r"""
-        Purpose:
-            - to print the information of the plan
-        Inputs:
-            - self := the BrachyPlan object
-        Outputs:
-            - Void := will print the information of the plan
-        Dependencies:
-            - None
+        ### Purpose:
+        - to print the information of the plan
+        ### Inputs:
+        - self := the BrachyPlan object
+        ### Outputs:
+        - Void := will print the information of the plan
+        ### Dependencies:
+        - None
         """
 
         print("****BrachyPlan Information****")
@@ -1400,17 +1403,36 @@ class BrachyPlan:
                 print(f"{attr} := {len(value)}")
             else:
                 print(f"{attr} := {value}")
+    
+    def setup_optimization(
+        self, 
+        optimization_config_list:List[Optimization_Config] | Path | str,
+        structure_list:List[BrachyStructure]):
+        r"""
+        """
+        if isinstance(optimization_config_list, (Path, str)):
+            optimization_config_list = Path(optimization_config_list).resolve()
+            if str(optimization_config_list).endswith(".json"):
+                with open(optimization_config_list, "r") as json_file:
+                    optimization_config_list = json.load(json_file)
+            else:
+                raise ValueError("optimization_config_list can be a json file or a list of Optimization_Config objects")
 
+        for config in optimization_config_list:
+            for struc in structure_list:
+                if config.structure_name == struc.name:
+                    struc.set_optimization_config(config)
+                    break                    
 
 def _resize_structure_mask(structure_mask, target_shape):
     r"""
-    Purpose:
-        - To resize the structure mask to match the target shape.
-    Inputs:
-        - structure_mask:np.array := the structure mask to be resized.
-        - target_shape:tuple := the target shape to which the structure mask will be resized.
-    Outputs:
-        - np.array := the resized structure mask
+    ### Purpose:
+    - To resize the structure mask to match the target shape.
+    ### Inputs:
+    - structure_mask:np.array := the structure mask to be resized.
+    - target_shape:tuple := the target shape to which the structure mask will be resized.
+    ### Outputs:
+    - np.array := the resized structure mask
     """
     return ndimage.zoom(
         structure_mask, np.array(target_shape) / structure_mask.shape, order=0
@@ -1426,19 +1448,18 @@ def _export_single_dose_rate(
     dose_type: str = None,
 ):
     r"""
-    Purpose:
-        to write out a single dose rate map given the numpy grid for dose and uncertainty and
-        a template dose object that has the same origin, voxel spacing and axis.
-    Inputs:
-        - dose_grid := the numpy array holding the dose rate maps
-        - dwell_number:= the dwell number of the dose rate map
-        - doseObj_template := a BrachyDose object that has the same origin, voxel spacing and axis
-        - dir_export:= the directory to which the dose rate maps will be exported
-        - dose_type := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
-        - uncertainty := the numpy array holding the uncertainty maps
-
-    Output:
-        - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
+    ### Purpose:
+    to write out a single dose rate map given the numpy grid for dose and uncertainty and
+    a template dose object that has the same origin, voxel spacing and axis.
+    ### Inputs:
+    - dose_grid := the numpy array holding the dose rate maps
+    - dwell_number:= the dwell number of the dose rate map
+    - doseObj_template := a BrachyDose object that has the same origin, voxel spacing and axis
+    - dir_export:= the directory to which the dose rate maps will be exported
+    - dose_type := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
+    - uncertainty := the numpy array holding the uncertainty maps
+    ### Output:
+    - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
     """
     doseObj = BrachyDose.dose_with_empty_grid_like(doseObj_template)
     doseObj.set_dose_array(dose_grid)
@@ -1447,80 +1468,23 @@ def _export_single_dose_rate(
 
     doseObj.write_brachydose_to_file(dir_export + f"/run_{dwell_number}" + dose_type)
 
-
-def dvh_metric(
-    dose: np.array,
-    num_bins: int,
-    total_dose_max: float,
-    threshold: float,
-    voxel_volume: float,
-    normalize_dose_by=None,
-):
-    r"""This function calculates the accumulative DVH given a dose matrix
-    for a structure in the treatment plan.
-
-    Inputs:
-        - dose: a 1-D dose array, dtype = numpy matrix of floats
-        - num_bins: a large number in general: we recommend 10 times
-        the maximum dose for all structures.
-        - total_dose_max: maximum of dose of the structure of interest
-        - threshold: percent volume at which a certain dose is recieved,
-        for example, for PTV D90%, threshold is 90.
-        for urethra D0.1cc becomes 0.1 cc / total urethra volume * 100
-        - voxel_volume: volume of a single voxel in cm^3
-        - normalize_dose_by: if desired, the dose axis of the DVH can be normalized to the target dose.
-
-    Dependencies
-        1. scipy.interpolate.interp1d()
-        2. np.histogram()
-        3. np.cumsum()
-
-    Outputs
-        f(threshold): this is D90 or D1cc depending on the input threshold
-        cum_dvh: this is the cumulative DVH after adding the new volum to the old one
-    """
-    raise DeprecationWarning(
-        "This function is deprecated. Please use BrachyStructure.get_dvh_metric() instead."
-    )
-    histogram, bins_edges = np.histogram(
-        dose, bins=num_bins, range=(0, total_dose_max + 0.1)
-    )
-    vol_hist = histogram * voxel_volume
-    vol_hist = np.append(np.trim_zeros(vol_hist, trim="b"), 0)
-
-    cum_dvh = np.cumsum(vol_hist[::-1])[::-1]
-    normalized_cum_dvh = cum_dvh * 100 / cum_dvh[0]
-    if normalize_dose_by is not None:
-        dvh_dose_axis = bins_edges[: len(cum_dvh)] / normalize_dose_by
-    else:
-        dvh_dose_axis = bins_edges[: len(cum_dvh)]
-    # for debugging{ let's plot the normalized dvh. nomralization is done both on dose and volume domains
-    # dvh_plot = plt.plot(dvh_dose_axis, normalized_cum_dvh)
-    # plt.show()
-    # }
-    f = interpolate.interp1d(normalized_cum_dvh, dvh_dose_axis, kind="linear")
-
-    # in future, one could pass the DVH plot to be stored in the structure object.
-    return f(threshold), normalized_cum_dvh
-
-
 def _load_single_dose_or_uncertainty_to_dict(
     pth_dose_rate: str, load_dose_or_uncertainty: str = "both"
 ):
     r""" "
-    Purpose:
-        - To load a single dose rate file into the BrachyPlan object.
-        this is to be used in the case of multiprocessing.
-    Inputs:
-        - pth_dose_rate := path to the dose rate file
-        - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
-    Outputs:
-        - dose_or_uncert_map := the dose rate or uncertainty map of the dwell position
-        specified by the index.
-            If load_dose_or_uncertainty == "both", then dose_or_uncert_map[0] is dose and
-            dose_or_uncert_map[1] is uncertainty.
-    Dependencies:
-        - BrachyDose()
+    ### Purpose:
+    - To load a single dose rate file into the BrachyPlan object.
+    this is to be used in the case of multiprocessing.
+    ### Inputs:
+    - pth_dose_rate := path to the dose rate file
+    - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
+    ### Outputs:
+    - dose_or_uncert_map := the dose rate or uncertainty map of the dwell position
+    specified by the index.
+        If load_dose_or_uncertainty == "both", then dose_or_uncert_map[0] is dose and
+        dose_or_uncert_map[1] is uncertainty.
+    ### Dependencies:
+    - BrachyDose()
     """
     dose_obj = BrachyDose(pth_dose_rate)
     if load_dose_or_uncertainty == "both":
@@ -1573,16 +1537,14 @@ def load_dicom_to_plan(
     **kwargs) -> BrachyPlan:
     r"""
     ### Purpose:
-        - To load all the contents of a dicom directory into a BrachyPlan object.
-
+    - To load all the contents of a dicom directory into a BrachyPlan object.
     ### Inputs:
-        - dir_dicom := the path to the dicom directory
-        - load_dicom_dose := if True, the dose dicom file will be loaded
-        - load_dicom_plan := if True, the plan dicom file will be loaded
-        - **kwargs := additional arguments to be passed to the BrachyPlan constructor
-
+    - dir_dicom := the path to the dicom directory
+    - load_dicom_dose := if True, the dose dicom file will be loaded
+    - load_dicom_plan := if True, the plan dicom file will be loaded
+    - **kwargs := additional arguments to be passed to the BrachyPlan constructor
     ### Outputs:
-        - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
+    - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
     """
     all_dicom_files = list(Path(dir_dicom).glob("*.dcm"))
     if len(all_dicom_files) == 0:
@@ -1614,12 +1576,3 @@ def load_dicom_to_plan(
         simulation_dict=simulation_dict,
         **kwargs
     )
-
-# def convert_lists_to_arrays(obj, keys_to_convert=["position", "rotation"]):
-    # warnings.warn("This function is deprecated.", DeprecationWarning)
-    # if isinstance(obj, dict):
-        # return {k: convert_lists_to_arrays(v, keys_to_convert) if k in keys_to_convert else v for k, v in obj.items()}
-    # elif isinstance(obj, list):
-        # return np.array(obj, dtype=np.float32) if isinstance(obj[0], (int, float, list)) else [convert_lists_to_arrays(elem, keys_to_convert) for elem in obj]
-    # else:
-        # return obj
