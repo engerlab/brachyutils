@@ -36,14 +36,13 @@ def test_set_penalty_function():
     }
     optimization_config_list=[
         Optimization_Config(
-            name="ctv",
+            structure_name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
             penalty_weight_linear=500,
-            # penalty_weight_quadratic=1,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
-            name="urethra",
+            structure_name="urethra",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             mask_margin_mm=0,
@@ -53,6 +52,7 @@ def test_set_penalty_function():
     plan_obj = load_dicom_to_plan(
         dir_dicom=pth_dicom,
         load_dicom_dose=False,
+        delivered_catheter_table=True,
         dir_dose_rate=pth_dir_dose_rate,
         multi_processing=True,
         prescription_dose=target_dose,
