@@ -324,6 +324,7 @@ class DwellTimeOptimizer(BaseModel):
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
             p_per_structure[f"linear_p({structure.name})"] = 0
+
             for variable in dwellTimeVariables:
 
                 cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
@@ -334,28 +335,32 @@ class DwellTimeOptimizer(BaseModel):
                     optim_spacing=optim_spacing
                 )
                 # normalize it by the prescribed dose
-                cropped_resampled_dose_rate_map = cropped_resampled_dose_rate_map / plan.prescription_dose
-                # get the expected dose rate in the masked region
-                E_dp_dt_per_prescribed_dose = cropped_resampled_dose_rate_map.mean()
-                p_per_structure[f"linear_p({structure.name})"] += variable.model_variable * E_dp_dt_per_prescribed_dose
-                # p_per_structure[f"quad_p({structure.name})"] += variable.model_variable * E_dp_dt
-
-            if structure.target_volume:
-                # pass the linear penalties to the model objective.
-                model.setObjective(
-                    structure.optimization_config.penalty_weight_linear * (
-                        1 - p_per_structure[f"linear_p({structure.name})"]
-                        ),
-                    GRB.MINIMIZE)
-            else:
-                # pass the linear penalties to the model objective.
-                model.setObjective(
-                    structure.optimization_config.penalty_weight_linear * (
-                        p_per_structure[f"linear_p({structure.name})"]
-                        ),
-                    GRB.MINIMIZE)
-
-            model.update()
+                cropped_resampled_dose_rate_map = (
+                    cropped_resampled_dose_rate_map / plan.prescription_dose
+                )
+                # add the none zero values that are inside the mask to the penalty function
+                none_zero_cropped_dose_rate = cropped_resampled_dose_rate_map[
+                    cropped_resampled_dose_rate_map > 0
+                    ].flatten()
+                for i in range(len(none_zero_cropped_dose_rate)):
+                        # pass the linear penalties to the model objective.
+                    if structure.target_volume:
+                        model.setObjective(
+                            (1 - structure.optimization_config.penalty_weight_linear *
+                            (1/len(none_zero_cropped_dose_rate)) * 
+                            none_zero_cropped_dose_rate[i] *
+                            variable.model_variable),
+                            GRB.MINIMIZE
+                        )
+                    else:
+                        model.setObjective(
+                            structure.optimization_config.penalty_weight_linear *
+                            (1/len(none_zero_cropped_dose_rate)) * 
+                            none_zero_cropped_dose_rate[i] *
+                            variable.model_variable,
+                            GRB.MINIMIZE
+                        )
+                    model.update()
 
     def set_constraints(self, plan: BrachyPlan) -> List[Constraint]:
         r"""
