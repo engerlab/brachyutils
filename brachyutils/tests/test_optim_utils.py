@@ -60,6 +60,7 @@ def test_set_penalty_function():
         optimization_config_list=optimization_config_list)
 
     optim_obj = DwellTimeOptimizer(plan=plan_obj)
+    print(optim_obj.model)
 
 if __name__ == "__main__":
     # test_DwellTimeVariable()

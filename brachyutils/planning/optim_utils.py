@@ -3,6 +3,7 @@ from typing import List, Callable, Any
 from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, PrivateAttr
 import numpy as np
+from pathlib import Path
 from opentps.core.data.images import ROIMask
 from opentps.core.data import ROIContour
 from gurobipy import Model, Var, GRB
@@ -82,6 +83,7 @@ class DwellTimeVariable(BaseModel):
                 name=self.name,
                 vtype=GRB.CONTINUOUS
             )
+            model.update()
         else:
             raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
 
@@ -163,7 +165,10 @@ class DwellTimeOptimizer(BaseModel):
 
         self.constraints = self.set_constraints(plan=self.plan)
 
-    def initialize_model(self, solver: str) -> Any:
+    def initialize_model(
+        self,
+        solver: str,
+        pth_logfile:str = None) -> Any:
         r"""
         ### Purpose:
         - A function to initialize the model. The model is the object that incorporates all the attributes above to output the optimal 
@@ -173,8 +178,14 @@ class DwellTimeOptimizer(BaseModel):
         ### Outputs:
         - model: Any := The model object.
         """
+        if pth_logfile is None:
+            pth_logfile = Path("temp_data/gurobi_model.log").resolve()
+        pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         if solver == "gurobi":
-            return Model("dwellTimeOptimizer")
+            model = Model("dwellTimeOptimizer")
+            model.setParam("LogToConsole", 1)
+            model.setParam("LogFile", str(pth_logfile))
+            return model
 
     def set_dwellTimeVariables(
         self,
@@ -307,6 +318,9 @@ class DwellTimeOptimizer(BaseModel):
         """
         p_per_structure = {}
         for structure in plan.structure_list:
+            if structure.optimization_config is None:
+                continue
+
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
             p_per_structure[f"linear_p({structure.name})"] = 0
@@ -329,13 +343,19 @@ class DwellTimeOptimizer(BaseModel):
             if structure.target_volume:
                 # pass the linear penalties to the model objective.
                 model.setObjective(
-                    structure.penalty_weight_linear * (1 - p_per_structure[f"linear_p({structure.name})"]),
+                    structure.optimization_config.penalty_weight_linear * (
+                        1 - p_per_structure[f"linear_p({structure.name})"]
+                        ),
                     GRB.MINIMIZE)
             else:
                 # pass the linear penalties to the model objective.
                 model.setObjective(
-                    structure.penalty_weight_linear * p_per_structure[f"linear_p({structure.name})"],
-                    GRB.MINIMIZE)        
+                    structure.optimization_config.penalty_weight_linear * (
+                        p_per_structure[f"linear_p({structure.name})"]
+                        ),
+                    GRB.MINIMIZE)
+
+            model.update()
 
     def set_constraints(self, plan: BrachyPlan) -> List[Constraint]:
         r"""
