@@ -355,7 +355,7 @@ class DwellTimeOptimizer(BaseModel):
                     else:
                         model.setObjective(
                             structure.optimization_config.penalty_weight_linear *
-                            (1/len(none_zero_cropped_dose_rate)) * 
+                            (1/len(none_zero_cropped_dose_rate)) *
                             none_zero_cropped_dose_rate[i] *
                             variable.model_variable,
                             GRB.MINIMIZE
