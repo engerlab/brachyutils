@@ -316,14 +316,18 @@ class DwellTimeOptimizer(BaseModel):
         - penalty_function:Callable := A function that states how good a set of dwellTimeVariables are.
         The penalty function is a function of the dose rate maps and the prescribed dose.
         """
-        p_per_structure = {}
+        penalty_terms = {
+            "linear":0,
+            "quadratic":0,
+            "hotspot":0,
+            # "uniformity":0,
+        }
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
 
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
-            p_per_structure[f"linear_p({structure.name})"] = 0
 
             for variable in dwellTimeVariables:
 
@@ -339,28 +343,30 @@ class DwellTimeOptimizer(BaseModel):
                     cropped_resampled_dose_rate_map / plan.prescription_dose
                 )
                 # add the none zero values that are inside the mask to the penalty function
-                none_zero_cropped_dose_rate = cropped_resampled_dose_rate_map[
+                non_zero_cropped_dose_rate = cropped_resampled_dose_rate_map[
                     cropped_resampled_dose_rate_map > 0
                     ].flatten()
-                for i in range(len(none_zero_cropped_dose_rate)):
+                for i in range(len(non_zero_cropped_dose_rate)):
                         # pass the linear penalties to the model objective.
                     if structure.target_volume:
-                        model.setObjective(
+                        penalty_terms["linear"] += (
                             (1 - structure.optimization_config.penalty_weight_linear *
-                            (1/len(none_zero_cropped_dose_rate)) * 
-                            none_zero_cropped_dose_rate[i] *
-                            variable.model_variable),
-                            GRB.MINIMIZE
+                            (1/len(non_zero_cropped_dose_rate)) *
+                            non_zero_cropped_dose_rate[i] *
+                            variable.model_variable) 
                         )
                     else:
-                        model.setObjective(
+                        penalty_terms["linear"] += (
                             structure.optimization_config.penalty_weight_linear *
-                            (1/len(none_zero_cropped_dose_rate)) *
-                            none_zero_cropped_dose_rate[i] *
-                            variable.model_variable,
-                            GRB.MINIMIZE
+                            (1/len(non_zero_cropped_dose_rate)) *
+                            non_zero_cropped_dose_rate[i] *
+                            variable.model_variable
                         )
-                    model.update()
+        model.setObjective(
+            penalty_terms["linear"],
+            GRB.MINIMIZE
+        )
+        model.update()
 
     def set_constraints(self, plan: BrachyPlan) -> List[Constraint]:
         r"""
