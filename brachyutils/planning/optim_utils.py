@@ -24,15 +24,16 @@ class Optimization_Config(BaseModel):
     - spacing_mm
     """
     structure_name:str = None
+    spacing_mm:float | List[float]= None
     dose_voxel_goal:float = None
     penalty_weight_linear:float = None
     penalty_weight_quadratic:float = None
+    penalty_weight_hotspot:float = None
     mask_margin_mm:float | List[float]= None
-    spacing_mm:float | List[float]= None
     # may be needed later
+    # self.penalty_weight_uniformity: float = None
     # self.optimization_id: str = None
     # self.index_range_constraints: List[int] = None
-    # self.penalty_weight_uniformity: float = None
     # self.max_dose: float = 500
     # self.min_dose: float = 0
 
@@ -328,7 +329,13 @@ class DwellTimeOptimizer(BaseModel):
 
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
+            structure_target_dose = structure.optimization_config.dose_voxel_goal
+            linear_weight = structure.optimization_config.penalty_weight_linear
 
+            w = model.addVar(name=f"linear_weight{structure.name}", vtype=GRB.CONTINUOUS)
+            model.update()
+            model.addConstr(w == linear_weight, name=f"linear_weight{structure.name}")
+            
             for variable in dwellTimeVariables:
 
                 cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
@@ -338,10 +345,6 @@ class DwellTimeOptimizer(BaseModel):
                     structure_mask=structure_mask,
                     optim_spacing=optim_spacing
                 )
-                # normalize it by the prescribed dose
-                cropped_resampled_dose_rate_map = (
-                    cropped_resampled_dose_rate_map / plan.prescription_dose
-                )
                 # add the none zero values that are inside the mask to the penalty function
                 non_zero_cropped_dose_rate = cropped_resampled_dose_rate_map[
                     cropped_resampled_dose_rate_map > 0
@@ -350,17 +353,19 @@ class DwellTimeOptimizer(BaseModel):
                         # pass the linear penalties to the model objective.
                     if structure.target_volume:
                         penalty_terms["linear"] += (
-                            (1 - structure.optimization_config.penalty_weight_linear *
-                            (1/len(non_zero_cropped_dose_rate)) *
-                            non_zero_cropped_dose_rate[i] *
-                            variable.model_variable) 
+                            structure_target_dose - (
+                                linear_weight *
+                                (1/len(non_zero_cropped_dose_rate)) *
+                                non_zero_cropped_dose_rate[i] *
+                                variable.model_variable)
                         )
                     else:
                         penalty_terms["linear"] += (
-                            structure.optimization_config.penalty_weight_linear *
+                            (linear_weight *
                             (1/len(non_zero_cropped_dose_rate)) *
                             non_zero_cropped_dose_rate[i] *
-                            variable.model_variable
+                            variable.model_variable) -
+                            structure_target_dose
                         )
         model.setObjective(
             penalty_terms["linear"],
@@ -386,7 +391,11 @@ class DwellTimeOptimizer(BaseModel):
         ### Purpose:
         - A function to run the optimizer.
         """
-        pass
+        self.model.optimize()
+        if self.model.status == GRB.OPTIMAL:
+            print("Optimal solution found.")
+        else:
+            print("No optimal solution found.")
 
     def get_optimized_plan_from_model(self) -> BrachyPlan:
         r"""

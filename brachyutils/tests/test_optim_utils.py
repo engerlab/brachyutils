@@ -38,7 +38,7 @@ def test_set_penalty_function():
         Optimization_Config(
             structure_name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
-            penalty_weight_linear=500,
+            penalty_weight_linear=10,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -60,6 +60,7 @@ def test_set_penalty_function():
         optimization_config_list=optimization_config_list)
 
     optim_obj = DwellTimeOptimizer(plan=plan_obj)
+    optim_obj.run()
     print(optim_obj.model)
 
 if __name__ == "__main__":
