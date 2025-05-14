@@ -1,5 +1,6 @@
 # from abc import ABC, abstractmethod
 from typing import List, Callable, Any
+from copy import deepcopy
 from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, PrivateAttr
 import numpy as np
@@ -26,16 +27,17 @@ class Optimization_Config(BaseModel):
     structure_name:str = None
     spacing_mm:float | List[float]= None
     dose_voxel_goal:float = None
-    penalty_weight_linear:float = None
-    penalty_weight_quadratic:float = None
-    penalty_weight_hotspot:float = None
-    mask_margin_mm:float | List[float]= None
+    penalty_weight_linear:float = 1
+    penalty_weight_quadratic:float = 0
+    penalty_weight_hotspot:float = 0
+    penalty_weight_uniformity:float = 0
+    mask_margin_mm:float | List[float]= 0
+    min_dose:float = 0
+    max_dose:float = 500
     # may be needed later
     # self.penalty_weight_uniformity: float = None
     # self.optimization_id: str = None
     # self.index_range_constraints: List[int] = None
-    # self.max_dose: float = 500
-    # self.min_dose: float = 0
 
 
 class DwellTimeVariable(BaseModel):
@@ -159,12 +161,10 @@ class DwellTimeOptimizer(BaseModel):
             dwellTimeVariables=self.dwellTimeVariables,
             roi_margin_mm=roi_margin_mm,
             )
-        self.penalty_function = self.set_penalty_function(
+        self.penalty_function = self.set_penalty_function_and_constraints(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
             model=self.model)
-
-        self.constraints = self.set_constraints(plan=self.plan)
 
     def initialize_model(
         self,
@@ -286,7 +286,7 @@ class DwellTimeOptimizer(BaseModel):
                 )
         return inclusion_boundaries
 
-    def set_penalty_function(
+    def set_penalty_function_and_constraints(
         self,
         plan: BrachyPlan,
         dwellTimeVariables: List[DwellTimeVariable],
@@ -321,23 +321,37 @@ class DwellTimeOptimizer(BaseModel):
             "linear":0,
             "quadratic":0,
             "hotspot":0,
-            # "uniformity":0,
+            "uniformity":0,
         }
+        num_dose_points_dict = {}
+
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
 
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
-            structure_target_dose = structure.optimization_config.dose_voxel_goal
+            target_dose = structure.optimization_config.dose_voxel_goal
             linear_weight = structure.optimization_config.penalty_weight_linear
+            quadratic_weight = structure.optimization_config.penalty_weight_quadratic
+            uniformity_weight = structure.optimization_config.penalty_weight_uniformity
+            min_dose = structure.optimization_config.min_dose
+            structure_max_dose = structure.optimization_config.max_dose
 
             w = model.addVar(name=f"linear_weight{structure.name}", vtype=GRB.CONTINUOUS)
             model.update()
             model.addConstr(w == linear_weight, name=f"linear_weight{structure.name}")
             
+            
+            dose = crop_mask_resample_dose_rate_map(
+                    dose_rate_map=deepcopy(plan.combined_dose.get_dose_array()),
+                    template_dose_obj=plan.combined_dose,
+                    roi_bounds=self.roi_bounds,
+                    structure_mask=structure_mask,
+                    optim_spacing=optim_spacing
+                )
+            dose = np.zeros_like(dose)
             for variable in dwellTimeVariables:
-
                 cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
                     dose_rate_map=variable.dose_rate_map,
                     template_dose_obj=plan.combined_dose,
@@ -345,46 +359,41 @@ class DwellTimeOptimizer(BaseModel):
                     structure_mask=structure_mask,
                     optim_spacing=optim_spacing
                 )
-                # add the none zero values that are inside the mask to the penalty function
-                non_zero_cropped_dose_rate = cropped_resampled_dose_rate_map[
-                    cropped_resampled_dose_rate_map > 0
-                    ].flatten()
-                for i in range(len(non_zero_cropped_dose_rate)):
-                        # pass the linear penalties to the model objective.
-                    if structure.target_volume:
-                        penalty_terms["linear"] += (
-                            structure_target_dose - (
-                                linear_weight *
-                                (1/len(non_zero_cropped_dose_rate)) *
-                                non_zero_cropped_dose_rate[i] *
-                                variable.model_variable)
-                        )
-                    else:
-                        penalty_terms["linear"] += (
-                            (linear_weight *
-                            (1/len(non_zero_cropped_dose_rate)) *
-                            non_zero_cropped_dose_rate[i] *
-                            variable.model_variable) -
-                            structure_target_dose
-                        )
+                dose += variable.model_variable * cropped_resampled_dose_rate_map
+
+            non_zero_dose = dose[dose > 0].flatten()
+            num_dose_points = non_zero_dose.shape[0]
+            num_dose_points_dict[structure.name] = num_dose_points
+            if num_dose_points == 0:
+                continue
+            for d in non_zero_dose:
+                if structure.target_volume:
+                    # slack variable for dose value
+                    x = model.addVar(0, target_dose-min_dose)
+                    model.addConstr(d + x >= target_dose)
+                    # slack variable for dose uniformity
+                    y = model.addVar(-GRB.INFINITY, target_dose-min_dose)
+                    model.addConstr(d + y == target_dose)
+                    penalty_terms["linear"] += (
+                        (linear_weight / num_dose_points) * x
+                    )
+                    penalty_terms["quadratic"] += (
+                        ( quadratic_weight/ num_dose_points) * x * x
+                    )
+                    # penalty_terms["hotspot"] += ()
+                    penalty_terms["uniformity"] += (
+                        (uniformity_weight / (num_dose_points*1000)) * y * y
+                    )
         model.setObjective(
-            penalty_terms["linear"],
+            (
+                penalty_terms["linear"]
+                + penalty_terms["quadratic"]
+                # + penalty_terms["hotspot"]
+                + penalty_terms["uniformity"]
+            ),
             GRB.MINIMIZE
         )
         model.update()
-
-    def set_constraints(self, plan: BrachyPlan) -> List[Constraint]:
-        r"""
-        ### Purpose:
-        - A function to get the constraints from the plan. The constraints are the prescirbed dose to the voxels inside
-        the target volume and the organs at risk. At minimum, the target volume should be defined in the plan.
-        """
-        constraint_list = []
-        for structure in plan.structure_list:
-            if structure.target_volume:
-                pass
-            else:
-                pass
 
     def run(self):
         r"""
