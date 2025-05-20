@@ -63,7 +63,7 @@ class BrachyPlan:
     - prescription_dose:= The dose that is prescribed to the target volume.
 
     ### Functions:
-    - _extract_dwell_numbers_times_coordinates_from_catheterTable()
+    - update_plan_from_catheter_table()
     - _update_catheter_table_from_plan()
     - _update_dose_after_change_in_plan()
     - load_dose_rate_or_uncertainty_tensor()
@@ -223,7 +223,7 @@ class BrachyPlan:
                 )
             if delivered_catheter_table:
                 self.catheter_table = self.catheter_table.get_delivered_catheter_table()
-            self._extract_dwell_numbers_times_coordinates_from_catheterTable()
+            self.update_plan_from_catheter_table()
 
         # load the dose rate tensor if the path is provided
         if dir_dose_rate is not None and combined_dose is None:
@@ -361,7 +361,7 @@ class BrachyPlan:
         )
         self.phantom_origin = self.phantom.image_obj.origin
 
-    def _extract_dwell_numbers_times_coordinates_from_catheterTable(self):
+    def update_plan_from_catheter_table(self):
         r"""
         ### Purpose:
         - To extract the dwell numbers, times, and coordinates from the catheter table
@@ -609,7 +609,7 @@ class BrachyPlan:
         ), "dose rate tensor is empty. Run load_dose_rate_or_uncertainty_tensor()"
         assert (
             self.dwell_times.size != 0
-        ), "dwell times array is empty. Run _extract_dwell_numbers_times_coordinates_from_catheterTable()"
+        ), "dwell times array is empty. Run update_plan_from_catheter_table()"
 
         # calculate the combined dose and store the result in the combined_dose attribute
         temp_dose_array = np.zeros_like(self.dose_rate_tensor[0])

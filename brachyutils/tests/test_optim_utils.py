@@ -22,7 +22,7 @@ def test_get_optimization_roi_bounds():
     print(optim_obj.roi_bounds)
     print("breakpoint")
 
-def test_set_penalty_function():
+def test_run_optim():
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_dir_dose_rate = "data_test/prostate-glen-p1-dose"
     target_dose = 21
@@ -67,15 +67,9 @@ def test_set_penalty_function():
         optimization_config_list=optimization_config_list)
 
     optim_obj = DwellTimeOptimizer(plan=plan_obj)
-    optim_obj.run()
-    # print(optim_obj.model)
-    dwelltimes = []
-    for time_var in optim_obj.model.getVars():
-        if "catheter" in time_var.VarName:
-            dwelltimes.append(time_var.X)
-    print("dwelltimes:", dwelltimes)
+    optim_obj.get_optimized_plan_from_model()
 
 if __name__ == "__main__":
     # test_DwellTimeVariable()
     # test_get_optimization_roi_bounds()
-    test_set_penalty_function()
+    test_run_optim()

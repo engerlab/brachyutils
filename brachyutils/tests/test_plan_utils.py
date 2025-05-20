@@ -8,7 +8,7 @@ import numpy as np
 from brachyutils.planning.plan_utils import BrachyPlan, _load_single_dose_or_uncertainty_to_dict
 
 
-def test_extract_dwell_numbers_times_coordinates_from_catheterTable():
+def testupdate_plan_from_catheter_table():
     pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
 
     plan_obj = BrachyPlan(catheter_table=pth_cathTable_json)
@@ -310,7 +310,7 @@ def test_load_phantom():
 
 
 if __name__ == "__main__":
-    # test_extract_dwell_numbers_times_coordinates_from_catheterTable()
+    # testupdate_plan_from_catheter_table()
     # test_update_catheter_table_from_plan()
     # test_load_dose_rate_or_uncertainty_tensor()
     test_create_structures_and_calc_dvh_metrics()
