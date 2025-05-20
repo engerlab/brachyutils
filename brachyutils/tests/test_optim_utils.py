@@ -38,7 +38,7 @@ def test_set_penalty_function():
         Optimization_Config(
             structure_name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
-            penalty_weight_linear=10,
+            penalty_weight_linear=1,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -47,6 +47,13 @@ def test_set_penalty_function():
             penalty_weight_linear=1,
             mask_margin_mm=0,
             spacing_mm=1),
+        Optimization_Config(
+            structure_name="rectum",
+            dose_voxel_goal=0,
+            penalty_weight_linear=1,
+            mask_margin_mm=0,
+            spacing_mm=3
+        )
     ]
 
     plan_obj = load_dicom_to_plan(

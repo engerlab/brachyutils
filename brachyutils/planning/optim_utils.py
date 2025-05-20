@@ -28,7 +28,7 @@ class Optimization_Config(BaseModel):
     spacing_mm:float | List[float]= None
     dose_voxel_goal:float = None
     penalty_weight_linear:float = 1
-    penalty_weight_quadratic:float = 0
+    penalty_weight_quadratic:float = 1
     penalty_weight_hotspot:float = 0
     penalty_weight_uniformity:float = 0
     mask_margin_mm:float | List[float]= 0
@@ -342,15 +342,16 @@ class DwellTimeOptimizer(BaseModel):
             model.update()
             model.addConstr(w == linear_weight, name=f"linear_weight{structure.name}")
             
-            
-            dose = crop_mask_resample_dose_rate_map(
-                    dose_rate_map=deepcopy(plan.combined_dose.get_dose_array()),
-                    template_dose_obj=plan.combined_dose,
-                    roi_bounds=self.roi_bounds,
-                    structure_mask=structure_mask,
-                    optim_spacing=optim_spacing
-                )
-            dose = np.zeros_like(dose)
+            # for matrix ops:{
+            # dose = crop_mask_resample_dose_rate_map(
+            #         dose_rate_map=deepcopy(plan.combined_dose.get_dose_array()),
+            #         template_dose_obj=plan.combined_dose,
+            #         roi_bounds=self.roi_bounds,
+            #         structure_mask=structure_mask,
+            #         optim_spacing=optim_spacing
+            #     )
+            # }
+            dose = 0
             for variable in dwellTimeVariables:
                 cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
                     dose_rate_map=variable.dose_rate_map,
@@ -361,15 +362,15 @@ class DwellTimeOptimizer(BaseModel):
                 )
                 dose += variable.model_variable * cropped_resampled_dose_rate_map
 
-            non_zero_dose = dose[dose > 0].flatten()
-            num_dose_points = non_zero_dose.shape[0]
+            dose = dose.flatten()
+            num_dose_points = dose.shape[0]
             num_dose_points_dict[structure.name] = num_dose_points
             if num_dose_points == 0:
                 continue
-            for d in non_zero_dose:
+            for d in dose:
                 if structure.target_volume:
                     # slack variable for dose value
-                    x = model.addVar(0, target_dose-min_dose)
+                    x = model.addVar(0, target_dose-min_dose, name="slack_dose")
                     model.addConstr(d + x >= target_dose)
                     # slack variable for dose uniformity
                     y = model.addVar(-GRB.INFINITY, target_dose-min_dose)
@@ -383,6 +384,15 @@ class DwellTimeOptimizer(BaseModel):
                     # penalty_terms["hotspot"] += ()
                     penalty_terms["uniformity"] += (
                         (uniformity_weight / (num_dose_points*1000)) * y * y
+                    )
+                else:
+                    x = model.addVar(0, structure_max_dose-target_dose, name="slack_dose")
+                    model.addConstr(d - x <= target_dose)
+                    penalty_terms["linear"] += (
+                        (linear_weight / num_dose_points) * x                        
+                    )
+                    penalty_terms["quadratic"] += (
+                        (quadratic_weight / num_dose_points) * x * x
                     )
         model.setObjective(
             (
