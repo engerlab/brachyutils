@@ -35,10 +35,7 @@ class Optimization_Config(BaseModel):
     min_dose:float = 0
     max_dose:float = 500
     # may be needed later
-    # self.penalty_weight_uniformity: float = None
-    # self.optimization_id: str = None
     # self.index_range_constraints: List[int] = None
-
 
 class DwellTimeVariable(BaseModel):
     """
@@ -90,22 +87,6 @@ class DwellTimeVariable(BaseModel):
         else:
             raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
 
-# class Constraint(BaseModel):
-#     """
-#     ### Purpose:
-#     - A class to represent a constraint in the optimization problem.
-#     ### Attributes:
-#     - name: The name of the constraint.
-#     - expression: The expression of the constraint.
-#     """
-#     model_config = {
-#         "arbitrary_types_allowed": True,
-#         "defer_build": True
-#         }
-
-#     name: str
-#     expression: Callable = None
-
 class DwellTimeOptimizer(BaseModel):
     r"""
     ### Purpose:
@@ -134,7 +115,6 @@ class DwellTimeOptimizer(BaseModel):
     plan: Any
     solver: str = None
     dwellTimeVariables: List[Var] = None
-    # constraints: List[Constr] = None
     penalty_function: Callable = None
     model: Any = None
     roi_bounds: List[List[float]] = None # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
@@ -191,8 +171,8 @@ class DwellTimeOptimizer(BaseModel):
     def set_dwellTimeVariables(
         self,
         plan: BrachyPlan,
-        initial_dwell_time: float = 0.1,
-        lower_bound: float = 0.1,
+        initial_dwell_time: float = 0.0,
+        lower_bound: float = 0.0,
         upper_bound: float = 100,
     ) -> List[Var]:
         r"""
@@ -324,7 +304,6 @@ class DwellTimeOptimizer(BaseModel):
             "uniformity":0,
         }
         num_dose_points_dict = {}
-        # self.constraints = []
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
@@ -340,10 +319,6 @@ class DwellTimeOptimizer(BaseModel):
 
             w = model.addVar(name=f"linear_weight_{structure.name}", vtype=GRB.CONTINUOUS)
             model.addConstr(w == linear_weight, name=f"linear_weight_{structure.name}")
-            # model.update()
-            # self.constraints.append(
-                # model.getConstrByName(f"linear_weight_{structure.name}")
-            # )
             dose = 0
             for variable in dwellTimeVariables:
                 cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
@@ -390,9 +365,6 @@ class DwellTimeOptimizer(BaseModel):
                     penalty_terms["quadratic"] += (
                         (quadratic_weight / num_dose_points) * x * x
                     )
-                # self.model.update()
-                # self.constraints.append(model.getConstrByName(f"dose_{structure.name}_slack_linear_constr_{i}"))
-                # self.constraints.append(model.getConstrByName(f"dose_{structure.name}_slack_uniform_constr_{i}"))
 
         model.setObjective(
             (
@@ -416,10 +388,20 @@ class DwellTimeOptimizer(BaseModel):
         else:
             print("No optimal solution found.")
 
-    def get_optimized_plan_from_model(self) -> BrachyPlan:
+    def get_optimized_plan_from_model(
+        self,
+        inplace=True,
+        ) -> BrachyPlan:
         r"""
         ### Purpose:
         - A function to get the optimized plan from the model after the optimizaton is done.
+        By defailt, the plan is updated in place. If inplace is False, a new plan is returned.
+        Note that plan is a very large object and it is not recommended to copy it.
+
+        ### Inputs:
+        - inplace:bool := If True, the plan is updated in place. If False, a new plan is returned.
+        ### Outputs:
+        - outplan:BrachyPlan := The optimized plan. The plan is updated in place by default.
         """
         if self.plan is None:
             raise ValueError("Plan is not set. Please set the plan first.")
@@ -434,14 +416,23 @@ class DwellTimeOptimizer(BaseModel):
         for variable in self.dwellTimeVariables:
             # set the dwell time to the optimized value
             variable.dwell_time = variable.model_variable.X
+            if variable.dwell_time < 0.1:
+                variable.dwell_time = 0
             # set the dwell time to the plan
-            for catheter in self.plan.catheter_table:
+            if inplace:
+                outplan = self.plan
+            else:
+                outplan = deepcopy(self.plan)
+            for catheter in outplan.catheter_table:
                 for dwell_position in catheter.dwells:
                     if (
                         f"catheter_{catheter.index}_dwell_{dwell_position.index}"
                         == variable.name
                     ):
                         dwell_position.dwell_time = variable.dwell_time        
+        # update the plan with the new dwell times
+        outplan.update_plan_from_catheter_table()
+        return outplan
 
 def crop_mask_resample_dose_rate_map(
     dose_rate_map: np.ndarray,
