@@ -67,7 +67,8 @@ def test_run_optim():
         optimization_config_list=optimization_config_list)
 
     optim_obj = DwellTimeOptimizer(plan=plan_obj)
-    optim_obj.get_optimized_plan_from_model()
+    optimized_plan = optim_obj.get_optimized_plan_from_model()
+    print(optimized_plan.get_dvh_metrics())
 
 if __name__ == "__main__":
     # test_DwellTimeVariable()

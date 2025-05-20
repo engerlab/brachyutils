@@ -409,8 +409,6 @@ class DwellTimeOptimizer(BaseModel):
             raise ValueError("Model is not set. Please set the model first.")
         if self.dwellTimeVariables is None:
             raise ValueError("DwellTimeVariables are not set. Please set the DwellTimeVariables first.")
-        if self.constraints is None:
-            raise ValueError("Constraints are not set. Please set the penalty function and constraints first.")
         # run the optimization
         self.run()
         for variable in self.dwellTimeVariables:
@@ -420,16 +418,16 @@ class DwellTimeOptimizer(BaseModel):
                 variable.dwell_time = 0
             # set the dwell time to the plan
             if inplace:
-                outplan = self.plan
+                outplan:BrachyPlan = self.plan
             else:
-                outplan = deepcopy(self.plan)
+                outplan:BrachyPlan = deepcopy(self.plan)
             for catheter in outplan.catheter_table:
                 for dwell_position in catheter.dwells:
                     if (
                         f"catheter_{catheter.index}_dwell_{dwell_position.index}"
                         == variable.name
                     ):
-                        dwell_position.dwell_time = variable.dwell_time        
+                        dwell_position.time = variable.dwell_time        
         # update the plan with the new dwell times
         outplan.update_plan_from_catheter_table()
         return outplan

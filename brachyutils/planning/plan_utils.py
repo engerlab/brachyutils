@@ -413,6 +413,8 @@ class BrachyPlan:
             len(self.dwell_numbers) == self.dwell_numbers[-1]
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
+        if self.dose_rate_tensor.any():
+            self._calculate_combined_dose()
 
     def _update_catheter_table_from_plan(self):
         r"""
