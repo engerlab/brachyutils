@@ -7,7 +7,7 @@ import numpy as np
 from pathlib import Path
 from opentps.core.data.images import ROIMask
 from opentps.core.data import ROIContour
-from gurobipy import Model, Var, GRB
+from gurobipy import Model, Var, GRB, Constr
 # from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.types import BrachyPlan
 class Optimization_Config(BaseModel):
@@ -90,21 +90,21 @@ class DwellTimeVariable(BaseModel):
         else:
             raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
 
-class Constraint(BaseModel):
-    """
-    ### Purpose:
-    - A class to represent a constraint in the optimization problem.
-    ### Attributes:
-    - name: The name of the constraint.
-    - expression: The expression of the constraint.
-    """
-    model_config = {
-        "arbitrary_types_allowed": True,
-        "defer_build": True
-        }
+# class Constraint(BaseModel):
+#     """
+#     ### Purpose:
+#     - A class to represent a constraint in the optimization problem.
+#     ### Attributes:
+#     - name: The name of the constraint.
+#     - expression: The expression of the constraint.
+#     """
+#     model_config = {
+#         "arbitrary_types_allowed": True,
+#         "defer_build": True
+#         }
 
-    name: str
-    expression: Callable = None
+#     name: str
+#     expression: Callable = None
 
 class DwellTimeOptimizer(BaseModel):
     r"""
@@ -134,7 +134,7 @@ class DwellTimeOptimizer(BaseModel):
     plan: Any
     solver: str = None
     dwellTimeVariables: List[Var] = None
-    constraints: List[Constraint] = None
+    # constraints: List[Constr] = None
     penalty_function: Callable = None
     model: Any = None
     roi_bounds: List[List[float]] = None # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
@@ -290,7 +290,7 @@ class DwellTimeOptimizer(BaseModel):
         self,
         plan: BrachyPlan,
         dwellTimeVariables: List[DwellTimeVariable],
-        model: Model = None,
+        model: Model,
     ) -> Callable:
         r"""
         ### Purpose:
@@ -324,7 +324,7 @@ class DwellTimeOptimizer(BaseModel):
             "uniformity":0,
         }
         num_dose_points_dict = {}
-
+        # self.constraints = []
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
@@ -338,19 +338,12 @@ class DwellTimeOptimizer(BaseModel):
             min_dose = structure.optimization_config.min_dose
             structure_max_dose = structure.optimization_config.max_dose
 
-            w = model.addVar(name=f"linear_weight{structure.name}", vtype=GRB.CONTINUOUS)
-            model.update()
-            model.addConstr(w == linear_weight, name=f"linear_weight{structure.name}")
-            
-            # for matrix ops:{
-            # dose = crop_mask_resample_dose_rate_map(
-            #         dose_rate_map=deepcopy(plan.combined_dose.get_dose_array()),
-            #         template_dose_obj=plan.combined_dose,
-            #         roi_bounds=self.roi_bounds,
-            #         structure_mask=structure_mask,
-            #         optim_spacing=optim_spacing
-            #     )
-            # }
+            w = model.addVar(name=f"linear_weight_{structure.name}", vtype=GRB.CONTINUOUS)
+            model.addConstr(w == linear_weight, name=f"linear_weight_{structure.name}")
+            # model.update()
+            # self.constraints.append(
+                # model.getConstrByName(f"linear_weight_{structure.name}")
+            # )
             dose = 0
             for variable in dwellTimeVariables:
                 cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
@@ -367,14 +360,16 @@ class DwellTimeOptimizer(BaseModel):
             num_dose_points_dict[structure.name] = num_dose_points
             if num_dose_points == 0:
                 continue
-            for d in dose:
+            for i, d in enumerate(dose):
                 if structure.target_volume:
                     # slack variable for dose value
-                    x = model.addVar(0, target_dose-min_dose, name="slack_dose")
-                    model.addConstr(d + x >= target_dose)
+                    x = model.addVar(0, target_dose-min_dose, name=f"dose_slack_var_{i}")
+                    model.addConstr(d + x >= target_dose,
+                    name=f"dose_{structure.name}_slack_linear_constr_{i}")
                     # slack variable for dose uniformity
                     y = model.addVar(-GRB.INFINITY, target_dose-min_dose)
-                    model.addConstr(d + y == target_dose)
+                    model.addConstr(d + y == target_dose,
+                    name=f"dose_{structure.name}_slack_uniform_constr_{i}")
                     penalty_terms["linear"] += (
                         (linear_weight / num_dose_points) * x
                     )
@@ -386,14 +381,19 @@ class DwellTimeOptimizer(BaseModel):
                         (uniformity_weight / (num_dose_points*1000)) * y * y
                     )
                 else:
-                    x = model.addVar(0, structure_max_dose-target_dose, name="slack_dose")
-                    model.addConstr(d - x <= target_dose)
+                    x = model.addVar(0, structure_max_dose-target_dose, name=f"dose_slack_var_{i}")
+                    model.addConstr(d - x <= target_dose,
+                    name=f"dose_{structure.name}_slack_linear_constr_{i}")
                     penalty_terms["linear"] += (
                         (linear_weight / num_dose_points) * x                        
                     )
                     penalty_terms["quadratic"] += (
                         (quadratic_weight / num_dose_points) * x * x
                     )
+                # self.model.update()
+                # self.constraints.append(model.getConstrByName(f"dose_{structure.name}_slack_linear_constr_{i}"))
+                # self.constraints.append(model.getConstrByName(f"dose_{structure.name}_slack_uniform_constr_{i}"))
+
         model.setObjective(
             (
                 penalty_terms["linear"]
@@ -421,7 +421,27 @@ class DwellTimeOptimizer(BaseModel):
         ### Purpose:
         - A function to get the optimized plan from the model after the optimizaton is done.
         """
-        pass
+        if self.plan is None:
+            raise ValueError("Plan is not set. Please set the plan first.")
+        if self.model is None:
+            raise ValueError("Model is not set. Please set the model first.")
+        if self.dwellTimeVariables is None:
+            raise ValueError("DwellTimeVariables are not set. Please set the DwellTimeVariables first.")
+        if self.constraints is None:
+            raise ValueError("Constraints are not set. Please set the penalty function and constraints first.")
+        # run the optimization
+        self.run()
+        for variable in self.dwellTimeVariables:
+            # set the dwell time to the optimized value
+            variable.dwell_time = variable.model_variable.X
+            # set the dwell time to the plan
+            for catheter in self.plan.catheter_table:
+                for dwell_position in catheter.dwells:
+                    if (
+                        f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                        == variable.name
+                    ):
+                        dwell_position.dwell_time = variable.dwell_time        
 
 def crop_mask_resample_dose_rate_map(
     dose_rate_map: np.ndarray,
