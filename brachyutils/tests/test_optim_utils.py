@@ -68,7 +68,12 @@ def test_set_penalty_function():
 
     optim_obj = DwellTimeOptimizer(plan=plan_obj)
     optim_obj.run()
-    print(optim_obj.model)
+    # print(optim_obj.model)
+    dwelltimes = []
+    for time_var in optim_obj.model.getVars():
+        if "catheter" in time_var.VarName:
+            dwelltimes.append(time_var.X)
+    print("dwelltimes:", dwelltimes)
 
 if __name__ == "__main__":
     # test_DwellTimeVariable()

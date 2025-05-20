@@ -30,7 +30,7 @@ class Optimization_Config(BaseModel):
     penalty_weight_linear:float = 1
     penalty_weight_quadratic:float = 1
     penalty_weight_hotspot:float = 0
-    penalty_weight_uniformity:float = 0
+    penalty_weight_uniformity:float = 1
     mask_margin_mm:float | List[float]= 0
     min_dose:float = 0
     max_dose:float = 500
@@ -191,8 +191,8 @@ class DwellTimeOptimizer(BaseModel):
     def set_dwellTimeVariables(
         self,
         plan: BrachyPlan,
-        initial_dwell_time: float = 0.0,
-        lower_bound: float = 0.0,
+        initial_dwell_time: float = 0.1,
+        lower_bound: float = 0.1,
         upper_bound: float = 100,
     ) -> List[Var]:
         r"""
