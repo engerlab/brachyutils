@@ -63,7 +63,7 @@ class BrachyPlan:
     - prescription_dose:= The dose that is prescribed to the target volume.
 
     ### Functions:
-    - _extract_dwell_numbers_times_coordinates_from_catheterTable()
+    - update_plan_from_catheter_table()
     - _update_catheter_table_from_plan()
     - _update_dose_after_change_in_plan()
     - load_dose_rate_or_uncertainty_tensor()
@@ -85,6 +85,7 @@ class BrachyPlan:
         prescription_dose: float = None,
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
+        delivered_catheter_table: bool = True,
         applicator_pth_list: Union[Path, str, list] = None,
         applicator_format: Literal["RapidBrachy", "WebApp"] = None,
         #### for loading dose or uncertainty:
@@ -115,6 +116,9 @@ class BrachyPlan:
 
         #### for loading catheter table and applicators:
         - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
+        delivered_catheter_table: bool = True := If true, only the subset of dwell positions that had
+        none zero dwell times in the DICOM plan file will be loaded. If false, all the dwell positions
+        from the digitization points will be loaded.
         - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
         - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
 
@@ -217,7 +221,9 @@ class BrachyPlan:
                 raise ValueError(
                     "catheter_table should be a path or a CatheterTable object"
                 )
-            self._extract_dwell_numbers_times_coordinates_from_catheterTable()
+            if delivered_catheter_table:
+                self.catheter_table = self.catheter_table.get_delivered_catheter_table()
+            self.update_plan_from_catheter_table()
 
         # load the dose rate tensor if the path is provided
         if dir_dose_rate is not None and combined_dose is None:
@@ -355,7 +361,7 @@ class BrachyPlan:
         )
         self.phantom_origin = self.phantom.image_obj.origin
 
-    def _extract_dwell_numbers_times_coordinates_from_catheterTable(self):
+    def update_plan_from_catheter_table(self):
         r"""
         ### Purpose:
         - To extract the dwell numbers, times, and coordinates from the catheter table
@@ -407,6 +413,8 @@ class BrachyPlan:
             len(self.dwell_numbers) == self.dwell_numbers[-1]
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
+        if self.dose_rate_tensor.any():
+            self._calculate_combined_dose()
 
     def _update_catheter_table_from_plan(self):
         r"""
@@ -554,10 +562,10 @@ class BrachyPlan:
         if load_dose_or_uncertainty == "both":
             self.dose_rate_tensor = np.array(
                 dose_or_uncertainty_list, dtype=np.float32
-            )[:, 0]
+            )[0, :]
             self.uncertainty_tensor = np.array(
                 dose_or_uncertainty_list, dtype=np.float32
-            )[:, 1]
+            )[1, :]
         elif load_dose_or_uncertainty == "dose":
             self.dose_rate_tensor = np.array(dose_or_uncertainty_list, dtype=np.float32)
         elif load_dose_or_uncertainty == "uncertainty":
@@ -603,7 +611,7 @@ class BrachyPlan:
         ), "dose rate tensor is empty. Run load_dose_rate_or_uncertainty_tensor()"
         assert (
             self.dwell_times.size != 0
-        ), "dwell times array is empty. Run _extract_dwell_numbers_times_coordinates_from_catheterTable()"
+        ), "dwell times array is empty. Run update_plan_from_catheter_table()"
 
         # calculate the combined dose and store the result in the combined_dose attribute
         temp_dose_array = np.zeros_like(self.dose_rate_tensor[0])
@@ -1422,22 +1430,7 @@ class BrachyPlan:
             for struc in structure_list:
                 if config.structure_name == struc.name:
                     struc.set_optimization_config(config)
-                    break                    
-
-def _resize_structure_mask(structure_mask, target_shape):
-    r"""
-    ### Purpose:
-    - To resize the structure mask to match the target shape.
-    ### Inputs:
-    - structure_mask:np.array := the structure mask to be resized.
-    - target_shape:tuple := the target shape to which the structure mask will be resized.
-    ### Outputs:
-    - np.array := the resized structure mask
-    """
-    return ndimage.zoom(
-        structure_mask, np.array(target_shape) / structure_mask.shape, order=0
-    )
-
+                    break
 
 def _export_single_dose_rate(
     dose_grid: np.array,

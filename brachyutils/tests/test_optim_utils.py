@@ -22,7 +22,7 @@ def test_get_optimization_roi_bounds():
     print(optim_obj.roi_bounds)
     print("breakpoint")
 
-def test_set_penalty_function():
+def test_run_optim():
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_dir_dose_rate = "data_test/prostate-glen-p1-dose"
     target_dose = 21
@@ -36,23 +36,30 @@ def test_set_penalty_function():
     }
     optimization_config_list=[
         Optimization_Config(
-            name="ctv",
+            structure_name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
-            penalty_weight_linear=500,
-            # penalty_weight_quadratic=1,
+            penalty_weight_linear=1,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
-            name="urethra",
+            structure_name="urethra",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             mask_margin_mm=0,
             spacing_mm=1),
+        Optimization_Config(
+            structure_name="rectum",
+            dose_voxel_goal=0,
+            penalty_weight_linear=1,
+            mask_margin_mm=0,
+            spacing_mm=3
+        )
     ]
 
     plan_obj = load_dicom_to_plan(
         dir_dicom=pth_dicom,
         load_dicom_dose=False,
+        delivered_catheter_table=True,
         dir_dose_rate=pth_dir_dose_rate,
         multi_processing=True,
         prescription_dose=target_dose,
@@ -60,8 +67,10 @@ def test_set_penalty_function():
         optimization_config_list=optimization_config_list)
 
     optim_obj = DwellTimeOptimizer(plan=plan_obj)
+    optimized_plan = optim_obj.get_optimized_plan_from_model()
+    print(optimized_plan.get_dvh_metrics())
 
 if __name__ == "__main__":
     # test_DwellTimeVariable()
     # test_get_optimization_roi_bounds()
-    test_set_penalty_function()
+    test_run_optim()

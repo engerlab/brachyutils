@@ -50,7 +50,7 @@ class BrachyDoseGenerator(ABC):
         pass
 
 
-class DoseTG43(DoseGenerator):
+class DoseTG43(BrachyDoseGenerator):
     def __init__(
         self,
         dir_plan_export: Union[Path, str],
@@ -142,7 +142,7 @@ class DoseTG43(DoseGenerator):
         assert any(".mac" in file for file in all_files), "The mac file is missing."
 
 
-class DoseMonteCarlo(DoseGenerator):
+class DoseMonteCarlo(BrachyDoseGenerator):
     def __init__(
         self, dir_plan_export: Path | str, pth_dose_executable: Path | str
     ) -> None:
