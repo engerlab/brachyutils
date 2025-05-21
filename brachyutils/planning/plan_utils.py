@@ -1430,7 +1430,7 @@ class BrachyPlan:
 
         for config in optimization_config_list:
             if config.penalty_weight_hotspot != 0:
-                if config.structure_name != ("ptv" or "ctv" or "PTV" or "CTV"):
+                if config.structure_name not in ["ptv", "ctv", "PTV", "CTV"]:
                     raise ValueError(
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
@@ -1457,7 +1457,44 @@ class BrachyPlan:
         step_size = self.catheter_table.step_size
         # identify unique dwell pairs that are withi n the step size distance
         dwell_pairs = []
-        for dwell in self.dwell_coordinates:
+
+        def distance(pos1, pos2):
+            return np.linalg.norm(pos1 - pos2)
+        def center(pos1, pos2):
+            return (pos1 + pos2) / 2
+
+        for i in range(len(self.dwell_coordinates)):
+            for j in range(i + 1, len(self.dwell_coordinates)):
+                current_distance = distance(
+                    np.array(self.dwell_coordinates[i]["position"]),
+                    np.array(self.dwell_coordinates[j]["position"])) 
+                if current_distance <= step_size:
+                    dwell_pairs.append(
+                        {
+                            "dwell_pair": (
+                                {
+                                    "catheter":self.dwell_coordinates[i]["catheter_index"],
+                                    "dwell": self.dwell_coordinates[i]["dwell_index"]
+                                },
+                                {
+                                    "catheter":self.dwell_coordinates[j]["catheter_index"],
+                                    "dwell": self.dwell_coordinates[j]["dwell_index"]
+                                }),
+                            "center": center(
+                                np.array(self.dwell_coordinates[i]["position"]),
+                                np.array(self.dwell_coordinates[j]["position"])
+                            ),
+                            "radius": step_size,
+                            "distance": current_distance,
+                            "inter-catheter": True if (
+                                self.dwell_coordinates[i]["catheter_index"] 
+                                != self.dwell_coordinates[j]["catheter_index"]
+                                ) else False
+                        }
+                    )
+        print("debug here!")
+        # create hotspot structures masks for each dwell pair
+                    
             
 def _export_single_dose_rate(
     dose_grid: np.array,

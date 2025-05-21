@@ -39,6 +39,7 @@ def test_run_optim():
             structure_name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
             penalty_weight_linear=1,
+            penalty_weight_hotspot=1,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
