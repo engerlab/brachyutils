@@ -1601,3 +1601,18 @@ def _getExtentOfMask(mask: np.array) -> List[int]:
     #     if bound == mask.shape[2]:
     #         bound = mask.shape[2] - 1
     return boxInVoxel
+
+def generate_sphere_contour(
+    center: np.ndarray | List[float],
+    radius: float,
+) -> ROIContour:
+    r"""
+    Purpose:
+        - Generate a sphere contour with the given center and radius.
+    Inputs:
+        - center: np.ndarray | List[float] := the center of the sphere.
+        - radius: float := the radius of the sphere.
+    Outputs:
+        - contour: ROIContour := the generated sphere contour.
+    """
+    raise NotImplementedError("This function is not implemented yet.")

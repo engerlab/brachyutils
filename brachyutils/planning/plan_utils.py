@@ -1492,10 +1492,15 @@ class BrachyPlan:
                                 ) else False
                         }
                     )
-        print("debug here!")
         # create hotspot structures masks for each dwell pair
-                    
-            
+        from brachyutils.geometry.phantom_utils import generate_sphere_contour
+        for dwellpair in dwell_pairs:
+            mask = generate_sphere_contour(
+                center=dwellpair["center"],
+                radius=dwellpair["radius"],
+            )
+            # TODO: Complete structure creation! 
+           
 def _export_single_dose_rate(
     dose_grid: np.array,
     dwell_number: int,
