@@ -351,7 +351,6 @@ class DwellTimeOptimizer(BaseModel):
                     penalty_terms["quadratic"] += (
                         ( quadratic_weight/ num_dose_points) * x * x
                     )
-                    # penalty_terms["hotspot"] += ()
                     penalty_terms["uniformity"] += (
                         (uniformity_weight / (num_dose_points*1000)) * y * y
                     )

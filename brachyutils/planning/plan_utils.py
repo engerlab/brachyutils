@@ -401,7 +401,8 @@ class BrachyPlan:
                         "position": dwell.position,
                         "rotation": dwell.rotation,
                         "relativePos": dwell.relativePos,
-                        "catheterId": catheter.index,
+                        "catheter_index": catheter.index,
+                        "dwell_index": dwell.index,
                     }
                 )
                 dwell_counter += 1
@@ -435,13 +436,14 @@ class BrachyPlan:
 
         for catheter_i in self.catheter_numbers:
             catheter = {}
-            catheter["iD"] = int(catheter_i)
+            catheter["index"] = int(catheter_i)
             catheter["points"] = []
             catheter["dwells"] = []
             dwell = {}
             for dwell_i in self.dwell_numbers:
-                if self.dwell_coordinates[dwell_i - 1]["catheterId"] != catheter_i:
+                if self.dwell_coordinates[dwell_i - 1]["catheter_index"] != catheter_i:
                     continue
+                dwell["index"] = int(dwell_i)
                 dwell["angle"] = float(self.dwell_coordinates[dwell_i - 1]["angle"])
                 dwell["position"] = {
                     "x": float(self.dwell_coordinates[dwell_i - 1]["position"][0]),
@@ -1427,11 +1429,36 @@ class BrachyPlan:
                 raise ValueError("optimization_config_list can be a json file or a list of Optimization_Config objects")
 
         for config in optimization_config_list:
+            if config.penalty_weight_hotspot != 0:
+                if config.structure_name != ("ptv" or "ctv" or "PTV" or "CTV"):
+                    raise ValueError(
+                        "penalty_weight_hotspot can only be set for PTV or CTV structures"
+                    )
+                self.create_hotspot_structures(config)
             for struc in structure_list:
                 if config.structure_name == struc.name:
                     struc.set_optimization_config(config)
                     break
 
+    def create_hotspot_structures(self, config:Optimization_Config):
+        r"""
+        ### Purpose:
+        - to create structures where hotspots are likely to occur inside the ptv or ctv.
+        These structures are created as spheres with radius of dwell step size centered in 
+        between two dwell positions that are within a step size distance from each other.
+        There could be only one hotspot structure per each dwell pair.
+        ### Inputs:
+        - self := the BrachyPlan object
+        - config := the optimization config object that contains the parameters for the hotspot structure
+        ### Outputs:
+        - None := hot spot structures are appended to the self.structure_list
+        """
+        self.update_plan_from_catheter_table()
+        step_size = self.catheter_table.step_size
+        # identify unique dwell pairs that are withi n the step size distance
+        dwell_pairs = []
+        for dwell in self.dwell_coordinates:
+            
 def _export_single_dose_rate(
     dose_grid: np.array,
     dwell_number: int,
