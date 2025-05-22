@@ -1656,8 +1656,8 @@ def get_contour_from_polygon_mesh(
             xCoord = verticies[vertexId, 0]
             yCoord = verticies[vertexId, 1]
             zCoord = verticies[vertexId, 2]
-            polygonMesh.append(xCoord)
             polygonMesh.append(yCoord)
+            polygonMesh.append(xCoord)
             polygonMesh.append(zCoord)
         polygonMeshList.append(polygonMesh)
 
