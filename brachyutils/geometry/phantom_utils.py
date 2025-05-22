@@ -1624,7 +1624,7 @@ def generate_sphere_contour(
     sphereSource.SetPhiResolution(20)
     sphereSource.Update()
     polyData = sphereSource.GetOutput()
-    return get_contour_from_polygon_mesh(polyData)
+    return get_contour_from_polygon_mesh(polyData, name=name)
 
 def get_contour_from_polygon_mesh(
     polygon_data: vtk.vtkPolyData,
@@ -1656,8 +1656,8 @@ def get_contour_from_polygon_mesh(
             xCoord = verticies[vertexId, 0]
             yCoord = verticies[vertexId, 1]
             zCoord = verticies[vertexId, 2]
-            polygonMesh.append(yCoord)
             polygonMesh.append(xCoord)
+            polygonMesh.append(yCoord)
             polygonMesh.append(zCoord)
         polygonMeshList.append(polygonMesh)
 

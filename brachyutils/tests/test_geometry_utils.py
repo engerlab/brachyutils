@@ -348,7 +348,7 @@ def test_get_delivered_catheter_table():
 def test_generate_sphere_contour():
     from brachyutils.geometry.phantom_utils import generate_sphere_contour
     center = np.array([5, 5, 5])
-    radius = 5
+    radius = 3
     contour = generate_sphere_contour(center, radius)
     mask = contour.getBinaryMask(
         origin=[0,0,0],
