@@ -345,6 +345,17 @@ def test_get_delivered_catheter_table():
     assert cat_table.num_catheters >= delivered_cat_table.num_catheters, "Test failed the number of catheters in the delivered table is not equal to the original table."
     assert cat_table.num_dwell_positions >= delivered_cat_table.num_dwell_positions, "Test failed the number of dwell positions in the delivered table is not equal to the original table."
 
+def test_generate_sphere_contour():
+    from brachyutils.geometry.phantom_utils import generate_sphere_contour
+    center = np.array([5, 5, 5])
+    radius = 5
+    contour = generate_sphere_contour(center, radius)
+    mask = contour.getBinaryMask(
+        origin=[0,0,0],
+        spacing=np.array([1., 1., 1.]),
+        gridSize=np.array([10, 10, 10]))
+    print(mask.imageArray.any())
+
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
     # test_brachy_phantom()
@@ -369,4 +380,5 @@ if __name__ == "__main__":
     # test_resample_to()
     # test_dicom_rt_tools()
     # test_catheter_to_mrk_json()
-    test_get_delivered_catheter_table()
+    # test_get_delivered_catheter_table()
+    test_generate_sphere_contour()

@@ -24,7 +24,7 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
     writeDicomCT,
     writeRTStruct,
 )
-
+import vtk
 class BrachyPhantom:
     r"""
     Puprose:
@@ -1605,6 +1605,7 @@ def _getExtentOfMask(mask: np.array) -> List[int]:
 def generate_sphere_contour(
     center: np.ndarray | List[float],
     radius: float,
+    name: str = "Sphere",
 ) -> ROIContour:
     r"""
     Purpose:
@@ -1615,4 +1616,54 @@ def generate_sphere_contour(
     Outputs:
         - contour: ROIContour := the generated sphere contour.
     """
-    raise NotImplementedError("This function is not implemented yet.")
+    # raise NotImplementedError("This function is not implemented yet.")
+    sphereSource = vtk.vtkSphereSource()
+    sphereSource.SetCenter(center)
+    sphereSource.SetRadius(radius)
+    sphereSource.SetThetaResolution(20)
+    sphereSource.SetPhiResolution(20)
+    sphereSource.Update()
+    polyData = sphereSource.GetOutput()
+    return get_contour_from_polygon_mesh(polyData)
+
+def get_contour_from_polygon_mesh(
+    polygon_data: vtk.vtkPolyData,
+    name: str = "Polygon"
+    ) -> ROIContour:
+    r"""
+    """
+    # extract verticies
+    points = polygon_data.GetPoints()
+    num_points = points.GetNumberOfPoints()
+    verticies = np.zeros((num_points, 3))
+    for i in range(num_points):
+        verticies[i, :] = points.GetPoint(i)
+    
+    # extract polygon mesh
+    polys = polygon_data.GetPolys()
+    polys.InitTraversal()
+    polygons = []
+    idList = vtk.vtkIdList()
+    while polys.GetNextCell(idList):
+        polygon = [idList.GetId(j) for j in range(idList.GetNumberOfIds())]
+        polygons.append(polygon)
+
+    polygonMeshList = []
+    for polygon in polygons:
+        polygonMesh = []
+        for vertexId in polygon:
+            # transform the vertex coordinates based on the spacing and origin.
+            xCoord = verticies[vertexId, 0]
+            yCoord = verticies[vertexId, 1]
+            zCoord = verticies[vertexId, 2]
+            polygonMesh.append(yCoord)
+            polygonMesh.append(xCoord)
+            polygonMesh.append(zCoord)
+        polygonMeshList.append(polygonMesh)
+
+    contour = ROIContour(
+        name=name
+    )
+    contour.polygonMesh = polygonMeshList
+    return contour
+    
