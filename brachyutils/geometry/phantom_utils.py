@@ -1620,8 +1620,8 @@ def generate_sphere_contour(
     sphereSource = vtk.vtkSphereSource()
     sphereSource.SetCenter(center)
     sphereSource.SetRadius(radius)
-    sphereSource.SetThetaResolution(20)
-    sphereSource.SetPhiResolution(20)
+    sphereSource.SetThetaResolution(10)
+    sphereSource.SetPhiResolution(10)
     sphereSource.Update()
     polyData = sphereSource.GetOutput()
     return get_contour_from_polygon_mesh(polyData, name=name)
@@ -1656,8 +1656,8 @@ def get_contour_from_polygon_mesh(
             xCoord = verticies[vertexId, 0]
             yCoord = verticies[vertexId, 1]
             zCoord = verticies[vertexId, 2]
-            polygonMesh.append(yCoord)
             polygonMesh.append(xCoord)
+            polygonMesh.append(yCoord)
             polygonMesh.append(zCoord)
         polygonMeshList.append(polygonMesh)
 
