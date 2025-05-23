@@ -17,10 +17,7 @@ class BrachyStructure:
     - target_volume: bool
     #### DVH Attributes:
     - in_dvh: bool
-    - # dvh_metric_name: str (deprecated)
-    - # dvh_metric_clinical_goal: str (deprecated)
     - dvh_metric_goals: Dict[str, float]
-    - # dvh_metric_observed: float (deprecated)
     - dvh_metrics_observed: Dict[str, float]
     - dvh_obj: opentps.core.data.DVH
     #### Uncertainty Attributes:
@@ -30,10 +27,7 @@ class BrachyStructure:
     - uncertainty_max
     - uncertainty_min
     #### Optimization Attributes:
-    - penalty_weight_linear := The coefficient for the linear party of the penalty function.
-    - penalty_weight_quadratic := The coefficient for the quadratic party of the penalty function.
-    - dose_voxel_goal := The dose goal for every voxel given to the optimizer.
-    - spacing_mm := The spacing of the optimization grid in mm.
+    - optimization_config:Optimization_Config := the optimization config object for the structure. see optim_utils.py  
     ### Functions:
         - get_dvh_metric(combined_dose:BrachyDose)
         - to_dict(export_format:str)
