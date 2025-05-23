@@ -1495,12 +1495,24 @@ class BrachyPlan:
         # create hotspot structures masks for each dwell pair
         from brachyutils.geometry.phantom_utils import generate_sphere_contour
         for dwellpair in dwell_pairs:
-            mask = generate_sphere_contour(
+            dwell_contour = generate_sphere_contour(
                 center=dwellpair["center"],
                 radius=dwellpair["radius"],
+                name=(
+                    f"hotspot_estimator:catheter_{(dwellpair["dwell_pair"])[0]["catheter"]}_dwell_{(dwellpair["dwell_pair"])[0]["dwell"]}"
+                    + f"/catheter_{(dwellpair["dwell_pair"])[1]["catheter"]}_dwell_{(dwellpair["dwell_pair"])[1]["dwell"]}"
+                    ),
             )
-            # TODO: Complete structure creation! 
-           
+            self.structure_list.append(
+                BrachyStructure(
+                    name=dwell_contour.name,
+                    mask=dwell_contour,
+                    target_volume=False,
+                    in_dvh=False,
+                    optimization_config=config
+                )
+            )
+
 def _export_single_dose_rate(
     dose_grid: np.array,
     dwell_number: int,
