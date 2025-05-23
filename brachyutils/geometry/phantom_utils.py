@@ -27,22 +27,22 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
 import vtk
 class BrachyPhantom:
     r"""
-    Puprose:
-        - A class to load any voxelized geometry related to an HDR brachytherapy patient or phantom
+    ### Puprose:
+    - A class to load any voxelized geometry related to an HDR brachytherapy patient or phantom
         and perform some operations.
-    Attributes:
-        - pth_image: Path := the path of the geometry source file or files.
-        - image_obj: CTImage or MRImage := the image of the patient loaded by openTPS. [x, y, z]
-        - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
-        - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
-        Other names for structure are contours, masks, segmentations.
-        - structure_names: List[str] := the names of the structures in the dicom file.
-        - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
-        - xyz_format: bool := the format of the image. if True, the image is in [z, y, x] format.
-        - orientation: Literal["LAS", "RAS", "LPS"] := the orientation of the image. default is LPS, same as 
-        DICOM and slicer.
-    Dependencies:
-        - openTPS.core
+    ### Attributes:
+    - pth_image: Path := the path of the geometry source file or files.
+    - image_obj: CTImage or MRImage := the image of the patient loaded by openTPS. [x, y, z]
+    - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
+    - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
+    Other names for structure are contours, masks, segmentations.
+    - structure_names: List[str] := the names of the structures in the dicom file.
+    - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
+    - xyz_format: bool := the format of the image. if True, the image is in [z, y, x] format.
+    - orientation: Literal["LAS", "RAS", "LPS"] := the orientation of the image. default is LPS, same as 
+    DICOM and slicer.
+    ### Dependencies:
+    - openTPS.core
     """
 
     def __init__(
@@ -53,22 +53,22 @@ class BrachyPhantom:
         pth_egsphant_file: Optional[Path] = None,
     ) -> None:
         r"""
-        Purpose:
-            - Initialize the BrachyPhantom class based on the input path. The input path can be either
-            the directory of the DICOM files or the path of the phantom file (in .nrrd). The structures file
-            is optional. It is also possible to load the structures only without a phantom file. in that case,
-            an empty image_obj is created with the dimensions matching the structures file.
-        Inputs:
-            - dir_dicom: Path := the directory of the DICOM files.
-            - pth_phantom_file: Path := the path of the phantom .nrrd file.
-            - pth_structures_file: Path := the path of the structure file.
-            - pth_egsphant_file: Path := the path of the Egsphant file to be loaded.
-            note that it is possible to generate an Egsphant from BrachyPhantom object.
-        Outputs:
-            - None
-        Dependencies:
-            - openTPS.core
-            - BrachyEgsphant
+        ### Purpose:
+        - Initialize the BrachyPhantom class based on the input path. The input path can be either
+        the directory of the DICOM files or the path of the phantom file (in .nrrd). The structures file
+        is optional. It is also possible to load the structures only without a phantom file. in that case,
+        an empty image_obj is created with the dimensions matching the structures file.
+        ### Inputs:
+        - dir_dicom: Path := the directory of the DICOM files.
+        - pth_phantom_file: Path := the path of the phantom .nrrd file.
+        - pth_structures_file: Path := the path of the structure file.
+        - pth_egsphant_file: Path := the path of the Egsphant file to be loaded.
+        note that it is possible to generate an Egsphant from BrachyPhantom object.
+        ### Outputs:
+        - None
+        ### Dependencies:
+        - openTPS.core
+        - BrachyEgsphant
         """
         if dir_dicom is not None and pth_phantom_file is not None:
             raise ValueError(
