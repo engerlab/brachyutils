@@ -58,7 +58,7 @@ class BrachyStructure:
         - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
         - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
         V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or. For example D95%(organName).
-        - optimization_config:Optimization_Config := the optimization config object for the structure.
+        - optimization_config:Optimization_Config := the optimization config object for the structure. see optim_utils.py 
         ### Outputs:
         - Void := will initialize the BrachyStructure object
         ### Dependencies:

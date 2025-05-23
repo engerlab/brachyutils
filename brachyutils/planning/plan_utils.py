@@ -1560,6 +1560,7 @@ def _load_single_dose_or_uncertainty_to_dict(
     ### Dependencies:
     - BrachyDose()
     """
+    print("loading dose or uncertainty from:", pth_dose_rate)
     dose_obj = BrachyDose(pth_dose_rate)
     if load_dose_or_uncertainty == "both":
         dose_or_uncert_map = np.zeros(
