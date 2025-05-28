@@ -307,6 +307,9 @@ class DwellTimeOptimizer(BaseModel):
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
+            # for now, skip the hotspot estimator structures
+            if "hotspot_estimator" in structure.name.lower():
+                continue
 
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
