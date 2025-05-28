@@ -56,7 +56,6 @@ def test_run_optim():
             spacing_mm=3
         )
     ]
-
     plan_obj = load_dicom_to_plan(
         dir_dicom=pth_dicom,
         load_dicom_dose=False,

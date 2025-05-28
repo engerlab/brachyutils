@@ -1442,7 +1442,10 @@ class BrachyPlan:
                     struc.set_optimization_config(config)
                     break
 
-    def create_hotspot_structures(self, config:Optimization_Config):
+    def create_hotspot_structures(
+        self,
+        config:Optimization_Config
+        ):
         r"""
         ### Purpose:
         - to create structures where hotspots are likely to occur inside the ptv or ctv.
@@ -1459,7 +1462,6 @@ class BrachyPlan:
         step_size = self.catheter_table.step_size
         # identify unique dwell pairs that are withi n the step size distance
         dwell_pairs = []
-
         def distance(pos1, pos2):
             return np.linalg.norm(pos1 - pos2)
         def center(pos1, pos2):
@@ -1514,6 +1516,7 @@ class BrachyPlan:
                     optimization_config=config
                 )
             )
+            self.phantom.set_structure_set({dwell_contour.name: dwell_contour}, useVTK=True)
 
 def _export_single_dose_rate(
     dose_grid: np.array,

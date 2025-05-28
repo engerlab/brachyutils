@@ -317,21 +317,23 @@ class BrachyPhantom:
         self,
         query_structure_list: List[str],
         mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
+        useVTK: bool = False,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
-        Purpose:
-            To return a dictionary with the requested structure masks from BrachyPhantom object. The queried
-            structure string should be a subset of the structure string in the dicom file. For example,
-            if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
-            The keys in the dictionary match the query_structure_list and the values are the masks.
-        Inputs:
-            - query_structure_list := list of structure names to find the mask of.
-            - mask_type: Union[np.ndarray, ROIContour, ROIMask] := the type of the mask to return.
-             if np.ndarray, the mask will be returned as a numpy array in [z, y, x] format.
-             if ROIContour, the mask will be returned as a ROIContour object in [x, y, z] format.
-             if ROIMask, the mask will be returned as a ROIMask object in [x, y, z] format.
-        Outputs:
-            - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
+        ### Purpose:
+        - To return a dictionary with the requested structure masks from BrachyPhantom object. The queried
+        structure string should be a subset of the structure string in the dicom file. For example,
+        if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
+        The keys in the dictionary match the query_structure_list and the values are the masks.
+        ### Inputs:
+        - query_structure_list := list of structure names to find the mask of.
+        - mask_type: Union[np.ndarray, ROIContour, ROIMask] := the type of the mask to return.
+            if np.ndarray, the mask will be returned as a numpy array in [z, y, x] format.
+            if ROIContour, the mask will be returned as a ROIContour object in [x, y, z] format.
+            if ROIMask, the mask will be returned as a ROIMask object in [x, y, z] format.
+        - useVTK: bool := use this if the contour was generated using VTK. it matters when getBinaryMask() is called.
+        ### Outputs:
+        - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
         assert (
             self.structure_set is not None
@@ -352,6 +354,7 @@ class BrachyPhantom:
                         origin=self.image_obj.origin,
                         gridSize=self.image_obj.gridSize,
                         spacing=self.image_obj.spacing,
+                        useVTK=useVTK,
                     )
                     if not np.any(mask.imageArray):
                         warnings.warn(
@@ -808,18 +811,23 @@ class BrachyPhantom:
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace)
 
-    def set_structure_set(self, mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]]) -> None:
+    def set_structure_set(
+        self,
+        mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]],
+        useVTK: bool = False,
+        ) -> None:
         r"""
-        Purpose:
-            - Set the structure set with the input mask dictionary mapping structure names to ROIMask.
-            If the name of a structure is in the structure set, the mask will be replaced.
-            If the name of a structure is not in the structure set, a new structure will be added.
-            The mask will be resampled to the image object if it exists.
-        Inputs:
-            - mask_dict: dict := the dictionary of the masks.
-            The values could be numpy arrays, ROIContour or ROIMask objects.
-        Outputs:
-            - None
+        ### Purpose:
+        - Set the structure set with the input mask dictionary mapping structure names to ROIMask.
+        If the name of a structure is in the structure set, the mask will be replaced.
+        If the name of a structure is not in the structure set, a new structure will be added.
+        The mask will be resampled to the image object if it exists.
+        ### Inputs:
+        - mask_dict: dict := the dictionary of the masks.
+        The values could be numpy arrays, ROIContour or ROIMask objects.
+        - useVTK: bool := use this if the contour was generated using VTK.
+        ### Outputs:
+        - None
         """
         from opentps.core.processing.imageProcessing.resampler3D import (
             resampleImage3DOnImage3D,
@@ -842,9 +850,10 @@ class BrachyPhantom:
                     spacing=self.image_obj.spacing,
                 )
             elif isinstance(mask_dict.get(structure_name), ROIContour):
-                mask = ROIContour.getBinaryMask(
+                mask = mask_dict.get(structure_name).getBinaryMask(
                     origin=self.image_obj.origin,
                     spacing=self.image_obj.spacing,
+                    useVTK=useVTK,
                 )
                 mask.name = structure_name.upper()
 
@@ -1007,11 +1016,6 @@ class BrachyPhantom:
                     structure_dict[struc],
                     new_img_obj
                     )
-                # new_structure_dict[struc] = structure_dict[struc].getBinaryMask(
-                #     origin=new_img_obj.origin,
-                #     spacing=new_img_obj.spacing,
-                #     gridSize=new_img_obj.gridSize,
-                # )
         if inplace:
             self.image_obj = new_img_obj
             self.set_structure_set(new_structure_dict)
@@ -1447,15 +1451,6 @@ def _getExtentOfMask(mask: np.array) -> List[int]:
     boxInVoxel = [np.min(ones[2]), np.max(ones[2]),
                 np.min(ones[1]), np.max(ones[1]),
                 np.min(ones[0]), np.max(ones[0])]
-    # for bound in boxInVoxel:
-    #     if bound == 0:
-    #         bound = 1
-    #     if bound == mask.shape[0]:
-    #         bound = mask.shape[0] - 1
-    #     if bound == mask.shape[1]:
-    #         bound = mask.shape[1] - 1
-    #     if bound == mask.shape[2]:
-    #         bound = mask.shape[2] - 1
     return boxInVoxel
 
 def generate_sphere_contour(
