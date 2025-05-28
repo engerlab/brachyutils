@@ -547,32 +547,13 @@ class BrachyPhantom:
         assert (
             os.path.splitext(pth_output)[-1] == ".nrrd"
         ), "the file should have '.nrrd' extension"
-        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
-        from collections import defaultdict
-        
-        image_array_zyx = self.get_image_array().astype(float)
-        header = defaultdict(str)
-        header["type"] = "double"
-        # header["space dimension"] = "3"
-        header["space"] = self.anatomical_coordinate_system
-        header["sizes"] = (
-            " ".join(map(str, self.image_obj.gridSize.tolist()))
+        imageToNrrd(
+            image_obj=self.image_obj,
+            pth_output=pth_output,
+            anatomical_coordinate_system=self.anatomical_coordinate_system,
+            modality=self.image_modality,
+            metadata=metadata,
         )
-        header["space directions"] = [
-            [self.image_obj.spacing[0], 0.0, 0.0],
-            [0.0, self.image_obj.spacing[1], 0.0],
-            [0.0, 0.0, self.image_obj.spacing[2]],
-        ]
-        header["kinds"] = ["space", "space", "space"]
-        header["labels"] = ["x", "y", "z"]
-        header["endian"] = "little"
-        header["encoding"] = "gzip"
-        header["space origin"] = self.image_obj.origin.tolist()
-        header["voxel spacing"] = self.image_obj.spacing.tolist()
-        header["space units"] = ["mm", "mm", "mm"]
-        header["modality"] = self.image_modality
-        header = header | metadata if metadata is not None else header
-        nrrd.write(str(pth_output), image_array_zyx, header, index_order="C")
 
     def write_structures_to_nrrd(
         self,
@@ -1666,4 +1647,57 @@ def get_contour_from_polygon_mesh(
     )
     contour.polygonMesh = polygonMeshList
     return contour
+
+def imageToNrrd(
+    image_obj: Image3D,
+    pth_output: Path,
+    anatomical_coordinate_system: str = "LPS",
+    modality: str = "N/A",
+    metadata: Optional[Dict[str, str]] = None,
+    ) -> None:
+    r"""
+    Purpose:
+        - To write the image to a nrrd file. By default, all images are written as Left Posterior Superior.
+    Inputs:
+        - pth_output: Path := the path to write the image to.
+        - metadata := a dictionary containing the following meta data key values (should be changed later):
+            "cancer site":
+            "care center":
+            "number of dwell positions":
+            "number of segmented structures":
+            "patient number":
+            "Image content": "[3D dose, 3D uncertainty]"
+    Outputs
+        - None
+    Dependencies:
+        - pynrrd
+    """
+    assert (
+        os.path.splitext(pth_output)[-1] == ".nrrd"
+    ), "the file should have '.nrrd' extension"
+    os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+    from collections import defaultdict
     
+    image_array_zyx = image_obj.imageArray.swapaxes(0, 2).astype(float)
+    header = defaultdict(str)
+    header["type"] = "double"
+    # header["space dimension"] = "3"
+    header["space"] = anatomical_coordinate_system
+    header["sizes"] = (
+        " ".join(map(str, image_obj.gridSize.tolist()))
+    )
+    header["space directions"] = [
+        [image_obj.spacing[0], 0.0, 0.0],
+        [0.0, image_obj.spacing[1], 0.0],
+        [0.0, 0.0, image_obj.spacing[2]],
+    ]
+    header["kinds"] = ["space", "space", "space"]
+    header["labels"] = ["x", "y", "z"]
+    header["endian"] = "little"
+    header["encoding"] = "gzip"
+    header["space origin"] = image_obj.origin.tolist()
+    header["voxel spacing"] = image_obj.spacing.tolist()
+    header["space units"] = ["mm", "mm", "mm"]
+    header["modality"] = modality
+    header = header | metadata if metadata is not None else header
+    nrrd.write(str(pth_output), image_array_zyx, header, index_order="C")
