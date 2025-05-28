@@ -1,3 +1,6 @@
+#to resolve issues with importing distutils before setuptools
+import setuptools 
+
 __all__ = [
     "dose",
     "geometry",
