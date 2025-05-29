@@ -25,6 +25,8 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
     writeRTStruct,
 )
 import vtk
+from vtk.util import numpy_support
+
 class BrachyPhantom:
     r"""
     ### Puprose:
@@ -302,10 +304,8 @@ class BrachyPhantom:
         if self.anatomical_coordinate_system is None:
             self.anatomical_coordinate_system = structure_orientation
         else:
-            assert (
-                self.anatomical_coordinate_system == structure_orientation, 
+            assert (self.anatomical_coordinate_system == structure_orientation), \
                 "The orientation of the structure file is not the same as the image file."
-            )
 
         self.set_structure_set(structure_mask_dict)
 
@@ -836,15 +836,17 @@ class BrachyPhantom:
 
         for structure_name in mask_dict:
             # check if the structure already exists in structure set
-            old_structure = self.structure_set.getContourByName(structure_name.upper())
+            old_structure = self.structure_set.getContourByName(structure_name)
+            if old_structure is None:
+                old_structure = self.structure_set.getContourByName(structure_name.upper())
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
-            print(f"setting structure {structure_name.upper()}")
+            print(f"setting structure {structure_name}")
             if mask_dict.get(structure_name) is None:
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
                 mask = ROIMask(
-                    name=structure_name.upper(),
+                    name=structure_name,
                     imageArray=np.swapaxes(mask_dict[structure_name], 0, 2),
                     origin=self.image_obj.origin,
                     spacing=self.image_obj.spacing,
@@ -853,19 +855,19 @@ class BrachyPhantom:
                 mask = mask_dict.get(structure_name).getBinaryMask(
                     origin=self.image_obj.origin,
                     spacing=self.image_obj.spacing,
+                    gridSize=self.image_obj.gridSize,
                     useVTK=useVTK,
                 )
-                mask.name = structure_name.upper()
+                mask.name = structure_name
 
             elif isinstance(mask_dict.get(structure_name), ROIMask):
                 mask = mask_dict.get(structure_name)
-                mask.name = structure_name.upper()
+                mask.name = structure_name
+                if self.image_obj is not None:
+                    mask = resampleImage3DOnImage3D(mask, self.image_obj)    
             else:
                 raise ValueError("The mask type is not recognized.")
-                
-            if self.image_obj is not None:
-                mask = resampleImage3DOnImage3D(mask, self.image_obj)
-            
+
             # if mask hits the boundary of the image, set the boundary to 0.
             tight_box_coordinates = np.round(getBoxAroundROI(mask), decimals=2)
             mask_edges = np.array(
@@ -894,10 +896,12 @@ class BrachyPhantom:
                         # mask.imageArray[:, :, -1] = 0
 
             self.structure_set.appendContour(mask.getROIContour())
+            del mask
 
         self.structure_set.setPatient(
                 self.image_obj.patient if self.image_obj is not None else None
             )
+
         # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
         # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         self._update_structure_names()
@@ -1453,29 +1457,75 @@ def _getExtentOfMask(mask: np.array) -> List[int]:
                 np.min(ones[0]), np.max(ones[0])]
     return boxInVoxel
 
-def generate_sphere_contour(
+def generate_sphere_mask(
     center: np.ndarray | List[float],
     radius: float,
+    gridSize: List[int],
+    spacing: List[float] = [1.0, 1.0, 1.0],
+    origin: List[float] = [0.0, 0.0, 0.0],
     name: str = "Sphere",
 ) -> ROIContour:
     r"""
     Purpose:
-        - Generate a sphere contour with the given center and radius.
+        - Generate a sphere mask with the given center and radius inside a 3D grid. 
     Inputs:
         - center: np.ndarray | List[float] := the center of the sphere.
         - radius: float := the radius of the sphere.
+        - gridSize: List[int] := the size of the grid in [x, y, z].
+        - spacing: List[float] := the spacing of the grid in [x, y, z].
+        - origin: List[float] := the origin of the grid in [x, y, z].
+        - name: str := the name of the sphere mask.
     Outputs:
-        - contour: ROIContour := the generated sphere contour.
+        - mask_opentps: ROIMask := the generated sphere mask.
     """
     # raise NotImplementedError("This function is not implemented yet.")
     sphereSource = vtk.vtkSphereSource()
     sphereSource.SetCenter(center)
     sphereSource.SetRadius(radius)
-    sphereSource.SetThetaResolution(10)
-    sphereSource.SetPhiResolution(10)
+    sphereSource.SetThetaResolution(25)
+    sphereSource.SetPhiResolution(25)
     sphereSource.Update()
     polyData = sphereSource.GetOutput()
-    return get_contour_from_polygon_mesh(polyData, name=name)
+
+    # Create a white image
+    white_image = vtk.vtkImageData()
+    white_image.SetDimensions(gridSize[0], gridSize[1], gridSize[2])
+    white_image.SetExtent(0, gridSize[0] - 1, 0, gridSize[1] - 1, 0, gridSize[2] - 1)
+    white_image.SetSpacing(spacing[0], spacing[1], spacing[2])
+    white_image.SetOrigin(origin[0], origin[1], origin[2])
+    white_image.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
+
+    # Fill the image with foreground voxels
+    for i in range(white_image.GetNumberOfPoints()):
+        white_image.GetPointData().GetScalars().SetTuple1(i, 1)
+
+    # Create a stencil from the polydata
+    pol2stenc = vtk.vtkPolyDataToImageStencil()
+    pol2stenc.SetInputData(polyData)
+    pol2stenc.SetOutputOrigin(white_image.GetOrigin())
+    pol2stenc.SetOutputSpacing(white_image.GetSpacing())
+    pol2stenc.SetOutputWholeExtent(white_image.GetExtent())
+    pol2stenc.Update()
+
+    # Cut the image with the stencil
+    stencil = vtk.vtkImageStencil()
+    stencil.SetInputData(white_image)
+    stencil.SetStencilData(pol2stenc.GetOutput())
+    stencil.ReverseStencilOff()
+    stencil.SetBackgroundValue(0)
+    stencil.Update()
+
+    # Extract numpy array
+    vtk_image = stencil.GetOutput()
+    scalars = vtk_image.GetPointData().GetScalars()
+    mask3D = numpy_support.vtk_to_numpy(scalars).reshape(gridSize[::-1])
+    mask_opentps = ROIMask(
+        imageArray=mask3D.swapaxes(0, 2),
+        name=name,
+        origin=origin,
+        spacing=spacing,
+    )
+    return mask_opentps
 
 def get_contour_from_polygon_mesh(
     polygon_data: vtk.vtkPolyData,
