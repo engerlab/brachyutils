@@ -1477,53 +1477,29 @@ def generate_sphere_mask(
         - name: str := the name of the sphere mask.
     Outputs:
         - mask_opentps: ROIMask := the generated sphere mask.
-    """
-    # raise NotImplementedError("This function is not implemented yet.")
-    sphereSource = vtk.vtkSphereSource()
-    sphereSource.SetCenter(center)
-    sphereSource.SetRadius(radius)
-    sphereSource.SetThetaResolution(25)
-    sphereSource.SetPhiResolution(25)
-    sphereSource.Update()
-    polyData = sphereSource.GetOutput()
-
-    # Create a white image
-    white_image = vtk.vtkImageData()
-    white_image.SetDimensions(gridSize[0], gridSize[1], gridSize[2])
-    white_image.SetExtent(0, gridSize[0] - 1, 0, gridSize[1] - 1, 0, gridSize[2] - 1)
-    white_image.SetSpacing(spacing[0], spacing[1], spacing[2])
-    white_image.SetOrigin(origin[0], origin[1], origin[2])
-    white_image.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
-
-    # Fill the image with foreground voxels
-    for i in range(white_image.GetNumberOfPoints()):
-        white_image.GetPointData().GetScalars().SetTuple1(i, 1)
-
-    # Create a stencil from the polydata
-    pol2stenc = vtk.vtkPolyDataToImageStencil()
-    pol2stenc.SetInputData(polyData)
-    pol2stenc.SetOutputOrigin(white_image.GetOrigin())
-    pol2stenc.SetOutputSpacing(white_image.GetSpacing())
-    pol2stenc.SetOutputWholeExtent(white_image.GetExtent())
-    pol2stenc.Update()
-
-    # Cut the image with the stencil
-    stencil = vtk.vtkImageStencil()
-    stencil.SetInputData(white_image)
-    stencil.SetStencilData(pol2stenc.GetOutput())
-    stencil.ReverseStencilOff()
-    stencil.SetBackgroundValue(0)
-    stencil.Update()
-
-    # Extract numpy array
-    vtk_image = stencil.GetOutput()
-    scalars = vtk_image.GetPointData().GetScalars()
-    mask3D = numpy_support.vtk_to_numpy(scalars).reshape(gridSize[::-1])
+    """ 
+    center = np.array(center, dtype=float)
+    spacing = np.array(spacing, dtype=float)
+    origin = np.array(origin, dtype=float)
+    
+    # create coordiante grid using meshgrid
+    x = np.arange(gridSize[0]) * spacing[0] + origin[0]
+    y = np.arange(gridSize[1]) * spacing[1] + origin[1]
+    z = np.arange(gridSize[2]) * spacing[2] + origin[2]
+    
+    # meshgrid to ij indexing
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+    
+    # Vectorized distance calculation
+    distance_squared = (X - center[0])**2 + (Y - center[1])**2 + (Z - center[2])**2
+    mask3D = (distance_squared <= radius**2).astype(np.uint8)
+    
+    
     mask_opentps = ROIMask(
-        imageArray=mask3D.swapaxes(0, 2),
+        imageArray=mask3D,
         name=name,
-        origin=origin,
-        spacing=spacing,
+        origin=origin.tolist(),
+        spacing=spacing.tolist(),
     )
     return mask_opentps
 
