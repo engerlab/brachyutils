@@ -1533,6 +1533,7 @@ def get_contour_from_polygon_mesh(
     ) -> ROIContour:
     r"""
     """
+    raise DeprecationWarning("this function is no longer needed")
     # extract verticies
     points = polygon_data.GetPoints()
     num_points = points.GetNumberOfPoints()
