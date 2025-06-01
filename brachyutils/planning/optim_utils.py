@@ -281,28 +281,26 @@ class DwellTimeOptimizer(BaseModel):
     ) -> Callable:
         r"""
         ### Purpose:
-        - A function to get the penalty function from the plan. The goal for the voxels inside the
-        target volume is to reach the prescribed dose. the goal for the voxels in organs at risk is to
-        reach zero. The dose rate maps are normalized by the prescribed dose by default. Only voxels
-        that are close to the furthest dwell positions are considered.
+        - A function to set up the optimization model's objective function and constraints based on the plan.
+        For target structures, slack variables are added to ensure doses meet target goals with linear and quadratic 
+        penalties for underdosing, plus uniformity penalties. For OARs, slack variables with linear and quadratic
+        penalties penalize overdosing above the target dose.
 
-        P = (1/prescribed_dose) * sum( p_linear_i(target) + p_quad_i(target) + p_hotspot_i(target))
-            + sum( p_linear_i(oar) )
+        The objective function takes the form:
 
-        where   p_linear_i(target) = dose_i - prescribed_dose_i if dose_i > prescribed_dose_i for i in all target volume voxels
-                p_linear_i(oar) = dose_i for i in all oar voxels
-                p_quad_i = (p_linear)^2
-                p_hotspot_i = abs( mean(dose_i) - 2*prescribed_dose_i) if mean(dose_i) > 1.5*prescribed_dose_i
-                dose_i := dose_rate_map_i * dwell_time_i
-
+        minimize sum(weights * penalties) where penalties include:
+        - Linear penalties for over/under dosing relative to target dose
+        - Quadratic penalties for over/under dosing 
+        - Uniformity penalties for target volumes
+        - Hotspot penalties (not implemented yet)
+        
         ### Inputs:
-        - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position,
-        a target volume defined, and the dose rate maps loaded.
-        - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
-        - model:Model := The model object. Default is None.
+        - plan: BrachyPlan := The plan containing structures and optimization configs
+        - dwellTimeVariables: List[DwellTimeVariable] := The dwell time variables to optimize
+        - model: Model := The Gurobi optimization model
+
         ### Outputs:
-        - penalty_function:Callable := A function that states how good a set of dwellTimeVariables are.
-        The penalty function is a function of the dose rate maps and the prescribed dose.
+        None - sets up the model objective function and constraints directly
         """
         penalty_terms = {
             "linear":0,
