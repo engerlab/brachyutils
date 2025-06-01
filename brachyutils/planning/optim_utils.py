@@ -17,12 +17,18 @@ class Optimization_Config(BaseModel):
     When loading the plan the optimization config is created for each structure in the plan.structure_list.
 
     ### Attributes:
-    - structure_name
-    - dose_voxel_goal
-    - penalty_weight_linear
-    - penalty_weight_quadratic
-    - mask_margin_mm
-    - spacing_mm
+    - structure_name: str := The name of the structure to which this optimization config applies.
+    - spacing_mm: List[float] | float := The spacing of the optimization grid in mm. 
+    - dose_voxel_goal: float := The dose goal for the structure in Gy.
+    - penalty_weight_linear: float := Weight for linear penalty term in objective function. Default 1.
+    - penalty_weight_quadratic: float := Weight for quadratic penalty term. Default 1.
+    - penalty_weight_hotspot: float := Weight for hotspot penalty term. Default 0.
+    - hotspot_threshold: float := If the average dose to the hot spot estimator volume goes above (target_dose * hotspot_threshold),
+    penalty will be calculated for that hot spot estimator volume. Default 0.
+    - penalty_weight_uniformity: float := Weight for dose uniformity penalty. Default 1.
+    - mask_margin_mm: List[float] | float := Margin around structure for optimization in mm. Default 0.
+    - min_dose: float := Minimum allowed dose in Gy. Default 0.
+    - max_dose: float := Maximum allowed dose in Gy. Default 500.
     """
     structure_name:str = None
     spacing_mm:float | List[float]= None
@@ -30,6 +36,7 @@ class Optimization_Config(BaseModel):
     penalty_weight_linear:float = 1
     penalty_weight_quadratic:float = 1
     penalty_weight_hotspot:float = 0
+    hotspot_threshold:float = 0
     penalty_weight_uniformity:float = 1
     mask_margin_mm:float | List[float]= 0
     min_dose:float = 0
