@@ -354,7 +354,6 @@ class BrachyPhantom:
                         origin=self.image_obj.origin,
                         gridSize=self.image_obj.gridSize,
                         spacing=self.image_obj.spacing,
-                        useVTK=useVTK,
                     )
                     if not np.any(mask.imageArray):
                         warnings.warn(

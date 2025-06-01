@@ -312,9 +312,6 @@ class DwellTimeOptimizer(BaseModel):
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
-            # for now, skip the hotspot estimator structures
-            if "hotspot_estimator" in structure.name.lower():
-                continue
 
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
@@ -328,7 +325,14 @@ class DwellTimeOptimizer(BaseModel):
             w = model.addVar(name=f"linear_weight_{structure.name}", vtype=GRB.CONTINUOUS)
             model.addConstr(w == linear_weight, name=f"linear_weight_{structure.name}")
             dose = 0
+
             for variable in dwellTimeVariables:
+                # when in a hotspot estimator structure, only use the dose rate maps
+                # of the relavent dwell time variables.
+                if "hotspot_estimator:" in structure.name.lower():
+                    relavant_dwells = structure.name.lower().split("hotspot_estimator:")[1].split("/")
+                    if variable.name not in relavant_dwells:
+                        continue
                 cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
                     dose_rate_map=variable.dose_rate_map,
                     template_dose_obj=plan.combined_dose,
@@ -336,13 +340,16 @@ class DwellTimeOptimizer(BaseModel):
                     structure_mask=structure_mask,
                     optim_spacing=optim_spacing
                 )
-                dose += variable.model_variable * cropped_resampled_dose_rate_map
-
-            dose = dose.flatten()
-            num_dose_points = dose.shape[0]
+                dose += variable.model_variable * cropped_resampled_dose_rate_map[
+                    cropped_resampled_dose_rate_map>0
+                    ]
+            num_dose_points = cropped_resampled_dose_rate_map[
+                    cropped_resampled_dose_rate_map>0
+                    ].size
             num_dose_points_dict[structure.name] = num_dose_points
-            if num_dose_points == 0:
+            if num_dose_points_dict[structure.name] == 0:
                 continue
+            dose = dose.flatten()
             for i, d in enumerate(dose):
                 if structure.target_volume:
                     # slack variable for dose value
@@ -361,6 +368,16 @@ class DwellTimeOptimizer(BaseModel):
                     )
                     penalty_terms["uniformity"] += (
                         (uniformity_weight / (num_dose_points*1000)) * y * y
+                    )
+                elif "hotspot_estimator" in structure.name.lower():
+                    # hotspot penalty term
+                    x = model.addVar(0, structure_max_dose, name=f"hotspot_penalty_var_{i}")
+                    model.addConstr(
+                        x >= d - (target_dose * structure.optimization_config.hotspot_threshold),
+                        name=f"hotspot_penalty_constr_{i}"
+                    )
+                    penalty_terms["hotspot"] += (
+                        (structure.optimization_config.penalty_weight_hotspot / num_dose_points) * x
                     )
                 else:
                     x = model.addVar(0, structure_max_dose-target_dose, name=f"dose_slack_var_{i}")
@@ -451,6 +468,13 @@ def crop_mask_resample_dose_rate_map(
     - A function to crop the dose rate map to the roi bounds, mask it by the structure mask
     and resample it to the optimization spacing.
     ### Inputs:
+    - dose_rate_map: np.ndarray := The dose rate map to be cropped and resampled.
+    - template_dose_obj: BrachyDose := The template dose object to use for cropping and resampling.
+    - roi_bounds: List[List[float]] := The bounds of the region of interest (roi) to crop the dose rate map.
+    - structure_mask: ROIMask | ROIContour := The structure mask to apply to the dose rate map.
+    - optim_spacing: List[float] := The spacing of the optimization grid in mm.
+    ### Outputs:
+    - np.ndarray := The cropped, masked and resampled dose rate map.
     """
     from opentps.core.processing.imageProcessing.resampler3D import (
         crop3DDataAroundBox, resampleImage3DOnImage3D, resample
@@ -485,4 +509,4 @@ def crop_mask_resample_dose_rate_map(
         masked_dose_rate_obj.dose_image,
         spacing = optim_spacing,
         inPlace=True)
-    return masked_dose_rate_obj.dose_image.imageArray
+    return masked_dose_rate_obj.get_dose_array().astype(float)
