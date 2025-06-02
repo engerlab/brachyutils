@@ -71,6 +71,7 @@ def test_run_optim():
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     print(optimized_plan.get_dvh_metrics())
     print(optimized_plan.dwell_times)
+
 if __name__ == "__main__":
     # test_DwellTimeVariable()
     # test_get_optimization_roi_bounds()
