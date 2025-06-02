@@ -322,7 +322,8 @@ class DwellTimeOptimizer(BaseModel):
             uniformity_weight = structure.optimization_config.penalty_weight_uniformity
             min_dose = structure.optimization_config.min_dose
             structure_max_dose = structure.optimization_config.max_dose
-
+            hotspot_threshold = structure.optimization_config.hotspot_threshold
+            hotspot_weight = structure.optimization_config.penalty_weight_hotspot
             # Build dose rate matrix and dwell time vector for this structure
             dose_rate_matrices = []
             dwell_vars = []
@@ -353,12 +354,13 @@ class DwellTimeOptimizer(BaseModel):
             # Stack dose rate matrices to create A matrix
             A = np.column_stack(dose_rate_matrices)  # Shape: (num_dose_points, num_variables)
             num_dose_points = A.shape[0]
-
             if num_dose_points == 0:
                 continue
-    
-            # Calculate dose vector: dose = A @ dwell_times
-            # This replaces the inner loop over dose points
+            # Convert A to sparse matrix
+            A_sparse = sp.csr_matrix(A)
+            # Create target dose vector
+            target_dose_vec = np.full(num_dose_points, target_dose)
+
             if structure.target_volume:
                 # Target volume constraints and penalties
                 # Create slack variables for underdosing
@@ -376,12 +378,7 @@ class DwellTimeOptimizer(BaseModel):
                     ub=target_dose - min_dose,
                     name=f"uniform_slack_{structure.name}"
                 )
-
-                # Convert A to sparse matrix for efficiency
-                A_sparse = sp.csr_matrix(A)
-
                 # Dose constraints: A @ dwell_times + x_slack >= target_dose
-                target_dose_vec = np.full(num_dose_points, target_dose)
                 model.addConstr(
                     A_sparse @ t_MVar + x_slack >= target_dose_vec,
                     name=f"dose_target_{structure.name}"
@@ -389,7 +386,7 @@ class DwellTimeOptimizer(BaseModel):
 
                 # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
                 model.addConstr(
-                    A_sparse @ t_MVar + y_uniform == target_dose_vec,# - y_uniform,
+                    A_sparse @ t_MVar + y_uniform == target_dose_vec,
                     name=f"dose_uniform_{structure.name}"
                 )
 
@@ -405,9 +402,23 @@ class DwellTimeOptimizer(BaseModel):
                 # Uniformity penalty: sum(uniformity_weight_vec * y_uniform * y_uniform)
                 penalty_terms["uniformity"] += uniformity_weight_vec @ (y_uniform * y_uniform)
 
+            elif "hotspot_estimator:" in structure.name.lower():
+                # slack variable for hotspot estimator
+                x_slack = model.addMVar(
+                    shape=num_dose_points,
+                    lb=0.0,
+                    ub=hotspot_threshold * target_dose - min_dose,
+                    name=f"hotspot_slack_{structure.name}"
+                )
+                # Hotspot estimator constraints
+                model.addConstr(
+                    A_sparse @ t_MVar - x_slack <= hotspot_threshold * target_dose_vec,
+                )
+                hotspot_weight_vec = np.full(num_dose_points, hotspot_weight / num_dose_points)
+                penalty_terms["hotspot"] += (hotspot_weight_vec @ x_slack)
+
             else:
                 # OAR (Organ at Risk) constraints and penalties
-
                 # Create slack variables for overdosing
                 x_slack = model.addMVar(
                     shape=num_dose_points,
@@ -415,12 +426,7 @@ class DwellTimeOptimizer(BaseModel):
                     ub=structure_max_dose - target_dose,
                     name=f"oar_slack_{structure.name}"
                 )
-
-                # Convert A to sparse matrix
-                A_sparse = sp.csr_matrix(A)
-
                 # Dose constraints: A @ dwell_times - x_slack <= target_dose
-                target_dose_vec = np.full(num_dose_points, target_dose)
                 model.addConstr(
                     A_sparse @ t_MVar - x_slack <= target_dose_vec,
                     name=f"dose_oar_{structure.name}"
@@ -435,7 +441,10 @@ class DwellTimeOptimizer(BaseModel):
 
         # Set objective function
         model.setObjective(
-            penalty_terms["linear"] + penalty_terms["quadratic"] + penalty_terms["uniformity"],
+            penalty_terms["linear"]
+            + penalty_terms["quadratic"]
+            + penalty_terms["uniformity"]
+            + penalty_terms["hotspot"],
             GRB.MINIMIZE
         )
         model.update()
