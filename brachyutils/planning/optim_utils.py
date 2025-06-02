@@ -348,7 +348,7 @@ class DwellTimeOptimizer(BaseModel):
 
             if not dose_rate_matrices:
                 continue
-            
+
             # conver the list of varaibles to a Gurobi variable Vector (MVar)
             t_MVar = MVar.fromlist(dwell_vars)
             # Stack dose rate matrices to create A matrix
