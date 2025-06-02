@@ -38,7 +38,9 @@ def test_run_optim():
         Optimization_Config(
             structure_name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
-            penalty_weight_linear=1,
+            penalty_weight_linear=300,
+            # penalty_weight_hotspot=1,
+            # hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -55,7 +57,6 @@ def test_run_optim():
             spacing_mm=3
         )
     ]
-
     plan_obj = load_dicom_to_plan(
         dir_dicom=pth_dicom,
         load_dicom_dose=False,
@@ -69,6 +70,7 @@ def test_run_optim():
     optim_obj = DwellTimeOptimizer(plan=plan_obj)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     print(optimized_plan.get_dvh_metrics())
+    print(optimized_plan.dwell_times)
 
 if __name__ == "__main__":
     # test_DwellTimeVariable()

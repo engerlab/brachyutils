@@ -7,7 +7,7 @@ import numpy as np
 from pathlib import Path
 from opentps.core.data.images import ROIMask
 from opentps.core.data import ROIContour
-from gurobipy import Model, Var, GRB, Constr
+from gurobipy import Model, Var, GRB, MConstr, MVar
 # from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.types import BrachyPlan
 class Optimization_Config(BaseModel):
@@ -17,12 +17,18 @@ class Optimization_Config(BaseModel):
     When loading the plan the optimization config is created for each structure in the plan.structure_list.
 
     ### Attributes:
-    - structure_name
-    - dose_voxel_goal
-    - penalty_weight_linear
-    - penalty_weight_quadratic
-    - mask_margin_mm
-    - spacing_mm
+    - structure_name: str := The name of the structure to which this optimization config applies.
+    - spacing_mm: List[float] | float := The spacing of the optimization grid in mm. 
+    - dose_voxel_goal: float := The dose goal for the structure in Gy.
+    - penalty_weight_linear: float := Weight for linear penalty term in objective function. Default 1.
+    - penalty_weight_quadratic: float := Weight for quadratic penalty term. Default 1.
+    - penalty_weight_hotspot: float := Weight for hotspot penalty term. Default 0.
+    - hotspot_threshold: float := If the average dose to the hot spot estimator volume goes above (target_dose * hotspot_threshold),
+    penalty will be calculated for that hot spot estimator volume. Default 0.
+    - penalty_weight_uniformity: float := Weight for dose uniformity penalty. Default 1.
+    - mask_margin_mm: List[float] | float := Margin around structure for optimization in mm. Default 0.
+    - min_dose: float := Minimum allowed dose in Gy. Default 0.
+    - max_dose: float := Maximum allowed dose in Gy. Default 500.
     """
     structure_name:str = None
     spacing_mm:float | List[float]= None
@@ -30,6 +36,7 @@ class Optimization_Config(BaseModel):
     penalty_weight_linear:float = 1
     penalty_weight_quadratic:float = 1
     penalty_weight_hotspot:float = 0
+    hotspot_threshold:float = 0
     penalty_weight_uniformity:float = 1
     mask_margin_mm:float | List[float]= 0
     min_dose:float = 0
@@ -274,36 +281,35 @@ class DwellTimeOptimizer(BaseModel):
     ) -> Callable:
         r"""
         ### Purpose:
-        - A function to get the penalty function from the plan. The goal for the voxels inside the
-        target volume is to reach the prescribed dose. the goal for the voxels in organs at risk is to
-        reach zero. The dose rate maps are normalized by the prescribed dose by default. Only voxels
-        that are close to the furthest dwell positions are considered.
+        - A function to set up the optimization model's objective function and constraints based on the plan.
+        For target structures, slack variables are added to ensure doses meet target goals with linear and quadratic 
+        penalties for underdosing, plus uniformity penalties. For OARs, slack variables with linear and quadratic
+        penalties penalize overdosing above the target dose.
 
-        P = (1/prescribed_dose) * sum( p_linear_i(target) + p_quad_i(target) + p_hotspot_i(target))
-            + sum( p_linear_i(oar) )
+        The objective function takes the form:
 
-        where   p_linear_i(target) = dose_i - prescribed_dose_i if dose_i > prescribed_dose_i for i in all target volume voxels
-                p_linear_i(oar) = dose_i for i in all oar voxels
-                p_quad_i = (p_linear)^2
-                p_hotspot_i = abs( mean(dose_i) - 2*prescribed_dose_i) if mean(dose_i) > 1.5*prescribed_dose_i
-                dose_i := dose_rate_map_i * dwell_time_i
-
+        minimize sum(weights * penalties) where penalties include:
+        - Linear penalties for over/under dosing relative to target dose
+        - Quadratic penalties for over/under dosing 
+        - Uniformity penalties for target volumes
+        - Hotspot penalties (not implemented yet)
+        
         ### Inputs:
-        - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position,
-        a target volume defined, and the dose rate maps loaded.
-        - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
-        - model:Model := The model object. Default is None.
+        - plan: BrachyPlan := The plan containing structures and optimization configs
+        - dwellTimeVariables: List[DwellTimeVariable] := The dwell time variables to optimize
+        - model: Model := The Gurobi optimization model
+
         ### Outputs:
-        - penalty_function:Callable := A function that states how good a set of dwellTimeVariables are.
-        The penalty function is a function of the dose rate maps and the prescribed dose.
+        None - sets up the model objective function and constraints directly
         """
+        from scipy import sparse as sp
         penalty_terms = {
-            "linear":0,
-            "quadratic":0,
-            "hotspot":0,
-            "uniformity":0,
+        "linear": 0,
+        "quadratic": 0,
+        "hotspot": 0,
+        "uniformity": 0
         }
-        num_dose_points_dict = {}
+    
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
@@ -317,10 +323,15 @@ class DwellTimeOptimizer(BaseModel):
             min_dose = structure.optimization_config.min_dose
             structure_max_dose = structure.optimization_config.max_dose
 
-            w = model.addVar(name=f"linear_weight_{structure.name}", vtype=GRB.CONTINUOUS)
-            model.addConstr(w == linear_weight, name=f"linear_weight_{structure.name}")
-            dose = 0
+            # Build dose rate matrix and dwell time vector for this structure
+            dose_rate_matrices = []
+            dwell_vars = []
             for variable in dwellTimeVariables:
+                if "hotspot_estimator:" in structure.name.lower():
+                    relevant_dwells = structure.name.lower().split("hotspot_estimator:")[1].split("/")
+                    if variable.name not in relevant_dwells:
+                        continue
+                dwell_vars.append(variable.model_variable)
                 cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
                     dose_rate_map=variable.dose_rate_map,
                     template_dose_obj=plan.combined_dose,
@@ -328,51 +339,103 @@ class DwellTimeOptimizer(BaseModel):
                     structure_mask=structure_mask,
                     optim_spacing=optim_spacing
                 )
-                dose += variable.model_variable * cropped_resampled_dose_rate_map
+                # Extract valid dose points and flatten
+                valid_dose_points = cropped_resampled_dose_rate_map[
+                    cropped_resampled_dose_rate_map > 0
+                ].flatten()
+                dose_rate_matrices.append(valid_dose_points)
 
-            dose = dose.flatten()
-            num_dose_points = dose.shape[0]
-            num_dose_points_dict[structure.name] = num_dose_points
+            if not dose_rate_matrices:
+                continue
+            
+            # conver the list of varaibles to a Gurobi variable Vector (MVar)
+            t_MVar = MVar.fromlist(dwell_vars)
+            # Stack dose rate matrices to create A matrix
+            A = np.column_stack(dose_rate_matrices)  # Shape: (num_dose_points, num_variables)
+            num_dose_points = A.shape[0]
+
             if num_dose_points == 0:
                 continue
-            for i, d in enumerate(dose):
-                if structure.target_volume:
-                    # slack variable for dose value
-                    x = model.addVar(0, target_dose-min_dose, name=f"dose_slack_var_{i}")
-                    model.addConstr(d + x >= target_dose,
-                    name=f"dose_{structure.name}_slack_linear_constr_{i}")
-                    # slack variable for dose uniformity
-                    y = model.addVar(-GRB.INFINITY, target_dose-min_dose)
-                    model.addConstr(d + y == target_dose,
-                    name=f"dose_{structure.name}_slack_uniform_constr_{i}")
-                    penalty_terms["linear"] += (
-                        (linear_weight / num_dose_points) * x
-                    )
-                    penalty_terms["quadratic"] += (
-                        ( quadratic_weight/ num_dose_points) * x * x
-                    )
-                    # penalty_terms["hotspot"] += ()
-                    penalty_terms["uniformity"] += (
-                        (uniformity_weight / (num_dose_points*1000)) * y * y
-                    )
-                else:
-                    x = model.addVar(0, structure_max_dose-target_dose, name=f"dose_slack_var_{i}")
-                    model.addConstr(d - x <= target_dose,
-                    name=f"dose_{structure.name}_slack_linear_constr_{i}")
-                    penalty_terms["linear"] += (
-                        (linear_weight / num_dose_points) * x                        
-                    )
-                    penalty_terms["quadratic"] += (
-                        (quadratic_weight / num_dose_points) * x * x
-                    )
+    
+            # Calculate dose vector: dose = A @ dwell_times
+            # This replaces the inner loop over dose points
+            if structure.target_volume:
+                # Target volume constraints and penalties
+                # Create slack variables for underdosing
+                x_slack = model.addMVar(
+                    shape=num_dose_points,
+                    lb=0.0,
+                    ub=target_dose - min_dose,
+                    name=f"dose_slack_{structure.name}"
+                )
 
+                # Create slack variables for uniformity
+                y_uniform = model.addMVar(
+                    shape=num_dose_points,
+                    lb=-GRB.INFINITY,
+                    ub=target_dose - min_dose,
+                    name=f"uniform_slack_{structure.name}"
+                )
+
+                # Convert A to sparse matrix for efficiency
+                A_sparse = sp.csr_matrix(A)
+
+                # Dose constraints: A @ dwell_times + x_slack >= target_dose
+                target_dose_vec = np.full(num_dose_points, target_dose)
+                model.addConstr(
+                    A_sparse @ t_MVar + x_slack >= target_dose_vec,
+                    name=f"dose_target_{structure.name}"
+                )
+
+                # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
+                model.addConstr(
+                    A_sparse @ t_MVar + y_uniform == target_dose_vec,# - y_uniform,
+                    name=f"dose_uniform_{structure.name}"
+                )
+
+                # Add penalty terms using matrix operations
+                linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
+                quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                uniformity_weight_vec = np.full(num_dose_points, uniformity_weight / (num_dose_points * 1000))
+
+                # Linear penalty: sum(linear_weight_vec @ x_slack)
+                penalty_terms["linear"] += linear_weight_vec @ x_slack
+                # Quadratic penalty: sum(quadratic_weight_vec * x_slack * x_slack)
+                penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
+                # Uniformity penalty: sum(uniformity_weight_vec * y_uniform * y_uniform)
+                penalty_terms["uniformity"] += uniformity_weight_vec @ (y_uniform * y_uniform)
+
+            else:
+                # OAR (Organ at Risk) constraints and penalties
+
+                # Create slack variables for overdosing
+                x_slack = model.addMVar(
+                    shape=num_dose_points,
+                    lb=0.0,
+                    ub=structure_max_dose - target_dose,
+                    name=f"oar_slack_{structure.name}"
+                )
+
+                # Convert A to sparse matrix
+                A_sparse = sp.csr_matrix(A)
+
+                # Dose constraints: A @ dwell_times - x_slack <= target_dose
+                target_dose_vec = np.full(num_dose_points, target_dose)
+                model.addConstr(
+                    A_sparse @ t_MVar - x_slack <= target_dose_vec,
+                    name=f"dose_oar_{structure.name}"
+                )
+
+                # Add penalty terms
+                linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
+                quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                
+                penalty_terms["linear"] += linear_weight_vec @ x_slack
+                penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
+
+        # Set objective function
         model.setObjective(
-            (
-                penalty_terms["linear"]
-                + penalty_terms["quadratic"]
-                # + penalty_terms["hotspot"]
-                + penalty_terms["uniformity"]
-            ),
+            penalty_terms["linear"] + penalty_terms["quadratic"] + penalty_terms["uniformity"],
             GRB.MINIMIZE
         )
         model.update()
@@ -444,6 +507,13 @@ def crop_mask_resample_dose_rate_map(
     - A function to crop the dose rate map to the roi bounds, mask it by the structure mask
     and resample it to the optimization spacing.
     ### Inputs:
+    - dose_rate_map: np.ndarray := The dose rate map to be cropped and resampled.
+    - template_dose_obj: BrachyDose := The template dose object to use for cropping and resampling.
+    - roi_bounds: List[List[float]] := The bounds of the region of interest (roi) to crop the dose rate map.
+    - structure_mask: ROIMask | ROIContour := The structure mask to apply to the dose rate map.
+    - optim_spacing: List[float] := The spacing of the optimization grid in mm.
+    ### Outputs:
+    - np.ndarray := The cropped, masked and resampled dose rate map.
     """
     from opentps.core.processing.imageProcessing.resampler3D import (
         crop3DDataAroundBox, resampleImage3DOnImage3D, resample
@@ -478,4 +548,4 @@ def crop_mask_resample_dose_rate_map(
         masked_dose_rate_obj.dose_image,
         spacing = optim_spacing,
         inPlace=True)
-    return masked_dose_rate_obj.dose_image.imageArray
+    return masked_dose_rate_obj.get_dose_array().astype(float)

@@ -24,25 +24,27 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
     writeDicomCT,
     writeRTStruct,
 )
+import vtk
+from vtk.util import numpy_support
 
 class BrachyPhantom:
     r"""
-    Puprose:
-        - A class to load any voxelized geometry related to an HDR brachytherapy patient or phantom
+    ### Puprose:
+    - A class to load any voxelized geometry related to an HDR brachytherapy patient or phantom
         and perform some operations.
-    Attributes:
-        - pth_image: Path := the path of the geometry source file or files.
-        - image_obj: CTImage or MRImage := the image of the patient loaded by openTPS. [x, y, z]
-        - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
-        - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
-        Other names for structure are contours, masks, segmentations.
-        - structure_names: List[str] := the names of the structures in the dicom file.
-        - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
-        - xyz_format: bool := the format of the image. if True, the image is in [z, y, x] format.
-        - orientation: Literal["LAS", "RAS", "LPS"] := the orientation of the image. default is LPS, same as 
-        DICOM and slicer.
-    Dependencies:
-        - openTPS.core
+    ### Attributes:
+    - pth_image: Path := the path of the geometry source file or files.
+    - image_obj: CTImage or MRImage := the image of the patient loaded by openTPS. [x, y, z]
+    - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
+    - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
+    Other names for structure are contours, masks, segmentations.
+    - structure_names: List[str] := the names of the structures in the dicom file.
+    - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
+    - xyz_format: bool := the format of the image. if True, the image is in [z, y, x] format.
+    - orientation: Literal["LAS", "RAS", "LPS"] := the orientation of the image. default is LPS, same as 
+    DICOM and slicer.
+    ### Dependencies:
+    - openTPS.core
     """
 
     def __init__(
@@ -53,22 +55,22 @@ class BrachyPhantom:
         pth_egsphant_file: Optional[Path] = None,
     ) -> None:
         r"""
-        Purpose:
-            - Initialize the BrachyPhantom class based on the input path. The input path can be either
-            the directory of the DICOM files or the path of the phantom file (in .nrrd). The structures file
-            is optional. It is also possible to load the structures only without a phantom file. in that case,
-            an empty image_obj is created with the dimensions matching the structures file.
-        Inputs:
-            - dir_dicom: Path := the directory of the DICOM files.
-            - pth_phantom_file: Path := the path of the phantom .nrrd file.
-            - pth_structures_file: Path := the path of the structure file.
-            - pth_egsphant_file: Path := the path of the Egsphant file to be loaded.
-            note that it is possible to generate an Egsphant from BrachyPhantom object.
-        Outputs:
-            - None
-        Dependencies:
-            - openTPS.core
-            - BrachyEgsphant
+        ### Purpose:
+        - Initialize the BrachyPhantom class based on the input path. The input path can be either
+        the directory of the DICOM files or the path of the phantom file (in .nrrd). The structures file
+        is optional. It is also possible to load the structures only without a phantom file. in that case,
+        an empty image_obj is created with the dimensions matching the structures file.
+        ### Inputs:
+        - dir_dicom: Path := the directory of the DICOM files.
+        - pth_phantom_file: Path := the path of the phantom .nrrd file.
+        - pth_structures_file: Path := the path of the structure file.
+        - pth_egsphant_file: Path := the path of the Egsphant file to be loaded.
+        note that it is possible to generate an Egsphant from BrachyPhantom object.
+        ### Outputs:
+        - None
+        ### Dependencies:
+        - openTPS.core
+        - BrachyEgsphant
         """
         if dir_dicom is not None and pth_phantom_file is not None:
             raise ValueError(
@@ -302,10 +304,8 @@ class BrachyPhantom:
         if self.anatomical_coordinate_system is None:
             self.anatomical_coordinate_system = structure_orientation
         else:
-            assert (
-                self.anatomical_coordinate_system == structure_orientation, 
+            assert (self.anatomical_coordinate_system == structure_orientation), \
                 "The orientation of the structure file is not the same as the image file."
-            )
 
         self.set_structure_set(structure_mask_dict)
 
@@ -317,21 +317,23 @@ class BrachyPhantom:
         self,
         query_structure_list: List[str],
         mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
+        useVTK: bool = False,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
-        Purpose:
-            To return a dictionary with the requested structure masks from BrachyPhantom object. The queried
-            structure string should be a subset of the structure string in the dicom file. For example,
-            if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
-            The keys in the dictionary match the query_structure_list and the values are the masks.
-        Inputs:
-            - query_structure_list := list of structure names to find the mask of.
-            - mask_type: Union[np.ndarray, ROIContour, ROIMask] := the type of the mask to return.
-             if np.ndarray, the mask will be returned as a numpy array in [z, y, x] format.
-             if ROIContour, the mask will be returned as a ROIContour object in [x, y, z] format.
-             if ROIMask, the mask will be returned as a ROIMask object in [x, y, z] format.
-        Outputs:
-            - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
+        ### Purpose:
+        - To return a dictionary with the requested structure masks from BrachyPhantom object. The queried
+        structure string should be a subset of the structure string in the dicom file. For example,
+        if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
+        The keys in the dictionary match the query_structure_list and the values are the masks.
+        ### Inputs:
+        - query_structure_list := list of structure names to find the mask of.
+        - mask_type: Union[np.ndarray, ROIContour, ROIMask] := the type of the mask to return.
+            if np.ndarray, the mask will be returned as a numpy array in [z, y, x] format.
+            if ROIContour, the mask will be returned as a ROIContour object in [x, y, z] format.
+            if ROIMask, the mask will be returned as a ROIMask object in [x, y, z] format.
+        - useVTK: bool := use this if the contour was generated using VTK. it matters when getBinaryMask() is called.
+        ### Outputs:
+        - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
         assert (
             self.structure_set is not None
@@ -547,37 +549,19 @@ class BrachyPhantom:
         assert (
             os.path.splitext(pth_output)[-1] == ".nrrd"
         ), "the file should have '.nrrd' extension"
-        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
-        from collections import defaultdict
-        
-        image_array_zyx = self.get_image_array().astype(float)
-        header = defaultdict(str)
-        header["type"] = "double"
-        # header["space dimension"] = "3"
-        header["space"] = self.anatomical_coordinate_system
-        header["sizes"] = (
-            " ".join(map(str, self.image_obj.gridSize.tolist()))
+        imageToNrrd(
+            image_obj=self.image_obj,
+            pth_output=pth_output,
+            anatomical_coordinate_system=self.anatomical_coordinate_system,
+            modality=self.image_modality,
+            metadata=metadata,
         )
-        header["space directions"] = [
-            [self.image_obj.spacing[0], 0.0, 0.0],
-            [0.0, self.image_obj.spacing[1], 0.0],
-            [0.0, 0.0, self.image_obj.spacing[2]],
-        ]
-        header["kinds"] = ["space", "space", "space"]
-        header["labels"] = ["x", "y", "z"]
-        header["endian"] = "little"
-        header["encoding"] = "gzip"
-        header["space origin"] = self.image_obj.origin.tolist()
-        header["voxel spacing"] = self.image_obj.spacing.tolist()
-        header["space units"] = ["mm", "mm", "mm"]
-        header["modality"] = self.image_modality
-        header = header | metadata if metadata is not None else header
-        nrrd.write(str(pth_output), image_array_zyx, header, index_order="C")
 
     def write_structures_to_nrrd(
         self,
         pth_output: Path,
         overlap: Optional[bool] = True,
+        representation: Literal["contour", "mask"] = "mask",
         metadata: Optional[Dict[str, str]] = None,
     ) -> None:
         r"""
@@ -595,92 +579,24 @@ class BrachyPhantom:
         Dependencies:
             - pynrrd
         """
-        assert (
-            os.path.splitext(pth_output)[-1] == ".nrrd"
-        ), "the file should have '.nrrd' extension"
-        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
-        structure_mask_dict: dict = self.get_structure_mask(
-            self.structure_names, mask_type=np.ndarray
-        )
-
-        if not overlap:
-
-            # this removes overlap
-            sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
-            all_masks = _convert_many_binary_masks_to_1_int_mask(
-                sorted_by_size
+        if representation == "mask":
+            structure_mask_dict: Dict[str, ROIMask] = self.get_structure_mask(
+                self.structure_names, mask_type=ROIMask
             )
-            from collections import defaultdict
-            # # Generic phantom meta data
-            header = defaultdict(str)
-            header["type"] = "double"
-            # header["space dimension"] = "3"
-            header["space"] = self.anatomical_coordinate_system
-            header["sizes"] = (
-                " ".join(map(str, self.image_obj.gridSize.tolist()))
+            masksToNrrd(
+                structure_mask_dict=structure_mask_dict,
+                pth_output=pth_output,
+                overlap=overlap,
+                metadata=metadata,
             )
-            header["space directions"] = [
-                [self.image_obj.spacing[0], 0.0, 0.0],
-                [0.0, self.image_obj.spacing[1], 0.0],
-                [0.0, 0.0, self.image_obj.spacing[2]],
-            ]
-            header["kinds"] = ["space", "space", "space"]
-            header["labels"] = ["x", "y", "z"]
-            header["endian"] = "little"
-            header["encoding"] = "gzip"
-            header["space origin"] = self.image_obj.origin.tolist()
-            header["voxel spacing"] = self.image_obj.spacing.tolist()
-            header["space units"] = ["mm", "mm", "mm"]
-  
+        elif representation == "contour":
+            raise NotImplementedError(
+                "Writing structures to nrrd in contour representation is not implemented yet."
+            )
         else:
-            # stack up all the masks
-            sorted_by_size = _sort_segementation_dict_by_size(structure_mask_dict)
-            all_masks = np.stack(list(sorted_by_size.values()), axis=3).astype(np.uint8)
-            from collections import defaultdict
-            # # Generic phantom meta data
-            header = defaultdict(str)
-            header["type"] = "unsigned char"
-            header["space dimension"] = "4"
-            header["space"] = self.anatomical_coordinate_system
-            header["sizes"] = (
-                " ".join(map(str, [all_masks.shape[-1]]+self.image_obj.gridSize.tolist()))
+            raise ValueError(
+                f"Format {representation} not recognized. Please use 'mask' or 'contour'."
             )
-            header["space directions"] = [
-                [np.nan, np.nan, np.nan],
-                [self.image_obj.spacing[0], 0.0, 0.0],
-                [0.0, self.image_obj.spacing[1], 0.0],
-                [0.0, 0.0, self.image_obj.spacing[2]],
-            ]
-            header["kinds"] = ["list", "domain", "domain", "domain"]
-            # header["labels"] = ["x", "y", "z"]
-            header["endian"] = "little"
-            header["encoding"] = "gzip"
-            header["space origin"] = self.image_obj.origin.tolist()
-            # header["voxel spacing"] = self.image_obj.spacing.tolist()
-            # header["space units"] = ["mm", "mm", "mm"]
-
-        # # Generic Segmentation meta data
-        header["Segmentation_ContainedRepresentationNames"] = "Binary labelmap|Closed surface|"
-        header["Segmentation_MasterRepresentation"] = "Binary labelmap"
-        header["Segmentation_ReferenceImageExtentOffset"] = "0 0 0"
-        # header["Segmentation_ConversionParameters"] = "None"  this one is crazy long
-        # # Specific segmentation meta data
-        for i, name in enumerate(sorted_by_size):
-            # header[f"Segment{i}_Color"] = 
-            # header[f"Segment{i}_ColorAutoGenerated"] =
-            header[f"Segment{i}_ID"] = f"Segment_{i+1}"
-            header[f"Segment{i}_LabelValue"] = f"{i+1}"
-            header[f"Segment{i}_Layer"] = f"{i}" if overlap else "0"
-            header[f"Segment{i}_Name"] = f"{name}"
-            header[f"Segment{i}_NameAutoGenerated"] = "0"
-            header[f"Segment{i}_Extent"] = " ".join(map(str, _getExtentOfMask(sorted_by_size[name])))
-            header[f"Segment{i}_Tags"] = "Segmentation category and type - 3D Slicer General Anatomy list~SCT^85756007^Tissue~SCT^85756007^Tissue~^^~Anatomic codes - DICOM master list~^^~^^|"
-
-        # # any other meta data
-        header = header | metadata if metadata is not None else header
-
-        # # Write the image
-        nrrd.write(str(pth_output), all_masks, header, index_order="C")
 
     def write_to_egsphant(
         self,
@@ -894,18 +810,23 @@ class BrachyPhantom:
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace)
 
-    def set_structure_set(self, mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]]) -> None:
+    def set_structure_set(
+        self,
+        mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]],
+        useVTK: bool = False,
+        ) -> None:
         r"""
-        Purpose:
-            - Set the structure set with the input mask dictionary mapping structure names to ROIMask.
-            If the name of a structure is in the structure set, the mask will be replaced.
-            If the name of a structure is not in the structure set, a new structure will be added.
-            The mask will be resampled to the image object if it exists.
-        Inputs:
-            - mask_dict: dict := the dictionary of the masks.
-            The values could be numpy arrays, ROIContour or ROIMask objects.
-        Outputs:
-            - None
+        ### Purpose:
+        - Set the structure set with the input mask dictionary mapping structure names to ROIMask.
+        If the name of a structure is in the structure set, the mask will be replaced.
+        If the name of a structure is not in the structure set, a new structure will be added.
+        The mask will be resampled to the image object if it exists.
+        ### Inputs:
+        - mask_dict: dict := the dictionary of the masks.
+        The values could be numpy arrays, ROIContour or ROIMask objects.
+        - useVTK: bool := use this if the contour was generated using VTK.
+        ### Outputs:
+        - None
         """
         from opentps.core.processing.imageProcessing.resampler3D import (
             resampleImage3DOnImage3D,
@@ -914,35 +835,38 @@ class BrachyPhantom:
 
         for structure_name in mask_dict:
             # check if the structure already exists in structure set
-            old_structure = self.structure_set.getContourByName(structure_name.upper())
+            old_structure = self.structure_set.getContourByName(structure_name)
+            if old_structure is None:
+                old_structure = self.structure_set.getContourByName(structure_name.upper())
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
-            print(f"setting structure {structure_name.upper()}")
+            print(f"setting structure {structure_name}")
             if mask_dict.get(structure_name) is None:
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
                 mask = ROIMask(
-                    name=structure_name.upper(),
+                    name=structure_name,
                     imageArray=np.swapaxes(mask_dict[structure_name], 0, 2),
                     origin=self.image_obj.origin,
                     spacing=self.image_obj.spacing,
                 )
             elif isinstance(mask_dict.get(structure_name), ROIContour):
-                mask = ROIContour.getBinaryMask(
+                mask = mask_dict.get(structure_name).getBinaryMask(
                     origin=self.image_obj.origin,
                     spacing=self.image_obj.spacing,
+                    gridSize=self.image_obj.gridSize,
+                    useVTK=useVTK,
                 )
-                mask.name = structure_name.upper()
+                mask.name = structure_name
 
             elif isinstance(mask_dict.get(structure_name), ROIMask):
                 mask = mask_dict.get(structure_name)
-                mask.name = structure_name.upper()
+                mask.name = structure_name
+                if self.image_obj is not None:
+                    mask = resampleImage3DOnImage3D(mask, self.image_obj)    
             else:
                 raise ValueError("The mask type is not recognized.")
-                
-            if self.image_obj is not None:
-                mask = resampleImage3DOnImage3D(mask, self.image_obj)
-            
+
             # if mask hits the boundary of the image, set the boundary to 0.
             tight_box_coordinates = np.round(getBoxAroundROI(mask), decimals=2)
             mask_edges = np.array(
@@ -971,10 +895,12 @@ class BrachyPhantom:
                         # mask.imageArray[:, :, -1] = 0
 
             self.structure_set.appendContour(mask.getROIContour())
+            del mask
 
         self.structure_set.setPatient(
                 self.image_obj.patient if self.image_obj is not None else None
             )
+
         # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
         # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         self._update_structure_names()
@@ -1093,11 +1019,6 @@ class BrachyPhantom:
                     structure_dict[struc],
                     new_img_obj
                     )
-                # new_structure_dict[struc] = structure_dict[struc].getBinaryMask(
-                #     origin=new_img_obj.origin,
-                #     spacing=new_img_obj.spacing,
-                #     gridSize=new_img_obj.gridSize,
-                # )
         if inplace:
             self.image_obj = new_img_obj
             self.set_structure_set(new_structure_dict)
@@ -1168,39 +1089,45 @@ def get_uniform_phantom(
     return phantom
     
 
-def _sort_segementation_dict_by_size(seg_dict) -> dict:
+def _sort_segementation_dict_by_size(
+    mask_dict: Dict[str, np.ndarray]
+    ) -> Dict[str, np.ndarray]:
     r"""
     Purpose:
         - will sort the items in a mask dictionary by the size of the segmentation.
     Inputs:
-        - seg_dict: dict := the dictionary of the masks. the values are numpy arrays in
+        - mask_dict: dict := the dictionary of the masks. the values are numpy arrays in
         [z, y, x] format.
     Outputs:
         - sorted_dict: dict := the sorted dictionary.
     """
+
     sorted_dict_list = sorted(
-        seg_dict.items(), key=lambda x: np.sum(x[1]), reverse=True
+        mask_dict.items(),
+        key=lambda x: np.sum(x[1]),
+        reverse=True
     )
     return dict(sorted_dict_list)
 
 
-def _convert_many_binary_masks_to_1_int_mask(seg_dict: dict) -> np.ndarray:
+def _convert_many_binary_masks_to_1_int_mask(
+    mask_dict: Dict[str, np.ndarray]
+    ) -> np.ndarray:
     r"""
     Purpose:
         - Convert many binary masks to one integer mask. The masks should be ordered
         from largest to smallest as the smallest mask will overwrite the larger mask.
         use _sort_segementation_dict_by_size() to sort the masks.
     Inputs:
-        - seg_dict: dict := the dictionary of the masks. the values are numpy arrays in
+        - mask_dict: dict := the dictionary of the masks. the values are numpy arrays in
         [z, y, x] format.
     Outputs:
         - int_mask: np.ndarray := the integer mask.
     """
-    int_mask = np.zeros_like(list(seg_dict.values())[0], dtype=int)
-    for i, (_, mask) in enumerate(seg_dict.items()):
+    int_mask = np.zeros_like(list(mask_dict.values())[0], dtype=int)
+    for i, (_, mask) in enumerate(mask_dict.items()):
         int_mask[mask] = i + 1
     return int_mask
-
 
 def readDicomUS(dcmFiles):
     r""""
@@ -1338,7 +1265,6 @@ def readDicomUS(dcmFiles):
     # image.softwareVersions = 'syngo MR E11'
     
     return image
-
 
 def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     r"""
@@ -1515,69 +1441,6 @@ def sitk_to_Image3D(sitk_image:Image)-> Image3D | ROIMask:
             spacing=spacing,
         )
 
-def _get_image_orientation(pth_image: Path) -> str:
-    """
-    Purpose:
-        - Get the image orientation from the DICOM, NRRD or NIFTI files.
-        The orientation could be LAS, RAS, or LPS. BrachyUtils by default
-        uses LPS orientation, which is the default in DICOM standard and likely
-        the origin of all medical images.
-    Inputs:
-        - pth_image: Path := the path of the image file. Hopefully
-        it has some sort of header information.
-    Outputs:
-        - orientation: str := the orientation of the image.
-    Depenedencies:
-        - pydicom
-        - nibabel
-        - pynrrd
-    """
-    raise DeprecationWarning("This function will soon be deleted. orientation should be handled in each file type loader.")
-    # extension = "".join(pth_image.suffixes)
-    if str(pth_image).endswith(".dcm"):
-        import pydicom
-        header = pydicom.read_file(pth_image)
-        orientation = header.get((0x0010, 0x2210))
-        if orientation is not None:
-            return orientation
-        else:
-            # default orientation in dicom is LPS
-            return "LPS"
-    elif str(pth_image).endswith(".nrrd"):
-        warnings.warn("NRRD orientation is not tested yet")
-        import nrrd
-        nrrd_header = nrrd.read(pth_image, index_order="C")[1]
-        orientation = nrrd_header.get("space directions")
-        if orientation is not None:
-            if "left" in orientation[0] and "posterior" in orientation[1]:
-                return "LAS"
-            elif "right" in orientation[0] and "posterior" in orientation[1]:
-                return "RAS"
-            elif "left" in orientation[0] and "anterior" in orientation[1]:
-                return "LPS"
-            elif "right" in orientation[0] and "anterior" in orientation[1]:
-                return "RPS"
-            else:
-                return "LAS"
-        else:
-            return "LPS"
-    elif str(pth_image).endswith(".nii.gz"):
-        import nibabel as nib
-        nifti_image = nib.load(pth_image)
-        # Get the affine matrix
-        affine = nifti_image.affine
-        # Check the signs of the first two columns
-        if affine[0, 0] > 0 and affine[1, 1] > 0:
-            return "LPS"
-        elif affine[0, 0] < 0 and affine[1, 1] < 0:
-            return "RAS"
-        elif affine[0, 0] > 0 and affine[1, 1] < 0:
-            return "LAS"
-        else:
-            print("The orientation is neither RAS nor LPS")
-    else:
-        return "LPS"
-
 def _getExtentOfMask(mask: np.array) -> List[int]:
     r"""
     Purpose:
@@ -1591,13 +1454,256 @@ def _getExtentOfMask(mask: np.array) -> List[int]:
     boxInVoxel = [np.min(ones[2]), np.max(ones[2]),
                 np.min(ones[1]), np.max(ones[1]),
                 np.min(ones[0]), np.max(ones[0])]
-    # for bound in boxInVoxel:
-    #     if bound == 0:
-    #         bound = 1
-    #     if bound == mask.shape[0]:
-    #         bound = mask.shape[0] - 1
-    #     if bound == mask.shape[1]:
-    #         bound = mask.shape[1] - 1
-    #     if bound == mask.shape[2]:
-    #         bound = mask.shape[2] - 1
     return boxInVoxel
+
+def generate_sphere_mask(
+    center: np.ndarray | List[float],
+    radius: float,
+    gridSize: List[int],
+    spacing: List[float] = [1.0, 1.0, 1.0],
+    origin: List[float] = [0.0, 0.0, 0.0],
+    name: str = "Sphere",
+) -> ROIContour:
+    r"""
+    Purpose:
+        - Generate a sphere mask with the given center and radius inside a 3D grid. 
+    Inputs:
+        - center: np.ndarray | List[float] := the center of the sphere.
+        - radius: float := the radius of the sphere.
+        - gridSize: List[int] := the size of the grid in [x, y, z].
+        - spacing: List[float] := the spacing of the grid in [x, y, z].
+        - origin: List[float] := the origin of the grid in [x, y, z].
+        - name: str := the name of the sphere mask.
+    Outputs:
+        - mask_opentps: ROIMask := the generated sphere mask.
+    """ 
+    center = np.array(center, dtype=float)
+    spacing = np.array(spacing, dtype=float)
+    origin = np.array(origin, dtype=float)
+    
+    # create coordiante grid using meshgrid
+    x = np.arange(gridSize[0]) * spacing[0] + origin[0]
+    y = np.arange(gridSize[1]) * spacing[1] + origin[1]
+    z = np.arange(gridSize[2]) * spacing[2] + origin[2]
+    
+    # meshgrid to ij indexing
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+    
+    # Vectorized distance calculation
+    distance_squared = (X - center[0])**2 + (Y - center[1])**2 + (Z - center[2])**2
+    mask3D = (distance_squared <= radius**2).astype(np.uint8)
+    
+    
+    mask_opentps = ROIMask(
+        imageArray=mask3D,
+        name=name,
+        origin=origin.tolist(),
+        spacing=spacing.tolist(),
+    )
+    return mask_opentps
+
+def get_contour_from_polygon_mesh(
+    polygon_data: vtk.vtkPolyData,
+    name: str = "Polygon"
+    ) -> ROIContour:
+    r"""
+    """
+    raise DeprecationWarning("this function is no longer needed")
+    # extract verticies
+    points = polygon_data.GetPoints()
+    num_points = points.GetNumberOfPoints()
+    verticies = np.zeros((num_points, 3))
+    for i in range(num_points):
+        verticies[i, :] = points.GetPoint(i)
+    
+    # extract polygon mesh
+    polys = polygon_data.GetPolys()
+    polys.InitTraversal()
+    polygons = []
+    idList = vtk.vtkIdList()
+    while polys.GetNextCell(idList):
+        polygon = [idList.GetId(j) for j in range(idList.GetNumberOfIds())]
+        polygons.append(polygon)
+
+    polygonMeshList = []
+    for polygon in polygons:
+        polygonMesh = []
+        for vertexId in polygon:
+            # transform the vertex coordinates based on the spacing and origin.
+            xCoord = verticies[vertexId, 0]
+            yCoord = verticies[vertexId, 1]
+            zCoord = verticies[vertexId, 2]
+            polygonMesh.append(xCoord)
+            polygonMesh.append(yCoord)
+            polygonMesh.append(zCoord)
+        polygonMeshList.append(polygonMesh)
+
+    contour = ROIContour(
+        name=name
+    )
+    contour.polygonMesh = polygonMeshList
+    return contour
+
+def imageToNrrd(
+    image_obj: Image3D,
+    pth_output: Path,
+    anatomical_coordinate_system: str = "LPS",
+    modality: str = "N/A",
+    metadata: Optional[Dict[str, str]] = None,
+    ) -> None:
+    r"""
+    Purpose:
+        - To write the image to a nrrd file. By default, all images are written as Left Posterior Superior.
+    Inputs:
+        - image_obj: Image3D := the image object to write to a nrrd file.
+        - pth_output: Path := the path to write the image to.
+        - metadata := a dictionary containing the following meta data key values (should be changed later):
+            "cancer site":
+            "care center":
+            "number of dwell positions":
+            "number of segmented structures":
+            "patient number":
+            "Image content": "[3D dose, 3D uncertainty]"
+    Outputs
+        - None
+    Dependencies:
+        - pynrrd
+    """
+    assert (
+        os.path.splitext(pth_output)[-1] == ".nrrd"
+    ), "the file should have '.nrrd' extension"
+    os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+    from collections import defaultdict
+    
+    image_array_zyx = image_obj.imageArray.swapaxes(0, 2).astype(float)
+    header = defaultdict(str)
+    header["type"] = "double"
+    # header["space dimension"] = "3"
+    header["space"] = anatomical_coordinate_system
+    header["sizes"] = (
+        " ".join(map(str, image_obj.gridSize.tolist()))
+    )
+    header["space directions"] = [
+        [image_obj.spacing[0], 0.0, 0.0],
+        [0.0, image_obj.spacing[1], 0.0],
+        [0.0, 0.0, image_obj.spacing[2]],
+    ]
+    header["kinds"] = ["space", "space", "space"]
+    header["labels"] = ["x", "y", "z"]
+    header["endian"] = "little"
+    header["encoding"] = "gzip"
+    header["space origin"] = image_obj.origin.tolist()
+    header["voxel spacing"] = image_obj.spacing.tolist()
+    header["space units"] = ["mm", "mm", "mm"]
+    header["modality"] = modality
+    header = header | metadata if metadata is not None else header
+    nrrd.write(str(pth_output), image_array_zyx, header, index_order="C")
+
+def masksToNrrd(
+        structure_mask_dict: Dict[str, ROIMask],
+        pth_output: Path,
+        overlap: Optional[bool] = True,
+        anatomical_coordinate_system: str = "LPS",
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> None:
+        r"""
+        Purpose:
+            - To write the structures to a nrrd file. By defualt, we remove the overlap between the structures. the smaller structures
+            overwrite the larger structures if there is an overlap.
+        Inputs:
+            - pth_output: Path := the path to write the structures to.
+            - overlap: Optional[bool] := if True, the structures will be written with overlap, meaning each structure will be represented
+            by a binary matrix with 1s and 0s. if False, the structures will be written without overlap, an integer is asigned to 
+            each structure and all the structures are represented by a single volume.
+            - metadata: Optional[Dict[str, str]] := a dictionary containing any meta data additional to the minimal required meta data.
+        Outputs:
+            - None
+        Dependencies:
+            - pynrrd
+        """
+        if str(pth_output).endswith("seg.nrrd") is False:
+            raise ValueError("The output path should have a 'seg.nrrd' extension.")
+        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+
+        spacing  = structure_mask_dict[list(structure_mask_dict.keys())[0]].spacing
+        origin = structure_mask_dict[list(structure_mask_dict.keys())[0]].origin
+        gridSize = structure_mask_dict[list(structure_mask_dict.keys())[0]].gridSize
+
+        mask_dict = {k: v.imageArray.swapaxes(0,2) for k, v in structure_mask_dict.items()}
+        sorted_by_size = _sort_segementation_dict_by_size(mask_dict)
+
+        if not overlap:
+            # this removes overlap
+            all_masks = _convert_many_binary_masks_to_1_int_mask(
+                sorted_by_size
+            )
+            from collections import defaultdict
+            # # Generic phantom meta data
+            header = defaultdict(str)
+            header["type"] = "double"
+            # header["space dimension"] = "3"
+            header["space"] = anatomical_coordinate_system
+            header["sizes"] = (
+                " ".join(map(str, gridSize.tolist()))
+            )
+            header["space directions"] = [
+                [spacing[0], 0.0, 0.0],
+                [0.0, spacing[1], 0.0],
+                [0.0, 0.0, spacing[2]],
+            ]
+            header["kinds"] = ["space", "space", "space"]
+            header["labels"] = ["x", "y", "z"]
+            header["endian"] = "little"
+            header["encoding"] = "gzip"
+            header["space origin"] = origin.tolist()
+            header["voxel spacing"] = spacing.tolist()
+            header["space units"] = ["mm", "mm", "mm"]
+  
+        else:
+            # stack up all the masks
+            all_masks = np.stack(list(sorted_by_size.values()), axis=3).astype(np.uint8)
+            from collections import defaultdict
+            # # Generic phantom meta data
+            header = defaultdict(str)
+            header["type"] = "unsigned char"
+            header["space dimension"] = "4"
+            header["space"] = anatomical_coordinate_system
+            header["sizes"] = (
+                " ".join(map(str, [all_masks.shape[-1]]+gridSize.tolist()))
+            )
+            header["space directions"] = [
+                [np.nan, np.nan, np.nan],
+                [spacing[0], 0.0, 0.0],
+                [0.0, spacing[1], 0.0],
+                [0.0, 0.0, spacing[2]],
+            ]
+            header["kinds"] = ["list", "domain", "domain", "domain"]
+            # header["labels"] = ["x", "y", "z"]
+            header["endian"] = "little"
+            header["encoding"] = "gzip"
+            header["space origin"] = origin.tolist()
+            # header["voxel spacing"] = self.image_obj.spacing.tolist()
+            # header["space units"] = ["mm", "mm", "mm"]
+
+        # # Generic Segmentation meta data
+        header["Segmentation_ContainedRepresentationNames"] = "Binary labelmap|Closed surface|"
+        header["Segmentation_MasterRepresentation"] = "Binary labelmap"
+        header["Segmentation_ReferenceImageExtentOffset"] = "0 0 0"
+        # header["Segmentation_ConversionParameters"] = "None"  this one is crazy long
+        # # Specific segmentation meta data
+        for i, name in enumerate(sorted_by_size):
+            # header[f"Segment{i}_Color"] = 
+            # header[f"Segment{i}_ColorAutoGenerated"] =
+            header[f"Segment{i}_ID"] = f"Segment_{i+1}"
+            header[f"Segment{i}_LabelValue"] = f"{i+1}"
+            header[f"Segment{i}_Layer"] = f"{i}" if overlap else "0"
+            header[f"Segment{i}_Name"] = f"{name}"
+            header[f"Segment{i}_NameAutoGenerated"] = "0"
+            header[f"Segment{i}_Extent"] = " ".join(map(str, _getExtentOfMask(sorted_by_size[name])))
+            header[f"Segment{i}_Tags"] = "Segmentation category and type - 3D Slicer General Anatomy list~SCT^85756007^Tissue~SCT^85756007^Tissue~^^~Anatomic codes - DICOM master list~^^~^^|"
+
+        # # any other meta data
+        header = header | metadata if metadata is not None else header
+
+        # # Write the image
+        nrrd.write(str(pth_output), all_masks, header, index_order="C")
