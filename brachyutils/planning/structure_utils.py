@@ -17,10 +17,7 @@ class BrachyStructure:
     - target_volume: bool
     #### DVH Attributes:
     - in_dvh: bool
-    - # dvh_metric_name: str (deprecated)
-    - # dvh_metric_clinical_goal: str (deprecated)
     - dvh_metric_goals: Dict[str, float]
-    - # dvh_metric_observed: float (deprecated)
     - dvh_metrics_observed: Dict[str, float]
     - dvh_obj: opentps.core.data.DVH
     #### Uncertainty Attributes:
@@ -30,10 +27,7 @@ class BrachyStructure:
     - uncertainty_max
     - uncertainty_min
     #### Optimization Attributes:
-    - penalty_weight_linear := The coefficient for the linear party of the penalty function.
-    - penalty_weight_quadratic := The coefficient for the quadratic party of the penalty function.
-    - dose_voxel_goal := The dose goal for every voxel given to the optimizer.
-    - spacing_mm := The spacing of the optimization grid in mm.
+    - optimization_config:Optimization_Config := the optimization config object for the structure. see optim_utils.py  
     ### Functions:
         - get_dvh_metric(combined_dose:BrachyDose)
         - to_dict(export_format:str)
@@ -42,7 +36,7 @@ class BrachyStructure:
     def __init__(
         self,
         name: str = None,
-        mask: ROIMask = None,
+        mask: ROIMask | ROIContour = None,
         target_volume: bool = None,
         in_dvh: bool = None,
         dvh_metric_goals: Dict[str, float] = None,
@@ -53,11 +47,12 @@ class BrachyStructure:
         - To initialize the BrachyStructure object.
         ### Inputs:
         - name:str := the name of the structure.
-        - mask:ROIMask := the mask contour of the structure.
+        - mask:ROIMask | ROIContour := the mask or contour of the structure.
         - target_volume:bool := flag to indicate whether the structure is a target volume or not.
         - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
         - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
         V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or. For example D95%(organName).
+        - optimization_config:Optimization_Config := the optimization config object for the structure. see optim_utils.py 
         ### Outputs:
         - Void := will initialize the BrachyStructure object
         ### Dependencies:
@@ -89,13 +84,14 @@ class BrachyStructure:
         # self.density: float = None  # 0
         # self.density_mode: str = None  # ""
         # self.material: str = None  # "CT Material"
-
-        if dvh_metric_goals is None:
-            raise ValueError(
-                """Please provide BrachyStructure with a dictionary of multiple metrics and goals"""
-                )
-        self.dvh_metric_goals = dvh_metric_goals
-        assert np.all([self.name.lower() in dvh_metric_name.lower() for dvh_metric_name in self.dvh_metric_goals.keys()]),\
+        self.in_dvh = in_dvh
+        if self.in_dvh:
+            if dvh_metric_goals is None:
+                raise ValueError(
+                    """Please provide BrachyStructure with a dictionary of multiple metrics and goals"""
+                    )
+            self.dvh_metric_goals = dvh_metric_goals
+            assert np.all([self.name.lower() in dvh_metric_name.lower() for dvh_metric_name in self.dvh_metric_goals.keys()]),\
              "name should be in dvh metric name enclosed by paranthesis"
         if optimization_config is not None:
             self.set_optimization_config(optimization_config)
