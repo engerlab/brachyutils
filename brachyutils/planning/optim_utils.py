@@ -193,7 +193,7 @@ class DwellTimeOptimizer(ABC, BaseModel):
     ) -> None:
         pass
 
-class DwellTimeOptimizer(BaseModel):
+class Gurobi(DwellTimeOptimizer):
     r"""
     ### Purpose:
     - An abstract dwell time optimizer class to specify the common components of a dwell time optimizer class that
