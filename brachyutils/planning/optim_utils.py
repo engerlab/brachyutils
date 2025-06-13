@@ -81,6 +81,7 @@ class DwellTimeVariable(BaseModel):
         - lower_bound:float := The lower bound of the DwellTimeVariable.
         - upper_bound:float := The upper bound of the DwellTimeVariable.
         - coordinates:List[float] := The coordinates of the dwell position for this DwellTimeVariable.
+        - dose_rate_map:np.ndarray := The dose rate map for this DwellTimeVariable.
         """
         super().__init__(**data)
         if isinstance(model, Model):
@@ -463,7 +464,7 @@ class DwellTimeOptimizer(BaseModel):
     def get_optimized_plan_from_model(
         self,
         inplace=True,
-        ) -> BrachyPlan:
+        ) -> BrachyPlan | None:
         r"""
         ### Purpose:
         - A function to get the optimized plan from the model after the optimizaton is done.
@@ -481,8 +482,15 @@ class DwellTimeOptimizer(BaseModel):
             raise ValueError("Model is not set. Please set the model first.")
         if self.dwellTimeVariables is None:
             raise ValueError("DwellTimeVariables are not set. Please set the DwellTimeVariables first.")
+
         # run the optimization
         self.run()
+        if self.model.status != GRB.OPTIMAL:
+            Warning.warn(
+                "No optimal solution found. Return None.",
+                stacklevel=2)
+            return None
+
         for variable in self.dwellTimeVariables:
             # set the dwell time to the optimized value
             variable.dwell_time = variable.model_variable.X
@@ -503,6 +511,32 @@ class DwellTimeOptimizer(BaseModel):
         # update the plan with the new dwell times
         outplan.update_plan_from_catheter_table()
         return outplan
+
+    def bound_dwell_time(
+        self,
+        name: str,
+        lower_bound: float = None,
+        upper_bound: float = None
+        ) -> None:
+        r"""
+        ### Purpose:
+        - A function to set the lower and upper bounds for a specific dwell time variable.
+        ### Inputs:
+        - name:str := The name of the dwell time variable to set the bounds for.
+        - lower_bound:float := The lower bound to set for the dwell time variable. Default is None.
+        - upper_bound:float := The upper bound to set for the dwell time variable. Default is None.
+        ### Outputs:
+        - None
+        """
+        for variable in self.dwellTimeVariables:
+            if variable.name == name:
+                if lower_bound is not None:
+                    variable.lower_bound = lower_bound
+                    variable.model_variable.lb = lower_bound
+                if upper_bound is not None:
+                    variable.upper_bound = upper_bound
+                    variable.model_variable.ub = upper_bound
+                self.model.update()
 
 def crop_mask_resample_dose_rate_map(
     dose_rate_map: np.ndarray,

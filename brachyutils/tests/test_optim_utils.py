@@ -69,9 +69,18 @@ def test_run_optim():
 
     optim_obj = DwellTimeOptimizer(plan=plan_obj)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
-    print(optimized_plan.get_dvh_metrics())
-    print(optimized_plan.dwell_times)
+    # print(optimized_plan.get_dvh_metrics())
+    # print(optimized_plan.dwell_times)
 
+    # test setting a bound on a specific dwell time variable
+    optim_obj.bound_dwell_time(
+        name="catheter_0_dwell_0",
+        lower_bound=1,
+        upper_bound=1
+    )
+    optimized_plan = optim_obj.get_optimized_plan_from_model()
+    print(optimized_plan.dwell_times)    
+    
 if __name__ == "__main__":
     # test_DwellTimeVariable()
     # test_get_optimization_roi_bounds()
