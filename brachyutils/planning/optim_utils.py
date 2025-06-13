@@ -2,7 +2,7 @@
 from typing import List, Callable, Any
 from copy import deepcopy
 from brachyutils.dose.dose_utils import BrachyDose
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, Field
 import numpy as np
 from pathlib import Path
 from opentps.core.data.images import ROIMask
@@ -10,6 +10,7 @@ from opentps.core.data import ROIContour
 from gurobipy import Model, Var, GRB, MConstr, MVar
 # from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.types import BrachyPlan
+from abc import ABC, abstractmethod
 class Optimization_Config(BaseModel):
     """
     ### Purpose:
@@ -94,6 +95,103 @@ class DwellTimeVariable(BaseModel):
             model.update()
         else:
             raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
+
+class DwellTimeOptimizer(ABC, BaseModel):
+    r"""
+    ### Purpose:
+    - An abstract dwell time optimizer class to specify the common components of a dwell time optimizer class that
+    easily integrates to BrachyUtils.
+    """
+    plan: Any = Field(default=None, description="The brachytherapy plan to be optimized")
+    solver: str = Field(default=None, description="The name of the solver to be used")
+    dwellTimeVariables: List[DwellTimeVariable] = Field(
+        default=None, description="The set of the dwellTimeVariables to be optimized"
+    )
+    penalty_function: Callable = Field(
+        default=None, description="A function that states how good a set of dwellTimeVariables are"
+    )
+    model: Any = Field(
+        default=None, description="The model object that incorporates all the attributes above to output the optimal dwell_time for each DwellTimeVariable"
+    )
+    roi_bounds: List[List[float]] = Field(
+        default=None, description="The coordinate bounds for the optimization region of interest (roi) from the plan"
+    )
+    roi_margin_mm: List[float] | float = Field(
+        default=5.0,
+        description="The distance from the furthest dwell position along each axis to consider voxels the dose rate maps"
+    )
+    @abstractmethod
+    def __init__(
+        self,
+        roi_margin_mm: List[float] | float = 5.0,
+        solver: str = "gurobi",
+        **data
+    ):
+        r"""
+        ### Purpose:
+        - A function to initialize the optimizer.
+        ### Parameters:
+        - roi_margin_mm: The distance from the furthest dwell position along each axis
+        to consider voxels the dose rate maps. for each axis:
+            roi_bounds = [first dwell - margin : last dwell + margin]
+        """
+        super().__init__(**data)
+
+    @abstractmethod
+    def initialize_model(
+        self,
+        solver: str,
+        pth_logfile: str = None
+    ) -> Any:
+        pass
+
+    @abstractmethod
+    def set_dwellTimeVariables(
+        self,
+        plan: BrachyPlan,
+        initial_dwell_time: float = 0.0,
+        lower_bound: float = 0.0,
+        upper_bound: float = 100,
+    ) -> List[Any]:
+        pass
+
+    @abstractmethod
+    def get_optimization_roi_bounds(
+        self,
+        plan: BrachyPlan,
+        dwellTimeVariables: List[Any],
+        roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
+    ) -> List[List[float]]:
+        pass
+
+    @abstractmethod
+    def set_penalty_function_and_constraints(
+        self,
+        plan: BrachyPlan,
+        dwellTimeVariables: List[Any],
+        model: Any,
+    ) -> Callable:
+        pass
+
+    @abstractmethod
+    def run(self):
+        pass
+
+    @abstractmethod
+    def get_optimized_plan_from_model(
+        self,
+        inplace=True,
+    ) -> BrachyPlan | None:
+        pass
+
+    @abstractmethod
+    def bound_dwell_time(
+        self,
+        name: str,
+        lower_bound: float = None,
+        upper_bound: float = None
+    ) -> None:
+        pass
 
 class DwellTimeOptimizer(BaseModel):
     r"""
