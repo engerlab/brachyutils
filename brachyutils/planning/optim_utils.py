@@ -101,14 +101,26 @@ class DwellTimeOptimizer(ABC, BaseModel):
     ### Purpose:
     - An abstract dwell time optimizer class to specify the common components of a dwell time optimizer class that
     easily integrates to BrachyUtils.
+    ### Attributes:
+    - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
+    - solver: The name of the solver to be used for optimization.
+    - dwellTimeVariables: The set of the dwellTimeVariables to be optimized. In HDR brachy, dwell times and catheter positions.
+    - model: The object that incorporates all the attributes above to output the optimal dwell_time for each DwellTimeVariable.
+    - roi_bounds: The coordinate bounds for the optimization region of interest (roi) from the plan.
+    - roi_margin_mm: The distance from the furthest dwell position along each axis to consider voxels the dose rate maps.
+    ### Functions:
+    - initialize_model: A function to initialize the optimization model.
+    - set_dwellTimeVariables: A function to set the dwellTimeVariables for the optimization.
+    - get_optimization_roi_bounds: A function to get the optimization region of interest bounds.
+    - set_penalty_function_and_constraints: A function to set the penalty function and constraints for the optimization.
+    - run: A function to run the optimization.
+    - get_optimized_plan_from_model: A function to get the optimized plan from the model.
+    - bound_dwell_time: A function to bound the dwell time of a DwellTimeVariable.
     """
     plan: Any = Field(default=None, description="The brachytherapy plan to be optimized")
     solver: str = Field(default=None, description="The name of the solver to be used")
     dwellTimeVariables: List[DwellTimeVariable] = Field(
         default=None, description="The set of the dwellTimeVariables to be optimized"
-    )
-    penalty_function: Callable = Field(
-        default=None, description="A function that states how good a set of dwellTimeVariables are"
     )
     model: Any = Field(
         default=None, description="The model object that incorporates all the attributes above to output the optimal dwell_time for each DwellTimeVariable"
@@ -124,7 +136,7 @@ class DwellTimeOptimizer(ABC, BaseModel):
     def __init__(
         self,
         roi_margin_mm: List[float] | float = 5.0,
-        solver: str = "gurobi",
+        solver: str = None,
         **data
     ):
         r"""
@@ -193,20 +205,19 @@ class DwellTimeOptimizer(ABC, BaseModel):
     ) -> None:
         pass
 
-class Gurobi(DwellTimeOptimizer):
+class Gurobi_Optimization(DwellTimeOptimizer):
     r"""
     ### Purpose:
-    - An abstract dwell time optimizer class to specify the common components of a dwell time optimizer class that
-    easily integrates to BrachyUtils.
+    - A class using Gurobi to do dwell time optimization.
     ### Attributes:
     - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
     - dwellTimeVariables: The set of the dwellTimeVariables to be optimized. In HDR brachy, dwell times and catheter positions
     - constraints: A set of relationships between the dwellTimeVariables that should not be violated.
     In HDR brachy, we want all dwell times to be positive and sometimes have upper or lower bounds.
-    - penalty_function: A function that states how good a set of dwellTimeVariables are.
     - solver:str := The name
     - model: The object that incorporates all the attributes above to output the optimal 
     dwell_time for each DwellTimeVariable.
+    - roi_margin_mm: The distance from the furthest dwell position along each axis to consider voxels the dose rate maps.
     - roi_bounds: The coordinate bounds for the optimization region of interest (roi) from the plan.
     to consider voxels the dose rate maps. for each axis: 
     roi_bounds = [first dwell - margin : last dwell + margin]
@@ -221,10 +232,12 @@ class Gurobi(DwellTimeOptimizer):
     plan: Any
     solver: str = None
     dwellTimeVariables: List[Var] = None
-    penalty_function: Callable = None
     model: Any = None
     roi_bounds: List[List[float]] = None # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
-
+    roi_margin_mm: List[float] | float = Field(
+        default=5.0,
+        description="The distance from the furthest dwell position along each axis to consider voxels the dose rate maps"
+    )
     def __init__(
         self,
         roi_margin_mm: List[float] | float = 5.0,
@@ -247,7 +260,7 @@ class Gurobi(DwellTimeOptimizer):
             dwellTimeVariables=self.dwellTimeVariables,
             roi_margin_mm=roi_margin_mm,
             )
-        self.penalty_function = self.set_penalty_function_and_constraints(
+        self.set_penalty_function_and_constraints(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
             model=self.model)
@@ -376,8 +389,7 @@ class Gurobi(DwellTimeOptimizer):
         self,
         plan: BrachyPlan,
         dwellTimeVariables: List[DwellTimeVariable],
-        model: Model,
-    ) -> Callable:
+        model: Model):
         r"""
         ### Purpose:
         - A function to set up the optimization model's objective function and constraints based on the plan.
@@ -635,6 +647,75 @@ class Gurobi(DwellTimeOptimizer):
                     variable.upper_bound = upper_bound
                     variable.model_variable.ub = upper_bound
                 self.model.update()
+
+class AMPL_Optimization(DwellTimeOptimizer):
+    """
+    ### Purpose:
+    A class to solve dwell time optimization problems using AMPL. AMPL, allows for using a variety
+    of solvers, for now we use it for HiGHS, but it can be used with other solvers as well.
+
+    ### Attributes:
+    - plan: BrachyPlan := The brachytherapy plan to be optimized. Note that the plan will be modified in place.
+    - solver: str := The name of the solver to be used for optimization.
+    - dwellTimeVariables: List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
+    - model: AMPL := The AMPL model object that incorporates all the attributes above to output the optimal dwell_time for each DwellTimeVariable.
+    - roi_bounds: List[List[float]] := The coordinate bounds for the optimization region of interest (roi) from the plan.
+    - roi_margin_mm: List[float] | float := The distance from the furthest dwell position along each axis to consider voxels the dose rate maps.
+    ### Functions:
+    - initialize_model: A function to initialize the AMPL model.
+    - set_dwellTimeVariables: A function to set the dwellTimeVariables for the optimization.
+    - get_optimization_roi_bounds: A function to get the optimization region of interest bounds.
+    - set_penalty_function_and_constraints: A function to set the penalty function and constraints for the optimization.
+    - run: A function to run the optimization.
+    - get_optimized_plan_from_model: A function to get the optimized plan from the model.
+    - bound_dwell_time: A function to bound the dwell time of a DwellTimeVariable.
+    """
+    from amplpy import AMPL
+    model_config = {
+        "arbitrary_types_allowed": True,
+        "defer_build": True
+        }
+    plan: BrachyPlan = None
+    solver: str = None
+    dwellTimeVariables: List[DwellTimeVariable] = None
+    model: AMPL = None
+    roi_bounds: List[List[float]] = None # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
+    roi_margin_mm: List[float] | float = Field(
+        default=5.0,
+        description="The distance from the furthest dwell position along each axis to consider voxels the dose rate maps"
+    )
+    def __init__(
+        self,
+        roi_margin_mm: List[float] | float = 5.0,
+        solver: str = "highs",
+        **data
+    ):
+        r"""
+        ### Purpose:
+        - A function to initialize the optimizer.
+        ### Parameters:
+        - roi_margin_mm: The distance from the furthest dwell position along each axis
+        to consider voxels the dose rate maps. for each axis:
+            roi_bounds = [first dwell - margin : last dwell + margin]
+        """
+        super().__init__(**data)
+        roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
+        self.solver = solver
+        self.model = self.initialize_model(self.solver)
+        self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
+        self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
+            plan=self.plan,
+            dwellTimeVariables=self.dwellTimeVariables,
+            roi_margin_mm=roi_margin_mm
+        )
+        self.set_penalty_function_and_constraints(
+            plan=self.plan,
+            dwellTimeVariables=self.dwellTimeVariables,
+            model=self.model
+        )
+        
+    def initialize_model(self, solver, pth_logfile = None):
+        return super().initialize_model(solver, pth_logfile)
 
 def crop_mask_resample_dose_rate_map(
     dose_rate_map: np.ndarray,

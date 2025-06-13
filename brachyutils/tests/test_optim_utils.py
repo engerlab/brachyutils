@@ -1,4 +1,4 @@
-from brachyutils.planning.optim_utils import DwellTimeVariable, Gurobi, Model
+from brachyutils.planning.optim_utils import DwellTimeVariable, Gurobi_Solver, Model
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.planning.optim_utils import Optimization_Config
 
@@ -18,7 +18,7 @@ def test_DwellTimeVariable():
 def test_get_optimization_roi_bounds():
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     dicom_plan = load_dicom_to_plan(pth_dicom)
-    optim_obj = Gurobi(plan=dicom_plan, roi_margin_mm=[2, 2, 2])
+    optim_obj = Gurobi_Solver(plan=dicom_plan, roi_margin_mm=[2, 2, 2])
     print(optim_obj.roi_bounds)
     print("breakpoint")
 
@@ -67,7 +67,7 @@ def test_run_optim():
         dvh_metric_goals=dvh_metric_goals,
         optimization_config_list=optimization_config_list)
 
-    optim_obj = Gurobi(plan=plan_obj)
+    optim_obj = Gurobi_Solver(plan=plan_obj)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     # print(optimized_plan.get_dvh_metrics())
     # print(optimized_plan.dwell_times)
