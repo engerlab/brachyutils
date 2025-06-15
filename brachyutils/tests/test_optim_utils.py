@@ -79,7 +79,7 @@ def test_run_optim():
         upper_bound=1
     )
     optimized_plan = optim_obj.get_optimized_plan_from_model()
-    print(optimized_plan.dwell_times)    
+    print(optimized_plan.dwell_times)
     
 if __name__ == "__main__":
     # test_DwellTimeVariable()

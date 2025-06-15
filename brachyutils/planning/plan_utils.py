@@ -1519,15 +1519,6 @@ class BrachyPlan:
                     optimization_config=config
                 )
             )
-            # # XXX for debugging, delete later
-            # if "catheter_0" in dwell_contour.name or "catheter_1" in dwell_contour.name:
-            # # [
-            #     # "hotspot_estimator:catheter_0_dwell_2/catheter_0_dwell_3",
-            #     # "hotspot_estimator:catheter_0_dwell_4/catheter_0_dwell_5",
-            #     # "hotspot_estimator:catheter_1_dwell_3/catheter_1_dwell_4",
-            #     # ]:
-            #     continue
-            # # XXX }
             self.phantom.set_structure_set({dwell_contour.name: dwell_contour}, useVTK=False)
 def _export_single_dose_rate(
     dose_grid: np.array,
