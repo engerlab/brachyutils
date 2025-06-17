@@ -11,6 +11,62 @@ from gurobipy import Model, Var, GRB, MConstr, MVar
 # from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.types import BrachyPlan
 from abc import ABC, abstractmethod
+
+def crop_mask_resample_dose_rate_map(
+    dose_rate_map: np.ndarray,
+    template_dose_obj: BrachyDose,
+    roi_bounds: List[List[float]],
+    structure_mask: ROIMask | ROIContour,
+    optim_spacing: List[float]
+    ) -> np.ndarray:
+    r"""
+    ### Purpose:
+    - A function to crop the dose rate map to the roi bounds, mask it by the structure mask
+    and resample it to the optimization spacing.
+    ### Inputs:
+    - dose_rate_map: np.ndarray := The dose rate map to be cropped and resampled.
+    - template_dose_obj: BrachyDose := The template dose object to use for cropping and resampling.
+    - roi_bounds: List[List[float]] := The bounds of the region of interest (roi) to crop the dose rate map.
+    - structure_mask: ROIMask | ROIContour := The structure mask to apply to the dose rate map.
+    - optim_spacing: List[float] := The spacing of the optimization grid in mm.
+    ### Outputs:
+    - np.ndarray := The cropped, masked and resampled dose rate map.
+    """
+    from opentps.core.processing.imageProcessing.resampler3D import (
+        crop3DDataAroundBox, resampleImage3DOnImage3D, resample
+    )
+    # create a dose object from the dose_rate_map tensor.
+    # The coordinates of the dose object is the same as the combined_dose in the plan.
+    masked_dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
+    masked_dose_rate_obj.set_dose_array(dose_rate_map)
+    # apply the optimization roi bounds to the dose rate image
+    crop3DDataAroundBox(
+        masked_dose_rate_obj.dose_image,
+        roi_bounds)
+    # get the structure mask from the contour
+    if isinstance(structure_mask, ROIContour):
+        structure_mask = structure_mask.getBinaryMask()
+    # apply the structure mask to the dose rate map object                
+    if not(structure_mask.hasSameGrid(masked_dose_rate_obj.dose_image)):
+        structure_mask = resampleImage3DOnImage3D(
+            structure_mask,
+            masked_dose_rate_obj.dose_image,
+            inPlace=False,
+            fillValue=0
+        )
+    structure_mask = structure_mask.imageArray.astype(bool)
+    masked_dose_rate_obj.dose_image.imageArray = (
+        masked_dose_rate_obj.dose_image.imageArray * structure_mask
+    )
+    # resample the dose rate map to the optimization resolution
+    if isinstance(optim_spacing, float):
+        optim_spacing = [optim_spacing] * 3
+    resample(
+        masked_dose_rate_obj.dose_image,
+        spacing = optim_spacing,
+        inPlace=True)
+    return masked_dose_rate_obj.get_dose_array().astype(float)
+
 class Optimization_Config(BaseModel):
     """
     ### Purpose:
@@ -130,7 +186,7 @@ class DwellTimeOptimizer(ABC, BaseModel):
     )
     roi_margin_mm: List[float] | float = Field(
         default=5.0,
-        description="The distance from the furthest dwell position along each axis to consider voxels the dose rate maps"
+        description="The distance from the furthest dwell position along each axis to consider voxels the dose rate maps. used for roi_bounds calculation."
     )
     @abstractmethod
     def __init__(
@@ -148,6 +204,7 @@ class DwellTimeOptimizer(ABC, BaseModel):
             roi_bounds = [first dwell - margin : last dwell + margin]
         """
         super().__init__(**data)
+        # pass
 
     @abstractmethod
     def initialize_model(
@@ -234,10 +291,7 @@ class Gurobi_Optimization(DwellTimeOptimizer):
     dwellTimeVariables: List[Var] = None
     model: Any = None
     roi_bounds: List[List[float]] = None # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
-    roi_margin_mm: List[float] | float = Field(
-        default=5.0,
-        description="The distance from the furthest dwell position along each axis to consider voxels the dose rate maps"
-    )
+    roi_margin_mm: List[float] | float = 5.0
     def __init__(
         self,
         roi_margin_mm: List[float] | float = 5.0,
@@ -258,7 +312,7 @@ class Gurobi_Optimization(DwellTimeOptimizer):
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
-            roi_margin_mm=roi_margin_mm,
+            roi_margin_mm=self.roi_margin_mm,
             )
         self.set_penalty_function_and_constraints(
             plan=self.plan,
@@ -648,6 +702,8 @@ class Gurobi_Optimization(DwellTimeOptimizer):
                     variable.model_variable.ub = upper_bound
                 self.model.update()
 
+from amplpy import AMPL, Environment
+
 class AMPL_Optimization(DwellTimeOptimizer):
     """
     ### Purpose:
@@ -670,20 +726,16 @@ class AMPL_Optimization(DwellTimeOptimizer):
     - get_optimized_plan_from_model: A function to get the optimized plan from the model.
     - bound_dwell_time: A function to bound the dwell time of a DwellTimeVariable.
     """
-    from amplpy import AMPL
     model_config = {
         "arbitrary_types_allowed": True,
         "defer_build": True
         }
-    plan: BrachyPlan = None
+    plan: BrachyPlan
     solver: str = None
     dwellTimeVariables: List[DwellTimeVariable] = None
     model: AMPL = None
     roi_bounds: List[List[float]] = None # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
-    roi_margin_mm: List[float] | float = Field(
-        default=5.0,
-        description="The distance from the furthest dwell position along each axis to consider voxels the dose rate maps"
-    )
+    roi_margin_mm: List[float] | float = 5.0
     def __init__(
         self,
         roi_margin_mm: List[float] | float = 5.0,
@@ -715,59 +767,56 @@ class AMPL_Optimization(DwellTimeOptimizer):
         )
         
     def initialize_model(self, solver, pth_logfile = None):
-        return super().initialize_model(solver, pth_logfile)
+        if pth_logfile is None:
+            pth_logfile = Path("temp_data/ampl_model.log").resolve()
+        pth_logfile.parent.mkdir(parents=True, exist_ok=True)
+        if solver == "highs":
+            env = Environment()
+            env.setOption("solver", "highs")
+            env.setOption("log_file", str(pth_logfile))
+            model = AMPL(env)
+            return model
+        else:
+            raise ValueError(f"Solver {solver} is not supported. Please use 'highs'.")
 
-def crop_mask_resample_dose_rate_map(
-    dose_rate_map: np.ndarray,
-    template_dose_obj: BrachyDose,
-    roi_bounds: List[List[float]],
-    structure_mask: ROIMask | ROIContour,
-    optim_spacing: List[float]
-    ) -> np.ndarray:
-    r"""
-    ### Purpose:
-    - A function to crop the dose rate map to the roi bounds, mask it by the structure mask
-    and resample it to the optimization spacing.
-    ### Inputs:
-    - dose_rate_map: np.ndarray := The dose rate map to be cropped and resampled.
-    - template_dose_obj: BrachyDose := The template dose object to use for cropping and resampling.
-    - roi_bounds: List[List[float]] := The bounds of the region of interest (roi) to crop the dose rate map.
-    - structure_mask: ROIMask | ROIContour := The structure mask to apply to the dose rate map.
-    - optim_spacing: List[float] := The spacing of the optimization grid in mm.
-    ### Outputs:
-    - np.ndarray := The cropped, masked and resampled dose rate map.
-    """
-    from opentps.core.processing.imageProcessing.resampler3D import (
-        crop3DDataAroundBox, resampleImage3DOnImage3D, resample
-    )
-    # create a dose object from the dose_rate_map tensor.
-    # The coordinates of the dose object is the same as the combined_dose in the plan.
-    masked_dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
-    masked_dose_rate_obj.set_dose_array(dose_rate_map)
-    # apply the optimization roi bounds to the dose rate image
-    crop3DDataAroundBox(
-        masked_dose_rate_obj.dose_image,
-        roi_bounds)
-    # get the structure mask from the contour
-    if isinstance(structure_mask, ROIContour):
-        structure_mask = structure_mask.getBinaryMask()
-    # apply the structure mask to the dose rate map object                
-    if not(structure_mask.hasSameGrid(masked_dose_rate_obj.dose_image)):
-        structure_mask = resampleImage3DOnImage3D(
-            structure_mask,
-            masked_dose_rate_obj.dose_image,
-            inPlace=False,
-            fillValue=0
-        )
-    structure_mask = structure_mask.imageArray.astype(bool)
-    masked_dose_rate_obj.dose_image.imageArray = (
-        masked_dose_rate_obj.dose_image.imageArray * structure_mask
-    )
-    # resample the dose rate map to the optimization resolution
-    if isinstance(optim_spacing, float):
-        optim_spacing = [optim_spacing] * 3
-    resample(
-        masked_dose_rate_obj.dose_image,
-        spacing = optim_spacing,
-        inPlace=True)
-    return masked_dose_rate_obj.get_dose_array().astype(float)
+    def set_dwellTimeVariables(
+        self,
+        plan: BrachyPlan,
+        initial_dwell_time: float = 0.0,
+        lower_bound: float = 0.0,
+        upper_bound: float = 100,
+    ) -> List[Any]:
+        pass
+
+    def get_optimization_roi_bounds(
+        self,
+        plan: BrachyPlan,
+        dwellTimeVariables: List[Any],
+        roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
+    ) -> List[List[float]]:
+        pass
+
+    def set_penalty_function_and_constraints(
+        self,
+        plan: BrachyPlan,
+        dwellTimeVariables: List[Any],
+        model: Any,
+    ) -> Callable:
+        pass
+
+    def run(self):
+        pass
+
+    def get_optimized_plan_from_model(
+        self,
+        inplace=True,
+    ) -> BrachyPlan | None:
+        pass
+
+    def bound_dwell_time(
+        self,
+        name: str,
+        lower_bound: float = None,
+        upper_bound: float = None
+    ) -> None:
+        pass

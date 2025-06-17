@@ -1,28 +1,8 @@
 from brachyutils.planning.optim_utils import DwellTimeVariable, Gurobi_Optimization, Model
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.planning.optim_utils import Optimization_Config
-
-def test_DwellTimeVariable():
-    model = Model("test_model")
-
-    x = DwellTimeVariable(
-        model=model,
-        name=f"catheter_{2}_dwell_{4}",
-        dwell_time=0,
-        lower_bound=0,
-        upper_bound=100,
-        coordinates=[23, 13, 12],
-        )
-    print("dwellTimeVariable5:", x)
-
-def test_get_optimization_roi_bounds():
-    pth_dicom = "data_test/prostate-glen-p1-dcm"
-    dicom_plan = load_dicom_to_plan(pth_dicom)
-    optim_obj = Gurobi_Optimization(plan=dicom_plan, roi_margin_mm=[2, 2, 2])
-    print(optim_obj.roi_bounds)
-    print("breakpoint")
-
-def test_run_optim():
+from brachyutils.types import BrachyPlan
+def get_a_plan_to_optimize()->BrachyPlan:
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_dir_dose_rate = "data_test/prostate-glen-p1-dose"
     target_dose = 21
@@ -66,7 +46,30 @@ def test_run_optim():
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
         optimization_config_list=optimization_config_list)
+    return plan_obj
 
+def test_DwellTimeVariable():
+    model = Model("test_model")
+
+    x = DwellTimeVariable(
+        model=model,
+        name=f"catheter_{2}_dwell_{4}",
+        dwell_time=0,
+        lower_bound=0,
+        upper_bound=100,
+        coordinates=[23, 13, 12],
+        )
+    print("dwellTimeVariable5:", x)
+
+def test_get_optimization_roi_bounds():
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    dicom_plan = load_dicom_to_plan(pth_dicom)
+    optim_obj = Gurobi_Optimization(plan=dicom_plan, roi_margin_mm=[2, 2, 2])
+    print(optim_obj.roi_bounds)
+    print("breakpoint")
+
+def test_run_gurobi_optim():
+    plan_obj = get_a_plan_to_optimize()
     optim_obj = Gurobi_Optimization(plan=plan_obj)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     # print(optimized_plan.get_dvh_metrics())
@@ -80,8 +83,17 @@ def test_run_optim():
     )
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     print(optimized_plan.dwell_times)
-    
+
+def test_run_ampl_optim():
+    from brachyutils.planning.optim_utils import AMPL_Optimization
+    plan_obj = get_a_plan_to_optimize()
+    optim_obj = AMPL_Optimization(plan=plan_obj)
+    # optimized_plan = optim_obj.get_optimized_plan_from_model()
+    # print(optimized_plan.get_dvh_metrics())
+    # print(optimized_plan.dwell_times)
+
 if __name__ == "__main__":
     # test_DwellTimeVariable()
     # test_get_optimization_roi_bounds()
-    test_run_optim()
+    test_run_gurobi_optim()
+    # test_run_ampl_optim()
