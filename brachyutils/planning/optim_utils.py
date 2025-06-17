@@ -191,8 +191,8 @@ class DwellTimeOptimizer(ABC, BaseModel):
     @abstractmethod
     def __init__(
         self,
-        roi_margin_mm: List[float] | float = 5.0,
-        solver: str = None,
+        # roi_margin_mm: List[float] | float = 5.0,
+        # solver: str = None,
         **data
     ):
         r"""
@@ -758,7 +758,7 @@ class AMPL_Optimization(DwellTimeOptimizer):
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
-            roi_margin_mm=roi_margin_mm
+            roi_margin_mm=self.roi_margin_mm
         )
         self.set_penalty_function_and_constraints(
             plan=self.plan,
@@ -771,10 +771,8 @@ class AMPL_Optimization(DwellTimeOptimizer):
             pth_logfile = Path("temp_data/ampl_model.log").resolve()
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         if solver == "highs":
-            env = Environment()
-            env.setOption("solver", "highs")
-            env.setOption("log_file", str(pth_logfile))
-            model = AMPL(env)
+            model = AMPL()
+            model.solver = solver
             return model
         else:
             raise ValueError(f"Solver {solver} is not supported. Please use 'highs'.")
