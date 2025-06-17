@@ -251,7 +251,7 @@ class Gurobi_Optimization(DwellTimeOptimizer):
         - roi_margin_mm: The distance from the furthest dwell position along each axis
         """
         super().__init__(**data)
-        roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
+        self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solver = solver
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
@@ -699,7 +699,7 @@ class AMPL_Optimization(DwellTimeOptimizer):
             roi_bounds = [first dwell - margin : last dwell + margin]
         """
         super().__init__(**data)
-        roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
+        self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solver = solver
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
