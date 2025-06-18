@@ -749,7 +749,40 @@ class BrachyOptim_AMPL(DwellTimeOptimizer):
         lower_bound: float = 0.0,
         upper_bound: float = 100,
     ) -> List[Any]:
-        pass
+        r"""
+        ### Purpose:
+        - A function to get the dwellTimeVariables from the plan. The dwellTimeVariables are dwell times for each dwell positon
+        inside the catehter table.
+        ### Inputs:
+        - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
+        - initial_dwell_time:float := The initial dwell_time of the DwellTimeVariable. Default is 0.
+        - lower_bound:float := The lower bound of the DwellTimeVariable. Default is 0.
+        - upper_bound:float := The upper bound of the DwellTimeVariable. Default is 100.
+        ### Outputs:
+        - DwellTimeVariable_list:List[DwellTimeVariable] := A list of dwellTimeVariables to be optimized. The dwellTimeVariables are the dwell times
+        for each dwell position inside the catheter table.
+        """
+        if self.model is None:
+            raise ValueError("Model is not initialized. Please initialize the model first.")
+        dwellTimeVariable_list = []
+        dwell_counter = 0
+        for catheter in plan.catheter_table:
+            for dwell_position in catheter.dwells:
+                dwellTimeVariable_list.append(
+                    DwellTimeVariable(
+                        model=self.model,
+                        name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
+                        dwell_time=initial_dwell_time,
+                        lower_bound=lower_bound,
+                        upper_bound=upper_bound,
+                        coordinates=dwell_position.position,
+                        dose_rate_map=plan.dose_rate_tensor[dwell_counter]
+                    )
+                )
+                dwell_counter += 1
+
+        return dwellTimeVariable_list
+
 
     def get_optimization_roi_bounds(
         self,
