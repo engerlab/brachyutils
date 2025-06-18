@@ -11,6 +11,7 @@ from gurobipy import Model, Var, GRB, MConstr, MVar
 # from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.types import BrachyPlan
 from abc import ABC, abstractmethod
+from amplpy import AMPL
 
 def crop_mask_resample_dose_rate_map(
     dose_rate_map: np.ndarray,
@@ -101,6 +102,48 @@ class Optimization_Config(BaseModel):
     # may be needed later
     # self.index_range_constraints: List[int] = None
 
+class DwellTimeVariable_ABC(ABC):
+    """
+    ### Purpose:
+    - An abstract class to represent a DwellTimeVariable in the dwell time optimization problem.
+    This class is used to define the properties of a dwell time variable, such as its name, initial dwell time,
+    lower and upper bounds, coordinates, dose rate map, and the variable in the optimization model.
+    It is used to create instances of DwellTimeVariable for each dwell position in the catheter table.
+    """
+    @abstractmethod
+    def __init__(self, model: Any):
+        r"""
+        ### Purpose:
+        - A class to represent a DwellTimeVariable in the dwell time optimization problem.
+        ### Attributes:
+        - name:str := references the catheter_number and dwell position number in the format
+        catheter_{catheter_number}_dwell_{dwell_position_number}
+        - dwell_time:float := The initial dwell_time of the DwellTimeVariable.
+        - lower_bound:float := The lower bound of the DwellTimeVariable.
+        - upper_bound:float := The upper bound of the DwellTimeVariable.
+        - coordinates:List[float] := The coordinates of the dwell position for this DwellTimeVariable.
+        - model_variable: Any := The variable in the optimization model corresponding to this DwellTimeVariable.
+        - dose_rate_map:np.ndarray := The dose rate map for this DwellTimeVariable.
+        """
+        self.name: str = None
+        self.dwell_time: float = None
+        self.lower_bound: float = None
+        self.upper_bound: float = None
+        self.coordinates: List[float] = None
+        self.dose_rate_map: np.ndarray = None
+        self.model_variable: Any = None
+        self.model_variable()
+
+    @property
+    @abstractmethod
+    def model_variable(self):
+        r"""
+        ### Purpose:
+        - A property to get and set the variable in the optimization model 
+        corresponding to this DwellTimeVariable.
+        """
+        pass
+
 class DwellTimeVariable(BaseModel):
     """
     ### Purpose:
@@ -113,6 +156,7 @@ class DwellTimeVariable(BaseModel):
     - upper_bound:float := The upper bound of the DwellTimeVariable.
     - coordinates:List[float] := The coordinates of the dwell position for this DwellTimeVariable.
     - model_variable: Any := The variable in the optimization model corresponding to this DwellTimeVariable.
+    - dose_rate_map:np.ndarray := The dose rate map for this DwellTimeVariable.
     """
     model_config = {
         "arbitrary_types_allowed": True,
@@ -148,11 +192,16 @@ class DwellTimeVariable(BaseModel):
                 name=self.name,
                 vtype=GRB.CONTINUOUS
             )
-            model.update()
+        elif isinstance(model, AMPL):
+            self.model_variable = model.eval(f"""
+                param lb_{self.name} := {self.lower_bound};
+                param ub_{self.name} := {self.upper_bound};
+                var {self.name} >= lb_{self.name} <= ub_{self.name};
+                """)
         else:
             raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
 
-class DwellTimeOptimizer(ABC):
+class DwellTimeOptimizer_ABC(ABC):
     r"""
     ### Purpose:
     - An abstract dwell time optimizer class to specify the common components of a dwell time optimizer class that
@@ -246,7 +295,7 @@ class DwellTimeOptimizer(ABC):
     ) -> None:
         pass
 
-class BrachyOptim_Gurobi(DwellTimeOptimizer):
+class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
     r"""
     ### Purpose:
     - A class using Gurobi to do dwell time optimization.
@@ -354,7 +403,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer):
                     )
                 )
                 dwell_counter += 1
-
+        self.model.update()
         return dwellTimeVariable_list
 
     def get_optimization_roi_bounds(
@@ -677,9 +726,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer):
                     variable.model_variable.ub = upper_bound
                 self.model.update()
 
-from amplpy import AMPL, Environment
-
-class BrachyOptim_AMPL(DwellTimeOptimizer):
+class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
     """
     ### Purpose:
     A class to solve dwell time optimization problems using AMPL. AMPL, allows for using a variety
