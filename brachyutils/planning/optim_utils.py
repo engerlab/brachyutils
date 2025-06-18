@@ -188,7 +188,7 @@ class DwellTimeOptimizer(ABC):
         self.dwellTimeVariables: List[DwellTimeVariable] = None
         self.model: Any = None
         self.roi_bounds: List[List[float]] = None  # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
-        self.roi_margin_mm: List[float] | float = 5.0
+        self.roi_margin_mm: List[float] | float = 3.0
 
     @abstractmethod
     def initialize_model(
@@ -226,7 +226,7 @@ class DwellTimeOptimizer(ABC):
     ) -> Callable:
         pass
 
-    @abstractmethod
+    # @abstractmethod
     def run(self):
         pass
 
@@ -266,21 +266,11 @@ class Gurobi_Optimization(DwellTimeOptimizer):
     - get_model()
     - run()
     """
-    model_config = {
-        "arbitrary_types_allowed": True,
-        "defer_build": False
-        }
-    plan: Any
-    solver: str = None
-    dwellTimeVariables: List[Var] = None
-    model: Any = None
-    roi_bounds: List[List[float]] = None # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
-    roi_margin_mm: List[float] | float = 5.0
     def __init__(
         self,
+        plan:BrachyPlan,
         roi_margin_mm: List[float] | float = 5.0,
-        solver="gurobi",
-        **data):
+        solver="gurobi"):
         r"""
         ### Purpose:
         - A function to initialize the optimizer.
@@ -288,7 +278,8 @@ class Gurobi_Optimization(DwellTimeOptimizer):
         - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
         - roi_margin_mm: The distance from the furthest dwell position along each axis
         """
-        super().__init__(**data)
+        super().__init__()
+        self.plan = plan
         self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solver = solver
         self.model = self.initialize_model(self.solver)
