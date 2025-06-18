@@ -1,4 +1,4 @@
-from brachyutils.planning.optim_utils import DwellTimeVariable, Gurobi_Optimization, Model
+from brachyutils.planning.optim_utils import DwellTimeVariable, BrachyOptim_Gurobi, Model
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.planning.optim_utils import Optimization_Config
 from brachyutils.types import BrachyPlan
@@ -64,13 +64,13 @@ def test_DwellTimeVariable():
 def test_get_optimization_roi_bounds():
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     dicom_plan = load_dicom_to_plan(pth_dicom)
-    optim_obj = Gurobi_Optimization(plan=dicom_plan, roi_margin_mm=[2, 2, 2])
+    optim_obj = BrachyOptim_Gurobi(plan=dicom_plan, roi_margin_mm=[2, 2, 2])
     print(optim_obj.roi_bounds)
     print("breakpoint")
 
 def test_run_gurobi_optim():
     plan_obj = get_a_plan_to_optimize()
-    optim_obj = Gurobi_Optimization(plan=plan_obj)
+    optim_obj = BrachyOptim_Gurobi(plan=plan_obj)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     # print(optimized_plan.get_dvh_metrics())
     # print(optimized_plan.dwell_times)
@@ -85,9 +85,9 @@ def test_run_gurobi_optim():
     print(optimized_plan.dwell_times)
 
 def test_run_ampl_optim():
-    from brachyutils.planning.optim_utils import AMPL_Optimization
+    from brachyutils.planning.optim_utils import BrachyOptim_AMPL
     plan_obj = get_a_plan_to_optimize()
-    optim_obj = AMPL_Optimization(plan=plan_obj)
+    optim_obj = BrachyOptim_AMPL(plan=plan_obj)
     # optimized_plan = optim_obj.get_optimized_plan_from_model()
     # print(optimized_plan.get_dvh_metrics())
     # print(optimized_plan.dwell_times)

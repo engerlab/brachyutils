@@ -246,7 +246,7 @@ class DwellTimeOptimizer(ABC):
     ) -> None:
         pass
 
-class Gurobi_Optimization(DwellTimeOptimizer):
+class BrachyOptim_Gurobi(DwellTimeOptimizer):
     r"""
     ### Purpose:
     - A class using Gurobi to do dwell time optimization.
@@ -679,7 +679,7 @@ class Gurobi_Optimization(DwellTimeOptimizer):
 
 from amplpy import AMPL, Environment
 
-class AMPL_Optimization(DwellTimeOptimizer):
+class BrachyOptim_AMPL(DwellTimeOptimizer):
     """
     ### Purpose:
     A class to solve dwell time optimization problems using AMPL. AMPL, allows for using a variety
