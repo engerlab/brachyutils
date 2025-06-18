@@ -152,7 +152,7 @@ class DwellTimeVariable(BaseModel):
         else:
             raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
 
-class DwellTimeOptimizer(ABC, BaseModel):
+class DwellTimeOptimizer(ABC):
     r"""
     ### Purpose:
     - An abstract dwell time optimizer class to specify the common components of a dwell time optimizer class that
@@ -173,28 +173,8 @@ class DwellTimeOptimizer(ABC, BaseModel):
     - get_optimized_plan_from_model: A function to get the optimized plan from the model.
     - bound_dwell_time: A function to bound the dwell time of a DwellTimeVariable.
     """
-    plan: Any = Field(default=None, description="The brachytherapy plan to be optimized")
-    solver: str = Field(default=None, description="The name of the solver to be used")
-    dwellTimeVariables: List[DwellTimeVariable] = Field(
-        default=None, description="The set of the dwellTimeVariables to be optimized"
-    )
-    model: Any = Field(
-        default=None, description="The model object that incorporates all the attributes above to output the optimal dwell_time for each DwellTimeVariable"
-    )
-    roi_bounds: List[List[float]] = Field(
-        default=None, description="The coordinate bounds for the optimization region of interest (roi) from the plan"
-    )
-    roi_margin_mm: List[float] | float = Field(
-        default=5.0,
-        description="The distance from the furthest dwell position along each axis to consider voxels the dose rate maps. used for roi_bounds calculation."
-    )
     @abstractmethod
-    def __init__(
-        self,
-        # roi_margin_mm: List[float] | float = 5.0,
-        # solver: str = None,
-        **data
-    ):
+    def __init__(self):
         r"""
         ### Purpose:
         - A function to initialize the optimizer.
@@ -203,8 +183,12 @@ class DwellTimeOptimizer(ABC, BaseModel):
         to consider voxels the dose rate maps. for each axis:
             roi_bounds = [first dwell - margin : last dwell + margin]
         """
-        super().__init__(**data)
-        # pass
+        self.plan: Any
+        self.solver: str = None
+        self.dwellTimeVariables: List[DwellTimeVariable] = None
+        self.model: Any = None
+        self.roi_bounds: List[List[float]] = None  # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
+        self.roi_margin_mm: List[float] | float = 5.0
 
     @abstractmethod
     def initialize_model(
@@ -284,7 +268,7 @@ class Gurobi_Optimization(DwellTimeOptimizer):
     """
     model_config = {
         "arbitrary_types_allowed": True,
-        # "defer_build": False
+        "defer_build": False
         }
     plan: Any
     solver: str = None
@@ -726,22 +710,11 @@ class AMPL_Optimization(DwellTimeOptimizer):
     - get_optimized_plan_from_model: A function to get the optimized plan from the model.
     - bound_dwell_time: A function to bound the dwell time of a DwellTimeVariable.
     """
-    model_config = {
-        "arbitrary_types_allowed": True,
-        "defer_build": True
-        }
-    plan: BrachyPlan
-    solver: str = None
-    dwellTimeVariables: List[DwellTimeVariable] = None
-    model: AMPL = None
-    roi_bounds: List[List[float]] = None # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
-    roi_margin_mm: List[float] | float = 5.0
     def __init__(
         self,
+        plan: BrachyPlan,
         roi_margin_mm: List[float] | float = 5.0,
-        solver: str = "highs",
-        **data
-    ):
+        solver: str = "highs"):
         r"""
         ### Purpose:
         - A function to initialize the optimizer.
@@ -750,7 +723,8 @@ class AMPL_Optimization(DwellTimeOptimizer):
         to consider voxels the dose rate maps. for each axis:
             roi_bounds = [first dwell - margin : last dwell + margin]
         """
-        super().__init__(**data)
+        super().__init__()
+        self.plan: BrachyPlan = plan
         self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solver = solver
         self.model = self.initialize_model(self.solver)
@@ -765,7 +739,7 @@ class AMPL_Optimization(DwellTimeOptimizer):
             dwellTimeVariables=self.dwellTimeVariables,
             model=self.model
         )
-        
+
     def initialize_model(self, solver, pth_logfile = None):
         if pth_logfile is None:
             pth_logfile = Path("temp_data/ampl_model.log").resolve()
