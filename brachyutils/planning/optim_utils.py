@@ -120,7 +120,7 @@ class BrachyDwellTime(BaseModel, ABC):
     coordinates: List[float] = Field(default=None, description="Coordinates of the dwell position for this DwellTimeVariable.")
     dose_rate_map: np.ndarray = Field(default=None, description="Dose rate map for this DwellTimeVariable.")
 
-    _model_variable: Any = PrivateAttr(default=None, description="Variable in the optimization model corresponding to this DwellTimeVariable.")
+    _model_variable: Any = PrivateAttr(default=None)
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -173,7 +173,7 @@ class BrachyDwellTime(BaseModel, ABC):
     #     self.upper_bound: float = None
     #     self.coordinates: List[float] = None
     #     self.dose_rate_map: np.ndarray = None
-    #     self.model_variable: Any = None
+    #     self._model_variable: Any = None
     #     self.add_model_variable(model)
     
     # def add_model_variable(self, model: Any) -> None:
@@ -265,7 +265,7 @@ class DwellTimeGurobi(BrachyDwellTime):
     #     if not isinstance(model, Model):
     #         raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
     #     isinstance(model, Model):
-    #         self.model_variable = model.addVar(
+    #         self._model_variable = model.addVar(
     #             lb=self.lower_bound,
     #             ub=self.upper_bound,
     #             name=self.name,
@@ -273,7 +273,7 @@ class DwellTimeGurobi(BrachyDwellTime):
     #         )
 
 # elif isinstance(model, AMPL):
-        #     self.model_variable = model.eval(f"""
+        #     self._model_variable = model.eval(f"""
         #         param lb_{self.name} := {self.lower_bound};
         #         param ub_{self.name} := {self.upper_bound};
         #         var {self.name} >= lb_{self.name} <= ub_{self.name};
@@ -470,7 +470,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         for catheter in plan.catheter_table:
             for dwell_position in catheter.dwells:
                 dwellTimeVariable_list.append(
-                    DwellTimeVariable(
+                    DwellTimeGurobi(
                         model=self.model,
                         name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
                         dwell_time=initial_dwell_time,
@@ -487,7 +487,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
     def get_optimization_roi_bounds(
         self,
         plan: BrachyPlan,
-        dwellTimeVariables: List[DwellTimeVariable],
+        dwellTimeVariables: List[DwellTimeGurobi],
         roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
     ) -> List[List[float]]:
         r"""
@@ -544,7 +544,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
     def set_penalty_function_and_constraints(
         self,
         plan: BrachyPlan,
-        dwellTimeVariables: List[DwellTimeVariable],
+        dwellTimeVariables: List[DwellTimeGurobi],
         model: Model):
         r"""
         ### Purpose:
@@ -599,7 +599,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
                     relevant_dwells = structure.name.lower().split("hotspot_estimator:")[1].split("/")
                     if variable.name not in relevant_dwells:
                         continue
-                dwell_vars.append(variable.model_variable)
+                dwell_vars.append(variable._model_variable)
                 cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
                     dose_rate_map=variable.dose_rate_map,
                     template_dose_obj=plan.combined_dose,
@@ -759,7 +759,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
 
         for variable in self.dwellTimeVariables:
             # set the dwell time to the optimized value
-            variable.dwell_time = variable.model_variable.X
+            variable.dwell_time = variable._model_variable.X
             if variable.dwell_time < 0.1:
                 variable.dwell_time = 0
             # set the dwell time to the plan
@@ -798,10 +798,10 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
             if variable.name == name:
                 if lower_bound is not None:
                     variable.lower_bound = lower_bound
-                    variable.model_variable.lb = lower_bound
+                    variable._model_variable.lb = lower_bound
                 if upper_bound is not None:
                     variable.upper_bound = upper_bound
-                    variable.model_variable.ub = upper_bound
+                    variable._model_variable.ub = upper_bound
                 self.model.update()
 
 class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):

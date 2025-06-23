@@ -1,4 +1,4 @@
-from brachyutils.planning.optim_utils import DwellTimeVariable, BrachyOptim_Gurobi, Model
+from brachyutils.planning.optim_utils import DwellTimeGurobi, BrachyOptim_Gurobi, Model
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.planning.optim_utils import Optimization_Config
 from brachyutils.types import BrachyPlan
@@ -51,7 +51,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
 def test_DwellTimeVariable():
     model = Model("test_model")
 
-    x = DwellTimeVariable(
+    x = DwellTimeGurobi(
         model=model,
         name=f"catheter_{2}_dwell_{4}",
         dwell_time=0,
@@ -59,6 +59,7 @@ def test_DwellTimeVariable():
         upper_bound=100,
         coordinates=[23, 13, 12],
         )
+    model.update()
     print("dwellTimeVariable5:", x)
 
 def test_get_optimization_roi_bounds():
@@ -72,16 +73,17 @@ def test_run_gurobi_optim():
     plan_obj = get_a_plan_to_optimize()
     optim_obj = BrachyOptim_Gurobi(plan=plan_obj)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
-    # print(optimized_plan.get_dvh_metrics())
-    # print(optimized_plan.dwell_times)
+    print(optimized_plan.get_dvh_metrics())
+    print(optimized_plan.dwell_times)
 
-    # test setting a bound on a specific dwell time variable
+    # # test setting a bound on a specific dwell time variable
     optim_obj.bound_dwell_time(
         name="catheter_0_dwell_0",
         lower_bound=1,
         upper_bound=1
     )
     optimized_plan = optim_obj.get_optimized_plan_from_model()
+    print(optimized_plan.get_dvh_metrics())
     print(optimized_plan.dwell_times)
 
 def test_run_ampl_optim():
@@ -95,5 +97,5 @@ def test_run_ampl_optim():
 if __name__ == "__main__":
     # test_DwellTimeVariable()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
-    test_run_ampl_optim()
+    test_run_gurobi_optim()
+    # test_run_ampl_optim()
