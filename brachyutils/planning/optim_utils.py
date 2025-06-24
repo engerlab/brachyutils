@@ -131,7 +131,8 @@ class BrachyDwellTime(BaseModel, ABC):
     def build_backend_variable(self, model: Any) -> None:
         r"""
         ### Purpose:
-        - A function to build the backend variable in the optimization model.
+        - A function to build the backend variable in the optimization model by adding the
+        dwell time attributes like the lower and upper bounds, name, and type to the optimizatio model.
         ### Inputs:
         - model: Any := The model object.
         """
@@ -246,7 +247,7 @@ class DwellTimeOptimizer_ABC(ABC):
     ) -> None:
         pass
 
-class DwellTimeGurobi(BrachyDwellTime):
+class DwellTime_Gurobi(BrachyDwellTime):
     """
     ### Purpose:
     - A class to represent a DwellTimeVariable in the dwell time optimization problem.
@@ -394,7 +395,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         for catheter in plan.catheter_table:
             for dwell_position in catheter.dwells:
                 dwellTimeVariable_list.append(
-                    DwellTimeGurobi(
+                    DwellTime_Gurobi(
                         model=self.model,
                         name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
                         dwell_time=initial_dwell_time,
@@ -411,7 +412,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
     def get_optimization_roi_bounds(
         self,
         plan: BrachyPlan,
-        dwellTimeVariables: List[DwellTimeGurobi],
+        dwellTimeVariables: List[DwellTime_Gurobi],
         roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
     ) -> List[List[float]]:
         r"""
@@ -468,7 +469,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
     def set_penalty_function_and_constraints(
         self,
         plan: BrachyPlan,
-        dwellTimeVariables: List[DwellTimeGurobi],
+        dwellTimeVariables: List[DwellTime_Gurobi],
         model: Model):
         r"""
         ### Purpose:
@@ -724,6 +725,66 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
                 break
         self.model.update()
 
+class DwellTime_AMPL(BrachyDwellTime):
+    r"""
+    ### Purpose:
+    - A class to represent a DwellTimeVariable in the dwell time optimization problem using AMPL.
+    """
+    def _ampl_variable_exists(self, model: AMPL, name: str) -> bool:
+        """
+        Check if a variable with the given name exists in the AMPL model.
+        """
+        try:
+            model.getVariable(name)
+            return True
+        except RuntimeError:
+            return False
+
+    def build_backend_variable(self, model):
+        if not isinstance(model, AMPL):
+            raise ValueError("Model is not an AMPL model. Please provide an AMPL model.")
+        
+        # check if variable already exists, if not, create it
+        # if not self._ampl_variable_exists(model, self.name):
+        model.eval(f"param {self.name}_lb; let {self.name}_lb := {self.lower_bound};")
+        model.eval(f"param {self.name}_ub; let {self.name}_ub := {self.upper_bound};")
+        model.eval(
+            f"var {self.name} "
+            f">= {self.name}_lb <= {self.name}_ub;"
+        )
+        self._model_variable = model.getVariable(self.name)
+
+    def set_bounds(
+        self, *,
+        model: AMPL,
+        lower_bound: float | None = None,
+        upper_bound: float | None = None) -> None:
+        r"""
+        ### Purpose:
+        - A function to set the lower and upper bounds for the DwellTimeVariable.
+        This function should update the underlying model variable's bounds.
+        ### Inputs:
+        - lower_bound: float | None := The lower bound to set for the DwellTimeVariable. Default is None.
+        - upper_bound: float | None := The upper bound to set for the DwellTimeVariable. Default is None.
+        """
+        if lower_bound is not None:
+            self.lower_bound = lower_bound
+            model.eval(f"let {self.name}_lb := {self.lower_bound};")
+        if upper_bound is not None:
+            self.upper_bound = upper_bound
+            model.eval(f"let {self.name}_ub := {self.upper_bound};")
+
+    def __init__(self, model: AMPL, **data):
+        r"""
+        ### Purpose:
+        - A function to initialize the DwellTimeVariable.
+        ### Inputs:
+        - model: AMPL := The AMPL model object.
+        - data: dict := The data to initialize the DwellTimeVariable.
+        """
+        super().__init__(**data)
+        self.build_backend_variable(model)
+
 class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
     """
     ### Purpose:
@@ -814,7 +875,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         for catheter in plan.catheter_table:
             for dwell_position in catheter.dwells:
                 dwellTimeVariable_list.append(
-                    DwellTimeVariable(
+                    DwellTime_AMPL(
                         model=self.model,
                         name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
                         dwell_time=initial_dwell_time,
