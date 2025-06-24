@@ -152,133 +152,6 @@ class BrachyDwellTime(BaseModel, ABC):
         """
         pass
 
-    # @abstractmethod
-    # def __init__(self, model: Any):
-    #     r"""
-    #     ### Purpose:
-    #     - A class to represent a DwellTimeVariable in the dwell time optimization problem.
-    #     ### Attributes:
-    #     - name:str := references the catheter_number and dwell position number in the format
-    #     catheter_{catheter_number}_dwell_{dwell_position_number}
-    #     - dwell_time:float := The initial dwell_time of the DwellTimeVariable.
-    #     - lower_bound:float := The lower bound of the DwellTimeVariable.
-    #     - upper_bound:float := The upper bound of the DwellTimeVariable.
-    #     - coordinates:List[float] := The coordinates of the dwell position for this DwellTimeVariable.
-    #     - model_variable: Any := The variable in the optimization model corresponding to this DwellTimeVariable.
-    #     - dose_rate_map:np.ndarray := The dose rate map for this DwellTimeVariable.
-    #     """
-    #     self.name: str = None
-    #     self.dwell_time: float = None
-    #     self.lower_bound: float = None
-    #     self.upper_bound: float = None
-    #     self.coordinates: List[float] = None
-    #     self.dose_rate_map: np.ndarray = None
-    #     self._model_variable: Any = None
-    #     self.add_model_variable(model)
-    
-    # def add_model_variable(self, model: Any) -> None:
-    #     pass
-
-class DwellTimeGurobi(BrachyDwellTime):
-    """
-    ### Purpose:
-    - A class to represent a DwellTimeVariable in the dwell time optimization problem.
-    ### Attributes:
-    - name:str := references the catheter_number and dwell position number in the format
-    catheter_{catheter_number}_dwell_{dwell_position_number}
-    - dwell_time:float := The initial dwell_time of the DwellTimeVariable.
-    - lower_bound:float := The lower bound of the DwellTimeVariable.
-    - upper_bound:float := The upper bound of the DwellTimeVariable.
-    - coordinates:List[float] := The coordinates of the dwell position for this DwellTimeVariable.
-    - _model_variable: Any := The variable in the optimization model corresponding to this DwellTimeVariable.
-    - dose_rate_map:np.ndarray := The dose rate map for this DwellTimeVariable.
-    """
-    def build_backend_variable(self, model):
-        if not isinstance(model, Model):
-            raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
-        self._model_variable = model.addVar(
-            lb=self.lower_bound,
-            ub=self.upper_bound,
-            name=self.name,
-            vtype=GRB.CONTINUOUS
-        )
-
-    def set_bounds(self, *, lower_bound: float | None = None, upper_bound: float | None = None) -> None:
-        r"""
-        ### Purpose:
-        - A function to set the lower and upper bounds for the DwellTimeVariable.
-        This function should update the underlying model variable's bounds.
-        ### Inputs:
-        - lower_bound: float | None := The lower bound to set for the DwellTimeVariable. Default is None.
-        - upper_bound: float | None := The upper bound to set for the DwellTimeVariable. Default is None.
-        """
-        if lower_bound is not None:
-            self.lower_bound = lower_bound
-            self._model_variable.lb = lower_bound
-        if upper_bound is not None:
-            self.upper_bound = upper_bound
-            self._model_variable.ub = upper_bound
-    
-    def __init__(self, model: Model, **data):
-        r"""
-        ### Purpose:
-        - A function to initialize the DwellTimeVariable.
-        ### Inputs:
-        - model: Model := The Gurobi model object.
-        - data: dict := The data to initialize the DwellTimeVariable.
-        """
-        super().__init__(**data)
-        self.build_backend_variable(model) 
-
-    # def __init__(
-    #     self,
-    #     model: Any,
-    #     name: str,
-    #     dwell_time: float,
-    #     lower_bound: float,
-    #     upper_bound: float,
-    #     coordinates: List[float],
-    #     dose_rate_map: np.ndarray):
-    #     """
-    #     ### Purpose:
-    #     - A function to initialize the DwellTimeVariable.
-    #     ### Inputs:
-    #     - model: Any := The model object.
-    #     - name:str := references the catheter_number and dwell position number in the format
-    #     catheter_{catheter_number}_dwell_{dwell_position_number}
-    #     - dwell_time:float := The initial dwell_time of the DwellTimeVariable.
-    #     - lower_bound:float := The lower bound of the DwellTimeVariable.
-    #     - upper_bound:float := The upper bound of the DwellTimeVariable.
-    #     - coordinates:List[float] := The coordinates of the dwell position for this DwellTimeVariable.
-    #     - dose_rate_map:np.ndarray := The dose rate map for this DwellTimeVariable.
-    #     """
-    #     super().__init__()
-    #     self.name = name
-    #     self.dwell_time = dwell_time
-    #     self.lower_bound = lower_bound
-    #     self.upper_bound = upper_bound
-    #     self.coordinates = coordinates
-    #     self.dose_rate_map = dose_rate_map
-    #     self.add_model_variable(model)
-
-    # def build_backend_variable(self, model):
-    #     if not isinstance(model, Model):
-    #         raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
-    #     isinstance(model, Model):
-    #         self._model_variable = model.addVar(
-    #             lb=self.lower_bound,
-    #             ub=self.upper_bound,
-    #             name=self.name,
-    #             vtype=GRB.CONTINUOUS
-    #         )
-
-# elif isinstance(model, AMPL):
-        #     self._model_variable = model.eval(f"""
-        #         param lb_{self.name} := {self.lower_bound};
-        #         param ub_{self.name} := {self.upper_bound};
-        #         var {self.name} >= lb_{self.name} <= ub_{self.name};
-        #         """)
-
 class DwellTimeOptimizer_ABC(ABC):
     r"""
     ### Purpose:
@@ -372,6 +245,57 @@ class DwellTimeOptimizer_ABC(ABC):
         upper_bound: float = None
     ) -> None:
         pass
+
+class DwellTimeGurobi(BrachyDwellTime):
+    """
+    ### Purpose:
+    - A class to represent a DwellTimeVariable in the dwell time optimization problem.
+    ### Attributes:
+    - name:str := references the catheter_number and dwell position number in the format
+    catheter_{catheter_number}_dwell_{dwell_position_number}
+    - dwell_time:float := The initial dwell_time of the DwellTimeVariable.
+    - lower_bound:float := The lower bound of the DwellTimeVariable.
+    - upper_bound:float := The upper bound of the DwellTimeVariable.
+    - coordinates:List[float] := The coordinates of the dwell position for this DwellTimeVariable.
+    - _model_variable: Any := The variable in the optimization model corresponding to this DwellTimeVariable.
+    - dose_rate_map:np.ndarray := The dose rate map for this DwellTimeVariable.
+    """
+    def build_backend_variable(self, model):
+        if not isinstance(model, Model):
+            raise ValueError("Model is not a Gurobi model. Please provide a Gurobi model.")
+        self._model_variable = model.addVar(
+            lb=self.lower_bound,
+            ub=self.upper_bound,
+            name=self.name,
+            vtype=GRB.CONTINUOUS
+        )
+
+    def set_bounds(self, *, lower_bound: float | None = None, upper_bound: float | None = None) -> None:
+        r"""
+        ### Purpose:
+        - A function to set the lower and upper bounds for the DwellTimeVariable.
+        This function should update the underlying model variable's bounds.
+        ### Inputs:
+        - lower_bound: float | None := The lower bound to set for the DwellTimeVariable. Default is None.
+        - upper_bound: float | None := The upper bound to set for the DwellTimeVariable. Default is None.
+        """
+        if lower_bound is not None:
+            self.lower_bound = lower_bound
+            self._model_variable.lb = lower_bound
+        if upper_bound is not None:
+            self.upper_bound = upper_bound
+            self._model_variable.ub = upper_bound
+    
+    def __init__(self, model: Model, **data):
+        r"""
+        ### Purpose:
+        - A function to initialize the DwellTimeVariable.
+        ### Inputs:
+        - model: Model := The Gurobi model object.
+        - data: dict := The data to initialize the DwellTimeVariable.
+        """
+        super().__init__(**data)
+        self.build_backend_variable(model) 
 
 class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
     r"""
@@ -796,13 +720,9 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         """
         for variable in self.dwellTimeVariables:
             if variable.name == name:
-                if lower_bound is not None:
-                    variable.lower_bound = lower_bound
-                    variable._model_variable.lb = lower_bound
-                if upper_bound is not None:
-                    variable.upper_bound = upper_bound
-                    variable._model_variable.ub = upper_bound
-                self.model.update()
+                variable.set_bounds(lower_bound=lower_bound, upper_bound=upper_bound)
+                break
+        self.model.update()
 
 class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
     """
