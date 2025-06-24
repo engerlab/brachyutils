@@ -484,7 +484,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         - Linear penalties for over/under dosing relative to target dose
         - Quadratic penalties for over/under dosing 
         - Uniformity penalties for target volumes
-        - Hotspot penalties (not implemented yet)
+        - Hotspot penalties for hotspot estimator structures encapsulating two closest dwell positions.
         
         ### Inputs:
         - plan: BrachyPlan := The plan containing structures and optimization configs
@@ -901,9 +901,31 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
     def set_penalty_function_and_constraints(
         self,
         plan: BrachyPlan,
-        dwellTimeVariables: List[Any],
-        model: Any,
-    ) -> Callable:
+        dwellTimeVariables: List[DwellTime_AMPL],
+        model: AMPL,
+        ):
+        r"""
+        ### Purpose:
+        - A function to set up the optimization model's objective function and constraints based on the plan.
+        For target structures, slack variables are added to ensure doses meet target goals with linear and quadratic
+        penalties for underdosing, plus uniformity penalties. For OARs, slack variables with linear and quadratic
+        penalties penalize overdosing above the target dose.
+        
+        The objective function takes the form:
+        minimize sum(weights * penalties) where penalties include:
+        - Linear penalties for over/under dosing relative to target dose
+        - Quadratic penalties for over/under dosing 
+        - Uniformity penalties for target volumes
+        - Hotspot penalties for hotspot estimator structures encapsulating two closest dwell positions.
+        
+        ### Inputs:
+        - plan: BrachyPlan := The plan containing structures and optimization configs
+        - dwellTimeVariables: List[DwellTimeVariable] := The dwell time variables to optimize
+        - model: Model := The Gurobi optimization model
+
+        ### Outputs:
+        None - sets up the model objective function and constraints directly
+        """
         pass
 
     def run(self):
