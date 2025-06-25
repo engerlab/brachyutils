@@ -926,7 +926,63 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         ### Outputs:
         None - sets up the model objective function and constraints directly
         """
-        pass
+        from scipy import sparse as sp
+        penalty_terms = {
+            "linear": 0,
+            "quadratic": 0,
+            "hotspot": 0,
+            "uniformity": 0
+        }
+        for structure in plan.structure_list:
+            if structure.optimization_config is None:
+                continue
+
+            structure_mask = structure.mask
+            optim_spacing = structure.optimization_config.spacing_mm
+            target_dose = structure.optimization_config.dose_voxel_goal
+            linear_weight = structure.optimization_config.penalty_weight_linear
+            quadratic_weight = structure.optimization_config.penalty_weight_quadratic
+            uniformity_weight = structure.optimization_config.penalty_weight_uniformity
+            min_dose = structure.optimization_config.min_dose
+            structure_max_dose = structure.optimization_config.max_dose
+            hotspot_threshold = structure.optimization_config.hotspot_threshold
+            hotspot_weight = structure.optimization_config.penalty_weight_hotspot
+
+            # Build dose rate matrix and dwell time vector for this structure
+            dose_rate_matrices = []
+            dwell_vars = []
+            for variable in dwellTimeVariables:
+                if "hotspot_estimator:" in structure.name.lower():
+                    relevant_dwells = structure.name.lower().split("hotspot_estimator:")[1].split("/")
+                    if variable.name not in relevant_dwells:
+                        continue
+                dwell_vars.append(variable._model_variable)
+                cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
+                    dose_rate_map=variable.dose_rate_map,
+                    template_dose_obj=plan.combined_dose,
+                    roi_bounds=self.roi_bounds,
+                    structure_mask=structure_mask,
+                    optim_spacing=optim_spacing
+                )
+                # Extract valid dose points and flatten
+                valid_dose_points = cropped_resampled_dose_rate_map[
+                    cropped_resampled_dose_rate_map > 0
+                ].flatten()
+                dose_rate_matrices.append(valid_dose_points)
+
+            if not dose_rate_matrices:
+                continue
+            A = np.column_stack(dose_rate_matrices)
+            A_sparse = sp.csr_matrix(A)
+            num_dose_points = A.shape[0]
+            num_dwells = len(dwell_vars)
+            target_dose_vec = np.full(num_dose_points, target_dose)
+            # XXX: Implement AMPL stuff with for loops in AMPL. there seems to be no 
+            # other way around it.
+            model.set["t_MVar"] = dwell_vars
+            if structure.target_volume:
+                #  slack variables for target volume
+                pass
 
     def run(self):
         pass
