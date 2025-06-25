@@ -972,17 +972,75 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
 
             if not dose_rate_matrices:
                 continue
+            # create the dose rate matrix A (n x m)
             A = np.column_stack(dose_rate_matrices)
-            A_sparse = sp.csr_matrix(A)
+            # A_sparse = sp.csr_matrix(A)
             num_dose_points = A.shape[0]
             num_dwells = len(dwell_vars)
-            target_dose_vec = np.full(num_dose_points, target_dose)
-            # XXX: Implement AMPL stuff with for loops in AMPL. there seems to be no 
-            # other way around it.
-            model.set["t_MVar"] = dwell_vars
+            # create target dose vector (n x 1)
+            # # Implement AMPL
+            # define matrix dimensions for ampl
+            model.eval(f"param num_dose_points := {num_dose_points};")
+            model.eval(f"param num_dwells := {num_dwells};")
+            # define the index sets for dose points and dwell times
+            model.eval(f"set D := 1 .. num_dose_points;")
+            model.eval(f"set T := 1 .. num_dwells;")
+            # pass the dwell time variables in a single vector
+            model.eval(f"var t_vec {{T}};")
+            for i, d_var in enumerate(dwell_vars):
+                model.eval(f"subject to t_def_{i+1}: t_vec[{i+1}] = {d_var.name()};")
+            model.eval("param A{{{D},{T}}};")
+            # pass the dose rate matrix A to the model
+            model.param["A"] = A
+            # pass the target dose vector to the model
+            model.eval(f"param target_dose := {target_dose};")
+            model.eval(f"param min_dose := {min_dose};")
+
             if structure.target_volume:
-                #  slack variables for target volume
-                pass
+                # create the slack variables for underdosing
+                model.eval(f"var x_slack {{D}} >= 0 <= target_dose - min_dose;")
+                # for uniformity
+                model.eval(f"var y_slack {{D}} >= -Infinity <= target_dose - min_dose;")
+                
+                model.eval(
+                    """
+                    subject to dose_constraint {i in D}:
+                        sum{j in T} A[i,j] * t_vec[j] + x_slack[i] >= target_dose;
+                    """)
+                model.eval(
+                    """
+                    subject to uniformity_constraint {i in D}:
+                        sum{j in T} A[i,j] * t_vec[j] + y_slack[i] = target_dose;
+                    """)
+                
+                # add penalty terms
+                model.param["linear_weight"] = linear_weight / num_dose_points
+                model.param["quadratic_weight"] = quadratic_weight / num_dose_points
+                model.param["uniformity_weight"] = uniformity_weight / (num_dose_points * 1000)
+                model.eval(
+                    """
+                    minimize objective_function:
+                        sum{i in D} (linear_weight * x_slack[i] 
+                            + quadratic_weight * x_slack[i]^2 
+                            + uniformity_weight * y_slack[i]^2)                    
+                    """
+                )
+                
+                
+                # model.eval()
+                # model.eval(
+                #     f"""
+                #     # define matrix dimensions
+                #     param num_dose_points := {num_dose_points};
+                #     param num_dwells := {num_dwells};
+                    
+                #     # define the counter arrays
+                #     set D := 1..num_dose_points;
+                #     set T := 1..num_dwells;
+                    
+                #     # define the dose rate matrix
+                #     param A := {', '.join([f'A[{i+1},{j+1}] {A[i,j]}' for i in range(num_dose_points) for j in range(num_dwells)])};
+                #     """)
 
     def run(self):
         pass
