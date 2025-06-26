@@ -825,7 +825,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solver = solver
         self.model = self.initialize_model(self.solver)
-        self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
+        self.dwellTimeVariables:DwellTime_AMPL = self.set_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
@@ -1024,16 +1024,82 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
                             + quadratic_weight * x_slack[i]^2
                             + uniformity_weight * y_slack[i]^2);
                     """)
-
+            elif "hotspot_estimator:" in structure.name.lower():
+                # slack variable for hotspot estimator
+                model.eval(f"var x_slack {{D}} >= 0 <= {hotspot_threshold} * target_dose - min_dose;")
+                model.eval(
+                    f"""
+                    subject to hotspot_constraint {{i in D}}:
+                        sum{{j in T}} A[i,j] * t_vec[j] - x_slack[i] <= {hotspot_threshold} * target_dose;
+                    """)
+                model.eval(f"param hotspot_weight := {hotspot_weight / num_dose_points};")
+                model.eval(
+                    """
+                    minimize objective_function:
+                        sum{i in D} (hotspot_weight * x_slack[i]);
+                    """)
+            else:
+                # OAR (Organ at Risk) constraints and penalties
+                model.eval(f"var x_slack {{D}} >= 0 <= {structure_max_dose} - target_dose;")
+                model.eval(
+                    """
+                    subject to oar_constraint {i in D}:
+                        sum{j in T} A[i,j] * t_vec[j] - x_slack[i] <= target_dose;
+                    """)
+                model.eval(f"param linear_weight := {linear_weight / num_dose_points};")
+                model.eval(f"param quadratic_weight := {quadratic_weight / num_dose_points};")
+                model.eval(
+                    """
+                    minimize objective_function:
+                        sum{i in D} (linear_weight * x_slack[i]
+                            + quadratic_weight * x_slack[i]^2);
+                    """)
 
     def run(self):
-        pass
+        r"""
+        ### Purpose:
+        - A function to run the optimizer.
+        """
+        self.model.solve()
+        if self.model.get_value("solve_result") == "solved":
+            print("Optimal solution found.")
+        else:
+            print("No optimal solution found.")
 
     def get_optimized_plan_from_model(
         self,
         inplace=True,
     ) -> BrachyPlan | None:
-        pass
+        if self.plan is None:
+            raise ValueError("Plan is not set. Please set the plan first.")
+        if self.model is None:
+            raise ValueError("Model is not set. Please set the model first.")
+        if self.dwellTimeVariables is None:
+            raise ValueError("DwellTimeVariables are not set. Please set the DwellTimeVariables first.")
+
+        self.run()
+        if self.model.get_value("solve_result") != "solved":
+            Warning.warn(
+                "No optimal solution found. Return None.",
+                stacklevel=2)
+            return None
+        for variable in self.dwellTimeVariables:
+            # set the dwell time to the optimized value
+            variable.dwell_time = self.model.get_value(variable.name)
+            if variable.dwell_time < 0.1:
+                variable.dwell_time = 0
+            # set the dwell time to the plan
+            if inplace:
+                outplan: BrachyPlan = self.plan
+            else:
+                outplan: BrachyPlan = deepcopy(self.plan)
+            for catheter in outplan.catheter_table:
+                for dwell_position in catheter.dwells:
+                    if (
+                        f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                        == variable.name
+                    ):
+                        dwell_position.time = variable.dwell_time
 
     def bound_dwell_time(
         self,
@@ -1041,4 +1107,11 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         lower_bound: float = None,
         upper_bound: float = None
     ) -> None:
-        pass
+        for variable in self.dwellTimeVariables:
+            if variable.name == name:
+                variable.set_bounds(
+                    model=self.model,
+                    lower_bound=lower_bound,
+                    upper_bound=upper_bound
+                )
+                break
