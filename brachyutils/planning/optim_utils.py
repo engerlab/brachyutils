@@ -1001,7 +1001,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
                 model.eval(f"var x_slack {{D}} >= 0 <= target_dose - min_dose;")
                 # for uniformity
                 model.eval(f"var y_slack {{D}} >= -Infinity <= target_dose - min_dose;")
-                
+
                 model.eval(
                     """
                     subject to dose_constraint {i in D}:
@@ -1012,35 +1012,19 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
                     subject to uniformity_constraint {i in D}:
                         sum{j in T} A[i,j] * t_vec[j] + y_slack[i] = target_dose;
                     """)
-                
+
                 # add penalty terms
-                model.param["linear_weight"] = linear_weight / num_dose_points
-                model.param["quadratic_weight"] = quadratic_weight / num_dose_points
-                model.param["uniformity_weight"] = uniformity_weight / (num_dose_points * 1000)
+                model.eval(f"param linear_weight := {linear_weight / num_dose_points};")
+                model.eval(f"param quadratic_weight := {quadratic_weight / num_dose_points};")
+                model.eval(f"param uniformity_weight := {uniformity_weight / (num_dose_points * 1000)};")
                 model.eval(
                     """
                     minimize objective_function:
-                        sum{i in D} (linear_weight * x_slack[i] 
-                            + quadratic_weight * x_slack[i]^2 
-                            + uniformity_weight * y_slack[i]^2)                    
-                    """
-                )
-                
-                
-                # model.eval()
-                # model.eval(
-                #     f"""
-                #     # define matrix dimensions
-                #     param num_dose_points := {num_dose_points};
-                #     param num_dwells := {num_dwells};
-                    
-                #     # define the counter arrays
-                #     set D := 1..num_dose_points;
-                #     set T := 1..num_dwells;
-                    
-                #     # define the dose rate matrix
-                #     param A := {', '.join([f'A[{i+1},{j+1}] {A[i,j]}' for i in range(num_dose_points) for j in range(num_dwells)])};
-                #     """)
+                        sum{i in D} (linear_weight * x_slack[i]
+                            + quadratic_weight * x_slack[i]^2
+                            + uniformity_weight * y_slack[i]^2);
+                    """)
+
 
     def run(self):
         pass
