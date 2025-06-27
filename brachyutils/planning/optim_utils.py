@@ -2,6 +2,7 @@
 from typing import List, Callable, Any
 from copy import deepcopy
 import warnings
+import time
 from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
 import numpy as np
@@ -812,7 +813,8 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         self,
         plan: BrachyPlan,
         roi_margin_mm: List[float] | float = 5.0,
-        solver: str = "highs"):
+        solver: str = "highs",
+        verbose: bool = True):
         r"""
         ### Purpose:
         - A function to initialize the optimizer.
@@ -820,11 +822,13 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         - roi_margin_mm: The distance from the furthest dwell position along each axis
         to consider voxels the dose rate maps. for each axis:
             roi_bounds = [first dwell - margin : last dwell + margin]
+        - verbose: Whether to show AMPL solver output and progress
         """
         super().__init__()
         self.plan: BrachyPlan = plan
         self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solver = solver
+        self.verbose = verbose
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables:DwellTime_AMPL = self.set_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
@@ -842,9 +846,25 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         if pth_logfile is None:
             pth_logfile = Path("temp_data/ampl_model.log").resolve()
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
+        
         if solver == "highs":
             model = AMPL()
-            model.solver = solver
+            model.option["solver"] = solver
+            
+            # Configure verbose output
+            if self.verbose:
+                model.option["display_1col"] = 20  # Display up to 20 columns
+                model.option["display_eps"] = 1e-6  # Display precision
+                model.option["display_round"] = 6   # Rounding precision
+                
+                # HiGHS-specific options for verbose output
+                model.option["highs_options"] = "output_flag=true log_to_console=true"
+                
+                # Set log file
+                model.option["log_file"] = str(pth_logfile)
+                print(f"AMPL log file: {pth_logfile}")
+                print(f"Using solver: {solver}")
+            
             return model
         else:
             raise ValueError(f"Solver {solver} is not supported. Please use 'highs'.")
@@ -929,8 +949,13 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         """
         # from scipy import sparse as sp
         
+        print("Building AMPL optimization model...")
+        
         # Initialize global model parameters once
         total_dwells = len(dwellTimeVariables)
+        if self.verbose:
+            print(f"Setting up {total_dwells} dwell time variables...")
+        
         model.eval(f"param total_dwells := {total_dwells};")
         model.eval("set ALL_DWELLS := 1 .. total_dwells;")
         model.eval("var t_vec {ALL_DWELLS};")
@@ -942,6 +967,10 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         # Initialize objective function components
         objective_terms = []
         structure_counter = 0
+        
+        structures_with_config = [s for s in plan.structure_list if s.optimization_config is not None]
+        if self.verbose:
+            print(f"Processing {len(structures_with_config)} structures with optimization configs...")
         
         for structure in plan.structure_list:
             if structure.optimization_config is None:
@@ -1059,21 +1088,82 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         # Create the combined objective function once all structures are processed
         if objective_terms:
             combined_objective = " + ".join(objective_terms)
+            if self.verbose:
+                print(f"Setting objective with {len(objective_terms)} penalty terms...")
             model.eval(f"minimize objective_function: {combined_objective};")
         else:
             # Fallback objective if no structures have optimization configs
+            print("Warning: No optimization configs found, using dummy objective")
             model.eval("minimize objective_function: 0;")
+        
+        if self.verbose:
+            print("Model building complete!")
+            print("\n=== Pre-solve Model Summary ===")
+            # Add some model validation
+            try:
+                # Check if model can be solved
+                print("Validating model consistency...")
+                model.eval("check;")  # AMPL's built-in consistency check
+                print("Model validation passed!")
+            except Exception as e:
+                print(f"Model validation warning: {e}")
 
     def run(self):
         r"""
         ### Purpose:
         - A function to run the optimizer.
         """
-        self.model.solve()
-        if self.model.get_value("solve_result") == "solved":
-            print("Optimal solution found.")
+        print("Starting AMPL optimization...")
+        print(f"Number of variables: {len(self.dwellTimeVariables)}")
+        print(f"Number of structures: {len([s for s in self.plan.structure_list if s.optimization_config])}")
+        
+        # Display model statistics before solving
+        if self.verbose:
+            print("\n=== Model Statistics ===")
+            try:
+                print(f"Variables: {self.model.get_value('_nvars')}")
+                print(f"Constraints: {self.model.get_value('_ncons')}")
+            except:
+                print("Could not retrieve model statistics")
+        
+        start_time = time.time()
+        
+        # Solve with options
+        solve_options = []
+        if self.verbose:
+            solve_options.append("outlev=1")  # Verbose output level
+        
+        if solve_options:
+            self.model.solve(" ".join(solve_options))
         else:
-            print("No optimal solution found.")
+            self.model.solve()
+        
+        solve_time = time.time() - start_time
+        
+        # Get solve results
+        solve_result = self.model.get_value("solve_result")
+        solve_message = self.model.get_value("solve_message")
+        
+        print(f"\n=== Solve Results ===")
+        print(f"Solve time: {solve_time:.2f} seconds")
+        print(f"Solve result: {solve_result}")
+        print(f"Solve message: {solve_message}")
+        
+        if solve_result == "solved":
+            print("✓ Optimal solution found.")
+            if self.verbose:
+                try:
+                    obj_val = self.model.get_value("objective_function")
+                    print(f"Objective value: {obj_val:.6e}")
+                except:
+                    print("Could not retrieve objective value")
+        else:
+            print("✗ No optimal solution found.")
+            if self.verbose:
+                print("Consider:")
+                print("- Relaxing constraints")
+                print("- Checking data consistency") 
+                print("- Increasing solver time limit")
 
     def get_optimized_plan_from_model(
         self,
