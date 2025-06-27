@@ -1,6 +1,7 @@
 # from abc import ABC, abstractmethod
 from typing import List, Callable, Any
 from copy import deepcopy
+import warnings
 from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
 import numpy as np
@@ -677,7 +678,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         # run the optimization
         self.run()
         if self.model.status != GRB.OPTIMAL:
-            Warning.warn(
+            warnings.warn(
                 "No optimal solution found. Return None.",
                 stacklevel=2)
             return None
@@ -921,22 +922,32 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         ### Inputs:
         - plan: BrachyPlan := The plan containing structures and optimization configs
         - dwellTimeVariables: List[DwellTimeVariable] := The dwell time variables to optimize
-        - model: Model := The Gurobi optimization model
+        - model: Model := The AMPL optimization model
 
         ### Outputs:
         None - sets up the model objective function and constraints directly
         """
-        from scipy import sparse as sp
-        penalty_terms = {
-            "linear": 0,
-            "quadratic": 0,
-            "hotspot": 0,
-            "uniformity": 0
-        }
+        # from scipy import sparse as sp
+        
+        # Initialize global model parameters once
+        total_dwells = len(dwellTimeVariables)
+        model.eval(f"param total_dwells := {total_dwells};")
+        model.eval("set ALL_DWELLS := 1 .. total_dwells;")
+        model.eval("var t_vec {ALL_DWELLS};")
+        
+        # Link individual dwell variables to the global vector
+        for i, d_var in enumerate(dwellTimeVariables):
+            model.eval(f"subject to t_def_{i+1}: t_vec[{i+1}] = {d_var._model_variable.name()};")
+        
+        # Initialize objective function components
+        objective_terms = []
+        structure_counter = 0
+        
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
 
+            structure_counter += 1
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
             target_dose = structure.optimization_config.dose_voxel_goal
@@ -972,88 +983,86 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
 
             if not dose_rate_matrices:
                 continue
-            # create the dose rate matrix A (n x m)
+                
+            # create the dose rate matrix A (n x m) for this structure
             A = np.column_stack(dose_rate_matrices)
-            # A_sparse = sp.csr_matrix(A)
             num_dose_points = A.shape[0]
             num_dwells = len(dwell_vars)
-            # create target dose vector (n x 1)
-            # # Implement AMPL
-            # define matrix dimensions for ampl
-            model.eval(f"param num_dose_points := {num_dose_points};")
-            model.eval(f"param num_dwells := {num_dwells};")
-            # define the index sets for dose points and dwell times
-            model.eval(f"set D := 1 .. num_dose_points;")
-            model.eval(f"set T := 1 .. num_dwells;")
-            # pass the dwell time variables in a single vector
-            model.eval(f"var t_vec {{T}};")
-            for i, d_var in enumerate(dwell_vars):
-                model.eval(f"subject to t_def_{i+1}: t_vec[{i+1}] = {d_var.name()};")
-            model.eval("param A{{{D},{T}}};")
-            # pass the dose rate matrix A to the model
-            model.param["A"] = A
-            # pass the target dose vector to the model
-            model.eval(f"param target_dose := {target_dose};")
-            model.eval(f"param min_dose := {min_dose};")
+            
+            # Define structure-specific sets and parameters
+            struct_id = f"s{structure_counter}"
+            model.eval(f"param num_dose_points_{struct_id} := {num_dose_points};")
+            model.eval(f"param num_dwells_{struct_id} := {num_dwells};")
+            model.eval(f"set D_{struct_id} := 1 .. num_dose_points_{struct_id};")
+            model.eval(f"set T_{struct_id} := 1 .. num_dwells_{struct_id};")
+            
+            # Define structure-specific dose rate matrix
+            model.eval(f"param A_{struct_id}{{{{D_{struct_id},T_{struct_id}}}}};")
+            model.param[f"A_{struct_id}"] = A
+            
+            # Define structure-specific parameters
+            model.eval(f"param target_dose_{struct_id} := {target_dose};")
+            model.eval(f"param min_dose_{struct_id} := {min_dose};")
 
             if structure.target_volume:
-                # create the slack variables for underdosing
-                model.eval(f"var x_slack {{D}} >= 0 <= target_dose - min_dose;")
-                # for uniformity
-                model.eval(f"var y_slack {{D}} >= -Infinity <= target_dose - min_dose;")
+                # Create structure-specific slack variables for underdosing
+                model.eval(f"var x_slack_{struct_id} {{{{D_{struct_id}}}}} >= 0 <= target_dose_{struct_id} - min_dose_{struct_id};")
+                # For uniformity
+                model.eval(f"var y_slack_{struct_id} {{{{D_{struct_id}}}}} >= -Infinity <= target_dose_{struct_id} - min_dose_{struct_id};")
 
-                model.eval(
-                    """
-                    subject to dose_constraint {i in D}:
-                        sum{j in T} A[i,j] * t_vec[j] + x_slack[i] >= target_dose;
-                    """)
-                model.eval(
-                    """
-                    subject to uniformity_constraint {i in D}:
-                        sum{j in T} A[i,j] * t_vec[j] + y_slack[i] = target_dose;
-                    """)
-
-                # add penalty terms
-                model.eval(f"param linear_weight := {linear_weight / num_dose_points};")
-                model.eval(f"param quadratic_weight := {quadratic_weight / num_dose_points};")
-                model.eval(f"param uniformity_weight := {uniformity_weight / (num_dose_points * 1000)};")
-                model.eval(
-                    """
-                    minimize objective_function:
-                        sum{i in D} (linear_weight * x_slack[i]
-                            + quadratic_weight * x_slack[i]^2
-                            + uniformity_weight * y_slack[i]^2);
-                    """)
-            elif "hotspot_estimator:" in structure.name.lower():
-                # slack variable for hotspot estimator
-                model.eval(f"var x_slack {{D}} >= 0 <= {hotspot_threshold} * target_dose - min_dose;")
+                # Create structure-specific constraints
                 model.eval(
                     f"""
-                    subject to hotspot_constraint {{i in D}}:
-                        sum{{j in T}} A[i,j] * t_vec[j] - x_slack[i] <= {hotspot_threshold} * target_dose;
+                    subject to dose_constraint_{struct_id} {{i in D_{struct_id}}}:
+                        sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] + x_slack_{struct_id}[i] >= target_dose_{struct_id};
                     """)
-                model.eval(f"param hotspot_weight := {hotspot_weight / num_dose_points};")
                 model.eval(
-                    """
-                    minimize objective_function:
-                        sum{i in D} (hotspot_weight * x_slack[i]);
+                    f"""
+                    subject to uniformity_constraint_{struct_id} {{i in D_{struct_id}}}:
+                        sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] + y_slack_{struct_id}[i] = target_dose_{struct_id};
                     """)
+
+                # Add penalty terms to objective
+                linear_term = f"({linear_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]"
+                quadratic_term = f"({quadratic_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]^2"
+                uniformity_term = f"({uniformity_weight / (num_dose_points * 1000)}) * sum{{i in D_{struct_id}}} y_slack_{struct_id}[i]^2"
+                objective_terms.extend([linear_term, quadratic_term, uniformity_term])
+                
+            elif "hotspot_estimator:" in structure.name.lower():
+                # slack variable for hotspot estimator
+                model.eval(f"var x_slack_{struct_id} {{{{D_{struct_id}}}}} >= 0 <= {hotspot_threshold} * target_dose_{struct_id} - min_dose_{struct_id};")
+                model.eval(
+                    f"""
+                    subject to hotspot_constraint_{struct_id} {{i in D_{struct_id}}}:
+                        sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] - x_slack_{struct_id}[i] <= {hotspot_threshold} * target_dose_{struct_id};
+                    """)
+                
+                # Add hotspot penalty term
+                hotspot_term = f"({hotspot_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]"
+                objective_terms.append(hotspot_term)
+                
             else:
                 # OAR (Organ at Risk) constraints and penalties
-                model.eval(f"var x_slack {{D}} >= 0 <= {structure_max_dose} - target_dose;")
+                model.eval(f"param structure_max_dose_{struct_id} := {structure_max_dose};")
+                model.eval(f"var x_slack_{struct_id} {{{{D_{struct_id}}}}} >= 0 <= structure_max_dose_{struct_id} - target_dose_{struct_id};")
                 model.eval(
-                    """
-                    subject to oar_constraint {i in D}:
-                        sum{j in T} A[i,j] * t_vec[j] - x_slack[i] <= target_dose;
+                    f"""
+                    subject to oar_constraint_{struct_id} {{i in D_{struct_id}}}:
+                        sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] - x_slack_{struct_id}[i] <= target_dose_{struct_id};
                     """)
-                model.eval(f"param linear_weight := {linear_weight / num_dose_points};")
-                model.eval(f"param quadratic_weight := {quadratic_weight / num_dose_points};")
-                model.eval(
-                    """
-                    minimize objective_function:
-                        sum{i in D} (linear_weight * x_slack[i]
-                            + quadratic_weight * x_slack[i]^2);
-                    """)
+                
+                # Add OAR penalty terms
+                linear_term = f"({linear_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]"
+                quadratic_term = f"({quadratic_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]^2"
+                objective_terms.extend([linear_term, quadratic_term])
+
+        # Create the combined objective function once all structures are processed
+        if objective_terms:
+            combined_objective = " + ".join(objective_terms)
+            model.eval(f"minimize objective_function: {combined_objective};")
+        else:
+            # Fallback objective if no structures have optimization configs
+            model.eval("minimize objective_function: 0;")
 
     def run(self):
         r"""
@@ -1088,11 +1097,14 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
             variable.dwell_time = self.model.get_value(variable.name)
             if variable.dwell_time < 0.1:
                 variable.dwell_time = 0
-            # set the dwell time to the plan
-            if inplace:
-                outplan: BrachyPlan = self.plan
-            else:
-                outplan: BrachyPlan = deepcopy(self.plan)
+        
+        # set the dwell time to the plan
+        if inplace:
+            outplan: BrachyPlan = self.plan
+        else:
+            outplan: BrachyPlan = deepcopy(self.plan)
+            
+        for variable in self.dwellTimeVariables:
             for catheter in outplan.catheter_table:
                 for dwell_position in catheter.dwells:
                     if (
@@ -1100,6 +1112,10 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
                         == variable.name
                     ):
                         dwell_position.time = variable.dwell_time
+        
+        # update the plan with the new dwell times
+        outplan.update_plan_from_catheter_table()
+        return outplan
 
     def bound_dwell_time(
         self,
