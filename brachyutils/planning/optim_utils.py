@@ -1129,15 +1129,13 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         start_time = time.time()
         
         # Solve with options
-        solve_options = []
-        if self.verbose:
-            solve_options.append("outlev=1")  # Verbose output level
-        
-        if solve_options:
-            self.model.solve(" ".join(solve_options))
-        else:
-            self.model.solve()
-        
+        solve_options = [
+            "outlev=1" if self.verbose else "outlev=0",
+            "logfile=" + str(self.model.option["log_file"]),
+            "time_limit=60",
+        ]
+        self.model.solve(" ".join(solve_options))
+
         solve_time = time.time() - start_time
         
         # Get solve results
@@ -1178,7 +1176,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
 
         self.run()
         if self.model.get_value("solve_result") != "solved":
-            Warning.warn(
+            warnings.warn(
                 "No optimal solution found. Return None.",
                 stacklevel=2)
             return None
