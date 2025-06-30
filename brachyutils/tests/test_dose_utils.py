@@ -4,10 +4,10 @@ import sys
 
 import numpy as np
 
-from brachyutils.dose_utils import BrachyDose
-from brachyutils.dose_comparison_utils import BrachyDoseComparison
+from brachyutils.dose.dose_utils import BrachyDose
+from brachyutils.dose.dose_comparison_utils import BrachyDoseComparison
 from pathlib import Path
-from brachyutils.geometry_utils import BrachyPhantom
+from brachyutils.geometry.phantom_utils import BrachyPhantom
 
 def make_dose_from_image():
     pth_dicom = Path("data_test/prostate-glen-p1-dcm")
@@ -65,10 +65,14 @@ def test_write_to_3ddose():
 
 
 def test_load_from_nrrd():
-    pth_input = "data_test/new_nrrd/PreOptimization/run_1_1_0.nrrd"
+    pth_input = "data_test/prostate-glen-p1-dose/scaled_run_1.seq.nrrd"
     # pth_input = "data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
-
+    from time import time
+    start_time = time()
     dose_obj = BrachyDose(pth_input)
+    end_time = time()
+    print(f"Loading took {end_time - start_time} seconds")
+    
     dose_obj.info()
 
 
@@ -77,8 +81,8 @@ def test_write_to_nrrd():
     Purpose:
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
-    pth_out = "data_test/test_export_plan"
-    pth_input = "data_test/prostate-glen-p1-planFiles/dose_image.seq.nrrd"
+    pth_out = "data_test/test_export_plan/prostate/run1_dose.seq.nrrd"
+    pth_input = "data_test/prostate-glen-p1-dose/scaled_run_1.seq.nrrd"
     # pth_input = "data_test/new_nrrd/P5Fx1_tra/combined.nrrds"
     pth_out = os.path.join(pth_out, "test_"+os.path.basename(pth_input))
     dose_obj = BrachyDose(pth_input)
@@ -211,9 +215,9 @@ def test_crop_by_dicom_structure():
 if __name__ == "__main__":
     # test_load_from_3ddose()
     # test_load_from_dicom()
-    # test_load_from_nrrd()
+    test_load_from_nrrd()
     # test_write_to_3ddose()
-    test_write_to_nrrd()
+    # test_write_to_nrrd()
     # test_crop_by_coordinates()
     # test_crop_by_fraction()
     # test_crop_by_index()
