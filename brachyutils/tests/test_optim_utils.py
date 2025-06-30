@@ -41,7 +41,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
         load_dicom_dose=False,
         delivered_catheter_table=True,
         dir_dose_rate=pth_dir_dose_rate,
-        multi_processing=True,
+        multi_processing=False,
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
         optimization_config_list=optimization_config_list)
@@ -118,6 +118,6 @@ def test_run_ampl_optim():
 if __name__ == "__main__":
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    test_run_gurobi_optim()
+    # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    # test_run_ampl_optim()
+    test_run_ampl_optim()

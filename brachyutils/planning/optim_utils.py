@@ -1153,25 +1153,39 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
                 print("Could not retrieve model statistics")
         
         start_time = time.time()
-        
-        # Solve with options
+
         solve_options = [
             "outlev=1" if self.verbose else "outlev=0",
             "logfile=" + str(self.model.option["log_file"]),
             "time_limit=60",
         ]
-        self.model.solve(" ".join(solve_options))
-
+        self.model.solve(solver=self.solver, options=solve_options)
+        # Solve with options
+        # if self.solver == "highs":
+        #     solve_options = [
+        #         "outlev=1" if self.verbose else "outlev=0",
+        #         "logfile=" + str(self.model.option["log_file"]),
+        #         "time_limit=60",
+        #     ]
+        #     self.model.solve(solver=self.solver, options=solve_options)
+        # elif self.solver == "gurobi":
+        #     solve_options = [
+        #         "outlev=1" if self.verbose else "outlev=0",
+        #         "logfile=" + str(self.model.option["log_file"]),
+        #         "time_limit=60",
+        #     ]
+        #     self.model.solve(solver=self.solver, options=solve_options)
+            # self.model.solve()
         solve_time = time.time() - start_time
         
         # Get solve results
-        solve_result = self.model.get_value("solve_result")
-        solve_message = self.model.get_value("solve_message")
+        solve_result = self.model.solve_result
+        # solve_message = self.model.get_value("solve_message")
         
         print(f"\n=== Solve Results ===")
         print(f"Solve time: {solve_time:.2f} seconds")
         print(f"Solve result: {solve_result}")
-        print(f"Solve message: {solve_message}")
+        # print(f"Solve message: {solve_message}")
         
         if solve_result == "solved":
             print("✓ Optimal solution found.")
@@ -1201,7 +1215,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
             raise ValueError("DwellTimeVariables are not set. Please set the DwellTimeVariables first.")
 
         self.run()
-        if self.model.get_value("solve_result") != "solved":
+        if self.model.solve_result != "solved":
             warnings.warn(
                 "No optimal solution found. Return None.",
                 stacklevel=2)
