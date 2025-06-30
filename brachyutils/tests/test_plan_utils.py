@@ -51,8 +51,8 @@ def test_load_dose_rate_or_uncertainty_tensor():
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "data_test/prostate-glen-p1-dcm"
     pth_cathTable_dcm = list(Path(dir_dicom).glob("RP*.dcm"))[0]
-    # dir_dose_rate = "data_test/prostate-glen-p1-dose"
-    pth_dose = glob(dir_dicom + "/RD*.dcm")[0]
+    dir_dose_rate = "data_test/prostate-glen-p1-dose"
+    # pth_dose = glob(dir_dicom + "/RD*.dcm")[0]
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
@@ -60,15 +60,19 @@ def test_create_structures_and_calc_dvh_metrics():
         "CI(ctv)": 100,
         "HI(ctv)": 0.5,
     }
-
+    from time import time
+    t0 = time()
     plan_obj = BrachyPlan(
         phantom=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
         catheter_table=pth_cathTable_dcm,
-        combined_dose=pth_dose,
+        # combined_dose=pth_dose,
+        dir_dose_rate=dir_dose_rate,
+        multi_processing=True,
+        combined_dose_only=True,
         prescription_dose=21.,
     )
-
+    print(f"Loading the plan took {time()-t0} seconds")
     print(plan_obj.get_dvh_metrics())
     
 

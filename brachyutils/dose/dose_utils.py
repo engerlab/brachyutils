@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import List, Literal, Optional, Union
 
 import nrrd
+import nrrd.reader
 import numpy as np
 import pyzstd
 from numpy import ma, reshape
@@ -281,6 +282,7 @@ class BrachyDose:
             - nrrd
             - get_voxel_edges()
         """
+        # nrrd.reader._READ_CHUNKSIZE = 500 * 1024 * 1024  # 500MB
         dose_uncertainty, header = nrrd.read(pth_nrrd, index_order="C")
 
         if dose_uncertainty.shape[0] == 2:
