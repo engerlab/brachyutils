@@ -880,10 +880,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
             model.option["display_1col"] = 20  # Display up to 20 columns
             model.option["display_eps"] = 1e-6  # Display precision
             model.option["display_round"] = 6   # Rounding precision
-            
-            # HiGHS-specific options for verbose output
-            model.option["highs_options"] = "output_flag=true log_to_console=true"
-            
+
             # Set log file
             model.option["log_file"] = str(pth_logfile)
             print(f"AMPL log file: {pth_logfile}")
@@ -1158,24 +1155,9 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
             "outlev=1" if self.verbose else "outlev=0",
             "logfile=" + str(self.model.option["log_file"]),
             "time_limit=60",
+            "log_to_console=true",
         ]
         self.model.solve(solver=self.solver, options=solve_options)
-        # Solve with options
-        # if self.solver == "highs":
-        #     solve_options = [
-        #         "outlev=1" if self.verbose else "outlev=0",
-        #         "logfile=" + str(self.model.option["log_file"]),
-        #         "time_limit=60",
-        #     ]
-        #     self.model.solve(solver=self.solver, options=solve_options)
-        # elif self.solver == "gurobi":
-        #     solve_options = [
-        #         "outlev=1" if self.verbose else "outlev=0",
-        #         "logfile=" + str(self.model.option["log_file"]),
-        #         "time_limit=60",
-        #     ]
-        #     self.model.solve(solver=self.solver, options=solve_options)
-            # self.model.solve()
         solve_time = time.time() - start_time
         
         # Get solve results
@@ -1216,10 +1198,9 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
 
         self.run()
         if self.model.solve_result != "solved":
-            warnings.warn(
-                "No optimal solution found. Return None.",
-                stacklevel=2)
-            return None
+            raise ValueError(
+                f"The solver: {self.solver} did not find an optimal solution."
+            )
         for variable in self.dwellTimeVariables:
             # set the dwell time to the optimized value
             variable.dwell_time = self.model.get_value(variable.name)

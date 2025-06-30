@@ -110,7 +110,7 @@ def test_dwellTime_AMPL():
 def test_run_ampl_optim():
     from brachyutils.planning.optim_utils import BrachyOptim_AMPL
     plan_obj = get_a_plan_to_optimize()
-    optim_obj = BrachyOptim_AMPL(plan=plan_obj, solver="gurobi", verbose=True)  # Enable verbose output
+    optim_obj = BrachyOptim_AMPL(plan=plan_obj, solver="highs", verbose=True)  # Enable verbose output
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     print(optimized_plan.get_dvh_metrics())
     print(optimized_plan.dwell_times)
