@@ -45,6 +45,8 @@ setup(
         "nibabel",
         "monai",
         "pydantic",
+        "gurobipy",
+        "ampl"
     ],
     entry_points={"console_scripts": ["brachyutils=brachyutils.cli_utils:main"]},
 )

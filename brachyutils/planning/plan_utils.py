@@ -540,18 +540,18 @@ class BrachyPlan:
 
         # load the dose rate tensor
         if multi_processing:
-            with Pool(8) as mp_pool:
-                dose_or_uncertainty_list = np.array(
-                    mp_pool.map(
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                # use partial to pass the load_dose_or_uncertainty argument
+                dose_or_uncertainty_list = list(
+                    executor.map(
                         partial(
                             _load_single_dose_or_uncertainty_to_dict,
                             load_dose_or_uncertainty=load_dose_or_uncertainty,
                         ),
                         dose_rate_files,
-                    ),
-                    dtype=np.float32,
+                    )
                 )
-
         else:
             # dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
             dose_or_uncertainty_list = [None] * len(dose_rate_files)
@@ -1519,15 +1519,6 @@ class BrachyPlan:
                     optimization_config=config
                 )
             )
-            # # XXX for debugging, delete later
-            # if "catheter_0" in dwell_contour.name or "catheter_1" in dwell_contour.name:
-            # # [
-            #     # "hotspot_estimator:catheter_0_dwell_2/catheter_0_dwell_3",
-            #     # "hotspot_estimator:catheter_0_dwell_4/catheter_0_dwell_5",
-            #     # "hotspot_estimator:catheter_1_dwell_3/catheter_1_dwell_4",
-            #     # ]:
-            #     continue
-            # # XXX }
             self.phantom.set_structure_set({dwell_contour.name: dwell_contour}, useVTK=False)
 def _export_single_dose_rate(
     dose_grid: np.array,
