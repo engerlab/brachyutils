@@ -552,18 +552,6 @@ class BrachyPlan:
                         dose_rate_files,
                     )
                 )
-            # with Pool(8) as mp_pool:
-            #     dose_or_uncertainty_list = np.array(
-            #         mp_pool.map(
-            #             partial(
-            #                 _load_single_dose_or_uncertainty_to_dict,
-            #                 load_dose_or_uncertainty=load_dose_or_uncertainty,
-            #             ),
-            #             dose_rate_files,
-            #         ),
-            #         dtype=np.float32,
-            #     )
-
         else:
             # dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
             dose_or_uncertainty_list = [None] * len(dose_rate_files)
