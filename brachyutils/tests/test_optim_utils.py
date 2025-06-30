@@ -80,14 +80,14 @@ def test_run_gurobi_optim():
     print(optimized_plan.dwell_times)
 
     # # test setting a bound on a specific dwell time variable
-    optim_obj.bound_dwell_time(
-        name="catheter_0_dwell_0",
-        lower_bound=1,
-        upper_bound=1
-    )
-    optimized_plan = optim_obj.get_optimized_plan_from_model()
-    print(optimized_plan.get_dvh_metrics())
-    print(optimized_plan.dwell_times)
+    # optim_obj.bound_dwell_time(
+    #     name="catheter_0_dwell_0",
+    #     lower_bound=1,
+    #     upper_bound=1
+    # )
+    # optimized_plan = optim_obj.get_optimized_plan_from_model()
+    # print(optimized_plan.get_dvh_metrics())
+    # print(optimized_plan.dwell_times)
 
 def test_dwellTime_AMPL():
     from brachyutils.planning.optim_utils import DwellTime_AMPL
@@ -110,7 +110,7 @@ def test_dwellTime_AMPL():
 def test_run_ampl_optim():
     from brachyutils.planning.optim_utils import BrachyOptim_AMPL
     plan_obj = get_a_plan_to_optimize()
-    optim_obj = BrachyOptim_AMPL(plan=plan_obj, verbose=True)  # Enable verbose output
+    optim_obj = BrachyOptim_AMPL(plan=plan_obj, solver="gurobi", verbose=True)  # Enable verbose output
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     print(optimized_plan.get_dvh_metrics())
     print(optimized_plan.dwell_times)

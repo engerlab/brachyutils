@@ -218,7 +218,56 @@ class DwellTimeOptimizer_ABC(ABC):
         dwellTimeVariables: List[Any],
         roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
     ) -> List[List[float]]:
-        pass
+        r"""
+        ### Purpose:
+        - A function to get the coordinate bounds for the optimization region of
+        interest (roi) from the plan.  The roi is the inclusion mask for the voxels
+        to be included in the optimization. The roi is defined as the region around 
+        the furthest dwell position along each axis plus the margin.
+        ### Inputs:
+        - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
+        - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
+        - roi_margin_mm:List[float] := The distance from the furthest dwell position along each axis
+        to consider voxels the dose rate maps. for each axis:
+            inclusion_space = [
+                closest_dwell_position -relavance_distance :
+                furthest_dwell_position + relavance_distance
+                ]
+        ### Outputs:
+        - roi_optimization:ROIMask := The optimization region of interest (roi) from the plan.
+        """
+        # get the inclusion mask for the voxels to be included
+        inclusion_boundaries = np.ones((3, 2))
+        dwell_bounds = np.zeros((3, 2))
+        for axis in [0, 1, 2]:
+            dwell_bounds[axis, 0] = np.min(
+                [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
+            )
+            dwell_bounds[axis, 1] = np.max(
+                [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
+            )
+            inclusion_boundaries[axis, 0] = (
+                dwell_bounds[axis, 0] - roi_margin_mm[axis]
+            )
+            inclusion_boundaries[axis, 1] = (
+                dwell_bounds[axis, 1] + roi_margin_mm[axis]
+            )
+            # if the inclusion bound is outside the dose image, set it to the dose image bounds
+            if (
+                inclusion_boundaries[axis][0]
+                < plan.combined_dose.dose_image.origin[axis]
+            ):
+                inclusion_boundaries[axis][0] = plan.combined_dose.dose_image.origin[axis]
+            if (
+                inclusion_boundaries[axis][1]
+                > plan.combined_dose.dose_image.origin[axis]
+                + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
+            ):
+                inclusion_boundaries[axis][1] = (
+                    plan.combined_dose.dose_image.origin[axis]
+                    + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
+                )
+        return inclusion_boundaries
 
     @abstractmethod
     def set_penalty_function_and_constraints(
@@ -418,55 +467,60 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
     ) -> List[List[float]]:
         r"""
-        ### Purpose:
-        - A function to get the coordinate bounds for the optimization region of
-        interest (roi) from the plan.  The roi is the inclusion mask for the voxels
-        to be included in the optimization. The roi is defined as the region around 
-        the furthest dwell position along each axis plus the margin.
-        ### Inputs:
-        - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
-        - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
-        - roi_margin_mm:List[float] := The distance from the furthest dwell position along each axis
-        to consider voxels the dose rate maps. for each axis:
-            inclusion_space = [
-                closest_dwell_position -relavance_distance :
-                furthest_dwell_position + relavance_distance
-                ]
-        ### Outputs:
-        - roi_optimization:ROIMask := The optimization region of interest (roi) from the plan.
-        """
-        # get the inclusion mask for the voxels to be included
-        inclusion_boundaries = np.ones((3, 2))
-        dwell_bounds = np.zeros((3, 2))
-        for axis in [0, 1, 2]:
-            dwell_bounds[axis, 0] = np.min(
-                [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
-            )
-            dwell_bounds[axis, 1] = np.max(
-                [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
-            )
-            inclusion_boundaries[axis, 0] = (
-                dwell_bounds[axis, 0] - roi_margin_mm[axis]
-            )
-            inclusion_boundaries[axis, 1] = (
-                dwell_bounds[axis, 1] + roi_margin_mm[axis]
-            )
-            # if the inclusion bound is outside the dose image, set it to the dose image bounds
-            if (
-                inclusion_boundaries[axis][0]
-                < plan.combined_dose.dose_image.origin[axis]
-            ):
-                inclusion_boundaries[axis][0] = plan.combined_dose.dose_image.origin[axis]
-            if (
-                inclusion_boundaries[axis][1]
-                > plan.combined_dose.dose_image.origin[axis]
-                + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
-            ):
-                inclusion_boundaries[axis][1] = (
-                    plan.combined_dose.dose_image.origin[axis]
-                    + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
-                )
-        return inclusion_boundaries
+        # ### Purpose:
+        # - A function to get the coordinate bounds for the optimization region of
+        # interest (roi) from the plan.  The roi is the inclusion mask for the voxels
+        # to be included in the optimization. The roi is defined as the region around 
+        # the furthest dwell position along each axis plus the margin.
+        # ### Inputs:
+        # - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
+        # - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
+        # - roi_margin_mm:List[float] := The distance from the furthest dwell position along each axis
+        # to consider voxels the dose rate maps. for each axis:
+        #     inclusion_space = [
+        #         closest_dwell_position -relavance_distance :
+        #         furthest_dwell_position + relavance_distance
+        #         ]
+        # ### Outputs:
+        # - roi_optimization:ROIMask := The optimization region of interest (roi) from the plan.
+        # """
+        return super().get_optimization_roi_bounds(
+            plan=plan,
+            dwellTimeVariables=dwellTimeVariables,
+            roi_margin_mm=roi_margin_mm
+        )
+        # # get the inclusion mask for the voxels to be included
+        # inclusion_boundaries = np.ones((3, 2))
+        # dwell_bounds = np.zeros((3, 2))
+        # for axis in [0, 1, 2]:
+        #     dwell_bounds[axis, 0] = np.min(
+        #         [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
+        #     )
+        #     dwell_bounds[axis, 1] = np.max(
+        #         [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
+        #     )
+        #     inclusion_boundaries[axis, 0] = (
+        #         dwell_bounds[axis, 0] - roi_margin_mm[axis]
+        #     )
+        #     inclusion_boundaries[axis, 1] = (
+        #         dwell_bounds[axis, 1] + roi_margin_mm[axis]
+        #     )
+        #     # if the inclusion bound is outside the dose image, set it to the dose image bounds
+        #     if (
+        #         inclusion_boundaries[axis][0]
+        #         < plan.combined_dose.dose_image.origin[axis]
+        #     ):
+        #         inclusion_boundaries[axis][0] = plan.combined_dose.dose_image.origin[axis]
+        #     if (
+        #         inclusion_boundaries[axis][1]
+        #         > plan.combined_dose.dose_image.origin[axis]
+        #         + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
+        #     ):
+        #         inclusion_boundaries[axis][1] = (
+        #             plan.combined_dose.dose_image.origin[axis]
+        #             + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
+        #         )
+        # return inclusion_boundaries
 
     def set_penalty_function_and_constraints(
         self,
@@ -846,28 +900,28 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         if pth_logfile is None:
             pth_logfile = Path("temp_data/ampl_model.log").resolve()
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
-        
-        if solver == "highs":
-            model = AMPL()
-            model.option["solver"] = solver
+        list_of_solvers = ["highs", "gurobi", "xpress", "cplex", "scip", "gcg"]
+        if solver not in list_of_solvers:
+            raise ValueError(f"Unsupported solver: {solver}. Supported solvers are {list_of_solvers}.")
+
+        model = AMPL()
+        model.option["solver"] = solver
             
-            # Configure verbose output
-            if self.verbose:
-                model.option["display_1col"] = 20  # Display up to 20 columns
-                model.option["display_eps"] = 1e-6  # Display precision
-                model.option["display_round"] = 6   # Rounding precision
-                
-                # HiGHS-specific options for verbose output
-                model.option["highs_options"] = "output_flag=true log_to_console=true"
-                
-                # Set log file
-                model.option["log_file"] = str(pth_logfile)
-                print(f"AMPL log file: {pth_logfile}")
-                print(f"Using solver: {solver}")
+        # Configure verbose output
+        if self.verbose:
+            model.option["display_1col"] = 20  # Display up to 20 columns
+            model.option["display_eps"] = 1e-6  # Display precision
+            model.option["display_round"] = 6   # Rounding precision
             
-            return model
-        else:
-            raise ValueError(f"Solver {solver} is not supported. Please use 'highs'.")
+            # HiGHS-specific options for verbose output
+            model.option["highs_options"] = "output_flag=true log_to_console=true"
+            
+            # Set log file
+            model.option["log_file"] = str(pth_logfile)
+            print(f"AMPL log file: {pth_logfile}")
+            print(f"Using solver: {solver}")
+            
+        return model
 
     def set_dwellTimeVariables(
         self,
@@ -917,7 +971,11 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         dwellTimeVariables: List[Any],
         roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
     ) -> List[List[float]]:
-        pass
+        return super().get_optimization_roi_bounds(
+            plan=plan,
+            dwellTimeVariables=dwellTimeVariables,
+            roi_margin_mm=roi_margin_mm
+        )
 
     def set_penalty_function_and_constraints(
         self,
@@ -1035,9 +1093,9 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
 
             if structure.target_volume:
                 # Create structure-specific slack variables for underdosing
-                model.eval(f"var x_slack_{struct_id} {{{{D_{struct_id}}}}} >= 0 <= target_dose_{struct_id} - min_dose_{struct_id};")
+                model.eval(f"var x_slack_{struct_id} {{D_{struct_id}}} >= 0 <= target_dose_{struct_id} - min_dose_{struct_id};")
                 # For uniformity
-                model.eval(f"var y_slack_{struct_id} {{{{D_{struct_id}}}}} >= -Infinity <= target_dose_{struct_id} - min_dose_{struct_id};")
+                model.eval(f"var y_slack_{struct_id} {{D_{struct_id}}} >= -Infinity <= target_dose_{struct_id} - min_dose_{struct_id};")
 
                 # Create structure-specific constraints
                 model.eval(
