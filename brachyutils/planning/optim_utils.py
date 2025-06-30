@@ -489,38 +489,6 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
             dwellTimeVariables=dwellTimeVariables,
             roi_margin_mm=roi_margin_mm
         )
-        # # get the inclusion mask for the voxels to be included
-        # inclusion_boundaries = np.ones((3, 2))
-        # dwell_bounds = np.zeros((3, 2))
-        # for axis in [0, 1, 2]:
-        #     dwell_bounds[axis, 0] = np.min(
-        #         [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
-        #     )
-        #     dwell_bounds[axis, 1] = np.max(
-        #         [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
-        #     )
-        #     inclusion_boundaries[axis, 0] = (
-        #         dwell_bounds[axis, 0] - roi_margin_mm[axis]
-        #     )
-        #     inclusion_boundaries[axis, 1] = (
-        #         dwell_bounds[axis, 1] + roi_margin_mm[axis]
-        #     )
-        #     # if the inclusion bound is outside the dose image, set it to the dose image bounds
-        #     if (
-        #         inclusion_boundaries[axis][0]
-        #         < plan.combined_dose.dose_image.origin[axis]
-        #     ):
-        #         inclusion_boundaries[axis][0] = plan.combined_dose.dose_image.origin[axis]
-        #     if (
-        #         inclusion_boundaries[axis][1]
-        #         > plan.combined_dose.dose_image.origin[axis]
-        #         + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
-        #     ):
-        #         inclusion_boundaries[axis][1] = (
-        #             plan.combined_dose.dose_image.origin[axis]
-        #             + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
-        #         )
-        # return inclusion_boundaries
 
     def set_penalty_function_and_constraints(
         self,
