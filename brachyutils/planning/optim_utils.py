@@ -193,6 +193,7 @@ class DwellTimeOptimizer_ABC(ABC):
         self.roi_bounds: List[List[float]] = None  # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
         self.roi_margin_mm: List[float] | float = 3.0
         self.solution_found: bool = False
+        self.solve_time: float = 0.0
 
     @abstractmethod
     def initialize_model(
@@ -671,7 +672,10 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         ### Purpose:
         - A function to run the optimizer.
         """
+        time_start = time.time()
         self.model.optimize()
+        time_end = time.time()
+        self.solve_time = time_end - time_start
         if self.model.status == GRB.OPTIMAL:
             print("Optimal solution found.")
             self.solution_found = True
@@ -1160,14 +1164,14 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
             "log_to_console=true",
         ]
         self.model.solve(solver=self.solver, options=solve_options)
-        solve_time = time.time() - start_time
+        self.solve_time = time.time() - start_time
         
         # Get solve results
         solve_result = self.model.solve_result
         # solve_message = self.model.get_value("solve_message")
         
         print(f"\n=== Solve Results ===")
-        print(f"Solve time: {solve_time:.2f} seconds")
+        print(f"Solve time: {self.solve_time:.2f} seconds")
         print(f"Solve result: {solve_result}")
         # print(f"Solve message: {solve_message}")
         

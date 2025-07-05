@@ -110,15 +110,21 @@ def test_dwellTime_AMPL():
 def test_run_ampl_optim():
     from brachyutils.planning.optim_utils import BrachyOptim_AMPL
     from copy import deepcopy
+    from pandas import DataFrame
     plan_obj_backup = get_a_plan_to_optimize()
+    results = DataFrame(columns=["solver", "status", "dvh_metrics", "mean(dwell_times)", "std(dwell_times)", "solve_time"])
     for solver in ["gurobi", "xpress", "cplex"]:
         try:
             plan_obj = deepcopy(plan_obj_backup)
             optim_obj = BrachyOptim_AMPL(plan=plan_obj, solver=solver, verbose=True)
             optimized_plan = optim_obj.get_optimized_plan_from_model()
-            print("solver status:", optim_obj.model.solver_status)
-            print(optimized_plan.get_dvh_metrics())
-            print(optimized_plan.dwell_times)
+            results.loc[len[results]] ={
+                "solver": solver,
+                "status": optim_obj.model.solve_result,
+                "dvh_metrics": optimized_plan.get_dvh_metrics(),
+                "mean(dwell_times)": optimized_plan.dwell_times.mean(),
+                "std(dwell_times)": optimized_plan.dwell_times.std(),
+                "solve_time": optim_obj.solve_time}
             del optimized_plan
             del optim_obj
             del plan_obj
