@@ -118,7 +118,7 @@ def test_run_ampl_optim():
             plan_obj = deepcopy(plan_obj_backup)
             optim_obj = BrachyOptim_AMPL(plan=plan_obj, solver=solver, verbose=True)
             optimized_plan = optim_obj.get_optimized_plan_from_model()
-            results.loc[len[results]] ={
+            results.loc[len(results)] ={
                 "solver": solver,
                 "status": optim_obj.model.solve_result,
                 "dvh_metrics": optimized_plan.get_dvh_metrics(),
