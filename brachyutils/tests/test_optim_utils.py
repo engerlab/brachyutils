@@ -18,8 +18,8 @@ def get_a_plan_to_optimize()->BrachyPlan:
             structure_name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
             penalty_weight_linear=300,
-            # penalty_weight_hotspot=1,
-            # hotspot_threshold=1.5,
+            penalty_weight_hotspot=1,
+            hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -109,11 +109,21 @@ def test_dwellTime_AMPL():
 
 def test_run_ampl_optim():
     from brachyutils.planning.optim_utils import BrachyOptim_AMPL
-    plan_obj = get_a_plan_to_optimize()
-    optim_obj = BrachyOptim_AMPL(plan=plan_obj, solver="highs", verbose=True)  # Enable verbose output
-    optimized_plan = optim_obj.get_optimized_plan_from_model()
-    print(optimized_plan.get_dvh_metrics())
-    print(optimized_plan.dwell_times)
+    from copy import deepcopy
+    plan_obj_backup = get_a_plan_to_optimize()
+    for solver in ["gurobi", "xpress", "cplex"]:
+        try:
+            plan_obj = deepcopy(plan_obj_backup)
+            optim_obj = BrachyOptim_AMPL(plan=plan_obj, solver=solver, verbose=True)
+            optimized_plan = optim_obj.get_optimized_plan_from_model()
+            print("solver status:", optim_obj.model.solver_status)
+            print(optimized_plan.get_dvh_metrics())
+            print(optimized_plan.dwell_times)
+            del optimized_plan
+            del optim_obj
+            del plan_obj
+        except Exception as e:
+            continue
 
 if __name__ == "__main__":
     # test_DwellTime_Gurobi()

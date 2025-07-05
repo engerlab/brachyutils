@@ -192,6 +192,7 @@ class DwellTimeOptimizer_ABC(ABC):
         self.model: Any = None
         self.roi_bounds: List[List[float]] = None  # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
         self.roi_margin_mm: List[float] | float = 3.0
+        self.solution_found: bool = False
 
     @abstractmethod
     def initialize_model(
@@ -673,6 +674,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         self.model.optimize()
         if self.model.status == GRB.OPTIMAL:
             print("Optimal solution found.")
+            self.solution_found = True
         else:
             print("No optimal solution found.")
 
@@ -700,7 +702,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
 
         # run the optimization
         self.run()
-        if self.model.status != GRB.OPTIMAL:
+        if self.solution_found == False:
             warnings.warn(
                 "No optimal solution found. Return None.",
                 stacklevel=2)
@@ -1171,6 +1173,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         
         if solve_result == "solved":
             print("✓ Optimal solution found.")
+            self.solution_found = True
             if self.verbose:
                 try:
                     obj_val = self.model.get_value("objective_function")
@@ -1197,7 +1200,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
             raise ValueError("DwellTimeVariables are not set. Please set the DwellTimeVariables first.")
 
         self.run()
-        if self.model.solve_result != "solved":
+        if not self.solution_found:
             raise ValueError(
                 f"The solver: {self.solver} did not find an optimal solution."
             )
