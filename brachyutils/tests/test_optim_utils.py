@@ -113,7 +113,8 @@ def test_run_ampl_optim():
     from pandas import DataFrame
     plan_obj_backup = get_a_plan_to_optimize()
     results = DataFrame(columns=["solver", "status", "dvh_metrics", "mean(dwell_times)", "std(dwell_times)", "solve_time"])
-    for solver in ["gurobi", "xpress", "cplex"]:
+    for solver in ["gurobi", "xpress", "cplex"]:#, "highs", "scip", "gcg"]:
+    # for solver in ["gurobi", "highs"]:
         try:
             plan_obj = deepcopy(plan_obj_backup)
             optim_obj = BrachyOptim_AMPL(plan=plan_obj, solver=solver, verbose=True)
@@ -129,7 +130,9 @@ def test_run_ampl_optim():
             del optim_obj
             del plan_obj
         except Exception as e:
-            continue
+            raise e
+            # continue
+    results.to_csv("data_test/test_export_plan/prostate/solvers.csv")
 
 if __name__ == "__main__":
     # test_DwellTime_Gurobi()

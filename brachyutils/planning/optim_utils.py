@@ -872,7 +872,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
 
     def initialize_model(self, solver, pth_logfile = None):
         if pth_logfile is None:
-            pth_logfile = Path("temp_data/ampl_model.log").resolve()
+            pth_logfile = Path(f"temp_data/{self.solver}.log").resolve()
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         list_of_solvers = ["highs", "gurobi", "xpress", "cplex", "scip", "gcg"]
         if solver not in list_of_solvers:
@@ -883,9 +883,9 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
             
         # Configure verbose output
         if self.verbose:
-            model.option["display_1col"] = 20  # Display up to 20 columns
-            model.option["display_eps"] = 1e-6  # Display precision
-            model.option["display_round"] = 6   # Rounding precision
+            # model.option["display_1col"] = 20  # Display up to 20 columns
+            # model.option["display_eps"] = 1e-6  # Display precision
+            # model.option["display_round"] = 6   # Rounding precision
 
             # Set log file
             model.option["log_file"] = str(pth_logfile)
@@ -1160,12 +1160,12 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         solve_options = [
             "outlev=1" if self.verbose else "outlev=0",
             "logfile=" + str(self.model.option["log_file"]),
-            "time_limit=60",
-            "log_to_console=true",
+            # "timelimit=20",
+            # "log_to_console=true",
         ]
         self.model.solve(solver=self.solver, options=solve_options)
         self.solve_time = time.time() - start_time
-        
+
         # Get solve results
         solve_result = self.model.solve_result
         # solve_message = self.model.get_value("solve_message")
