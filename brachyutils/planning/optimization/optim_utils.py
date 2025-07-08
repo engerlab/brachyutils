@@ -96,7 +96,7 @@ class Optimization_Config(BaseModel):
     # may be needed later
     # self.index_range_constraints: List[int] = None
 
-class BrachyDwellTime(BaseModel, ABC):
+class BrachyDwellTime_ABC(BaseModel, ABC):
     """
     ### Purpose:
     - An abstract class (solver independent) to represent a DwellTimeVariable in the dwell time optimization problem.
@@ -215,7 +215,7 @@ class DwellTimeOptimizer_ABC(ABC):
         initial_dwell_time: float = 0.0,
         lower_bound: float = 0.0,
         upper_bound: float = 100,
-    ) -> List[BrachyDwellTime]:
+    ) -> List[BrachyDwellTime_ABC]:
         r"""
         ### Purpose:
         - A function to get the dwellTimeVariables from the plan.

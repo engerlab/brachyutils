@@ -2,7 +2,7 @@ __all__ = [
     'BrachyPlan',
     'BrachyStructure',
     'BrachySimulation',
-    "BrachySource"
+    "BrachySource",
 ]
 
 # trunk-ignore(ruff/F401)
