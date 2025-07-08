@@ -120,10 +120,10 @@ def test_run_ampl_optim():
     plan_obj_backup = get_a_plan_to_optimize()
     results = DataFrame(columns=["solver", "status", "dvh_metrics", "mean(dwell_times)", "std(dwell_times)", "solve_time"])
     for solver in ["gurobi", "xpress", "cplex", "highs", "scip", "gcg"]:
+    # for solver in ["gcg"]: # GCG Causes Memory Crash. Avoid it
         try:
-            plan_obj = deepcopy(plan_obj_backup)
-            optim_obj = BrachyOptim_AMPL(plan=plan_obj, solver=solver, verbose=True)
-            optimized_plan = optim_obj.get_optimized_plan_from_model()
+            optim_obj = BrachyOptim_AMPL(plan=plan_obj_backup, solver=solver, verbose=True)
+            optimized_plan = optim_obj.get_optimized_plan_from_model(inplace=False)
             results.loc[len(results)] ={
                 "solver": solver,
                 "status": optim_obj.model.solve_result,
