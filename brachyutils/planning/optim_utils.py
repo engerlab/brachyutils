@@ -1213,13 +1213,13 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
             variable.dwell_time = self.model.get_value(variable.name)
             if variable.dwell_time < 0.1:
                 variable.dwell_time = 0
-        
+
         # set the dwell time to the plan
         if inplace:
             outplan: BrachyPlan = self.plan
         else:
             outplan: BrachyPlan = deepcopy(self.plan)
-            
+
         for variable in self.dwellTimeVariables:
             for catheter in outplan.catheter_table:
                 for dwell_position in catheter.dwells:
@@ -1228,7 +1228,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
                         == variable.name
                     ):
                         dwell_position.time = variable.dwell_time
-        
+
         # update the plan with the new dwell times
         outplan.update_plan_from_catheter_table()
         return outplan
