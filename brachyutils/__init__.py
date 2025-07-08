@@ -1,7 +1,7 @@
 __all__ = [
     "dose",
     "geometry",
-    "planning"
+    "planning",
 ]
 # trunk-ignore(ruff/F401)
 from .dose import *
@@ -9,3 +9,5 @@ from .dose import *
 from .geometry import *
 # trunk-ignore(ruff/F401)
 from .planning import *
+
+from .planning.optimization import *  # noqa: F401, F403

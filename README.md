@@ -100,6 +100,41 @@ cd brachyutils
 pip install .
 ```
 
+### Install Optimization Solvers
+
+Solvers are currently used to run dwell time optimization. We recommend using the Gurobi solver, which requires an academic license. Another platform that one can use is AMPL, which gives you access to many solvers out there. AMPL provide a community license, but the good solvers would only be available with an academic Email.
+
+To install Gurobi, simply run:
+
+```bash
+pip install gurobipy
+```
+
+Go to gurobi license manager and get an [Academic WSL License](https://www.gurobi.com/features/academic-wls-license/). Then download the file `gurobi.lic` and put it in your home directory (or the home directory of the docker image).
+
+To install AMPL, run:
+```bash
+# Install Python API for AMPL
+python -m pip install amplpy --upgrade
+
+# Install HiGHS and Gurobi (AMPL is installed automatically with any solver)
+python -m amplpy.modules install highs gurobi
+
+# Activate your license (e.g., free https://ampl.com/ce license)
+python -m amplpy.modules activate <license-uuid>
+
+# Confirm that the license is active
+python -m amplpy.modules run ampl -vvq
+
+# Import in Python
+python
+>>> from amplpy import AMPL
+>>> ampl = AMPL() # instantiate AMPL object
+
+```
+Click here to see a list of [AMPL solver](https://dev.ampl.com/solvers/index.html).
+In my experience, Gurobi, XPRESS, and CPLEX are the only ones that work. Unfortunately, they all require and academic/industrial license.
+
 ### Optional
 
 `python3 -m pip install --upgrade pip`
