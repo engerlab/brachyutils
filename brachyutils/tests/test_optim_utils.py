@@ -140,6 +140,23 @@ def test_run_ampl_optim():
     results.to_csv("data_test/test_export_plan/prostate/solvers_linObj.csv")
     # results.to_csv("data_test/test_export_plan/prostate/solvers_quadObj.csv")
 
+def test_dwelltime_orTools():
+    from brachyutils.planning.optimization.optim_ortools import DwellTime_ORTools
+    from ortools.math_opt.python import mathopt
+
+    solver = mathopt.Model(name="test_model")
+    x = DwellTime_ORTools(
+        model=solver,
+        name=f"catheter_{2}_dwell_{4}",
+        dwell_time=0,
+        lower_bound=0,
+        upper_bound=100,
+        coordinates=[23, 13, 12],
+        )
+    print(x._model_variable)
+    x.set_bounds(lower_bound=32, upper_bound=45)
+    print(x._model_variable.lower_bound, x._model_variable.upper_bound)
+
 def test_run_ortool_optim():
     from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
     plan_obj = get_a_plan_to_optimize()
@@ -153,4 +170,5 @@ if __name__ == "__main__":
     # test_get_optimization_roi_bounds()
     # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    test_run_ampl_optim()
+    test_dwelltime_orTools()
+    # test_run_ampl_optim()
