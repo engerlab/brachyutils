@@ -302,7 +302,7 @@ class DwellTimeOptimizer_ABC(ABC):
         """
         pass
 
-    # @abstractmethod
+    @abstractmethod
     def run(self):
         r"""
         - A function to run the underlying mathematical solver and capture the solution 
