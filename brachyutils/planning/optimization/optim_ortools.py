@@ -67,7 +67,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
     def __init__(
         self,
         plan: BrachyPlan,
-        solver: str = "GLOP",
+        solver: Literal["GLOP", "PDLP", "GSCIP", "GLPK"],
         roi_margin_mm: float = 0.0,
         pth_logfile: Path | str | None = None):
         r"""
@@ -330,7 +330,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
         time_start = time.time()
         results = solve(self.model, solver_type=solver_type)
         self.solve_time = time.time() - time_start
-        print("let's figure out the results status")
+        
         if results.termination.reason == TerminationReason.OPTIMAL:
             self.solution_found = True
             print("Optimal solution found.")
@@ -349,6 +349,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
 
         # run the optimization
         result = self.run(self.solver)
+        result_vars = result.variable_values()
         if self.solution_found == False:
             warnings.warn(
                 "No optimal solution found. Return None.",
@@ -357,7 +358,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
 
         for variable in self.dwellTimeVariables:
             # set the dwell time to the optimized value
-            variable.dwell_time = variable._model_variable.X
+            variable.dwell_time = result_vars[variable._model_variable]
             if variable.dwell_time < 0.1:
                 variable.dwell_time = 0
             # set the dwell time to the plan

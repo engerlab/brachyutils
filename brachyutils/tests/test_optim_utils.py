@@ -17,9 +17,9 @@ def get_a_plan_to_optimize()->BrachyPlan:
         Optimization_Config(
             structure_name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
-            penalty_weight_linear=1,
-            penalty_weight_quadratic=0,
-            penalty_weight_uniformity=0,
+            penalty_weight_linear=300,
+            penalty_weight_quadratic=1,
+            penalty_weight_uniformity=1,
             penalty_weight_hotspot=1,
             hotspot_threshold=1.5,
             mask_margin_mm=0,
@@ -28,16 +28,16 @@ def get_a_plan_to_optimize()->BrachyPlan:
             structure_name="urethra",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            penalty_weight_quadratic=0,
-            penalty_weight_uniformity=0,
+            penalty_weight_quadratic=1,
+            penalty_weight_uniformity=1,
             mask_margin_mm=0,
             spacing_mm=1),
         Optimization_Config(
             structure_name="rectum",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            penalty_weight_quadratic=0,
-            penalty_weight_uniformity=0,
+            penalty_weight_quadratic=1,
+            penalty_weight_uniformity=1,
             mask_margin_mm=0,
             spacing_mm=3
         )
