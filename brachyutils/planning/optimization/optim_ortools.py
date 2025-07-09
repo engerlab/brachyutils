@@ -67,7 +67,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
     def __init__(
         self,
         plan: BrachyPlan,
-        solver: Literal["GLOP", "PDLP", "GSCIP", "GLPK"],
+        solver: Literal["GLOP", "PDLP", "GSCIP", "SCIP", "GLPK"],
         roi_margin_mm: float = 0.0,
         pth_logfile: Path | str | None = None):
         r"""
@@ -311,7 +311,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
             penalty_terms["uniformity"]
         )
 
-    def run(self, solver: Literal["GLOP", "PDLP", "SCIP", "GLPK"]):
+    def run(self, solver: Literal["GLOP", "PDLP", "GSCIP", "SCIP", "GLPK"]):
         r"""
         ### Purpose:
         - A function to run the optimizer. See `DwellTimeOptimizer_ABC.run` for details. 
@@ -324,6 +324,8 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
             solver_type = SolverType.SCIP
         elif solver == "GLPK":
             solver_type = SolverType.GLPK
+        elif solver == "GSCIP":
+            solver_type = SolverType.GSCIP
         else:
             raise ValueError(f"Unsupported solver: {solver}. Supported solvers are: GLOP, PDLP, SCIP, GLPK.")
         
