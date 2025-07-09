@@ -140,6 +140,14 @@ def test_run_ampl_optim():
     results.to_csv("data_test/test_export_plan/prostate/solvers_linObj.csv")
     # results.to_csv("data_test/test_export_plan/prostate/solvers_quadObj.csv")
 
+def test_run_ortool_optim():
+    from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
+    plan_obj = get_a_plan_to_optimize()
+    optim_obj = BrachyOptim_ORTools(plan=plan_obj)
+    optimized_plan = optim_obj.get_optimized_plan_from_model()
+    print(optimized_plan.get_dvh_metrics())
+    print(optimized_plan.dwell_times)
+
 if __name__ == "__main__":
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
