@@ -111,7 +111,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         initial_dwell_time: float = 0.0,
         lower_bound: float = 0.0,
         upper_bound: float = 100,
-    ) -> List[Var]:
+    ) -> List[DwellTime_Gurobi]:
         r"""
         See `BrachyDwellTime_ABC.set_dwellTimeVariables` for details.
         """

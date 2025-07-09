@@ -145,7 +145,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
         initial_dwell_time: float = 0.0,
         lower_bound: float = 0.0,
         upper_bound: float = 100,
-    ) -> List[Any]:
+    ) -> List[DwellTime_AMPL]:
         r"""
         See `BrachyDwellTime_ABC.set_dwellTimeVariables` for details.
         """
@@ -174,7 +174,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
     def get_optimization_roi_bounds(
         self,
         plan: BrachyPlan,
-        dwellTimeVariables: List[Any],
+        dwellTimeVariables: List[DwellTime_AMPL],
         roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
     ) -> List[List[float]]:
         r"""
