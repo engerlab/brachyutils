@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Literal
 from copy import deepcopy
 import warnings
 import time
@@ -8,7 +8,12 @@ from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
     DwellTimeOptimizer_ABC, BrachyDwellTime_ABC, crop_mask_resample_dose_rate_map
 )
-from ortools.math_opt.python.mathopt import Model, solve
+from ortools.math_opt.python.mathopt import (
+    Model,
+    solve,
+    SolverType,
+    TerminationReason
+)
 
 class DwellTime_ORTools(BrachyDwellTime_ABC):
     r"""
@@ -78,7 +83,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
         self.plan: BrachyPlan = plan
         self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solver = solver
-        self.model = self.initialize_model(pth_logfile=pth_logfile)
+        self.model = self.initialize_model(solver=self.solver, pth_logfile=pth_logfile)
         self.dwellTimeVariables:DwellTime_ORTools = self.set_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
             plan=self.plan,
@@ -90,7 +95,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
             dwellTimeVariables=self.dwellTimeVariables,
             model=self.model
         )
-        
+
     def initialize_model(self, solver, pth_logfile = None):
         r"""
         ### Purpose:
@@ -258,15 +263,15 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
                     # linear constarint for uniformity
                     model.add_linear_constraint(
                         sum(
-                            A[i, j] * dwell_vars[j] for j in range(total_dwells)
+                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
                         ) + y_slack == target_dose                        
                     )
                     
                     # Add penalties to the objective function
                     penalty_terms["linear"] += linear_weight/num_dose_points * x_slack
                     penalty_terms["uniformity"] += uniformity_weight/num_dose_points * y_slack
-                    penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack**2                    
-            
+                    penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack * x_slack
+
             elif "hotspot_estimator:" in structure.name.lower():
                 for i in range(num_dose_points):
                     x_slack = model.add_variable(
@@ -277,7 +282,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
                     )
                     model.add_linear_constraint(
                         sum(
-                            A[i, j] * dwell_vars[j] for j in range(total_dwells)
+                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
                         ) - x_slack <= hotspot_threshold * target_dose
                     )
                     penalty_terms["hotspot"] += hotspot_weight/num_dose_points * x_slack
@@ -292,12 +297,12 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
                     # add the linear constraint
                     model.add_linear_constraint(
                         sum(
-                            A[i, j] * dwell_vars[j] for j in range(total_dwells)
+                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
                         ) - x_slack <= target_dose
                     )
                     # Add penalties to the objective function
                     penalty_terms["linear"] += linear_weight/num_dose_points * x_slack
-                    penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack**2
+                    penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack * x_slack
         # Set the objective function
         model.minimize(
             penalty_terms["linear"] +
@@ -306,8 +311,85 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
             penalty_terms["uniformity"]
         )
 
-    def get_optimized_plan_from_model(self, inplace=True):
-        pass
+    def run(self, solver: Literal["GLOP", "PDLP", "SCIP", "GLPK"]):
+        r"""
+        ### Purpose:
+        - A function to run the optimizer. See `DwellTimeOptimizer_ABC.run` for details. 
+        """
+        if solver == "GLOP":
+            solver_type = SolverType.GLOP
+        elif solver == "PDLP":
+            solver_type = SolverType.PDLP
+        elif solver == "SCIP":
+            solver_type = SolverType.SCIP
+        elif solver == "GLPK":
+            solver_type = SolverType.GLPK
+        else:
+            raise ValueError(f"Unsupported solver: {solver}. Supported solvers are: GLOP, PDLP, SCIP, GLPK.")
+        
+        time_start = time.time()
+        results = solve(self.model, solver_type=solver_type)
+        self.solve_time = time.time() - time_start
+        print("let's figure out the results status")
+        if results.termination.reason == TerminationReason.OPTIMAL:
+            self.solution_found = True
+            print("Optimal solution found.")
+            return results
 
-    def bound_dwell_time(self, name, lower_bound = None, upper_bound = None):
-        pass
+    def get_optimized_plan_from_model(self, inplace=True):
+        r"""
+        See `BrachyDwellTime_ABC.get_optimized_plan_from_model` for details.
+        """
+        if self.plan is None:
+            raise ValueError("Plan is not set. Please set the plan first.")
+        if self.model is None:
+            raise ValueError("Model is not set. Please set the model first.")
+        if self.dwellTimeVariables is None:
+            raise ValueError("DwellTimeVariables are not set. Please set the DwellTimeVariables first.")
+
+        # run the optimization
+        result = self.run(self.solver)
+        if self.solution_found == False:
+            warnings.warn(
+                "No optimal solution found. Return None.",
+                stacklevel=2)
+            return None
+
+        for variable in self.dwellTimeVariables:
+            # set the dwell time to the optimized value
+            variable.dwell_time = variable._model_variable.X
+            if variable.dwell_time < 0.1:
+                variable.dwell_time = 0
+            # set the dwell time to the plan
+            if inplace:
+                outplan:BrachyPlan = self.plan
+            else:
+                outplan:BrachyPlan = deepcopy(self.plan)
+            for catheter in outplan.catheter_table:
+                for dwell_position in catheter.dwells:
+                    if (
+                        f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                        == variable.name
+                    ):
+                        dwell_position.time = variable.dwell_time        
+        # update the plan with the new dwell times
+        outplan.update_plan_from_catheter_table()
+        return outplan
+
+    def bound_dwell_time(
+        self,
+        name: str,
+        lower_bound: float = None,
+        upper_bound: float = None
+        ) -> None:
+        r"""
+        See `BrachyDwellTime_ABC.bound_dwell_time` for details.
+        """
+        for variable in self.dwellTimeVariables:
+            if variable.name == name:
+                variable.set_bounds(
+                    model=self.model,
+                    lower_bound=lower_bound,
+                    upper_bound=upper_bound
+                )
+                break
