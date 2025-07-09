@@ -170,5 +170,6 @@ if __name__ == "__main__":
     # test_get_optimization_roi_bounds()
     # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    test_dwelltime_orTools()
     # test_run_ampl_optim()
+    # test_dwelltime_orTools()
+    test_run_ortool_optim()
