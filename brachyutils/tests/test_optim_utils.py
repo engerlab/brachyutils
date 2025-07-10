@@ -161,13 +161,24 @@ def test_run_ortool_optim():
     from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
     plan_obj = get_a_plan_to_optimize()
     optim_obj = BrachyOptim_ORTools(plan=plan_obj, solver="GLPK")
+    from pandas import DataFrame    
+    results = DataFrame(columns=["solver", "status", "dvh_metrics", "mean(dwell_times)", "std(dwell_times)", "solve_time"])
     for solver in ["GLOP", "PDLP","GSCIP", "GLPK"]:
         try:
-            optimized_plan = optim_obj.get_optimized_plan_from_model(solver=solver)
+            optimized_plan = optim_obj.get_optimized_plan_from_model(solver=solver, inplace=True)
             print(f"Solver {solver} succeeded.")
+            results.loc[len(results)] = {
+                "solver": solver,
+                "status": optim_obj.model.solve_result,
+                "dvh_metrics": optimized_plan.get_dvh_metrics(),
+                "mean(dwell_times)": optimized_plan.dwell_times.mean(),
+                "std(dwell_times)": optimized_plan.dwell_times.std(),
+                "solve_time": optim_obj.solve_time
+                }
         except:
             print(f"Solver {solver} failed.")
             continue
+    results.to_csv("data_test/test_export_plan/prostate/ortools_solvers.csv")
 
 if __name__ == "__main__":
     # test_DwellTime_Gurobi()
