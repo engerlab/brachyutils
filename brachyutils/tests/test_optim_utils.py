@@ -18,8 +18,8 @@ def get_a_plan_to_optimize()->BrachyPlan:
             structure_name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
             penalty_weight_linear=300,
-            penalty_weight_quadratic=1,
-            penalty_weight_uniformity=1,
+            penalty_weight_quadratic=0,
+            penalty_weight_uniformity=0,
             penalty_weight_hotspot=1,
             hotspot_threshold=1.5,
             mask_margin_mm=0,
@@ -28,7 +28,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
             structure_name="urethra",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            penalty_weight_quadratic=1,
+            penalty_weight_quadratic=0,
             penalty_weight_uniformity=1,
             mask_margin_mm=0,
             spacing_mm=1),
@@ -36,7 +36,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
             structure_name="rectum",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            penalty_weight_quadratic=1,
+            penalty_weight_quadratic=0,
             penalty_weight_uniformity=1,
             mask_margin_mm=0,
             spacing_mm=3
@@ -160,10 +160,14 @@ def test_dwelltime_orTools():
 def test_run_ortool_optim():
     from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
     plan_obj = get_a_plan_to_optimize()
-    optim_obj = BrachyOptim_ORTools(plan=plan_obj)
-    optimized_plan = optim_obj.get_optimized_plan_from_model()
-    print(optimized_plan.get_dvh_metrics())
-    print(optimized_plan.dwell_times)
+    optim_obj = BrachyOptim_ORTools(plan=plan_obj, solver="GLPK")
+    for solver in ["GLOP", "PDLP","GSCIP", "GLPK"]:
+        try:
+            optimized_plan = optim_obj.get_optimized_plan_from_model(solver=solver)
+            print(f"Solver {solver} succeeded.")
+        except:
+            print(f"Solver {solver} failed.")
+            continue
 
 if __name__ == "__main__":
     # test_DwellTime_Gurobi()

@@ -67,7 +67,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
     def __init__(
         self,
         plan: BrachyPlan,
-        solver: Literal["GLOP", "PDLP", "GSCIP", "SCIP", "GLPK"],
+        solver: Literal["GLOP", "PDLP", "GSCIP", "SCIP", "GLPK"]="GLPK",
         roi_margin_mm: float = 0.0,
         pth_logfile: Path | str | None = None):
         r"""
@@ -83,7 +83,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
         self.plan: BrachyPlan = plan
         self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solver = solver
-        self.model = self.initialize_model(solver=self.solver, pth_logfile=pth_logfile)
+        self.model = self.initialize_model(pth_logfile=pth_logfile)
         self.dwellTimeVariables:DwellTime_ORTools = self.set_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
             plan=self.plan,
@@ -96,7 +96,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
             model=self.model
         )
 
-    def initialize_model(self, solver, pth_logfile = None):
+    def initialize_model(self, pth_logfile = None):
         r"""
         ### Purpose:
         - Initialize the OR-Tools model.
@@ -256,7 +256,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
                     # add linear constraint for underdosing
                     model.add_linear_constraint(
                         sum(
-                            A[i, j] * dwell_vars[j] for j in range(total_dwells)
+                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
                         ) + x_slack >= target_dose
                     )
                     
@@ -264,12 +264,12 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
                     model.add_linear_constraint(
                         sum(
                             A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
-                        ) + y_slack == target_dose                        
+                        ) + y_slack == target_dose
                     )
-                    
+
                     # Add penalties to the objective function
                     penalty_terms["linear"] += linear_weight/num_dose_points * x_slack
-                    penalty_terms["uniformity"] += uniformity_weight/num_dose_points * y_slack
+                    penalty_terms["uniformity"] += uniformity_weight/num_dose_points * y_slack * y_slack
                     penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack * x_slack
 
             elif "hotspot_estimator:" in structure.name.lower():
@@ -338,7 +338,10 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
             print("Optimal solution found.")
             return results
 
-    def get_optimized_plan_from_model(self, inplace=True):
+    def get_optimized_plan_from_model(
+        self, 
+        solver:Literal["GLOP", "PDLP", "GSCIP", "SCIP", "GLPK"]=None, 
+        inplace=True):
         r"""
         See `BrachyDwellTime_ABC.get_optimized_plan_from_model` for details.
         """
@@ -348,9 +351,10 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
             raise ValueError("Model is not set. Please set the model first.")
         if self.dwellTimeVariables is None:
             raise ValueError("DwellTimeVariables are not set. Please set the DwellTimeVariables first.")
-
+        if solver is None:
+            solver = self.solver
         # run the optimization
-        result = self.run(self.solver)
+        result = self.run(solver=solver)
         result_vars = result.variable_values()
         if self.solution_found == False:
             warnings.warn(
