@@ -17,7 +17,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
         Optimization_Config(
             structure_name="ctv",
             dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
-            penalty_weight_linear=1,
+            penalty_weight_linear=300,
             penalty_weight_quadratic=0,
             penalty_weight_uniformity=0,
             penalty_weight_hotspot=1,
@@ -29,7 +29,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             penalty_weight_quadratic=0,
-            penalty_weight_uniformity=0,
+            penalty_weight_uniformity=1,
             mask_margin_mm=0,
             spacing_mm=1),
         Optimization_Config(
@@ -37,7 +37,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             penalty_weight_quadratic=0,
-            penalty_weight_uniformity=0,
+            penalty_weight_uniformity=1,
             mask_margin_mm=0,
             spacing_mm=3
         )
@@ -140,9 +140,59 @@ def test_run_ampl_optim():
     results.to_csv("data_test/test_export_plan/prostate/solvers_linObj.csv")
     # results.to_csv("data_test/test_export_plan/prostate/solvers_quadObj.csv")
 
+def test_dwelltime_orTools():
+    from brachyutils.planning.optimization.optim_ortools import DwellTime_ORTools
+    from ortools.math_opt.python import mathopt
+
+    solver = mathopt.Model(name="test_model")
+    x = DwellTime_ORTools(
+        model=solver,
+        name=f"catheter_{2}_dwell_{4}",
+        dwell_time=0,
+        lower_bound=0,
+        upper_bound=100,
+        coordinates=[23, 13, 12],
+        )
+    print(x._model_variable)
+    x.set_bounds(lower_bound=32, upper_bound=45)
+    print(x._model_variable.lower_bound, x._model_variable.upper_bound)
+
+def test_run_ortool_optim():
+    from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
+    plan_obj = get_a_plan_to_optimize()
+    optim_obj = BrachyOptim_ORTools(plan=plan_obj, solver="GLPK")
+    from pandas import DataFrame    
+    results = DataFrame(columns=["solver", "status", "dvh_metrics", "mean(dwell_times)", "std(dwell_times)", "solve_time"])
+    for solver in ["GLOP", "PDLP","GSCIP", "GLPK"]:
+        try:
+            optimized_plan = optim_obj.get_optimized_plan_from_model(solver=solver, inplace=True)
+            print(f"Solver {solver} succeeded.")
+            results.loc[len(results)] = {
+                "solver": solver,
+                "status": "Solved" if optim_obj.solution_found else "Failed",
+                "dvh_metrics": optimized_plan.get_dvh_metrics(),
+                "mean(dwell_times)": optimized_plan.dwell_times.mean(),
+                "std(dwell_times)": optimized_plan.dwell_times.std(),
+                "solve_time": optim_obj.solve_time
+                }
+        except:
+            print(f"Solver {solver} failed.")
+            results.loc[len(results)] = {
+                "solver": solver,
+                "status": "Failed",
+                "dvh_metrics": "N/A",
+                "mean(dwell_times)": "N/A",
+                "std(dwell_times)": "N/A",
+                "solve_time": 0
+                }
+            continue
+    results.to_csv("data_test/test_export_plan/prostate/ortools_solvers.csv")
+
 if __name__ == "__main__":
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
     # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    test_run_ampl_optim()
+    # test_run_ampl_optim()
+    # test_dwelltime_orTools()
+    test_run_ortool_optim()

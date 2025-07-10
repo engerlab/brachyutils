@@ -1,5 +1,5 @@
 # from abc import ABC, abstractmethod
-from typing import List, Any
+from typing import List
 from copy import deepcopy
 import warnings
 import time
@@ -12,7 +12,7 @@ from brachyutils.planning.optimization.optim_utils import (
 )
 
 class DwellTime_Gurobi(BrachyDwellTime_ABC):
-    """
+    r"""
     ### Purpose:
     - A class to represent a DwellTimeVariable in the dwell time optimization problem using Gurobi.
     See `BrachyDwellTime_ABC` for more details on the attributes and methods.
@@ -111,7 +111,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         initial_dwell_time: float = 0.0,
         lower_bound: float = 0.0,
         upper_bound: float = 100,
-    ) -> List[Var]:
+    ) -> List[DwellTime_Gurobi]:
         r"""
         See `BrachyDwellTime_ABC.set_dwellTimeVariables` for details.
         """
