@@ -2,7 +2,7 @@ FROM ubuntu:latest
 
 ARG HOST_HOME
 
-ARG dir_software="/root/Software"
+ARG dir_software="/app/Software"
 ARG clean_source="false"
 
 WORKDIR ${dir_software}
