@@ -3,8 +3,12 @@ services:
     build:
       context: ../
       dockerfile: docker_src/Dockerfile
+      ssh:
+        - default
       args:
         - HOST_HOME=${HOST_HOME}
+        - UID=${UID}
+        - GID=${GID}
     image: brachyutils
     container_name: BrachyUtils
     user: "${UID}:${GID}"

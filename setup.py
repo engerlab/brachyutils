@@ -46,7 +46,8 @@ setup(
         "monai",
         "pydantic",
         "gurobipy",
-        "ampl"
+        "ampl",
+        "ortools"
     ],
     entry_points={"console_scripts": ["brachyutils=brachyutils.cli_utils:main"]},
 )
