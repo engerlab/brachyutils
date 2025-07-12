@@ -16,7 +16,14 @@ RUN apt update && apt install -y zip unzip wget curl net-tools\
 COPY docker_src/repositories/install_python.sh ${dir_software}/install_python.sh
 RUN bash install_python.sh
 
-# # copy opentps-brachyutils and install it
+# # install opentps-brachyutils
+COPY docker_src/repositories/install_opentps.sh ${dir_software}/install_opentps.sh
+RUN --mount=type=ssh bash ${dir_software}/install_opentps.sh
+
+# # install ai-assisted-brachytherapy
+COPY docker_src/repositories/install_ai_bt.sh ${dir_software}/install_ai_bt.sh
+RUN --mount=type=ssh bash ${dir_software}/install_ai_bt.sh
+
 # COPY docker_src/repositories/OpenTPS-brachyutils-master.zip ${dir_software}
 # RUN unzip OpenTPS-brachyutils-master.zip\
     # && rm OpenTPS-brachyutils-master.zip\

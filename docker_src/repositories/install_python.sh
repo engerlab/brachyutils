@@ -19,7 +19,7 @@ cd Python-3.13.3 || exit
 ./configure --enable-optimizations
 make -j${num_threads}
 make altinstall
-echo alias python=python3.13 >>~/.bash_aliases
-echo alias pip=pip3.13 >>~/.bash_aliases
+echo "alias python=python3.13" >> ~/.bash_aliases
+echo "alias pip=pip3.13" >> ~/.bash_aliases
 source ${HOME}/.bashrc
 python3.13 -m pip install --upgrade pip
