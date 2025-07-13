@@ -146,7 +146,7 @@ def test_catheter_table():
         # "weight": 0.003,
     }
     dwell_obj = DwellPosition(**dwell_dict_0)
-    # print(dwell_obj.to_dict())
+    print(dwell_obj.to_dict())
     
     catheter_dict = {
         "index": 0,
@@ -372,7 +372,7 @@ if __name__ == "__main__":
     # test_load_egsphant()
     # test_crop_phantom()
     # print("testing CatheterTable")
-    # test_catheter_table()
+    test_catheter_table()
     # test_catheter()
     # print("testing BrachyApplicator")
     # test_BrachyApplicator()
@@ -384,4 +384,4 @@ if __name__ == "__main__":
     # test_dicom_rt_tools()
     # test_catheter_to_mrk_json()
     # test_get_delivered_catheter_table()
-    test_generate_sphere_mask()
+    # test_generate_sphere_mask()

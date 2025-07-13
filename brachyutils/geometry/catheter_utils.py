@@ -37,6 +37,20 @@ class DwellPosition(BaseModel):
     time: float = 0.0
     # weight: float = None
 
+    def __init__(self, **data):
+        r"""
+        ### Purpose:
+        - To initialize the DwellPosition object.
+        ### Inputs:
+        - **data: dict := the dictionary containing the dwell position attributes.
+        """
+        super().__init__(**data)
+        # convert position and rotation to lists if they are dictionaries
+        if isinstance(self.position, dict):
+            self.position = list(self.position.values())
+        if isinstance(self.rotation, dict):
+            self.rotation = list(self.rotation.values())
+    
     def weight(self, total_time: float) -> float:
         r"""
         ### Purpose:
@@ -53,20 +67,21 @@ class DwellPosition(BaseModel):
         """
         return self.time / total_time
 
-    @model_validator(mode="before")
-    def finish_initialization(cls, all_inputs):
-        r"""
-        ### Purpose:
-        - If the position and rotation are provided as dictionaries, convert
-        them to lists.
-        """
-        if isinstance(all_inputs["position"], dict):
-            all_inputs["position"] = list(all_inputs["position"].values())
-        if isinstance(all_inputs["rotation"], dict):
-            all_inputs["rotation"] = list(all_inputs["rotation"].values())
-        return all_inputs
+    # # XXX outdated, delete when done testing
+    # @model_validator(mode="before")
+    # def finish_initialization(cls, all_inputs):
+    #     r"""
+    #     ### Purpose:
+    #     - If the position and rotation are provided as dictionaries, convert
+    #     them to lists.
+    #     """
+    #     if isinstance(all_inputs["position"], dict):
+    #         all_inputs["position"] = list(all_inputs["position"].values())
+    #     if isinstance(all_inputs["rotation"], dict):
+    #         all_inputs["rotation"] = list(all_inputs["rotation"].values())
+    #     return all_inputs
 
-    def to_dict(self, total_time) -> dict:
+    def to_dict(self, total_time:float=None) -> dict:
         r"""
         ### Purpose:
         - To convert the dwell position to a dictionary.
@@ -75,6 +90,8 @@ class DwellPosition(BaseModel):
         ### Outputs:
         - dict := the dictionary containing the dwell position.
         """
+        if total_time is None:
+            total_time = self.time
         return {
             "index": int(self.index),
             "angle": float(self.angle),
