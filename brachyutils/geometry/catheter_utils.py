@@ -1,7 +1,7 @@
 import numpy as np
 from typing import List, Union, Dict, Any, Optional, Tuple
 from pathlib import Path
-from pydantic import BaseModel, model_validator, computed_field
+from pydantic import BaseModel, computed_field
 import json
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from brachyutils.geometry.phantom_utils import BrachyPhantom
