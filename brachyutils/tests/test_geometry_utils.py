@@ -159,7 +159,7 @@ def test_catheter_table():
         "afterloader_channel_number": 0,
     }
     catheter_obj = Catheter(**catheter_dict)
-    # print(catheter_obj.to_dict())
+    print(catheter_obj.to_dict())
 
     # # test loadin from dicom
     pth_dicom = "data_test/prostate-glen-p1-dcm"

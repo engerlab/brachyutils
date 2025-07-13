@@ -145,52 +145,101 @@ class Catheter(BaseModel):
         """
         return np.sum([dwell.time for dwell in self.dwells])
 
-    @model_validator(mode="before")
-    def finish_initialization(cls, all_inputs):
+    def __init__(self, **data):
         r"""
         ### Purpose:
-        - To conver the list of dwell dictionaries to a list of DwellPosition objects.
-        - extract the channel_total_time from the dwells if it is not provided.
+        - To initialize the Catheter object.
+        
+        ### Inputs:
+        - **data: dict := the dictionary containing the catheter attributes.
         """
-        # load in the dwell positions directry
-        if all_inputs.get("dwells", None) is not None:
-            if isinstance(all_inputs["dwells"][0], dict):
-                all_inputs["dwells"] = [
-                    DwellPosition(**dwell) for dwell in all_inputs["dwells"]
-                    ]
-        # create dwells from fit, tip, last dwell position and step size
-        elif all_inputs.get("fit_function", None) is not None:
-            all_inputs["dwells"] = cls.get_dwells_from_fit(
-                fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size",5.0),
-                )
-        # create the fit and digitization from points
-        elif all_inputs.get("points", None) is not None:
-            all_inputs["fit_function"] = cls.get_fit_from_points(
-                points=all_inputs["points"],
+        super().__init__(**data)
+        # Set afterloader_channel_number to index if not provided
+        if self.afterloader_channel_number is None:
+            self.afterloader_channel_number = self.index
+
+        # Initialize dwells based on available inputs
+        if self.dwells is not None:
+            # Convert dict dwells to DwellPosition objects if needed
+            if isinstance(self.dwells[0], dict):
+                self.dwells = [DwellPosition(**dwell) for dwell in self.dwells]
+        elif self.fit_function is not None:
+            # Create dwells from fit function
+            self.dwells = self.get_dwells_from_fit(
+                fit_function=self.fit_function,
+                step_size=self.step_size,
             )
-            all_inputs["dwells"] = cls.get_dwells_from_fit(
-                fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size",5.0),
+        elif self.points is not None:
+            # Create fit and dwells from points
+            self.fit_function = self.get_fit_from_points(points=self.points)
+            self.dwells = self.get_dwells_from_fit(
+                fit_function=self.fit_function,
+                step_size=self.step_size,
             )
-        elif (all_inputs.get("tip_position", None) is not None
-              and all_inputs.get("last_dwell_coordinate", None) is not None
-        ):
-            all_inputs["fit_function"] = cls.get_fit_from_points(
-                points=[all_inputs["tip_position"], all_inputs["last_dwell_coordinate"]],
+        elif (self.tip_position is not None and self.last_dwell_coordinate is not None):
+            # Create fit and dwells from tip and last dwell coordinates
+            self.fit_function = self.get_fit_from_points(
+                points=[self.tip_position, self.last_dwell_coordinate]
             )
-            all_inputs["dwells"] = cls.get_dwells_from_fit(
-                fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size",5.0),
+            self.dwells = self.get_dwells_from_fit(
+                fit_function=self.fit_function,
+                step_size=self.step_size,
             )
         else:
-            raise ValueError("""Either provide dwells, fit_function, points or
-            tip and last dwell coordinate coordinates to the create a catheter.""")
+            raise ValueError("""Either provide dwells, fit_function, points or 
+            tip and last dwell coordinate coordinates to create a catheter.""")
 
-        all_inputs["tip_position"] = all_inputs["dwells"][0].position
-        all_inputs["last_dwell_coordinate"] = all_inputs["dwells"][-1].position
+        # Set tip_position and last_dwell_coordinate from dwells
+        if self.dwells is not None and len(self.dwells) > 0:
+            self.tip_position = self.dwells[0].position
+            self.last_dwell_coordinate = self.dwells[-1].position
 
-        return all_inputs
+    # @model_validator(mode="before")
+    # def finish_initialization(cls, all_inputs):
+    #     r"""
+    #     ### Purpose:
+    #     - To conver the list of dwell dictionaries to a list of DwellPosition objects.
+    #     - extract the channel_total_time from the dwells if it is not provided.
+    #     """
+    #     # load in the dwell positions directry
+    #     if all_inputs.get("dwells", None) is not None:
+    #         if isinstance(all_inputs["dwells"][0], dict):
+    #             all_inputs["dwells"] = [
+    #                 DwellPosition(**dwell) for dwell in all_inputs["dwells"]
+    #                 ]
+    #     # create dwells from fit, tip, last dwell position and step size
+    #     elif all_inputs.get("fit_function", None) is not None:
+    #         all_inputs["dwells"] = cls.get_dwells_from_fit(
+    #             fit_function=all_inputs["fit_function"],
+    #             step_size=all_inputs.get("step_size",5.0),
+    #             )
+    #     # create the fit and digitization from points
+    #     elif all_inputs.get("points", None) is not None:
+    #         all_inputs["fit_function"] = cls.get_fit_from_points(
+    #             points=all_inputs["points"],
+    #         )
+    #         all_inputs["dwells"] = cls.get_dwells_from_fit(
+    #             fit_function=all_inputs["fit_function"],
+    #             step_size=all_inputs.get("step_size",5.0),
+    #         )
+    #     elif (all_inputs.get("tip_position", None) is not None
+    #           and all_inputs.get("last_dwell_coordinate", None) is not None
+    #     ):
+    #         all_inputs["fit_function"] = cls.get_fit_from_points(
+    #             points=[all_inputs["tip_position"], all_inputs["last_dwell_coordinate"]],
+    #         )
+    #         all_inputs["dwells"] = cls.get_dwells_from_fit(
+    #             fit_function=all_inputs["fit_function"],
+    #             step_size=all_inputs.get("step_size",5.0),
+    #         )
+    #     else:
+    #         raise ValueError("""Either provide dwells, fit_function, points or
+    #         tip and last dwell coordinate coordinates to the create a catheter.""")
+
+    #     all_inputs["tip_position"] = all_inputs["dwells"][0].position
+    #     all_inputs["last_dwell_coordinate"] = all_inputs["dwells"][-1].position
+
+    #     return all_inputs
 
     def to_dict(self, total_time=None) -> dict:
         r"""
