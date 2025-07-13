@@ -29,37 +29,60 @@ class BrachySource(BaseModel):
     atomic_number: int = 77
     air_kerma_per_history: float = 1.149000e-11
     reference_air_kerma_rate: float = None  # 4.278729e04,
-    source_dict: Union[dict, Path, str] = None
+    # source_dict: Union[dict, Path, str] = None
 
-    @model_validator(mode="before")
-    def finish_initialization(cls, all_inputs):
+    def __init__(self, pth_source:Path|str=None, **data):
         r"""
         ### Purpose:
-        If a file is provided, load the source information from the file, else just 
-        return the source information.
+        - Initialize the BrachySource object.
+        - If pth_source is provided, it will be processed to extract the source information.
         """
-        if all_inputs.get("source_dict") is not None:
-            if isinstance(all_inputs["source_dict"], (Path, str)):
-                if not Path(all_inputs["source_dict"]).exists():
-                    raise ValueError(f"Path {all_inputs['source_dict']} does not exist.")
-                if Path(all_inputs["source_dict"]).suffix == ".json":
-                    with open(all_inputs["source_dict"], "r") as f:
-                        all_inputs["source_dict"] = json.load(f)
-                elif Path(all_inputs["source_dict"]).suffix == ".dcm":
-                    all_inputs["source_dict"] = cls.load_from_dicom(all_inputs["source_dict"])
-                else:
-                    raise ValueError(
-                        f"File {all_inputs['source_dict']} is not a json nor a dicom file."
-                    )
-            elif isinstance(all_inputs["source_dict"], dict):
-                all_inputs["source_dict"] = all_inputs["source_dict"]
+        if pth_source is not None:
+            pth_source = Path(pth_source)
+            if not pth_source.exists():
+                raise ValueError(f"Path {self.source_dict} does not exist.")
+            if pth_source.suffix == ".json":
+                with open(self.source_dict, "r") as f:
+                    source_data = json.load(f)
+            elif pth_source.suffix == ".dcm":
+                source_data = self.load_from_dicom(pth_dicom=pth_source)
             else:
                 raise ValueError(
-                    f"source_dict should be either a dictionary, a path to a json file, or a path to a dicom file. Got {all_inputs['source_dict']}"
+                    f"File {self.source_dict} is not a json nor a dicom file."
                 )
-            return all_inputs["source_dict"]
+            super().__init__(**source_data)
         else:
-            return all_inputs
+            super().__init__(**data)
+
+    # @model_validator(mode="before")
+    # def finish_initialization(cls, all_inputs):
+    #     r"""
+    #     ### Purpose:
+    #     If a file is provided, load the source information from the file, else just 
+    #     return the source information.
+    #     """
+    #     if all_inputs.get("source_dict") is not None:
+    #         if isinstance(all_inputs["source_dict"], (Path, str)):
+    #             if not Path(all_inputs["source_dict"]).exists():
+    #                 raise ValueError(f"Path {all_inputs['source_dict']} does not exist.")
+    #             if Path(all_inputs["source_dict"]).suffix == ".json":
+    #                 with open(all_inputs["source_dict"], "r") as f:
+    #                     all_inputs["source_dict"] = json.load(f)
+    #             elif Path(all_inputs["source_dict"]).suffix == ".dcm":
+    #                 all_inputs["source_dict"] = cls.load_from_dicom(all_inputs["source_dict"])
+    #             else:
+    #                 raise ValueError(
+    #                     f"File {all_inputs['source_dict']} is not a json nor a dicom file."
+    #                 )
+    #         elif isinstance(all_inputs["source_dict"], dict):
+    #             all_inputs["source_dict"] = all_inputs["source_dict"]
+    #         else:
+    #             raise ValueError(
+    #                 f"source_dict should be either a dictionary, a path to a json file, or a path to a dicom file. Got {all_inputs['source_dict']}"
+    #             )
+    #         return all_inputs["source_dict"]
+    #     else:
+    #         return all_inputs
 
     def to_dict(self):
         r"""

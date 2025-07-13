@@ -26,7 +26,7 @@ def test_brachy_source():
     print(source_obj.to_dict())
 
     source_path = list(Path("data_test/prostate-glen-p1-dcm").glob("RP*.dcm")).pop()
-    source_obj = BrachySource(source_dict=source_path)
+    source_obj = BrachySource(pth_source=source_path)
     print(source_obj.to_dict())
 
 def test_brachy_simulation():
@@ -90,6 +90,6 @@ def test_brachy_simulation():
 
 
 if __name__ == "__main__":
-    # test_brachy_source()
-    test_brachy_simulation()
+    test_brachy_source()
+    # test_brachy_simulation()
     
