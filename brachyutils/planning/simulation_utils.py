@@ -54,36 +54,6 @@ class BrachySource(BaseModel):
         else:
             super().__init__(**data)
 
-    # @model_validator(mode="before")
-    # def finish_initialization(cls, all_inputs):
-    #     r"""
-    #     ### Purpose:
-    #     If a file is provided, load the source information from the file, else just 
-    #     return the source information.
-    #     """
-    #     if all_inputs.get("source_dict") is not None:
-    #         if isinstance(all_inputs["source_dict"], (Path, str)):
-    #             if not Path(all_inputs["source_dict"]).exists():
-    #                 raise ValueError(f"Path {all_inputs['source_dict']} does not exist.")
-    #             if Path(all_inputs["source_dict"]).suffix == ".json":
-    #                 with open(all_inputs["source_dict"], "r") as f:
-    #                     all_inputs["source_dict"] = json.load(f)
-    #             elif Path(all_inputs["source_dict"]).suffix == ".dcm":
-    #                 all_inputs["source_dict"] = cls.load_from_dicom(all_inputs["source_dict"])
-    #             else:
-    #                 raise ValueError(
-    #                     f"File {all_inputs['source_dict']} is not a json nor a dicom file."
-    #                 )
-    #         elif isinstance(all_inputs["source_dict"], dict):
-    #             all_inputs["source_dict"] = all_inputs["source_dict"]
-    #         else:
-    #             raise ValueError(
-    #                 f"source_dict should be either a dictionary, a path to a json file, or a path to a dicom file. Got {all_inputs['source_dict']}"
-    #             )
-    #         return all_inputs["source_dict"]
-    #     else:
-    #         return all_inputs
-
     def to_dict(self):
         r"""
         Purpose:
