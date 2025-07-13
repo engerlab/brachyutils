@@ -380,18 +380,19 @@ class CatheterTable(BaseModel):
         """
         return np.sum([len(catheter.dwells) for catheter in self.catheter_list])
 
-    @model_validator(mode="before")
-    def finish_initialization(cls, all_inputs):
+    def __init__(self, **data):
         r"""
         ### Purpose:
-        - To handle the different types of inputs for the catheter list.
-        if a file path or a string is provided, load the catheter table from the json or dicom file.
+        - To initialize the CatheterTable object.
+        
+        ### Inputs:
+        - **data: dict := the dictionary containing the catheter table attributes.
         """
-        delivered_dwell_coordinates = None
-        if (isinstance(all_inputs["catheter_list"], str) or
-            isinstance(all_inputs["catheter_list"], Path)
+        super().__init__(**data)
+        if (isinstance(self.catheter_list, str) or
+            isinstance(self.catheter_list, Path)
             ):
-            catheter_file = Path(all_inputs["catheter_list"])
+            catheter_file = Path(self.catheter_list)
 
             if not catheter_file.exists():
                 raise ValueError(f"catheter file {catheter_file} does not exist.")
@@ -400,24 +401,65 @@ class CatheterTable(BaseModel):
                 raise NotImplementedError("this feature is not implemented yet.")
 
             if str(catheter_file).endswith(".json"):
-                cat_dict = cls.load_from_json(catheter_file)
-
+                cat_dict = self.load_from_json(catheter_file)
             elif str(catheter_file).endswith(".dcm"):
-                cat_dict, delivered_dwell_coordinates = cls.load_from_dicom(pth_dicom=catheter_file)
+                cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file)
+                if delivered_dwell_coordinates is not None:
+                    self.delivered_dwell_coordinates = delivered_dwell_coordinates
             elif catheter_file.is_dir():
-                cat_dict = cls.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
+                cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
+                if delivered_dwell_coordinates is not None:
+                    self.delivered_dwell_coordinates = delivered_dwell_coordinates
 
-            all_inputs["catheter_list"] = cat_dict["catheter_list"]
-            all_inputs["step_size"] = cat_dict["step_size"]
-            all_inputs["channel_length"] = cat_dict["channel_length"]
-            if delivered_dwell_coordinates is not None:
-                all_inputs["delivered_dwell_coordinates"] = delivered_dwell_coordinates
+            self.catheter_list = cat_dict["catheter_list"]
+            self.step_size = cat_dict["step_size"]
+            self.channel_length = cat_dict["channel_length"]
+            if cat_dict.get("delivered_dwell_coordinates") is not None:
+                self.delivered_dwell_coordinates = cat_dict["delivered_dwell_coordinates"]
 
-        if isinstance(all_inputs["catheter_list"][0], dict):
-            all_inputs["catheter_list"] = [
-                Catheter(**catheter_dict) for catheter_dict in all_inputs["catheter_list"]
+        if isinstance(self.catheter_list[0], dict):
+            self.catheter_list = [
+                Catheter(**catheter_dict) for catheter_dict in self.catheter_list
             ]
-        return all_inputs
+        
+    # @model_validator(mode="before")
+    # def finish_initialization(cls, all_inputs):
+    #     r"""
+    #     ### Purpose:
+    #     - To handle the different types of inputs for the catheter list.
+    #     if a file path or a string is provided, load the catheter table from the json or dicom file.
+    #     """
+    #     delivered_dwell_coordinates = None
+    #     if (isinstance(all_inputs["catheter_list"], str) or
+    #         isinstance(all_inputs["catheter_list"], Path)
+    #         ):
+    #         catheter_file = Path(all_inputs["catheter_list"])
+
+    #         if not catheter_file.exists():
+    #             raise ValueError(f"catheter file {catheter_file} does not exist.")
+    #         if str(catheter_file).endswith(".mrk.json"):
+    #             # if the file is a slicer markup file, load it as a json file
+    #             raise NotImplementedError("this feature is not implemented yet.")
+
+    #         if str(catheter_file).endswith(".json"):
+    #             cat_dict = cls.load_from_json(catheter_file)
+
+    #         elif str(catheter_file).endswith(".dcm"):
+    #             cat_dict, delivered_dwell_coordinates = cls.load_from_dicom(pth_dicom=catheter_file)
+    #         elif catheter_file.is_dir():
+    #             cat_dict = cls.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
+
+    #         all_inputs["catheter_list"] = cat_dict["catheter_list"]
+    #         all_inputs["step_size"] = cat_dict["step_size"]
+    #         all_inputs["channel_length"] = cat_dict["channel_length"]
+    #         if delivered_dwell_coordinates is not None:
+    #             all_inputs["delivered_dwell_coordinates"] = delivered_dwell_coordinates
+
+    #     if isinstance(all_inputs["catheter_list"][0], dict):
+    #         all_inputs["catheter_list"] = [
+    #             Catheter(**catheter_dict) for catheter_dict in all_inputs["catheter_list"]
+    #         ]
+    #     return all_inputs
 
     def __iter__(self):
         for catheter in self.catheter_list:
