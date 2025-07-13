@@ -67,20 +67,6 @@ class DwellPosition(BaseModel):
         """
         return self.time / total_time
 
-    # # XXX outdated, delete when done testing
-    # @model_validator(mode="before")
-    # def finish_initialization(cls, all_inputs):
-    #     r"""
-    #     ### Purpose:
-    #     - If the position and rotation are provided as dictionaries, convert
-    #     them to lists.
-    #     """
-    #     if isinstance(all_inputs["position"], dict):
-    #         all_inputs["position"] = list(all_inputs["position"].values())
-    #     if isinstance(all_inputs["rotation"], dict):
-    #         all_inputs["rotation"] = list(all_inputs["rotation"].values())
-    #     return all_inputs
-
     def to_dict(self, total_time:float=None) -> dict:
         r"""
         ### Purpose:
