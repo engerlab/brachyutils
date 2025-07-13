@@ -85,7 +85,7 @@ class BrachyPlan:
         prescription_dose: float = None,
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
-        delivered_catheter_table: bool = True,
+        delivered_catheter_table: bool = False,
         applicator_pth_list: Union[Path, str, list] = None,
         applicator_format: Literal["RapidBrachy", "WebApp"] = None,
         #### for loading dose or uncertainty:
@@ -96,7 +96,7 @@ class BrachyPlan:
         multi_processing: bool = False,
         combined_dose_only: bool = False,
         #### for simulation setup:
-        simulation_dict: dict | Path | str = None,
+        simulation_setup: dict | Path | str = None,
         #### for optimization setup:
         optimization_config_list:  List[Optimization_Config] | Path | str = None,
     ):
@@ -131,7 +131,7 @@ class BrachyPlan:
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
         #### for simulation setup:
-        - simulation_dict = None := dictionary containing the simulation setup,
+        - simulation_setup = None := dictionary containing the simulation setup,
 
         ### Outputs:
             - Void := will initialize the BrachyPlan object
@@ -247,25 +247,25 @@ class BrachyPlan:
             warnings.warn("no dose rate is loaded", stacklevel=2)
 
         # # load the simulation setup if the dictionary is provided
-        if simulation_dict is not None:
-            if isinstance(simulation_dict, dict):
+        if simulation_setup is not None:
+            if isinstance(simulation_setup, dict):
                 self.simulation_setup = BrachySimulation(
-                    simulation_dict=simulation_dict
+                    **simulation_setup
                 )
-            elif isinstance(simulation_dict, Path) or isinstance(
-                simulation_dict, str
+            elif isinstance(simulation_setup, Path) or isinstance(
+                simulation_setup, str
             ):
                 # if json file, load the entire simulation dict from json file
-                if str(simulation_dict).endswith(".json"):
+                if str(simulation_setup).endswith(".json"):
                    self.simulation_setup = BrachySimulation(
-                    simulation_dict=simulation_dict
+                    pth_simulation_setup=simulation_setup
                 )
                 # if dicom plan file, load the source from the dicom file
                 # and assuming the catheter table is loaded from the same dicom file,
                 # provide the total time from the catheter table
-                elif str(simulation_dict).endswith(".dcm"):
+                elif str(simulation_setup).endswith(".dcm"):
                     self.simulation_setup = BrachySimulation(
-                        brachy_source=simulation_dict,
+                        brachy_source=simulation_setup,
                         total_time=np.sum(self.dwell_times))
 
         # load the applicator list if the path is provided
@@ -1648,13 +1648,13 @@ def load_dicom_to_plan(
     # structure_dcm = structure_dcm[0] if len(structure_dcm) > 0 else None
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
-    simulation_dict = kwargs.pop("simulation_dict", None)
-    simulation_dict = simulation_dict if simulation_dict is not None else plan_dcm
+    simulation_setup = kwargs.pop("simulation_setup", None)
+    simulation_setup = simulation_setup if simulation_setup is not None else plan_dcm
     combined_dose = kwargs.pop("combined_dose", dose_dcm)
     return BrachyPlan(
         phantom=dir_dicom,
         catheter_table=plan_dcm,
         combined_dose=combined_dose,
-        simulation_dict=simulation_dict,
+        simulation_setup=simulation_setup,
         **kwargs
     )
