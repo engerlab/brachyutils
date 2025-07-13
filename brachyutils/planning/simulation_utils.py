@@ -43,16 +43,15 @@ class BrachySource(BaseModel):
                 raise ValueError(f"Path {self.source_dict} does not exist.")
             if pth_source.suffix == ".json":
                 with open(self.source_dict, "r") as f:
-                    source_data = json.load(f)
+                    data = json.load(f)
             elif pth_source.suffix == ".dcm":
-                source_data = self.load_from_dicom(pth_dicom=pth_source)
+                data = self.load_from_dicom(pth_dicom=pth_source)
             else:
                 raise ValueError(
                     f"File {self.source_dict} is not a json nor a dicom file."
                 )
-            super().__init__(**source_data)
-        else:
-            super().__init__(**data)
+
+        super().__init__(**data)
 
     def to_dict(self):
         r"""
@@ -170,7 +169,7 @@ class BrachySimulation(BaseModel):
     - validate(): checks if the fields are valid for export.
     - to_string(): converts the object to a string.
     """
-    brachy_source: BrachySource = BrachySource()
+    brachy_source: BrachySource | Path | str = BrachySource()
     world_material: str = "Air"
     number_histories: int = 1e6
     total_time: float = None
@@ -182,47 +181,75 @@ class BrachySimulation(BaseModel):
     print_progress: int = 1e4
     pth_plan: str = "combined.plan"
     pth_phantom: str = "ct.egsphant"
-    simulation_dict: Union[dict, Path, str] = None
+    # simulation_dict: Union[dict, Path, str] = None
     
-    @model_validator(mode="before")
-    def finish_initialization(cls, all_inputs):
+    def __init__(self, pth_simulation_setup: str | Path = None, **data):
         r"""
         ### Purpose:
-        Handle initialization from either simulation_dict or direct parameters.
-        Process brachy_source in a consistent way.
+        - Initialize the BrachySimulation object.
+        - If pth_simulation_setup is provided, it will be processed to extract the simulation information.
         """
-        def process_simulation_dict(sim_dict):
-            if isinstance(sim_dict, (Path, str)):
-                if not Path(sim_dict).exists():
-                    raise ValueError(f"Path {sim_dict} does not exist.")
-                if Path(sim_dict).suffix != ".json":
-                    raise ValueError(f"File {sim_dict} is not a json file.")
-                with open(sim_dict, "r") as f:
-                    return json.load(f)
-            elif isinstance(sim_dict, dict):
-                return sim_dict
+        if pth_simulation_setup is not None:
+            pth_simulation_setup = Path(pth_simulation_setup)
+            if not pth_simulation_setup.exists():
+                raise ValueError(f"Path {pth_simulation_setup} does not exist.")
+            if pth_simulation_setup.suffix == ".json":
+                with open(pth_simulation_setup, "r") as f:
+                    data = json.load(f)
+            else:
+                raise ValueError(
+                    f"File {pth_simulation_setup} is not a json file."
+                )
+        super().__init__(**data)
+
+        if isinstance(self.brachy_source, (Path, str)):
+            self.brachy_source = BrachySource(pth_source=self.brachy_source)
+        elif isinstance(self.brachy_source, dict):
+            self.brachy_source = BrachySource(**self.brachy_source)
+        elif not isinstance(self.brachy_source, BrachySource):
             raise ValueError(
-                f"simulation_dict should be either a dictionary or a path to a json file. Got {sim_dict}"
+                f"brachy_source should be either a dictionary, a path to a json file, or a BrachySource object. Got {self.brachy_source}"
             )
 
-        def create_brachy_source(source_input):
-            if source_input is None:
-                return BrachySource()
-            if isinstance(source_input, (dict, Path, str)):
-                return BrachySource(source_dict=source_input)
-            if isinstance(source_input, BrachySource):
-                return source_input
-            raise ValueError(
-                f"brachy_source should be either a dictionary, a path to a json file, or a BrachySource object. Got {source_input}"
-            )
+    # @model_validator(mode="before")
+    # def finish_initialization(cls, all_inputs):
+    #     r"""
+    #     ### Purpose:
+    #     Handle initialization from either simulation_dict or direct parameters.
+    #     Process brachy_source in a consistent way.
+    #     """
+    #     def process_simulation_dict(sim_dict):
+    #         if isinstance(sim_dict, (Path, str)):
+    #             if not Path(sim_dict).exists():
+    #                 raise ValueError(f"Path {sim_dict} does not exist.")
+    #             if Path(sim_dict).suffix != ".json":
+    #                 raise ValueError(f"File {sim_dict} is not a json file.")
+    #             with open(sim_dict, "r") as f:
+    #                 return json.load(f)
+    #         elif isinstance(sim_dict, dict):
+    #             return sim_dict
+    #         raise ValueError(
+    #             f"simulation_dict should be either a dictionary or a path to a json file. Got {sim_dict}"
+    #         )
 
-        if all_inputs.get("simulation_dict") is not None:
-            sim_dict = process_simulation_dict(all_inputs["simulation_dict"])
-            sim_dict["brachy_source"] = create_brachy_source(sim_dict.get("brachy_source"))
-            return sim_dict
-        else:
-            all_inputs["brachy_source"] = create_brachy_source(all_inputs.get("brachy_source"))
-            return all_inputs
+        # def create_brachy_source(source_input):
+        #     if source_input is None:
+        #         return BrachySource()
+        #     if isinstance(source_input, (dict, Path, str)):
+        #         return BrachySource(source_dict=source_input)
+        #     if isinstance(source_input, BrachySource):
+        #         return source_input
+        #     raise ValueError(
+        #         f"brachy_source should be either a dictionary, a path to a json file, or a BrachySource object. Got {source_input}"
+        #     )
+
+        # if all_inputs.get("simulation_dict") is not None:
+        #     sim_dict = process_simulation_dict(all_inputs["simulation_dict"])
+        #     sim_dict["brachy_source"] = create_brachy_source(sim_dict.get("brachy_source"))
+        #     return sim_dict
+        # else:
+        #     all_inputs["brachy_source"] = create_brachy_source(all_inputs.get("brachy_source"))
+        #     return all_inputs
 
     def to_string(self):
         r"""
