@@ -44,7 +44,7 @@ def export_single_dicom_to_plan(
     ### Outputs:
         - dir_export_plan: Path: The path to the exported plan.
     """
-    plan_obj = load_dicom_to_plan(dir_dicom, simulation_dict=sim_dict)
+    plan_obj = load_dicom_to_plan(dir_dicom, simulation_setup=sim_dict)
 
     dir_export = Path(dir_export)
     dir_export.mkdir(parents=True, exist_ok=True)

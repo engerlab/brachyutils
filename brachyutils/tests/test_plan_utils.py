@@ -213,7 +213,7 @@ def test_export_brachy_plan():
         dvh_metric_goals=dvh_metric_goals,
         catheter_table=pth_cathTable_dcm,
         combined_dose=pth_combined_dose,
-        simulation_dict=sim_dict,
+        simulation_setup=sim_dict,
     )
     # # This function tests all the exporting functions.
     plan_obj.export_brachy_plan(dir_export=dir_export, content_to_export=content_to_export)
