@@ -1,6 +1,6 @@
 from pathlib import Path
-from brachyutils.registration_utils import Registration_OpenTPS
-from brachyutils.geometry_utils import BrachyPhantom
+from brachyutils.geometry.registration_utils.reg_opentps import Registration_OpenTPS
+from brachyutils.geometry.phantom_utils import BrachyPhantom
 
 def test_register_opentps():
     # Abdominal: static = CT, moving = MR
@@ -67,7 +67,7 @@ def test_register_opentps():
         raise ValueError("Dice score is less than 0.5")
 
 def test_register_plastimatch():
-    from brachyutils.registration_utils import Registration_Plastimatch
+    from brachyutils.geometry.registration_utils.reg_plastimatch import Registration_Plastimatch
     # Abdominal: static = CT, moving = MR
     pth_img_static = Path("temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0008.nrrd")
     # pth_img_static = Path("data_test/registration/abdomin_mr_ct/tr_ct_image_0008.nii.gz")

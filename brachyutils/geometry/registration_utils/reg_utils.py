@@ -48,7 +48,6 @@ class BrachyPhantomRegistration(ABC):
             - export_to: Export the registered phantom to a given path.
             - synch_registered_phantom_with_data: Match the image and the contours of the registered phantom.
             - evaluate_on_contours: Evaluate the registration quality by comparing the contours in the registered
-
         """
 
         self.static_phantom = static_phantom
