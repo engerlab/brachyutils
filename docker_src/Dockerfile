@@ -24,6 +24,9 @@ RUN --mount=type=ssh bash ${dir_software}/install_opentps.sh
 COPY docker_src/repositories/install_ai_bt.sh ${dir_software}/install_ai_bt.sh
 RUN --mount=type=ssh bash ${dir_software}/install_ai_bt.sh
 
+# # install brachyutils
+COPY install_brachyutils.sh ${dir_software}/install_brachyutils.sh
+RUN --mount=type=ssh bash ${dir_software}/install_brachyutils.sh
 # COPY docker_src/repositories/OpenTPS-brachyutils-master.zip ${dir_software}
 # RUN unzip OpenTPS-brachyutils-master.zip\
     # && rm OpenTPS-brachyutils-master.zip\
