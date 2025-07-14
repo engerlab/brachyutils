@@ -1,6 +1,7 @@
 #!/bin/bash
 # # for local installation
-dir_software=${HOME}/Software
+# dir_software=${HOME}/Software
+
 # # For docker image
 dir_software=/app/Software
 
