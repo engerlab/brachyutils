@@ -1,7 +1,7 @@
 import numpy as np
 from typing import List, Union, Dict, Any, Optional, Tuple
 from pathlib import Path
-from pydantic import BaseModel, model_validator, computed_field
+from pydantic import BaseModel, computed_field
 import json
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from brachyutils.geometry.phantom_utils import BrachyPhantom
@@ -37,6 +37,20 @@ class DwellPosition(BaseModel):
     time: float = 0.0
     # weight: float = None
 
+    def __init__(self, **data):
+        r"""
+        ### Purpose:
+        - To initialize the DwellPosition object.
+        ### Inputs:
+        - **data: dict := the dictionary containing the dwell position attributes.
+        """
+        super().__init__(**data)
+        # convert position and rotation to lists if they are dictionaries
+        if isinstance(self.position, dict):
+            self.position = list(self.position.values())
+        if isinstance(self.rotation, dict):
+            self.rotation = list(self.rotation.values())
+    
     def weight(self, total_time: float) -> float:
         r"""
         ### Purpose:
@@ -53,20 +67,7 @@ class DwellPosition(BaseModel):
         """
         return self.time / total_time
 
-    @model_validator(mode="before")
-    def finish_initialization(cls, all_inputs):
-        r"""
-        ### Purpose:
-        - If the position and rotation are provided as dictionaries, convert
-        them to lists.
-        """
-        if isinstance(all_inputs["position"], dict):
-            all_inputs["position"] = list(all_inputs["position"].values())
-        if isinstance(all_inputs["rotation"], dict):
-            all_inputs["rotation"] = list(all_inputs["rotation"].values())
-        return all_inputs
-
-    def to_dict(self, total_time) -> dict:
+    def to_dict(self, total_time:float=None) -> dict:
         r"""
         ### Purpose:
         - To convert the dwell position to a dictionary.
@@ -75,6 +76,8 @@ class DwellPosition(BaseModel):
         ### Outputs:
         - dict := the dictionary containing the dwell position.
         """
+        if total_time is None:
+            total_time = self.time
         return {
             "index": int(self.index),
             "angle": float(self.angle),
@@ -142,52 +145,56 @@ class Catheter(BaseModel):
         """
         return np.sum([dwell.time for dwell in self.dwells])
 
-    @model_validator(mode="before")
-    def finish_initialization(cls, all_inputs):
+    def __init__(self, **data):
         r"""
         ### Purpose:
-        - To conver the list of dwell dictionaries to a list of DwellPosition objects.
-        - extract the channel_total_time from the dwells if it is not provided.
+        - To initialize the Catheter object.
+        
+        ### Inputs:
+        - **data: dict := the dictionary containing the catheter attributes.
         """
-        # load in the dwell positions directry
-        if all_inputs.get("dwells", None) is not None:
-            if isinstance(all_inputs["dwells"][0], dict):
-                all_inputs["dwells"] = [
-                    DwellPosition(**dwell) for dwell in all_inputs["dwells"]
-                    ]
-        # create dwells from fit, tip, last dwell position and step size
-        elif all_inputs.get("fit_function", None) is not None:
-            all_inputs["dwells"] = cls.get_dwells_from_fit(
-                fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size",5.0),
-                )
-        # create the fit and digitization from points
-        elif all_inputs.get("points", None) is not None:
-            all_inputs["fit_function"] = cls.get_fit_from_points(
-                points=all_inputs["points"],
+        super().__init__(**data)
+        # Set afterloader_channel_number to index if not provided
+        if self.afterloader_channel_number is None:
+            self.afterloader_channel_number = self.index
+
+        # Initialize dwells based on available inputs
+        if self.dwells is not None:
+            # Convert dict dwells to DwellPosition objects if needed
+            if isinstance(self.dwells[0], dict):
+                self.dwells = [DwellPosition(**dwell) for dwell in self.dwells]
+        elif self.fit_function is not None:
+            # Create dwells from fit function
+            self.dwells = self.get_dwells_from_fit(
+                fit_function=self.fit_function,
+                step_size=self.step_size,
             )
-            all_inputs["dwells"] = cls.get_dwells_from_fit(
-                fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size",5.0),
+        elif self.points is not None:
+            # Create fit and dwells from points
+            self.fit_function = self.get_fit_from_points(points=self.points)
+            self.dwells = self.get_dwells_from_fit(
+                fit_function=self.fit_function,
+                step_size=self.step_size,
             )
-        elif (all_inputs.get("tip_position", None) is not None
-              and all_inputs.get("last_dwell_coordinate", None) is not None
-        ):
-            all_inputs["fit_function"] = cls.get_fit_from_points(
-                points=[all_inputs["tip_position"], all_inputs["last_dwell_coordinate"]],
+        elif (self.tip_position is not None and self.last_dwell_coordinate is not None):
+            # Create fit and dwells from tip and last dwell coordinates
+            self.fit_function = self.get_fit_from_points(
+                points=[self.tip_position, self.last_dwell_coordinate]
             )
-            all_inputs["dwells"] = cls.get_dwells_from_fit(
-                fit_function=all_inputs["fit_function"],
-                step_size=all_inputs.get("step_size",5.0),
+            self.dwells = self.get_dwells_from_fit(
+                fit_function=self.fit_function,
+                step_size=self.step_size,
             )
         else:
-            raise ValueError("""Either provide dwells, fit_function, points or
-            tip and last dwell coordinate coordinates to the create a catheter.""")
+            raise ValueError("""Either provide dwells, fit_function, points or 
+            tip and last dwell coordinate coordinates to create a catheter.""")
 
-        all_inputs["tip_position"] = all_inputs["dwells"][0].position
-        all_inputs["last_dwell_coordinate"] = all_inputs["dwells"][-1].position
-
-        return all_inputs
+        # Set tip_position and last_dwell_coordinate from dwells
+        if self.dwells is not None and len(self.dwells) > 0:
+            self.tip_position = self.dwells[0].position
+            self.last_dwell_coordinate = self.dwells[-1].position
+        else:
+            raise ValueError("No dwell positions found in the catheter. Please provide valid dwells.")
 
     def to_dict(self, total_time=None) -> dict:
         r"""
@@ -373,18 +380,19 @@ class CatheterTable(BaseModel):
         """
         return np.sum([len(catheter.dwells) for catheter in self.catheter_list])
 
-    @model_validator(mode="before")
-    def finish_initialization(cls, all_inputs):
+    def __init__(self, **data):
         r"""
         ### Purpose:
-        - To handle the different types of inputs for the catheter list.
-        if a file path or a string is provided, load the catheter table from the json or dicom file.
+        - To initialize the CatheterTable object.
+        
+        ### Inputs:
+        - **data: dict := the dictionary containing the catheter table attributes.
         """
-        delivered_dwell_coordinates = None
-        if (isinstance(all_inputs["catheter_list"], str) or
-            isinstance(all_inputs["catheter_list"], Path)
+        super().__init__(**data)
+        if (isinstance(self.catheter_list, str) or
+            isinstance(self.catheter_list, Path)
             ):
-            catheter_file = Path(all_inputs["catheter_list"])
+            catheter_file = Path(self.catheter_list)
 
             if not catheter_file.exists():
                 raise ValueError(f"catheter file {catheter_file} does not exist.")
@@ -393,24 +401,26 @@ class CatheterTable(BaseModel):
                 raise NotImplementedError("this feature is not implemented yet.")
 
             if str(catheter_file).endswith(".json"):
-                cat_dict = cls.load_from_json(catheter_file)
-
+                cat_dict = self.load_from_json(catheter_file)
             elif str(catheter_file).endswith(".dcm"):
-                cat_dict, delivered_dwell_coordinates = cls.load_from_dicom(pth_dicom=catheter_file)
+                cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file)
+                if delivered_dwell_coordinates is not None:
+                    self.delivered_dwell_coordinates = delivered_dwell_coordinates
             elif catheter_file.is_dir():
-                cat_dict = cls.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
+                cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
+                if delivered_dwell_coordinates is not None:
+                    self.delivered_dwell_coordinates = delivered_dwell_coordinates
 
-            all_inputs["catheter_list"] = cat_dict["catheter_list"]
-            all_inputs["step_size"] = cat_dict["step_size"]
-            all_inputs["channel_length"] = cat_dict["channel_length"]
-            if delivered_dwell_coordinates is not None:
-                all_inputs["delivered_dwell_coordinates"] = delivered_dwell_coordinates
+            self.catheter_list = cat_dict["catheter_list"]
+            self.step_size = cat_dict["step_size"]
+            self.channel_length = cat_dict["channel_length"]
+            if cat_dict.get("delivered_dwell_coordinates") is not None:
+                self.delivered_dwell_coordinates = cat_dict["delivered_dwell_coordinates"]
 
-        if isinstance(all_inputs["catheter_list"][0], dict):
-            all_inputs["catheter_list"] = [
-                Catheter(**catheter_dict) for catheter_dict in all_inputs["catheter_list"]
+        if isinstance(self.catheter_list[0], dict):
+            self.catheter_list = [
+                Catheter(**catheter_dict) for catheter_dict in self.catheter_list
             ]
-        return all_inputs
 
     def __iter__(self):
         for catheter in self.catheter_list:
