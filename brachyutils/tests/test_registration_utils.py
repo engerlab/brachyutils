@@ -117,6 +117,6 @@ def test_load_transformations():
 
 if __name__ == "__main__":
     print("testing the registration class")
-    # test_register_opentps()
-    test_register_plastimatch()
+    test_register_opentps()
+    # test_register_plastimatch()
     # test_load_transformations()
