@@ -856,7 +856,7 @@ class BrachyDose:
             )
         return voxel_centers
 
-    def get_dose_at_coordinates(self, coords: Union[np.ndarray, List[float]]) -> float:
+    def get_dose_at_coordinates(self, coords: Union[np.ndarray, List[float]], uncertainty = False) -> float:
         r"""
         Purpose:
             - Given a set of coordinates, this function will return the dose at that point.
@@ -866,7 +866,11 @@ class BrachyDose:
             - dose := the dose at the given coordinates in Gy
         """
         assert len(coords) == 3, "coords should be a list of 3 coordinates"
-        return self.dose_image.getDataAtPosition(coords)
+        if uncertainty:
+            assert self.uncertainty_image is not None, "uncertainty image is not defined"
+            return self.uncertainty_image.getDataAtPosition(coords)
+        else:
+            return self.dose_image.getDataAtPosition(coords)
 
     def get_uncertainty_at_coordinates(
         self, coords: Union[np.ndarray, List[float]]
