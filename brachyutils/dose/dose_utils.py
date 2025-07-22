@@ -683,7 +683,7 @@ class BrachyDose:
             writes [3D dose, 3D uncertainty], voxel size, origin (origin_coordinates), and metadata to the file_name_dose.nrrd
         """
         # check if the directory exists, if not create it. make sure the file extension is write.
-        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        Path.mkdir(pth_output.parent, exist_ok=True)
         assert (
             str(pth_output).endswith(".nrrd")
         ), "the file should have '.nrrd' extension"
@@ -714,7 +714,7 @@ class BrachyDose:
         # header["spacing"] = [np.nan] + self.dose_image.spacing.tolist()
         # header["space units"] = ["None", "mm", "mm", "mm"]
         dose_uncertainty_array = np.stack([dose_array, uncertainty_array], axis=3)
-        nrrd.write(pth_output, dose_uncertainty_array, header, index_order="C")
+        nrrd.write(str(pth_output), dose_uncertainty_array, header, index_order="C")
 
     def write_to_npz(self, file_name: str):
         r"""
