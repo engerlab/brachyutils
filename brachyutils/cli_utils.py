@@ -16,6 +16,23 @@ from tqdm import tqdm
 from typing_extensions import Annotated
 from brachyutils import BrachyPhantom, BrachyDose, BrachyEgsphant
 from typing import Literal, List, Dict
+from enum import Enum
+
+class DoseType(Enum):
+    """Enum for dose types."""
+    NRRD = ".nrrd"
+    DCM = ".dcm"
+    THREE_DDOSE = ".3ddose"
+
+class EgsphantType(Enum):
+    """Enum for egsphant types."""
+    EGS = ".egsphant"
+    NRRD = ".nrrd"
+
+class PhantomType(Enum):
+    """Enum for phantom types."""
+    NRRD = ".nrrd"
+    DCM = ".dcm"
 
 def memory_limit():
     """Limit max memory usage to half."""
@@ -36,9 +53,9 @@ app = typer.Typer()
 
 @app.command(name="convert-dose", help="Convert dose files to specified output format")
 def convert_dose(
-    pth_inputs: List[Path | str],
-    type_out: Literal[".nrrd", ".dcm", ".3ddose"] = ".nrrd",
-    dir_output: Path | str = None,
+    pth_inputs: List[str],
+    type_out: DoseType = DoseType.NRRD,
+    dir_output: str = None,
     multi_proc: bool = False
 ):
     r"""
@@ -59,9 +76,9 @@ def convert_dose(
 
 @app.command(name="convert-phantom", help="Convert phantom (image and segmentation) files to specified output format")
 def convert_phantom(
-    pth_inputs: List[Path | str],
-    type_out: Literal[".nrrd", ".dcm"] = ".nrrd",
-    dir_output: Path | str = None,
+    pth_inputs: List[str],
+    type_out: PhantomType = PhantomType.NRRD,
+    dir_output: str = None,
     multi_proc: bool = False
 ):
     r"""
@@ -82,9 +99,9 @@ def convert_phantom(
 
 @app.command(name="convert-egsphant", help="Convert egsphant files to specified output format")
 def convert_egsphant(
-    pth_inputs: List[Path | str],
-    type_out: Literal[".egsphant", ".nrrd"] = ".nrrd",
-    dir_output: Path | str = None,
+    pth_inputs: List[str],
+    type_out: EgsphantType = EgsphantType.EGS,
+    dir_output: str = None,
     multi_proc: bool = False
 ):
     r"""
