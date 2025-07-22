@@ -1263,7 +1263,8 @@ def convert_dose_files(
         
         # Extract base name for output files
         if "pth_dose_file" in args_dict:
-            base_name = Path(args_dict["pth_dose_file"]).stem
+            full_ext = "".join(args_dict["pth_dose_file"].suffixes)
+            base_name = str(args_dict["pth_dose_file"].name).split(full_ext)[0]
         else:
             base_name = "converted"
         

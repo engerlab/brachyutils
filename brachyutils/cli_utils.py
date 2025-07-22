@@ -71,7 +71,7 @@ def convert_dose(
     if the directory is not specified, it will be saved in the same directory as the input file. 
     """
     from brachyutils.dose.dose_utils import convert_dose_files
-    return convert_dose_files(pth_inputs, type_out, dir_output, multi_proc)
+    return convert_dose_files(pth_inputs, type_out.value, dir_output, multi_proc)
 
 
 @app.command(name="convert-phantom", help="Convert phantom (image and segmentation) files to specified output format")
@@ -94,7 +94,7 @@ def convert_phantom(
     if the directory is not specified, it will be saved in the same directory as the input file. 
     """
     from brachyutils.geometry.phantom_utils import convert_phantom_files
-    return convert_phantom_files(pth_inputs, type_out, dir_output, multi_proc)
+    return convert_phantom_files(pth_inputs, type_out.value, dir_output, multi_proc)
 
 
 @app.command(name="convert-egsphant", help="Convert egsphant files to specified output format")
@@ -117,7 +117,7 @@ def convert_egsphant(
     if the directory is not specified, it will be saved in the same directory as the input file. 
     """
     from brachyutils.geometry.egsphant_utils import convert_egsphant_files
-    return convert_egsphant_files(pth_inputs, type_out, dir_output, multi_proc)
+    return convert_egsphant_files(pth_inputs, type_out.value, dir_output, multi_proc)
 
 @app.command(
     help="""Purpose: to crop the egsphant file of all patients in a directory."""
