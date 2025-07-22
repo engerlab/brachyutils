@@ -225,8 +225,10 @@ def convert_dose(
     
     # Perform conversion
     if multi_proc:
-        # Placeholder for multiprocessing implementation
-        pass
+        # Create partial function with fixed arguments
+        partial_conversion = partial(_perform_conversion, dir_output=dir_output, type_out=type_out)
+        with Pool() as pool:
+            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting dose files"))
     else:
         for item in tqdm(data_to_load):
             _perform_conversion(item, dir_output, type_out)
@@ -294,8 +296,10 @@ def convert_phantom(
     
     # Perform conversion
     if multi_proc:
-        # Placeholder for multiprocessing implementation
-        pass
+        # Create partial function with fixed arguments
+        partial_conversion = partial(_perform_conversion, dir_output=dir_output, type_out=type_out)
+        with Pool() as pool:
+            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting phantom files"))
     else:
         for item in tqdm(data_to_load):
             _perform_conversion(item, dir_output, type_out)
@@ -348,8 +352,10 @@ def convert_egsphant(
     
     # Perform conversion
     if multi_proc:
-        # Placeholder for multiprocessing implementation
-        pass
+        # Create partial function with fixed arguments
+        partial_conversion = partial(_perform_conversion, dir_output=dir_output, type_out=type_out)
+        with Pool() as pool:
+            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting egsphant files"))
     else:
         for item in tqdm(data_to_load):
             _perform_conversion(item, dir_output, type_out)
