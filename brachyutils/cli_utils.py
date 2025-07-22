@@ -173,24 +173,22 @@ def _perform_conversion(item: Dict, dir_output: Path, type_out: str):
     else:
         raise ValueError(f"Unsupported loader class {loader_class} for conversion.")
 
-def convert(
-    content_type: Literal["phantom", "dose", "egsphant"],
+def convert_dose(
     pth_inputs: List[Path | str],
-    type_out: Literal[".nrrd", ".egsphant", ".dcm", ".3ddose"] = ".nrrd",
+    type_out: Literal[".nrrd", ".dcm", ".3ddose"] = ".nrrd",
     dir_output: Path | str = None,
     multi_proc: bool = False
 ):
     r"""
     ### Purpose:
-    - To convert any image, segmentation, egsphant, or dose file to nrrd format.
+    - To convert dose files to the specified output format.
     ### Inputs:
-    - content_type := type of the content to be converted. Options are "phantom", "dose", "egsphant".
-    - pth_inputs := list of paths to the input files. The input files can be directories or files.
-    - type_out := type of the output file. Options are ".nrrd", ".egsphant", ".dcm", ".3ddose".
+    - pth_inputs := list of paths to the input dose files. The input files can be directories or files.
+    - type_out := type of the output file. Options are ".nrrd", ".dcm", ".3ddose".
     - dir_output := path to the output directory (optional)
     - multi_proc := whether to use multiprocessing (default: False)
     ### Output:
-    - None: The converted nrrd file will be saved in the output directory.
+    - None: The converted dose file will be saved in the output directory.
     if the directory is not specified, it will be saved in the same directory as the input file. 
     """
     data_to_load = []
@@ -203,33 +201,143 @@ def convert(
         
         # Handle directories (DICOM)
         if pth_input.is_dir():
-            data_to_load.extend(_handle_dicom_directory(pth_input))
+            dicom_data = _handle_dicom_directory(pth_input)
+            # Filter only dose items
+            dose_items = [item for item in dicom_data if item["loader_class"] == BrachyDose]
+            data_to_load.extend(dose_items)
+        
+        # Handle single files
+        elif pth_input.is_file():
+            data_to_load.append(_prepare_dose_loading_item(pth_input))
+        else:
+            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
+    
+    # Check if we have valid items to process
+    if not data_to_load:
+        raise ValueError("No valid dose files found to convert.")
+    
+    # Setup output directory
+    if dir_output is None:
+        dir_output = Path(pth_inputs[0]).parent
+    else:
+        dir_output = Path(dir_output)
+    dir_output.mkdir(parents=True, exist_ok=True)
+    
+    # Perform conversion
+    if multi_proc:
+        # Placeholder for multiprocessing implementation
+        pass
+    else:
+        for item in tqdm(data_to_load):
+            _perform_conversion(item, dir_output, type_out)
+
+
+def convert_phantom(
+    pth_inputs: List[Path | str],
+    type_out: Literal[".nrrd", ".dcm"] = ".nrrd",
+    dir_output: Path | str = None,
+    multi_proc: bool = False
+):
+    r"""
+    ### Purpose:
+    - To convert phantom (image and segmentation) files to the specified output format.
+    ### Inputs:
+    - pth_inputs := list of paths to the input phantom files. The input files can be directories or files.
+    - type_out := type of the output file. Options are ".nrrd", ".dcm".
+    - dir_output := path to the output directory (optional)
+    - multi_proc := whether to use multiprocessing (default: False)
+    ### Output:
+    - None: The converted phantom file will be saved in the output directory.
+    if the directory is not specified, it will be saved in the same directory as the input file. 
+    """
+    data_to_load = []
+    
+    # Process each input path
+    for pth_input in pth_inputs:
+        pth_input = Path(pth_input)
+        if not pth_input.exists():
+            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
+        
+        # Handle directories (DICOM)
+        if pth_input.is_dir():
+            dicom_data = _handle_dicom_directory(pth_input)
+            # Filter only phantom items
+            phantom_items = [item for item in dicom_data if item["loader_class"] == BrachyPhantom]
+            data_to_load.extend(phantom_items)
         
         # Handle single files
         elif pth_input.is_file():
             base_name = pth_input.stem
             
             # Skip if already processed
-            if content_type == "phantom" and any(
+            if any(
                 base_name in str(item["args_dict"].get("pth_phantom_file", ""))
                 for item in data_to_load
             ):
                 print(f"Skipping {pth_input} as it is already in the list.")
                 continue
                 
-            # Process by content type
-            if content_type == "phantom":
-                data_to_load.append(_prepare_phantom_loading_item(pth_input))
-            elif content_type == "dose":
-                data_to_load.append(_prepare_dose_loading_item(pth_input))
-            elif content_type == "egsphant":
-                data_to_load.append(_prepare_egsphant_loading_item(pth_input))
+            data_to_load.append(_prepare_phantom_loading_item(pth_input))
         else:
             raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
     
     # Check if we have valid items to process
     if not data_to_load:
-        raise ValueError("No valid input files found to convert.")
+        raise ValueError("No valid phantom files found to convert.")
+    
+    # Setup output directory
+    if dir_output is None:
+        dir_output = Path(pth_inputs[0]).parent
+    else:
+        dir_output = Path(dir_output)
+    dir_output.mkdir(parents=True, exist_ok=True)
+    
+    # Perform conversion
+    if multi_proc:
+        # Placeholder for multiprocessing implementation
+        pass
+    else:
+        for item in tqdm(data_to_load):
+            _perform_conversion(item, dir_output, type_out)
+
+
+def convert_egsphant(
+    pth_inputs: List[Path | str],
+    type_out: Literal[".egsphant", ".nrrd"] = ".nrrd",
+    dir_output: Path | str = None,
+    multi_proc: bool = False
+):
+    r"""
+    ### Purpose:
+    - To convert egsphant files to the specified output format.
+    ### Inputs:
+    - pth_inputs := list of paths to the input egsphant files. The input files can be directories or files.
+    - type_out := type of the output file. Options are ".egsphant", ".nrrd".
+    - dir_output := path to the output directory (optional)
+    - multi_proc := whether to use multiprocessing (default: False)
+    ### Output:
+    - None: The converted egsphant file will be saved in the output directory.
+    if the directory is not specified, it will be saved in the same directory as the input file. 
+    """
+    data_to_load = []
+    
+    # Process each input path
+    for pth_input in pth_inputs:
+        pth_input = Path(pth_input)
+        if not pth_input.exists():
+            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
+        
+        # Handle single files only (egsphant files are not typically in DICOM directories)
+        if pth_input.is_file():
+            data_to_load.append(_prepare_egsphant_loading_item(pth_input))
+        elif pth_input.is_dir():
+            raise ValueError(f"Directory input {pth_input} not supported for egsphant conversion. Please provide individual .egsphant or .seq.nrrd files.")
+        else:
+            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
+    
+    # Check if we have valid items to process
+    if not data_to_load:
+        raise ValueError("No valid egsphant files found to convert.")
     
     # Setup output directory
     if dir_output is None:
