@@ -88,7 +88,7 @@ class BrachySource(BaseModel):
         return (
             f"/treatmentType {self.treatment_type}\n"
             + f"/source/switch {self.source_geometry}\n"
-            + f"/source/coreMaterial {self.core_material}\n"
+            + f"/source/core/material {self.core_material}\n"
             + f"/source/core/A {self.mass_number}\n"
             + f"/source/core/Z {self.atomic_number}\n"
             + f"/parallel_world/ak_per_history {self.air_kerma_per_history}\n"
@@ -224,7 +224,7 @@ class BrachySimulation(BaseModel):
         return (
             f"/source/treatmentType {self.brachy_source.treatment_type}\n"
             + f"/source/switch {self.brachy_source.source_geometry}\n"
-            + f"/source/coreMaterial {self.brachy_source.core_material}\n"
+            + f"/source/core/material {self.brachy_source.core_material}\n"
             + f"/source/core/A {self.brachy_source.mass_number}\n"
             + f"/source/core/Z {self.brachy_source.atomic_number}\n"
             + f"/sim/plan {self.pth_plan}\n"
