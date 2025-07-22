@@ -1,16 +1,18 @@
 from pathlib import Path
 
 def test_convert_dose():
-    from brachyutils.cli_utils import convert_dose
+    from brachyutils.cli_utils import convert_dose, DoseType
+    from brachyutils.cli_utils import DoseType
     dir_inputs = Path("data_test/prostate-glen-p1-dose")
     dir_output = Path("data_test/test_export_plan/prostate")
-    type_out = ".3ddose"
+    type_out = DoseType.THREE_DDOSE
 
     convert_dose(
-        pth_inputs=list(dir_inputs.glob("*combined*.nrrd")),
+        pth_inputs=list(dir_inputs.glob("*6.*.nrrd")),
         type_out=type_out,
         dir_output=dir_output,
-        multi_proc=False)
+        multi_proc=True
+        )
 
 if __name__ == "__main__":
     test_convert_dose()

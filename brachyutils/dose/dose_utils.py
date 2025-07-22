@@ -1196,6 +1196,78 @@ class BrachyDose:
             print("\n".join(diff_list))
 
 
+from functools import partial
+from multiprocessing import Pool
+from pathlib import Path
+from tqdm import tqdm
+    
+def _prepare_dose_loading_item(pth_input: Path) -> dict:
+    """Prepare loading item for dose files."""
+    full_suffix = "".join(pth_input.suffixes)
+    
+    if full_suffix in [".3ddose", ".seq.nrrd"]:
+        return {
+            "loader_class": BrachyDose,
+            "args_dict": {"pth_dose_file": pth_input, "load_uncertainty": False}
+        }
+    else:
+        raise ValueError(
+            f"Unsupported file type {full_suffix} for dose conversion. "
+            "Please provide a .3ddose, .nrrd, or .minidos file."
+        )
+
+def _handle_dicom_directory_dose(pth_input: Path) -> List[dict]:
+    """Process a directory containing DICOM files, return only dose items."""
+    data_to_load = []
+    
+    if len(list(pth_input.glob("*.dcm"))) < 1:
+        print(f"No DICOM files found in the directory {pth_input}.")
+        return data_to_load
+    
+    # Check for dose file
+    dose_file = list(pth_input.glob("[Rr][Dd]*.dcm"))
+    if dose_file:
+        loading_dose_item = {
+            # "loader_class": BrachyDose,
+            "args_dict": {
+                "pth_dose_file": dose_file[0],
+                "load_uncertainty": False,
+            }
+        }
+        data_to_load.append(loading_dose_item)
+    else:
+        print(f"No dose file found in the directory {pth_input}")
+    
+    return data_to_load
+    
+def _perform_dose_conversion(item: dict, dir_output: Path, type_out: str):
+    """Perform actual dose conversion."""
+    # loader_class = BrachyDose if item["loader_class"] is BrachyDose else None
+    # if loader_class is None:
+    #     raise ValueError("Invalid loader class provided for dose conversion.")
+    args_dict = item["args_dict"]
+    
+    # Extract base name for output files
+    if "pth_dose_file" in args_dict:
+        full_ext = "".join(args_dict["pth_dose_file"].suffixes)
+        base_name = str(args_dict["pth_dose_file"].name).split(full_ext)[0]
+    else:
+        base_name = "converted"
+    
+    # Convert based on output type
+    dose_obj = BrachyDose(
+        pth_dose_file=args_dict["pth_dose_file"],
+        load_uncertainty=args_dict.get("load_uncertainty", False)
+        )
+    if type_out == ".nrrd":
+        pth_out = dir_output / f"{base_name}.seq{type_out}"
+    elif type_out == ".3ddose":
+        pth_out = dir_output / f"{base_name}{type_out}"
+    else:
+        raise ValueError(f"Unsupported output type {type_out} for dose conversion.")
+    
+    dose_obj.write_brachydose_to_file(pth_dose_file=pth_out)
+
 # Conversion utilities for dose files
 def convert_dose_files(
     pth_inputs: List[Union[Path, str]],
@@ -1212,73 +1284,6 @@ def convert_dose_files(
         dir_output: Output directory path (optional).
         multi_proc: Whether to use multiprocessing (default: False).
     """
-    from functools import partial
-    from multiprocessing import Pool
-    from pathlib import Path
-    from tqdm import tqdm
-    
-    def _prepare_dose_loading_item(pth_input: Path) -> dict:
-        """Prepare loading item for dose files."""
-        full_suffix = "".join(pth_input.suffixes)
-        
-        if full_suffix in [".3ddose", ".seq.nrrd"]:
-            return {
-                "loader_class": BrachyDose,
-                "args_dict": {"pth_dose_file": pth_input, "load_uncertainty": False}
-            }
-        else:
-            raise ValueError(
-                f"Unsupported file type {full_suffix} for dose conversion. "
-                "Please provide a .3ddose, .nrrd, or .minidos file."
-            )
-    
-    def _handle_dicom_directory_dose(pth_input: Path) -> List[dict]:
-        """Process a directory containing DICOM files, return only dose items."""
-        data_to_load = []
-        
-        if len(list(pth_input.glob("*.dcm"))) < 1:
-            print(f"No DICOM files found in the directory {pth_input}.")
-            return data_to_load
-        
-        # Check for dose file
-        dose_file = list(pth_input.glob("[Rr][Dd]*.dcm"))
-        if dose_file:
-            loading_dose_item = {
-                "loader_class": BrachyDose,
-                "args_dict": {
-                    "pth_dose_file": dose_file[0],
-                    "load_uncertainty": False,
-                }
-            }
-            data_to_load.append(loading_dose_item)
-        else:
-            print(f"No dose file found in the directory {pth_input}")
-        
-        return data_to_load
-    
-    def _perform_dose_conversion(item: dict, dir_output: Path, type_out: str):
-        """Perform actual dose conversion."""
-        loader_class = item["loader_class"]
-        args_dict = item["args_dict"]
-        
-        # Extract base name for output files
-        if "pth_dose_file" in args_dict:
-            full_ext = "".join(args_dict["pth_dose_file"].suffixes)
-            base_name = str(args_dict["pth_dose_file"].name).split(full_ext)[0]
-        else:
-            base_name = "converted"
-        
-        # Convert based on output type
-        dose_obj = loader_class(**args_dict)
-        if type_out == ".nrrd":
-            pth_out = dir_output / f"{base_name}.seq{type_out}"
-        elif type_out == ".3ddose":
-            pth_out = dir_output / f"{base_name}{type_out}"
-        else:
-            raise ValueError(f"Unsupported output type {type_out} for dose conversion.")
-        
-        dose_obj.write_brachydose_to_file(pth_dose_file=pth_out)
-    
     # Main conversion logic
     data_to_load = []
     
