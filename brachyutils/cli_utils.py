@@ -34,145 +34,7 @@ def get_memory():
 
 app = typer.Typer()
 
-def _prepare_phantom_loading_item(pth_input: Path) -> dict:
-    """Prepare loading item for phantom files."""
-    base_name = pth_input.stem
-    full_suffix = "".join(pth_input.suffixes)
-    
-    if full_suffix in [".nrrd", ".nii", ".nii.gz"]:
-        # Look for matching segmentation file
-        pth_seg = pth_input.parent / f"{base_name}.seg{full_suffix}"
-        args_dict = {"pth_phantom_file": pth_input}
-        if pth_seg.exists():
-            args_dict["pth_structure_file"] = pth_seg
-    elif full_suffix in [".seg.nrrd", ".seg.nii", ".seg.nii.gz"]:
-        # Look for matching image file
-        pth_input_image = pth_input.parent / f"{base_name}{full_suffix[4:]}"
-        args_dict = {"pth_structure_file": pth_input}
-        if pth_input_image.exists():
-            args_dict["pth_phantom_file"] = pth_input_image
-        else:
-            args_dict["pth_phantom_file"] = pth_input
-    else:
-        raise ValueError(
-            f"Unsupported file type {full_suffix} for phantom conversion. "
-            "Please provide a .nrrd, .nii, .nii.gz, or a dicom directory."
-        )
-    
-    return {"loader_class": BrachyPhantom, "args_dict": args_dict}
-
-def _prepare_dose_loading_item(pth_input: Path) -> dict:
-    """Prepare loading item for dose files."""
-    full_suffix = "".join(pth_input.suffixes)
-    
-    if full_suffix in [".3ddose", ".seq.nrrd"]:
-        return {
-            "loader_class": BrachyDose,
-            "args_dict": {"pth_dose_file": pth_input, "load_uncertainty": False}
-        }
-    else:
-        raise ValueError(
-            f"Unsupported file type {full_suffix} for dose conversion. "
-            "Please provide a .3ddose, .nrrd, or .minidos file."
-        )
-
-def _prepare_egsphant_loading_item(pth_input: Path) -> dict:
-    """Prepare loading item for egsphant files."""
-    full_suffix = "".join(pth_input.suffixes)
-    
-    if full_suffix in [".egsphant", ".seq.nrrd"]:
-        return {
-            "loader_class": BrachyEgsphant,
-            "args_dict": {"pth_phantom_file": pth_input}
-        }
-    else:
-        raise ValueError(
-            f"Unsupported file type {full_suffix} for egsphant conversion. "
-            "Please provide a .egsphant or .seq.nrrd file."
-        )
-
-def _handle_dicom_directory(pth_input: Path) -> List[Dict]:
-    """Process a directory containing DICOM files."""
-    data_to_load = []
-    
-    if len(list(pth_input.glob("*.dcm"))) < 1:
-        print(f"No DICOM files found in the directory {pth_input}.")
-        return data_to_load
-    
-    # Handle phantom data
-    loading_phantom_item = {
-        "loader_class": BrachyPhantom,
-        "args_dict": {"dir_dicom": pth_input}
-    }
-    
-    # Check for segmentation file
-    segmentation_file = list(pth_input.glob("[Rr][Ss]*.dcm"))
-    if segmentation_file:
-        loading_phantom_item["args_dict"]["pth_structure_file"] = segmentation_file[0]
-    else:
-        print(f"No segmentation file found in the directory {pth_input}")
-    
-    data_to_load.append(loading_phantom_item)
-    
-    # Check for dose file
-    dose_file = list(pth_input.glob("[Rr][Dd]*.dcm"))
-    if dose_file:
-        loading_dose_item = {
-            "loader_class": BrachyDose,
-            "args_dict": {
-                "pth_dose_file": dose_file[0],
-                "load_uncertainty": False,
-            }
-        }
-        data_to_load.append(loading_dose_item)
-    else:
-        print(f"No dose file found in the directory {pth_input}")
-    
-    return data_to_load
-
-def _perform_conversion(item: Dict, dir_output: Path, type_out: str):
-    """Perform actual conversion based on loader class and output type."""
-    loader_class = item["loader_class"]
-    args_dict = item["args_dict"]
-    
-    # Extract base name for output files
-    if "pth_dose_file" in args_dict:
-        base_name = Path(args_dict["pth_dose_file"]).stem
-    elif "pth_phantom_file" in args_dict:
-        base_name = Path(args_dict["pth_phantom_file"]).stem
-    else:
-        base_name = "converted"
-    
-    # Convert based on loader class
-    if loader_class == BrachyPhantom:
-        phantom_obj = loader_class(**args_dict)
-        if type_out == ".dcm":
-            phantom_obj.export_to(dir_dicom_out=dir_output)
-        elif type_out == ".nrrd":
-            phantom_obj.export_to(dir_nrrd_out=dir_output)
-    
-    elif loader_class == BrachyDose:
-        dose_obj = loader_class(**args_dict)
-        if type_out == ".nrrd":
-            pth_out = dir_output / f"{base_name}.seq{type_out}"
-        elif type_out == ".3ddose":
-            pth_out = dir_output / f"{base_name}{type_out}"
-        dose_obj.write_brachydose_to_file(pth_dose_file=pth_out)
-    
-    elif loader_class == BrachyEgsphant:
-        egsphant_obj = loader_class(**args_dict)
-        if type_out == ".egsphant":
-            pth_out = dir_output / f"{base_name}{type_out}"
-            egsphant_obj.write_to_ctegsphant(pth_out)
-        elif type_out == ".nrrd":
-            pth_out = dir_output / f"{base_name}.seq{type_out}"
-            egsphant_obj.write_to_nrrd(pth_out)
-        else:
-            raise ValueError(f"Unsupported output type {type_out} for egsphant conversion.")
-    
-    else:
-        raise ValueError(f"Unsupported loader class {loader_class} for conversion.")
-
+@app.command(name="convert-dose", help="Convert dose files to specified output format")
 def convert_dose(
     pth_inputs: List[Path | str],
     type_out: Literal[".nrrd", ".dcm", ".3ddose"] = ".nrrd",
@@ -191,49 +53,11 @@ def convert_dose(
     - None: The converted dose file will be saved in the output directory.
     if the directory is not specified, it will be saved in the same directory as the input file. 
     """
-    data_to_load = []
-    
-    # Process each input path
-    for pth_input in pth_inputs:
-        pth_input = Path(pth_input)
-        if not pth_input.exists():
-            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
-        
-        # Handle directories (DICOM)
-        if pth_input.is_dir():
-            dicom_data = _handle_dicom_directory(pth_input)
-            # Filter only dose items
-            dose_items = [item for item in dicom_data if item["loader_class"] == BrachyDose]
-            data_to_load.extend(dose_items)
-        
-        # Handle single files
-        elif pth_input.is_file():
-            data_to_load.append(_prepare_dose_loading_item(pth_input))
-        else:
-            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
-    
-    # Check if we have valid items to process
-    if not data_to_load:
-        raise ValueError("No valid dose files found to convert.")
-    
-    # Setup output directory
-    if dir_output is None:
-        dir_output = Path(pth_inputs[0]).parent
-    else:
-        dir_output = Path(dir_output)
-    dir_output.mkdir(parents=True, exist_ok=True)
-    
-    # Perform conversion
-    if multi_proc:
-        # Create partial function with fixed arguments
-        partial_conversion = partial(_perform_conversion, dir_output=dir_output, type_out=type_out)
-        with Pool() as pool:
-            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting dose files"))
-    else:
-        for item in tqdm(data_to_load):
-            _perform_conversion(item, dir_output, type_out)
+    from brachyutils.dose.dose_utils import convert_dose_files
+    return convert_dose_files(pth_inputs, type_out, dir_output, multi_proc)
 
 
+@app.command(name="convert-phantom", help="Convert phantom (image and segmentation) files to specified output format")
 def convert_phantom(
     pth_inputs: List[Path | str],
     type_out: Literal[".nrrd", ".dcm"] = ".nrrd",
@@ -252,59 +76,11 @@ def convert_phantom(
     - None: The converted phantom file will be saved in the output directory.
     if the directory is not specified, it will be saved in the same directory as the input file. 
     """
-    data_to_load = []
-    
-    # Process each input path
-    for pth_input in pth_inputs:
-        pth_input = Path(pth_input)
-        if not pth_input.exists():
-            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
-        
-        # Handle directories (DICOM)
-        if pth_input.is_dir():
-            dicom_data = _handle_dicom_directory(pth_input)
-            # Filter only phantom items
-            phantom_items = [item for item in dicom_data if item["loader_class"] == BrachyPhantom]
-            data_to_load.extend(phantom_items)
-        
-        # Handle single files
-        elif pth_input.is_file():
-            base_name = pth_input.stem
-            
-            # Skip if already processed
-            if any(
-                base_name in str(item["args_dict"].get("pth_phantom_file", ""))
-                for item in data_to_load
-            ):
-                print(f"Skipping {pth_input} as it is already in the list.")
-                continue
-                
-            data_to_load.append(_prepare_phantom_loading_item(pth_input))
-        else:
-            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
-    
-    # Check if we have valid items to process
-    if not data_to_load:
-        raise ValueError("No valid phantom files found to convert.")
-    
-    # Setup output directory
-    if dir_output is None:
-        dir_output = Path(pth_inputs[0]).parent
-    else:
-        dir_output = Path(dir_output)
-    dir_output.mkdir(parents=True, exist_ok=True)
-    
-    # Perform conversion
-    if multi_proc:
-        # Create partial function with fixed arguments
-        partial_conversion = partial(_perform_conversion, dir_output=dir_output, type_out=type_out)
-        with Pool() as pool:
-            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting phantom files"))
-    else:
-        for item in tqdm(data_to_load):
-            _perform_conversion(item, dir_output, type_out)
+    from brachyutils.geometry.phantom_utils import convert_phantom_files
+    return convert_phantom_files(pth_inputs, type_out, dir_output, multi_proc)
 
 
+@app.command(name="convert-egsphant", help="Convert egsphant files to specified output format")
 def convert_egsphant(
     pth_inputs: List[Path | str],
     type_out: Literal[".egsphant", ".nrrd"] = ".nrrd",
@@ -323,42 +99,8 @@ def convert_egsphant(
     - None: The converted egsphant file will be saved in the output directory.
     if the directory is not specified, it will be saved in the same directory as the input file. 
     """
-    data_to_load = []
-    
-    # Process each input path
-    for pth_input in pth_inputs:
-        pth_input = Path(pth_input)
-        if not pth_input.exists():
-            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
-        
-        # Handle single files only (egsphant files are not typically in DICOM directories)
-        if pth_input.is_file():
-            data_to_load.append(_prepare_egsphant_loading_item(pth_input))
-        elif pth_input.is_dir():
-            raise ValueError(f"Directory input {pth_input} not supported for egsphant conversion. Please provide individual .egsphant or .seq.nrrd files.")
-        else:
-            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
-    
-    # Check if we have valid items to process
-    if not data_to_load:
-        raise ValueError("No valid egsphant files found to convert.")
-    
-    # Setup output directory
-    if dir_output is None:
-        dir_output = Path(pth_inputs[0]).parent
-    else:
-        dir_output = Path(dir_output)
-    dir_output.mkdir(parents=True, exist_ok=True)
-    
-    # Perform conversion
-    if multi_proc:
-        # Create partial function with fixed arguments
-        partial_conversion = partial(_perform_conversion, dir_output=dir_output, type_out=type_out)
-        with Pool() as pool:
-            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting egsphant files"))
-    else:
-        for item in tqdm(data_to_load):
-            _perform_conversion(item, dir_output, type_out)
+    from brachyutils.geometry.egsphant_utils import convert_egsphant_files
+    return convert_egsphant_files(pth_inputs, type_out, dir_output, multi_proc)
 
 @app.command(
     help="""Purpose: to crop the egsphant file of all patients in a directory."""

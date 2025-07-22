@@ -1194,3 +1194,127 @@ class BrachyDose:
                 difflib.ndiff(contents1.splitlines(), contents2.splitlines())
             )
             print("\n".join(diff_list))
+
+
+# Conversion utilities for dose files
+def convert_dose_files(
+    pth_inputs: List[Union[Path, str]],
+    type_out: str = ".nrrd",
+    dir_output: Optional[Union[Path, str]] = None,
+    multi_proc: bool = False
+) -> None:
+    """
+    Convert dose files to the specified output format.
+    
+    Args:
+        pth_inputs: List of paths to input dose files. Can be directories or files.
+        type_out: Output file type. Options are ".nrrd", ".dcm", ".3ddose".
+        dir_output: Output directory path (optional).
+        multi_proc: Whether to use multiprocessing (default: False).
+    """
+    from functools import partial
+    from multiprocessing import Pool
+    from pathlib import Path
+    from tqdm import tqdm
+    
+    def _prepare_dose_loading_item(pth_input: Path) -> dict:
+        """Prepare loading item for dose files."""
+        full_suffix = "".join(pth_input.suffixes)
+        
+        if full_suffix in [".3ddose", ".seq.nrrd"]:
+            return {
+                "loader_class": BrachyDose,
+                "args_dict": {"pth_dose_file": pth_input, "load_uncertainty": False}
+            }
+        else:
+            raise ValueError(
+                f"Unsupported file type {full_suffix} for dose conversion. "
+                "Please provide a .3ddose, .nrrd, or .minidos file."
+            )
+    
+    def _handle_dicom_directory_dose(pth_input: Path) -> List[dict]:
+        """Process a directory containing DICOM files, return only dose items."""
+        data_to_load = []
+        
+        if len(list(pth_input.glob("*.dcm"))) < 1:
+            print(f"No DICOM files found in the directory {pth_input}.")
+            return data_to_load
+        
+        # Check for dose file
+        dose_file = list(pth_input.glob("[Rr][Dd]*.dcm"))
+        if dose_file:
+            loading_dose_item = {
+                "loader_class": BrachyDose,
+                "args_dict": {
+                    "pth_dose_file": dose_file[0],
+                    "load_uncertainty": False,
+                }
+            }
+            data_to_load.append(loading_dose_item)
+        else:
+            print(f"No dose file found in the directory {pth_input}")
+        
+        return data_to_load
+    
+    def _perform_dose_conversion(item: dict, dir_output: Path, type_out: str):
+        """Perform actual dose conversion."""
+        loader_class = item["loader_class"]
+        args_dict = item["args_dict"]
+        
+        # Extract base name for output files
+        if "pth_dose_file" in args_dict:
+            base_name = Path(args_dict["pth_dose_file"]).stem
+        else:
+            base_name = "converted"
+        
+        # Convert based on output type
+        dose_obj = loader_class(**args_dict)
+        if type_out == ".nrrd":
+            pth_out = dir_output / f"{base_name}.seq{type_out}"
+        elif type_out == ".3ddose":
+            pth_out = dir_output / f"{base_name}{type_out}"
+        else:
+            raise ValueError(f"Unsupported output type {type_out} for dose conversion.")
+        
+        dose_obj.write_brachydose_to_file(pth_dose_file=pth_out)
+    
+    # Main conversion logic
+    data_to_load = []
+    
+    # Process each input path
+    for pth_input in pth_inputs:
+        pth_input = Path(pth_input)
+        if not pth_input.exists():
+            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
+        
+        # Handle directories (DICOM)
+        if pth_input.is_dir():
+            dicom_data = _handle_dicom_directory_dose(pth_input)
+            data_to_load.extend(dicom_data)
+        
+        # Handle single files
+        elif pth_input.is_file():
+            data_to_load.append(_prepare_dose_loading_item(pth_input))
+        else:
+            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
+    
+    # Check if we have valid items to process
+    if not data_to_load:
+        raise ValueError("No valid dose files found to convert.")
+    
+    # Setup output directory
+    if dir_output is None:
+        dir_output = Path(pth_inputs[0]).parent
+    else:
+        dir_output = Path(dir_output)
+    dir_output.mkdir(parents=True, exist_ok=True)
+    
+    # Perform conversion
+    if multi_proc:
+        # Create partial function with fixed arguments
+        partial_conversion = partial(_perform_dose_conversion, dir_output=dir_output, type_out=type_out)
+        with Pool() as pool:
+            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting dose files"))
+    else:
+        for item in tqdm(data_to_load):
+            _perform_dose_conversion(item, dir_output, type_out)
