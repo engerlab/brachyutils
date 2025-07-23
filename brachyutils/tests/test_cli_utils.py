@@ -21,15 +21,18 @@ def test_convert_phantom():
     # dir_output = Path("data_test/test_export_plan/prostate")
 
     # # for multiple files
-    dir_input = Path("/home/ubuntu/YourLocalHome/Data/prostate/prostate-glen-2023")
-    dir_output = Path("data_test/test_export_plan/prostate")
+    # dir_input = Path("/home/ubuntu/YourLocalHome/Data/prostate/prostate-glen-2023")
+    # dir_output = Path("data_test/test_export_plan/prostate")
 
+    # # for aapm tg 132 data
+    dir_input = Path("/home/ubuntu/YourLocalHome/Data/registration/AAPM-TG132-Data/geometric phantom/Geometric TG132Phantom")
+    dir_output = Path("data_test/test_export_plan/aapm_tg132")
     type_out = PhantomType.NRRD
     convert_phantom(
         pth_inputs=list(dir_input.glob("*/")),
         type_out=type_out,
         dir_output=dir_output,
-        multi_proc=True
+        multi_proc=False
     )
 
 def test_convert_egsphant():
@@ -48,5 +51,5 @@ def test_convert_egsphant():
 
 if __name__ == "__main__":
     # test_convert_dose()
-    # test_convert_phantom()
-    test_convert_egsphant()
+    test_convert_phantom()
+    # test_convert_egsphant()

@@ -168,6 +168,10 @@ class BrachyPhantom:
             if orientation == "BIPED":
                 orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
+        # elif "PT" in str(Path(image_files[0]).stem).upper():
+            # pet_files = list(filter(lambda s: "PT" in s.upper(), image_files))
+            # self.image_obj = readDicomMRI(pet_files)
+            
         else:
             raise ValueError("The image modality is not recognized. the dicom file names should contain CT, MR or US.")
 
@@ -520,7 +524,7 @@ class BrachyPhantom:
         Purpose:
             - To write the structures to a dicom file.
         """
-        if self.structure_set is not None:
+        if self.structure_set is not None and len(self.structure_set.contours) > 0:
             os.makedirs(dir_output, exist_ok=True)
             writeRTStruct(self.structure_set, str(dir_output))
 
@@ -721,7 +725,7 @@ class BrachyPhantom:
                 self.write_image_to_nrrd(
                     pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".nrrd")
                     )
-            if self.structure_set is not None:
+            if self.structure_set is not None and len(self.structure_set.contours) > 0:
                 self.write_structures_to_nrrd(
                     pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".seg.nrrd")
                 )
@@ -1756,7 +1760,7 @@ def _handle_dicom_directory_phantom(pth_input: Path) -> List[dict]:
     }
     
     # Check for segmentation file
-    segmentation_file = list(pth_input.glob("[Rr][Ss]*.dcm"))
+    segmentation_file = list(pth_input.glob("[Rr][Ss]*.[dcm][DCM]"))
     if segmentation_file:
         loading_phantom_item["args_dict"]["pth_structures_file"] = segmentation_file[0]
     else:
@@ -1776,7 +1780,6 @@ def _perform_phantom_conversion(item: dict, dir_output: Path, type_out: str):
         pth_phantom_file=args_dict.get("pth_phantom_file"),
         pth_structures_file=args_dict.get("pth_structures_file")
         )
-
     if type_out == ".dcm":
         phantom_obj.export_to(dir_dicom_out=dir_output)
     elif type_out == ".nrrd":
