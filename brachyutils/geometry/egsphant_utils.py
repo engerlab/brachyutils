@@ -462,7 +462,7 @@ class BrachyEgsphant:
         assert (
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
-        os.makedirs(os.path.dirname(fileName), exist_ok=True)
+        Path.mkdir(fileName.parent, exist_ok=True)
         egsphant_voxel_edges = np.array(
             [
                 np.char.mod(
@@ -1218,7 +1218,8 @@ def _perform_egsphant_conversion(item: dict, dir_output: Path, type_out: str):
     
     # Extract base name for output files
     if "pth_phantom_file" in args_dict:
-        base_name = Path(args_dict["pth_phantom_file"]).stem
+        full_ext = "".join(Path(args_dict["pth_phantom_file"]).suffixes)
+        base_name = str(Path(args_dict["pth_phantom_file"]).name).split(full_ext)[0]
     else:
         base_name = "converted"
 
