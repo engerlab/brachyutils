@@ -1191,6 +1191,50 @@ def _load_material_dict(material_source: Union[Path, dict]):
     return material_dict
 
 
+from functools import partial
+from multiprocessing import Pool
+from pathlib import Path
+from tqdm import tqdm
+
+def _prepare_egsphant_loading_item(pth_input: Path) -> dict:
+    """Prepare loading item for egsphant files."""
+    full_suffix = "".join(pth_input.suffixes)
+    
+    if full_suffix in [".egsphant", ".seq.nrrd"]:
+        return {
+            # "loader_class": BrachyEgsphant,
+            "args_dict": {"pth_phantom_file": pth_input}
+        }
+    else:
+        raise ValueError(
+            f"Unsupported file type {full_suffix} for egsphant conversion. "
+            "Please provide a .egsphant or .seq.nrrd file."
+        )
+
+def _perform_egsphant_conversion(item: dict, dir_output: Path, type_out: str):
+    """Perform actual egsphant conversion."""
+    # loader_class = item["loader_class"]
+    args_dict = item["args_dict"]
+    
+    # Extract base name for output files
+    if "pth_phantom_file" in args_dict:
+        base_name = Path(args_dict["pth_phantom_file"]).stem
+    else:
+        base_name = "converted"
+
+    # Convert based on output type
+    egsphant_obj = BrachyEgsphant(
+        pth_egsphant_file=args_dict.get("pth_phantom_file", None),
+    )
+    if type_out == ".egsphant":
+        pth_out = dir_output / f"{base_name}{type_out}"
+        egsphant_obj.write_to_ctegsphant(pth_out)
+    elif type_out == ".nrrd":
+        pth_out = dir_output / f"{base_name}.seq{type_out}"
+        egsphant_obj.write_to_nrrd(pth_out)
+    else:
+        raise ValueError(f"Unsupported output type {type_out} for egsphant conversion.")
+    
 # Conversion utilities for egsphant files
 def convert_egsphant_files(
     pth_inputs: List[Union[Path, str]],
@@ -1207,48 +1251,6 @@ def convert_egsphant_files(
         dir_output: Output directory path (optional).
         multi_proc: Whether to use multiprocessing (default: False).
     """
-    from functools import partial
-    from multiprocessing import Pool
-    from pathlib import Path
-    from tqdm import tqdm
-    
-    def _prepare_egsphant_loading_item(pth_input: Path) -> dict:
-        """Prepare loading item for egsphant files."""
-        full_suffix = "".join(pth_input.suffixes)
-        
-        if full_suffix in [".egsphant", ".seq.nrrd"]:
-            return {
-                "loader_class": BrachyEgsphant,
-                "args_dict": {"pth_phantom_file": pth_input}
-            }
-        else:
-            raise ValueError(
-                f"Unsupported file type {full_suffix} for egsphant conversion. "
-                "Please provide a .egsphant or .seq.nrrd file."
-            )
-    
-    def _perform_egsphant_conversion(item: dict, dir_output: Path, type_out: str):
-        """Perform actual egsphant conversion."""
-        loader_class = item["loader_class"]
-        args_dict = item["args_dict"]
-        
-        # Extract base name for output files
-        if "pth_phantom_file" in args_dict:
-            base_name = Path(args_dict["pth_phantom_file"]).stem
-        else:
-            base_name = "converted"
-        
-        # Convert based on output type
-        egsphant_obj = loader_class(**args_dict)
-        if type_out == ".egsphant":
-            pth_out = dir_output / f"{base_name}{type_out}"
-            egsphant_obj.write_to_ctegsphant(pth_out)
-        elif type_out == ".nrrd":
-            pth_out = dir_output / f"{base_name}.seq{type_out}"
-            egsphant_obj.write_to_nrrd(pth_out)
-        else:
-            raise ValueError(f"Unsupported output type {type_out} for egsphant conversion.")
-    
     # Main conversion logic
     data_to_load = []
     

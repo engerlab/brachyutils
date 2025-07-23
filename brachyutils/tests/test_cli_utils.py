@@ -32,6 +32,20 @@ def test_convert_phantom():
         multi_proc=True
     )
 
+def test_convert_egsphant():
+    from brachyutils.cli_utils import convert_egsphant, EgsphantType
+    dir_input = Path("data_test/prostate-glen-p1-planFiles/cropped_ct.egsphant")
+    dir_output = Path("data_test/test_export_plan/prostate")
+    type_out = EgsphantType.NRRD
+    
+    convert_egsphant(
+        pth_inputs=[dir_input],
+        type_out=type_out,
+        dir_output=dir_output,
+        multi_proc=False
+    )
+
 if __name__ == "__main__":
     # test_convert_dose()
-    test_convert_phantom()
+    # test_convert_phantom()
+    test_convert_egsphant()
