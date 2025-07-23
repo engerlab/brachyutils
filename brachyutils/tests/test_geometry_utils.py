@@ -359,6 +359,12 @@ def test_generate_sphere_mask():
     for slice in mask.imageArray.swapaxes(0,2):
         print(slice)
 
+def test_load_pet_dicom():
+    from brachyutils.geometry.phantom_utils import BrachyPhantom
+    dir_pet_dicom = Path("data_test/pet-dcm")
+    phantom_obj = BrachyPhantom(dir_dicom=dir_pet_dicom)
+    phantom_obj.info()
+
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
     # test_brachy_phantom()
@@ -372,7 +378,7 @@ if __name__ == "__main__":
     # test_load_egsphant()
     # test_crop_phantom()
     # print("testing CatheterTable")
-    test_catheter_table()
+    # test_catheter_table()
     # test_catheter()
     # print("testing BrachyApplicator")
     # test_BrachyApplicator()
@@ -385,3 +391,4 @@ if __name__ == "__main__":
     # test_catheter_to_mrk_json()
     # test_get_delivered_catheter_table()
     # test_generate_sphere_mask()
+    test_load_pet_dicom()

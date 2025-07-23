@@ -168,10 +168,15 @@ class BrachyPhantom:
             if orientation == "BIPED":
                 orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
-        # elif "PT" in str(Path(image_files[0]).stem).upper():
-            # pet_files = list(filter(lambda s: "PT" in s.upper(), image_files))
-            # self.image_obj = readDicomMRI(pet_files)
-            
+        elif "PT" in str(Path(image_files[0]).stem).upper():
+            pet_files = list(filter(lambda s: "PT" in s.upper(), image_files))
+            self.image_obj = readDicomMRI(pet_files)
+            self.image_modality = "PET"
+            header = pydicom.dcmread(us_files[0])
+            orientation = header.get((0x0010, 0x2210), "LPS")
+            if orientation == "BIPED":
+                orientation = "LPS"
+            self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"            
         else:
             raise ValueError("The image modality is not recognized. the dicom file names should contain CT, MR or US.")
 
@@ -1132,6 +1137,22 @@ def _convert_many_binary_masks_to_1_int_mask(
     for i, (_, mask) in enumerate(mask_dict.items()):
         int_mask[mask] = i + 1
     return int_mask
+
+def readDicomPET(dcmFiles):
+    r"""
+    Generate a PET image object from a list of dicom PET slices.
+
+    Parameters
+    ----------
+    dcmFiles: list
+        List of paths for Dicom PET slices to be imported.
+
+    Returns
+    -------
+    image: mrImage object
+        The function returns the imported PET image
+    """
+    raise NotImplementedError("Reading Dicom PET is not implemented yet. Please use a different method to read PET images.")
 
 def readDicomUS(dcmFiles):
     r""""
