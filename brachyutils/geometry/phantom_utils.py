@@ -143,7 +143,7 @@ class BrachyPhantom:
             self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
             # get the orientation of the image
-            header = pydicom.read_file(ct_files[0])
+            header = pydicom.dcmread(ct_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
@@ -153,7 +153,7 @@ class BrachyPhantom:
             mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
-            header = pydicom.read_file(mr_files[0])
+            header = pydicom.dcmread(mr_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
@@ -163,7 +163,7 @@ class BrachyPhantom:
             us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
-            header = pydicom.read_file(us_files[0])
+            header = pydicom.dcmread(us_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
@@ -287,7 +287,7 @@ class BrachyPhantom:
         # structure_file_type = "".join(pth_structure.suffixes)
         if str(pth_structure).endswith(".dcm"):
             self.structure_set = readDicomStruct(pth_structure)
-            header = pydicom.read_file(pth_structure)
+            header = pydicom.dcmread(pth_structure)
             structure_orientation = header.get((0x0010, 0x2210), "LPS")
             if structure_orientation == "BIPED":
                 structure_orientation = "LPS"
@@ -1738,9 +1738,9 @@ def _prepare_phantom_loading_item(pth_input: Path) -> dict:
         raise ValueError(
             f"Unsupported file type {full_suffix} for phantom conversion. "
             "Please provide a .nrrd, .nii, .nii.gz, or a dicom directory."
-        )
-    
-    return {"loader_class": BrachyPhantom, "args_dict": args_dict}
+        )    
+    # return {"loader_class": BrachyPhantom, "args_dict": args_dict}
+    return {"args_dict": args_dict}
 
 def _handle_dicom_directory_phantom(pth_input: Path) -> List[dict]:
     """Process a directory containing DICOM files, return only phantom items."""
@@ -1752,7 +1752,7 @@ def _handle_dicom_directory_phantom(pth_input: Path) -> List[dict]:
     
     # Handle phantom data
     loading_phantom_item = {
-        "loader_class": BrachyPhantom,
+        # "loader_class": BrachyPhantom,
         "args_dict": {"dir_dicom": pth_input}
     }
     
@@ -1768,11 +1768,16 @@ def _handle_dicom_directory_phantom(pth_input: Path) -> List[dict]:
 
 def _perform_phantom_conversion(item: dict, dir_output: Path, type_out: str):
     """Perform actual phantom conversion."""
-    loader_class = item["loader_class"]
+    # loader_class = item["loader_class"]
     args_dict = item["args_dict"]
     
     # Convert based on output type
-    phantom_obj = loader_class(**args_dict)
+    phantom_obj = BrachyPhantom(
+        dir_dicom=args_dict.get("dir_dicom"),
+        pth_phantom_file=args_dict.get("pth_phantom_file"),
+        pth_structures_file=args_dict.get("pth_structures_file")
+        )
+
     if type_out == ".dcm":
         phantom_obj.export_to(dir_dicom_out=dir_output)
     elif type_out == ".nrrd":

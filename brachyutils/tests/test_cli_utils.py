@@ -16,17 +16,16 @@ def test_convert_dose():
 
 def test_convert_phantom():
     from brachyutils.cli_utils import convert_phantom, PhantomType
-    dir_input = Path("data_test/prostate-glen-p1-dcm/")
+    dir_input = Path("data_test/prostate-glen-p1-dcm")
     dir_output = Path("data_test/test_export_plan/prostate")
     type_out = PhantomType.NRRD
     convert_phantom(
-        pth_inputs=list(dir_input.glob("*.dcm")),
+        pth_inputs=[dir_input],
         type_out=type_out,
         dir_output=dir_output,
-        multi_proc=True
+        multi_proc=False
     )
 
 if __name__ == "__main__":
-    test_convert_dose()
-    print("Test passed successfully.")
-
+    # test_convert_dose()
+    test_convert_phantom()
