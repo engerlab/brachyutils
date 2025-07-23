@@ -1569,10 +1569,9 @@ def imageToNrrd(
     Dependencies:
         - pynrrd
     """
-    assert (
-        os.path.splitext(pth_output)[-1] == ".nrrd"
-    ), "the file should have '.nrrd' extension"
-    os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+    if pth_output.suffix != ".nrrd":
+        raise ValueError("The output path should have a '.nrrd' extension.")
+    Path.mkdir(pth_output.parent, exist_ok=True)
     from collections import defaultdict
     
     image_array_zyx = image_obj.imageArray.swapaxes(0, 2).astype(float)
@@ -1623,7 +1622,7 @@ def masksToNrrd(
         """
         if str(pth_output).endswith("seg.nrrd") is False:
             raise ValueError("The output path should have a 'seg.nrrd' extension.")
-        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        Path.mkdir(pth_output.parent, exist_ok=True)
 
         spacing  = structure_mask_dict[list(structure_mask_dict.keys())[0]].spacing
         origin = structure_mask_dict[list(structure_mask_dict.keys())[0]].origin
