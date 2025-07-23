@@ -1,92 +1,52 @@
-import json
-import os
-from glob import glob
+from pathlib import Path
 
-import numpy as np
-from brachyutils.cli_utils import (
-    combined_dose_per_patient,
-    convert_dose_many_files,
-    crop_dose_by_body_contour_many_files,
-    crop_egsphant_by_body_contour_many_patients,
-    get_body_contour_range_from_dicom_many_patients,
-)
-from brachyutils.dose_utils import BrachyDose
+def test_convert_dose():
+    from brachyutils.cli_utils import convert_dose, DoseType
+    from brachyutils.cli_utils import DoseType
+    dir_inputs = Path("data_test/prostate-glen-p1-dose")
+    dir_output = Path("data_test/test_export_plan/prostate")
+    type_out = DoseType.THREE_DDOSE
 
+    convert_dose(
+        pth_inputs=list(dir_inputs.glob("*6.*.nrrd")),
+        type_out=type_out,
+        dir_output=dir_output,
+        multi_proc=True
+        )
 
-# def test_get_body_contour_range_from_dicom_many_patients():
-#     input_dir = "data_test"
-#     pth_json = "data_test/test_export_plan/patient_body_bounds_output.json"
+def test_convert_phantom():
+    from brachyutils.cli_utils import convert_phantom, PhantomType
+    # # for a single file
+    # dir_input = Path("data_test/prostate-glen-p1-dcm")
+    # dir_output = Path("data_test/test_export_plan/prostate")
 
-#     get_body_contour_range_from_dicom_many_patients(input_dir, pth_json)
+    # # for multiple files
+    dir_input = Path("/home/ubuntu/YourLocalHome/Data/prostate/prostate-glen-2023")
+    dir_output = Path("data_test/test_export_plan/prostate")
 
-#     with open(pth_json, "r") as file:
-#         data_json = json.load(file)
+    type_out = PhantomType.NRRD
+    convert_phantom(
+        pth_inputs=list(dir_input.glob("*/")),
+        type_out=type_out,
+        dir_output=dir_output,
+        multi_proc=True
+    )
 
-#     print(data_json)
+def test_convert_egsphant():
+    from brachyutils.cli_utils import convert_egsphant, EgsphantType
+    # dir_input = Path("data_test/prostate-glen-p1-planFiles/cropped_ct.egsphant")
+    dir_input = Path("data_test/test_export_plan/prostate/cropped_ct.seq.nrrd")
+    dir_output = Path("data_test/test_export_plan/prostate")
+    type_out = EgsphantType.EGS
 
-
-def test_crop_egsphant_by_body_contour_many_patients():
-    # test on testing dataset
-    pth_input = "data_test/prostate-glen-p1-planFiles/"
-    pth_json = "data_test/test_patient_body_bounds.json"
-    crop_egsphant_by_body_contour_many_patients(pth_input, pth_json)
-
-
-def test_convert_many_files():
-    dir_in = "data_test/many_files/"
-    type_in = ".nrrd"
-    type_out = ".minidos"
-
-    convert_dose_many_files(dir_in, type_in, type_out)
-
-    dir_in = os.path.abspath(dir_in)
-    nrrd_list = glob(dir_in + ".nrrd")
-
-    for file_nrrd in nrrd_list:
-        dose_obj_nrrd = BrachyDose()
-        dose_obj_nrrd.load_file_to_brachydose(file_nrrd)
-
-        file_3ddose = os.path.splitext(file_nrrd)[0] + ".3ddose"
-        dose_obj_3ddose = BrachyDose()
-        dose_obj_3ddose.load_file_to_brachydose(file_3ddose)
-
-        dose_obj_3ddose.is_equal(dose_obj_nrrd)
-
-
-def test_crop_dose_by_body_contour_many_files():
-    pth_3ddose = "data_test/3ddose/p1"
-    pth_json = "data_test/patient_body_bounds.json"
-
-    crop_dose_by_body_contour_many_files(pth_3ddose, pth_json)
-
-
-def test_combined_dose_per_patient():
-    batch_directory = "data_test/batch_uncertainty_test/"
-    combined_dose_per_patient(batch_directory, ".3ddose", ".3ddose", multi_proc=True)
-    mp_combined = BrachyDose(f"{batch_directory}/combined.3ddose")
-    combined_dose_per_patient(batch_directory, ".3ddose", ".3ddose", multi_proc=False)
-    nmp_combined = BrachyDose(f"{batch_directory}/combined.3ddose")
-    assert np.allclose(
-        mp_combined.grid, nmp_combined.grid
-    ), "Combined dose grids should \
-         be equal regardless of whether multiprocessing is used"
-    assert np.allclose(
-        mp_combined.uncertainty, nmp_combined.uncertainty
-    ), "Combined uncertainty grids should \
-         be equal regardless of whether multiprocessing is used"
-    assert np.all(
-        mp_combined.grid - 1 < 0.1
-    ), "Mean dose should be close to the \
-        mean of the individual doses"
-    assert np.all(
-        mp_combined.uncertainty < 0.1
-    ), "Mean uncertainty should be far less \
-        than the uncertainty of the individual doses"
-
+    convert_egsphant(
+        pth_inputs=[dir_input],
+        type_out=type_out,
+        dir_output=dir_output,
+        multi_proc=False
+    )
 
 if __name__ == "__main__":
-    test_get_body_contour_range_from_dicom_many_patients()
-    # test_crop_egsphant_by_body_contour_many_patients()
-    # test_convert_many_files()
-    # test_crop_dose_by_body_contour_many_files()
-    # test_combined_dose_per_patient()
+    # test_convert_dose()
+    # test_convert_phantom()
+    test_convert_egsphant()

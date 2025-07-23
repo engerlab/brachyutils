@@ -683,7 +683,7 @@ class BrachyDose:
             writes [3D dose, 3D uncertainty], voxel size, origin (origin_coordinates), and metadata to the file_name_dose.nrrd
         """
         # check if the directory exists, if not create it. make sure the file extension is write.
-        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        Path.mkdir(pth_output.parent, exist_ok=True)
         assert (
             str(pth_output).endswith(".nrrd")
         ), "the file should have '.nrrd' extension"
@@ -696,38 +696,25 @@ class BrachyDose:
         header["space"] = "left-posterior-superior" if anatomical_coordinate_system == "LPS" else "right-anterior-superior"
         # header["endian"] = "little"
         header["encoding"] = "gzip"
+        dose_array = self.get_dose_array()
+        # make a dummy uncertainty array and write it to 1
         if self.uncertainty_image is None:
-            # just write dose as a single image
-            dose_array = self.get_dose_array()
-            header["dimension"] = "3"
-            header["sizes"] = " ".join(map(str, self.dose_image.gridSize.tolist()))
-            header["kinds"] = ["domain", "domain", "domain"]
-            header["space origin"] = self.dose_image.origin.tolist()
-            header["space directions"] = [
-                [self.dose_image.spacing[0], 0.0, 0.0],
-                [0.0, self.dose_image.spacing[1], 0.0],
-                [0.0, 0.0, self.dose_image.spacing[2]],
-            ]
-            # header["spacings"] = self.dose_image.spacing.tolist()
-            # header["space units"] = ["mm", "mm", "mm"]
-            # header["labels"] = ["x", "y", "z"]
-            nrrd.write(pth_output, dose_array, header, index_order="C")
+            uncertainty_array = np.ones_like(dose_array, dtype=np.float32)
         else:
-            dose_array = self.get_dose_array()
             uncertainty_array = self.get_uncertainty_array()
-            header["dimension"] = "4"
-            header["kinds"] = ["list", "domain", "domain", "domain"]
-            header["space origin"] = self.dose_image.origin.tolist()
-            header["space directions"] = [
-                [np.nan, np.nan, np.nan],
-                [self.dose_image.spacing[0], 0.0, 0.0],
-                [0.0, self.dose_image.spacing[1], 0.0],
-                [0.0, 0.0, self.dose_image.spacing[2]],
-            ]
-            # header["spacing"] = [np.nan] + self.dose_image.spacing.tolist()
-            # header["space units"] = ["None", "mm", "mm", "mm"]
-            dose_uncertainty_array = np.stack([dose_array, uncertainty_array], axis=3)
-            nrrd.write(pth_output, dose_uncertainty_array, header, index_order="C")
+        header["dimension"] = "4"
+        header["kinds"] = ["list", "domain", "domain", "domain"]
+        header["space origin"] = self.dose_image.origin.tolist()
+        header["space directions"] = [
+            [np.nan, np.nan, np.nan],
+            [self.dose_image.spacing[0], 0.0, 0.0],
+            [0.0, self.dose_image.spacing[1], 0.0],
+            [0.0, 0.0, self.dose_image.spacing[2]],
+        ]
+        # header["spacing"] = [np.nan] + self.dose_image.spacing.tolist()
+        # header["space units"] = ["None", "mm", "mm", "mm"]
+        dose_uncertainty_array = np.stack([dose_array, uncertainty_array], axis=3)
+        nrrd.write(str(pth_output), dose_uncertainty_array, header, index_order="C")
 
     def write_to_npz(self, file_name: str):
         r"""
@@ -1207,3 +1194,133 @@ class BrachyDose:
                 difflib.ndiff(contents1.splitlines(), contents2.splitlines())
             )
             print("\n".join(diff_list))
+
+
+from functools import partial
+from multiprocessing import Pool
+from pathlib import Path
+from tqdm import tqdm
+    
+def _prepare_dose_loading_item(pth_input: Path) -> dict:
+    """Prepare loading item for dose files."""
+    full_suffix = "".join(pth_input.suffixes)
+    
+    if full_suffix in [".3ddose", ".seq.nrrd"]:
+        return {
+            "loader_class": BrachyDose,
+            "args_dict": {"pth_dose_file": pth_input, "load_uncertainty": False}
+        }
+    else:
+        raise ValueError(
+            f"Unsupported file type {full_suffix} for dose conversion. "
+            "Please provide a .3ddose, .nrrd, or .minidos file."
+        )
+
+def _handle_dicom_directory_dose(pth_input: Path) -> List[dict]:
+    """Process a directory containing DICOM files, return only dose items."""
+    data_to_load = []
+    
+    if len(list(pth_input.glob("*.dcm"))) < 1:
+        print(f"No DICOM files found in the directory {pth_input}.")
+        return data_to_load
+    
+    # Check for dose file
+    dose_file = list(pth_input.glob("[Rr][Dd]*.dcm"))
+    if dose_file:
+        loading_dose_item = {
+            # "loader_class": BrachyDose,
+            "args_dict": {
+                "pth_dose_file": dose_file[0],
+                "load_uncertainty": False,
+            }
+        }
+        data_to_load.append(loading_dose_item)
+    else:
+        print(f"No dose file found in the directory {pth_input}")
+    
+    return data_to_load
+    
+def _perform_dose_conversion(item: dict, dir_output: Path, type_out: str):
+    """Perform actual dose conversion."""
+    # loader_class = BrachyDose if item["loader_class"] is BrachyDose else None
+    # if loader_class is None:
+    #     raise ValueError("Invalid loader class provided for dose conversion.")
+    args_dict = item["args_dict"]
+    
+    # Extract base name for output files
+    if "pth_dose_file" in args_dict:
+        full_ext = "".join(args_dict["pth_dose_file"].suffixes)
+        base_name = str(args_dict["pth_dose_file"].name).split(full_ext)[0]
+    else:
+        base_name = "converted"
+    
+    # Convert based on output type
+    dose_obj = BrachyDose(
+        pth_dose_file=args_dict["pth_dose_file"],
+        load_uncertainty=args_dict.get("load_uncertainty", False)
+        )
+    if type_out == ".nrrd":
+        pth_out = dir_output / f"{base_name}.seq{type_out}"
+    elif type_out == ".3ddose":
+        pth_out = dir_output / f"{base_name}{type_out}"
+    else:
+        raise ValueError(f"Unsupported output type {type_out} for dose conversion.")
+    
+    dose_obj.write_brachydose_to_file(pth_dose_file=pth_out)
+
+# Conversion utilities for dose files
+def convert_dose_files(
+    pth_inputs: List[Union[Path, str]],
+    type_out: str = ".nrrd",
+    dir_output: Optional[Union[Path, str]] = None,
+    multi_proc: bool = False
+) -> None:
+    """
+    Convert dose files to the specified output format.
+    
+    Args:
+        pth_inputs: List of paths to input dose files. Can be directories or files.
+        type_out: Output file type. Options are ".nrrd", ".dcm", ".3ddose".
+        dir_output: Output directory path (optional).
+        multi_proc: Whether to use multiprocessing (default: False).
+    """
+    # Main conversion logic
+    data_to_load = []
+    
+    # Process each input path
+    for pth_input in pth_inputs:
+        pth_input = Path(pth_input)
+        if not pth_input.exists():
+            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
+        
+        # Handle directories (DICOM)
+        if pth_input.is_dir():
+            dicom_data = _handle_dicom_directory_dose(pth_input)
+            data_to_load.extend(dicom_data)
+        
+        # Handle single files
+        elif pth_input.is_file():
+            data_to_load.append(_prepare_dose_loading_item(pth_input))
+        else:
+            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
+    
+    # Check if we have valid items to process
+    if not data_to_load:
+        raise ValueError("No valid dose files found to convert.")
+    
+    # Setup output directory
+    if dir_output is None:
+        dir_output = Path(pth_inputs[0]).parent
+    else:
+        dir_output = Path(dir_output)
+    dir_output.mkdir(parents=True, exist_ok=True)
+    
+    # Perform conversion
+    if multi_proc:
+        # Create partial function with fixed arguments
+        partial_conversion = partial(_perform_dose_conversion, dir_output=dir_output, type_out=type_out)
+        with Pool() as pool:
+            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting dose files"))
+    else:
+        for item in tqdm(data_to_load):
+            _perform_dose_conversion(item, dir_output, type_out)

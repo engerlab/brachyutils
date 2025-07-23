@@ -462,7 +462,7 @@ class BrachyEgsphant:
         assert (
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
-        os.makedirs(os.path.dirname(fileName), exist_ok=True)
+        Path.mkdir(fileName.parent, exist_ok=True)
         egsphant_voxel_edges = np.array(
             [
                 np.char.mod(
@@ -1189,3 +1189,103 @@ def _load_material_dict(material_source: Union[Path, dict]):
             )
 
     return material_dict
+
+
+from functools import partial
+from multiprocessing import Pool
+from pathlib import Path
+from tqdm import tqdm
+
+def _prepare_egsphant_loading_item(pth_input: Path) -> dict:
+    """Prepare loading item for egsphant files."""
+    full_suffix = "".join(pth_input.suffixes)
+    
+    if full_suffix in [".egsphant", ".seq.nrrd"]:
+        return {
+            # "loader_class": BrachyEgsphant,
+            "args_dict": {"pth_phantom_file": pth_input}
+        }
+    else:
+        raise ValueError(
+            f"Unsupported file type {full_suffix} for egsphant conversion. "
+            "Please provide a .egsphant or .seq.nrrd file."
+        )
+
+def _perform_egsphant_conversion(item: dict, dir_output: Path, type_out: str):
+    """Perform actual egsphant conversion."""
+    # loader_class = item["loader_class"]
+    args_dict = item["args_dict"]
+    
+    # Extract base name for output files
+    if "pth_phantom_file" in args_dict:
+        full_ext = "".join(Path(args_dict["pth_phantom_file"]).suffixes)
+        base_name = str(Path(args_dict["pth_phantom_file"]).name).split(full_ext)[0]
+    else:
+        base_name = "converted"
+
+    # Convert based on output type
+    egsphant_obj = BrachyEgsphant(
+        pth_egsphant_file=args_dict.get("pth_phantom_file", None),
+    )
+    if type_out == ".egsphant":
+        pth_out = dir_output / f"{base_name}{type_out}"
+        egsphant_obj.write_to_ctegsphant(pth_out)
+    elif type_out == ".nrrd":
+        pth_out = dir_output / f"{base_name}.seq{type_out}"
+        egsphant_obj.write_to_nrrd(pth_out)
+    else:
+        raise ValueError(f"Unsupported output type {type_out} for egsphant conversion.")
+    
+# Conversion utilities for egsphant files
+def convert_egsphant_files(
+    pth_inputs: List[Union[Path, str]],
+    type_out: str = ".nrrd",
+    dir_output: Optional[Union[Path, str]] = None,
+    multi_proc: bool = False
+) -> None:
+    """
+    Convert egsphant files to the specified output format.
+    
+    Args:
+        pth_inputs: List of paths to input egsphant files. Can be directories or files.
+        type_out: Output file type. Options are ".egsphant", ".nrrd".
+        dir_output: Output directory path (optional).
+        multi_proc: Whether to use multiprocessing (default: False).
+    """
+    # Main conversion logic
+    data_to_load = []
+    
+    # Process each input path
+    for pth_input in pth_inputs:
+        pth_input = Path(pth_input)
+        if not pth_input.exists():
+            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
+        
+        # Handle single files only (egsphant files are not typically in DICOM directories)
+        if pth_input.is_file():
+            data_to_load.append(_prepare_egsphant_loading_item(pth_input))
+        elif pth_input.is_dir():
+            raise ValueError(f"Directory input {pth_input} not supported for egsphant conversion. Please provide individual .egsphant or .seq.nrrd files.")
+        else:
+            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
+    
+    # Check if we have valid items to process
+    if not data_to_load:
+        raise ValueError("No valid egsphant files found to convert.")
+    
+    # Setup output directory
+    if dir_output is None:
+        dir_output = Path(pth_inputs[0]).parent
+    else:
+        dir_output = Path(dir_output)
+    dir_output.mkdir(parents=True, exist_ok=True)
+    
+    # Perform conversion
+    if multi_proc:
+        # Create partial function with fixed arguments
+        partial_conversion = partial(_perform_egsphant_conversion, dir_output=dir_output, type_out=type_out)
+        with Pool() as pool:
+            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting egsphant files"))
+    else:
+        for item in tqdm(data_to_load):
+            _perform_egsphant_conversion(item, dir_output, type_out)
