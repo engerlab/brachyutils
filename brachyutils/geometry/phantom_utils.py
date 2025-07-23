@@ -1725,11 +1725,11 @@ def _prepare_phantom_loading_item(pth_input: Path) -> dict:
         pth_seg = pth_input.parent / f"{base_name}.seg{full_suffix}"
         args_dict = {"pth_phantom_file": pth_input}
         if pth_seg.exists():
-            args_dict["pth_structure_file"] = pth_seg
+            args_dict["pth_structures_file"] = pth_seg
     elif full_suffix in [".seg.nrrd", ".seg.nii", ".seg.nii.gz"]:
         # Look for matching image file
         pth_input_image = pth_input.parent / f"{base_name}{full_suffix[4:]}"
-        args_dict = {"pth_structure_file": pth_input}
+        args_dict = {"pth_structures_file": pth_input}
         if pth_input_image.exists():
             args_dict["pth_phantom_file"] = pth_input_image
         else:
@@ -1759,7 +1759,7 @@ def _handle_dicom_directory_phantom(pth_input: Path) -> List[dict]:
     # Check for segmentation file
     segmentation_file = list(pth_input.glob("[Rr][Ss]*.dcm"))
     if segmentation_file:
-        loading_phantom_item["args_dict"]["pth_structure_file"] = segmentation_file[0]
+        loading_phantom_item["args_dict"]["pth_structures_file"] = segmentation_file[0]
     else:
         print(f"No segmentation file found in the directory {pth_input}")
     
