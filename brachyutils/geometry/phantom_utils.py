@@ -1710,6 +1710,77 @@ def masksToNrrd(
 
 
 # Conversion utilities for phantom files
+from functools import partial
+from multiprocessing import Pool
+from pathlib import Path
+from tqdm import tqdm
+
+def _prepare_phantom_loading_item(pth_input: Path) -> dict:
+    """Prepare loading item for phantom files."""
+    base_name = pth_input.stem
+    full_suffix = "".join(pth_input.suffixes)
+    
+    if full_suffix in [".nrrd", ".nii", ".nii.gz"]:
+        # Look for matching segmentation file
+        pth_seg = pth_input.parent / f"{base_name}.seg{full_suffix}"
+        args_dict = {"pth_phantom_file": pth_input}
+        if pth_seg.exists():
+            args_dict["pth_structure_file"] = pth_seg
+    elif full_suffix in [".seg.nrrd", ".seg.nii", ".seg.nii.gz"]:
+        # Look for matching image file
+        pth_input_image = pth_input.parent / f"{base_name}{full_suffix[4:]}"
+        args_dict = {"pth_structure_file": pth_input}
+        if pth_input_image.exists():
+            args_dict["pth_phantom_file"] = pth_input_image
+        else:
+            args_dict["pth_phantom_file"] = pth_input
+    else:
+        raise ValueError(
+            f"Unsupported file type {full_suffix} for phantom conversion. "
+            "Please provide a .nrrd, .nii, .nii.gz, or a dicom directory."
+        )
+    
+    return {"loader_class": BrachyPhantom, "args_dict": args_dict}
+
+def _handle_dicom_directory_phantom(pth_input: Path) -> List[dict]:
+    """Process a directory containing DICOM files, return only phantom items."""
+    data_to_load = []
+    
+    if len(list(pth_input.glob("*.dcm"))) < 1:
+        print(f"No DICOM files found in the directory {pth_input}.")
+        return data_to_load
+    
+    # Handle phantom data
+    loading_phantom_item = {
+        "loader_class": BrachyPhantom,
+        "args_dict": {"dir_dicom": pth_input}
+    }
+    
+    # Check for segmentation file
+    segmentation_file = list(pth_input.glob("[Rr][Ss]*.dcm"))
+    if segmentation_file:
+        loading_phantom_item["args_dict"]["pth_structure_file"] = segmentation_file[0]
+    else:
+        print(f"No segmentation file found in the directory {pth_input}")
+    
+    data_to_load.append(loading_phantom_item)
+    return data_to_load
+
+def _perform_phantom_conversion(item: dict, dir_output: Path, type_out: str):
+    """Perform actual phantom conversion."""
+    loader_class = item["loader_class"]
+    args_dict = item["args_dict"]
+    
+    # Convert based on output type
+    phantom_obj = loader_class(**args_dict)
+    if type_out == ".dcm":
+        phantom_obj.export_to(dir_dicom_out=dir_output)
+    elif type_out == ".nrrd":
+        phantom_obj.export_to(dir_nrrd_out=dir_output)
+    else:
+        raise ValueError(f"Unsupported output type {type_out} for phantom conversion.")
+
+
 def convert_phantom_files(
     pth_inputs: List[Union[Path, str]],
     type_out: str = ".nrrd",
@@ -1725,76 +1796,6 @@ def convert_phantom_files(
         dir_output: Output directory path (optional).
         multi_proc: Whether to use multiprocessing (default: False).
     """
-    from functools import partial
-    from multiprocessing import Pool
-    from pathlib import Path
-    from tqdm import tqdm
-    
-    def _prepare_phantom_loading_item(pth_input: Path) -> dict:
-        """Prepare loading item for phantom files."""
-        base_name = pth_input.stem
-        full_suffix = "".join(pth_input.suffixes)
-        
-        if full_suffix in [".nrrd", ".nii", ".nii.gz"]:
-            # Look for matching segmentation file
-            pth_seg = pth_input.parent / f"{base_name}.seg{full_suffix}"
-            args_dict = {"pth_phantom_file": pth_input}
-            if pth_seg.exists():
-                args_dict["pth_structure_file"] = pth_seg
-        elif full_suffix in [".seg.nrrd", ".seg.nii", ".seg.nii.gz"]:
-            # Look for matching image file
-            pth_input_image = pth_input.parent / f"{base_name}{full_suffix[4:]}"
-            args_dict = {"pth_structure_file": pth_input}
-            if pth_input_image.exists():
-                args_dict["pth_phantom_file"] = pth_input_image
-            else:
-                args_dict["pth_phantom_file"] = pth_input
-        else:
-            raise ValueError(
-                f"Unsupported file type {full_suffix} for phantom conversion. "
-                "Please provide a .nrrd, .nii, .nii.gz, or a dicom directory."
-            )
-        
-        return {"loader_class": BrachyPhantom, "args_dict": args_dict}
-    
-    def _handle_dicom_directory_phantom(pth_input: Path) -> List[dict]:
-        """Process a directory containing DICOM files, return only phantom items."""
-        data_to_load = []
-        
-        if len(list(pth_input.glob("*.dcm"))) < 1:
-            print(f"No DICOM files found in the directory {pth_input}.")
-            return data_to_load
-        
-        # Handle phantom data
-        loading_phantom_item = {
-            "loader_class": BrachyPhantom,
-            "args_dict": {"dir_dicom": pth_input}
-        }
-        
-        # Check for segmentation file
-        segmentation_file = list(pth_input.glob("[Rr][Ss]*.dcm"))
-        if segmentation_file:
-            loading_phantom_item["args_dict"]["pth_structure_file"] = segmentation_file[0]
-        else:
-            print(f"No segmentation file found in the directory {pth_input}")
-        
-        data_to_load.append(loading_phantom_item)
-        return data_to_load
-    
-    def _perform_phantom_conversion(item: dict, dir_output: Path, type_out: str):
-        """Perform actual phantom conversion."""
-        loader_class = item["loader_class"]
-        args_dict = item["args_dict"]
-        
-        # Convert based on output type
-        phantom_obj = loader_class(**args_dict)
-        if type_out == ".dcm":
-            phantom_obj.export_to(dir_dicom_out=dir_output)
-        elif type_out == ".nrrd":
-            phantom_obj.export_to(dir_nrrd_out=dir_output)
-        else:
-            raise ValueError(f"Unsupported output type {type_out} for phantom conversion.")
-    
     # Main conversion logic
     data_to_load = []
     
