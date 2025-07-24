@@ -134,9 +134,9 @@ class BrachyPhantom:
         """
         assert os.path.exists(pth_image), "The input path does not exist."
         # Load the images only, RD, RS, RP files are not needed here.
-        image_files = [file for file in glob((str(pth_image) + "/*.dcm"))
-                       if not os.path.basename(file).startswith("R")]
-       
+        image_files = [file for file in glob((str(pth_image) + "/*.[Dd][Cc][Mm]"))
+                       if not os.path.basename(file).startswith("[Rr]")]
+
         if len(image_files) == 0:
             raise ValueError("No DICOM files found in the input directory.")
         if "CT" in str(Path(image_files[0]).stem).upper():
@@ -1755,7 +1755,7 @@ def _handle_dicom_directory_phantom(pth_input: Path) -> List[dict]:
     """Process a directory containing DICOM files, return only phantom items."""
     data_to_load = []
     
-    if len(list(pth_input.glob("*.dcm"))) < 1:
+    if len(list(pth_input.glob("*.[Dd][Cc][Mm]"))) < 1:
         print(f"No DICOM files found in the directory {pth_input}.")
         return data_to_load
     
