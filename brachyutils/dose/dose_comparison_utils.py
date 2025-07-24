@@ -400,7 +400,21 @@ class BrachyDoseComparison:
         self.gamma_pass_ratio = (np.sum(gamma_index_grid <= 1) - number_excluded) / (
             gamma_index_grid.size - number_excluded
         )
-
+    
+    def write_percent_difference_to_nrrd(self, dir: str = "./"):
+        """
+        Write the local and global percent difference to an NRRD file.
+        Parameters:
+            path (str): The path where the NRRD file will be saved.
+        Returns:
+            None
+        """
+        if self.percent_difference_local is not None and self.percent_difference_global is not None:
+            self.percent_difference_local.write_to_nrrd(f"{dir}/local_percent_difference.seq.nrrd")
+            self.percent_difference_global.write_to_nrrd(f"{dir}/global_percent_difference.seq.nrrd")
+        else:
+            raise ValueError("Local/global difference not computed. Call compute_percent_difference() first.")
+    
     def save_comparison_object(self, path: str = None):
         r"""
         Saves the dose comparison object to a file using the pickle module.

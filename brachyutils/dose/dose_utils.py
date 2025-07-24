@@ -314,7 +314,8 @@ class BrachyDose:
             if uncertainty_array is not None
             else None
         )
-        self.set_uncertainty_array(uncertainty_array)
+        if self.uncertainty_image is not None:
+            self.set_uncertainty_array(uncertainty_array)
         self.voxel_edges = self.get_voxel_edges()
 
     def load_from_npz(self, pth_npz: Path) -> None:
