@@ -1160,7 +1160,10 @@ class BrachyDose:
         Outputs:
             - Void
         """
-        self.uncertainty_image.imageArray = np.swapaxes(uncertainty_array, 0, 2)
+        if not (uncertainty_array is None):
+            self.uncertainty_image.imageArray = np.swapaxes(uncertainty_array, 0, 2)
+        else:
+            self.uncertainty_image = None
 
     @staticmethod
     def dose_with_empty_grid_like(dose_obj: "BrachyDose") -> "BrachyDose":
