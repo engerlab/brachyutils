@@ -5,6 +5,7 @@ from glob import glob
 from typing import Dict, List, Literal, Optional, Union, Tuple
 from collections import defaultdict
 import numpy as np
+import SimpleITK as sitk
 from SimpleITK import Image, GetArrayFromImage 
 from pathlib import Path
 from copy import deepcopy
@@ -38,6 +39,7 @@ class BrachyPhantom:
     - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
     - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
     Other names for structure are contours, masks, segmentations.
+    - cached_structure_masks: Dict[str, np.ndarray] := a cache for the structure masks.
     - structure_names: List[str] := the names of the structures in the dicom file.
     - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
     - xyz_format: bool := the format of the image. if True, the image is in [z, y, x] format.
@@ -87,6 +89,9 @@ class BrachyPhantom:
         self.image_modality: Literal["CT", "MR", "US"] = None
         self.structure_set = RTStruct()
         self.structure_names: List[str] = []
+        # Used to avoid creating masks from contour multiple times, optional.
+        # User needs to manually create the cache if they want to reuse it as a class attribute.
+        self.cached_structure_masks: Dict[str, ROIMask] = None
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
         self.anatomical_coordinate_system: Literal["LAS", "RAS", "LPS"] = "LPS"
@@ -727,7 +732,7 @@ class BrachyPhantom:
                 )
 
     def crop_by_coordinates(
-        self, croodinate_range: List[float] | np.array, inplace: "BrachyPhantom" = True
+        self, coordinate_range: List[float] | np.array, inplace: "BrachyPhantom" = True, no_margin: bool = False
     ) -> None:
         r"""
         Purpose:
@@ -745,20 +750,24 @@ class BrachyPhantom:
             crop3DDataAroundBox,
         )
 
-        croodinate_range = np.array(croodinate_range)
-        assert croodinate_range.shape == (
+        coordinate_range = np.array(coordinate_range)
+        assert coordinate_range.shape == (
             3,
             2,
         ), "coordinate_range should be a 3x2 array in x, y, z order"
         if inplace:
-            crop3DDataAroundBox(self.image_obj, croodinate_range, marginInMM=[1, 1, 1])
+            if no_margin:
+                marginInMM = [0, 0, 0]
+            else:
+                marginInMM = [1, 1, 1]
+            crop3DDataAroundBox(self.image_obj, coordinate_range, marginInMM=marginInMM)
         else:
             new_phantom: BrachyPhantom = copy.deepcopy(self)
-            new_phantom.crop_by_coordinates(croodinate_range, inplace=True)
+            new_phantom.crop_by_coordinates(coordinate_range, inplace=True, no_margin=no_margin)
             return new_phantom
 
     def crop_by_index(
-        self, index_range: List[int] | np.array, inplace: Optional[bool] = True
+        self, index_range: List[int] | np.array, inplace: Optional[bool] = True, no_margin: Optional[bool] = False
     ) -> Union[None, "BrachyPhantom"]:
         r"""
         Purpose:
@@ -772,22 +781,21 @@ class BrachyPhantom:
         Outputs:
             - None
         """
-        index_range = np.array(index_range)
         assert index_range.shape == (
             3,
             2,
         ), "index_range should be a 3x2 array in x, y, z order"
-        new_origin_coords = self.density_image.getPositionFromVoxelIndex(
+        new_origin_coords = self.image_obj.getPositionFromVoxelIndex(
             index_range[:, 0]
         )
-        new_ending_coords = self.density_image.getPositionFromVoxelIndex(
+        new_ending_coords = self.image_obj.getPositionFromVoxelIndex(
             index_range[:, 1]
         )
         new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
-        return self.crop_by_coordinates(new_coords_range, inplace)
+        return self.crop_by_coordinates(new_coords_range, inplace, no_margin=no_margin)
 
     def crop_by_contour(
-        self, contour_name: str, inplace: Optional[bool] = True
+        self, contour_name: str, inplace: Optional[bool] = True, no_margin: Optional[bool] = False
     ) -> Union[None, "BrachyPhantom"]:
         r"""
         Purpose:
@@ -808,7 +816,41 @@ class BrachyPhantom:
             mask_dict[contour_name], self.image_obj
         )
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
-        return self.crop_by_coordinates(box_around_mask, inplace)
+        return self.crop_by_coordinates(box_around_mask, inplace, no_margin=no_margin)
+
+    def cache_structure_set_as_masks(
+        self,
+        interpolator_contours=sitk.sitkNearestNeighbor
+    ) -> None:
+        r"""
+        Purpose:
+            - Cache the structure set as masks. This will resample the masks to the image object.
+            Function used in case you query multiple time the masks from the BrachyPhantom object
+            and you want to avoid resampling the masks each time.
+        Inputs:
+            - interpolator_contours: sitk.InterpolatorEnum := the interpolator to use for resampling the contours.
+        Outputs:
+            - None
+        """
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+
+        structure_dict = self.get_structure_mask(
+                self.structure_names,
+                mask_type=ROIMask,
+                )
+
+        new_structure_dict = {}
+        for struc in structure_dict:
+            print("Resampling first", struc, "with og shape :",
+                    structure_dict[struc].imageArray.shape, "to shape", self.image_obj.gridSize)
+            new_structure_dict[struc] = resampleImage3DOnImage3D(
+                structure_dict[struc],
+                self.image_obj,
+                sitk_interpolator=interpolator_contours
+                )
+        # Store the resampled masks in the cached_structure_masks attribute
+        self.cached_structure_masks = new_structure_dict
+
 
     def set_structure_set(
         self,
@@ -840,7 +882,7 @@ class BrachyPhantom:
                 old_structure = self.structure_set.getContourByName(structure_name.upper())
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
-            print(f"setting structure {structure_name}")
+            print(f"setting structure {structure_name}, which is a {type(mask_dict[structure_name])} type")
             if mask_dict.get(structure_name) is None:
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
@@ -863,7 +905,13 @@ class BrachyPhantom:
                 mask = mask_dict.get(structure_name)
                 mask.name = structure_name
                 if self.image_obj is not None:
-                    mask = resampleImage3DOnImage3D(mask, self.image_obj)    
+                    
+                    # Check if the spacings, the shape and origin already match or not
+                    if not np.array_equal(mask.spacing, self.image_obj.spacing) or \
+                        not np.array_equal(mask.origin, self.image_obj.origin) or \
+                        not np.array_equal(mask.gridSize, self.image_obj.gridSize):
+                        # Resample the mask to the image object
+                        mask = resampleImage3DOnImage3D(mask, self.image_obj)    
             else:
                 raise ValueError("The mask type is not recognized.")
 
@@ -988,10 +1036,11 @@ class BrachyPhantom:
         self,
         origin:np.array=None,
         spacing:np.array=None,
-        inplace:bool=False) -> "BrachyPhantom":
+        inplace:bool=False, 
+        interpolator_img=sitk.sitkLinear) -> "BrachyPhantom":
         r"""
         ### Purpose:
-            - resample the phantom and the structures to a new origin and spacing.
+            - resample the phantom to a new origin and spacing.
         
         ### Inputs:
             - origin:np.array := the new origin of the image.
@@ -1002,29 +1051,14 @@ class BrachyPhantom:
             - BrachyPhantom := the resampled phantom object if the inplace is False
         """
         from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
-        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
 
         new_phantom = phantom_with_empty_image_like(self, new_pth_image=self.pth_image)
-
-        new_img_obj = resampleImage3D(self.image_obj, origin=origin, spacing=spacing)
-        if self.structure_set is not None:
-            structure_dict = self.get_structure_mask(
-                self.structure_names,
-                mask_type=ROIMask,
-                # mask_type=ROIContour,
-                )
-            new_structure_dict = {}
-            for struc in structure_dict:
-                new_structure_dict[struc] = resampleImage3DOnImage3D(
-                    structure_dict[struc],
-                    new_img_obj
-                    )
+        new_img_obj = resampleImage3D(self.image_obj, origin=origin, spacing=spacing, sitk_interpolator=interpolator_img)
+            
         if inplace:
             self.image_obj = new_img_obj
-            self.set_structure_set(new_structure_dict)
         else:
             new_phantom.image_obj = new_img_obj
-            new_phantom.set_structure_set(new_structure_dict)
             return new_phantom
 
 # helper functions
