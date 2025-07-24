@@ -6,7 +6,7 @@ def export_plan_air_phantom():
     """
     Create a minimal simulation of a brachytherapy plan with an air phantom.
     """
-    dir_export = "temp_data/mc/test_Pd103"
+    dir_export = "data_test/test_export_plan/prostate"
     catheterTable = CatheterTable(
         catheter_list=[
             Catheter(
@@ -51,7 +51,7 @@ def export_plan_air_phantom():
     # Export the plan to a JSON file
     plan = BrachyPlan(
         phantom=air_phantom,
-        simulation_dict=sim_dict,
+        simulation_setup=sim_dict,
         catheter_table=catheterTable
         )
     plan.export_brachy_plan(dir_export=dir_export, content_to_export=content_to_export)

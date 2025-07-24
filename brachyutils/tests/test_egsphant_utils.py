@@ -7,7 +7,7 @@ from time import time
 import numpy as np
 
 from brachyutils import BrachyPhantom
-from brachyutils.egsphant_utils import (
+from brachyutils.geometry.egsphant_utils import (
     BrachyEgsphant,
     _load_material_dict,
     _to_single_string,
@@ -179,13 +179,18 @@ def test_egsphant_constructor(
         assign_material_from_ct=assign_material_from_ct,
     )
 
+def test_read_egsphant():
+    pth_egsphant = "data_test/test_export_plan/FMIO_cropped_ct_egsphant.nrrd"
+    egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant)
+    print("debug here")
 
 if __name__ == "__main__":
     # test_load_from_ctegsphant()
     # test_write_to_egsphant()
-    test_create_egsphant_from_images()
+    # test_create_egsphant_from_images()
     # text_load_material_dict()
     # test_crop_by_coordinates()
     # test_crop_by_index()
     # test_crop_by_dicom_structure()
     # test_write_to_nrrd()
+    test_read_egsphant()

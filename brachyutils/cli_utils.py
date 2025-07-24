@@ -14,7 +14,25 @@ from brachyutils import BrachyEgsphant, _load_json
 from brachyutils import BrachyPlan
 from tqdm import tqdm
 from typing_extensions import Annotated
-from brachyutils import BrachyPhantom
+from brachyutils import BrachyPhantom, BrachyDose, BrachyEgsphant
+from typing import Literal, List, Dict
+from enum import Enum
+
+class DoseType(Enum):
+    """Enum for dose types."""
+    NRRD = ".nrrd"
+    DCM = ".dcm"
+    THREE_DDOSE = ".3ddose"
+
+class EgsphantType(Enum):
+    """Enum for egsphant types."""
+    EGS = ".egsphant"
+    NRRD = ".nrrd"
+
+class PhantomType(Enum):
+    """Enum for phantom types."""
+    NRRD = ".nrrd"
+    DCM = ".dcm"
 
 def memory_limit():
     """Limit max memory usage to half."""
@@ -32,6 +50,74 @@ def get_memory():
     return free_memory  # KiB
 
 app = typer.Typer()
+
+@app.command(name="convert-dose", help="Convert dose files to specified output format")
+def convert_dose(
+    pth_inputs: List[str],
+    type_out: DoseType = DoseType.NRRD,
+    dir_output: str = None,
+    multi_proc: bool = False
+):
+    r"""
+    ### Purpose:
+    - To convert dose files to the specified output format.
+    ### Inputs:
+    - pth_inputs := list of paths to the input dose files. The input files can be directories or files.
+    - type_out := type of the output file. Options are ".nrrd", ".dcm", ".3ddose".
+    - dir_output := path to the output directory (optional)
+    - multi_proc := whether to use multiprocessing (default: False)
+    ### Output:
+    - None: The converted dose file will be saved in the output directory.
+    if the directory is not specified, it will be saved in the same directory as the input file. 
+    """
+    from brachyutils.dose.dose_utils import convert_dose_files
+    return convert_dose_files(pth_inputs, type_out.value, dir_output, multi_proc)
+
+
+@app.command(name="convert-phantom", help="Convert phantom (image and segmentation) files to specified output format")
+def convert_phantom(
+    pth_inputs: List[str],
+    type_out: PhantomType = PhantomType.NRRD,
+    dir_output: str = None,
+    multi_proc: bool = False
+):
+    r"""
+    ### Purpose:
+    - To convert phantom (image and segmentation) files to the specified output format.
+    ### Inputs:
+    - pth_inputs := list of paths to the input phantom files. The input files can be directories or files.
+    - type_out := type of the output file. Options are ".nrrd", ".dcm".
+    - dir_output := path to the output directory (optional)
+    - multi_proc := whether to use multiprocessing (default: False)
+    ### Output:
+    - None: The converted phantom file will be saved in the output directory.
+    if the directory is not specified, it will be saved in the same directory as the input file. 
+    """
+    from brachyutils.geometry.phantom_utils import convert_phantom_files
+    return convert_phantom_files(pth_inputs, type_out.value, dir_output, multi_proc)
+
+
+@app.command(name="convert-egsphant", help="Convert egsphant files to specified output format")
+def convert_egsphant(
+    pth_inputs: List[str],
+    type_out: EgsphantType = EgsphantType.EGS,
+    dir_output: str = None,
+    multi_proc: bool = False
+):
+    r"""
+    ### Purpose:
+    - To convert egsphant files to the specified output format.
+    ### Inputs:
+    - pth_inputs := list of paths to the input egsphant files. The input files can be directories or files.
+    - type_out := type of the output file. Options are ".egsphant", ".nrrd".
+    - dir_output := path to the output directory (optional)
+    - multi_proc := whether to use multiprocessing (default: False)
+    ### Output:
+    - None: The converted egsphant file will be saved in the output directory.
+    if the directory is not specified, it will be saved in the same directory as the input file. 
+    """
+    from brachyutils.geometry.egsphant_utils import convert_egsphant_files
+    return convert_egsphant_files(pth_inputs, type_out.value, dir_output, multi_proc)
 
 @app.command(
     help="""Purpose: to crop the egsphant file of all patients in a directory."""
@@ -118,77 +204,6 @@ def crop_egsphant_by_body_contour_many_patients(
         )
         print(f"writing the cropped egsphant to {pth_cropped_egsphant}")
         egsphant_obj.write_to_ctegsphant(pth_cropped_egsphant)
-
-
-def convert_single_dose_file(input_name, type_out):
-    assert os.path.exists(input_name)
-    file_base_no_extension = os.path.splitext(input_name)[0]
-    if not os.path.exists(file_base_no_extension + type_out):
-        dose_obj = BrachyDose(input_name)
-        dose_obj.write_brachydose_to_file(file_base_no_extension + type_out)
-
-
-@app.command(
-    help="""Will convert all files in the "input_dir" of type "type_in" to "type_out" """
-)
-def convert_dose_many_files(
-    # file_regex: Annotated[str, typer.Argument(help="""regular expression of files to be converted. for example, "*.nrrd".""")]=None,
-    input_dir: Annotated[
-        str,
-        typer.Argument(help="""directory where there are dose files to be converted"""),
-    ],
-    type_in: Annotated[
-        str,
-        typer.Argument(
-            help="""extension of the files to be converted. Options are .3ddose, and .nrrd. .minidos will be added soon"""
-        ),
-    ],
-    type_out: Annotated[
-        str,
-        typer.Argument(
-            help="""extension of the output files. Options are .3ddose, .nrrd, .minidos"""
-        ),
-    ],
-    multi_proc: Annotated[
-        bool,
-        typer.Option(
-            help="""if set to true, multiprocessing will be used to convert files in parallel"""
-        ),
-    ] = False,
-):
-    r"""
-    Purpose:
-        Will convert all files in the "input_dir" of type "type_in" to "type_out"
-    Inputs:
-        input_dir := directory where there are dose files to be converted
-        type_in := could be ".3ddose", ".nrrd", ".minidos", other types could be added
-        type_out := could be ".3ddose", ".nrrd", ".minidos", other types could be added
-    """
-    # if file_regex is not None:
-    #     file_list = glob(file_regex)
-    #     print(file_list)
-    # elif input_dir is not None and type_in is not None:
-    input_dir = os.path.abspath(input_dir)
-    assert os.path.exists(input_dir)
-    file_list = glob(input_dir + "/*" + type_in)
-    # else:
-    #     raise Exception("either file_regex or input_dir and type_in should be provided")
-
-    if multi_proc:
-        with Pool() as our_pool:
-            partial_dose_writer = partial(convert_single_dose_file, type_out=type_out)
-            our_pool.map(partial_dose_writer, file_list)
-    else:
-        for single_file in tqdm(file_list):
-            file_no_extension = os.path.splitext(single_file)[0]
-            if os.path.exists(file_no_extension + type_out):
-                continue
-            else:
-                print(f"converting {single_file}")
-                convert_single_dose_file(single_file, type_out)
-
-
-
 
 @app.command(
     help=""" Purpose: Will crop all files in the "input_dir" of type "type_in" and write the cropped dose to file with "type_out" """

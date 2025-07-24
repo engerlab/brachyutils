@@ -148,7 +148,7 @@ class BrachyPhantom:
             self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
             # get the orientation of the image
-            header = pydicom.read_file(ct_files[0])
+            header = pydicom.dcmread(ct_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
@@ -158,7 +158,7 @@ class BrachyPhantom:
             mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
-            header = pydicom.read_file(mr_files[0])
+            header = pydicom.dcmread(mr_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
@@ -168,11 +168,15 @@ class BrachyPhantom:
             us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
-            header = pydicom.read_file(us_files[0])
+            header = pydicom.dcmread(us_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
+        # elif "PT" in str(Path(image_files[0]).stem).upper():
+            # pet_files = list(filter(lambda s: "PT" in s.upper(), image_files))
+            # self.image_obj = readDicomMRI(pet_files)
+            
         else:
             raise ValueError("The image modality is not recognized. the dicom file names should contain CT, MR or US.")
 
@@ -292,7 +296,7 @@ class BrachyPhantom:
         # structure_file_type = "".join(pth_structure.suffixes)
         if str(pth_structure).endswith(".dcm"):
             self.structure_set = readDicomStruct(pth_structure)
-            header = pydicom.read_file(pth_structure)
+            header = pydicom.dcmread(pth_structure)
             structure_orientation = header.get((0x0010, 0x2210), "LPS")
             if structure_orientation == "BIPED":
                 structure_orientation = "LPS"
@@ -525,7 +529,7 @@ class BrachyPhantom:
         Purpose:
             - To write the structures to a dicom file.
         """
-        if self.structure_set is not None:
+        if self.structure_set is not None and len(self.structure_set.contours) > 0:
             os.makedirs(dir_output, exist_ok=True)
             writeRTStruct(self.structure_set, str(dir_output))
 
@@ -726,7 +730,7 @@ class BrachyPhantom:
                 self.write_image_to_nrrd(
                     pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".nrrd")
                     )
-            if self.structure_set is not None:
+            if self.structure_set is not None and len(self.structure_set.contours) > 0:
                 self.write_structures_to_nrrd(
                     pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".seg.nrrd")
                 )
@@ -1603,10 +1607,9 @@ def imageToNrrd(
     Dependencies:
         - pynrrd
     """
-    assert (
-        os.path.splitext(pth_output)[-1] == ".nrrd"
-    ), "the file should have '.nrrd' extension"
-    os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+    if pth_output.suffix != ".nrrd":
+        raise ValueError("The output path should have a '.nrrd' extension.")
+    Path.mkdir(pth_output.parent, exist_ok=True)
     from collections import defaultdict
     
     image_array_zyx = image_obj.imageArray.swapaxes(0, 2).astype(float)
@@ -1657,7 +1660,7 @@ def masksToNrrd(
         """
         if str(pth_output).endswith("seg.nrrd") is False:
             raise ValueError("The output path should have a 'seg.nrrd' extension.")
-        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        Path.mkdir(pth_output.parent, exist_ok=True)
 
         spacing  = structure_mask_dict[list(structure_mask_dict.keys())[0]].spacing
         origin = structure_mask_dict[list(structure_mask_dict.keys())[0]].origin
@@ -1741,3 +1744,146 @@ def masksToNrrd(
 
         # # Write the image
         nrrd.write(str(pth_output), all_masks, header, index_order="C")
+
+
+# Conversion utilities for phantom files
+from functools import partial
+from multiprocessing import Pool
+from pathlib import Path
+from tqdm import tqdm
+
+def _prepare_phantom_loading_item(pth_input: Path) -> dict:
+    """Prepare loading item for phantom files."""
+    base_name = pth_input.stem
+    full_suffix = "".join(pth_input.suffixes)
+    
+    if full_suffix in [".nrrd", ".nii", ".nii.gz"]:
+        # Look for matching segmentation file
+        pth_seg = pth_input.parent / f"{base_name}.seg{full_suffix}"
+        args_dict = {"pth_phantom_file": pth_input}
+        if pth_seg.exists():
+            args_dict["pth_structures_file"] = pth_seg
+    elif full_suffix in [".seg.nrrd", ".seg.nii", ".seg.nii.gz"]:
+        # Look for matching image file
+        pth_input_image = pth_input.parent / f"{base_name}{full_suffix[4:]}"
+        args_dict = {"pth_structures_file": pth_input}
+        if pth_input_image.exists():
+            args_dict["pth_phantom_file"] = pth_input_image
+        else:
+            args_dict["pth_phantom_file"] = pth_input
+    else:
+        raise ValueError(
+            f"Unsupported file type {full_suffix} for phantom conversion. "
+            "Please provide a .nrrd, .nii, .nii.gz, or a dicom directory."
+        )    
+    # return {"loader_class": BrachyPhantom, "args_dict": args_dict}
+    return {"args_dict": args_dict}
+
+def _handle_dicom_directory_phantom(pth_input: Path) -> List[dict]:
+    """Process a directory containing DICOM files, return only phantom items."""
+    data_to_load = []
+    
+    if len(list(pth_input.glob("*.dcm"))) < 1:
+        print(f"No DICOM files found in the directory {pth_input}.")
+        return data_to_load
+    
+    # Handle phantom data
+    loading_phantom_item = {
+        # "loader_class": BrachyPhantom,
+        "args_dict": {"dir_dicom": pth_input}
+    }
+    
+    # Check for segmentation file
+    segmentation_file = list(pth_input.glob("[Rr][Ss]*.[dcm][DCM]"))
+    if segmentation_file:
+        loading_phantom_item["args_dict"]["pth_structures_file"] = segmentation_file[0]
+    else:
+        print(f"No segmentation file found in the directory {pth_input}")
+    
+    data_to_load.append(loading_phantom_item)
+    return data_to_load
+
+def _perform_phantom_conversion(item: dict, dir_output: Path, type_out: str):
+    """Perform actual phantom conversion."""
+    # loader_class = item["loader_class"]
+    args_dict = item["args_dict"]
+    
+    # Convert based on output type
+    phantom_obj = BrachyPhantom(
+        dir_dicom=args_dict.get("dir_dicom"),
+        pth_phantom_file=args_dict.get("pth_phantom_file"),
+        pth_structures_file=args_dict.get("pth_structures_file")
+        )
+    if type_out == ".dcm":
+        phantom_obj.export_to(dir_dicom_out=dir_output)
+    elif type_out == ".nrrd":
+        phantom_obj.export_to(dir_nrrd_out=dir_output)
+    else:
+        raise ValueError(f"Unsupported output type {type_out} for phantom conversion.")
+
+
+def convert_phantom_files(
+    pth_inputs: List[Union[Path, str]],
+    type_out: str = ".nrrd",
+    dir_output: Optional[Union[Path, str]] = None,
+    multi_proc: bool = False
+) -> None:
+    """
+    Convert phantom (image and segmentation) files to the specified output format.
+    
+    Args:
+        pth_inputs: List of paths to input phantom files. Can be directories or files.
+        type_out: Output file type. Options are ".nrrd", ".dcm".
+        dir_output: Output directory path (optional).
+        multi_proc: Whether to use multiprocessing (default: False).
+    """
+    # Main conversion logic
+    data_to_load = []
+    
+    # Process each input path
+    for pth_input in pth_inputs:
+        pth_input = Path(pth_input)
+        if not pth_input.exists():
+            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
+        
+        # Handle directories (DICOM)
+        if pth_input.is_dir():
+            dicom_data = _handle_dicom_directory_phantom(pth_input)
+            data_to_load.extend(dicom_data)
+        
+        # Handle single files
+        elif pth_input.is_file():
+            base_name = pth_input.stem
+            
+            # Skip if already processed
+            if any(
+                base_name in str(item["args_dict"].get("pth_phantom_file", ""))
+                for item in data_to_load
+            ):
+                print(f"Skipping {pth_input} as it is already in the list.")
+                continue
+                
+            data_to_load.append(_prepare_phantom_loading_item(pth_input))
+        else:
+            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
+    
+    # Check if we have valid items to process
+    if not data_to_load:
+        raise ValueError("No valid phantom files found to convert.")
+    
+    # Setup output directory
+    if dir_output is None:
+        dir_output = Path(pth_inputs[0]).parent
+    else:
+        dir_output = Path(dir_output)
+    dir_output.mkdir(parents=True, exist_ok=True)
+    
+    # Perform conversion
+    if multi_proc:
+        # Create partial function with fixed arguments
+        partial_conversion = partial(_perform_phantom_conversion, dir_output=dir_output, type_out=type_out)
+        with Pool() as pool:
+            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting phantom files"))
+    else:
+        for item in tqdm(data_to_load):
+            _perform_phantom_conversion(item, dir_output, type_out)
