@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from brachyutils import BrachyPhantom
+from brachyutils.geometry.phantom_utils import BrachyPhantom
 from brachyutils.geometry.applicator_utils import BrachyApplicator
 
 def test_brachy_phantom():
@@ -13,7 +13,7 @@ def test_brachy_phantom():
     phantom_obj = BrachyPhantom(
         # dir_dicom=pth_dicom,
         pth_phantom_file=pth_nrrd,
-        # pth_structures_file=pth_structure
+        # pth_structures_file=pth_structure 
     )
     phantom_obj.info()
 
