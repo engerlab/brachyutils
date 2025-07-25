@@ -7,8 +7,6 @@ services:
         - default
       args:
         - HOST_HOME=${HOST_HOME}
-        - UID=${UID}
-        - GID=${GID}
     image: brachyutils
     container_name: BrachyUtils
     user: "${UID}:${GID}"
@@ -17,8 +15,6 @@ services:
     tty: true # docker run -t
     environment:
       - HOST_HOME=${HOST_HOME}
-      - UID=${UID}
-      - GID=${GID}
       - DEBIAN_FRONTEND=noninteractive
       - QT_QPA_PLATFORM=offscreen
       - DISPLAY=${DISPLAY} # for access to graphical server

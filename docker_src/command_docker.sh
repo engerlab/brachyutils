@@ -3,7 +3,7 @@
 # set the environment variables for the container
 export UID=$(id -u)
 export GID=$(id -g)
-export DISPLAY=:0
+export DISPLAY=$DISPLAY
 # # to build the image and run the container
 # export DOCKER_BUILDKIT=1
 # echo $(ssh-agent)
