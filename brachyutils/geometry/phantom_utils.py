@@ -1438,6 +1438,15 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
         # get the segment mask
         if n_dim == 4:
             segment_mask = structure_data[:, :, :, i]
+            mask_encoding = np.unique(segment_mask)
+
+            if len(mask_encoding) == 2:
+                mask_encoding = mask_encoding[1]
+            elif len(mask_encoding) == 1:
+                mask_encoding = mask_encoding[0]
+            else:
+                raise ValueError("The segment mask has more than one unique value, which is not supported.")
+            segment_mask = segment_mask == mask_encoding
         else:
             segment_mask = structure_data == i+1
         # segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)

@@ -1,9 +1,10 @@
 from pathlib import Path
 import numpy as np
 from glob import glob
-from brachyutils.geometry_utils import BrachyPhantom
+from brachyutils import BrachyPhantom
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from tqdm import tqdm
 
 def fix_one_image_structure(
     pth_image: Path | str,
@@ -120,8 +121,75 @@ def test_read_nrrd():
     )
     phantom_obj.info()
 
+
+def convert_microreg_to_nrrd():
+    r"""
+    ### Purpose: To convert MR and US images and structures to NRRD format and organize
+    them for the prostate micro-reg challenge.
+    micro-reg challenge organization is as follows:
+        - dir_mr_img_in: directory containing MR images in NIfTI format
+        - dir_mr_seg_in: directory containing MR segmentation masks in NIfTI format
+        - dir_us_img_in: directory containing US images in NIfTI format
+        - dir_us_seg_in: directory containing US segmentation masks in NIfTI format
+    We want to convert them to the following structure:
+        - dir_out: directory containing the output NRRD files with the name format:
+            - mr_case#.nrrd for MR images
+            - mr_case#.seg.nrrd for MR segmentation masks
+            - us_case#.nrrd for US images
+            - us_case#.seg.nrrd for US segmentation masks
+    """
+    dir_micro_reg_challenge = Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train")
+    dir_mr_img_in = dir_micro_reg_challenge / "mr_images"
+    dir_mr_seg_in = dir_micro_reg_challenge / "mr_labels"
+    dir_us_img_in = dir_micro_reg_challenge / "us_images"
+    dir_us_seg_in = dir_micro_reg_challenge / "us_labels"
+    dir_mr_out = dir_micro_reg_challenge / "nrrd-format"
+    
+    # get the files in the directories
+    data_paths = {"mr_images": {}, "mr_labels": {}, "us_images": {}, "us_labels": {}}
+    for dir_in, data_path in zip(
+        [dir_mr_img_in, dir_mr_seg_in, dir_us_img_in, dir_us_seg_in],
+        data_paths):
+        if not dir_in.exists():
+            raise FileNotFoundError(f"Directory {dir_in} does not exist.")
+        data_paths[data_path] = list(dir_in.glob("*.nii.gz"))
+
+    # load the image and structure files
+    # Define a worker function for processing a single case
+    def process_case(i):
+        # get the image and structure paths
+        pth_mr_image = data_paths["mr_images"][i]
+        pth_mr_structure = data_paths["mr_labels"][i]
+        pth_us_image = data_paths["us_images"][i]
+        pth_us_structure = data_paths["us_labels"][i]
+
+        mr_phantom = BrachyPhantom(
+            pth_phantom_file=pth_mr_image,
+            pth_structures_file=pth_mr_structure
+        )
+        mr_phantom.image_obj.name = f"mr_case{i:06d}.nrrd"
+        us_phantom = BrachyPhantom(
+            pth_phantom_file=pth_us_image,
+            pth_structures_file=pth_us_structure
+        )
+        us_phantom.image_obj.name = f"us_case{i:06d}.nrrd"
+
+        mr_phantom.export_to(dir_nrrd_out=dir_mr_out)
+        us_phantom.export_to(dir_nrrd_out=dir_mr_out)
+
+    # Use multiprocessing to process all cases in parallel
+    num_cases = len(data_paths["mr_images"])
+    indices = list(range(num_cases))
+    
+    # Create the output directory if it doesn't exist
+    dir_mr_out.mkdir(parents=True, exist_ok=True)
+    
+    # Process all cases using multiprocessing
+    with ThreadPoolExecutor() as executor:
+        list(tqdm(executor.map(process_case, indices), total=num_cases, desc="Processing cases"))
+
 if __name__ == "__main__":
-    test_fix_one_image_structure()
+    # test_fix_one_image_structure()
     # # fix the mr images and structures for the prostate
     # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
     # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
@@ -133,3 +201,5 @@ if __name__ == "__main__":
     # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_labels")
     # dir_out = Path("temp_data/registration/micro-reg/us-train")
     # fix_all_prostate_images(dir_img, dir_structure, dir_out, True)
+
+    convert_microreg_to_nrrd()
