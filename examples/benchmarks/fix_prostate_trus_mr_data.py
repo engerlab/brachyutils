@@ -168,11 +168,14 @@ def convert_microreg_to_nrrd():
             pth_structures_file=pth_mr_structure
         )
         mr_phantom.image_obj.name = f"mr_case{i:06d}.nrrd"
+        mr_phantom.pth_image = dir_mr_out / mr_phantom.image_obj.name
         us_phantom = BrachyPhantom(
             pth_phantom_file=pth_us_image,
             pth_structures_file=pth_us_structure
         )
+        
         us_phantom.image_obj.name = f"us_case{i:06d}.nrrd"
+        us_phantom.pth_image = dir_mr_out / us_phantom.image_obj.name
 
         mr_phantom.export_to(dir_nrrd_out=dir_mr_out)
         us_phantom.export_to(dir_nrrd_out=dir_mr_out)
