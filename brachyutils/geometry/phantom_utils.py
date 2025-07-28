@@ -362,7 +362,7 @@ class BrachyPhantom:
 
         for query_structure in flattened_query_structure_list:
             for mask_name in self.structure_names:
-                if query_structure.lower() in mask_name.lower():
+                if query_structure.lower() == mask_name.lower():
                     mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
                         origin=self.image_obj.origin,
                         gridSize=self.image_obj.gridSize,
