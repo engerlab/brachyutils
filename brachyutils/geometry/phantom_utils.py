@@ -1356,11 +1356,11 @@ def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     i = 0
     for key in header:
         if f"Segment{i}_Name" == key:
-            label_value = header[f"Segment{i}_LabelValue"]
             name = header[f"Segment{i}_Name"]
             if overlap:
                 segment_mask = structures_data[:, :, :, i]
             else:
+                label_value = header[f"Segment{i}_LabelValue"]
                 segment_mask = structures_data == int(label_value)
             # segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
             if segment_mask.sum() == 0:
