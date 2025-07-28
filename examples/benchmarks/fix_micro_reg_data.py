@@ -6,37 +6,20 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
-def fix_one_image_structure(
-    pth_image: Path | str,
-    pth_structure: Path | str,
-    pth_output: Path | str
-    ):
+def fix_axis(phantom_obj: BrachyPhantom):
     r"""
     Purpose:
-        - load the phantom image and structure, swap the first and last axis save it as nrrd file.
+        - fix the axis of the phantom object.
         The files are unique to the micro-reg challenge where the ijktoLPS transform was not written correctly.
     Inputs:
-        - pth_image: path to the image file
-        - pth_structure: path to the structure file
-        - pth_output: path to the output file
+        - phantom_obj: BrachyPhantom object
     """
-    pth_image = Path(pth_image)
-    pth_structure = Path(pth_structure)
-    if pth_image.exists() is False:
-        raise FileNotFoundError(f"File {pth_image} does not exist.")
-
-    phantom_obj = BrachyPhantom(
-        pth_phantom_file=pth_image,
-        pth_structures_file=pth_structure
-        )
-
     # swap the first and last axis for images
     img_array = phantom_obj.get_image_array()
     img_array = img_array.swapaxes(0, 2)
     img_array = img_array.swapaxes(1, 2)
     img_array = np.flip(img_array, axis=0)
     phantom_obj.set_image_array(img_array)
-
     # swap the first and last axis for structures
     structure_set = phantom_obj.get_structure_mask(
         phantom_obj.structure_names,
@@ -49,63 +32,107 @@ def fix_one_image_structure(
         #     continue
         struc_array = struc_array.swapaxes(0, 2)
         struc_array = struc_array.swapaxes(1, 2)
-        if "mr_label" in str(pth_structure):
+        if "mr_label" in str(phantom_obj.pth_structures):
             # pass
             struc_array = np.flip(struc_array, axis=0)
             # struc_array = np.flip(struc_array, axis=1)
             # struc_array = np.flip(struc_array, axis=2)
         final_structure_set[struc] = struc_array
     phantom_obj.set_structure_set(final_structure_set)
-    phantom_obj.rename_structures(
-        {
-            "Segment1_Name": "Prostate",
-        }
-        )
 
-    phantom_obj.export_to(dir_nrrd_out=pth_output)
+def remove_body_structure(phantom_obj: BrachyPhantom):
+    r"""
+    Purpose:
+        - remove the body structure from the phantom object.
+        The files are unique to the micro-reg challenge where the body structure was not written correctly.
+    Inputs:
+        - phantom_obj: BrachyPhantom object
+    """
+    structure_set = phantom_obj.get_structure_mask(
+        phantom_obj.structure_names,
+        np.ndarray
+        )
+    for structure in structure_set:
+        if np.sum(structure_set.get(structure)) / structure_set.get(structure).size > 0.90: 
+            print(f"Removing structure: {structure} from phantom object.")
+            phantom_obj.remove_structure(structure)
+
+def rename_structures(phantom_obj: BrachyPhantom):
+    r"""
+    Purpose:
+        - rename the structures in the phantom object.
+        Segment1 is labelled as Prostate, and the rest are labeled as Biopsy_0, Biopsy_1, etc.
+    Inputs:
+        - phantom_obj: BrachyPhantom object
+    """
+    new_name_mapping = {}
+    for i, name in enumerate(phantom_obj.structure_names):
+        if name == "Segment1_Name":
+            new_name_mapping[name] = "Prostate"
+        else:
+            new_name_mapping[name] = f"Biopsy_{i-1}"
+
+    phantom_obj.rename_structures(
+        new_name_mapping
+    )
+
+def fix_one_image_structure(
+    pth_mr_image: Path | str,
+    pth_us_image: Path | str,
+    dir_output: Path | str
+    ):
+    r"""
+    Purpose:
+        - load the phantom image and structure, swap the first and last axis save it as nrrd file.
+        The files are unique to the micro-reg challenge where the ijktoLPS transform was not written correctly.
+    Inputs:
+        - pth_image: path to the image file
+        - pth_structure: path to the structure file
+        - pth_output: path to the output file
+    """
+    pth_mr_image = Path(pth_mr_image)
+    pth_us_image = Path(pth_us_image)
+    dir_output = Path(dir_output)
+
+    pth_mr_seg = pth_mr_image.with_suffix(".seg.nrrd")
+    pth_us_seg = pth_us_image.with_suffix(".seg.nrrd")
+    mr_phantom = BrachyPhantom(
+        pth_phantom_file=pth_mr_image,
+        pth_structures_file=pth_mr_seg
+    )
+    us_phantom = BrachyPhantom(
+        pth_phantom_file=pth_us_image,
+        pth_structures_file=pth_us_seg
+    )
+    
+    remove_body_structure(mr_phantom)
+    remove_body_structure(us_phantom)
+
+    rename_structures(mr_phantom)
+    rename_structures(us_phantom)
+    
+    # fix_axis(mr_phantom)
+    # fix_axis(us_phantom)
+
+    mr_phantom.export_to(
+        dir_nrrd_out=dir_output,)
+    us_phantom.export_to(
+        dir_nrrd_out=dir_output,)
 
 def test_fix_one_image_structure():
-    pth_sample_image = Path("data_test/registration/prostate_mr_us/train_mr_image_case000000.nii.gz")
-    pth_out = Path("data_test/test_export_plan/prostate/corrected_mr_image.nrrd")
-    pth_sample_structure = Path("data_test/registration/prostate_mr_us/train_mr_label_case000000.nii.gz")
+    dir_micro_reg_challenge = Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train")
+    pth_mr_image = dir_micro_reg_challenge / "nrrd-format/mr_case000023.nrrd"
+    pth_us_image = dir_micro_reg_challenge / "nrrd-format/us_case000023.nrrd"
+    dir_out = Path("data_test/test_export_plan/prostate")
 
-    fix_one_image_structure(pth_sample_image, pth_sample_structure, pth_out)
+    fix_one_image_structure(
+        pth_mr_image=pth_mr_image,
+        pth_us_image=pth_us_image,
+        dir_output=dir_out
+        )
 
 def fix_all_prostate_images(dir_img, dir_structure, dir_out, multi_thread: bool = False):
-    dir_img = Path(dir_img)
-    dir_structure = Path(dir_structure)
-    dir_out = Path(dir_out)
-    dir_out.mkdir(parents=True, exist_ok=True)
-    
-    all_imgs = glob(str(dir_img.joinpath("*.nii.gz")))
-    all_structures = glob(str(dir_structure.joinpath("*.nii.gz")))
-    if multi_thread:
-        async def run_in_executor(executor, img, structure, dir_out):
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(executor, fix_one_image_structure, img, structure, dir_out)
-
-        async def main():
-            with ThreadPoolExecutor() as executor:
-                tasks = []
-                for img in all_imgs:
-                    img_name = Path(img).name
-                    structure = [s for s in all_structures if img_name in s]
-                    if len(structure) == 0:
-                        raise FileNotFoundError(f"No structure file found for {img_name}")
-                    structure = structure[0]
-                    tasks.append(run_in_executor(executor, img, structure, dir_out))
-                await asyncio.gather(*tasks)
-
-        asyncio.run(main())
-    else:
-        for img in all_imgs:
-            img_name = Path(img).name
-            structure = [s for s in all_structures if img_name in s]
-            if len(structure) == 0:
-                raise FileNotFoundError(f"No structure file found for {img_name}")
-            structure = structure[0]
-            fix_one_image_structure(img, structure, dir_out)
-            return
+    pass
 
 def test_read_nrrd():
     dir_nrrd = Path("data_test/test_export_plan/prostate")
@@ -192,7 +219,6 @@ def convert_microreg_to_nrrd():
         list(tqdm(executor.map(process_case, indices), total=num_cases, desc="Processing cases"))
 
 if __name__ == "__main__":
-    # test_fix_one_image_structure()
     # # fix the mr images and structures for the prostate
     # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
     # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
@@ -205,4 +231,5 @@ if __name__ == "__main__":
     # dir_out = Path("temp_data/registration/micro-reg/us-train")
     # fix_all_prostate_images(dir_img, dir_structure, dir_out, True)
 
-    convert_microreg_to_nrrd()
+    # convert_microreg_to_nrrd()
+    test_fix_one_image_structure()
