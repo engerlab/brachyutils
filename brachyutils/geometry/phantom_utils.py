@@ -332,7 +332,6 @@ class BrachyPhantom:
         self,
         query_structure_list: List[str],
         mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
-        useVTK: bool = False,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         ### Purpose:
@@ -346,7 +345,6 @@ class BrachyPhantom:
             if np.ndarray, the mask will be returned as a numpy array in [z, y, x] format.
             if ROIContour, the mask will be returned as a ROIContour object in [x, y, z] format.
             if ROIMask, the mask will be returned as a ROIMask object in [x, y, z] format.
-        - useVTK: bool := use this if the contour was generated using VTK. it matters when getBinaryMask() is called.
         ### Outputs:
         - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
@@ -867,7 +865,6 @@ class BrachyPhantom:
     def set_structure_set(
         self,
         mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]],
-        useVTK: bool = False,
         ) -> None:
         r"""
         ### Purpose:
@@ -878,7 +875,6 @@ class BrachyPhantom:
         ### Inputs:
         - mask_dict: dict := the dictionary of the masks.
         The values could be numpy arrays, ROIContour or ROIMask objects.
-        - useVTK: bool := use this if the contour was generated using VTK.
         ### Outputs:
         - None
         """
@@ -909,7 +905,6 @@ class BrachyPhantom:
                     origin=self.image_obj.origin,
                     spacing=self.image_obj.spacing,
                     gridSize=self.image_obj.gridSize,
-                    useVTK=useVTK,
                 )
                 mask.name = structure_name
 
@@ -953,7 +948,12 @@ class BrachyPhantom:
                         # mask.imageArray[:, :, 0] = 0
                     # elif i == 5:
                         # mask.imageArray[:, :, -1] = 0
-
+            # if not np.any(mask.imageArray):
+            #     warnings.warn(
+            #         f"The mask for {structure_name} is empty. It will not be added to the structure set.",
+            #         stacklevel=2,
+            #     )
+            #     continue
             self.structure_set.appendContour(mask.getROIContour())
             del mask
 
