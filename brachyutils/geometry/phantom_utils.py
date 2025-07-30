@@ -948,12 +948,6 @@ class BrachyPhantom:
                         # mask.imageArray[:, :, 0] = 0
                     # elif i == 5:
                         # mask.imageArray[:, :, -1] = 0
-            # if not np.any(mask.imageArray):
-            #     warnings.warn(
-            #         f"The mask for {structure_name} is empty. It will not be added to the structure set.",
-            #         stacklevel=2,
-            #     )
-            #     continue
             self.structure_set.appendContour(mask.getROIContour())
             del mask
 

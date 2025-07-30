@@ -5,6 +5,7 @@ from brachyutils import BrachyPhantom
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
+from functools import partial
 
 def fix_axis(phantom_obj: BrachyPhantom):
     r"""
@@ -72,19 +73,20 @@ def rename_structures(phantom_obj: BrachyPhantom):
         new_name_mapping
     )
 
-def fix_one_image_structure(
+def fix_one_phantom(
     pth_mr_image: Path | str,
     pth_us_image: Path | str,
     dir_output: Path | str
     ):
     r"""
     Purpose:
-        - load the phantom image and structure, swap the first and last axis save it as nrrd file.
+        - load the phantom image and structure, remove multiple body contours, rename the structures 
+        and correct the axis. Then, save the phantom as nrrd file.
         The files are unique to the micro-reg challenge where the ijktoLPS transform was not written correctly.
     Inputs:
-        - pth_image: path to the image file
-        - pth_structure: path to the structure file
-        - pth_output: path to the output file
+        - pth_image: path to the image file ending with .nrrd
+        - pth_structure: path to the structure file ending with .seg.nrrd
+        - dir_output: path to the output directory
     """
     pth_mr_image = Path(pth_mr_image)
     pth_us_image = Path(pth_us_image)
@@ -115,35 +117,39 @@ def fix_one_image_structure(
     us_phantom.export_to(
         dir_nrrd_out=dir_output,)
 
-def test_fix_one_image_structure():
+def test_fix_one_phantom():
     dir_micro_reg_challenge = Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train")
     pth_mr_image = dir_micro_reg_challenge / "nrrd-format/mr_case000000.nrrd"
     pth_us_image = dir_micro_reg_challenge / "nrrd-format/us_case000000.nrrd"
     dir_out = Path("data_test/test_export_plan/prostate")
 
-    fix_one_image_structure(
+    fix_one_phantom(
         pth_mr_image=pth_mr_image,
         pth_us_image=pth_us_image,
         dir_output=dir_out
         )
 
-def fix_all_prostate_images(dir_img, dir_structure, dir_out, multi_thread: bool = False):
-    pass
-
-def test_read_nrrd():
-    dir_nrrd = Path("data_test/test_export_plan/prostate")
-    all_nrrd = glob(str(dir_nrrd.joinpath("*.nrrd")))
-    for pth in all_nrrd:
-        if pth.endswith(".seg.nrrd"):
-            structure_nrrd = Path(pth)
-        else:
-            img_nrrd = Path(pth)
-    phantom_obj = BrachyPhantom(
-        pth_phantom_file=img_nrrd,
-        pth_structures_file=structure_nrrd
-    )
-    phantom_obj.info()
-
+def fix_all_prostate_images(dir_img_in:Path | str, dir_out, multi_thread: bool = False):
+    
+    if isinstance(dir_img_in, str):
+        dir_img_in = Path(dir_img_in)
+    mr_data_list = dir_img_in.glob("mr*.nrrd")
+    mr_data_list = [pth for pth in mr_data_list if not ".seg.nrrd" in str(pth)]
+    us_data_list = dir_img_in.glob("us*.nrrd")
+    us_data_list = [pth for pth in us_data_list if not ".seg.nrrd" in str(pth)]
+    partial_fix_phantom = partial(fix_one_phantom, dir_output=dir_out)
+    if multi_thread:
+        with ThreadPoolExecutor() as executor:
+            list(tqdm(
+                executor.map(partial_fix_phantom, mr_data_list, us_data_list),
+                total=len(mr_data_list),
+                desc="Fixing MR and US images and Segmentations"
+                ))
+    else:
+        for mr_data, us_data in zip(mr_data_list, us_data_list):
+            fix_one_phantom(mr_data, us_data, dir_out)
+            # # for testing
+            # break
 
 def convert_microreg_to_nrrd():
     r"""
@@ -215,17 +221,10 @@ def convert_microreg_to_nrrd():
         list(tqdm(executor.map(process_case, indices), total=num_cases, desc="Processing cases"))
 
 if __name__ == "__main__":
-    # # fix the mr images and structures for the prostate
-    # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_images")
-    # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/mr_labels")
-    # dir_out = Path("temp_data/registration/micro-reg/mr-train")
-    # fix_all_prostate_images(dir_img, dir_structure, dir_out, False)
-
-    # # fix the ultrasound images and structures for the prostate
-    # dir_img = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_images")
-    # dir_structure = Path("/root/YourLocalHome/Data/registration/prostate_us_mri/train/us_labels")
-    # dir_out = Path("temp_data/registration/micro-reg/us-train")
-    # fix_all_prostate_images(dir_img, dir_structure, dir_out, True)
-
     # convert_microreg_to_nrrd()
-    test_fix_one_image_structure()
+    # test_fix_one_phantom()
+    fix_all_prostate_images(
+        dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/nrrd-format"),
+        dir_out=Path("data_test/test_export_plan/prostate"),
+        multi_thread=True
+    )
