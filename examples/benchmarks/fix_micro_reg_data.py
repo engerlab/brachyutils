@@ -6,6 +6,8 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from functools import partial
+from queue import Queue
+import os
 
 def fix_axis(phantom_obj: BrachyPhantom):
     r"""
@@ -139,12 +141,39 @@ def fix_all_prostate_images(dir_img_in:Path | str, dir_out, multi_thread: bool =
     us_data_list = [pth for pth in us_data_list if not ".seg.nrrd" in str(pth)]
     partial_fix_phantom = partial(fix_one_phantom, dir_output=dir_out)
     if multi_thread:
-        with ThreadPoolExecutor() as executor:
-            list(tqdm(
-                executor.map(partial_fix_phantom, mr_data_list, us_data_list),
+        # Use a thread-safe list to store failed files
+        failed_files = Queue()
+        
+        # Function to process files with error handling
+        def process_with_error_handling(mr_path, us_path):
+            try:
+                partial_fix_phantom(mr_path, us_path)
+            except Exception as e:
+                failed_files.put((mr_path, us_path, str(e)))
+                return False
+            return True
+
+        # Use CPU count to determine optimal number of workers
+        max_workers = os.cpu_count() or 4  # Default to 4 if cpu_count returns None
+
+        # Process files with progress bar
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            results = list(tqdm(
+                executor.map(process_with_error_handling, mr_data_list, us_data_list),
                 total=len(mr_data_list),
                 desc="Fixing MR and US images and Segmentations"
-                ))
+            ))
+
+        # Collect and display failures
+        failed_list = []
+        while not failed_files.empty():
+            failed_list.append(failed_files.get())
+        
+        if failed_list:
+            print(f"\nFailed to process {len(failed_list)} files:")
+            for mr_path, us_path, error in failed_list:
+                print(f"  - MR: {mr_path.name}, US: {us_path.name}")
+                # print(f"    Error: {error}")
     else:
         for mr_data, us_data in zip(mr_data_list, us_data_list):
             fix_one_phantom(mr_data, us_data, dir_out)
