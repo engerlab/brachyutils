@@ -121,8 +121,8 @@ def fix_one_phantom(
 
 def test_fix_one_phantom():
     dir_micro_reg_challenge = Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train")
-    pth_mr_image = dir_micro_reg_challenge / "nrrd-format/mr_case000000.nrrd"
-    pth_us_image = dir_micro_reg_challenge / "nrrd-format/us_case000000.nrrd"
+    pth_mr_image = dir_micro_reg_challenge / "original-nrrd/mr_case000059.nrrd"
+    pth_us_image = dir_micro_reg_challenge / "original-nrrd/us_case000059.nrrd"
     dir_out = Path("data_test/test_export_plan/prostate")
 
     fix_one_phantom(
@@ -180,7 +180,7 @@ def fix_all_prostate_images(dir_img_in:Path | str, dir_out, multi_thread: bool =
             # # for testing
             # break
 
-def convert_microreg_to_nrrd():
+def convert_microreg_to_nrrd(multi_proc:bool = True):
     r"""
     ### Purpose: To convert MR and US images and structures to NRRD format and organize
     them for the prostate micro-reg challenge.
@@ -201,7 +201,7 @@ def convert_microreg_to_nrrd():
     dir_mr_seg_in = dir_micro_reg_challenge / "mr_labels"
     dir_us_img_in = dir_micro_reg_challenge / "us_images"
     dir_us_seg_in = dir_micro_reg_challenge / "us_labels"
-    dir_mr_out = dir_micro_reg_challenge / "nrrd-format"
+    dir_mr_out = dir_micro_reg_challenge / "original-nrrd"
     
     # get the files in the directories
     data_paths = {"mr_images": {}, "mr_labels": {}, "us_images": {}, "us_labels": {}}
@@ -225,14 +225,14 @@ def convert_microreg_to_nrrd():
             pth_phantom_file=pth_mr_image,
             pth_structures_file=pth_mr_structure
         )
-        mr_phantom.image_obj.name = f"mr_case{i:06d}.nrrd"
+        mr_phantom.image_obj.name = "mr_"+pth_mr_image.name.split(".")[0]
         mr_phantom.pth_image = dir_mr_out / mr_phantom.image_obj.name
         us_phantom = BrachyPhantom(
             pth_phantom_file=pth_us_image,
             pth_structures_file=pth_us_structure
         )
-        
-        us_phantom.image_obj.name = f"us_case{i:06d}.nrrd"
+
+        us_phantom.image_obj.name = "us_"+pth_us_image.name.split(".")[0]
         us_phantom.pth_image = dir_mr_out / us_phantom.image_obj.name
 
         mr_phantom.export_to(dir_nrrd_out=dir_mr_out)
@@ -244,16 +244,22 @@ def convert_microreg_to_nrrd():
     
     # Create the output directory if it doesn't exist
     dir_mr_out.mkdir(parents=True, exist_ok=True)
-    
-    # Process all cases using multiprocessing
-    with ThreadPoolExecutor() as executor:
-        list(tqdm(executor.map(process_case, indices), total=num_cases, desc="Processing cases"))
+    if multi_proc:
+        # Process all cases using multiprocessing
+        with ThreadPoolExecutor() as executor:
+            list(tqdm(executor.map(process_case, indices), total=num_cases, desc="Processing cases"))
+    else:
+        # Process all cases sequentially
+        for i in tqdm(indices, desc="Processing cases"):
+            process_case(i)
+            break
 
 if __name__ == "__main__":
+    test_fix_one_phantom()
+
     # convert_microreg_to_nrrd()
-    # test_fix_one_phantom()
-    fix_all_prostate_images(
-        dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/nrrd-format"),
-        dir_out=Path("data_test/test_export_plan/prostate"),
-        multi_thread=True
-    )
+    # fix_all_prostate_images(
+        # dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
+        # dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
+        # multi_thread=True
+    # )
