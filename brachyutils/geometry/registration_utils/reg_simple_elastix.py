@@ -1,4 +1,6 @@
-from brachyutils.geometry.registration_utils.reg_utils import BrachyPhantomRegistration
+from brachyutils.geometry.registration_utils.reg_utils import (
+    BrachyPhantomRegistration, phantom_with_empty_image_like
+)
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 from pathlib import Path
 from typing import Literal, Optional, Union
@@ -50,7 +52,88 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             )
         self.pth_simple_elastix = pth_simple_elastix if pth_simple_elastix else kwargs.popitem("pth_simple_elastix", None)
 
-    def register(self):
+    def register(
+        self,
+        parameter_map: str = None,
+        dir_phantom_export: str | Path = None,
+        ):
         r"""
-        
+        ### Purpose:
+        - Register the moving phantom to the static phantom using the simple_elastix package.
+        ### Inputs:
+        - parameter_map: str: not sure what this is, but is a string that is passed to the simple_elastix executable.
+        - dir_phantom_export: str | Path: The path to the directory where the registered phantom is exported to.
+        ### Outputs:
+        - BrachyPhantom: The registered phantom object.
         """
+        # leave some space to figure out the rigidness and options for the registration.
+
+        # need to write out the images for plastimatch to read them.
+        # first sort out the paths to the images
+        if dir_phantom_export is None:
+            dir_temp_data = Path(__file__).resolve().parent.parent.parent.parent.joinpath("temp_data/registration/temp")
+
+        elif "temp_data/registration" not in str(dir_phantom_export.resolve()):
+            dir_temp_data = Path(__file__).resolve().parent.parent.parent.parent.joinpath("temp_data/registration")
+        else:
+            dir_temp_data = dir_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)                        
+        # if "temp_data/registration" in str(dir_phantom_export.resolve()):
+        #     dir_temp_data = dir_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)
+        # else:
+        #     dir_temp_data = Path(__file__).resolve().parent.parent.joinpath("temp_data/registration")
+
+        pth_static = dir_temp_data.joinpath("static.nrrd")
+        pth_moving = dir_temp_data.joinpath("moving.nrrd")
+        pth_output = dir_temp_data.joinpath("registered.nrrd")
+
+        # create phantoms with empty image data. remember, the image data could be structure masks
+        # or actual image data.
+        for data, pth in zip([self._static_data, self._moving_data], [pth_static, pth_moving]):
+            empty_phant = phantom_with_empty_image_like(
+                self.moving_phantom,
+                new_pth_image=pth
+            )
+            empty_phant.image_obj = data
+            empty_phant.write_image_to_nrrd(
+                pth_output=pth
+            )
+        
+        # now we have the paths to the images, we can register them.
+        if "http" in self.pth_simple_elastix:
+            import requests
+            response = requests.post(
+                self.pth_simple_elastix+"/elastix_register",
+                json={
+                    "pth_fixed_image": str(pth_static),
+                    "pth_moving_image": str(pth_moving),
+                    "parameter_map": parameter_map,
+                    "pth_output_image": str(pth_output)
+                }
+            )
+        else:
+            raise NotImplementedError("The local simple_elastix registration is not implemented yet.")
+        if response.status_code != 200:
+            raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
+
+        # now we load the registered image and create a new phantom object.
+
+    def export_to(
+        self,
+        dir_registered_phantom: Path | str,
+        output_type: Literal[".nrrd", ".dcm"] = ".nrrd") -> None:
+        r"""
+        See `BrachyPhantomRegistration.export_to` for more details.
+        """
+        super().export_to(dir_registered_phantom, output_type)
+
+    def synch_registered_phantom_with_data(self):
+        r"""
+        Synchronize the registered phantom with the original data.
+        """
+        pass
+
+    def evaluate_on_contours(self):
+        r"""
+        See `BrachyPhantomRegistration.evaluate_on_contours` for more details.
+        """
+        return super().evaluate_on_contours()

@@ -122,14 +122,26 @@ def test_register_simple_elastix():
     pth_output = Path("temp_data/registration/registered_simple_elastix.nrrd")
     static_phantom = BrachyPhantom(
         pth_phantom_file=pth_static,
+        pth_structures_file=pth_static.with_suffix(".seg.nrrd"),
         )
     moving_phantom = BrachyPhantom(
         pth_phantom_file=pth_moving,
+        pth_structures_file=pth_moving.with_suffix(".seg.nrrd"),
         )
     from brachyutils.geometry.registration_utils.reg_simple_elastix import Registration_SimpleElastix
+
+    registration_obj = Registration_SimpleElastix(
+        pth_simple_elastix="http://192.168.1.14:8000",
+        static_phantom=static_phantom,
+        moving_phantom=moving_phantom,
+        backend="simple_elastix",
+    )
+
+    registration_obj.register()
 
 if __name__ == "__main__":
     print("testing the registration class")
     # test_register_opentps()
     # test_register_plastimatch()
     # test_load_transformations()
+    test_register_simple_elastix()
