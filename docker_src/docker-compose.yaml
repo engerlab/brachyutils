@@ -36,11 +36,6 @@ services:
               capabilities: [gpu]
 
   SimpleElastix:
-    # build:
-    #   context: ../
-    #   dockerfile: docker_src/Dockerfile
-    #   ssh:
-    #     - default
     image: simple-elastix:latest
     container_name: SimpleElastix
     user: "${UID}:${GID}"
@@ -51,12 +46,11 @@ services:
       - HOST_HOME=${HOST_HOME}
       - DISPLAY=${DISPLAY}
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      # - ../elastix-api.py:/app/Software/SimpleElastix-brachyutils/elastix-api.py
-      # - ../run_api.sh:/app/Software/SimpleElastix-brachyutils/run_api.sh
+      # - /tmp/.X11-unix:/tmp/.X11-unix
       - ${HOST_HOME}:/home/ubuntu/YourLocalHome
       - registration-volume:/app/Software/SimpleElastix-brachyutils/temp_data
-
+    entrypoint: ["/bin/bash"]
+    command: ["/app/Software/SimpleElastix-brachyutils/run_api.sh"]
 
   Pyplastimatch:
     build:
