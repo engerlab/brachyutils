@@ -63,7 +63,6 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
         self,
         stage_params_list: List[Dict[str, str]] = None,
         dir_phantom_export: Path | str = None,
-        **kwargs
         ) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         ### Purpose:
