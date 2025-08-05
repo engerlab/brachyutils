@@ -5,6 +5,7 @@ from brachyutils.geometry.phantom_utils import BrachyPhantom
 from pathlib import Path
 from typing import Literal, Optional, Union
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+from opentps.core.data.images import ROIMask
 
 class Registration_SimpleElastix(BrachyPhantomRegistration):
     def __init__(
@@ -78,10 +79,6 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             dir_temp_data = Path(__file__).resolve().parent.parent.parent.parent.joinpath("temp_data/registration")
         else:
             dir_temp_data = dir_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)                        
-        # if "temp_data/registration" in str(dir_phantom_export.resolve()):
-        #     dir_temp_data = dir_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)
-        # else:
-        #     dir_temp_data = Path(__file__).resolve().parent.parent.joinpath("temp_data/registration")
 
         pth_static = dir_temp_data.joinpath("static.nrrd")
         pth_moving = dir_temp_data.joinpath("moving.nrrd")
@@ -118,7 +115,9 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             raise NotImplementedError("The local simple_elastix registration is not implemented yet.")
         if response.status_code != 200:
             raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
-
+        pth_transform_maps = list(dir_temp_data.glob("transform_parameter_*.txt"))
+        if not pth_transform_maps:
+            raise FileNotFoundError(f"Registration failed, no parameter map files were created.")
         # now we load the registered image and create a new phantom object.
                 # load the registered image
         self._registered_data = BrachyPhantom(
@@ -128,16 +127,13 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             self._registered_data,
             self._static_data,
             )
-        self.deformation = _load_deformation_field(
-            dir_temp_data.joinpath("vf.nrrd")
-            )
+
         self.synch_registered_phantom_with_data(
-            pth_vector_field=Path(global_params["vf_out"])
+            transform_params=pth_transform_maps
             )
         if dir_phantom_export is not None:
             self.export_to(dir_phantom_export)
         return self.registered_phantom, self.deformation
-
 
     def export_to(
         self,
@@ -148,11 +144,95 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         """
         super().export_to(dir_registered_phantom, output_type)
 
-    def synch_registered_phantom_with_data(self):
+    def synch_registered_phantom_with_data(self, transform_params:list[str | Path]):
         r"""
-        Synchronize the registered phantom with the original data.
+        Synchronize the registered phantom with the original data. 
         """
-        super().synch_registered_phantom_with_data()
+        # we have the path to the parameter map. we make an api call to simple_elastix to 
+        # to apply this transformation to the registered phantom (image or contours).
+                # load the registered data into registered phantom
+        self.registered_phantom = phantom_with_empty_image_like(
+            self.moving_phantom,
+            new_pth_image=f"reg_{self.moving_phantom.pth_image.stem}"
+            )
+        
+        # if registration based on image:
+        # load the image into the registered phantom
+        if self.register_on_contour is None:
+            self.registered_phantom.image_obj = self._registered_data
+        # registration based on contour
+        # create a new contour based on the registered mask.
+        else:
+            # pass the moving image to the registered phantom image
+            self.registered_phantom.image_obj = self.moving_phantom.image_obj
+            # create a new contour based on the registered mask.
+            new_contour = ROIMask(
+                name=self.register_on_contour,
+                imageArray=self._registered_data.imageArray,
+                origin=self._registered_data.origin,
+                spacing=self._registered_data.spacing,
+            )
+            self.registered_phantom.set_structure_set({self.register_on_contour: new_contour})
+
+        structure_mask_dict = self.registered_phantom.get_structure_mask(
+            self.registered_phantom.structure_names,
+            mask_type=ROIMask
+        )
+        all_data = structure_mask_dict | {"image": self.registered_phantom.image_obj}
+        for data_name in all_data:
+            # write out the data to be warped by plastimatch
+            pth_in = transform_params[0].parent.joinpath(f"{data_name}.nrrd")
+            pth_warped = transform_params[0].parent.joinpath(f"{data_name}_warped.nrrd")
+
+            empty_phant = phantom_with_empty_image_like(
+                self.moving_phantom,
+                new_pth_image=pth_in
+            )
+            empty_phant.image_obj = all_data.get(data_name)
+            empty_phant.write_image_to_nrrd(
+                pth_output=pth_in
+            )
+            # call plastimatch warp to deform the image and the contours.
+            if "http" in self.pth_simple_elastix:
+                import requests
+                pth_in_http = str(pth_in).split("temp_data/registration/")[-1]
+                pth_output_http = str(pth_warped).split("temp_data/registration/")[-1]
+                pth_transform_http = [str(pth).split("temp_data/registration/")[-1] for pth in transform_params]
+
+                response = requests.post(
+                    url=self.pth_simple_elastix+"/elastix_warp",
+                    json={
+                        "pth_input": pth_in_http,
+                        "pth_output": pth_output_http,
+                        "pth_transform_maps": pth_transform_http,
+                        },
+                    timeout=None
+                )
+                if response.status_code != 200:
+                    raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
+            else:
+                raise NotImplementedError("The local plastimatch registration is not implemented yet.")
+
+            # load the deformed image and contours back into the registered phantom.
+            if data_name == self.register_on_contour:
+                continue
+            deformed_data = BrachyPhantom(
+                pth_phantom_file=pth_warped,
+            ).image_obj
+            deformed_data = resampleImage3DOnImage3D(
+                deformed_data,
+                self._static_data
+            )
+            if data_name == "image":
+                self.registered_phantom.image_obj = deformed_data
+            else:
+                structure_mask_dict[data_name] = ROIMask(
+                    deformed_data.imageArray,
+                    name=data_name,
+                    spacing=self.registered_phantom.image_obj.spacing,
+                    origin=self.registered_phantom.image_obj.origin
+                    )
+        self.registered_phantom.set_structure_set(structure_mask_dict)
 
     def evaluate_on_contours(self):
         r"""
