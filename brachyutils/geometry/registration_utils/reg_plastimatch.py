@@ -78,10 +78,14 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
 
         # need to write out the images for plastimatch to read them.
         # first sort out the paths to the images
-        if "temp_data/registration" in str(dir_phantom_export.resolve()):
-            dir_temp_data = dir_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)
+        if dir_phantom_export is None:
+            dir_temp_data = Path(__file__).resolve().parent.parent.parent.parent.joinpath("temp_data/registration/temp")
+
+        elif "temp_data/registration" not in str(dir_phantom_export.resolve()):
+            dir_temp_data = Path(__file__).resolve().parent.parent.parent.parent.joinpath("temp_data/registration")
         else:
-            dir_temp_data = Path(__file__).resolve().parent.parent.joinpath("temp_data/registration")
+            dir_temp_data = dir_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)                        
+
         pth_static = dir_temp_data.joinpath("static.nrrd")
         pth_moving = dir_temp_data.joinpath("moving.nrrd")
         pth_output = dir_temp_data.joinpath("registered.nrrd")
