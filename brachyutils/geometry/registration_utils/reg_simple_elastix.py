@@ -4,6 +4,7 @@ from brachyutils.geometry.registration_utils.reg_utils import (
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 from pathlib import Path
 from typing import Literal, Optional, Union
+from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
 
 class Registration_SimpleElastix(BrachyPhantomRegistration):
     def __init__(
@@ -119,6 +120,24 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
 
         # now we load the registered image and create a new phantom object.
+                # load the registered image
+        self._registered_data = BrachyPhantom(
+            pth_phantom_file=pth_output
+        ).image_obj
+        self._registered_data = resampleImage3DOnImage3D(
+            self._registered_data,
+            self._static_data,
+            )
+        self.deformation = _load_deformation_field(
+            dir_temp_data.joinpath("vf.nrrd")
+            )
+        self.synch_registered_phantom_with_data(
+            pth_vector_field=Path(global_params["vf_out"])
+            )
+        if dir_phantom_export is not None:
+            self.export_to(dir_phantom_export)
+        return self.registered_phantom, self.deformation
+
 
     def export_to(
         self,
@@ -133,7 +152,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         r"""
         Synchronize the registered phantom with the original data.
         """
-        pass
+        super().synch_registered_phantom_with_data()
 
     def evaluate_on_contours(self):
         r"""
