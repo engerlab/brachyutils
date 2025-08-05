@@ -62,7 +62,7 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
     def register(
         self,
         stage_params_list: List[Dict[str, str]] = None,
-        pth_phantom_export: Path | str = None,
+        dir_phantom_export: Path | str = None,
         **kwargs
         ) -> tuple[BrachyPhantom, Transform3D]:
         r"""
@@ -71,7 +71,7 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
         ### Inputs:
         - stage_params_list: List[Dict[str, str]] := a list of dictionaries containing the stage parameters for the registration.
         please look at the plastimatch documentation for the full list of possible stage parameters.
-        - pth_phantom_export := directory where the registered phantom is exported to.
+        - dir_phantom_export := directory where the registered phantom is exported to.
         ### Outputs:
         - BrachyPhantom: The registered phantom object.
         """
@@ -79,8 +79,8 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
 
         # need to write out the images for plastimatch to read them.
         # first sort out the paths to the images
-        if "temp_data/registration" in str(pth_phantom_export.resolve()):
-            dir_temp_data = pth_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)
+        if "temp_data/registration" in str(dir_phantom_export.resolve()):
+            dir_temp_data = dir_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)
         else:
             dir_temp_data = Path(__file__).resolve().parent.parent.joinpath("temp_data/registration")
         pth_static = dir_temp_data.joinpath("static.nrrd")
@@ -144,8 +144,8 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
         self.synch_registered_phantom_with_data(
             pth_vector_field=Path(global_params["vf_out"])
             )
-        if pth_phantom_export is not None:
-            self.export_to(pth_phantom_export)
+        if dir_phantom_export is not None:
+            self.export_to(dir_phantom_export)
         return self.registered_phantom, self.deformation
 
     def export_to(

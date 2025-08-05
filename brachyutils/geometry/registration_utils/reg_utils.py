@@ -112,12 +112,12 @@ class BrachyPhantomRegistration(ABC):
             raise ValueError("The registration target is not defined. If registering based on images, do not provide contour name. else ensure contour is loaded in phantom.")
 
     @abstractmethod
-    def register(self, pth_phantom_export: str | Path = None) -> tuple[BrachyPhantom, Transform3D]:
+    def register(self, dir_phantom_export: str | Path = None) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom.
         Inputs:
-            - pth_phantom_export := if provided, the registered phantom will be exported to this directory.
+            - dir_phantom_export := if provided, the registered phantom will be exported to this directory.
         Outputs:
             - BrachyPhantom: The registered phantom object.
         """

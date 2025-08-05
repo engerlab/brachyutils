@@ -58,14 +58,14 @@ class Registration_OpenTPS(BrachyPhantomRegistration):
         
     def register(
         self,
-        pth_phantom_export: Path | str = None,
+        dir_phantom_export: Path | str = None,
         **kwargs
         ) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom using the OpenTPS package.
         Inputs:
-            - pth_phantom_export := directory where the registered phantom is exported to.
+            - dir_phantom_export := directory where the registered phantom is exported to.
             
             kwargs entries could include:
             - baseResolution: float = 2.0: The base resolution of the registration algorithm in mm.
@@ -127,8 +127,8 @@ class Registration_OpenTPS(BrachyPhantomRegistration):
             )
 
         self.synch_registered_phantom_with_data()
-        if pth_phantom_export is not None:
-            self.export_to(pth_phantom_export)
+        if dir_phantom_export is not None:
+            self.export_to(dir_phantom_export)
 
         return self.registered_phantom, self.deformation
 

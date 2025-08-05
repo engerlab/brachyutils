@@ -97,7 +97,7 @@ def test_register_plastimatch():
         backend="plastimatch",
         # register_on_contour="common",
     )
-    registration_obj.register(pth_phantom_export=pth_output)
+    registration_obj.register(dir_phantom_export=pth_output)
 
 def test_load_transformations():
     pth_transform = Path("data_test/registration/abdomin_mr_ct/plastimatch/vf.nrrd")
