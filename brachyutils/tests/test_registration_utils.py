@@ -135,10 +135,11 @@ def test_register_simple_elastix():
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
         backend="simple_elastix",
+        register_on_contour="Prostate"
     )
 
     registration_obj.register(dir_phantom_export=pth_output.parent)
-    registration_obj.evaluate_on_contours()
+    print(registration_obj.evaluate_on_contours())
 
 if __name__ == "__main__":
     print("testing the registration class")

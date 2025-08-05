@@ -78,7 +78,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         elif "temp_data/registration" not in str(dir_phantom_export.resolve()):
             dir_temp_data = Path(__file__).resolve().parent.parent.parent.parent.joinpath("temp_data/registration")
         else:
-            dir_temp_data = dir_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)                        
+            dir_temp_data = dir_phantom_export.resolve().joinpath("temp/"+self.moving_phantom.pth_image.stem)
 
         pth_static = dir_temp_data.joinpath("static.nrrd")
         pth_moving = dir_temp_data.joinpath("moving.nrrd")

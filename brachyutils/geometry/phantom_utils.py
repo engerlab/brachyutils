@@ -1620,7 +1620,7 @@ def imageToNrrd(
     """
     if pth_output.suffix != ".nrrd":
         raise ValueError("The output path should have a '.nrrd' extension.")
-    Path.mkdir(pth_output.parent, exist_ok=True)
+    Path.mkdir(pth_output.parent, exist_ok=True, parents=True)
     from collections import defaultdict
     
     image_array_zyx = image_obj.imageArray.swapaxes(0, 2).astype(float)
