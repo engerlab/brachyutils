@@ -255,11 +255,11 @@ def convert_microreg_to_nrrd(multi_proc:bool = True):
             break
 
 if __name__ == "__main__":
-    test_fix_one_phantom()
+    # test_fix_one_phantom()
 
     # convert_microreg_to_nrrd()
-    # fix_all_prostate_images(
-        # dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
-        # dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
-        # multi_thread=True
-    # )
+    fix_all_prostate_images(
+        dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
+        dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
+        multi_thread=True
+    )
