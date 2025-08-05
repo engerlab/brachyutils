@@ -137,7 +137,8 @@ def test_register_simple_elastix():
         backend="simple_elastix",
     )
 
-    registration_obj.register()
+    registration_obj.register(dir_phantom_export=pth_output.parent)
+    registration_obj.evaluate_on_contours()
 
 if __name__ == "__main__":
     print("testing the registration class")

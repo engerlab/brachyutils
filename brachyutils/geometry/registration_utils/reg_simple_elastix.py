@@ -70,7 +70,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         """
         # leave some space to figure out the rigidness and options for the registration.
 
-        # need to write out the images for plastimatch to read them.
+        # need to write out the images for simple elastix to read them.
         # first sort out the paths to the images
         if dir_phantom_export is None:
             dir_temp_data = Path(__file__).resolve().parent.parent.parent.parent.joinpath("temp_data/registration/temp")
@@ -180,7 +180,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         )
         all_data = structure_mask_dict | {"image": self.registered_phantom.image_obj}
         for data_name in all_data:
-            # write out the data to be warped by plastimatch
+            # write out the data to be warped by simple elastix
             pth_in = transform_params[0].parent.joinpath(f"{data_name}.nrrd")
             pth_warped = transform_params[0].parent.joinpath(f"{data_name}_warped.nrrd")
 
@@ -192,7 +192,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             empty_phant.write_image_to_nrrd(
                 pth_output=pth_in
             )
-            # call plastimatch warp to deform the image and the contours.
+            # call simple elastix warp to deform the image and the contours.
             if "http" in self.pth_simple_elastix:
                 import requests
                 pth_in_http = str(pth_in).split("temp_data/registration/")[-1]
@@ -211,7 +211,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 if response.status_code != 200:
                     raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
             else:
-                raise NotImplementedError("The local plastimatch registration is not implemented yet.")
+                raise NotImplementedError("The local simple elastix registration is not implemented yet.")
 
             # load the deformed image and contours back into the registered phantom.
             if data_name == self.register_on_contour:
@@ -227,7 +227,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 self.registered_phantom.image_obj = deformed_data
             else:
                 structure_mask_dict[data_name] = ROIMask(
-                    deformed_data.imageArray,
+                    deformed_data.imageArray.astype(bool),
                     name=data_name,
                     spacing=self.registered_phantom.image_obj.spacing,
                     origin=self.registered_phantom.image_obj.origin
