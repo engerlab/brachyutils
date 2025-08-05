@@ -54,7 +54,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
 
     def register(
         self,
-        parameter_map: str = None,
+        parameter_map: str = "translation",
         dir_phantom_export: str | Path = None,
         ):
         r"""
@@ -101,13 +101,16 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         # now we have the paths to the images, we can register them.
         if "http" in self.pth_simple_elastix:
             import requests
+            http_pth_static = str(pth_static).split("temp_data/registration/")[-1]
+            http_pth_moving = str(pth_moving).split("temp_data/registration/")[-1]
+            http_pth_output = str(pth_output).split("temp_data/registration/")[-1]
             response = requests.post(
                 self.pth_simple_elastix+"/elastix_register",
                 json={
-                    "pth_fixed_image": str(pth_static),
-                    "pth_moving_image": str(pth_moving),
+                    "pth_fixed_image": http_pth_static,
+                    "pth_moving_image": http_pth_moving,
                     "parameter_map": parameter_map,
-                    "pth_output_image": str(pth_output)
+                    "pth_output_image": http_pth_output
                 }
             )
         else:
