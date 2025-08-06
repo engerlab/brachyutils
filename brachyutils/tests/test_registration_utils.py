@@ -117,8 +117,8 @@ def test_load_transformations():
 
 
 def test_register_simple_elastix():
-    pth_static = Path("temp_data/registration/mr_case000000.nrrd")
-    pth_moving = Path("temp_data/registration/us_case000000.nrrd")
+    pth_static = Path("temp_data/registration/us_case000000.nrrd")
+    pth_moving = Path("temp_data/registration/mr_case000000.nrrd")
     pth_output = Path("temp_data/registration/registered_simple_elastix.nrrd")
     static_phantom = BrachyPhantom(
         pth_phantom_file=pth_static,

@@ -95,7 +95,6 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             empty_phant.write_image_to_nrrd(
                 pth_output=pth
             )
-        
         # now we have the paths to the images, we can register them.
         if "http" in self.pth_simple_elastix:
             import requests
@@ -123,10 +122,11 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         self._registered_data = BrachyPhantom(
             pth_phantom_file=pth_output
         ).image_obj
-        self._registered_data = resampleImage3DOnImage3D(
-            self._registered_data,
-            self._static_data,
-            )
+        # do not resample the registered data on static data. the registration is already done that.
+        # self._registered_data = resampleImage3DOnImage3D(
+            # self._registered_data,
+            # self._static_data,
+            # )
 
         self.synch_registered_phantom_with_data(
             transform_params=pth_transform_maps
@@ -155,7 +155,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             self.moving_phantom,
             new_pth_image=f"reg_{self.moving_phantom.pth_image.stem}"
             )
-        
+
         # if registration based on image:
         # load the image into the registered phantom
         if self.register_on_contour is None:
@@ -165,10 +165,11 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         else:
             # pass the moving image to the registered phantom image
             self.registered_phantom.image_obj = self.moving_phantom.image_obj
+            self._registered_data = extract_mask_from_image(self._registered_data)
             # create a new contour based on the registered mask.
             new_contour = ROIMask(
                 name=self.register_on_contour,
-                imageArray=self._registered_data.imageArray,
+                imageArray=self._registered_data.imageArray.astype(bool),
                 origin=self._registered_data.origin,
                 spacing=self._registered_data.spacing,
             )
@@ -192,6 +193,9 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             empty_phant.write_image_to_nrrd(
                 pth_output=pth_in
             )
+            if data_name == self.register_on_contour:
+                # skip the contour that is used for registration
+                continue
             # call simple elastix warp to deform the image and the contours.
             if "http" in self.pth_simple_elastix:
                 import requests
@@ -219,15 +223,15 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             deformed_data = BrachyPhantom(
                 pth_phantom_file=pth_warped,
             ).image_obj
-            deformed_data = resampleImage3DOnImage3D(
-                deformed_data,
-                self._static_data
-            )
+            # deformed_data = resampleImage3DOnImage3D(
+                # deformed_data,
+                # self._static_data
+            # )
             if data_name == "image":
                 self.registered_phantom.image_obj = deformed_data
             else:
                 structure_mask_dict[data_name] = ROIMask(
-                    deformed_data.imageArray.astype(bool),
+                    extract_mask_from_image(deformed_data).imageArray,
                     name=data_name,
                     spacing=self.registered_phantom.image_obj.spacing,
                     origin=self.registered_phantom.image_obj.origin
@@ -239,3 +243,21 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         See `BrachyPhantomRegistration.evaluate_on_contours` for more details.
         """
         return super().evaluate_on_contours()
+    
+from opentps.core.data.images import Image3D
+def extract_mask_from_image(image_obj: Image3D) -> Image3D:
+    r"""
+    Simple Elastix generates a floating point image as output, even if the input is a binary mask.
+    This function extracts a binary mask from the floating point image by applying a threshold.
+    We only take the top 15% of the intensity values to create the mask.
+    """
+    if not hasattr(image_obj, 'imageArray'):
+        raise ValueError("The image object does not have an 'imageArray' attribute.")
+    # Assuming the imageArray is a numpy array, we can create a mask based on a threshold.
+    from opentps.core.processing.segmentation.segmentation3D import applyThreshold
+    import numpy as np
+    threshold_min = np.percentile(image_obj.imageArray[image_obj.imageArray!=0], [85])
+    threshold_max = np.percentile(image_obj.imageArray[image_obj.imageArray!=0], [100])
+    mask = applyThreshold(image_obj, thresholdMin=threshold_min, thresholdMax=threshold_max)
+    image_obj.imageArray = mask.imageArray.astype(bool)
+    return image_obj
