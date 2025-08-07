@@ -64,17 +64,23 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         ### Purpose:
         - Register the moving phantom to the static phantom using the simple_elastix package.
         ### Inputs:
-        - parameter_maps: str: not sure what this is, but is a string that is passed to the simple_elastix executable.
+        - parameter_map: list[dict | str] := list of parameter maps for the transformations.
+            For strings, we get the default maps from sitk, which are any combination of:
+            "translation", "affine", "bspline", "groupwise", "rigid".
+            If a dictionary is provided, it can contain the key "default_parameter_map" to specify
+            which default map to use. If "default_parameter_map" matched a name of a default map,
+            we would load the default map, then override the remaining provided keys and values.
+            If the dictionary does not specify "default_parameter_map", we create a parameter map from scratch.
         - dir_phantom_export: str | Path: The path to the directory where the registered phantom is exported to.
         ### Outputs:
         - BrachyPhantom: The registered phantom object.
         """
-        # leave some space to figure out the rigidness and options for the registration.
-        if parameter_maps is None:
+        # for mask-based registration, we need to use nearest neighbor interpolation.
+        if self.register_on_contour is not None and parameter_maps is None:
             parameter_maps = [
                 {
                     "default_parameter_map": "translation",
-                    "Interpolator": "NearestNeighborInterpolator"
+                    "ResampleInterpolator": "FinalNearestNeighborInterpolator",
                 }
             ]
         # need to write out the images for simple elastix to read them.
@@ -108,14 +114,20 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             http_pth_static = str(pth_static).split("temp_data/registration/")[-1]
             http_pth_moving = str(pth_moving).split("temp_data/registration/")[-1]
             http_pth_output = str(pth_output).split("temp_data/registration/")[-1]
+            # Prepare request data for SimpleElastix server
+            http_json = {
+                "pth_fixed_image": http_pth_static,
+                "pth_moving_image": http_pth_moving,
+                "pth_output_image": http_pth_output
+            }
+            # Add parameter maps if provided
+            if parameter_maps is not None:
+                http_json["parameter_maps"] = parameter_maps
+            # Send registration request to SimpleElastix server
             response = requests.post(
-                self.pth_simple_elastix+"/elastix_register",
-                json={
-                    "pth_fixed_image": http_pth_static,
-                    "pth_moving_image": http_pth_moving,
-                    "parameter_maps": parameter_maps,
-                    "pth_output_image": http_pth_output
-                }
+                url=f"{self.pth_simple_elastix}/elastix_register",
+                json=http_json,
+                timeout=None  # No timeout, registration might take a while
             )
         else:
             raise NotImplementedError("The local simple_elastix registration is not implemented yet.")
@@ -172,7 +184,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         else:
             # pass the moving image to the registered phantom image
             self.registered_phantom.image_obj = self.moving_phantom.image_obj
-            self._registered_data.imageArray = extract_mask_from_image(self._registered_data)
+            # self._registered_data.imageArray = extract_mask_from_image(self._registered_data)
             # create a new contour based on the registered mask.
             new_contour = ROIMask(
                 name=self.register_on_contour,
@@ -224,24 +236,17 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             else:
                 raise NotImplementedError("The local simple elastix registration is not implemented yet.")
 
-            # load the deformed image and contours back into the registered phantom.
-            if data_name == self.register_on_contour:
-                continue
             deformed_data = BrachyPhantom(
                 pth_phantom_file=pth_warped,
             ).image_obj
-            # deformed_data = resampleImage3DOnImage3D(
-                # deformed_data,
-                # self._static_data
-            # )
             if data_name == "image":
                 self.registered_phantom.image_obj = deformed_data
             else:
                 structure_mask_dict[data_name] = ROIMask(
-                    extract_mask_from_image(deformed_data),
+                    imageArray=deformed_data.imageArray,
                     name=data_name,
-                    spacing=self.registered_phantom.image_obj.spacing,
-                    origin=self.registered_phantom.image_obj.origin
+                    spacing=deformed_data.spacing,
+                    origin=deformed_data.origin
                     )
         self.registered_phantom.set_structure_set(structure_mask_dict)
 
@@ -252,6 +257,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         return super().evaluate_on_contours()
     
 from opentps.core.data.images import Image3D
+
 def extract_mask_from_image(image_obj: Image3D) -> np.ndarray:
     r"""
     Simple Elastix generates a floating point image as output, even if the input is a binary mask.
