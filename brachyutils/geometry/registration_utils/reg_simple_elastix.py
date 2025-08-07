@@ -1,9 +1,10 @@
+import numpy as np
 from brachyutils.geometry.registration_utils.reg_utils import (
     BrachyPhantomRegistration, phantom_with_empty_image_like
 )
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Union, List, Dict
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
 from opentps.core.data.images import ROIMask
 
@@ -56,20 +57,26 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
 
     def register(
         self,
-        parameter_map: str = "translation",
+        parameter_maps: List[Dict | str] = None,
         dir_phantom_export: str | Path = None,
         ):
         r"""
         ### Purpose:
         - Register the moving phantom to the static phantom using the simple_elastix package.
         ### Inputs:
-        - parameter_map: str: not sure what this is, but is a string that is passed to the simple_elastix executable.
+        - parameter_maps: str: not sure what this is, but is a string that is passed to the simple_elastix executable.
         - dir_phantom_export: str | Path: The path to the directory where the registered phantom is exported to.
         ### Outputs:
         - BrachyPhantom: The registered phantom object.
         """
         # leave some space to figure out the rigidness and options for the registration.
-
+        if parameter_maps is None:
+            parameter_maps = [
+                {
+                    "default_parameter_map": "translation",
+                    "Interpolator": "NearestNeighborInterpolator"
+                }
+            ]
         # need to write out the images for simple elastix to read them.
         # first sort out the paths to the images
         if dir_phantom_export is None:
@@ -106,7 +113,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 json={
                     "pth_fixed_image": http_pth_static,
                     "pth_moving_image": http_pth_moving,
-                    "parameter_map": parameter_map,
+                    "parameter_maps": parameter_maps,
                     "pth_output_image": http_pth_output
                 }
             )
@@ -165,11 +172,11 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         else:
             # pass the moving image to the registered phantom image
             self.registered_phantom.image_obj = self.moving_phantom.image_obj
-            self._registered_data = extract_mask_from_image(self._registered_data)
+            self._registered_data.imageArray = extract_mask_from_image(self._registered_data)
             # create a new contour based on the registered mask.
             new_contour = ROIMask(
                 name=self.register_on_contour,
-                imageArray=self._registered_data.imageArray.astype(bool),
+                imageArray=self._registered_data.imageArray,
                 origin=self._registered_data.origin,
                 spacing=self._registered_data.spacing,
             )
@@ -231,7 +238,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 self.registered_phantom.image_obj = deformed_data
             else:
                 structure_mask_dict[data_name] = ROIMask(
-                    extract_mask_from_image(deformed_data).imageArray,
+                    extract_mask_from_image(deformed_data),
                     name=data_name,
                     spacing=self.registered_phantom.image_obj.spacing,
                     origin=self.registered_phantom.image_obj.origin
@@ -245,7 +252,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         return super().evaluate_on_contours()
     
 from opentps.core.data.images import Image3D
-def extract_mask_from_image(image_obj: Image3D) -> Image3D:
+def extract_mask_from_image(image_obj: Image3D) -> np.ndarray:
     r"""
     Simple Elastix generates a floating point image as output, even if the input is a binary mask.
     This function extracts a binary mask from the floating point image by applying a threshold.
@@ -256,8 +263,9 @@ def extract_mask_from_image(image_obj: Image3D) -> Image3D:
     # Assuming the imageArray is a numpy array, we can create a mask based on a threshold.
     from opentps.core.processing.segmentation.segmentation3D import applyThreshold
     import numpy as np
-    threshold_min = np.percentile(image_obj.imageArray[image_obj.imageArray!=0], [85])
+    threshold_min = 0.5
+    # threshold_min = np.percentile(image_obj.imageArray[image_obj.imageArray!=0], [90])
+    # threshold_min = image_obj.imageArray[image_obj.imageArray!=0].max()-image_obj.imageArray[image_obj.imageArray!=0].std()
     threshold_max = np.percentile(image_obj.imageArray[image_obj.imageArray!=0], [100])
     mask = applyThreshold(image_obj, thresholdMin=threshold_min, thresholdMax=threshold_max)
-    image_obj.imageArray = mask.imageArray.astype(bool)
-    return image_obj
+    return mask.imageArray.astype(bool)
