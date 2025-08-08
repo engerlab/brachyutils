@@ -25,27 +25,27 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
         **kwargs
         ):
         r"""
-        Purpose:
-            - A class to wrap around the Plastimatch image registration method.
-        Inputs:
-            - pth_plastimatch: Path | str: The path to the plastimatch executable or the URL where
-            the plastimatch server is running.
-            - static_phantom: BrachyPhantom: The static phantom object.
-            - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
-            - register_on_contour: Optional[str] | "common" = None: The name of the contour to be used in the registration process.
-            if this input is provided, contour based registration is used. If "common" is provided, registeration is done
-            based on all the common structures.
-            - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
-            - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
-            - backend: Literal["plastimatch"] = "opentps" The backend package used to handle 
-            the registration process.
-            - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
-        Outputs:
-            - None
-        Functions:
-            - register: Register the moving phantom to the static phantom.
-        Dependencies:
-            - Plastimatch
+        ### Purpose:
+        - A class to wrap around the Plastimatch image registration method.
+        ### Inputs:
+        - pth_plastimatch: Path | str: The path to the plastimatch executable or the URL where
+        the plastimatch server is running.
+        - static_phantom: BrachyPhantom: The static phantom object.
+        - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
+        - register_on_contour: Optional[str] | "common" = None: The name of the contour to be used in the registration process.
+        if this input is provided, contour based registration is used. If "common" is provided, registeration is done
+        based on all the common structures.
+        - deforemable: bool = False: A flag to indicate whether the registration is deformable or not.
+        - algorithm: Literal["Demons", "Morphons", ...] = None The type of registration algorithm.
+        - backend: Literal["plastimatch"] = "opentps" The backend package used to handle 
+        the registration process.
+        - dir_phantom_export: Union[Path, str]: The path to the geometry setup directory.
+        ### Outputs:
+        - None
+        ### Functions:
+        - register: Register the moving phantom to the static phantom.
+        ### Dependencies:
+        - Plastimatch
         """
 
         super().__init__(
@@ -62,29 +62,30 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
     def register(
         self,
         stage_params_list: List[Dict[str, str]] = None,
-        pth_phantom_export: Path | str = None,
-        **kwargs
+        dir_phantom_export: Path | str = None,
         ) -> tuple[BrachyPhantom, Transform3D]:
         r"""
-        Purpose:
-            - Register the moving phantom to the static phantom using the Plastimatch package.
-        
-        Inputs:
-            - stage_params_list: List[Dict[str, str]] := a list of dictionaries containing the stage parameters for the registration.
-            please look at the plastimatch documentation for the full list of possible stage parameters.
-            - pth_phantom_export := directory where the registered phantom is exported to.
-        
-        Outputs:
-            - BrachyPhantom: The registered phantom object.
+        ### Purpose:
+        - Register the moving phantom to the static phantom using the Plastimatch package.
+        ### Inputs:
+        - stage_params_list: List[Dict[str, str]] := a list of dictionaries containing the stage parameters for the registration.
+        please look at the plastimatch documentation for the full list of possible stage parameters.
+        - dir_phantom_export := directory where the registered phantom is exported to.
+        ### Outputs:
+        - BrachyPhantom: The registered phantom object.
         """
         # leave some space to figure out the rigidness and options for the registration.
 
         # need to write out the images for plastimatch to read them.
         # first sort out the paths to the images
-        if "temp_data/registration" in str(pth_phantom_export.resolve()):
-            dir_temp_data = pth_phantom_export.joinpath("temp/"+self.moving_phantom.pth_image.stem)
+        if dir_phantom_export is None:
+            dir_temp_data = Path(__file__).resolve().parent.parent.parent.parent.joinpath("temp_data/registration/temp")
+
+        elif "temp_data/registration" not in str(dir_phantom_export.resolve()):
+            dir_temp_data = Path(__file__).resolve().parent.parent.parent.parent.joinpath("temp_data/registration")
         else:
-            dir_temp_data = Path(__file__).resolve().parent.parent.joinpath("temp_data/registration")
+            dir_temp_data = dir_phantom_export.resolve().joinpath("temp/"+self.moving_phantom.pth_image.stem)                        
+
         pth_static = dir_temp_data.joinpath("static.nrrd")
         pth_moving = dir_temp_data.joinpath("moving.nrrd")
         pth_output = dir_temp_data.joinpath("registered.nrrd")
@@ -146,8 +147,8 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
         self.synch_registered_phantom_with_data(
             pth_vector_field=Path(global_params["vf_out"])
             )
-        if pth_phantom_export is not None:
-            self.export_to(pth_phantom_export)
+        if dir_phantom_export is not None:
+            self.export_to(dir_phantom_export)
         return self.registered_phantom, self.deformation
 
     def export_to(
@@ -161,15 +162,13 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
         pth_vector_field: Path = None
         ) -> None:
         r"""
-        Purpose:
-            - To match the image and the contours of the registered phantom with the registered data.
-            by applying the vector field to the image and the contours using plastimatch convert.
-        
-        Inputs:
-            - pth_vector_field: Path: The path to the vector field file.
-        
-        Output:
-            - None
+        ### Purpose:
+        - To match the image and the contours of the registered phantom with the registered data.
+        by applying the vector field to the image and the contours using plastimatch convert.
+        ### Inputs:
+        - pth_vector_field: Path: The path to the vector field file.
+        ### Outputs:
+        - None
         """        
         # we have the path to the vf file.
         # we need to apply this deformation to the image and the contours.
