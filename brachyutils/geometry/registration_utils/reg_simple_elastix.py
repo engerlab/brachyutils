@@ -83,6 +83,16 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                     "ResampleInterpolator": "FinalNearestNeighborInterpolator",
                 }
             ]
+        elif self.register_on_contour is not None and parameter_maps is not None:
+            for param_map in parameter_maps:
+                if isinstance(param_map, dict):
+                    param_map["ResampleInterpolator"] = "FinalNearestNeighborInterpolator"
+                elif isinstance(param_map, str):
+                    param_map = {
+                        "default_parameter_map": param_map,
+                        "ResampleInterpolator": "FinalNearestNeighborInterpolator",
+                    }
+
         # need to write out the images for simple elastix to read them.
         # first sort out the paths to the images
         if dir_phantom_export is None:
