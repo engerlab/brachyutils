@@ -70,7 +70,7 @@ def test_register_plastimatch():
     from brachyutils.geometry.registration_utils.reg_plastimatch import Registration_Plastimatch
     pth_static = Path("temp_data/registration/us_case000000.nrrd")
     pth_moving = Path("temp_data/registration/mr_case000000.nrrd")
-    pth_output = Path("temp_data/registration/registered_simple_elastix.nrrd")
+    dir_phant_export = Path("temp_data/registration")
     
     static_phantom = BrachyPhantom(
         pth_phantom_file=pth_static,
@@ -85,9 +85,9 @@ def test_register_plastimatch():
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
         backend="plastimatch",
-        # register_on_contour="common",
+        register_on_contour="Prostate",
     )
-    registration_obj.register(dir_phantom_export=pth_output)
+    registration_obj.register(dir_phantom_export=dir_phant_export)
 
 def test_load_transformations():
     pth_transform = Path("data_test/registration/abdomin_mr_ct/plastimatch/vf.nrrd")
