@@ -198,7 +198,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             # create a new contour based on the registered mask.
             new_contour = ROIMask(
                 name=self.register_on_contour,
-                imageArray=self._registered_data.imageArray,
+                imageArray=self._registered_data.imageArray.astype(bool),
                 origin=self._registered_data.origin,
                 spacing=self._registered_data.spacing,
             )
@@ -253,7 +253,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 self.registered_phantom.image_obj = deformed_data
             else:
                 structure_mask_dict[data_name] = ROIMask(
-                    imageArray=deformed_data.imageArray,
+                    imageArray=deformed_data.imageArray.astype(bool),
                     name=data_name,
                     spacing=deformed_data.spacing,
                     origin=deformed_data.origin
