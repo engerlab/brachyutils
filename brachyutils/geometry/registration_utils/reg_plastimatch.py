@@ -127,6 +127,8 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
                     },
                 timeout=None
             )
+            if response.status_code != 200:
+                raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
             # get the registered image
             if not pth_output.exists():
                 raise ValueError("The registered image was not generated.")
