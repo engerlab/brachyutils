@@ -111,7 +111,8 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
 
         stage_params_list = stage_params_list if stage_params_list else[
             {
-                "xform": "bspline",
+                "xform": "translation",
+                "impl": "plastimatch"
                 # "optim": "versor",
                 # "max_its": "50",
             }
