@@ -232,6 +232,7 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
                         "pth_input": str(pth_in),
                         "pth_output": str(pth_warped),
                         "xf": str(pth_vector_field),
+                        "interpolation": "linear" if data_name == "image" else "nn"
                         },
                     timeout=None
                 )
