@@ -68,27 +68,17 @@ def test_register_opentps():
 
 def test_register_plastimatch():
     from brachyutils.geometry.registration_utils.reg_plastimatch import Registration_Plastimatch
-    # Abdominal: static = CT, moving = MR
-    pth_img_static = Path("temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0008.nrrd")
-    # pth_img_static = Path("data_test/registration/abdomin_mr_ct/tr_ct_image_0008.nii.gz")
-    pth_label_static = Path("temp_data/registration/abdomen-mr-ct/static/AbdomenMRCT_0008.seg.nrrd")
-    # pth_label_static = Path("data_test/registration/abdomin_mr_ct/tr_ct_label_0008.nii.gz")
-    pth_img_moving = Path("temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0008.nrrd")
-    # pth_img_moving = Path("data_test/registration/abdomin_mr_ct/tr_mr_image_0008.nii.gz")
-    pth_label_moving = Path("temp_data/registration/abdomen-mr-ct/moving/AbdomenMRCT_0008.seg.nrrd")
-    # pth_label_moving = Path("data_test/registration/abdomin_mr_ct/tr_mr_label_0001.nii.gz")
-    pth_output = Path("temp_data/registration/abdomen-mr-ct/test")
-
-    for pth in [pth_img_static, pth_img_moving, pth_label_static, pth_label_moving]:
-        assert pth.exists(), f"File {pth} does not exist."
-
+    pth_static = Path("temp_data/registration/us_case000000.nrrd")
+    pth_moving = Path("temp_data/registration/mr_case000000.nrrd")
+    pth_output = Path("temp_data/registration/registered_simple_elastix.nrrd")
+    
     static_phantom = BrachyPhantom(
-        pth_phantom_file=pth_img_static,
-        pth_structures_file=pth_label_static,
+        pth_phantom_file=pth_static,
+        pth_structures_file=pth_static.with_suffix(".seg.nrrd"),
         )
     moving_phantom = BrachyPhantom(
-        pth_phantom_file=pth_img_moving,
-        pth_structures_file=pth_label_moving
+        pth_phantom_file=pth_moving,
+        pth_structures_file=pth_moving.with_suffix(".seg.nrrd")
         )
     registration_obj = Registration_Plastimatch(
         pth_plastimatch="http://192.168.1.13:8000",
@@ -144,6 +134,6 @@ def test_register_simple_elastix():
 if __name__ == "__main__":
     print("testing the registration class")
     # test_register_opentps()
-    # test_register_plastimatch()
+    test_register_plastimatch()
     # test_load_transformations()
-    test_register_simple_elastix()
+    # test_register_simple_elastix()
