@@ -139,10 +139,10 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 json=http_json,
                 timeout=None  # No timeout, registration might take a while
             )
+            if response.status_code != 200:
+                raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
         else:
             raise NotImplementedError("The local simple_elastix registration is not implemented yet.")
-        if response.status_code != 200:
-            raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
         pth_transform_maps = list(dir_temp_data.glob("transform_parameter_*.txt"))
         if not pth_transform_maps:
             raise FileNotFoundError(f"Registration failed, no parameter map files were created.")
