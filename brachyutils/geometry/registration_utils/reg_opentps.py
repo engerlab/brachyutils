@@ -121,6 +121,7 @@ class Registration_OpenTPS(BrachyPhantomRegistration):
             )
             self.deformation = reg.compute()
         # do not resample. the registration should handle that internally
+        self._registered_data = reg.deformed
         # self._registered_data = resampleImage3DOnImage3D(
                 # reg.deformed,
                 # self._static_data,
