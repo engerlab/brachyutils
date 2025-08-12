@@ -198,15 +198,22 @@ class BrachyPhantomRegistration(ABC):
             if data_name == self.register_on_contour:
                 continue
             deformed_data = self.deformation.deformImage(all_data[data_name])
+            deformed_data = resampleImage3DOnImage3D(
+                deformed_data,
+                self._static_data,
+            )
             if deformed_data.name.endswith("_copy"):
                 deformed_data.name = deformed_data.name.replace("_copy", "")
             if data_name == "image":
                 self.registered_phantom.image_obj = deformed_data
             else:
-                if deformed_data.name.endswith("_copy"):
-                    deformed_data.name = deformed_data.name.replace("_copy", "")
-                structure_mask_dict[data_name] = deformed_data
-
+                structure_mask_dict[data_name] = ROIMask(
+                    name=data_name,
+                    imageArray=deformed_data.imageArray.astype(bool),
+                    origin=deformed_data.origin,
+                    spacing=deformed_data.spacing,
+                )
+        # update the registered phantom structure set with the deformed contours                
         self.registered_phantom.set_structure_set(structure_mask_dict)
 
     @abstractmethod
@@ -274,8 +281,8 @@ class BrachyPhantomRegistration(ABC):
             if reg == self.register_on_contour:
                 continue
             dice_score = 1 - dice(
-                registered_contours.get(reg).imageArray.flatten(),
-                static_contours.get(static).imageArray.flatten()
+                u=registered_contours.get(reg).imageArray.flatten(),
+                v=static_contours.get(static).imageArray.flatten()
             )
             hausdorff_distance = float(
                 compute_hausdorff_distance(

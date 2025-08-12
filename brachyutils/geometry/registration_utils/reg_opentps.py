@@ -120,12 +120,11 @@ class Registration_OpenTPS(BrachyPhantomRegistration):
                 multimodal=kwargs.get("multimodal", False)
             )
             self.deformation = reg.compute()
-        # do not resample. the registration should handle that internally
-        self._registered_data = reg.deformed
-        # self._registered_data = resampleImage3DOnImage3D(
-                # reg.deformed,
-                # self._static_data,
-            # )
+        # self._registered_data = reg.deformed
+        self._registered_data = resampleImage3DOnImage3D(
+                reg.deformed,
+                self._static_data,
+            )
 
         self.synch_registered_phantom_with_data()
         if dir_phantom_export is not None:
