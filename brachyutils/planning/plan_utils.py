@@ -1506,8 +1506,8 @@ class BrachyPlan:
                 origin=self.phantom.image_obj.origin,
                 spacing=self.phantom.image_obj.spacing,
                 name=(
-                    f"hotspot_estimator:catheter_{(dwellpair["dwell_pair"])[0]["catheter"]}_dwell_{(dwellpair["dwell_pair"])[0]["dwell"]}"
-                    + f"/catheter_{(dwellpair["dwell_pair"])[1]["catheter"]}_dwell_{(dwellpair["dwell_pair"])[1]["dwell"]}"
+                    f"hotspot_estimator:catheter_{(dwellpair['dwell_pair'])[0]['catheter']}_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
+                    + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
                     ),
             )
             self.structure_list.append(
