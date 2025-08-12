@@ -120,11 +120,11 @@ class Registration_OpenTPS(BrachyPhantomRegistration):
                 multimodal=kwargs.get("multimodal", False)
             )
             self.deformation = reg.compute()
-        # resample the registered image/contour on the static iamge to match the coordinates and contours.
-        self._registered_data = resampleImage3DOnImage3D(
-                reg.deformed,
-                self._static_data,
-            )
+        # do not resample. the registration should handle that internally
+        # self._registered_data = resampleImage3DOnImage3D(
+                # reg.deformed,
+                # self._static_data,
+            # )
 
         self.synch_registered_phantom_with_data()
         if dir_phantom_export is not None:
