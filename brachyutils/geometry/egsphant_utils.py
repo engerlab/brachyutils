@@ -25,7 +25,7 @@ class BrachyEgsphant:
         - material_dict: dict := a dictionary containing the name of the elements for each voxel,
         and the following keys: [
             "density" := the density of the material in g/cm^3,
-            "HU_limit" := the lower HU limit threshold of the material,
+            "HU_limit" := the upper HU limit threshold of the material,
             "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
             ]
         - unit_length: str := the unit of the length of the axis is mm.
@@ -78,7 +78,7 @@ class BrachyEgsphant:
             - material_dict: dict := a dictionary containing the name of the elements for each voxel,
                 and the following keys: [
                     "density" := the density of the material in g/cm^3,
-                    "HU_limit" := the lower HU limit threshold of the material,
+                    "HU_limit" := the upper HU limit threshold of the material,
                     "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
                 ]
             - assign_material_from_ct:bool := if True, the function will assign the material based on the HU values in the CT image.
@@ -462,7 +462,7 @@ class BrachyEgsphant:
         assert (
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
-        os.makedirs(os.path.dirname(fileName), exist_ok=True)
+        Path.mkdir(fileName.parent, exist_ok=True)
         egsphant_voxel_edges = np.array(
             [
                 np.char.mod(
@@ -815,7 +815,7 @@ class BrachyEgsphant:
             the following keys are required for each material:
                 - encoding: a single character string that represents the material in the material matrix
                 - density: the density of the material in g/cm^3
-                - HU_limit: the lower HU limit of the material
+                - HU_limit: the upper HU limit of the material
                 - structure_name: the name of the structure in the dicom file that represents the material [optional]
                 - structure_size: the size of the structure in the dicom file that represents the material [optional]
         Outputs:
@@ -861,60 +861,38 @@ class BrachyEgsphant:
             # sort out the materials and density based on the HU values
             # sort out the materials and density based on the HU values
             self._sort_materials_by("HU_limit")
-            low_HU_threshold = np.min(
-                [
-                    phantom_ct_image.min(),
-                    self.material_dict.get(background_material).get("HU_limit"),
-                ]
-            )  # -np.inf #self.material_dict.get(background_material).get("HU_limit")
-            density_low_bound = background_density
+            low_HU_threshold = - float("inf")
 
             for i, material in enumerate(list(self.material_dict.keys())):
 
                 # numerically interpolate the density and material based on the HU values
-                low_HU_threshold = self.material_dict.get(material).get("HU_limit")
-                # if this is the last material, set the high HU threshold to infinity
-                high_HU_threshold = (
-                    self.material_dict.get(list(self.material_dict.keys())[i + 1]).get(
-                        "HU_limit"
-                    )
-                    if i + 1 < len(self.material_dict)
-                    else np.inf
-                )
+                high_HU_threshold = self.material_dict.get(material).get("HU_limit")
+
                 # find region of interest mask based on the HU values
                 roi_mask = np.logical_and(
                     phantom_ct_image > low_HU_threshold,
                     phantom_ct_image <= high_HU_threshold,
                 )
 
-                density_low_bound = self.material_dict.get(material).get("density")
-                density_high_bound = (
-                    self.material_dict.get(list(self.material_dict.keys())[i + 1]).get(
-                        "density"
-                    )
-                    if i + 1 < len(self.material_dict)
-                    else density_low_bound
-                )
-
-                slope_density_over_HU = (density_high_bound - density_low_bound) / (
-                    high_HU_threshold - low_HU_threshold
-                )
                 # interpolate density based on the HU value
-                # density_matrix *= np.logical_not(roi_mask)
                 if material == background_material:
                     density_matrix = np.where(
                         roi_mask,
-                        density_low_bound,
+                        self.material_dict.get(material).get("density"),
                         density_matrix,
                     )
                 else:
+                    density_high_bound = self.material_dict.get(material).get("density")
+                    slope_density_over_HU = (density_high_bound - density_low_bound) / (
+                        high_HU_threshold - low_HU_threshold
+                    )
+                    # interpolate density based on the HU value
                     density_matrix = np.where(
                         roi_mask,
                         ((phantom_ct_image - low_HU_threshold) * slope_density_over_HU)
                         + density_low_bound,
                         density_matrix,
                     )
-                # material_matrix *= np.logical_not(roi_mask)
                 material_matrix = np.where(
                     roi_mask,
                     BrachyEgsphant._materials_encoding_array.index(
@@ -922,6 +900,17 @@ class BrachyEgsphant:
                     ),
                     material_matrix,
                 )
+                low_HU_threshold = self.material_dict.get(material).get("HU_limit")
+                density_low_bound = self.material_dict.get(material).get("density")
+
+            last_mat = list(self.material_dict.keys())[-1]
+            low_HU_threshold = self.material_dict.get(last_mat).get("HU_limit")
+            roi_mask = phantom_ct_image > low_HU_threshold
+            material_matrix[roi_mask] = BrachyEgsphant._materials_encoding_array.index(
+                    self.material_dict.get(last_mat).get("encoding")
+                )
+            density_matrix[roi_mask] = self.material_dict.get(last_mat).get("density")
+
         else:
             #JK here
             #Sometimes we need to assign the same material to multiple contours
@@ -1128,12 +1117,12 @@ def _load_material_dict(material_source: Union[Path, dict]):
     r"""
     Purpose:
         To load material dictionary and give it the proper keys from simple material dictionary,
-        a ct to density.txt file or from a json file that contains the density and HU lower
+        a ct to density.txt file or from a json file that contains the density and HU upper
         limit threshold for each material.
     Inputs:
         - material_source := directory path to the ct2density.txt file, json file or the material dictionary
     Outputs:
-        - dict := a dictionary containing the density and HU lower limit thresholds for each material.
+        - dict := a dictionary containing the density and HU upper limit thresholds for each material.
     """
     if isinstance(material_source, Path) or isinstance(material_source, str):
         pth_file = material_source
@@ -1189,3 +1178,103 @@ def _load_material_dict(material_source: Union[Path, dict]):
             )
 
     return material_dict
+
+
+from functools import partial
+from multiprocessing import Pool
+from pathlib import Path
+from tqdm import tqdm
+
+def _prepare_egsphant_loading_item(pth_input: Path) -> dict:
+    """Prepare loading item for egsphant files."""
+    full_suffix = "".join(pth_input.suffixes)
+    
+    if full_suffix in [".egsphant", ".seq.nrrd"]:
+        return {
+            # "loader_class": BrachyEgsphant,
+            "args_dict": {"pth_phantom_file": pth_input}
+        }
+    else:
+        raise ValueError(
+            f"Unsupported file type {full_suffix} for egsphant conversion. "
+            "Please provide a .egsphant or .seq.nrrd file."
+        )
+
+def _perform_egsphant_conversion(item: dict, dir_output: Path, type_out: str):
+    """Perform actual egsphant conversion."""
+    # loader_class = item["loader_class"]
+    args_dict = item["args_dict"]
+    
+    # Extract base name for output files
+    if "pth_phantom_file" in args_dict:
+        full_ext = "".join(Path(args_dict["pth_phantom_file"]).suffixes)
+        base_name = str(Path(args_dict["pth_phantom_file"]).name).split(full_ext)[0]
+    else:
+        base_name = "converted"
+
+    # Convert based on output type
+    egsphant_obj = BrachyEgsphant(
+        pth_egsphant_file=args_dict.get("pth_phantom_file", None),
+    )
+    if type_out == ".egsphant":
+        pth_out = dir_output / f"{base_name}{type_out}"
+        egsphant_obj.write_to_ctegsphant(pth_out)
+    elif type_out == ".nrrd":
+        pth_out = dir_output / f"{base_name}.seq{type_out}"
+        egsphant_obj.write_to_nrrd(pth_out)
+    else:
+        raise ValueError(f"Unsupported output type {type_out} for egsphant conversion.")
+    
+# Conversion utilities for egsphant files
+def convert_egsphant_files(
+    pth_inputs: List[Union[Path, str]],
+    type_out: str = ".nrrd",
+    dir_output: Optional[Union[Path, str]] = None,
+    multi_proc: bool = False
+) -> None:
+    """
+    Convert egsphant files to the specified output format.
+    
+    Args:
+        pth_inputs: List of paths to input egsphant files. Can be directories or files.
+        type_out: Output file type. Options are ".egsphant", ".nrrd".
+        dir_output: Output directory path (optional).
+        multi_proc: Whether to use multiprocessing (default: False).
+    """
+    # Main conversion logic
+    data_to_load = []
+    
+    # Process each input path
+    for pth_input in pth_inputs:
+        pth_input = Path(pth_input)
+        if not pth_input.exists():
+            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
+        
+        # Handle single files only (egsphant files are not typically in DICOM directories)
+        if pth_input.is_file():
+            data_to_load.append(_prepare_egsphant_loading_item(pth_input))
+        elif pth_input.is_dir():
+            raise ValueError(f"Directory input {pth_input} not supported for egsphant conversion. Please provide individual .egsphant or .seq.nrrd files.")
+        else:
+            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
+    
+    # Check if we have valid items to process
+    if not data_to_load:
+        raise ValueError("No valid egsphant files found to convert.")
+    
+    # Setup output directory
+    if dir_output is None:
+        dir_output = Path(pth_inputs[0]).parent
+    else:
+        dir_output = Path(dir_output)
+    dir_output.mkdir(parents=True, exist_ok=True)
+    
+    # Perform conversion
+    if multi_proc:
+        # Create partial function with fixed arguments
+        partial_conversion = partial(_perform_egsphant_conversion, dir_output=dir_output, type_out=type_out)
+        with Pool() as pool:
+            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting egsphant files"))
+    else:
+        for item in tqdm(data_to_load):
+            _perform_egsphant_conversion(item, dir_output, type_out)

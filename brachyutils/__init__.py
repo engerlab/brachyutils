@@ -4,7 +4,7 @@ import setuptools
 __all__ = [
     "dose",
     "geometry",
-    "planning"
+    "planning",
 ]
 # trunk-ignore(ruff/F401)
 from .dose import *
@@ -12,3 +12,7 @@ from .dose import *
 from .geometry import *
 # trunk-ignore(ruff/F401)
 from .planning import *
+
+from .planning.optimization import *  # noqa: F401, F403
+
+from .geometry.registration_utils import *  # noqa: F401, F403

@@ -5,6 +5,7 @@ from glob import glob
 from typing import Dict, List, Literal, Optional, Union, Tuple
 from collections import defaultdict
 import numpy as np
+import SimpleITK as sitk
 from SimpleITK import Image, GetArrayFromImage 
 from pathlib import Path
 from copy import deepcopy
@@ -21,6 +22,7 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
     readDicomCT,
     readDicomMRI,
     readDicomStruct,
+    readDicomPET,
     writeDicomCT,
     writeRTStruct,
 )
@@ -35,9 +37,10 @@ class BrachyPhantom:
     ### Attributes:
     - pth_image: Path := the path of the geometry source file or files.
     - image_obj: CTImage or MRImage := the image of the patient loaded by openTPS. [x, y, z]
-    - image_modality: Literal["CT", "MR", "US"] := the modality of the image.
+    - image_modality: Literal["CT", "MR", "US", "PET"] := the modality of the image.
     - structure_set: RTStruct := the structure set of the patient loaded by openTPS. [x, y, z].
     Other names for structure are contours, masks, segmentations.
+    - cached_structure_masks: Dict[str, np.ndarray] := a cache for the structure masks.
     - structure_names: List[str] := the names of the structures in the dicom file.
     - unit_length: Literal["mm"] := the unit of length in the dicom file. default is mm.
     - xyz_format: bool := the format of the image. if True, the image is in [z, y, x] format.
@@ -87,6 +90,9 @@ class BrachyPhantom:
         self.image_modality: Literal["CT", "MR", "US"] = None
         self.structure_set = RTStruct()
         self.structure_names: List[str] = []
+        # Used to avoid creating masks from contour multiple times, optional.
+        # User needs to manually create the cache if they want to reuse it as a class attribute.
+        self.cached_structure_masks: Dict[str, ROIMask] = None
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
         self.anatomical_coordinate_system: Literal["LAS", "RAS", "LPS"] = "LPS"
@@ -133,9 +139,9 @@ class BrachyPhantom:
         """
         assert os.path.exists(pth_image), "The input path does not exist."
         # Load the images only, RD, RS, RP files are not needed here.
-        image_files = [file for file in glob((str(pth_image) + "/*.dcm"))
-                       if not os.path.basename(file).startswith("R")]
-       
+        image_files = [file for file in glob((str(pth_image) + "/*.[Dd][Cc][Mm]"))
+                       if not os.path.basename(file).startswith("[Rr]")]
+
         if len(image_files) == 0:
             raise ValueError("No DICOM files found in the input directory.")
         if "CT" in str(Path(image_files[0]).stem).upper():
@@ -143,7 +149,7 @@ class BrachyPhantom:
             self.image_obj = readDicomCT(ct_files)
             self.image_modality = "CT"
             # get the orientation of the image
-            header = pydicom.read_file(ct_files[0])
+            header = pydicom.dcmread(ct_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
@@ -153,7 +159,7 @@ class BrachyPhantom:
             mr_files = list(filter(lambda s: "MR" in s.upper(), image_files))
             self.image_obj = readDicomMRI(mr_files)
             self.image_modality = "MR"
-            header = pydicom.read_file(mr_files[0])
+            header = pydicom.dcmread(mr_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
@@ -163,11 +169,20 @@ class BrachyPhantom:
             us_files = list(filter(lambda s: "US" in s.upper(), image_files))
             self.image_obj = readDicomUS(us_files)
             self.image_modality = "US"
-            header = pydicom.read_file(us_files[0])
+            header = pydicom.dcmread(us_files[0])
             orientation = header.get((0x0010, 0x2210), "LPS")
             if orientation == "BIPED":
                 orientation = "LPS"
             self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"
+        elif "PT" in str(Path(image_files[0]).stem).upper():
+            pet_files = list(filter(lambda s: "PT" in s.upper(), image_files))
+            self.image_obj = readDicomPET(pet_files)
+            self.image_modality = "PET"
+            header = pydicom.dcmread(pet_files[0])
+            orientation = header.get((0x0010, 0x2210), "LPS")
+            if orientation == "BIPED":
+                orientation = "LPS"
+            self.anatomical_coordinate_system = orientation if orientation is not None else "LPS"            
         else:
             raise ValueError("The image modality is not recognized. the dicom file names should contain CT, MR or US.")
 
@@ -287,7 +302,7 @@ class BrachyPhantom:
         # structure_file_type = "".join(pth_structure.suffixes)
         if str(pth_structure).endswith(".dcm"):
             self.structure_set = readDicomStruct(pth_structure)
-            header = pydicom.read_file(pth_structure)
+            header = pydicom.dcmread(pth_structure)
             structure_orientation = header.get((0x0010, 0x2210), "LPS")
             if structure_orientation == "BIPED":
                 structure_orientation = "LPS"
@@ -317,7 +332,6 @@ class BrachyPhantom:
         self,
         query_structure_list: List[str],
         mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
-        useVTK: bool = False,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         ### Purpose:
@@ -331,7 +345,6 @@ class BrachyPhantom:
             if np.ndarray, the mask will be returned as a numpy array in [z, y, x] format.
             if ROIContour, the mask will be returned as a ROIContour object in [x, y, z] format.
             if ROIMask, the mask will be returned as a ROIMask object in [x, y, z] format.
-        - useVTK: bool := use this if the contour was generated using VTK. it matters when getBinaryMask() is called.
         ### Outputs:
         - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
@@ -349,7 +362,7 @@ class BrachyPhantom:
 
         for query_structure in flattened_query_structure_list:
             for mask_name in self.structure_names:
-                if query_structure.lower() in mask_name.lower():
+                if query_structure.lower() == mask_name.lower():
                     mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
                         origin=self.image_obj.origin,
                         gridSize=self.image_obj.gridSize,
@@ -520,7 +533,7 @@ class BrachyPhantom:
         Purpose:
             - To write the structures to a dicom file.
         """
-        if self.structure_set is not None:
+        if self.structure_set is not None and len(self.structure_set.contours) > 0:
             os.makedirs(dir_output, exist_ok=True)
             writeRTStruct(self.structure_set, str(dir_output))
 
@@ -559,7 +572,7 @@ class BrachyPhantom:
 
     def write_structures_to_nrrd(
         self,
-        pth_output: Path,
+        pth_output: Path | str,
         overlap: Optional[bool] = True,
         representation: Literal["contour", "mask"] = "mask",
         metadata: Optional[Dict[str, str]] = None,
@@ -579,6 +592,8 @@ class BrachyPhantom:
         Dependencies:
             - pynrrd
         """
+        if isinstance(pth_output, str):
+            pth_output = Path(pth_output)
         if representation == "mask":
             structure_mask_dict: Dict[str, ROIMask] = self.get_structure_mask(
                 self.structure_names, mask_type=ROIMask
@@ -721,13 +736,13 @@ class BrachyPhantom:
                 self.write_image_to_nrrd(
                     pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".nrrd")
                     )
-            if self.structure_set is not None:
+            if self.structure_set is not None and len(self.structure_set.contours) > 0:
                 self.write_structures_to_nrrd(
                     pth_output=Path.joinpath(dir_nrrd_out, str(self.pth_image.name).split(".")[0]+".seg.nrrd")
                 )
 
     def crop_by_coordinates(
-        self, croodinate_range: List[float] | np.array, inplace: "BrachyPhantom" = True
+        self, coordinate_range: List[float] | np.array, inplace: "BrachyPhantom" = True, no_margin: bool = False
     ) -> None:
         r"""
         Purpose:
@@ -745,20 +760,24 @@ class BrachyPhantom:
             crop3DDataAroundBox,
         )
 
-        croodinate_range = np.array(croodinate_range)
-        assert croodinate_range.shape == (
+        coordinate_range = np.array(coordinate_range)
+        assert coordinate_range.shape == (
             3,
             2,
         ), "coordinate_range should be a 3x2 array in x, y, z order"
         if inplace:
-            crop3DDataAroundBox(self.image_obj, croodinate_range, marginInMM=[1, 1, 1])
+            if no_margin:
+                marginInMM = [0, 0, 0]
+            else:
+                marginInMM = [1, 1, 1]
+            crop3DDataAroundBox(self.image_obj, coordinate_range, marginInMM=marginInMM)
         else:
             new_phantom: BrachyPhantom = copy.deepcopy(self)
-            new_phantom.crop_by_coordinates(croodinate_range, inplace=True)
+            new_phantom.crop_by_coordinates(coordinate_range, inplace=True, no_margin=no_margin)
             return new_phantom
 
     def crop_by_index(
-        self, index_range: List[int] | np.array, inplace: Optional[bool] = True
+        self, index_range: List[int] | np.array, inplace: Optional[bool] = True, no_margin: Optional[bool] = False
     ) -> Union[None, "BrachyPhantom"]:
         r"""
         Purpose:
@@ -772,22 +791,21 @@ class BrachyPhantom:
         Outputs:
             - None
         """
-        index_range = np.array(index_range)
         assert index_range.shape == (
             3,
             2,
         ), "index_range should be a 3x2 array in x, y, z order"
-        new_origin_coords = self.density_image.getPositionFromVoxelIndex(
+        new_origin_coords = self.image_obj.getPositionFromVoxelIndex(
             index_range[:, 0]
         )
-        new_ending_coords = self.density_image.getPositionFromVoxelIndex(
+        new_ending_coords = self.image_obj.getPositionFromVoxelIndex(
             index_range[:, 1]
         )
         new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
-        return self.crop_by_coordinates(new_coords_range, inplace)
+        return self.crop_by_coordinates(new_coords_range, inplace, no_margin=no_margin)
 
     def crop_by_contour(
-        self, contour_name: str, inplace: Optional[bool] = True
+        self, contour_name: str, inplace: Optional[bool] = True, no_margin: Optional[bool] = False
     ) -> Union[None, "BrachyPhantom"]:
         r"""
         Purpose:
@@ -808,12 +826,45 @@ class BrachyPhantom:
             mask_dict[contour_name], self.image_obj
         )
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
-        return self.crop_by_coordinates(box_around_mask, inplace)
+        return self.crop_by_coordinates(box_around_mask, inplace, no_margin=no_margin)
+
+    def cache_structure_set_as_masks(
+        self,
+        interpolator_contours=sitk.sitkNearestNeighbor
+    ) -> None:
+        r"""
+        Purpose:
+            - Cache the structure set as masks. This will resample the masks to the image object.
+            Function used in case you query multiple time the masks from the BrachyPhantom object
+            and you want to avoid resampling the masks each time.
+        Inputs:
+            - interpolator_contours: sitk.InterpolatorEnum := the interpolator to use for resampling the contours.
+        Outputs:
+            - None
+        """
+        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
+
+        structure_dict = self.get_structure_mask(
+                self.structure_names,
+                mask_type=ROIMask,
+                )
+
+        new_structure_dict = {}
+        for struc in structure_dict:
+            print("Resampling first", struc, "with og shape :",
+                    structure_dict[struc].imageArray.shape, "to shape", self.image_obj.gridSize)
+            new_structure_dict[struc] = resampleImage3DOnImage3D(
+                structure_dict[struc],
+                self.image_obj,
+                sitk_interpolator=interpolator_contours
+                )
+        # Store the resampled masks in the cached_structure_masks attribute
+        self.cached_structure_masks = new_structure_dict
+
 
     def set_structure_set(
         self,
         mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]],
-        useVTK: bool = False,
         ) -> None:
         r"""
         ### Purpose:
@@ -824,7 +875,6 @@ class BrachyPhantom:
         ### Inputs:
         - mask_dict: dict := the dictionary of the masks.
         The values could be numpy arrays, ROIContour or ROIMask objects.
-        - useVTK: bool := use this if the contour was generated using VTK.
         ### Outputs:
         - None
         """
@@ -840,7 +890,7 @@ class BrachyPhantom:
                 old_structure = self.structure_set.getContourByName(structure_name.upper())
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
-            print(f"setting structure {structure_name}")
+            print(f"setting structure {structure_name}, which is a {type(mask_dict[structure_name])} type")
             if mask_dict.get(structure_name) is None:
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
@@ -855,7 +905,6 @@ class BrachyPhantom:
                     origin=self.image_obj.origin,
                     spacing=self.image_obj.spacing,
                     gridSize=self.image_obj.gridSize,
-                    useVTK=useVTK,
                 )
                 mask.name = structure_name
 
@@ -863,7 +912,13 @@ class BrachyPhantom:
                 mask = mask_dict.get(structure_name)
                 mask.name = structure_name
                 if self.image_obj is not None:
-                    mask = resampleImage3DOnImage3D(mask, self.image_obj)    
+                    
+                    # Check if the spacings, the shape and origin already match or not
+                    if not np.array_equal(mask.spacing, self.image_obj.spacing) or \
+                        not np.array_equal(mask.origin, self.image_obj.origin) or \
+                        not np.array_equal(mask.gridSize, self.image_obj.gridSize):
+                        # Resample the mask to the image object
+                        mask = resampleImage3DOnImage3D(mask, self.image_obj)    
             else:
                 raise ValueError("The mask type is not recognized.")
 
@@ -893,7 +948,6 @@ class BrachyPhantom:
                         # mask.imageArray[:, :, 0] = 0
                     # elif i == 5:
                         # mask.imageArray[:, :, -1] = 0
-
             self.structure_set.appendContour(mask.getROIContour())
             del mask
 
@@ -988,10 +1042,11 @@ class BrachyPhantom:
         self,
         origin:np.array=None,
         spacing:np.array=None,
-        inplace:bool=False) -> "BrachyPhantom":
+        inplace:bool=False, 
+        interpolator_img=sitk.sitkLinear) -> "BrachyPhantom":
         r"""
         ### Purpose:
-            - resample the phantom and the structures to a new origin and spacing.
+            - resample the phantom to a new origin and spacing.
         
         ### Inputs:
             - origin:np.array := the new origin of the image.
@@ -1002,29 +1057,14 @@ class BrachyPhantom:
             - BrachyPhantom := the resampled phantom object if the inplace is False
         """
         from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
-        from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
 
         new_phantom = phantom_with_empty_image_like(self, new_pth_image=self.pth_image)
-
-        new_img_obj = resampleImage3D(self.image_obj, origin=origin, spacing=spacing)
-        if self.structure_set is not None:
-            structure_dict = self.get_structure_mask(
-                self.structure_names,
-                mask_type=ROIMask,
-                # mask_type=ROIContour,
-                )
-            new_structure_dict = {}
-            for struc in structure_dict:
-                new_structure_dict[struc] = resampleImage3DOnImage3D(
-                    structure_dict[struc],
-                    new_img_obj
-                    )
+        new_img_obj = resampleImage3D(self.image_obj, origin=origin, spacing=spacing, sitk_interpolator=interpolator_img)
+            
         if inplace:
             self.image_obj = new_img_obj
-            self.set_structure_set(new_structure_dict)
         else:
             new_phantom.image_obj = new_img_obj
-            new_phantom.set_structure_set(new_structure_dict)
             return new_phantom
 
 # helper functions
@@ -1310,11 +1350,11 @@ def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     i = 0
     for key in header:
         if f"Segment{i}_Name" == key:
-            label_value = header[f"Segment{i}_LabelValue"]
             name = header[f"Segment{i}_Name"]
             if overlap:
                 segment_mask = structures_data[:, :, :, i]
             else:
+                label_value = header[f"Segment{i}_LabelValue"]
                 segment_mask = structures_data == int(label_value)
             # segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
             if segment_mask.sum() == 0:
@@ -1394,6 +1434,15 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
         # get the segment mask
         if n_dim == 4:
             segment_mask = structure_data[:, :, :, i]
+            mask_encoding = np.unique(segment_mask)
+
+            if len(mask_encoding) == 2:
+                mask_encoding = mask_encoding[1]
+            elif len(mask_encoding) == 1:
+                mask_encoding = mask_encoding[0]
+            else:
+                raise ValueError("The segment mask has more than one unique value, which is not supported.")
+            segment_mask = segment_mask == mask_encoding
         else:
             segment_mask = structure_data == i+1
         # segment_mask = np.pad(segment_mask, 1, mode="constant", constant_values=0)
@@ -1569,10 +1618,9 @@ def imageToNrrd(
     Dependencies:
         - pynrrd
     """
-    assert (
-        os.path.splitext(pth_output)[-1] == ".nrrd"
-    ), "the file should have '.nrrd' extension"
-    os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+    if pth_output.suffix != ".nrrd":
+        raise ValueError("The output path should have a '.nrrd' extension.")
+    Path.mkdir(pth_output.parent, exist_ok=True, parents=True)
     from collections import defaultdict
     
     image_array_zyx = image_obj.imageArray.swapaxes(0, 2).astype(float)
@@ -1623,7 +1671,7 @@ def masksToNrrd(
         """
         if str(pth_output).endswith("seg.nrrd") is False:
             raise ValueError("The output path should have a 'seg.nrrd' extension.")
-        os.makedirs(os.path.dirname(pth_output), exist_ok=True)
+        Path.mkdir(pth_output.parent, exist_ok=True)
 
         spacing  = structure_mask_dict[list(structure_mask_dict.keys())[0]].spacing
         origin = structure_mask_dict[list(structure_mask_dict.keys())[0]].origin
@@ -1695,15 +1743,160 @@ def masksToNrrd(
             # header[f"Segment{i}_Color"] = 
             # header[f"Segment{i}_ColorAutoGenerated"] =
             header[f"Segment{i}_ID"] = f"Segment_{i+1}"
-            header[f"Segment{i}_LabelValue"] = f"{i+1}"
+            if not overlap:
+                header[f"Segment{i}_LabelValue"] = f"{i+1}"
             header[f"Segment{i}_Layer"] = f"{i}" if overlap else "0"
             header[f"Segment{i}_Name"] = f"{name}"
             header[f"Segment{i}_NameAutoGenerated"] = "0"
-            header[f"Segment{i}_Extent"] = " ".join(map(str, _getExtentOfMask(sorted_by_size[name])))
-            header[f"Segment{i}_Tags"] = "Segmentation category and type - 3D Slicer General Anatomy list~SCT^85756007^Tissue~SCT^85756007^Tissue~^^~Anatomic codes - DICOM master list~^^~^^|"
+            if sorted_by_size[name].any():
+                header[f"Segment{i}_Extent"] = " ".join(map(str, _getExtentOfMask(sorted_by_size[name])))
+            # header[f"Segment{i}_Tags"] = "Segmentation category and type - 3D Slicer General Anatomy list~SCT^85756007^Tissue~SCT^85756007^Tissue~^^~Anatomic codes - DICOM master list~^^~^^|"
 
         # # any other meta data
         header = header | metadata if metadata is not None else header
 
         # # Write the image
         nrrd.write(str(pth_output), all_masks, header, index_order="C")
+
+
+# Conversion utilities for phantom files
+from functools import partial
+from multiprocessing import Pool
+from pathlib import Path
+from tqdm import tqdm
+
+def _prepare_phantom_loading_item(pth_input: Path) -> dict:
+    """Prepare loading item for phantom files."""
+    base_name = pth_input.stem
+    full_suffix = "".join(pth_input.suffixes)
+    
+    if full_suffix in [".nrrd", ".nii", ".nii.gz"]:
+        # Look for matching segmentation file
+        pth_seg = pth_input.parent / f"{base_name}.seg{full_suffix}"
+        args_dict = {"pth_phantom_file": pth_input}
+        if pth_seg.exists():
+            args_dict["pth_structures_file"] = pth_seg
+    elif full_suffix in [".seg.nrrd", ".seg.nii", ".seg.nii.gz"]:
+        # Look for matching image file
+        pth_input_image = pth_input.parent / f"{base_name}{full_suffix[4:]}"
+        args_dict = {"pth_structures_file": pth_input}
+        if pth_input_image.exists():
+            args_dict["pth_phantom_file"] = pth_input_image
+        else:
+            args_dict["pth_phantom_file"] = pth_input
+    else:
+        raise ValueError(
+            f"Unsupported file type {full_suffix} for phantom conversion. "
+            "Please provide a .nrrd, .nii, .nii.gz, or a dicom directory."
+        )    
+    # return {"loader_class": BrachyPhantom, "args_dict": args_dict}
+    return {"args_dict": args_dict}
+
+def _handle_dicom_directory_phantom(pth_input: Path) -> List[dict]:
+    """Process a directory containing DICOM files, return only phantom items."""
+    data_to_load = []
+    
+    if len(list(pth_input.glob("*.[Dd][Cc][Mm]"))) < 1:
+        print(f"No DICOM files found in the directory {pth_input}.")
+        return data_to_load
+    
+    # Handle phantom data
+    loading_phantom_item = {
+        # "loader_class": BrachyPhantom,
+        "args_dict": {"dir_dicom": pth_input}
+    }
+    
+    # Check for segmentation file
+    segmentation_file = list(pth_input.glob("[Rr][Ss]*.[Dd][Cc][Mm]"))
+    if segmentation_file:
+        loading_phantom_item["args_dict"]["pth_structures_file"] = segmentation_file[0]
+    else:
+        print(f"No segmentation file found in the directory {pth_input}")
+    
+    data_to_load.append(loading_phantom_item)
+    return data_to_load
+
+def _perform_phantom_conversion(item: dict, dir_output: Path, type_out: str):
+    """Perform actual phantom conversion."""
+    # loader_class = item["loader_class"]
+    args_dict = item["args_dict"]
+    
+    # Convert based on output type
+    phantom_obj = BrachyPhantom(
+        dir_dicom=args_dict.get("dir_dicom"),
+        pth_phantom_file=args_dict.get("pth_phantom_file"),
+        pth_structures_file=args_dict.get("pth_structures_file")
+        )
+    if type_out == ".dcm":
+        phantom_obj.export_to(dir_dicom_out=dir_output)
+    elif type_out == ".nrrd":
+        phantom_obj.export_to(dir_nrrd_out=dir_output)
+    else:
+        raise ValueError(f"Unsupported output type {type_out} for phantom conversion.")
+
+
+def convert_phantom_files(
+    pth_inputs: List[Union[Path, str]],
+    type_out: str = ".nrrd",
+    dir_output: Optional[Union[Path, str]] = None,
+    multi_proc: bool = False
+) -> None:
+    """
+    Convert phantom (image and segmentation) files to the specified output format.
+    
+    Args:
+        pth_inputs: List of paths to input phantom files. Can be directories or files.
+        type_out: Output file type. Options are ".nrrd", ".dcm".
+        dir_output: Output directory path (optional).
+        multi_proc: Whether to use multiprocessing (default: False).
+    """
+    # Main conversion logic
+    data_to_load = []
+    
+    # Process each input path
+    for pth_input in pth_inputs:
+        pth_input = Path(pth_input)
+        if not pth_input.exists():
+            raise FileNotFoundError(f"Input file {pth_input} does not exist.")
+        
+        # Handle directories (DICOM)
+        if pth_input.is_dir():
+            dicom_data = _handle_dicom_directory_phantom(pth_input)
+            data_to_load.extend(dicom_data)
+        
+        # Handle single files
+        elif pth_input.is_file():
+            base_name = pth_input.stem
+            
+            # Skip if already processed
+            if any(
+                base_name in str(item["args_dict"].get("pth_phantom_file", ""))
+                for item in data_to_load
+            ):
+                print(f"Skipping {pth_input} as it is already in the list.")
+                continue
+                
+            data_to_load.append(_prepare_phantom_loading_item(pth_input))
+        else:
+            raise ValueError(f"Input {pth_input} is neither a file nor a directory.")
+    
+    # Check if we have valid items to process
+    if not data_to_load:
+        raise ValueError("No valid phantom files found to convert.")
+    
+    # Setup output directory
+    if dir_output is None:
+        dir_output = Path(pth_inputs[0]).parent
+    else:
+        dir_output = Path(dir_output)
+    dir_output.mkdir(parents=True, exist_ok=True)
+    
+    # Perform conversion
+    if multi_proc:
+        # Create partial function with fixed arguments
+        partial_conversion = partial(_perform_phantom_conversion, dir_output=dir_output, type_out=type_out)
+        with Pool() as pool:
+            list(tqdm(pool.imap(partial_conversion, data_to_load), total=len(data_to_load), desc="Converting phantom files"))
+    else:
+        for item in tqdm(data_to_load):
+            _perform_phantom_conversion(item, dir_output, type_out)

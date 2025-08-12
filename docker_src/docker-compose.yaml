@@ -3,24 +3,24 @@ services:
     build:
       context: ../
       dockerfile: docker_src/Dockerfile
+      ssh:
+        - default
       args:
         - HOST_HOME=${HOST_HOME}
     image: brachyutils
     container_name: BrachyUtils
     user: "${UID}:${GID}"
-    working_dir: /root
+    working_dir: /app
     stdin_open: true # docker run -i
     tty: true # docker run -t
     environment:
       - HOST_HOME=${HOST_HOME}
-      - UID=${UID}
-      - GID=${GID}
       - DEBIAN_FRONTEND=noninteractive
       - QT_QPA_PLATFORM=offscreen
       - DISPLAY=${DISPLAY} # for access to graphical server
     volumes:
-      - ${HOST_HOME}/Software/brachyutils:/root/Software/brachyutils
-      - ${HOST_HOME}:/root/YourLocalHome
+      - ${HOST_HOME}/Software/brachyutils:/app/Software/brachyutils
+      - ${HOST_HOME}:/home/ubuntu/YourLocalHome
       - /tmp/.X11-unix:/tmp/.X11-unix # for access to graphical server
     expose:
       - "8000"
@@ -35,81 +35,85 @@ services:
               count: 1
               capabilities: [gpu]
 
-  Pyplastimatch:
-    build:
-      context: ../
-      dockerfile: docker_src/Dockerfile
-    image: pyplastimatch
-    container_name: PyPlastimatch
+  SimpleElastix:
+    image: simple-elastix:latest
+    container_name: SimpleElastix
     user: "${UID}:${GID}"
-    working_dir: /root
+    working_dir: /app
     stdin_open: true # docker run -i
     tty: true # docker run -t
     environment:
       - HOST_HOME=${HOST_HOME}
-      - DEBIAN_FRONTEND=noninteractive
-      - UID=${UID}
-      - GID=${GID}
+      - DISPLAY=${DISPLAY}
     volumes:
-      - registration-volume:/root/Software/pyplastimatch/temp_data
-      # for developement
-      - ${HOST_HOME}/Software/pyplastimatch:/root/Software/pyplastimatch
-      - ${HOST_HOME}:/root/YourLocalHome
+      # - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${HOST_HOME}:/home/ubuntu/YourLocalHome
+      - registration-volume:/app/Software/SimpleElastix-brachyutils/temp_data
+    networks:
+      net_brachyutils:
+        ipv4_address: 192.168.1.14
+    entrypoint: ["/bin/bash"]
+    command: ["/app/Software/SimpleElastix-brachyutils/run_api.sh"]
+
+  Plastimatch:
+    image: plastimatch:latest
+    container_name: Plastimatch
+    user: "${UID}:${GID}"
+    working_dir: /app
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    environment:
+      - HOST_HOME=${HOST_HOME}
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - ${HOST_HOME}/Software/brachyutils/temp_data/registration:/app/Software/plastimatch-brachyutils/temp_data
+      # - /tmp/.X11-unix:/tmp/.X11-unix
+      # - ${HOST_HOME}:/home/ubuntu/YourLocalHome
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.13
     entrypoint: ["/bin/bash"]
-    command: ["/root/Software/pyplastimatch/run_api.sh"]
+    command: ["/app/Software/plastimatch-brachyutils/run_api.sh"]
 
   DoseCalcMC:
-    build:
-      context: ../
-      dockerfile: docker_src/Dockerfile
     image: rapidbrachy_mc
     container_name: DoseCalcMC
     user: "${UID}:${GID}"
-    working_dir: /root
+    working_dir: /app
     stdin_open: true # docker run -i
     tty: true # docker run -t
     environment:
       - HOST_HOME=${HOST_HOME}
       - DEBIAN_FRONTEND=noninteractive
-      - UID=${UID}
-      - GID=${GID}
     volumes:
-      - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
-      - ${HOST_HOME}:/root/YourLocalHome
-      - mc-volume:/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data
+      # - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/app/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
+      # - ${HOST_HOME}:/app/YourLocalHome
+      - mc-volume:/app/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.11
     entrypoint: ["/bin/bash"]
-    command: ["/root/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/run_api.sh"]
+    command: ["/app/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/run_api.sh"]
 
   DoseCalcTG43:
-    build:
-      context: ../
-      dockerfile: docker_src/Dockerfile
     image: rapidbrachy_tg43
     container_name: DoseCalcTG43
     user: "${UID}:${GID}"
-    working_dir: /root
+    working_dir: /app
     stdin_open: true # docker run -i
     tty: true # docker run -t
     environment:
       - HOST_HOME=${HOST_HOME}
       - DEBIAN_FRONTEND=noninteractive
-      - UID=${UID}
-      - GID=${GID}
     volumes:
-      - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/root/Software/TG43_Dose_Calculation_Standalone
-      - ${HOST_HOME}:/root/YourLocalHome
-      - tg43-volume:/root/Software/TG43_Dose_Calculation_Standalone/temp_data
+      # - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/app/Software/TG43_Dose_Calculation_Standalone
+      # - ${HOST_HOME}:/app/YourLocalHome
+      - tg43-volume:/app/Software/TG43_Dose_Calculation_Standalone/temp_data
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.12
     entrypoint: ["/bin/bash"]
-    command: ["/root/Software/TG43_Dose_Calculation_Standalone/run_api.sh"]
+    command: ["/app/Software/TG43_Dose_Calculation_Standalone/run_api.sh"]
 
 networks:
   net_brachyutils:

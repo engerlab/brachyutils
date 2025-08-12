@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from brachyutils import BrachyPhantom
+from brachyutils.geometry.phantom_utils import BrachyPhantom
 from brachyutils.geometry.applicator_utils import BrachyApplicator
 
 def test_brachy_phantom():
@@ -13,7 +13,7 @@ def test_brachy_phantom():
     phantom_obj = BrachyPhantom(
         # dir_dicom=pth_dicom,
         pth_phantom_file=pth_nrrd,
-        # pth_structures_file=pth_structure
+        # pth_structures_file=pth_structure 
     )
     phantom_obj.info()
 
@@ -55,7 +55,7 @@ def test_write_structures_to_nrrd():
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
     pth_out = "data_test/test_export_plan/prostate/prostate_glen_p1_structs.seg.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
-    phantom_obj.write_structures_to_nrrd(pth_out, overlap=False)
+    phantom_obj.write_structures_to_nrrd(pth_out, overlap=True)
 
 
 def test_write_structures_to_dicom():
@@ -146,7 +146,7 @@ def test_catheter_table():
         # "weight": 0.003,
     }
     dwell_obj = DwellPosition(**dwell_dict_0)
-    # print(dwell_obj.to_dict())
+    print(dwell_obj.to_dict())
     
     catheter_dict = {
         "index": 0,
@@ -159,7 +159,7 @@ def test_catheter_table():
         "afterloader_channel_number": 0,
     }
     catheter_obj = Catheter(**catheter_dict)
-    # print(catheter_obj.to_dict())
+    print(catheter_obj.to_dict())
 
     # # test loadin from dicom
     pth_dicom = "data_test/prostate-glen-p1-dcm"
@@ -359,13 +359,19 @@ def test_generate_sphere_mask():
     for slice in mask.imageArray.swapaxes(0,2):
         print(slice)
 
+def test_load_pet_dicom():
+    from brachyutils.geometry.phantom_utils import BrachyPhantom
+    dir_pet_dicom = Path("data_test/pet-dcm")
+    phantom_obj = BrachyPhantom(dir_dicom=dir_pet_dicom)
+    phantom_obj.info()
+
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
     # test_brachy_phantom()
     # test_get_structure_mask()
     # test_write_image_to_dicom()
     # test_write_image_to_nrrd()
-    # test_write_structures_to_nrrd()
+    test_write_structures_to_nrrd()
     # test_write_structures_to_dicom()
     # test_read_structures_from_nrrd()
     # test_write_to_egsphant()
@@ -384,4 +390,5 @@ if __name__ == "__main__":
     # test_dicom_rt_tools()
     # test_catheter_to_mrk_json()
     # test_get_delivered_catheter_table()
-    test_generate_sphere_mask()
+    # test_generate_sphere_mask()
+    # test_load_pet_dicom()

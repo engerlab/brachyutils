@@ -1,23 +1,46 @@
-import gurobipy as gb
-from gurobipy import GRB
+## LEARN WITH OR-TOOLS
+from ortools.math_opt.python import mathopt
 
-print("doing example 1")
-# Example 1
-model = gb.Model("ResourceAllocation")
-x1 = model.addVar(lb=0, name="Product1")
-x2 = model.addVar(lb=0, name="Product2")
+# Create model using MathOpt
+model = mathopt.Model(name="quadratic_model")
 
-model.setObjective(10*x1 + 15*x2, GRB.MAXIMIZE)
-# model.addConstr(2*x1 + 1*x2 <= 100, "MachineConstraint")
-# model.addConstr(1*x1 + 3*x2 <= 90, "Machine2Constraint")
+# Method 1: Direct multiplication (recommended)
+x = model.add_variable(lb=0.0, ub=10.0, name="x")
+y = model.add_variable(lb=0.0, ub=10.0, name="y")
+# objective = x * x + y * y + 2 * x * y
+objective = x + y + 2 * x
+model.minimize(objective)
 
-model.optimize()
+result = mathopt.solve(model, mathopt.SolverType.GUROBI)
 
-if model.status == GRB.OPTIMAL:
-    print(f"Optimal solution: Product1 = {x1.X}, Product2 = {x2.X}")
-    print(f"Objective value: {model.ObjVal}")
+if result.status == mathopt.SolveStatus.OPTIMAL:
+    print(f"Optimal solution: x = {x.value}, y = {y.value}")
+    print(f"Objective value: {result.objective_value}")
 else:
     print("No optimal solution found.")
+
+
+## LEARN WITH GUROBI
+# import gurobipy as gb
+# from gurobipy import GRB
+
+# print("doing example 1")
+# # Example 1
+# model = gb.Model("ResourceAllocation")
+# x1 = model.addVar(lb=0, name="Product1")
+# x2 = model.addVar(lb=0, name="Product2")
+
+# model.setObjective(10*x1 + 15*x2, GRB.MAXIMIZE)
+# # model.addConstr(2*x1 + 1*x2 <= 100, "MachineConstraint")
+# # model.addConstr(1*x1 + 3*x2 <= 90, "Machine2Constraint")
+
+# model.optimize()
+
+# if model.status == GRB.OPTIMAL:
+#     print(f"Optimal solution: Product1 = {x1.X}, Product2 = {x2.X}")
+#     print(f"Objective value: {model.ObjVal}")
+# else:
+#     print("No optimal solution found.")
 #  end
 
 # print("doing example 2")
