@@ -139,10 +139,10 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 json=http_json,
                 timeout=None  # No timeout, registration might take a while
             )
+            if response.status_code != 200:
+                raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
         else:
             raise NotImplementedError("The local simple_elastix registration is not implemented yet.")
-        if response.status_code != 200:
-            raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
         pth_transform_maps = list(dir_temp_data.glob("transform_parameter_*.txt"))
         if not pth_transform_maps:
             raise FileNotFoundError(f"Registration failed, no parameter map files were created.")
@@ -198,7 +198,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             # create a new contour based on the registered mask.
             new_contour = ROIMask(
                 name=self.register_on_contour,
-                imageArray=self._registered_data.imageArray,
+                imageArray=self._registered_data.imageArray.astype(bool),
                 origin=self._registered_data.origin,
                 spacing=self._registered_data.spacing,
             )
@@ -253,7 +253,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 self.registered_phantom.image_obj = deformed_data
             else:
                 structure_mask_dict[data_name] = ROIMask(
-                    imageArray=deformed_data.imageArray,
+                    imageArray=deformed_data.imageArray.astype(bool),
                     name=data_name,
                     spacing=deformed_data.spacing,
                     origin=deformed_data.origin

@@ -111,7 +111,8 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
 
         stage_params_list = stage_params_list if stage_params_list else[
             {
-                "xform": "bspline",
+                "xform": "translation",
+                "impl": "plastimatch"
                 # "optim": "versor",
                 # "max_its": "50",
             }
@@ -127,6 +128,8 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
                     },
                 timeout=None
             )
+            if response.status_code != 200:
+                raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
             # get the registered image
             if not pth_output.exists():
                 raise ValueError("The registered image was not generated.")
@@ -137,10 +140,11 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
         self._registered_data = BrachyPhantom(
             pth_phantom_file=pth_output
         ).image_obj
-        self._registered_data = resampleImage3DOnImage3D(
-            self._registered_data,
-            self._static_data,
-            )
+        # do not resample the registered data on static data. the registration is already done that.
+        # self._registered_data = resampleImage3DOnImage3D(
+        #     self._registered_data,
+        #     self._static_data,
+        #     )
         # self.deformation = _load_deformation_field(
         #     dir_temp_data.joinpath("vf.nrrd")
         #     )
@@ -193,7 +197,7 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
             # create a new contour based on the registered mask.
             new_contour = ROIMask(
                 name=self.register_on_contour,
-                imageArray=self._registered_data.imageArray,
+                imageArray=self._registered_data.imageArray.astype(bool),
                 origin=self._registered_data.origin,
                 spacing=self._registered_data.spacing,
             )
@@ -217,6 +221,9 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
             empty_phant.write_image_to_nrrd(
                 pth_output=pth_in
             )
+            if data_name == self.register_on_contour:
+                # skip the contour that is used for registration
+                continue
             # call plastimatch warp to deform the image and the contours.
             if "http" in self.pth_plastimatch:
                 import requests
@@ -226,27 +233,27 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
                         "pth_input": str(pth_in),
                         "pth_output": str(pth_warped),
                         "xf": str(pth_vector_field),
+                        "interpolation": "linear" if data_name == "image" else "nn"
                         },
                     timeout=None
                 )
+                if response.status_code != 200:
+                    raise RuntimeError(f"Registration failed with status code {response.status_code}: {response.text}")
             else:
                 raise NotImplementedError("The local plastimatch registration is not implemented yet.")
 
-            # load the deformed image and contours back into the registered phantom.
-            if data_name == self.register_on_contour:
-                continue
             deformed_data = BrachyPhantom(
                 pth_phantom_file=pth_warped,
             ).image_obj
-            deformed_data = resampleImage3DOnImage3D(
-                deformed_data,
-                self._static_data
-            )
+            # deformed_data = resampleImage3DOnImage3D(
+            #     deformed_data,
+            #     self._static_data
+            # )
             if data_name == "image":
                 self.registered_phantom.image_obj = deformed_data
             else:
                 structure_mask_dict[data_name] = ROIMask(
-                    deformed_data.imageArray,
+                    deformed_data.imageArray.astype(bool),
                     name=data_name,
                     spacing=self.registered_phantom.image_obj.spacing,
                     origin=self.registered_phantom.image_obj.origin

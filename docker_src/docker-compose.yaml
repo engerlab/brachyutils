@@ -55,26 +55,25 @@ services:
     entrypoint: ["/bin/bash"]
     command: ["/app/Software/SimpleElastix-brachyutils/run_api.sh"]
 
-  Pyplastimatch:
-    image: pyplastimatch
-    container_name: PyPlastimatch
+  Plastimatch:
+    image: plastimatch:latest
+    container_name: Plastimatch
     user: "${UID}:${GID}"
     working_dir: /app
     stdin_open: true # docker run -i
     tty: true # docker run -t
     environment:
       - HOST_HOME=${HOST_HOME}
-      - DEBIAN_FRONTEND=noninteractive
+      - DISPLAY=${DISPLAY}
     volumes:
-      - registration-volume:/app/Software/pyplastimatch/temp_data
-      # for developement
-      # - ${HOST_HOME}/Software/pyplastimatch:/app/Software/pyplastimatch
-      # - ${HOST_HOME}:/app/YourLocalHome
+      - ${HOST_HOME}/Software/brachyutils/temp_data/registration:/app/Software/plastimatch-brachyutils/temp_data
+      # - /tmp/.X11-unix:/tmp/.X11-unix
+      # - ${HOST_HOME}:/home/ubuntu/YourLocalHome
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.13
     entrypoint: ["/bin/bash"]
-    command: ["/app/Software/pyplastimatch/run_api.sh"]
+    command: ["/app/Software/plastimatch-brachyutils/run_api.sh"]
 
   DoseCalcMC:
     image: rapidbrachy_mc
