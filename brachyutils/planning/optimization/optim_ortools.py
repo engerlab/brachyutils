@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime_ABC, crop_mask_resample_dose_rate_map
+    BrachyDwellTimeOptim, BrachyDwellTime, crop_mask_resample_dose_rate_map
 )
 from ortools.math_opt.python.mathopt import (
     Model,
@@ -15,15 +15,15 @@ from ortools.math_opt.python.mathopt import (
     TerminationReason
 )
 
-class DwellTime_ORTools(BrachyDwellTime_ABC):
+class DwellTime_ORTools(BrachyDwellTime):
     r"""
     ### Purpose:
     - A class to represent a DwellTimeVariable in the dwell time optimization problem using OR-Tools.
-    See `BrachyDwellTime_ABC` for more details on the attributes and methods.
+    See `BrachyDwellTime` for more details on the attributes and methods.
     """
     def build_backend_variable(self, model):
         r"""
-        See `BrachyDwellTime_ABC.build_backend_variable` for more details.
+        See `BrachyDwellTime.build_backend_variable` for more details.
         """
         if not isinstance(model, Model):
             raise TypeError("The model must be an instance of ortools.math_opt.python.mathopt.Model.")
@@ -36,7 +36,7 @@ class DwellTime_ORTools(BrachyDwellTime_ABC):
     
     def set_bounds(self, *, lower_bound: float | None = None, upper_bound: float | None = None) -> None:
         r"""
-        See `BrachyDwellTime_ABC.set_bounds` for details.
+        See `BrachyDwellTime.set_bounds` for details.
         """
         if lower_bound is not None:
             self.lower_bound = lower_bound
@@ -116,7 +116,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
         lower_bound: float = 0,
         upper_bound: float = 100):
         r"""
-        See `BrachyDwellTime_ABC.set_dwellTimeVariables` for details.
+        See `BrachyDwellTime.set_dwellTimeVariables` for details.
         """
         if self.model is None:
             raise ValueError("Model is not initialized. Please initialize the model first.")
@@ -146,7 +146,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
         roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
     ) -> List[List[float]]:
         r"""
-        See `BrachyDwellTime_ABC.get_optimization_roi_bounds` for details.
+        See `BrachyDwellTime.get_optimization_roi_bounds` for details.
         """
         return super().get_optimization_roi_bounds(
             plan=plan,
@@ -343,7 +343,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
         solver:Literal["GLOP", "PDLP", "GSCIP", "SCIP", "GLPK"]=None, 
         inplace=True):
         r"""
-        See `BrachyDwellTime_ABC.get_optimized_plan_from_model` for details.
+        See `BrachyDwellTime.get_optimized_plan_from_model` for details.
         """
         if self.plan is None:
             raise ValueError("Plan is not set. Please set the plan first.")
@@ -390,7 +390,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
         upper_bound: float = None
         ) -> None:
         r"""
-        See `BrachyDwellTime_ABC.bound_dwell_time` for details.
+        See `BrachyDwellTime.bound_dwell_time` for details.
         """
         for variable in self.dwellTimeVariables:
             if variable.name == name:

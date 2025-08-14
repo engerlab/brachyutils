@@ -136,7 +136,7 @@ class DwellTimeOptimizer(Protocol):
     """Protocol for DwellTimeOptimizer class"""
     plan: Any  # BrachyPlan
     solver: Optional[str]
-    dwellTimeVariables: Optional[List[Any]]  # List[BrachyDwellTime_ABC]
+    dwellTimeVariables: Optional[List[Any]]  # List[BrachyDwellTime]
     model: Any
     roi_bounds: Optional[List[List[float]]]
     roi_margin_mm: Union[List[float], float]
