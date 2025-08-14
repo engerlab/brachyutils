@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    DwellTimeOptimizer_ABC, BrachyDwellTime_ABC, crop_mask_resample_dose_rate_map
+    BrachyDwellTimeOptim, BrachyDwellTime_ABC, crop_mask_resample_dose_rate_map
 )
 from ortools.math_opt.python.mathopt import (
     Model,
@@ -58,11 +58,11 @@ class DwellTime_ORTools(BrachyDwellTime_ABC):
         self.build_backend_variable(model)
 
 
-class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
+class BrachyOptim_ORTools(BrachyDwellTimeOptim):
     r"""
     ### Purpose:
     - Optimize dwell times using OR-Tools.
-    see `DwellTimeOptimizer_ABC` for more details on the attributes and methods.
+    see `BrachyDwellTimeOptim` for more details on the attributes and methods.
     """
     def __init__(
         self,
@@ -314,7 +314,7 @@ class BrachyOptim_ORTools(DwellTimeOptimizer_ABC):
     def run(self, solver: Literal["GLOP", "PDLP", "GSCIP", "SCIP", "GLPK"]):
         r"""
         ### Purpose:
-        - A function to run the optimizer. See `DwellTimeOptimizer_ABC.run` for details. 
+        - A function to run the optimizer. See `BrachyDwellTimeOptim.run` for details. 
         """
         if solver == "GLOP":
             solver_type = SolverType.GLOP

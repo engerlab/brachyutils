@@ -1,7 +1,7 @@
 __all__ = [
     'Optimization_Config',
     'BrachyDwellTime_ABC',
-    'DwellTimeOptimizer_ABC',
+    'BrachyDwellTimeOptim',
     'crop_mask_resample_dose_rate_map',
     'DwellTime_Gurobi',
     'BrachyOptim_Gurobi',
@@ -15,7 +15,7 @@ __all__ = [
 from .optim_utils import (
     Optimization_Config,
     BrachyDwellTime_ABC,
-    DwellTimeOptimizer_ABC,
+    BrachyDwellTimeOptim,
     crop_mask_resample_dose_rate_map
 )
 

@@ -148,7 +148,7 @@ class BrachyDwellTime_ABC(BaseModel, ABC):
         pass
 
 
-class DwellTimeOptimizer_ABC(ABC):
+class BrachyDwellTimeOptim(ABC):
     r"""
     ### Purpose:
     - An abstract dwell time optimizer class to specify the common components of a dwell time optimizer class that

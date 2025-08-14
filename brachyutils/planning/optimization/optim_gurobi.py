@@ -8,7 +8,7 @@ from pathlib import Path
 from gurobipy import Model, Var, GRB, MVar
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    DwellTimeOptimizer_ABC, BrachyDwellTime_ABC, crop_mask_resample_dose_rate_map
+    BrachyDwellTimeOptim, BrachyDwellTime_ABC, crop_mask_resample_dose_rate_map
 )
 
 class DwellTime_Gurobi(BrachyDwellTime_ABC):
@@ -49,11 +49,11 @@ class DwellTime_Gurobi(BrachyDwellTime_ABC):
         super().__init__(**data)
         self.build_backend_variable(model) 
 
-class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
+class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
     r"""
     ### Purpose:
     - A class using Gurobi to do dwell time optimization.
-    See `DwellTimeOptimizer_ABC` for more details on the attributes and methods.
+    See `BrachyDwellTimeOptim` for more details on the attributes and methods.
     """
     def __init__(
         self,
@@ -89,7 +89,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         pth_logfile:str = None) -> Model:
         r"""
         ### Purpose:
-        - See `DwellTimeOptimizer_ABC.initialize_model` for details.
+        - See `BrachyDwellTimeOptim.initialize_model` for details.
         ### Inputs:
         - solver:str := The name of the solver to be used. Default is None.
         - pth_logfile:str := The path to the log file for the solver. Default is None.
@@ -330,7 +330,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
     def run(self):
         r"""
         ### Purpose:
-        - A function to run the optimizer. See `DwellTimeOptimizer_ABC.run` for details. 
+        - A function to run the optimizer. See `BrachyDwellTimeOptim.run` for details. 
         """
         time_start = time.time()
         self.model.optimize()

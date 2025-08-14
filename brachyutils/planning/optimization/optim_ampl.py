@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    DwellTimeOptimizer_ABC, BrachyDwellTime_ABC, crop_mask_resample_dose_rate_map
+    BrachyDwellTimeOptim, BrachyDwellTime_ABC, crop_mask_resample_dose_rate_map
 )
 from amplpy import AMPL
 
@@ -66,12 +66,12 @@ class DwellTime_AMPL(BrachyDwellTime_ABC):
         super().__init__(**data)
         self.build_backend_variable(model)
 
-class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
+class BrachyOptim_AMPL(BrachyDwellTimeOptim):
     """
     ### Purpose:
     A class to solve dwell time optimization problems using AMPL. AMPL, allows for using a variety
     of solvers, for now we use it for HiGHS, but it can be used with other solvers as well.
-    See `DwellTimeOptimizer_ABC` for more details on the attributes and methods.
+    See `BrachyDwellTimeOptim` for more details on the attributes and methods.
     """
     def __init__(
         self,
@@ -109,7 +109,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
     def initialize_model(self, solver, pth_logfile = None):
         r"""
         ### Purpose:
-        - See `DwellTimeOptimizer_ABC.initialize_model` for details.
+        - See `BrachyDwellTimeOptim.initialize_model` for details.
         ### Inputs:
         - solver: str := The name of the solver to be used. Default is "highs".
         - pth_logfile: str := The path to the log file for the solver. Default is None.
@@ -378,7 +378,7 @@ class BrachyOptim_AMPL(DwellTimeOptimizer_ABC):
     def run(self):
         r"""
         ### Purpose:
-        - A function to run the optimizer. See `DwellTimeOptimizer_ABC.run` for details. 
+        - A function to run the optimizer. See `BrachyDwellTimeOptim.run` for details. 
         """
         print("Starting AMPL optimization...")
         print(f"Number of variables: {len(self.dwellTimeVariables)}")
