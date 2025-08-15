@@ -186,6 +186,10 @@ class BrachyDoseComparison:
         matplotlib.rcParams.update({"font.size": 8})
         plt.rcParams.update({"figure.dpi": 300})
 
+        figure_colormap = plt.get_cmap("turbo")
+        figure_colormap.set_bad(color="black", alpha=1.0)  # set bad values to black
+    
+
         dummy_profile = np.zeros((len(axis_2_coords) - 1, len(axis_1_coords) - 1))
 
         dose_1_profile = self.dose1.extract_profile_2d(
@@ -206,6 +210,16 @@ class BrachyDoseComparison:
             )
         else:
             gamma_index_profile = dummy_profile
+
+        if self.dose_mask is not None:
+            dose_mask_profile = self.dose_mask.extract_profile_2d(
+                axis_1_coords, axis_2_coords, plane_coord, plane
+            )
+            dose_1_profile[dose_mask_profile < 0] = np.nan
+            dose_2_profile[dose_mask_profile < 0] = np.nan
+            percent_difference_profile[dose_mask_profile < 0] = np.nan
+            gamma_index_profile[dose_mask_profile < 0] = np.nan
+
 
         #flip the profiles 
         if plane == 'xy':
@@ -231,7 +245,7 @@ class BrachyDoseComparison:
             dose_1_profile,
             vmin=0,
             vmax=plot_vmax,
-            cmap="turbo",
+            cmap=figure_colormap,
             rasterized=True,
             antialiased=True,
         )
@@ -248,7 +262,7 @@ class BrachyDoseComparison:
             dose_2_profile,
             vmin=0,
             vmax=plot_vmax,
-            cmap="turbo",
+            cmap=figure_colormap,
             rasterized=True,
             antialiased=True,
         )
@@ -265,7 +279,7 @@ class BrachyDoseComparison:
             percent_difference_profile,
             vmin=self.percent_difference_range[0],
             vmax=self.percent_difference_range[1],
-            cmap="turbo",
+            cmap=figure_colormap,
             rasterized=True,
             antialiased=True,
         )
@@ -283,7 +297,7 @@ class BrachyDoseComparison:
             gamma_index_profile,
             vmin=0,
             vmax=self.max_gamma,
-            cmap="turbo",
+            cmap=figure_colormap,
             rasterized=True,
             antialiased=True,
         )
