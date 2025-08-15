@@ -4,7 +4,7 @@ import pickle
 import sys
 import tkinter as tk
 from tkinter import filedialog as fd
-
+from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 from opentps.core.processing.dataComparison.gammaIndex import gammaIndex
@@ -60,7 +60,8 @@ class BrachyDoseComparison:
         path=None,
         gamma_kwargs: dict = default_gamma_kwargs,
         positive_percent_difference: bool = True,
-        percent_difference_range: tuple = (0, 200)
+        percent_difference_range: tuple = (0, 200),
+        dose_mask: BrachyDose = None
     ):
         r"""
         Purpose:
@@ -80,7 +81,7 @@ class BrachyDoseComparison:
             - gamma_kwargs: dict := the kwargs for the gamma index function
             - positive_percent_difference: bool := if True, the percent difference will be computed with or without absolute value
             - percent_difference_range: tuple := the range of the percent difference used in plotting
-
+            - dose_mask: BrachyDose := a mask to apply to the dose comparison, excluding any voxels where the mask is valued <0
         Outputs:
             Object containing the following attributes:
                 - dose1: BrachyDose object
@@ -127,6 +128,7 @@ class BrachyDoseComparison:
         self.prescription_dose = gamma_kwargs.get("global_normalisation", 1.0)
         self.max_gamma = gamma_kwargs.get("max_gamma", 1.1)
         self.percent_difference_range = percent_difference_range
+        self.dose_mask = dose_mask
         # axes values are assumed in cm from the 3ddose formalism
         # gamma distance thresholds are usually provided in mm
         # pymedphys documentation indicates that the threshold unit must match the axis
@@ -335,6 +337,8 @@ class BrachyDoseComparison:
                 self.percent_difference_local.dose_image.imageArray = (
                     self.dose2.dose_image.imageArray - self.dose1.dose_image.imageArray
                 ) * 100.0 / self.dose1.dose_image.imageArray
+            if self.dose_mask is not None:
+                self.percent_difference_local.dose_image.imageArray[self.dose_mask.dose_image.imageArray < 0] = np.nan
 
         else:
             self.percent_difference_global = BrachyDose.dose_with_empty_grid_like(self.dose1)
@@ -348,8 +352,9 @@ class BrachyDoseComparison:
                 self.percent_difference_global.dose_image.imageArray = (
                     self.dose2.dose_image.imageArray - self.dose1.dose_image.imageArray
                 ) * 100.0 / self.prescription_dose
-  
 
+            if self.dose_mask is not None:
+                self.percent_difference_global.dose_image.imageArray[self.dose_mask.dose_image.imageArray < 0] = np.nan
 
     def compute_gamma_index(self):
         """
@@ -384,15 +389,7 @@ class BrachyDoseComparison:
             **self.gamma_kwargs,
         )
         logger.setLevel(logging.INFO)
-        # gamma_index_grid = pymedphys.gamma(
-        #    tuple(self.voxel_centers),
-        #    self.dose1.dose_image.imageArray,
-        #    tuple(self.voxel_centers),
-        #    self.dose2.dose_image.imageArray,
-        #    self.gamma_dose_percent_threshold,
-        #    self.gamma_distance_threshold,
-        #    **self.gamma_kwargs,
-        # )
+        self.gamma_index.dose_image.imageArray[self.dose_mask.dose_image.imageArray < 0] = np.nan
         # cast the NaNs to 0s
         gamma_index_grid = self.gamma_index.dose_image.imageArray
         number_excluded = np.sum(np.isnan(gamma_index_grid))
@@ -410,8 +407,8 @@ class BrachyDoseComparison:
             None
         """
         if self.percent_difference_local is not None and self.percent_difference_global is not None:
-            self.percent_difference_local.write_to_nrrd(f"{dir}/local_percent_difference.seq.nrrd")
-            self.percent_difference_global.write_to_nrrd(f"{dir}/global_percent_difference.seq.nrrd")
+            self.percent_difference_local.write_to_nrrd(Path(f"{dir}/local_percent_difference.seq.nrrd"))
+            self.percent_difference_global.write_to_nrrd(Path(f"{dir}/global_percent_difference.seq.nrrd"))
         else:
             raise ValueError("Local/global difference not computed. Call compute_percent_difference() first.")
     
@@ -490,12 +487,23 @@ class BrachyDoseComparison:
         matplotlib.rcParams.update({"font.size": 8})
         plt.rcParams.update({"figure.dpi": 300})
 
+        image_cmap = plt.get_cmap('turbo')
+        image_cmap.set_bad(color='black', alpha=1.0)  # set bad values to black
+    
+
         local_difference_profile = self.percent_difference_local.extract_profile_2d(
             axis_1_coords, axis_2_coords, plane_coord, plane
         )
         global_difference_profile = self.percent_difference_global.extract_profile_2d(
             axis_1_coords, axis_2_coords, plane_coord, plane
         )
+
+        mask_profile = self.dose_mask.extract_profile_2d(
+            axis_1_coords, axis_2_coords, plane_coord, plane
+        )
+
+        local_difference_profile[mask_profile < 0] = np.nan
+        global_difference_profile[mask_profile < 0] = np.nan
 
         #flip the profiles 
         if plane == 'xy':
@@ -514,10 +522,11 @@ class BrachyDoseComparison:
             local_difference_profile,
             vmin=-local_vmax,
             vmax=local_vmax,
-            cmap="turbo",
+            cmap=image_cmap,
             rasterized=True,
             antialiased=True,
         )
+
         ax[0, 0].set_title(plot_titles[0], fontsize=12, pad=5, fontweight="bold")
         ax[0, 0].set_aspect("equal")
         cbar00 = fig.colorbar(c00, ax=ax[0, 0], shrink=0.9, pad=0.04, location='right', panchor = False)
@@ -533,7 +542,7 @@ class BrachyDoseComparison:
             global_difference_profile,
             vmin=-global_vmax,
             vmax=global_vmax,
-            cmap="turbo",
+            cmap=image_cmap,
             rasterized=True,
             antialiased=True,
         )
