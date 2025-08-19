@@ -529,7 +529,9 @@ class BrachyPlan:
         )
         assert (
             len(dose_rate_files) == self.num_dwells
-        ), "number of dose rate files does not match the number of dwell positions"
+        ), ("number of dose rate files does not match the number of dwell positions"
+            f" in the catheter table. Expected {self.num_dwells} but found {len(dose_rate_files)}"
+        )
 
         test_dose_obj = BrachyDose(dose_rate_files[0])
 
@@ -539,23 +541,24 @@ class BrachyPlan:
             )
 
         # load the dose rate tensor
-        if multi_processing:
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                # use partial to pass the load_dose_or_uncertainty argument
-                dose_or_uncertainty_list = list(
-                    executor.map(
-                        partial(
-                            _load_single_dose_or_uncertainty_to_dict,
-                            load_dose_or_uncertainty=load_dose_or_uncertainty,
-                        ),
-                        dose_rate_files,
-                    )
+        if multi_processing:                        
+            with Pool(processes=max(os.cpu_count(), 8)) as pool:
+                func = partial(
+                    _load_single_dose_or_uncertainty_to_dict,
+                    load_dose_or_uncertainty=load_dose_or_uncertainty,
                 )
+                dose_or_uncertainty_list = list(
+                    tqdm(
+                        pool.imap(func, dose_rate_files),
+                        total=len(dose_rate_files),
+                        desc="Loading dose rates...",
+                    )
+                )    
+
         else:
             # dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
             dose_or_uncertainty_list = [None] * len(dose_rate_files)
-            for i, pth_dose_rate in tqdm(enumerate(dose_rate_files)):
+            for i, pth_dose_rate in tqdm(enumerate(dose_rate_files), total=len(dose_rate_files), desc="Loading dose rates..."):
                 dose_or_uncertainty_list[i] = _load_single_dose_or_uncertainty_to_dict(
                     pth_dose_rate, load_dose_or_uncertainty
                 )
@@ -654,9 +657,9 @@ class BrachyPlan:
         - BrachyDicom
         """
         self.structure_list = []
-        structure_names_in_dvh = [ #list of the structure names
+        structure_names_in_dvh = list(set([ #list of the structure names
             x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()
-        ]
+        ]))
         #separate dvh metric goals into separate dictionaries by structure
         dvh_metric_goals_by_structure = {}
         for structure_name in structure_names_in_dvh:
@@ -666,7 +669,6 @@ class BrachyPlan:
                 if structure_name in key
             }
             dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
-
         structure_masks: dict = phantom.get_structure_mask(
             structure_names_in_dvh, ROIContour
         )
