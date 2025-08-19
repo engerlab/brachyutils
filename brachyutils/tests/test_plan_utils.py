@@ -222,8 +222,9 @@ def test_export_brachy_plan():
 def test_load_brachy_plan_from_dicom():
     from brachyutils.geometry.phantom_utils import BrachyPhantom
 
-    pth_dicom = Path("data_test/prostate-glen-p1-dcm/")
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm")
     dvh_metric_goals = {
+        "Prescription Dose": 15,
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
         "D0.1cc(urethra)": 18.75,
@@ -234,6 +235,7 @@ def test_load_brachy_plan_from_dicom():
     )
     plan_obj = BrachyPlan(
         phantom=brachy_phant,
+        prescription_dose=15,
         dvh_metric_goals=dvh_metric_goals,
     )
     plan_obj.info()
