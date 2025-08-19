@@ -220,13 +220,22 @@ def test_export_brachy_plan():
 
 
 def test_load_brachy_plan_from_dicom():
-    pth_dicom = "data_test/prostate-glen-p1-dcm/"
+    from brachyutils.geometry.phantom_utils import BrachyPhantom
+
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm/")
     dvh_metric_goals = {
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
         "D0.1cc(urethra)": 18.75,
     }
-    plan_obj = BrachyPlan(pth_dicom, dvh_metric_goals=dvh_metric_goals)
+    brachy_phant = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=list(pth_dicom.glob("RS*.dcm"))[0],
+    )
+    plan_obj = BrachyPlan(
+        phantom=brachy_phant,
+        dvh_metric_goals=dvh_metric_goals,
+    )
     plan_obj.info()
 
 def test_load_applicator_list():
@@ -317,13 +326,13 @@ if __name__ == "__main__":
     # testupdate_plan_from_catheter_table()
     # test_update_catheter_table_from_plan()
     # test_load_dose_rate_or_uncertainty_tensor()
-    test_create_structures_and_calc_dvh_metrics()
+    # test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
     # test_export_brachy_plan()
-    # test_load_brachy_plan_from_dicom()
+    test_load_brachy_plan_from_dicom()
     # test_load_applicator_list()
     # test__export_applicator_geometry()
     # test_brachy_structure()
