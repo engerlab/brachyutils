@@ -38,6 +38,15 @@ def crop_mask_resample_dose_rate_map(
     crop3DDataAroundBox(
         masked_dose_rate_obj.dose_image,
         roi_bounds)
+    
+    # resample the dose rate map to the optimization resolution
+    if isinstance(optim_spacing, float):
+        optim_spacing = [optim_spacing] * 3
+    resample(
+        masked_dose_rate_obj.dose_image,
+        spacing = optim_spacing,
+        inPlace=True)
+    
     # get the structure mask from the contour
     if isinstance(structure_mask, ROIContour):
         structure_mask = structure_mask.getBinaryMask()
@@ -49,18 +58,10 @@ def crop_mask_resample_dose_rate_map(
             inPlace=False,
             fillValue=0
         )
+
     structure_mask = structure_mask.imageArray.astype(bool)
-    masked_dose_rate_obj.dose_image.imageArray = (
-        masked_dose_rate_obj.dose_image.imageArray * structure_mask
-    )
-    # resample the dose rate map to the optimization resolution
-    if isinstance(optim_spacing, float):
-        optim_spacing = [optim_spacing] * 3
-    resample(
-        masked_dose_rate_obj.dose_image,
-        spacing = optim_spacing,
-        inPlace=True)
-    return masked_dose_rate_obj.get_dose_array().astype(float)
+    masked_dose_array = masked_dose_rate_obj.dose_image.imageArray.astype(float)
+    return masked_dose_array[structure_mask==1].flatten()
 
 class Optimization_Config(BaseModel):
     """

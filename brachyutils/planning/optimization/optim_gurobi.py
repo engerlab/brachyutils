@@ -1,5 +1,6 @@
 # from abc import ABC, abstractmethod
 from typing import List
+import tqdm
 from copy import deepcopy
 import warnings
 import time
@@ -191,7 +192,6 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
-
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
             target_dose = structure.optimization_config.dose_voxel_goal
@@ -205,23 +205,20 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
             # Build dose rate matrix and dwell time vector for this structure
             dose_rate_matrices = []
             dwell_vars = []
-            for variable in dwellTimeVariables:
+            for variable in tqdm.tqdm(dwellTimeVariables, total=len(dwellTimeVariables), 
+                                      desc=f"Processing dwell positions dose rates for {structure.name}"):
                 if "hotspot_estimator:" in structure.name.lower():
                     relevant_dwells = structure.name.lower().split("hotspot_estimator:")[1].split("/")
                     if variable.name not in relevant_dwells:
                         continue
                 dwell_vars.append(variable._model_variable)
-                cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
+                valid_dose_points = crop_mask_resample_dose_rate_map(
                     dose_rate_map=variable.dose_rate_map,
                     template_dose_obj=plan.combined_dose,
                     roi_bounds=self.roi_bounds,
                     structure_mask=structure_mask,
                     optim_spacing=optim_spacing
                 )
-                # Extract valid dose points and flatten
-                valid_dose_points = cropped_resampled_dose_rate_map[
-                    cropped_resampled_dose_rate_map > 0
-                ].flatten()
                 dose_rate_matrices.append(valid_dose_points)
 
             if not dose_rate_matrices:
