@@ -224,7 +224,6 @@ def test_load_brachy_plan_from_dicom():
 
     pth_dicom = Path("data_test/prostate-glen-p1-dcm")
     dvh_metric_goals = {
-        "Prescription Dose": 15,
         "D95%(ctv)": 15,
         "D1cc(rectum)": 11.25,
         "D0.1cc(urethra)": 18.75,
