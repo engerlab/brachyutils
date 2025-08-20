@@ -190,8 +190,8 @@ def test_run_ortool_optim():
 if __name__ == "__main__":
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    test_run_gurobi_optim()
+    # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    # test_run_ampl_optim()
+    test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
