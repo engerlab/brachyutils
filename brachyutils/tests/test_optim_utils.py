@@ -72,7 +72,7 @@ def test_get_optimization_roi_bounds():
     from brachyutils.planning.optimization.optim_gurobi import BrachyOptim_Gurobi
 
     pth_dicom = "data_test/prostate-glen-p1-dcm"
-    dicom_plan = load_dicom_to_plan(pth_dicom)
+    dicom_plan = get_a_plan_to_optimize()
     optim_obj = BrachyOptim_Gurobi(plan=dicom_plan, roi_margin_mm=[2, 2, 2])
     print(optim_obj.roi_bounds)
     print("breakpoint")
@@ -191,8 +191,8 @@ def test_run_ortool_optim():
 if __name__ == "__main__":
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    test_run_ampl_optim()
+    # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()

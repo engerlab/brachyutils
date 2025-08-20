@@ -190,6 +190,9 @@ class BrachyDwellTimeOptim(ABC):
         self.solution_found: bool = False
         self.solve_time: float = 0.0
 
+        if not self.plan.structure_list:
+            raise ValueError("Plan does not contain any structures.")
+
     @abstractmethod
     def initialize_model(
         self,
