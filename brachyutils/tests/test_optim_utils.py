@@ -20,8 +20,8 @@ def get_a_plan_to_optimize()->BrachyPlan:
             penalty_weight_linear=300,
             penalty_weight_quadratic=0,
             penalty_weight_uniformity=0,
-            penalty_weight_hotspot=1,
-            hotspot_threshold=1.5,
+            penalty_weight_hotspot=0,
+            hotspot_threshold=0,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -29,7 +29,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             penalty_weight_quadratic=0,
-            penalty_weight_uniformity=1,
+            penalty_weight_uniformity=0,
             mask_margin_mm=0,
             spacing_mm=1),
         Optimization_Config(
@@ -37,7 +37,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             penalty_weight_quadratic=0,
-            penalty_weight_uniformity=1,
+            penalty_weight_uniformity=0,
             mask_margin_mm=0,
             spacing_mm=3
         )
@@ -193,6 +193,6 @@ if __name__ == "__main__":
     # test_get_optimization_roi_bounds()
     # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    # test_run_ampl_optim()
+    test_run_ampl_optim()
     # test_dwelltime_orTools()
-    test_run_ortool_optim()
+    # test_run_ortool_optim()
