@@ -180,6 +180,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         ### Outputs:
         None - sets up the model objective function and constraints directly
         """
+        if not plan.structure_list:
+            raise ValueError("Plan does not contain any structures.")
+
         from scipy import sparse as sp
         penalty_terms = {
         "linear": 0,
