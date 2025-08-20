@@ -6,38 +6,37 @@ def get_a_plan_to_optimize()->BrachyPlan:
     pth_dir_dose_rate = "data_test/prostate-glen-p1-dose"
     target_dose = 21
     dvh_metric_goals = {
-        "target_dose": target_dose,
-        "D95%(ctv)": target_dose,
-        "D1cc(rectum)": target_dose * 0.75,
-        "D0.1cc(urethra)": target_dose * 1.25,
-        "CI(ctv)": 1.0,
-        "HI(ctv)": 0.5,
+        "D95%(CTV_BRACHY)": target_dose,
+        "D1cc(RECTUM_BRACHY)": target_dose * 0.75,
+        "D0.1cc(URETHRA_BRACHY)": target_dose * 1.25,
+        "CI(CTV_BRACHY)": 1.0,
+        "HI(CTV_BRACHY)": 0.5,
     }
     optimization_config_list=[
         Optimization_Config(
-            structure_name="ctv",
-            dose_voxel_goal=dvh_metric_goals["D95%(ctv)"],
+            structure_name="CTV_BRACHY",
+            dose_voxel_goal=dvh_metric_goals["D95%(CTV_BRACHY)"],
             penalty_weight_linear=300,
-            penalty_weight_quadratic=0,
-            penalty_weight_uniformity=0,
+            penalty_weight_quadratic=1,
+            penalty_weight_uniformity=1,
             penalty_weight_hotspot=1,
             hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
-            structure_name="urethra",
+            structure_name="URETHRA_BRACHY",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            penalty_weight_quadratic=0,
-            penalty_weight_uniformity=1,
+            penalty_weight_quadratic=1,
+            # penalty_weight_uniformity=0,
             mask_margin_mm=0,
             spacing_mm=1),
         Optimization_Config(
-            structure_name="rectum",
+            structure_name="RECTUM_BRACHY",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            penalty_weight_quadratic=0,
-            penalty_weight_uniformity=1,
+            penalty_weight_quadratic=1,
+            # penalty_weight_uniformity=0,
             mask_margin_mm=0,
             spacing_mm=3
         )
@@ -47,7 +46,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
         load_dicom_dose=False,
         delivered_catheter_table=True,
         dir_dose_rate=pth_dir_dose_rate,
-        multi_processing=False,
+        multi_processing=True,
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
         optimization_config_list=optimization_config_list)
@@ -72,7 +71,7 @@ def test_get_optimization_roi_bounds():
     from brachyutils.planning.optimization.optim_gurobi import BrachyOptim_Gurobi
 
     pth_dicom = "data_test/prostate-glen-p1-dcm"
-    dicom_plan = load_dicom_to_plan(pth_dicom)
+    dicom_plan = get_a_plan_to_optimize()
     optim_obj = BrachyOptim_Gurobi(plan=dicom_plan, roi_margin_mm=[2, 2, 2])
     print(optim_obj.roi_bounds)
     print("breakpoint")
@@ -193,6 +192,6 @@ if __name__ == "__main__":
     # test_get_optimization_roi_bounds()
     # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    # test_run_ampl_optim()
+    test_run_ampl_optim()
     # test_dwelltime_orTools()
-    test_run_ortool_optim()
+    # test_run_ortool_optim()
