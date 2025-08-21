@@ -1062,7 +1062,7 @@ class BrachyPlan:
         assert self.combined_dose is not None, "combined dose is not calculated yet"
         # if uncertainty:
         self.combined_dose.write_brachydose_to_file(
-            dir_export + "/combined" + dose_type
+            Path(dir_export) / f"combined{dose_type}"
         )
 
         if dose_rate_maps:

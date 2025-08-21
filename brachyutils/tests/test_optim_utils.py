@@ -83,6 +83,12 @@ def test_run_gurobi_optim():
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     print(optimized_plan.get_dvh_metrics())
     print(optimized_plan.dwell_times)
+    optimized_plan.export_brachy_plan(
+        dir_export="data_test/test_export_plan/prostate",
+        content_to_export={
+            "dose": True,
+        }
+        )
 
     # # test setting a bound on a specific dwell time variable
     # optim_obj.bound_dwell_time(
@@ -190,8 +196,8 @@ def test_run_ortool_optim():
 if __name__ == "__main__":
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    test_run_ampl_optim()
+    # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
