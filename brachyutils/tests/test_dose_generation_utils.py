@@ -2,15 +2,12 @@ import os
 from glob import glob
 from pathlib import Path
 
-from brachyutils.dose_generation_utils import DoseMonteCarlo, DoseTG43
-from brachyutils.plan_utils import BrachyPlan
+from brachyutils.dose.dose_generation_utils import DoseMonteCarlo, DoseTG43
+from brachyutils.planning.plan_utils import load_dicom_to_plan
 
 
 def make_plan_and_export_it(dir_export) -> Path:
-    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    dir_dose_rate = "data_test/prostate-glen-p1-dose"
-    dir_dicom = "data_test/prostate-glen-p1-dcm/"
-    pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
+    dir_dicom = "data_test/prostate-glen-p1-dcm"
     # dir_egsphant = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
     # # assign material based on contours:
     # pth_material = "data_test/prostate_material_dict.json"
@@ -39,38 +36,32 @@ def make_plan_and_export_it(dir_export) -> Path:
         "PrintProgress": 10000,
         "beam_on": 10000,
     }
-    # dir_export = "data_test/test_export_plan"
-    export_format = "RapidBrachy"
-    os.makedirs(dir_export, exist_ok=True)
-
     content_to_export = {
-        "dose": True,
+        "dose": False,
         "dose_type": ".nrrd",
-        "dose_rate_maps": True,
-        "uncertainty": True,
-        "catheter_table": True,
+        # "dose_rate_maps": True,
+        # "uncertainty": True,
+        # "catheter_table": True,
         "egsphant": True,
         "materials_table": pth_material,
         "assign_material_from_ct": True,
-        "structure_set": True,
+        # "structure_set": True,
         "plan": True,
         "mac": True,
-        "ApplicatorMaterials": True,
-        "applicator_geometry": False,
+        # "ApplicatorMaterials": True,
+        # "applicator_geometry": False,
     }
 
-    plan_obj = BrachyPlan(
-        phantom=dir_dicom,
-        dvh_metric_goals=dvh_metric_goals,
-        catheter_table=pth_cathTable_json,
-        combined_dose=pth_combined_dose,
-        combined_simulation_dict=sim_dict,
+    plan_obj = load_dicom_to_plan(
+        dir_dicom=dir_dicom,
+        load_dicom_dose=False,
     )
-    # # This function tests all the exporting functions.
-    plan_obj.export_brachy_plan(export_format, dir_export, content_to_export)
+    plan_obj.export_brachy_plan(
+        dir_export=dir_export,
+        content_to_export=content_to_export
+        )
 
     return Path(dir_export)
-
 
 def test_DoseTG43():
     dir_export = "temp_data/tg43/p1"
@@ -82,7 +73,7 @@ def test_DoseTG43():
         pth_dose_executable=pth_exectuable,
     )
     # dose_generator.validate_inputs()
-    dose_generator.generate_dose()
+    dose_generator.generate_dose(output_dose_per_dwell=True, num_threads=16)
 
 
 def test_DoseMC():
@@ -101,8 +92,8 @@ def test_DoseMC():
 
 
 if __name__ == "__main__":
-    # test_DoseTG43()
-    test_DoseMC()
+    test_DoseTG43()
+    # test_DoseMC()
     # import requests
 
     # json_data = {

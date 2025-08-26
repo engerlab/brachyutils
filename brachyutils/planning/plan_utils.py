@@ -1064,7 +1064,7 @@ class BrachyPlan:
         assert self.combined_dose is not None, "combined dose is not calculated yet"
         # if uncertainty:
         self.combined_dose.write_brachydose_to_file(
-            dir_export + "/combined" + dose_type
+            Path(dir_export) / f"combined{dose_type}"
         )
 
         if dose_rate_maps:
@@ -1431,10 +1431,13 @@ class BrachyPlan:
                     optimization_config_list = json.load(json_file)
             else:
                 raise ValueError("optimization_config_list can be a json file or a list of Optimization_Config objects")
-
+        target_structure_names = [
+            structure.name for structure in self.structure_list
+            if structure.target_volume
+            ]
         for config in optimization_config_list:
             if config.penalty_weight_hotspot != 0:
-                if config.structure_name not in ["ptv", "ctv", "PTV", "CTV"]:
+                if config.structure_name not in target_structure_names:
                     raise ValueError(
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
@@ -1508,8 +1511,8 @@ class BrachyPlan:
                 origin=self.phantom.image_obj.origin,
                 spacing=self.phantom.image_obj.spacing,
                 name=(
-                    f"hotspot_estimator:catheter_{(dwellpair["dwell_pair"])[0]["catheter"]}_dwell_{(dwellpair["dwell_pair"])[0]["dwell"]}"
-                    + f"/catheter_{(dwellpair["dwell_pair"])[1]["catheter"]}_dwell_{(dwellpair["dwell_pair"])[1]["dwell"]}"
+                    f"hotspot_estimator:catheter_{(dwellpair['dwell_pair'])[0]['catheter']}_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
+                    + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
                     ),
             )
             self.structure_list.append(
@@ -1521,7 +1524,8 @@ class BrachyPlan:
                     optimization_config=config
                 )
             )
-            self.phantom.set_structure_set({dwell_contour.name: dwell_contour}, useVTK=False)
+            self.phantom.set_structure_set({dwell_contour.name: dwell_contour})
+
 def _export_single_dose_rate(
     dose_grid: np.array,
     dwell_number: int,

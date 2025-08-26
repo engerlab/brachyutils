@@ -9,14 +9,14 @@ from pathlib import Path
 from gurobipy import Model, Var, GRB, MVar
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    DwellTimeOptimizer_ABC, BrachyDwellTime_ABC, crop_mask_resample_dose_rate_map
+    BrachyDwellTimeOptim, BrachyDwellTime, crop_mask_resample_dose_rate_map
 )
 
-class DwellTime_Gurobi(BrachyDwellTime_ABC):
+class DwellTime_Gurobi(BrachyDwellTime):
     r"""
     ### Purpose:
     - A class to represent a DwellTimeVariable in the dwell time optimization problem using Gurobi.
-    See `BrachyDwellTime_ABC` for more details on the attributes and methods.
+    See `BrachyDwellTime` for more details on the attributes and methods.
     """
     def build_backend_variable(self, model):
         if not isinstance(model, Model):
@@ -30,7 +30,7 @@ class DwellTime_Gurobi(BrachyDwellTime_ABC):
 
     def set_bounds(self, *, lower_bound: float | None = None, upper_bound: float | None = None) -> None:
         r"""
-        See `BrachyDwellTime_ABC.set_bounds` for details.
+        See `BrachyDwellTime.set_bounds` for details.
         """
         if lower_bound is not None:
             self.lower_bound = lower_bound
@@ -50,11 +50,11 @@ class DwellTime_Gurobi(BrachyDwellTime_ABC):
         super().__init__(**data)
         self.build_backend_variable(model) 
 
-class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
+class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
     r"""
     ### Purpose:
     - A class using Gurobi to do dwell time optimization.
-    See `DwellTimeOptimizer_ABC` for more details on the attributes and methods.
+    See `BrachyDwellTimeOptim` for more details on the attributes and methods.
     """
     def __init__(
         self,
@@ -90,7 +90,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         pth_logfile:str = None) -> Model:
         r"""
         ### Purpose:
-        - See `DwellTimeOptimizer_ABC.initialize_model` for details.
+        - See `BrachyDwellTimeOptim.initialize_model` for details.
         ### Inputs:
         - solver:str := The name of the solver to be used. Default is None.
         - pth_logfile:str := The path to the log file for the solver. Default is None.
@@ -114,7 +114,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         upper_bound: float = 100,
     ) -> List[DwellTime_Gurobi]:
         r"""
-        See `BrachyDwellTime_ABC.set_dwellTimeVariables` for details.
+        See `BrachyDwellTime.set_dwellTimeVariables` for details.
         """
         if self.model is None:
             raise ValueError("Model is not initialized. Please initialize the model first.")
@@ -144,7 +144,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
     ) -> List[List[float]]:
         r"""
-        See `BrachyDwellTime_ABC_ABC.get_optimization_roi_bounds` for details.
+        See `BrachyDwellTime_ABC.get_optimization_roi_bounds` for details.
         """
         return super().get_optimization_roi_bounds(
             plan=plan,
@@ -181,6 +181,9 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         ### Outputs:
         None - sets up the model objective function and constraints directly
         """
+        if not plan.structure_list:
+            raise ValueError("Plan does not contain any structures.")
+
         from scipy import sparse as sp
         penalty_terms = {
         "linear": 0,
@@ -327,7 +330,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
     def run(self):
         r"""
         ### Purpose:
-        - A function to run the optimizer. See `DwellTimeOptimizer_ABC.run` for details. 
+        - A function to run the optimizer. See `BrachyDwellTimeOptim.run` for details. 
         """
         time_start = time.time()
         self.model.optimize()
@@ -344,7 +347,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         inplace=True,
         ) -> BrachyPlan | None:
         r"""
-        See `BrachyDwellTime_ABC.get_optimized_plan_from_model` for details.
+        See `BrachyDwellTime.get_optimized_plan_from_model` for details.
         """
         if self.plan is None:
             raise ValueError("Plan is not set. Please set the plan first.")
@@ -389,7 +392,7 @@ class BrachyOptim_Gurobi(DwellTimeOptimizer_ABC):
         upper_bound: float = None
         ) -> None:
         r"""
-        See `BrachyDwellTime_ABC.bound_dwell_time` for details.
+        See `BrachyDwellTime.bound_dwell_time` for details.
         """
         for variable in self.dwellTimeVariables:
             if variable.name == name:

@@ -55,7 +55,7 @@ def test_write_structures_to_nrrd():
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
     pth_out = "data_test/test_export_plan/prostate/prostate_glen_p1_structs.seg.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
-    phantom_obj.write_structures_to_nrrd(pth_out, overlap=False)
+    phantom_obj.write_structures_to_nrrd(pth_out, overlap=True)
 
 
 def test_write_structures_to_dicom():
@@ -371,7 +371,7 @@ if __name__ == "__main__":
     # test_get_structure_mask()
     # test_write_image_to_dicom()
     # test_write_image_to_nrrd()
-    # test_write_structures_to_nrrd()
+    test_write_structures_to_nrrd()
     # test_write_structures_to_dicom()
     # test_read_structures_from_nrrd()
     # test_write_to_egsphant()
@@ -391,4 +391,4 @@ if __name__ == "__main__":
     # test_catheter_to_mrk_json()
     # test_get_delivered_catheter_table()
     # test_generate_sphere_mask()
-    test_load_pet_dicom()
+    # test_load_pet_dicom()

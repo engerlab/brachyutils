@@ -185,7 +185,7 @@ def eval_single_registration(
     )
 
     reg_obj.register(
-        pth_phantom_export=essential_inputs.get("dir_registered"),
+        dir_phantom_export=essential_inputs.get("dir_registered"),
         **kwargs
     )
     return {Path(essential_inputs.get("pth_static_image")).stem: reg_obj.evaluate_on_contours()}

@@ -112,12 +112,12 @@ class BrachyPhantomRegistration(ABC):
             raise ValueError("The registration target is not defined. If registering based on images, do not provide contour name. else ensure contour is loaded in phantom.")
 
     @abstractmethod
-    def register(self, pth_phantom_export: str | Path = None) -> tuple[BrachyPhantom, Transform3D]:
+    def register(self, dir_phantom_export: str | Path = None) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         Purpose:
             - Register the moving phantom to the static phantom.
         Inputs:
-            - pth_phantom_export := if provided, the registered phantom will be exported to this directory.
+            - dir_phantom_export := if provided, the registered phantom will be exported to this directory.
         Outputs:
             - BrachyPhantom: The registered phantom object.
         """
@@ -183,51 +183,37 @@ class BrachyPhantomRegistration(ABC):
             # create a new contour based on the registered mask.
             new_contour = ROIMask(
                 name=self.register_on_contour,
-                imageArray=self._registered_data.imageArray,
+                imageArray=self._registered_data.imageArray.astype(bool),
                 origin=self._registered_data.origin,
                 spacing=self._registered_data.spacing,
             )
             self.registered_phantom.set_structure_set({self.register_on_contour: new_contour})
 
-        # deform the image based on the registered structure
-        if self.register_on_contour is not None:
-            self.registered_phantom.image_obj = self.deformation.deformImage(
-                self.registered_phantom.image_obj
-                )
-            self.registered_phantom.image_obj = resampleImage3DOnImage3D(
-                self.registered_phantom.image_obj,
-                self._static_data
-            )
-            # apply the deformation to the image and the rest of the contours.
-            if self.registered_phantom.image_obj.name.endswith("_copy"):
-                self.registered_phantom.image_obj.name = (
-                    self.registered_phantom.image_obj.name.replace("_copy", "")
-                )
-
         structure_mask_dict = self.registered_phantom.get_structure_mask(
             self.registered_phantom.structure_names,
             mask_type=ROIMask
         )
-
-        if not structure_mask_dict:
-            print("No structure masks found in the registered phantom.")
-            return
-
-        for contour_name in structure_mask_dict:
-            # skip the contour that was transformed
-            if contour_name == self.register_on_contour:
+        all_data = structure_mask_dict | {"image": self.registered_phantom.image_obj}
+        for data_name in all_data:
+            if data_name == self.register_on_contour:
                 continue
-            if structure_mask_dict[contour_name] is None:
-                continue
-            new_mask = self.deformation.deformImage(structure_mask_dict[contour_name])
-            new_mask = resampleImage3DOnImage3D(
-                new_mask,
-                self._static_data
+            deformed_data = self.deformation.deformImage(all_data[data_name])
+            deformed_data = resampleImage3DOnImage3D(
+                deformed_data,
+                self._static_data,
             )
-            if new_mask.name.endswith("_copy"):
-                new_mask.name = new_mask.name.replace("_copy", "")
-            structure_mask_dict[contour_name] = new_mask
-
+            if deformed_data.name.endswith("_copy"):
+                deformed_data.name = deformed_data.name.replace("_copy", "")
+            if data_name == "image":
+                self.registered_phantom.image_obj = deformed_data
+            else:
+                structure_mask_dict[data_name] = ROIMask(
+                    name=data_name,
+                    imageArray=deformed_data.imageArray.astype(bool),
+                    origin=deformed_data.origin,
+                    spacing=deformed_data.spacing,
+                )
+        # update the registered phantom structure set with the deformed contours                
         self.registered_phantom.set_structure_set(structure_mask_dict)
 
     @abstractmethod
@@ -295,8 +281,8 @@ class BrachyPhantomRegistration(ABC):
             if reg == self.register_on_contour:
                 continue
             dice_score = 1 - dice(
-                registered_contours.get(reg).imageArray.flatten(),
-                static_contours.get(static).imageArray.flatten()
+                u=registered_contours.get(reg).imageArray.flatten(),
+                v=static_contours.get(static).imageArray.flatten()
             )
             hausdorff_distance = float(
                 compute_hausdorff_distance(
