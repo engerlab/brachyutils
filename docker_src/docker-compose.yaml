@@ -88,7 +88,7 @@ services:
     volumes:
       # - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/app/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
       # - ${HOST_HOME}:/app/YourLocalHome
-      - mc-volume:/app/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data
+      - ${HOST_HOME}/Software/brachyutils/temp_data/mc:/app/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.11
@@ -108,7 +108,7 @@ services:
     volumes:
       # - ${HOST_HOME}/Software/TG43_Dose_Calculation_Standalone:/app/Software/TG43_Dose_Calculation_Standalone
       # - ${HOST_HOME}:/app/YourLocalHome
-      - tg43-volume:/app/Software/TG43_Dose_Calculation_Standalone/temp_data
+      - ${HOST_HOME}/Software/brachyutils/temp_data/tg43:/app/Software/TG43_Dose_Calculation_Standalone/temp_data
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.12
