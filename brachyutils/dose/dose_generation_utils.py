@@ -135,7 +135,7 @@ class DoseTG43(BrachyDoseGenerator):
                     "pth_mac": str(pth_mac) if pth_mac is not None else None,
                     "num_threads": str(num_threads) if num_threads is not None else None,
                     "dir_source_parameters": str(dir_source_parameters) if dir_source_parameters is not None else None,
-                    "output_dose_per_dwell": output_dose_per_dwell
+                    "output_dose_per_dwell": output_dose_per_dwell,
                     "using_imbt_plan": str(using_imbt_plan) if using_imbt_plan is not None else None,
                     "shield_model": str(shield_model) if shield_model is not None else None,
                     "critical_angle": str(critical_angle) if critical_angle is not None else None,
