@@ -450,7 +450,7 @@ class BrachyPlan:
                     "y": float(self.dwell_coordinates[dwell_i - 1]["position"][1]),
                     "z": float(self.dwell_coordinates[dwell_i - 1]["position"][2]),
                 }
-                dwell["relativePos"] = int(
+                dwell["relativePos"] = float(
                     self.dwell_coordinates[dwell_i - 1]["relativePos"]
                 )
                 dwell["rotation"] = {
@@ -524,9 +524,21 @@ class BrachyPlan:
             dosefile for dosefile in dose_rate_files if "combined" not in dosefile
         ]
 
+        def get_dwell_order(dose_rate_path):
+            """
+            Files should have this format:
+            run_{catheter#}_{Dwell#incatheter}_{shieldangle}.seq.nrrd
+            Assuming that there are less than 10000 dwell positions per catheter
+            We order based on 10000 * catheter# + Dwell#incatheter
+            """
+            x = os.path.basename(dose_rate_path).split(".")[0][4:]
+            catheter_nb, dwell_nb, shield_angle = x.split("_")
+            return 10000 * int(catheter_nb) + int(dwell_nb)
+
         dose_rate_files.sort(
-            key=lambda x: int(os.path.basename(x).split(".")[0].split("_")[-1])
+            key=lambda x: get_dwell_order(x)
         )
+
         assert (
             len(dose_rate_files) == self.num_dwells
         ), ("number of dose rate files does not match the number of dwell positions"
@@ -1152,7 +1164,6 @@ class BrachyPlan:
         combined_plan += f"{self.num_dwells} Control Points\n"
 
         for dwell_i in range(self.num_dwells):
-
             dwell_coordinates_str = np.array(
                 list(self.dwell_coordinates[dwell_i]["position"])
                 + list(self.dwell_coordinates[dwell_i]["rotation"])
@@ -1171,9 +1182,11 @@ class BrachyPlan:
                 + "\n"
             )
 
+            catheter_idx = self.dwell_coordinates[dwell_i]["catheter_index"]
+            dwell_idx = self.dwell_coordinates[dwell_i]["dwell_index"]
             combined_plan += "Control Point\n"
             combined_plan += f"weight = {self.dwell_times[dwell_i]/total_dwell_time}\n"
-            combined_plan += "1 Dwell Position\n"
+            combined_plan += f"1 Dwell Position - Catheter {catheter_idx + 1}\n"
             combined_plan += dwell_coordinates_str
 
             run_i_plan = "Treatment Plan\n"
@@ -1181,7 +1194,10 @@ class BrachyPlan:
             run_i_plan += "Control Point\nweight = 1.0\n"
             run_i_plan += "1 Dwell Position\n"
             run_i_plan += dwell_coordinates_str
-            with open(dir_export + f"/dwell_{dwell_i + 1}.plan", "w") as file:
+            # Not dealing with shield angle for now but the new convention for filename is
+            # xxx_catheter#_dwell#_shieldangle.plan
+            shield_angle = 0
+            with open(dir_export + f"/dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan", "w") as file:
                 file.write(run_i_plan)
 
         with open(dir_export + "/combined.plan", "w") as file:
@@ -1224,10 +1240,16 @@ class BrachyPlan:
         - simulation_utils
         """
         for dwell_i in range(self.num_dwells):
+
+            catheter_idx = self.dwell_coordinates[dwell_i]["catheter_index"]
+            dwell_idx = self.dwell_coordinates[dwell_i]["dwell_index"]
+            # Not dealing with shield angle for now but the new convention for filename is
+            # xxx_catheter#_dwell#_shieldangle.plan
+            shield_angle = 0
             sim_obj = deepcopy(self.simulation_setup)
-            sim_obj.pth_plan = f"dwell_{dwell_i + 1}.plan"
+            sim_obj.pth_plan = f"dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan"
             sim_obj.total_time = 1
-            with open(dir_export + f"/run_{dwell_i + 1}.mac", "w") as file:
+            with open(dir_export + f"/run_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.mac", "w") as file:
                 file.write(sim_obj.to_string())
 
         self.simulation_setup.total_time = np.sum(self.dwell_times)
@@ -1573,7 +1595,7 @@ def _load_single_dose_or_uncertainty_to_dict(
     ### Dependencies:
     - BrachyDose()
     """
-    print("loading dose or uncertainty from:", pth_dose_rate)
+    # print("loading dose or uncertainty from:", pth_dose_rate)
     dose_obj = BrachyDose(pth_dose_rate)
     if load_dose_or_uncertainty == "both":
         dose_or_uncert_map = np.zeros(
