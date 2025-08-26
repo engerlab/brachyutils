@@ -67,8 +67,12 @@ class DoseTG43(BrachyDoseGenerator):
         self,
         dir_output: Optional[str] = None,
         dose_output_extension: Optional[Literal[".3ddose", ".nrrd"]] = ".nrrd",
-        num_threads: Optional[int] = 4,
-        dir_source_parameters: Optional[str] = "./SourceParameters/microSelectron-v2",
+        pth_egsphant: Optional[Path] = None,
+        pth_plan: Optional[Path] = None,
+        pth_mac: Optional[Path] = None,
+        num_threads: Optional[int] = 12,
+        output_dose_per_dwell: Optional[bool] = False,
+        dir_source_parameters: Optional[str] = "SourceParameters/microSelectron-v2",
         using_imbt_plan: Optional[bool] = False,
         shield_model: Optional[Literal["step", "tanh"]] = None,
         critical_angle: Optional[float] = None,
@@ -76,22 +80,35 @@ class DoseTG43(BrachyDoseGenerator):
         rotation_angle_config: Optional[str] = None,
     ):
         r"""
-        Purpose:
-            - Generate the dose distribution using the TG43 formalism.
-        Inputs:
-            - dir_output: str := The directory to save the dose distribution. If left empty,
-            the dose will be saved to dir_plan_export.
-            - dose_output_extension: Literal[".3ddose", ".nrrd"] := The format of the dose files.
-            - num_threads: int := The number of threads to use for the dose calculation. leave it at 4.
-            - dir_source_parameters: str:= The directory to the source parameters. Leave it at the default.
-            - using_imbt_plan: bool := Whether the plan is using the IMBT technique.
-            - shield_model: Optional[Literal["step", "tanh"]] := The model to use for the shield. The default is None.
-            - critical_angle: Optional[float] := The critical angle for the phi dependence function, if necessary.
-            - correction_angle: Optional[float] := The correction angle for the phi dependence function, if necessary.
-            - rotation_angle_config- [optional] either a nine-character string representing the start, end, and increment
-            angles (e.g. 000220015 for IMBT delievered from 0-220 degree increments) or a path to the
-            catheter_table.json file where this information can be extracted.
-        Outputs:
+        ### Purpose:
+        - To define the input parameters for the calculate_dose function.
+        
+        ### Inputs:
+        - dir_dose_setup: str := The directory where the dose setup files are stored. This directory
+            should containe the egsphant file, plan files, and mac files. it can also contain the
+            the optional applicator_geometry.json file.
+        - dir_output: Optional[str] := The directory where the dose files will be written.
+            If None, the dose files will be written to the dir_dose_setup directory.    
+        - dose_output_extension: Literal[".3ddose", ".nrrd"] := The extension of the
+            dose files that are written by the executable. The default is ".nrrd".
+        - pth_egsphant: Optional[Path] := The path to the egsphant file (.egsphant or .seq.nrrd).
+            If None, the function will search for a single .egsphant file in the dir_dose_setup directory.
+        - pth_plan: Optional[Path] := The path to the plan file (.plan).
+        - pth_mac: Optional[Path] := The path to the mac file (.mac).
+        - num_threads: Optional[int] := The number of threads to use for the calculation. The default is 4.
+        - output_dose_per_dwell[boolean] := A flag to indicate if the dose per dwell position should be output.
+            The default is "false". Other options are "true" and "dose_rate".
+        - dir_source_parameters: Optional[str] := The directory where the source parameters are stored.
+            The default is "./SourceParameters/microSelectron-v2".
+        - using_imbt_plan: Optional[bool] := a binary flag to indicate if the plan is an IMBT plan.
+        - shield_model: Optional[Literal["step", "tanh"]] := The model to use for the shield. The default is None.
+        - critical_angle: Optional[float] := The critical angle for the phi dependence function, if necessary.
+        - correction_angle: Optional[float] := The correction angle for the phi dependence function, if necessary.
+        - rotation_angle_config- [optional] either a nine-character string representing the start, end, and increment
+        angles (e.g. 000220015 for IMBT delievered from 0-220 degree increments) or a path to the
+        catheter_table.json file where this information can be extracted.
+        
+        ### Outputs:
             - response: The response from the dose executable. God know what it is.
         """
         if "http" in self.pth_dose_executable:
@@ -104,8 +121,12 @@ class DoseTG43(BrachyDoseGenerator):
                     "dir_dose_setup": str(self.dir_plan_export),
                     "dir_output": str(dir_output) if dir_output is not None else None,
                     "dose_output_extension": str(dose_output_extension) if dose_output_extension is not None else None,
+                    "pth_egsphant": str(pth_egsphant) if pth_egsphant is not None else None,
+                    "pth_plan": str(pth_plan) if pth_plan is not None else None,
+                    "pth_mac": str(pth_mac) if pth_mac is not None else None,
                     "num_threads": str(num_threads) if num_threads is not None else None,
                     "dir_source_parameters": str(dir_source_parameters) if dir_source_parameters is not None else None,
+                    "output_dose_per_dwell": "true" if output_dose_per_dwell else "false",
                     "using_imbt_plan": str(using_imbt_plan) if using_imbt_plan is not None else None,
                     "shield_model": str(shield_model) if shield_model is not None else None,
                     "critical_angle": str(critical_angle) if critical_angle is not None else None,

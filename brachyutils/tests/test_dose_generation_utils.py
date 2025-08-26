@@ -73,7 +73,7 @@ def test_DoseTG43():
         pth_dose_executable=pth_exectuable,
     )
     # dose_generator.validate_inputs()
-    dose_generator.generate_dose()
+    dose_generator.generate_dose(output_dose_per_dwell=True, num_threads=16)
 
 
 def test_DoseMC():
