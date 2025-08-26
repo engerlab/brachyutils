@@ -8,10 +8,10 @@ from brachyutils.geometry.phantom_utils import BrachyPhantom
 
 from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
 from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
-from ai_assisted_brachy.catheter.catheter_api import CreatedSetUp
 from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position, CatheterSetUp
-from ai_assisted_brachy.catheter.catheter_api import dicom_to_catheter_table, _update_catheter_table
-from ai_assisted_brachy.catheter.catheter_api import ct_to_catheter_table
+from ai_assisted_brachy.catheter.catheter_api import (
+    dicom_to_catheter_table, _update_catheter_table, ct_to_catheter_table, CreatedSetUp
+)
 
 class DwellPosition(BaseModel):
     r"""
@@ -83,11 +83,24 @@ class DwellPosition(BaseModel):
             "index": int(self.index),
             "angle": float(self.angle),
             "position": list(self.position),
-            "relativePos": int(self.relativePos),
+            "relativePos": float(self.relativePos),
             "rotation": list(self.rotation),
             "time": float(self.time),
             "weight": float(self.weight(total_time)),
         }
+    
+    def get_position(self) -> List[float]:
+        r"""
+        ### Purpose:
+        - To get the position of the dwell position.
+        
+        ### Inputs:
+        - self := the DwellPosition object.
+        
+        ### Outputs:
+        - List[float] := the position of the dwell position.
+        """
+        return self.position
 
 class Catheter(BaseModel):
     r"""
@@ -302,6 +315,19 @@ class Catheter(BaseModel):
         # generate the dwell positions and return them
         return [DwellPosition(**dwell) for dwell in dwell_positions]
 
+    def get_dwell_positions_as_list(self) -> List[List[float]]:
+        r"""
+        ### Purpose:
+        - To get the dwell positions as a list of lists.
+
+        ### Inputs:
+        - self := the Catheter object.
+
+        ### Outputs:
+        - List[List[float]] := the list of dwell positions.
+        """
+        return [dwell.get_position() for dwell in self.dwells]
+    
     @classmethod
     def get_fit_from_points(cls, points:List[List[float]]) -> PiecewiseLinear3D:
         r"""
@@ -460,13 +486,14 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - dict := the dictionary containing the catheter table.
         """
+        treatment_t = self.treatment_time
         return {
             "catheter_list": [
-                catheter.to_dict(total_time=catheter.channel_total_time) 
+                catheter.to_dict(total_time=treatment_t) 
                 for catheter in self.catheter_list
                 ],
             "step_size": self.step_size,
-            "treatment_time": self.treatment_time
+            "treatment_time": treatment_t
         }
     def info(self) -> None:
         r"""
@@ -676,3 +703,19 @@ class CatheterTable(BaseModel):
 
         cat_table_dict = ct_to_catheter_table(image=image)
         return cat_table_dict
+    
+    def get_dwell_positions_as_list(self) -> List[List[float]]:
+        r"""
+        ### Purpose:
+        - To get the dwell positions as a list from all catheters in the catheter table.
+        
+        ### Inputs:
+        - self := the CatheterTable object.
+        
+        ### Outputs:
+        - List[List[float]] := the list of dwell positions from all catheters.
+        """
+        dwell_positions = []
+        for catheter in self.catheter_list:
+            dwell_positions.extend(catheter.get_dwell_positions_as_list())
+        return dwell_positions
