@@ -16,7 +16,7 @@ class DwellPosition(Protocol):
     index: int
     angle: float
     position: List[float] | Dict[str, float]
-    relativePos: int
+    relativePos: float
     rotation: List[float] | Dict[str, float]
     time: float
 

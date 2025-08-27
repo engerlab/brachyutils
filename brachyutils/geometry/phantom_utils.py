@@ -353,7 +353,7 @@ class BrachyPhantom:
         ), "structure masks have not been loaded yet. please run load_structure_file() first"
         mask_dict: dict = {}
         flattened_query_structure_list = []
-
+      
         for query_structure in query_structure_list:
             if isinstance(query_structure, list):
                 flattened_query_structure_list.extend(query_structure)
@@ -973,7 +973,8 @@ class BrachyPhantom:
     def rename_structures(self, structure_name_dict: dict) -> None:
         r"""
         Purpose:
-            - Rename the structures in the structure set.
+            - First purpose is to rename the structures in the structure set.
+            - Additional purpose is to remove structures if their new name is 'REMOVE'.
         
         Inputs:
             - structure_name_dict: dict := the dictionary of the structure names to rename.
@@ -983,6 +984,9 @@ class BrachyPhantom:
             - None
         """
         for old_name, new_name in structure_name_dict.items():
+            if new_name == "REMOVE":
+                self.remove_structure(old_name)
+                continue
             structure = self.structure_set.getContourByName(old_name)
             if structure is not None:
                 structure.name = new_name

@@ -71,7 +71,7 @@ class DoseTG43(BrachyDoseGenerator):
         pth_plan: Optional[Path] = None,
         pth_mac: Optional[Path] = None,
         num_threads: Optional[int] = 12,
-        output_dose_per_dwell: Optional[bool] = False,
+        output_dose_per_dwell: Optional[Literal[True, False, "dose_rate"]] = False,
         dir_source_parameters: Optional[str] = "SourceParameters/microSelectron-v2",
         using_imbt_plan: Optional[bool] = False,
         shield_model: Optional[Literal["step", "tanh"]] = None,
@@ -96,8 +96,8 @@ class DoseTG43(BrachyDoseGenerator):
         - pth_plan: Optional[Path] := The path to the plan file (.plan).
         - pth_mac: Optional[Path] := The path to the mac file (.mac).
         - num_threads: Optional[int] := The number of threads to use for the calculation. The default is 4.
-        - output_dose_per_dwell[boolean] := A flag to indicate if the dose per dwell position should be output.
-            The default is "false". Other options are "true" and "dose_rate".
+        - output_dose_per_dwell[str] := A flag to indicate if the dose per dwell position should be output.
+            The default is "false". Other options are "true" and "dose_rate". for optimization, select "dose_rate".
         - dir_source_parameters: Optional[str] := The directory where the source parameters are stored.
             The default is "./SourceParameters/microSelectron-v2".
         - using_imbt_plan: Optional[bool] := a binary flag to indicate if the plan is an IMBT plan.
@@ -111,6 +111,15 @@ class DoseTG43(BrachyDoseGenerator):
         ### Outputs:
             - response: The response from the dose executable. God know what it is.
         """
+        if output_dose_per_dwell == True:
+            output_dose_per_dwell = "true"
+        elif output_dose_per_dwell == False:
+            output_dose_per_dwell = "false"
+        elif output_dose_per_dwell == "dose_rate":
+            output_dose_per_dwell = "dose_rate"
+        else:
+            raise ValueError("Invalid value for output_dose_per_dwell.")
+
         if "http" in self.pth_dose_executable:
             # use fast api post to request the dose calculation
             import requests
@@ -126,7 +135,7 @@ class DoseTG43(BrachyDoseGenerator):
                     "pth_mac": str(pth_mac) if pth_mac is not None else None,
                     "num_threads": str(num_threads) if num_threads is not None else None,
                     "dir_source_parameters": str(dir_source_parameters) if dir_source_parameters is not None else None,
-                    "output_dose_per_dwell": "true" if output_dose_per_dwell else "false",
+                    "output_dose_per_dwell": output_dose_per_dwell,
                     "using_imbt_plan": str(using_imbt_plan) if using_imbt_plan is not None else None,
                     "shield_model": str(shield_model) if shield_model is not None else None,
                     "critical_angle": str(critical_angle) if critical_angle is not None else None,
