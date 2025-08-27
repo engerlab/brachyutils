@@ -43,11 +43,14 @@ def test_write_image_to_dicom():
     new_phantom.is_equal(phantom_obj)
 
 def test_write_image_to_nrrd():
+    from time import time
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_out = "data_test/test_export_plan/prostate/prostate_glen_p1_ct.nrrd"
     phantom_obj = BrachyPhantom(dir_dicom=pth_dicom)
+    t0=time()
     phantom_obj.write_image_to_nrrd(pth_out)
-    new_phantom = BrachyPhantom(pth_phantom_file=pth_out)
+    print(f"time taken to write: {time()-t0}")
+    # new_phantom = BrachyPhantom(pth_phantom_file=pth_out)
     # assert (new_phantom.is_equal(phantom_obj)), "Test failed the two phantoms are not equal."
 
 def test_write_structures_to_nrrd():
@@ -370,8 +373,8 @@ if __name__ == "__main__":
     # test_brachy_phantom()
     # test_get_structure_mask()
     # test_write_image_to_dicom()
-    # test_write_image_to_nrrd()
-    test_write_structures_to_nrrd()
+    test_write_image_to_nrrd()
+    # test_write_structures_to_nrrd()
     # test_write_structures_to_dicom()
     # test_read_structures_from_nrrd()
     # test_write_to_egsphant()

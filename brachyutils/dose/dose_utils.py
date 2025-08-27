@@ -715,7 +715,7 @@ class BrachyDose:
         # header["spacing"] = [np.nan] + self.dose_image.spacing.tolist()
         # header["space units"] = ["None", "mm", "mm", "mm"]
         dose_uncertainty_array = np.stack([dose_array, uncertainty_array], axis=3)
-        nrrd.write(str(pth_output), dose_uncertainty_array, header, index_order="C")
+        nrrd.write(str(pth_output), dose_uncertainty_array, header, index_order="C", compression_level=1)
 
     def write_to_npz(self, file_name: str):
         r"""

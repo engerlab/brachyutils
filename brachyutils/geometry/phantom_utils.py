@@ -539,7 +539,7 @@ class BrachyPhantom:
 
     def write_image_to_nrrd(
         self,
-        pth_output: Path,
+        pth_output: Path | str,
         metadata: Optional[Dict[str, str]] = None,
         ) -> None:
         r"""
@@ -564,7 +564,7 @@ class BrachyPhantom:
         ), "the file should have '.nrrd' extension"
         imageToNrrd(
             image_obj=self.image_obj,
-            pth_output=pth_output,
+            pth_output=Path(pth_output),
             anatomical_coordinate_system=self.anatomical_coordinate_system,
             modality=self.image_modality,
             metadata=metadata,
@@ -1649,7 +1649,7 @@ def imageToNrrd(
     header["space units"] = ["mm", "mm", "mm"]
     header["modality"] = modality
     header = header | metadata if metadata is not None else header
-    nrrd.write(str(pth_output), image_array_zyx, header, index_order="C")
+    nrrd.write(str(pth_output), image_array_zyx, header, index_order="C", compression_level=1)
 
 def masksToNrrd(
         structure_mask_dict: Dict[str, ROIMask],
@@ -1760,7 +1760,7 @@ def masksToNrrd(
         header = header | metadata if metadata is not None else header
 
         # # Write the image
-        nrrd.write(str(pth_output), all_masks, header, index_order="C")
+        nrrd.write(str(pth_output), all_masks, header, index_order="C", compression_level=1)
 
 
 # Conversion utilities for phantom files

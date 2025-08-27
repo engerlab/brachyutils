@@ -581,7 +581,7 @@ class BrachyEgsphant:
         header["spacing"] = [np.nan] + self.density_image.spacing.tolist()
         header = header | {"material_dict": dict(self.material_dict)}
         # header["space units"] = ["", "mm", "mm", "mm"]
-        nrrd.write(str(fileName), material_density, header, index_order="C")
+        nrrd.write(str(fileName), material_density, header, index_order="C", compression_level=1)
 
     def is_equal(self, new_BrachyEgsphant):
         r"""
