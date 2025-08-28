@@ -12,32 +12,46 @@ def time_phantom_io(
         pth_phantom_file: Path = None,
         pth_structures_file: Path = None,
     ):
-        t0_read = time()
-        phantom_obj = BrachyPhantom(
-            dir_dicom=dir_dicom,
-            pth_phantom_file=pth_phantom_file,
-            pth_structures_file=pth_structures_file
-            )
-        tf_read = time()
-        if type_out == "dicom":
-            phantom_obj.export_to(dir_dicom_out=dir_out)
-        tf_write = time()
-        return (tf_read - t0_read, tf_write - tf_read)
+        try:
+            t0_read = time()
+            phantom_obj = BrachyPhantom(
+                dir_dicom=dir_dicom,
+                pth_phantom_file=pth_phantom_file,
+                pth_structures_file=pth_structures_file
+                )
+            tf_read = time()
+        except Exception as e:
+            t0_read, tf_read = (float("nan"), float("nan"))
+        try:
+            if type_out == "dicom":
+                t0_write = time()
+                phantom_obj.export_to(dir_dicom_out=dir_out)
+            tf_write = time()
+        except Exception as e:
+            t0_write, tf_write = (float("nan"), float("nan"))
+        return (tf_read - t0_read, tf_write - t0_write)
 
 def time_dose_io(
     pth_dose_in: Path,
     pth_dose_out: Path
     ):
-    t0_read = time()
-    dose_obj = BrachyDose(
-        pth_dose_file=pth_dose_in
-    )
-    tf_read = time()
-    dose_obj.write_brachydose_to_file(
-        pth_dose_file=pth_dose_out
-    )
-    tf_write = time()
-    return (tf_read - t0_read, tf_write - tf_read)
+    try:
+        t0_read = time()
+        dose_obj = BrachyDose(
+            pth_dose_file=pth_dose_in
+        )
+        tf_read = time()
+    except Exception as e:
+        t0_read, tf_read = (float("nan"), float("nan"))
+    try:
+        t0_write = time()
+        dose_obj.write_brachydose_to_file(
+            pth_dose_file=pth_dose_out
+        )
+        tf_write = time()
+    except Exception as e:
+        t0_write, tf_write = (float("nan"), float("nan"))
+    return (tf_read - t0_read, tf_write - t0_write)
 
 def eval_dicom_io():
     dir_dicoms = list(Path().home().joinpath("YourLocalHome/Data/prostate-glen-2023").glob("*/"))
@@ -49,8 +63,6 @@ def eval_dicom_io():
         ], index=[dicom.name for dicom in dir_dicoms] + ["average", "std"])
     
     for dicom in dir_dicoms:
-        if "body" in dicom.name.lower():
-            continue
         t_read_scan, t_write_scan = time_phantom_io(
             dir_out=dir_out.joinpath(dicom.name),
             type_out="dicom",
@@ -67,7 +79,11 @@ def eval_dicom_io():
             pth_dose_in=pth_dose_file,
             pth_dose_out=dir_out.joinpath(dicom.name).joinpath(pth_dose_file.name)
         )
-        timing_df.loc[dicom.name] = [t_read_scan, t_write_scan, t_read_scan_seg, t_write_scan_seg, t_read_dose, t_write_dose]
+        timing_df.loc[dicom.name] = [
+            t_read_scan, t_write_scan,
+            t_read_scan_seg, t_write_scan_seg,
+            t_read_dose, t_write_dose
+            ]
 
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()

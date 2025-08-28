@@ -125,6 +125,8 @@ class BrachyDose:
             raise NotImplementedError("Writing to .bindose not implemented")
         else:
             raise ValueError("file extension not recognized")
+        if self.dose_image is None:
+            raise ValueError("dose image not loaded")
         # voxel_centers = self.get_voxel_centers()
         # print(len(self.voxel_edges))
         if self.interpolation_function is None and self.dose_image is not None:
@@ -156,6 +158,9 @@ class BrachyDose:
         elif file_extension == ".nrrd":
             self.write_to_nrrd(pth_dose_file)
 
+        elif file_extension == ".dcm":
+            self.write_to_dicom(pth_dose_file)
+
         elif file_extension == ".npz":
             self.write_to_npz(pth_dose_file)
 
@@ -170,7 +175,6 @@ class BrachyDose:
 
         elif file_extension == ".bindose":
             raise NotImplementedError("Writing to .bindose not implemented")
-
         else:
             raise ValueError(
                 f"The input file name {pth_dose_file} is not supported. the supported \
@@ -741,54 +745,6 @@ class BrachyDose:
             axis=self.voxel_edges,
         )
 
-    def write_to_minidos(self, file_name: str):
-        r"""
-        Purpose:
-            - To save the contents of BrachyDose into a minidos file, which is just a binary file written line by line.
-            This code is based on Maude Robitaille's implementation.
-            This script was developed by Maude Robitaille.
-        inputs:
-            - self := BrachyDose object
-            - file_name := path where the dose minidos file will be written to.
-
-        outputs: Void
-            writes the contents of self:BrachyDose to the file_name.
-        """
-        raise NotImplementedError("Writing to .minidos is no longer supported")
-        assert (
-            os.path.splitext(file_name)[-1] == ".minidos"
-        ), f"the file name {file_name} should have '.minidos' extension."
-        with open(file_name, "wb") as newfile:
-
-            # the first line is the number of voxels along each dimension [x, y , z]
-            dims_array = array("i", self.dose_image.gridSize)
-            dims_array.tofile(newfile)
-
-            # lines 2,3 and 4 are the voxel sizes x, y, z
-            float_array_x = array("f", [self.dose_image.spacing[0]])
-            float_array_x.tofile(newfile)
-            float_array_y = array("f", [self.dose_image.spacing[1]])
-            float_array_y.tofile(newfile)
-            float_array_z = array("f", [self.dose_image.spacing[2]])
-            float_array_z.tofile(newfile)
-
-            # lines 5, 6, 7 are the origins x, y, and z
-            originx_array = array("f", [self.dose_image.origin[0]])
-            originy_array = array("f", [self.dose_image.origin[1]])
-            originz_array = array("f", [self.dose_image.origin[2]])
-
-            originx_array.tofile(newfile)
-            originy_array.tofile(newfile)
-            originz_array.tofile(newfile)
-
-            # lines 8 is just a zero
-            zero = array("i", [0])
-            zero.tofile(newfile)
-
-            # line 9-infinit is the dose per voxel array
-            for d in self.dose_image.imageArray.flatten():
-                array("f", [d]).tofile(newfile)
-
     def write_to_xz(self, fileName):
         assert os.path.splitext(fileName)[-1] == ".xz"
         import pickle
@@ -802,6 +758,11 @@ class BrachyDose:
 
         with pyzstd.open(file_name, "wb", level_or_option=22) as file:
             pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    def write_to_dicom(self, filename:Path | str):
+        from opentps.core.io.dicomIO import writeRTDose
+        filename=Path(filename)
+        writeRTDose(self.dose_image, str(filename.parent), str(filename.name))
 
     def get_voxel_edges(self):
         r"""
