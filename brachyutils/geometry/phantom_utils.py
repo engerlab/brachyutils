@@ -522,9 +522,11 @@ class BrachyPhantom:
             if self.image_modality == "CT":
                 writeDicomCT(self.image_obj, str(dir_output))
             elif self.image_modality == "MR":
-                raise NotImplementedError("MR image writing is not implemented yet")
+                warnings.warn("MR image writing is not implemented yet. writing volume as CT")
+                writeDicomCT(self.image_obj, str(dir_output))
             elif self.image_modality == "US":
-                raise NotImplementedError("US image writing is not implemented yet")
+                warnings.warn("MR image writing is not implemented yet. writing volume as CT")
+                writeDicomCT(self.image_obj, str(dir_output))
             else:
                 raise ValueError("Image modality not recognized")
 
