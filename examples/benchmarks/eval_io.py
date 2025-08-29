@@ -57,7 +57,7 @@ def time_dose_io(
         t0_write, tf_write = (float("nan"), float("nan"))
     return (tf_read - t0_read, tf_write - t0_write)
 
-def eval_dicom_io():
+def eval_dicom_io(dir_dicoms: Path | str, dir_out: Path | str):
     """
     Evaluate DICOM I/O performance by benchmarking read and write operations.
     This function performs timing benchmarks for various DICOM file operations including:
@@ -87,8 +87,8 @@ def eval_dicom_io():
         - time_dose_io(): Times dose file reading/writing operations
     """
     
-    dir_dicoms = list(Path().home().joinpath("YourLocalHome/Data/prostate-glen-2023").glob("*/"))
-    dir_out = Path("temp_data/dicom_io")
+    dir_dicoms = list(Path().home().joinpath(dir_dicoms).glob("*/"))
+    # dir_out = Path("temp_data/dicom_io")
     timing_df = pd.DataFrame(columns=[
         "read_time_scan", "write_time_scan",
         "read_time_scan+seg", "write_time_scan+seg",
@@ -122,7 +122,10 @@ def eval_dicom_io():
     timing_df.loc["std"] = timing_df.std()
     timing_df.to_csv(dir_out.joinpath("timing_dicom_io.csv"))
 
-def convert_dicom_to_nrrd():
+def convert_dicom_to_nrrd(
+    dir_dicoms: Path | str,
+    dir_out: Path | str
+    ):
     """
     Convert DICOM files to NRRD format for brachytherapy data.
     This function processes DICOM directories containing brachytherapy data and converts
@@ -144,8 +147,8 @@ def convert_dicom_to_nrrd():
         Expects DICOM directories to contain RS*.dcm (structure) and RD*.dcm (dose) files.
     """
     
-    dir_dicoms = list(Path().home().joinpath("YourLocalHome/Data/prostate-glen-2023").glob("*/"))
-    dir_out = Path("temp_data/nrrd_io")
+    dir_dicoms = list(Path().home().joinpath(dir_dicoms)).glob("*/")
+    # dir_out = #Path("temp_data/nrrd_io")
     # first converting everything to nrrd files
     for dicom in dir_dicoms:
         # Convert DICOM to NRRD
@@ -167,8 +170,34 @@ def convert_dicom_to_nrrd():
             print(f"Error converting {dicom.name} to NRRD: {e}")
             continue
 
-def eval_nrrd_io():
-    dir_nrrds = list(Path("temp_data/nrrd_io").glob("*/"))
+def eval_nrrd_io(dir_nrrds: Path | str):
+    """
+    Evaluate NRRD file I/O performance by timing read and write operations.
+    This function benchmarks the performance of reading and writing NRRD files
+    for medical imaging data, including both scan data and segmentation data.
+    It processes all subdirectories in the given path and measures timing for
+    different I/O operations.
+    Args:
+        dir_nrrds (Path | str): Path to directory containing subdirectories with
+            NRRD files. Each subdirectory should contain:
+            - A scan file named "{subdirectory_name}.nrrd"
+            - A segmentation file named "{subdirectory_name}.seg.nrrd"
+    Returns:
+        None: Results are saved to a CSV file named "timing_nrrd_io.csv" in the
+        parent directory of the input path.
+    Output CSV columns:
+        - read_time_scan: Time to read scan NRRD file
+        - write_time_scan: Time to write scan NRRD file
+        - read_time_scan+seg: Time to read scan + segmentation NRRD files
+        - write_time_scan+seg: Time to write scan + segmentation NRRD files
+        - average: Mean values across all files
+        - std: Standard deviation across all files
+    Note:
+        The function uses tqdm for progress tracking and pandas for data management.
+        Each subdirectory name is used as an index in the resulting DataFrame.
+    """
+    
+    dir_nrrds = list(Path(dir_nrrds).glob("*/"))
     timing_df = pd.DataFrame(columns=[
         "read_time_scan", "write_time_scan",
         "read_time_scan+seg", "write_time_scan+seg",
@@ -209,8 +238,16 @@ def eval_egs_io():
 
 
 if __name__ == "__main__":
-    # eval_dicom_io()
-    # convert_dicom_to_nrrd()
-    eval_nrrd_io()
+    # eval_dicom_io(
+    #     "YourLocalHome/Data/prostate-glen-2023",
+    #     "temp_data/dicom_io"
+    # )
+    # convert_dicom_to_nrrd(
+    #     "YourLocalHome/Data/prostate-glen-2023",
+    #     "temp_data/nrrd_io"
+    # )
+    eval_nrrd_io(
+        "temp_data/nrrd_io"
+    )
     # eval_nifti_io()
     # eval_egs_io()
