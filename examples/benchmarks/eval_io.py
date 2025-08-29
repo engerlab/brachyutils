@@ -54,6 +54,35 @@ def time_dose_io(
     return (tf_read - t0_read, tf_write - t0_write)
 
 def eval_dicom_io():
+    """
+    Evaluate DICOM I/O performance by benchmarking read and write operations.
+    This function performs timing benchmarks for various DICOM file operations including:
+    - Phantom scan reading and writing (CT/MR images)
+    - Phantom scan with segmentation structures reading and writing
+    - Dose file reading and writing
+    The function processes all DICOM directories found in the specified data path,
+    measures execution times for each operation type, and generates statistical
+    summaries (average and standard deviation) of the timing results.
+    Directory Structure Expected:
+        ~/YourLocalHome/Data/prostate-glen-2023/
+        ├── patient1/
+        │   ├── CT*.dcm (scan files)
+        │   ├── RS*.dcm (structure set files)
+        │   └── RD*.dcm (dose files)
+        └── patient2/
+            └── ...
+    Output:
+        Creates a CSV file 'timing_dicom_io.csv' in 'temp_data/dicom_io/' containing
+        timing results for all operations across all processed DICOM directories.
+    Raises:
+        FileNotFoundError: If the specified DICOM data directory doesn't exist
+        IndexError: If required DICOM files (RS*.dcm or RD*.dcm) are not found
+    Note:
+        Requires the following functions to be available:
+        - time_phantom_io(): Times phantom reading/writing operations
+        - time_dose_io(): Times dose file reading/writing operations
+    """
+    
     dir_dicoms = list(Path().home().joinpath("YourLocalHome/Data/prostate-glen-2023").glob("*/"))
     dir_out = Path("temp_data/dicom_io")
     timing_df = pd.DataFrame(columns=[
@@ -90,7 +119,22 @@ def eval_dicom_io():
     timing_df.to_csv(dir_out.joinpath("timing_dicom_io.csv"))
 
 def eval_nrrd_io():
-    pass
+    dir_dicoms = list(Path().home().joinpath("YourLocalHome/Data/prostate-glen-2023").glob("*/"))
+    dir_out = Path("temp_data/dicom_io")
+    timing_df = pd.DataFrame(columns=[
+        "read_time_scan", "write_time_scan",
+        "read_time_scan+seg", "write_time_scan+seg",
+        "read_time_dose", "write_time_dose"
+        ], index=[dicom.name for dicom in dir_dicoms] + ["average", "std"])
+    
+    # first converting everything to nrrd files
+    for dicom in dir_dicoms:
+        # Convert DICOM to NRRD
+        phantom_obj = BrachyPhantom(
+            dir_dicom=dicom,
+            pth_structures_file=list(dicom.glob("RS*.dcm")).pop()
+            )
+        phantom_obj.export_to(dir_nrrd_out=dir_out.joinpath(dicom.name))
 
 def eval_nifti_io():
     pass
