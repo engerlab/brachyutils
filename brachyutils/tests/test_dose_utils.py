@@ -214,8 +214,8 @@ def test_crop_by_dicom_structure():
 
 if __name__ == "__main__":
     # test_load_from_3ddose()
-    # test_load_from_dicom()
-    test_load_from_nrrd()
+    test_load_from_dicom()
+    # test_load_from_nrrd()
     # test_write_to_3ddose()
     # test_write_to_nrrd()
     # test_crop_by_coordinates()

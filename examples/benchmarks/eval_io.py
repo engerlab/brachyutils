@@ -146,9 +146,8 @@ def convert_dicom_to_nrrd(
         Requires BrachyPhantom and BrachyDose classes to be imported and available.
         Expects DICOM directories to contain RS*.dcm (structure) and RD*.dcm (dose) files.
     """
-    
-    dir_dicoms = list(Path().home().joinpath(dir_dicoms)).glob("*/")
-    # dir_out = #Path("temp_data/nrrd_io")
+
+    dir_dicoms = list(Path().home().joinpath(dir_dicoms).glob("*/"))
     # first converting everything to nrrd files
     for dicom in dir_dicoms:
         # Convert DICOM to NRRD
@@ -164,7 +163,7 @@ def convert_dicom_to_nrrd(
                 pth_dose_file=list(dicom.glob("RD*.dcm")).pop()
             )
             dose_obj.write_brachydose_to_file(
-                pth_dose_file=dir_out.joinpath(dicom.name).replace(".dcm", ".seq.nrrd")
+                pth_dose_file=Path(dir_out).joinpath(dicom.name).joinpath(dicom.name+".seq.nrrd")
             )
         except Exception as e:
             print(f"Error converting {dicom.name} to NRRD: {e}")
@@ -201,7 +200,7 @@ def eval_nrrd_io(dir_nrrds: Path | str):
     timing_df = pd.DataFrame(columns=[
         "read_time_scan", "write_time_scan",
         "read_time_scan+seg", "write_time_scan+seg",
-        # "read_time_dose", "write_time_dose"
+        "read_time_dose", "write_time_dose"
         ], index=[nrrd.name for nrrd in dir_nrrds] + ["average", "std"])
 
     for nrrd in tqdm(dir_nrrds):
@@ -216,15 +215,24 @@ def eval_nrrd_io(dir_nrrds: Path | str):
             pth_phantom_file=nrrd.joinpath(nrrd.name+".nrrd"),
             pth_structures_file=nrrd.joinpath(nrrd.name+".seg.nrrd")
         )
-        # pth_dose_file = list(nrrd.glob("RD*.dcm")).pop()
-        # t_read_dose, t_write_dose = time_dose_io(
-        #     pth_dose_in=pth_dose_file,
-        #     pth_dose_out=dir_nrrds.joinpath(nrrd.name).joinpath(pth_dose_file.name)
-        # )
+        try:
+            pth_dose_file = list(nrrd.glob("*.seq.nrrd")).pop()
+            t_read_dose, t_write_dose = time_dose_io(
+                pth_dose_in=pth_dose_file,
+                pth_dose_out=nrrd.joinpath(nrrd.name).joinpath(pth_dose_file.name)
+            )
+        except:
+            timing_df.loc[nrrd.name] = [
+            t_read_scan, t_write_scan,
+            t_read_scan_seg, t_write_scan_seg,
+            float("nan"), float("nan")
+            # t_read_dose, t_write_dose
+            ]
+            continue
         timing_df.loc[nrrd.name] = [
             t_read_scan, t_write_scan,
             t_read_scan_seg, t_write_scan_seg,
-            # t_read_dose, t_write_dose
+            t_read_dose, t_write_dose
             ]
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
@@ -247,7 +255,7 @@ if __name__ == "__main__":
     #     "temp_data/nrrd_io"
     # )
     eval_nrrd_io(
-        "temp_data/nrrd_io"
+        "temp_data/nrrd_io",
     )
     # eval_nifti_io()
     # eval_egs_io()
