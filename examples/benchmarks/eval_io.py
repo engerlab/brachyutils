@@ -2,6 +2,7 @@ from pathlib import Path
 from time import time
 from typing import Literal
 import pandas as pd
+from tqdm import tqdm
 from brachyutils import BrachyPhantom
 from brachyutils import BrachyDose
 
@@ -26,6 +27,9 @@ def time_phantom_io(
             if type_out == "dicom":
                 t0_write = time()
                 phantom_obj.export_to(dir_dicom_out=dir_out)
+            elif type_out == "nrrd":
+                t0_write = time()
+                phantom_obj.export_to(dir_nrrd_out=dir_out)
             tf_write = time()
         except Exception as e:
             t0_write, tf_write = (float("nan"), float("nan"))
@@ -118,23 +122,84 @@ def eval_dicom_io():
     timing_df.loc["std"] = timing_df.std()
     timing_df.to_csv(dir_out.joinpath("timing_dicom_io.csv"))
 
-def eval_nrrd_io():
-    dir_dicoms = list(Path().home().joinpath("YourLocalHome/Data/prostate-glen-2023").glob("*/"))
-    dir_out = Path("temp_data/dicom_io")
-    timing_df = pd.DataFrame(columns=[
-        "read_time_scan", "write_time_scan",
-        "read_time_scan+seg", "write_time_scan+seg",
-        "read_time_dose", "write_time_dose"
-        ], index=[dicom.name for dicom in dir_dicoms] + ["average", "std"])
+def convert_dicom_to_nrrd():
+    """
+    Convert DICOM files to NRRD format for brachytherapy data.
+    This function processes DICOM directories containing brachytherapy data and converts
+    them to NRRD format. It handles both phantom structures and dose data.
+    The function:
+    - Searches for DICOM directories in the user's home directory under 
+      "YourLocalHome/Data/prostate-glen-2023"
+    - Creates BrachyPhantom objects from DICOM files and structure files (RS*.dcm)
+    - Exports phantom data to NRRD format in the output directory
+    - Creates BrachyDose objects from dose files (RD*.dcm)
+    - Writes dose data to NRRD files with .seq.nrrd extension
+    Output files are saved to "temp_data/nrrd_io" directory with subdirectories
+    named after the original DICOM directory names.
+    Raises:
+        Exception: Catches and prints any conversion errors for individual DICOM
+                  directories, then continues processing remaining directories.
+    Note:
+        Requires BrachyPhantom and BrachyDose classes to be imported and available.
+        Expects DICOM directories to contain RS*.dcm (structure) and RD*.dcm (dose) files.
+    """
     
+    dir_dicoms = list(Path().home().joinpath("YourLocalHome/Data/prostate-glen-2023").glob("*/"))
+    dir_out = Path("temp_data/nrrd_io")
     # first converting everything to nrrd files
     for dicom in dir_dicoms:
         # Convert DICOM to NRRD
-        phantom_obj = BrachyPhantom(
-            dir_dicom=dicom,
-            pth_structures_file=list(dicom.glob("RS*.dcm")).pop()
+        try:
+            phantom_obj = BrachyPhantom(
+                dir_dicom=dicom,
+                pth_structures_file=list(dicom.glob("RS*.dcm")).pop()
+                )
+            phantom_obj.export_to(
+                dir_nrrd_out=dir_out.joinpath(dicom.name)
+                )
+            dose_obj = BrachyDose(
+                pth_dose_file=list(dicom.glob("RD*.dcm")).pop()
             )
-        phantom_obj.export_to(dir_nrrd_out=dir_out.joinpath(dicom.name))
+            dose_obj.write_brachydose_to_file(
+                pth_dose_file=dir_out.joinpath(dicom.name).replace(".dcm", ".seq.nrrd")
+            )
+        except Exception as e:
+            print(f"Error converting {dicom.name} to NRRD: {e}")
+            continue
+
+def eval_nrrd_io():
+    dir_nrrds = list(Path("temp_data/nrrd_io").glob("*/"))
+    timing_df = pd.DataFrame(columns=[
+        "read_time_scan", "write_time_scan",
+        "read_time_scan+seg", "write_time_scan+seg",
+        # "read_time_dose", "write_time_dose"
+        ], index=[nrrd.name for nrrd in dir_nrrds] + ["average", "std"])
+
+    for nrrd in tqdm(dir_nrrds):
+        t_read_scan, t_write_scan = time_phantom_io(
+            dir_out=nrrd,
+            type_out="nrrd",
+            pth_phantom_file=nrrd.joinpath(nrrd.name+".nrrd")
+            )
+        t_read_scan_seg, t_write_scan_seg = time_phantom_io(
+            dir_out=nrrd,
+            type_out="nrrd",
+            pth_phantom_file=nrrd.joinpath(nrrd.name+".nrrd"),
+            pth_structures_file=nrrd.joinpath(nrrd.name+".seg.nrrd")
+        )
+        # pth_dose_file = list(nrrd.glob("RD*.dcm")).pop()
+        # t_read_dose, t_write_dose = time_dose_io(
+        #     pth_dose_in=pth_dose_file,
+        #     pth_dose_out=dir_nrrds.joinpath(nrrd.name).joinpath(pth_dose_file.name)
+        # )
+        timing_df.loc[nrrd.name] = [
+            t_read_scan, t_write_scan,
+            t_read_scan_seg, t_write_scan_seg,
+            # t_read_dose, t_write_dose
+            ]
+    timing_df.loc["average"] = timing_df.mean()
+    timing_df.loc["std"] = timing_df.std()
+    timing_df.to_csv(dir_nrrds[0].parent.joinpath("timing_nrrd_io.csv"))
 
 def eval_nifti_io():
     pass
@@ -144,7 +209,8 @@ def eval_egs_io():
 
 
 if __name__ == "__main__":
-    eval_dicom_io()
-    # eval_nrrd_io()
+    # eval_dicom_io()
+    # convert_dicom_to_nrrd()
+    eval_nrrd_io()
     # eval_nifti_io()
     # eval_egs_io()
