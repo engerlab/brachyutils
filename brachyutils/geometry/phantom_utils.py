@@ -1065,7 +1065,12 @@ class BrachyPhantom:
         from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
 
         new_phantom = phantom_with_empty_image_like(self, new_pth_image=self.pth_image)
-        new_img_obj = resampleImage3D(self.image_obj, origin=origin, spacing=spacing, sitk_interpolator=interpolator_img)
+        new_img_obj = resampleImage3D(
+            self.image_obj,
+            origin=origin,
+            spacing=spacing,
+            sitk_interpolator=interpolator_img
+            )
             
         if inplace:
             self.image_obj = new_img_obj
