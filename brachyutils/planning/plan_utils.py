@@ -1015,12 +1015,18 @@ class BrachyPlan:
 
             if content_to_export.get("plan", False):
                 # assumes file name is "dwell_#.plan"
-                self._export_plan_file(str(dir_export))
+                self._export_plan_file(
+                    dir_export=str(dir_export),
+                    combined_only=content_to_export.get("combined_only", True)
+                    )
                 print(".plan files were exported successfully")
 
             if content_to_export.get("mac", False):
                 # assumes file name is "run_#.mac"
-                self._export_dwell_mac_file(str(dir_export))
+                self._export_dwell_mac_file(
+                    dir_export=str(dir_export),
+                    combined_only=content_to_export.get("combined_only", True)
+                    )
                 print(".mac files were exported successfully")
 
             if content_to_export.get("egsphant", False):
@@ -1137,13 +1143,18 @@ class BrachyPlan:
         with open(file_path, "w") as file:
             json.dump(self.catheter_table.to_dict(), file, indent=4)
 
-    def _export_plan_file(self, dir_export: str):
+    def _export_plan_file(
+        self,
+        dir_export: str,
+        combined_only:bool=True):
         r"""
         ### Purpose:
         - To export dwell positions and their normalized times into ".plan" text files in the
         format required by RapidBrachy.
         ### Inputs:
         - dir_export := path to the directory where the export happens
+        - combined_only := if True, only the combined.plan file will be exported. if False,
+        the individual dwell position files will also be exported.
         ### Outputs:
         - void := Two types of .plan files are written, one named combined.plan and the other
         named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and
@@ -1197,22 +1208,29 @@ class BrachyPlan:
             # Not dealing with shield angle for now but the new convention for filename is
             # xxx_catheter#_dwell#_shieldangle.plan
             shield_angle = 0
-            with open(dir_export + f"/dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan", "w") as file:
-                file.write(run_i_plan)
+            if not combined_only:
+                with open(dir_export + f"/dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan", "w") as file:
+                    file.write(run_i_plan)
 
         with open(dir_export + "/combined.plan", "w") as file:
             file.write(combined_plan)
 
-    def _export_dwell_mac_file(self, dir_export: str):
+    def _export_dwell_mac_file(
+        self,
+        dir_export: str,
+        combined_only: bool = True
+    ):
         r"""
         ### Purpose:
         - To export the simulation parameters of the plan into a macro files
-        called combine.mac and run_{dwellNumber}.mac
+        called combine.mac and run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac
         ### Inputs:
         - dir_export := path to the directory where the export happens
+        - combined_only: bool:= if True, only the combined.mac file will be exported. if False,
+        the individual dwell position files will also be exported.
         ### Outputs:
         - void := Two types of .mac files are written, one named combined.mac and the other
-        named run_{dwellNumber}.mac. combined.plan contains
+        named run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac. combined.plan contains
 
         plan contains info of a single dwell position.
 
@@ -1249,8 +1267,9 @@ class BrachyPlan:
             sim_obj = deepcopy(self.simulation_setup)
             sim_obj.pth_plan = f"dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan"
             sim_obj.total_time = 1
-            with open(dir_export + f"/run_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.mac", "w") as file:
-                file.write(sim_obj.to_string())
+            if not combined_only:
+                with open(dir_export + f"/run_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.mac", "w") as file:
+                    file.write(sim_obj.to_string())
 
         self.simulation_setup.total_time = np.sum(self.dwell_times)
         with open(dir_export + "/combined.mac", "w") as file:

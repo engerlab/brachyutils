@@ -82,6 +82,7 @@ def run_export():
         "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
+        "combined_only": True,
         "ApplicatorMaterials": False,
         "applicator_geometry": False,
     }
