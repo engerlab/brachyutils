@@ -3,9 +3,6 @@ from glob import glob
 from pathlib import Path
 from typing import Literal, Optional, Union
 
-# from brachyutils.dose_utils import BrachyDose
-
-
 class BrachyDoseGenerator(ABC):
     def __init__(
         self,
