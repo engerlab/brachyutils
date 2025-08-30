@@ -1,8 +1,7 @@
-from typing import List, Dict, Union, Literal
+from typing import Dict, Union, Literal
 from pathlib import Path
-from brachyutils.plan_utils import BrachyPlan, load_dicom_to_plan
-from brachyutils.dose_comparison_utils import DoseComparison
-from brachyutils.dose_generation_utils import DoseGenerator, DoseMonteCarlo, DoseTG43
+from brachyutils import load_dicom_to_plan
+from brachyutils import DoseMonteCarlo, DoseTG43
 import pandas as pd
 
 def run_multi_proc(function, input_list, max_workers=None):
@@ -59,23 +58,14 @@ def export_single_dicom_to_plan(
 
 def run_export():
     from functools import partial
-    dir_all_dicoms = Path("/root/YourLocalHome/Data/prostate-glen-2023")
+    dir_all_dicoms = Path.home().joinpath("YourLocalHome/Data/prostate-glen-2023")
     dir_export = Path("temp_data/tg43/prostate-glen-2023")
-    # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
+    # pth_material = Path("admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
-    pth_material = Path("../admin/constants/structure_materials_prostate.json")
+    pth_material = Path("admin/constants/structure_materials_prostate.json")
     mat_from_ct = False
     crop_by_contour = "body"
     sim_dict = {
-        # "source_dict": {
-        #     "treatment_type": "HDR",
-        #     "source_geometry": "MicroSelectronV2",
-        #     "core_material": "G4_Ir",
-        #     "mass_number": "192",
-        #     "atomic_number": "77",
-        #     "air_kerma_per_history": 1.149000e-11,
-        #     "reference_air_kerma": 5e04,
-        # },
         "pth_plan": "combined.plan",
         "pth_phantom": "ct.egsphant",
         "number_histories": 1000000,
@@ -265,23 +255,23 @@ def test_get_dvh_metrics_single_plan():
         )
 
 def test_export():
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023/p1")
+    pth_single_dicom = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
     dir_export = Path("temp_data/tg43/prostate-glen-2023")
-    # pth_material = Path("../admin/constants/CTtoDensityProstate.txt")
+    # pth_material = Path("admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
-    pth_material = Path("../admin/constants/structure_materials_prostate.json")
+    pth_material = Path("admin/constants/structure_materials_prostate.json")
     mat_from_ct = False
     crop_by_contour = "body"
     sim_dict = {
-        "source_dict": {
-            "treatment_type": "HDR",
-            "source_geometry": "MicroSelectronV2",
-            "core_material": "G4_Ir",
-            "mass_number": "192",
-            "atomic_number": "77",
-            "air_kerma_per_history": 1.149000e-11,
-            "reference_air_kerma": 5e04,
-        },
+        # "source_dict": {
+        #     "treatment_type": "HDR",
+        #     "source_geometry": "MicroSelectronV2",
+        #     "core_material": "G4_Ir",
+        #     "mass_number": "192",
+        #     "atomic_number": "77",
+        #     "air_kerma_per_history": 1.149000e-11,
+        #     "reference_air_kerma": 5e04,
+        # },
         "pth_plan": "combined.plan",
         "pth_phantom": "ct.egsphant",
         "number_histories": 1000000,
@@ -332,8 +322,8 @@ def scale_by_airkerma(dir_all_plans: str | Path, dir_all_dcms: str | Path):
         The wrong air keram was 5e4. each dicom plan has a different air kerma.
         the scaling factor for each dose should be plan_air_kerma/5e4.
     """
-    from brachyutils.simulation_utils import BrachySource
-    from brachyutils.dose_utils import BrachyDose
+    from brachyutils import BrachySource
+    from brachyutils import BrachyDose
     from functools import partial
 
     dir_all_plans = Path(dir_all_plans)

@@ -244,7 +244,6 @@ def eval_nifti_io():
 def eval_egs_io():
     pass
 
-
 if __name__ == "__main__":
     # eval_dicom_io(
     #     "YourLocalHome/Data/prostate-glen-2023",
