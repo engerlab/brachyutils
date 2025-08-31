@@ -4,26 +4,14 @@ from brachyutils import load_dicom_to_plan
 from brachyutils import DoseMonteCarlo, DoseTG43
 import pandas as pd
 
-def run_multi_proc(function, input_list, max_workers=None):
-    import asyncio
-    from concurrent.futures import ThreadPoolExecutor
-    async def run_in_executor(executor, case):
-        loop = asyncio.get_event_loop()
+def run_multi_proc(function, input_list, max_workers=8):
+    from multiprocessing import Pool
+    
+    with Pool(processes=max_workers) as pool:
         try:
-            return await loop.run_in_executor(executor, function, case)
+            pool.imap(function, input_list)
         except Exception as e:
-            print(f"error in exporting {case}")
-            print(e)
-            return None
-
-    async def main():
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            tasks = []
-            for case in input_list:
-                tasks.append(run_in_executor(executor, case))
-            await asyncio.gather(*tasks)
-
-    asyncio.run(main())
+            print(f"Error in multiprocessing: {e}")
 
 def export_single_dicom_to_plan(
     dir_dicom:Path | str,
@@ -43,7 +31,11 @@ def export_single_dicom_to_plan(
     ### Outputs:
         - dir_export_plan: Path: The path to the exported plan.
     """
-    plan_obj = load_dicom_to_plan(dir_dicom, simulation_setup=sim_dict)
+    plan_obj = load_dicom_to_plan(
+        dir_dicom,
+        simulation_setup=sim_dict,
+        delivered_catheter_table=True
+        )
 
     dir_export = Path(dir_export)
     dir_export.mkdir(parents=True, exist_ok=True)
@@ -58,7 +50,7 @@ def export_single_dicom_to_plan(
 
 def run_export():
     from functools import partial
-    dir_all_dicoms = Path.home().joinpath("YourLocalHome/Data/prostate-glen-2023")
+    dir_all_dicoms = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_export = Path("temp_data/tg43/prostate-glen-2023")
     # pth_material = Path("admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
@@ -257,7 +249,7 @@ def test_get_dvh_metrics_single_plan():
         )
 
 def test_export():
-    pth_single_dicom = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
+    pth_single_dicom = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p8")
     dir_export = Path("temp_data/tg43/prostate-glen-2023")
     # pth_material = Path("admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
