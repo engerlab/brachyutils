@@ -10,7 +10,7 @@ from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import Piec
 from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
 from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position, CatheterSetUp
 from ai_assisted_brachy.catheter.catheter_api import (
-    dicom_to_catheter_table, _update_catheter_table, ct_to_catheter_table, CreatedSetUp
+    dicom_to_catheter_table, _update_catheter_table, CreatedSetUp
 )
 
 class DwellPosition(BaseModel):
@@ -692,6 +692,7 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - catheter_table_dict := the dictionary containing the catheter table.
         """
+        from ai_assisted_brachy.catheter.catheter_api import ct_to_catheter_table
         # if "image" a path to a file, just pass along
         if isinstance(image, Path) or isinstance(image, str):
             image = Path(image)                
