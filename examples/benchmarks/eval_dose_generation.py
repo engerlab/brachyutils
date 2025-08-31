@@ -66,13 +66,14 @@ def run_export():
     mat_from_ct = False
     crop_by_contour = "body"
     sim_dict = {
-        "pth_plan": "combined.plan",
-        "pth_phantom": "ct.egsphant",
-        "number_histories": 1000000,
-        "total_time": 0,
-        "number_of_threads": 32,
-        "PrintProgress": 10000,
-        "beam_on": 10000,
+        # "brachy_source": 
+        # "pth_plan": "combined.plan",
+        # "pth_phantom": "ct.egsphant",
+        # "number_histories": 1000000,
+        # "total_time": 0,
+        "number_of_threads": 16,
+        # "PrintProgress": 10000,
+        # "beam_on": 10000,
     }
     content_to_export = {
         "egsphant": True,
@@ -91,7 +92,7 @@ def run_export():
     partially_filled_export_func = partial(
         export_single_dicom_to_plan,
         dir_export=dir_export,
-        # sim_dict=sim_dict,
+        sim_dict=sim_dict,
         content_to_export=content_to_export,
         )
 
@@ -277,7 +278,7 @@ def test_export():
         "pth_phantom": "ct.egsphant",
         "number_histories": 1000000,
         "total_time": 0,
-        "number_of_threads": 32,
+        "number_of_threads": 14,
         "PrintProgress": 10000,
         "beam_on": 10000,
     }
@@ -295,7 +296,12 @@ def test_export():
 
     if not pth_material.exists():
         raise FileNotFoundError(f"The material file {pth_material} does not exist.")
-    export_single_dicom_to_plan(pth_single_dicom, dir_export, content_to_export=content_to_export, sim_dict=sim_dict)
+    export_single_dicom_to_plan(
+        pth_single_dicom,
+        dir_export,
+        content_to_export=content_to_export,
+        sim_dict=sim_dict
+        )
 
 def test_dose_calc():
     # # for monte carlo

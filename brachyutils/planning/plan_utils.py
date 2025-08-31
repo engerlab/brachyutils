@@ -1696,7 +1696,11 @@ def load_dicom_to_plan(
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
     simulation_setup = kwargs.pop("simulation_setup", None)
-    simulation_setup = simulation_setup if simulation_setup is not None else plan_dcm
+    if simulation_setup is None:
+        simulation_setup = plan_dcm
+    if isinstance(simulation_setup, dict):
+        if simulation_setup.get("brachy_source") is None:
+            simulation_setup["brachy_source"] = plan_dcm
     combined_dose = kwargs.pop("combined_dose", dose_dcm)
     return BrachyPlan(
         phantom=dir_dicom,
