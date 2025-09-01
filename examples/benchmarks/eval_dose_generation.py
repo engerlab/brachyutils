@@ -249,7 +249,7 @@ def test_get_dvh_metrics_single_plan():
         )
 
 def test_export():
-    pth_single_dicom = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
+    pth_single_dicom = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p12")
     dir_export = Path("temp_data/tg43/prostate-glen-2023")
     # pth_material = Path("admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
@@ -278,7 +278,7 @@ def test_export():
         "egsphant": True,
         "materials_table": pth_material,
         "assign_material_from_ct": mat_from_ct,
-        "resampled_spacing": [1., 1., 1.],
+        # "resampled_spacing": [1., 1., 1.],
         "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
