@@ -1664,7 +1664,7 @@ def _type_nested_dict_list(data):
 
 def load_dicom_to_plan(
     dir_dicom: Path | str,
-    load_dicom_dose: bool = True,
+    load_dicom_dose: bool = False,
     load_dicom_plan: bool = True,
     **kwargs) -> BrachyPlan:
     r"""
