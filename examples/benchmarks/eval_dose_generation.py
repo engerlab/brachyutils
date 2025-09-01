@@ -9,7 +9,7 @@ def run_multi_proc(function, input_list, max_workers=8):
     
     with Pool(processes=max_workers) as pool:
         try:
-            pool.imap(function, input_list)
+            list(pool.imap_unordered(function, input_list))
         except Exception as e:
             print(f"Error in multiprocessing: {e}")
 
@@ -71,8 +71,8 @@ def run_export():
         "egsphant": True,
         "materials_table": pth_material,
         "assign_material_from_ct": mat_from_ct,
-        "resampled_spacing": [1., 1., 1.],
-        "crop_by_contour": crop_by_contour,
+        # "resampled_spacing": [1., 1., 1.],
+        # "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
         "combined_only": True,
@@ -359,10 +359,10 @@ def run_scale_by_airkerma():
     scale_by_airkerma(dir_all_plans, dir_all_dcms)
 
 if __name__ == "__main__":
-    test_export()
+    # test_export()
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
-    # run_export()
+    run_export()
     # run_dose_generation()
     # run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
