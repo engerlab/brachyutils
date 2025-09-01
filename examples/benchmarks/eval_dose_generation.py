@@ -249,7 +249,7 @@ def test_get_dvh_metrics_single_plan():
         )
 
 def test_export():
-    pth_single_dicom = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p8")
+    pth_single_dicom = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
     dir_export = Path("temp_data/tg43/prostate-glen-2023")
     # pth_material = Path("admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True

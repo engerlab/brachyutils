@@ -941,7 +941,10 @@ class BrachyEgsphant:
                 else:
                     structure_size = 0
                     for structure_name in structure_name_query:
-                        structure_size += np.sum(mask_dict.get(structure_name))
+                        if structure_name not in mask_dict:
+                            structure_size += 0
+                        else:
+                            structure_size += np.sum(mask_dict.get(structure_name))
                     self.material_dict.get(material)["structure_size"] = structure_size
 
             # sort the material dictionary based on the size of the mask (from largest to smallest)
@@ -959,6 +962,8 @@ class BrachyEgsphant:
                     continue
                 else:
                     for structure in structures_in_materials:
+                        if structure not in mask_dict:
+                            continue
                         roi_mask = mask_dict.get(structure).astype(bool)
                         density_matrix = np.where(
                             roi_mask,
