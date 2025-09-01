@@ -169,12 +169,13 @@ class Catheter(BaseModel):
         - **data: dict := the dictionary containing the catheter attributes.
         """
         super().__init__(**data)
+
         # Set afterloader_channel_number to index if not provided
         if self.afterloader_channel_number is None:
             self.afterloader_channel_number = self.index
 
         # Initialize dwells based on available inputs
-        if self.dwells is not None:
+        if self.dwells:
             # Convert dict dwells to DwellPosition objects if needed
             if isinstance(self.dwells[0], dict):
                 self.dwells = [DwellPosition(**dwell) for dwell in self.dwells]
@@ -184,7 +185,7 @@ class Catheter(BaseModel):
                 fit_function=self.fit_function,
                 step_size=self.step_size,
             )
-        elif self.points is not None:
+        elif self.points:
             # Create fit and dwells from points
             self.fit_function = self.get_fit_from_points(points=self.points)
             self.dwells = self.get_dwells_from_fit(
@@ -205,7 +206,7 @@ class Catheter(BaseModel):
             tip and last dwell coordinate coordinates to create a catheter.""")
 
         # Set tip_position and last_dwell_coordinate from dwells
-        if self.dwells is not None and len(self.dwells) > 0:
+        if self.dwells and len(self.dwells) > 0:
             self.tip_position = self.dwells[0].position
             self.last_dwell_coordinate = self.dwells[-1].position
         else:
@@ -824,6 +825,7 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
         [catheter["channel_total_time"] for catheter in catheter_table]
     )
     final_catheter_table = []
+    empty_catheter_counter = 0
     # loop through the catheters
     for catheter in catheter_table:
         dwells = []
@@ -860,6 +862,10 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
                     "weight": dwell_weight,
                 }
             )
+        # do not add empty catheters here
+        if not dwells:
+            empty_catheter_counter += 1
+            continue
         catheter["dwells"] = dwells
         if (
             np.all([np.all(catheter["dwells"][i]["rotation"] == [0,0,0])
@@ -868,6 +874,13 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
         ):
             for i in range(len(catheter["dwells"])):
                 catheter["dwells"][i]["rotation"] = get_rotation_from_position(i, catheter["dwells"])
-
-        final_catheter_table.append(Catheter(**catheter))
-    return final_catheter_table
+        catheter["index"] -= empty_catheter_counter
+        final_catheter_table.append(catheter)
+    return {
+        "catheter_list": final_catheter_table,
+        "treatment_time": treatment_time,
+        "step_size": float(
+            final_catheter_table[0]["dwells"][1]["relativePos"] 
+            - final_catheter_table[0]["dwells"][0]["relativePos"]
+            )
+    }
