@@ -2,7 +2,7 @@
     "Water" : {
         "density":1.0,
         "HU_limit":0.0,
-        "structure_name":["BODY"]
+        "structure_name":["BODY", "BODY_BRACHY"]
     },
     "SoftTissue" : {
         "density":1.052,
