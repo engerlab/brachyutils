@@ -7,16 +7,16 @@
     "SoftTissue" : {
         "density":1.052,
         "HU_limit":14.0,
-        "structure_name":["URETHRA_BRACHY"]
+        "structure_name":["URETHRA_BRACHY", "URETHRA"]
     },
     "Rectum" : {
         "density":1.094,
         "HU_limit":69.0,
-        "structure_name":["RECTUM_BRACHY"]
+        "structure_name":["RECTUM_BRACHY", "RECTUM"]
     },
     "Prostate" : {
         "density":1.824,
         "HU_limit":1230.0,
-        "structure_name": ["CTV_BRACHY"]
+        "structure_name": ["CTV_BRACHY", "CTV"]
     }
 }
