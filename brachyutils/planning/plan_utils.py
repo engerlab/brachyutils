@@ -214,15 +214,18 @@ class BrachyPlan:
         # load the catheter table if the path is provided
         if catheter_table is not None:
             if isinstance(catheter_table, (str, Path)):
-                self.catheter_table = CatheterTable(catheter_list=catheter_table)
+                self.catheter_table = CatheterTable(
+                    catheter_list=catheter_table,
+                    delivered_catheter_table=delivered_catheter_table
+                    )
             elif isinstance(catheter_table, CatheterTable):
                 self.catheter_table = catheter_table
             else:
                 raise ValueError(
                     "catheter_table should be a path or a CatheterTable object"
                 )
-            if delivered_catheter_table:
-                self.catheter_table = self.catheter_table.get_delivered_catheter_table()
+            # if delivered_catheter_table:
+            #     self.catheter_table = self.catheter_table.get_delivered_catheter_table()
             self.update_plan_from_catheter_table()
 
         # load the dose rate tensor if the path is provided
