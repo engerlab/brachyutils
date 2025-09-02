@@ -1,5 +1,6 @@
 from typing import Dict, Union, Literal
 from pathlib import Path
+from tqdm import tqdm
 from brachyutils import load_dicom_to_plan
 from brachyutils import DoseMonteCarlo, DoseTG43
 import pandas as pd
@@ -94,7 +95,9 @@ def run_dose_generation():
     # # for TG43
     dir_plan_export = Path("temp_data/tg43/prostate-glen-2023")
     list_plans = list(dir_plan_export.glob("*/"))
-    run_multi_proc(run_single_tg43_dose_generation, list_plans, max_workers=8)    
+    for plan in tqdm(list_plans):
+        run_single_tg43_dose_generation(plan)
+    # run_multi_proc(run_single_tg43_dose_generation, list_plans, max_workers=8)
 
 def run_single_tg43_dose_generation(dir_plan):
     dose_gen_obj = DoseTG43(
@@ -297,13 +300,13 @@ def test_export():
 
 def test_dose_calc():
     # # for monte carlo
-    dir_plan_export = Path("temp_data/mc/prostate-glen-2023/p3")
-    pth_dose_executable = "http://192.168.1.11:8000/calculate_dose_mc"
-    dose_gen_obj = DoseMonteCarlo(
-        dir_plan_export=dir_plan_export,
-        pth_dose_executable=pth_dose_executable
-    )
-    dose_gen_obj.generate_dose()
+    # dir_plan_export = Path("temp_data/mc/prostate-glen-2023/p3")
+    # pth_dose_executable = "http://192.168.1.11:8000/calculate_dose_mc"
+    # dose_gen_obj = DoseMonteCarlo(
+    #     dir_plan_export=dir_plan_export,
+    #     pth_dose_executable=pth_dose_executable
+    # )
+    # dose_gen_obj.generate_dose()
     
     
     # # for tg43
@@ -362,7 +365,7 @@ if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
-    run_export()
-    # run_dose_generation()
+    # run_export()
+    run_dose_generation()
     # run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
