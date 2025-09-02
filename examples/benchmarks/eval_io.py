@@ -70,7 +70,7 @@ def eval_dicom_io(dir_dicoms: Path | str, dir_out: Path | str):
     Directory Structure Expected:
         ~/YourLocalHome/Data/prostate-glen-2023/
         ├── patient1/
-        │   ├── CT*.dcm (scan files)
+        │   ├── CT*.dcm (scan files) or MR*.dcm
         │   ├── RS*.dcm (structure set files)
         │   └── RD*.dcm (dose files)
         └── patient2/
@@ -86,8 +86,9 @@ def eval_dicom_io(dir_dicoms: Path | str, dir_out: Path | str):
         - time_phantom_io(): Times phantom reading/writing operations
         - time_dose_io(): Times dose file reading/writing operations
     """
-    
-    dir_dicoms = list(Path().home().joinpath(dir_dicoms).glob("*/"))
+    dir_dicoms = Path(dir_dicoms)
+    dir_dicoms = list(dir_dicoms.glob("*/"))
+    dir_out = Path(dir_out)
     # dir_out = Path("temp_data/dicom_io")
     timing_df = pd.DataFrame(columns=[
         "read_time_scan", "write_time_scan",
@@ -95,7 +96,7 @@ def eval_dicom_io(dir_dicoms: Path | str, dir_out: Path | str):
         "read_time_dose", "write_time_dose"
         ], index=[dicom.name for dicom in dir_dicoms] + ["average", "std"])
     
-    for dicom in dir_dicoms:
+    for dicom in tqdm(dir_dicoms):
         t_read_scan, t_write_scan = time_phantom_io(
             dir_out=dir_out.joinpath(dicom.name),
             type_out="dicom",
@@ -260,14 +261,14 @@ def convert_nrrd_dose_to_dicom(
             )
 
 if __name__ == "__main__":
-    convert_nrrd_dose_to_dicom(
-        "temp_data/nrrd_io",
-        "temp_data/dicom_io"
-    )
-    # eval_dicom_io(
-    #     "YourLocalHome/Data/prostate-glen-2023",
+    # convert_nrrd_dose_to_dicom(
+    #     "temp_data/nrrd_io",
     #     "temp_data/dicom_io"
     # )
+    eval_dicom_io(
+        "temp_data/dicom_io",
+        "temp_data/dicom_io"
+    )
     # convert_dicom_to_nrrd(
     #     "YourLocalHome/Data/prostate-glen-2023",
     #     "temp_data/nrrd_io"
