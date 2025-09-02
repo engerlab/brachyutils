@@ -1232,6 +1232,8 @@ def _perform_dose_conversion(item: dict, dir_output: Path, type_out: str):
         pth_out = dir_output / f"{base_name}.seq{type_out}"
     elif type_out == ".3ddose":
         pth_out = dir_output / f"{base_name}{type_out}"
+    elif type_out == ".dcm":
+        pth_out = dir_output / f"{base_name}{type_out}"
     else:
         raise ValueError(f"Unsupported output type {type_out} for dose conversion.")
     
@@ -1240,7 +1242,7 @@ def _perform_dose_conversion(item: dict, dir_output: Path, type_out: str):
 # Conversion utilities for dose files
 def convert_dose_files(
     pth_inputs: List[Union[Path, str]],
-    type_out: str = ".nrrd",
+    type_out: Literal[".nrrd", ".dcm", ".3ddose"] = ".nrrd",
     dir_output: Optional[Union[Path, str]] = None,
     multi_proc: bool = False
 ) -> None:

@@ -244,7 +244,26 @@ def eval_nifti_io():
 def eval_egs_io():
     pass
 
+def convert_nrrd_dose_to_dicom(
+    nrrd_dirs: Path | str,
+    dicom_dirs: Path | str
+    ):
+    from brachyutils import convert_dose_files
+    nrrd_dirs = list(Path(nrrd_dirs).glob("*/"))
+    dicom_dirs = Path(dicom_dirs)
+
+    for nrrd in nrrd_dirs:
+        convert_dose_files(
+            pth_inputs=[nrrd.joinpath(nrrd.name+".seq.nrrd")],
+            type_out=".dcm",
+            dir_output=dicom_dirs.joinpath(nrrd.name)
+            )
+
 if __name__ == "__main__":
+    convert_nrrd_dose_to_dicom(
+        "temp_data/nrrd_io",
+        "temp_data/dicom_io"
+    )
     # eval_dicom_io(
     #     "YourLocalHome/Data/prostate-glen-2023",
     #     "temp_data/dicom_io"
@@ -253,8 +272,8 @@ if __name__ == "__main__":
     #     "YourLocalHome/Data/prostate-glen-2023",
     #     "temp_data/nrrd_io"
     # )
-    eval_nrrd_io(
-        "temp_data/nrrd_io",
-    )
+    # eval_nrrd_io(
+    #     "temp_data/nrrd_io",
+    # )
     # eval_nifti_io()
     # eval_egs_io()
