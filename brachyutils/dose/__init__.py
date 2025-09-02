@@ -4,10 +4,11 @@ __all__ = [
     'CalibrationCurve',
     'FilmCalibration',
     'DoseMonteCarlo',
-    'DoseTG43'
+    'DoseTG43',
+    "convert_dose_files"
 ]
 # trunk-ignore(ruff/F401)
-from .dose_utils import BrachyDose
+from .dose_utils import BrachyDose, convert_dose_files
 
 # trunk-ignore(ruff/F401)
 from .dose_comparison_utils import BrachyDoseComparison
