@@ -1233,7 +1233,7 @@ def _perform_dose_conversion(item: dict, dir_output: Path, type_out: str):
     elif type_out == ".3ddose":
         pth_out = dir_output / f"{base_name}{type_out}"
     elif type_out == ".dcm":
-        pth_out = dir_output / f"{base_name}{type_out}"
+        pth_out = dir_output / f"RD{type_out}"
     else:
         raise ValueError(f"Unsupported output type {type_out} for dose conversion.")
     
