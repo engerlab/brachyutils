@@ -284,7 +284,7 @@ class BrachyEgsphant:
                 encoding = int(self.material_dict[material]["encoding"])
                 density = np.unique(
                     self.density_image.imageArray[
-                        self.material_image.imageArray == encoding
+                        self.material_image.imageArray == encoding-1
                     ]
                 )
                 density = density.min() if len(density) != 0 else 0
