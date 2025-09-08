@@ -244,7 +244,7 @@ def eval_nifti_io():
 
 def generate_egsphants(
     nrrd_patients: Path | str,
-    material_dict: dict | Path | str
+    pth_material_dict: Path | str
     ):
     r"""
     ### Purpose:
@@ -260,6 +260,9 @@ def generate_egsphants(
         - Egsphant files saved in the same directory as the input NRRD files,
           named "egsphant.seq.nrrd" and "ct.egsphant".
     """
+    nrrd_patients = Path(nrrd_patients)
+    pth_material_dict = Path(pth_material_dict)
+
     nrrd_patients = list(Path(nrrd_patients).glob("*/"))
     for patient in tqdm(nrrd_patients):
         nrrd_files = list(patient.glob("*.nrrd"))
@@ -277,11 +280,13 @@ def generate_egsphants(
             )
         phantom_obj.write_to_egsphant(
             pth_output=patient.joinpath("egsphant.seq.nrrd"),
-            material_dict=material_dict
+            material_dict=pth_material_dict,
+            assign_material_from_ct=False
         )
-        phantom_obj.write_ct_to_egsphant(
+        phantom_obj.write_to_egsphant(
             pth_output=patient.joinpath("ct.egsphant"),
-            material_dict=material_dict
+            material_dict=pth_material_dict,
+            assign_material_from_ct=False
         )
 
 def convert_nrrd_dose_to_dicom(
@@ -304,10 +309,10 @@ if __name__ == "__main__":
     #     "temp_data/nrrd_io",
     #     "temp_data/dicom_io"
     # )
-    eval_dicom_io(
-        "temp_data/dicom_io",
-        "temp_data/dicom_io"
-    )
+    # eval_dicom_io(
+    #     "temp_data/dicom_io",
+    #     "temp_data/dicom_io"
+    # )
     # convert_dicom_to_nrrd(
     #     "YourLocalHome/Data/prostate-glen-2023",
     #     "temp_data/nrrd_io"
@@ -317,3 +322,7 @@ if __name__ == "__main__":
     # )
     # eval_nifti_io()
     # eval_egs_io()
+    generate_egsphants(
+        "temp_data/nrrd_io",
+        "admin/constants/structure_materials_prostate.json"
+    )
