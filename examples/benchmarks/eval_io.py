@@ -5,6 +5,7 @@ import pandas as pd
 from tqdm import tqdm
 from brachyutils import BrachyPhantom
 from brachyutils import BrachyDose
+from brachyutils import BrachyEgsphant
 
 def time_phantom_io(
         dir_out: Path,
@@ -56,6 +57,28 @@ def time_dose_io(
     except Exception as e:
         t0_write, tf_write = (float("nan"), float("nan"))
     return (tf_read - t0_read, tf_write - t0_write)
+
+def time_egsphant_io(
+    pth_egsphant_in: Path,
+    pth_egsphant_out: Path
+    ):
+    # try:
+    t0_read = time()
+    egsphant_obj = BrachyEgsphant(
+        pth_egsphant_file=pth_egsphant_in
+    )
+    tf_read = time()
+    # except Exception as e:
+    t0_read, tf_read = (float("nan"), float("nan"))
+    try:
+        t0_write = time()
+        egsphant_obj.write_to_file(
+            pth_output=pth_egsphant_out
+        )
+        tf_write = time()
+    except Exception as e:
+        t0_write, tf_write = (float("nan"), float("nan"))
+    return (tf_read - t0_read, tf_write - t0_write)        
 
 def eval_dicom_io(dicom_patients: Path | str, dir_out: Path | str):
     """
@@ -239,6 +262,40 @@ def eval_nrrd_io(dir_nrrds: Path | str):
     timing_df.loc["std"] = timing_df.std()
     timing_df.to_csv(dir_nrrds[0].parent.joinpath("timing_nrrd_io.csv"))
 
+def eval_egs_io(
+    egs_patients:Path | str,
+    dir_out: Path | str = None
+    ):
+    """
+    To time the reading and writing of egsphant files.
+    """
+    egs_patients = Path(egs_patients)
+    dir_out = Path(dir_out)
+    egs_patients = list(egs_patients.glob("*/"))
+    timing_df = pd.DataFrame(columns=[
+        "read_time_egsphant", "write_time_egsphant",
+        "read_time_egsphant_nrrd", "write_time_egsphant_nrrd"
+        ], index=[egs.name for egs in egs_patients] + ["average", "std"])
+    for patient in egs_patients:
+        pth_ct_egsphant = list(patient.glob("ct.egsphant")).pop()
+        pth_egsphant_nrrd = list(patient.glob("egsphant.seq.nrrd")).pop()
+        t_read_ct_egs, t_write_ct_egs = time_egsphant_io(
+            pth_egsphant_in=pth_ct_egsphant,
+            pth_egsphant_out=dir_out.joinpath(f"{patient.name}/ct.egsphant")
+        )
+        t_read_egs_nrrd, t_write_egs_nrrd = time_egsphant_io(
+            pth_egsphant_in=pth_egsphant_nrrd,
+            pth_egsphant_out=dir_out.joinpath(f"{patient.name}/egsphant.seq.nrrd")
+        )
+        timing_df.loc[patient.name] = [
+            t_read_ct_egs, t_write_ct_egs,
+            t_read_egs_nrrd, t_write_egs_nrrd
+        ]
+        break
+    timing_df.loc["average"] = timing_df.mean()
+    timing_df.loc["std"] = timing_df.std()
+    timing_df.to_csv(dir_out.joinpath("timing_egs_io.csv"))
+
 def eval_nifti_io():
     pass
 
@@ -321,8 +378,11 @@ if __name__ == "__main__":
     #     "temp_data/nrrd_io",
     # )
     # eval_nifti_io()
-    # eval_egs_io()
-    generate_egsphants(
+    # generate_egsphants(
+    #     "temp_data/nrrd_io",
+    #     "admin/constants/structure_materials_prostate.json"
+    # )
+    eval_egs_io(
         "temp_data/nrrd_io",
-        "admin/constants/structure_materials_prostate.json"
+        "temp_data/egs_io"
     )

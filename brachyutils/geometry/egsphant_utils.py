@@ -442,6 +442,21 @@ class BrachyEgsphant:
             )
         return voxel_centers
 
+    def write_to_file(self, fileName: Path | str):
+        r"""
+        ### Purpose
+        - depending on the extension of the fileName, pick the right writer function
+        """
+        fileName = Path(fileName)
+        if fileName.suffix == ".egsphant":
+            self.write_to_ctegsphant(fileName)
+        elif str(fileName.name).endswith(".seq.nrrd"):
+            self.write_to_nrrd(fileName)
+        else:
+            raise Exception(
+                f"file extension {fileName.suffix} is not supported. only .egsphant and .seq.nrrd are supported"
+            )
+
     def write_to_ctegsphant(self, fileName: Path):
         r"""
         Purpose:
