@@ -483,6 +483,7 @@ class BrachyEgsphant:
                 np.char.mod(
                     "%.3f",
                     np.append(axis, axis[-1] + self.density_image.spacing[i]) / 10,
+                    # axis / 10,
                 )
                 for i, axis in enumerate(self.voxel_edges)
             ],

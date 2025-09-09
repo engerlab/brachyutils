@@ -301,7 +301,8 @@ def eval_nifti_io():
 
 def generate_egsphants(
     nrrd_patients: Path | str,
-    pth_material_dict: Path | str
+    pth_material_dict: Path | str,
+    multi_thread: bool = False
     ):
     r"""
     ### Purpose:
@@ -319,32 +320,53 @@ def generate_egsphants(
     """
     nrrd_patients = Path(nrrd_patients)
     pth_material_dict = Path(pth_material_dict)
-
+    
     nrrd_patients = list(Path(nrrd_patients).glob("*/"))
-    for patient in tqdm(nrrd_patients):
-        nrrd_files = list(patient.glob("*.nrrd"))
-        for pth in nrrd_files:
-            if ".seg.nrrd" in pth.name:
-                    pth_seg_nrrd = pth
-            elif ".seq.nrrd" in pth.name:
-                pth_dose_nrrd = pth
-            elif ".nrrd" in pth.name:
-                pth_scan_nrrd = pth
-            
-        phantom_obj = BrachyPhantom(
-            pth_phantom_file=pth_scan_nrrd,
-            pth_structures_file=pth_seg_nrrd
+    if not multi_thread:
+        for patient in tqdm(nrrd_patients):
+            _gen_one_egsphant(
+                pth_patient=patient,
+                pth_material_dict=pth_material_dict,
             )
-        phantom_obj.write_to_egsphant(
-            pth_output=patient.joinpath("egsphant.seq.nrrd"),
-            material_dict=pth_material_dict,
-            assign_material_from_ct=False
+    else:
+        from multiprocessing import Pool, cpu_count
+        from functools import partial
+        num_cores = cpu_count() - 2
+        with Pool(num_cores) as p:
+            
+            r = list(tqdm(p.imap(
+                func=partial(_gen_one_egsphant, pth_material_dict=pth_material_dict),
+                iterable=nrrd_patients
+                ), total=len(nrrd_patients)
+            ))
+
+def _gen_one_egsphant(
+    pth_patient: Path,
+    pth_material_dict: Path,
+):
+    nrrd_files = list(pth_patient.glob("*.nrrd"))
+    for pth in nrrd_files:
+        if ".seg.nrrd" in pth.name:
+                pth_seg_nrrd = pth
+        elif ".seq.nrrd" in pth.name:
+            pth_dose_nrrd = pth
+        elif ".nrrd" in pth.name:
+            pth_scan_nrrd = pth
+    phantom_obj = BrachyPhantom(
+        pth_phantom_file=pth_scan_nrrd,
+        pth_structures_file=pth_seg_nrrd
         )
-        phantom_obj.write_to_egsphant(
-            pth_output=patient.joinpath("ct.egsphant"),
-            material_dict=pth_material_dict,
-            assign_material_from_ct=False
-        )
+    phantom_obj.write_to_egsphant(
+        pth_output=pth_patient.joinpath("egsphant.seq.nrrd"),
+        material_dict=pth_material_dict,
+        assign_material_from_ct=False
+    )
+    phantom_obj.write_to_egsphant(
+        pth_output=pth_patient.joinpath("ct.egsphant"),
+        material_dict=pth_material_dict,
+        assign_material_from_ct=False
+    )
+
 
 def convert_nrrd_dose_to_dicom(
     nrrd_patients: Path | str,
@@ -378,11 +400,12 @@ if __name__ == "__main__":
     #     "temp_data/nrrd_io",
     # )
     # eval_nifti_io()
-    # generate_egsphants(
-    #     "temp_data/nrrd_io",
-    #     "admin/constants/structure_materials_prostate.json"
-    # )
-    eval_egs_io(
+    generate_egsphants(
         "temp_data/nrrd_io",
-        "temp_data/egs_io"
+        "admin/constants/structure_materials_prostate.json",
+        True
     )
+    # eval_egs_io(
+    #     "temp_data/nrrd_io",
+    #     "temp_data/egs_io"
+    # )
