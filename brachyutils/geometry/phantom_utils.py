@@ -644,6 +644,7 @@ class BrachyPhantom:
             - resampled_spacing: List[float] := the spacing to resample the egsphant to.
             - background_material: Optional[str] := the name of the background material. default is "Air".
         """
+        pth_output = Path(pth_output)
         if str(pth_output).endswith(".egsphant"):
             pass
         elif str(pth_output).endswith(".seq.nrrd"):
