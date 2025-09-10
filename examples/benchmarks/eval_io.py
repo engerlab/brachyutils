@@ -400,12 +400,12 @@ if __name__ == "__main__":
     #     "temp_data/nrrd_io",
     # )
     # eval_nifti_io()
-    generate_egsphants(
-        "temp_data/nrrd_io",
-        "admin/constants/structure_materials_prostate.json",
-        True
-    )
-    # eval_egs_io(
+    # generate_egsphants(
     #     "temp_data/nrrd_io",
-    #     "temp_data/egs_io"
+    #     "admin/constants/structure_materials_prostate.json",
+    #     True
     # )
+    eval_egs_io(
+        "temp_data/nrrd_io",
+        "temp_data/egs_io"
+    )
