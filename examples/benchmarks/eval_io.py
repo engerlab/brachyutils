@@ -63,22 +63,24 @@ def time_egsphant_io(
     pth_egsphant_out: Path
     ):
     # try:
-    t0_read = time()
-    egsphant_obj = BrachyEgsphant(
-        pth_egsphant_file=pth_egsphant_in
-    )
-    tf_read = time()
+        t0_read = time()
+        egsphant_obj = BrachyEgsphant(
+            pth_egsphant_file=pth_egsphant_in
+        )
+        tf_read = time()
     # except Exception as e:
-    t0_read, tf_read = (float("nan"), float("nan"))
-    try:
+    #     egsphant_obj = None
+    #     t0_read, tf_read = (float("nan"), float("nan"))
+    # try:
         t0_write = time()
         egsphant_obj.write_to_file(
-            pth_output=pth_egsphant_out
+            fileName=pth_egsphant_out
         )
         tf_write = time()
-    except Exception as e:
-        t0_write, tf_write = (float("nan"), float("nan"))
-    return (tf_read - t0_read, tf_write - t0_write)        
+        filesize_mb = pth_egsphant_out.stat().st_size / (1024 * 1024)
+    # except Exception as e:
+    #     t0_write, tf_write = (float("nan"), float("nan"))
+        return (tf_read - t0_read, tf_write - t0_write, filesize_mb)
 
 def eval_dicom_io(dicom_patients: Path | str, dir_out: Path | str):
     """
@@ -273,25 +275,25 @@ def eval_egs_io(
     dir_out = Path(dir_out)
     egs_patients = list(egs_patients.glob("*/"))
     timing_df = pd.DataFrame(columns=[
-        "read_time_egsphant", "write_time_egsphant",
-        "read_time_egsphant_nrrd", "write_time_egsphant_nrrd"
+        "read_time_egsphant", "write_time_egsphant", "file_size_egsphant",
+        "read_time_egsphant_nrrd", "write_time_egsphant_nrrd", "file_size_egsphant_nrrd"
         ], index=[egs.name for egs in egs_patients] + ["average", "std"])
-    for patient in egs_patients:
+    for patient in tqdm(egs_patients):
         pth_ct_egsphant = list(patient.glob("ct.egsphant")).pop()
         pth_egsphant_nrrd = list(patient.glob("egsphant.seq.nrrd")).pop()
-        t_read_ct_egs, t_write_ct_egs = time_egsphant_io(
+        t_read_ct_egs, t_write_ct_egs, file_size_ct = time_egsphant_io(
             pth_egsphant_in=pth_ct_egsphant,
             pth_egsphant_out=dir_out.joinpath(f"{patient.name}/ct.egsphant")
         )
-        t_read_egs_nrrd, t_write_egs_nrrd = time_egsphant_io(
+        t_read_egs_nrrd, t_write_egs_nrrd, file_size_nrrd = time_egsphant_io(
             pth_egsphant_in=pth_egsphant_nrrd,
             pth_egsphant_out=dir_out.joinpath(f"{patient.name}/egsphant.seq.nrrd")
         )
         timing_df.loc[patient.name] = [
-            t_read_ct_egs, t_write_ct_egs,
-            t_read_egs_nrrd, t_write_egs_nrrd
+            t_read_ct_egs, t_write_ct_egs, file_size_ct,
+            t_read_egs_nrrd, t_write_egs_nrrd, file_size_nrrd
         ]
-        break
+        # break
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
     timing_df.to_csv(dir_out.joinpath("timing_egs_io.csv"))
