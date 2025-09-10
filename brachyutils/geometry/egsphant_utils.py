@@ -595,7 +595,22 @@ class BrachyEgsphant:
         header["encoding"] = "gzip"
         header["space origin"] = self.density_image.origin.tolist()
         header["spacing"] = [np.nan] + self.density_image.spacing.tolist()
-        header = header | {"material_dict": dict(self.material_dict)}
+        
+        header = header | {
+            "material_dict": {
+            material: {
+                "encoding": int(self.material_dict.get(material).get("encoding")),
+                "density": float(self.material_dict.get(material).get("density")),
+                "HU_limit": (
+                float(self.material_dict.get(material).get("HU_limit"))
+                if self.material_dict.get(material).get("HU_limit") is not None
+                else None
+                ),
+                "structure_name": self.material_dict.get(material).get("structure_name", None),
+            }
+            for material in self.material_dict
+            }
+        }
         # header["space units"] = ["", "mm", "mm", "mm"]
         nrrd.write(str(fileName), material_density, header, index_order="C", compression_level=1)
 
@@ -1133,7 +1148,6 @@ def _load_json(pth_json: Path):
     with open(pth_json, "r") as file_json:
         return json.load(file_json)
 
-
 def _load_material_dict(material_source: Union[Path, dict]):
     r"""
     Purpose:
@@ -1178,23 +1192,27 @@ def _load_material_dict(material_source: Union[Path, dict]):
         )
 
     for i, material in enumerate(material_dict):
-        assert (
-            material_dict.get(material).get("density") is not None
-        ), "density is not available"
-
+        if material_dict.get(material).get("density") is None:
+            raise Exception("density is not available")
+        material_dict.get(material)["density"] = float(
+            material_dict.get(material)["density"]
+        )
         if material_dict.get(material).get("HU_limit") is None:
             warnings.warn(
                 f"no HU limit was found for {material}, material assignment by ct will not be possible",
                 stacklevel=2,
             )
             material_dict.get(material)["HU_limit"] = float("-inf")
-
+        else:
+            material_dict.get(material)["HU_limit"] = float(
+                material_dict.get(material)["HU_limit"]
+            )
         if material_dict.get(material).get("encoding") is None:
             warnings.warn(
                 f"no encoding was found for {material}, encoding will be set by the order of the material in the json file",
                 stacklevel=2,
             )
-            material_dict.get(material)["encoding"] = (
+            material_dict.get(material)["encoding"] = int(
                 BrachyEgsphant._materials_encoding_array[i]
             )
 
