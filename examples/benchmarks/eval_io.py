@@ -304,7 +304,8 @@ def eval_nifti_io():
 def generate_egsphants(
     nrrd_patients: Path | str,
     pth_material_dict: Path | str,
-    multi_thread: bool = False
+    multi_thread: bool = False,
+    assign_material_from_ct: bool = True
     ):
     r"""
     ### Purpose:
@@ -329,6 +330,7 @@ def generate_egsphants(
             _gen_one_egsphant(
                 pth_patient=patient,
                 pth_material_dict=pth_material_dict,
+                assign_material_from_ct=assign_material_from_ct
             )
     else:
         from multiprocessing import Pool, cpu_count
@@ -337,7 +339,11 @@ def generate_egsphants(
         with Pool(num_cores) as p:
             
             r = list(tqdm(p.imap(
-                func=partial(_gen_one_egsphant, pth_material_dict=pth_material_dict),
+                func=partial(
+                    _gen_one_egsphant, 
+                    pth_material_dict=pth_material_dict,
+                    assign_material_from_ct=assign_material_from_ct
+                ),
                 iterable=nrrd_patients
                 ), total=len(nrrd_patients)
             ))
@@ -345,6 +351,7 @@ def generate_egsphants(
 def _gen_one_egsphant(
     pth_patient: Path,
     pth_material_dict: Path,
+    assign_material_from_ct: bool = True
 ):
     nrrd_files = list(pth_patient.glob("*.nrrd"))
     for pth in nrrd_files:
@@ -361,12 +368,12 @@ def _gen_one_egsphant(
     phantom_obj.write_to_egsphant(
         pth_output=pth_patient.joinpath("egsphant.seq.nrrd"),
         material_dict=pth_material_dict,
-        assign_material_from_ct=False
+        assign_material_from_ct=assign_material_from_ct
     )
     phantom_obj.write_to_egsphant(
         pth_output=pth_patient.joinpath("ct.egsphant"),
         material_dict=pth_material_dict,
-        assign_material_from_ct=False
+        assign_material_from_ct=assign_material_from_ct
     )
 
 
@@ -404,7 +411,9 @@ if __name__ == "__main__":
     # eval_nifti_io()
     # generate_egsphants(
     #     "temp_data/nrrd_io",
-    #     "admin/constants/structure_materials_prostate.json",
+    #     # "admin/constants/structure_materials_prostate.json",
+    #     "admin/constants/CTtoDensityProstate.txt",
+    #     True,
     #     True
     # )
     eval_egs_io(
