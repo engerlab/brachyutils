@@ -54,9 +54,10 @@ def time_dose_io(
             pth_dose_file=pth_dose_out
         )
         tf_write = time()
+        file_size_mb = pth_dose_out.stat().st_size / (1024 * 1024)
     except Exception as e:
         t0_write, tf_write = (float("nan"), float("nan"))
-    return (tf_read - t0_read, tf_write - t0_write)
+    return (tf_read - t0_read, tf_write - t0_write, file_size_mb)
 
 def time_egsphant_io(
     pth_egsphant_in: Path,
@@ -226,7 +227,7 @@ def eval_nrrd_io(dir_nrrds: Path | str):
     timing_df = pd.DataFrame(columns=[
         "read_time_scan", "write_time_scan",
         "read_time_scan+seg", "write_time_scan+seg",
-        "read_time_dose", "write_time_dose"
+        "read_time_dose", "write_time_dose", "file_size_dose"
         ], index=[nrrd.name for nrrd in dir_nrrds] + ["average", "std"])
 
     for nrrd in tqdm(dir_nrrds):
@@ -241,28 +242,31 @@ def eval_nrrd_io(dir_nrrds: Path | str):
             pth_phantom_file=nrrd.joinpath(nrrd.name+".nrrd"),
             pth_structures_file=nrrd.joinpath(nrrd.name+".seg.nrrd")
         )
-        try:
-            pth_dose_file = list(nrrd.glob("*.seq.nrrd")).pop()
-            t_read_dose, t_write_dose = time_dose_io(
-                pth_dose_in=pth_dose_file,
-                pth_dose_out=nrrd.joinpath(nrrd.name).joinpath(pth_dose_file.name)
-            )
-        except:
-            timing_df.loc[nrrd.name] = [
-            t_read_scan, t_write_scan,
-            t_read_scan_seg, t_write_scan_seg,
-            float("nan"), float("nan")
-            # t_read_dose, t_write_dose
-            ]
-            continue
+        # try:
+        pth_dose_file = list(nrrd.glob("*.seq.nrrd"))
+        for pth in pth_dose_file:
+            if "egsphant" not in pth.name:
+                pth_dose_file = pth
+        t_read_dose, t_write_dose, file_size_dose = time_dose_io(
+            pth_dose_in=pth_dose_file,
+            pth_dose_out=nrrd.joinpath(nrrd.name).joinpath(pth_dose_file.name)
+        )
+        # except:
+        #     timing_df.loc[nrrd.name] = [
+        #     t_read_scan, t_write_scan,
+        #     t_read_scan_seg, t_write_scan_seg,
+        #     float("nan"), float("nan")
+        #     # t_read_dose, t_write_dose
+        #     ]
+        #     continue
         timing_df.loc[nrrd.name] = [
             t_read_scan, t_write_scan,
             t_read_scan_seg, t_write_scan_seg,
-            t_read_dose, t_write_dose
+            t_read_dose, t_write_dose, file_size_dose,
             ]
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
-    timing_df.to_csv(dir_nrrds[0].parent.joinpath("timing_nrrd_io.csv"))
+    timing_df.to_csv(dir_nrrds[0].parent.joinpath("timing_nrrd_io_dose.csv"))
 
 def eval_egs_io(
     egs_patients:Path | str,
@@ -298,8 +302,34 @@ def eval_egs_io(
     timing_df.loc["std"] = timing_df.std()
     timing_df.to_csv(dir_out.joinpath("timing_egs_io.csv"))
 
-def eval_nifti_io():
-    pass
+def eval_3ddose_io(
+    patients_3ddose:Path | str,
+    dir_out: Path | str = None
+    ):
+    """
+    To time the reading and writing of 3ddose files.
+    """
+    patients_3ddose = Path(patients_3ddose)
+    dir_out = Path(dir_out)
+    patients_3ddose = list(patients_3ddose.glob("*/"))
+    timing_df = pd.DataFrame(columns=[
+        "read_time_3ddose", "write_time_3ddose", "file_size_3ddose"
+        ], index=[pat.name for pat in patients_3ddose] + ["average", "std"])
+    for patient in tqdm(patients_3ddose):
+        pth_3ddose = list(patient.glob("*.3ddose")).pop()
+        t_read_3ddose, t_write_3ddose = time_dose_io(
+            pth_dose_in=pth_3ddose,
+            pth_dose_out=dir_out.joinpath(f"{patient.name}/{pth_3ddose.name}")
+        )
+        file_size_3ddose = pth_3ddose.stat().st_size / (1024 * 1024)
+        timing_df.loc[patient.name] = [
+            t_read_3ddose, t_write_3ddose, file_size_3ddose
+        ]
+        # break
+    timing_df.loc["average"] = timing_df.mean()
+    timing_df.loc["std"] = timing_df.std()
+    timing_df.to_csv(dir_out.joinpath("timing_3ddose_io.csv"))
+
 
 def generate_egsphants(
     nrrd_patients: Path | str,
@@ -392,6 +422,21 @@ def convert_nrrd_dose_to_dicom(
             dir_output=dicom_patients.joinpath(nrrd.name)
             )
 
+def convert_nrrd_dose_3ddose(
+    nrrd_patients: Path | str,
+    threeddose_patients: Path | str
+    ):
+    from brachyutils import convert_dose_files
+    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
+    threeddose_patients = Path(threeddose_patients)
+    for nrrd in nrrd_patients:
+        convert_dose_files(
+            pth_inputs=[nrrd.joinpath(nrrd.name+".seq.nrrd")],
+            type_out=".3ddose",
+            dir_output=threeddose_patients.joinpath(nrrd.name)
+            )
+
+
 if __name__ == "__main__":
     # convert_nrrd_dose_to_dicom(
     #     "temp_data/nrrd_io",
@@ -405,9 +450,9 @@ if __name__ == "__main__":
     #     "YourLocalHome/Data/prostate-glen-2023",
     #     "temp_data/nrrd_io"
     # )
-    # eval_nrrd_io(
-    #     "temp_data/nrrd_io",
-    # )
+    eval_nrrd_io(
+        "temp_data/nrrd_io",
+    )
     # eval_nifti_io()
     # generate_egsphants(
     #     "temp_data/nrrd_io",
@@ -416,7 +461,15 @@ if __name__ == "__main__":
     #     True,
     #     True
     # )
-    eval_egs_io(
-        "temp_data/nrrd_io",
-        "temp_data/egs_io"
-    )
+    # eval_egs_io(
+    #     "temp_data/nrrd_io",
+    #     "temp_data/egs_io"
+    # )
+    # convert_nrrd_dose_3ddose(
+    #     "temp_data/nrrd_io",
+    #     "temp_data/3ddose_io"
+    # )
+    # eval_3ddose_io(
+    #     "temp_data/3ddose_io",
+    #     "temp_data/3ddose_io"
+    # )
