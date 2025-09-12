@@ -83,14 +83,13 @@ def test_write_to_nrrd():
     Purpose:
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
-    pth_out = "data_test/test_export_plan/prostate/run1_dose.seq.nrrd"
-    pth_input = "data_test/prostate-glen-p1-dose/scaled_run_1.seq.nrrd"
-    # pth_input = "data_test/new_nrrd/P5Fx1_tra/combined.nrrds"
-    pth_out = os.path.join(pth_out, "test_"+os.path.basename(pth_input))
+    pth_out = Path("data_test/test_export_plan/prostate/test_combined.seq.nrrd")
+    pth_input = Path("data_test/test_export_plan/prostate/combined.seq.nrrd")
+
     dose_obj = BrachyDose(pth_input)
     dose_obj.write_to_nrrd(pth_out)
-    # dose_obj_from_nrrd = BrachyDose(pth_out)
-    # print(dose_obj.is_equal(dose_obj_from_nrrd))
+    new_dose_obj = BrachyDose(pth_out)
+    dose_obj.is_equal(new_dose_obj)
 
 
 def test_convert_to_npz_file():
