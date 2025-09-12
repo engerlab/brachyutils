@@ -639,7 +639,7 @@ class BrachyDose:
 
         # dimensions = " ".join(map(str, np.flip(self.dose_image.gridSize.astype(int)))) + "\n"
         dimensions = " ".join(map(str, self.dose_image.gridSize.astype(int))) + "\n"
-        x_axis = " ".join(map(str, (-1 * self.voxel_edges[0]) / 10)) + "\n"
+        x_axis = " ".join(map(str, (self.voxel_edges[0]) / 10)) + "\n"
         y_axis = " ".join(map(str, self.voxel_edges[1] / 10)) + "\n"
         z_axis = " ".join(map(str, self.voxel_edges[2] / 10)) + "\n"
         arr_flat = self.get_dose_array().flatten("C")
