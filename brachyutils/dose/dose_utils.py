@@ -642,13 +642,17 @@ class BrachyDose:
         x_axis = " ".join(map(str, (-1 * self.voxel_edges[0]) / 10)) + "\n"
         y_axis = " ".join(map(str, self.voxel_edges[1] / 10)) + "\n"
         z_axis = " ".join(map(str, self.voxel_edges[2] / 10)) + "\n"
-        dose_flattened = " ".join(map(str, self.get_dose_array().flatten("C"))) + "\n"
+        arr_flat = self.get_dose_array().flatten("C")
+        formatted_str_array = np.char.mod(f"%.6f", arr_flat)
+        dose_flattened = " ".join(formatted_str_array) + "\n"
         if self.uncertainty_image is not None:
+            arr_flat = self.get_uncertainty_array().flatten("C")
+            formatted_str_array = np.char.mod(f"%.6f", arr_flat)
             uncertainty_flattened = (
-                " ".join(map(str, self.get_uncertainty_array().flatten("C"))) + "\n"
+                " ".join(formatted_str_array) + "\n"
             )
         else:
-            uncertainty_flattened = ""
+            uncertainty_flattened = " ".join(np.ones_like(formatted_str_array)) + "\n"
 
         with open(file_name, "w") as file:
             lines = [
@@ -856,7 +860,7 @@ class BrachyDose:
             np.isclose(
                 self.dose_image.imageArray,
                 new_brachy_dose.dose_image.imageArray,
-                rtol=1e-6,
+                atol=1e-6,
             )
         ):
             warnings.warn("dose values are not the same", stacklevel=2)
@@ -875,7 +879,7 @@ class BrachyDose:
                 np.isclose(
                     self.uncertainty_image.imageArray,
                     new_brachy_dose.uncertainty_image.imageArray,
-                    rtol=1e-6,
+                    atol=1e-6,
                 )
             ):
                 warnings.warn("uncertainty is not the same", stacklevel=2)
