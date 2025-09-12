@@ -522,9 +522,11 @@ class BrachyPhantom:
             if self.image_modality == "CT":
                 writeDicomCT(self.image_obj, str(dir_output))
             elif self.image_modality == "MR":
-                raise NotImplementedError("MR image writing is not implemented yet")
+                warnings.warn("MR image writing is not implemented yet. writing volume as CT")
+                writeDicomCT(self.image_obj, str(dir_output))
             elif self.image_modality == "US":
-                raise NotImplementedError("US image writing is not implemented yet")
+                warnings.warn("MR image writing is not implemented yet. writing volume as CT")
+                writeDicomCT(self.image_obj, str(dir_output))
             else:
                 raise ValueError("Image modality not recognized")
 
@@ -642,6 +644,7 @@ class BrachyPhantom:
             - resampled_spacing: List[float] := the spacing to resample the egsphant to.
             - background_material: Optional[str] := the name of the background material. default is "Air".
         """
+        pth_output = Path(pth_output)
         if str(pth_output).endswith(".egsphant"):
             pass
         elif str(pth_output).endswith(".seq.nrrd"):
@@ -1063,7 +1066,12 @@ class BrachyPhantom:
         from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
 
         new_phantom = phantom_with_empty_image_like(self, new_pth_image=self.pth_image)
-        new_img_obj = resampleImage3D(self.image_obj, origin=origin, spacing=spacing, sitk_interpolator=interpolator_img)
+        new_img_obj = resampleImage3D(
+            self.image_obj,
+            origin=origin,
+            spacing=spacing,
+            sitk_interpolator=interpolator_img
+            )
             
         if inplace:
             self.image_obj = new_img_obj

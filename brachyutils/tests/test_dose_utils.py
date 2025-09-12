@@ -49,17 +49,19 @@ def test_load_from_dicom():
 
 
 def test_write_to_3ddose():
-    # pth_3ddose =  "data_test/run_1_old.3ddose"
-
-    # testing on maude's file
-    pth_file = "data_test/rectal-jgh-planFiles/combined.3ddose"
-    dir_out = "data_test/test_export_plan"
-
+    # pth_file = "data_test/prostate-glen-p1-dose/combined.seq.nrrd"
+    pth_file ="data_test/test_export_plan/prostate/combined.3ddose" 
+    dir_out = "data_test/test_export_plan/prostate"
+    
+    pth_file = Path(pth_file)
+    dir_out = Path(dir_out)
     dose_obj = BrachyDose(pth_file)
 
-    dose_obj.write_to_3ddose(os.path.join(dir_out, "test" + os.path.basename(pth_file)))
+    # dose_obj.write_to_3ddose(dir_out / (pth_file.name.replace(".seq.nrrd",".3ddose")))
+    dose_obj.write_to_3ddose(dir_out / ("test_"+pth_file.name))
     new_dose_obj = BrachyDose(
-        os.path.join(dir_out, "test" + os.path.basename(pth_file))
+        # dir_out / (pth_file.name.replace(".seq.nrrd",".3ddose"))
+        dir_out / ("test_"+pth_file.name)
     )
     print(dose_obj.is_equal(new_dose_obj))
 
@@ -81,14 +83,13 @@ def test_write_to_nrrd():
     Purpose:
         simulatenously test write_to_nrrd() and load_from_nrrd()
     """
-    pth_out = "data_test/test_export_plan/prostate/run1_dose.seq.nrrd"
-    pth_input = "data_test/prostate-glen-p1-dose/scaled_run_1.seq.nrrd"
-    # pth_input = "data_test/new_nrrd/P5Fx1_tra/combined.nrrds"
-    pth_out = os.path.join(pth_out, "test_"+os.path.basename(pth_input))
+    pth_out = Path("data_test/test_export_plan/prostate/test_combined.seq.nrrd")
+    pth_input = Path("data_test/test_export_plan/prostate/combined.seq.nrrd")
+
     dose_obj = BrachyDose(pth_input)
     dose_obj.write_to_nrrd(pth_out)
-    # dose_obj_from_nrrd = BrachyDose(pth_out)
-    # print(dose_obj.is_equal(dose_obj_from_nrrd))
+    new_dose_obj = BrachyDose(pth_out)
+    dose_obj.is_equal(new_dose_obj)
 
 
 def test_convert_to_npz_file():
@@ -215,8 +216,8 @@ def test_crop_by_dicom_structure():
 if __name__ == "__main__":
     # test_load_from_3ddose()
     # test_load_from_dicom()
-    test_load_from_nrrd()
-    # test_write_to_3ddose()
+    # test_load_from_nrrd()
+    test_write_to_3ddose()
     # test_write_to_nrrd()
     # test_crop_by_coordinates()
     # test_crop_by_fraction()

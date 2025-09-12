@@ -3,9 +3,6 @@ from glob import glob
 from pathlib import Path
 from typing import Literal, Optional, Union
 
-# from brachyutils.dose_utils import BrachyDose
-
-
 class BrachyDoseGenerator(ABC):
     def __init__(
         self,
@@ -96,8 +93,8 @@ class DoseTG43(BrachyDoseGenerator):
         - pth_plan: Optional[Path] := The path to the plan file (.plan).
         - pth_mac: Optional[Path] := The path to the mac file (.mac).
         - num_threads: Optional[int] := The number of threads to use for the calculation. The default is 4.
-        - output_dose_per_dwell[str] := A flag to indicate if the dose per dwell position should be output.
-            The default is "false". Other options are "true" and "dose_rate". for optimization, select "dose_rate".
+        - output_dose_per_dwell: Literal[bool, str] := A flag to indicate if the dose per dwell position should be output.
+            The default is False. Other options are True and "dose_rate". for optimization, select "dose_rate".
         - dir_source_parameters: Optional[str] := The directory where the source parameters are stored.
             The default is "./SourceParameters/microSelectron-v2".
         - using_imbt_plan: Optional[bool] := a binary flag to indicate if the plan is an IMBT plan.

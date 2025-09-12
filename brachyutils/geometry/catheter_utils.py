@@ -10,7 +10,7 @@ from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import Piec
 from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
 from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position, CatheterSetUp
 from ai_assisted_brachy.catheter.catheter_api import (
-    dicom_to_catheter_table, _update_catheter_table, ct_to_catheter_table, CreatedSetUp
+    dicom_to_catheter_table, _update_catheter_table, CreatedSetUp
 )
 
 class DwellPosition(BaseModel):
@@ -169,12 +169,13 @@ class Catheter(BaseModel):
         - **data: dict := the dictionary containing the catheter attributes.
         """
         super().__init__(**data)
+
         # Set afterloader_channel_number to index if not provided
         if self.afterloader_channel_number is None:
             self.afterloader_channel_number = self.index
 
         # Initialize dwells based on available inputs
-        if self.dwells is not None:
+        if self.dwells:
             # Convert dict dwells to DwellPosition objects if needed
             if isinstance(self.dwells[0], dict):
                 self.dwells = [DwellPosition(**dwell) for dwell in self.dwells]
@@ -184,7 +185,7 @@ class Catheter(BaseModel):
                 fit_function=self.fit_function,
                 step_size=self.step_size,
             )
-        elif self.points is not None:
+        elif self.points:
             # Create fit and dwells from points
             self.fit_function = self.get_fit_from_points(points=self.points)
             self.dwells = self.get_dwells_from_fit(
@@ -205,7 +206,7 @@ class Catheter(BaseModel):
             tip and last dwell coordinate coordinates to create a catheter.""")
 
         # Set tip_position and last_dwell_coordinate from dwells
-        if self.dwells is not None and len(self.dwells) > 0:
+        if self.dwells and len(self.dwells) > 0:
             self.tip_position = self.dwells[0].position
             self.last_dwell_coordinate = self.dwells[-1].position
         else:
@@ -370,6 +371,7 @@ class CatheterTable(BaseModel):
     step_size: float = 5.0
     # brachy_source:Any = None
     delivered_dwell_coordinates: Dict[str, List[List[float]]] = None
+    delivered_catheter_table: bool = False
 
     @computed_field
     def treatment_time(self) -> float:
@@ -435,10 +437,12 @@ class CatheterTable(BaseModel):
 
             if str(catheter_file).endswith(".json"):
                 cat_dict = self.load_from_json(catheter_file)
-            elif str(catheter_file).endswith(".dcm"):
+            elif str(catheter_file).endswith(".dcm") and not self.delivered_catheter_table:
                 cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file)
                 if delivered_dwell_coordinates is not None:
                     self.delivered_dwell_coordinates = delivered_dwell_coordinates
+            elif str(catheter_file).endswith(".dcm") and self.delivered_catheter_table:
+                cat_dict = load_delivered_cathetertable_from_dicom(pth_dicom=catheter_file)
             elif catheter_file.is_dir():
                 cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
                 if delivered_dwell_coordinates is not None:
@@ -692,6 +696,7 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - catheter_table_dict := the dictionary containing the catheter table.
         """
+        from ai_assisted_brachy.catheter.catheter_api import ct_to_catheter_table
         # if "image" a path to a file, just pass along
         if isinstance(image, Path) or isinstance(image, str):
             image = Path(image)                
@@ -719,3 +724,163 @@ class CatheterTable(BaseModel):
         for catheter in self.catheter_list:
             dwell_positions.extend(catheter.get_dwell_positions_as_list())
         return dwell_positions
+
+
+def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
+    r"""
+    Purpose:
+        - Load the catheter table from a dicom file.
+    Inputs:
+        - pth_dicom: Path := the path to the dicom file containing the catheter table.
+    Outputs:
+        - Void := will update the catheter table based on the dicom file.
+    """
+    import pydicom
+
+    plan = pydicom.dcmread(pth_dicom)
+    catheter_table = []
+    # loop through the channels
+    for catheter_dcm in plan.ApplicationSetupSequence[0].ChannelSequence:
+        control_points = []
+        catheter_time = (
+            float(catheter_dcm.ChannelTotalTime)
+            if hasattr(catheter_dcm, "ChannelTotalTime")
+            else 0
+        )
+        channel_final_time_weight = (
+            float(catheter_dcm.FinalCumulativeTimeWeight)
+            if hasattr(catheter_dcm, "FinalCumulativeTimeWeight")
+            else 0
+        )
+        # loop through the control points.
+        # Each dwell position has 2 control points, get them all.
+        for control_point_dcm in catheter_dcm.BrachyControlPointSequence:
+            if control_point_dcm.CumulativeTimeWeight is None:
+                continue
+
+            cumulative_time_weight = (
+                float(control_point_dcm.CumulativeTimeWeight)
+                if hasattr(control_point_dcm, "CumulativeTimeWeight")
+                else 0
+            )
+            control_points.append(
+                {
+                    "index": (
+                        int(control_point_dcm.ControlPointIndex)
+                        if hasattr(control_point_dcm, "ControlPointIndex")
+                        else None
+                    ),
+                    "angle": (
+                        control_point_dcm.ControlPointShieldAngle
+                        if hasattr(control_point_dcm, "ControlPointShieldAngle")
+                        else 0
+                    ),
+                    "position": (
+                        np.array(
+                            control_point_dcm.ControlPoint3DPosition,
+                            dtype=np.float32,
+                        )
+                        if hasattr(control_point_dcm, "ControlPoint3DPosition")
+                        else None
+                    ),
+                    "relativePos": (
+                        float(control_point_dcm.ControlPointRelativePosition)
+                        if hasattr(
+                            control_point_dcm, "ControlPointRelativePosition"
+                        )
+                        else None
+                    ),
+                    "rotation": (
+                        np.array(
+                            control_point_dcm.ControlPointOrientation,
+                            dtype=np.float32,
+                        )
+                        if hasattr(control_point_dcm, "ControlPointOrientation")
+                        else np.array([0, 0, 0], dtype=np.float32)
+                    ),
+                    "cumulative_weight": cumulative_time_weight,
+                    # "total rerence air kerma": total_reference_air_kerma,
+                }
+            )
+        catheter_table.append(
+            {
+                "index": int(catheter_dcm.ChannelNumber) - 1,
+                "points": [],
+                "channel_total_time": catheter_time,
+                "channel_final_time_weight": channel_final_time_weight,
+                "control_points": control_points,
+            }
+        )
+
+    # # Convert control points to dwell positions:
+    # # after extracting the final cummulative time weight of the catheters,
+    # # the time of the catheter, and the cummulative time weight of the control points,
+    # # we need to calculate the dwell time and time weight of the dwell positions.
+    # # the formula is:
+    # #     time_weight = (cumulative_time_weight - previous_cumulative_time_weight) / channel_final_time_weight
+    # #     dwell time = time_weight * channel_total_time
+    # #     dwell weight = dwell time / sum(channel_total_time)
+    # get total treatment time
+    treatment_time = np.sum(
+        [catheter["channel_total_time"] for catheter in catheter_table]
+    )
+    final_catheter_table = []
+    empty_catheter_counter = 0
+    # loop through the catheters
+    for catheter in catheter_table:
+        dwells = []
+        # loop through the control points
+        # each dwell position has 2 control points:
+        #   arrive time and depart time for the source
+        for idx, control_point in enumerate(catheter["control_points"]):
+            # if idx == len(catheter["control_points"]) - 1:
+            #     break
+            if idx % 2 == 1:
+                continue
+            dwell_time_weight = (
+                catheter["control_points"][idx + 1]["cumulative_weight"]
+                - control_point["cumulative_weight"]
+            ) / catheter["channel_final_time_weight"]
+            dwell_time = dwell_time_weight * catheter["channel_total_time"]
+            dwell_weight = dwell_time / treatment_time
+            dwells.append(
+                {
+                    "index": int(control_point["index"] / 2),
+                    "angle": float(control_point["angle"]),
+                    "position": [
+                        control_point["position"][0],
+                        control_point["position"][1],
+                        control_point["position"][2],
+                    ],
+                    "relativePos": int(control_point["relativePos"]),
+                    "rotation": [
+                        control_point["rotation"][0],
+                        control_point["rotation"][1],
+                        control_point["rotation"][2],
+                    ],
+                    "time": dwell_time,
+                    "weight": dwell_weight,
+                }
+            )
+        # do not add empty catheters here
+        if not dwells:
+            empty_catheter_counter += 1
+            continue
+        catheter["dwells"] = dwells
+        if (
+            np.all([np.all(catheter["dwells"][i]["rotation"] == [0,0,0])
+                    for i in range(len(catheter["dwells"]))])
+            and len(catheter["dwells"]) > 1
+        ):
+            for i in range(len(catheter["dwells"])):
+                catheter["dwells"][i]["rotation"] = get_rotation_from_position(i, catheter["dwells"])
+        catheter["index"] -= empty_catheter_counter
+        final_catheter_table.append(catheter)
+    return {
+        "catheter_list": final_catheter_table,
+        "treatment_time": treatment_time,
+        "step_size": float(
+            final_catheter_table[0]["dwells"][1]["relativePos"] 
+            - final_catheter_table[0]["dwells"][0]["relativePos"]
+            )
+    }
