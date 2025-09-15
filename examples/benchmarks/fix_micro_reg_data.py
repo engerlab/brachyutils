@@ -185,8 +185,8 @@ def fix_all_prostate_images(dir_img_in:Path | str, dir_out, multi_thread: bool =
     else:
         for mr_data, us_data in zip(mr_data_list, us_data_list):
             fix_one_phantom(mr_data, us_data, dir_out)
-            # # for testing
-            # break
+            # for testing
+            break
 
 def convert_microreg_to_nrrd(multi_proc:bool = True):
     r"""
@@ -269,5 +269,5 @@ if __name__ == "__main__":
     fix_all_prostate_images(
         dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
         dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
-        multi_thread=True
+        multi_thread=False
     )

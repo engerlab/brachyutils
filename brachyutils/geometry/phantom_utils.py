@@ -1141,7 +1141,7 @@ def get_uniform_phantom(
     return phantom
     
 
-def _sort_segementation_dict_by_size(
+def _sort_segmentation_dict_by_size(
     mask_dict: Dict[str, np.ndarray]
     ) -> Dict[str, np.ndarray]:
     r"""
@@ -1169,7 +1169,7 @@ def _convert_many_binary_masks_to_1_int_mask(
     Purpose:
         - Convert many binary masks to one integer mask. The masks should be ordered
         from largest to smallest as the smallest mask will overwrite the larger mask.
-        use _sort_segementation_dict_by_size() to sort the masks.
+        use _sort_segmentation_dict_by_size() to sort the masks.
     Inputs:
         - mask_dict: dict := the dictionary of the masks. the values are numpy arrays in
         [z, y, x] format.
@@ -1690,7 +1690,7 @@ def masksToNrrd(
         gridSize = structure_mask_dict[list(structure_mask_dict.keys())[0]].gridSize
 
         mask_dict = {k: v.imageArray.swapaxes(0,2) for k, v in structure_mask_dict.items()}
-        sorted_by_size = _sort_segementation_dict_by_size(mask_dict)
+        sorted_by_size = _sort_segmentation_dict_by_size(mask_dict)
 
         if not overlap:
             # this removes overlap
