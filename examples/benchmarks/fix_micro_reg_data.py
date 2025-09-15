@@ -69,7 +69,15 @@ def rename_structures(phantom_obj: BrachyPhantom):
         if name == "Segment1_Name":
             new_name_mapping[name] = "Prostate"
         else:
-            new_name_mapping[name] = f"Biopsy_{i-1}"
+            segment_number = int(name.split("_")[0].replace("Segment", ""))
+            new_name_mapping[name] = f"Biopsy_{segment_number-1}"
+
+    # sort the new name mapping by the numerical order of the biopsy number
+    new_name_mapping = dict(
+        sorted(
+            new_name_mapping.items(),
+            key=lambda item: int(item[1].split("_")[1]) if "Biopsy" in item[1] else -1)
+        )
 
     phantom_obj.rename_structures(
         new_name_mapping
@@ -257,9 +265,9 @@ def convert_microreg_to_nrrd(multi_proc:bool = True):
 if __name__ == "__main__":
     # test_fix_one_phantom()
 
-    convert_microreg_to_nrrd(multi_proc=True)
-    # fix_all_prostate_images(
-    #     dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
-    #     dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
-    #     multi_thread=True
-    # )
+    # convert_microreg_to_nrrd(multi_proc=True)
+    fix_all_prostate_images(
+        dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
+        dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
+        multi_thread=True
+    )
