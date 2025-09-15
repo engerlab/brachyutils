@@ -864,7 +864,6 @@ class BrachyPhantom:
         # Store the resampled masks in the cached_structure_masks attribute
         self.cached_structure_masks = new_structure_dict
 
-
     def set_structure_set(
         self,
         mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]],
@@ -1078,6 +1077,23 @@ class BrachyPhantom:
         else:
             new_phantom.image_obj = new_img_obj
             return new_phantom
+
+    def sort_structures_by_name(self, sorted_names):
+        r"""
+        Purpose:
+            - Sort the structures in the structure set by the input list of names.
+        Inputs:
+            - sorted_names: list := the list of names to sort the structures by.
+        Outputs:
+            - None
+        """
+        self.structure_set._contours = sorted(
+            self.structure_set._contours,
+            key=lambda x: sorted_names.index(x.name)
+            if x.name in sorted_names
+            else len(sorted_names)
+        )
+        self._update_structure_names()
 
 # helper functions
 def phantom_with_empty_image_like(
@@ -1690,9 +1706,9 @@ def masksToNrrd(
         gridSize = structure_mask_dict[list(structure_mask_dict.keys())[0]].gridSize
 
         mask_dict = {k: v.imageArray.swapaxes(0,2) for k, v in structure_mask_dict.items()}
-        sorted_by_size = _sort_segmentation_dict_by_size(mask_dict)
 
         if not overlap:
+            sorted_by_size = _sort_segmentation_dict_by_size(mask_dict)
             # this removes overlap
             all_masks = _convert_many_binary_masks_to_1_int_mask(
                 sorted_by_size
@@ -1720,6 +1736,8 @@ def masksToNrrd(
             header["space units"] = ["mm", "mm", "mm"]
   
         else:
+            # do not sort the masks, keep the original order
+            sorted_by_size = mask_dict
             # stack up all the masks
             all_masks = np.stack(list(sorted_by_size.values()), axis=3).astype(np.uint8)
             from collections import defaultdict
