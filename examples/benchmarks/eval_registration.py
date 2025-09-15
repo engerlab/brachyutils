@@ -6,36 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 from typing import Dict, List, Union, Tuple
 import pandas as pd
-from brachyutils.registration_utils import PhantomRegistration
-from brachyutils.geometry_utils import BrachyPhantom
-
-# def export_phantom_opentps_nrrd_dicom_egsphant():
-#     from brachyutils.geometry_utils import BrachyPhantom
-#     pth_img_dicom = Path("data_test/prostate-glen-p1-dcm")
-#     pth_strct_dicom = glob(str(pth_img_dicom)+"/RS*.dcm")[0]
-#     pth_img_nrrd = Path("data_test/test_export_plan/opentps/prostate_glen_p1.nrrd")
-#     pth_strct_nrrd = Path("data_test/test_export_plan/opentps/prostate_glen_p1.seg.nrrd")
-#     assign_material_from_ct = True
-#     pth_materials = Path("data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt")
-#     phantom = BrachyPhantom(
-#         dir_dicom=pth_img_dicom,
-#         pth_structures_file=pth_strct_dicom
-#     )
-#     # phantom.export_to(
-#     #     dir_nrrd_out=pth_img_nrrd.parent
-#     # )
-#     # phantom.export_to(
-#     #     dir_dicom_out=Path.joinpath(pth_img_nrrd.parent, "dicom/")
-#     # )
-#     phantom.write_to_egsphant(
-#         pth_output=pth_img_nrrd.parent.joinpath("egsphant.seq.nrrd"),
-#         material_dict=pth_materials,
-#         assign_material_from_ct=assign_material_from_ct
-#         )
-
-# def compare_dose_mc_tg43():
-#     from brachyutils.dose_generation_utils import DoseMonteCarlo, DoseTG43
-#     from brachyutils.plan_utils import BrachyPlan
+from brachyutils import PhantomRegistration
+from brachyutils import BrachyPhantom
 
 def evaluate_registration(
     dir_static: str | Path,
@@ -350,7 +322,19 @@ def export_static_moving_phantoms(case: Dict, dir_static: Path, dir_moving: Path
     static_phantom.export_to(dir_nrrd_out=dir_static)
     moving_phantom.export_to(dir_nrrd_out=dir_moving)
 
+def eval_reg_opentps():
+    r"""
+    ### Purpose:
+        - to evaluate the registration results from opentps
+    """
+    
+    # prepare the data
+    # for each sample
+        # run registration
+        # run evaluation
+
 if __name__ == "__main__": 
     # organize_data("temp_data/registration/abdomen-mr-ct", True)
-    # run_registeration_opentps()
+    run_registeration_opentps()
     run_registration_plastimatch()
+    eval_reg_opentps()
