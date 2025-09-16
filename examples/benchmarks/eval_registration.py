@@ -122,45 +122,48 @@ def evaluate_registration(
     eval_df_hausdorff.to_csv(dir_registered.joinpath("hausdorff.csv"))
 
 def eval_single_registration(
-    essential_inputs: Dict,
+    pth_static_image: Path,
+    pth_static_structure: Path,
+    pth_moving_image: Path,
+    pth_moving_structure: Path,
+    dir_registered: Path,
+    registration_module: BrachyPhantomRegistration,
     **kwargs
 ):
     r"""
-    Purpose:
+    ### Purpose:
         - evaluate the registration of the moving image and structures onto the static image.
-    Inputs:
-        - essential_inputs := dictionary containing the essential inputs for the registration, which are
-            - pth_static_image
-            - pth_static_structure
-            - pth_moving_image
-            - pth_moving_structure
-            - registration_module
-            - dir_registered
-    Outputs:
+    ### Inputs:
+        - pth_static_image := path to the static image file
+        - pth_static_structure := path to the static structure file
+        - pth_moving_image := path to the moving image file
+        - pth_moving_structure := path to the moving structure file
+        - dir_registered := directory where the registered moving image and structures are written to.
+        - registration_module := the registration class that extends BrachyPhantomRegistration
+        - kwargs := additional arguments for the registration module
+    ### Outputs:
         - dict containing the evaluation results
             - Dice
             - Hausdorff
     """
     static_phantom = BrachyPhantom(
-        pth_phantom_file=essential_inputs.get("pth_static_image"),
-        pth_structures_file=essential_inputs.get("pth_static_structure")
+        pth_phantom_file=pth_static_image,
+        pth_structures_file=pth_static_structure
     )
     moving_phantom = BrachyPhantom(
-        pth_phantom_file=essential_inputs.get("pth_moving_image"),
-        pth_structures_file=essential_inputs.get("pth_moving_structure")
+        pth_phantom_file=pth_moving_image,
+        pth_structures_file=pth_moving_structure
     )
-    
-    reg_obj = essential_inputs.get("registration_module")(
-        static_phantom = static_phantom,
-        moving_phantom = moving_phantom,
+    reg_obj: BrachyPhantomRegistration = registration_module(
+        static_phantom=static_phantom,
+        moving_phantom=moving_phantom,
         **kwargs
     )
-
     reg_obj.register(
-        dir_phantom_export=essential_inputs.get("dir_registered"),
+        dir_phantom_export=dir_registered,
         **kwargs
     )
-    return {Path(essential_inputs.get("pth_static_image")).stem: reg_obj.evaluate_on_contours()}
+    return {pth_static_image.stem: reg_obj.evaluate_on_contours()}
 
 def run_registeration_opentps():
     # # on abdomen MR-CT
@@ -372,11 +375,10 @@ if __name__ == "__main__":
     reg_data_inputs = gen_registration_inputs_microreg(
         dir_all_data="temp_data/registration/fixed-nrrd",
         )
-    print(f"number of registration cases: {len(reg_data_inputs)}")
-    # eval_reg_opentps(
-    #     reg_data_inputs: list = reg_data_inputs,
-    #     pth_results_csv: str | Path
-    # )
+    eval_reg_opentps(
+        reg_data_inputs: list = reg_data_inputs,
+        pth_results_csv: str | Path
+    )
     # organize_data("temp_data/registration/abdomen-mr-ct", True)
     # run_registeration_opentps()
     # run_registration_plastimatch()
