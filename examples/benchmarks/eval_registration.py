@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 from typing import Dict, List, Union, Tuple
 import pandas as pd
-from brachyutils import PhantomRegistration
+from brachyutils import BrachyPhantomRegistration
 from brachyutils import BrachyPhantom
 
 def evaluate_registration(
@@ -29,8 +29,8 @@ def evaluate_registration(
         - dir_moving := same as above, but for moving images.
         - dir_registered := the directory where the registered moving image and the structures is written to.
     """
-    if not issubclass(registration_module, PhantomRegistration):
-        raise ValueError("registration module should extend the abstract class PhantomRegistration")
+    if not issubclass(registration_module, BrachyPhantomRegistration):
+        raise ValueError("registration module should extend the abstract class BrachyPhantomRegistration")
 
     # from brachyutils.registration_utils import Registration_OpenTPS
     dir_static = Path(dir_static)
@@ -176,7 +176,7 @@ def run_registeration_opentps():
     # dir_moving = "temp_data/registration/micro-reg/mr-train"
     # dir_registered = "temp_data/registration/micro-reg/reg-train"
 
-    from brachyutils.registration_utils import Registration_OpenTPS
+    from brachyutils import Registration_OpenTPS
     # # image based registration
     evaluate_registration(
         dir_static=dir_static,
@@ -322,19 +322,61 @@ def export_static_moving_phantoms(case: Dict, dir_static: Path, dir_moving: Path
     static_phantom.export_to(dir_nrrd_out=dir_static)
     moving_phantom.export_to(dir_nrrd_out=dir_moving)
 
-def eval_reg_opentps():
+def gen_registration_inputs_microreg(
+    dir_all_data: str | Path
+):
     r"""
-    ### Purpose:
-        - to evaluate the registration results from opentps
+    ### Purpose: 
+        - to generate a list of registration input dictionaries from a directory containing all the data.
+        we use the micro-reg prostate dataset where the static images are the US images and the moving images are the MRI images.
+    ### Inputs:
+        - dir_all_data := directory containing all the data
+        example registration data directory structure:
+        dir_all_data/
+            us_case000000.nrrd
+            us_case000000.seg.nrrd
+            mr_case000000.nrrd
+            mr_case000000.seg.nrrd
+    ### Outputs:
+    reg_data_inputs: List[Dict]
+        - a list of registration input dictionaries
+            - pth_static_image
+            - pth_static_structure
+            - pth_moving_image
+            - pth_moving_structure
+            - dir_registered
+            - registration_module
     """
-    
-    # prepare the data
-    # for each sample
-        # run registration
-        # run evaluation
+    dir_all_data = Path(dir_all_data)
+    moving_segments = list(dir_all_data.glob("mr_*.seg.nrrd"))
+    reg_data_inputs = list()
+    for moving_seg in moving_segments:
+        case_id = moving_seg.stem.split("mr_")[-1].split(".seg")[0]
+        moving_image = dir_all_data.joinpath(f"mr_{case_id}.nrrd")
+        static_image = dir_all_data.joinpath(f"us_{case_id}.nrrd")
+        static_seg = dir_all_data.joinpath(f"us_{case_id}.seg.nrrd")
+        if not moving_image.exists() or not static_image.exists() or not static_seg.exists():
+            warnings.warn(f"corresponding data for case {case_id} was not found")
+            continue
+        reg_data_inputs.append({
+            "pth_static_image": str(static_image),
+            "pth_static_structure": str(static_seg),
+            "pth_moving_image": str(moving_image),
+            "pth_moving_structure": str(moving_seg),
+        })
+    if len(reg_data_inputs) == 0:
+        raise ValueError(f"no registration data found in {dir_all_data}")
+    return reg_data_inputs
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
+    reg_data_inputs = gen_registration_inputs_microreg(
+        dir_all_data="temp_data/registration/fixed-nrrd",
+        )
+    print(f"number of registration cases: {len(reg_data_inputs)}")
+    # eval_reg_opentps(
+    #     reg_data_inputs: list = reg_data_inputs,
+    #     pth_results_csv: str | Path
+    # )
     # organize_data("temp_data/registration/abdomen-mr-ct", True)
-    run_registeration_opentps()
-    run_registration_plastimatch()
-    eval_reg_opentps()
+    # run_registeration_opentps()
+    # run_registration_plastimatch()
