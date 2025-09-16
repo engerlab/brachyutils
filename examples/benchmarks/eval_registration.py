@@ -12,20 +12,27 @@ from brachyutils import BrachyPhantom
 def evaluate_registration(
     reg_data_inputs: List[Dict[str, Union[str, Path]]],
     registration_module,
-    multi_thread: bool = False,
     **kwargs
 ):
     r"""
-    Purpose:
+    ### Purpose:
         - register structures from MRI onto TRUS and compare it with the ground truth 
         structures on TRUS images. The registration is done based on the prostate contour
-        and the transformed structures are the biopsy regions.
-    
-    Inputs:
-        - dir_static := directory of the static images and structures. the image file and the structure
-        file should have the same name. the extension of the structure file should be .seg.nrrd.
-        - dir_moving := same as above, but for moving images.
-        - dir_registered := the directory where the registered moving image and the structures is written to.
+        and the transformed structures are the biopsy regions.    
+    ### Inputs:
+        - reg_data_inputs := list of dictionaries containing the paths to the static and moving images and structures
+            - pth_static_image := path to the static image file
+            - pth_static_structure := path to the static structure file
+            - pth_moving_image := path to the moving image file
+            - pth_moving_structure := path to the moving structure file
+        - registration_module := the registration class that extends BrachyPhantomRegistration
+        - kwargs := additional arguments for the registration module
+            - dir_registered := directory where the registered moving image and structures are written to.
+    ### Outputs:
+        - a dictionary containing the average evaluation results, which are:
+            "avg_dice", "std_dice"
+            "avg_hausdorff", "std_hausdorff"
+            "avg_time", "std_time"
     """
     if not issubclass(registration_module, BrachyPhantomRegistration):
         raise ValueError("registration module should extend the abstract class BrachyPhantomRegistration")
@@ -101,54 +108,46 @@ def eval_reg_opentps(
     reg_data_inputs: List[Dict[str, Union[str, Path]]]
 ):
     from brachyutils import Registration_OpenTPS
+    algorithms  = ["rigid", "quick", "demons", "morphons"]
+    references = ["image", "Prostate"]
 
-    # # # on abdomen MR-CT
-    # dir_static = "temp_data/registration/abdomen-mr-ct/static"
-    # dir_moving = "temp_data/registration/abdomen-mr-ct/moving"
-    # backend = "OpenTPS"
-    # use_contour = "" # None
-    # dir_registered_quick = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-quick"
-    # dir_registered_demons = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-demons"
-    # dir_registered_morphons = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-morphons"
-    # # # on micro-reg prostate
-    # # dir_static = "temp_data/registration/micro-reg/us-train"
-    # # dir_moving = "temp_data/registration/micro-reg/mr-train"
-    # # dir_registered = "temp_data/registration/micro-reg/reg-train"
-
-    # # image based registration
-    evaluate_registration(
-        reg_data_inputs=reg_data_inputs,
-        registration_module=Registration_OpenTPS,
-        register_on_contour=use_contour,
-        multi_thread=True,
-        deformable=True,
-        algorithm="quick"
+    results_df = pd.DataFrame(
+        columns=[
+            "algorithm", "package", "reference",
+            "avg_dice", "std_dice",
+            "avg_hausdorff", "std_hausdorff",
+            "avg_time", "std_time"
+            ]
     )
-    # demons does not work well!
-    # evaluate_registration(
-    #     dir_static=dir_static,
-    #     dir_moving=dir_moving,
-    #     dir_registered=dir_registered_demons,
-    #     registration_module=Registration_OpenTPS,
-    #     # # register_on_contour="Prostate",
-    #     multi_thread=False,
-    #     deformable=True,
-    #     algorithm="demons",
-    #     tryGPU=True
-    # )
-    evaluate_registration(
-        dir_static=dir_static,
-        dir_moving=dir_moving,
-        dir_registered=dir_registered_morphons,
-        registration_module=Registration_OpenTPS,
-        register_on_contour=use_contour,
-        multi_thread=False,
-        deformable=True,
-        algorithm="morphons",
-        tryGPU=True
-    )
+    for ref in references:
+        if ref == "Prostate":
+            use_contour = ref
+        else:
+            use_contour = None
 
-    # # contour based registration
+        for alg in algorithms:
+            if alg ==  "rigid":
+                deformable = False
+            else:
+                deformable = True
+            reg_results = evaluate_registration(
+                reg_data_inputs=reg_data_inputs,
+                registration_module=Registration_OpenTPS,
+                register_on_contour=use_contour,
+                deformable=deformable,
+                algorithm=alg
+            )
+        results_df.loc[len(results_df)] = {
+            "algorithm": alg,
+            "package": "OpenTPS",
+            "reference": ref,
+            "avg_dice": reg_results.get("avg_dice"),
+            "std_dice": reg_results.get("std_dice"),
+            "avg_hausdorff": reg_results.get("avg_hausdorff"),
+            "std_hausdorff": reg_results.get("std_hausdorff"),
+            "avg_time": reg_results.get("avg_time"),
+            "std_time": reg_results.get("std_time")
+        }
 
 def run_registration_plastimatch():
     from brachyutils.registration_utils import Registration_Plastimatch
