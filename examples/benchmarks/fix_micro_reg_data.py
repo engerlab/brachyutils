@@ -82,6 +82,9 @@ def rename_structures(phantom_obj: BrachyPhantom):
     phantom_obj.rename_structures(
         new_name_mapping
     )
+    phantom_obj.sort_structures_by_name(
+        sorted_names=list(new_name_mapping.values())
+    )
 
 def fix_one_phantom(
     pth_mr_image: Path | str,
@@ -129,8 +132,8 @@ def fix_one_phantom(
 
 def test_fix_one_phantom():
     dir_micro_reg_challenge = Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train")
-    pth_mr_image = dir_micro_reg_challenge / "original-nrrd/mr_case000059.nrrd"
-    pth_us_image = dir_micro_reg_challenge / "original-nrrd/us_case000059.nrrd"
+    pth_mr_image = dir_micro_reg_challenge / "original-nrrd/mr_case000000.nrrd"
+    pth_us_image = dir_micro_reg_challenge / "original-nrrd/us_case000000.nrrd"
     dir_out = Path("data_test/test_export_plan/prostate")
 
     fix_one_phantom(
@@ -269,5 +272,5 @@ if __name__ == "__main__":
     fix_all_prostate_images(
         dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
         dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
-        multi_thread=False
+        multi_thread=True
     )
