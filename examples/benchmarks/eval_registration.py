@@ -1,17 +1,17 @@
 from pathlib import Path
-from glob import glob
+from time import time
 import warnings
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
-from typing import Dict, List, Union, Tuple
+from typing import Dict, List, Union
 import pandas as pd
+import numpy as np
 from brachyutils import BrachyPhantomRegistration
 from brachyutils import BrachyPhantom
 
 def evaluate_registration(
     reg_data_inputs: List[Dict[str, Union[str, Path]]],
     registration_module,
+    dir_registered: Path,
     **kwargs
 ):
     r"""
@@ -20,14 +20,16 @@ def evaluate_registration(
         structures on TRUS images. The registration is done based on the prostate contour
         and the transformed structures are the biopsy regions.    
     ### Inputs:
-        - reg_data_inputs := list of dictionaries containing the paths to the static and moving images and structures
+        - reg_data_inputs := list of dictionaries containing the paths to the static 
+        and moving images and structures
             - pth_static_image := path to the static image file
             - pth_static_structure := path to the static structure file
             - pth_moving_image := path to the moving image file
             - pth_moving_structure := path to the moving structure file
         - registration_module := the registration class that extends BrachyPhantomRegistration
         - kwargs := additional arguments for the registration module
-            - dir_registered := directory where the registered moving image and structures are written to.
+            - dir_registered := directory where the registered moving image and structures
+            are written to.
     ### Outputs:
         - a dictionary containing the average evaluation results, which are:
             "avg_dice", "std_dice"
@@ -35,30 +37,37 @@ def evaluate_registration(
             "avg_time", "std_time"
     """
     if not issubclass(registration_module, BrachyPhantomRegistration):
-        raise ValueError("registration module should extend the abstract class BrachyPhantomRegistration")
-
-    all_dice = defaultdict()
-    all_hausdorff = defaultdict()
+        raise ValueError("registration module should extend the abstract class \
+ BrachyPhantomRegistration")
+    results_per_case_df = pd.DataFrame(
+        columns=[
+            "case",
+            "dice",
+            "hausdorff",
+            "time"
+        ]
+    )
     for single_reg_data in reg_data_inputs:
-        try:
-            eval_results = eval_single_registration(
-                registration_module=registration_module,
-                **single_reg_data,
-                **kwargs
-            )
-            all_dice[list(eval_results.keys())[0]] = list(eval_results.values())[0].get("Dice")
-            all_hausdorff[list(eval_results.keys())[0]] = list(eval_results.values())[0].get("Hausdorff")
-        except Exception as e:
-            print(f"error in evaluating {single_reg_data.get('pth_static_image')}")
-            print(e)
-            continue
-        break
-
-    eval_df_dice = pd.DataFrame(all_dice).transpose()
-    eval_df_hausdorff = pd.DataFrame(all_hausdorff).transpose()
-    dir_registered.mkdir(exist_ok=True, parents=True)
-    eval_df_dice.to_csv(dir_registered.joinpath("dice.csv"))
-    eval_df_hausdorff.to_csv(dir_registered.joinpath("hausdorff.csv"))
+        eval_results = eval_single_registration(
+            registration_module=registration_module,
+            dir_registered=dir_registered,
+            **single_reg_data,
+            **kwargs
+        )
+        results_per_case_df.loc[len(results_per_case_df)] = {
+            "case": single_reg_data.get("case"),
+            "dice": eval_results.get("dice"),
+            "hausdorff": eval_results.get("hausdorff"),
+            "time": eval_results.get("time")
+        }
+    return {
+        "avg_dice": results_per_case_df["dice"].mean(),
+        "std_dice": results_per_case_df["dice"].std(),
+        "avg_hausdorff": results_per_case_df["hausdorff"].mean(),
+        "std_hausdorff": results_per_case_df["hausdorff"].std(),
+        "avg_time": results_per_case_df["time"].mean(),
+        "std_time": results_per_case_df["time"].std()
+    }
 
 def eval_single_registration(
     pth_static_image: Path,
@@ -98,19 +107,30 @@ def eval_single_registration(
         moving_phantom=moving_phantom,
         **kwargs
     )
+    t0 = time()
     reg_obj.register(
         dir_phantom_export=dir_registered,
         **kwargs
     )
-    return {pth_static_image.stem: reg_obj.evaluate_on_contours()}
+    t1 = time()
+    
+    measured_metrics = reg_obj.evaluate_on_contours()
+
+    return {
+        "case": pth_static_image.stem,
+        "time": t1 - t0,
+        "dice": measured_metrics["Dice"]["mean"],
+        "hausdorff": measured_metrics["Hausdorff"]["mean"]
+    }
 
 def eval_reg_opentps(
-    reg_data_inputs: List[Dict[str, Union[str, Path]]]
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
+    dir_results: Path | str
 ):
     from brachyutils import Registration_OpenTPS
     algorithms  = ["rigid", "quick", "demons", "morphons"]
-    references = ["image", "Prostate"]
-
+    references = ["Image", "Prostate"]
+    dir_registered = Path(dir_results)/"OpenTPS"
     results_df = pd.DataFrame(
         columns=[
             "algorithm", "package", "reference",
@@ -122,8 +142,10 @@ def eval_reg_opentps(
     for ref in references:
         if ref == "Prostate":
             use_contour = ref
+            dir_registered = dir_registered / "on-contour"
         else:
             use_contour = None
+            dir_registered = dir_registered / "on-image"
 
         for alg in algorithms:
             if alg ==  "rigid":
@@ -133,6 +155,7 @@ def eval_reg_opentps(
             reg_results = evaluate_registration(
                 reg_data_inputs=reg_data_inputs,
                 registration_module=Registration_OpenTPS,
+                dir_registered=dir_registered / alg,
                 register_on_contour=use_contour,
                 deformable=deformable,
                 algorithm=alg
@@ -150,7 +173,7 @@ def eval_reg_opentps(
         }
 
 def run_registration_plastimatch():
-    from brachyutils.registration_utils import Registration_Plastimatch
+    from brachyutils import Registration_Plastimatch
 
     # # on abdomen MR-CT
     dir_static = "temp_data/registration/abdomen-mr-ct/static"
