@@ -10,9 +10,7 @@ from brachyutils import BrachyPhantomRegistration
 from brachyutils import BrachyPhantom
 
 def evaluate_registration(
-    dir_static: str | Path,
-    dir_moving: str | Path,
-    dir_registered: str | Path,
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
     registration_module,
     multi_thread: bool = False,
     **kwargs
@@ -32,88 +30,22 @@ def evaluate_registration(
     if not issubclass(registration_module, BrachyPhantomRegistration):
         raise ValueError("registration module should extend the abstract class BrachyPhantomRegistration")
 
-    # from brachyutils.registration_utils import Registration_OpenTPS
-    dir_static = Path(dir_static)
-    dir_moving = Path(dir_moving)
-    dir_registered = Path(dir_registered)
-
-    # gatheter the data in the path dict
-    all_static_structs_nrrd = glob(str(dir_static.joinpath("*.seg.nrrd")))
-    
-    # islate the segmentatoin and images for both static and moving files
-    reg_data_list = list()
-    for static_struct in all_static_structs_nrrd:
-        common_name = Path(Path(static_struct).stem).stem
-        # if "0001" not in common_name:
-        #     continue
-        static_image = glob(str(dir_static.joinpath(f"{common_name}.nrrd")))
-        moving_image = glob(str(dir_moving.joinpath(f"{common_name}.nrrd")))
-        moving_struct = glob(str(dir_moving.joinpath(f"{common_name}.seg.nrrd")))
-
-        if len(static_image) != 1 or len(moving_image) != 1 or len(moving_struct) != 1:
-            warnings.warn(f"corresponding data for {static_struct} was not found")
-            continue
-        single_reg_data = defaultdict(Path)
-        single_reg_data["pth_static_image"] = static_image[0]
-        single_reg_data["pth_static_structure"] = static_struct
-        single_reg_data["pth_moving_image"] = moving_image[0]
-        single_reg_data["pth_moving_structure"] = moving_struct[0]
-        single_reg_data["dir_registered"] = dir_registered
-        single_reg_data["registration_module"] = registration_module
-        reg_data_list.append(single_reg_data)
-
-    print(f"number of registration cases was {len(reg_data_list)}")
-
     all_dice = defaultdict()
     all_hausdorff = defaultdict()
-    if multi_thread:
-        import asyncio
-        from concurrent.futures import ThreadPoolExecutor
-        from functools import partial
-        async def run_in_executor(executor, func, single_reg_data):
-            loop = asyncio.get_event_loop()
-            try:
-                return await loop.run_in_executor(executor, func, single_reg_data)
-            except Exception as e:
-                print(f"error in evaluating {single_reg_data.get('pth_static_image')}")
-                print(e)
-                return None
-
-        async def main():
-            with ThreadPoolExecutor() as executor:
-                tasks = []
-                for single_reg_data in reg_data_list:
-                    tasks.append(
-                        run_in_executor(
-                            executor, 
-                            partial(eval_single_registration, **kwargs), 
-                            single_reg_data)
-                        )
-                all_results = await asyncio.gather(*tasks)
-            for case_dict in all_results:
-                if case_dict is None:
-                    continue
-                key = list(case_dict.keys())[0]
-                value = list(case_dict.values())[0]
-                all_dice[key] = value.get("Dice")
-                all_hausdorff[key] = value.get("Hausdorff")
-            return all_dice, all_hausdorff
-
-        asyncio.run(main())
-    else:
-        for single_reg_data in reg_data_list:
-            try:
-                eval_results = eval_single_registration(
-                    essential_inputs = single_reg_data,
-                    **kwargs
-                )
-                all_dice[list(eval_results.keys())[0]] = list(eval_results.values())[0].get("Dice")
-                all_hausdorff[list(eval_results.keys())[0]] = list(eval_results.values())[0].get("Hausdorff")
-            except Exception as e:
-                print(f"error in evaluating {single_reg_data.get('pth_static_image')}")
-                print(e)
-                continue
-            break
+    for single_reg_data in reg_data_inputs:
+        try:
+            eval_results = eval_single_registration(
+                registration_module=registration_module,
+                **single_reg_data,
+                **kwargs
+            )
+            all_dice[list(eval_results.keys())[0]] = list(eval_results.values())[0].get("Dice")
+            all_hausdorff[list(eval_results.keys())[0]] = list(eval_results.values())[0].get("Hausdorff")
+        except Exception as e:
+            print(f"error in evaluating {single_reg_data.get('pth_static_image')}")
+            print(e)
+            continue
+        break
 
     eval_df_dice = pd.DataFrame(all_dice).transpose()
     eval_df_hausdorff = pd.DataFrame(all_hausdorff).transpose()
@@ -165,26 +97,27 @@ def eval_single_registration(
     )
     return {pth_static_image.stem: reg_obj.evaluate_on_contours()}
 
-def run_registeration_opentps():
-    # # on abdomen MR-CT
-    dir_static = "temp_data/registration/abdomen-mr-ct/static"
-    dir_moving = "temp_data/registration/abdomen-mr-ct/moving"
-    backend = "OpenTPS"
-    use_contour = "" # None
-    dir_registered_quick = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-quick"
-    dir_registered_demons = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-demons"
-    dir_registered_morphons = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-morphons"
-    # # on micro-reg prostate
-    # dir_static = "temp_data/registration/micro-reg/us-train"
-    # dir_moving = "temp_data/registration/micro-reg/mr-train"
-    # dir_registered = "temp_data/registration/micro-reg/reg-train"
-
+def eval_reg_opentps(
+    reg_data_inputs: List[Dict[str, Union[str, Path]]]
+):
     from brachyutils import Registration_OpenTPS
+
+    # # # on abdomen MR-CT
+    # dir_static = "temp_data/registration/abdomen-mr-ct/static"
+    # dir_moving = "temp_data/registration/abdomen-mr-ct/moving"
+    # backend = "OpenTPS"
+    # use_contour = "" # None
+    # dir_registered_quick = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-quick"
+    # dir_registered_demons = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-demons"
+    # dir_registered_morphons = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-morphons"
+    # # # on micro-reg prostate
+    # # dir_static = "temp_data/registration/micro-reg/us-train"
+    # # dir_moving = "temp_data/registration/micro-reg/mr-train"
+    # # dir_registered = "temp_data/registration/micro-reg/reg-train"
+
     # # image based registration
     evaluate_registration(
-        dir_static=dir_static,
-        dir_moving=dir_moving,
-        dir_registered=dir_registered_quick,
+        reg_data_inputs=reg_data_inputs,
         registration_module=Registration_OpenTPS,
         register_on_contour=use_contour,
         multi_thread=True,
@@ -239,91 +172,91 @@ def run_registration_plastimatch():
         # deformable=True,
     )
 
-def organize_data(dir_out: str | Path, multi_thread: bool = False):
-    r"""
-    Purpose:
-        - to gather data from all formats and directories into one static directory,
-        one moving directory, and one registered directory. inside each directory, there
-        is one image .nrrd file and one segmentation file .seg.nrrd. per case.
+# def organize_data(dir_out: str | Path, multi_thread: bool = False):
+#     r"""
+#     Purpose:
+#         - to gather data from all formats and directories into one static directory,
+#         one moving directory, and one registered directory. inside each directory, there
+#         is one image .nrrd file and one segmentation file .seg.nrrd. per case.
     
-    Inputs:
-        - dir_out:= the path where the dir_static, dir_moving and dir_registered will be created.
+#     Inputs:
+#         - dir_out:= the path where the dir_static, dir_moving and dir_registered will be created.
     
-    Outputs:
-        - None 
-    """
-    dir_static_img = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/imagesTr")
-    dir_static_seg = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/labelsTr")
-    dir_moving_img = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/imagesTr")
-    dir_moving_seg = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/labelsTr")
+#     Outputs:
+#         - None 
+#     """
+#     dir_static_img = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/imagesTr")
+#     dir_static_seg = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/labelsTr")
+#     dir_moving_img = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/imagesTr")
+#     dir_moving_seg = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/labelsTr")
     
-    all_static_img = glob(str(dir_static_img.joinpath("*_0001.nii.gz")))
-    all_moving_img = glob(str(dir_moving_img.joinpath("*_0000.nii.gz")))
-    all_static_segs = glob(str(dir_static_seg.joinpath("*_0001.nii.gz")))
-    all_moving_segs = glob(str(dir_moving_seg.joinpath("*_0000.nii.gz")))
+#     all_static_img = glob(str(dir_static_img.joinpath("*_0001.nii.gz")))
+#     all_moving_img = glob(str(dir_moving_img.joinpath("*_0000.nii.gz")))
+#     all_static_segs = glob(str(dir_static_seg.joinpath("*_0001.nii.gz")))
+#     all_moving_segs = glob(str(dir_moving_seg.joinpath("*_0000.nii.gz")))
 
-    all_cases = list()
-    for static_img in all_static_img:
-        static_img_name = "_".join(Path(static_img).name.split("_")[0:-1])
-        pth_static_seg = [seg for seg in all_static_segs if static_img_name in seg]
-        pth_moving_img = [img for img in all_moving_img if static_img_name in img]
-        pth_moving_seg = [seg for seg in all_moving_segs if static_img_name in seg]
+#     all_cases = list()
+#     for static_img in all_static_img:
+#         static_img_name = "_".join(Path(static_img).name.split("_")[0:-1])
+#         pth_static_seg = [seg for seg in all_static_segs if static_img_name in seg]
+#         pth_moving_img = [img for img in all_moving_img if static_img_name in img]
+#         pth_moving_seg = [seg for seg in all_moving_segs if static_img_name in seg]
 
-        if len(pth_static_seg) == 0 or len(pth_moving_img) == 0 or len(pth_moving_seg) == 0:
-            warnings.warn(f"no corresponding data found for {static_img_name}")
-            continue
-        all_cases.append({
-            "static_img": static_img,
-            "static_seg": pth_static_seg[0],
-            "moving_img": pth_moving_img[0],
-            "moving_seg": pth_moving_seg[0]
-        })
+#         if len(pth_static_seg) == 0 or len(pth_moving_img) == 0 or len(pth_moving_seg) == 0:
+#             warnings.warn(f"no corresponding data found for {static_img_name}")
+#             continue
+#         all_cases.append({
+#             "static_img": static_img,
+#             "static_seg": pth_static_seg[0],
+#             "moving_img": pth_moving_img[0],
+#             "moving_seg": pth_moving_seg[0]
+#         })
 
-    dir_out = Path(dir_out)
-    dir_out.mkdir(parents=True, exist_ok=True)
-    dir_static = dir_out.joinpath("static")
-    dir_moving = dir_out.joinpath("moving")
-    dir_registered = dir_out.joinpath("reg")   
-    if multi_thread:
-        import asyncio
-        from concurrent.futures import ThreadPoolExecutor
-        async def run_in_executor(executor, case):
-            loop = asyncio.get_event_loop()
-            try:
-                return await loop.run_in_executor(executor, export_static_moving_phantoms, case, dir_static, dir_moving)
-            except Exception as e:
-                print(f"error in exporting {case}")
-                print(e)
-                return None
+#     dir_out = Path(dir_out)
+#     dir_out.mkdir(parents=True, exist_ok=True)
+#     dir_static = dir_out.joinpath("static")
+#     dir_moving = dir_out.joinpath("moving")
+#     dir_registered = dir_out.joinpath("reg")   
+#     if multi_thread:
+#         import asyncio
+#         from concurrent.futures import ThreadPoolExecutor
+#         async def run_in_executor(executor, case):
+#             loop = asyncio.get_event_loop()
+#             try:
+#                 return await loop.run_in_executor(executor, export_static_moving_phantoms, case, dir_static, dir_moving)
+#             except Exception as e:
+#                 print(f"error in exporting {case}")
+#                 print(e)
+#                 return None
 
-        async def main():
-            with ThreadPoolExecutor() as executor:
-                tasks = []
-                for case in all_cases:
-                    tasks.append(run_in_executor(executor, case))
-                await asyncio.gather(*tasks)
+#         async def main():
+#             with ThreadPoolExecutor() as executor:
+#                 tasks = []
+#                 for case in all_cases:
+#                     tasks.append(run_in_executor(executor, case))
+#                 await asyncio.gather(*tasks)
 
-        asyncio.run(main())
-    else: 
-        for case in all_cases:
-            try:
-                export_static_moving_phantoms(case, dir_static, dir_moving)
-                return
-            except Exception as e:
-                print(f"error in exporting {case}")
-                print(e)
+#         asyncio.run(main())
+#     else: 
+#         for case in all_cases:
+#             try:
+#                 export_static_moving_phantoms(case, dir_static, dir_moving)
+#                 return
+#             except Exception as e:
+#                 print(f"error in exporting {case}")
+#                 print(e)
 
-def export_static_moving_phantoms(case: Dict, dir_static: Path, dir_moving: Path):
-    static_phantom = BrachyPhantom(
-        pth_phantom_file=case.get("static_img"),
-        pth_structures_file=case.get("static_seg")
-    )
-    moving_phantom = BrachyPhantom(
-        pth_phantom_file=case.get("moving_img"),
-        pth_structures_file=case.get("moving_seg")
-    )
-    static_phantom.export_to(dir_nrrd_out=dir_static)
-    moving_phantom.export_to(dir_nrrd_out=dir_moving)
+# def export_static_moving_phantoms(case: Dict, dir_static: Path, dir_moving: Path):
+#     static_phantom = BrachyPhantom(
+#         pth_phantom_file=case.get("static_img"),
+#         pth_structures_file=case.get("static_seg")
+#     )
+#     moving_phantom = BrachyPhantom(
+#         pth_phantom_file=case.get("moving_img"),
+#         pth_structures_file=case.get("moving_seg")
+#     )
+#     static_phantom.export_to(dir_nrrd_out=dir_static)
+#     moving_phantom.export_to(dir_nrrd_out=dir_moving)
 
 def gen_registration_inputs_microreg(
     dir_all_data: str | Path
@@ -376,8 +309,7 @@ if __name__ == "__main__":
         dir_all_data="temp_data/registration/fixed-nrrd",
         )
     eval_reg_opentps(
-        reg_data_inputs: list = reg_data_inputs,
-        pth_results_csv: str | Path
+        reg_data_inputs=reg_data_inputs
     )
     # organize_data("temp_data/registration/abdomen-mr-ct", True)
     # run_registeration_opentps()
