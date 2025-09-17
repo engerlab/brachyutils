@@ -949,7 +949,7 @@ class BrachyPhantom:
                     # elif i == 4:
                     #     mask.imageArray[:, :, 0] = 0
                     # elif i == 5:
-                        mask.imageArray[:, :, -1] = 0
+                        # mask.imageArray[:, :, -1] = 0
             self.structure_set.appendContour(mask.getROIContour())
             del mask
 
