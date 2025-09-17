@@ -8,6 +8,65 @@ import numpy as np
 from brachyutils import BrachyPhantomRegistration
 from brachyutils import BrachyPhantom
 
+def eval_single_registration(
+    pth_static_image: Path,
+    pth_static_structure: Path,
+    pth_moving_image: Path,
+    pth_moving_structure: Path,
+    dir_registered: Path,
+    registration_module: BrachyPhantomRegistration,
+    **kwargs
+):
+    r"""
+    ### Purpose:
+        - evaluate the registration of the moving image and structures onto the static image.
+    ### Inputs:
+        - pth_static_image := path to the static image file
+        - pth_static_structure := path to the static structure file
+        - pth_moving_image := path to the moving image file
+        - pth_moving_structure := path to the moving structure file
+        - dir_registered := directory where the registered moving image and structures are written to.
+        - registration_module := the registration class that extends BrachyPhantomRegistration
+        - kwargs := additional arguments for the registration module
+    ### Outputs:
+        - dict containing the evaluation results
+            - Dice
+            - Hausdorff
+    """
+    static_phantom = BrachyPhantom(
+        pth_phantom_file=pth_static_image,
+        pth_structures_file=pth_static_structure
+    )
+    moving_phantom = BrachyPhantom(
+        pth_phantom_file=pth_moving_image,
+        pth_structures_file=pth_moving_structure
+    )
+    reg_obj: BrachyPhantomRegistration = registration_module(
+        static_phantom=static_phantom,
+        moving_phantom=moving_phantom,
+        **kwargs
+    )
+    try:
+        t0 = time()
+        reg_obj.register(
+            dir_phantom_export=dir_registered,
+            **kwargs
+        )
+        t1 = time()
+        measured_metrics = reg_obj.evaluate_on_contours()
+    except Exception as e:
+        # warnings.warn(f"registration failed for case {pth_static_image} with error {e}")
+        t0 = 0
+        t1 = 0
+        measured_metrics = {"Dice": {"mean": np.nan}, "Hausdorff": {"mean": np.nan}}
+
+    return {
+        "case": pth_static_image.split("/")[-1].split(".")[0],
+        "time": t1 - t0,
+        "dice": measured_metrics["Dice"]["mean"],
+        "hausdorff": measured_metrics["Hausdorff"]["mean"]
+    }
+
 def evaluate_registration(
     reg_data_inputs: List[Dict[str, Union[str, Path]]],
     registration_module,
@@ -68,65 +127,6 @@ def evaluate_registration(
         "avg_time": results_per_case_df["time"].mean(),
         "std_time": results_per_case_df["time"].std(),
         "num_failed": np.sum(results_per_case_df["time"] == 0)
-    }
-
-def eval_single_registration(
-    pth_static_image: Path,
-    pth_static_structure: Path,
-    pth_moving_image: Path,
-    pth_moving_structure: Path,
-    dir_registered: Path,
-    registration_module: BrachyPhantomRegistration,
-    **kwargs
-):
-    r"""
-    ### Purpose:
-        - evaluate the registration of the moving image and structures onto the static image.
-    ### Inputs:
-        - pth_static_image := path to the static image file
-        - pth_static_structure := path to the static structure file
-        - pth_moving_image := path to the moving image file
-        - pth_moving_structure := path to the moving structure file
-        - dir_registered := directory where the registered moving image and structures are written to.
-        - registration_module := the registration class that extends BrachyPhantomRegistration
-        - kwargs := additional arguments for the registration module
-    ### Outputs:
-        - dict containing the evaluation results
-            - Dice
-            - Hausdorff
-    """
-    static_phantom = BrachyPhantom(
-        pth_phantom_file=pth_static_image,
-        pth_structures_file=pth_static_structure
-    )
-    moving_phantom = BrachyPhantom(
-        pth_phantom_file=pth_moving_image,
-        pth_structures_file=pth_moving_structure
-    )
-    reg_obj: BrachyPhantomRegistration = registration_module(
-        static_phantom=static_phantom,
-        moving_phantom=moving_phantom,
-        **kwargs
-    )
-    try:
-        t0 = time()
-        reg_obj.register(
-            dir_phantom_export=dir_registered,
-            **kwargs
-        )
-        t1 = time()
-        measured_metrics = reg_obj.evaluate_on_contours()
-    except Exception as e:
-        # warnings.warn(f"registration failed for case {pth_static_image} with error {e}")
-        t0 = 0
-        t1 = 0
-        measured_metrics = {"Dice": {"mean": np.nan}, "Hausdorff": {"mean": np.nan}}
-
-    return {
-        "case": pth_static_image.split("/")[-1].split(".")[0],
-        "time": t1 - t0,
-        "dice": measured_metrics["Dice"]["mean"],
-        "hausdorff": measured_metrics["Hausdorff"]["mean"]
     }
 
 def eval_reg_opentps(
