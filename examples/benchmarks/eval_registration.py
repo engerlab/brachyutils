@@ -66,7 +66,8 @@ def evaluate_registration(
         "avg_hausdorff": results_per_case_df["hausdorff"].mean(),
         "std_hausdorff": results_per_case_df["hausdorff"].std(),
         "avg_time": results_per_case_df["time"].mean(),
-        "std_time": results_per_case_df["time"].std()
+        "std_time": results_per_case_df["time"].std(),
+        "num_failed": np.sum(results_per_case_df["time"] == 0)
     }
 
 def eval_single_registration(
@@ -107,17 +108,22 @@ def eval_single_registration(
         moving_phantom=moving_phantom,
         **kwargs
     )
-    t0 = time()
-    reg_obj.register(
-        dir_phantom_export=dir_registered,
-        **kwargs
-    )
-    t1 = time()
-    
-    measured_metrics = reg_obj.evaluate_on_contours()
+    try:
+        t0 = time()
+        reg_obj.register(
+            dir_phantom_export=dir_registered,
+            **kwargs
+        )
+        t1 = time()
+        measured_metrics = reg_obj.evaluate_on_contours()
+    except Exception as e:
+        # warnings.warn(f"registration failed for case {pth_static_image} with error {e}")
+        t0 = 0
+        t1 = 0
+        measured_metrics = {"Dice": {"mean": np.nan}, "Hausdorff": {"mean": np.nan}}
 
     return {
-        "case": pth_static_image.stem,
+        "case": pth_static_image.split("/")[-1].split(".")[0],
         "time": t1 - t0,
         "dice": measured_metrics["Dice"]["mean"],
         "hausdorff": measured_metrics["Hausdorff"]["mean"]
@@ -160,17 +166,18 @@ def eval_reg_opentps(
                 deformable=deformable,
                 algorithm=alg
             )
-        results_df.loc[len(results_df)] = {
-            "algorithm": alg,
-            "package": "OpenTPS",
-            "reference": ref,
-            "avg_dice": reg_results.get("avg_dice"),
-            "std_dice": reg_results.get("std_dice"),
-            "avg_hausdorff": reg_results.get("avg_hausdorff"),
-            "std_hausdorff": reg_results.get("std_hausdorff"),
-            "avg_time": reg_results.get("avg_time"),
-            "std_time": reg_results.get("std_time")
-        }
+            results_df.loc[len(results_df)] = {
+                "algorithm": alg,
+                "package": "OpenTPS",
+                "reference": ref,
+                "avg_dice": reg_results.get("avg_dice"),
+                "std_dice": reg_results.get("std_dice"),
+                "avg_hausdorff": reg_results.get("avg_hausdorff"),
+                "std_hausdorff": reg_results.get("std_hausdorff"),
+                "avg_time": reg_results.get("avg_time"),
+                "std_time": reg_results.get("std_time"),
+                "num_failed": reg_results.get("num_failed")
+            }
 
 def run_registration_plastimatch():
     from brachyutils import Registration_Plastimatch
@@ -241,11 +248,13 @@ def gen_registration_inputs_microreg(
     return reg_data_inputs
 
 if __name__ == "__main__":
+    dir_results = "temp_data/registration"
     reg_data_inputs = gen_registration_inputs_microreg(
         dir_all_data="temp_data/registration/fixed-nrrd",
         )
     eval_reg_opentps(
-        reg_data_inputs=reg_data_inputs
+        reg_data_inputs=reg_data_inputs,
+        dir_results=dir_results
     )
     # organize_data("temp_data/registration/abdomen-mr-ct", True)
     # run_registeration_opentps()
