@@ -1218,19 +1218,11 @@ def readDicomUS(dcmFiles):
     sliceLocation = np.zeros(len(dcmFiles), dtype='float')
     firstdcm = dcmFiles[0]
     
-    # if hasattr(firstdcm,'RescaleSlope') == False:
-    #     logging.warning('no RescaleSlope, image could be wrong')
     for i in range(len(dcmFiles)):
         dcm = pydicom.dcmread(dcmFiles[i])
         sliceLocation[i] = float(dcm.ImagePositionPatient[2])
         images.append(dcm.pixel_array)
         sopInstanceUIDs.append(dcm.SOPInstanceUID)
-    # else :
-    #     for i in range(len(dcmFiles)):
-    #         dcm = pydicom.dcmread(dcmFiles[i])
-    #         sliceLocation[i] = float(dcm.ImagePositionPatient[2])
-    #         images.append(dcm.pixel_array * dcm.RescaleSlope + dcm.RescaleIntercept)
-    #         sopInstanceUIDs.append(dcm.SOPInstanceUID)       
 
     # sort slices according to their location in order to reconstruct the 3d image
     sortIndex = np.argsort(sliceLocation)
@@ -1280,47 +1272,8 @@ def readDicomUS(dcmFiles):
                     sopInstanceUIDs=sopInstanceUIDs)
        
     image.patient = patient
-    # Collect MR information
-    # if hasattr(dcm, 'BodyPartExamined'):
-    #     image.bodyPartExamined = dcm.BodyPartExamined
-    # if hasattr(dcm, 'ScanningSequence'):
-    #     image.scanningSequence = dcm.ScanningSequence
-    # if hasattr(dcm, 'SequenceVariant'):
-    #     image.sequenceVariant = dcm.SequenceVariant
-    # if hasattr(dcm, 'ScanOptions'):
-    #     image.scanOptions = dcm.ScanOptions
-    # if hasattr(dcm, 'MRAcquisitionType'):
-    #     image.mrArcquisitionType = dcm.MRAcquisitionType
-    # if hasattr(dcm, 'RepetitionTime'):
-    #     image.repetitionTime = float(dcm.RepetitionTime)
-    # if hasattr(dcm, 'EchoTime'):
-    #     if dcm.EchoTime is not None:
-    #         image.echoTime = float(dcm.EchoTime)
-    # if hasattr(dcm, 'NumberOfAverages'):
-    #     image.nAverages = float(dcm.NumberOfAverages)
-    # if hasattr(dcm, 'ImagingFrequency'):
-    #     image.imagingFrequency = float(dcm.ImagingFrequency)
-    # if hasattr(dcm, 'EchoNumbers'):
-    #     image.echoNumbers = int(dcm.EchoNumbers)
-    # if hasattr(dcm, 'MagneticFieldStrength'):
-    #     image.magneticFieldStrength = float(dcm.MagneticFieldStrength)
-    # if hasattr(dcm, 'SpacingBetweenSlices'):
-    #     image.spacingBetweenSlices = float(dcm.SpacingBetweenSlices)
-    # if hasattr(dcm, 'NumberOfPhaseEncodingSteps'):
-    #     image.nPhaseSteps = int(dcm.NumberOfPhaseEncodingSteps)
-    # if hasattr(dcm, 'EchoTrainLength'):
-    #     if dcm.EchoTrainLength is not None:
-    #         image.echoTrainLength = int(dcm.EchoTrainLength)
-    # if hasattr(dcm, 'FlipAngle'):
-    #     image.flipAngle = float(dcm.FlipAngle)
-    # if hasattr(dcm, 'SAR'):
-    #     image.sar = float(dcm.SAR)
     if hasattr(dcm, 'StudyDate'):
         image.studyDate = float(dcm.StudyDate)
-    # if hasattr(dcm, 'StudyTime'):
-    #     image.studyTime = float(dcm.StudyTime)
-    # if hasattr(dcm, 'AcquisitionTime'):
-    #     image.acquisitionTime = float(dcm.AcquisitionTime)
     if hasattr(dcm, 'PatientPosition'):
         image.patientPosition = dcm.PatientPosition
     if hasattr(dcm, 'SeriesNumber'):
