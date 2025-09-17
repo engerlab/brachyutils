@@ -27,7 +27,7 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
     writeRTStruct,
 )
 import vtk
-from vtk.util import numpy_support
+# from vtk.util import numpy_support
 
 class BrachyPhantom:
     r"""
