@@ -21,7 +21,7 @@ def fix_axis(phantom_obj: BrachyPhantom):
     img_array = phantom_obj.get_image_array()
     img_array = img_array.swapaxes(0, 2)
     img_array = img_array.swapaxes(1, 2)
-    # img_array = np.flip(img_array, axis=0)
+    img_array = np.flip(img_array, axis=0)
     # swap the first and last axis for structures
     structure_set = phantom_obj.get_structure_mask(
         phantom_obj.structure_names,
