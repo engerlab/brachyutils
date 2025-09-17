@@ -914,16 +914,15 @@ class BrachyPhantom:
                 mask = mask_dict.get(structure_name)
                 mask.name = structure_name
                 if self.image_obj is not None:
-                    
                     # Check if the spacings, the shape and origin already match or not
                     if not np.array_equal(mask.spacing, self.image_obj.spacing) or \
                         not np.array_equal(mask.origin, self.image_obj.origin) or \
                         not np.array_equal(mask.gridSize, self.image_obj.gridSize):
                         # Resample the mask to the image object
-                        mask = resampleImage3DOnImage3D(mask, self.image_obj)    
+                        mask = resampleImage3DOnImage3D(mask, self.image_obj)
             else:
                 raise ValueError("The mask type is not recognized.")
-
+ 
             # if mask hits the boundary of the image, set the boundary to 0.
             tight_box_coordinates = np.round(getBoxAroundROI(mask), decimals=2)
             mask_edges = np.array(

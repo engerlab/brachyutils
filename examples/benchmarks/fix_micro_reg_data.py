@@ -21,7 +21,7 @@ def fix_axis(phantom_obj: BrachyPhantom):
     img_array = phantom_obj.get_image_array()
     img_array = img_array.swapaxes(0, 2)
     img_array = img_array.swapaxes(1, 2)
-    img_array = np.flip(img_array, axis=0)
+    # img_array = np.flip(img_array, axis=0)
     # swap the first and last axis for structures
     structure_set = phantom_obj.get_structure_mask(
         phantom_obj.structure_names,
@@ -32,9 +32,9 @@ def fix_axis(phantom_obj: BrachyPhantom):
         struc_array = structure_set[struc]
         struc_array = struc_array.swapaxes(0, 2)
         struc_array = struc_array.swapaxes(1, 2)
-        struc_array = np.flip(struc_array, axis=0)
+        # struc_array = np.flip(struc_array, axis=0)
         final_structure_set[struc] = struc_array
-    
+
     phantom_obj.set_image_array(img_array)
     phantom_obj.set_structure_set(final_structure_set)
 
@@ -132,8 +132,8 @@ def fix_one_phantom(
 
 def test_fix_one_phantom():
     dir_micro_reg_challenge = Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train")
-    pth_mr_image = dir_micro_reg_challenge / "original-nrrd/mr_case000000.nrrd"
-    pth_us_image = dir_micro_reg_challenge / "original-nrrd/us_case000000.nrrd"
+    pth_mr_image = dir_micro_reg_challenge / "original-nrrd/mr_case000008.nrrd"
+    pth_us_image = dir_micro_reg_challenge / "original-nrrd/us_case000008.nrrd"
     dir_out = Path("data_test/test_export_plan/prostate")
 
     fix_one_phantom(
@@ -266,11 +266,11 @@ def convert_microreg_to_nrrd(multi_proc:bool = True):
             break
 
 if __name__ == "__main__":
-    # test_fix_one_phantom()
+    test_fix_one_phantom()
 
     # convert_microreg_to_nrrd(multi_proc=True)
-    fix_all_prostate_images(
-        dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
-        dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
-        multi_thread=True
-    )
+    # fix_all_prostate_images(
+    #     dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
+    #     dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
+    #     multi_thread=True
+    # )
