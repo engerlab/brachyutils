@@ -178,6 +178,7 @@ def eval_reg_opentps(
                 "std_time": reg_results.get("std_time"),
                 "num_failed": reg_results.get("num_failed")
             }
+            results_df.to_csv(dir_registered.parent/"registration_results_opentps.csv", index=False)
 
 def run_registration_plastimatch():
     from brachyutils import Registration_Plastimatch
