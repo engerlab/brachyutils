@@ -265,8 +265,21 @@ def convert_microreg_to_nrrd(multi_proc:bool = True):
             process_case(i)
             break
 
+def test_convert_one_phantom():
+    dir_micro_reg_challenge = Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train")
+    pth_us_image = dir_micro_reg_challenge / "us_images" / "case000008.nii.gz"
+    pth_us_seg = dir_micro_reg_challenge / "us_labels" / "case000008.nii.gz"
+    dir_out = Path("data_test/test_export_plan/prostate")
+    us_phantom = BrachyPhantom(
+        pth_phantom_file=pth_us_image,
+        pth_structures_file=pth_us_seg
+    )
+    us_phantom.export_to(dir_nrrd_out=dir_out)
+    us_phantom.write_structures_to_dicom(dir_output=dir_out)
+
 if __name__ == "__main__":
-    test_fix_one_phantom()
+    test_convert_one_phantom()
+    # test_fix_one_phantom()
 
     # convert_microreg_to_nrrd(multi_proc=True)
     # fix_all_prostate_images(
