@@ -904,7 +904,6 @@ class BrachyPhantom:
             resampleImage3DOnImage3D,
         )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
-        import json
         slicer_colors = _get_slicer_colors()
         # set the default color dictionary if not provided
         if mask_colors is None:
@@ -913,7 +912,7 @@ class BrachyPhantom:
             }
         elif isinstance(mask_colors, tuple):
             mask_colors = {
-                k: mask_colors for i, k in enumerate(mask_dict.keys())
+                k: mask_colors for k in mask_dict.keys()
             }
 
         for structure_name in mask_dict:
