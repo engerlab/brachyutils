@@ -883,7 +883,7 @@ class BrachyPhantom:
     def set_structure_set(
         self,
         mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]],
-        color_dict: Dict[str, Tuple[int, int, int]] = None,
+        mask_colors: Dict[str, Tuple[int, int, int]] | Tuple[int, int, int] = None,
         ) -> None:
         r"""
         ### Purpose:
@@ -893,6 +893,9 @@ class BrachyPhantom:
         The mask will be resampled to the image object if it exists.
         ### Inputs:
         - mask_dict: dict := the dictionary of the masks.
+        - mask_colors: dict | tuple := the dictionary of the colors for each structure. If a tuple is provided,
+        the same color will be used for all structures. If None is provided, the default colors will be used based
+        on the slicer color table https://www.slicer.org/wiki/Slicer3:2010_GenericAnatomyColors.
         The values could be numpy arrays, ROIContour or ROIMask objects.
         ### Outputs:
         - None
@@ -904,13 +907,17 @@ class BrachyPhantom:
         import json
         slicer_colors = _get_slicer_colors()
         # set the default color dictionary if not provided
-        if color_dict is None:
-            color_dict = {
+        if mask_colors is None:
+            mask_colors = {
                 k: slicer_colors[i+1]["color"] for i, k in enumerate(mask_dict.keys())
             }
-            
+        elif isinstance(mask_colors, tuple):
+            mask_colors = {
+                k: mask_colors for i, k in enumerate(mask_dict.keys())
+            }
+
         for structure_name in mask_dict:
-            structure_color = color_dict.get(structure_name)
+            structure_color = mask_colors.get(structure_name)
             # check if the structure already exists in structure set
             old_structure = self.structure_set.getContourByName(structure_name)
             if old_structure is None:
@@ -918,6 +925,7 @@ class BrachyPhantom:
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
                 structure_color = old_structure.color
+
             print(f"setting structure {structure_name}, which is a {type(mask_dict[structure_name])} type")
             if mask_dict.get(structure_name) is None:
                 continue

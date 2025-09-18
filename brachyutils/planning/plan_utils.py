@@ -1568,7 +1568,10 @@ class BrachyPlan:
                     optimization_config=config
                 )
             )
-            self.phantom.set_structure_set({dwell_contour.name: dwell_contour})
+            self.phantom.set_structure_set(
+                mask_dict={dwell_contour.name: dwell_contour},
+                mask_colors=[251, 159, 255]
+                )
 
 def _export_single_dose_rate(
     dose_grid: np.array,
