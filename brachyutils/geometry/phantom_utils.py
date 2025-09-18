@@ -1567,48 +1567,6 @@ def generate_sphere_mask(
     )
     return mask_opentps
 
-def get_contour_from_polygon_mesh(
-    polygon_data: vtk.vtkPolyData,
-    name: str = "Polygon"
-    ) -> ROIContour:
-    r"""
-    """
-    raise DeprecationWarning("this function is no longer needed")
-    # extract verticies
-    points = polygon_data.GetPoints()
-    num_points = points.GetNumberOfPoints()
-    verticies = np.zeros((num_points, 3))
-    for i in range(num_points):
-        verticies[i, :] = points.GetPoint(i)
-    
-    # extract polygon mesh
-    polys = polygon_data.GetPolys()
-    polys.InitTraversal()
-    polygons = []
-    idList = vtk.vtkIdList()
-    while polys.GetNextCell(idList):
-        polygon = [idList.GetId(j) for j in range(idList.GetNumberOfIds())]
-        polygons.append(polygon)
-
-    polygonMeshList = []
-    for polygon in polygons:
-        polygonMesh = []
-        for vertexId in polygon:
-            # transform the vertex coordinates based on the spacing and origin.
-            xCoord = verticies[vertexId, 0]
-            yCoord = verticies[vertexId, 1]
-            zCoord = verticies[vertexId, 2]
-            polygonMesh.append(xCoord)
-            polygonMesh.append(yCoord)
-            polygonMesh.append(zCoord)
-        polygonMeshList.append(polygonMesh)
-
-    contour = ROIContour(
-        name=name
-    )
-    contour.polygonMesh = polygonMeshList
-    return contour
-
 def imageToNrrd(
     image_obj: Image3D,
     pth_output: Path,
