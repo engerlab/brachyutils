@@ -29,6 +29,22 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
 import vtk
 # from vtk.util import numpy_support
 
+import json
+from pathlib import Path
+
+# Module-level cache for slicer colors
+_SLICER_COLORS_CACHE = None
+
+def _get_slicer_colors():
+    """Get slicer colors with lazy loading and caching."""
+    global _SLICER_COLORS_CACHE
+    if _SLICER_COLORS_CACHE is None:
+        with open(
+            Path(__file__).parent.parent.parent / "admin/constants/slicer_colors.json", "r"
+        ) as json_file:
+            _SLICER_COLORS_CACHE = json.load(json_file)
+    return _SLICER_COLORS_CACHE
+
 class BrachyPhantom:
     r"""
     ### Puprose:
@@ -556,7 +572,7 @@ class BrachyPhantom:
                 "number of segmented structures":
                 "patient number":
                 "Image content": "[3D dose, 3D uncertainty]"
-        Outputs
+        Outputs:
             - None
         Dependencies:
             - pynrrd
@@ -867,6 +883,7 @@ class BrachyPhantom:
     def set_structure_set(
         self,
         mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]],
+        color_dict: Dict[str, Tuple[int, int, int]] = None,
         ) -> None:
         r"""
         ### Purpose:
@@ -884,7 +901,14 @@ class BrachyPhantom:
             resampleImage3DOnImage3D,
         )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
-
+        import json
+        slicer_colors = _get_slicer_colors()
+        # set the default color dictionary if not provided
+        if color_dict is None:
+            color_dict = {
+                k: slicer_colors[i+1]["color"] for i, k in enumerate(mask_dict.keys())
+            }
+            
         for structure_name in mask_dict:
             # check if the structure already exists in structure set
             old_structure = self.structure_set.getContourByName(structure_name)
