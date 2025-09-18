@@ -910,12 +910,14 @@ class BrachyPhantom:
             }
             
         for structure_name in mask_dict:
+            structure_color = color_dict.get(structure_name)
             # check if the structure already exists in structure set
             old_structure = self.structure_set.getContourByName(structure_name)
             if old_structure is None:
                 old_structure = self.structure_set.getContourByName(structure_name.upper())
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
+                structure_color = old_structure.color
             print(f"setting structure {structure_name}, which is a {type(mask_dict[structure_name])} type")
             if mask_dict.get(structure_name) is None:
                 continue
@@ -973,6 +975,8 @@ class BrachyPhantom:
                     #     mask.imageArray[:, :, 0] = 0
                     # elif i == 5:
                         # mask.imageArray[:, :, -1] = 0
+
+            mask._displayColor = structure_color
             self.structure_set.appendContour(mask.getROIContour())
             del mask
 
