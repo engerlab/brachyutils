@@ -32,7 +32,7 @@ def fix_axis(phantom_obj: BrachyPhantom):
         struc_array = structure_set[struc]
         struc_array = struc_array.swapaxes(0, 2)
         struc_array = struc_array.swapaxes(1, 2)
-        # struc_array = np.flip(struc_array, axis=0)
+        struc_array = np.flip(struc_array, axis=0)
         final_structure_set[struc] = struc_array
 
     phantom_obj.set_image_array(img_array)
@@ -191,7 +191,7 @@ def fix_all_prostate_images(dir_img_in:Path | str, dir_out, multi_thread: bool =
             # for testing
             break
 
-def convert_microreg_to_nrrd(multi_proc:bool = True):
+def convert_microreg_to_nrrd():
     r"""
     ### Purpose: To convert MR and US images and structures to NRRD format and organize
     them for the prostate micro-reg challenge.
@@ -255,20 +255,15 @@ def convert_microreg_to_nrrd(multi_proc:bool = True):
     
     # Create the output directory if it doesn't exist
     dir_mr_out.mkdir(parents=True, exist_ok=True)
-    if multi_proc:
-        # Process all cases using multiprocessing
-        with ThreadPoolExecutor() as executor:
-            list(tqdm(executor.map(process_case, indices), total=num_cases, desc="Processing cases"))
-    else:
         # Process all cases sequentially
-        for i in tqdm(indices, desc="Processing cases"):
-            process_case(i)
-            break
+    for i in tqdm(indices, desc="Processing cases"):
+        process_case(i)
+        # break
 
 def test_convert_one_phantom():
     dir_micro_reg_challenge = Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train")
-    pth_us_image = dir_micro_reg_challenge / "us_images" / "case000008.nii.gz"
-    pth_us_seg = dir_micro_reg_challenge / "us_labels" / "case000008.nii.gz"
+    pth_us_image = dir_micro_reg_challenge / "us_images" / "case000025.nii.gz"
+    pth_us_seg = dir_micro_reg_challenge / "us_labels" / "case000025.nii.gz"
     dir_out = Path("data_test/test_export_plan/prostate")
     us_phantom = BrachyPhantom(
         pth_phantom_file=pth_us_image,
@@ -278,12 +273,12 @@ def test_convert_one_phantom():
     us_phantom.write_structures_to_dicom(dir_output=dir_out)
 
 if __name__ == "__main__":
-    test_convert_one_phantom()
+    # test_convert_one_phantom()
     # test_fix_one_phantom()
 
-    # convert_microreg_to_nrrd(multi_proc=True)
-    # fix_all_prostate_images(
-    #     dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
-    #     dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
-    #     multi_thread=True
-    # )
+    convert_microreg_to_nrrd()
+    fix_all_prostate_images(
+        dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
+        dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),
+        multi_thread=True
+    )
