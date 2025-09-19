@@ -148,20 +148,21 @@ def eval_reg_opentps(
     for ref in references:
         if ref == "Prostate":
             use_contour = ref
-            dir_registered = dir_registered / "on-contour"
         else:
             use_contour = None
-            dir_registered = dir_registered / "on-image"
 
         for alg in algorithms:
             if alg ==  "rigid":
                 deformable = False
             else:
                 deformable = True
+#             print(f"Running OpenTPS registration with algorithm: \
+# {alg}, reference: {ref}, deformable: {deformable}")
+#             print(f"Results will be saved to {dir_registered/ref/alg}")
             reg_results = evaluate_registration(
                 reg_data_inputs=reg_data_inputs,
                 registration_module=Registration_OpenTPS,
-                dir_registered=dir_registered / alg,
+                dir_registered=dir_registered / ref / alg,
                 register_on_contour=use_contour,
                 deformable=deformable,
                 algorithm=alg
@@ -178,7 +179,7 @@ def eval_reg_opentps(
                 "std_time": reg_results.get("std_time"),
                 "num_failed": reg_results.get("num_failed")
             }
-            results_df.to_csv(dir_registered.parent/"registration_results_opentps.csv", index=False)
+            results_df.to_csv(dir_registered/"registration_results_opentps.csv", index=False)
 
 def run_registration_plastimatch():
     from brachyutils import Registration_Plastimatch
