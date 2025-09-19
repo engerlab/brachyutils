@@ -278,8 +278,8 @@ class BrachyPhantomRegistration(ABC):
             )
 
         for reg, static in zip(registered_contours, static_contours):
-            if reg == self.register_on_contour:
-                continue
+            # if reg == self.register_on_contour:
+            #     continue
             dice_score = 1 - dice(
                 u=registered_contours.get(reg).imageArray.flatten(),
                 v=static_contours.get(static).imageArray.flatten()
@@ -288,7 +288,8 @@ class BrachyPhantomRegistration(ABC):
                 compute_hausdorff_distance(
                     registered_contours.get(reg).imageArray[None, None, ...],
                     static_contours.get(static).imageArray[None, None, ...],
-                    percentile=95
+                    percentile=95,
+                    spacing=self.static_phantom.image_obj.spacing
                 )
                 )
             Dice[reg] = (dice_score)
