@@ -257,6 +257,3 @@ if __name__ == "__main__":
         reg_data_inputs=reg_data_inputs,
         dir_results=dir_results
     )
-    # organize_data("temp_data/registration/abdomen-mr-ct", True)
-    # run_registeration_opentps()
-    # run_registration_plastimatch()
