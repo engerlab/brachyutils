@@ -63,8 +63,10 @@ def eval_single_registration(
     return {
         "case": pth_static_image.split("/")[-1].split(".")[0],
         "time": t1 - t0,
-        "dice": measured_metrics["Dice"]["mean"],
-        "hausdorff": measured_metrics["Hausdorff"]["mean"]
+        "dice(Prostate)": measured_metrics["Dice"]["Prostate"],
+        "hausdorff(Prostate)": measured_metrics["Hausdorff"]["Prostate"],
+        "dice(Biopsies)": np.mean([v for k, v in measured_metrics["Dice"].items() if k != "Prostate"]),
+        "hausdorff(Biopsies)": np.mean([v for k, v in measured_metrics["Hausdorff"].items() if k != "Prostate"]),
     }
 
 def evaluate_registration(
@@ -91,9 +93,12 @@ def evaluate_registration(
             are written to.
     ### Outputs:
         - a dictionary containing the average evaluation results, which are:
-            "avg_dice", "std_dice"
-            "avg_hausdorff", "std_hausdorff"
-            "avg_time", "std_time"
+            "avg_dice(Prostate)", "std_dice(Prostate)"
+            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "avg_time", "std_time",
+            "num_failed"
     """
     if not issubclass(registration_module, BrachyPhantomRegistration):
         raise ValueError("registration module should extend the abstract class \
@@ -101,8 +106,10 @@ def evaluate_registration(
     results_per_case_df = pd.DataFrame(
         columns=[
             "case",
-            "dice",
-            "hausdorff",
+            "dice(Prostate)",
+            "hausdorff(Prostate)",
+            "dice(Biopsies)",
+            "hausdorff(Biopsies)",
             "time"
         ]
     )
@@ -115,15 +122,23 @@ def evaluate_registration(
         )
         results_per_case_df.loc[len(results_per_case_df)] = {
             "case": single_reg_data.get("case"),
-            "dice": eval_results.get("dice"),
-            "hausdorff": eval_results.get("hausdorff"),
+            "dice(Prostate)": eval_results.get("dice(Prostate)"),
+            "hausdorff(Prostate)": eval_results.get("hausdorff(Prostate)"),
+            "dice(Biopsies)": eval_results.get("dice(Biopsies)"),
+            "hausdorff(Biopsies)": eval_results.get("hausdorff(Biopsies)"),
             "time": eval_results.get("time")
         }
     return {
-        "avg_dice": results_per_case_df["dice"].mean(),
-        "std_dice": results_per_case_df["dice"].std(),
-        "avg_hausdorff": results_per_case_df["hausdorff"].mean(),
-        "std_hausdorff": results_per_case_df["hausdorff"].std(),
+        "avg_dice(Prostate)": results_per_case_df["dice(Prostate)"].mean(),
+        "std_dice(Prostate)": results_per_case_df["dice(Prostate)"].std(),
+        "avg_hausdorff(Prostate)": results_per_case_df["hausdorff(Prostate)"].mean(),
+        "std_hausdorff(Prostate)": results_per_case_df["hausdorff(Prostate)"].std(),
+
+        "avg_dice(Biopsies)": results_per_case_df["dice(Biopsies)"].mean(),
+        "std_dice(Biopsies)": results_per_case_df["dice(Biopsies)"].std(),
+        "avg_hausdorff(Biopsies)": results_per_case_df["hausdorff(Biopsies)"].mean(),
+        "std_hausdorff(Biopsies)": results_per_case_df["hausdorff(Biopsies)"].std(),
+
         "avg_time": results_per_case_df["time"].mean(),
         "std_time": results_per_case_df["time"].std(),
         "num_failed": np.sum(results_per_case_df["time"] == 0)
@@ -134,15 +149,22 @@ def eval_reg_opentps(
     dir_results: Path | str
 ):
     from brachyutils import Registration_OpenTPS
-    algorithms  = ["rigid", "quick", "demons", "morphons"]
-    references = ["Image", "Prostate"]
+
+    # for debugging
+    algorithms  = ["rigid"]
+    references = ["Prostate"]
+    # algorithms  = ["rigid", "quick", "demons", "morphons"]
+    # references = ["Image", "Prostate"]
     dir_registered = Path(dir_results)/"OpenTPS"
     results_df = pd.DataFrame(
         columns=[
             "algorithm", "package", "reference",
-            "avg_dice", "std_dice",
-            "avg_hausdorff", "std_hausdorff",
-            "avg_time", "std_time"
+            "avg_dice(Prostate)", "std_dice(Prostate)",
+            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "avg_time", "std_time",
+            "num_failed"
             ]
     )
     for ref in references:
@@ -171,10 +193,17 @@ def eval_reg_opentps(
                 "algorithm": alg,
                 "package": "OpenTPS",
                 "reference": ref,
-                "avg_dice": reg_results.get("avg_dice"),
-                "std_dice": reg_results.get("std_dice"),
-                "avg_hausdorff": reg_results.get("avg_hausdorff"),
-                "std_hausdorff": reg_results.get("std_hausdorff"),
+
+                "avg_dice(Prostate)": reg_results.get("avg_dice(Prostate)"),
+                "std_dice(Prostate)": reg_results.get("std_dice(Prostate)"),
+                "avg_hausdorff(Prostate)": reg_results.get("avg_hausdorff(Prostate)"),
+                "std_hausdorff(Prostate)": reg_results.get("std_hausdorff(Prostate)"),
+
+                "avg_dice(Biopsies)": reg_results.get("avg_dice(Biopsies)"),
+                "std_dice(Biopsies)": reg_results.get("std_dice(Biopsies)"),
+                "avg_hausdorff(Biopsies)": reg_results.get("avg_hausdorff(Biopsies)"),
+                "std_hausdorff(Biopsies)": reg_results.get("std_hausdorff(Biopsies)"),
+
                 "avg_time": reg_results.get("avg_time"),
                 "std_time": reg_results.get("std_time"),
                 "num_failed": reg_results.get("num_failed")
