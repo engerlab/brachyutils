@@ -379,6 +379,10 @@ class BrachyPhantom:
         for query_structure in flattened_query_structure_list:
             for mask_name in self.structure_names:
                 if query_structure.lower() == mask_name.lower():
+                    if mask_type == ROIMask and self.cached_structure_masks is not None:
+                        if mask_name in self.cached_structure_masks:
+                            mask_dict[query_structure] = self.cached_structure_masks[mask_name]
+                            continue
                     mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
                         origin=self.image_obj.origin,
                         gridSize=self.image_obj.gridSize,
@@ -577,6 +581,8 @@ class BrachyPhantom:
         Dependencies:
             - pynrrd
         """
+        if isinstance(pth_output, str):
+            pth_output = Path(pth_output)
         assert (
             os.path.splitext(pth_output)[-1] == ".nrrd"
         ), "the file should have '.nrrd' extension"
@@ -849,7 +855,8 @@ class BrachyPhantom:
 
     def cache_structure_set_as_masks(
         self,
-        interpolator_contours=sitk.sitkNearestNeighbor
+        interpolator_contours=sitk.sitkNearestNeighbor,
+        pth_structures_file: str | Path = None,
     ) -> None:
         r"""
         Purpose:
@@ -863,7 +870,11 @@ class BrachyPhantom:
         """
         from opentps.core.processing.imageProcessing.resampler3D import resampleImage3DOnImage3D
 
-        structure_dict = self.get_structure_mask(
+        if pth_structures_file is not None:
+            assert pth_structures_file.endswith(".nrrd"), "the structure file should be a nrrd file"
+            structure_dict, _ = readNrrdStruct(pth_structures_file)
+        else:
+            structure_dict = self.get_structure_mask(
                 self.structure_names,
                 mask_type=ROIMask,
                 )
@@ -872,17 +883,23 @@ class BrachyPhantom:
         for struc in structure_dict:
             print("Resampling first", struc, "with og shape :",
                     structure_dict[struc].imageArray.shape, "to shape", self.image_obj.gridSize)
-            new_structure_dict[struc] = resampleImage3DOnImage3D(
-                structure_dict[struc],
-                self.image_obj,
-                sitk_interpolator=interpolator_contours
-                )
+            mask = structure_dict[struc]
+            if not np.array_equal(mask.spacing, self.image_obj.spacing) or \
+                not np.array_equal(mask.origin, self.image_obj.origin) or \
+                not np.array_equal(mask.gridSize, self.image_obj.gridSize):
+                new_structure_dict[struc] = resampleImage3DOnImage3D(
+                    mask,
+                    self.image_obj,
+                    sitk_interpolator=interpolator_contours
+                    )
+            else:
+                new_structure_dict[struc] = mask
         # Store the resampled masks in the cached_structure_masks attribute
         self.cached_structure_masks = new_structure_dict
 
     def set_structure_set(
         self,
-        mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]],
+        mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray, sitk.Image]],
         mask_colors: Dict[str, Tuple[int, int, int]] | Tuple[int, int, int] = None,
         ) -> None:
         r"""
@@ -952,7 +969,14 @@ class BrachyPhantom:
                         not np.array_equal(mask.origin, self.image_obj.origin) or \
                         not np.array_equal(mask.gridSize, self.image_obj.gridSize):
                         # Resample the mask to the image object
-                        mask = resampleImage3DOnImage3D(mask, self.image_obj)
+                        mask = resampleImage3DOnImage3D(mask, self.image_obj)   
+            elif isinstance(mask_dict.get(structure_name), sitk.Image):
+                mask = ROIMask(
+                    name=structure_name,
+                    imageArray=sitk.GetArrayFromImage(mask_dict[structure_name]),
+                    origin=mask_dict[structure_name].GetOrigin(),
+                    spacing=mask_dict[structure_name].GetSpacing(),
+                )
             else:
                 raise ValueError("The mask type is not recognized.")
  
@@ -1019,16 +1043,31 @@ class BrachyPhantom:
         Outputs:
             - None
         """
-        for old_name, new_name in structure_name_dict.items():
-            if new_name == "REMOVE":
-                self.remove_structure(old_name)
-                continue
-            structure = self.structure_set.getContourByName(old_name)
-            if structure is not None:
-                structure.name = new_name
-            else:
-                warnings.warn(f"The structure {old_name} does not exist.")
-        self._update_structure_names()
+        assert len(self.structure_set) > 0 or len(self.cached_structure_masks) > 0, (
+            "No structures to rename. Please load the structures first."
+        )
+        if len(self.cached_structure_masks) > 0:
+            new_cached_structure_masks = {}
+            for old_name, new_name in structure_name_dict.items():
+                if old_name in self.cached_structure_masks:
+                    if new_name == "REMOVE":
+                        continue
+                    new_cached_structure_masks[new_name] = self.cached_structure_masks[old_name]
+                else:
+                    warnings.warn(f"The structure {old_name} does not exist in the cached masks.")
+            self.cached_structure_masks = new_cached_structure_masks
+            
+        if len(self.structure_set) > 0:
+            for old_name, new_name in structure_name_dict.items():
+                if new_name == "REMOVE":
+                    self.remove_structure(old_name)
+                    continue
+                structure = self.structure_set.getContourByName(old_name)
+                if structure is not None:
+                    structure.name = new_name
+                else:
+                    warnings.warn(f"The structure {old_name} does not exist.")
+            self._update_structure_names()
     
     def remove_structure(self, structure_name: str) -> None:
         r"""
@@ -1642,6 +1681,8 @@ def masksToNrrd(
         Dependencies:
             - pynrrd
         """
+        if isinstance(pth_output, str):
+            pth_output = Path(pth_output)
         if str(pth_output).endswith("seg.nrrd") is False:
             raise ValueError("The output path should have a 'seg.nrrd' extension.")
         Path.mkdir(pth_output.parent, exist_ok=True)
