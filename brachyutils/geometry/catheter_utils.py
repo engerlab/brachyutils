@@ -3,7 +3,9 @@ from typing import List, Union, Dict, Any, Optional, Tuple
 from pathlib import Path
 from pydantic import BaseModel, computed_field, ConfigDict
 import json
+import SimpleITK as sitk
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
+from opentps.core.data.images import ROIMask
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 
 from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
@@ -101,6 +103,24 @@ class DwellPosition(BaseModel):
         - List[float] := the position of the dwell position.
         """
         return self.position
+    
+    def isin_mask(self, mask:Union[ROIMask, sitk.Image]) -> bool:
+        r"""
+        ### Purpose:
+        - To check if the dwell position is inside a given mask.
+        
+        ### Inputs:
+        - self := the DwellPosition object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to check if the dwell position is inside.
+
+        ### Outputs:
+        - bool := True if the dwell position is inside the mask, False otherwise.
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        index = mask.TransformPhysicalPointToIndex(self.position)
+        in_mask = mask.GetPixel(index) > 0
+        return in_mask
 
 class Catheter(BaseModel):
     r"""
@@ -342,6 +362,47 @@ class Catheter(BaseModel):
         - List[List[float]] := the list of points on the spline.
         """
         return PiecewiseLinear3D(points=points)
+
+    def remove_outside_mask(self, mask:Union[ROIMask, sitk.Image]) -> None:
+        r"""
+        ### Purpose:
+        - To filter out the dwell positions that are outside a given mask.
+
+        ### Inputs:
+        - self := the Catheter object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to filter the dwell positions.
+
+        ### Outputs:
+        - None
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        filtered_dwells = []
+        for dwell in self.dwells:
+            if dwell.isin_mask(mask):
+                filtered_dwells.append(dwell)
+        self.dwells = filtered_dwells
+
+    def remove_inside_mask(self, mask:Union[ROIMask, sitk.Image]) -> None:
+        r"""
+        ### Purpose:
+        - To remove the dwell positions that are inside a given mask.
+
+        ### Inputs:
+        - self := the Catheter object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to remove the dwell positions.
+
+        ### Outputs:
+        - None
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        filtered_dwells = []
+        for dwell in self.dwells:
+            if not dwell.isin_mask(mask):
+                filtered_dwells.append(dwell)
+        self.dwells = filtered_dwells
+
 
 class CatheterTable(BaseModel):
     r"""
@@ -724,6 +785,80 @@ class CatheterTable(BaseModel):
         for catheter in self.catheter_list:
             dwell_positions.extend(catheter.get_dwell_positions_as_list())
         return dwell_positions
+
+    def remove_inside_mask(self, mask:Union[ROIMask, sitk.Image], margin_mm: float = 0.0) -> None:
+        r"""
+        ### Purpose:
+        - To filter out the dwell positions that are inside a given mask.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to filter the dwell positions.
+
+        ### Outputs:
+        - None
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        if margin_mm > 0.0:
+            mask = dilate_mask_in_mm(mask, margin_mm, voxel_based=False)
+
+        # sitk.WriteImage(mask, "/home/sebq/EngerLab/AI_Assisted_Brachytherapy/ai_pipeline_results_test_optimization_saving/Dataset007_catheters_and_tip_makers_consistent_diameter_2.0_dilation_1_bs8/val_benchmark_fold_0/259984/precise_dilated_mask_to_filter_dwellpositions.seg.nrrd", True)
+        for catheter in self.catheter_list:
+            catheter.remove_inside_mask(mask)
+        
+    def remove_outside_mask(self, mask:Union[ROIMask, sitk.Image], margin_mm: float = 0.0) -> None:
+        r"""
+        ### Purpose:
+        - To filter out the dwell positions that are outside a given mask.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to filter the dwell positions.
+
+        ### Outputs:
+        - None
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        if margin_mm > 0.0:
+            mask = dilate_mask_in_mm(mask, margin_mm, voxel_based=False)
+
+        # sitk.WriteImage(mask, "/home/sebq/EngerLab/AI_Assisted_Brachytherapy/ai_pipeline_results_test_optimization_saving/Dataset007_catheters_and_tip_makers_consistent_diameter_2.0_dilation_1_bs8/val_benchmark_fold_0/259984/precise_dilated_mask_to_filter_dwellpositions.seg.nrrd", True)
+        for catheter in self.catheter_list:
+            catheter.remove_outside_mask(mask)
+
+
+def dilate_mask_in_mm(mask: sitk.Image, distance_mm: float, voxel_based:bool=False) -> sitk.Image:
+    """
+    Dilate a binary mask by a specified distance in mm.
+    
+    Parameters:
+        mask (sitk.Image): Binary mask image (1 = structure, 0 = background).
+        distance_mm (float): Dilation distance in millimeters.
+    
+    Returns:
+        sitk.Image: Dilated mask.
+    """
+    if not mask.GetPixelID() == sitk.sitkUInt8:
+        mask = sitk.Cast(mask, sitk.sitkUInt8)
+    if voxel_based:
+        # Get voxel spacing (physical size per voxel)
+        spacing = mask.GetSpacing()  # tuple (sx, sy, sz)
+        
+        # Compute radius in voxels for each axis
+        radius_voxels = [int(round(distance_mm / s)) for s in spacing]
+        
+        # Use binary morphological dilation with anisotropic radius
+        dilated = sitk.BinaryDilate(mask, radius_voxels)
+        return dilated
+    else:
+        # Compute signed distance map (inside negative, outside positive)
+        distance_map = sitk.SignedMaurerDistanceMap(mask, squaredDistance=False, useImageSpacing=True)
+        
+        # Threshold: everything within 'distance_mm' of the mask
+        dilated = distance_map < distance_mm
+        return sitk.Cast(dilated, sitk.sitkUInt8)
 
 
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
