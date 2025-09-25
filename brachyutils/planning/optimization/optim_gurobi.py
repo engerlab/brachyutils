@@ -1,16 +1,81 @@
 # from abc import ABC, abstractmethod
 from typing import List
 import tqdm
+import time
 from copy import deepcopy
 import warnings
 import time
 import numpy as np
 from pathlib import Path
 from gurobipy import Model, Var, GRB, MVar
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from opentps.core.data.images import ROIMask
+
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, crop_mask_resample_dose_rate_map
 )
+
+
+def process_variable(variable, structure_name, structure_mask, plan, optim_spacing, roi_bounds):
+
+    if "hotspot_estimator:" in structure_name.lower():
+        relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
+        if variable.name not in relevant_dwells:
+            return None
+    dwell_var = variable._model_variable
+
+    if (
+        isinstance(structure_mask, ROIMask)
+        and np.allclose(plan.combined_dose.dose_image.origin, structure_mask.origin)
+        and np.allclose(plan.combined_dose.dose_image.spacing, structure_mask.spacing)
+        and np.allclose(plan.combined_dose.dose_image.spacing, optim_spacing)
+        and np.all(np.swapaxes(variable.dose_rate_map, 0, 2).shape == structure_mask.imageArray.shape)
+    ):
+        masked_dose_array = np.swapaxes(variable.dose_rate_map, 0, 2)
+    else:
+        masked_dose_rate_obj, structure_for_masking = crop_mask_resample_dose_rate_map(
+            dose_rate_map=variable.dose_rate_map,
+            template_dose_obj=plan.combined_dose,
+            roi_bounds=roi_bounds,
+            structure_mask=structure_mask,
+            optim_spacing=optim_spacing,
+        )
+        masked_dose_array = masked_dose_rate_obj.dose_image.imageArray.astype(float)
+        structure_mask = structure_for_masking
+
+    structure_for_masking = structure_mask.imageArray.astype(bool)
+    valid_dose_points = masked_dose_array[structure_for_masking == 1].flatten()
+
+    return dwell_var, valid_dose_points
+
+def compute_dose_rate_matrices(dwellTimeVariables, structure, structure_mask, plan, optim_spacing, roi_bounds, max_workers=8):
+    dose_rate_matrices = []
+    dwell_vars = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(
+                process_variable,
+                variable,
+                structure.name,
+                structure_mask,
+                plan,
+                optim_spacing,
+                roi_bounds
+            ): variable
+            for variable in dwellTimeVariables
+        }
+
+        for future in tqdm.tqdm(as_completed(futures), total=len(futures), desc=f"Processing dwell positions dose rates for {structure.name}"):
+            result = future.result()
+            if result is not None:
+                dwell_var, valid_dose_points = result
+                dwell_vars.append(dwell_var)
+                dose_rate_matrices.append(valid_dose_points)
+
+    return dwell_vars, dose_rate_matrices
 
 class DwellTime_Gurobi(BrachyDwellTime):
     r"""
@@ -156,7 +221,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self,
         plan: BrachyPlan,
         dwellTimeVariables: List[DwellTime_Gurobi],
-        model: Model):
+        model: Model, 
+        multi_processing: bool = True
+        ) -> None:
         r"""
         ### Purpose:
         - A function to set up the optimization model's objective function and constraints based 
@@ -206,23 +273,30 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             hotspot_threshold = structure.optimization_config.hotspot_threshold
             hotspot_weight = structure.optimization_config.penalty_weight_hotspot
             # Build dose rate matrix and dwell time vector for this structure
-            dose_rate_matrices = []
-            dwell_vars = []
-            for variable in tqdm.tqdm(dwellTimeVariables, total=len(dwellTimeVariables), 
-                                      desc=f"Processing dwell positions dose rates for {structure.name}"):
-                if "hotspot_estimator:" in structure.name.lower():
-                    relevant_dwells = structure.name.lower().split("hotspot_estimator:")[1].split("/")
-                    if variable.name not in relevant_dwells:
-                        continue
-                dwell_vars.append(variable._model_variable)
-                valid_dose_points = crop_mask_resample_dose_rate_map(
-                    dose_rate_map=variable.dose_rate_map,
-                    template_dose_obj=plan.combined_dose,
-                    roi_bounds=self.roi_bounds,
-                    structure_mask=structure_mask,
-                    optim_spacing=optim_spacing
+            if not multi_processing:
+                dose_rate_matrices = []
+                dwell_vars = []
+                for var in dwellTimeVariables:
+                    dwell_var, valid_dose_points = process_variable(
+                        var,
+                        structure.name,
+                        structure_mask,
+                        plan,
+                        optim_spacing,
+                        self.roi_bounds
+                        )
+                    dwell_vars.append(dwell_var)
+                    dose_rate_matrices.append(valid_dose_points)
+            else:
+                dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+                    dwellTimeVariables,
+                    structure,
+                    structure_mask,
+                    plan,
+                    optim_spacing,
+                    self.roi_bounds,
+                    max_workers=4
                 )
-                dose_rate_matrices.append(valid_dose_points)
 
             if not dose_rate_matrices:
                 continue
@@ -313,7 +387,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 # Add penalty terms
                 linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
                 quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
-                
+
                 penalty_terms["linear"] += linear_weight_vec @ x_slack
                 penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
 
