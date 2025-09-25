@@ -58,10 +58,8 @@ def crop_mask_resample_dose_rate_map(
             inPlace=False,
             fillValue=0
         )
+    return masked_dose_rate_obj, structure_mask
 
-    structure_mask = structure_mask.imageArray.astype(bool)
-    masked_dose_array = masked_dose_rate_obj.dose_image.imageArray.astype(float)
-    return masked_dose_array[structure_mask==1].flatten()
 
 class Optimization_Config(BaseModel):
     """
