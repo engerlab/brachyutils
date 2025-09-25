@@ -58,7 +58,10 @@ def eval_single_registration(
         # warnings.warn(f"registration failed for case {pth_static_image} with error {e}")
         t0 = 0
         t1 = 0
-        measured_metrics = {"Dice": {"mean": np.nan}, "Hausdorff": {"mean": np.nan}}
+        measured_metrics = {
+            "Dice": {"Prostate": np.nan, "Biopsies": np.nan},
+            "Hausdorff": {"Prostate": np.nan, "Biopsies": np.nan},
+        }
 
     return {
         "case": pth_static_image.split("/")[-1].split(".")[0],
@@ -151,7 +154,7 @@ def eval_reg_opentps(
     from brachyutils import Registration_OpenTPS
 
     # for debugging
-    algorithms  = ["rigid"]
+    algorithms  = ["demons"]
     references = ["Prostate"]
     # algorithms  = ["rigid", "quick", "demons", "morphons"]
     # references = ["Image", "Prostate"]
