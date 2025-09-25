@@ -16,7 +16,7 @@ import pydicom
 
 from opentps.core.data.images import CTImage, MRImage, ROIMask, Image3D
 from opentps.core.data import ROIContour, RTStruct
-from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
+from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D, resampleImage3DOnImage3D
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.io.dicomIO import (  # writeRTDose,
     readDicomCT,
@@ -1136,7 +1136,6 @@ class BrachyPhantom:
             - BrachyPhantom := the resampled phantom object if the inplace is False
         """
         from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D
-
         new_phantom = phantom_with_empty_image_like(self, new_pth_image=self.pth_image)
         new_img_obj = resampleImage3D(
             self.image_obj,
@@ -1144,6 +1143,16 @@ class BrachyPhantom:
             spacing=spacing,
             sitk_interpolator=interpolator_img
             )
+        
+        if self.cached_structure_masks is not None and len(self.cached_structure_masks) > 0:
+            new_cached_structure_masks = {}
+            for structure_name, mask in self.cached_structure_masks.items():
+                new_cached_structure_masks[structure_name] = resampleImage3DOnImage3D(
+                    mask,
+                    new_img_obj,
+                    sitk_interpolator=sitk.sitkNearestNeighbor
+                    )
+            self.cached_structure_masks = new_cached_structure_masks
             
         if inplace:
             self.image_obj = new_img_obj
