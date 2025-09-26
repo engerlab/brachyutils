@@ -154,10 +154,10 @@ def eval_reg_opentps(
     from brachyutils import Registration_OpenTPS
 
     # for debugging
-    algorithms  = ["demons"]
-    references = ["Prostate"]
-    # algorithms  = ["rigid", "quick", "demons", "morphons"]
-    # references = ["Image", "Prostate"]
+    # algorithms  = ["rigid"]
+    # references = ["Prostate"]
+    algorithms  = ["rigid", "quick", "demons", "morphons"]
+    references = ["Image", "Prostate"]
     dir_registered = Path(dir_results)/"OpenTPS"
     results_df = pd.DataFrame(
         columns=[
@@ -213,8 +213,26 @@ def eval_reg_opentps(
             }
             results_df.to_csv(dir_registered/"registration_results_opentps.csv", index=False)
 
-def run_registration_plastimatch():
+def eval_reg_plastimatch(
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
+    dir_results: Path | str
+):
     from brachyutils import Registration_Plastimatch
+
+    algorithms  = [] #XXX
+    references = ["Image", "Prostate"]
+    dir_registered = Path(dir_results)/"Plastimatch"
+    results_df = pd.DataFrame(
+        columns=[
+            "algorithm", "package", "reference",
+            "avg_dice(Prostate)", "std_dice(Prostate)",
+            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "avg_time", "std_time",
+            "num_failed"
+            ]
+    )
 
     # # on abdomen MR-CT
     dir_static = "temp_data/registration/abdomen-mr-ct/static"
@@ -224,16 +242,48 @@ def run_registration_plastimatch():
     dir_registered_bspline = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-bspline"
     pth_plastimatch = "http://192.168.1.13:8000"
 
-    evaluate_registration(
-        dir_static=dir_static,
-        dir_moving=dir_moving,
-        dir_registered=dir_registered_bspline,
-        registration_module=Registration_Plastimatch,
-        # register_on_contour=use_contour,
-        pth_plastimatch=pth_plastimatch,
-        # multi_thread=True,
-        # deformable=True,
-    )
+    for ref in references:
+        if ref == "Prostate":
+            use_contour = ref
+        else:
+            use_contour = None
+
+        for alg in algorithms:
+            if alg ==  "rigid":
+                deformable = False
+            else:
+                deformable = True
+            #print(f"Running OpenTPS registration with algorithm: \
+# {alg}, reference: {ref}, deformable: {deformable}")
+#             print(f"Results will be saved to {dir_registered/ref/alg}")
+            reg_results = evaluate_registration(
+                reg_data_inputs=reg_data_inputs,
+                registration_module=Registration_Plastimatch,
+                dir_registered=dir_registered / ref / alg,
+                register_on_contour=use_contour,
+                deformable=deformable,
+                algorithm=alg
+            )
+            results_df.loc[len(results_df)] = {
+                "algorithm": alg,
+                "package": "OpenTPS",
+                "reference": ref,
+
+                "avg_dice(Prostate)": reg_results.get("avg_dice(Prostate)"),
+                "std_dice(Prostate)": reg_results.get("std_dice(Prostate)"),
+                "avg_hausdorff(Prostate)": reg_results.get("avg_hausdorff(Prostate)"),
+                "std_hausdorff(Prostate)": reg_results.get("std_hausdorff(Prostate)"),
+
+                "avg_dice(Biopsies)": reg_results.get("avg_dice(Biopsies)"),
+                "std_dice(Biopsies)": reg_results.get("std_dice(Biopsies)"),
+                "avg_hausdorff(Biopsies)": reg_results.get("avg_hausdorff(Biopsies)"),
+                "std_hausdorff(Biopsies)": reg_results.get("std_hausdorff(Biopsies)"),
+
+                "avg_time": reg_results.get("avg_time"),
+                "std_time": reg_results.get("std_time"),
+                "num_failed": reg_results.get("num_failed")
+            }
+            results_df.to_csv(dir_registered/"registration_results_opentps.csv", index=False)
 
 def gen_registration_inputs_microreg(
     dir_all_data: str | Path
@@ -287,6 +337,10 @@ if __name__ == "__main__":
         dir_all_data="temp_data/registration/fixed-nrrd",
         )
     eval_reg_opentps(
+        reg_data_inputs=reg_data_inputs,
+        dir_results=dir_results
+    )
+    eval_reg_plastimatch(
         reg_data_inputs=reg_data_inputs,
         dir_results=dir_results
     )
