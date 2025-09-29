@@ -1183,6 +1183,35 @@ class BrachyDose:
         new_dose.get_voxel_edges()
         new_dose.create_interpolation_function()
         return new_dose
+    
+    @staticmethod
+    def dose_with_ones_grid_like(dose_obj: "BrachyDose") -> "BrachyDose":
+        r"""
+        Purpose:
+            - To create a new dose object with the same attributes as the input dose object,
+            but with a grid and uncertainty filled with ones.
+
+        Inputs:
+            - doseObj: BrachyDose object
+
+        Outputs:
+            ones_dose: BrachyDose object with grid and uncertainty filled with ones
+        """
+        new_dose = BrachyDose()
+        new_dose.dose_image = DoseImage(
+            imageArray=np.ones_like(dose_obj.dose_image.imageArray),
+            origin=dose_obj.dose_image.origin,
+            spacing=dose_obj.dose_image.spacing,
+        )
+        if dose_obj.uncertainty_image is not None:
+            new_dose.uncertainty_image = DoseImage(
+                imageArray=np.ones_like(dose_obj.uncertainty_image.imageArray),
+                origin=dose_obj.uncertainty_image.origin,
+                spacing=dose_obj.uncertainty_image.spacing,
+            )
+        new_dose.get_voxel_edges()
+        new_dose.create_interpolation_function()
+        return new_dose
 
     @staticmethod
     def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
