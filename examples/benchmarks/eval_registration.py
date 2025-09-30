@@ -219,7 +219,7 @@ def eval_reg_plastimatch(
 ):
     from brachyutils import Registration_Plastimatch
 
-    algorithms  = [] #XXX
+    algorithms  = ["translation", "bspline"] #XXX
     references = ["Image", "Prostate"]
     dir_registered = Path(dir_results)/"Plastimatch"
     results_df = pd.DataFrame(
@@ -233,15 +233,8 @@ def eval_reg_plastimatch(
             "num_failed"
             ]
     )
-
-    # # on abdomen MR-CT
-    dir_static = "temp_data/registration/abdomen-mr-ct/static"
-    dir_moving = "temp_data/registration/abdomen-mr-ct/moving"
     backend = "Plastimatch"
-    use_contour = ""
-    dir_registered_bspline = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-bspline"
     pth_plastimatch = "http://192.168.1.13:8000"
-
     for ref in references:
         if ref == "Prostate":
             use_contour = ref
@@ -249,10 +242,25 @@ def eval_reg_plastimatch(
             use_contour = None
 
         for alg in algorithms:
-            if alg ==  "rigid":
+            if alg ==  "translation":
                 deformable = False
+                stage_params_list = [
+                    {
+                        "xform": "translation",
+                        "impl": "plastimatch",
+                        "optim": "grid_search",
+                    }
+                ]
             else:
                 deformable = True
+                stage_params_list = [
+                    {
+                        "xform": "bspline",
+                        "impl": "plastimatch",
+                        "optim": "lbfgsb",
+                    }
+                ]
+
             #print(f"Running OpenTPS registration with algorithm: \
 # {alg}, reference: {ref}, deformable: {deformable}")
 #             print(f"Results will be saved to {dir_registered/ref/alg}")
@@ -262,7 +270,10 @@ def eval_reg_plastimatch(
                 dir_registered=dir_registered / ref / alg,
                 register_on_contour=use_contour,
                 deformable=deformable,
-                algorithm=alg
+                algorithm=alg,
+                pth_plastimatch=pth_plastimatch,
+                backend=backend,
+                stage_params_list=stage_params_list
             )
             results_df.loc[len(results_df)] = {
                 "algorithm": alg,
@@ -283,7 +294,8 @@ def eval_reg_plastimatch(
                 "std_time": reg_results.get("std_time"),
                 "num_failed": reg_results.get("num_failed")
             }
-            results_df.to_csv(dir_registered/"registration_results_opentps.csv", index=False)
+            results_df.to_csv(dir_registered/"registration_results_plastimatch.csv", index=False)
+            break #XXX only do one for now
 
 def gen_registration_inputs_microreg(
     dir_all_data: str | Path
@@ -336,10 +348,10 @@ if __name__ == "__main__":
     reg_data_inputs = gen_registration_inputs_microreg(
         dir_all_data="temp_data/registration/fixed-nrrd",
         )
-    eval_reg_opentps(
-        reg_data_inputs=reg_data_inputs,
-        dir_results=dir_results
-    )
+    # eval_reg_opentps(
+    #     reg_data_inputs=reg_data_inputs,
+    #     dir_results=dir_results
+    # )
     eval_reg_plastimatch(
         reg_data_inputs=reg_data_inputs,
         dir_results=dir_results
