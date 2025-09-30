@@ -128,7 +128,7 @@ class BrachyDoseComparison:
         self.prescription_dose = gamma_kwargs.get("global_normalisation", 1.0)
         self.max_gamma = gamma_kwargs.get("max_gamma", 1.1)
         self.percent_difference_range = percent_difference_range
-        self.dose_mask = dose_mask
+        self.dose_mask = dose_mask if dose_mask is not None else BrachyDose.dose_with_ones_grid_like(self.dose1)
         # axes values are assumed in cm from the 3ddose formalism
         # gamma distance thresholds are usually provided in mm
         # pymedphys documentation indicates that the threshold unit must match the axis
@@ -480,7 +480,9 @@ class BrachyDoseComparison:
             axis_2_coords: np.ndarray,
             plane_coord: float,
             plane: str,
-            plot_titles: tuple,
+            plot_title: str,
+            local_vmax: float = 2.0,
+            global_vmax: float = 0.1
         ):
 
         """
@@ -494,9 +496,6 @@ class BrachyDoseComparison:
         # MultipleLocator,
         # )
         import matplotlib
-
-        local_vmax = 2
-        global_vmax = 0.2
 
         matplotlib.rcParams.update({"font.size": 8})
         plt.rcParams.update({"figure.dpi": 300})
@@ -521,15 +520,18 @@ class BrachyDoseComparison:
 
         #flip the profiles 
         if plane == 'xy':
-            local_difference_profile = np.flip(local_difference_profile, axis=0)
-            global_difference_profile = np.flip(global_difference_profile, axis=0)
+            pass
+            #local_difference_profile = np.flip(local_difference_profile, axis=0)
+            #global_difference_profile = np.flip(global_difference_profile, axis=0)
 
         # we will plot a figure that is suitable as a double column figure for medical physics
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
         fig, ax = plt.subplots(
-            figsize=(360 * mm, 240 * mm), nrows=2, ncols=2, sharex=False, sharey=False, layout = "compressed",
+            figsize=(180 * mm, 180 * mm), nrows=2, ncols=2, sharex=False, sharey=False, layout = "compressed",
             gridspec_kw={'width_ratios': [1, 1]}#,height_ratios=[1,1]
         )
+
+        fig.suptitle(plot_title, fontsize=14, fontweight="bold")
         c00 = ax[0, 0].pcolormesh(
             axis_1_coords,
             axis_2_coords,
@@ -541,7 +543,8 @@ class BrachyDoseComparison:
             antialiased=True,
         )
 
-        ax[0, 0].set_title(plot_titles[0], fontsize=12, pad=5, fontweight="bold")
+
+        ax[0, 0].set_title("$\Delta D_{{\mathrm{{LOCAL}}}}$", fontsize=12, pad=5)
         ax[0, 0].set_aspect("equal")
         cbar00 = fig.colorbar(c00, ax=ax[0, 0], shrink=0.9, pad=0.04, location='right', panchor = False)
         cbar00.set_label(label="[%]", size=10, labelpad=5)
@@ -565,24 +568,27 @@ class BrachyDoseComparison:
         cbar01.mappable.set_clim(-1, 1)
         ax[0, 1].invert_yaxis()
         ax[0, 1].set_xlabel(f"{plane[0]} [mm]", fontsize=10)
-        ax[0, 1].set_title(plot_titles[1], fontsize=12, pad=5, fontweight="bold")
         ax[0, 1].set_aspect("equal")
+        ax[0, 1].set_title("$\Delta D_{{\mathrm{{GLOBAL}}}}$", fontsize=12, pad=5)
 
 
 
         #now plot the local and global percent differences histograms
         #use a bin width of 0.1%
-        local_bin_width = 0.1
+        local_bin_width = 0.01
         global_bin_width = 0.001
-        local_hist, local_bins = np.histogram(
+        self.local_hist, local_hist_bin_edges = np.histogram(
             self.percent_difference_local.dose_image.imageArray, bins=np.arange(-local_vmax, local_vmax, local_bin_width)
         )
-        global_hist, global_bins = np.histogram(
+        self.global_hist, global_hist_bin_edges = np.histogram(
             self.percent_difference_global.dose_image.imageArray, bins=np.arange(-global_vmax, global_vmax, global_bin_width)
         )
 
-        ax[1, 0].bar(local_bins[:-1], 100 * local_hist / self.percent_difference_local.dose_image.imageArray.size, width=local_bin_width, color="blue", alpha=0.5)#, fill=False)
-        ax[1, 1].bar(global_bins[:-1], 100 * global_hist / self.percent_difference_global.dose_image.imageArray.size, width=global_bin_width, color="red", alpha=0.5)#, fill=False)
+        self.local_hist_bin_centers = local_hist_bin_edges[:-1] + 0.5 * local_bin_width
+        self.global_hist_bin_centers = global_hist_bin_edges[:-1] + 0.5 * global_bin_width
+
+        ax[1, 0].bar(self.local_hist_bin_centers, 100 * self.local_hist / self.percent_difference_local.dose_image.imageArray[np.logical_not(np.isnan(self.percent_difference_local.dose_image.imageArray))].size, width=local_bin_width, color="blue", alpha=0.5)#, fill=False)
+        ax[1, 1].bar(self.global_hist_bin_centers, 100 * self.global_hist / self.percent_difference_global.dose_image.imageArray[np.logical_not(np.isnan(self.percent_difference_global.dose_image.imageArray))].size, width=global_bin_width, color="red", alpha=0.5)#, fill=False)
         ax[1, 0].set_box_aspect(aspect=1)
         ax[1, 1].set_box_aspect(aspect=1)
 
@@ -591,7 +597,7 @@ class BrachyDoseComparison:
         ax[1, 1].set_xlabel(fr"$\Delta D_{{\mathrm{{GLOBAL}}}} [\%]$", fontsize=10)
 
         #plt.subplots_adjust(left = 0.184, bottom = 0.136, right = 0.813, top = 0.892, wspace = 0.219, hspace = 0.222)
-
+        #plt.constained()
         plt.show()
 
         root = tk.Tk()
