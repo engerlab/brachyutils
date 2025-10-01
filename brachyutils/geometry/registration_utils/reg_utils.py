@@ -17,9 +17,10 @@ class BrachyPhantomRegistration(ABC):
         moving_phantom: Union[BrachyPhantom, str],
         register_on_contour: Union[Literal["common"], Optional[str]] = None,
         deformable: bool = False,
-        algorithm: Literal["demons", "morphons"] = None,
+        algorithm: "str" = None,
         backend: Literal["elastix", "plastimatch", "opentps"] = None,
         tryGPU: bool = False,
+        pth_executable: Union[Path, str] = None,
     ) -> None:
         r"""
         Purpose:
@@ -57,6 +58,7 @@ class BrachyPhantomRegistration(ABC):
         self.algorithm = algorithm
         self.backend = backend
         self.tryGPU = tryGPU
+        self.pth_executable = pth_executable
         # the following attributes will be computed during the registration process
         self.registered_phantom: BrachyPhantom = None
         self.deformation: Transform3D = None
