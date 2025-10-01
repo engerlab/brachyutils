@@ -136,6 +136,8 @@ def evaluate_registration(
             "hausdorff(Biopsies)": eval_results.get("hausdorff(Biopsies)"),
             "time": eval_results.get("time")
         }
+        # XXX for debugging
+        # break
     return {
         "avg_dice(Prostate)": results_per_case_df["dice(Prostate)"].mean(),
         "std_dice(Prostate)": results_per_case_df["dice(Prostate)"].std(),
@@ -225,10 +227,10 @@ def eval_reg_plastimatch(
     from brachyutils import Registration_Plastimatch
 
     # for debugging
-    algorithms  = ["translation"]
-    references = ["Prostate"]
-    # algorithms  = ["translation", "bspline"]
-    # references = ["Image", "Prostate"]
+    # algorithms  = ["bspline"]
+    # references = ["Prostate"]
+    algorithms  = ["translation", "bspline"]
+    references = ["Image", "Prostate"]
     dir_registered = Path(dir_results)/"Plastimatch"
     results_df = pd.DataFrame(
         columns=[
@@ -268,7 +270,6 @@ def eval_reg_plastimatch(
                         "optim": "lbfgsb",
                     }
                 ]
-
             #print(f"Running OpenTPS registration with algorithm: \
 # {alg}, reference: {ref}, deformable: {deformable}")
 #             print(f"Results will be saved to {dir_registered/ref/alg}")
@@ -303,7 +304,7 @@ def eval_reg_plastimatch(
                 "num_failed": reg_results.get("num_failed")
             }
             results_df.to_csv(dir_registered/"registration_results_plastimatch.csv", index=False)
-            break #XXX only do one for now
+            # break #XXX only do one for now
 
 def gen_registration_inputs_microreg(
     dir_all_data: str | Path
@@ -351,6 +352,30 @@ def gen_registration_inputs_microreg(
         raise ValueError(f"no registration data found in {dir_all_data}")
     return reg_data_inputs
 
+def get_baseline_stats_microreg(
+    reg_data_inputs: List[Dict[str, Union[str, Path]]]
+):
+    r"""
+    ### Purpose:
+        - to get the baseline stats for the moving structures without any registration.
+    ### Inputs:
+        - reg_data_inputs := list of dictionaries containing the paths to the static 
+        and moving images and structures
+            - pth_static_image := path to the static image file
+            - pth_static_structure := path to the static structure file
+            - pth_moving_image := path to the moving image file
+            - pth_moving_structure := path to the moving structure file
+    ### Outputs:
+        - a dictionary containing the average evaluation results, which are:
+            "avg_volume(Prostate)", "std_volume(Prostate)",
+            "avg_volume(Biopsies)", "std_volume(Biopsies)",
+            "avg_dice(Prostate)", "std_dice(Prostate)"
+            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+    """
+    
+    
 if __name__ == "__main__":
     dir_results = "temp_data/registration"
     reg_data_inputs = gen_registration_inputs_microreg(
