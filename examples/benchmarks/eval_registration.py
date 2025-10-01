@@ -44,7 +44,12 @@ def eval_single_registration(
     reg_obj: BrachyPhantomRegistration = registration_module(
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
-        **kwargs
+        register_on_contour=kwargs.get("register_on_contour", None),
+        deformable=kwargs.get("deformable", False),
+        algorithm=kwargs.get("algorithm", None),
+        backend=kwargs.get("backend", None),
+        tryGPU=kwargs.get("tryGPU", False),
+        pth_executable=kwargs.get("pth_executable", None),
     )
     try:
         t0 = time()
@@ -58,7 +63,10 @@ def eval_single_registration(
         # warnings.warn(f"registration failed for case {pth_static_image} with error {e}")
         t0 = 0
         t1 = 0
-        measured_metrics = {"Dice": {"mean": np.nan}, "Hausdorff": {"mean": np.nan}}
+        measured_metrics = {
+            "Dice": {"Prostate": np.nan, "Biopsies": np.nan},
+            "Hausdorff": {"Prostate": np.nan, "Biopsies": np.nan},
+        }
 
     return {
         "case": pth_static_image.split("/")[-1].split(".")[0],
@@ -151,10 +159,10 @@ def eval_reg_opentps(
     from brachyutils import Registration_OpenTPS
 
     # for debugging
-    algorithms  = ["rigid"]
-    references = ["Prostate"]
-    # algorithms  = ["rigid", "quick", "demons", "morphons"]
-    # references = ["Image", "Prostate"]
+    # algorithms  = ["rigid"]
+    # references = ["Prostate"]
+    algorithms  = ["rigid", "quick", "demons", "morphons"]
+    references = ["Image", "Prostate"]
     dir_registered = Path(dir_results)/"OpenTPS"
     results_df = pd.DataFrame(
         columns=[
@@ -210,27 +218,92 @@ def eval_reg_opentps(
             }
             results_df.to_csv(dir_registered/"registration_results_opentps.csv", index=False)
 
-def run_registration_plastimatch():
+def eval_reg_plastimatch(
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
+    dir_results: Path | str
+):
     from brachyutils import Registration_Plastimatch
 
-    # # on abdomen MR-CT
-    dir_static = "temp_data/registration/abdomen-mr-ct/static"
-    dir_moving = "temp_data/registration/abdomen-mr-ct/moving"
-    backend = "Plastimatch"
-    use_contour = ""
-    dir_registered_bspline = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-bspline"
-    pth_plastimatch = "http://192.168.1.13:8000"
-
-    evaluate_registration(
-        dir_static=dir_static,
-        dir_moving=dir_moving,
-        dir_registered=dir_registered_bspline,
-        registration_module=Registration_Plastimatch,
-        # register_on_contour=use_contour,
-        pth_plastimatch=pth_plastimatch,
-        # multi_thread=True,
-        # deformable=True,
+    # for debugging
+    algorithms  = ["translation"]
+    references = ["Prostate"]
+    # algorithms  = ["translation", "bspline"]
+    # references = ["Image", "Prostate"]
+    dir_registered = Path(dir_results)/"Plastimatch"
+    results_df = pd.DataFrame(
+        columns=[
+            "algorithm", "package", "reference",
+            "avg_dice(Prostate)", "std_dice(Prostate)",
+            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "avg_time", "std_time",
+            "num_failed"
+            ]
     )
+    backend = "Plastimatch"
+    pth_executable = "http://192.168.1.13:8000"
+    for ref in references:
+        if ref == "Prostate":
+            use_contour = ref
+        else:
+            use_contour = None
+
+        for alg in algorithms:
+            if alg ==  "translation":
+                deformable = False
+                stage_params_list = [
+                    {
+                        "xform": "translation",
+                        "impl": "plastimatch",
+                        "optim": "grid_search",
+                    }
+                ]
+            else:
+                deformable = True
+                stage_params_list = [
+                    {
+                        "xform": "bspline",
+                        "impl": "plastimatch",
+                        "optim": "lbfgsb",
+                    }
+                ]
+
+            #print(f"Running OpenTPS registration with algorithm: \
+# {alg}, reference: {ref}, deformable: {deformable}")
+#             print(f"Results will be saved to {dir_registered/ref/alg}")
+            reg_results = evaluate_registration(
+                reg_data_inputs=reg_data_inputs,
+                registration_module=Registration_Plastimatch,
+                dir_registered=dir_registered / ref / alg,
+                register_on_contour=use_contour,
+                deformable=deformable,
+                algorithm=alg,
+                pth_executable=pth_executable,
+                backend=backend,
+                stage_params_list=stage_params_list
+            )
+            results_df.loc[len(results_df)] = {
+                "algorithm": alg,
+                "package": "OpenTPS",
+                "reference": ref,
+
+                "avg_dice(Prostate)": reg_results.get("avg_dice(Prostate)"),
+                "std_dice(Prostate)": reg_results.get("std_dice(Prostate)"),
+                "avg_hausdorff(Prostate)": reg_results.get("avg_hausdorff(Prostate)"),
+                "std_hausdorff(Prostate)": reg_results.get("std_hausdorff(Prostate)"),
+
+                "avg_dice(Biopsies)": reg_results.get("avg_dice(Biopsies)"),
+                "std_dice(Biopsies)": reg_results.get("std_dice(Biopsies)"),
+                "avg_hausdorff(Biopsies)": reg_results.get("avg_hausdorff(Biopsies)"),
+                "std_hausdorff(Biopsies)": reg_results.get("std_hausdorff(Biopsies)"),
+
+                "avg_time": reg_results.get("avg_time"),
+                "std_time": reg_results.get("std_time"),
+                "num_failed": reg_results.get("num_failed")
+            }
+            results_df.to_csv(dir_registered/"registration_results_plastimatch.csv", index=False)
+            break #XXX only do one for now
 
 def gen_registration_inputs_microreg(
     dir_all_data: str | Path
@@ -283,7 +356,11 @@ if __name__ == "__main__":
     reg_data_inputs = gen_registration_inputs_microreg(
         dir_all_data="temp_data/registration/fixed-nrrd",
         )
-    eval_reg_opentps(
+    # eval_reg_opentps(
+    #     reg_data_inputs=reg_data_inputs,
+    #     dir_results=dir_results
+    # )
+    eval_reg_plastimatch(
         reg_data_inputs=reg_data_inputs,
         dir_results=dir_results
     )
