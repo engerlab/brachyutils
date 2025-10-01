@@ -44,7 +44,12 @@ def eval_single_registration(
     reg_obj: BrachyPhantomRegistration = registration_module(
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
-        **kwargs
+        register_on_contour=kwargs.get("register_on_contour", None),
+        deformable=kwargs.get("deformable", False),
+        algorithm=kwargs.get("algorithm", None),
+        backend=kwargs.get("backend", None),
+        tryGPU=kwargs.get("tryGPU", False),
+        pth_executable=kwargs.get("pth_executable", None),
     )
     try:
         t0 = time()
