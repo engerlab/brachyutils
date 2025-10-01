@@ -63,6 +63,7 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
         self,
         stage_params_list: List[Dict[str, str]] = None,
         dir_phantom_export: Path | str = None,
+        **kwargs
         ) -> tuple[BrachyPhantom, Transform3D]:
         r"""
         ### Purpose:
@@ -74,6 +75,17 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
         ### Outputs:
         - BrachyPhantom: The registered phantom object.
         """
+        stage_params_list = stage_params_list if stage_params_list else kwargs.get("stage_params_list", None)
+        if stage_params_list is None:
+            stage_params_list = [
+            {
+                "xform": "translation",
+                "impl": "plastimatch"
+                # "optim": "versor",
+                # "max_its": "50",
+            }
+        ]
+
         # leave some space to figure out the rigidness and options for the registration.
 
         # need to write out the images for plastimatch to read them.
@@ -108,15 +120,6 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
             "image_out" : f"{str(pth_output)}",
             "vf_out" : f"{str(dir_temp_data.joinpath('vf.nrrd'))}",
         }
-
-        stage_params_list = stage_params_list if stage_params_list else[
-            {
-                "xform": "translation",
-                "impl": "plastimatch"
-                # "optim": "versor",
-                # "max_its": "50",
-            }
-        ]
 
         if "http" in self.pth_executable:
             import requests
