@@ -1082,7 +1082,8 @@ class BrachyPhantom:
         self,
         origin:np.array=None,
         spacing:np.array=None,
-        inplace:bool=False, 
+        inplace:bool=False,
+        gridSize:np.array=None,
         interpolator_img=sitk.sitkLinear) -> "BrachyPhantom":
         r"""
         ### Purpose:
@@ -1103,6 +1104,7 @@ class BrachyPhantom:
             self.image_obj,
             origin=origin,
             spacing=spacing,
+            gridSize=gridSize,
             sitk_interpolator=interpolator_img
             )
             
@@ -1146,14 +1148,15 @@ def phantom_with_empty_image_like(
         - new_phantom: BrachyPhantom := the new phantom object.
     """
     from copy import deepcopy
+    old_phantom = deepcopy(phantom)
     new_phantom = BrachyPhantom()
     new_phantom.pth_image = Path(new_pth_image)
     new_phantom.image_obj = None
-    new_phantom.image_modality = phantom.image_modality
-    new_phantom.structure_set = phantom.structure_set
+    new_phantom.image_modality = old_phantom.image_modality
+    new_phantom.structure_set = old_phantom.structure_set
     new_phantom.structure_names = [structure.name for structure in new_phantom.structure_set.contours]
-    new_phantom.unit_length = phantom.unit_length
-    new_phantom.xyz_format = phantom.xyz_format
+    new_phantom.unit_length = old_phantom.unit_length
+    new_phantom.xyz_format = old_phantom.xyz_format
 
     return new_phantom
 
