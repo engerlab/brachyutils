@@ -219,8 +219,11 @@ def eval_reg_plastimatch(
 ):
     from brachyutils import Registration_Plastimatch
 
-    algorithms  = ["translation", "bspline"] #XXX
-    references = ["Image", "Prostate"]
+    # for debugging
+    algorithms  = ["translation"]
+    references = ["Prostate"]
+    # algorithms  = ["translation", "bspline"]
+    # references = ["Image", "Prostate"]
     dir_registered = Path(dir_results)/"Plastimatch"
     results_df = pd.DataFrame(
         columns=[
@@ -234,7 +237,7 @@ def eval_reg_plastimatch(
             ]
     )
     backend = "Plastimatch"
-    pth_plastimatch = "http://192.168.1.13:8000"
+    pth_executable = "http://192.168.1.13:8000"
     for ref in references:
         if ref == "Prostate":
             use_contour = ref
@@ -271,7 +274,7 @@ def eval_reg_plastimatch(
                 register_on_contour=use_contour,
                 deformable=deformable,
                 algorithm=alg,
-                pth_plastimatch=pth_plastimatch,
+                pth_executable=pth_executable,
                 backend=backend,
                 stage_params_list=stage_params_list
             )

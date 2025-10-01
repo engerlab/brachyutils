@@ -14,7 +14,7 @@ from brachyutils.geometry.registration_utils.reg_utils import BrachyPhantomRegis
 class Registration_Plastimatch(BrachyPhantomRegistration):
     def __init__(
         self,
-        pth_plastimatch: Path | str,
+        pth_executable: Path | str,
         static_phantom: BrachyPhantom,
         moving_phantom: BrachyPhantom,
         register_on_contour: Union[Literal["common"], Optional[str]] = None,
@@ -28,7 +28,7 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
         ### Purpose:
         - A class to wrap around the Plastimatch image registration method.
         ### Inputs:
-        - pth_plastimatch: Path | str: The path to the plastimatch executable or the URL where
+        - pth_executable: Path | str: The path to the plastimatch executable or the URL where
         the plastimatch server is running.
         - static_phantom: BrachyPhantom: The static phantom object.
         - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
@@ -57,7 +57,7 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
             backend,
             tryGPU
             )
-        self.pth_plastimatch = pth_plastimatch if pth_plastimatch else kwargs.popitem("pth_plastimatch", None)
+        self.pth_executable = pth_executable if pth_executable else kwargs.popitem("pth_executable", None)
 
     def register(
         self,
@@ -118,10 +118,10 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
             }
         ]
 
-        if "http" in self.pth_plastimatch:
+        if "http" in self.pth_executable:
             import requests
             response = requests.post(
-                url=self.pth_plastimatch+"/plastimatch_register",
+                url=self.pth_executable+"/plastimatch_register",
                 json={
                     "global_params": global_params,
                     "stage_params_list": stage_params_list,
@@ -225,10 +225,10 @@ class Registration_Plastimatch(BrachyPhantomRegistration):
                 # skip the contour that is used for registration
                 continue
             # call plastimatch warp to deform the image and the contours.
-            if "http" in self.pth_plastimatch:
+            if "http" in self.pth_executable:
                 import requests
                 response = requests.post(
-                    url=self.pth_plastimatch+"/plastimatch_convert",
+                    url=self.pth_executable+"/plastimatch_convert",
                     json={
                         "pth_input": str(pth_in),
                         "pth_output": str(pth_warped),

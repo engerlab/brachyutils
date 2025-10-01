@@ -58,7 +58,7 @@ def test_register_plastimatch():
         pth_structures_file=pth_moving.with_suffix(".seg.nrrd")
         )
     registration_obj = Registration_Plastimatch(
-        pth_plastimatch="http://192.168.1.13:8000",
+        pth_executable="http://192.168.1.13:8000",
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
         backend="plastimatch",
