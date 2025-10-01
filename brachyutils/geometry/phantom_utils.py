@@ -1107,7 +1107,7 @@ class BrachyPhantom:
             gridSize=gridSize,
             sitk_interpolator=interpolator_img
             )
-            
+
         if inplace:
             self.image_obj = new_img_obj
         else:
@@ -1130,6 +1130,24 @@ class BrachyPhantom:
             else len(sorted_names)
         )
         self._update_structure_names()
+
+    def get_structures_volume(self, structure_names:List[str]) -> Dict[str, float]:
+        r"""
+        Purpose:
+            - Get the volume of each structure that is requested.
+        Inputs:
+            - structure_names: list := the list of names of the structures to get the volumes for.
+        Outputs:
+            - volume_dict: dict := the dictionary of the volumes of each structure in cm^3.
+        """
+        assert self.image_obj is not None, "No image object to get the volume from."
+        assert self.structure_set is not None, "No structure set to get the volume from."
+        mask_dict = self.get_structure_mask(structure_names, mask_type=ROIMask)
+        volume_dict = {}
+        for name, mask in mask_dict.items():
+            assert mask is not None, f"No mask found for structure {name}."
+            volume_dict[name] = mask.getVolume()/1000 # convert to cm^3
+        return volume_dict
 
 # helper functions
 def phantom_with_empty_image_like(
