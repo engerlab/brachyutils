@@ -353,7 +353,8 @@ def gen_registration_inputs_microreg(
     return reg_data_inputs
 
 def get_baseline_stats_microreg(
-    reg_data_inputs: List[Dict[str, Union[str, Path]]]
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
+    pth_results_csv: Path | str
 ):
     r"""
     ### Purpose:
@@ -366,26 +367,139 @@ def get_baseline_stats_microreg(
             - pth_moving_image := path to the moving image file
             - pth_moving_structure := path to the moving structure file
     ### Outputs:
-        - a dictionary containing the average evaluation results, which are:
-            "avg_volume(Prostate)", "std_volume(Prostate)",
-            "avg_volume(Biopsies)", "std_volume(Biopsies)",
-            "avg_dice(Prostate)", "std_dice(Prostate)"
-            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+        - None:= a csv file with the following columns:
+            "case",
+            "volume(Prostate_US)",
+            "volume(Prostate_MR)",
+            "avg_Volume(Biopsies_US)", "std_Volume(Biopsies_US)",
+            "avg_Volume(Biopsies_MR)", "std_Volume(Biopsies_MR)",
+            "dice(Prostate)", "hausdorff(Prostate)",
             "avg_dice(Biopsies)", "std_dice(Biopsies)",
             "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
     """
-    
-    
+    results_df = pd.DataFrame(
+        columns=[
+            "case",
+            "volume(Prostate_US)",
+            "volume(Prostate_MR)",
+            "avg_Volume(Biopsies_US)", "std_Volume(Biopsies_US)",
+            "avg_Volume(Biopsies_MR)", "std_Volume(Biopsies_MR)",
+            "dice(Prostate)", "hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+        ]
+    )
+    for data_pair in reg_data_inputs:
+        static_phantom = BrachyPhantom(
+            pth_phantom_file=data_pair.get("pth_static_image"),
+            pth_structures_file=data_pair.get("pth_static_structure")
+        )
+        moving_phantom = BrachyPhantom(
+            pth_phantom_file=data_pair.get("pth_moving_image"),
+            pth_structures_file=data_pair.get("pth_moving_structure")
+        )
+        reg_obj = DummyRegistration(
+            static_phantom=static_phantom,
+            moving_phantom=moving_phantom
+        )
+        reg_obj.registered_phantom = moving_phantom.resample_to(
+            origin=static_phantom.image_obj.origin,
+            spacing=static_phantom.image_obj.spacing,
+            gridSize=static_phantom.image_obj.gridSize,
+        )
+        measured_metrics = reg_obj.evaluate_on_contours()
+        structure_volumes_us = reg_obj.static_phantom.get_structures_volume(
+            structure_names=reg_obj.static_phantom.structure_names
+            )
+        structure_volumes_mr = reg_obj.moving_phantom.get_structures_volume(
+            structure_names=reg_obj.moving_phantom.structure_names
+            )
+
+        results_df.loc[len(results_df)] = {
+            "case": data_pair.get("pth_static_image").split("/")[-1].split(".")[0],
+
+            "volume(Prostate_US)": structure_volumes_us.get("Prostate", np.nan),
+            "avg_Volume(Biopsies_US)": np.mean([v for k, v in structure_volumes_us.items() if k != "Prostate"]),
+            "std_Volume(Biopsies_US)": np.std([v for k, v in structure_volumes_us.items() if k != "Prostate"]),
+
+            "volume(Prostate_MR)": structure_volumes_mr.get("Prostate", np.nan),
+            "avg_Volume(Biopsies_MR)": np.mean([v for k, v in structure_volumes_mr.items() if k != "Prostate"]),
+            "std_Volume(Biopsies_MR)": np.std([v for k, v in structure_volumes_mr.items() if k != "Prostate"]),
+
+            "dice(Prostate)": measured_metrics["Dice"]["Prostate"],
+            "hausdorff(Prostate)": measured_metrics["Hausdorff"]["Prostate"],
+            "avg_dice(Biopsies)": np.mean([v for k, v in measured_metrics["Dice"].items() if k != "Prostate"]),
+            "std_dice(Biopsies)": np.std([v for k, v in measured_metrics["Dice"].items() if k != "Prostate"]),
+            "avg_hausdorff(Biopsies)": np.mean([v for k, v in measured_metrics["Hausdorff"].items() if k != "Prostate"]),
+            "std_hausdorff(Biopsies)": np.std([v for k, v in measured_metrics["Hausdorff"].items() if k != "Prostate"]),
+        }
+    mean_dict = {
+        "case": "mean",
+        "volume(Prostate_US)": results_df["volume(Prostate_US)"].mean(),
+        "volume(Prostate_MR)": results_df["volume(Prostate_MR)"].mean(),
+
+        "avg_Volume(Biopsies_US)": results_df["avg_Volume(Biopsies_US)"].mean(),
+        "std_Volume(Biopsies_US)": results_df["std_Volume(Biopsies_US)"].mean(),
+        
+        "avg_Volume(Biopsies_MR)": results_df["avg_Volume(Biopsies_MR)"].mean(),
+        "std_Volume(Biopsies_MR)": results_df["std_Volume(Biopsies_MR)"].mean(),
+        
+        "dice(Prostate)": results_df["dice(Prostate)"].mean(),
+        "hausdorff(Prostate)": results_df["hausdorff(Prostate)"].mean(),
+        "avg_dice(Biopsies)": results_df["avg_dice(Biopsies)"].mean(),
+        "std_dice(Biopsies)": results_df["std_dice(Biopsies)"].mean(),
+        "avg_hausdorff(Biopsies)": results_df["avg_hausdorff(Biopsies)"].mean(),
+        "std_hausdorff(Biopsies)": results_df["std_hausdorff(Biopsies)"].mean(),        
+    }
+    std_dict = {
+        "case": "std",
+        "volume(Prostate_US)": results_df["volume(Prostate_US)"].std(),
+        "volume(Prostate_MR)": results_df["volume(Prostate_MR)"].std(),
+
+        "avg_Volume(Biopsies_US)": results_df["avg_Volume(Biopsies_US)"].std(),
+        "std_Volume(Biopsies_US)": results_df["std_Volume(Biopsies_US)"].std(),
+
+        "avg_Volume(Biopsies_MR)": results_df["avg_Volume(Biopsies_MR)"].std(),
+        "std_Volume(Biopsies_MR)": results_df["std_Volume(Biopsies_MR)"].std(),
+
+        "dice(Prostate)": results_df["dice(Prostate)"].std(),
+        "hausdorff(Prostate)": results_df["hausdorff(Prostate)"].std(),
+        "avg_dice(Biopsies)": results_df["avg_dice(Biopsies)"].std(),
+        "std_dice(Biopsies)": results_df["std_dice(Biopsies)"].std(),
+        "avg_hausdorff(Biopsies)": results_df["avg_hausdorff(Biopsies)"].std(),
+        "std_hausdorff(Biopsies)": results_df["std_hausdorff(Biopsies)"].std(),
+    }
+    # calculate the mean and std for the entire dataset
+    results_df.loc[len(results_df)] = mean_dict
+    results_df.loc[len(results_df)] = std_dict
+    results_df.to_csv(pth_results_csv, index=False)
+
+class DummyRegistration(BrachyPhantomRegistration):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    def register(self):
+        pass
+    def export_to(self):
+        super().export_to()
+    def synch_registered_phantom_with_data(self):
+        super().synch_registered_phantom_with_data()
+    def evaluate_on_contours(self):
+        return super().evaluate_on_contours()
+
 if __name__ == "__main__":
     dir_results = "temp_data/registration"
     reg_data_inputs = gen_registration_inputs_microreg(
         dir_all_data="temp_data/registration/fixed-nrrd",
         )
+    get_baseline_stats_microreg(
+        reg_data_inputs=reg_data_inputs,
+        pth_results_csv=Path(dir_results)/"registration_results_baseline.csv"
+    )
     # eval_reg_opentps(
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
     # )
-    eval_reg_plastimatch(
-        reg_data_inputs=reg_data_inputs,
-        dir_results=dir_results
-    )
+    # eval_reg_plastimatch(
+    #     reg_data_inputs=reg_data_inputs,
+    #     dir_results=dir_results
+    # )
