@@ -604,8 +604,6 @@ class BrachyDoseComparison:
         hist0_width = axs_hist[0].get_position().bounds[2]
         hist1_width = axs_hist[1].get_position().bounds[2]
 
-        print(f"xpos_img0: {xpos_img0}\n img0_width: {img0_width}\n xpos_img1: {xpos_img1}\n img1_width: {img1_width}\n hist0_width: {hist0_width}\n hist1_width: {hist1_width}")
-
         # Calculate the new x positions so that the histograms are centered under the images
         axs_hist[0].set_position([
             xpos_img0 + (img0_width - hist0_width) / 2,
