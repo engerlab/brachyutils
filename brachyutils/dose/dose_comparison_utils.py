@@ -6,7 +6,9 @@ import tkinter as tk
 from tkinter import filedialog as fd
 from pathlib import Path
 import numpy as np
+import matplotlib
 from matplotlib import pyplot as plt
+from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 from opentps.core.processing.dataComparison.gammaIndex import gammaIndex
 
 from brachyutils.dose.dose_utils import BrachyDose
@@ -237,7 +239,7 @@ class BrachyDoseComparison:
         # we will plot a figure that is suitable as a double column figure for medical physics
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
         fig, ax = plt.subplots(
-            figsize=(180 * mm, 120 * mm), nrows=2, ncols=2, sharex=True, sharey=True
+            figsize=(180 * mm, 150 * mm), nrows=2, ncols=2, sharex=True, sharey=True
         )
         c00 = ax[0, 0].pcolormesh(
             axis_1_coords,
@@ -490,13 +492,6 @@ class BrachyDoseComparison:
         With the histograms below
         """
 
-        # from matplotlib.ticker import (
-        # AutoMinorLocator,
-        # FormatStrFormatter,
-        # MultipleLocator,
-        # )
-        import matplotlib
-
         matplotlib.rcParams.update({"font.size": 8})
         plt.rcParams.update({"figure.dpi": 300})
 
@@ -526,13 +521,22 @@ class BrachyDoseComparison:
 
         # we will plot a figure that is suitable as a double column figure for medical physics
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
-        fig, ax = plt.subplots(
-            figsize=(180 * mm, 180 * mm), nrows=2, ncols=2, sharex=False, sharey=False, layout = "compressed",
-            gridspec_kw={'width_ratios': [1, 1]}#,height_ratios=[1,1]
-        )
+        # Create two subfigures: top for images, bottom for histograms
+        fig = plt.figure(figsize=(180 * mm, 150 * mm))  # layout="compressed"
+        subfigs = fig.subfigures(2, 1, height_ratios=[1.05, 1])
 
-        fig.suptitle(plot_title, fontsize=14, fontweight="bold")
-        c00 = ax[0, 0].pcolormesh(
+        fig.set_facecolor('lavender')
+        fig.set_layout_engine('constrained')
+        fig.patch.set_linewidth(2)
+        fig.patch.set_edgecolor('black')
+
+        # Top subfigure: two 2D images (local/global difference)
+        axs_img = subfigs[0].subplots(1, 2, sharex=False, sharey=False)
+        # Bottom subfigure: two histograms (local/global difference)
+        axs_hist = subfigs[1].subplots(1, 2, sharex=False, sharey=False)
+        
+
+        c00 = axs_img[0].pcolormesh(
             axis_1_coords,
             axis_2_coords,
             local_difference_profile,
@@ -542,18 +546,16 @@ class BrachyDoseComparison:
             rasterized=True,
             antialiased=True,
         )
+        axs_img[0].set_title("$\Delta D_{{\mathrm{{LOCAL}}}}$", fontsize=12, pad=5)
+        axs_img[0].set_aspect("equal")
+        cbar00 = fig.colorbar(c00, ax=axs_img[0], fraction=0.046, shrink=0.9, pad=0.04, location='right')#, panchor=False)
+        cbar00.ax.set_title(label="[%]", size=10)
+        cbar00.mappable.set_clim(-local_vmax, local_vmax)
+        #axs_img[0].invert_yaxis()
+        axs_img[0].set_xlabel(f"{plane[0]} [mm]", fontsize=10, labelpad=2)
+        axs_img[0].set_ylabel(f"{plane[1]} [mm]", fontsize=10, labelpad=2)
 
-
-        ax[0, 0].set_title("$\Delta D_{{\mathrm{{LOCAL}}}}$", fontsize=12, pad=5)
-        ax[0, 0].set_aspect("equal")
-        cbar00 = fig.colorbar(c00, ax=ax[0, 0], shrink=0.9, pad=0.04, location='right', panchor = False)
-        cbar00.set_label(label="[%]", size=10, labelpad=5)
-        cbar00.mappable.set_clim(-5, 5)
-        ax[0, 0].invert_yaxis()
-        ax[0, 0].set_xlabel(f"{plane[0]} [mm]", fontsize=10)
-        ax[0, 0].set_ylabel(f"{plane[1]} [mm]", fontsize=10)
-
-        c01 = ax[0, 1].pcolormesh(
+        c01 = axs_img[1].pcolormesh(
             axis_1_coords,
             axis_2_coords,
             global_difference_profile,
@@ -563,18 +565,57 @@ class BrachyDoseComparison:
             rasterized=True,
             antialiased=True,
         )
-        cbar01 = fig.colorbar(c01, ax=ax[0, 1], shrink=0.9, pad=0.04, location='right' )
-        cbar01.set_label(label="[%]", size=10, labelpad=5)
-        cbar01.mappable.set_clim(-1, 1)
-        ax[0, 1].invert_yaxis()
-        ax[0, 1].set_xlabel(f"{plane[0]} [mm]", fontsize=10)
-        ax[0, 1].set_aspect("equal")
-        ax[0, 1].set_title("$\Delta D_{{\mathrm{{GLOBAL}}}}$", fontsize=12, pad=5)
+        axs_img[1].set_title("$\Delta D_{{\mathrm{{GLOBAL}}}}$", fontsize=12, pad=5)
+        axs_img[1].set_aspect("equal")
+        cbar01 = fig.colorbar(c01, ax=axs_img[1], fraction=0.046, shrink=0.9, pad=0.04, location='right')
+        cbar01.ax.set_title(label="[%]", size=10)#, labelpad=5)
+        cbar01.mappable.set_clim(-global_vmax, global_vmax)
+        #axs_img[1].invert_yaxis()
+        axs_img[1].set_xlabel(f"{plane[0]} [mm]", fontsize=10, labelpad=2)
+        axs_img[1].set_ylabel(f"{plane[1]} [mm]", fontsize=10, labelpad=2)
 
+        #planar ticks
+        axis_1_extent = axis_1_coords[-1] - axis_1_coords[0]
+        axis_2_extent = axis_2_coords[-1] - axis_2_coords[0]
+        axs_img[0].xaxis.set_major_locator(MultipleLocator(axis_1_extent//4))
+        axs_img[0].xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_img[0].yaxis.set_major_locator(MultipleLocator(axis_2_extent//4))
+        axs_img[0].yaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_img[1].xaxis.set_major_locator(MultipleLocator(axis_1_extent//4))
+        axs_img[1].xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_img[1].yaxis.set_major_locator(MultipleLocator(axis_2_extent//4))
+        axs_img[1].yaxis.set_minor_locator(AutoMinorLocator(5))
+        
+        ##############################################################
 
+        #get x positions of above plots
+        xpos_img0 = axs_img[0].get_position().bounds[0]
+        xpos_img1 = axs_img[1].get_position().bounds[0]
 
-        #now plot the local and global percent differences histograms
-        #use a bin width of 0.1%
+        # Align the histograms to be centered below the corresponding top images
+        # Get the width of the top image axes
+        img0_width = axs_img[0].get_position().bounds[2]
+        img1_width = axs_img[1].get_position().bounds[2]
+
+        # Get the width of the histogram axes
+        hist0_width = axs_hist[0].get_position().bounds[2]
+        hist1_width = axs_hist[1].get_position().bounds[2]
+
+        # Calculate the new x positions so that the histograms are centered under the images
+        #axs_hist[0].set_position([
+        #    xpos_img0 + (img0_width - hist0_width) / 2,
+        #    axs_hist[0].get_position().bounds[1],
+        #    hist0_width,
+        #    axs_hist[0].get_position().bounds[3]
+        #])
+        #axs_hist[1].set_position([
+        #    xpos_img1 + (img1_width - hist1_width) / 2,
+        #    axs_hist[1].get_position().bounds[1],
+        #    hist1_width,
+        #    axs_hist[1].get_position().bounds[3]
+        #])
+
+        # Now plot the local and global percent differences histograms
         local_bin_width = 0.01
         global_bin_width = 0.001
         self.local_hist, local_hist_bin_edges = np.histogram(
@@ -587,18 +628,40 @@ class BrachyDoseComparison:
         self.local_hist_bin_centers = local_hist_bin_edges[:-1] + 0.5 * local_bin_width
         self.global_hist_bin_centers = global_hist_bin_edges[:-1] + 0.5 * global_bin_width
 
-        ax[1, 0].bar(self.local_hist_bin_centers, 100 * self.local_hist / self.percent_difference_local.dose_image.imageArray[np.logical_not(np.isnan(self.percent_difference_local.dose_image.imageArray))].size, width=local_bin_width, color="blue", alpha=0.5)#, fill=False)
-        ax[1, 1].bar(self.global_hist_bin_centers, 100 * self.global_hist / self.percent_difference_global.dose_image.imageArray[np.logical_not(np.isnan(self.percent_difference_global.dose_image.imageArray))].size, width=global_bin_width, color="red", alpha=0.5)#, fill=False)
-        ax[1, 0].set_box_aspect(aspect=1)
-        ax[1, 1].set_box_aspect(aspect=1)
+        axs_hist[0].bar(
+            self.local_hist_bin_centers,
+            100 * self.local_hist / self.percent_difference_local.dose_image.imageArray[np.logical_not(np.isnan(self.percent_difference_local.dose_image.imageArray))].size,
+            width=local_bin_width,
+            color="blue",
+            alpha=0.5
+        )
+        axs_hist[1].bar(
+            self.global_hist_bin_centers,
+            100 * self.global_hist / self.percent_difference_global.dose_image.imageArray[np.logical_not(np.isnan(self.percent_difference_global.dose_image.imageArray))].size,
+            width=global_bin_width,
+            color="red",
+            alpha=0.5
+        )
 
-        ax[1, 0].set_ylabel("Voxels [%]", fontsize=10)
-        ax[1, 0].set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
-        ax[1, 1].set_xlabel(fr"$\Delta D_{{\mathrm{{GLOBAL}}}} [\%]$", fontsize=10)
+        #histogram tick adjustments
+        axs_hist[0].xaxis.set_major_locator(MultipleLocator(local_vmax/2))
+        axs_hist[0].xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_hist[1].xaxis.set_major_locator(MultipleLocator(global_vmax/2))
+        axs_hist[1].xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_hist[0].yaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_hist[1].yaxis.set_minor_locator(AutoMinorLocator(5))
 
-        #plt.subplots_adjust(left = 0.184, bottom = 0.136, right = 0.813, top = 0.892, wspace = 0.219, hspace = 0.222)
-        #plt.constained()
-        plt.show()
+
+        axs_hist[0].set_box_aspect(aspect=1)
+        axs_hist[1].set_box_aspect(aspect=1)
+
+        axs_hist[0].set_ylabel("Voxels [%]", fontsize=10)
+        axs_hist[1].set_ylabel("Voxels [%]", fontsize=10)
+        axs_hist[0].set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
+        axs_hist[1].set_xlabel(fr"$\Delta D_{{\mathrm{{GLOBAL}}}} [\%]$", fontsize=10)
+
+        fig.suptitle(plot_title, fontsize=20, fontweight="bold")#, y=0.97)
+
 
         root = tk.Tk()
         root.withdraw()
@@ -611,8 +674,13 @@ class BrachyDoseComparison:
         )
         if f is not None:
             ext = os.path.splitext(f.name)[1][1:]  # get extension without dot
-            plt.savefig(f, dpi=300, format=ext)
+            fig.savefig(f, dpi=300, format=ext)
             f.close()
+        else:
+            plt.show()
         root.destroy()
+
+
+
 
 
