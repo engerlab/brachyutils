@@ -59,6 +59,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         self,
         parameter_maps: List[Dict | str] = None,
         dir_phantom_export: str | Path = None,
+        **kwargs
         ):
         r"""
         ### Purpose:
@@ -75,6 +76,11 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         ### Outputs:
         - BrachyPhantom: The registered phantom object.
         """
+        parameter_maps = (parameter_maps if parameter_maps is not None
+                          else kwargs.pop("parameter_maps", None))
+        dir_phantom_export = (dir_phantom_export if dir_phantom_export is not None
+                              else kwargs.pop("dir_phantom_export", None))
+
         # for mask-based registration, we need to use nearest neighbor interpolation.
         if self.register_on_contour is not None and parameter_maps is None:
             parameter_maps = [
