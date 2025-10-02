@@ -520,32 +520,46 @@ class BrachyPlan:
         assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
         assert self.num_dwells is not None, "number of dwells is not extracted"
 
-        # here is the list of the dose rate files
-        dose_rate_files = glob(os.path.join(dir_dose_rate, f"*{type_dose_file}"))
-
-        dose_rate_files = [
-            dosefile for dosefile in dose_rate_files if "combined" not in dosefile
-        ]
 
         def get_dwell_order(dose_rate_path):
+            file_name = os.path.basename(dose_rate_path)
+            return get_dwell_order_from_file_name(file_name)
+
+        def get_dwell_order_from_file_name(file_name):
             """
             Files should have this format:
             run_{catheter#}_{Dwell#incatheter}_{shieldangle}.seq.nrrd
             Assuming that there are less than 10000 dwell positions per catheter
             We order based on 10000 * catheter# + Dwell#incatheter
             """
-            x = os.path.basename(dose_rate_path).split(".")[0][4:]
+            x = file_name.split(".")[0][4:]
             catheter_nb, dwell_nb, shield_angle = x.split("_")
             return 10000 * int(catheter_nb) + int(dwell_nb)
+        
+        # here is the list of the dose rate files
+        if isinstance(dir_dose_rate, str) or isinstance(dir_dose_rate, Path):
+            dose_rate_files = glob(os.path.join(dir_dose_rate, f"run*{type_dose_file}"))
+            dose_rate_files = [
+                dosefile for dosefile in dose_rate_files if "combined" not in dosefile
+            ]
+            dose_rate_files.sort(
+                key=lambda x: get_dwell_order(x)
+            )
 
-        dose_rate_files.sort(
-            key=lambda x: get_dwell_order(x)
-        )
+        else:
+            assert isinstance(dir_dose_rate, dict) and isinstance(dir_dose_rate[list(dir_dose_rate.keys())[0]][0], np.ndarray), (
+                "Expected a folder with dose rate files saved or a dictionary of tuples (numpy arrays, header info)."
+            )
+            dose_rate_files = dir_dose_rate
+            sorted_dict = dict(sorted(dose_rate_files.items(), key=lambda item: get_dwell_order_from_file_name(item[0])))
+            dose_rate_files = [x for x in sorted_dict.values()]
+
+        
 
         assert (
             len(dose_rate_files) == self.num_dwells
         ), ("number of dose rate files does not match the number of dwell positions"
-            f" in the catheter table. Expected {self.num_dwells} but found {len(dose_rate_files)}"
+            f" in the catheter table. Expected {self.num_dwells} but found {len(dose_rate_files)} at {os.path.join(dir_dose_rate, f"run*{type_dose_file}")}"
         )
 
         test_dose_obj = BrachyDose(dose_rate_files[0])
@@ -656,7 +670,7 @@ class BrachyPlan:
         self.dvh_metric_goals = dvh_metric_goals
 
     def create_brachy_structure_set(
-        self, phantom: BrachyPhantom, dvh_metric_goals: dict
+        self, phantom: BrachyPhantom, dvh_metric_goals: dict, mask_type: Union[ROIContour, ROIMask] = ROIMask,
     ):
         r"""
         ### Purpose:
@@ -684,14 +698,19 @@ class BrachyPlan:
                 if structure_name in key
             }
             dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
-        structure_masks: dict = phantom.get_structure_mask(
-            structure_names_in_dvh, ROIContour
-        )
+
+        if phantom.cached_structure_masks is not None:
+            structure_masks = phantom.cached_structure_masks
+        else:
+            structure_masks: dict = phantom.get_structure_mask(
+                structure_names_in_dvh, mask_type
+            )
+
         for structure_name in structure_masks.keys():
             structure_obj = BrachyStructure(
                 name=structure_name,
                 mask=structure_masks[structure_name],
-                target_volume=True if ("ctv" or "ptv") in structure_name.lower() else False,
+                target_volume=True if ("ctv" in structure_name.lower() or "ptv" in structure_name.lower())  else False,
                 in_dvh=True,
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
@@ -916,6 +935,35 @@ class BrachyPlan:
                 return_percentage)
             self.dvh_metrics_observed.update(observed_metrics)
         return self.dvh_metrics_observed
+
+    def export_dvh_metrics(self, output_pth: Union[str, Path]):
+        r"""
+        ### Purpose:
+        - To export the dvh metrics of the BrachyPlan to a json file.
+        ### Inputs:
+        - output_pth := path to the output json file
+        ### Outputs:
+        - Void := will export the dvh metrics to a json file
+        """
+        assert self.dvh_metrics_observed is not None, "dvh metrics are not calculated yet"
+        assert output_pth.endswith(".json"), "output path should be a json file"
+        with open(output_pth, "w") as json_file:
+            json.dump(self.dvh_metrics_observed, json_file, indent=4)
+    
+    def export_dvh_metric_goals(self, output_pth: Union[str, Path]):
+        r"""
+        ### Purpose:
+        - To export the dvh metric goals of the BrachyPlan to a json file.
+        ### Inputs:
+        - output_pth := path to the output json file
+        ### Outputs:
+        - Void := will export the dvh metric goals to a json file
+        """
+        assert self.dvh_metric_goals is not None, "dvh_metric_goals object is not created yet"
+        assert output_pth.endswith(".json"), "output path should be a json file"
+        with open(output_pth, "w") as json_file:
+            json.dump(self.dvh_metric_goals, json_file, indent=4)
+
 
     def calculate_uncertainty_per_structure(self):
         r"""
