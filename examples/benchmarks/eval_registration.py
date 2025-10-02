@@ -306,6 +306,86 @@ def eval_reg_plastimatch(
             results_df.to_csv(dir_registered/"registration_results_plastimatch.csv", index=False)
             # break #XXX only do one for now
 
+def eval_reg_simple_elastix(
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
+    dir_results: Path | str
+):
+    from brachyutils import Registration_SimpleElastix
+    pth_executable = "http://192.168.1.14:8000"
+    # for debugging
+    algorithms  = ["affine"]
+    references = ["Prostate"]
+    # algorithms  = ["affine", "bspline"]
+    # references = ["Image", "Prostate"]
+    dir_registered = Path(dir_results)/"SimpleElastix"
+    results_df = pd.DataFrame(
+        columns=[
+            "algorithm", "package", "reference",
+            "avg_dice(Prostate)", "std_dice(Prostate)",
+            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "avg_time", "std_time",
+            "num_failed"
+            ]
+    )
+    for ref in references:
+        if ref == "Prostate":
+            use_contour = ref
+        else:
+            use_contour = None
+
+        for alg in algorithms:
+            if alg == "affine":
+                deformable = False
+                parameter_maps = [
+                    {
+                    "default_parameter_maps": "rigid",
+                    "Transform": "AffineTransform"
+                    }
+                    ]
+            else:
+                deformable = True
+                parameter_maps = [
+                    {
+                        "default_parameter_map": "affine",
+                        },
+                    {
+                        "default_parameter_map": "bspline",
+                    }
+                ]
+
+            reg_results = evaluate_registration(
+                reg_data_inputs=reg_data_inputs,
+                registration_module=Registration_SimpleElastix,
+                dir_registered=dir_registered / ref / alg,
+                register_on_contour=use_contour,
+                deformable=deformable,
+                parameter_maps = parameter_maps,
+                pth_executable=pth_executable,
+                backend="SimpleElastix",
+            )
+            results_df.loc[len(results_df)] = {
+                "algorithm": alg,
+                "package": "SimpleElastix",
+                "reference": ref,
+
+                "avg_dice(Prostate)": reg_results.get("avg_dice(Prostate)"),
+                "std_dice(Prostate)": reg_results.get("std_dice(Prostate)"),
+                "avg_hausdorff(Prostate)": reg_results.get("avg_hausdorff(Prostate)"),
+                "std_hausdorff(Prostate)": reg_results.get("std_hausdorff(Prostate)"),
+
+                "avg_dice(Biopsies)": reg_results.get("avg_dice(Biopsies)"),
+                "std_dice(Biopsies)": reg_results.get("std_dice(Biopsies)"),
+                "avg_hausdorff(Biopsies)": reg_results.get("avg_hausdorff(Biopsies)"),
+                "std_hausdorff(Biopsies)": reg_results.get("std_hausdorff(Biopsies)"),
+
+                "avg_time": reg_results.get("avg_time"),
+                "std_time": reg_results.get("std_time"),
+                "num_failed": reg_results.get("num_failed")
+            }
+            results_df.to_csv(dir_registered/"registration_results_simple_elastix.csv", index=False)
+
 def gen_registration_inputs_microreg(
     dir_all_data: str | Path
 ):
@@ -491,10 +571,10 @@ if __name__ == "__main__":
     reg_data_inputs = gen_registration_inputs_microreg(
         dir_all_data="temp_data/registration/fixed-nrrd",
         )
-    get_baseline_stats_microreg(
-        reg_data_inputs=reg_data_inputs,
-        pth_results_csv=Path(dir_results)/"registration_results_baseline.csv"
-    )
+    # get_baseline_stats_microreg(
+    #     reg_data_inputs=reg_data_inputs,
+    #     pth_results_csv=Path(dir_results)/"registration_results_baseline.csv"
+    # )
     # eval_reg_opentps(
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
@@ -503,3 +583,7 @@ if __name__ == "__main__":
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
     # )
+    eval_reg_simple_elastix(
+        reg_data_inputs=reg_data_inputs,
+        dir_results=dir_results
+    )
