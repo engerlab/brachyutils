@@ -857,6 +857,7 @@ class BrachyPhantom:
         self,
         interpolator_contours=sitk.sitkNearestNeighbor,
         pth_structures_file: str | Path = None,
+        mask_colors: Dict[str, Tuple[int, int, int]] | Tuple[int, int, int] = None,
     ) -> None:
         r"""
         Purpose:
@@ -878,12 +879,26 @@ class BrachyPhantom:
                 self.structure_names,
                 mask_type=ROIMask,
                 )
+        slicer_colors = _get_slicer_colors()
+        # set the default color dictionary if not provided
+        if mask_colors is None:
+            mask_colors = {
+                k: slicer_colors[i+1]["color"] for i, k in enumerate(structure_dict.keys())
+            }
+        elif isinstance(mask_colors, tuple):
+            mask_colors = {
+                k: mask_colors for k in structure_dict.keys()
+            }
 
         new_structure_dict = {}
-        for struc in structure_dict:
-            print("Resampling first", struc, "with og shape :",
-                    structure_dict[struc].imageArray.shape, "to shape", self.image_obj.gridSize)
+        for struc in structure_dict.keys():
             mask = structure_dict[struc]
+            old_color = mask._displayColor
+            structure_color = mask_colors.get(struc)
+            if not(old_color is None):
+                new_color = old_color
+            else:
+                new_color = structure_color
             if not np.array_equal(mask.spacing, self.image_obj.spacing) or \
                 not np.array_equal(mask.origin, self.image_obj.origin) or \
                 not np.array_equal(mask.gridSize, self.image_obj.gridSize):
@@ -894,6 +909,7 @@ class BrachyPhantom:
                     )
             else:
                 new_structure_dict[struc] = mask
+            new_structure_dict[struc]._displayColor = new_color
         # Store the resampled masks in the cached_structure_masks attribute
         self.cached_structure_masks = new_structure_dict
 
@@ -1147,11 +1163,13 @@ class BrachyPhantom:
         if self.cached_structure_masks is not None and len(self.cached_structure_masks) > 0:
             new_cached_structure_masks = {}
             for structure_name, mask in self.cached_structure_masks.items():
+                old_color = mask._displayColor
                 new_cached_structure_masks[structure_name] = resampleImage3DOnImage3D(
                     mask,
                     new_img_obj,
                     sitk_interpolator=sitk.sitkNearestNeighbor
                     )
+                new_cached_structure_masks[structure_name]._displayColor = old_color
             self.cached_structure_masks = new_cached_structure_masks
             
         if inplace:
