@@ -313,10 +313,10 @@ def eval_reg_simple_elastix(
     from brachyutils import Registration_SimpleElastix
     pth_executable = "http://192.168.1.14:8000"
     # for debugging
-    algorithms  = ["bspline"]
-    references = ["Prostate"]
-    # algorithms  = ["affine", "bspline"]
-    # references = ["Image", "Prostate"]
+    # algorithms  = ["bspline"]
+    # references = ["Prostate"]
+    algorithms  = ["affine", "bspline"]
+    references = ["Image", "Prostate"]
     dir_registered = Path(dir_results)/"SimpleElastix"
     results_df = pd.DataFrame(
         columns=[
