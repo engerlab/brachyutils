@@ -488,8 +488,10 @@ class BrachyDoseComparison:
         ):
 
         """
-        Plot local and dose differences maps along both axes
-        With the histograms below
+        Plot local and dose differences maps in 2D in the specified slice
+        With the histograms below. Note, a lot of plotting parameters were tuned
+        to hardcoded values to make a good looking figure during Figure Bootcamp 2025.
+        Please avoid changing them. 
         """
 
         matplotlib.rcParams.update({"font.size": 8})
@@ -523,7 +525,7 @@ class BrachyDoseComparison:
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
         # Create two subfigures: top for images, bottom for histograms
         fig = plt.figure(figsize=(180 * mm, 150 * mm))  # layout="compressed"
-        subfigs = fig.subfigures(2, 1, height_ratios=[1.05, 1])
+        subfigs = fig.subfigures(2, 1, height_ratios=[1, .75])
 
         fig.set_facecolor('lavender')
         fig.set_layout_engine('constrained')
@@ -587,6 +589,7 @@ class BrachyDoseComparison:
         axs_img[1].yaxis.set_minor_locator(AutoMinorLocator(5))
         
         ##############################################################
+        fig.canvas.draw() #draw plots to get positions
 
         #get x positions of above plots
         xpos_img0 = axs_img[0].get_position().bounds[0]
@@ -601,21 +604,24 @@ class BrachyDoseComparison:
         hist0_width = axs_hist[0].get_position().bounds[2]
         hist1_width = axs_hist[1].get_position().bounds[2]
 
-        # Calculate the new x positions so that the histograms are centered under the images
-        #axs_hist[0].set_position([
-        #    xpos_img0 + (img0_width - hist0_width) / 2,
-        #    axs_hist[0].get_position().bounds[1],
-        #    hist0_width,
-        #    axs_hist[0].get_position().bounds[3]
-        #])
-        #axs_hist[1].set_position([
-        #    xpos_img1 + (img1_width - hist1_width) / 2,
-        #    axs_hist[1].get_position().bounds[1],
-        #    hist1_width,
-        #    axs_hist[1].get_position().bounds[3]
-        #])
+        print(f"xpos_img0: {xpos_img0}\n img0_width: {img0_width}\n xpos_img1: {xpos_img1}\n img1_width: {img1_width}\n hist0_width: {hist0_width}\n hist1_width: {hist1_width}")
 
-        # Now plot the local and global percent differences histograms
+        # Calculate the new x positions so that the histograms are centered under the images
+        axs_hist[0].set_position([
+            xpos_img0 + (img0_width - hist0_width) / 2,
+            0.18,
+            hist0_width,
+            axs_hist[0].get_position().bounds[3]
+        ], which='both')
+        axs_hist[1].set_position([
+            xpos_img1 + (img1_width - hist1_width) / 2,
+            0.18,
+            hist1_width,
+            axs_hist[1].get_position().bounds[3]
+        ], which='both')
+
+
+        #Now plot the local and global percent differences histograms
         local_bin_width = 0.01
         global_bin_width = 0.001
         self.local_hist, local_hist_bin_edges = np.histogram(
@@ -660,7 +666,7 @@ class BrachyDoseComparison:
         axs_hist[0].set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
         axs_hist[1].set_xlabel(fr"$\Delta D_{{\mathrm{{GLOBAL}}}} [\%]$", fontsize=10)
 
-        fig.suptitle(plot_title, fontsize=20, fontweight="bold")#, y=0.97)
+        fig.suptitle(plot_title, fontsize=20, fontweight="bold", y=0.98)
 
 
         root = tk.Tk()
