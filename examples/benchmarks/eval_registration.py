@@ -313,7 +313,7 @@ def eval_reg_simple_elastix(
     from brachyutils import Registration_SimpleElastix
     pth_executable = "http://192.168.1.14:8000"
     # for debugging
-    algorithms  = ["affine"]
+    algorithms  = ["bspline"]
     references = ["Prostate"]
     # algorithms  = ["affine", "bspline"]
     # references = ["Image", "Prostate"]
@@ -338,22 +338,29 @@ def eval_reg_simple_elastix(
         for alg in algorithms:
             if alg == "affine":
                 deformable = False
-                parameter_maps = [
-                    {
-                    "default_parameter_maps": "rigid",
-                    "Transform": "AffineTransform"
-                    }
-                    ]
+                parameter_maps =  [
+                {
+                    "default_parameter_map": "translation",
+                },
+                {
+                    "default_parameter_map": "rigid",
+                    "Transform": "AffineTransform",
+                }
+            ]
             else:
                 deformable = True
-                parameter_maps = [
-                    {
-                        "default_parameter_map": "affine",
-                        },
-                    {
-                        "default_parameter_map": "bspline",
-                    }
-                ]
+                parameter_maps =  [
+                {
+                    "default_parameter_map": "translation",
+                },
+                {
+                    "default_parameter_map": "rigid",
+                    "Transform": "AffineTransform",
+                },
+                {
+                    "default_parameter_map": "bspline",
+                }
+            ]
 
             reg_results = evaluate_registration(
                 reg_data_inputs=reg_data_inputs,
