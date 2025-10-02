@@ -98,7 +98,7 @@ def test_register_simple_elastix():
     from brachyutils.geometry.registration_utils.reg_simple_elastix import Registration_SimpleElastix
 
     registration_obj = Registration_SimpleElastix(
-        pth_simple_elastix="http://192.168.1.14:8000",
+        pth_executable="http://192.168.1.14:8000",
         static_phantom=static_phantom,
         moving_phantom=moving_phantom,
         backend="simple_elastix",

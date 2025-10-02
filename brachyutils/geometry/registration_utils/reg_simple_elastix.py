@@ -11,7 +11,7 @@ from opentps.core.data.images import ROIMask
 class Registration_SimpleElastix(BrachyPhantomRegistration):
     def __init__(
         self,
-        pth_simple_elastix: Path | str,
+        pth_executable: Path | str,
         static_phantom: BrachyPhantom,
         moving_phantom: BrachyPhantom,
         register_on_contour: Union[Literal["common"], Optional[str]] = None,
@@ -24,7 +24,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
         Purpose:
             - A class to wrap around the simple_elastix image registration method.
         Inputs:
-            - pth_simple_elastix: Path | str: The path to the simple_elastix executable or the URL where
+            - pth_executable: Path | str: The path to the simple_elastix executable or the URL where
             the simple_elastix server is running.
             - static_phantom: BrachyPhantom: The static phantom object.
             - moving_phantom: BrachyPhantom: The phantom object that is transformed to match the static phantom.
@@ -53,7 +53,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
             backend,
             tryGPU
             )
-        self.pth_simple_elastix = pth_simple_elastix if pth_simple_elastix else kwargs.popitem("pth_simple_elastix", None)
+        self.pth_executable = pth_executable if pth_executable else kwargs.popitem("pth_executable", None)
 
     def register(
         self,
@@ -125,7 +125,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 pth_output=pth
             )
         # now we have the paths to the images, we can register them.
-        if "http" in self.pth_simple_elastix:
+        if "http" in self.pth_executable:
             import requests
             http_pth_static = str(pth_static).split("temp_data/registration/")[-1]
             http_pth_moving = str(pth_moving).split("temp_data/registration/")[-1]
@@ -141,7 +141,7 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 http_json["parameter_maps"] = parameter_maps
             # Send registration request to SimpleElastix server
             response = requests.post(
-                url=f"{self.pth_simple_elastix}/elastix_register",
+                url=f"{self.pth_executable}/elastix_register",
                 json=http_json,
                 timeout=None  # No timeout, registration might take a while
             )
@@ -232,14 +232,14 @@ class Registration_SimpleElastix(BrachyPhantomRegistration):
                 # skip the contour that is used for registration
                 continue
             # call simple elastix warp to deform the image and the contours.
-            if "http" in self.pth_simple_elastix:
+            if "http" in self.pth_executable:
                 import requests
                 pth_in_http = str(pth_in).split("temp_data/registration/")[-1]
                 pth_output_http = str(pth_warped).split("temp_data/registration/")[-1]
                 pth_transform_http = [str(pth).split("temp_data/registration/")[-1] for pth in transform_params]
 
                 response = requests.post(
-                    url=self.pth_simple_elastix+"/elastix_warp",
+                    url=self.pth_executable+"/elastix_warp",
                     json={
                         "pth_input": pth_in_http,
                         "pth_output": pth_output_http,
