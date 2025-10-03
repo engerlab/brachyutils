@@ -592,30 +592,34 @@ def gen_plots_reg_eval(
     # simpleelastix_df = pd.read_csv(pth_simpleelastix_results)
     
     # box plot for volume of prostate or biopsies in US and MR
-    title="Prostate Volume in US and MR"
+    title="Volume of Prostate in US and MR"
     xlabel="Modality"
     ylabel="Volume (cm$^3$)"
-    print("breakpoint here") # XXX reomove when done
-    # rows = baseline_df.loc[baseline_df["case"]!="mean"]
-    # rows = rows.loc[rows["case"]!="std"].squeeze()
-    volume_dict = baseline_df.filter(like="volume").to_dict()
-    # row = baseline_df.loc[baseline_df["case"]=="std"].squeeze()
-    # volume_std_dict = row.filter(like="volume").to_dict()
-    # remove the prefix volume from the keys
+    volume_dict = baseline_df.filter(like="volume(Prostate").to_dict()
     volume_dict = {
         k.split("_")[-1].split(")")[0]: list(v.values()) 
         for k, v in volume_dict.items()
-        }
-    # volume_std_dict = {
-    #     k.split("_")[-1].split(")")[0]: [v]
-    #     for k, v in volume_std_dict.items()
-    #     }
-    
+        }    
     box_plot_evals(
         title=title, xlabel=xlabel, ylabel=ylabel,
         data=volume_dict,
         # data_stds=volume_std_dict,
-        pth_save=pth_baseline_results.parent/"boxplot_volume_baseline.svg"
+        pth_save=pth_baseline_results.parent/"boxplot_volume_prostate.svg"
+    )
+    
+    title="Volume of Biopsies in US and MR"
+    xlabel="Modality"
+    ylabel="Volume (cm$^3$)"
+    volume_dict = baseline_df.filter(like="volume(Biopsies").to_dict()
+    volume_dict = {
+        k.split("_")[-1].split(")")[0]: list(v.values()) 
+        for k, v in volume_dict.items()
+        }    
+    box_plot_evals(
+        title=title, xlabel=xlabel, ylabel=ylabel,
+        data=volume_dict,
+        # data_stds=volume_std_dict,
+        pth_save=pth_baseline_results.parent/"boxplot_volume_biopsies.svg"
     )
 
 def box_plot_evals(
@@ -685,9 +689,9 @@ if __name__ == "__main__":
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
     # )
-    # gen_plots_reg_eval(
-    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
-    #     pth_opentps_results=Path(dir_results)/"OpenTPS"/"registration_results_opentps.csv",
-    #     pth_plastimatch_results=Path(dir_results)/"Plastimatch"/"registration_results_plastimatch.csv",
-    #     pth_simpleelastix_results=Path(dir_results)/"SimpleElastix"/"registration_results_simple_elastix.csv",
-    # )
+    gen_plots_reg_eval(
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+        pth_opentps_results=Path(dir_results)/"OpenTPS"/"registration_results_opentps.csv",
+        pth_plastimatch_results=Path(dir_results)/"Plastimatch"/"registration_results_plastimatch.csv",
+        pth_simpleelastix_results=Path(dir_results)/"SimpleElastix"/"registration_results_simple_elastix.csv",
+    )
