@@ -573,6 +573,108 @@ class DummyRegistration(BrachyPhantomRegistration):
     def evaluate_on_contours(self):
         return super().evaluate_on_contours()
 
+def gen_plots_reg_eval(
+    pth_baseline_results: Path | str,
+    pth_opentps_results: Path | str,
+    pth_plastimatch_results: Path | str,
+    pth_simpleelastix_results: Path | str,
+):
+    r"""
+    Purpose:
+        - To generate the bar plots for the registration evaluation results
+        that goes into the paper.
+    """
+    baseline_df = pd.read_csv(pth_baseline_results)
+    # opentps_df = pd.read_csv(pth_opentps_results)
+    # plastimatch_df = pd.read_csv(pth_plastimatch_results)
+    # simpleelastix_df = pd.read_csv(pth_simpleelastix_results)
+    
+    # box plot for volume of prostate or biopsies in US and MR
+    title="Prostate Volume in US and MR"
+    xlabel="Modality"
+    ylabel="Volume (cm$^3$)"
+    print("breakpoint here") # XXX reomove when done
+    row = baseline_df.loc[baseline_df["case"]=="mean"].squeeze()
+    volume_mean_dict = row.filter(like="volume").to_dict()
+    row = baseline_df.loc[baseline_df["case"]=="std"].squeeze()
+    volume_std_dict = row.filter(like="volume").to_dict()
+    # remove the prefix volume from the keys
+    volume_mean_dict = {
+        k.split("_")[-1].split(")")[0]: [v] 
+        for k, v in volume_mean_dict.items()
+        }
+    volume_std_dict = {
+        k.split("_")[-1].split(")")[0]: [v]
+        for k, v in volume_std_dict.items()
+        }
+    
+    box_plot_evals(
+        title=title, xlabel=xlabel, ylabel=ylabel,
+        data_means=volume_mean_dict,
+        data_stds=volume_std_dict,
+        pth_save=pth_baseline_results.parent/"boxplot_volume_baseline.svg"
+    )
+
+def box_plot_evals(
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    data_means: Dict[str, List[float]],
+    data_stds: Dict[str, List[float]],
+    pth_save: Path | str = None
+):
+    r"""
+    ### Purpose:
+        - to generate a box plot for the evaluation results
+    ### Inputs:
+        - title := title of the plot
+        - xlabel := label for the x-axis
+        - ylabel := label for the y-axis
+        - data_means := dictionary containing the means for each method
+        - data_stds := dictionary containing the stds for each method
+    The tickmarks are the keys of the dictionaries.
+    """
+    import matplotlib.pyplot as plt
+    # Create figure and axis
+    fig, ax = plt.subplots(figsize=(10, 6))
+    # Get method names and positions
+    methods = list(data_means.keys())
+    x_pos = range(len(methods))
+    # Create box plot data structure
+    box_data = []
+    for method in methods:
+        means = data_means[method]
+        stds = data_stds[method]
+        # Generate synthetic data points around mean with given std
+        data_points = []
+        for mean_val, std_val in zip(means, stds):
+            if not np.isnan(mean_val) and not np.isnan(std_val):
+                # Generate some sample points around the mean
+                points = np.random.normal(mean_val, std_val, 20)
+                data_points.extend(points)
+        box_data.append(data_points)
+    # Create the box plot
+    bp = ax.boxplot(box_data, positions=x_pos, patch_artist=True)
+    # Customize appearance
+    for patch in bp['boxes']:
+        patch.set_facecolor('lightblue')
+        patch.set_alpha(0.7)
+    # Set labels and title
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(methods, rotation=45, ha='right')
+    # Add grid for better readability
+    ax.grid(True, alpha=0.3)
+    # Tight layout to minimize margins
+    plt.tight_layout()
+    if pth_save is not None:
+        plt.savefig(pth_save, dpi=300)
+    else:
+        # Show the plot
+        plt.show()
+
 if __name__ == "__main__":
     dir_results = "temp_data/registration"
     reg_data_inputs = gen_registration_inputs_microreg(
@@ -590,7 +692,13 @@ if __name__ == "__main__":
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
     # )
-    eval_reg_simple_elastix(
-        reg_data_inputs=reg_data_inputs,
-        dir_results=dir_results
+    # eval_reg_simple_elastix(
+    #     reg_data_inputs=reg_data_inputs,
+    #     dir_results=dir_results
+    # )
+    gen_plots_reg_eval(
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+        pth_opentps_results=Path(dir_results)/"OpenTPS"/"registration_results_opentps.csv",
+        pth_plastimatch_results=Path(dir_results)/"Plastimatch"/"registration_results_plastimatch.csv",
+        pth_simpleelastix_results=Path(dir_results)/"SimpleElastix"/"registration_results_simple_elastix.csv",
     )
