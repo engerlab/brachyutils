@@ -129,7 +129,7 @@ def evaluate_registration(
             **kwargs
         )
         results_per_case_df.loc[len(results_per_case_df)] = {
-            "case": single_reg_data.get("case"),
+            "case": eval_results.get("case"),
             "dice(Prostate)": eval_results.get("dice(Prostate)"),
             "hausdorff(Prostate)": eval_results.get("hausdorff(Prostate)"),
             "dice(Biopsies)": eval_results.get("dice(Biopsies)"),
@@ -138,6 +138,8 @@ def evaluate_registration(
         }
         # XXX for debugging
         # break
+    out_file_name = "reg_metrics_"+ dir_registered.parent.name +"_"+ dir_registered.name+".csv"
+    results_per_case_df.to_csv(dir_registered.parent.parent/out_file_name)
     return {
         "avg_dice(Prostate)": results_per_case_df["dice(Prostate)"].mean(),
         "std_dice(Prostate)": results_per_case_df["dice(Prostate)"].std(),
@@ -687,10 +689,10 @@ if __name__ == "__main__":
     #     reg_data_inputs=reg_data_inputs,
     #     pth_results_csv=Path(dir_results)/"registration_results_baseline.csv"
     # )
-    # eval_reg_opentps(
-    #     reg_data_inputs=reg_data_inputs,
-    #     dir_results=dir_results
-    # )
+    eval_reg_opentps(
+        reg_data_inputs=reg_data_inputs,
+        dir_results=dir_results
+    )
     # eval_reg_plastimatch(
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
@@ -699,9 +701,9 @@ if __name__ == "__main__":
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
     # )
-    gen_plots_reg_eval(
-        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
-        pth_opentps_results=Path(dir_results)/"OpenTPS"/"registration_results_opentps.csv",
-        pth_plastimatch_results=Path(dir_results)/"Plastimatch"/"registration_results_plastimatch.csv",
-        pth_simpleelastix_results=Path(dir_results)/"SimpleElastix"/"registration_results_simple_elastix.csv",
-    )
+    # gen_plots_reg_eval(
+    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    #     pth_opentps_results=Path(dir_results)/"OpenTPS"/"registration_results_opentps.csv",
+    #     pth_plastimatch_results=Path(dir_results)/"Plastimatch"/"registration_results_plastimatch.csv",
+    #     pth_simpleelastix_results=Path(dir_results)/"SimpleElastix"/"registration_results_simple_elastix.csv",
+    # )
