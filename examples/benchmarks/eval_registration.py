@@ -594,24 +594,25 @@ def gen_plots_reg_eval(
     xlabel="Modality"
     ylabel="Volume (cm$^3$)"
     print("breakpoint here") # XXX reomove when done
-    row = baseline_df.loc[baseline_df["case"]=="mean"].squeeze()
-    volume_mean_dict = row.filter(like="volume").to_dict()
-    row = baseline_df.loc[baseline_df["case"]=="std"].squeeze()
-    volume_std_dict = row.filter(like="volume").to_dict()
+    rows = baseline_df.loc[baseline_df["case"]!="mean"]
+    rows = rows.loc[rows["case"]!="std"].squeeze()
+    volume_dict = rows.filter(like="volume").to_dict()
+    # row = baseline_df.loc[baseline_df["case"]=="std"].squeeze()
+    # volume_std_dict = row.filter(like="volume").to_dict()
     # remove the prefix volume from the keys
-    volume_mean_dict = {
-        k.split("_")[-1].split(")")[0]: [v] 
-        for k, v in volume_mean_dict.items()
+    volume_dict = {
+        k.split("_")[-1].split(")")[0]: list(v.values()) 
+        for k, v in volume_dict.items()
         }
-    volume_std_dict = {
-        k.split("_")[-1].split(")")[0]: [v]
-        for k, v in volume_std_dict.items()
-        }
+    # volume_std_dict = {
+    #     k.split("_")[-1].split(")")[0]: [v]
+    #     for k, v in volume_std_dict.items()
+    #     }
     
     box_plot_evals(
         title=title, xlabel=xlabel, ylabel=ylabel,
-        data_means=volume_mean_dict,
-        data_stds=volume_std_dict,
+        data=volume_dict,
+        # data_stds=volume_std_dict,
         pth_save=pth_baseline_results.parent/"boxplot_volume_baseline.svg"
     )
 
@@ -619,8 +620,7 @@ def box_plot_evals(
     title: str,
     xlabel: str,
     ylabel: str,
-    data_means: Dict[str, List[float]],
-    data_stds: Dict[str, List[float]],
+    data: Dict[str, List[float]],
     pth_save: Path | str = None
 ):
     r"""
@@ -638,23 +638,10 @@ def box_plot_evals(
     # Create figure and axis
     fig, ax = plt.subplots(figsize=(10, 6))
     # Get method names and positions
-    methods = list(data_means.keys())
+    methods = list(data.keys())
     x_pos = range(len(methods))
-    # Create box plot data structure
-    box_data = []
-    for method in methods:
-        means = data_means[method]
-        stds = data_stds[method]
-        # Generate synthetic data points around mean with given std
-        data_points = []
-        for mean_val, std_val in zip(means, stds):
-            if not np.isnan(mean_val) and not np.isnan(std_val):
-                # Generate some sample points around the mean
-                points = np.random.normal(mean_val, std_val, 20)
-                data_points.extend(points)
-        box_data.append(data_points)
     # Create the box plot
-    bp = ax.boxplot(box_data, positions=x_pos, patch_artist=True)
+    bp = ax.boxplot([data[method] for method in methods], positions=x_pos, patch_artist=True)
     # Customize appearance
     for patch in bp['boxes']:
         patch.set_facecolor('lightblue')
