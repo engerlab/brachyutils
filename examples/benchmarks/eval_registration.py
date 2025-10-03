@@ -641,6 +641,14 @@ def box_plot_evals(
     The tickmarks are the keys of the dictionaries.
     """
     import matplotlib.pyplot as plt
+    from brachyutils.geometry.phantom_utils import _get_slicer_colors
+    colors = _get_slicer_colors()
+    for item in colors:
+        if item["text_label"]=="prostate":
+            box_color_prostate = np.array(item["color"])/255
+        elif item["text_label"]=="mass":
+            box_color_mass = np.array(item["color"])/255
+
     # Create figure and axis
     fig, ax = plt.subplots(figsize=(10, 6))
     # Get method names and positions
@@ -650,7 +658,9 @@ def box_plot_evals(
     bp = ax.boxplot([data[method] for method in methods], positions=x_pos, patch_artist=True)
     # Customize appearance
     for patch in bp['boxes']:
-        patch.set_facecolor('lightblue')
+        (patch.set_facecolor(box_color_prostate) if "Prostate" in title
+         else patch.set_facecolor(box_color_mass)
+        )
         patch.set_alpha(0.7)
     # Set labels and title
     ax.set_xlabel(xlabel)
