@@ -458,8 +458,8 @@ def get_baseline_stats_microreg(
             "case",
             "volume(Prostate_US)",
             "volume(Prostate_MR)",
-            "avg_Volume(Biopsies_US)", "std_Volume(Biopsies_US)",
-            "avg_Volume(Biopsies_MR)", "std_Volume(Biopsies_MR)",
+            "avg_volume(Biopsies_US)", "std_volume(Biopsies_US)",
+            "avg_volume(Biopsies_MR)", "std_volume(Biopsies_MR)",
             "dice(Prostate)", "hausdorff(Prostate)",
             "avg_dice(Biopsies)", "std_dice(Biopsies)",
             "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
@@ -469,8 +469,8 @@ def get_baseline_stats_microreg(
             "case",
             "volume(Prostate_US)",
             "volume(Prostate_MR)",
-            "avg_Volume(Biopsies_US)", "std_Volume(Biopsies_US)",
-            "avg_Volume(Biopsies_MR)", "std_Volume(Biopsies_MR)",
+            "avg_volume(Biopsies_US)", "std_volume(Biopsies_US)",
+            "avg_volume(Biopsies_MR)", "std_volume(Biopsies_MR)",
             "dice(Prostate)", "hausdorff(Prostate)",
             "avg_dice(Biopsies)", "std_dice(Biopsies)",
             "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
@@ -506,12 +506,12 @@ def get_baseline_stats_microreg(
             "case": data_pair.get("pth_static_image").split("/")[-1].split(".")[0],
 
             "volume(Prostate_US)": structure_volumes_us.get("Prostate", np.nan),
-            "avg_Volume(Biopsies_US)": np.mean([v for k, v in structure_volumes_us.items() if k != "Prostate"]),
-            "std_Volume(Biopsies_US)": np.std([v for k, v in structure_volumes_us.items() if k != "Prostate"]),
+            "avg_volume(Biopsies_US)": np.mean([v for k, v in structure_volumes_us.items() if k != "Prostate"]),
+            "std_volume(Biopsies_US)": np.std([v for k, v in structure_volumes_us.items() if k != "Prostate"]),
 
             "volume(Prostate_MR)": structure_volumes_mr.get("Prostate", np.nan),
-            "avg_Volume(Biopsies_MR)": np.mean([v for k, v in structure_volumes_mr.items() if k != "Prostate"]),
-            "std_Volume(Biopsies_MR)": np.std([v for k, v in structure_volumes_mr.items() if k != "Prostate"]),
+            "avg_volume(Biopsies_MR)": np.mean([v for k, v in structure_volumes_mr.items() if k != "Prostate"]),
+            "std_volume(Biopsies_MR)": np.std([v for k, v in structure_volumes_mr.items() if k != "Prostate"]),
 
             "dice(Prostate)": measured_metrics["Dice"]["Prostate"],
             "hausdorff(Prostate)": measured_metrics["Hausdorff"]["Prostate"],
@@ -525,11 +525,11 @@ def get_baseline_stats_microreg(
         "volume(Prostate_US)": results_df["volume(Prostate_US)"].mean(),
         "volume(Prostate_MR)": results_df["volume(Prostate_MR)"].mean(),
 
-        "avg_Volume(Biopsies_US)": results_df["avg_Volume(Biopsies_US)"].mean(),
-        "std_Volume(Biopsies_US)": results_df["std_Volume(Biopsies_US)"].mean(),
+        "avg_volume(Biopsies_US)": results_df["avg_volume(Biopsies_US)"].mean(),
+        "std_volume(Biopsies_US)": results_df["std_volume(Biopsies_US)"].mean(),
         
-        "avg_Volume(Biopsies_MR)": results_df["avg_Volume(Biopsies_MR)"].mean(),
-        "std_Volume(Biopsies_MR)": results_df["std_Volume(Biopsies_MR)"].mean(),
+        "avg_volume(Biopsies_MR)": results_df["avg_volume(Biopsies_MR)"].mean(),
+        "std_volume(Biopsies_MR)": results_df["std_volume(Biopsies_MR)"].mean(),
         
         "dice(Prostate)": results_df["dice(Prostate)"].mean(),
         "hausdorff(Prostate)": results_df["hausdorff(Prostate)"].mean(),
@@ -543,11 +543,11 @@ def get_baseline_stats_microreg(
         "volume(Prostate_US)": results_df["volume(Prostate_US)"].std(),
         "volume(Prostate_MR)": results_df["volume(Prostate_MR)"].std(),
 
-        "avg_Volume(Biopsies_US)": results_df["avg_Volume(Biopsies_US)"].std(),
-        "std_Volume(Biopsies_US)": results_df["std_Volume(Biopsies_US)"].std(),
+        "avg_volume(Biopsies_US)": results_df["avg_volume(Biopsies_US)"].std(),
+        "std_volume(Biopsies_US)": results_df["std_volume(Biopsies_US)"].std(),
 
-        "avg_Volume(Biopsies_MR)": results_df["avg_Volume(Biopsies_MR)"].std(),
-        "std_Volume(Biopsies_MR)": results_df["std_Volume(Biopsies_MR)"].std(),
+        "avg_volume(Biopsies_MR)": results_df["avg_volume(Biopsies_MR)"].std(),
+        "std_volume(Biopsies_MR)": results_df["std_volume(Biopsies_MR)"].std(),
 
         "dice(Prostate)": results_df["dice(Prostate)"].std(),
         "hausdorff(Prostate)": results_df["hausdorff(Prostate)"].std(),
@@ -557,9 +557,11 @@ def get_baseline_stats_microreg(
         "std_hausdorff(Biopsies)": results_df["std_hausdorff(Biopsies)"].std(),
     }
     # calculate the mean and std for the entire dataset
-    results_df.loc[len(results_df)] = mean_dict
-    results_df.loc[len(results_df)] = std_dict
+    mean_std_df = pd.DataFrame([mean_dict, std_dict])
+    # results_df.loc[len(results_df)] = mean_dict
+    # results_df.loc[len(results_df)] = std_dict
     results_df.to_csv(pth_results_csv, index=False)
+    mean_std_df.to_csv(pth_results_csv.parent.joinpath("mean_std_"+pth_results_csv.name), index=False)
 
 class DummyRegistration(BrachyPhantomRegistration):
     def __init__(self, **kwargs):
@@ -594,9 +596,9 @@ def gen_plots_reg_eval(
     xlabel="Modality"
     ylabel="Volume (cm$^3$)"
     print("breakpoint here") # XXX reomove when done
-    rows = baseline_df.loc[baseline_df["case"]!="mean"]
-    rows = rows.loc[rows["case"]!="std"].squeeze()
-    volume_dict = rows.filter(like="volume").to_dict()
+    # rows = baseline_df.loc[baseline_df["case"]!="mean"]
+    # rows = rows.loc[rows["case"]!="std"].squeeze()
+    volume_dict = baseline_df.filter(like="volume").to_dict()
     # row = baseline_df.loc[baseline_df["case"]=="std"].squeeze()
     # volume_std_dict = row.filter(like="volume").to_dict()
     # remove the prefix volume from the keys
@@ -683,9 +685,9 @@ if __name__ == "__main__":
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
     # )
-    gen_plots_reg_eval(
-        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
-        pth_opentps_results=Path(dir_results)/"OpenTPS"/"registration_results_opentps.csv",
-        pth_plastimatch_results=Path(dir_results)/"Plastimatch"/"registration_results_plastimatch.csv",
-        pth_simpleelastix_results=Path(dir_results)/"SimpleElastix"/"registration_results_simple_elastix.csv",
-    )
+    # gen_plots_reg_eval(
+    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    #     pth_opentps_results=Path(dir_results)/"OpenTPS"/"registration_results_opentps.csv",
+    #     pth_plastimatch_results=Path(dir_results)/"Plastimatch"/"registration_results_plastimatch.csv",
+    #     pth_simpleelastix_results=Path(dir_results)/"SimpleElastix"/"registration_results_simple_elastix.csv",
+    # )
