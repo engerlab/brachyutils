@@ -691,6 +691,8 @@ def _extract_data_to_dict(
     out_dict[method_name] = {"data": list()}
     contents = list(df.filter(like=metric).to_dict().values()).pop()
     for k, v in contents.items():
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            continue
         out_dict[method_name]["data"].append(v)
 
 def get_plots_dice_hausdorff(
@@ -705,7 +707,7 @@ def get_plots_dice_hausdorff(
     baseline_df = pd.read_csv(pth_baseline_results)
     # Initialize dictionaries to hold data for plotting
     dice_dict = defaultdict(dict)
-    hausdorff_dict = defaultdict()
+    hausdorff_dict = defaultdict(dict)
     # dice prostate
     _extract_data_to_dict(baseline_df, "dice(Prostate)", "No Registration", dice_dict)
     _extract_data_to_dict(baseline_df, "hausdorff(Prostate)", "No Registration", hausdorff_dict)
@@ -721,7 +723,22 @@ def get_plots_dice_hausdorff(
         _extract_data_to_dict(result_df, "dice(Prostate)", method_name, dice_dict)
         _extract_data_to_dict(result_df, "hausdorff(Prostate)", method_name, hausdorff_dict)
 
-    
+    # Generate box plots
+    box_plot_evals(
+        title="Dice Coefficient for Prostate after Registration",
+        xlabel="Method",
+        ylabel="Dice Coefficient",
+        data={k: v["data"] for k, v in dice_dict.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_dice_prostate.svg"
+    )
+    box_plot_evals(
+        title="Hausdorff Distance for Prostate after Registration",
+        xlabel="Method",
+        ylabel="Hausdorff Distance (mm)",
+        data={k: v["data"] for k, v in hausdorff_dict.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_prostate.svg"
+    )
+
 if __name__ == "__main__":
     dir_results = "temp_data/registration"
     # reg_data_inputs = gen_registration_inputs_microreg(
