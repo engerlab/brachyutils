@@ -706,11 +706,15 @@ def get_plots_dice_hausdorff(
     # Load baseline results
     baseline_df = pd.read_csv(pth_baseline_results)
     # Initialize dictionaries to hold data for plotting
-    dice_dict = defaultdict(dict)
-    hausdorff_dict = defaultdict(dict)
+    dice_dict_prostate = defaultdict(dict)
+    hausdorff_dict_prostate = defaultdict(dict)
+    # now doing the same for the biopsies
+    dice_dict_biopsies = defaultdict(dict)
+    hausdorff_dict_biopsies = defaultdict(dict)
+
     # dice prostate
-    _extract_data_to_dict(baseline_df, "dice(Prostate)", "No Registration", dice_dict)
-    _extract_data_to_dict(baseline_df, "hausdorff(Prostate)", "No Registration", hausdorff_dict)
+    _extract_data_to_dict(baseline_df, "dice(Prostate)", "No Registration", dice_dict_prostate)
+    _extract_data_to_dict(baseline_df, "hausdorff(Prostate)", "No Registration", hausdorff_dict_prostate)
     for pth_result in list_pth_results:
         method_name = pth_result.stem.split("reg_metrics_")[-1]
         package_name = pth_result.parent.name
@@ -720,23 +724,39 @@ def get_plots_dice_hausdorff(
             reg_based_on = "Contour"
         method_name = f"{package_name}-{algorithm_name}-{reg_based_on}"
         result_df = pd.read_csv(pth_result)
-        _extract_data_to_dict(result_df, "dice(Prostate)", method_name, dice_dict)
-        _extract_data_to_dict(result_df, "hausdorff(Prostate)", method_name, hausdorff_dict)
+        _extract_data_to_dict(result_df, "dice(Prostate)", method_name, dice_dict_prostate)
+        _extract_data_to_dict(result_df, "hausdorff(Prostate)", method_name, hausdorff_dict_prostate)
+        _extract_data_to_dict(result_df, "dice(Biopsies)", method_name, dice_dict_biopsies)
+        _extract_data_to_dict(result_df, "hausdorff(Biopsies)", method_name, hausdorff_dict_biopsies)
 
     # Generate box plots
     box_plot_evals(
         title="Dice Coefficient for Prostate after Registration",
         xlabel="Method",
         ylabel="Dice Coefficient",
-        data={k: v["data"] for k, v in dice_dict.items()},
+        data={k: v["data"] for k, v in dice_dict_prostate.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_dice_prostate.svg"
     )
     box_plot_evals(
         title="Hausdorff Distance for Prostate after Registration",
         xlabel="Method",
         ylabel="Hausdorff Distance (mm)",
-        data={k: v["data"] for k, v in hausdorff_dict.items()},
+        data={k: v["data"] for k, v in hausdorff_dict_prostate.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_prostate.svg"
+    )
+    box_plot_evals(
+        title="Dice Coefficient for Biopsies after Registration",
+        xlabel="Method",
+        ylabel="Dice Coefficient",
+        data={k: v["data"] for k, v in dice_dict_biopsies.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_dice_biopsies.svg"
+    )
+    box_plot_evals(
+        title="Hausdorff Distance for Biopsies after Registration",
+        xlabel="Method",
+        ylabel="Hausdorff Distance (mm)",
+        data={k: v["data"] for k, v in hausdorff_dict_biopsies.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_biopsies.svg"
     )
 
 if __name__ == "__main__":
