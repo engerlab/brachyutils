@@ -682,7 +682,18 @@ def box_plot_evals(
         # Show the plot
         plt.show()
 
-def get_plots_reg_eval(
+def _extract_data_to_dict(
+    df: pd.DataFrame,
+    metric: str,
+    method_name: str,
+    out_dict: Dict[str, List[float]],
+):
+    out_dict[method_name] = {"data": list()}
+    contents = list(df.filter(like=metric).to_dict().values()).pop()
+    for k, v in contents.items():
+        out_dict[method_name]["data"].append(v)
+
+def get_plots_dice_hausdorff(
     pth_baseline_results: Path | str,
     list_pth_results: List[Path | str],
 ):
@@ -693,8 +704,23 @@ def get_plots_reg_eval(
     # Load baseline results
     baseline_df = pd.read_csv(pth_baseline_results)
     # Initialize dictionaries to hold data for plotting
+    dice_dict = defaultdict(dict)
+    hausdorff_dict = defaultdict()
     # dice prostate
-    dice_prostate = baseline_df.filter(like="dice(Prostate)").to_dict()
+    _extract_data_to_dict(baseline_df, "dice(Prostate)", "No Registration", dice_dict)
+    _extract_data_to_dict(baseline_df, "hausdorff(Prostate)", "No Registration", hausdorff_dict)
+    for pth_result in list_pth_results:
+        method_name = pth_result.stem.split("reg_metrics_")[-1]
+        package_name = pth_result.parent.name
+        algorithm_name = pth_result.stem.split("_")[-1].capitalize()
+        reg_based_on = pth_result.stem.split("_")[-2].capitalize()
+        if reg_based_on == "Prostate":
+            reg_based_on = "Contour"
+        method_name = f"{package_name}-{algorithm_name}-{reg_based_on}"
+        result_df = pd.read_csv(pth_result)
+        _extract_data_to_dict(result_df, "dice(Prostate)", method_name, dice_dict)
+        _extract_data_to_dict(result_df, "hausdorff(Prostate)", method_name, hausdorff_dict)
+
     
 if __name__ == "__main__":
     dir_results = "temp_data/registration"
@@ -721,7 +747,7 @@ if __name__ == "__main__":
     #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
     # )
     list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
-    get_plots_reg_eval(
+    get_plots_dice_hausdorff(
         list_pth_results=list_pth_results,
         pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
     )
