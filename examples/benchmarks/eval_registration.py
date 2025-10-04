@@ -577,22 +577,24 @@ class DummyRegistration(BrachyPhantomRegistration):
     def evaluate_on_contours(self):
         return super().evaluate_on_contours()
 
-def gen_plots_reg_eval(
+def gen_volume_plots_baseline(
     pth_baseline_results: Path | str,
-    pth_opentps_results: Path | str,
-    pth_plastimatch_results: Path | str,
-    pth_simpleelastix_results: Path | str,
 ):
     r"""
-    Purpose:
-        - To generate the bar plots for the registration evaluation results
-        that goes into the paper.
+    ### Purpose:
+        - To generate the bar plots for the volume of the prostate and biopsies in US and MR
+    ### Inputs:
+        - pth_baseline_results := path to the csv file containing the baseline results with the following columns:
+            "case",
+            "volume(Prostate_US)",
+            "volume(Prostate_MR)",
+            "avg_volume(Biopsies_US)",
+            "avg_volume(Biopsies_MR)",
+    ### Outputs:
+        - boxplot_volume_prostate.svg   
+        - boxplot_volume_biopsies.svg
     """
-    baseline_df = pd.read_csv(pth_baseline_results)
-    # opentps_df = pd.read_csv(pth_opentps_results)
-    # plastimatch_df = pd.read_csv(pth_plastimatch_results)
-    # simpleelastix_df = pd.read_csv(pth_simpleelastix_results)
-    
+    baseline_df = pd.read_csv(pth_baseline_results)    
     # box plot for volume of prostate or biopsies in US and MR
     title="Volume of Prostate in US and MR"
     xlabel="Modality"
@@ -680,19 +682,33 @@ def box_plot_evals(
         # Show the plot
         plt.show()
 
+def get_plots_reg_eval(
+    pth_baseline_results: Path | str,
+    list_pth_results: List[Path | str],
+):
+    r"""
+    ### Purpose:
+        - to generate the box plots for the registration evaluation results
+    """
+    # Load baseline results
+    baseline_df = pd.read_csv(pth_baseline_results)
+    # Initialize dictionaries to hold data for plotting
+    # dice prostate
+    dice_prostate = baseline_df.filter(like="dice(Prostate)").to_dict()
+    
 if __name__ == "__main__":
     dir_results = "temp_data/registration"
-    reg_data_inputs = gen_registration_inputs_microreg(
-        dir_all_data="temp_data/registration/fixed-nrrd",
-        )
+    # reg_data_inputs = gen_registration_inputs_microreg(
+    #     dir_all_data="temp_data/registration/fixed-nrrd",
+    #     )
     # get_baseline_stats_microreg(
     #     reg_data_inputs=reg_data_inputs,
     #     pth_results_csv=Path(dir_results)/"registration_results_baseline.csv"
     # )
-    eval_reg_opentps(
-        reg_data_inputs=reg_data_inputs,
-        dir_results=dir_results
-    )
+    # eval_reg_opentps(
+    #     reg_data_inputs=reg_data_inputs,
+    #     dir_results=dir_results
+    # )
     # eval_reg_plastimatch(
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
@@ -701,9 +717,11 @@ if __name__ == "__main__":
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
     # )
-    # gen_plots_reg_eval(
+    # gen_volume_plots_baseline(
     #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
-    #     pth_opentps_results=Path(dir_results)/"OpenTPS"/"registration_results_opentps.csv",
-    #     pth_plastimatch_results=Path(dir_results)/"Plastimatch"/"registration_results_plastimatch.csv",
-    #     pth_simpleelastix_results=Path(dir_results)/"SimpleElastix"/"registration_results_simple_elastix.csv",
     # )
+    list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
+    get_plots_reg_eval(
+        list_pth_results=list_pth_results,
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    )
