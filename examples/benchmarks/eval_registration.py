@@ -465,6 +465,7 @@ def get_baseline_stats_microreg(
             "dice(Prostate)", "hausdorff(Prostate)",
             "avg_dice(Biopsies)", "std_dice(Biopsies)",
             "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "time"
     """
     results_df = pd.DataFrame(
         columns=[
@@ -476,6 +477,7 @@ def get_baseline_stats_microreg(
             "dice(Prostate)", "hausdorff(Prostate)",
             "avg_dice(Biopsies)", "std_dice(Biopsies)",
             "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "time"
         ]
     )
     for data_pair in reg_data_inputs:
@@ -491,11 +493,13 @@ def get_baseline_stats_microreg(
             static_phantom=static_phantom,
             moving_phantom=moving_phantom
         )
+        t0 = time()
         reg_obj.registered_phantom = moving_phantom.resample_to(
             origin=static_phantom.image_obj.origin,
             spacing=static_phantom.image_obj.spacing,
             gridSize=static_phantom.image_obj.gridSize,
         )
+        tf = time()
         measured_metrics = reg_obj.evaluate_on_contours()
         structure_volumes_us = reg_obj.static_phantom.get_structures_volume(
             structure_names=reg_obj.static_phantom.structure_names
@@ -521,6 +525,8 @@ def get_baseline_stats_microreg(
             "std_dice(Biopsies)": np.std([v for k, v in measured_metrics["Dice"].items() if k != "Prostate"]),
             "avg_hausdorff(Biopsies)": np.mean([v for k, v in measured_metrics["Hausdorff"].items() if k != "Prostate"]),
             "std_hausdorff(Biopsies)": np.std([v for k, v in measured_metrics["Hausdorff"].items() if k != "Prostate"]),
+            
+            "time": tf - t0
         }
     mean_dict = {
         "case": "mean",
@@ -538,7 +544,8 @@ def get_baseline_stats_microreg(
         "avg_dice(Biopsies)": results_df["avg_dice(Biopsies)"].mean(),
         "std_dice(Biopsies)": results_df["std_dice(Biopsies)"].mean(),
         "avg_hausdorff(Biopsies)": results_df["avg_hausdorff(Biopsies)"].mean(),
-        "std_hausdorff(Biopsies)": results_df["std_hausdorff(Biopsies)"].mean(),        
+        "std_hausdorff(Biopsies)": results_df["std_hausdorff(Biopsies)"].mean(),
+        "time": results_df["time"].mean()
     }
     std_dict = {
         "case": "std",
@@ -557,6 +564,7 @@ def get_baseline_stats_microreg(
         "std_dice(Biopsies)": results_df["std_dice(Biopsies)"].std(),
         "avg_hausdorff(Biopsies)": results_df["avg_hausdorff(Biopsies)"].std(),
         "std_hausdorff(Biopsies)": results_df["std_hausdorff(Biopsies)"].std(),
+        "time": results_df["time"].std()
     }
     # calculate the mean and std for the entire dataset
     mean_std_df = pd.DataFrame([mean_dict, std_dict])
@@ -652,6 +660,8 @@ def box_plot_evals(
             box_color_prostate = np.array(item["color"])/255
         elif item["text_label"]=="mass":
             box_color_mass = np.array(item["color"])/255
+        else:
+            box_color = np.array([0, 0, 205])/255
 
     # Create figure and axis
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -662,9 +672,12 @@ def box_plot_evals(
     bp = ax.boxplot([data[method] for method in methods], positions=x_pos, patch_artist=True)
     # Customize appearance
     for patch in bp['boxes']:
-        (patch.set_facecolor(box_color_prostate) if "Prostate" in title
-         else patch.set_facecolor(box_color_mass)
-        )
+        if "Prostate" in title:
+            patch.set_facecolor(box_color_prostate)
+        elif "Biopsies" in title:
+            patch.set_facecolor(box_color_mass)
+        else:
+            patch.set_facecolor(box_color)
         patch.set_alpha(0.7)
     # Set labels and title
     ax.set_xlabel(xlabel)
@@ -711,10 +724,14 @@ def get_plots_dice_hausdorff(
     # now doing the same for the biopsies
     dice_dict_biopsies = defaultdict(dict)
     hausdorff_dict_biopsies = defaultdict(dict)
+    # get that timing data too
+    time_dict = defaultdict(dict)
 
-    # dice prostate
+    # Extract baseline data and data from each registration results file
     _extract_data_to_dict(baseline_df, "dice(Prostate)", "No Registration", dice_dict_prostate)
     _extract_data_to_dict(baseline_df, "hausdorff(Prostate)", "No Registration", hausdorff_dict_prostate)
+    _extract_data_to_dict(baseline_df, "time", "No Registration", time_dict)
+
     for pth_result in list_pth_results:
         method_name = pth_result.stem.split("reg_metrics_")[-1]
         package_name = pth_result.parent.name
@@ -728,6 +745,7 @@ def get_plots_dice_hausdorff(
         _extract_data_to_dict(result_df, "hausdorff(Prostate)", method_name, hausdorff_dict_prostate)
         _extract_data_to_dict(result_df, "dice(Biopsies)", method_name, dice_dict_biopsies)
         _extract_data_to_dict(result_df, "hausdorff(Biopsies)", method_name, hausdorff_dict_biopsies)
+        _extract_data_to_dict(result_df, "time", method_name, time_dict)
 
     # Generate box plots
     box_plot_evals(
@@ -757,6 +775,13 @@ def get_plots_dice_hausdorff(
         ylabel="Hausdorff Distance (mm)",
         data={k: v["data"] for k, v in hausdorff_dict_biopsies.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_biopsies.svg"
+    )
+    box_plot_evals(
+        title="Computation Time for Registration Methods",
+        xlabel="Method",
+        ylabel="Time (s)",
+        data={k: v["data"] for k, v in time_dict.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_registration_time.svg"
     )
 
 if __name__ == "__main__":
