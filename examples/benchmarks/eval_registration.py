@@ -2,7 +2,7 @@ from pathlib import Path
 from time import time
 import warnings
 from collections import defaultdict
-from typing import Dict, List, Union
+from typing import Dict, List, Tuple, Union
 import pandas as pd
 import numpy as np
 from brachyutils import BrachyPhantomRegistration
@@ -615,8 +615,9 @@ def gen_volume_plots_baseline(
     box_plot_evals(
         title=title, xlabel=xlabel, ylabel=ylabel,
         data=volume_dict,
-        # data_stds=volume_std_dict,
-        pth_save=pth_baseline_results.parent/"boxplot_volume_prostate.svg"
+        pth_save=pth_baseline_results.parent/"boxplot_volume_prostate.svg",
+        fig_size=(5, 5),
+        font_size=14
     )
     
     title="Volume of Biopsies in US and MR"
@@ -630,8 +631,9 @@ def gen_volume_plots_baseline(
     box_plot_evals(
         title=title, xlabel=xlabel, ylabel=ylabel,
         data=volume_dict,
-        # data_stds=volume_std_dict,
-        pth_save=pth_baseline_results.parent/"boxplot_volume_biopsies.svg"
+        pth_save=pth_baseline_results.parent/"boxplot_volume_biopsies.svg",
+        fig_size=(5, 5),
+        font_size=12
     )
 
 def box_plot_evals(
@@ -639,7 +641,9 @@ def box_plot_evals(
     xlabel: str,
     ylabel: str,
     data: Dict[str, List[float]],
-    pth_save: Path | str = None
+    pth_save: Path | str = None,
+    fig_size: Tuple[int, int] = (10, 6),
+    font_size: int = 12
 ):
     r"""
     ### Purpose:
@@ -664,7 +668,7 @@ def box_plot_evals(
             box_color = np.array([0, 0, 205])/255
 
     # Create figure and axis
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=fig_size)
     # Get method names and positions
     methods = list(data.keys())
     x_pos = range(len(methods))
@@ -689,6 +693,8 @@ def box_plot_evals(
     ax.grid(True, alpha=0.3)
     # Tight layout to minimize margins
     plt.tight_layout()
+    plt.rcParams.update({'font.size': font_size})
+    plt.rcParams["figure.dpi"] = 300
     if pth_save is not None:
         plt.savefig(pth_save, dpi=300)
     else:
@@ -740,20 +746,12 @@ def get_plots_dice_hausdorff(
     # get that timing data too
     time_dict = defaultdict(dict)
     ordered_keys_registration_methods = [
-        "No Registration",
-        "OpenTPS-Rigid-Image",
-        "OpenTPS-Rigid-Contour",
-        "OpenTPS-Quick-Image",
-        "OpenTPS-Quick-Contour",
-        "OpenTPS-Morphons-Image",
-        "OpenTPS-Morphons-Contour",
-        "Plastimatch-Translation-Image",
-        "Plastimatch-Translation-Contour",
-        "Plastimatch-Bspline-Image",
-        "Plastimatch-Bspline-Contour",
-        "SimpleElastix-Affine-Image",
-        "SimpleElastix-Affine-Contour",
-        "SimpleElastix-Bspline-Image",
+        "No Registration", "OpenTPS-Rigid-Image", "OpenTPS-Rigid-Contour",
+        "OpenTPS-Quick-Image", "OpenTPS-Quick-Contour", "OpenTPS-Morphons-Image",
+        "OpenTPS-Morphons-Contour", "Plastimatch-Translation-Image",
+        "Plastimatch-Translation-Contour", "Plastimatch-Bspline-Image",
+        "Plastimatch-Bspline-Contour", "SimpleElastix-Affine-Image",
+        "SimpleElastix-Affine-Contour", "SimpleElastix-Bspline-Image",
         "SimpleElastix-Bspline-Contour"
     ]
     # Extract baseline data and data from each registration results file
@@ -841,9 +839,9 @@ if __name__ == "__main__":
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
     # )
-    # gen_volume_plots_baseline(
-    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
-    # )
+    gen_volume_plots_baseline(
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    )
     list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
     get_plots_dice_hausdorff(
         list_pth_results=list_pth_results,
