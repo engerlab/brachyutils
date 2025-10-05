@@ -707,6 +707,19 @@ def _extract_data_to_dict(
         if v is None or (isinstance(v, float) and np.isnan(v)):
             continue
         out_dict[method_name]["data"].append(v)
+    if len(out_dict[method_name]["data"]) == 0:
+        out_dict.pop(method_name)
+
+def _reorder_keys(
+    data_dict: Dict[str, Dict[str, List[float]]],
+    preferred_order: List[str]
+):
+    ordered_dict = {k: data_dict[k] for k in preferred_order if k in data_dict}
+    unordered_keys = [k for k in data_dict.keys() if k not in preferred_order]
+    for k in unordered_keys:
+        ordered_dict[k] = data_dict[k]
+    data_dict.clear()
+    data_dict.update(ordered_dict)
 
 def get_plots_dice_hausdorff(
     pth_baseline_results: Path | str,
@@ -726,7 +739,23 @@ def get_plots_dice_hausdorff(
     hausdorff_dict_biopsies = defaultdict(dict)
     # get that timing data too
     time_dict = defaultdict(dict)
-
+    ordered_keys_registration_methods = [
+        "No Registration",
+        "OpenTPS-Rigid-Image",
+        "OpenTPS-Rigid-Contour",
+        "OpenTPS-Quick-Image",
+        "OpenTPS-Quick-Contour",
+        "OpenTPS-Morphons-Image",
+        "OpenTPS-Morphons-Contour",
+        "Plastimatch-Translation-Image",
+        "Plastimatch-Translation-Contour",
+        "Plastimatch-Bspline-Image",
+        "Plastimatch-Bspline-Contour",
+        "SimpleElastix-Affine-Image",
+        "SimpleElastix-Affine-Contour",
+        "SimpleElastix-Bspline-Image",
+        "SimpleElastix-Bspline-Contour"
+    ]
     # Extract baseline data and data from each registration results file
     _extract_data_to_dict(baseline_df, "dice(Prostate)", "No Registration", dice_dict_prostate)
     _extract_data_to_dict(baseline_df, "hausdorff(Prostate)", "No Registration", hausdorff_dict_prostate)
@@ -742,35 +771,40 @@ def get_plots_dice_hausdorff(
         method_name = f"{package_name}-{algorithm_name}-{reg_based_on}"
         result_df = pd.read_csv(pth_result)
         _extract_data_to_dict(result_df, "dice(Prostate)", method_name, dice_dict_prostate)
+        _reorder_keys(dice_dict_prostate, preferred_order=ordered_keys_registration_methods)
         _extract_data_to_dict(result_df, "hausdorff(Prostate)", method_name, hausdorff_dict_prostate)
+        _reorder_keys(hausdorff_dict_prostate, preferred_order=ordered_keys_registration_methods)
         _extract_data_to_dict(result_df, "dice(Biopsies)", method_name, dice_dict_biopsies)
+        _reorder_keys(dice_dict_biopsies, preferred_order=ordered_keys_registration_methods)
         _extract_data_to_dict(result_df, "hausdorff(Biopsies)", method_name, hausdorff_dict_biopsies)
+        _reorder_keys(hausdorff_dict_biopsies, preferred_order=ordered_keys_registration_methods)
         _extract_data_to_dict(result_df, "time", method_name, time_dict)
+        _reorder_keys(time_dict, preferred_order=ordered_keys_registration_methods)
 
     # Generate box plots
     box_plot_evals(
-        title="Dice Coefficient for Prostate after Registration",
+        title="Dice Coefficient for Prostate after Registration \n(higher is better)",
         xlabel="Method",
         ylabel="Dice Coefficient",
         data={k: v["data"] for k, v in dice_dict_prostate.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_dice_prostate.svg"
     )
     box_plot_evals(
-        title="Hausdorff Distance for Prostate after Registration",
+        title="Maximum Hausdorff Distance for \n Prostate after Registration (lower is better)",
         xlabel="Method",
         ylabel="Hausdorff Distance (mm)",
         data={k: v["data"] for k, v in hausdorff_dict_prostate.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_prostate.svg"
     )
     box_plot_evals(
-        title="Dice Coefficient for Biopsies after Registration",
+        title="Dice Coefficient for Biopsies after Registration \n(higher is better)",
         xlabel="Method",
         ylabel="Dice Coefficient",
         data={k: v["data"] for k, v in dice_dict_biopsies.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_dice_biopsies.svg"
     )
     box_plot_evals(
-        title="Hausdorff Distance for Biopsies after Registration",
+        title="Maximum Hausdorff Distance for \n Biopsies after Registration (lower is better)",
         xlabel="Method",
         ylabel="Hausdorff Distance (mm)",
         data={k: v["data"] for k, v in hausdorff_dict_biopsies.items()},
