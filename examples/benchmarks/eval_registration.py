@@ -617,7 +617,8 @@ def gen_volume_plots_baseline(
         data=volume_dict,
         pth_save=pth_baseline_results.parent/"boxplot_volume_prostate.svg",
         fig_size=(5, 5),
-        font_size=14
+        font_size=14,
+        use_legends=False
     )
     
     title="Volume of Biopsies in US and MR"
@@ -633,7 +634,8 @@ def gen_volume_plots_baseline(
         data=volume_dict,
         pth_save=pth_baseline_results.parent/"boxplot_volume_biopsies.svg",
         fig_size=(5, 5),
-        font_size=12
+        font_size=12,
+        use_legends=False
     )
 
 def box_plot_evals(
@@ -643,7 +645,8 @@ def box_plot_evals(
     data: Dict[str, List[float]],
     pth_save: Path | str = None,
     fig_size: Tuple[int, int] = (10, 6),
-    font_size: int = 12
+    font_size: int = 12,
+    use_legends: bool = True,
 ):
     r"""
     ### Purpose:
@@ -663,10 +666,13 @@ def box_plot_evals(
     for item in colors:
         if item["text_label"]=="prostate":
             box_color = np.array(item["color"])/255
+            break
         elif item["text_label"]=="mass":
             box_color = np.array(item["color"])/255
+            break
         else:
             box_color = np.array([0, 0, 205])/255
+            break
 
     # Create figure and axis
     fig, ax = plt.subplots(figsize=fig_size)
@@ -683,6 +689,7 @@ def box_plot_evals(
     # Set labels and title
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+    ax.set_ylim(top=1.15*max([max(v) for v in data.values() if len(v)>0]))
     ax.set_title(title)
     ax.set_xticks(x_pos)
     ax.set_xticklabels(methods, rotation=45, ha='right')
@@ -691,11 +698,12 @@ def box_plot_evals(
     # add legend for contour vs image based registration
     # note that the alpha value is used to differentiate between contour and image based registration
     # Create legend elements
-    legend_elements = [
-        Patch(facecolor=box_color, alpha=0.5, label='Image-based'),
-        Patch(facecolor=box_color, alpha=1.0, label='Contour-based')
-    ]
-    ax.legend(handles=legend_elements, loc='upper right')
+    if use_legends:
+        legend_elements = [
+            Patch(facecolor=box_color, alpha=0.5, label='Image-based'),
+            Patch(facecolor=box_color, alpha=1.0, label='Contour-based')
+        ]
+        ax.legend(handles=legend_elements, loc='upper left', fontsize=font_size-2)
     # Tight layout to minimize margins
     plt.tight_layout()
     plt.rcParams.update({'font.size': font_size})
@@ -751,7 +759,7 @@ def get_plots_dice_hausdorff(
     # get that timing data too
     time_dict = defaultdict(dict)
     ordered_keys_registration_methods = [
-        "No Registration", "OpenTPS-Rigid-Image", "OpenTPS-Rigid-Contour",
+        "No Registration \n (Resample Only)", "OpenTPS-Rigid-Image", "OpenTPS-Rigid-Contour",
         "OpenTPS-Quick-Image", "OpenTPS-Quick-Contour", "OpenTPS-Morphons-Image",
         "OpenTPS-Morphons-Contour", "Plastimatch-Translation-Image",
         "Plastimatch-Translation-Contour", "Plastimatch-Bspline-Image",
@@ -760,11 +768,11 @@ def get_plots_dice_hausdorff(
         "SimpleElastix-Bspline-Contour"
     ]
     # Extract baseline data and data from each registration results file
-    _extract_data_to_dict(baseline_df, "dice(Prostate)", "No Registration", dice_dict_prostate)
-    _extract_data_to_dict(baseline_df, "hausdorff(Prostate)", "No Registration", hausdorff_dict_prostate)
-    _extract_data_to_dict(baseline_df, "dice(Biopsies)", "No Registration", dice_dict_biopsies)
-    _extract_data_to_dict(baseline_df, "hausdorff(Biopsies)", "No Registration", hausdorff_dict_biopsies)
-    _extract_data_to_dict(baseline_df, "time", "No Registration", time_dict)
+    _extract_data_to_dict(baseline_df, "dice(Prostate)", "No Registration \n (Resample Only)", dice_dict_prostate)
+    _extract_data_to_dict(baseline_df, "hausdorff(Prostate)", "No Registration \n (Resample Only)", hausdorff_dict_prostate)
+    _extract_data_to_dict(baseline_df, "dice(Biopsies)", "No Registration \n (Resample Only)", dice_dict_biopsies)
+    _extract_data_to_dict(baseline_df, "hausdorff(Biopsies)", "No Registration \n (Resample Only)", hausdorff_dict_biopsies)
+    _extract_data_to_dict(baseline_df, "time", "No Registration \n (Resample Only)", time_dict)
 
     for pth_result in list_pth_results:
         method_name = pth_result.stem.split("reg_metrics_")[-1]
