@@ -658,12 +658,13 @@ def box_plot_evals(
     """
     import matplotlib.pyplot as plt
     from brachyutils.geometry.phantom_utils import _get_slicer_colors
+    from matplotlib.patches import Patch
     colors = _get_slicer_colors()
     for item in colors:
         if item["text_label"]=="prostate":
-            box_color_prostate = np.array(item["color"])/255
+            box_color = np.array(item["color"])/255
         elif item["text_label"]=="mass":
-            box_color_mass = np.array(item["color"])/255
+            box_color = np.array(item["color"])/255
         else:
             box_color = np.array([0, 0, 205])/255
 
@@ -677,12 +678,7 @@ def box_plot_evals(
     bp = ax.boxplot([data[method] for method in methods], positions=x_pos, patch_artist=True)
     # Customize appearance
     for patch, a in zip(bp['boxes'], alpha):
-        if "Prostate" in title:
-            patch.set_facecolor(box_color_prostate)
-        elif "Biopsies" in title:
-            patch.set_facecolor(box_color_mass)
-        else:
-            patch.set_facecolor(box_color)
+        patch.set_facecolor(box_color)
         patch.set_alpha(a)
     # Set labels and title
     ax.set_xlabel(xlabel)
@@ -694,7 +690,12 @@ def box_plot_evals(
     ax.grid(True, alpha=0.3)
     # add legend for contour vs image based registration
     # note that the alpha value is used to differentiate between contour and image based registration
-    
+    # Create legend elements
+    legend_elements = [
+        Patch(facecolor=box_color, alpha=0.5, label='Image-based'),
+        Patch(facecolor=box_color, alpha=1.0, label='Contour-based')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right')
     # Tight layout to minimize margins
     plt.tight_layout()
     plt.rcParams.update({'font.size': font_size})
