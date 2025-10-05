@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from brachyutils import BrachyPhantomRegistration
 from brachyutils import BrachyPhantom
+from brachyutils.geometry.phantom_utils import get_slicer_color_by_name
 
 def eval_single_registration(
     pth_static_image: Path,
@@ -602,7 +603,10 @@ def gen_volume_plots_baseline(
         - boxplot_volume_prostate.svg   
         - boxplot_volume_biopsies.svg
     """
-    baseline_df = pd.read_csv(pth_baseline_results)    
+    prostate_color = get_slicer_color_by_name("prostate")
+    biopsy_color = get_slicer_color_by_name("mass")
+
+    baseline_df = pd.read_csv(pth_baseline_results)
     # box plot for volume of prostate or biopsies in US and MR
     title="Volume of Prostate in US and MR"
     xlabel="Modality"
@@ -618,7 +622,8 @@ def gen_volume_plots_baseline(
         pth_save=pth_baseline_results.parent/"boxplot_volume_prostate.svg",
         fig_size=(5, 5),
         font_size=14,
-        use_legends=False
+        use_legends=False,
+        box_color=prostate_color
     )
     
     title="Volume of Biopsies in US and MR"
@@ -635,7 +640,8 @@ def gen_volume_plots_baseline(
         pth_save=pth_baseline_results.parent/"boxplot_volume_biopsies.svg",
         fig_size=(5, 5),
         font_size=12,
-        use_legends=False
+        use_legends=False,
+        box_color=biopsy_color
     )
 
 def box_plot_evals(
@@ -647,6 +653,7 @@ def box_plot_evals(
     fig_size: Tuple[int, int] = (10, 6),
     font_size: int = 12,
     use_legends: bool = True,
+    box_color: Tuple[float, float, float] = (0, 0, 0),
 ):
     r"""
     ### Purpose:
@@ -660,25 +667,12 @@ def box_plot_evals(
     The tickmarks are the keys of the dictionaries.
     """
     import matplotlib.pyplot as plt
-    from brachyutils.geometry.phantom_utils import _get_slicer_colors
     from matplotlib.patches import Patch
-    colors = _get_slicer_colors()
-    for item in colors:
-        if item["text_label"]=="prostate":
-            box_color = np.array(item["color"])/255
-            break
-        elif item["text_label"]=="mass":
-            box_color = np.array(item["color"])/255
-            break
-        else:
-            box_color = np.array([0, 0, 205])/255
-            break
-
     # Create figure and axis
     fig, ax = plt.subplots(figsize=fig_size)
     # Get method names and positions
     methods = list(data.keys())
-    alpha = [1 if "Contour" in method else 0.5 for method in methods]
+    alpha = [1. if "Contour" in method else 0.5 for method in methods]
     x_pos = range(len(methods))
     # Create the box plot
     bp = ax.boxplot([data[method] for method in methods], positions=x_pos, patch_artist=True)
@@ -774,6 +768,8 @@ def get_plots_dice_hausdorff(
     _extract_data_to_dict(baseline_df, "hausdorff(Biopsies)", "No Registration \n (Resample Only)", hausdorff_dict_biopsies)
     _extract_data_to_dict(baseline_df, "time", "No Registration \n (Resample Only)", time_dict)
 
+    prostate_color = get_slicer_color_by_name("prostate")
+    biopsy_color = get_slicer_color_by_name("mass")
     for pth_result in list_pth_results:
         method_name = pth_result.stem.split("reg_metrics_")[-1]
         package_name = pth_result.parent.name
@@ -800,35 +796,40 @@ def get_plots_dice_hausdorff(
         xlabel="Method",
         ylabel="Dice Coefficient",
         data={k: v["data"] for k, v in dice_dict_prostate.items()},
-        pth_save=Path(pth_baseline_results).parent/"boxplot_dice_prostate.svg"
+        pth_save=Path(pth_baseline_results).parent/"boxplot_dice_prostate.svg",
+        box_color=prostate_color,
     )
     box_plot_evals(
         title="Maximum Hausdorff Distance for \n Prostate after Registration (lower is better)",
         xlabel="Method",
         ylabel="Hausdorff Distance (mm)",
         data={k: v["data"] for k, v in hausdorff_dict_prostate.items()},
-        pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_prostate.svg"
+        pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_prostate.svg",
+        box_color=prostate_color,
     )
     box_plot_evals(
         title="Dice Coefficient for Biopsies after Registration \n(higher is better)",
         xlabel="Method",
         ylabel="Dice Coefficient",
         data={k: v["data"] for k, v in dice_dict_biopsies.items()},
-        pth_save=Path(pth_baseline_results).parent/"boxplot_dice_biopsies.svg"
+        pth_save=Path(pth_baseline_results).parent/"boxplot_dice_biopsies.svg",
+        box_color=biopsy_color,
     )
     box_plot_evals(
         title="Maximum Hausdorff Distance for \n Biopsies after Registration (lower is better)",
         xlabel="Method",
         ylabel="Hausdorff Distance (mm)",
         data={k: v["data"] for k, v in hausdorff_dict_biopsies.items()},
-        pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_biopsies.svg"
+        pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_biopsies.svg",
+        box_color=biopsy_color,
     )
     box_plot_evals(
         title="Computation Time for Registration Methods",
         xlabel="Method",
         ylabel="Time (s)",
         data={k: v["data"] for k, v in time_dict.items()},
-        pth_save=Path(pth_baseline_results).parent/"boxplot_registration_time.svg"
+        pth_save=Path(pth_baseline_results).parent/"boxplot_registration_time.svg",
+        box_color=(0.2, 0.2, 205/255),
     )
 
 if __name__ == "__main__":
