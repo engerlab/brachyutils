@@ -672,6 +672,8 @@ def box_plot_evals(
     fig, ax = plt.subplots(figsize=fig_size)
     # Get method names and positions
     methods = list(data.keys())
+    # remove Image or Contour from the method names for better visualization
+    xtick_labels = [method.replace("-Image", "").replace("-Contour", "") for method in methods]
     alpha = [1. if "Contour" in method else 0.5 for method in methods]
     x_pos = range(len(methods))
     # Create the box plot
@@ -686,7 +688,7 @@ def box_plot_evals(
     ax.set_ylim(top=1.15*max([max(v) for v in data.values() if len(v)>0]))
     ax.set_title(title)
     ax.set_xticks(x_pos)
-    ax.set_xticklabels(methods, rotation=45, ha='right')
+    ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
     # Add grid for better readability
     ax.grid(True, alpha=0.3)
     # add legend for contour vs image based registration
