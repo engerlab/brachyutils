@@ -34,7 +34,7 @@ def fix_axis(phantom_obj: BrachyPhantom):
         struc_array = struc_array.swapaxes(1, 2)
         struc_array = np.flip(struc_array, axis=0)
         final_structure_set[struc] = struc_array
-    
+
     phantom_obj.set_image_array(img_array)
     phantom_obj.set_structure_set(final_structure_set)
 
@@ -69,10 +69,21 @@ def rename_structures(phantom_obj: BrachyPhantom):
         if name == "Segment1_Name":
             new_name_mapping[name] = "Prostate"
         else:
-            new_name_mapping[name] = f"Biopsy_{i-1}"
+            segment_number = int(name.split("_")[0].replace("Segment", ""))
+            new_name_mapping[name] = f"Biopsy_{segment_number-1}"
+
+    # sort the new name mapping by the numerical order of the biopsy number
+    new_name_mapping = dict(
+        sorted(
+            new_name_mapping.items(),
+            key=lambda item: int(item[1].split("_")[1]) if "Biopsy" in item[1] else -1)
+        )
 
     phantom_obj.rename_structures(
         new_name_mapping
+    )
+    phantom_obj.sort_structures_by_name(
+        sorted_names=list(new_name_mapping.values())
     )
 
 def fix_one_phantom(
@@ -121,8 +132,8 @@ def fix_one_phantom(
 
 def test_fix_one_phantom():
     dir_micro_reg_challenge = Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train")
-    pth_mr_image = dir_micro_reg_challenge / "original-nrrd/mr_case000059.nrrd"
-    pth_us_image = dir_micro_reg_challenge / "original-nrrd/us_case000059.nrrd"
+    pth_mr_image = dir_micro_reg_challenge / "original-nrrd/mr_case000008.nrrd"
+    pth_us_image = dir_micro_reg_challenge / "original-nrrd/us_case000008.nrrd"
     dir_out = Path("data_test/test_export_plan/prostate")
 
     fix_one_phantom(
@@ -177,10 +188,10 @@ def fix_all_prostate_images(dir_img_in:Path | str, dir_out, multi_thread: bool =
     else:
         for mr_data, us_data in zip(mr_data_list, us_data_list):
             fix_one_phantom(mr_data, us_data, dir_out)
-            # # for testing
-            # break
+            # for testing
+            break
 
-def convert_microreg_to_nrrd(multi_proc:bool = True):
+def convert_microreg_to_nrrd():
     r"""
     ### Purpose: To convert MR and US images and structures to NRRD format and organize
     them for the prostate micro-reg challenge.
@@ -244,20 +255,28 @@ def convert_microreg_to_nrrd(multi_proc:bool = True):
     
     # Create the output directory if it doesn't exist
     dir_mr_out.mkdir(parents=True, exist_ok=True)
-    if multi_proc:
-        # Process all cases using multiprocessing
-        with ThreadPoolExecutor() as executor:
-            list(tqdm(executor.map(process_case, indices), total=num_cases, desc="Processing cases"))
-    else:
         # Process all cases sequentially
-        for i in tqdm(indices, desc="Processing cases"):
-            process_case(i)
-            break
+    for i in tqdm(indices, desc="Processing cases"):
+        process_case(i)
+        # break
+
+def test_convert_one_phantom():
+    dir_micro_reg_challenge = Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train")
+    pth_us_image = dir_micro_reg_challenge / "us_images" / "case000025.nii.gz"
+    pth_us_seg = dir_micro_reg_challenge / "us_labels" / "case000025.nii.gz"
+    dir_out = Path("data_test/test_export_plan/prostate")
+    us_phantom = BrachyPhantom(
+        pth_phantom_file=pth_us_image,
+        pth_structures_file=pth_us_seg
+    )
+    us_phantom.export_to(dir_nrrd_out=dir_out)
+    us_phantom.write_structures_to_dicom(dir_output=dir_out)
 
 if __name__ == "__main__":
+    # test_convert_one_phantom()
     # test_fix_one_phantom()
 
-    # convert_microreg_to_nrrd()
+    convert_microreg_to_nrrd()
     fix_all_prostate_images(
         dir_img_in=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/original-nrrd"),
         dir_out=Path("/home/ubuntu/YourLocalHome/Data/registration/micro-reg-prostate_us_mri/train/fixed-nrrd"),

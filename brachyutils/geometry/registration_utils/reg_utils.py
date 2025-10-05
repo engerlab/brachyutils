@@ -17,9 +17,10 @@ class BrachyPhantomRegistration(ABC):
         moving_phantom: Union[BrachyPhantom, str],
         register_on_contour: Union[Literal["common"], Optional[str]] = None,
         deformable: bool = False,
-        algorithm: Literal["demons", "morphons"] = None,
+        algorithm: "str" = None,
         backend: Literal["elastix", "plastimatch", "opentps"] = None,
         tryGPU: bool = False,
+        pth_executable: Union[Path, str] = None,
     ) -> None:
         r"""
         Purpose:
@@ -57,6 +58,7 @@ class BrachyPhantomRegistration(ABC):
         self.algorithm = algorithm
         self.backend = backend
         self.tryGPU = tryGPU
+        self.pth_executable = pth_executable
         # the following attributes will be computed during the registration process
         self.registered_phantom: BrachyPhantom = None
         self.deformation: Transform3D = None
@@ -278,8 +280,8 @@ class BrachyPhantomRegistration(ABC):
             )
 
         for reg, static in zip(registered_contours, static_contours):
-            if reg == self.register_on_contour:
-                continue
+            # if reg == self.register_on_contour:
+            #     continue
             dice_score = 1 - dice(
                 u=registered_contours.get(reg).imageArray.flatten(),
                 v=static_contours.get(static).imageArray.flatten()
@@ -288,7 +290,8 @@ class BrachyPhantomRegistration(ABC):
                 compute_hausdorff_distance(
                     registered_contours.get(reg).imageArray[None, None, ...],
                     static_contours.get(static).imageArray[None, None, ...],
-                    percentile=95
+                    percentile=95,
+                    spacing=self.static_phantom.image_obj.spacing
                 )
                 )
             Dice[reg] = (dice_score)

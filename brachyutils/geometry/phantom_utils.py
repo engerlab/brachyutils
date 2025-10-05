@@ -27,7 +27,23 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
     writeRTStruct,
 )
 import vtk
-from vtk.util import numpy_support
+# from vtk.util import numpy_support
+
+import json
+from pathlib import Path
+
+# Module-level cache for slicer colors
+_SLICER_COLORS_CACHE = None
+
+def _get_slicer_colors():
+    """Get slicer colors with lazy loading and caching."""
+    global _SLICER_COLORS_CACHE
+    if _SLICER_COLORS_CACHE is None:
+        with open(
+            Path(__file__).parent.parent.parent / "admin/constants/slicer_colors.json", "r"
+        ) as json_file:
+            _SLICER_COLORS_CACHE = json.load(json_file)
+    return _SLICER_COLORS_CACHE
 
 class BrachyPhantom:
     r"""
@@ -556,7 +572,7 @@ class BrachyPhantom:
                 "number of segmented structures":
                 "patient number":
                 "Image content": "[3D dose, 3D uncertainty]"
-        Outputs
+        Outputs:
             - None
         Dependencies:
             - pynrrd
@@ -864,10 +880,10 @@ class BrachyPhantom:
         # Store the resampled masks in the cached_structure_masks attribute
         self.cached_structure_masks = new_structure_dict
 
-
     def set_structure_set(
         self,
         mask_dict: Dict[str, Union[ROIMask, ROIContour, np.ndarray]],
+        mask_colors: Dict[str, Tuple[int, int, int]] | Tuple[int, int, int] = None,
         ) -> None:
         r"""
         ### Purpose:
@@ -877,6 +893,9 @@ class BrachyPhantom:
         The mask will be resampled to the image object if it exists.
         ### Inputs:
         - mask_dict: dict := the dictionary of the masks.
+        - mask_colors: dict | tuple := the dictionary of the colors for each structure. If a tuple is provided,
+        the same color will be used for all structures. If None is provided, the default colors will be used based
+        on the slicer color table https://www.slicer.org/wiki/Slicer3:2010_GenericAnatomyColors.
         The values could be numpy arrays, ROIContour or ROIMask objects.
         ### Outputs:
         - None
@@ -885,14 +904,27 @@ class BrachyPhantom:
             resampleImage3DOnImage3D,
         )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
+        slicer_colors = _get_slicer_colors()
+        # set the default color dictionary if not provided
+        if mask_colors is None:
+            mask_colors = {
+                k: slicer_colors[i+1]["color"] for i, k in enumerate(mask_dict.keys())
+            }
+        elif isinstance(mask_colors, tuple):
+            mask_colors = {
+                k: mask_colors for k in mask_dict.keys()
+            }
 
         for structure_name in mask_dict:
+            structure_color = mask_colors.get(structure_name)
             # check if the structure already exists in structure set
             old_structure = self.structure_set.getContourByName(structure_name)
             if old_structure is None:
                 old_structure = self.structure_set.getContourByName(structure_name.upper())
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
+                structure_color = old_structure.color
+
             print(f"setting structure {structure_name}, which is a {type(mask_dict[structure_name])} type")
             if mask_dict.get(structure_name) is None:
                 continue
@@ -915,16 +947,15 @@ class BrachyPhantom:
                 mask = mask_dict.get(structure_name)
                 mask.name = structure_name
                 if self.image_obj is not None:
-                    
                     # Check if the spacings, the shape and origin already match or not
                     if not np.array_equal(mask.spacing, self.image_obj.spacing) or \
                         not np.array_equal(mask.origin, self.image_obj.origin) or \
                         not np.array_equal(mask.gridSize, self.image_obj.gridSize):
                         # Resample the mask to the image object
-                        mask = resampleImage3DOnImage3D(mask, self.image_obj)    
+                        mask = resampleImage3DOnImage3D(mask, self.image_obj)
             else:
                 raise ValueError("The mask type is not recognized.")
-
+ 
             # if mask hits the boundary of the image, set the boundary to 0.
             tight_box_coordinates = np.round(getBoxAroundROI(mask), decimals=2)
             mask_edges = np.array(
@@ -948,9 +979,11 @@ class BrachyPhantom:
                         mask.imageArray[:, -1, :] = 0
                     # hitting the ends of the z axis is not problematic
                     # elif i == 4:
-                        # mask.imageArray[:, :, 0] = 0
+                    #     mask.imageArray[:, :, 0] = 0
                     # elif i == 5:
                         # mask.imageArray[:, :, -1] = 0
+
+            mask._displayColor = structure_color
             self.structure_set.appendContour(mask.getROIContour())
             del mask
 
@@ -1049,7 +1082,8 @@ class BrachyPhantom:
         self,
         origin:np.array=None,
         spacing:np.array=None,
-        inplace:bool=False, 
+        inplace:bool=False,
+        gridSize:np.array=None,
         interpolator_img=sitk.sitkLinear) -> "BrachyPhantom":
         r"""
         ### Purpose:
@@ -1070,14 +1104,50 @@ class BrachyPhantom:
             self.image_obj,
             origin=origin,
             spacing=spacing,
+            gridSize=gridSize,
             sitk_interpolator=interpolator_img
             )
-            
+
         if inplace:
             self.image_obj = new_img_obj
         else:
             new_phantom.image_obj = new_img_obj
             return new_phantom
+
+    def sort_structures_by_name(self, sorted_names):
+        r"""
+        Purpose:
+            - Sort the structures in the structure set by the input list of names.
+        Inputs:
+            - sorted_names: list := the list of names to sort the structures by.
+        Outputs:
+            - None
+        """
+        self.structure_set._contours = sorted(
+            self.structure_set._contours,
+            key=lambda x: sorted_names.index(x.name)
+            if x.name in sorted_names
+            else len(sorted_names)
+        )
+        self._update_structure_names()
+
+    def get_structures_volume(self, structure_names:List[str]) -> Dict[str, float]:
+        r"""
+        Purpose:
+            - Get the volume of each structure that is requested.
+        Inputs:
+            - structure_names: list := the list of names of the structures to get the volumes for.
+        Outputs:
+            - volume_dict: dict := the dictionary of the volumes of each structure in cm^3.
+        """
+        assert self.image_obj is not None, "No image object to get the volume from."
+        assert self.structure_set is not None, "No structure set to get the volume from."
+        mask_dict = self.get_structure_mask(structure_names, mask_type=ROIMask)
+        volume_dict = {}
+        for name, mask in mask_dict.items():
+            assert mask is not None, f"No mask found for structure {name}."
+            volume_dict[name] = mask.getVolume()/1000 # convert to cm^3
+        return volume_dict
 
 # helper functions
 def phantom_with_empty_image_like(
@@ -1096,14 +1166,15 @@ def phantom_with_empty_image_like(
         - new_phantom: BrachyPhantom := the new phantom object.
     """
     from copy import deepcopy
+    old_phantom = deepcopy(phantom)
     new_phantom = BrachyPhantom()
     new_phantom.pth_image = Path(new_pth_image)
     new_phantom.image_obj = None
-    new_phantom.image_modality = phantom.image_modality
-    new_phantom.structure_set = phantom.structure_set
+    new_phantom.image_modality = old_phantom.image_modality
+    new_phantom.structure_set = old_phantom.structure_set
     new_phantom.structure_names = [structure.name for structure in new_phantom.structure_set.contours]
-    new_phantom.unit_length = phantom.unit_length
-    new_phantom.xyz_format = phantom.xyz_format
+    new_phantom.unit_length = old_phantom.unit_length
+    new_phantom.xyz_format = old_phantom.xyz_format
 
     return new_phantom
 
@@ -1141,7 +1212,7 @@ def get_uniform_phantom(
     return phantom
     
 
-def _sort_segementation_dict_by_size(
+def _sort_segmentation_dict_by_size(
     mask_dict: Dict[str, np.ndarray]
     ) -> Dict[str, np.ndarray]:
     r"""
@@ -1169,7 +1240,7 @@ def _convert_many_binary_masks_to_1_int_mask(
     Purpose:
         - Convert many binary masks to one integer mask. The masks should be ordered
         from largest to smallest as the smallest mask will overwrite the larger mask.
-        use _sort_segementation_dict_by_size() to sort the masks.
+        use _sort_segmentation_dict_by_size() to sort the masks.
     Inputs:
         - mask_dict: dict := the dictionary of the masks. the values are numpy arrays in
         [z, y, x] format.
@@ -1202,19 +1273,11 @@ def readDicomUS(dcmFiles):
     sliceLocation = np.zeros(len(dcmFiles), dtype='float')
     firstdcm = dcmFiles[0]
     
-    # if hasattr(firstdcm,'RescaleSlope') == False:
-    #     logging.warning('no RescaleSlope, image could be wrong')
     for i in range(len(dcmFiles)):
         dcm = pydicom.dcmread(dcmFiles[i])
         sliceLocation[i] = float(dcm.ImagePositionPatient[2])
         images.append(dcm.pixel_array)
         sopInstanceUIDs.append(dcm.SOPInstanceUID)
-    # else :
-    #     for i in range(len(dcmFiles)):
-    #         dcm = pydicom.dcmread(dcmFiles[i])
-    #         sliceLocation[i] = float(dcm.ImagePositionPatient[2])
-    #         images.append(dcm.pixel_array * dcm.RescaleSlope + dcm.RescaleIntercept)
-    #         sopInstanceUIDs.append(dcm.SOPInstanceUID)       
 
     # sort slices according to their location in order to reconstruct the 3d image
     sortIndex = np.argsort(sliceLocation)
@@ -1264,47 +1327,8 @@ def readDicomUS(dcmFiles):
                     sopInstanceUIDs=sopInstanceUIDs)
        
     image.patient = patient
-    # Collect MR information
-    # if hasattr(dcm, 'BodyPartExamined'):
-    #     image.bodyPartExamined = dcm.BodyPartExamined
-    # if hasattr(dcm, 'ScanningSequence'):
-    #     image.scanningSequence = dcm.ScanningSequence
-    # if hasattr(dcm, 'SequenceVariant'):
-    #     image.sequenceVariant = dcm.SequenceVariant
-    # if hasattr(dcm, 'ScanOptions'):
-    #     image.scanOptions = dcm.ScanOptions
-    # if hasattr(dcm, 'MRAcquisitionType'):
-    #     image.mrArcquisitionType = dcm.MRAcquisitionType
-    # if hasattr(dcm, 'RepetitionTime'):
-    #     image.repetitionTime = float(dcm.RepetitionTime)
-    # if hasattr(dcm, 'EchoTime'):
-    #     if dcm.EchoTime is not None:
-    #         image.echoTime = float(dcm.EchoTime)
-    # if hasattr(dcm, 'NumberOfAverages'):
-    #     image.nAverages = float(dcm.NumberOfAverages)
-    # if hasattr(dcm, 'ImagingFrequency'):
-    #     image.imagingFrequency = float(dcm.ImagingFrequency)
-    # if hasattr(dcm, 'EchoNumbers'):
-    #     image.echoNumbers = int(dcm.EchoNumbers)
-    # if hasattr(dcm, 'MagneticFieldStrength'):
-    #     image.magneticFieldStrength = float(dcm.MagneticFieldStrength)
-    # if hasattr(dcm, 'SpacingBetweenSlices'):
-    #     image.spacingBetweenSlices = float(dcm.SpacingBetweenSlices)
-    # if hasattr(dcm, 'NumberOfPhaseEncodingSteps'):
-    #     image.nPhaseSteps = int(dcm.NumberOfPhaseEncodingSteps)
-    # if hasattr(dcm, 'EchoTrainLength'):
-    #     if dcm.EchoTrainLength is not None:
-    #         image.echoTrainLength = int(dcm.EchoTrainLength)
-    # if hasattr(dcm, 'FlipAngle'):
-    #     image.flipAngle = float(dcm.FlipAngle)
-    # if hasattr(dcm, 'SAR'):
-    #     image.sar = float(dcm.SAR)
     if hasattr(dcm, 'StudyDate'):
         image.studyDate = float(dcm.StudyDate)
-    # if hasattr(dcm, 'StudyTime'):
-    #     image.studyTime = float(dcm.StudyTime)
-    # if hasattr(dcm, 'AcquisitionTime'):
-    #     image.acquisitionTime = float(dcm.AcquisitionTime)
     if hasattr(dcm, 'PatientPosition'):
         image.patientPosition = dcm.PatientPosition
     if hasattr(dcm, 'SeriesNumber'):
@@ -1563,48 +1587,6 @@ def generate_sphere_mask(
     )
     return mask_opentps
 
-def get_contour_from_polygon_mesh(
-    polygon_data: vtk.vtkPolyData,
-    name: str = "Polygon"
-    ) -> ROIContour:
-    r"""
-    """
-    raise DeprecationWarning("this function is no longer needed")
-    # extract verticies
-    points = polygon_data.GetPoints()
-    num_points = points.GetNumberOfPoints()
-    verticies = np.zeros((num_points, 3))
-    for i in range(num_points):
-        verticies[i, :] = points.GetPoint(i)
-    
-    # extract polygon mesh
-    polys = polygon_data.GetPolys()
-    polys.InitTraversal()
-    polygons = []
-    idList = vtk.vtkIdList()
-    while polys.GetNextCell(idList):
-        polygon = [idList.GetId(j) for j in range(idList.GetNumberOfIds())]
-        polygons.append(polygon)
-
-    polygonMeshList = []
-    for polygon in polygons:
-        polygonMesh = []
-        for vertexId in polygon:
-            # transform the vertex coordinates based on the spacing and origin.
-            xCoord = verticies[vertexId, 0]
-            yCoord = verticies[vertexId, 1]
-            zCoord = verticies[vertexId, 2]
-            polygonMesh.append(xCoord)
-            polygonMesh.append(yCoord)
-            polygonMesh.append(zCoord)
-        polygonMeshList.append(polygonMesh)
-
-    contour = ROIContour(
-        name=name
-    )
-    contour.polygonMesh = polygonMeshList
-    return contour
-
 def imageToNrrd(
     image_obj: Image3D,
     pth_output: Path,
@@ -1690,9 +1672,9 @@ def masksToNrrd(
         gridSize = structure_mask_dict[list(structure_mask_dict.keys())[0]].gridSize
 
         mask_dict = {k: v.imageArray.swapaxes(0,2) for k, v in structure_mask_dict.items()}
-        sorted_by_size = _sort_segementation_dict_by_size(mask_dict)
 
         if not overlap:
+            sorted_by_size = _sort_segmentation_dict_by_size(mask_dict)
             # this removes overlap
             all_masks = _convert_many_binary_masks_to_1_int_mask(
                 sorted_by_size
@@ -1720,6 +1702,8 @@ def masksToNrrd(
             header["space units"] = ["mm", "mm", "mm"]
   
         else:
+            # do not sort the masks, keep the original order
+            sorted_by_size = mask_dict
             # stack up all the masks
             all_masks = np.stack(list(sorted_by_size.values()), axis=3).astype(np.uint8)
             from collections import defaultdict
@@ -1752,7 +1736,12 @@ def masksToNrrd(
         # header["Segmentation_ConversionParameters"] = "None"  this one is crazy long
         # # Specific segmentation meta data
         for i, name in enumerate(sorted_by_size):
-            # header[f"Segment{i}_Color"] = 
+            header[f"Segment{i}_Color"] = " ".join(
+                np.round(
+                    np.array(
+                        structure_mask_dict[name]._displayColor)/ 255, decimals=3
+                    ).astype(str)
+                )
             # header[f"Segment{i}_ColorAutoGenerated"] =
             header[f"Segment{i}_ID"] = f"Segment_{i+1}"
             if not overlap:
@@ -1769,6 +1758,21 @@ def masksToNrrd(
 
         # # Write the image
         nrrd.write(str(pth_output), all_masks, header, index_order="C", compression_level=1)
+
+def get_slicer_color_by_name(name: str) -> List[int]:
+    r"""
+    Purpose:
+        - Get a color by the name of the structure. The color is generated by hashing the name.
+    Inputs:
+        - name: str := the name of the structure.
+    Outputs:
+        - color: List[int] := the color of the structure in [R, G, B].
+    """
+    all_colors = _get_slicer_colors()
+    for color in all_colors:
+        if color["text_label"]== name.lower():
+            return np.array(color["color"])/255
+    return np.array([0, 0, 0])/255  # Default color (black) if not found
 
 
 # Conversion utilities for phantom files

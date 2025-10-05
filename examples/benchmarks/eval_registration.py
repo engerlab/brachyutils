@@ -1,356 +1,951 @@
 from pathlib import Path
-from glob import glob
+from time import time
 import warnings
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
-from typing import Dict, List, Union, Tuple
+from typing import Dict, List, Tuple, Union
 import pandas as pd
-from brachyutils.registration_utils import PhantomRegistration
-from brachyutils.geometry_utils import BrachyPhantom
-
-# def export_phantom_opentps_nrrd_dicom_egsphant():
-#     from brachyutils.geometry_utils import BrachyPhantom
-#     pth_img_dicom = Path("data_test/prostate-glen-p1-dcm")
-#     pth_strct_dicom = glob(str(pth_img_dicom)+"/RS*.dcm")[0]
-#     pth_img_nrrd = Path("data_test/test_export_plan/opentps/prostate_glen_p1.nrrd")
-#     pth_strct_nrrd = Path("data_test/test_export_plan/opentps/prostate_glen_p1.seg.nrrd")
-#     assign_material_from_ct = True
-#     pth_materials = Path("data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt")
-#     phantom = BrachyPhantom(
-#         dir_dicom=pth_img_dicom,
-#         pth_structures_file=pth_strct_dicom
-#     )
-#     # phantom.export_to(
-#     #     dir_nrrd_out=pth_img_nrrd.parent
-#     # )
-#     # phantom.export_to(
-#     #     dir_dicom_out=Path.joinpath(pth_img_nrrd.parent, "dicom/")
-#     # )
-#     phantom.write_to_egsphant(
-#         pth_output=pth_img_nrrd.parent.joinpath("egsphant.seq.nrrd"),
-#         material_dict=pth_materials,
-#         assign_material_from_ct=assign_material_from_ct
-#         )
-
-# def compare_dose_mc_tg43():
-#     from brachyutils.dose_generation_utils import DoseMonteCarlo, DoseTG43
-#     from brachyutils.plan_utils import BrachyPlan
-
-def evaluate_registration(
-    dir_static: str | Path,
-    dir_moving: str | Path,
-    dir_registered: str | Path,
-    registration_module,
-    multi_thread: bool = False,
-    **kwargs
-):
-    r"""
-    Purpose:
-        - register structures from MRI onto TRUS and compare it with the ground truth 
-        structures on TRUS images. The registration is done based on the prostate contour
-        and the transformed structures are the biopsy regions.
-    
-    Inputs:
-        - dir_static := directory of the static images and structures. the image file and the structure
-        file should have the same name. the extension of the structure file should be .seg.nrrd.
-        - dir_moving := same as above, but for moving images.
-        - dir_registered := the directory where the registered moving image and the structures is written to.
-    """
-    if not issubclass(registration_module, PhantomRegistration):
-        raise ValueError("registration module should extend the abstract class PhantomRegistration")
-
-    # from brachyutils.registration_utils import Registration_OpenTPS
-    dir_static = Path(dir_static)
-    dir_moving = Path(dir_moving)
-    dir_registered = Path(dir_registered)
-
-    # gatheter the data in the path dict
-    all_static_structs_nrrd = glob(str(dir_static.joinpath("*.seg.nrrd")))
-    
-    # islate the segmentatoin and images for both static and moving files
-    reg_data_list = list()
-    for static_struct in all_static_structs_nrrd:
-        common_name = Path(Path(static_struct).stem).stem
-        # if "0001" not in common_name:
-        #     continue
-        static_image = glob(str(dir_static.joinpath(f"{common_name}.nrrd")))
-        moving_image = glob(str(dir_moving.joinpath(f"{common_name}.nrrd")))
-        moving_struct = glob(str(dir_moving.joinpath(f"{common_name}.seg.nrrd")))
-
-        if len(static_image) != 1 or len(moving_image) != 1 or len(moving_struct) != 1:
-            warnings.warn(f"corresponding data for {static_struct} was not found")
-            continue
-        single_reg_data = defaultdict(Path)
-        single_reg_data["pth_static_image"] = static_image[0]
-        single_reg_data["pth_static_structure"] = static_struct
-        single_reg_data["pth_moving_image"] = moving_image[0]
-        single_reg_data["pth_moving_structure"] = moving_struct[0]
-        single_reg_data["dir_registered"] = dir_registered
-        single_reg_data["registration_module"] = registration_module
-        reg_data_list.append(single_reg_data)
-
-    print(f"number of registration cases was {len(reg_data_list)}")
-
-    all_dice = defaultdict()
-    all_hausdorff = defaultdict()
-    if multi_thread:
-        import asyncio
-        from concurrent.futures import ThreadPoolExecutor
-        from functools import partial
-        async def run_in_executor(executor, func, single_reg_data):
-            loop = asyncio.get_event_loop()
-            try:
-                return await loop.run_in_executor(executor, func, single_reg_data)
-            except Exception as e:
-                print(f"error in evaluating {single_reg_data.get('pth_static_image')}")
-                print(e)
-                return None
-
-        async def main():
-            with ThreadPoolExecutor() as executor:
-                tasks = []
-                for single_reg_data in reg_data_list:
-                    tasks.append(
-                        run_in_executor(
-                            executor, 
-                            partial(eval_single_registration, **kwargs), 
-                            single_reg_data)
-                        )
-                all_results = await asyncio.gather(*tasks)
-            for case_dict in all_results:
-                if case_dict is None:
-                    continue
-                key = list(case_dict.keys())[0]
-                value = list(case_dict.values())[0]
-                all_dice[key] = value.get("Dice")
-                all_hausdorff[key] = value.get("Hausdorff")
-            return all_dice, all_hausdorff
-
-        asyncio.run(main())
-    else:
-        for single_reg_data in reg_data_list:
-            try:
-                eval_results = eval_single_registration(
-                    essential_inputs = single_reg_data,
-                    **kwargs
-                )
-                all_dice[list(eval_results.keys())[0]] = list(eval_results.values())[0].get("Dice")
-                all_hausdorff[list(eval_results.keys())[0]] = list(eval_results.values())[0].get("Hausdorff")
-            except Exception as e:
-                print(f"error in evaluating {single_reg_data.get('pth_static_image')}")
-                print(e)
-                continue
-            break
-
-    eval_df_dice = pd.DataFrame(all_dice).transpose()
-    eval_df_hausdorff = pd.DataFrame(all_hausdorff).transpose()
-    dir_registered.mkdir(exist_ok=True, parents=True)
-    eval_df_dice.to_csv(dir_registered.joinpath("dice.csv"))
-    eval_df_hausdorff.to_csv(dir_registered.joinpath("hausdorff.csv"))
+import numpy as np
+from brachyutils import BrachyPhantomRegistration
+from brachyutils import BrachyPhantom
+from brachyutils.geometry.phantom_utils import get_slicer_color_by_name
 
 def eval_single_registration(
-    essential_inputs: Dict,
+    pth_static_image: Path,
+    pth_static_structure: Path,
+    pth_moving_image: Path,
+    pth_moving_structure: Path,
+    dir_registered: Path,
+    registration_module: BrachyPhantomRegistration,
     **kwargs
 ):
     r"""
-    Purpose:
+    ### Purpose:
         - evaluate the registration of the moving image and structures onto the static image.
-    Inputs:
-        - essential_inputs := dictionary containing the essential inputs for the registration, which are
-            - pth_static_image
-            - pth_static_structure
-            - pth_moving_image
-            - pth_moving_structure
-            - registration_module
-            - dir_registered
-    Outputs:
+    ### Inputs:
+        - pth_static_image := path to the static image file
+        - pth_static_structure := path to the static structure file
+        - pth_moving_image := path to the moving image file
+        - pth_moving_structure := path to the moving structure file
+        - dir_registered := directory where the registered moving image and structures are written to.
+        - registration_module := the registration class that extends BrachyPhantomRegistration
+        - kwargs := additional arguments for the registration module
+    ### Outputs:
         - dict containing the evaluation results
             - Dice
             - Hausdorff
     """
     static_phantom = BrachyPhantom(
-        pth_phantom_file=essential_inputs.get("pth_static_image"),
-        pth_structures_file=essential_inputs.get("pth_static_structure")
+        pth_phantom_file=pth_static_image,
+        pth_structures_file=pth_static_structure
     )
     moving_phantom = BrachyPhantom(
-        pth_phantom_file=essential_inputs.get("pth_moving_image"),
-        pth_structures_file=essential_inputs.get("pth_moving_structure")
+        pth_phantom_file=pth_moving_image,
+        pth_structures_file=pth_moving_structure
     )
-    
-    reg_obj = essential_inputs.get("registration_module")(
-        static_phantom = static_phantom,
-        moving_phantom = moving_phantom,
-        **kwargs
+    reg_obj: BrachyPhantomRegistration = registration_module(
+        static_phantom=static_phantom,
+        moving_phantom=moving_phantom,
+        register_on_contour=kwargs.get("register_on_contour", None),
+        deformable=kwargs.get("deformable", False),
+        algorithm=kwargs.get("algorithm", None),
+        backend=kwargs.get("backend", None),
+        tryGPU=kwargs.get("tryGPU", False),
+        pth_executable=kwargs.get("pth_executable", None),
     )
+    try:
+        t0 = time()
+        reg_obj.register(
+            dir_phantom_export=dir_registered,
+            **kwargs
+        )
+        t1 = time()
+        measured_metrics = reg_obj.evaluate_on_contours()
+    except Exception as e:
+        # warnings.warn(f"registration failed for case {pth_static_image} with error {e}")
+        t0 = 0
+        t1 = 0
+        measured_metrics = {
+            "Dice": {"Prostate": np.nan, "Biopsies": np.nan},
+            "Hausdorff": {"Prostate": np.nan, "Biopsies": np.nan},
+        }
 
-    reg_obj.register(
-        dir_phantom_export=essential_inputs.get("dir_registered"),
-        **kwargs
-    )
-    return {Path(essential_inputs.get("pth_static_image")).stem: reg_obj.evaluate_on_contours()}
+    return {
+        "case": pth_static_image.split("/")[-1].split(".")[0],
+        "time": t1 - t0,
+        "dice(Prostate)": measured_metrics["Dice"]["Prostate"],
+        "hausdorff(Prostate)": measured_metrics["Hausdorff"]["Prostate"],
+        "dice(Biopsies)": np.mean([v for k, v in measured_metrics["Dice"].items() if k != "Prostate"]),
+        "hausdorff(Biopsies)": np.mean([v for k, v in measured_metrics["Hausdorff"].items() if k != "Prostate"]),
+    }
 
-def run_registeration_opentps():
-    # # on abdomen MR-CT
-    dir_static = "temp_data/registration/abdomen-mr-ct/static"
-    dir_moving = "temp_data/registration/abdomen-mr-ct/moving"
-    backend = "OpenTPS"
-    use_contour = "" # None
-    dir_registered_quick = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-quick"
-    dir_registered_demons = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-demons"
-    dir_registered_morphons = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-morphons"
-    # # on micro-reg prostate
-    # dir_static = "temp_data/registration/micro-reg/us-train"
-    # dir_moving = "temp_data/registration/micro-reg/mr-train"
-    # dir_registered = "temp_data/registration/micro-reg/reg-train"
-
-    from brachyutils.registration_utils import Registration_OpenTPS
-    # # image based registration
-    evaluate_registration(
-        dir_static=dir_static,
-        dir_moving=dir_moving,
-        dir_registered=dir_registered_quick,
-        registration_module=Registration_OpenTPS,
-        register_on_contour=use_contour,
-        multi_thread=True,
-        deformable=True,
-        algorithm="quick"
-    )
-    # demons does not work well!
-    # evaluate_registration(
-    #     dir_static=dir_static,
-    #     dir_moving=dir_moving,
-    #     dir_registered=dir_registered_demons,
-    #     registration_module=Registration_OpenTPS,
-    #     # # register_on_contour="Prostate",
-    #     multi_thread=False,
-    #     deformable=True,
-    #     algorithm="demons",
-    #     tryGPU=True
-    # )
-    evaluate_registration(
-        dir_static=dir_static,
-        dir_moving=dir_moving,
-        dir_registered=dir_registered_morphons,
-        registration_module=Registration_OpenTPS,
-        register_on_contour=use_contour,
-        multi_thread=False,
-        deformable=True,
-        algorithm="morphons",
-        tryGPU=True
-    )
-
-    # # contour based registration
-
-def run_registration_plastimatch():
-    from brachyutils.registration_utils import Registration_Plastimatch
-
-    # # on abdomen MR-CT
-    dir_static = "temp_data/registration/abdomen-mr-ct/static"
-    dir_moving = "temp_data/registration/abdomen-mr-ct/moving"
-    backend = "Plastimatch"
-    use_contour = ""
-    dir_registered_bspline = f"temp_data/registration/abdomen-mr-ct/{backend}/{use_contour}/reg-bspline"
-    pth_plastimatch = "http://192.168.1.13:8000"
-
-    evaluate_registration(
-        dir_static=dir_static,
-        dir_moving=dir_moving,
-        dir_registered=dir_registered_bspline,
-        registration_module=Registration_Plastimatch,
-        # register_on_contour=use_contour,
-        pth_plastimatch=pth_plastimatch,
-        # multi_thread=True,
-        # deformable=True,
-    )
-
-def organize_data(dir_out: str | Path, multi_thread: bool = False):
+def evaluate_registration(
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
+    registration_module,
+    dir_registered: Path,
+    **kwargs
+):
     r"""
-    Purpose:
-        - to gather data from all formats and directories into one static directory,
-        one moving directory, and one registered directory. inside each directory, there
-        is one image .nrrd file and one segmentation file .seg.nrrd. per case.
-    
-    Inputs:
-        - dir_out:= the path where the dir_static, dir_moving and dir_registered will be created.
-    
-    Outputs:
-        - None 
+    ### Purpose:
+        - register structures from MRI onto TRUS and compare it with the ground truth 
+        structures on TRUS images. The registration is done based on the prostate contour
+        and the transformed structures are the biopsy regions.    
+    ### Inputs:
+        - reg_data_inputs := list of dictionaries containing the paths to the static 
+        and moving images and structures
+            - pth_static_image := path to the static image file
+            - pth_static_structure := path to the static structure file
+            - pth_moving_image := path to the moving image file
+            - pth_moving_structure := path to the moving structure file
+        - registration_module := the registration class that extends BrachyPhantomRegistration
+        - kwargs := additional arguments for the registration module
+            - dir_registered := directory where the registered moving image and structures
+            are written to.
+    ### Outputs:
+        - a dictionary containing the average evaluation results, which are:
+            "avg_dice(Prostate)", "std_dice(Prostate)"
+            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "avg_time", "std_time",
+            "num_failed"
     """
-    dir_static_img = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/imagesTr")
-    dir_static_seg = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/labelsTr")
-    dir_moving_img = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/imagesTr")
-    dir_moving_seg = Path.home().joinpath("YourLocalHome/Data/registration/AbdomenMRCT/labelsTr")
-    
-    all_static_img = glob(str(dir_static_img.joinpath("*_0001.nii.gz")))
-    all_moving_img = glob(str(dir_moving_img.joinpath("*_0000.nii.gz")))
-    all_static_segs = glob(str(dir_static_seg.joinpath("*_0001.nii.gz")))
-    all_moving_segs = glob(str(dir_moving_seg.joinpath("*_0000.nii.gz")))
+    if not issubclass(registration_module, BrachyPhantomRegistration):
+        raise ValueError("registration module should extend the abstract class \
+ BrachyPhantomRegistration")
+    results_per_case_df = pd.DataFrame(
+        columns=[
+            "case",
+            "dice(Prostate)",
+            "hausdorff(Prostate)",
+            "dice(Biopsies)",
+            "hausdorff(Biopsies)",
+            "time"
+        ]
+    )
+    for single_reg_data in reg_data_inputs:
+        eval_results = eval_single_registration(
+            registration_module=registration_module,
+            dir_registered=dir_registered,
+            **single_reg_data,
+            **kwargs
+        )
+        results_per_case_df.loc[len(results_per_case_df)] = {
+            "case": eval_results.get("case"),
+            "dice(Prostate)": eval_results.get("dice(Prostate)"),
+            "hausdorff(Prostate)": eval_results.get("hausdorff(Prostate)"),
+            "dice(Biopsies)": eval_results.get("dice(Biopsies)"),
+            "hausdorff(Biopsies)": eval_results.get("hausdorff(Biopsies)"),
+            "time": eval_results.get("time")
+        }
+        # XXX for debugging
+        # break
+    out_file_name = "reg_metrics_"+ dir_registered.parent.name +"_"+ dir_registered.name+".csv"
+    results_per_case_df.to_csv(dir_registered.parent.parent/out_file_name)
+    return {
+        "avg_dice(Prostate)": results_per_case_df["dice(Prostate)"].mean(),
+        "std_dice(Prostate)": results_per_case_df["dice(Prostate)"].std(),
+        "avg_hausdorff(Prostate)": results_per_case_df["hausdorff(Prostate)"].mean(),
+        "std_hausdorff(Prostate)": results_per_case_df["hausdorff(Prostate)"].std(),
 
-    all_cases = list()
-    for static_img in all_static_img:
-        static_img_name = "_".join(Path(static_img).name.split("_")[0:-1])
-        pth_static_seg = [seg for seg in all_static_segs if static_img_name in seg]
-        pth_moving_img = [img for img in all_moving_img if static_img_name in img]
-        pth_moving_seg = [seg for seg in all_moving_segs if static_img_name in seg]
+        "avg_dice(Biopsies)": results_per_case_df["dice(Biopsies)"].mean(),
+        "std_dice(Biopsies)": results_per_case_df["dice(Biopsies)"].std(),
+        "avg_hausdorff(Biopsies)": results_per_case_df["hausdorff(Biopsies)"].mean(),
+        "std_hausdorff(Biopsies)": results_per_case_df["hausdorff(Biopsies)"].std(),
 
-        if len(pth_static_seg) == 0 or len(pth_moving_img) == 0 or len(pth_moving_seg) == 0:
-            warnings.warn(f"no corresponding data found for {static_img_name}")
+        "avg_time": results_per_case_df["time"].mean(),
+        "std_time": results_per_case_df["time"].std(),
+        "num_failed": np.sum(results_per_case_df["time"] == 0)
+    }
+
+def eval_reg_opentps(
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
+    dir_results: Path | str
+):
+    from brachyutils import Registration_OpenTPS
+
+    # for debugging
+    # algorithms  = ["rigid"]
+    # references = ["Prostate"]
+    algorithms  = ["rigid", "quick", "demons", "morphons"]
+    references = ["Image", "Prostate"]
+    dir_registered = Path(dir_results)/"OpenTPS"
+    results_df = pd.DataFrame(
+        columns=[
+            "algorithm", "package", "reference",
+            "avg_dice(Prostate)", "std_dice(Prostate)",
+            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "avg_time", "std_time",
+            "num_failed"
+            ]
+    )
+    for ref in references:
+        if ref == "Prostate":
+            use_contour = ref
+        else:
+            use_contour = None
+
+        for alg in algorithms:
+            if alg ==  "rigid":
+                deformable = False
+            else:
+                deformable = True
+#             print(f"Running OpenTPS registration with algorithm: \
+# {alg}, reference: {ref}, deformable: {deformable}")
+#             print(f"Results will be saved to {dir_registered/ref/alg}")
+            reg_results = evaluate_registration(
+                reg_data_inputs=reg_data_inputs,
+                registration_module=Registration_OpenTPS,
+                dir_registered=dir_registered / ref / alg,
+                register_on_contour=use_contour,
+                deformable=deformable,
+                algorithm=alg
+            )
+            results_df.loc[len(results_df)] = {
+                "algorithm": alg,
+                "package": "OpenTPS",
+                "reference": ref,
+
+                "avg_dice(Prostate)": reg_results.get("avg_dice(Prostate)"),
+                "std_dice(Prostate)": reg_results.get("std_dice(Prostate)"),
+                "avg_hausdorff(Prostate)": reg_results.get("avg_hausdorff(Prostate)"),
+                "std_hausdorff(Prostate)": reg_results.get("std_hausdorff(Prostate)"),
+
+                "avg_dice(Biopsies)": reg_results.get("avg_dice(Biopsies)"),
+                "std_dice(Biopsies)": reg_results.get("std_dice(Biopsies)"),
+                "avg_hausdorff(Biopsies)": reg_results.get("avg_hausdorff(Biopsies)"),
+                "std_hausdorff(Biopsies)": reg_results.get("std_hausdorff(Biopsies)"),
+
+                "avg_time": reg_results.get("avg_time"),
+                "std_time": reg_results.get("std_time"),
+                "num_failed": reg_results.get("num_failed")
+            }
+            results_df.to_csv(dir_registered/"registration_results_opentps.csv", index=False)
+
+def eval_reg_plastimatch(
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
+    dir_results: Path | str
+):
+    from brachyutils import Registration_Plastimatch
+
+    # for debugging
+    # algorithms  = ["bspline"]
+    # references = ["Prostate"]
+    algorithms  = ["translation", "bspline"]
+    references = ["Image", "Prostate"]
+    dir_registered = Path(dir_results)/"Plastimatch"
+    results_df = pd.DataFrame(
+        columns=[
+            "algorithm", "package", "reference",
+            "avg_dice(Prostate)", "std_dice(Prostate)",
+            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "avg_time", "std_time",
+            "num_failed"
+            ]
+    )
+    backend = "Plastimatch"
+    pth_executable = "http://192.168.1.13:8000"
+    for ref in references:
+        if ref == "Prostate":
+            use_contour = ref
+        else:
+            use_contour = None
+
+        for alg in algorithms:
+            if alg ==  "translation":
+                deformable = False
+                stage_params_list = [
+                    {
+                        "xform": "translation",
+                        "impl": "plastimatch",
+                        "optim": "grid_search",
+                    }
+                ]
+            else:
+                deformable = True
+                stage_params_list = [
+                    {
+                        "xform": "bspline",
+                        "impl": "plastimatch",
+                        "optim": "lbfgsb",
+                    }
+                ]
+            #print(f"Running OpenTPS registration with algorithm: \
+# {alg}, reference: {ref}, deformable: {deformable}")
+#             print(f"Results will be saved to {dir_registered/ref/alg}")
+            reg_results = evaluate_registration(
+                reg_data_inputs=reg_data_inputs,
+                registration_module=Registration_Plastimatch,
+                dir_registered=dir_registered / ref / alg,
+                register_on_contour=use_contour,
+                deformable=deformable,
+                algorithm=alg,
+                pth_executable=pth_executable,
+                backend=backend,
+                stage_params_list=stage_params_list
+            )
+            results_df.loc[len(results_df)] = {
+                "algorithm": alg,
+                "package": backend,
+                "reference": ref,
+
+                "avg_dice(Prostate)": reg_results.get("avg_dice(Prostate)"),
+                "std_dice(Prostate)": reg_results.get("std_dice(Prostate)"),
+                "avg_hausdorff(Prostate)": reg_results.get("avg_hausdorff(Prostate)"),
+                "std_hausdorff(Prostate)": reg_results.get("std_hausdorff(Prostate)"),
+
+                "avg_dice(Biopsies)": reg_results.get("avg_dice(Biopsies)"),
+                "std_dice(Biopsies)": reg_results.get("std_dice(Biopsies)"),
+                "avg_hausdorff(Biopsies)": reg_results.get("avg_hausdorff(Biopsies)"),
+                "std_hausdorff(Biopsies)": reg_results.get("std_hausdorff(Biopsies)"),
+
+                "avg_time": reg_results.get("avg_time"),
+                "std_time": reg_results.get("std_time"),
+                "num_failed": reg_results.get("num_failed")
+            }
+            results_df.to_csv(dir_registered/"registration_results_plastimatch.csv", index=False)
+            # break #XXX only do one for now
+
+def eval_reg_simple_elastix(
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
+    dir_results: Path | str
+):
+    from brachyutils import Registration_SimpleElastix
+    pth_executable = "http://192.168.1.14:8000"
+    # for debugging
+    # algorithms  = ["bspline"]
+    # references = ["Prostate"]
+    algorithms  = ["affine", "bspline"]
+    references = ["Image", "Prostate"]
+    dir_registered = Path(dir_results)/"SimpleElastix"
+    results_df = pd.DataFrame(
+        columns=[
+            "algorithm", "package", "reference",
+            "avg_dice(Prostate)", "std_dice(Prostate)",
+            "avg_hausdorff(Prostate)", "std_hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "avg_time", "std_time",
+            "num_failed"
+            ]
+    )
+    for ref in references:
+        if ref == "Prostate":
+            use_contour = ref
+        else:
+            use_contour = None
+
+        for alg in algorithms:
+            if alg == "affine":
+                deformable = False
+                parameter_maps =  [
+                {
+                    "default_parameter_map": "translation",
+                },
+                {
+                    "default_parameter_map": "rigid",
+                    "Transform": "AffineTransform",
+                }
+            ]
+            else:
+                deformable = True
+                parameter_maps =  [
+                {
+                    "default_parameter_map": "translation",
+                },
+                {
+                    "default_parameter_map": "rigid",
+                    "Transform": "AffineTransform",
+                },
+                {
+                    "default_parameter_map": "bspline",
+                }
+            ]
+
+            reg_results = evaluate_registration(
+                reg_data_inputs=reg_data_inputs,
+                registration_module=Registration_SimpleElastix,
+                dir_registered=dir_registered / ref / alg,
+                register_on_contour=use_contour,
+                deformable=deformable,
+                parameter_maps = parameter_maps,
+                pth_executable=pth_executable,
+                backend="SimpleElastix",
+            )
+            results_df.loc[len(results_df)] = {
+                "algorithm": alg,
+                "package": "SimpleElastix",
+                "reference": ref,
+
+                "avg_dice(Prostate)": reg_results.get("avg_dice(Prostate)"),
+                "std_dice(Prostate)": reg_results.get("std_dice(Prostate)"),
+                "avg_hausdorff(Prostate)": reg_results.get("avg_hausdorff(Prostate)"),
+                "std_hausdorff(Prostate)": reg_results.get("std_hausdorff(Prostate)"),
+
+                "avg_dice(Biopsies)": reg_results.get("avg_dice(Biopsies)"),
+                "std_dice(Biopsies)": reg_results.get("std_dice(Biopsies)"),
+                "avg_hausdorff(Biopsies)": reg_results.get("avg_hausdorff(Biopsies)"),
+                "std_hausdorff(Biopsies)": reg_results.get("std_hausdorff(Biopsies)"),
+
+                "avg_time": reg_results.get("avg_time"),
+                "std_time": reg_results.get("std_time"),
+                "num_failed": reg_results.get("num_failed")
+            }
+            results_df.to_csv(dir_registered/"registration_results_simple_elastix.csv", index=False)
+
+def gen_registration_inputs_microreg(
+    dir_all_data: str | Path
+):
+    r"""
+    ### Purpose: 
+        - to generate a list of registration input dictionaries from a directory containing all the data.
+        we use the micro-reg prostate dataset where the static images are the US images and the moving images are the MRI images.
+    ### Inputs:
+        - dir_all_data := directory containing all the data
+        example registration data directory structure:
+        dir_all_data/
+            us_case000000.nrrd
+            us_case000000.seg.nrrd
+            mr_case000000.nrrd
+            mr_case000000.seg.nrrd
+    ### Outputs:
+    reg_data_inputs: List[Dict]
+        - a list of registration input dictionaries
+            - pth_static_image
+            - pth_static_structure
+            - pth_moving_image
+            - pth_moving_structure
+            - dir_registered
+            - registration_module
+    """
+    dir_all_data = Path(dir_all_data)
+    moving_segments = list(dir_all_data.glob("mr_*.seg.nrrd"))
+    reg_data_inputs = list()
+    for moving_seg in moving_segments:
+        case_id = moving_seg.stem.split("mr_")[-1].split(".seg")[0]
+        moving_image = dir_all_data.joinpath(f"mr_{case_id}.nrrd")
+        static_image = dir_all_data.joinpath(f"us_{case_id}.nrrd")
+        static_seg = dir_all_data.joinpath(f"us_{case_id}.seg.nrrd")
+        if not moving_image.exists() or not static_image.exists() or not static_seg.exists():
+            warnings.warn(f"corresponding data for case {case_id} was not found")
             continue
-        all_cases.append({
-            "static_img": static_img,
-            "static_seg": pth_static_seg[0],
-            "moving_img": pth_moving_img[0],
-            "moving_seg": pth_moving_seg[0]
+        reg_data_inputs.append({
+            "pth_static_image": str(static_image),
+            "pth_static_structure": str(static_seg),
+            "pth_moving_image": str(moving_image),
+            "pth_moving_structure": str(moving_seg),
         })
+    if len(reg_data_inputs) == 0:
+        raise ValueError(f"no registration data found in {dir_all_data}")
+    return reg_data_inputs
 
-    dir_out = Path(dir_out)
-    dir_out.mkdir(parents=True, exist_ok=True)
-    dir_static = dir_out.joinpath("static")
-    dir_moving = dir_out.joinpath("moving")
-    dir_registered = dir_out.joinpath("reg")   
-    if multi_thread:
-        import asyncio
-        from concurrent.futures import ThreadPoolExecutor
-        async def run_in_executor(executor, case):
-            loop = asyncio.get_event_loop()
-            try:
-                return await loop.run_in_executor(executor, export_static_moving_phantoms, case, dir_static, dir_moving)
-            except Exception as e:
-                print(f"error in exporting {case}")
-                print(e)
-                return None
-
-        async def main():
-            with ThreadPoolExecutor() as executor:
-                tasks = []
-                for case in all_cases:
-                    tasks.append(run_in_executor(executor, case))
-                await asyncio.gather(*tasks)
-
-        asyncio.run(main())
-    else: 
-        for case in all_cases:
-            try:
-                export_static_moving_phantoms(case, dir_static, dir_moving)
-                return
-            except Exception as e:
-                print(f"error in exporting {case}")
-                print(e)
-
-def export_static_moving_phantoms(case: Dict, dir_static: Path, dir_moving: Path):
-    static_phantom = BrachyPhantom(
-        pth_phantom_file=case.get("static_img"),
-        pth_structures_file=case.get("static_seg")
+def get_baseline_stats_microreg(
+    reg_data_inputs: List[Dict[str, Union[str, Path]]],
+    pth_results_csv: Path | str
+):
+    r"""
+    ### Purpose:
+        - to get the baseline stats for the moving structures without any registration.
+    ### Inputs:
+        - reg_data_inputs := list of dictionaries containing the paths to the static 
+        and moving images and structures
+            - pth_static_image := path to the static image file
+            - pth_static_structure := path to the static structure file
+            - pth_moving_image := path to the moving image file
+            - pth_moving_structure := path to the moving structure file
+    ### Outputs:
+        - None:= a csv file with the following columns:
+            "case",
+            "volume(Prostate_US)",
+            "volume(Prostate_MR)",
+            "avg_volume(Biopsies_US)", "std_volume(Biopsies_US)",
+            "avg_volume(Biopsies_MR)", "std_volume(Biopsies_MR)",
+            "dice(Prostate)", "hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "time"
+    """
+    results_df = pd.DataFrame(
+        columns=[
+            "case",
+            "volume(Prostate_US)",
+            "volume(Prostate_MR)",
+            "avg_volume(Biopsies_US)", "std_volume(Biopsies_US)",
+            "avg_volume(Biopsies_MR)", "std_volume(Biopsies_MR)",
+            "dice(Prostate)", "hausdorff(Prostate)",
+            "avg_dice(Biopsies)", "std_dice(Biopsies)",
+            "avg_hausdorff(Biopsies)", "std_hausdorff(Biopsies)",
+            "time"
+        ]
     )
-    moving_phantom = BrachyPhantom(
-        pth_phantom_file=case.get("moving_img"),
-        pth_structures_file=case.get("moving_seg")
-    )
-    static_phantom.export_to(dir_nrrd_out=dir_static)
-    moving_phantom.export_to(dir_nrrd_out=dir_moving)
+    for data_pair in reg_data_inputs:
+        static_phantom = BrachyPhantom(
+            pth_phantom_file=data_pair.get("pth_static_image"),
+            pth_structures_file=data_pair.get("pth_static_structure")
+        )
+        moving_phantom = BrachyPhantom(
+            pth_phantom_file=data_pair.get("pth_moving_image"),
+            pth_structures_file=data_pair.get("pth_moving_structure")
+        )
+        reg_obj = DummyRegistration(
+            static_phantom=static_phantom,
+            moving_phantom=moving_phantom
+        )
+        t0 = time()
+        reg_obj.registered_phantom = moving_phantom.resample_to(
+            origin=static_phantom.image_obj.origin,
+            spacing=static_phantom.image_obj.spacing,
+            gridSize=static_phantom.image_obj.gridSize,
+        )
+        tf = time()
+        measured_metrics = reg_obj.evaluate_on_contours()
+        structure_volumes_us = reg_obj.static_phantom.get_structures_volume(
+            structure_names=reg_obj.static_phantom.structure_names
+            )
+        structure_volumes_mr = reg_obj.moving_phantom.get_structures_volume(
+            structure_names=reg_obj.moving_phantom.structure_names
+            )
 
-if __name__ == "__main__": 
-    # organize_data("temp_data/registration/abdomen-mr-ct", True)
-    # run_registeration_opentps()
-    run_registration_plastimatch()
+        results_df.loc[len(results_df)] = {
+            "case": data_pair.get("pth_static_image").split("/")[-1].split(".")[0],
+
+            "volume(Prostate_US)": structure_volumes_us.get("Prostate", np.nan),
+            "avg_volume(Biopsies_US)": np.mean([v for k, v in structure_volumes_us.items() if k != "Prostate"]),
+            "std_volume(Biopsies_US)": np.std([v for k, v in structure_volumes_us.items() if k != "Prostate"]),
+
+            "volume(Prostate_MR)": structure_volumes_mr.get("Prostate", np.nan),
+            "avg_volume(Biopsies_MR)": np.mean([v for k, v in structure_volumes_mr.items() if k != "Prostate"]),
+            "std_volume(Biopsies_MR)": np.std([v for k, v in structure_volumes_mr.items() if k != "Prostate"]),
+
+            "dice(Prostate)": measured_metrics["Dice"]["Prostate"],
+            "hausdorff(Prostate)": measured_metrics["Hausdorff"]["Prostate"],
+            "avg_dice(Biopsies)": np.mean([v for k, v in measured_metrics["Dice"].items() if k != "Prostate"]),
+            "std_dice(Biopsies)": np.std([v for k, v in measured_metrics["Dice"].items() if k != "Prostate"]),
+            "avg_hausdorff(Biopsies)": np.mean([v for k, v in measured_metrics["Hausdorff"].items() if k != "Prostate"]),
+            "std_hausdorff(Biopsies)": np.std([v for k, v in measured_metrics["Hausdorff"].items() if k != "Prostate"]),
+            
+            "time": tf - t0
+        }
+    mean_dict = {
+        "case": "mean",
+        "volume(Prostate_US)": results_df["volume(Prostate_US)"].mean(),
+        "volume(Prostate_MR)": results_df["volume(Prostate_MR)"].mean(),
+
+        "avg_volume(Biopsies_US)": results_df["avg_volume(Biopsies_US)"].mean(),
+        "std_volume(Biopsies_US)": results_df["std_volume(Biopsies_US)"].mean(),
+        
+        "avg_volume(Biopsies_MR)": results_df["avg_volume(Biopsies_MR)"].mean(),
+        "std_volume(Biopsies_MR)": results_df["std_volume(Biopsies_MR)"].mean(),
+        
+        "dice(Prostate)": results_df["dice(Prostate)"].mean(),
+        "hausdorff(Prostate)": results_df["hausdorff(Prostate)"].mean(),
+        "avg_dice(Biopsies)": results_df["avg_dice(Biopsies)"].mean(),
+        "std_dice(Biopsies)": results_df["std_dice(Biopsies)"].mean(),
+        "avg_hausdorff(Biopsies)": results_df["avg_hausdorff(Biopsies)"].mean(),
+        "std_hausdorff(Biopsies)": results_df["std_hausdorff(Biopsies)"].mean(),
+        "time": results_df["time"].mean()
+    }
+    std_dict = {
+        "case": "std",
+        "volume(Prostate_US)": results_df["volume(Prostate_US)"].std(),
+        "volume(Prostate_MR)": results_df["volume(Prostate_MR)"].std(),
+
+        "avg_volume(Biopsies_US)": results_df["avg_volume(Biopsies_US)"].std(),
+        "std_volume(Biopsies_US)": results_df["std_volume(Biopsies_US)"].std(),
+
+        "avg_volume(Biopsies_MR)": results_df["avg_volume(Biopsies_MR)"].std(),
+        "std_volume(Biopsies_MR)": results_df["std_volume(Biopsies_MR)"].std(),
+
+        "dice(Prostate)": results_df["dice(Prostate)"].std(),
+        "hausdorff(Prostate)": results_df["hausdorff(Prostate)"].std(),
+        "avg_dice(Biopsies)": results_df["avg_dice(Biopsies)"].std(),
+        "std_dice(Biopsies)": results_df["std_dice(Biopsies)"].std(),
+        "avg_hausdorff(Biopsies)": results_df["avg_hausdorff(Biopsies)"].std(),
+        "std_hausdorff(Biopsies)": results_df["std_hausdorff(Biopsies)"].std(),
+        "time": results_df["time"].std()
+    }
+    # calculate the mean and std for the entire dataset
+    mean_std_df = pd.DataFrame([mean_dict, std_dict])
+    # results_df.loc[len(results_df)] = mean_dict
+    # results_df.loc[len(results_df)] = std_dict
+    results_df.to_csv(pth_results_csv, index=False)
+    mean_std_df.to_csv(pth_results_csv.parent.joinpath("mean_std_"+pth_results_csv.name), index=False)
+
+class DummyRegistration(BrachyPhantomRegistration):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    def register(self):
+        pass
+    def export_to(self):
+        super().export_to()
+    def synch_registered_phantom_with_data(self):
+        super().synch_registered_phantom_with_data()
+    def evaluate_on_contours(self):
+        return super().evaluate_on_contours()
+
+def gen_volume_plots_baseline(
+    pth_baseline_results: Path | str,
+):
+    r"""
+    ### Purpose:
+        - To generate the bar plots for the volume of the prostate and biopsies in US and MR
+    ### Inputs:
+        - pth_baseline_results := path to the csv file containing the baseline results with the following columns:
+            "case",
+            "volume(Prostate_US)",
+            "volume(Prostate_MR)",
+            "avg_volume(Biopsies_US)",
+            "avg_volume(Biopsies_MR)",
+    ### Outputs:
+        - boxplot_volume_prostate.svg   
+        - boxplot_volume_biopsies.svg
+    """
+    prostate_color = get_slicer_color_by_name("prostate")
+    biopsy_color = get_slicer_color_by_name("mass")
+
+    baseline_df = pd.read_csv(pth_baseline_results)
+    # box plot for volume of prostate or biopsies in US and MR
+    title="Volume of Prostate in US and MR"
+    xlabel="Modality"
+    ylabel="Volume (cm$^3$)"
+    volume_dict = baseline_df.filter(like="volume(Prostate").to_dict()
+    volume_dict = {
+        k.split("_")[-1].split(")")[0]: list(v.values()) 
+        for k, v in volume_dict.items()
+        }    
+    box_plot_evals(
+        title=title, xlabel=xlabel, ylabel=ylabel,
+        data=volume_dict,
+        pth_save=pth_baseline_results.parent/"boxplot_volume_prostate.svg",
+        fig_size=(5, 5),
+        font_size=14,
+        use_legends=False,
+        box_color=prostate_color
+    )
+    
+    title="Volume of Biopsies in US and MR"
+    xlabel="Modality"
+    ylabel="Volume (cm$^3$)"
+    volume_dict = baseline_df.filter(like="volume(Biopsies").to_dict()
+    volume_dict = {
+        k.split("_")[-1].split(")")[0]: list(v.values()) 
+        for k, v in volume_dict.items()
+        }    
+    box_plot_evals(
+        title=title, xlabel=xlabel, ylabel=ylabel,
+        data=volume_dict,
+        pth_save=pth_baseline_results.parent/"boxplot_volume_biopsies.svg",
+        fig_size=(5, 5),
+        font_size=12,
+        use_legends=False,
+        box_color=biopsy_color
+    )
+
+def box_plot_evals(
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    data: Dict[str, List[float]],
+    pth_save: Path | str = None,
+    fig_size: Tuple[int, int] = (10, 6),
+    font_size: int = 12,
+    use_legends: bool = True,
+    box_color: Tuple[float, float, float] = (0, 0, 0),
+):
+    r"""
+    ### Purpose:
+        - to generate a box plot for the evaluation results
+    ### Inputs:
+        - title := title of the plot
+        - xlabel := label for the x-axis
+        - ylabel := label for the y-axis
+        - data_means := dictionary containing the means for each method
+        - data_stds := dictionary containing the stds for each method
+    The tickmarks are the keys of the dictionaries.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+    # Create figure and axis
+    fig, ax = plt.subplots(figsize=fig_size)
+    # Get method names and positions
+    methods = list(data.keys())
+    # remove Image or Contour from the method names for better visualization
+    xtick_labels = [method.replace("-Image", "").replace("-Contour", "") for method in methods]
+    alpha = [1. if "Contour" in method else 0.5 for method in methods]
+    x_pos = range(len(methods))
+    # Create the box plot
+    bp = ax.boxplot([data[method] for method in methods], positions=x_pos, patch_artist=True)
+    # Customize appearance
+    for patch, a in zip(bp['boxes'], alpha):
+        patch.set_facecolor(box_color)
+        patch.set_alpha(a)
+    # Set labels and title
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_ylim(top=1.15*max([max(v) for v in data.values() if len(v)>0]))
+    ax.set_title(title)
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
+    # Add grid for better readability
+    ax.grid(True, alpha=0.3)
+    # add legend for contour vs image based registration
+    # note that the alpha value is used to differentiate between contour and image based registration
+    # Create legend elements
+    if use_legends:
+        legend_elements = [
+            Patch(facecolor=box_color, alpha=0.5, label='Image-based'),
+            Patch(facecolor=box_color, alpha=1.0, label='Contour-based')
+        ]
+        ax.legend(handles=legend_elements, loc='upper left', fontsize=font_size-2)
+    # Tight layout to minimize margins
+    plt.tight_layout()
+    plt.rcParams.update({'font.size': font_size})
+    plt.rcParams["figure.dpi"] = 300
+    if pth_save is not None:
+        plt.savefig(pth_save, dpi=300)
+    else:
+        # Show the plot
+        plt.show()
+    plt.close()
+
+def _extract_data_to_dict(
+    df: pd.DataFrame,
+    metric: str,
+    method_name: str,
+    out_dict: Dict[str, List[float]],
+):
+    out_dict[method_name] = {"data": list()}
+    contents = list(df.filter(like=metric).to_dict().values()).pop()
+    for k, v in contents.items():
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            continue
+        out_dict[method_name]["data"].append(v)
+    if len(out_dict[method_name]["data"]) == 0:
+        out_dict.pop(method_name)
+
+def _reorder_keys(
+    data_dict: Dict[str, Dict[str, List[float]]],
+    preferred_order: List[str]
+):
+    ordered_dict = {k: data_dict[k] for k in preferred_order if k in data_dict}
+    unordered_keys = [k for k in data_dict.keys() if k not in preferred_order]
+    for k in unordered_keys:
+        ordered_dict[k] = data_dict[k]
+    data_dict.clear()
+    data_dict.update(ordered_dict)
+
+def get_plots_dice_hausdorff(
+    pth_baseline_results: Path | str,
+    list_pth_results: List[Path | str],
+):
+    r"""
+    ### Purpose:
+        - to generate the box plots for the registration evaluation results
+    """
+    # Load baseline results
+    baseline_df = pd.read_csv(pth_baseline_results)
+    # Initialize dictionaries to hold data for plotting
+    dice_dict_prostate = defaultdict(dict)
+    hausdorff_dict_prostate = defaultdict(dict)
+    # now doing the same for the biopsies
+    dice_dict_biopsies = defaultdict(dict)
+    hausdorff_dict_biopsies = defaultdict(dict)
+    # get that timing data too
+    time_dict = defaultdict(dict)
+    ordered_keys_registration_methods = [
+        "No Registration \n (Resample Only)", "OpenTPS-Rigid-Image", "OpenTPS-Rigid-Contour",
+        "OpenTPS-Quick-Image", "OpenTPS-Quick-Contour", "OpenTPS-Morphons-Image",
+        "OpenTPS-Morphons-Contour", "Plastimatch-Translation-Image",
+        "Plastimatch-Translation-Contour", "Plastimatch-Bspline-Image",
+        "Plastimatch-Bspline-Contour", "SimpleElastix-Affine-Image",
+        "SimpleElastix-Affine-Contour", "SimpleElastix-Bspline-Image",
+        "SimpleElastix-Bspline-Contour"
+    ]
+    # Extract baseline data and data from each registration results file
+    _extract_data_to_dict(baseline_df, "dice(Prostate)", "No Registration \n (Resample Only)", dice_dict_prostate)
+    _extract_data_to_dict(baseline_df, "hausdorff(Prostate)", "No Registration \n (Resample Only)", hausdorff_dict_prostate)
+    _extract_data_to_dict(baseline_df, "dice(Biopsies)", "No Registration \n (Resample Only)", dice_dict_biopsies)
+    _extract_data_to_dict(baseline_df, "hausdorff(Biopsies)", "No Registration \n (Resample Only)", hausdorff_dict_biopsies)
+    _extract_data_to_dict(baseline_df, "time", "No Registration \n (Resample Only)", time_dict)
+
+    prostate_color = get_slicer_color_by_name("prostate")
+    biopsy_color = get_slicer_color_by_name("mass")
+    for pth_result in list_pth_results:
+        method_name = pth_result.stem.split("reg_metrics_")[-1]
+        package_name = pth_result.parent.name
+        algorithm_name = pth_result.stem.split("_")[-1].capitalize()
+        reg_based_on = pth_result.stem.split("_")[-2].capitalize()
+        if reg_based_on == "Prostate":
+            reg_based_on = "Contour"
+        method_name = f"{package_name}-{algorithm_name}-{reg_based_on}"
+        result_df = pd.read_csv(pth_result)
+        _extract_data_to_dict(result_df, "dice(Prostate)", method_name, dice_dict_prostate)
+        _reorder_keys(dice_dict_prostate, preferred_order=ordered_keys_registration_methods)
+        _extract_data_to_dict(result_df, "hausdorff(Prostate)", method_name, hausdorff_dict_prostate)
+        _reorder_keys(hausdorff_dict_prostate, preferred_order=ordered_keys_registration_methods)
+        _extract_data_to_dict(result_df, "dice(Biopsies)", method_name, dice_dict_biopsies)
+        _reorder_keys(dice_dict_biopsies, preferred_order=ordered_keys_registration_methods)
+        _extract_data_to_dict(result_df, "hausdorff(Biopsies)", method_name, hausdorff_dict_biopsies)
+        _reorder_keys(hausdorff_dict_biopsies, preferred_order=ordered_keys_registration_methods)
+        _extract_data_to_dict(result_df, "time", method_name, time_dict)
+        _reorder_keys(time_dict, preferred_order=ordered_keys_registration_methods)
+
+    # Generate box plots
+    box_plot_evals(
+        title="Dice Coefficient for Prostate after Registration \n(higher is better)",
+        xlabel="Method",
+        ylabel="Dice Coefficient",
+        data={k: v["data"] for k, v in dice_dict_prostate.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_dice_prostate.svg",
+        box_color=prostate_color,
+    )
+    box_plot_evals(
+        title="Maximum Hausdorff Distance for \n Prostate after Registration (lower is better)",
+        xlabel="Method",
+        ylabel="Hausdorff Distance (mm)",
+        data={k: v["data"] for k, v in hausdorff_dict_prostate.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_prostate.svg",
+        box_color=prostate_color,
+    )
+    box_plot_evals(
+        title="Dice Coefficient for Biopsies after Registration \n(higher is better)",
+        xlabel="Method",
+        ylabel="Dice Coefficient",
+        data={k: v["data"] for k, v in dice_dict_biopsies.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_dice_biopsies.svg",
+        box_color=biopsy_color,
+    )
+    box_plot_evals(
+        title="Maximum Hausdorff Distance for \n Biopsies after Registration (lower is better)",
+        xlabel="Method",
+        ylabel="Hausdorff Distance (mm)",
+        data={k: v["data"] for k, v in hausdorff_dict_biopsies.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_biopsies.svg",
+        box_color=biopsy_color,
+    )
+    box_plot_evals(
+        title="Computation Time for Registration Methods",
+        xlabel="Method",
+        ylabel="Time (s)",
+        data={k: v["data"] for k, v in time_dict.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_registration_time.svg",
+        box_color=(0.2, 0.2, 205/255),
+    )
+
+def get_bar_plots_num_failed(
+    list_pth_results: List[Path | str],
+    pth_baseline_results: Path | str
+):
+    r"""
+    ### Purpose:
+        - to generate the bar plots for the number of failed registrations
+    """
+    # Load baseline results
+    baseline_df = pd.read_csv(pth_baseline_results)
+    # Initialize dictionaries to hold data for plotting
+    num_failed_dict = dict()
+    # Extract baseline data and data from each registration results file
+    ordered_keys_registration_methods = [
+        "No Registration \n (Resample Only)", "OpenTPS-Rigid-Image", "OpenTPS-Rigid-Contour",
+        "OpenTPS-Quick-Image", "OpenTPS-Quick-Contour", "OpenTPS-Morphons-Image",
+        "OpenTPS-Morphons-Contour", "Plastimatch-Translation-Image",
+        "Plastimatch-Translation-Contour", "Plastimatch-Bspline-Image",
+        "Plastimatch-Bspline-Contour", "SimpleElastix-Affine-Image",
+        "SimpleElastix-Affine-Contour", "SimpleElastix-Bspline-Image",
+        "SimpleElastix-Bspline-Contour"
+    ]
+    # _extract_data_to_dict(baseline_df, "num_failed", "No Registration \n (Resample Only)", num_failed_dict)
+    for pth_result in list_pth_results:
+        if "baseline" in pth_result.stem:
+            continue
+        result_df = pd.read_csv(pth_result)
+        for row in result_df.itertuples():
+            package_name = row.package
+            algorithm_name = row.algorithm.capitalize()
+            if "Demons" in algorithm_name:
+                continue
+            if row.reference == "Prostate":
+                reg_based_on = "Contour"
+            else:
+                reg_based_on = "Image"
+            method_name = f"{package_name}-{algorithm_name}-{reg_based_on}"
+            num_failed_dict[method_name] = row.num_failed
+    _reorder_keys(num_failed_dict, preferred_order=ordered_keys_registration_methods)
+
+    # Generate bar plot
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+    fig, ax = plt.subplots(figsize=(10, 6))
+    methods = list(num_failed_dict.keys())
+    xtick_labels = [method.replace("-Image", "").replace("-Contour", "") for method in methods]
+    x_pos = range(len(methods))
+    num_failed_values = [num_failed_dict[method] for method in methods]
+    bars = ax.bar(x_pos, num_failed_values, color=(0.8, 0.2, 0.2))
+    # add alpha to bars based on contour or image based registration
+    for bar, method in zip(bars, methods):
+        if "Contour" in method:
+            bar.set_alpha(1.0)
+        else:
+            bar.set_alpha(0.5)
+    
+    ax.set_xlabel("Method")
+    ax.set_ylabel("Number of Failed Registrations")
+    ax.set_title("Number of Failed Registrations by Method \n(lower is better)")
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
+    ax.set_ylim(top=1.15*max(num_failed_values))
+    ax.grid(True, axis='y', alpha=0.3)
+    # Create legend elements
+    legend_elements = [
+        Patch(facecolor=(0.8, 0.2, 0.2), alpha=0.5, label='Image-based'),
+        Patch(facecolor=(0.8, 0.2, 0.2), alpha=1.0, label='Contour-based')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=10)
+    # Tight layout to minimize margins
+    plt.tight_layout()
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams["figure.dpi"] = 300
+    pth_save = Path(pth_baseline_results).parent/"barplot_num_failed_registrations.svg"
+    plt.savefig(pth_save, dpi=300)
+    plt.close()
+
+if __name__ == "__main__":
+    dir_results = "temp_data/registration"
+    # reg_data_inputs = gen_registration_inputs_microreg(
+    #     dir_all_data="temp_data/registration/fixed-nrrd",
+    #     )
+    # get_baseline_stats_microreg(
+    #     reg_data_inputs=reg_data_inputs,
+    #     pth_results_csv=Path(dir_results)/"registration_results_baseline.csv"
+    # )
+    # eval_reg_opentps(
+    #     reg_data_inputs=reg_data_inputs,
+    #     dir_results=dir_results
+    # )
+    # eval_reg_plastimatch(
+    #     reg_data_inputs=reg_data_inputs,
+    #     dir_results=dir_results
+    # )
+    # eval_reg_simple_elastix(
+    #     reg_data_inputs=reg_data_inputs,
+    #     dir_results=dir_results
+    # )
+
+    # gen_volume_plots_baseline(
+    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    # )
+
+    # list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
+    # get_plots_dice_hausdorff(
+    #     list_pth_results=list_pth_results,
+    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    # )
+
+    list_pth_results = list(Path(dir_results).rglob("registration_results_*.csv"))
+    get_bar_plots_num_failed(
+        list_pth_results=list_pth_results,
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv"
+    )

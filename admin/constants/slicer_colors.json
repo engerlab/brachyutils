@@ -1,0 +1,3102 @@
+[
+    {
+        "integer_label": 0,
+        "text_label": "background",
+        "color": [
+            0,
+            0,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 1,
+        "text_label": "tissue",
+        "color": [
+            128,
+            174,
+            128
+        ],
+        "notes": "Default label for bodily tissues"
+    },
+    {
+        "integer_label": 2,
+        "text_label": "bone",
+        "color": [
+            241,
+            214,
+            145
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 3,
+        "text_label": "skin",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 4,
+        "text_label": "connective tissue",
+        "color": [
+            111,
+            184,
+            210
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 5,
+        "text_label": "blood",
+        "color": [
+            216,
+            101,
+            79
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 6,
+        "text_label": "organ",
+        "color": [
+            221,
+            130,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 7,
+        "text_label": "mass",
+        "color": [
+            144,
+            238,
+            144
+        ],
+        "notes": "Could be tumor or other lesion"
+    },
+    {
+        "integer_label": 8,
+        "text_label": "muscle",
+        "color": [
+            192,
+            104,
+            88
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 9,
+        "text_label": "foreign object",
+        "color": [
+            220,
+            245,
+            20
+        ],
+        "notes": "Implants, surical instruments, table..."
+    },
+    {
+        "integer_label": 10,
+        "text_label": "waste",
+        "color": [
+            78,
+            63,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 11,
+        "text_label": "teeth",
+        "color": [
+            255,
+            250,
+            220
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 12,
+        "text_label": "fat",
+        "color": [
+            230,
+            220,
+            70
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 13,
+        "text_label": "gray matter",
+        "color": [
+            200,
+            200,
+            235
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 14,
+        "text_label": "white matter",
+        "color": [
+            250,
+            250,
+            210
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 15,
+        "text_label": "nerve",
+        "color": [
+            244,
+            214,
+            49
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 16,
+        "text_label": "vein",
+        "color": [
+            0,
+            151,
+            206
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 17,
+        "text_label": "artery",
+        "color": [
+            216,
+            101,
+            79
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 18,
+        "text_label": "capillary",
+        "color": [
+            183,
+            156,
+            220
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 19,
+        "text_label": "ligament",
+        "color": [
+            183,
+            214,
+            211
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 20,
+        "text_label": "tendon",
+        "color": [
+            152,
+            189,
+            207
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 21,
+        "text_label": "cartilage",
+        "color": [
+            111,
+            184,
+            210
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 22,
+        "text_label": "meniscus",
+        "color": [
+            178,
+            212,
+            242
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 23,
+        "text_label": "lymph node",
+        "color": [
+            68,
+            172,
+            100
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 24,
+        "text_label": "lymphatic vessel",
+        "color": [
+            111,
+            197,
+            131
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 25,
+        "text_label": "cerebro-spinal fluid",
+        "color": [
+            85,
+            188,
+            255
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 26,
+        "text_label": "bile",
+        "color": [
+            0,
+            145,
+            30
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 27,
+        "text_label": "urine",
+        "color": [
+            214,
+            230,
+            130
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 28,
+        "text_label": "feces",
+        "color": [
+            78,
+            63,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 29,
+        "text_label": "gas",
+        "color": [
+            218,
+            255,
+            255
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 30,
+        "text_label": "fluid",
+        "color": [
+            170,
+            250,
+            250
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 31,
+        "text_label": "edema",
+        "color": [
+            140,
+            224,
+            228
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 32,
+        "text_label": "bleeding",
+        "color": [
+            188,
+            65,
+            28
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 33,
+        "text_label": "necrosis",
+        "color": [
+            216,
+            191,
+            216
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 34,
+        "text_label": "clot",
+        "color": [
+            145,
+            60,
+            66
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 35,
+        "text_label": "embolism",
+        "color": [
+            150,
+            98,
+            83
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 36,
+        "text_label": "head",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 37,
+        "text_label": "central nervous system",
+        "color": [
+            244,
+            214,
+            49
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 38,
+        "text_label": "brain",
+        "color": [
+            250,
+            250,
+            225
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 39,
+        "text_label": "gray matter of brain",
+        "color": [
+            200,
+            200,
+            215
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 40,
+        "text_label": "telencephalon",
+        "color": [
+            68,
+            131,
+            98
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 41,
+        "text_label": "cerebral cortex",
+        "color": [
+            128,
+            174,
+            128
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 42,
+        "text_label": "right frontal lobe",
+        "color": [
+            83,
+            146,
+            164
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 43,
+        "text_label": "left frontal lobe",
+        "color": [
+            83,
+            146,
+            164
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 44,
+        "text_label": "right temporal lobe",
+        "color": [
+            162,
+            115,
+            105
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 45,
+        "text_label": "left temporal lobe",
+        "color": [
+            162,
+            115,
+            105
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 46,
+        "text_label": "right parietal lobe",
+        "color": [
+            141,
+            93,
+            137
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 47,
+        "text_label": "left parietal lobe",
+        "color": [
+            141,
+            93,
+            137
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 48,
+        "text_label": "right occipital lobe",
+        "color": [
+            182,
+            166,
+            110
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 49,
+        "text_label": "left occipital lobe",
+        "color": [
+            182,
+            166,
+            110
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 50,
+        "text_label": "right insular lobe",
+        "color": [
+            188,
+            135,
+            166
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 51,
+        "text_label": "left insular lobe",
+        "color": [
+            188,
+            135,
+            166
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 52,
+        "text_label": "right limbic lobe",
+        "color": [
+            154,
+            150,
+            201
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 53,
+        "text_label": "left limbic lobe",
+        "color": [
+            154,
+            150,
+            201
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 54,
+        "text_label": "right striatum",
+        "color": [
+            177,
+            140,
+            190
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 55,
+        "text_label": "left striatum",
+        "color": [
+            177,
+            140,
+            190
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 56,
+        "text_label": "right caudate nucleus",
+        "color": [
+            30,
+            111,
+            85
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 57,
+        "text_label": "left caudate nucleus",
+        "color": [
+            30,
+            111,
+            85
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 58,
+        "text_label": "right putamen",
+        "color": [
+            210,
+            157,
+            166
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 59,
+        "text_label": "left putamen",
+        "color": [
+            210,
+            157,
+            166
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 60,
+        "text_label": "right pallidum",
+        "color": [
+            48,
+            129,
+            126
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 61,
+        "text_label": "left pallidum",
+        "color": [
+            48,
+            129,
+            126
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 62,
+        "text_label": "right amygdaloid complex",
+        "color": [
+            98,
+            153,
+            112
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 63,
+        "text_label": "left amygdaloid complex",
+        "color": [
+            98,
+            153,
+            112
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 64,
+        "text_label": "diencephalon",
+        "color": [
+            69,
+            110,
+            53
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 65,
+        "text_label": "thalamus",
+        "color": [
+            166,
+            113,
+            137
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 66,
+        "text_label": "right thalamus",
+        "color": [
+            122,
+            101,
+            38
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 67,
+        "text_label": "left thalamus",
+        "color": [
+            122,
+            101,
+            38
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 68,
+        "text_label": "pineal gland",
+        "color": [
+            253,
+            135,
+            192
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 69,
+        "text_label": "midbrain",
+        "color": [
+            145,
+            92,
+            109
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 70,
+        "text_label": "substantia nigra",
+        "color": [
+            46,
+            101,
+            131
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 71,
+        "text_label": "right substantia nigra",
+        "color": [
+            0,
+            108,
+            112
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 72,
+        "text_label": "left substantia nigra",
+        "color": [
+            0,
+            108,
+            112
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 73,
+        "text_label": "cerebral white matter",
+        "color": [
+            250,
+            250,
+            225
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 74,
+        "text_label": "right superior longitudinal fasciculus",
+        "color": [
+            127,
+            150,
+            88
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 75,
+        "text_label": "left superior longitudinal fasciculus",
+        "color": [
+            127,
+            150,
+            88
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 76,
+        "text_label": "right inferior longitudinal fasciculus",
+        "color": [
+            159,
+            116,
+            163
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 77,
+        "text_label": "left inferior longitudinal fasciculus",
+        "color": [
+            159,
+            116,
+            163
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 78,
+        "text_label": "right arcuate fasciculus",
+        "color": [
+            125,
+            102,
+            154
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 79,
+        "text_label": "left arcuate fasciculus",
+        "color": [
+            125,
+            102,
+            154
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 80,
+        "text_label": "right uncinate fasciculus",
+        "color": [
+            106,
+            174,
+            155
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 81,
+        "text_label": "left uncinate fasciculus",
+        "color": [
+            106,
+            174,
+            155
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 82,
+        "text_label": "right cingulum bundle",
+        "color": [
+            154,
+            146,
+            83
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 83,
+        "text_label": "left cingulum bundle",
+        "color": [
+            154,
+            146,
+            83
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 84,
+        "text_label": "projection fibers",
+        "color": [
+            126,
+            126,
+            55
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 85,
+        "text_label": "right corticospinal tract",
+        "color": [
+            201,
+            160,
+            133
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 86,
+        "text_label": "left corticospinal tract",
+        "color": [
+            201,
+            160,
+            133
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 87,
+        "text_label": "right optic radiation",
+        "color": [
+            78,
+            152,
+            141
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 88,
+        "text_label": "left optic radiation",
+        "color": [
+            78,
+            152,
+            141
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 89,
+        "text_label": "right medial lemniscus",
+        "color": [
+            174,
+            140,
+            103
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 90,
+        "text_label": "left medial lemniscus",
+        "color": [
+            174,
+            140,
+            103
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 91,
+        "text_label": "right superior cerebellar peduncle",
+        "color": [
+            139,
+            126,
+            177
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 92,
+        "text_label": "left superior cerebellar peduncle",
+        "color": [
+            139,
+            126,
+            177
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 93,
+        "text_label": "right middle cerebellar peduncle",
+        "color": [
+            148,
+            120,
+            72
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 94,
+        "text_label": "left middle cerebellar peduncle",
+        "color": [
+            148,
+            120,
+            72
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 95,
+        "text_label": "right inferior cerebellar peduncle",
+        "color": [
+            186,
+            135,
+            135
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 96,
+        "text_label": "left inferior cerebellar peduncle",
+        "color": [
+            186,
+            135,
+            135
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 97,
+        "text_label": "optic chiasm",
+        "color": [
+            99,
+            106,
+            24
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 98,
+        "text_label": "right optic tract",
+        "color": [
+            156,
+            171,
+            108
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 99,
+        "text_label": "left optic tract",
+        "color": [
+            156,
+            171,
+            108
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 100,
+        "text_label": "right fornix",
+        "color": [
+            64,
+            123,
+            147
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 101,
+        "text_label": "left fornix",
+        "color": [
+            64,
+            123,
+            147
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 102,
+        "text_label": "commissural fibers",
+        "color": [
+            138,
+            95,
+            74
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 103,
+        "text_label": "corpus callosum",
+        "color": [
+            97,
+            113,
+            158
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 104,
+        "text_label": "posterior commissure",
+        "color": [
+            126,
+            161,
+            197
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 105,
+        "text_label": "cerebellar white matter",
+        "color": [
+            194,
+            195,
+            164
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 106,
+        "text_label": "CSF space",
+        "color": [
+            85,
+            188,
+            255
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 107,
+        "text_label": "ventricles of brain",
+        "color": [
+            88,
+            106,
+            215
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 108,
+        "text_label": "right lateral ventricle",
+        "color": [
+            88,
+            106,
+            215
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 109,
+        "text_label": "left lateral ventricle",
+        "color": [
+            88,
+            106,
+            215
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 110,
+        "text_label": "right third ventricle",
+        "color": [
+            88,
+            106,
+            215
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 111,
+        "text_label": "left third ventricle",
+        "color": [
+            88,
+            106,
+            215
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 112,
+        "text_label": "cerebral aqueduct",
+        "color": [
+            88,
+            106,
+            215
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 113,
+        "text_label": "fourth ventricle",
+        "color": [
+            88,
+            106,
+            215
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 114,
+        "text_label": "subarachnoid space",
+        "color": [
+            88,
+            106,
+            215
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 115,
+        "text_label": "spinal cord",
+        "color": [
+            244,
+            214,
+            49
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 116,
+        "text_label": "gray matter of spinal cord",
+        "color": [
+            200,
+            200,
+            215
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 117,
+        "text_label": "white matter of spinal cord",
+        "color": [
+            250,
+            250,
+            225
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 118,
+        "text_label": "endocrine system of brain",
+        "color": [
+            82,
+            174,
+            128
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 119,
+        "text_label": "pituitary gland",
+        "color": [
+            57,
+            157,
+            110
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 120,
+        "text_label": "adenohypophysis",
+        "color": [
+            60,
+            143,
+            83
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 121,
+        "text_label": "neurohypophysis",
+        "color": [
+            92,
+            162,
+            109
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 122,
+        "text_label": "meninges",
+        "color": [
+            255,
+            244,
+            209
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 123,
+        "text_label": "dura mater",
+        "color": [
+            255,
+            244,
+            209
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 124,
+        "text_label": "arachnoid",
+        "color": [
+            255,
+            244,
+            209
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 125,
+        "text_label": "pia mater",
+        "color": [
+            255,
+            244,
+            209
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 126,
+        "text_label": "muscles of head",
+        "color": [
+            201,
+            121,
+            77
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 127,
+        "text_label": "salivary glands",
+        "color": [
+            70,
+            163,
+            117
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 128,
+        "text_label": "lips",
+        "color": [
+            188,
+            91,
+            95
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 129,
+        "text_label": "nose",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 130,
+        "text_label": "tongue",
+        "color": [
+            166,
+            84,
+            94
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 131,
+        "text_label": "soft palate",
+        "color": [
+            182,
+            105,
+            107
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 132,
+        "text_label": "right inner ear",
+        "color": [
+            229,
+            147,
+            118
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 133,
+        "text_label": "left inner ear",
+        "color": [
+            229,
+            147,
+            118
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 134,
+        "text_label": "right external ear",
+        "color": [
+            174,
+            122,
+            90
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 135,
+        "text_label": "left external ear",
+        "color": [
+            174,
+            122,
+            90
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 136,
+        "text_label": "right middle ear",
+        "color": [
+            201,
+            112,
+            73
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 137,
+        "text_label": "left middle ear",
+        "color": [
+            201,
+            112,
+            73
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 138,
+        "text_label": "right eyeball",
+        "color": [
+            194,
+            142,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 139,
+        "text_label": "left eyeball",
+        "color": [
+            194,
+            142,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 140,
+        "text_label": "skull",
+        "color": [
+            241,
+            213,
+            144
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 141,
+        "text_label": "right frontal bone",
+        "color": [
+            203,
+            179,
+            77
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 142,
+        "text_label": "left frontal bone",
+        "color": [
+            203,
+            179,
+            77
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 143,
+        "text_label": "right parietal bone",
+        "color": [
+            229,
+            204,
+            109
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 144,
+        "text_label": "left parietal bone",
+        "color": [
+            229,
+            204,
+            109
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 145,
+        "text_label": "right temporal bone",
+        "color": [
+            255,
+            243,
+            152
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 146,
+        "text_label": "left temporal bone",
+        "color": [
+            255,
+            243,
+            152
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 147,
+        "text_label": "right sphenoid bone",
+        "color": [
+            209,
+            185,
+            85
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 148,
+        "text_label": "left sphenoid bone",
+        "color": [
+            209,
+            185,
+            85
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 149,
+        "text_label": "right ethmoid bone",
+        "color": [
+            248,
+            223,
+            131
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 150,
+        "text_label": "left ethmoid bone",
+        "color": [
+            248,
+            223,
+            131
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 151,
+        "text_label": "occipital bone",
+        "color": [
+            255,
+            230,
+            138
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 152,
+        "text_label": "maxilla",
+        "color": [
+            196,
+            172,
+            68
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 153,
+        "text_label": "right zygomatic bone",
+        "color": [
+            255,
+            255,
+            167
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 154,
+        "text_label": "right lacrimal bone",
+        "color": [
+            255,
+            250,
+            160
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 155,
+        "text_label": "vomer bone",
+        "color": [
+            255,
+            237,
+            145
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 156,
+        "text_label": "right palatine bone",
+        "color": [
+            242,
+            217,
+            123
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 157,
+        "text_label": "left palatine bone",
+        "color": [
+            242,
+            217,
+            123
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 158,
+        "text_label": "mandible",
+        "color": [
+            222,
+            198,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 159,
+        "text_label": "neck",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 160,
+        "text_label": "muscles of neck",
+        "color": [
+            213,
+            124,
+            109
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 161,
+        "text_label": "pharynx",
+        "color": [
+            184,
+            105,
+            108
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 162,
+        "text_label": "larynx",
+        "color": [
+            150,
+            208,
+            243
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 163,
+        "text_label": "thyroid gland",
+        "color": [
+            62,
+            162,
+            114
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 164,
+        "text_label": "right parathyroid glands",
+        "color": [
+            62,
+            162,
+            114
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 165,
+        "text_label": "left parathyroid glands",
+        "color": [
+            62,
+            162,
+            114
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 166,
+        "text_label": "skeleton of neck",
+        "color": [
+            242,
+            206,
+            142
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 167,
+        "text_label": "hyoid bone",
+        "color": [
+            250,
+            210,
+            139
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 168,
+        "text_label": "cervical vertebral column",
+        "color": [
+            255,
+            255,
+            207
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 169,
+        "text_label": "thorax",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 170,
+        "text_label": "trachea",
+        "color": [
+            182,
+            228,
+            255
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 171,
+        "text_label": "bronchi",
+        "color": [
+            175,
+            216,
+            244
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 172,
+        "text_label": "right lung",
+        "color": [
+            197,
+            165,
+            145
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 173,
+        "text_label": "left lung",
+        "color": [
+            197,
+            165,
+            145
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 174,
+        "text_label": "superior lobe of right lung",
+        "color": [
+            172,
+            138,
+            115
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 175,
+        "text_label": "superior lobe of left lung",
+        "color": [
+            172,
+            138,
+            115
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 176,
+        "text_label": "middle lobe of right lung",
+        "color": [
+            202,
+            164,
+            140
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 177,
+        "text_label": "inferior lobe of right lung",
+        "color": [
+            224,
+            186,
+            162
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 178,
+        "text_label": "inferior lobe of left lung",
+        "color": [
+            224,
+            186,
+            162
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 179,
+        "text_label": "pleura",
+        "color": [
+            255,
+            245,
+            217
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 180,
+        "text_label": "heart",
+        "color": [
+            206,
+            110,
+            84
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 181,
+        "text_label": "right atrium",
+        "color": [
+            210,
+            115,
+            89
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 182,
+        "text_label": "left atrium",
+        "color": [
+            203,
+            108,
+            81
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 183,
+        "text_label": "atrial septum",
+        "color": [
+            233,
+            138,
+            112
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 184,
+        "text_label": "ventricular septum",
+        "color": [
+            195,
+            100,
+            73
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 185,
+        "text_label": "right ventricle of heart",
+        "color": [
+            181,
+            85,
+            57
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 186,
+        "text_label": "left ventricle of heart",
+        "color": [
+            152,
+            55,
+            13
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 187,
+        "text_label": "mitral valve",
+        "color": [
+            159,
+            63,
+            27
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 188,
+        "text_label": "tricuspid valve",
+        "color": [
+            166,
+            70,
+            38
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 189,
+        "text_label": "aortic valve",
+        "color": [
+            218,
+            123,
+            97
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 190,
+        "text_label": "pulmonary valve",
+        "color": [
+            225,
+            130,
+            104
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 191,
+        "text_label": "aorta",
+        "color": [
+            224,
+            97,
+            76
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 192,
+        "text_label": "pericardium",
+        "color": [
+            255,
+            244,
+            209
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 193,
+        "text_label": "pericardial cavity",
+        "color": [
+            184,
+            122,
+            154
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 194,
+        "text_label": "esophagus",
+        "color": [
+            211,
+            171,
+            143
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 195,
+        "text_label": "thymus",
+        "color": [
+            47,
+            150,
+            103
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 196,
+        "text_label": "mediastinum",
+        "color": [
+            255,
+            244,
+            209
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 197,
+        "text_label": "skin of thoracic wall",
+        "color": [
+            173,
+            121,
+            88
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 198,
+        "text_label": "muscles of thoracic wall",
+        "color": [
+            188,
+            95,
+            76
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 199,
+        "text_label": "skeleton of thorax",
+        "color": [
+            255,
+            239,
+            172
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 200,
+        "text_label": "thoracic vertebral column",
+        "color": [
+            226,
+            202,
+            134
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 201,
+        "text_label": "ribs",
+        "color": [
+            253,
+            232,
+            158
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 202,
+        "text_label": "sternum",
+        "color": [
+            244,
+            217,
+            154
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 203,
+        "text_label": "right clavicle",
+        "color": [
+            205,
+            179,
+            108
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 204,
+        "text_label": "left clavicle",
+        "color": [
+            205,
+            179,
+            108
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 205,
+        "text_label": "abdominal cavity",
+        "color": [
+            186,
+            124,
+            161
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 206,
+        "text_label": "abdomen",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 207,
+        "text_label": "peritoneum",
+        "color": [
+            255,
+            255,
+            220
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 208,
+        "text_label": "omentum",
+        "color": [
+            234,
+            234,
+            194
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 209,
+        "text_label": "peritoneal cavity",
+        "color": [
+            204,
+            142,
+            178
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 210,
+        "text_label": "retroperitoneal space",
+        "color": [
+            180,
+            119,
+            153
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 211,
+        "text_label": "stomach",
+        "color": [
+            216,
+            132,
+            105
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 212,
+        "text_label": "duodenum",
+        "color": [
+            255,
+            253,
+            229
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 213,
+        "text_label": "small bowel",
+        "color": [
+            205,
+            167,
+            142
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 214,
+        "text_label": "colon",
+        "color": [
+            204,
+            168,
+            143
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 215,
+        "text_label": "anus",
+        "color": [
+            255,
+            224,
+            199
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 216,
+        "text_label": "liver",
+        "color": [
+            221,
+            130,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 217,
+        "text_label": "biliary tree",
+        "color": [
+            0,
+            145,
+            30
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 218,
+        "text_label": "gallbladder",
+        "color": [
+            139,
+            150,
+            98
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 219,
+        "text_label": "pancreas",
+        "color": [
+            249,
+            180,
+            111
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 220,
+        "text_label": "spleen",
+        "color": [
+            157,
+            108,
+            162
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 221,
+        "text_label": "urinary system",
+        "color": [
+            203,
+            136,
+            116
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 222,
+        "text_label": "right kidney",
+        "color": [
+            185,
+            102,
+            83
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 223,
+        "text_label": "left kidney",
+        "color": [
+            185,
+            102,
+            83
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 224,
+        "text_label": "right ureter",
+        "color": [
+            247,
+            182,
+            164
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 225,
+        "text_label": "left ureter",
+        "color": [
+            247,
+            182,
+            164
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 226,
+        "text_label": "urinary bladder",
+        "color": [
+            222,
+            154,
+            132
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 227,
+        "text_label": "urethra",
+        "color": [
+            124,
+            186,
+            223
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 228,
+        "text_label": "right adrenal gland",
+        "color": [
+            249,
+            186,
+            150
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 229,
+        "text_label": "left adrenal gland",
+        "color": [
+            249,
+            186,
+            150
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 230,
+        "text_label": "female internal genitalia",
+        "color": [
+            244,
+            170,
+            147
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 231,
+        "text_label": "uterus",
+        "color": [
+            255,
+            181,
+            158
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 232,
+        "text_label": "right fallopian tube",
+        "color": [
+            255,
+            190,
+            165
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 233,
+        "text_label": "left fallopian tube",
+        "color": [
+            227,
+            153,
+            130
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 234,
+        "text_label": "right ovary",
+        "color": [
+            213,
+            141,
+            113
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 235,
+        "text_label": "left ovary",
+        "color": [
+            213,
+            141,
+            113
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 236,
+        "text_label": "vagina",
+        "color": [
+            193,
+            123,
+            103
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 237,
+        "text_label": "male internal genitalia",
+        "color": [
+            216,
+            146,
+            127
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 238,
+        "text_label": "prostate",
+        "color": [
+            230,
+            158,
+            140
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 239,
+        "text_label": "right seminal vesicle",
+        "color": [
+            245,
+            172,
+            147
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 240,
+        "text_label": "left seminal vesicle",
+        "color": [
+            245,
+            172,
+            147
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 241,
+        "text_label": "right deferent duct",
+        "color": [
+            241,
+            172,
+            151
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 242,
+        "text_label": "left deferent duct",
+        "color": [
+            241,
+            172,
+            151
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 243,
+        "text_label": "skin of abdominal wall",
+        "color": [
+            177,
+            124,
+            92
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 244,
+        "text_label": "muscles of abdominal wall",
+        "color": [
+            171,
+            85,
+            68
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 245,
+        "text_label": "skeleton of abdomen",
+        "color": [
+            217,
+            198,
+            131
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 246,
+        "text_label": "lumbar vertebral column",
+        "color": [
+            212,
+            188,
+            102
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 247,
+        "text_label": "female external genitalia",
+        "color": [
+            185,
+            135,
+            134
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 248,
+        "text_label": "male external genitalia",
+        "color": [
+            185,
+            135,
+            134
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 249,
+        "text_label": "skeleton of upper limb",
+        "color": [
+            198,
+            175,
+            125
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 250,
+        "text_label": "muscles of upper limb",
+        "color": [
+            194,
+            98,
+            79
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 251,
+        "text_label": "right upper limb",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 252,
+        "text_label": "left upper limb",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 253,
+        "text_label": "right shoulder",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 254,
+        "text_label": "left shoulder",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 255,
+        "text_label": "right arm",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 256,
+        "text_label": "left arm",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 257,
+        "text_label": "right elbow",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 258,
+        "text_label": "left elbow",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 259,
+        "text_label": "right forearm",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 260,
+        "text_label": "left forearm",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 261,
+        "text_label": "right wrist",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 262,
+        "text_label": "left wrist",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 263,
+        "text_label": "right hand",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 264,
+        "text_label": "left hand",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 265,
+        "text_label": "skeleton of lower limb",
+        "color": [
+            255,
+            238,
+            170
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 266,
+        "text_label": "muscles of lower limb",
+        "color": [
+            206,
+            111,
+            93
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 267,
+        "text_label": "right lower limb",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 268,
+        "text_label": "left lower limb",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 269,
+        "text_label": "right hip",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 270,
+        "text_label": "left hip",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 271,
+        "text_label": "right thigh",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 272,
+        "text_label": "left thigh",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 273,
+        "text_label": "right knee",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 274,
+        "text_label": "left knee",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 275,
+        "text_label": "right leg",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 276,
+        "text_label": "left leg",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 277,
+        "text_label": "right foot",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 278,
+        "text_label": "left foot",
+        "color": [
+            177,
+            122,
+            101
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 279,
+        "text_label": "peripheral nervous system",
+        "color": [
+            216,
+            186,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 280,
+        "text_label": "autonomic nerve",
+        "color": [
+            255,
+            226,
+            77
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 281,
+        "text_label": "sympathetic trunk",
+        "color": [
+            255,
+            243,
+            106
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 282,
+        "text_label": "cranial nerves",
+        "color": [
+            255,
+            234,
+            92
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 283,
+        "text_label": "vagus nerve",
+        "color": [
+            240,
+            210,
+            35
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 284,
+        "text_label": "peripheral nerve",
+        "color": [
+            224,
+            194,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 285,
+        "text_label": "circulatory system",
+        "color": [
+            213,
+            99,
+            79
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 286,
+        "text_label": "systemic arterial system",
+        "color": [
+            217,
+            102,
+            81
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 287,
+        "text_label": "systemic venous system",
+        "color": [
+            0,
+            147,
+            202
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 288,
+        "text_label": "pulmonary arterial system",
+        "color": [
+            0,
+            122,
+            171
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 289,
+        "text_label": "pulmonary venous system",
+        "color": [
+            186,
+            77,
+            64
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 290,
+        "text_label": "lymphatic system",
+        "color": [
+            111,
+            197,
+            131
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 291,
+        "text_label": "needle",
+        "color": [
+            240,
+            255,
+            30
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 292,
+        "text_label": "region 0",
+        "color": [
+            185,
+            232,
+            61
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 293,
+        "text_label": "region 1",
+        "color": [
+            0,
+            226,
+            255
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 294,
+        "text_label": "region 2",
+        "color": [
+            251,
+            159,
+            255
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 295,
+        "text_label": "region 3",
+        "color": [
+            230,
+            169,
+            29
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 296,
+        "text_label": "region 4",
+        "color": [
+            0,
+            194,
+            113
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 297,
+        "text_label": "region 5",
+        "color": [
+            104,
+            160,
+            249
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 298,
+        "text_label": "region 6",
+        "color": [
+            221,
+            108,
+            158
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 299,
+        "text_label": "region 7",
+        "color": [
+            137,
+            142,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 300,
+        "text_label": "region 8",
+        "color": [
+            230,
+            70,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 301,
+        "text_label": "region 9",
+        "color": [
+            0,
+            147,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 302,
+        "text_label": "region 10",
+        "color": [
+            0,
+            147,
+            248
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 303,
+        "text_label": "region 11",
+        "color": [
+            231,
+            0,
+            206
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 304,
+        "text_label": "region 12",
+        "color": [
+            129,
+            78,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 305,
+        "text_label": "region 13",
+        "color": [
+            0,
+            116,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 306,
+        "text_label": "region 14",
+        "color": [
+            0,
+            0,
+            255
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 307,
+        "text_label": "region 15",
+        "color": [
+            157,
+            0,
+            0
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 308,
+        "text_label": "unknown",
+        "color": [
+            100,
+            100,
+            130
+        ],
+        "notes": ""
+    },
+    {
+        "integer_label": 309,
+        "text_label": "cyst",
+        "color": [
+            205,
+            205,
+            100
+        ],
+        "notes": ""
+    }
+]

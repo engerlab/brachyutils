@@ -85,7 +85,7 @@ class Registration_OpenTPS(BrachyPhantomRegistration):
                 reg = RegistrationDemons(
                     fixed=self._static_data,
                     moving=self._moving_data,
-                    baseResolution=kwargs.get("baseResolution", 2.0),
+                    baseResolution=kwargs.get("baseResolution", np.max(self._static_data.spacing)),
                     tryGPU=self.tryGPU
                 )
                 self.deformation = reg.compute()
@@ -96,7 +96,7 @@ class Registration_OpenTPS(BrachyPhantomRegistration):
                 reg = RegistrationMorphons(
                     fixed=self._static_data,
                     moving=self._moving_data,
-                    baseResolution=kwargs.get("baseResolution", 2.0),
+                    baseResolution=kwargs.get("baseResolution", np.max(self._static_data.spacing)),
                     tryGPU=self.tryGPU
                 )
                 self.deformation = reg.compute()
