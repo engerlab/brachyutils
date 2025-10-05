@@ -759,6 +759,8 @@ def get_plots_dice_hausdorff(
     # Extract baseline data and data from each registration results file
     _extract_data_to_dict(baseline_df, "dice(Prostate)", "No Registration", dice_dict_prostate)
     _extract_data_to_dict(baseline_df, "hausdorff(Prostate)", "No Registration", hausdorff_dict_prostate)
+    _extract_data_to_dict(baseline_df, "dice(Biopsies)", "No Registration", dice_dict_biopsies)
+    _extract_data_to_dict(baseline_df, "hausdorff(Biopsies)", "No Registration", hausdorff_dict_biopsies)
     _extract_data_to_dict(baseline_df, "time", "No Registration", time_dict)
 
     for pth_result in list_pth_results:
