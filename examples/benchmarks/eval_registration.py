@@ -289,7 +289,7 @@ def eval_reg_plastimatch(
             )
             results_df.loc[len(results_df)] = {
                 "algorithm": alg,
-                "package": "OpenTPS",
+                "package": backend,
                 "reference": ref,
 
                 "avg_dice(Prostate)": reg_results.get("avg_dice(Prostate)"),
@@ -709,6 +709,7 @@ def box_plot_evals(
     else:
         # Show the plot
         plt.show()
+    plt.close()
 
 def _extract_data_to_dict(
     df: pd.DataFrame,
@@ -834,6 +835,83 @@ def get_plots_dice_hausdorff(
         box_color=(0.2, 0.2, 205/255),
     )
 
+def get_bar_plots_num_failed(
+    list_pth_results: List[Path | str],
+    pth_baseline_results: Path | str
+):
+    r"""
+    ### Purpose:
+        - to generate the bar plots for the number of failed registrations
+    """
+    # Load baseline results
+    baseline_df = pd.read_csv(pth_baseline_results)
+    # Initialize dictionaries to hold data for plotting
+    num_failed_dict = dict()
+    # Extract baseline data and data from each registration results file
+    ordered_keys_registration_methods = [
+        "No Registration \n (Resample Only)", "OpenTPS-Rigid-Image", "OpenTPS-Rigid-Contour",
+        "OpenTPS-Quick-Image", "OpenTPS-Quick-Contour", "OpenTPS-Morphons-Image",
+        "OpenTPS-Morphons-Contour", "Plastimatch-Translation-Image",
+        "Plastimatch-Translation-Contour", "Plastimatch-Bspline-Image",
+        "Plastimatch-Bspline-Contour", "SimpleElastix-Affine-Image",
+        "SimpleElastix-Affine-Contour", "SimpleElastix-Bspline-Image",
+        "SimpleElastix-Bspline-Contour"
+    ]
+    # _extract_data_to_dict(baseline_df, "num_failed", "No Registration \n (Resample Only)", num_failed_dict)
+    for pth_result in list_pth_results:
+        if "baseline" in pth_result.stem:
+            continue
+        result_df = pd.read_csv(pth_result)
+        for row in result_df.itertuples():
+            package_name = row.package
+            algorithm_name = row.algorithm.capitalize()
+            if "Demons" in algorithm_name:
+                continue
+            if row.reference == "Prostate":
+                reg_based_on = "Contour"
+            else:
+                reg_based_on = "Image"
+            method_name = f"{package_name}-{algorithm_name}-{reg_based_on}"
+            num_failed_dict[method_name] = row.num_failed
+    _reorder_keys(num_failed_dict, preferred_order=ordered_keys_registration_methods)
+
+    # Generate bar plot
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+    fig, ax = plt.subplots(figsize=(10, 6))
+    methods = list(num_failed_dict.keys())
+    xtick_labels = [method.replace("-Image", "").replace("-Contour", "") for method in methods]
+    x_pos = range(len(methods))
+    num_failed_values = [num_failed_dict[method] for method in methods]
+    bars = ax.bar(x_pos, num_failed_values, color=(0.8, 0.2, 0.2))
+    # add alpha to bars based on contour or image based registration
+    for bar, method in zip(bars, methods):
+        if "Contour" in method:
+            bar.set_alpha(1.0)
+        else:
+            bar.set_alpha(0.5)
+    
+    ax.set_xlabel("Method")
+    ax.set_ylabel("Number of Failed Registrations")
+    ax.set_title("Number of Failed Registrations by Method \n(lower is better)")
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
+    ax.set_ylim(top=1.15*max(num_failed_values))
+    ax.grid(True, axis='y', alpha=0.3)
+    # Create legend elements
+    legend_elements = [
+        Patch(facecolor=(0.8, 0.2, 0.2), alpha=0.5, label='Image-based'),
+        Patch(facecolor=(0.8, 0.2, 0.2), alpha=1.0, label='Contour-based')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=10)
+    # Tight layout to minimize margins
+    plt.tight_layout()
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams["figure.dpi"] = 300
+    pth_save = Path(pth_baseline_results).parent/"barplot_num_failed_registrations.svg"
+    plt.savefig(pth_save, dpi=300)
+    plt.close()
+
 if __name__ == "__main__":
     dir_results = "temp_data/registration"
     # reg_data_inputs = gen_registration_inputs_microreg(
@@ -855,11 +933,19 @@ if __name__ == "__main__":
     #     reg_data_inputs=reg_data_inputs,
     #     dir_results=dir_results
     # )
-    gen_volume_plots_baseline(
-        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
-    )
-    list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
-    get_plots_dice_hausdorff(
+
+    # gen_volume_plots_baseline(
+    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    # )
+
+    # list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
+    # get_plots_dice_hausdorff(
+    #     list_pth_results=list_pth_results,
+    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    # )
+
+    list_pth_results = list(Path(dir_results).rglob("registration_results_*.csv"))
+    get_bar_plots_num_failed(
         list_pth_results=list_pth_results,
-        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv"
     )
