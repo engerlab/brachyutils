@@ -671,18 +671,19 @@ def box_plot_evals(
     fig, ax = plt.subplots(figsize=fig_size)
     # Get method names and positions
     methods = list(data.keys())
+    alpha = [1 if "Contour" in method else 0.5 for method in methods]
     x_pos = range(len(methods))
     # Create the box plot
     bp = ax.boxplot([data[method] for method in methods], positions=x_pos, patch_artist=True)
     # Customize appearance
-    for patch in bp['boxes']:
+    for patch, a in zip(bp['boxes'], alpha):
         if "Prostate" in title:
             patch.set_facecolor(box_color_prostate)
         elif "Biopsies" in title:
             patch.set_facecolor(box_color_mass)
         else:
             patch.set_facecolor(box_color)
-        patch.set_alpha(0.7)
+        patch.set_alpha(a)
     # Set labels and title
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
@@ -691,6 +692,9 @@ def box_plot_evals(
     ax.set_xticklabels(methods, rotation=45, ha='right')
     # Add grid for better readability
     ax.grid(True, alpha=0.3)
+    # add legend for contour vs image based registration
+    # note that the alpha value is used to differentiate between contour and image based registration
+    
     # Tight layout to minimize margins
     plt.tight_layout()
     plt.rcParams.update({'font.size': font_size})
