@@ -651,7 +651,7 @@ def box_plot_evals(
     data: Dict[str, List[float]],
     pth_save: Path | str = None,
     fig_size: Tuple[int, int] = (10, 6),
-    font_size: int = 12,
+    font_size: int = 14,
     use_legends: bool = True,
     box_color: Tuple[float, float, float] = (0, 0, 0),
     half_tickmarks: bool = False,
@@ -887,6 +887,7 @@ def get_plots_dice_hausdorff(
         data={k: v["data"] for k, v in hausdorff_dict_prostate.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_prostate.svg",
         box_color=prostate_color,
+        half_tickmarks=True,
     )
     box_plot_evals(
         title="Dice Coefficient for Biopsies after Registration \n(higher is better)",
@@ -895,6 +896,7 @@ def get_plots_dice_hausdorff(
         data={k: v["data"] for k, v in dice_dict_biopsies.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_dice_biopsies.svg",
         box_color=biopsy_color,
+        half_tickmarks=True,
     )
     box_plot_evals(
         title="Maximum Hausdorff Distance for \n Biopsies after Registration (lower is better)",
@@ -903,6 +905,7 @@ def get_plots_dice_hausdorff(
         data={k: v["data"] for k, v in hausdorff_dict_biopsies.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_biopsies.svg",
         box_color=biopsy_color,
+        half_tickmarks=True,
     )
     box_plot_evals(
         title="Computation Time for Registration Methods \n(lower is better)",
@@ -911,6 +914,7 @@ def get_plots_dice_hausdorff(
         data={k: v["data"] for k, v in time_dict.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_registration_time.svg",
         box_color=(0.2, 0.2, 205/255),
+        half_tickmarks=True,
     )
 
 def get_bar_plots_num_failed(
@@ -921,8 +925,6 @@ def get_bar_plots_num_failed(
     ### Purpose:
         - to generate the bar plots for the number of failed registrations
     """
-    # Load baseline results
-    baseline_df = pd.read_csv(pth_baseline_results)
     # Initialize dictionaries to hold data for plotting
     num_failed_dict = dict()
     # Extract baseline data and data from each registration results file
@@ -935,7 +937,6 @@ def get_bar_plots_num_failed(
         "SimpleElastix-Affine-Contour", "SimpleElastix-Bspline-Image",
         "SimpleElastix-Bspline-Contour"
     ]
-    # _extract_data_to_dict(baseline_df, "num_failed", "No Registration \n (Resample Only)", num_failed_dict)
     for pth_result in list_pth_results:
         if "baseline" in pth_result.stem:
             continue
@@ -956,36 +957,65 @@ def get_bar_plots_num_failed(
     # Generate bar plot
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams["figure.dpi"] = 300
+
     fig, ax = plt.subplots(figsize=(10, 6))
     methods = list(num_failed_dict.keys())
-    xtick_labels = [method.replace("-Image", "").replace("-Contour", "") for method in methods]
-    x_pos = range(len(methods))
-    num_failed_values = [num_failed_dict[method] for method in methods]
-    bars = ax.bar(x_pos, num_failed_values, color=(0.8, 0.2, 0.2))
-    # add alpha to bars based on contour or image based registration
-    for bar, method in zip(bars, methods):
-        if "Contour" in method:
-            bar.set_alpha(1.0)
-        else:
-            bar.set_alpha(0.5)
-    
+
+    # Extract base method names (without -Image or -Contour)
+    base_methods = []
+    seen = set()
+    for method in methods:
+        base = method.replace("-Image", "").replace("-Contour", "")
+        if base not in seen:
+            base_methods.append(base)
+            seen.add(base)
+
+    # Separate data into Image and Contour groups
+    image_values = []
+    contour_values = []
+    for base in base_methods:
+        # Find corresponding Image and Contour methods
+        img_method = None
+        cont_method = None
+        for method in methods:
+            if base in method:
+                if "-Contour" in method:
+                    cont_method = method
+                else:
+                    img_method = method
+        # Append data (0 if method doesn't exist)
+        image_values.append(num_failed_dict[img_method] if img_method else 0)
+        contour_values.append(num_failed_dict[cont_method] if cont_method else 0)
+
+    # Create positions for grouped bar plots
+    n_groups = len(base_methods)
+    bar_width = 0.35
+    x = np.arange(n_groups)
+
+    # Create bars with offset positions
+    bars_image = ax.bar(x - bar_width/2, image_values, bar_width, 
+                        color=(0.8, 0.2, 0.2), alpha=0.5, label='Image-based')
+    bars_contour = ax.bar(x + bar_width/2, contour_values, bar_width, 
+                        color=(0.8, 0.2, 0.2), alpha=1.0, label='Contour-based')
+
     ax.set_xlabel("Method")
     ax.set_ylabel("Number of Failed Registrations")
     ax.set_title("Number of Failed Registrations by Method \n(lower is better)")
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
-    # ax.set_ylim(top=1.15*max(num_failed_values))
+    ax.set_xticks(x)
+    ax.set_xticklabels(base_methods, rotation=45, ha='right')
     ax.grid(True, axis='y', alpha=0.3)
-    # Create legend elements
+
+    # Create legend
     legend_elements = [
         Patch(facecolor=(0.8, 0.2, 0.2), alpha=0.5, label='Image-based'),
         Patch(facecolor=(0.8, 0.2, 0.2), alpha=1.0, label='Contour-based')
     ]
     ax.legend(handles=legend_elements, loc='upper right', fontsize=10)
+
     # Tight layout to minimize margins
     plt.tight_layout()
-    plt.rcParams.update({'font.size': 14})
-    plt.rcParams["figure.dpi"] = 300
     pth_save = Path(pth_baseline_results).parent/"barplot_num_failed_registrations.svg"
     plt.savefig(pth_save, dpi=300)
     plt.close()
@@ -1022,8 +1052,8 @@ if __name__ == "__main__":
         pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
     )
 
-    # list_pth_results = list(Path(dir_results).rglob("registration_results_*.csv"))
-    # get_bar_plots_num_failed(
-    #     list_pth_results=list_pth_results,
-    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv"
-    # )
+    list_pth_results = list(Path(dir_results).rglob("registration_results_*.csv"))
+    get_bar_plots_num_failed(
+        list_pth_results=list_pth_results,
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv"
+    )
