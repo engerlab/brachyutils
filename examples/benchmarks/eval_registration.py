@@ -608,17 +608,17 @@ def gen_volume_plots_baseline(
 
     baseline_df = pd.read_csv(pth_baseline_results)
     # box plot for volume of prostate or biopsies in US and MR
-    title="Volume of Prostate in US and MR"
+    title_prostate="Volume of Prostate in US and MR"
     xlabel="Modality"
     ylabel="Volume (cm$^3$)"
     volume_dict = baseline_df.filter(like="volume(Prostate").to_dict()
-    volume_dict = {
+    volume_dict_prostate = {
         k.split("_")[-1].split(")")[0]: list(v.values()) 
         for k, v in volume_dict.items()
         }    
     box_plot_evals(
-        title=title, xlabel=xlabel, ylabel=ylabel,
-        data=volume_dict,
+        title=title_prostate, xlabel=xlabel, ylabel=ylabel,
+        data=volume_dict_prostate,
         pth_save=pth_baseline_results.parent/"boxplot_volume_prostate.svg",
         fig_size=(5, 5),
         font_size=14,
@@ -639,7 +639,7 @@ def gen_volume_plots_baseline(
         data=volume_dict,
         pth_save=pth_baseline_results.parent/"boxplot_volume_biopsies.svg",
         fig_size=(5, 5),
-        font_size=12,
+        font_size=14,
         use_legends=False,
         box_color=biopsy_color
     )
@@ -668,6 +668,9 @@ def box_plot_evals(
     """
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
+    plt.rcParams.update({'font.size': font_size})
+    plt.rcParams["figure.dpi"] = 300
+
     # Create figure and axis
     fig, ax = plt.subplots(figsize=fig_size)
     # Get method names and positions
@@ -685,7 +688,7 @@ def box_plot_evals(
     # Set labels and title
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    ax.set_ylim(top=1.15*max([max(v) for v in data.values() if len(v)>0]))
+    # ax.set_ylim(top=1.15*max([max(v) for v in data.values() if len(v)>0]))
     ax.set_title(title)
     ax.set_xticks(x_pos)
     ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
@@ -702,8 +705,6 @@ def box_plot_evals(
         ax.legend(handles=legend_elements, loc='upper left', fontsize=font_size-2)
     # Tight layout to minimize margins
     plt.tight_layout()
-    plt.rcParams.update({'font.size': font_size})
-    plt.rcParams["figure.dpi"] = 300
     if pth_save is not None:
         plt.savefig(pth_save, dpi=300)
     else:
@@ -898,7 +899,7 @@ def get_bar_plots_num_failed(
     ax.set_title("Number of Failed Registrations by Method \n(lower is better)")
     ax.set_xticks(x_pos)
     ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
-    ax.set_ylim(top=1.15*max(num_failed_values))
+    # ax.set_ylim(top=1.15*max(num_failed_values))
     ax.grid(True, axis='y', alpha=0.3)
     # Create legend elements
     legend_elements = [
@@ -936,15 +937,15 @@ if __name__ == "__main__":
     #     dir_results=dir_results
     # )
 
-    # gen_volume_plots_baseline(
-    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
-    # )
-
-    list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
-    get_plots_dice_hausdorff(
-        list_pth_results=list_pth_results,
+    gen_volume_plots_baseline(
         pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
     )
+
+    # list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
+    # get_plots_dice_hausdorff(
+    #     list_pth_results=list_pth_results,
+    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    # )
 
     # list_pth_results = list(Path(dir_results).rglob("registration_results_*.csv"))
     # get_bar_plots_num_failed(
