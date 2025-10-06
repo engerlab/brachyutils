@@ -777,6 +777,8 @@ def get_plots_dice_hausdorff(
         method_name = pth_result.stem.split("reg_metrics_")[-1]
         package_name = pth_result.parent.name
         algorithm_name = pth_result.stem.split("_")[-1].capitalize()
+        if "Demons" in algorithm_name:
+            continue
         reg_based_on = pth_result.stem.split("_")[-2].capitalize()
         if reg_based_on == "Prostate":
             reg_based_on = "Contour"
@@ -793,7 +795,7 @@ def get_plots_dice_hausdorff(
         _extract_data_to_dict(result_df, "time", method_name, time_dict)
         _reorder_keys(time_dict, preferred_order=ordered_keys_registration_methods)
 
-    # Generate box plots
+    # # Generate box plots
     box_plot_evals(
         title="Dice Coefficient for Prostate after Registration \n(higher is better)",
         xlabel="Method",
@@ -827,7 +829,7 @@ def get_plots_dice_hausdorff(
         box_color=biopsy_color,
     )
     box_plot_evals(
-        title="Computation Time for Registration Methods",
+        title="Computation Time for Registration Methods \n(lower is better)",
         xlabel="Method",
         ylabel="Time (s)",
         data={k: v["data"] for k, v in time_dict.items()},
@@ -938,14 +940,14 @@ if __name__ == "__main__":
     #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
     # )
 
-    # list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
-    # get_plots_dice_hausdorff(
-    #     list_pth_results=list_pth_results,
-    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
-    # )
-
-    list_pth_results = list(Path(dir_results).rglob("registration_results_*.csv"))
-    get_bar_plots_num_failed(
+    list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
+    get_plots_dice_hausdorff(
         list_pth_results=list_pth_results,
-        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv"
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
     )
+
+    # list_pth_results = list(Path(dir_results).rglob("registration_results_*.csv"))
+    # get_bar_plots_num_failed(
+    #     list_pth_results=list_pth_results,
+    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv"
+    # )
