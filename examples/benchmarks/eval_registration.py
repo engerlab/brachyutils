@@ -654,6 +654,7 @@ def box_plot_evals(
     font_size: int = 12,
     use_legends: bool = True,
     box_color: Tuple[float, float, float] = (0, 0, 0),
+    half_tickmarks: bool = False,
 ):
     r"""
     ### Purpose:
@@ -662,53 +663,126 @@ def box_plot_evals(
         - title := title of the plot
         - xlabel := label for the x-axis
         - ylabel := label for the y-axis
-        - data_means := dictionary containing the means for each method
-        - data_stds := dictionary containing the stds for each method
+        - data := dictionary containing the data for each method
+        - pth_save := path to save the figure
+        - fig_size := size of the figure
+        - font_size := font size for the plot
+        - use_legends := whether to use legends
+        - box_color := color of the box
+        - half_tickmarks := whether to use half tickmarks (groups Image and Contour together)
     The tickmarks are the keys of the dictionaries.
     """
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
+    import numpy as np
+    
     plt.rcParams.update({'font.size': font_size})
     plt.rcParams["figure.dpi"] = 300
 
     # Create figure and axis
     fig, ax = plt.subplots(figsize=fig_size)
-    # Get method names and positions
+    
+    # Get method names
     methods = list(data.keys())
-    # remove Image or Contour from the method names for better visualization
-    xtick_labels = [method.replace("-Image", "").replace("-Contour", "") for method in methods]
-    alpha = [1. if "Contour" in method else 0.5 for method in methods]
-    x_pos = range(len(methods))
-    # Create the box plot
-    bp = ax.boxplot([data[method] for method in methods], positions=x_pos, patch_artist=True)
-    # Customize appearance
-    for patch, a in zip(bp['boxes'], alpha):
-        patch.set_facecolor(box_color)
-        patch.set_alpha(a)
+    
+    if half_tickmarks:
+        # Group Image and Contour methods together
+        # Extract base method names (without -Image or -Contour)
+        base_methods = []
+        seen = set()
+        for method in methods:
+            base = method.replace("-Image", "").replace("-Contour", "")
+            if base not in seen:
+                base_methods.append(base)
+                seen.add(base)
+        
+        # Separate data into Image and Contour groups
+        image_data = []
+        contour_data = []
+        for base in base_methods:
+            # Find corresponding Image and Contour methods
+            img_method = None
+            cont_method = None
+            for method in methods:
+                if base in method:
+                    if "-Contour" in method:
+                        cont_method = method
+                    else:
+                        img_method = method 
+            
+            # Append data (empty list if method doesn't exist)
+            image_data.append(data[img_method] if img_method else [])
+            contour_data.append(data[cont_method] if cont_method else [])
+        
+        # Create positions for grouped boxplots
+        n_groups = len(base_methods)
+        box_width = 0.4
+        offset = 0.2
+
+        # Positions: Image boxes at -offset, Contour boxes at +offset
+        image_positions = np.array(range(n_groups)) * 2.0 - offset
+        contour_positions = np.array(range(n_groups)) * 2.0 + offset
+
+        # Create boxplots
+        bp_image = ax.boxplot(image_data, positions=image_positions, 
+                              widths=box_width, patch_artist=True)
+        bp_contour = ax.boxplot(contour_data, positions=contour_positions, 
+                                widths=box_width, patch_artist=True)
+
+        # Customize appearance
+        for patch in bp_image['boxes']:
+            patch.set_facecolor(box_color)
+            patch.set_alpha(0.5)
+        
+        for patch in bp_contour['boxes']:
+            patch.set_facecolor(box_color)
+            patch.set_alpha(1.0)
+        
+        # Set x-ticks at the center of each group
+        ax.set_xticks(np.arange(0, n_groups * 2, 2))
+        ax.set_xticklabels(base_methods, rotation=45, ha='right')
+        
+    else:
+        # Original single-box behavior
+        xtick_labels = [method.replace("-Image", "").replace("-Contour", "") 
+                       for method in methods]
+        alpha = [1.0 if "Contour" in method else 0.5 for method in methods]
+        x_pos = range(len(methods))
+        
+        # Create the box plot
+        bp = ax.boxplot([data[method] for method in methods], 
+                        positions=x_pos, patch_artist=True)
+        
+        # Customize appearance
+        for patch, a in zip(bp['boxes'], alpha):
+            patch.set_facecolor(box_color)
+            patch.set_alpha(a)
+        
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
+    
     # Set labels and title
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    # ax.set_ylim(top=1.15*max([max(v) for v in data.values() if len(v)>0]))
     ax.set_title(title)
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
+    
     # Add grid for better readability
     ax.grid(True, alpha=0.3)
-    # add legend for contour vs image based registration
-    # note that the alpha value is used to differentiate between contour and image based registration
-    # Create legend elements
+    
+    # Add legend
     if use_legends:
         legend_elements = [
             Patch(facecolor=box_color, alpha=0.5, label='Image-based'),
             Patch(facecolor=box_color, alpha=1.0, label='Contour-based')
         ]
         ax.legend(handles=legend_elements, loc='upper left', fontsize=font_size-2)
+    
     # Tight layout to minimize margins
     plt.tight_layout()
+    
     if pth_save is not None:
         plt.savefig(pth_save, dpi=300)
     else:
-        # Show the plot
         plt.show()
     plt.close()
 
@@ -804,6 +878,7 @@ def get_plots_dice_hausdorff(
         data={k: v["data"] for k, v in dice_dict_prostate.items()},
         pth_save=Path(pth_baseline_results).parent/"boxplot_dice_prostate.svg",
         box_color=prostate_color,
+        half_tickmarks=True,
     )
     box_plot_evals(
         title="Maximum Hausdorff Distance for \n Prostate after Registration (lower is better)",
@@ -937,15 +1012,15 @@ if __name__ == "__main__":
     #     dir_results=dir_results
     # )
 
-    gen_volume_plots_baseline(
-        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
-    )
-
-    # list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
-    # get_plots_dice_hausdorff(
-    #     list_pth_results=list_pth_results,
+    # gen_volume_plots_baseline(
     #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
     # )
+
+    list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
+    get_plots_dice_hausdorff(
+        list_pth_results=list_pth_results,
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    )
 
     # list_pth_results = list(Path(dir_results).rglob("registration_results_*.csv"))
     # get_bar_plots_num_failed(
