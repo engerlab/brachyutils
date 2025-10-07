@@ -41,9 +41,10 @@ setup(
         "py7zr",
         "pytest",
         "vtk",
-        # "checkpointing",
-        "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
-        "ai_assisted_brachy @ git@github.com:engerlab/AI_Assisted_Brachytherapy.git",
+        # commend out for docker:{
+        # "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
+        # "ai_assisted_brachy @ https://github.com/engerlab/AI_Assisted_Brachytherapy.git",
+        # }
         "nibabel",
         "monai",
         "pydantic",

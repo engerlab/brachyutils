@@ -22,15 +22,14 @@ RUN apt install -y build-essential zlib1g zlib1g-dev libncurses5-dev \
 COPY docker_src/repositories/install_python.sh ${dir_software}/install_python.sh
 RUN --mount=type=ssh bash ${dir_software}/install_python.sh
 
+# # install opentps-brachyutils
+COPY docker_src/repositories/install_opentps.sh ${dir_software}/install_opentps.sh
+RUN --mount=type=ssh bash ${dir_software}/install_opentps.sh
+
+# # install ai-assisted-brachytherapy
+COPY docker_src/repositories/install_ai_bt.sh ${dir_software}/install_ai_bt.sh
+RUN --mount=type=ssh bash ${dir_software}/install_ai_bt.sh
+
 # # install brachyutils
 COPY install_brachyutils.sh ${dir_software}/install_brachyutils.sh
 RUN --mount=type=ssh bash ${dir_software}/install_brachyutils.sh
-
-# # install opentps-brachyutils
-# COPY docker_src/repositories/install_opentps.sh ${dir_software}/install_opentps.sh
-# RUN --mount=type=ssh bash ${dir_software}/install_opentps.sh
-
-# # install ai-assisted-brachytherapy
-# COPY docker_src/repositories/install_ai_bt.sh ${dir_software}/install_ai_bt.sh
-# RUN --mount=type=ssh bash ${dir_software}/install_ai_bt.sh
-
