@@ -1,10 +1,10 @@
 #!/bin/bash
 # # for local installation
-dir_software=${HOME}/Software
+# dir_software=${HOME}/Software
 # dir_software=/home/odcus/Software
 
 # # For docker image
-# dir_software=/app/Software
+dir_software=/app/Software
 num_threads=10
 
 apt install -y build-essential zlib1g zlib1g-dev libncurses5-dev \

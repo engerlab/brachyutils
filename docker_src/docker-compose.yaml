@@ -9,7 +9,7 @@ services:
         - HOST_HOME=${HOST_HOME}
     image: brachyutils
     container_name: BrachyUtils
-    user: "${UID}:${GID}"
+    user: 0:0 #"${UID}:${GID}"
     working_dir: /app
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -19,7 +19,7 @@ services:
       - QT_QPA_PLATFORM=offscreen
       - DISPLAY=${DISPLAY} # for access to graphical server
     volumes:
-      - ${HOST_HOME}/Software/brachyutils:/app/Software/brachyutils
+      # - ${HOST_HOME}/Software/brachyutils:/app/Software/brachyutils
       - ${HOST_HOME}:/home/ubuntu/YourLocalHome
       - /tmp/.X11-unix:/tmp/.X11-unix # for access to graphical server
     expose:
