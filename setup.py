@@ -9,6 +9,7 @@ setup(
     # namespace_packages=['brachyutils'],
     package_dir={"": "."}, # required for pip install -e .
     install_requires=[
+        "setuptools",
         "cycler",
         "fonttools",
         "importlib-resources",
@@ -41,7 +42,7 @@ setup(
         "pytest",
         "vtk",
         # "checkpointing",
-        # "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
+        "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
         "nibabel",
         "monai",
         "pydantic",
