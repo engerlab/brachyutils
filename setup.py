@@ -43,6 +43,7 @@ setup(
         "vtk",
         # "checkpointing",
         "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
+        "ai_assisted_brachy @ git+https://github.com/engerlab/AI_Assisted_Brachytherapy.git",
         "nibabel",
         "monai",
         "pydantic",
