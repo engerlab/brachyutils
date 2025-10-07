@@ -883,42 +883,42 @@ def get_plots_dice_hausdorff(
         half_tickmarks=True,
         increase_ylim=True
     )
-    # box_plot_evals(
-    #     title="Maximum Hausdorff Distance for \n Prostate after Registration (lower is better)",
-    #     xlabel="Method",
-    #     ylabel="Hausdorff Distance (mm)",
-    #     data={k: v["data"] for k, v in hausdorff_dict_prostate.items()},
-    #     pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_prostate.svg",
-    #     box_color=prostate_color,
-    #     half_tickmarks=True,
-    # )
-    # box_plot_evals(
-    #     title="Dice Coefficient for Biopsies after Registration \n(higher is better)",
-    #     xlabel="Method",
-    #     ylabel="Dice Coefficient",
-    #     data={k: v["data"] for k, v in dice_dict_biopsies.items()},
-    #     pth_save=Path(pth_baseline_results).parent/"boxplot_dice_biopsies.svg",
-    #     box_color=biopsy_color,
-    #     half_tickmarks=True,
-    # )
-    # box_plot_evals(
-    #     title="Maximum Hausdorff Distance for \n Biopsies after Registration (lower is better)",
-    #     xlabel="Method",
-    #     ylabel="Hausdorff Distance (mm)",
-    #     data={k: v["data"] for k, v in hausdorff_dict_biopsies.items()},
-    #     pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_biopsies.svg",
-    #     box_color=biopsy_color,
-    #     half_tickmarks=True,
-    # )
-    # box_plot_evals(
-    #     title="Computation Time for Registration Methods \n(lower is better)",
-    #     xlabel="Method",
-    #     ylabel="Time (s)",
-    #     data={k: v["data"] for k, v in time_dict.items()},
-    #     pth_save=Path(pth_baseline_results).parent/"boxplot_registration_time.svg",
-    #     box_color=(0.2, 0.2, 205/255),
-    #     half_tickmarks=True,
-    # )
+    box_plot_evals(
+        title="Maximum Hausdorff Distance for \n Prostate after Registration (lower is better)",
+        xlabel="Method",
+        ylabel="Hausdorff Distance (mm)",
+        data={k: v["data"] for k, v in hausdorff_dict_prostate.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_prostate.svg",
+        box_color=prostate_color,
+        half_tickmarks=True,
+    )
+    box_plot_evals(
+        title="Dice Coefficient for Biopsies after Registration \n(higher is better)",
+        xlabel="Method",
+        ylabel="Dice Coefficient",
+        data={k: v["data"] for k, v in dice_dict_biopsies.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_dice_biopsies.svg",
+        box_color=biopsy_color,
+        half_tickmarks=True,
+    )
+    box_plot_evals(
+        title="Maximum Hausdorff Distance for \n Biopsies after Registration (lower is better)",
+        xlabel="Method",
+        ylabel="Hausdorff Distance (mm)",
+        data={k: v["data"] for k, v in hausdorff_dict_biopsies.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_hausdorff_biopsies.svg",
+        box_color=biopsy_color,
+        half_tickmarks=True,
+    )
+    box_plot_evals(
+        title="Computation Time for Registration Methods \n(lower is better)",
+        xlabel="Method",
+        ylabel="Time (s)",
+        data={k: v["data"] for k, v in time_dict.items()},
+        pth_save=Path(pth_baseline_results).parent/"boxplot_registration_time.svg",
+        box_color=(0.2, 0.2, 205/255),
+        half_tickmarks=True,
+    )
 
 def get_bar_plots_num_failed(
     list_pth_results: List[Path | str],
@@ -1025,29 +1025,29 @@ def get_bar_plots_num_failed(
 
 if __name__ == "__main__":
     dir_results = "temp_data/registration"
-    # reg_data_inputs = gen_registration_inputs_microreg(
-    #     dir_all_data="temp_data/registration/fixed-nrrd",
-    #     )
-    # get_baseline_stats_microreg(
-    #     reg_data_inputs=reg_data_inputs,
-    #     pth_results_csv=Path(dir_results)/"registration_results_baseline.csv"
-    # )
-    # eval_reg_opentps(
-    #     reg_data_inputs=reg_data_inputs,
-    #     dir_results=dir_results
-    # )
-    # eval_reg_plastimatch(
-    #     reg_data_inputs=reg_data_inputs,
-    #     dir_results=dir_results
-    # )
-    # eval_reg_simple_elastix(
-    #     reg_data_inputs=reg_data_inputs,
-    #     dir_results=dir_results
-    # )
+    reg_data_inputs = gen_registration_inputs_microreg(
+        dir_all_data="temp_data/registration/fixed-nrrd",
+        )
+    get_baseline_stats_microreg(
+        reg_data_inputs=reg_data_inputs,
+        pth_results_csv=Path(dir_results)/"registration_results_baseline.csv"
+    )
+    eval_reg_opentps(
+        reg_data_inputs=reg_data_inputs,
+        dir_results=dir_results
+    )
+    eval_reg_plastimatch(
+        reg_data_inputs=reg_data_inputs,
+        dir_results=dir_results
+    )
+    eval_reg_simple_elastix(
+        reg_data_inputs=reg_data_inputs,
+        dir_results=dir_results
+    )
 
-    # gen_volume_plots_baseline(
-    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
-    # )
+    gen_volume_plots_baseline(
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
+    )
 
     list_pth_results = Path(dir_results).rglob("reg_metrics_*.csv")
     get_plots_dice_hausdorff(
@@ -1055,8 +1055,8 @@ if __name__ == "__main__":
         pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv",
     )
 
-    # list_pth_results = list(Path(dir_results).rglob("registration_results_*.csv"))
-    # get_bar_plots_num_failed(
-    #     list_pth_results=list_pth_results,
-    #     pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv"
-    # )
+    list_pth_results = list(Path(dir_results).rglob("registration_results_*.csv"))
+    get_bar_plots_num_failed(
+        list_pth_results=list_pth_results,
+        pth_baseline_results=Path(dir_results)/"registration_results_baseline.csv"
+    )
