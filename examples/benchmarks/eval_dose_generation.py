@@ -49,11 +49,17 @@ def export_single_dicom_to_plan(
     )
     return dir_export_plan
 
-def run_export():
+def run_export(
+    dir_all_dicoms: Path | str,
+    dir_export: Path | str,
+    multi_proc: bool = True,
+    ):
     from functools import partial
-    dir_all_dicoms = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
+    dir_all_dicoms = Path(dir_all_dicoms)
+    dir_export = Path(dir_export)
+    # dir_all_dicoms = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     # dir_export = Path("temp_data/tg43/prostate-glen-2023")
-    dir_export = Path("temp_data/mc/prostate-glen-2023")
+    # dir_export = Path("temp_data/mc/prostate-glen-2023")
 
     # pth_material = Path("admin/constants/CTtoDensityProstate.txt")
     # mat_from_ct = True
@@ -64,9 +70,9 @@ def run_export():
         # "brachy_source": 
         # "pth_plan": "combined.plan",
         # "pth_phantom": "ct.egsphant",
-        "number_histories": 10000,
+        "number_histories": 1E6,
         # "total_time": 0,
-        "number_of_threads": 14,
+        "number_of_threads": 16,
         # "PrintProgress": 10000,
         # "beam_on": 10000,
     }
@@ -74,8 +80,8 @@ def run_export():
         "egsphant": True,
         "materials_table": pth_material,
         "assign_material_from_ct": mat_from_ct,
-        # "resampled_spacing": [1., 1., 1.],
-        # "crop_by_contour": crop_by_contour,
+        "resampled_spacing": [1., 1., 1.],
+        "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
         "combined_only": True,
@@ -91,7 +97,12 @@ def run_export():
         content_to_export=content_to_export,
         )
 
-    run_multi_proc(partially_filled_export_func, all_dicoms)
+    if multi_proc:
+        run_multi_proc(partially_filled_export_func, all_dicoms)
+    else:
+        for dicom in tqdm(all_dicoms):
+            partially_filled_export_func(dicom)
+            break # for debugging
 
 def run_dose_generation():
     # # for TG43
@@ -380,7 +391,16 @@ if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
-    run_export()
-    run_dose_generation()
-    run_get_dvh_metrics_all_plans()
+    
+    dir_all_dicoms = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
+    dir_export = Path("temp_data/tg43/prostate-glen-2023") # for tg43
+    dir_export = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
+    for dir_pth in [dir_all_dicoms, dir_export]:
+        run_export(
+            dir_all_dicoms=dir_all_dicoms,
+            dir_export=dir_export,
+            multi_proc=False,
+        )
+    # run_dose_generation()
+    # run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
