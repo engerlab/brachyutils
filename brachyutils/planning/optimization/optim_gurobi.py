@@ -679,7 +679,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 break
         self.model.update()
 
-    def evaluate_penaltyWeight(self, config: dict, return_plan:bool=False, inplace:bool=False) -> dict:
+    def evaluate_penaltyWeight(self, config: dict, return_cat_table:bool=False, inplace:bool=False) -> dict:
         r"""
         ### Purpose:
         - A function to evaluate penalty weights by resetting the model with new penalty weights
@@ -691,6 +691,15 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             'linear_w_Chestwall': 90.46064639091492, 
             'linear_w_PTV': 1000.0, 
             'quadratic_w_PTV': 1.0}
+        - return_cat_table: bool := Whether to return the catheter table along with the DVH metrics. Default is False.
+        - inplace: bool := Whether to modify the original plan or return a new optimized plan. Default is False.
+        ### Outputs:
+        - output: dict := A dictionary containing the DVH metrics and penalty weights.
+        If return_cat_table is True, returns a tuple (output, catheter_table).
+        WARNING: If inplace is True, the original plan will be modified.
+        By returning the catheter table, one can reconstruct the optimized plan afterwards
+        by manually setting the catheter_table attribute of the BrachyPlan object and then
+        calling the update_plan_from_catheter_table() method.
         """
         if not len(config.keys()) > 0:
             raise ValueError("Config is empty. Please provide a valid config.")
@@ -706,18 +715,13 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             output[dvh_metric_name] = float(dvh_value)
 
         output.update(config_wo_td)
-        if return_plan:
-            return output, optimized_plan
+        if return_cat_table:
+            return output, deepcopy(optimized_plan.catheter_table)
         else:
             return output
 
-    def evaluate_penaltyWeight_space(self, list_of_configs: List[dict], return_plan:bool=False) -> dict:
+    def evaluate_penaltyWeight_space(self, list_of_configs: List[dict], return_cat_table:bool=False) -> dict:
         r"""
-
-        # WARNING: For now, this multiprocessed function is not faster than looping through
-        # the configs and calling evaluate_penaltyWeight function when returning the plans
-        # because of the overhead of deepcopying the BrachyPlan object with every process
-
         ### Purpose:
         - A function to evaluate the penalty weight space by resetting the model with new penalty weights
         and re-optimizing in parallel. The results are collected in a dataframe.
@@ -762,21 +766,22 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             res = pl.starmap(_run_and_organize_results, zip(
                 range(len(list_of_configs)),  # dummy arg instead of self.plan
                 model_inputs_data,
-                # If you wnt to return plans you need to pass the inplace arg as False
+                # If you want to return plans you need to pass the inplace arg as False
                 # otherwise all your plans are the same object which will be the last
-                # optimized plan
-                [not return_plan]*len(list_of_configs),
+                # optimized plan. However, deepcopying the plan makes the Pool operation
+                # sequential and slow. Instead one can return only the catheter table
+                [True]*len(list_of_configs),
                 list_of_configs,
-                [return_plan]*len(list_of_configs),
+                [return_cat_table]*len(list_of_configs),
             )
             )
-        if return_plan:
+        if return_cat_table:
             weights_and_dvh_space = []
-            optimized_plans = {}
+            optimized_cat_table = {}
             for i, r in enumerate(res):
                 weights_and_dvh_space.append(r[0])
-                optimized_plans[f"trial_{i}"] = r[1]
-            return pd.DataFrame(weights_and_dvh_space), optimized_plans
+                optimized_cat_table[f"trial_{i}"] = r[1]
+            return pd.DataFrame(weights_and_dvh_space), optimized_cat_table
         else:
             return pd.DataFrame(res)
         
@@ -785,9 +790,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
 def _run_and_organize_results(
     _, 
     model_inputs_data:dict,
-    inplace:bool=False,
+    inplace:bool=True,
     config_wo_td:dict = {},
-    return_plan:bool=False
+    return_cat_table:bool=False
 ):
     # print(f"PID {os.getpid()} starting work")
     # time.sleep(2)
@@ -808,8 +813,8 @@ def _run_and_organize_results(
         output[dvh_metric_name] = float(dvh_value)
     output.update(config_wo_td)
 
-    if return_plan:
-        return output, optimized_plan
+    if return_cat_table:
+        return output, deepcopy(optimized_plan.catheter_table)
     else:
         return output
 

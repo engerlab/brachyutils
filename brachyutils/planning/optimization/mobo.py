@@ -75,7 +75,7 @@ class MOBOOptimizer:
         #         hyper-volume of the Pareto front.
         pass
     
-    def evaluate_penaltyWeight_space_helper(self, weight_space:pd.DataFrame, multiprocessing:bool=False):
+    def evaluate_penaltyWeight_space_helper(self, weight_space:pd.DataFrame, multiprocessing:bool=True):
         r''' This function evaluates a space of penalty weights in parallel using multiprocessing library. 
         inputs:
             - weight_space := a pandas dataframe containing the penalty weight vectors to be evaluated. 
@@ -92,21 +92,21 @@ class MOBOOptimizer:
             # The BrachyOptim object cannot be pickled due to all the internal attributes 
             # like gurobi variables that are not picklable. So, we need to use a workaround here.
             # The BrachyOptim class itself should provide a method to evaluate penalty weights in parallel.
-            weights_and_dvh_space, plans = self.brachy_optim.evaluate_penaltyWeight_space(
+            weights_and_dvh_space, cat_tables = self.brachy_optim.evaluate_penaltyWeight_space(
                 weight_space_list_of_d,
-                return_plan=True,
+                return_cat_table=True,
             )
-            return pd.DataFrame(weights_and_dvh_space), plans
+            return pd.DataFrame(weights_and_dvh_space), cat_tables
         else:
 
             results = {}
-            plans = {}
+            cat_tables = {}
             for i, w_space in enumerate(weight_space_list_of_d):
-                res, plan = self.brachy_optim.evaluate_penaltyWeight(w_space, return_plan=True)
+                res, cat_table = self.brachy_optim.evaluate_penaltyWeight(w_space, return_cat_table=True)
                 res.update(w_space)
                 results[i] = res
-                plans[f"trial_{i}"] = plan
-            return pd.DataFrame.from_dict(results, orient='index'), plans
+                cat_tables[f"trial_{i}"] = cat_table
+            return pd.DataFrame.from_dict(results, orient='index'), cat_tables
 
   
 
@@ -141,8 +141,8 @@ class MOBOOptimizer:
                 random_weight_space[parameter] = np.ones(num_fmio_runs)*parameters[parameter].value
 
         # run penalty weight evaluation on all the weight vecotrs in parallel
-        random_weight_dvh_space, plans = self.evaluate_penaltyWeight_space_helper(
-            random_weight_space, multiprocessing=False)
+        random_weight_dvh_space, cat_tables = self.evaluate_penaltyWeight_space_helper(
+            random_weight_space, multiprocessing=True)
 
         # put the results into the axclient
         for indx in random_weight_dvh_space.index:
@@ -151,7 +151,7 @@ class MOBOOptimizer:
         # for debugging{ in case you want to view the result of added trials uncomment the line below
         # axClient.get_trials_data_frame()
         # }
-        return random_weight_dvh_space, plans
+        return random_weight_dvh_space, cat_tables
 
 
     def run(self,
@@ -163,6 +163,11 @@ class MOBOOptimizer:
             ):
         r'''This function runs multi-objective bayesian optimization (mobo) for as many iterations as the user commands it to. 
             it will save the result of all iterations in a pandas dataframe. 
+        
+        WARNING: Inplace is True in the different calls to the optimization function, Hence 
+        the original plan will be modified!!! By returning the catheter table, one can reconstruct 
+        the optimized plan afterwards by manually setting the catheter_table attribute of the 
+        BrachyPlan object and then calling the update_plan_from_catheter_table() method.
 
         inputs:
             - num_iterations:= the number of desired mobo iterations
@@ -180,6 +185,11 @@ class MOBOOptimizer:
 
         outputs:
             - results:dict := a dictionary containing many outcomes of the mobo iterations. 
+            - optimized_cat_tables:dict := a dictionary containing the optimized catheter tables for each iteration.
+                the keys are the iteration number and the values are the catheter tables.
+            - hv_list:list := a list containing the hypervolume of the pareto front at each iteration.
+            - mobo_time:float := the time taken to run the mobo iterations in seconds.
+            - parallel_init_time:float := the time taken to run the parallel initialization in seconds
 
         '''
         # a list to keep track of the hypervolumes. 
@@ -228,13 +238,13 @@ class MOBOOptimizer:
         
         tic = perf_counter()
         tac = None
-        optimized_plans = {}
+        optimized_cat_tables = {}
         if num_parallel_initiation > 1:
             ## If ==1 we will run the semirandom initialization with SOBOL inside the loop
             # fill out the ax_client experiment with the result of 100 randomly generated penalty weights
-            results, plans = self.initialize_experiment(ax_client,
+            results, cat_tables = self.initialize_experiment(ax_client,
                                        num_parallel_initiation - 1)
-            optimized_plans.update(plans)
+            optimized_cat_tables.update(cat_tables)
             tac = perf_counter()
             print(f"Time taken for {num_parallel_initiation} parallel initialization: {tac - tic:0.4f} seconds")
         else:
@@ -244,10 +254,10 @@ class MOBOOptimizer:
         for _ in range(num_iterations+1):
             parameters, trial_index = ax_client.get_next_trial()
 
-            dvh_metrics, optimized_plan = self.brachy_optim.evaluate_penaltyWeight(
-                parameters, return_plan=True, inplace=False) # inplace Flase since we add the new plan to the dict
+            dvh_metrics, optimized_cat_table = self.brachy_optim.evaluate_penaltyWeight(
+                parameters, return_cat_table=True, inplace=False) # inplace Flase since we add the new plan to the dict
             results = pd.concat([results, pd.DataFrame({**dvh_metrics}, index=[trial_index])], ignore_index=True)
-            optimized_plans[f"trial_{trial_index}"] = optimized_plan
+            optimized_cat_tables[f"trial_{trial_index}"] = optimized_cat_table
             # local evaluation here can be replaced with deployment to external systems
             ax_client.complete_trial(trial_index=trial_index, raw_data=dvh_metrics)
             if calc_hv:
@@ -278,7 +288,7 @@ class MOBOOptimizer:
         trial_only_results = ax_client.get_trials_data_frame().sort_values(by=["trial_index"])
         trial_only_results.to_csv(output_filename, index=False)
         results.to_csv(output_filename.replace('.csv', '_with_all_DVH_metrics.csv'), index=False)
-        return results, optimized_plans, hv_list, mobo_time, parallel_init_time
+        return results, optimized_cat_tables, hv_list, mobo_time, parallel_init_time
 
     def count_successful_iterations(self, results:pd.DataFrame):
         r''' this function counts the number of successful iterations in the mobo results.
