@@ -639,7 +639,6 @@ class BrachyPhantom:
         crop_by_contour: str = None,
         resampled_spacing: List[float] = None,
         resampled_origin: List[float] = None,
-        resample_phantom_base: Optional[bool] = True,
         background_material: Optional[str] = "Air",
     ) -> None:
         r"""
@@ -678,14 +677,6 @@ class BrachyPhantom:
         elif self.image_obj is not None:
             phantom_used_for_egsphant = deepcopy(self)
             from brachyutils.geometry.egsphant_utils import BrachyEgsphant
-            if resampled_spacing is not None or resampled_origin is not None: #if we want to resample
-                if resample_phantom_base: #resample the phantom and structures that the egsphant is based on
-                    phantom_used_for_egsphant.resample_to(
-                        origin=resampled_origin,
-                        spacing=resampled_spacing,
-                        inplace=True
-                    )
-
             self.egsphant_obj = BrachyEgsphant(
                 phantom=phantom_used_for_egsphant,
                 material_dict=material_dict,
@@ -696,9 +687,15 @@ class BrachyPhantom:
             if crop_by_contour is not None:
                 self.egsphant_obj.crop_by_contour(phantom_used_for_egsphant, crop_by_contour)
 
-            if resampled_spacing is not None and not resample_phantom_base:
-                self.egsphant_obj.material_image = resampleImage3D(image=self.egsphant_obj.material_image, spacing=resampled_spacing, outputType=np.int16)
-                self.egsphant_obj.density_image = resampleImage3D(image=self.egsphant_obj.density_image, spacing=resampled_spacing)
+            if resampled_spacing is not None:
+                self.egsphant_obj.material_image = resampleImage3D(
+                    image=self.egsphant_obj.material_image,
+                    origin=resampled_origin,
+                    spacing=resampled_spacing, outputType=np.int16)
+                self.egsphant_obj.density_image = resampleImage3D(
+                    image=self.egsphant_obj.density_image,
+                    origin=resampled_origin,
+                    spacing=resampled_spacing)
                 self.egsphant_obj.get_voxel_edges()
             if str(pth_output).endswith(".egsphant"):
                 self.egsphant_obj.write_to_ctegsphant(pth_output)
