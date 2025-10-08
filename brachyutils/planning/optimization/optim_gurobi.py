@@ -713,6 +713,11 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
 
     def evaluate_penaltyWeight_space(self, list_of_configs: List[dict], return_plan:bool=False) -> dict:
         r"""
+
+        # WARNING: For now, this multiprocessed function is not faster than looping through
+        # the configs and calling evaluate_penaltyWeight function when returning the plans
+        # because of the overhead of deepcopying the BrachyPlan object with every process
+
         ### Purpose:
         - A function to evaluate the penalty weight space by resetting the model with new penalty weights
         and re-optimizing in parallel. The results are collected in a dataframe.
@@ -757,7 +762,10 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             res = pl.starmap(_run_and_organize_results, zip(
                 range(len(list_of_configs)),  # dummy arg instead of self.plan
                 model_inputs_data,
-                [False]*len(list_of_configs),
+                # If you wnt to return plans you need to pass the inplace arg as False
+                # otherwise all your plans are the same object which will be the last
+                # optimized plan
+                [not return_plan]*len(list_of_configs),
                 list_of_configs,
                 [return_plan]*len(list_of_configs),
             )
@@ -766,7 +774,6 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             weights_and_dvh_space = []
             optimized_plans = {}
             for i, r in enumerate(res):
-                print("in creating dict at the end of Multiprocess inti", r[0])
                 weights_and_dvh_space.append(r[0])
                 optimized_plans[f"trial_{i}"] = r[1]
             return pd.DataFrame(weights_and_dvh_space), optimized_plans
