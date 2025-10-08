@@ -1039,6 +1039,7 @@ class BrachyPlan:
                     material_dict=content_to_export.get("materials_table", None),
                     assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
                     crop_by_contour=content_to_export.get("crop_by_contour", None),
+                    strict_name_match=content_to_export.get("strict_name_match", True),
                     resampled_spacing=content_to_export.get("resampled_spacing", None),
                     resampled_origin=content_to_export.get("resampled_origin", None),
                     background_material=content_to_export.get("background_material", "Air"),
@@ -1286,7 +1287,8 @@ class BrachyPlan:
         crop_by_contour: str = None,
         resampled_spacing: List[float] = None,
         resampled_origin: List[float] = None,
-        background_material: str = None
+        background_material: str = None,
+        strict_name_match: bool = True
     ):
         r"""
         ### Purpose:
@@ -1318,7 +1320,8 @@ class BrachyPlan:
             crop_by_contour=crop_by_contour,
             resampled_spacing=resampled_spacing,
             resampled_origin=resampled_origin,
-            background_material=background_material
+            background_material=background_material,
+            strict_name_match=strict_name_match
         )
 
     def _export_applicator_geometry(

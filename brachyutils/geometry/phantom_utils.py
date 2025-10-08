@@ -348,6 +348,7 @@ class BrachyPhantom:
         self,
         query_structure_list: List[str],
         mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
+        strict_name_match: bool = True,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         ### Purpose:
@@ -378,7 +379,11 @@ class BrachyPhantom:
 
         for query_structure in flattened_query_structure_list:
             for mask_name in self.structure_names:
-                if query_structure.lower() == mask_name.lower():
+                if strict_name_match:
+                    pick_structure = query_structure.lower() == mask_name.lower()
+                else:
+                    pick_structure = query_structure.lower() in mask_name.lower()
+                if pick_structure:
                     mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
                         origin=self.image_obj.origin,
                         gridSize=self.image_obj.gridSize,
@@ -640,6 +645,7 @@ class BrachyPhantom:
         resampled_spacing: List[float] = None,
         resampled_origin: List[float] = None,
         background_material: Optional[str] = "Air",
+        strict_name_match: bool = True,
     ) -> None:
         r"""
         Purpose:
@@ -685,7 +691,10 @@ class BrachyPhantom:
             )
   
             if crop_by_contour is not None:
-                self.egsphant_obj.crop_by_contour(phantom_used_for_egsphant, crop_by_contour)
+                self.egsphant_obj.crop_by_contour(
+                    phantom_used_for_egsphant,
+                    crop_by_contour,
+                    strict_name_match=strict_name_match)
 
             if resampled_spacing is not None:
                 self.egsphant_obj.material_image = resampleImage3D(

@@ -790,6 +790,7 @@ class BrachyEgsphant:
         phantom_obj: BrachyPhantom,
         contour_name: str,
         inplace: Optional[bool] = True,
+        strict_name_match: Optional[bool] = True,
     ) -> Union[None, "BrachyEgsphant"]:
         r"""
         Purpose:
@@ -807,7 +808,7 @@ class BrachyEgsphant:
         )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
 
-        mask_dict = phantom_obj.get_structure_mask([contour_name], mask_type=ROIMask)
+        mask_dict = phantom_obj.get_structure_mask([contour_name], mask_type=ROIMask, strict_name_match=strict_name_match)
         resampled_mask = resampleImage3DOnImage3D(
             mask_dict[contour_name], self.density_image
         )

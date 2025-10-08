@@ -81,6 +81,7 @@ def run_export(
         "materials_table": pth_material,
         "assign_material_from_ct": mat_from_ct,
         "resampled_spacing": [1., 1., 1.],
+        "strict_name_match": False,
         "crop_by_contour": crop_by_contour,
         "plan": True,
         "mac": True,
@@ -102,7 +103,7 @@ def run_export(
     else:
         for dicom in tqdm(all_dicoms):
             partially_filled_export_func(dicom)
-            break # for debugging
+            # break # for debugging
 
 def run_dose_generation():
     # # for TG43
@@ -392,15 +393,16 @@ if __name__ == "__main__":
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
     
-    dir_all_dicoms = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
-    dir_export = Path("temp_data/tg43/prostate-glen-2023") # for tg43
-    dir_export = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
-    for dir_pth in [dir_all_dicoms, dir_export]:
+    dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
+    dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
+    dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
+    for dir_export in [dir_export_tg43, dir_export_mc]:
         run_export(
             dir_all_dicoms=dir_all_dicoms,
             dir_export=dir_export,
             multi_proc=False,
         )
+        # break
     # run_dose_generation()
     # run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
