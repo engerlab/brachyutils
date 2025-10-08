@@ -42,8 +42,8 @@ setup(
         "pytest",
         "vtk",
         # commend out for docker:{
-        # "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
-        # "ai_assisted_brachy @ https://github.com/engerlab/AI_Assisted_Brachytherapy.git",
+        "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
+        "ai_assisted_brachy @ git+https://github.com/engerlab/AI_Assisted_Brachytherapy.git",
         # }
         "nibabel",
         "monai",
