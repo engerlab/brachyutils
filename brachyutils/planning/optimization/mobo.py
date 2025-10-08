@@ -1,56 +1,35 @@
 r'''
 Date 
-    2022/9/20
+    2025/10/08
 
 Purpose
     This script runs various experiments with penalty weight optimization using multi objective optimization (MOBO).
         MOBO is implemented by ax api and must be installed, see (https://ax.dev/docs/api.html) for directions
    
 Author
-    Hossein Jafarzadeh,
+    Sébastien Quetin, work adapted from Hossein Jafarzadeh's previous work on MOBO for prostate brachytherapy,
         Enger lab
         McGill University 
-
-Functions implemented
-    - generate_mobo_parameters()
-    - generate_mobo_objectives()
-    - ax_save_results()
-    - run_mobo_iterations(): the most important function of this package
-    - run_experiments_with_variousIterations()
-    - run_experiment_on_patients()
 '''
-
-from cProfile import run
-from importlib.resources import path
-from ax.service.ax_client import AxClient
-from ax.service.utils.instantiation import ObjectiveProperties
-from ax import OutcomeConstraint
-from ax import OptimizationConfig
-from ax.modelbridge.generation_strategy import GenerationStrategy, GenerationStep
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
-
-import torch
-import numpy as np
-import pandas as pd
-# Load our sample 2-objective problem
-# from penaltyWeightEvaluator import PenaltyWeightEvaluator
-
-from ax.modelbridge.modelbridge_utils import observed_hypervolume
-from ax.modelbridge.registry import Models
-from ax.modelbridge.factory import get_MOO_NEHVI
+import copy 
+import glob
+import os 
+import re
 from time import perf_counter
 
-from ax.service.utils.report_utils import exp_to_df
-import pickle
+import numpy as np
+import pandas as pd
 
-# from saveResults_ax_experiment import ax_save_results
-import glob
-from f_weight_to_DVHmetric import TreatmentPlan
-import re
+from ax.adapter.adapter_utils import observed_hypervolume
+from ax.adapter.registry import Generators
+from ax.generation_strategy.generation_strategy import GenerationStrategy, GenerationStep
+from ax.service.ax_client import AxClient
+from ax.service.utils.instantiation import ObjectiveProperties
 
-from visualize_mobo_library import count_success_rate
+from brachyutils.planning.optimization.optim_utils import BrachyDwellTimeOptim, Optimization_Config
 
-def generate_mobo_parameters(treatmentPlan:TreatmentPlan, param_configs:dict):
+
+def generate_mobo_parameters(optimization_config_list:list[Optimization_Config], param_configs:dict):
     r''' generate a list of paremeters that ax api can interface with
     inputs:
         - treatmentPlan:= an object that has all the structures to be iradiated. the structures must have the type "TPS_structure".
@@ -64,22 +43,40 @@ def generate_mobo_parameters(treatmentPlan:TreatmentPlan, param_configs:dict):
             {"name":, "type":, "bounds":}
     '''
     mobo_params = []
-    for structure in treatmentPlan.structure_list:
+    for optim_config in optimization_config_list:
         # the weight of the tumor volume (tv) is always 1 when using relative weights
-        if 'tv' in structure.name:
+        if 'tv' in optim_config.structure_name.lower():
             if 'target_dose_range' in list(param_configs.keys()):
-                mobo_params.append({"name":'td_'+structure.name, 'type':'range', "bounds":param_configs['target_dose_range']})
-            if param_configs['relative_weights']:
-                mobo_params.append({"name":'w_'+structure.name, 'type':'fixed', "value":1000.0})
-                continue
-        mobo_params.append({"name":'w_'+structure.name, 'type':'range', "bounds":param_configs['weight_range']})
+                mobo_params.append({"name":'td_'+optim_config.structure_name, 'type':'range', "bounds":param_configs['target_dose_range']})
+            for term in ["uniformity", "hotspot"]:
+                pass
+                # mobo_params.append({"name":term+ '_w_'+optim_config.structure_name, 'type':'range', "bounds":[0., 100.]})
+        for term in ["linear", "quadratic"]:
+            if "linear" in term:
+                bds = param_configs['weight_range']
+                type_ = "range"
+                k = "bounds"
+            else:
+                bds = 1.
+                type_ = "fixed"
+                k = "value"
+
+            if 'tv' in optim_config.structure_name.lower():
+                if param_configs['relative_weights']:
+                    if "quadratic" in term:
+                        m = 1.
+                    else:
+                        m = 1000.
+                    mobo_params.append({"name":term+ '_w_'+optim_config.structure_name, 'type':'fixed', "value":m}) # 'fixed', "value":m}) # 'range', 'bounds':[0., m]})
+                    continue
+            mobo_params.append({"name":term+ '_w_'+optim_config.structure_name, 'type':type_, k:bds})
 
     return mobo_params
 
-def generate_mobo_objectives(treatmentPlan:TreatmentPlan, param_configs:dict):
+def generate_mobo_objectives(dvh_metric_goals:dict, param_configs:dict, target_dose:float):
     r'''this function generates the objectives to be optimized by MOBO.
     inputs:
-        - treatmentPlan:= an object that has all the structures to be iradiated. the structures must have the type "TPS_structure".
+        - treatmentPlan:= an object that has all the structures to be iradiated. the structures must have the type "BrachyStructure".
         - param_config:= a dictionary containing the field "relative_dvh_dose":bool. if this field is True, then 
             the objective thresholds are normalized to the target dose. 
     
@@ -87,46 +84,76 @@ def generate_mobo_objectives(treatmentPlan:TreatmentPlan, param_configs:dict):
         mobo_objectives:dict := a dictionary containing {name of DVH metric: ObjectiveProperties(minimize=, threshold=)}
    '''
     mobo_objectives={}
-    for structure in treatmentPlan.structure_list:
-        full_dvh_metric = structure.dvh_metric_name+'('+structure.name+')'
-        threshold  = structure.dvh_metric_clinical_threshold
+    for dvh_metric_name, goal in dvh_metric_goals.items():
+        full_dvh_metric = dvh_metric_name
+        threshold  = target_dose
         # if DVH metric of the structure is to be normalized to the target dose, then threshold (goal) for this objective must be normalized
         if param_configs['relative_dvh_dose']:
-            threshold = threshold/treatmentPlan.tumor_target_dose
+            threshold = threshold/target_dose
         # dose to tumor volume ('tv') needs to be maximized
-        if 'tv' in structure.name: 
-            mobo_objectives[full_dvh_metric] = ObjectiveProperties(minimize=False, threshold=threshold) 
+        if 'tv' in dvh_metric_name.lower(): 
+            if "CI" in full_dvh_metric or "HI" in full_dvh_metric:
+                pass
+            mobo_objectives[full_dvh_metric] = ObjectiveProperties(minimize=False, threshold=50. if "V100" in full_dvh_metric else 1) 
             continue
         # dose to the other structures need to be minimized
         mobo_objectives[full_dvh_metric] = ObjectiveProperties(minimize=True, threshold=threshold)
+
+
+    # Args for ObjectiveProperties:
+    #     - minimize: Boolean indicating whether the objective is to be minimized
+    #         or maximized.
+    #     - threshold: Optional `float` representing the smallest objective value
+    #         (resp. largest if minimize=True) that is considered valuable in the context
+    #         of multi-objective optimization. In BoTorch and in the literature, this is
+    #         also known as an element of the reference point vector that defines the
+    #         hyper-volume of the Pareto front.
+
     return mobo_objectives
+    
+def work(brachy_optim, weight):
+    local_copy = copy.deepcopy(brachy_optim)
+    return local_copy.evaluate_penaltyWeight(weight)
 
-
-def ax_save_results(fileName:str, dictionary:dict):
-    r'''This function saves any python dictionary in a .pkl file
+def evaluate_penaltyWeight_space_helper(brachy_optim:BrachyDwellTimeOptim, weight_space:pd.DataFrame, multiprocessing:bool=True, out_folder:str = None):
+    r''' This function evaluates a space of penalty weights in parallel using multiprocessing library. 
     inputs:
-        - fileName:= the name of the pickle file where the dictionary is written
-        - dictionary:= the dictionary to be saved in fileName
+        - brachy_optim := an optimizer object that can reoptimize and evaluate dvh metrics
+        - weight_space := a pandas dataframe containing the penalty weight vectors to be evaluated. 
+            each row is a weight vector, and each column is a structure name with the prefix "w_"
+        - multi_thread := if true, the evaluation is done in parallel using multiprocessing library
     outputs:
-        - a pickle file written to the fileName directory
 
-    dependencies:
-        - pickle.dump()
+        - a pandas dataframe containing the result of penalty weight evaluations.
     '''
-    if (".pkl" in fileName):
-        with open(fileName, 'wb') as file:
-            pickle.dump(dictionary, file)
+    weight_space_list_of_d = weight_space.to_dict('records')
+
+    if multiprocessing:
+        
+        # The BrachyOptim object cannot be pickled due to all the internal attributes 
+        # like gurobi variables that are not picklable. So, we need to use a workaround here.
+        # The BrachyOptim class itself should provide a method to evaluate penalty weights in parallel. 
+        weights_and_dvh_space = brachy_optim.evaluate_penaltyWeight_space(
+            weight_space_list_of_d, 
+            out_folder=out_folder
+        )
+        return pd.DataFrame(weights_and_dvh_space)
     else:
-        print(f"File name should have the .pkl extension. here is the file name at the moment \n {fileName}")
 
-    return 0
+        results = {}
+        for i, w_space in enumerate(weight_space_list_of_d):
+            res = brachy_optim.evaluate_penaltyWeight(w_space)
+            res.update(w_space)
+            results[i] = res
+        return pd.DataFrame.from_dict(results, orient='index')
 
+  
 
-def initialize_experiment(axClient:AxClient, treatment_plan:TreatmentPlan, num_fmio_runs:int):
+def initialize_experiment(axClient:AxClient, brachy_optim:BrachyDwellTimeOptim, num_fmio_runs:int, out_folder:str = None):
     r''' In this function, we initialize the experiment object with a user-defined number of randomly generated penalty weight vectors
     inputs:
         - axClient := an ax client object that has been already initialized with the right parameters and objectives
-        - treatment_plan := a treatment plan object contianing the evaluate_penaltyWeight_space() method
+        - brachy_optim := an optimizer object that can reoptimize and evaluate dvh metrics
         - num_fmio_runs := number of fmio calls to be run in parallel
 
     outputs:
@@ -153,7 +180,7 @@ def initialize_experiment(axClient:AxClient, treatment_plan:TreatmentPlan, num_f
             random_weight_space[parameter] = np.ones(num_fmio_runs)*parameters[parameter].value
 
     # run penalty weight evaluation on all the weight vecotrs in parallel
-    random_weight_dvh_space = treatment_plan.evaluate_penaltyWeight_space(random_weight_space, multi_thread=True)  
+    random_weight_dvh_space = evaluate_penaltyWeight_space_helper(brachy_optim, random_weight_space, out_folder=out_folder) # , multi_thread=True)  
     # random_weight_dvh_space = random_weight_dvh_space.to_dict('records')
     # put the results into the axclient
     for indx in random_weight_dvh_space.index:
@@ -164,13 +191,16 @@ def initialize_experiment(axClient:AxClient, treatment_plan:TreatmentPlan, num_f
     # }
 
 
-def run_mobo_iterations(
+def run_mobo_iterationsv2(
     num_iterations:int, 
-    path2mps:str, 
+    brachy_optim:BrachyDwellTimeOptim, 
+    target_dose:float,
+    optimization_config_list:list[Optimization_Config],
     clinic_dvh_goal:dict, 
     param_config:dict,
-    outputfile:str=None,
-    num_parallel_initiation:int=None
+    output_filename:str=None,
+    num_parallel_initiation:int=None, 
+    variable_parameters_forMOBO=None,
     ):
     r'''This function runs multi-objective bayesian optimization (mobo) for as many iterations as the user commands it to. 
         it will save the result of all iterations in a pandas dataframe. 
@@ -223,60 +253,78 @@ def run_mobo_iterations(
     # }
     ###########
     # Start with caluclations
-
-    # instantiate a penalty weight evaluator, which is the treatment plan object that runs dwell time optimization
-    pwe = TreatmentPlan(path2mps, clinic_dvh_goal)
-    # pwe = PenaltyWeightEvaluator(path_to_mps=path2mps, dvh_goals=clinic_goal).to(**tkwargs)
-
     # instantiate an Ax Client object
 
     generation_stratagey_forMOBO = GenerationStrategy(
         steps=[
             GenerationStep(
-            model=Models.SOBOL, 
-            # so, please set the second 1 to 8 before i forget... i may forget to put the 8 back :|
-            num_trials=1 if num_parallel_initiation!=None else 1),
-
+                ## This is quasi random sampling, good for initial exploration of the space
+                # https://ax.dev/docs/0.5.0/tutorials/multiobjective_optimization/
+                generator=Generators.SOBOL,
+                # so, please set the second 1 to 8 before i forget... i may forget to put the 8 back :|
+                num_trials=1 if num_parallel_initiation!= None else min(int(num_iterations/2), 8),
+            ),
             GenerationStep(
-            model=Models.MOO, 
-            num_trials=-1)]
-        )
-    ax_client = AxClient(generation_strategy=generation_stratagey_forMOBO,) 
-    # early_stopping_strategy=)
-    # ax_client = AxClient()
-    # constrain_PTV = OutcomeConstraint()
+                generator=Generators.BOTORCH_MODULAR,  # Use this for multi-objective optimization #Generators.MOO,
+                num_trials=-1,
+            )
+        ]
+    )
+    ax_client = AxClient(generation_strategy=generation_stratagey_forMOBO,)
 
     # create parameter lists (these are the weights and their range)
-    variable_parameters_forMOBO = generate_mobo_parameters(pwe, param_config)
+    variable_parameters_forMOBO = generate_mobo_parameters(optimization_config_list, param_config)
 
-    objectives_forMOBO = generate_mobo_objectives(pwe, param_config)
+    objectives_forMOBO = generate_mobo_objectives(clinic_dvh_goal, param_config, target_dose)
+
+    print("Created experiment for MOBO with parameters:")
+    print("variable_parameters_forMOBO", variable_parameters_forMOBO)
+    print("objectives_forMOBO", objectives_forMOBO)
+
+    filter_obj = {}
+    for k, v in objectives_forMOBO.items():
+        if k in ['V100%(PTV)', 'D0.1cc(Skin)', 'D0.1cc(Chestwall)']: # , 'CI(PTV)', 'D0.1cc(Skin)', 'D0.1cc(Chestwall)']: , 'CI(PTV)'
+            filter_obj[k] = v
+    filtered_var = []
+    for p in variable_parameters_forMOBO:
+        if p['name'] in [ 'td_PTV','quadratic_w_Skin', 'quadratic_w_Chestwall']: #, 'linear_w_Skin', 'linear_w_Chestwall'
+            continue
+        else:
+            filtered_var.append(p)
+    print("filtered_var", filtered_var)
+    print("filter_obj", filter_obj)
 
     ax_client.create_experiment(
         name="MOBO_penalty_weights",
-        parameters= variable_parameters_forMOBO,
-        objectives=objectives_forMOBO,
+        parameters=filtered_var, # variable_parameters_forMOBO,
+        objectives=filter_obj, # objectives_forMOBO,
         overwrite_existing_experiment=True,
         is_test=False,
         )
     
     tic = perf_counter()
-
+    tac = None
     if num_parallel_initiation != None:
         # fill out the ax_client experiment with the result of 100 randomly generated penalty weights 
-        initialize_experiment(ax_client, pwe, num_parallel_initiation)
-    
-    # generator_run = generation_stratagey_forMOBO.gen(
-    #     experiment=ax_client.experiment
-        
-    # )
+        initialize_experiment(ax_client, brachy_optim, num_parallel_initiation, out_folder = os.path.dirname(output_filename) if output_filename else None)
+        tac = perf_counter()
+        print(f"Time taken for {num_parallel_initiation} parallel initialization: {tac - tic:0.4f} seconds")
 
+    optimized_plans = {}
     for i in range(num_iterations+1):
         parameters, trial_index = ax_client.get_next_trial()
+        dvh_metrics, optimized_plan = brachy_optim.evaluate_penaltyWeight(parameters, param_config['relative_dvh_dose'], return_plan=True)
+        optimized_plans[trial_index] = optimized_plan
         # local evaluation here can be replaced with deployment to external systems
-        ax_client.complete_trial(trial_index=trial_index, raw_data=pwe.evaluate_penaltyWeight(parameters, param_config['relative_dvh_dose']))
+        ax_client.complete_trial(trial_index=trial_index, raw_data=dvh_metrics)
         if calc_hv:
             try:
-                current_model = get_MOO_NEHVI(ax_client.experiment, ax_client.experiment.fetch_data())
+                current_model = Generators.MOO(
+                    experiment=ax_client.experiment,
+                    data=ax_client.experiment.fetch_data(),
+                    search_space=ax_client.experiment.search_space
+                    )
+                
                 hv = observed_hypervolume(modelbridge=current_model)
             except:
                 hv = 0
@@ -284,28 +332,18 @@ def run_mobo_iterations(
             hv_list.append(hv)  
 
     toc = perf_counter()
-    execution_time = toc - tic
+    if tac is not None:
+        print(f"Time taken for {num_parallel_initiation} parallel initialization: {tac - tic:0.4f} seconds")
+        print(f"Time taken for {num_iterations} MOBO iterations after initialization: {toc - tac:0.4f} seconds")
+    else:
+        print(f"Time taken for {num_iterations} MOBO iterations: {toc - tic:0.4f} seconds")
 
-    # extract the results and save them
-    df = exp_to_df(ax_client.experiment).sort_values(by=["trial_index"])
-        
-
-    outcomes = df[list(objectives_forMOBO.keys())].values
-    result = {'outcomes': outcomes, 'algorithm': 'qNEHVI',
-    'df':df, 'pipeline':'AxClient', 'problem':pwe, 'hv_list': hv_list, 'time':execution_time, 'clinic_dvh_goal': clinic_dvh_goal,
-     'num_mobo_iterations':len(pwe.structure_list)}
-
-    if outputfile != None:
-        ax_save_results(outputfile, result)
-
-    return result
-
-def _test_find_ideal_parameter_configuration():
-    mpsdir = "../data_files/mpsFiles/jgh-prostate/lin_target_dose_to_ptv/"
-    output_folder = "../data_files/figures and tables/prostate/iteration_experiment/"
-    dvh_thresholds = {"D90%(ptv)":15, "D0.1cc(urethra)":18.75, "D1cc(rectum)":11.25, "D1cc(bladder)":11.25}
-
-    find_ideal_parameter_configuration(mpsDir=mpsdir, clinical_dvh_goal=dvh_thresholds, output_folder=output_folder)
+    df = ax_client.get_trials_data_frame().sort_values(by=["trial_index"])
+    print(df)
+    print("saving the result of mobo iterations to ", output_filename)
+    # df.to_excel(output_filename) 
+    df.to_csv(output_filename, index=False)
+    return df, optimized_plans
 
 def find_ideal_parameter_configuration(mpsDir, clinical_dvh_goal, output_folder, num_experiment_repetition=1):
     r''' This function shows what parameter configuration allows MOBO to find the pareto surface 
@@ -445,135 +483,3 @@ def find_ideal_parameter_configuration(mpsDir, clinical_dvh_goal, output_folder,
             outcome_df_3.to_csv( output_folder+ "mobo_param_tuning_normalizedWeights_halfRange_variableTargetDose.csv")
     
     return 0
-
-def mobo_constantIterations_on_patients():
-    r''' this function runs user defined number of iterations of MOBO on many patients.
-    ''' 
-    # for prostate patients in JGH
-    # input_folder = "../data_files/mpsFiles/jgh-prostate/quad_target_dose_to_ptv/"
-    # output_folder = "../data_files/MOBO/patients/finalProstate_quadFMIO_rtogPlusGoals_absoluteDVHdose/"
-    # dvh_thresholds = {"D95%(ptv)":15.0, "D0.1cc(urethra)":18.75, "D1cc(rectum)":11.25, "D1cc(bladder)":11.25}
-    # param_config = {'relative_weights':True, 'weight_range':[1.0, 500.0], 'relative_dvh_dose':False, 'target_dose_range':[15.0, 16.5]}
-
-    # for prostate patients in Glen. no bladder, some patients do not have body contours
-    input_folder = "../data_files/mpsFiles/prostate-glen/"
-    output_folder = "../data_files/MOBO/patients/prostate_Glen_quadFmio_rtogPlus/"
-    dvh_thresholds = {"D95%(ctv)":15.0, "D0.1cc(urethra)":18.75, "D1cc(rectum)":11.25}
-    param_config = {'relative_weights':True, 'weight_range':[1.0, 500.0], 'relative_dvh_dose':False, 'target_dose_range':[15.0, 16.5]}
-
-    # for gyn patients
-    # input_folder = "../data_files/mpsFiles/gyn-alana/"
-    # output_folder = "../data_files/MOBO/patients/gynAlana_linearFMIO_rtogGoals_absoluteDVHdose/"
-    # dvh_thresholds = {"D90%(ctv)":8, "D0.1cc(urethra)":4.6, "D2cc(rectum)":6.5, "D2cc(bowel)":7, "D2cc(bladder)":8}
-    # param_config = {'relative_weights':True, 'weight_range':[0.001,0.5], 'relative_dvh_dose':False}
-
-    # for breast patients
-    # input_folder = "/home/majd/data/Patient_mpsFiles/Sebastien-breast/"
-    # output_folder = "../data_files/MOBO/patients/breastSebastien_linearFMIO_rtogGoals_absoluteDVHdose/"
-    # dvh_thresholds = {"D95%(ptv)":3., "D1cc(skin)":2.7, "D0.1cc(rib)":2.7, "D0.1cc(heart)":2.7, "D0.1cc(lung)":1.8}
-    # param_config = {'relative_weights':True, 'weight_range':[0.001,0.5], 'relative_dvh_dose':False, 'target_dose_range':[3., 3.3]}
-
-    mps_files = glob.glob(input_folder+"*.mps")
-
-    for file in mps_files:
-        output_name = "halfRange_targetDoseIsParam_parallelInit" + file.split('/')[-1].split('.')[0] + '.pkl'
-        output_name = output_folder+output_name
-        # print(output_name)
-        run_mobo_iterations(6, file, dvh_thresholds, param_config, output_name, num_parallel_initiation=24)
-
-    return 0
-
-
-def _test_generate_mobo_parameters():
-    # testing on a prostate cases{:
-    path2mps = "../data_files/mpsFiles/jgh-prostate/lin_target_dose_to_ptv/p1.mps"
-    dvh_thresholds = {"D95%(ptv)":15, "D1cc(urethra)":18.75, "D1cc(rectum)":11.25, "D1cc(bladder)":11.25}
-    param_config = {'relative_weights':True, 'weight_range':[0,0.5], 'target_dose_range':[15, 16.5], 'relative_dvh_dose':True}
-    # param_config = {'relative_weights':True, 'weight_range':[0,0.5], 'relative_dvh_dose':False}
-    # }
-
-    # for gyn patients
-    # path2mps = "../data_files/mpsFiles/gyn-alana/gyn-test.mps"
-    # dvh_thresholds = {"D90%(CTV)":6, "D2cc(urethra)":4, "D2cc(rectum)":4, "D2cc(bowel)":2, "D2cc(bladder)":4}
-    # # param_config = {'relative_weights':False, 'weight_range':[0,1], 'relative_dvh_dose':False}
-    # param_config = {'relative_weights':False, 'weight_range':[0.001,0.5], 'relative_dvh_dose':False, 'target_dose_range':[6, 6.6]}
-
-
-    treatment_plan = TreatmentPlan(path2mps, dvh_thresholds)
-
-    mobo_params = generate_mobo_parameters(treatment_plan, param_config)
-    print(mobo_params)
-
-def _test_run_mobo_iterations():
-    num_mobo_iter = 30
-    num_init = 24
-    # testing on a prostate cases:
-    path2mps = "../data_files/mpsFiles/jgh-prostate/lin_target_dose_to_ptv/p1.mps"
-    dvh_thresholds = {"D90%(PTV)":15, "D0.1cc(urethra)":18.75, "D1cc(rectum)":11.25, "D1cc(bladder)":11.25}
-    param_config = {'relative_weights':True, 'weight_range':[0.001, 0.5], 'relative_dvh_dose':False, 'target_dose_range':[15.0, 16.5]}
-
-    # testing on a gyn case:
-    # path2mps = "../data_files/mpsFiles/gyn.mps"
-    # dvh_thresholds = {"D90%(CTV)":6, "D2cc(urethra)":4, "D2cc(rectum)":4, "D2cc(bowel)":2, "D2cc(bladder)":4}
-    # param_config = {'relative_weights':True, 'weight_range':[0.001,5], 'relative_dvh_dose':False}
-
-    results = run_mobo_iterations(num_mobo_iter, path2mps, dvh_thresholds, param_config,)
-    results['df'].to_csv("test_parallel_init.csv")
-
-    # results2 = run_mobo_iterations(num_iter, path2mps, dvh_thresholds, param_config, parallel_initiation=False)
-    # results2['df'].to_csv("test.csv")
-
-    print("done testing")
-
-def _test_initialize_experiments():
-    num_fmio = 5
-    # testing on a prostate cases:
-    path2mps = "../data_files/mpsFiles/jgh-prostate/lin_target_dose_to_ptv/p1.mps"
-    dvh_thresholds = {"D90%(PTV)":15, "D0.1cc(urethra)":18.75, "D1cc(rectum)":11.25, "D1cc(bladder)":11.25}
-    param_config = {'relative_weights':True, 'weight_range':[0.001, 1.0], 'relative_dvh_dose':False, 'target_dose_range':[15.0, 16.5]}
-
-    pwe = TreatmentPlan(path2mps, dvh_thresholds)
-    # pwe = PenaltyWeightEvaluator(path_to_mps=path2mps, dvh_goals=clinic_goal).to(**tkwargs)
-
-    # instantiate an Ax Client object
-    ax_client = AxClient()
-    # constrain_PTV = OutcomeConstraint()
-
-    # creat parameter lists (these are the weights and their range)
-    variable_parameters_forMOBO = generate_mobo_parameters(pwe, param_config)
-
-    objectives_forMOBO = generate_mobo_objectives(pwe, param_config)
-
-    ax_client.create_experiment(
-        name="MOBO_penalty_weights",
-        parameters= variable_parameters_forMOBO,
-        objectives=objectives_forMOBO,
-        overwrite_existing_experiment=True,
-        is_test=False,
-        )
-
-    initialize_experiment(ax_client, pwe, num_fmio)
-
-if __name__=="__main__":
-    
-    # let's get testing
-    # _test_run_mobo_iterations()             # test passed!
-    # _test_generate_mobo_parameters()        # test passed!
-    # _test_initialize_experiments()          # test passed!
-
-    # let's run real experiments:
-    find_ideal_parameter_configuration(
-        # this is for prostate JGH 
-        # mpsDir = "../data_files/mpsFiles/jgh-prostate/quad_target_dose_to_ptv/",
-        # clinical_dvh_goal = {"D90%(ptv)":15, "D0.1cc(urethra)":18.75, "D1cc(rectum)":11.25, "D1cc(bladder)":11.25},
-        # output_folder = "../data_files/figures and tables/prostate/iteration_experiment/quad_fmio/"
-
-        # this is for prostate glen
-        mpsDir = "../data_files/mpsFiles/prostate-glen/",
-        clinical_dvh_goal = {"D95%(ctv)":15, "D0.1cc(urethra)":18.75, "D1cc(rectum)":11.25},
-        output_folder = "../data_files/figures and tables/prostate-glen/iteration_experiment/quadFmio_rtogPlus/"
-    )
-    mobo_constantIterations_on_patients()
-
-    
-    
