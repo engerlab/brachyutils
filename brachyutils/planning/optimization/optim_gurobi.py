@@ -651,7 +651,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
 
     def get_optimized_plan_from_model(
         self,
-        inplace=True,
+        inplace:bool=True,
         ) -> BrachyPlan | None:
         r"""
         See `BrachyDwellTime.get_optimized_plan_from_model` for details.
@@ -679,7 +679,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 break
         self.model.update()
 
-    def evaluate_penaltyWeight(self, config: dict, relative_dvh_dose:bool=False, return_plan:bool=False) -> dict:
+    def evaluate_penaltyWeight(self, config: dict, return_plan:bool=False, inplace:bool=False) -> dict:
         r"""
         ### Purpose:
         - A function to evaluate penalty weights by resetting the model with new penalty weights
@@ -699,21 +699,19 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         # in get_optimized_plan_from_model function
         _ = self.reset_model_from_config(self.model, config_wo_td)
 
-        optimized_plan = self.get_optimized_plan_from_model()
+        optimized_plan = self.get_optimized_plan_from_model(inplace=inplace)
         dvh_metrics = optimized_plan.get_dvh_metrics()
         output = {}
         for dvh_metric_name, dvh_value in dvh_metrics.items():
-            if relative_dvh_dose:
-                output[dvh_metric_name] = dvh_value/self.plan.dvh_metric_goals["target_dose"]
-            else:
-                output[dvh_metric_name] = float(dvh_value)
+            output[dvh_metric_name] = float(dvh_value)
+
         output.update(config_wo_td)
         if return_plan:
             return output, optimized_plan
         else:
             return output
 
-    def evaluate_penaltyWeight_space(self, list_of_configs: List[dict], out_folder:str, relative_dvh_dose:bool=False) -> dict:
+    def evaluate_penaltyWeight_space(self, list_of_configs: List[dict], return_plan:bool=False) -> dict:
         r"""
         ### Purpose:
         - A function to evaluate the penalty weight space by resetting the model with new penalty weights
@@ -730,8 +728,6 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             'linear_w_Chestwall': 50.0, 
             'linear_w_PTV': 500.0, 
             'quadratic_w_PTV': 0.5}]
-        - out_folder: str := The path to the folder where the results will be saved.
-        - relative_dvh_dose: bool := Whether to return DVH metrics relative to target
         dose. Default is False.
         ### Outputs:
         - results: pd.DataFrame := A dataframe containing the DVH metrics and penalty weights
@@ -758,26 +754,33 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         # so we use a global variable _plan instead that we initialize with self.plan
         with Pool(min(10, os.cpu_count(), len(list_of_configs)), initializer=_init_worker, initargs=(self.plan,)) as pl:
 
-            weights_and_dvh_space = pl.starmap(_run_and_organize_results, zip(
+            res = pl.starmap(_run_and_organize_results, zip(
                 range(len(list_of_configs)),  # dummy arg instead of self.plan
                 model_inputs_data,
-                [True]*len(list_of_configs),
-                [relative_dvh_dose]*len(list_of_configs),
+                [False]*len(list_of_configs),
                 list_of_configs,
-                [self.plan.dvh_metric_goals["target_dose"]]*len(list_of_configs)
+                [return_plan]*len(list_of_configs),
             )
             )
-        return pd.DataFrame(weights_and_dvh_space)
+        if return_plan:
+            weights_and_dvh_space = []
+            optimized_plans = {}
+            for i, r in enumerate(res):
+                print("in creating dict at the end of Multiprocess inti", r[0])
+                weights_and_dvh_space.append(r[0])
+                optimized_plans[f"trial_{i}"] = r[1]
+            return pd.DataFrame(weights_and_dvh_space), optimized_plans
+        else:
+            return pd.DataFrame(res)
         
 
 
 def _run_and_organize_results(
     _, 
     model_inputs_data:dict,
-    inplace=True,
-    relative_dvh_dose:bool=False,
+    inplace:bool=False,
     config_wo_td:dict = {},
-    target_dose:float = None
+    return_plan:bool=False
 ):
     # print(f"PID {os.getpid()} starting work")
     # time.sleep(2)
@@ -795,12 +798,13 @@ def _run_and_organize_results(
     dvh_metrics = optimized_plan.get_dvh_metrics()
     output = {}
     for dvh_metric_name, dvh_value in dvh_metrics.items():
-        if relative_dvh_dose:
-            output[dvh_metric_name] = dvh_value/target_dose
-        else:
-            output[dvh_metric_name] = float(dvh_value)
+        output[dvh_metric_name] = float(dvh_value)
     output.update(config_wo_td)
-    return output
+
+    if return_plan:
+        return output, optimized_plan
+    else:
+        return output
 
 def save_quadexpr(quadexpr):
     # Save QuadExpr parameters: constant, linear terms, quadratic terms
