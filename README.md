@@ -63,43 +63,40 @@ The virtual enviornment called `env_brachyutils` should be activated automatical
 
 ### Create a Python virtual environment
 
-We currently use python 3.13. Create a virtual envionrment and activate it:
+We currently use python 3.13. To install it, take a look at 
+`./docker_src/repositories/install_python.sh`.
+
+Once python 3.13 is installed, Create a virtual envionrment and activate it:
 
 If using [venv](https://docs.python.org/3/library/venv.html):
 
 ```bash
-python3 -m venv ENV_brachyutils
-source ENV_brachyutils/bin/activate
+python3 -m venv ENV_BU
+source ENV_BU/bin/activate
 ```
 
 Else, if using [conda](https://docs.anaconda.com/miniconda/):
 
 ```bash
-conda create -n ENV_brachy python=3.13
-conda activate ENV_brachy
+conda create -n ENV_BU python=3.13
+conda activate ENV_BU
 ```
-
-### Install OpenTPS from source code
-
-The PyPi package of OpenTPS is not up to date with their Gitlab repository. Therefore, we recommend that you clone the repository and install the package.
-
-```bash
-apt install -y libbz2-dev libxrender1 python3-distutils build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev  libsqlite3-dev libgl1 libglib2.0-0
-git clone https://github.com/engerlab/OpenTPS-brachyutils
-cd opentps
-```
-
-Then run `pip install .` to install opentps.
 
 ### Install BrachyUtils
 
 To get the package run:
 
 ```bash
-apt install -y liblzma-dev python3-tk tk-dev
+apt install -y build-essential zlib1g zlib1g-dev libncurses5-dev \
+  libgdbm-dev pkg-config libnss3-dev libssl-dev libreadline-dev \
+  libffi-dev libsqlite3-dev wget nano liblzma-dev libbz2-dev \
+  libxrender1 libgl1 libglib2.0-0 tk-dev xz-utils llvm
+
+
 git clone https://github.com/engerlab/brachyutils.git
 cd brachyutils
-pip install .
+python3.13 -m pip install -e .
+python3.13 -m amplpy.modules install highs gurobi xpress cplex scip gcg
 ```
 
 ### Install Optimization Solvers

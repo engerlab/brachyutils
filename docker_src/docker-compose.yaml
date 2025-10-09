@@ -19,7 +19,7 @@ services:
       - QT_QPA_PLATFORM=offscreen
       - DISPLAY=${DISPLAY} # for access to graphical server
     volumes:
-      - ${HOST_HOME}/Software/brachyutils:/app/Software/brachyutils
+      # - ${HOST_HOME}/Software/brachyutils:/app/Software/brachyutils
       - ${HOST_HOME}:/home/ubuntu/YourLocalHome
       - /tmp/.X11-unix:/tmp/.X11-unix # for access to graphical server
     expose:

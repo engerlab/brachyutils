@@ -9,6 +9,7 @@ setup(
     # namespace_packages=['brachyutils'],
     package_dir={"": "."}, # required for pip install -e .
     install_requires=[
+        "setuptools",
         "cycler",
         "fonttools",
         "importlib-resources",
@@ -40,8 +41,10 @@ setup(
         "py7zr",
         "pytest",
         "vtk",
-        # "checkpointing",
-        # "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
+        # commend out for docker:{
+        "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
+        "ai_assisted_brachy @ git+https://github.com/engerlab/AI_Assisted_Brachytherapy.git",
+        # }
         "nibabel",
         "monai",
         "pydantic",
