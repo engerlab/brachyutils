@@ -130,7 +130,8 @@ class DwellTime_Gurobi(BrachyDwellTime):
 
 
 
-def change_model_dose_to_target(new_target_dose:float, model:Model, coords_target_constraint:list):
+def change_model_dose_to_target(new_target_dose:float, model:Model, coords_target_constraint:List[int], 
+                                 coords_hotspot_constraint:List[int], hotspot_threshold:float):
     r'''This model changes the target dose of the dose calculation points that reside inside the tumor target volume on a gurobi model. 
     inputs: 
         - new_target_dose := the new target dose value for tumor in Gy. 
@@ -141,8 +142,17 @@ def change_model_dose_to_target(new_target_dose:float, model:Model, coords_targe
         - VOID := this function changes the state of the input model and returns nothing. 
     '''
     constr_list = list(model.getConstrs())
-
+    assert len(coords_target_constraint) > 0, "No target constraints found in the model. Cannot change target dose."
+    assert coords_target_constraint[-1] == coords_target_constraint[0] + len(coords_target_constraint) - 1, (
+        "Target constraints are not consecutive. Cannot change target dose constraints."
+    )
     model.setAttr('RHS', constr_list[coords_target_constraint[0]:coords_target_constraint[-1]], new_target_dose)
+    if len(coords_hotspot_constraint) >0:
+        assert coords_hotspot_constraint[-1] == coords_hotspot_constraint[0] + len(coords_hotspot_constraint) - 1, (
+            "Hotspot constraints are not consecutive. Cannot change hotspot dose constraints."
+        )
+        model.setAttr('RHS', constr_list[coords_hotspot_constraint[0]:coords_hotspot_constraint[-1]], hotspot_threshold*new_target_dose)
+    
     model.update()
 
 
@@ -234,6 +244,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solver = "gurobi"
         self.target_constraints_coords = []
+        self.hotspot_constraints_coords = []
+        self.hotspot_threshold = None
         self.structure_variables_d = {}
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
@@ -370,7 +382,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         "hotspot": 0,
         "uniformity": 0
         }
-    
+        constraint_counter = 0
+        
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
@@ -383,6 +396,16 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             min_dose = structure.optimization_config.min_dose
             structure_max_dose = structure.optimization_config.max_dose
             hotspot_threshold = structure.optimization_config.hotspot_threshold
+            if hotspot_threshold != 0.:
+                if self.hotspot_threshold is None:
+                    self.hotspot_threshold = hotspot_threshold
+                else:
+                    assert np.isclose(self.hotspot_threshold, hotspot_threshold), (
+                        "All structures with hotspot estimator should have the same hotspot threshold."
+                        "Since only one structure (PTV or CTV) should have the hotspot estimator."
+                        f" Found {self.hotspot_threshold} and {hotspot_threshold}"
+                    )
+
             hotspot_weight = structure.optimization_config.penalty_weight_hotspot
             # Build dose rate matrix and dwell time vector for this structure
             if not multi_processing:
@@ -449,12 +472,17 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     A_sparse @ t_MVar + x_slack >= target_dose_vec,
                     name=f"dose_target_{structure.name}"
                 )
+                self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                constraint_counter += num_dose_points
 
                 # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
                 model.addConstr(
                     A_sparse @ t_MVar + y_uniform == target_dose_vec,
                     name=f"dose_uniform_{structure.name}"
                 )
+                self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                constraint_counter += num_dose_points
+
                 ## Saving variables info for later potential resetting of the model
                 self.structure_variables_d[structure.name] = {
                     "is_target_volume": structure.target_volume,
@@ -487,6 +515,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 model.addConstr(
                     A_sparse @ t_MVar - x_slack <= hotspot_threshold * target_dose_vec,
                 )
+                self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                constraint_counter += num_dose_points
+
                 ## Saving variables info for later potential resetting of the model
                 self.structure_variables_d[structure.name] = {
                     "is_target_volume": structure.target_volume,
@@ -512,6 +543,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     A_sparse @ t_MVar - x_slack <= target_dose_vec,
                     name=f"dose_oar_{structure.name}"
                 )
+                constraint_counter += num_dose_points
+
                 ## Saving variables info for later potential resetting of the model
                 self.structure_variables_d[structure.name] = {
                     "is_target_volume": structure.target_volume,
@@ -537,15 +570,6 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             GRB.MINIMIZE
         )
         model.update()
-
-        # obtain the first and last constraints that belong to target volume
-        # generate the constraint list from the gurobi model file
-        self.target_constraints_coords = []
-        constr_list = list(model.getConstrs())
-        for i in range(len(constr_list)):
-            # get the coordinates of the constraints whose right hand side is equal to tumor target dose
-            if constr_list[i].rhs == self.plan.dvh_metric_goals["target_dose"]:
-                self.target_constraints_coords.append(i)
 
 
     def reset_model_from_config(self, model: Model, config: dict) -> None:
@@ -637,7 +661,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             change_model_dose_to_target(
                 new_target_dose=new_target_dose, 
                 model=model, 
-                coords_target_constraint=self.target_constraints_coords
+                coords_target_constraint=self.target_constraints_coords, 
+                coords_hotspot_constraint=self.hotspot_constraints_coords, 
+                hotspot_threshold=self.hotspot_threshold
             )
         return model
         
