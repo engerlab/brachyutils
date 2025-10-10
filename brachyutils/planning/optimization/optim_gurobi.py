@@ -14,6 +14,7 @@ from gurobipy import Model, Var, GRB, MVar, Env, QuadExpr, LinExpr
 import SimpleITK as sitk
 import numpy as np
 import pandas as pd
+from scipy.sparse import csr_matrix
 
 from opentps.core.data.images import ROIMask
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
@@ -146,12 +147,12 @@ def change_model_dose_to_target(new_target_dose:float, model:Model, coords_targe
     assert coords_target_constraint[-1] == coords_target_constraint[0] + len(coords_target_constraint) - 1, (
         "Target constraints are not consecutive. Cannot change target dose constraints."
     )
-    model.setAttr('RHS', constr_list[coords_target_constraint[0]:coords_target_constraint[-1]], new_target_dose)
+    model.setAttr('RHS', constr_list[coords_target_constraint[0]:coords_target_constraint[-1]+1], new_target_dose)
     if len(coords_hotspot_constraint) >0:
         assert coords_hotspot_constraint[-1] == coords_hotspot_constraint[0] + len(coords_hotspot_constraint) - 1, (
             "Hotspot constraints are not consecutive. Cannot change hotspot dose constraints."
         )
-        model.setAttr('RHS', constr_list[coords_hotspot_constraint[0]:coords_hotspot_constraint[-1]], hotspot_threshold*new_target_dose)
+        model.setAttr('RHS', constr_list[coords_hotspot_constraint[0]:coords_hotspot_constraint[-1]+1], hotspot_threshold*new_target_dose)
     
     model.update()
 
@@ -247,6 +248,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.hotspot_constraints_coords = []
         self.hotspot_threshold = None
         self.structure_variables_d = {}
+        self.structure_weights_d = {}
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
@@ -491,6 +493,15 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "uniform_slack": y_uniform, 
                     "hotspot_estimator": "hotspot_estimator" in structure.name.lower()
                 }
+                self.structure_weights_d[structure.name] = {
+                    "linear_weight": linear_weight,
+                    "quadratic_weight": quadratic_weight,
+                    "uniformity_weight": uniformity_weight,
+                    "num_dose_points": num_dose_points,
+                    "linear_coeff":linear_weight / num_dose_points,
+                    "quadratic_coeff":quadratic_weight / num_dose_points,
+                    "uniformity_coeff":uniformity_weight / (num_dose_points * 1000) # is quadratic weight
+                }
                 # Add penalty terms using matrix operations
                 linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
                 quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
@@ -526,6 +537,11 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "uniform_slack": None, 
                     "hotspot_estimator": "hotspot_estimator" in structure.name.lower()
                 }
+                self.structure_weights_d[structure.name] = {
+                    "hotspot_weight": hotspot_weight,
+                    "num_dose_points": num_dose_points,
+                    "hotspot_coeff": hotspot_weight / num_dose_points # is a linear coeff
+                }
                 hotspot_weight_vec = np.full(num_dose_points, hotspot_weight / num_dose_points)
                 penalty_terms["hotspot"] += (hotspot_weight_vec @ x_slack)
 
@@ -553,7 +569,13 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "uniform_slack": None, 
                     "hotspot_estimator": "hotspot_estimator" in structure.name.lower()
                 }
-
+                self.structure_weights_d[structure.name] = {
+                    "linear_weight": linear_weight,
+                    "quadratic_weight": quadratic_weight,
+                    "num_dose_points": num_dose_points,
+                    "linear_coeff": linear_weight / num_dose_points,
+                    "quadratic_coeff": quadratic_weight / num_dose_points,
+                }
                 # Add penalty terms
                 linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
                 quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
@@ -583,45 +605,62 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         # Storing new_target dose into a variable and then removing it from the config dict
         new_target_dose = None
         found = False
-        for k, v in config.items():
+        config_to_use = deepcopy(config)
+        for k, v in config_to_use.items():
             if "td_" in k.lower() :
                 new_target_dose = deepcopy(v)
                 to_remove = k
                 found = True
                 break
         if found:
-            config.pop(to_remove, None)
+            config_to_use.pop(to_remove, None)
 
         ## Reorganize dict by structure name because input config used in MOBO is flat
         reorganized_config = {}
-        for k, v in config.items():
+        for k, v in config_to_use.items():
             struct_name = k.split("_")[2]
             if struct_name not in reorganized_config:
                 reorganized_config[struct_name] = {}
             param_name = k.split("_")[0] 
             reorganized_config[struct_name][param_name] = v
 
-        for struct_name, struct_d in reorganized_config.items():
+        for struct_name, var_d in self.structure_variables_d.items():
+            proposed_config_struct_d = reorganized_config.get(struct_name, {})
 
-            if "linear" not in struct_d.keys():
-                linear_weight = 1
+            if "linear" in proposed_config_struct_d.keys():
+                # Taking argument config
+                linear_weight = proposed_config_struct_d["linear"]
             else:
-                linear_weight = struct_d["linear"]
-            if "quadratic" not in struct_d.keys():
-                quadratic_weight = 1
-            else:
-                quadratic_weight = struct_d["quadratic"]
+                # Taking original config
+                if "linear_weight" in self.structure_weights_d[struct_name]:
+                    linear_weight = self.structure_weights_d[struct_name]["linear_weight"]
+                else:
+                    linear_weight = None
 
-            if "uniformity" in struct_d.keys():
-                uniformity_weight = struct_d["uniformity"]
+            if "quadratic" in proposed_config_struct_d.keys():
+                quadratic_weight = proposed_config_struct_d["quadratic"]
             else:
-                uniformity_weight = 0 
-            if "hotspot" in struct_d.keys():
-                hotspot_weight = struct_d["hotspot"] 
-            else:
-                hotspot_weight = 0
+                if "quadratic_weight" in self.structure_weights_d[struct_name]:
+                    quadratic_weight = self.structure_weights_d[struct_name]["quadratic_weight"]
+                else:
+                    quadratic_weight = None
 
-            var_d = self.structure_variables_d[struct_name]
+            if "uniformity" in proposed_config_struct_d.keys():
+                uniformity_weight = proposed_config_struct_d["uniformity"]
+            else:
+                if var_d["is_target_volume"]:
+                    uniformity_weight = self.structure_weights_d[struct_name]["uniformity_weight"]
+                else:
+                    uniformity_weight = None
+
+            if "hotspot" in proposed_config_struct_d.keys():
+                hotspot_weight = proposed_config_struct_d["hotspot"] 
+            else:
+                if var_d["hotspot_estimator"]:
+                    hotspot_weight = self.structure_weights_d[struct_name]["hotspot_weight"]
+                else:
+                    hotspot_weight = None
+
             x_slack = var_d["dose_slack"]
             y_uniform = var_d["uniform_slack"]
             num_dose_points = var_d["num_dose_points"]
@@ -740,7 +779,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         for dvh_metric_name, dvh_value in dvh_metrics.items():
             output[dvh_metric_name] = float(dvh_value)
 
-        output.update(config_wo_td)
+        output.update(config)
         if return_cat_table:
             return output, deepcopy(optimized_plan.catheter_table)
         else:
@@ -768,22 +807,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         - results: pd.DataFrame := A dataframe containing the DVH metrics and penalty weights
         for each configuration.
         """
-        model_inputs_data = []
-        for config in list_of_configs:
-            if not len(config.keys()) > 0:
-                raise ValueError("Config is empty. Please provide a valid config.")
-            # Making a copy of the config because we mess it up in the reset_model_from_config function
-            config_wo_td = deepcopy(config)
-            ### Resetting the model with the new config cannot be done in parallel
-            # since gurobi variables are not pickeable. So we do it in a loop
-            # until we found a better solution
-            model = self.reset_model_from_config(self.model, config_wo_td)
-            ### Here we could write the model to an mps file and then pass the 
-            # path as input to the worker function instead of the model itself
-            # to avoid pickling the model. However, reading from file is slower
-            # than passing the model data and reconstructing the model in the worker.
-            model_data = get_model_data(model)
-            model_inputs_data.append(model_data)
+       
+        model_data = get_model_data(self.model)
 
         ## Pickling the BrachyPlan is doable but it makes the Pool operation sequential. 
         # so we use a global variable _plan instead that we initialize with self.plan
@@ -791,7 +816,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
 
             res = pl.starmap(_run_and_organize_results, zip(
                 range(len(list_of_configs)),  # dummy arg instead of self.plan
-                model_inputs_data,
+                [model_data] * len(list_of_configs),
                 # If you want to return plans you need to pass the inplace arg as False
                 # otherwise all your plans are the same object which will be the last
                 # optimized plan. However, deepcopying the plan makes the Pool operation
@@ -799,6 +824,10 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 [True]*len(list_of_configs),
                 list_of_configs,
                 [return_cat_table]*len(list_of_configs),
+                [self.structure_weights_d]*len(list_of_configs), 
+                [self.target_constraints_coords]*len(list_of_configs),
+                [self.hotspot_constraints_coords]*len(list_of_configs),
+                [self.hotspot_threshold]*len(list_of_configs)
             )
             )
         if return_cat_table:
@@ -811,6 +840,78 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         else:
             return pd.DataFrame(res)
         
+def _format_path(p, k):
+    return f"{p}.{k}" if p else str(k)
+
+def deep_diff(d1, d2, path=""):
+    r"""
+    Recursively compare two objects (dicts, lists, tuples, numpy arrays, sparse matrices, scalars).
+    Returns a list of differences as strings. Useful for debugging model serialization.
+    Was mostly useful for debugging the get_model_data and update_model_from_data functions.
+    ### Inputs:
+    - d1: dict := The first dictionary to compare, obtained from get_model_data function
+    - d2: dict := The second dictionary to compare, obtained from get_model_data function
+    ### Outputs:
+    None - prints differences to console.
+    """
+    diffs = []
+
+    # Compare dicts
+    if isinstance(d1, dict) and isinstance(d2, dict):
+        keys1 = set(d1.keys())
+        keys2 = set(d2.keys())
+        for k in keys1 - keys2:
+            diffs.append(f"Key '{_format_path(path, k)}' missing in second dict")
+        for k in keys2 - keys1:
+            diffs.append(f"Key '{_format_path(path, k)}' missing in first dict")
+        for k in keys1 & keys2:
+            diffs.extend(deep_diff(d1[k], d2[k], _format_path(path, k)))
+        return diffs
+
+    # Compare lists/tuples
+    if isinstance(d1, (list, tuple)) and isinstance(d2, (list, tuple)):
+        if len(d1) != len(d2):
+            diffs.append(f"Length mismatch at '{path}': {len(d1)} vs {len(d2)}")
+        else:
+            for i, (v1, v2) in enumerate(zip(d1, d2)):
+                diffs.extend(deep_diff(v1, v2, f"{path}[{i}]"))
+        return diffs
+
+    # Compare numpy arrays
+    if isinstance(d1, np.ndarray) and isinstance(d2, np.ndarray):
+        if d1.shape != d2.shape:
+            diffs.append(f"Shape mismatch at '{path}': {d1.shape} vs {d2.shape}")
+        elif np.issubdtype(d1.dtype, np.number) and np.issubdtype(d2.dtype, np.number):
+            if not np.allclose(d1, d2, equal_nan=True):
+                idx = np.where(~np.isclose(d1, d2, equal_nan=True))
+                for i in zip(*idx):
+                    diffs.append(f"Value mismatch at '{path}{i}': {d1[i]} vs {d2[i]}")
+        else:
+            # fallback for non-numeric arrays (e.g., string arrays)
+            if not np.array_equal(d1, d2):
+                idx = np.where(d1 != d2)
+                for i in zip(*idx):
+                    diffs.append(f"Value mismatch at '{path}{i}': {d1[i]} vs {d2[i]}")
+        return diffs
+
+    # Compare sparse matrices
+    if isinstance(d1, csr_matrix) and isinstance(d2, csr_matrix):
+        if d1.shape != d2.shape:
+            diffs.append(f"Sparse shape mismatch at '{path}': {d1.shape} vs {d2.shape}")
+        elif (d1 != d2).nnz != 0:
+            diffs.append(f"Sparse value mismatch at '{path}'")
+        return diffs
+
+    # Compare floats
+    if isinstance(d1, float) and isinstance(d2, float):
+        if not np.isclose(d1, d2, equal_nan=True):
+            diffs.append(f"Float mismatch at '{path}': {d1} vs {d2}")
+        return diffs
+
+    # Compare everything else
+    if d1 != d2:
+        diffs.append(f"Value mismatch at '{path}': {d1} vs {d2}")
+    return diffs
 
 
 def _run_and_organize_results(
@@ -818,7 +919,12 @@ def _run_and_organize_results(
     model_inputs_data:dict,
     inplace:bool=True,
     config_wo_td:dict = {},
-    return_cat_table:bool=False
+    return_cat_table:bool=False,
+    og_setup_for_objective:dict = {},
+    target_constraints_coords: List[int] = [],
+    hotspot_constraints_coords: List[int] = [],
+    hotspot_threshold: float = 1.2
+
 ):
     # print(f"PID {os.getpid()} starting work")
     # time.sleep(2)
@@ -828,9 +934,16 @@ def _run_and_organize_results(
     # use global _plan because pickling BrachyPlan prevents multiprocessing
     # and makes the pool execution sequential
     plan = deepcopy(_plan)
-
+    new_weight_config = deepcopy(config_wo_td)
     with Env() as env, Model(env=env) as model:
-        model = update_model_from_data(model_inputs_data, model)
+        model = update_model_from_data(model_inputs_data, model)       
+        modify_model_objective_with_new_penalty_weights_and_td(
+            model=model, 
+            og_setup_for_objective=og_setup_for_objective, 
+            new_penalty_weights=new_weight_config, 
+            target_constraints_coords=target_constraints_coords, 
+            hotspot_constraints_coords=hotspot_constraints_coords, 
+            hotspot_threshold=hotspot_threshold)
         _, optimized_plan, _, _ = _get_optimized_plan_from_model(plan, model, inplace=inplace)
 
     dvh_metrics = optimized_plan.get_dvh_metrics()
@@ -862,7 +975,7 @@ def save_quadexpr(quadexpr):
     for i in range(quadexpr.size()):
         v1, v2 = quadexpr.getVar1(i), quadexpr.getVar2(i)
         coeff = quadexpr.getCoeff(i)
-        saved_quad.append((v1.varName, v2.varName, coeff))
+        saved_quad.append(deepcopy((v1.varName, v2.varName, coeff)))
     saved['quadratic_list'] = saved_quad
     
     return saved
@@ -944,7 +1057,185 @@ def compare_gurobi_models(model1, model2):
     return True, "Models match"
 
 
+def modify_model_objective_with_new_penalty_weights_and_td(
+        model: Model, 
+        og_setup_for_objective: dict, 
+        new_penalty_weights: dict,
+        target_constraints_coords: List[int] = [],
+        hotspot_constraints_coords: List[int] = [],
+        hotspot_threshold: float = 1.2
+          # , inplace: bool = True
+    ) -> Model:
+    """
 
+    A function to modify the objective function of a Gurobi model by updating the penalty weights
+    for different structures based on a provided configuration. The function identifies the variables
+    associated with each structure and adjusts their coefficients in the objective function accordingly.
+    Modifies the model inplace. 
+    ### Inputs:
+    # model: Model := The Gurobi optimization model whose objective function is to be modified.
+    # og_setup_for_objective: dict := A dictionary containing the original setup for each structure,
+    # including weights and coefficients.
+    # new_penalty_weights: dict := A dictionary containing the new penalty weights for each structure.
+    og_setup is something like:
+    {
+    "PTV": {
+        "linear_weight": 1000.0,
+        "quadratic_weight": 1.0,
+        "uniformity_weight": 1.0,
+        "num_dose_points": 1788,
+        "coeff": 0.5592841163310962
+    },
+    "Skin": {
+        "linear_weight": 100.0,
+        "quadratic_weight": 1.0,
+        "num_dose_points": 5620,
+        "coeff": 0.017793594306049824
+    },
+    "Chestwall": {
+        "linear_weight": 100.0,
+        "quadratic_weight": 1.0,
+        "num_dose_points": 6710,
+        "coeff": 0.014903129657228018
+    },
+    "hotspot_estimator:catheter_0_dwell_2/catheter_0_dwell_3": {
+        "hotspot_weight": 1.0,
+        "num_dose_points": 12,
+        "coeff": 0.08333333333333333
+    },
+    ....
+    }
+
+    new_penalty_weights is something like:
+
+    {'td_PTV': 3.5358764542564374, 
+     'linear_w_PTV': 1000.0, 
+     'quadratic_w_PTV': 1.0, 
+     'linear_w_Skin': 351.9170277168017, 
+     'linear_w_Chestwall': 7.679852357735809}
+     which we reorganize into 
+    {"PTV": {"linear":500, "quadratic":0.5}, "Skin": {"linear":50, "quadratic":0.5}, "Chestwall": {"linear":50, "quadratic":0.5}}, 
+    """
+
+    # Extract target dose from new_penalty_weights if present and remove it from the dict
+    new_target_dose = None
+    found = False
+    for k, v in new_penalty_weights.items():
+        if "td_" in k.lower() :
+            new_target_dose = deepcopy(v)
+            to_remove = k
+            found = True
+            break
+    if found:
+        new_penalty_weights.pop(to_remove, None)
+
+    ## Reorganize dict by structure name because input config used in MOBO is flat
+    reorganized_new_penalty_weights = {}
+    for k, v in new_penalty_weights.items():
+        struct_name = k.split("_")[2]
+        if struct_name not in reorganized_new_penalty_weights:
+            reorganized_new_penalty_weights[struct_name] = {}
+        param_name = k.split("_")[0] 
+        reorganized_new_penalty_weights[struct_name][param_name] = v
+
+    old_objective = model.getObjective()
+    assert isinstance(old_objective, QuadExpr), "Objective is not a quadratic expression as expected"
+    new_objective = QuadExpr()
+    # Constant does not change so we do not need to call model.getConstant()
+
+    old_linear_expr = old_objective.getLinExpr()
+   
+    for i in range(old_linear_expr.size()):
+        var = old_linear_expr.getVar(i)
+        coeff = old_linear_expr.getCoeff(i)
+
+        # Determine which structure this variable belongs to
+        struct_name = None
+        for sname in og_setup_for_objective.keys():
+            if coeff == og_setup_for_objective[sname].get("linear_coeff", None) or \
+                coeff == og_setup_for_objective[sname].get("hotspot_coeff", None):
+                struct_name = sname
+
+        if struct_name is None:
+            raise ValueError(f"Variable {var.VarName} does not belong to any known structure")
+        # Get the original coefficient and weight
+        if not "hotspot" in struct_name:
+            og_weight = og_setup_for_objective[struct_name]["linear_weight"]
+            if struct_name in reorganized_new_penalty_weights:
+                if "linear" in reorganized_new_penalty_weights[struct_name]:
+                    new_weight = reorganized_new_penalty_weights[struct_name]["linear"]
+                else:
+                    new_weight = og_weight
+            else:
+                new_weight = og_weight
+        else:
+            og_weight = og_setup_for_objective[struct_name]["hotspot_weight"]
+            if struct_name in reorganized_new_penalty_weights:
+                if "hotspot" in reorganized_new_penalty_weights[struct_name]:
+                    new_weight = reorganized_new_penalty_weights[struct_name]["hotspot"]
+                else:
+                    new_weight = og_weight
+            else:
+                new_weight = og_weight
+     
+        # Calculate new coefficient
+        new_coeff = (new_weight / og_weight) * coeff
+       
+        if new_coeff != 0:
+            new_objective.addTerms(new_coeff, var)
+
+    for i in range(old_objective.size()):
+        v1, v2 = old_objective.getVar1(i), old_objective.getVar2(i)
+        coeff = old_objective.getCoeff(i)
+        # Determine which structure this variable belongs to
+        struct_name = None
+        for sname in og_setup_for_objective.keys():
+            if coeff == og_setup_for_objective[sname].get("quadratic_coeff", None) or \
+                coeff == og_setup_for_objective[sname].get("uniformity_coeff", None):
+                struct_name = sname
+
+        if struct_name is None:
+            raise ValueError(f"Variable pair {v1.VarName}, {v2.VarName} does not belong to any known structure")
+        
+        # Get the original coefficient and weight
+        if not "uniformity" in struct_name:
+            og_weight = og_setup_for_objective[struct_name]["quadratic_weight"]
+            if struct_name in reorganized_new_penalty_weights:
+                if "quadratic" in reorganized_new_penalty_weights[struct_name]:
+                    new_weight = reorganized_new_penalty_weights[struct_name]["quadratic"]
+                else:
+                    new_weight = og_weight
+            else:
+                new_weight = og_weight
+        else:
+            og_weight = og_setup_for_objective[struct_name]["uniformity_weight"]
+            if struct_name in reorganized_new_penalty_weights:
+                if "uniformity" in reorganized_new_penalty_weights[struct_name]:
+
+                    new_weight = reorganized_new_penalty_weights[struct_name]["uniformity"] / (reorganized_new_penalty_weights[struct_name]["num_dose_points"] * 1000)
+                else:
+                    new_weight = og_weight
+            else:
+                new_weight = og_weight
+        # Calculate new coefficient
+        new_coeff = (new_weight / og_weight) * coeff
+
+        if new_coeff != 0:
+            new_objective.addTerms(new_coeff, v1, v2)
+
+   
+    model.setObjective(new_objective)
+    model.update()
+    if found:
+        change_model_dose_to_target(
+            new_target_dose=new_target_dose, 
+            model=model, 
+            coords_target_constraint=target_constraints_coords, 
+            coords_hotspot_constraint=hotspot_constraints_coords, 
+            hotspot_threshold=hotspot_threshold
+        )
+    
+    return model
 
 def update_model_from_data(input_data: dict, model:Model):
 
@@ -953,7 +1244,6 @@ def update_model_from_data(input_data: dict, model:Model):
     model.addMVar((len(input_data['varnames']),), lb=input_data['lb'], ub=input_data['ub'],
                     obj=input_data['var_obj'], vtype=input_data['vtype'],
                     name=input_data['varnames'])
-    # model.update()  # <-- This is critical
     model.addMConstr(A=input_data['A'], x=None, sense=input_data['con_sense'], b=input_data['rhs'],
                         name=input_data['connames'])
     model.update()  # <-- This is critical otherwise the load_quadexpr cannot access variables.
@@ -965,17 +1255,17 @@ def update_model_from_data(input_data: dict, model:Model):
 
 def get_model_data(model: Model):
     model_data = dict()
-    model_data['name'] = model.ModelName
-    model_data['A'] = model.getA()
-    model_data['model_sense'] = model.ModelSense
-    model_data['con_sense'] = np.array(model.getAttr("Sense"))
-    model_data['rhs'] = np.array(model.getAttr("rhs"))
-    model_data['lb'] = np.array(model.getAttr("LB"))
-    model_data['ub'] = np.array(model.getAttr("UB"))
-    model_data['vtype'] = np.array(model.getAttr("Vtype"))
-    model_data['var_obj'] = np.array(model.getAttr("Obj"))
-    model_data['varnames'] = model.getAttr("VarName")
-    model_data['connames'] = model.getAttr("ConstrName")
+    model_data['name'] = deepcopy(model.ModelName)
+    model_data['A'] = deepcopy(model.getA())
+    model_data['model_sense'] = deepcopy(model.ModelSense)
+    model_data['con_sense'] = deepcopy(np.array(model.getAttr("Sense")))
+    model_data['rhs'] = deepcopy(np.array(model.getAttr("rhs")))
+    model_data['lb'] = deepcopy(np.array(model.getAttr("LB")))
+    model_data['ub'] = deepcopy(np.array(model.getAttr("UB")))
+    model_data['vtype'] = deepcopy(np.array(model.getAttr("Vtype")))
+    model_data['var_obj'] = deepcopy(np.array(model.getAttr("Obj")))
+    model_data['varnames'] = deepcopy(model.getAttr("VarName"))
+    model_data['connames'] = deepcopy(model.getAttr("ConstrName"))
 
     objective = model.getObjective()
     assert isinstance(objective, QuadExpr), "Objective is not a quadratic expression"
@@ -991,15 +1281,44 @@ def _init_worker(plan):
 
 if __name__ == "__main__":
     import gurobipy as gb
+    import json
     env = Env(empty=True)
     env.start()
-    model = gb.read("/app/EngerLab/AI_Assisted_Brachytherapy/ai_pipeline_results_test_mobo_clean/Dataset007Dataset050/val_benchmark_fold_0/259984/manual_clinical_struct\
-ures__clinical_dwellpos__auto_optimization/model_0.mps", env)
+
+    model = gb.read("/app/EngerLab/tests/brachyutils/optim/model.mps")
+    # print(len(model.getAttr("VarName")))
+    # print(len(model.getAttr("Obj")))
+    # print(np.array(model.getAttr("rhs")))
+    print(len(np.array(model.getAttr("Obj"))))
+    print(np.unique(np.array(model.getAttr("Obj")), return_counts=True))
+    print(np.array(model.getAttr("Obj")))
+    exit()
+    # model = gb.read("/app/EngerLab/AI_Assisted_Brachytherapy/ai_pipeline_results_test_mobo_clean/Dataset007Dataset050/val_benchmark_fold_0/259984/manual_clinical_structures__clinical_dwellpos__auto_optimization/model_0.mps", env)
     model_data = get_model_data(model)
+    with open("/app/EngerLab/tests/brachyutils/optim/coeffs.json", "r") as file:
+        coeffs = json.load(file)
+    # print(coeffs)
+    with Env() as env, Model(env=env) as new_model:
+        model_remade = update_model_from_data(model_data, new_model)
+        model_remade = modify_model_objective_with_new_penalty_weights(
+            model_remade, coeffs, 
+            # {"PTV": {"linear":500, "quadratic":0.5}, "Skin": {"linear":50, "quadratic":0.5}, "Chestwall": {"linear":50, "quadratic":0.5}}, 
+            {"PTV": {"linear":1000, "quadratic":1}, "Skin": {"linear":100, "quadratic":1}, "Chestwall": {"linear":100, "quadratic":1}}, 
+            inplace=True)
+        print(model_remade.getVarByName("C275(1)").Obj)
+        print(model.getVarByName("C275(1)").Obj)
+        print(compare_gurobi_models(model, model_remade))
+        exit(0)
+
+    print(model_data["objective"].keys())
+    print(model_data["objective"]["linear_list"][:2])
+    print(model.getVarByName("C276(1)").Obj)
+    exit()
     print('model_data["lb"]', model_data["lb"])
     with Env() as env, Model(env=env) as model:
         model_remade = update_model_from_data(model_data, model)
         print(compare_gurobi_models(model, model_remade))
         exit()
+
    # https://support.gurobi.com/hc/en-us/community/posts/12678106466321-Fast-creation-of-Gurobi-models
 
