@@ -79,8 +79,18 @@ def test_read_structures_from_nrrd():
     # phantom_obj.write_image_to_nrrd(pth_out)
     phantom_obj.write_structures_to_nrrd(pth_out, overlap=True)
 
+def test_upsample_structure():
+    pth_dicom = "/home/ubuntu/YourLocalHome/Data/prostate/prostate-glen-2023/p8"
+    # pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
+    pth_out = "data_test/test_export_plan/prostate"
+    phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
+    phantom_obj.resample_to(spacing=np.array([1., 1., 1.]))
+    phantom_obj.export_to(dir_nrrd_out=pth_out)
+
 def test_write_to_egsphant():
-    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    # pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_dicom = "/home/ubuntu/YourLocalHome/Data/prostate/prostate-glen-2023/p8"
     pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
     pth_out = "data_test/test_export_plan/prostate/ct.egsphant"
     # pth_materials = "data_test/prostate-glen-p1-dcm/CTtoDensityProstate.txt"
@@ -96,14 +106,15 @@ def test_write_to_egsphant():
         pth_output=pth_out,
         material_dict=pth_materials,
         assign_material_from_ct=assign_material_from_ct,
+        resampled_spacing=[1., 1., 1.],
     )
-    from brachyutils.geometry.egsphant_utils import BrachyEgsphant
-    egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_out)
-    egsphant_obj.write_to_file(Path(pth_out).parent.joinpath("egsphant.seq.nrrd"))
+    # from brachyutils.geometry.egsphant_utils import BrachyEgsphant
+    # egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_out)
+    # egsphant_obj.write_to_file(Path(pth_out).parent.joinpath("egsphant.seq.nrrd"))
 
-    new_egsphant = BrachyEgsphant(Path(pth_out).parent.joinpath("egsphant.seq.nrrd"))
-    new_egsphant.write_to_file(pth_out)
-    new_egsphant.is_equal(egsphant_obj)
+    # new_egsphant = BrachyEgsphant(Path(pth_out).parent.joinpath("egsphant.seq.nrrd"))
+    # new_egsphant.write_to_file(pth_out)
+    # new_egsphant.is_equal(egsphant_obj)
 
 def test_load_egsphant():
     pth_egsphant = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
@@ -381,9 +392,10 @@ if __name__ == "__main__":
     # test_write_image_to_dicom()
     # test_write_image_to_nrrd()
     # test_write_structures_to_nrrd()
+    test_upsample_structure()
     # test_write_structures_to_dicom()
     # test_read_structures_from_nrrd()
-    test_write_to_egsphant()
+    # test_write_to_egsphant()
     # test_load_egsphant()
     # test_crop_phantom()
     # print("testing CatheterTable")

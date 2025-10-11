@@ -644,6 +644,7 @@ class BrachyPhantom:
         crop_by_contour: str = None,
         resampled_spacing: List[float] = None,
         resampled_origin: List[float] = None,
+        resample_phantom_base: Optional[bool] = True,
         background_material: Optional[str] = "Air",
         strict_name_match: bool = True,
     ) -> None:
@@ -683,6 +684,15 @@ class BrachyPhantom:
         elif self.image_obj is not None:
             phantom_used_for_egsphant = deepcopy(self)
             from brachyutils.geometry.egsphant_utils import BrachyEgsphant
+            
+            if resampled_spacing is not None or resampled_origin is not None: #if we want to resample
+                if resample_phantom_base: #resample the phantom and structures that the egsphant is based on
+                    phantom_used_for_egsphant.resample_to(
+                        origin=resampled_origin,
+                        spacing=resampled_spacing,
+                        inplace=True
+                    )
+
             self.egsphant_obj = BrachyEgsphant(
                 phantom=phantom_used_for_egsphant,
                 material_dict=material_dict,
@@ -696,7 +706,7 @@ class BrachyPhantom:
                     crop_by_contour,
                     strict_name_match=strict_name_match)
 
-            if resampled_spacing is not None:
+            if resampled_spacing is not None and not resample_phantom_base:
                 self.egsphant_obj.material_image = resampleImage3D(
                     image=self.egsphant_obj.material_image,
                     origin=resampled_origin,
@@ -1090,7 +1100,7 @@ class BrachyPhantom:
         self,
         origin:np.array=None,
         spacing:np.array=None,
-        inplace:bool=False,
+        inplace:bool=True,
         gridSize:np.array=None,
         interpolator_img=sitk.sitkLinear) -> "BrachyPhantom":
         r"""
