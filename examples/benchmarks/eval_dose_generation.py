@@ -126,6 +126,8 @@ def run_dose_generation(
                 "dose_gen_method": "tg43",
                 "dose_generation_time": t1 - t0
             }
+            # break # for debugging
+    # # for Monte Carlo
     elif method == "mc":
         dir_plans = list(dir_plan_export.glob("*/"))
         for plan in tqdm(dir_plans):
@@ -418,13 +420,17 @@ if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
     dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
-    for dir_export in [dir_export_tg43, dir_export_mc]:
-        run_export(
-            dir_all_dicoms=dir_all_dicoms,
-            dir_export=dir_export,
-            multi_proc=False,
-        )
+
+    # # export all dicoms to plans
+    # for dir_export in [dir_export_tg43, dir_export_mc]:
+    #     run_export(
+    #         dir_all_dicoms=dir_all_dicoms,
+    #         dir_export=dir_export,
+    #         multi_proc=False,
+    #     )
         # break
+
+    # # run dose generation for all plans
     run_dose_generation(
         dir_plan_export=dir_export_tg43,
         method="tg43"
