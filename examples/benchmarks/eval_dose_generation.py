@@ -104,7 +104,7 @@ def run_export(
     else:
         for dicom in tqdm(all_dicoms):
             partially_filled_export_func(dicom)
-            # break # for debugging
+            break # for debugging
 
 def run_dose_generation(
     dir_plan_export: Path | str,
@@ -126,6 +126,7 @@ def run_dose_generation(
                 "dose_gen_method": "tg43",
                 "dose_generation_time": t1 - t0
             }
+            timing_data.to_csv(dir_plan_export/f"dose_generation_timing_{method}.csv", index=False)
             # break # for debugging
     # # for Monte Carlo
     elif method == "mc":
@@ -139,10 +140,9 @@ def run_dose_generation(
                 "dose_gen_method": "mc",
                 "dose_generation_time": t1 - t0
             }
+            timing_data.to_csv(dir_plan_export/f"dose_generation_timing_{method}.csv", index=False)
     else:
         raise ValueError(f"Invalid method: {method}. Valid methods are 'tg43' and 'mc'.")
-
-    timing_data.to_csv(dir_plan_export/f"dose_generation_timing_{method}.csv", index=False)
 
 def run_single_tg43_dose_generation(dir_plan):
     dose_gen_obj = DoseTG43(
@@ -421,20 +421,19 @@ if __name__ == "__main__":
     dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
     dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
 
-    # # export all dicoms to plans
-    # for dir_export in [dir_export_tg43, dir_export_mc]:
-    #     run_export(
-    #         dir_all_dicoms=dir_all_dicoms,
-    #         dir_export=dir_export,
-    #         multi_proc=False,
-    #     )
-        # break
+    # export all dicoms to plans
+    for dir_export in [dir_export_tg43, dir_export_mc]:
+        run_export(
+            dir_all_dicoms=dir_all_dicoms,
+            dir_export=dir_export,
+            multi_proc=False,
+        )
 
     # # run dose generation for all plans
-    run_dose_generation(
-        dir_plan_export=dir_export_tg43,
-        method="tg43"
-    )
+    # run_dose_generation(
+    #     dir_plan_export=dir_export_tg43,
+    #     method="tg43"
+    # )
     # run_dose_generation(
     #     dir_plan_export=dir_export_mc,
     #     method="mc"

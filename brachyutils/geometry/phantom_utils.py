@@ -700,11 +700,13 @@ class BrachyPhantom:
                 self.egsphant_obj.material_image = resampleImage3D(
                     image=self.egsphant_obj.material_image,
                     origin=resampled_origin,
-                    spacing=resampled_spacing, outputType=np.int16)
+                    spacing=resampled_spacing, 
+                    outputType=np.int16)
                 self.egsphant_obj.density_image = resampleImage3D(
                     image=self.egsphant_obj.density_image,
                     origin=resampled_origin,
-                    spacing=resampled_spacing)
+                    spacing=resampled_spacing,)
+                    # sitk_interpolator=sitk.sitkNearestNeighbor)
                 self.egsphant_obj.get_voxel_edges()
             if str(pth_output).endswith(".egsphant"):
                 self.egsphant_obj.write_to_ctegsphant(pth_output)
