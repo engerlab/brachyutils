@@ -4,6 +4,7 @@ from tqdm import tqdm
 from brachyutils import load_dicom_to_plan
 from brachyutils import DoseMonteCarlo, DoseTG43
 import pandas as pd
+from time import time
 
 def run_multi_proc(function, input_list, max_workers=8):
     from multiprocessing import Pool
@@ -105,20 +106,41 @@ def run_export(
             partially_filled_export_func(dicom)
             # break # for debugging
 
-def run_dose_generation():
+def run_dose_generation(
+    dir_plan_export: Path | str,
+    method: Literal["tg43", "mc"] = "tg43",
+):
+    timing_data = pd.DataFrame(columns=[
+        "plan_name", "dose_gen_method", "dose_generation_time"
+        ])
     # # for TG43
+    if method == "tg43":
     # dir_plan_export = Path("temp_data/tg43/prostate-glen-2023")
-    # list_plans = list(dir_plan_export.glob("*/"))
-    # for plan in tqdm(list_plans):
-    #     run_single_tg43_dose_generation(plan)
+        dir_plans = list(dir_plan_export.glob("*/"))
+        for plan in tqdm(dir_plans):
+            t0 = time()
+            run_single_tg43_dose_generation(plan)
+            t1 = time()
+            timing_data.loc[len(timing_data)] = {
+                "plan_name": plan.name,
+                "dose_gen_method": "tg43",
+                "dose_generation_time": t1 - t0
+            }
+    elif method == "mc":
+        dir_plans = list(dir_plan_export.glob("*/"))
+        for plan in tqdm(dir_plans):
+            t0 = time()
+            run_single_mc_dose_generation(plan)
+            t1 = time()
+            timing_data.loc[len(timing_data)] = {
+                "plan_name": plan.name,
+                "dose_gen_method": "mc",
+                "dose_generation_time": t1 - t0
+            }
+    else:
+        raise ValueError(f"Invalid method: {method}. Valid methods are 'tg43' and 'mc'.")
 
-    # # for monte carlo
-    dir_plan_export = Path("temp_data/mc/prostate-glen-2023")
-    list_plans = list(dir_plan_export.glob("*/"))
-    for plan in tqdm(list_plans):
-        run_single_mc_dose_generation(plan)
-        break
-    # run_multi_proc(run_single_tg43_dose_generation, list_plans, max_workers=8)
+    timing_data.to_csv(dir_plan_export/f"dose_generation_timing_{method}.csv", index=False)
 
 def run_single_tg43_dose_generation(dir_plan):
     dose_gen_obj = DoseTG43(
@@ -403,6 +425,13 @@ if __name__ == "__main__":
             multi_proc=False,
         )
         # break
-    # run_dose_generation()
+    run_dose_generation(
+        dir_plan_export=dir_export_tg43,
+        method="tg43"
+    )
+    # run_dose_generation(
+    #     dir_plan_export=dir_export_mc,
+    #     method="mc"
+    # )
     # run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
