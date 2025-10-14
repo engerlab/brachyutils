@@ -422,12 +422,12 @@ if __name__ == "__main__":
     dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
 
     # export all dicoms to plans
-    for dir_export in [dir_export_tg43, dir_export_mc]:
-        run_export(
-            dir_all_dicoms=dir_all_dicoms,
-            dir_export=dir_export,
-            multi_proc=False,
-        )
+    # for dir_export in [dir_export_tg43, dir_export_mc]:
+    #     run_export(
+    #         dir_all_dicoms=dir_all_dicoms,
+    #         dir_export=dir_export,
+    #         multi_proc=False,
+    #     )
 
     # # run dose generation for all plans
     # run_dose_generation(
