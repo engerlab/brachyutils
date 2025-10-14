@@ -104,7 +104,7 @@ def run_export(
     else:
         for dicom in tqdm(all_dicoms):
             partially_filled_export_func(dicom)
-            break # for debugging
+            # break # for debugging
 
 def run_dose_generation(
     dir_plan_export: Path | str,
@@ -434,9 +434,9 @@ if __name__ == "__main__":
     #     dir_plan_export=dir_export_tg43,
     #     method="tg43"
     # )
-    # run_dose_generation(
-    #     dir_plan_export=dir_export_mc,
-    #     method="mc"
-    # )
+    run_dose_generation(
+        dir_plan_export=dir_export_mc,
+        method="mc"
+    )
     # run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
