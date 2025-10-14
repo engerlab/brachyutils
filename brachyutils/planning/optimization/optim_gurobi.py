@@ -247,7 +247,6 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.target_constraints_coords = []
         self.hotspot_constraints_coords = []
         self.hotspot_threshold = None
-        self.structure_variables_d = {}
         self.structure_weights_d = {}
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
@@ -485,14 +484,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
                 constraint_counter += num_dose_points
 
-                ## Saving variables info for later potential resetting of the model
-                self.structure_variables_d[structure.name] = {
-                    "is_target_volume": structure.target_volume,
-                    "dose_slack": x_slack,
-                    "num_dose_points": num_dose_points,
-                    "uniform_slack": y_uniform, 
-                    "hotspot_estimator": "hotspot_estimator" in structure.name.lower()
-                }
+                ## Saving weights info for later potential resetting of the model
                 self.structure_weights_d[structure.name] = {
                     "linear_weight": linear_weight,
                     "quadratic_weight": quadratic_weight,
@@ -529,14 +521,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
                 constraint_counter += num_dose_points
 
-                ## Saving variables info for later potential resetting of the model
-                self.structure_variables_d[structure.name] = {
-                    "is_target_volume": structure.target_volume,
-                    "dose_slack": x_slack,
-                    "num_dose_points": num_dose_points,
-                    "uniform_slack": None, 
-                    "hotspot_estimator": "hotspot_estimator" in structure.name.lower()
-                }
+                ## Saving weights info for later potential resetting of the model
                 self.structure_weights_d[structure.name] = {
                     "hotspot_weight": hotspot_weight,
                     "num_dose_points": num_dose_points,
@@ -561,14 +546,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 )
                 constraint_counter += num_dose_points
 
-                ## Saving variables info for later potential resetting of the model
-                self.structure_variables_d[structure.name] = {
-                    "is_target_volume": structure.target_volume,
-                    "dose_slack": x_slack,
-                    "num_dose_points": num_dose_points,
-                    "uniform_slack": None, 
-                    "hotspot_estimator": "hotspot_estimator" in structure.name.lower()
-                }
+                ## Saving weights info for later potential resetting of the model
                 self.structure_weights_d[structure.name] = {
                     "linear_weight": linear_weight,
                     "quadratic_weight": quadratic_weight,
@@ -594,118 +572,36 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         model.update()
 
 
-    def reset_model_from_config(self, model: Model, config: dict) -> None:
-        penalty_terms = {
-            "linear": 0,
-            "quadratic": 0,
-            "uniformity": 0,
-            "hotspot": 0
-        }
+    def reset_model_from_config(self, config: dict) -> None:
+        r"""
+        ### Purpose:
+        - A function to reset the model with new penalty weights.
+        ### Inputs:
+        - model: Model := The Gurobi model to be reset.
+        - config: dict := A dictionary containing the penalty weights for each structure.
+            Example:
+            {'td_PTV': 3.5358764542564374,
+            'linear_w_Skin': 96.60924792289734, 
+            'linear_w_Chestwall': 90.46064639091492, 
+            'linear_w_PTV': 1000.0, 
+            'quadratic_w_PTV': 1.0}
 
-        # Storing new_target dose into a variable and then removing it from the config dict
-        new_target_dose = None
-        found = False
-        config_to_use = deepcopy(config)
-        for k, v in config_to_use.items():
-            if "td_" in k.lower() :
-                new_target_dose = deepcopy(v)
-                to_remove = k
-                found = True
-                break
-        if found:
-            config_to_use.pop(to_remove, None)
+        ### Outputs:
+        - model: Model := The reset Gurobi model.
+        """
 
-        ## Reorganize dict by structure name because input config used in MOBO is flat
-        reorganized_config = {}
-        for k, v in config_to_use.items():
-            struct_name = k.split("_")[2]
-            if struct_name not in reorganized_config:
-                reorganized_config[struct_name] = {}
-            param_name = k.split("_")[0] 
-            reorganized_config[struct_name][param_name] = v
+        _, updated_structure_weights_d = modify_model_objective_with_new_penalty_weights_and_td(
+            model=self.model, 
+            # self.structure_weights_d will be modified with the next set of penalty weights
+            # It will store the current "state" of the model.
+            og_setup_for_objective=self.structure_weights_d, 
+            new_penalty_weights=config, 
+            target_constraints_coords=self.target_constraints_coords, 
+            hotspot_constraints_coords=self.hotspot_constraints_coords, 
+            hotspot_threshold=self.hotspot_threshold)
 
-        for struct_name, var_d in self.structure_variables_d.items():
-            proposed_config_struct_d = reorganized_config.get(struct_name, {})
-
-            if "linear" in proposed_config_struct_d.keys():
-                # Taking argument config
-                linear_weight = proposed_config_struct_d["linear"]
-            else:
-                # Taking original config
-                if "linear_weight" in self.structure_weights_d[struct_name]:
-                    linear_weight = self.structure_weights_d[struct_name]["linear_weight"]
-                else:
-                    linear_weight = None
-
-            if "quadratic" in proposed_config_struct_d.keys():
-                quadratic_weight = proposed_config_struct_d["quadratic"]
-            else:
-                if "quadratic_weight" in self.structure_weights_d[struct_name]:
-                    quadratic_weight = self.structure_weights_d[struct_name]["quadratic_weight"]
-                else:
-                    quadratic_weight = None
-
-            if "uniformity" in proposed_config_struct_d.keys():
-                uniformity_weight = proposed_config_struct_d["uniformity"]
-            else:
-                if var_d["is_target_volume"]:
-                    uniformity_weight = self.structure_weights_d[struct_name]["uniformity_weight"]
-                else:
-                    uniformity_weight = None
-
-            if "hotspot" in proposed_config_struct_d.keys():
-                hotspot_weight = proposed_config_struct_d["hotspot"] 
-            else:
-                if var_d["hotspot_estimator"]:
-                    hotspot_weight = self.structure_weights_d[struct_name]["hotspot_weight"]
-                else:
-                    hotspot_weight = None
-
-            x_slack = var_d["dose_slack"]
-            y_uniform = var_d["uniform_slack"]
-            num_dose_points = var_d["num_dose_points"]
-            if var_d["is_target_volume"]:
-                linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
-                quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
-                uniformity_weight_vec = np.full(num_dose_points, uniformity_weight / (num_dose_points * 1000))
-
-                # Linear penalty: sum(linear_weight_vec @ x_slack)
-                penalty_terms["linear"] += linear_weight_vec @ x_slack
-                # Quadratic penalty: sum(quadratic_weight_vec * x_slack * x_slack)
-                penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
-                # Uniformity penalty: sum(uniformity_weight_vec * y_uniform * y_uniform)
-                penalty_terms["uniformity"] += uniformity_weight_vec @ (y_uniform * y_uniform)
-
-            elif var_d["hotspot_estimator"]:
-                hotspot_weight_vec = np.full(num_dose_points, hotspot_weight / num_dose_points)
-                penalty_terms["hotspot"] += (hotspot_weight_vec @ x_slack)
-
-            else:
-                linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
-                quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
-
-                penalty_terms["linear"] += linear_weight_vec @ x_slack
-                penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
-        # Set objective function
-        model.setObjective(
-            penalty_terms["linear"]
-            + penalty_terms["quadratic"]
-            + penalty_terms["uniformity"]
-            + penalty_terms["hotspot"],
-            GRB.MINIMIZE
-        )
-        model.update()
-
-        if found:
-            change_model_dose_to_target(
-                new_target_dose=new_target_dose, 
-                model=model, 
-                coords_target_constraint=self.target_constraints_coords, 
-                coords_hotspot_constraint=self.hotspot_constraints_coords, 
-                hotspot_threshold=self.hotspot_threshold
-            )
-        return model
-        
+        ### Updating state of the penalty weights of the model dict
+        self.structure_weights_d = updated_structure_weights_d
 
     def run(self):
         r"""
@@ -771,7 +667,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         config_wo_td = deepcopy(config)
         # The method directly modifies the self.model object used later
         # in get_optimized_plan_from_model function
-        _ = self.reset_model_from_config(self.model, config_wo_td)
+        self.reset_model_from_config(config_wo_td)
 
         optimized_plan = self.get_optimized_plan_from_model(inplace=inplace)
         dvh_metrics = optimized_plan.get_dvh_metrics()
@@ -824,7 +720,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 [True]*len(list_of_configs),
                 list_of_configs,
                 [return_cat_table]*len(list_of_configs),
-                [self.structure_weights_d]*len(list_of_configs), 
+                [deepcopy(self.structure_weights_d)]*len(list_of_configs), 
                 [self.target_constraints_coords]*len(list_of_configs),
                 [self.hotspot_constraints_coords]*len(list_of_configs),
                 [self.hotspot_threshold]*len(list_of_configs)
@@ -937,7 +833,7 @@ def _run_and_organize_results(
     new_weight_config = deepcopy(config_wo_td)
     with Env() as env, Model(env=env) as model:
         model = update_model_from_data(model_inputs_data, model)       
-        modify_model_objective_with_new_penalty_weights_and_td(
+        _ = modify_model_objective_with_new_penalty_weights_and_td(
             model=model, 
             og_setup_for_objective=og_setup_for_objective, 
             new_penalty_weights=new_weight_config, 
@@ -1117,21 +1013,26 @@ def modify_model_objective_with_new_penalty_weights_and_td(
     {"PTV": {"linear":500, "quadratic":0.5}, "Skin": {"linear":50, "quadratic":0.5}, "Chestwall": {"linear":50, "quadratic":0.5}}, 
     """
 
+
+    new_setup_for_model_penalty_weights = {}
+
     # Extract target dose from new_penalty_weights if present and remove it from the dict
     new_target_dose = None
     found = False
-    for k, v in new_penalty_weights.items():
+
+    penalty_weights_to_set = deepcopy(new_penalty_weights)
+    for k, v in penalty_weights_to_set.items():
         if "td_" in k.lower() :
             new_target_dose = deepcopy(v)
             to_remove = k
             found = True
             break
     if found:
-        new_penalty_weights.pop(to_remove, None)
+        penalty_weights_to_set.pop(to_remove, None)
 
     ## Reorganize dict by structure name because input config used in MOBO is flat
     reorganized_new_penalty_weights = {}
-    for k, v in new_penalty_weights.items():
+    for k, v in penalty_weights_to_set.items():
         struct_name = k.split("_")[2]
         if struct_name not in reorganized_new_penalty_weights:
             reorganized_new_penalty_weights[struct_name] = {}
@@ -1157,7 +1058,7 @@ def modify_model_objective_with_new_penalty_weights_and_td(
                 struct_name = sname
 
         if struct_name is None:
-            raise ValueError(f"Variable {var.VarName} does not belong to any known structure")
+            raise ValueError(f"Variable {var.VarName} does not belong to any known structure, with og_setup {og_setup_for_objective}, and coeff {coeff}, and new config {new_penalty_weights}")
         # Get the original coefficient and weight
         if not "hotspot" in struct_name:
             og_weight = og_setup_for_objective[struct_name]["linear_weight"]
@@ -1180,10 +1081,22 @@ def modify_model_objective_with_new_penalty_weights_and_td(
      
         # Calculate new coefficient
         new_coeff = (new_weight / og_weight) * coeff
-       
+        # Store in new setup for model penalty weights
+        if not struct_name in new_setup_for_model_penalty_weights:
+            new_setup_for_model_penalty_weights[struct_name] = {}
+            if not "hotspot" in struct_name:
+                new_setup_for_model_penalty_weights[struct_name]["linear_weight"] = new_weight
+                new_setup_for_model_penalty_weights[struct_name]["linear_coeff"] = new_coeff
+            else:
+                new_setup_for_model_penalty_weights[struct_name]["hotspot_weight"] = new_weight
+                new_setup_for_model_penalty_weights[struct_name]["hotspot_coeff"] = new_coeff
+            new_setup_for_model_penalty_weights[struct_name]["num_dose_points"] = og_setup_for_objective[struct_name]["num_dose_points"]
+
+        # Add to new objective if
         if new_coeff != 0:
             new_objective.addTerms(new_coeff, var)
 
+    coeff_type = None
     for i in range(old_objective.size()):
         v1, v2 = old_objective.getVar1(i), old_objective.getVar2(i)
         coeff = old_objective.getCoeff(i)
@@ -1193,33 +1106,37 @@ def modify_model_objective_with_new_penalty_weights_and_td(
             if coeff == og_setup_for_objective[sname].get("quadratic_coeff", None) or \
                 coeff == og_setup_for_objective[sname].get("uniformity_coeff", None):
                 struct_name = sname
+                if coeff == og_setup_for_objective[sname].get("quadratic_coeff", None):
+                    coeff_type = "quadratic"
+                else:
+                    coeff_type = "uniformity"
 
         if struct_name is None:
-            raise ValueError(f"Variable pair {v1.VarName}, {v2.VarName} does not belong to any known structure")
+            raise ValueError(f"Variable pair {v1.VarName}, {v2.VarName} does not belong to any known structure, with og_setup {og_setup_for_objective}, and coeff {coeff}, and new config {new_penalty_weights}")
         
         # Get the original coefficient and weight
-        if not "uniformity" in struct_name:
-            og_weight = og_setup_for_objective[struct_name]["quadratic_weight"]
-            if struct_name in reorganized_new_penalty_weights:
-                if "quadratic" in reorganized_new_penalty_weights[struct_name]:
-                    new_weight = reorganized_new_penalty_weights[struct_name]["quadratic"]
-                else:
-                    new_weight = og_weight
+        og_weight = og_setup_for_objective[struct_name][f"{coeff_type}_weight"]
+        if struct_name in reorganized_new_penalty_weights:
+            if coeff_type in reorganized_new_penalty_weights[struct_name]:
+                new_weight = reorganized_new_penalty_weights[struct_name][coeff_type]
             else:
                 new_weight = og_weight
         else:
-            og_weight = og_setup_for_objective[struct_name]["uniformity_weight"]
-            if struct_name in reorganized_new_penalty_weights:
-                if "uniformity" in reorganized_new_penalty_weights[struct_name]:
-
-                    new_weight = reorganized_new_penalty_weights[struct_name]["uniformity"] / (reorganized_new_penalty_weights[struct_name]["num_dose_points"] * 1000)
-                else:
-                    new_weight = og_weight
-            else:
-                new_weight = og_weight
+            new_weight = og_weight
+      
+                
         # Calculate new coefficient
         new_coeff = (new_weight / og_weight) * coeff
-
+        # Store in new setup for model penalty weights
+        if coeff_type == "quadratic":
+            if not "quadratic_weight" in new_setup_for_model_penalty_weights[struct_name]:
+                new_setup_for_model_penalty_weights[struct_name]["quadratic_weight"] = new_weight
+                new_setup_for_model_penalty_weights[struct_name]["quadratic_coeff"] = new_coeff
+        else:
+            if not "uniformity_weight" in new_setup_for_model_penalty_weights[struct_name]:
+                new_setup_for_model_penalty_weights[struct_name]["uniformity_weight"] = new_weight
+                new_setup_for_model_penalty_weights[struct_name]["uniformity_coeff"] = new_coeff
+            
         if new_coeff != 0:
             new_objective.addTerms(new_coeff, v1, v2)
 
@@ -1235,7 +1152,7 @@ def modify_model_objective_with_new_penalty_weights_and_td(
             hotspot_threshold=hotspot_threshold
         )
     
-    return model
+    return model, new_setup_for_model_penalty_weights
 
 def update_model_from_data(input_data: dict, model:Model):
 
