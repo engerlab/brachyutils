@@ -4,7 +4,7 @@
 export UID=$(id -u)
 export GID=$(id -g)
 export DISPLAY=$DISPLAY
-export HOST_HOME=${HOME}
+# export HOST_HOME=${HOME}
 # # to build the image and run the container
 # export DOCKER_BUILDKIT=1
 # echo $(ssh-agent)
@@ -13,7 +13,7 @@ export HOST_HOME=${HOME}
 # # to run the container without building the image
 docker compose up --no-build -d BrachyUtils
 docker compose up --no-build -d DoseCalcMC
-docker compose up --no-build -d DoseCalcTG43
+# docker compose up --no-build -d DoseCalcTG43
 # docker compose up --no-build -d Plastimatch
 # docker compose up --no-build -d SimpleElastix
 # to enter the container
