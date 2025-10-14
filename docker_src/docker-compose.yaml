@@ -9,7 +9,7 @@ services:
         - HOST_HOME=${HOST_HOME}
     image: brachyutils
     container_name: BrachyUtils
-    user: 0:0 #"${UID}:${GID}"
+    user: "0:0" #"${UID}:${GID}"
     working_dir: /app
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -78,7 +78,7 @@ services:
   DoseCalcMC:
     image: rapidbrachy_mc
     container_name: DoseCalcMC
-    user: "${UID}:${GID}"
+    user: "0:0" # "${UID}:${GID}"
     working_dir: /app
     stdin_open: true # docker run -i
     tty: true # docker run -t
