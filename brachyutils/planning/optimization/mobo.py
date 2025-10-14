@@ -157,7 +157,8 @@ class MOBOOptimizer:
     def run(self,
             param_config:dict,
             num_iterations:int, 
-            num_parallel_initiation:int=0, 
+            num_random_initiation:int=5, 
+            parallel_random_init:bool=True,
             output_filename:str=None,
             calc_hv:bool=True,
             ):
@@ -171,9 +172,11 @@ class MOBOOptimizer:
 
         inputs:
             - num_iterations:= the number of desired mobo iterations
-            - num_parallel_initiation := if this number is specified, parallel fmio calls are used to initiate axClient.experiment
-                by calling initialize_experiment(). However, if this number is 0 or 1, the experiment is initiated by the 
-                semirandom sobol generator inside the ax api.
+            - num_random_initiation := fmio calls are used to initiate axClient.experiment
+                If parallel_random_init, these runs are completely random and run in parallel with the initialize_experiment()
+                function. If not, the runs are initiated one by one inside the mobo loop with the semirandom sobol generator 
+                of ax api. Must be greater than 0, otherwise qNoisyExpectedImprovement will not be able to search for next 
+                trial.
             - param_config:= a dictionary containing the configuration of the parameter. it must have the following keys: 
                 {
                 'relative_weights':bool := if true, the penalty weight of the OARs is normalized to the penalty weight of tumor volume, 
@@ -195,32 +198,43 @@ class MOBOOptimizer:
         # a list to keep track of the hypervolumes. 
         hv_list = []
 
-        # Instantiating an Ax Client object
-        generation_strategy_forMOBO = GenerationStrategy(
-            # https://ax.dev/docs/0.5.0/tutorials/generation_strategy/
-            steps=[
+        assert num_random_initiation > 0, (
+            "num_random_initiation must be greater than 0, otherwise qNoisyExpectedImprovement"\
+            " will not be able to search for next trial."
+        )
+
+        steps=[]
+        if not parallel_random_init:
+            steps.append(
                 GenerationStep(
                     ## This is quasi random sampling, good for initial exploration of the space
                     # https://ax.dev/docs/0.5.0/tutorials/multiobjective_optimization/
                     generator=Generators.SOBOL,
-                    num_trials=1 if num_parallel_initiation!= None else min(int(num_iterations/2), 8),
-                ),
-                GenerationStep(
-                    ## Refer to 
-                    # S. Ament, S. Daulton, D. Eriksson, M. Balandat, and E. Bakshy.
-                    # Unexpected Improvements to Expected Improvement for Bayesian Optimization. Advances
-                    # in Neural Information Processing Systems 36, 2023.
-                    # https://github.com/meta-pytorch/botorch/blob/main/botorch/acquisition/logei.py#L239
-                    generator=Generators.BOTORCH_MODULAR,  # Use this for multi-objective optimization
-                    num_trials=-1,
-                    model_kwargs={
-                        "botorch_acqf_class": qLogNoisyExpectedImprovement,
-                    },
-                    model_gen_kwargs={
-                        "pending_observations":get_pending_observation_features
-                    },
+                    num_trials=num_random_initiation,
                 )
-            ]
+            )
+
+        steps.append(GenerationStep(
+            ## Refer to 
+            # S. Ament, S. Daulton, D. Eriksson, M. Balandat, and E. Bakshy.
+            # Unexpected Improvements to Expected Improvement for Bayesian Optimization. Advances
+            # in Neural Information Processing Systems 36, 2023.
+            # https://github.com/meta-pytorch/botorch/blob/main/botorch/acquisition/logei.py#L239
+            generator=Generators.BOTORCH_MODULAR,  # Use this for multi-objective optimization
+            num_trials=-1,
+            model_kwargs={
+                "botorch_acqf_class": qLogNoisyExpectedImprovement,
+            },
+            model_gen_kwargs={
+                "pending_observations":get_pending_observation_features
+            },
+        ))
+        
+        
+        # Instantiating an Ax Client object
+        generation_strategy_forMOBO = GenerationStrategy(
+            # https://ax.dev/docs/0.5.0/tutorials/generation_strategy/
+            steps=steps
         )
         ax_client = AxClient(generation_strategy=generation_strategy_forMOBO,)
 
@@ -239,14 +253,13 @@ class MOBOOptimizer:
         tic = perf_counter()
         tac = None
         optimized_cat_tables = {}
-        if num_parallel_initiation > 1:
-            ## If ==1 we will run the semirandom initialization with SOBOL inside the loop
-            # fill out the ax_client experiment with the result of 100 randomly generated penalty weights
+        if parallel_random_init:
+            # Completely random experiment initialization in parallel
             results, cat_tables = self.initialize_experiment(ax_client,
-                                       num_parallel_initiation - 1)
+                                       num_random_initiation)
             optimized_cat_tables.update(cat_tables)
             tac = perf_counter()
-            print(f"Time taken for {num_parallel_initiation} parallel initialization: {tac - tic:0.4f} seconds")
+            print(f"Time taken for {num_random_initiation} parallel initialization: {tac - tic:0.4f} seconds")
         else:
             results = pd.DataFrame()
 
@@ -278,7 +291,7 @@ class MOBOOptimizer:
         if tac is not None:
             parallel_init_time = tac - tic
             mobo_time = toc - tac
-            print(f"Time taken for {num_parallel_initiation} parallel initialization: {tac - tic:0.4f} seconds")
+            print(f"Time taken for {num_random_initiation} parallel initialization: {tac - tic:0.4f} seconds")
             print(f"Time taken for {num_iterations} MOBO iterations after initialization: {toc - tac:0.4f} seconds")
         else:
             mobo_time = toc - tic
