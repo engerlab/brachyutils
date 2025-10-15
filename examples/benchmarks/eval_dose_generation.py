@@ -159,16 +159,18 @@ def run_single_mc_dose_generation(dir_plan):
 def get_dvh_metrics_single_plan(
     dir_dicom: Path | str,
     dvh_metric_goals: Dict[str, float],
-    dir_plan_export: Path | str,
+    prescription_dose: float,
     load_dose_from: Literal["dicom"] | Path | str = "dicom",
+    dir_dose_rate: Path | str = None,
     export_combined_dose: bool = True,
+
 ) -> Dict[str, float]:
     r"""
     ### Purpose:
         - To evaluate a single plan's dose distribution based on DVH metrics.
     
     ### Inputs:
-        - dir_plan_export: Path | str: The path to the exported plan.
+        - dir_dose_rate: Path | str: The path to the exported plan.
         - dvh_metric_goals: Dict[str, float]: The DVH metrics to evaluate the plan.
         - dir_dicom: Path | str: The path to the dicom directory for one plan. it should have images,
         and structure file.
@@ -182,6 +184,7 @@ def get_dvh_metrics_single_plan(
             load_dicom_dose=True,
             dvh_metric_goals=dvh_metric_goals,
             combined_dose_only=True,
+            prescription_dose=prescription_dose,
             )
     elif isinstance(load_dose_from, str) or isinstance(load_dose_from, Path):
         load_dose_from = Path(load_dose_from)
@@ -190,7 +193,8 @@ def get_dvh_metrics_single_plan(
                 dir_dicom=dir_dicom,
                 load_dicom_dose=False,
                 dvh_metric_goals=dvh_metric_goals,
-                combined_dose = load_dose_from,
+                prescription_dose=prescription_dose,
+                combined_dose=load_dose_from,
                 combined_dose_only=True,
                 multi_processing=True
                 )
@@ -199,7 +203,8 @@ def get_dvh_metrics_single_plan(
             dir_dicom=dir_dicom,
             load_dicom_dose=False,
             dvh_metric_goals=dvh_metric_goals,
-            dir_dose_rate=dir_plan_export,
+            prescription_dose=prescription_dose,
+            dir_dose_rate=dir_dose_rate,
             combined_dose_only=True,
             multi_processing=True
             )
@@ -215,7 +220,7 @@ def get_dvh_metrics_single_plan(
     dvh_metrics_observed = plan_obj.get_dvh_metrics()
     if export_combined_dose:
         plan_obj.export_brachy_plan(
-            dir_export=dir_plan_export,
+            dir_export=dir_dose_rate,
             content_to_export={
                 "dose": True,
             }
@@ -223,68 +228,42 @@ def get_dvh_metrics_single_plan(
     return dvh_metrics_observed
 
 def get_dvh_metrics_all_plans(
-    dir_all_dicom_folders: str | Path,
-    dir_all_plan_folders: str | Path,
+    dosimetry_inputs: list[Dict[str, Union[str, Path]]],
     dvh_metric_goals: Dict[str, float],
+    pth_out_csv: Path,
+    prescription_dose: float = None,
 ):
     r"""
     ### Purpose:
-        - To get the dvh metrics from all the patients in the given directory.
-    
+    - To get the dvh metrics from all the patients in the given directory.
     ### Inputs:
-        - dir_dicom_folders: str | Path: The path to the dicom folders.
-        - dir_plan_folders: str | Path: The path to the plan folders.
-        - dvh_metric_goals: Dict[str, float]: The DVH metrics to evaluate the plan.
+    - dosimetry_inputs:= list of dictionaries, where each dictionary contains the following keys:
+        - plan_id:= str, the patient id
+        - pth_phant:= Path, the path to the phantom directory
+        - pth_dose:= Path, the path to the dose file
+    - dvh_metric_goals:= Dict[str, float], the dvh metrics to evaluate the plans.
+    - pth_out_csv:= Path, the path to the output csv file.
+    ### Outputs:
+    - A csv file containing the dvh metrics for all the patients.
     """
-    dir_all_dicom_folders = Path(dir_all_dicom_folders)
-    dir_all_plan_folders = Path(dir_all_plan_folders)
-    
-    list_dir_plan = dir_all_plan_folders.glob("*/")
-    all_dvhs = pd.DataFrame()
-    for dir_plan in list_dir_plan:
-        if not dir_plan.is_dir():
-            continue
-        dir_dicom = dir_all_dicom_folders.joinpath(dir_plan.stem)
-        print(f"dvh from dicom folder: {dir_dicom}")
-        try:
-            dvh_metrics = get_dvh_metrics_single_plan(
-                dir_dicom=dir_dicom,
-                dvh_metric_goals=dvh_metric_goals,
-                dir_plan_export=dir_plan,
-                load_dose_from=dir_plan/"combined.seq.nrrd",
-                export_combined_dose=False,
-            )
-            all_dvhs = pd.concat(
-                    [
-                    pd.DataFrame([dvh_metrics | {"name":dir_plan.name}]),
-                    all_dvhs
-                    ],
-                ignore_index=True
-                )
-            
-        except Exception as e:
-            print(f"error in getting dvh for {dir_plan}")
-            print(e)
-    all_dvhs.set_index("name", inplace=True)
-    all_dvhs.to_csv(dir_all_plan_folders/"dvh_metrics.csv")
+    all_dvhs = pd.DataFrame(columns=list(dvh_metric_goals.keys()))
+    for dir_plan in dosimetry_inputs:
+        print(f"dvh from dicom folder: {dir_plan.get('pth_phant')}")
+        # try:
+        dvh_metrics = get_dvh_metrics_single_plan(
+            dir_dicom=dir_plan.get('pth_phant'),
+            dvh_metric_goals=dvh_metric_goals,
+            load_dose_from=dir_plan.get('pth_dose'),
+            dir_dose_rate=dir_plan.get('dir_dose_rate', None),
+            export_combined_dose=False,
+            prescription_dose=prescription_dose
+        )
 
-def run_get_dvh_metrics_all_plans():
-    # # on alien baby
-    # pth_all_dicom = Path("/root/YourLocalHome/Data/prostate/prostate-glen-2023")
-    # dir_all_plans = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023")
-    # # on photon
-    pth_all_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023")
-    dir_all_plans = Path("temp_data/tg43/prostate-glen-2023")
-    dvh_metric_goals = {
-        "D95%(ctv)": 15,
-        "D1cc(rectum)": 11.25,
-        "D0.1cc(urethra)": 18.75,
-    }
-    get_dvh_metrics_all_plans(
-        dir_all_dicom_folders=pth_all_dicom,
-        dir_all_plan_folders=dir_all_plans,
-        dvh_metric_goals=dvh_metric_goals,
-    )
+        # except Exception as e:
+        #     print(f"error in getting dvh for {dir_plan}")
+        #     print(e)
+    all_dvhs.set_index("name", inplace=True)
+    all_dvhs.to_csv(pth_out_csv)
 
 def test_get_dvh_metrics_single_plan():
     pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p2")
@@ -421,6 +400,12 @@ def gen_dosimetry_inputs(
     to load phantoms (image + segementation) and combined doses of multiple patients
     into a list of dictionaries, where the keys are patient number and the values are the 
     paths.
+    ### Inputs:
+    - dir_phantoms:= directory, where the folders containing phantom files of each patient is located.
+    - dir_doses:= directory, where the folders containing the dose file of each patient is located.
+    the names of the dose directories must match the name of the phantom directory.
+    ### Outputs:
+    - 
     """
     list_phnatoms = list(Path(dir_phnatoms).glob("*/"))
     list_doses = list(Path(dir_doses).glob("*/*combined.seq.nrrd"))
@@ -451,6 +436,17 @@ if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
     dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
+    dvh_metric_goals = {
+        "V100%(ctv)": 95,
+        "D90%(ctv)": 15,
+        "V150%(ctv)": 40,
+        "HI(ctv)": 1,
+        "CI(ctv)": 1,
+        "D2cc(rectum)": 10,
+        "D10%(urethra)":17,
+        "D30%(urethra)": 15,
+    }
+    prescription_dose = 15 # in Gy
 
     # export all dicoms to plans
     # for dir_export in [dir_export_tg43, dir_export_mc]:
@@ -474,5 +470,10 @@ if __name__ == "__main__":
         dir_doses=dir_export_tg43,
         # dir_doses = dir_export_mc,
     )
-    run_get_dvh_metrics_all_plans()
+    get_dvh_metrics_all_plans(
+        dosimetry_inputs=dosimetry_inputs,
+        dvh_metric_goals=dvh_metric_goals,
+        pth_out_csv=dir_export_tg43,
+        prescription_dose=prescription_dose
+    )
     # run_scale_by_airkerma()
