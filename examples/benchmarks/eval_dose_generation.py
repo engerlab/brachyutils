@@ -412,6 +412,37 @@ def run_scale_by_airkerma():
     dir_all_dcms = Path("/root/YourLocalHome/Data/prostate-glen-2023")
     scale_by_airkerma(dir_all_plans, dir_all_dcms)
 
+def gen_dosimetry_inputs(
+    dir_phnatoms: str | Path,
+    dir_doses: str | Path
+):
+    r"""
+    ### Purpose:
+    to load phantoms (image + segementation) and combined doses of multiple patients
+    into a list of dictionaries, where the keys are patient number and the values are the 
+    paths.
+    """
+    list_phnatoms = list(Path(dir_phnatoms).glob("*/"))
+    list_doses = list(Path(dir_doses).glob("*/*combined.seq.nrrd"))
+    
+    plan_inputs_list = []
+    for dir_phant in list_phnatoms:
+        # find the right dose file
+        for dose_file in list_doses:
+            if dose_file.parent.name == dir_phant.name:
+                pth_dose = dose_file
+                break
+
+        plan_inputs_list.append(
+            {
+                "plan_id": dir_phant.name,
+                "pth_phant": dir_phant,
+                "pth_dose": pth_dose,
+                }
+            )
+        
+    return plan_inputs_list
+    
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
@@ -434,9 +465,14 @@ if __name__ == "__main__":
     #     dir_plan_export=dir_export_tg43,
     #     method="tg43"
     # )
-    run_dose_generation(
-        dir_plan_export=dir_export_mc,
-        method="mc"
+    # run_dose_generation(
+    #     dir_plan_export=dir_export_mc,
+    #     method="mc"
+    # )
+    dosimetry_inputs = gen_dosimetry_inputs(
+        dir_phnatoms=dir_all_dicoms,
+        dir_doses=dir_export_tg43,
+        # dir_doses = dir_export_mc,
     )
-    # run_get_dvh_metrics_all_plans()
+    run_get_dvh_metrics_all_plans()
     # run_scale_by_airkerma()
