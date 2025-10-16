@@ -224,7 +224,7 @@ def get_dvh_metrics_single_plan(
                             are 'dicom', a path to a dose file or directory containing\
                             dose files per dwell position.")
 
-    dvh_metrics_observed = plan_obj.get_dvh_metrics()
+    dvh_metrics_observed = plan_obj.get_dvh_metrics(return_percentage=True)
     if export_combined_dose:
         plan_obj.export_brachy_plan(
             dir_export=dir_dose_rate,
@@ -254,9 +254,8 @@ def get_dvh_metrics_all_plans(
     - A csv file containing the dvh metrics for all the patients.
     """
     all_dvhs = pd.DataFrame(columns=list(dvh_metric_goals.keys()))
-    for dir_plan in dosimetry_inputs:
+    for dir_plan in tqdm(dosimetry_inputs):
         print(f"dvh from dicom folder: {dir_plan.get('pth_phant')}")
-        # try:
         dvh_metrics = get_dvh_metrics_single_plan(
             dir_dicom=dir_plan.get('pth_phant'),
             dvh_metric_goals=dvh_metric_goals,
@@ -445,7 +444,7 @@ if __name__ == "__main__":
     dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
     dvh_metric_goals = {
         "V100%(ctv)": 95,
-        "D90%(ctv)": 15,
+        "D90%(ctv)": 21,
         "V150%(ctv)": 40,
         "HI(ctv)": 1,
         "CI(ctv)": 1,
@@ -453,7 +452,7 @@ if __name__ == "__main__":
         "D10%(urethra)":17,
         "D30%(urethra)": 15,
     }
-    prescription_dose = 15 # in Gy
+    prescription_dose = 21 # in Gy
 
     # export all dicoms to plans
     # for dir_export in [dir_export_tg43, dir_export_mc]:
