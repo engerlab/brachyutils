@@ -163,7 +163,8 @@ def get_dvh_metrics_single_plan(
     load_dose_from: Literal["dicom"] | Path | str = "dicom",
     dir_dose_rate: Path | str = None,
     export_combined_dose: bool = True,
-
+    delivered_catheter_table: bool = True,
+    strict_name_match: bool = False,
 ) -> Dict[str, float]:
     r"""
     ### Purpose:
@@ -185,6 +186,8 @@ def get_dvh_metrics_single_plan(
             dvh_metric_goals=dvh_metric_goals,
             combined_dose_only=True,
             prescription_dose=prescription_dose,
+            delivered_catheter_table=delivered_catheter_table,
+            strict_name_match=strict_name_match
             )
     elif isinstance(load_dose_from, str) or isinstance(load_dose_from, Path):
         load_dose_from = Path(load_dose_from)
@@ -196,7 +199,9 @@ def get_dvh_metrics_single_plan(
                 prescription_dose=prescription_dose,
                 combined_dose=load_dose_from,
                 combined_dose_only=True,
-                multi_processing=True
+                multi_processing=True,
+                delivered_catheter_table=delivered_catheter_table,
+                strict_name_match=strict_name_match,
                 )
         elif load_dose_from.is_dir():
             plan_obj = load_dicom_to_plan(
@@ -206,7 +211,9 @@ def get_dvh_metrics_single_plan(
             prescription_dose=prescription_dose,
             dir_dose_rate=dir_dose_rate,
             combined_dose_only=True,
-            multi_processing=True
+            multi_processing=True,
+            delivered_catheter_table=delivered_catheter_table,
+            strict_name_match=strict_name_match,
             )
         else:
             raise ValueError(f"Invalid load_dose_from: {load_dose_from}\
