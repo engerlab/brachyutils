@@ -253,7 +253,7 @@ def get_dvh_metrics_all_plans(
     ### Outputs:
     - A csv file containing the dvh metrics for all the patients.
     """
-    all_dvhs = pd.DataFrame(columns=list(dvh_metric_goals.keys()))
+    all_dvhs = pd.DataFrame(columns=list(dvh_metric_goals.keys())+["plan_id"])
     for dir_plan in tqdm(dosimetry_inputs):
         print(f"dvh from dicom folder: {dir_plan.get('pth_phant')}")
         dvh_metrics = get_dvh_metrics_single_plan(
@@ -264,12 +264,9 @@ def get_dvh_metrics_all_plans(
             export_combined_dose=False,
             prescription_dose=prescription_dose
         )
+        all_dvhs.loc[len(all_dvhs)] = {"plan_id": dir_plan.get('plan_id')} | dvh_metrics
 
-        # except Exception as e:
-        #     print(f"error in getting dvh for {dir_plan}")
-        #     print(e)
-    all_dvhs.set_index("name", inplace=True)
-    all_dvhs.to_csv(pth_out_csv)
+    all_dvhs.to_csv(pth_out_csv, index=False)
 
 def test_get_dvh_metrics_single_plan():
     pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p2")
@@ -471,15 +468,16 @@ if __name__ == "__main__":
     #     dir_plan_export=dir_export_mc,
     #     method="mc"
     # )
-    dosimetry_inputs = gen_dosimetry_inputs(
-        dir_phnatoms=dir_all_dicoms,
-        dir_doses=dir_export_tg43,
-        # dir_doses = dir_export_mc,
-    )
-    get_dvh_metrics_all_plans(
-        dosimetry_inputs=dosimetry_inputs,
-        dvh_metric_goals=dvh_metric_goals,
-        pth_out_csv=dir_export_tg43,
-        prescription_dose=prescription_dose
-    )
+    
+    for dir_export in [dir_export_tg43, dir_export_mc]:
+        dosimetry_inputs = gen_dosimetry_inputs(
+            dir_phnatoms=dir_all_dicoms,
+            dir_doses=dir_export,
+        )
+        get_dvh_metrics_all_plans(
+            dosimetry_inputs=dosimetry_inputs,
+            dvh_metric_goals=dvh_metric_goals,
+            pth_out_csv=dir_export/"dose_generation_dvh.csv",
+            prescription_dose=prescription_dose
+        )
     # run_scale_by_airkerma()
