@@ -5,6 +5,7 @@ from brachyutils import load_dicom_to_plan
 from brachyutils import DoseMonteCarlo, DoseTG43
 import pandas as pd
 from time import time
+import numpy as np
 
 def run_multi_proc(function, input_list, max_workers=8):
     from multiprocessing import Pool
@@ -256,16 +257,20 @@ def get_dvh_metrics_all_plans(
     all_dvhs = pd.DataFrame(columns=list(dvh_metric_goals.keys())+["plan_id"])
     for dir_plan in tqdm(dosimetry_inputs):
         print(f"dvh from dicom folder: {dir_plan.get('pth_phant')}")
-        dvh_metrics = get_dvh_metrics_single_plan(
-            dir_dicom=dir_plan.get('pth_phant'),
-            dvh_metric_goals=dvh_metric_goals,
-            load_dose_from=dir_plan.get('pth_dose'),
-            dir_dose_rate=dir_plan.get('dir_dose_rate', None),
-            export_combined_dose=False,
-            prescription_dose=prescription_dose
-        )
-        all_dvhs.loc[len(all_dvhs)] = {"plan_id": dir_plan.get('plan_id')} | dvh_metrics
-
+        try:
+            dvh_metrics = get_dvh_metrics_single_plan(
+                dir_dicom=dir_plan.get('pth_phant'),
+                dvh_metric_goals=dvh_metric_goals,
+                load_dose_from=dir_plan.get('pth_dose'),
+                dir_dose_rate=dir_plan.get('dir_dose_rate', None),
+                export_combined_dose=False,
+                prescription_dose=prescription_dose
+            )
+            all_dvhs.loc[len(all_dvhs)] = {"plan_id": dir_plan.get('plan_id')} | dvh_metrics
+        except Exception as e:
+            print(f"Error processing plan {dir_plan.get('plan_id')}: {e}")
+            all_dvhs.loc[len(all_dvhs)] = {"plan_id": dir_plan.get('plan_id')} | {key: np.nan for key in dvh_metric_goals.keys()}
+            continue
     all_dvhs.to_csv(pth_out_csv, index=False)
 
 def test_get_dvh_metrics_single_plan():
@@ -396,7 +401,8 @@ def run_scale_by_airkerma():
 
 def gen_dosimetry_inputs(
     dir_phnatoms: str | Path,
-    dir_doses: str | Path
+    dir_doses: str | Path,
+    dose_format: Literal["nrrd", "3ddose", "dicom"] = "nrrd",
 ):
     r"""
     ### Purpose:
@@ -411,14 +417,21 @@ def gen_dosimetry_inputs(
     - 
     """
     list_phnatoms = list(Path(dir_phnatoms).glob("*/"))
-    list_doses = list(Path(dir_doses).glob("*/*combined.seq.nrrd"))
-    
+    if dose_format == "nrrd":
+        list_doses = list(Path(dir_doses).glob("*/*combined.seq.nrrd"))
+    elif dose_format == "3ddose":
+        list_doses = list(Path(dir_doses).glob("*/*combined.3ddose"))
+    elif dose_format == "dicom":
+        list_doses = list(Path(dir_doses).glob("*/RD*.dcm"))
+    else:
+        raise ValueError(f"Invalid dose_format: {dose_format}. Valid formats are 'nrrd', '3ddose' and 'dicom'.")
+
     plan_inputs_list = []
     for dir_phant in list_phnatoms:
         # find the right dose file
         for dose_file in list_doses:
             if dose_file.parent.name == dir_phant.name:
-                pth_dose = dose_file
+                pth_dose = dose_file if dose_format != "dicom" else "dicom"
                 break
 
         plan_inputs_list.append(
@@ -469,10 +482,15 @@ if __name__ == "__main__":
     #     method="mc"
     # )
     
-    for dir_export in [dir_export_tg43, dir_export_mc]:
+    for dir_export in [
+        dir_export_tg43,
+        dir_export_mc,
+        dir_all_dicoms
+        ]:
         dosimetry_inputs = gen_dosimetry_inputs(
             dir_phnatoms=dir_all_dicoms,
             dir_doses=dir_export,
+            dose_format="nrrd" if dir_export != dir_all_dicoms else "dicom"
         )
         get_dvh_metrics_all_plans(
             dosimetry_inputs=dosimetry_inputs,
