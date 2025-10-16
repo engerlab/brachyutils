@@ -83,6 +83,7 @@ class BrachyPlan:
         #### for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
         prescription_dose: float = None,
+        strict_name_match: bool = True,
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
         delivered_catheter_table: bool = False,
@@ -209,6 +210,7 @@ class BrachyPlan:
             self.create_brachy_structure_set(
                 phantom=self.phantom,
                 dvh_metric_goals=self.dvh_metric_goals,
+                strict_name_match=strict_name_match,
             )
 
         # load the catheter table if the path is provided
@@ -656,7 +658,10 @@ class BrachyPlan:
         self.dvh_metric_goals = dvh_metric_goals
 
     def create_brachy_structure_set(
-        self, phantom: BrachyPhantom, dvh_metric_goals: dict
+        self,
+        phantom: BrachyPhantom,
+        dvh_metric_goals: dict,
+        strict_name_match: bool = True,
     ):
         r"""
         ### Purpose:
@@ -685,7 +690,7 @@ class BrachyPlan:
             }
             dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
         structure_masks: dict = phantom.get_structure_mask(
-            structure_names_in_dvh, ROIContour
+            structure_names_in_dvh, ROIContour, strict_name_match=strict_name_match
         )
         for structure_name in structure_masks.keys():
             structure_obj = BrachyStructure(
