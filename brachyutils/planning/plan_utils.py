@@ -154,6 +154,7 @@ class BrachyPlan:
         self.dvh_metric_goals: dict = None
         self.dvh_metrics_observed: dict = None
         self.structure_list: List[BrachyStructure] = []
+        self.body_contour: ROIContour = None
         self.phantom_origin: list = None  # np.array([0, 0, 0])  # x,y,z
         self.organ_bounds: list = None
 
@@ -701,6 +702,9 @@ class BrachyPlan:
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
             self.structure_list.append(structure_obj)
+        self.body_contour = phantom.get_structure_mask(
+            ["body"], ROIContour, strict_name_match=False
+        ).get("body", None)
 
     def load_applicator_list(
         self,
@@ -918,7 +922,9 @@ class BrachyPlan:
             observed_metrics = structure_obj.get_dvh_metric(
                 combined_dose,
                 prescription_dose,
-                return_percentage)
+                return_percentage,
+                self.body_contour,
+                )
             self.dvh_metrics_observed.update(observed_metrics)
         return self.dvh_metrics_observed
 
