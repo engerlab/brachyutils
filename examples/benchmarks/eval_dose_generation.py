@@ -378,8 +378,8 @@ def scale_by_airkerma(dir_all_plans: str | Path, dir_all_dcms: str | Path):
             print(f"no plan dcm found for {plan}")
             continue
         pth_plan_dcm = pth_plan_dcm[0]
-        source_obj = BrachySource(source_dict=pth_plan_dcm)
-        scaling_factor = source_obj.reference_air_kerma_rate/5e4
+        source_obj = BrachySource(pth_source=pth_plan_dcm)
+        scaling_factor = source_obj.reference_air_kerma_rate/33142.4731805881
         
         pth_dose_list = list(plan.glob("*.nrrd"))
         def scale_dose(pth_dose: Path, scaling_factor: float):
@@ -387,17 +387,10 @@ def scale_by_airkerma(dir_all_plans: str | Path, dir_all_dcms: str | Path):
             dose_obj.set_dose_array(
                 dose_obj.get_dose_array()*scaling_factor
             )
-            dose_obj.write_brachydose_to_file(str(pth_dose.parent/f"scaled_{pth_dose.stem.stem}")+".seq.nrrd")
+            dose_obj.write_brachydose_to_file(pth_dose.parent / (str(pth_dose.name).split(".")[0]+".seq.nrrd"))
         print(f"scaling factor for {plan}: {scaling_factor}")
-        run_multi_proc(
-            partial(scale_dose, scaling_factor=scaling_factor),
-            pth_dose_list
-        )
-
-def run_scale_by_airkerma():
-    dir_all_plans = Path("temp_data/mc/prostate-glen-2023")
-    dir_all_dcms = Path("/root/YourLocalHome/Data/prostate-glen-2023")
-    scale_by_airkerma(dir_all_plans, dir_all_dcms)
+        for pth_dose in tqdm(pth_dose_list):
+            scale_dose(pth_dose, scaling_factor)
 
 def gen_dosimetry_inputs(
     dir_phnatoms: str | Path,
@@ -482,11 +475,18 @@ if __name__ == "__main__":
     #     method="mc"
     # )
     
+    # # this may be needed if the air kerma used in MC dose generation was incorrect
+    scale_by_airkerma(
+        # dir_all_plans=dir_export_tg43,        
+        dir_all_plans=dir_export_mc,
+        dir_all_dcms=dir_all_dicoms
+    )
+
     for dir_export in [
-        dir_export_tg43,
+        # dir_export_tg43,
         dir_export_mc,
-        dir_all_dicoms
-        ]:
+        # dir_all_dicoms
+        ]:        
         dosimetry_inputs = gen_dosimetry_inputs(
             dir_phnatoms=dir_all_dicoms,
             dir_doses=dir_export,
@@ -498,4 +498,4 @@ if __name__ == "__main__":
             pth_out_csv=dir_export/"dose_generation_dvh.csv",
             prescription_dose=prescription_dose
         )
-    # run_scale_by_airkerma()
+    
