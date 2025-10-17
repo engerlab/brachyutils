@@ -436,7 +436,15 @@ def gen_dosimetry_inputs(
             )
         
     return plan_inputs_list
-    
+
+def gen_box_plots_dvh_timing(
+    pth_dvh_csv_tg43: Path | str,
+    pth_dvh_csv_mc: Path | str,
+    pth_timing_csv_tg43: Path | str,
+    pth_timing_csv_mc: Path | str,
+):
+    pass
+
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
@@ -459,16 +467,16 @@ if __name__ == "__main__":
     prescription_dose = 21 # in Gy
 
     # # export all dicoms to plans
-    for dir_export in [
-        # dir_export_tg43,
-        # dir_export_mc
-        dir_export_test
-        ]:
-        run_export(
-            dir_all_dicoms=dir_all_dicoms,
-            dir_export=dir_export,
-            multi_proc=False,
-        )
+    # for dir_export in [
+    #     dir_export_tg43,
+    #     dir_export_mc
+    #     # # dir_export_test
+    #     ]:
+    #     run_export(
+    #         dir_all_dicoms=dir_all_dicoms,
+    #         dir_export=dir_export,
+    #         multi_proc=False,
+    #     )
 
     # # run dose generation for all plans
     # run_dose_generation(
@@ -503,3 +511,10 @@ if __name__ == "__main__":
     #         pth_out_csv=dir_export/"dose_generation_dvh.csv",
     #         prescription_dose=prescription_dose
     #     )
+
+    gen_box_plots_dvh_timing(
+        pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",
+        pth_dvh_csv_mc=dir_export_mc/"dose_generation_dvh.csv",
+        pth_timing_csv_tg43=dir_export_tg43/"dose_generation_time.csv",
+        pth_timing_csv_mc=dir_export_mc/"dose_generation_time.csv",
+    )
