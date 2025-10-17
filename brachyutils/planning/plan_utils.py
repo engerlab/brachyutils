@@ -1716,16 +1716,18 @@ def load_dicom_to_plan(
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
     simulation_setup = kwargs.pop("simulation_setup", None)
-    if simulation_setup is None:
-        simulation_setup = plan_dcm
-    if isinstance(simulation_setup, dict):
-        if simulation_setup.get("brachy_source") is None:
-            simulation_setup["brachy_source"] = plan_dcm
+
+    new_sim_setup = deepcopy(simulation_setup) # this is to avoid memory reference issues during forloops
+    if new_sim_setup is None:
+        new_sim_setup = plan_dcm
+    if isinstance(new_sim_setup, dict):
+        if new_sim_setup.get("brachy_source") is None:
+            new_sim_setup["brachy_source"] = plan_dcm
     combined_dose = kwargs.pop("combined_dose", dose_dcm)
     return BrachyPlan(
         phantom=dir_dicom,
         catheter_table=plan_dcm,
         combined_dose=combined_dose,
-        simulation_setup=simulation_setup,
+        simulation_setup=new_sim_setup,
         **kwargs
     )
