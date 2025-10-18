@@ -450,25 +450,26 @@ def gen_box_plots_dvh_timing(
     timing_mc = pd.read_csv(pth_timing_csv_mc)
     
     # merge dvh data with timing data based on plan_id
-    # data_tg43 = data_tg43.merge(timing_tg43, on="plan_id")
-    # data_mc = data_mc.merge(timing_mc, on="plan_id")
-    
+    data_tg43 = data_tg43.merge(timing_tg43, on="plan_id")
+    data_mc = data_mc.merge(timing_mc, on="plan_id")
+
     data_tg43.to_csv(pth_dvh_csv_tg43.parent/"dose_generation_data_tg43.csv", index=False)
     data_mc.to_csv(pth_dvh_csv_mc.parent/"dose_generation_data_mc.csv", index=False)
     
-    # generate the box plots then
+    # generate the box plots for V100% and V150%
     boxplot_tg43_mc(
-        data_tg43,
-        data_mc,
-        title = "DVH Metrics from RapidBrachy TG43 vs Monte Carlo Dose Calculation",
+        data_tg43[["V100%(ctv)", "V150%(ctv)"]],
+        data_mc[["V100%(ctv)", "V150%(ctv)"]],
+        title = "TG43 vs MC DVH Metrics",
         xlabel = "DVH Metrics",
-        ylabel = " Value [%]",
-        fig_size=(12, 8),
+        ylabel = "Volume Percentage [%]",
+        fig_size=(6, 4),
         alpha_tg43=0.5,
         alpha_mc=1.0,
-        box_color=(0.2, 0.4, 0.6),
-        font_size=16,
-        save_path=pth_dvh_csv_tg43.parent/"dose_generation_comparison_boxplots.svg"
+        box_color=(0.90,0.17,0.31),
+        font_size=14,
+        legend_loc="upper right",
+        save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_Vx.svg"
     )
 
 def boxplot_tg43_mc(
@@ -482,6 +483,7 @@ def boxplot_tg43_mc(
     alpha_mc=1.0,
     box_color=(0, 0, 0),
     font_size=14,
+    legend_loc: str = "upper right",
     save_path: Path | str = None,
 ):
     """
@@ -566,7 +568,7 @@ def boxplot_tg43_mc(
         Patch(facecolor=box_color, alpha=alpha_tg43, label="TG43"),
         Patch(facecolor=box_color, alpha=alpha_mc, label="MC"),
     ]
-    ax.legend(handles=legend_elements, loc="upper left", fontsize=font_size - 2)
+    ax.legend(handles=legend_elements, loc=legend_loc, fontsize=font_size - 2)
 
     plt.tight_layout()
     if save_path:
