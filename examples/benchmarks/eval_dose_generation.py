@@ -462,7 +462,7 @@ def gen_box_plots_dvh_timing(
         data_mc[["V100%(ctv)", "V150%(ctv)"]],
         title = "TG43 vs MC DVH Metrics",
         xlabel = "DVH Metrics",
-        ylabel = "Volume Percentage [%]",
+        ylabel = "Percentage of Target Volume [%]",
         fig_size=(6, 4),
         alpha_tg43=0.5,
         alpha_mc=1.0,
@@ -470,6 +470,36 @@ def gen_box_plots_dvh_timing(
         font_size=14,
         legend_loc="upper right",
         save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_Vx.svg"
+    )
+    # generate the box plots for D90%, D10%, D30%, D2cc
+    boxplot_tg43_mc(
+        data_tg43[["D90%(ctv)", "D10%(urethra)", "D30%(urethra)", "D2cc(rectum)"]],
+        data_mc[["D90%(ctv)", "D10%(urethra)", "D30%(urethra)", "D2cc(rectum)"]],
+        title = "TG43 vs MC DVH Metrics",
+        xlabel = "DVH Metrics",
+        ylabel = "Percentage of Prescription Dose [%]",
+        fig_size=(12, 8),
+        alpha_tg43=0.5,
+        alpha_mc=1.0,
+        box_color=(0.70,0.52,0.75),
+        font_size=14,
+        legend_loc="upper right",
+        save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_Dx.svg"
+    )
+    # Generate box plots for dose generation timing
+    boxplot_tg43_mc(
+        data_tg43[["dose_generation_time"]],
+        data_mc[["dose_generation_time"]],
+        title = "TG43 vs MC Dose Generation Timing",
+        xlabel = "Dose Generation Method",
+        ylabel = "Time [s]",
+        fig_size=(6, 4),
+        alpha_tg43=0.5,
+        alpha_mc=1.0,
+        box_color=(0.36,0.54,0.66),
+        font_size=14,
+        legend_loc="upper right",
+        save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_timing.svg"
     )
 
 def boxplot_tg43_mc(
