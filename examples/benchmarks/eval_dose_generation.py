@@ -6,6 +6,7 @@ from brachyutils import DoseMonteCarlo, DoseTG43
 import pandas as pd
 from time import time
 import numpy as np
+import matplotlib.pyplot as plt
 
 def run_multi_proc(function, input_list, max_workers=8):
     from multiprocessing import Pool
@@ -448,9 +449,133 @@ def gen_box_plots_dvh_timing(
     timing_tg43 = pd.read_csv(pth_timing_csv_tg43)
     timing_mc = pd.read_csv(pth_timing_csv_mc)
     
-    # merge dvh data with timing data
-    data_tg43 = 
+    # merge dvh data with timing data based on plan_id
+    # data_tg43 = data_tg43.merge(timing_tg43, on="plan_id")
+    # data_mc = data_mc.merge(timing_mc, on="plan_id")
+    
+    data_tg43.to_csv(pth_dvh_csv_tg43.parent/"dose_generation_data_tg43.csv", index=False)
+    data_mc.to_csv(pth_dvh_csv_mc.parent/"dose_generation_data_mc.csv", index=False)
+    
+    # generate the box plots then
+    boxplot_tg43_mc(
+        data_tg43,
+        data_mc,
+        title = "DVH Metrics from RapidBrachy TG43 vs Monte Carlo Dose Calculation",
+        xlabel = "DVH Metrics",
+        ylabel = " Value [%]",
+        fig_size=(12, 8),
+        alpha_tg43=0.5,
+        alpha_mc=1.0,
+        box_color=(0.2, 0.4, 0.6),
+        font_size=16,
+        save_path=pth_dvh_csv_tg43.parent/"dose_generation_comparison_boxplots.svg"
+    )
 
+def boxplot_tg43_mc(
+    df_tg43: pd.DataFrame,
+    df_mc: pd.DataFrame,
+    title: str = "TG43 vs MC Boxplots",
+    xlabel: str = "Metrics",
+    ylabel: str = "Values",
+    fig_size=(10, 6),
+    alpha_tg43=0.5,
+    alpha_mc=1.0,
+    box_color=(0, 0, 0),
+    font_size=14,
+    save_path: Path | str = None,
+):
+    """
+    General boxplot comparison function for TG43 and MC dose evaluation metrics.
+
+    Each column becomes a tick label, and TG43/MC appear side by side.
+
+    Parameters
+    ----------
+    df_tg43 : pd.DataFrame
+        TG43 dataset with numerical columns.
+    df_mc : pd.DataFrame
+        MC dataset with numerical columns.
+    title : str
+        Plot title.
+    xlabel, ylabel : str
+        Axis labels.
+    fig_size : tuple
+        Figure dimensions.
+    alpha_tg43 : float
+        Transparency for TG43 boxes.
+    alpha_mc : float
+        Transparency for MC boxes.
+    box_color : tuple
+        RGB color of boxes.
+    font_size : int
+        Font size for labels.
+    save_path : Path or str, optional
+        If provided, saves the plot instead of showing it.
+    """
+
+    plt.rcParams.update({"font.size": font_size})
+    plt.rcParams["figure.dpi"] = 300
+
+    # drop non-numeric columns
+    df_tg43 = df_tg43.select_dtypes(include=np.number)
+    df_mc = df_mc.select_dtypes(include=np.number)
+
+    columns = df_tg43.columns.intersection(df_mc.columns)
+    n_cols = len(columns)
+
+    fig, ax = plt.subplots(figsize=fig_size)
+    box_width = 0.35
+    x_positions = np.arange(n_cols)
+
+    # compute side-by-side positions
+    tg43_positions = x_positions - box_width / 2
+    mc_positions = x_positions + box_width / 2
+
+    bp_tg43 = ax.boxplot(
+        [df_tg43[col].dropna() for col in columns],
+        positions=tg43_positions,
+        widths=box_width,
+        patch_artist=True,
+    )
+
+    bp_mc = ax.boxplot(
+        [df_mc[col].dropna() for col in columns],
+        positions=mc_positions,
+        widths=box_width,
+        patch_artist=True,
+    )
+
+    # appearance
+    for patch in bp_tg43["boxes"]:
+        patch.set_facecolor(box_color)
+        patch.set_alpha(alpha_tg43)
+
+    for patch in bp_mc["boxes"]:
+        patch.set_facecolor(box_color)
+        patch.set_alpha(alpha_mc)
+
+    ax.set_xticks(x_positions)
+    ax.set_xticklabels(columns, rotation=45, ha="right")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor=box_color, alpha=alpha_tg43, label="TG43"),
+        Patch(facecolor=box_color, alpha=alpha_mc, label="MC"),
+    ]
+    ax.legend(handles=legend_elements, loc="upper left", fontsize=font_size - 2)
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+    else:
+        plt.show()
+    plt.close()
+
+   
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
@@ -521,6 +646,6 @@ if __name__ == "__main__":
     gen_box_plots_dvh_timing(
         pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",
         pth_dvh_csv_mc=dir_export_mc/"dose_generation_dvh.csv",
-        pth_timing_csv_tg43=dir_export_tg43/"dose_generation_time.csv",
-        pth_timing_csv_mc=dir_export_mc/"dose_generation_time.csv",
+        pth_timing_csv_tg43=dir_export_tg43/"dose_generation_timing.csv",
+        pth_timing_csv_mc=dir_export_mc/"dose_generation_timing.csv",
     )
