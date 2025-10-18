@@ -112,7 +112,7 @@ def run_dose_generation(
     method: Literal["tg43", "mc"] = "tg43",
 ):
     timing_data = pd.DataFrame(columns=[
-        "plan_name", "dose_gen_method", "dose_generation_time"
+        "plan_id", "dose_gen_method", "dose_generation_time"
         ])
     # # for TG43
     if method == "tg43":
@@ -123,7 +123,7 @@ def run_dose_generation(
             run_single_tg43_dose_generation(plan)
             t1 = time()
             timing_data.loc[len(timing_data)] = {
-                "plan_name": plan.name,
+                "plan_id": plan.name,
                 "dose_gen_method": "tg43",
                 "dose_generation_time": t1 - t0
             }
@@ -137,7 +137,7 @@ def run_dose_generation(
             run_single_mc_dose_generation(plan)
             t1 = time()
             timing_data.loc[len(timing_data)] = {
-                "plan_name": plan.name,
+                "plan_id": plan.name,
                 "dose_gen_method": "mc",
                 "dose_generation_time": t1 - t0
             }
@@ -443,7 +443,13 @@ def gen_box_plots_dvh_timing(
     pth_timing_csv_tg43: Path | str,
     pth_timing_csv_mc: Path | str,
 ):
-    pass
+    data_tg43 = pd.read_csv(pth_dvh_csv_tg43)
+    data_mc = pd.read_csv(pth_dvh_csv_mc)
+    timing_tg43 = pd.read_csv(pth_timing_csv_tg43)
+    timing_mc = pd.read_csv(pth_timing_csv_mc)
+    
+    # merge dvh data with timing data
+    data_tg43 = 
 
 if __name__ == "__main__":
     # test_export()
