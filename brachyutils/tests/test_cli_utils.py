@@ -37,8 +37,8 @@ def test_convert_phantom():
 
 def test_convert_egsphant():
     from brachyutils.cli_utils import convert_egsphant, EgsphantType
-    # dir_input = Path("data_test/prostate-glen-p1-planFiles/cropped_ct.egsphant")
-    dir_input = Path("data_test/test_export_plan/prostate/cropped_ct.seq.nrrd")
+    dir_input = Path("data_test/prostate-glen-p1-planFiles/cropped_ct.egsphant")
+    # dir_input = Path("data_test/test_export_plan/prostate/cropped_ct.seq.nrrd")
     dir_output = Path("data_test/test_export_plan/prostate")
     type_out = EgsphantType.EGS
 
@@ -51,5 +51,5 @@ def test_convert_egsphant():
 
 if __name__ == "__main__":
     # test_convert_dose()
-    test_convert_phantom()
-    # test_convert_egsphant()
+    # test_convert_phantom()
+    test_convert_egsphant()
