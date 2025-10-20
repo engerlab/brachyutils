@@ -663,7 +663,7 @@ def gen_percent_error_maps(
             global_vmax=10.0,
             fig_size_mm=(200, 160)
         )
-        break; # for debugging
+        # break; # for debugging
 
 if __name__ == "__main__":
     # test_export()
