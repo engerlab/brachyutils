@@ -492,7 +492,8 @@ class BrachyDoseComparison:
             local_vmax: float = 2.0,
             global_vmax: float = 0.1,
             pth_fig_save: Path | str = None,
-            fig_size_mm: tuple = (180, 140)
+            fig_size_mm: tuple = (180, 140),
+            title_fontsize: int = 14,
         ):
 
         """
@@ -672,7 +673,7 @@ class BrachyDoseComparison:
         axs_hist[0].set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
         axs_hist[1].set_xlabel(fr"$\Delta D_{{\mathrm{{GLOBAL}}}} [\%]$", fontsize=10)
 
-        fig.suptitle(plot_title, fontsize=20, fontweight="bold", y=0.98)
+        fig.suptitle(plot_title, fontsize=title_fontsize, fontweight="bold", y=0.98)
 
         if pth_fig_save is not None:
             pth_fig_save = Path(pth_fig_save)
