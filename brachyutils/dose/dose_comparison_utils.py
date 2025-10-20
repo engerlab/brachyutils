@@ -490,7 +490,8 @@ class BrachyDoseComparison:
             plane: str,
             plot_title: str,
             local_vmax: float = 2.0,
-            global_vmax: float = 0.1
+            global_vmax: float = 0.1,
+            pth_fig_save: Path | str = None,
         ):
 
         """
@@ -671,25 +672,23 @@ class BrachyDoseComparison:
 
         fig.suptitle(plot_title, fontsize=20, fontweight="bold", y=0.98)
 
-
-        root = tk.Tk()
-        root.withdraw()
-        f = fd.asksaveasfile(
-            mode="wb",
-            defaultextension=".eps",
-            initialdir=os.getcwd(),
-            title="Save dose difference plots",
-            confirmoverwrite=True,
-        )
-        if f is not None:
-            ext = os.path.splitext(f.name)[1][1:]  # get extension without dot
-            fig.savefig(f, dpi=300, format=ext)
-            f.close()
+        if pth_fig_save is not None:
+            pth_fig_save = Path(pth_fig_save)
+            fig.savefig(pth_fig_save, dpi=300)
         else:
-            plt.show()
-        root.destroy()
-
-
-
-
-
+            root = tk.Tk()
+            root.withdraw()
+            f = fd.asksaveasfile(
+                mode="wb",
+                defaultextension=".eps",
+                initialdir=os.getcwd(),
+                title="Save dose difference plots",
+                confirmoverwrite=True,
+            )
+            if f is not None:
+                ext = os.path.splitext(f.name)[1][1:]  # get extension without dot
+                fig.savefig(f, dpi=300, format=ext)
+                f.close()
+            else:
+                plt.show()
+            root.destroy()
