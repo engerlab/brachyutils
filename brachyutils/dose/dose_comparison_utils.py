@@ -44,7 +44,7 @@ class BrachyDoseComparison:
         "lower_percent_dose_cutoff": 5,
         "interp_fraction": 10,
         "local_gamma": False,
-        "global_normalisation": None,
+        # "global_normalisation": None,
         "skip_once_passed": True,
         "max_gamma": 1.1
     }
@@ -53,9 +53,10 @@ class BrachyDoseComparison:
         self,
         dose1: BrachyDose,
         dose2: BrachyDose,
-        gamma_dose_percent_threshold: float,
-        gamma_distance_threshold_mm: float,
+        gamma_dose_percent_threshold: float = 3.0,
+        gamma_distance_threshold_mm: float = 3.0,
         compute_percent_difference=True,
+        prescription_dose: float = None,
         compute_gamma_index=True,
         path=None,
         gamma_kwargs: dict = default_gamma_kwargs,
@@ -124,7 +125,12 @@ class BrachyDoseComparison:
         self.gamma_kwargs = BrachyDoseComparison.default_gamma_kwargs
         self.gamma_kwargs.update(gamma_kwargs) #in case the user wants to change the default
         self.plot_max_dose_percent_of_prescription : int = 200
-        self.prescription_dose = gamma_kwargs.get("global_normalisation", 1.0)
+        self.prescription_dose = (
+            gamma_kwargs.get("global_normalisation", 1.0) 
+            if prescription_dose is None 
+            else prescription_dose
+            )
+        self.gamma_kwargs["global_normalisation"] = self.prescription_dose
         self.max_gamma = gamma_kwargs.get("max_gamma", 1.1)
         self.percent_difference_range = percent_difference_range
         # axes values are assumed in cm from the 3ddose formalism
@@ -470,11 +476,22 @@ class BrachyDoseComparison:
             plane_coord: float,
             plane: str,
             plot_titles: tuple,
+            pth_fig_save: str = None,
         ):
 
-        """
-        Plot local and dose differences maps along both axes
+        r"""
+        ### Purpose:
+        - Plot local and dose differences maps along both axes
         With the histograms below
+        ### Inputs:
+        - axis_1_coords:= np.ndarray, the coordinates along the first axis in mm (e.g., x-axis)
+        - axis_2_coords:= np.ndarray, the coordinates along the second axis (e.g., y-axis)
+        - plane_coord:= float, the coordinate of the plane in which the profiles are extracted
+        - plane:= str, the plane in which the profiles are extracted (e.g., 'xy', 'xz', 'yz')
+        - plot_titles:= tuple, titles for the dose plots (dose 1 and dose 2)
+        - pth_save:= str, path to save the figure
+        ### Outputs:
+        - Displays and saves the figure with local and global percent difference maps and histograms
         """
 
         # from matplotlib.ticker import (
@@ -568,22 +585,25 @@ class BrachyDoseComparison:
         ax[1, 1].set_xlabel(fr"$\Delta D_{{\mathrm{{GLOBAL}}}} [\%]$", fontsize=10)
 
         #plt.subplots_adjust(left = 0.184, bottom = 0.136, right = 0.813, top = 0.892, wspace = 0.219, hspace = 0.222)
+        if pth_fig_save is not None:
+            plt.savefig(pth_fig_save, dpi=300)
 
-        plt.show()
+        else:
+            plt.show()
 
-        root = tk.Tk()
-        root.withdraw()
-        f = fd.asksaveasfile(
-            mode="wb",
-            defaultextension=".eps",
-            initialdir=os.getcwd(),
-            title="Save dose difference plots",
-            confirmoverwrite=True,
-        )
-        if f is not None:
-            ext = os.path.splitext(f.name)[1][1:]  # get extension without dot
-            plt.savefig(f, dpi=300, format=ext)
-            f.close()
-        root.destroy()
+            root = tk.Tk()
+            root.withdraw()
+            f = fd.asksaveasfile(
+                mode="wb",
+                defaultextension=".eps",
+                initialdir=os.getcwd(),
+                title="Save dose difference plots",
+                confirmoverwrite=True,
+            )
+            if f is not None:
+                ext = os.path.splitext(f.name)[1][1:]  # get extension without dot
+                plt.savefig(f, dpi=300, format=ext)
+                f.close()
+            root.destroy()
 
 
