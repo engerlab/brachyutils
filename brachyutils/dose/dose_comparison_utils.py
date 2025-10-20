@@ -674,6 +674,7 @@ class BrachyDoseComparison:
 
         if pth_fig_save is not None:
             pth_fig_save = Path(pth_fig_save)
+            pth_fig_save.parent.mkdir(parents=True, exist_ok=True)
             fig.savefig(pth_fig_save, dpi=300)
         else:
             root = tk.Tk()

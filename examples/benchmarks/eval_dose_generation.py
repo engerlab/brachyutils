@@ -647,9 +647,14 @@ def gen_percent_error_maps(
             positive_percent_difference=False,
         )
         vox_centers = dose_mc.get_voxel_centers()
+        viz_index_limits = np.array([
+            [len(vox_centers[0])*1/4, len(vox_centers[0])*3/4],
+            [len(vox_centers[1])*1/4, len(vox_centers[1])*3/4],
+            ]
+        ).astype(int)
         dose_comp.plot_local_and_global_differences(
-            axis_1_coords=vox_centers[0],
-            axis_2_coords=vox_centers[1],
+            axis_1_coords=vox_centers[0][viz_index_limits[0][0]:viz_index_limits[0][1]],
+            axis_2_coords=vox_centers[1][viz_index_limits[1][0]:viz_index_limits[1][1]],
             plane_coord=vox_centers[2][len(vox_centers[2])//2],
             plane="xy",
             plot_title=(f"MC vs TG43 Percent Error Map for Plan {plan_id}"),
@@ -747,5 +752,5 @@ if __name__ == "__main__":
     gen_percent_error_maps(
         dosimetry_inputs_mc=dosimetry_inputs_mc,
         dosimetry_inputs_tg43=dosimetry_inputs_tg43,
-        dir_output=Path("temp_data")
+        dir_output=Path("temp_data/dose_error_maps/prostate-glen-2023")
     )
