@@ -661,6 +661,7 @@ def gen_percent_error_maps(
             pth_fig_save=Path(dir_output)/f"percent_error_map_{plan_id}.svg",
             local_vmax=20.0,
             global_vmax=10.0,
+            fig_size_mm=(200, 160)
         )
         break; # for debugging
 

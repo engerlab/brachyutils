@@ -492,6 +492,7 @@ class BrachyDoseComparison:
             local_vmax: float = 2.0,
             global_vmax: float = 0.1,
             pth_fig_save: Path | str = None,
+            fig_size_mm: tuple = (180, 140)
         ):
 
         """
@@ -530,7 +531,8 @@ class BrachyDoseComparison:
         # we will plot a figure that is suitable as a double column figure for medical physics
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
         # Create two subfigures: top for images, bottom for histograms
-        fig = plt.figure(figsize=(180 * mm, 150 * mm))  # layout="compressed"
+        fig_size_mm = np.array(fig_size_mm) * mm
+        fig = plt.figure(figsize=fig_size_mm) # layout="compressed"
         subfigs = fig.subfigures(2, 1, height_ratios=[1, .75])
 
         fig.set_facecolor('lavender')
