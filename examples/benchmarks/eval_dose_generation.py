@@ -642,13 +642,20 @@ def gen_percent_error_maps(
             dose1=dose_mc,
             dose2=dose_tg43,
             compute_percent_difference=True,
+            prescription_dose=21.,
             compute_gamma_index=False,
             positive_percent_difference=False,
         )
-        # dose_comp.plot_local_and_global_differences(
-        #     axis_1_coords=
-        # )
-    
+        vox_centers = dose_mc.get_voxel_centers()
+        dose_comp.plot_local_and_global_differences(
+            axis_1_coords=vox_centers[0],
+            axis_2_coords=vox_centers[1],
+            plane_coord=vox_centers[2][len(vox_centers[2])//2],
+            plane="xy",
+            plot_titles=(f"MC vs TG43 Percent Error Map for Plan {plan_id}"),
+            pth_fig_save=Path(dir_output)/f"percent_error_map_{plan_id}.svg"
+        )
+        break; # for debugging
 
 if __name__ == "__main__":
     # test_export()
@@ -717,26 +724,26 @@ if __name__ == "__main__":
     #         prescription_dose=prescription_dose
     #     )
 
-    gen_box_plots_dvh_timing(
-        pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",
-        pth_dvh_csv_mc=dir_export_mc/"dose_generation_dvh.csv",
-        pth_timing_csv_tg43=dir_export_tg43/"dose_generation_timing.csv",
-        pth_timing_csv_mc=dir_export_mc/"dose_generation_timing.csv",
+    # gen_box_plots_dvh_timing(
+    #     pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",
+    #     pth_dvh_csv_mc=dir_export_mc/"dose_generation_dvh.csv",
+    #     pth_timing_csv_tg43=dir_export_tg43/"dose_generation_timing.csv",
+    #     pth_timing_csv_mc=dir_export_mc/"dose_generation_timing.csv",
+    # )
+
+    dosimetry_inputs_tg43 = gen_dosimetry_inputs(
+        dir_phnatoms=dir_all_dicoms,
+        dir_doses=dir_export_tg43,
+        dose_format="nrrd"
     )
 
-    # dosimetry_inputs_tg43 = gen_dosimetry_inputs(
-    #     dir_phnatoms=dir_all_dicoms,
-    #     dir_doses=dir_export_tg43,
-    #     dose_format="nrrd"
-    # )
-
-    # dosimetry_inputs_mc = gen_dosimetry_inputs(
-    #     dir_phnatoms=dir_all_dicoms,
-    #     dir_doses=dir_export_mc,
-    #     dose_format="nrrd"
-    # )
-    # gen_percent_error_maps(
-    #     dosimetry_inputs_mc=dosimetry_inputs_mc,
-    #     dosimetry_inputs_tg43=dosimetry_inputs_tg43,
-    #     dir_output=Path("temp_data")
-    # )
+    dosimetry_inputs_mc = gen_dosimetry_inputs(
+        dir_phnatoms=dir_all_dicoms,
+        dir_doses=dir_export_mc,
+        dose_format="nrrd"
+    )
+    gen_percent_error_maps(
+        dosimetry_inputs_mc=dosimetry_inputs_mc,
+        dosimetry_inputs_tg43=dosimetry_inputs_tg43,
+        dir_output=Path("temp_data")
+    )
