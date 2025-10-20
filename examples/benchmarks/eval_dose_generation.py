@@ -611,6 +611,7 @@ def gen_percent_error_maps(
     dosimetry_inputs_mc: list[Dict[str, Union[str, Path]]],
     dosimetry_inputs_tg43: list[Dict[str, Union[str, Path]]],
     dir_output: Path | str,
+    z_coords_to_visualize: list[float] = None,
 ):
     r"""
     ### Purpose: To generate percent error maps and histograms between MC and TG43 
@@ -629,7 +630,7 @@ def gen_percent_error_maps(
     from brachyutils import BrachyDose
     from brachyutils import BrachyDoseComparison
 
-    for dosi_input in dosimetry_inputs_mc:
+    for dosi_input in tqdm(dosimetry_inputs_mc):
         plan_id = dosi_input.get("plan_id")
         # find corresponding tg43 input
         tg43_input = next((item for item in dosimetry_inputs_tg43 if item["plan_id"] == plan_id), None)
@@ -650,12 +651,17 @@ def gen_percent_error_maps(
         viz_index_limits = np.array([
             [len(vox_centers[0])*1/4, len(vox_centers[0])*3/4],
             [len(vox_centers[1])*1/4, len(vox_centers[1])*3/4],
-            ]
-        ).astype(int)
+            [len(vox_centers[2])//2, 0]
+        ]).astype(int)
+        # sometimes the best slice is not in the middle of the plane. Adjust if needed.
+        if plan_id in list(z_coords_to_visualize.keys()):
+            viz_index_limits[2][0] = np.abs(
+                vox_centers[2] - z_coords_to_visualize[plan_id]
+                ).argmin()
         dose_comp.plot_local_and_global_differences(
             axis_1_coords=vox_centers[0][viz_index_limits[0][0]:viz_index_limits[0][1]],
             axis_2_coords=vox_centers[1][viz_index_limits[1][0]:viz_index_limits[1][1]],
-            plane_coord=vox_centers[2][len(vox_centers[2])//2],
+            plane_coord=vox_centers[2][viz_index_limits[2][0]],
             plane="xy",
             plot_title=(f"MC vs TG43 Percent Error Map for Plan {plan_id}"),
             pth_fig_save=Path(dir_output)/f"percent_error_map_{plan_id}.svg",
@@ -663,8 +669,13 @@ def gen_percent_error_maps(
             global_vmax=10.0,
             fig_size_mm=(200, 160)
         )
+        # for debugging {
+        # if plan_id in ["p12", "p3", "p7", "p9"]:
+        #     dose_comp.write_percent_difference_to_nrrd(
+        #         dir=dir_output/f"percent_error_{plan_id}"
+        #     )
         # break; # for debugging
-
+        # }
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
@@ -753,5 +764,11 @@ if __name__ == "__main__":
     gen_percent_error_maps(
         dosimetry_inputs_mc=dosimetry_inputs_mc,
         dosimetry_inputs_tg43=dosimetry_inputs_tg43,
-        dir_output=Path("temp_data/dose_error_maps/prostate-glen-2023")
+        dir_output=Path("temp_data/dose_error_maps/prostate-glen-2023"),
+        z_coords_to_visualize = {
+            "p12": -1199,
+            "p9": -1159,
+            "p7": -1154,
+            "p3": -1248,
+        }
     )
