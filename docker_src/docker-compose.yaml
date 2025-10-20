@@ -19,7 +19,7 @@ services:
       - QT_QPA_PLATFORM=offscreen
       - DISPLAY=${DISPLAY} # for access to graphical server
     volumes:
-      # - ${HOST_HOME}/Software/brachyutils:/app/Software/brachyutils
+      - ${HOST_HOME}/Software/brachyutils:/app/Software/brachyutils
       - ${HOST_HOME}:/home/ubuntu/YourLocalHome
       - /tmp/.X11-unix:/tmp/.X11-unix # for access to graphical server
     expose:
@@ -86,14 +86,14 @@ services:
       - HOST_HOME=${HOST_HOME}
       - DEBIAN_FRONTEND=noninteractive
     volumes:
-      # - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge:/app/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge
+      # - ${HOST_HOME}/Software/RapidBrachyMCTPS/RapidBrachyMC:/app/Software/RapidBrachyMCTPS/RapidBrachyMC
       # - ${HOST_HOME}:/app/YourLocalHome
-      - ${HOST_HOME}/Software/brachyutils/temp_data/mc:/app/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/temp_data
+      - ${HOST_HOME}/Software/brachyutils/temp_data/mc:/app/Software/RapidBrachyMCTPS/RapidBrachyMC/temp_data
     networks:
       net_brachyutils:
         ipv4_address: 192.168.1.11
     entrypoint: ["/bin/bash"]
-    command: ["/app/Software/RapidBrachyMCTPS/RapidBrachyMC_Merge/run_api.sh"]
+    command: ["/app/Software/RapidBrachyMCTPS/RapidBrachyMC/run_api.sh"]
 
   DoseCalcTG43:
     image: rapidbrachy_tg43

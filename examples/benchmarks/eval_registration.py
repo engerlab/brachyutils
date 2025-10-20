@@ -137,7 +137,6 @@ def evaluate_registration(
             "hausdorff(Biopsies)": eval_results.get("hausdorff(Biopsies)"),
             "time": eval_results.get("time")
         }
-        # XXX for debugging
         # break
     out_file_name = "reg_metrics_"+ dir_registered.parent.name +"_"+ dir_registered.name+".csv"
     results_per_case_df.to_csv(dir_registered.parent.parent/out_file_name)
@@ -307,7 +306,6 @@ def eval_reg_plastimatch(
                 "num_failed": reg_results.get("num_failed")
             }
             results_df.to_csv(dir_registered/"registration_results_plastimatch.csv", index=False)
-            # break #XXX only do one for now
 
 def eval_reg_simple_elastix(
     reg_data_inputs: List[Dict[str, Union[str, Path]]],

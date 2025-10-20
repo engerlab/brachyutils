@@ -101,6 +101,7 @@ class BrachyStructure:
         combined_dose: BrachyDose,
         prescription_dose: float = None,
         return_percentage: bool = False,
+        body_contour: ROIContour = None,
         ) -> Dict[str, float]:
         r"""
         ### Purpose:
@@ -115,6 +116,8 @@ class BrachyStructure:
         - prescription_dose := the prescribed dose to the target volume (PTV or CTV).
         - return_percentage := if true, the value of the dvh metric is normalized to
         the prescription dose for Dcc or D% and to the volume of the organName for VGy or V%.
+        - body_contour := the body contour is needed for conformity index calculation.
+        If the body contour is not provided, the conformity index will not be calculated.
         ### Outputs:
         - Void := will update the BrachyStructure.dvh_metrics_observed dictionary and
         BrachyStructure.dvh_obj attributes. Will also update the last calculated value
@@ -147,7 +150,7 @@ class BrachyStructure:
                         The metrics starting with 'D' should have percent sign (%) or cc.\
                         for example 'D95%(organ name)' or 'D2cc(organ name)'"
                     )
-                
+
             elif metric_string.startswith("V"):
                 if "%" in metric_string:
                     threshold = float(metric_string.split("%")[0].split("V")[-1])
@@ -163,8 +166,8 @@ class BrachyStructure:
                     ) 
             elif metric_string.startswith("HI"):
                 self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.homogeneityIndex()
-            elif metric_string.startswith("CI"):
-                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformityIndex()
+            elif metric_string.startswith("CI") and body_contour is not None:
+                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformityIndex(body_contour)
             else:
                 raise ValueError(
                     "invalid name for DVH metric name. \

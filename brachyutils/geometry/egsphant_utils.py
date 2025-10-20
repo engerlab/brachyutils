@@ -542,7 +542,7 @@ class BrachyEgsphant:
 
     def write_to_nrrd(
         self,
-        fileName: Path,
+        fileName: Path | str,
         metadata: Optional[dict] = None,
         coordinate_system: Literal[
             "left-posterior-superior", "right-anterior-superior"
@@ -565,10 +565,8 @@ class BrachyEgsphant:
             note that 3D density files are written in z, y, x, but the sitk image is written in x, y, z.
         """
         # write out the files
-        assert os.path.exists(
-            os.path.dirname(fileName)
-        ), f"the input folder does not exist: {os.path.dirname(fileName)}"
-
+        fileName = Path(fileName)
+        Path.mkdir(fileName.parent, exist_ok=True, parents=True)
         # create sitk density image
         material_grid = self.get_material_array().astype(
             np.float32
@@ -790,6 +788,7 @@ class BrachyEgsphant:
         phantom_obj: BrachyPhantom,
         contour_name: str,
         inplace: Optional[bool] = True,
+        strict_name_match: Optional[bool] = True,
     ) -> Union[None, "BrachyEgsphant"]:
         r"""
         Purpose:
@@ -807,7 +806,7 @@ class BrachyEgsphant:
         )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
 
-        mask_dict = phantom_obj.get_structure_mask([contour_name], mask_type=ROIMask)
+        mask_dict = phantom_obj.get_structure_mask([contour_name], mask_type=ROIMask, strict_name_match=strict_name_match)
         resampled_mask = resampleImage3DOnImage3D(
             mask_dict[contour_name], self.density_image
         )

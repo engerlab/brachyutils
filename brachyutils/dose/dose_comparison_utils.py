@@ -46,7 +46,7 @@ class BrachyDoseComparison:
         "lower_percent_dose_cutoff": 5,
         "interp_fraction": 10,
         "local_gamma": False,
-        "global_normalisation": None,
+        # "global_normalisation": None,
         "skip_once_passed": True,
         "max_gamma": 1.1
     }
@@ -55,9 +55,10 @@ class BrachyDoseComparison:
         self,
         dose1: BrachyDose,
         dose2: BrachyDose,
-        gamma_dose_percent_threshold: float,
-        gamma_distance_threshold_mm: float,
+        gamma_dose_percent_threshold: float = 3.0,
+        gamma_distance_threshold_mm: float = 3.0,
         compute_percent_difference=True,
+        prescription_dose: float = None,
         compute_gamma_index=True,
         path=None,
         gamma_kwargs: dict = default_gamma_kwargs,
@@ -127,7 +128,12 @@ class BrachyDoseComparison:
         self.gamma_kwargs = BrachyDoseComparison.default_gamma_kwargs
         self.gamma_kwargs.update(gamma_kwargs) #in case the user wants to change the default
         self.plot_max_dose_percent_of_prescription : int = 200
-        self.prescription_dose = gamma_kwargs.get("global_normalisation", 1.0)
+        self.prescription_dose = (
+            gamma_kwargs.get("global_normalisation", 1.0) 
+            if prescription_dose is None 
+            else prescription_dose
+            )
+        self.gamma_kwargs["global_normalisation"] = self.prescription_dose
         self.max_gamma = gamma_kwargs.get("max_gamma", 1.1)
         self.percent_difference_range = percent_difference_range
         self.dose_mask = dose_mask if dose_mask is not None else BrachyDose.dose_with_ones_grid_like(self.dose1)
@@ -484,7 +490,10 @@ class BrachyDoseComparison:
             plane: str,
             plot_title: str,
             local_vmax: float = 2.0,
-            global_vmax: float = 0.1
+            global_vmax: float = 0.1,
+            pth_fig_save: Path | str = None,
+            fig_size_mm: tuple = (180, 140),
+            title_fontsize: int = 14,
         ):
 
         """
@@ -523,7 +532,8 @@ class BrachyDoseComparison:
         # we will plot a figure that is suitable as a double column figure for medical physics
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
         # Create two subfigures: top for images, bottom for histograms
-        fig = plt.figure(figsize=(180 * mm, 150 * mm))  # layout="compressed"
+        fig_size_mm = np.array(fig_size_mm) * mm
+        fig = plt.figure(figsize=fig_size_mm) # layout="compressed"
         subfigs = fig.subfigures(2, 1, height_ratios=[1, .75])
 
         fig.set_facecolor('lavender')
@@ -663,27 +673,26 @@ class BrachyDoseComparison:
         axs_hist[0].set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
         axs_hist[1].set_xlabel(fr"$\Delta D_{{\mathrm{{GLOBAL}}}} [\%]$", fontsize=10)
 
-        fig.suptitle(plot_title, fontsize=20, fontweight="bold", y=0.98)
+        fig.suptitle(plot_title, fontsize=title_fontsize, fontweight="bold", y=0.98)
 
-
-        root = tk.Tk()
-        root.withdraw()
-        f = fd.asksaveasfile(
-            mode="wb",
-            defaultextension=".eps",
-            initialdir=os.getcwd(),
-            title="Save dose difference plots",
-            confirmoverwrite=True,
-        )
-        if f is not None:
-            ext = os.path.splitext(f.name)[1][1:]  # get extension without dot
-            fig.savefig(f, dpi=300, format=ext)
-            f.close()
+        if pth_fig_save is not None:
+            pth_fig_save = Path(pth_fig_save)
+            pth_fig_save.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(pth_fig_save, dpi=300)
         else:
-            plt.show()
-        root.destroy()
-
-
-
-
-
+            root = tk.Tk()
+            root.withdraw()
+            f = fd.asksaveasfile(
+                mode="wb",
+                defaultextension=".eps",
+                initialdir=os.getcwd(),
+                title="Save dose difference plots",
+                confirmoverwrite=True,
+            )
+            if f is not None:
+                ext = os.path.splitext(f.name)[1][1:]  # get extension without dot
+                fig.savefig(f, dpi=300, format=ext)
+                f.close()
+            else:
+                plt.show()
+            root.destroy()

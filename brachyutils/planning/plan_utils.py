@@ -83,6 +83,7 @@ class BrachyPlan:
         #### for structure creation:
         dvh_metric_goals: Union[dict, Path] = None,
         prescription_dose: float = None,
+        strict_name_match: bool = True,
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
         delivered_catheter_table: bool = False,
@@ -153,6 +154,7 @@ class BrachyPlan:
         self.dvh_metric_goals: dict = None
         self.dvh_metrics_observed: dict = None
         self.structure_list: List[BrachyStructure] = []
+        self.body_contour: ROIContour = None
         self.phantom_origin: list = None  # np.array([0, 0, 0])  # x,y,z
         self.organ_bounds: list = None
 
@@ -209,6 +211,7 @@ class BrachyPlan:
             self.create_brachy_structure_set(
                 phantom=self.phantom,
                 dvh_metric_goals=self.dvh_metric_goals,
+                strict_name_match=strict_name_match,
             )
 
         # load the catheter table if the path is provided
@@ -656,7 +659,10 @@ class BrachyPlan:
         self.dvh_metric_goals = dvh_metric_goals
 
     def create_brachy_structure_set(
-        self, phantom: BrachyPhantom, dvh_metric_goals: dict
+        self,
+        phantom: BrachyPhantom,
+        dvh_metric_goals: dict,
+        strict_name_match: bool = True,
     ):
         r"""
         ### Purpose:
@@ -685,7 +691,7 @@ class BrachyPlan:
             }
             dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
         structure_masks: dict = phantom.get_structure_mask(
-            structure_names_in_dvh, ROIContour
+            structure_names_in_dvh, ROIContour, strict_name_match=strict_name_match
         )
         for structure_name in structure_masks.keys():
             structure_obj = BrachyStructure(
@@ -696,6 +702,9 @@ class BrachyPlan:
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
             self.structure_list.append(structure_obj)
+        self.body_contour = phantom.get_structure_mask(
+            ["body"], ROIContour, strict_name_match=False
+        ).get("body", None)
 
     def load_applicator_list(
         self,
@@ -913,7 +922,9 @@ class BrachyPlan:
             observed_metrics = structure_obj.get_dvh_metric(
                 combined_dose,
                 prescription_dose,
-                return_percentage)
+                return_percentage,
+                self.body_contour,
+                )
             self.dvh_metrics_observed.update(observed_metrics)
         return self.dvh_metrics_observed
 
@@ -1039,6 +1050,7 @@ class BrachyPlan:
                     material_dict=content_to_export.get("materials_table", None),
                     assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
                     crop_by_contour=content_to_export.get("crop_by_contour", None),
+                    strict_name_match=content_to_export.get("strict_name_match", True),
                     resampled_spacing=content_to_export.get("resampled_spacing", None),
                     resampled_origin=content_to_export.get("resampled_origin", None),
                     background_material=content_to_export.get("background_material", "Air"),
@@ -1286,7 +1298,8 @@ class BrachyPlan:
         crop_by_contour: str = None,
         resampled_spacing: List[float] = None,
         resampled_origin: List[float] = None,
-        background_material: str = None
+        background_material: str = None,
+        strict_name_match: bool = True
     ):
         r"""
         ### Purpose:
@@ -1318,7 +1331,8 @@ class BrachyPlan:
             crop_by_contour=crop_by_contour,
             resampled_spacing=resampled_spacing,
             resampled_origin=resampled_origin,
-            background_material=background_material
+            background_material=background_material,
+            strict_name_match=strict_name_match
         )
 
     def _export_applicator_geometry(
@@ -1702,16 +1716,18 @@ def load_dicom_to_plan(
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
     simulation_setup = kwargs.pop("simulation_setup", None)
-    if simulation_setup is None:
-        simulation_setup = plan_dcm
-    if isinstance(simulation_setup, dict):
-        if simulation_setup.get("brachy_source") is None:
-            simulation_setup["brachy_source"] = plan_dcm
+
+    new_sim_setup = deepcopy(simulation_setup) # this is to avoid memory reference issues during forloops
+    if new_sim_setup is None:
+        new_sim_setup = plan_dcm
+    if isinstance(new_sim_setup, dict):
+        if new_sim_setup.get("brachy_source") is None:
+            new_sim_setup["brachy_source"] = plan_dcm
     combined_dose = kwargs.pop("combined_dose", dose_dcm)
     return BrachyPlan(
         phantom=dir_dicom,
         catheter_table=plan_dcm,
         combined_dose=combined_dose,
-        simulation_setup=simulation_setup,
+        simulation_setup=new_sim_setup,
         **kwargs
     )
