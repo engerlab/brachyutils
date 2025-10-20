@@ -517,9 +517,8 @@ class BrachyDoseComparison:
 
         #flip the profiles 
         if plane == 'xy':
-            pass
-            #local_difference_profile = np.flip(local_difference_profile, axis=0)
-            #global_difference_profile = np.flip(global_difference_profile, axis=0)
+            local_difference_profile = np.flip(local_difference_profile, axis=0)
+            global_difference_profile = np.flip(global_difference_profile, axis=0)
 
         # we will plot a figure that is suitable as a double column figure for medical physics
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
