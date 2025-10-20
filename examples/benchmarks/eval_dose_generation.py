@@ -595,8 +595,8 @@ def boxplot_tg43_mc(
 
     from matplotlib.patches import Patch
     legend_elements = [
-        Patch(facecolor=box_color, alpha=alpha_tg43, label="TG43"),
-        Patch(facecolor=box_color, alpha=alpha_mc, label="MC"),
+        Patch(facecolor=box_color, alpha=alpha_tg43, label="RapidBrachy-TG43"),
+        Patch(facecolor=box_color, alpha=alpha_mc, label="RapidBrachy-MC"),
     ]
     ax.legend(handles=legend_elements, loc=legend_loc, fontsize=font_size - 2)
 
@@ -607,7 +607,49 @@ def boxplot_tg43_mc(
         plt.show()
     plt.close()
 
-   
+def gen_percent_error_maps(
+    dosimetry_inputs_mc: list[Dict[str, Union[str, Path]]],
+    dosimetry_inputs_tg43: list[Dict[str, Union[str, Path]]],
+    dir_output: Path | str,
+):
+    r"""
+    ### Purpose: To generate percent error maps and histograms between MC and TG43 
+    dose distributions for all plans.
+    ### Inputs:
+    - dosimetry_inputs_mc:= list of dictionaries, where each dictionary contains the following
+        keys:
+        - plan_id:= str, the patient id
+        - pth_phant:= Path, the path to the phantom directory
+        - pth_dose:= Path, the path to the dose file
+    - dosimetry_inputs_tg43:= Same as dosimetry_inputs_mc but for TG43 doses.
+    - dir_output:= Path | str, the directory to save the percent error maps and histograms.
+    ### Outputs:
+        - Saves percent error maps and histograms in dir_output.
+    """
+    from brachyutils import BrachyDose
+    from brachyutils import BrachyDoseComparison
+
+    for dosi_input in dosimetry_inputs_mc:
+        plan_id = dosi_input.get("plan_id")
+        # find corresponding tg43 input
+        tg43_input = next((item for item in dosimetry_inputs_tg43 if item["plan_id"] == plan_id), None)
+        if tg43_input is None:
+            print(f"No TG43 data found for plan {plan_id}, skipping.")
+            continue
+        dose_mc = BrachyDose(dosi_input.get("pth_dose"))
+        dose_tg43 = BrachyDose(tg43_input.get("pth_dose"))
+        dose_comp = BrachyDoseComparison(
+            dose1=dose_mc,
+            dose2=dose_tg43,
+            compute_percent_difference=True,
+            compute_gamma_index=False,
+            positive_percent_difference=False,
+        )
+        # dose_comp.plot_local_and_global_differences(
+        #     axis_1_coords=
+        # )
+    
+
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
@@ -681,3 +723,20 @@ if __name__ == "__main__":
         pth_timing_csv_tg43=dir_export_tg43/"dose_generation_timing.csv",
         pth_timing_csv_mc=dir_export_mc/"dose_generation_timing.csv",
     )
+
+    # dosimetry_inputs_tg43 = gen_dosimetry_inputs(
+    #     dir_phnatoms=dir_all_dicoms,
+    #     dir_doses=dir_export_tg43,
+    #     dose_format="nrrd"
+    # )
+
+    # dosimetry_inputs_mc = gen_dosimetry_inputs(
+    #     dir_phnatoms=dir_all_dicoms,
+    #     dir_doses=dir_export_mc,
+    #     dose_format="nrrd"
+    # )
+    # gen_percent_error_maps(
+    #     dosimetry_inputs_mc=dosimetry_inputs_mc,
+    #     dosimetry_inputs_tg43=dosimetry_inputs_tg43,
+    #     dir_output=Path("temp_data")
+    # )
