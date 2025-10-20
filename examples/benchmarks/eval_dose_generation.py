@@ -652,8 +652,10 @@ def gen_percent_error_maps(
             axis_2_coords=vox_centers[1],
             plane_coord=vox_centers[2][len(vox_centers[2])//2],
             plane="xy",
-            plot_titles=(f"MC vs TG43 Percent Error Map for Plan {plan_id}"),
-            pth_fig_save=Path(dir_output)/f"percent_error_map_{plan_id}.svg"
+            plot_title=(f"MC vs TG43 Percent Error Map for Plan {plan_id}"),
+            pth_fig_save=Path(dir_output)/f"percent_error_map_{plan_id}.svg",
+            local_vmax=20.0,
+            global_vmax=10.0,
         )
         break; # for debugging
 
