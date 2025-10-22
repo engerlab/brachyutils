@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brachyutils"
-version = "0.3"
+version = "0.8"
 description = "Python utility packages for handling dose files and egsphant files."
 authors = [{name = "EngerLab"}]
 readme = "README.md"
@@ -42,8 +42,10 @@ dependencies = [
     "py7zr",
     "pytest",
     "vtk",
+    # comment out for docker build{
     "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
-    # "ai_assisted_brachy @ git+https://github.com/engerlab/AI_Assisted_Brachytherapy.git",
+    "ai_assisted_brachy @ git+https://github.com/engerlab/AI_Assisted_Brachytherapy.git",
+    # }
     "nibabel",
     "pydantic",
 ]
