@@ -16,12 +16,13 @@ for dist in pkg_resources.working_set:
     try:
         package_path = os.path.join(dist.location, dist.project_name)
         size_bytes = get_size(package_path)
-        size_mb = size_bytes / 1024 # Convert to MB
+        size_mb = size_bytes / 1024 / 1024 # Convert to MB
         data.append([dist.project_name, size_mb])
     except Exception:
         data.append([dist.project_name, None])
 
 df = pd.DataFrame(data, columns=['Package Name', 'Size (MB)'])
-df.to_csv('python_package_sizes.csv', index=False)
+df.to_csv('temp_data/python_package_sizes.csv', index=False)
 
-print("Package sizes saved to python_package_sizes.csv")
+print("Package sizes saved to temp_data/python_package_sizes.csv")
+print("total size (MB):", df['Size (MB)'].sum())
