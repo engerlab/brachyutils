@@ -234,7 +234,7 @@ def get_dvh_metrics_single_plan(
                 "dose": True,
             }
         )
-    return dvh_metrics_observed
+    return dvh_metrics_observed, plan_obj
 
 def get_dvh_metrics_all_plans(
     dosimetry_inputs: list[Dict[str, Union[str, Path]]],
@@ -275,20 +275,36 @@ def get_dvh_metrics_all_plans(
     all_dvhs.to_csv(pth_out_csv, index=False)
 
 def test_get_dvh_metrics_single_plan():
-    pth_single_dicom = Path("/root/YourLocalHome/Data/prostate-glen-2023/p2")
+    pth_single_dicom = Path("/home/ubuntu/YourLocalHome/Data/prostate/prostate-glen-2023/p5_body")
     # dir_export = Path("/root/YourLocalHome/Data/prostate/plans-1mm/prostate-glen-2023/p1")
-    dir_export = Path("temp_data/tg43/prostate-glen-2023/p2")
+    dir_export = Path("temp_data/tg43/prostate-glen-2023/p5_body")
     dvh_metric_goals = {
-        "D95%(ctv)": 21,
-        "D1cc(rectum)": 21*0.75,
-        "D0.1cc(urethra)": 21*1.25,
+        # "D95%(ctv)": 21,
+        # "D1cc(rectum)": 21*0.75,
+        # "D0.1cc(urethra)": 21*1.25,
+        "CI(ctv)": 1,
     }
-    print(
-        get_dvh_metrics_single_plan(
+    dvh, plan = get_dvh_metrics_single_plan(
             dir_dicom=pth_single_dicom,
             dvh_metric_goals=dvh_metric_goals,
-            dir_plan_export=dir_export)
+            prescription_dose=21,
+            load_dose_from=dir_export/"combined.seq.nrrd",
+            export_combined_dose=False,
+            )
+    combined_dose = plan.combined_dose
+    body_mask = plan.body_contour.getBinaryMask(
+        combined_dose.dose_image.origin,
+        spacing=combined_dose.dose_image.spacing,
+        gridSize=combined_dose.dose_image.gridSize
         )
+    new_dose_array = combined_dose.dose_image.imageArray.copy()
+    new_dose_array = new_dose_array * body_mask.imageArray
+    combined_dose.dose_image.imageArray = new_dose_array
+    combined_dose.write_brachydose_to_file(dir_export/"test_dose.seq.nrrd")
+    print(
+        f"DVH Metrics for plan {pth_single_dicom.stem}:\n",
+        f"{dvh}"
+    )
 
 def test_export():
     pth_single_dicom = Path.home().joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p12")
@@ -448,29 +464,29 @@ def gen_box_plots_dvh_timing(
     data_mc = pd.read_csv(pth_dvh_csv_mc)
     timing_tg43 = pd.read_csv(pth_timing_csv_tg43)
     timing_mc = pd.read_csv(pth_timing_csv_mc)
-    
+
     # merge dvh data with timing data based on plan_id
     data_tg43 = data_tg43.merge(timing_tg43, on="plan_id")
     data_mc = data_mc.merge(timing_mc, on="plan_id")
 
     data_tg43.to_csv(pth_dvh_csv_tg43.parent/"dose_generation_data_tg43.csv", index=False)
     data_mc.to_csv(pth_dvh_csv_mc.parent/"dose_generation_data_mc.csv", index=False)
-    
+
     # generate the box plots for V100% and V150%
-    boxplot_tg43_mc(
-        data_tg43[["V100%(ctv)", "V150%(ctv)"]],
-        data_mc[["V100%(ctv)", "V150%(ctv)"]],
-        title = "TG43 vs MC DVH Metrics",
-        xlabel = "DVH Metrics",
-        ylabel = "Percentage of Target Volume [%]",
-        fig_size=(6, 4),
-        alpha_tg43=0.5,
-        alpha_mc=1.0,
-        box_color=(0.90,0.17,0.31),
-        font_size=14,
-        legend_loc="upper right",
-        save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_Vx.svg"
-    )
+    # boxplot_tg43_mc(
+    #     data_tg43[["V100%(ctv)", "V150%(ctv)"]],
+    #     data_mc[["V100%(ctv)", "V150%(ctv)"]],
+    #     title = "TG43 vs MC DVH Metrics",
+    #     xlabel = "DVH Metrics",
+    #     ylabel = "Percentage of Target Volume [%]",
+    #     fig_size=(6, 4),
+    #     alpha_tg43=0.5,
+    #     alpha_mc=1.0,
+    #     box_color=(0.90,0.17,0.31),
+    #     font_size=14,
+    #     legend_loc="upper right",
+    #     save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_Vx.svg"
+    # )
     # generate the box plots for D90%, D10%, D30%, D2cc
     # boxplot_tg43_mc(
     #     data_tg43[["D90%(ctv)", "D10%(urethra)", "D30%(urethra)", "D2cc(rectum)"]],
@@ -694,23 +710,23 @@ def gen_percent_error_maps(
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
-    # test_get_dvh_metrics_single_plan()
+    test_get_dvh_metrics_single_plan()
     
-    dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
-    dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
-    dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
-    dir_export_test = Path("temp_data/test/prostate-glen-2023")
-    dvh_metric_goals = {
-        "V100%(ctv)": 95,
-        "D90%(ctv)": 21,
-        "V150%(ctv)": 40,
-        "HI(ctv)": 1,
-        "CI(ctv)": 1,
-        "D2cc(rectum)": 10,
-        "D10%(urethra)":17,
-        "D30%(urethra)": 15,
-    }
-    prescription_dose = 21 # in Gy
+    # dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
+    # dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
+    # dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
+    # dir_export_test = Path("temp_data/test/prostate-glen-2023")
+    # dvh_metric_goals = {
+    #     "V100%(ctv)": 95,
+    #     "D90%(ctv)": 21,
+    #     "V150%(ctv)": 40,
+    #     "HI(ctv)": 1,
+    #     "CI(ctv)": 1,
+    #     "D2cc(rectum)": 10,
+    #     "D10%(urethra)":17,
+    #     "D30%(urethra)": 15,
+    # }
+    # prescription_dose = 21 # in Gy
 
     # export all dicoms to plans
     # for dir_export in [
@@ -758,12 +774,12 @@ if __name__ == "__main__":
     #         prescription_dose=prescription_dose
     #     )
 
-    gen_box_plots_dvh_timing(
-        pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",
-        pth_dvh_csv_mc=dir_export_mc/"dose_generation_dvh.csv",
-        pth_timing_csv_tg43=dir_export_tg43/"dose_generation_timing.csv",
-        pth_timing_csv_mc=dir_export_mc/"dose_generation_timing.csv",
-    )
+    # gen_box_plots_dvh_timing(
+    #     pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",
+    #     pth_dvh_csv_mc=dir_export_mc/"dose_generation_dvh.csv",
+    #     pth_timing_csv_tg43=dir_export_tg43/"dose_generation_timing.csv",
+    #     pth_timing_csv_mc=dir_export_mc/"dose_generation_timing.csv",
+    # )
 
     # dosimetry_inputs_tg43 = gen_dosimetry_inputs(
     #     dir_phnatoms=dir_all_dicoms,
