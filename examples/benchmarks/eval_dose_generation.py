@@ -234,7 +234,7 @@ def get_dvh_metrics_single_plan(
                 "dose": True,
             }
         )
-    return dvh_metrics_observed, plan_obj
+    return dvh_metrics_observed
 
 def get_dvh_metrics_all_plans(
     dosimetry_inputs: list[Dict[str, Union[str, Path]]],
@@ -472,52 +472,52 @@ def gen_box_plots_dvh_timing(
     data_tg43.to_csv(pth_dvh_csv_tg43.parent/"dose_generation_data_tg43.csv", index=False)
     data_mc.to_csv(pth_dvh_csv_mc.parent/"dose_generation_data_mc.csv", index=False)
 
-    # generate the box plots for V100% and V150%
-    # boxplot_tg43_mc(
-    #     data_tg43[["V100%(ctv)", "V150%(ctv)"]],
-    #     data_mc[["V100%(ctv)", "V150%(ctv)"]],
-    #     title = "TG43 vs MC DVH Metrics",
-    #     xlabel = "DVH Metrics",
-    #     ylabel = "Percentage of Target Volume [%]",
-    #     fig_size=(6, 4),
-    #     alpha_tg43=0.5,
-    #     alpha_mc=1.0,
-    #     box_color=(0.90,0.17,0.31),
-    #     font_size=14,
-    #     legend_loc="upper right",
-    #     save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_Vx.svg"
-    # )
-    # generate the box plots for D90%, D10%, D30%, D2cc
-    # boxplot_tg43_mc(
-    #     data_tg43[["D90%(ctv)", "D10%(urethra)", "D30%(urethra)", "D2cc(rectum)"]],
-    #     data_mc[["D90%(ctv)", "D10%(urethra)", "D30%(urethra)", "D2cc(rectum)"]],
-    #     title = "TG43 vs MC DVH Metrics",
-    #     xlabel = "DVH Metrics",
-    #     ylabel = "Percentage of Prescription Dose [%]",
-    #     fig_size=(12, 8),
-    #     alpha_tg43=0.5,
-    #     alpha_mc=1.0,
-    #     box_color=(0.70,0.52,0.75),
-    #     font_size=14,
-    #     legend_loc="upper right",
-    #     save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_Dx.svg"
-    # )
+    # # generate the box plots for V100% and V150%
+    boxplot_tg43_mc(
+        data_tg43[["V100%(ctv)", "V150%(ctv)"]],
+        data_mc[["V100%(ctv)", "V150%(ctv)"]],
+        title = "TG43 vs MC DVH Metrics",
+        xlabel = "DVH Metrics",
+        ylabel = "Percentage of Target Volume [%]",
+        fig_size=(6, 4),
+        alpha_tg43=0.5,
+        alpha_mc=1.0,
+        box_color=(0.90,0.17,0.31),
+        font_size=14,
+        legend_loc="upper right",
+        save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_Vx.svg"
+    )
+    # # generate the box plots for D90%, D10%, D30%, D2cc
+    boxplot_tg43_mc(
+        data_tg43[["D90%(ctv)", "D10%(urethra)", "D30%(urethra)", "D2cc(rectum)"]],
+        data_mc[["D90%(ctv)", "D10%(urethra)", "D30%(urethra)", "D2cc(rectum)"]],
+        title = "TG43 vs MC DVH Metrics",
+        xlabel = "DVH Metrics",
+        ylabel = "Percentage of Prescription Dose [%]",
+        fig_size=(12, 8),
+        alpha_tg43=0.5,
+        alpha_mc=1.0,
+        box_color=(0.70,0.52,0.75),
+        font_size=14,
+        legend_loc="upper right",
+        save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_Dx.svg"
+    )
     # # Generate box plots for dose generation timing
-    # boxplot_tg43_mc(
-    #     data_tg43[["dose_generation_time"]],
-    #     data_mc[["dose_generation_time"]],
-    #     title = "TG43 vs MC Dose Generation Timing",
-    #     xlabel = "Dose Generation Method",
-    #     ylabel = "Time [s]",
-    #     fig_size=(6, 4),
-    #     alpha_tg43=0.5,
-    #     alpha_mc=1.0,
-    #     box_color=(0.36,0.54,0.66),
-    #     font_size=14,
-    #     legend_loc="upper right",
-    #     save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_timing.svg"
-    # )
-    # generate box plots for HI and CI
+    boxplot_tg43_mc(
+        data_tg43[["dose_generation_time"]],
+        data_mc[["dose_generation_time"]],
+        title = "TG43 vs MC Dose Generation Timing",
+        xlabel = "Dose Generation Method",
+        ylabel = "Time [s]",
+        fig_size=(6, 4),
+        alpha_tg43=0.5,
+        alpha_mc=1.0,
+        box_color=(0.36,0.54,0.66),
+        font_size=14,
+        legend_loc="upper right",
+        save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_timing.svg"
+    )
+    # # generate box plots for HI and CI
     boxplot_tg43_mc(
         data_tg43[["HI(ctv)", "CI(ctv)"]],
         data_mc[["HI(ctv)", "CI(ctv)"]],
@@ -529,7 +529,7 @@ def gen_box_plots_dvh_timing(
         alpha_mc=1.0,
         box_color=(0.20,0.63,0.17),
         font_size=14,
-        legend_loc="upper right",
+        legend_loc="upper left",
         save_path=pth_dvh_csv_tg43.parent.parent.parent/"boxplot_mc_tg43_HI_CI.svg"
     )
 
@@ -710,25 +710,25 @@ def gen_percent_error_maps(
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
-    test_get_dvh_metrics_single_plan()
+    # test_get_dvh_metrics_single_plan()
     
-    # dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
-    # dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
-    # dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
-    # dir_export_test = Path("temp_data/test/prostate-glen-2023")
-    # dvh_metric_goals = {
-    #     "V100%(ctv)": 95,
-    #     "D90%(ctv)": 21,
-    #     "V150%(ctv)": 40,
-    #     "HI(ctv)": 1,
-    #     "CI(ctv)": 1,
-    #     "D2cc(rectum)": 10,
-    #     "D10%(urethra)":17,
-    #     "D30%(urethra)": 15,
-    # }
-    # prescription_dose = 21 # in Gy
+    dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
+    dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
+    dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
+    dir_export_test = Path("temp_data/test/prostate-glen-2023")
+    dvh_metric_goals = {
+        "V100%(ctv)": 95,
+        "D90%(ctv)": 21,
+        "V150%(ctv)": 40,
+        "HI(ctv)": 1,
+        "CI(ctv)": 1,
+        "D2cc(rectum)": 10,
+        "D10%(urethra)":17,
+        "D30%(urethra)": 15,
+    }
+    prescription_dose = 21 # in Gy
 
-    # export all dicoms to plans
+    # # export all dicoms to plans
     # for dir_export in [
     #     dir_export_tg43,
     #     dir_export_mc
@@ -749,7 +749,6 @@ if __name__ == "__main__":
     #     dir_plan_export=dir_export_mc,
     #     method="mc"
     # )
-
     # # this may be needed if the air kerma used in MC dose generation was incorrect
     # scale_by_airkerma(
     #     # dir_all_plans=dir_export_tg43,        
@@ -774,12 +773,12 @@ if __name__ == "__main__":
     #         prescription_dose=prescription_dose
     #     )
 
-    # gen_box_plots_dvh_timing(
-    #     pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",
-    #     pth_dvh_csv_mc=dir_export_mc/"dose_generation_dvh.csv",
-    #     pth_timing_csv_tg43=dir_export_tg43/"dose_generation_timing.csv",
-    #     pth_timing_csv_mc=dir_export_mc/"dose_generation_timing.csv",
-    # )
+    gen_box_plots_dvh_timing(
+        pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",
+        pth_dvh_csv_mc=dir_export_mc/"dose_generation_dvh.csv",
+        pth_timing_csv_tg43=dir_export_tg43/"dose_generation_timing.csv",
+        pth_timing_csv_mc=dir_export_mc/"dose_generation_timing.csv",
+    )
 
     # dosimetry_inputs_tg43 = gen_dosimetry_inputs(
     #     dir_phnatoms=dir_all_dicoms,
