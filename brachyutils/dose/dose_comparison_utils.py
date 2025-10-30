@@ -4,9 +4,11 @@ import pickle
 import sys
 import tkinter as tk
 from tkinter import filedialog as fd
-
+from pathlib import Path
 import numpy as np
+import matplotlib
 from matplotlib import pyplot as plt
+from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 from opentps.core.processing.dataComparison.gammaIndex import gammaIndex
 
 from brachyutils.dose.dose_utils import BrachyDose
@@ -44,7 +46,7 @@ class BrachyDoseComparison:
         "lower_percent_dose_cutoff": 5,
         "interp_fraction": 10,
         "local_gamma": False,
-        "global_normalisation": None,
+        # "global_normalisation": None,
         "skip_once_passed": True,
         "max_gamma": 1.1
     }
@@ -53,14 +55,16 @@ class BrachyDoseComparison:
         self,
         dose1: BrachyDose,
         dose2: BrachyDose,
-        gamma_dose_percent_threshold: float,
-        gamma_distance_threshold_mm: float,
+        gamma_dose_percent_threshold: float = 3.0,
+        gamma_distance_threshold_mm: float = 3.0,
         compute_percent_difference=True,
+        prescription_dose: float = None,
         compute_gamma_index=True,
         path=None,
         gamma_kwargs: dict = default_gamma_kwargs,
         positive_percent_difference: bool = True,
-        percent_difference_range: tuple = (0, 200)
+        percent_difference_range: tuple = (0, 200),
+        dose_mask: BrachyDose = None
     ):
         r"""
         Purpose:
@@ -80,7 +84,7 @@ class BrachyDoseComparison:
             - gamma_kwargs: dict := the kwargs for the gamma index function
             - positive_percent_difference: bool := if True, the percent difference will be computed with or without absolute value
             - percent_difference_range: tuple := the range of the percent difference used in plotting
-
+            - dose_mask: BrachyDose := a mask to apply to the dose comparison, excluding any voxels where the mask is valued <0
         Outputs:
             Object containing the following attributes:
                 - dose1: BrachyDose object
@@ -124,9 +128,15 @@ class BrachyDoseComparison:
         self.gamma_kwargs = BrachyDoseComparison.default_gamma_kwargs
         self.gamma_kwargs.update(gamma_kwargs) #in case the user wants to change the default
         self.plot_max_dose_percent_of_prescription : int = 200
-        self.prescription_dose = gamma_kwargs.get("global_normalisation", 1.0)
+        self.prescription_dose = (
+            gamma_kwargs.get("global_normalisation", 1.0) 
+            if prescription_dose is None 
+            else prescription_dose
+            )
+        self.gamma_kwargs["global_normalisation"] = self.prescription_dose
         self.max_gamma = gamma_kwargs.get("max_gamma", 1.1)
         self.percent_difference_range = percent_difference_range
+        self.dose_mask = dose_mask if dose_mask is not None else BrachyDose.dose_with_ones_grid_like(self.dose1)
         # axes values are assumed in cm from the 3ddose formalism
         # gamma distance thresholds are usually provided in mm
         # pymedphys documentation indicates that the threshold unit must match the axis
@@ -184,6 +194,10 @@ class BrachyDoseComparison:
         matplotlib.rcParams.update({"font.size": 8})
         plt.rcParams.update({"figure.dpi": 300})
 
+        figure_colormap = plt.get_cmap("turbo")
+        figure_colormap.set_bad(color="black", alpha=1.0)  # set bad values to black
+    
+
         dummy_profile = np.zeros((len(axis_2_coords) - 1, len(axis_1_coords) - 1))
 
         dose_1_profile = self.dose1.extract_profile_2d(
@@ -205,6 +219,16 @@ class BrachyDoseComparison:
         else:
             gamma_index_profile = dummy_profile
 
+        if self.dose_mask is not None:
+            dose_mask_profile = self.dose_mask.extract_profile_2d(
+                axis_1_coords, axis_2_coords, plane_coord, plane
+            )
+            dose_1_profile[dose_mask_profile < 0] = np.nan
+            dose_2_profile[dose_mask_profile < 0] = np.nan
+            percent_difference_profile[dose_mask_profile < 0] = np.nan
+            gamma_index_profile[dose_mask_profile < 0] = np.nan
+
+
         #flip the profiles 
         if plane == 'xy':
             dose_1_profile = np.flip(dose_1_profile, axis=0)
@@ -221,7 +245,7 @@ class BrachyDoseComparison:
         # we will plot a figure that is suitable as a double column figure for medical physics
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
         fig, ax = plt.subplots(
-            figsize=(180 * mm, 120 * mm), nrows=2, ncols=2, sharex=True, sharey=True
+            figsize=(180 * mm, 150 * mm), nrows=2, ncols=2, sharex=True, sharey=True
         )
         c00 = ax[0, 0].pcolormesh(
             axis_1_coords,
@@ -229,7 +253,7 @@ class BrachyDoseComparison:
             dose_1_profile,
             vmin=0,
             vmax=plot_vmax,
-            cmap="turbo",
+            cmap=figure_colormap,
             rasterized=True,
             antialiased=True,
         )
@@ -246,7 +270,7 @@ class BrachyDoseComparison:
             dose_2_profile,
             vmin=0,
             vmax=plot_vmax,
-            cmap="turbo",
+            cmap=figure_colormap,
             rasterized=True,
             antialiased=True,
         )
@@ -263,7 +287,7 @@ class BrachyDoseComparison:
             percent_difference_profile,
             vmin=self.percent_difference_range[0],
             vmax=self.percent_difference_range[1],
-            cmap="turbo",
+            cmap=figure_colormap,
             rasterized=True,
             antialiased=True,
         )
@@ -281,7 +305,7 @@ class BrachyDoseComparison:
             gamma_index_profile,
             vmin=0,
             vmax=self.max_gamma,
-            cmap="turbo",
+            cmap=figure_colormap,
             rasterized=True,
             antialiased=True,
         )
@@ -335,6 +359,8 @@ class BrachyDoseComparison:
                 self.percent_difference_local.dose_image.imageArray = (
                     self.dose2.dose_image.imageArray - self.dose1.dose_image.imageArray
                 ) * 100.0 / self.dose1.dose_image.imageArray
+            if self.dose_mask is not None:
+                self.percent_difference_local.dose_image.imageArray[self.dose_mask.dose_image.imageArray < 0] = np.nan
 
         else:
             self.percent_difference_global = BrachyDose.dose_with_empty_grid_like(self.dose1)
@@ -348,8 +374,9 @@ class BrachyDoseComparison:
                 self.percent_difference_global.dose_image.imageArray = (
                     self.dose2.dose_image.imageArray - self.dose1.dose_image.imageArray
                 ) * 100.0 / self.prescription_dose
-  
 
+            if self.dose_mask is not None:
+                self.percent_difference_global.dose_image.imageArray[self.dose_mask.dose_image.imageArray < 0] = np.nan
 
     def compute_gamma_index(self):
         """
@@ -384,15 +411,7 @@ class BrachyDoseComparison:
             **self.gamma_kwargs,
         )
         logger.setLevel(logging.INFO)
-        # gamma_index_grid = pymedphys.gamma(
-        #    tuple(self.voxel_centers),
-        #    self.dose1.dose_image.imageArray,
-        #    tuple(self.voxel_centers),
-        #    self.dose2.dose_image.imageArray,
-        #    self.gamma_dose_percent_threshold,
-        #    self.gamma_distance_threshold,
-        #    **self.gamma_kwargs,
-        # )
+        self.gamma_index.dose_image.imageArray[self.dose_mask.dose_image.imageArray < 0] = np.nan
         # cast the NaNs to 0s
         gamma_index_grid = self.gamma_index.dose_image.imageArray
         number_excluded = np.sum(np.isnan(gamma_index_grid))
@@ -410,8 +429,8 @@ class BrachyDoseComparison:
             None
         """
         if self.percent_difference_local is not None and self.percent_difference_global is not None:
-            self.percent_difference_local.write_to_nrrd(f"{dir}/local_percent_difference.seq.nrrd")
-            self.percent_difference_global.write_to_nrrd(f"{dir}/global_percent_difference.seq.nrrd")
+            self.percent_difference_local.write_to_nrrd(Path(f"{dir}/local_percent_difference.seq.nrrd"))
+            self.percent_difference_global.write_to_nrrd(Path(f"{dir}/global_percent_difference.seq.nrrd"))
         else:
             raise ValueError("Local/global difference not computed. Call compute_percent_difference() first.")
     
@@ -469,26 +488,27 @@ class BrachyDoseComparison:
             axis_2_coords: np.ndarray,
             plane_coord: float,
             plane: str,
-            plot_titles: tuple,
+            plot_title: str,
+            local_vmax: float = 2.0,
+            global_vmax: float = 0.1,
+            pth_fig_save: Path | str = None,
+            fig_size_mm: tuple = (180, 140),
+            title_fontsize: int = 14,
         ):
 
         """
-        Plot local and dose differences maps along both axes
-        With the histograms below
+        Plot local and dose differences maps in 2D in the specified slice
+        With the histograms below. Note, a lot of plotting parameters were tuned
+        to hardcoded values to make a good looking figure during Figure Bootcamp 2025.
+        Please avoid changing them. 
         """
-
-        # from matplotlib.ticker import (
-        # AutoMinorLocator,
-        # FormatStrFormatter,
-        # MultipleLocator,
-        # )
-        import matplotlib
-
-        local_vmax = 2
-        global_vmax = 0.2
 
         matplotlib.rcParams.update({"font.size": 8})
         plt.rcParams.update({"figure.dpi": 300})
+
+        image_cmap = plt.get_cmap('turbo')
+        image_cmap.set_bad(color='black', alpha=1.0)  # set bad values to black
+    
 
         local_difference_profile = self.percent_difference_local.extract_profile_2d(
             axis_1_coords, axis_2_coords, plane_coord, plane
@@ -497,6 +517,13 @@ class BrachyDoseComparison:
             axis_1_coords, axis_2_coords, plane_coord, plane
         )
 
+        mask_profile = self.dose_mask.extract_profile_2d(
+            axis_1_coords, axis_2_coords, plane_coord, plane
+        )
+
+        local_difference_profile[mask_profile < 0] = np.nan
+        global_difference_profile[mask_profile < 0] = np.nan
+
         #flip the profiles 
         if plane == 'xy':
             local_difference_profile = np.flip(local_difference_profile, axis=0)
@@ -504,86 +531,168 @@ class BrachyDoseComparison:
 
         # we will plot a figure that is suitable as a double column figure for medical physics
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
-        fig, ax = plt.subplots(
-            figsize=(360 * mm, 240 * mm), nrows=2, ncols=2, sharex=False, sharey=False, layout = "compressed",
-            gridspec_kw={'width_ratios': [1, 1]}#,height_ratios=[1,1]
-        )
-        c00 = ax[0, 0].pcolormesh(
+        # Create two subfigures: top for images, bottom for histograms
+        fig_size_mm = np.array(fig_size_mm) * mm
+        fig = plt.figure(figsize=fig_size_mm) # layout="compressed"
+        subfigs = fig.subfigures(2, 1, height_ratios=[1, .75])
+
+        fig.set_facecolor('lavender')
+        fig.set_layout_engine('constrained')
+        fig.patch.set_linewidth(2)
+        fig.patch.set_edgecolor('black')
+
+        # Top subfigure: two 2D images (local/global difference)
+        axs_img = subfigs[0].subplots(1, 2, sharex=False, sharey=False)
+        # Bottom subfigure: two histograms (local/global difference)
+        axs_hist = subfigs[1].subplots(1, 2, sharex=False, sharey=False)
+        
+
+        c00 = axs_img[0].pcolormesh(
             axis_1_coords,
             axis_2_coords,
             local_difference_profile,
             vmin=-local_vmax,
             vmax=local_vmax,
-            cmap="turbo",
+            cmap=image_cmap,
             rasterized=True,
             antialiased=True,
         )
-        ax[0, 0].set_title(plot_titles[0], fontsize=12, pad=5, fontweight="bold")
-        ax[0, 0].set_aspect("equal")
-        cbar00 = fig.colorbar(c00, ax=ax[0, 0], shrink=0.9, pad=0.04, location='right', panchor = False)
-        cbar00.set_label(label="[%]", size=10, labelpad=5)
-        cbar00.mappable.set_clim(-5, 5)
-        ax[0, 0].invert_yaxis()
-        ax[0, 0].set_xlabel(f"{plane[0]} [mm]", fontsize=10)
-        ax[0, 0].set_ylabel(f"{plane[1]} [mm]", fontsize=10)
+        axs_img[0].set_title("$\Delta D_{{\mathrm{{LOCAL}}}}$", fontsize=12, pad=5)
+        axs_img[0].set_aspect("equal")
+        cbar00 = fig.colorbar(c00, ax=axs_img[0], fraction=0.046, shrink=0.9, pad=0.04, location='right')#, panchor=False)
+        cbar00.ax.set_title(label="[%]", size=10)
+        cbar00.mappable.set_clim(-local_vmax, local_vmax)
+        #axs_img[0].invert_yaxis()
+        axs_img[0].set_xlabel(f"{plane[0]} [mm]", fontsize=10, labelpad=2)
+        axs_img[0].set_ylabel(f"{plane[1]} [mm]", fontsize=10, labelpad=2)
 
-        c01 = ax[0, 1].pcolormesh(
+        c01 = axs_img[1].pcolormesh(
             axis_1_coords,
             axis_2_coords,
             global_difference_profile,
             vmin=-global_vmax,
             vmax=global_vmax,
-            cmap="turbo",
+            cmap=image_cmap,
             rasterized=True,
             antialiased=True,
         )
-        cbar01 = fig.colorbar(c01, ax=ax[0, 1], shrink=0.9, pad=0.04, location='right' )
-        cbar01.set_label(label="[%]", size=10, labelpad=5)
-        cbar01.mappable.set_clim(-1, 1)
-        ax[0, 1].invert_yaxis()
-        ax[0, 1].set_xlabel(f"{plane[0]} [mm]", fontsize=10)
-        ax[0, 1].set_title(plot_titles[1], fontsize=12, pad=5, fontweight="bold")
-        ax[0, 1].set_aspect("equal")
+        axs_img[1].set_title("$\Delta D_{{\mathrm{{GLOBAL}}}}$", fontsize=12, pad=5)
+        axs_img[1].set_aspect("equal")
+        cbar01 = fig.colorbar(c01, ax=axs_img[1], fraction=0.046, shrink=0.9, pad=0.04, location='right')
+        cbar01.ax.set_title(label="[%]", size=10)#, labelpad=5)
+        cbar01.mappable.set_clim(-global_vmax, global_vmax)
+        #axs_img[1].invert_yaxis()
+        axs_img[1].set_xlabel(f"{plane[0]} [mm]", fontsize=10, labelpad=2)
+        axs_img[1].set_ylabel(f"{plane[1]} [mm]", fontsize=10, labelpad=2)
+
+        #planar ticks
+        axis_1_extent = axis_1_coords[-1] - axis_1_coords[0]
+        axis_2_extent = axis_2_coords[-1] - axis_2_coords[0]
+        axs_img[0].xaxis.set_major_locator(MultipleLocator(axis_1_extent//4))
+        axs_img[0].xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_img[0].yaxis.set_major_locator(MultipleLocator(axis_2_extent//4))
+        axs_img[0].yaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_img[1].xaxis.set_major_locator(MultipleLocator(axis_1_extent//4))
+        axs_img[1].xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_img[1].yaxis.set_major_locator(MultipleLocator(axis_2_extent//4))
+        axs_img[1].yaxis.set_minor_locator(AutoMinorLocator(5))
+        
+        ##############################################################
+        fig.canvas.draw() #draw plots to get positions
+
+        #get x positions of above plots
+        xpos_img0 = axs_img[0].get_position().bounds[0]
+        xpos_img1 = axs_img[1].get_position().bounds[0]
+
+        # Align the histograms to be centered below the corresponding top images
+        # Get the width of the top image axes
+        img0_width = axs_img[0].get_position().bounds[2]
+        img1_width = axs_img[1].get_position().bounds[2]
+
+        # Get the width of the histogram axes
+        hist0_width = axs_hist[0].get_position().bounds[2]
+        hist1_width = axs_hist[1].get_position().bounds[2]
+
+        # Calculate the new x positions so that the histograms are centered under the images
+        axs_hist[0].set_position([
+            xpos_img0 + (img0_width - hist0_width) / 2,
+            0.18,
+            hist0_width,
+            axs_hist[0].get_position().bounds[3]
+        ], which='both')
+        axs_hist[1].set_position([
+            xpos_img1 + (img1_width - hist1_width) / 2,
+            0.18,
+            hist1_width,
+            axs_hist[1].get_position().bounds[3]
+        ], which='both')
 
 
-
-        #now plot the local and global percent differences histograms
-        #use a bin width of 0.1%
-        local_bin_width = 0.1
+        #Now plot the local and global percent differences histograms
+        local_bin_width = 0.01
         global_bin_width = 0.001
-        local_hist, local_bins = np.histogram(
+        self.local_hist, local_hist_bin_edges = np.histogram(
             self.percent_difference_local.dose_image.imageArray, bins=np.arange(-local_vmax, local_vmax, local_bin_width)
         )
-        global_hist, global_bins = np.histogram(
+        self.global_hist, global_hist_bin_edges = np.histogram(
             self.percent_difference_global.dose_image.imageArray, bins=np.arange(-global_vmax, global_vmax, global_bin_width)
         )
 
-        ax[1, 0].bar(local_bins[:-1], 100 * local_hist / self.percent_difference_local.dose_image.imageArray.size, width=local_bin_width, color="blue", alpha=0.5)#, fill=False)
-        ax[1, 1].bar(global_bins[:-1], 100 * global_hist / self.percent_difference_global.dose_image.imageArray.size, width=global_bin_width, color="red", alpha=0.5)#, fill=False)
-        ax[1, 0].set_box_aspect(aspect=1)
-        ax[1, 1].set_box_aspect(aspect=1)
+        self.local_hist_bin_centers = local_hist_bin_edges[:-1] + 0.5 * local_bin_width
+        self.global_hist_bin_centers = global_hist_bin_edges[:-1] + 0.5 * global_bin_width
 
-        ax[1, 0].set_ylabel("Voxels [%]", fontsize=10)
-        ax[1, 0].set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
-        ax[1, 1].set_xlabel(fr"$\Delta D_{{\mathrm{{GLOBAL}}}} [\%]$", fontsize=10)
-
-        #plt.subplots_adjust(left = 0.184, bottom = 0.136, right = 0.813, top = 0.892, wspace = 0.219, hspace = 0.222)
-
-        plt.show()
-
-        root = tk.Tk()
-        root.withdraw()
-        f = fd.asksaveasfile(
-            mode="wb",
-            defaultextension=".eps",
-            initialdir=os.getcwd(),
-            title="Save dose difference plots",
-            confirmoverwrite=True,
+        axs_hist[0].bar(
+            self.local_hist_bin_centers,
+            100 * self.local_hist / self.percent_difference_local.dose_image.imageArray[np.logical_not(np.isnan(self.percent_difference_local.dose_image.imageArray))].size,
+            width=local_bin_width,
+            color="blue",
+            alpha=0.5
         )
-        if f is not None:
-            ext = os.path.splitext(f.name)[1][1:]  # get extension without dot
-            plt.savefig(f, dpi=300, format=ext)
-            f.close()
-        root.destroy()
+        axs_hist[1].bar(
+            self.global_hist_bin_centers,
+            100 * self.global_hist / self.percent_difference_global.dose_image.imageArray[np.logical_not(np.isnan(self.percent_difference_global.dose_image.imageArray))].size,
+            width=global_bin_width,
+            color="red",
+            alpha=0.5
+        )
+
+        #histogram tick adjustments
+        axs_hist[0].xaxis.set_major_locator(MultipleLocator(local_vmax/2))
+        axs_hist[0].xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_hist[1].xaxis.set_major_locator(MultipleLocator(global_vmax/2))
+        axs_hist[1].xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_hist[0].yaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_hist[1].yaxis.set_minor_locator(AutoMinorLocator(5))
 
 
+        axs_hist[0].set_box_aspect(aspect=1)
+        axs_hist[1].set_box_aspect(aspect=1)
+
+        axs_hist[0].set_ylabel("Voxels [%]", fontsize=10)
+        axs_hist[1].set_ylabel("Voxels [%]", fontsize=10)
+        axs_hist[0].set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
+        axs_hist[1].set_xlabel(fr"$\Delta D_{{\mathrm{{GLOBAL}}}} [\%]$", fontsize=10)
+
+        fig.suptitle(plot_title, fontsize=title_fontsize, fontweight="bold", y=0.98)
+
+        if pth_fig_save is not None:
+            pth_fig_save = Path(pth_fig_save)
+            pth_fig_save.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(pth_fig_save, dpi=300)
+        else:
+            root = tk.Tk()
+            root.withdraw()
+            f = fd.asksaveasfile(
+                mode="wb",
+                defaultextension=".eps",
+                initialdir=os.getcwd(),
+                title="Save dose difference plots",
+                confirmoverwrite=True,
+            )
+            if f is not None:
+                ext = os.path.splitext(f.name)[1][1:]  # get extension without dot
+                fig.savefig(f, dpi=300, format=ext)
+                f.close()
+            else:
+                plt.show()
+            root.destroy()

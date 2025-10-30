@@ -17,10 +17,11 @@ dist/*
 *tar.zst
 *.tar
 .checkpointing
-build/*
+build*
 *.trunk*
 temp_data/*
 !temp_data/.gitkeep
 .env
 !docker_src/.env
 *zip
+docs*

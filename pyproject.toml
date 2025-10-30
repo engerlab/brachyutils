@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brachyutils"
+version = "0.8"
+description = "Python utility packages for handling dose files and egsphant files."
+authors = [{name = "EngerLab"}]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "setuptools",
+    "cycler",
+    "fonttools",
+    "importlib-resources",
+    "kiwisolver",
+    "pybind11",
+    "numpy",
+    "matplotlib",
+    "packaging",
+    "pandas",
+    "Pillow",
+    "pyparsing",
+    "python-dateutil",
+    "pytz",
+    "cmake",
+    "scikit-build",
+    "SimpleITK",
+    "pynrrd @ git+https://github.com/mhe/pynrrd.git",
+    "six",
+    "tzdata",
+    "zipp",
+    "pyzstd",
+    "typer",
+    "tqdm",
+    "DicomRTTool",
+    "pydicom",
+    "scipy",
+    "tk",
+    "pymedphys",
+    "py7zr",
+    "pytest",
+    "vtk",
+    # comment out for docker build{
+    "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
+    "ai_assisted_brachy @ git+https://github.com/engerlab/AI_Assisted_Brachytherapy.git",
+    # }
+    "nibabel",
+    "pydantic",
+]
+
+[project.optional-dependencies]
+core = []
+reg = ["monai"]
+plan = ["gurobipy", "amplpy", "ortools"]
+full = ["monai", "gurobipy", "amplpy", "ortools"]
+
+[tool.setuptools.packages.find]
+include = ["brachyutils.*", "brachyutils"]
+
+[project.scripts]
+brachyutils = "brachyutils.cli_utils:main"

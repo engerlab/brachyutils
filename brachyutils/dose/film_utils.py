@@ -705,6 +705,8 @@ class FilmCalibration:
                 title="Save calibration object",
                 confirmoverwrite=True,
             )
+            if f is None:
+                return
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
             root.destroy()
 
@@ -761,6 +763,7 @@ class FilmCalibration:
             raise ValueError("Invalid input. Please enter N or L.")
         film_calibration.display_calibration_films()
         film_calibration.calibration_curve.plot_calibration_and_response_curve()
+        return film_calibration
 
 
 def main():

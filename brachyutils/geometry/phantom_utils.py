@@ -348,6 +348,7 @@ class BrachyPhantom:
         self,
         query_structure_list: List[str],
         mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
+        strict_name_match: bool = True,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         ### Purpose:
@@ -378,11 +379,11 @@ class BrachyPhantom:
 
         for query_structure in flattened_query_structure_list:
             for mask_name in self.structure_names:
-                if query_structure.lower() == mask_name.lower():
-                    if mask_type == ROIMask and self.cached_structure_masks is not None:
-                        if mask_name in self.cached_structure_masks:
-                            mask_dict[query_structure] = self.cached_structure_masks[mask_name]
-                            continue
+                if strict_name_match:
+                    pick_structure = query_structure.lower() == mask_name.lower()
+                else:
+                    pick_structure = query_structure.lower() in mask_name.lower()
+                if pick_structure:
                     mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
                         origin=self.image_obj.origin,
                         gridSize=self.image_obj.gridSize,
@@ -647,6 +648,7 @@ class BrachyPhantom:
         resampled_origin: List[float] = None,
         resample_phantom_base: Optional[bool] = True,
         background_material: Optional[str] = "Air",
+        strict_name_match: bool = True,
     ) -> None:
         r"""
         Purpose:
@@ -684,6 +686,7 @@ class BrachyPhantom:
         elif self.image_obj is not None:
             phantom_used_for_egsphant = deepcopy(self)
             from brachyutils.geometry.egsphant_utils import BrachyEgsphant
+            
             if resampled_spacing is not None or resampled_origin is not None: #if we want to resample
                 if resample_phantom_base: #resample the phantom and structures that the egsphant is based on
                     phantom_used_for_egsphant.resample_to(
@@ -700,11 +703,22 @@ class BrachyPhantom:
             )
   
             if crop_by_contour is not None:
-                self.egsphant_obj.crop_by_contour(phantom_used_for_egsphant, crop_by_contour)
+                self.egsphant_obj.crop_by_contour(
+                    phantom_used_for_egsphant,
+                    crop_by_contour,
+                    strict_name_match=strict_name_match)
 
             if resampled_spacing is not None and not resample_phantom_base:
-                self.egsphant_obj.material_image = resampleImage3D(image=self.egsphant_obj.material_image, spacing=resampled_spacing, outputType=np.int16)
-                self.egsphant_obj.density_image = resampleImage3D(image=self.egsphant_obj.density_image, spacing=resampled_spacing)
+                self.egsphant_obj.material_image = resampleImage3D(
+                    image=self.egsphant_obj.material_image,
+                    origin=resampled_origin,
+                    spacing=resampled_spacing, 
+                    outputType=np.int16)
+                self.egsphant_obj.density_image = resampleImage3D(
+                    image=self.egsphant_obj.density_image,
+                    origin=resampled_origin,
+                    spacing=resampled_spacing,)
+                    # sitk_interpolator=sitk.sitkNearestNeighbor)
                 self.egsphant_obj.get_voxel_edges()
             if str(pth_output).endswith(".egsphant"):
                 self.egsphant_obj.write_to_ctegsphant(pth_output)
@@ -1137,7 +1151,7 @@ class BrachyPhantom:
         self,
         origin:np.array=None,
         spacing:np.array=None,
-        inplace:bool=False,
+        inplace:bool=True,
         gridSize:np.array=None,
         interpolator_img=sitk.sitkLinear) -> "BrachyPhantom":
         r"""

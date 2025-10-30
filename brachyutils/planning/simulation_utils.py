@@ -255,7 +255,7 @@ class BrachySimulation(BaseModel):
             - None
         """
         return {
-            "source_dict": self.brachy_source.to_dict(),
+            "brachy_source": self.brachy_source.to_dict(),
             "world_material": self.world_material,
             "number_histories": self.number_histories,
             "total_time": self.total_time,
