@@ -728,7 +728,6 @@ def get_uncertainty_in_ctv(
         "plan_id", "mean_uncertainty_ctv", "max_uncertainty_ctv"
         ])
     for input_dict in tqdm(dosimetry_inputs):
-        plan_id = input_dict.get("plan_id")
         plan_obj = load_dicom_to_plan(
             dir_dicom=input_dict.get('pth_phant'),
             load_dicom_dose=False,
@@ -741,8 +740,18 @@ def get_uncertainty_in_ctv(
             delivered_catheter_table=True,
             strict_name_match=False,
         )
-        uncertainty = plan_obj.calculate_uncertainty_per_structure()
-        
+        plan_obj.calculate_uncertainty_per_structure()
+        for structure_obj in plan_obj.structure_list:
+            if structure_obj.name.lower() == "ctv":
+                all_uncertainties.loc[len(all_uncertainties)] = {
+                    "plan_id": input_dict.get('plan_id'),
+                    "mean_uncertainty_ctv": structure_obj.uncertainty_mean,
+                    "max_uncertainty_ctv": structure_obj.uncertainty_max,
+                    "min_uncertainty_ctv": structure_obj.uncertainty_min,
+                    "std_uncertainty_ctv": structure_obj.uncertainty_std,
+                }
+    all_uncertainties.to_csv(pth_out_csv, index=False)
+
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()

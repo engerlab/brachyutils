@@ -947,9 +947,13 @@ class BrachyPlan:
 
         for structure_obj in self.structure_list:
             # resample the uncertainty image on the structure
-            masked_uncertainty = resampleImage3DOnImage3D(
-                self.combined_dose.uncertainty_image, structure_obj.mask
-            ).imageArray * structure_obj.mask.imageArray
+            structure_mask = structure_obj.mask.getBinaryMask(
+                origin=self.combined_dose.uncertainty_image.origin,
+                spacing=self.combined_dose.uncertainty_image.spacing,
+                gridSize=self.combined_dose.uncertainty_image.gridSize
+            )
+            masked_uncertainty = self.combined_dose.uncertainty_image.imageArray * structure_mask.imageArray
+
             # isolate the uncertainty values that are in the mask
             flattened_uncertainty = masked_uncertainty.flatten()
             # generate a histogram from the masked uncertainty
