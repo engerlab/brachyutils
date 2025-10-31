@@ -2,7 +2,7 @@ import warnings
 import os
 import numpy as np
 from glob import glob
-from typing import Dict, List, Literal, Optional, Union, Tuple
+from typing import Dict, List, Literal, Optional, Union, Tuple, Sequence
 from collections import defaultdict
 import numpy as np
 import SimpleITK as sitk
@@ -871,7 +871,7 @@ class BrachyPhantom:
         self,
         interpolator_contours=sitk.sitkNearestNeighbor,
         pth_structures_file: str | Path = None,
-        mask_colors: Dict[str, Tuple[int, int, int]] | Tuple[int, int, int] = None,
+        mask_colors: Dict[str, Sequence[int]] | Sequence[int] = None,
     ) -> None:
         r"""
         Purpose:
@@ -899,7 +899,7 @@ class BrachyPhantom:
             mask_colors = {
                 k: slicer_colors[i+1]["color"] for i, k in enumerate(structure_dict.keys())
             }
-        elif isinstance(mask_colors, tuple):
+        elif isinstance(mask_colors, Sequence):
             mask_colors = {
                 k: mask_colors for k in structure_dict.keys()
             }
@@ -957,7 +957,7 @@ class BrachyPhantom:
             mask_colors = {
                 k: slicer_colors[i+1]["color"] for i, k in enumerate(mask_dict.keys())
             }
-        elif isinstance(mask_colors, tuple):
+        elif isinstance(mask_colors, Sequence):
             mask_colors = {
                 k: mask_colors for k in mask_dict.keys()
             }
