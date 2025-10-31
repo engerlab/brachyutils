@@ -1,7 +1,7 @@
 from typing import Dict, Union, Literal
 from pathlib import Path
 from tqdm import tqdm
-from brachyutils import load_dicom_to_plan
+from brachyutils import load_dicom_to_plan, export_plan_from_dicom
 from brachyutils import DoseMonteCarlo, DoseTG43
 import pandas as pd
 from time import time
@@ -17,39 +17,6 @@ def run_multi_proc(function, input_list, max_workers=8):
         except Exception as e:
             print(f"Error in multiprocessing: {e}")
 
-def export_single_dicom_to_plan(
-    dir_dicom:Path | str,
-    dir_export: Path | str,
-    sim_dict: Dict[str, Union[str, int]] = None,
-    content_to_export: Dict[str, bool] = None,
-    ) -> Path:
-    r"""
-    ### Purpose:
-        - Export the plans to the given directory.
-
-    ### Inputs:
-        - dir_dicom: Path | str: The path to the dicom directory for one plan. it should have images,
-        and a plan file. Structure file is optional.
-        - dir_export: Path | str: The directory to export the plans to. Each plan will have its own subdir.
-
-    ### Outputs:
-        - dir_export_plan: Path: The path to the exported plan.
-    """
-    plan_obj = load_dicom_to_plan(
-        dir_dicom,
-        simulation_setup=sim_dict,
-        delivered_catheter_table=True
-        )
-
-    dir_export = Path(dir_export)
-    dir_export.mkdir(parents=True, exist_ok=True)
-
-    dir_export_plan = dir_export.joinpath(dir_dicom.stem)
-
-    plan_obj.export_brachy_plan(
-        dir_export=dir_export_plan,
-        content_to_export=content_to_export,
-    )
 
 def run_export(
     dir_all_dicoms: Path | str,
@@ -93,7 +60,7 @@ def run_export(
 
     if multi_proc:
         partially_filled_export_func = partial(
-            export_single_dicom_to_plan,
+            export_plan_from_dicom,
             dir_export=dir_export,
             sim_dict=sim_dict,
             content_to_export=content_to_export,
@@ -101,7 +68,7 @@ def run_export(
         run_multi_proc(partially_filled_export_func, all_dicoms)
     else:
         for dicom in tqdm(all_dicoms):
-            export_single_dicom_to_plan(
+            export_plan_from_dicom(
                 dir_dicom=dicom,
                 dir_export=dir_export,
                 sim_dict=sim_dict,
@@ -346,7 +313,7 @@ def test_export():
 
     if not pth_material.exists():
         raise FileNotFoundError(f"The material file {pth_material} does not exist.")
-    export_single_dicom_to_plan(
+    export_plan_from_dicom(
         pth_single_dicom,
         dir_export,
         content_to_export=content_to_export,
