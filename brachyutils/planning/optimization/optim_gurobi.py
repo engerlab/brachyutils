@@ -1,16 +1,95 @@
 # from abc import ABC, abstractmethod
 from typing import List
 import tqdm
+import time
 from copy import deepcopy
 import warnings
 import time
-import numpy as np
+from multiprocessing import Pool
+import os 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from gurobipy import Model, Var, GRB, MVar
+
+from gurobipy import Model, Var, GRB, MVar, Env, QuadExpr, LinExpr
+import SimpleITK as sitk
+import numpy as np
+import pandas as pd
+from scipy.sparse import csr_matrix
+
+from opentps.core.data.images import ROIMask
+from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, crop_mask_resample_dose_rate_map
+    BrachyDwellTimeOptim, BrachyDwellTime, 
+    crop_resample_dose_rate_map_and_mask
 )
+
+
+def process_variable(variable, structure_name, structure_mask, plan, optim_spacing, roi_bounds, shift_origin:bool=False):
+
+    if "hotspot_estimator:" in structure_name.lower():
+        relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
+        if variable.name not in relevant_dwells:
+            return None
+    dwell_var = variable._model_variable
+
+    if (
+        isinstance(structure_mask, ROIMask)
+        and np.allclose(plan.combined_dose.dose_image.origin, structure_mask.origin)
+        and np.allclose(plan.combined_dose.dose_image.spacing, structure_mask.spacing)
+        and np.allclose(plan.combined_dose.dose_image.spacing, optim_spacing)
+        and np.all(np.swapaxes(variable.dose_rate_map, 0, 2).shape == structure_mask.imageArray.shape)
+    ):
+        masked_dose_array = np.swapaxes(variable.dose_rate_map, 0, 2)
+    else:
+        dose_rate_obj, structure_for_masking = crop_resample_dose_rate_map_and_mask(
+            dose_rate_map=variable.dose_rate_map,
+            template_dose_obj=plan.combined_dose,
+            roi_bounds=roi_bounds,
+            structure_mask=structure_mask,
+            optim_spacing=optim_spacing,
+            sitk_interpolator_dose=sitk.sitkLinear,
+            # Using Linear instead of NearestNeighbor since NN does a bad job when downsampling
+            sitk_interpolator_contour=sitk.sitkLinear, #sitkNearestNeighbor # sitkLinear
+            shift_origin=shift_origin
+        )
+        masked_dose_array = dose_rate_obj.dose_image.imageArray.astype(float)
+        structure_mask = structure_for_masking
+
+    structure_for_masking = structure_mask.imageArray.astype(bool)
+    valid_dose_points = masked_dose_array[structure_for_masking == 1].flatten()
+
+    return dwell_var, valid_dose_points
+
+def compute_dose_rate_matrices(
+        dwellTimeVariables, structure, structure_mask, plan, 
+        optim_spacing, roi_bounds, max_workers:int=8, shift_origin:bool=False):
+    dose_rate_matrices = []
+    dwell_vars = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(
+                process_variable,
+                variable,
+                structure.name,
+                structure_mask,
+                plan,
+                optim_spacing,
+                roi_bounds, 
+                shift_origin
+            ): variable
+            for variable in dwellTimeVariables
+        }
+
+        for future in tqdm.tqdm(as_completed(futures), total=len(futures), desc=f"Processing dwell positions dose rates for {structure.name}"):
+            result = future.result()
+            if result is not None:
+                dwell_var, valid_dose_points = result
+                dwell_vars.append(dwell_var)
+                dose_rate_matrices.append(valid_dose_points)
+
+    return dwell_vars, dose_rate_matrices
 
 class DwellTime_Gurobi(BrachyDwellTime):
     r"""
@@ -50,6 +129,99 @@ class DwellTime_Gurobi(BrachyDwellTime):
         super().__init__(**data)
         self.build_backend_variable(model) 
 
+
+
+def change_model_dose_to_target(new_target_dose:float, model:Model, coords_target_constraint:List[int], 
+                                 coords_hotspot_constraint:List[int], hotspot_threshold:float):
+    r'''This model changes the target dose of the dose calculation points that reside inside the tumor target volume on a gurobi model. 
+    inputs: 
+        - new_target_dose := the new target dose value for tumor in Gy. 
+        -  model := is a gurobi model to be changed. 
+        - coords_target_constraint := a list of coordinates that says which constraints belong to the target volume. 
+            this list is obtained in the initialization step 
+    outputs:
+        - VOID := this function changes the state of the input model and returns nothing. 
+    '''
+    constr_list = list(model.getConstrs())
+    assert len(coords_target_constraint) > 0, "No target constraints found in the model. Cannot change target dose."
+    assert coords_target_constraint[-1] == coords_target_constraint[0] + len(coords_target_constraint) - 1, (
+        "Target constraints are not consecutive. Cannot change target dose constraints."
+    )
+    model.setAttr('RHS', constr_list[coords_target_constraint[0]:coords_target_constraint[-1]+1], new_target_dose)
+    if len(coords_hotspot_constraint) >0:
+        assert coords_hotspot_constraint[-1] == coords_hotspot_constraint[0] + len(coords_hotspot_constraint) - 1, (
+            "Hotspot constraints are not consecutive. Cannot change hotspot dose constraints."
+        )
+        model.setAttr('RHS', constr_list[coords_hotspot_constraint[0]:coords_hotspot_constraint[-1]+1], hotspot_threshold*new_target_dose)
+    
+    model.update()
+
+
+def _run(model: Model):
+    r"""
+    ### Purpose:
+    - A function to run the optimizer. See `BrachyDwellTimeOptim.run` for details. 
+    """
+    time_start = time.time()
+    model.optimize()
+    time_end = time.time()
+    solve_time = time_end - time_start
+    if model.status == GRB.OPTIMAL:
+        print("Optimal solution found.")
+        solution_found = True
+    else:
+        print("No optimal solution found.")
+        solution_found = False
+    return model, solution_found, solve_time
+
+def _get_optimized_plan_from_model(
+    plan: BrachyPlan,
+    model: Model,
+    inplace=True,
+    ) -> BrachyPlan | None:
+    r"""
+    See `BrachyDwellTime.get_optimized_plan_from_model` for details.
+    """
+    if plan is None:
+        raise ValueError("Plan is not set. Please set the plan first.")
+    if model is None:
+        raise ValueError("Model is not set. Please set the model first.")
+    
+    model, solution_found, solve_time = _run(model)
+
+    dwelltime_and_name = []
+    for x in model.getVars():
+        if ("catheter" in x.VarName) and ("dwell" in x.VarName):
+            dwelltime_and_name.append((x.X, x.VarName))
+    
+    if not solution_found:
+        warnings.warn(
+            "No optimal solution found. Return None.",
+            stacklevel=2)
+        return None
+
+    # set the dwell time to the plan
+    if inplace:
+        outplan:BrachyPlan = plan
+    else:
+        outplan:BrachyPlan = deepcopy(plan)     
+
+    for dwell_time, name in dwelltime_and_name:
+        # set the dwell time to the optimized value
+        if dwell_time < 0.1:
+            dwell_time = 0
+        for catheter in outplan.catheter_table:
+            for dwell_position in catheter.dwells:
+                if (
+                    f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                    == name
+                ):
+                    dwell_position.time = dwell_time
+    # update the plan with the new dwell times
+    outplan.update_plan_from_catheter_table()
+    return model, outplan, solution_found, solve_time
+
+
 class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
     r"""
     ### Purpose:
@@ -72,6 +244,10 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.plan = plan
         self.roi_margin_mm = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solver = "gurobi"
+        self.target_constraints_coords = []
+        self.hotspot_constraints_coords = []
+        self.hotspot_threshold = None
+        self.structure_weights_d = {}
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
@@ -122,10 +298,24 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         dwell_counter = 0
         for catheter in plan.catheter_table:
             for dwell_position in catheter.dwells:
+                ag = np.where(plan.dose_rate_tensor[dwell_counter] == plan.dose_rate_tensor[dwell_counter].max())
+                i = image3DToSITK(plan.combined_dose.dose_image)
+                rev_argmax = list(int(u[0]) for u in ag)[::-1]
+                tmp_pos = i.TransformIndexToPhysicalPoint(rev_argmax)
+                tmp_idx = i.TransformPhysicalPointToIndex(list(dwell_position.position))
+                # Arbitrary tolerance of 3 voxels and 3*spacing mm
+                assert np.all(np.array(rev_argmax) - np.array(tmp_idx) < 3), (
+                    "Dwell position does not match max dose rate position. Check dose rate tensor and dwell positions."
+                )
+                assert np.all(dwell_position.position - np.array(tmp_pos) < max(i.GetSpacing()) * 3), (
+                    "Dwell position does not match max dose rate position. Check dose rate tensor and dwell positions."
+                )
+
+                dt_var_name = f"catheter_{catheter.index}_dwell_{dwell_position.index}"
                 dwellTimeVariable_list.append(
                     DwellTime_Gurobi(
                         model=self.model,
-                        name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
+                        name=dt_var_name,
                         dwell_time=initial_dwell_time,
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
@@ -156,7 +346,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self,
         plan: BrachyPlan,
         dwellTimeVariables: List[DwellTime_Gurobi],
-        model: Model):
+        model: Model, 
+        multi_processing: bool = True
+        ) -> None:
         r"""
         ### Purpose:
         - A function to set up the optimization model's objective function and constraints based 
@@ -191,7 +383,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         "hotspot": 0,
         "uniformity": 0
         }
-    
+        constraint_counter = 0
+        
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
@@ -204,30 +397,49 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             min_dose = structure.optimization_config.min_dose
             structure_max_dose = structure.optimization_config.max_dose
             hotspot_threshold = structure.optimization_config.hotspot_threshold
+            if hotspot_threshold != 0.:
+                if self.hotspot_threshold is None:
+                    self.hotspot_threshold = hotspot_threshold
+                else:
+                    assert np.isclose(self.hotspot_threshold, hotspot_threshold), (
+                        "All structures with hotspot estimator should have the same hotspot threshold."
+                        "Since only one structure (PTV or CTV) should have the hotspot estimator."
+                        f" Found {self.hotspot_threshold} and {hotspot_threshold}"
+                    )
+
             hotspot_weight = structure.optimization_config.penalty_weight_hotspot
             # Build dose rate matrix and dwell time vector for this structure
-            dose_rate_matrices = []
-            dwell_vars = []
-            for variable in tqdm.tqdm(dwellTimeVariables, total=len(dwellTimeVariables), 
-                                      desc=f"Processing dwell positions dose rates for {structure.name}"):
-                if "hotspot_estimator:" in structure.name.lower():
-                    relevant_dwells = structure.name.lower().split("hotspot_estimator:")[1].split("/")
-                    if variable.name not in relevant_dwells:
-                        continue
-                dwell_vars.append(variable._model_variable)
-                valid_dose_points = crop_mask_resample_dose_rate_map(
-                    dose_rate_map=variable.dose_rate_map,
-                    template_dose_obj=plan.combined_dose,
-                    roi_bounds=self.roi_bounds,
-                    structure_mask=structure_mask,
-                    optim_spacing=optim_spacing
+            if not multi_processing:
+                dose_rate_matrices = []
+                dwell_vars = []
+                for var in dwellTimeVariables:
+                    dwell_var, valid_dose_points = process_variable(
+                        var,
+                        structure.name,
+                        structure_mask,
+                        plan,
+                        optim_spacing,
+                        self.roi_bounds, 
+                        shift_origin=True
+                        )
+                    dwell_vars.append(dwell_var)
+                    dose_rate_matrices.append(valid_dose_points)
+            else:
+                dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+                    dwellTimeVariables,
+                    structure,
+                    structure_mask,
+                    plan,
+                    optim_spacing,
+                    self.roi_bounds,
+                    max_workers=4, 
+                    shift_origin=True
                 )
-                dose_rate_matrices.append(valid_dose_points)
 
             if not dose_rate_matrices:
                 continue
 
-            # conver the list of varaibles to a Gurobi variable Vector (MVar)
+            # convert the list of variables to a Gurobi variable Vector (MVar)
             t_MVar = MVar.fromlist(dwell_vars)
             # Stack dose rate matrices to create A matrix
             A = np.column_stack(dose_rate_matrices)  # Shape: (num_dose_points, num_variables)
@@ -261,13 +473,27 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     A_sparse @ t_MVar + x_slack >= target_dose_vec,
                     name=f"dose_target_{structure.name}"
                 )
+                self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                constraint_counter += num_dose_points
 
                 # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
                 model.addConstr(
                     A_sparse @ t_MVar + y_uniform == target_dose_vec,
                     name=f"dose_uniform_{structure.name}"
                 )
+                self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                constraint_counter += num_dose_points
 
+                ## Saving weights info for later potential resetting of the model
+                self.structure_weights_d[structure.name] = {
+                    "linear_weight": linear_weight,
+                    "quadratic_weight": quadratic_weight,
+                    "uniformity_weight": uniformity_weight,
+                    "num_dose_points": num_dose_points,
+                    "linear_coeff":linear_weight / num_dose_points,
+                    "quadratic_coeff":quadratic_weight / num_dose_points,
+                    "uniformity_coeff":uniformity_weight / (num_dose_points * 1000) # is quadratic weight
+                }
                 # Add penalty terms using matrix operations
                 linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
                 quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
@@ -292,6 +518,15 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 model.addConstr(
                     A_sparse @ t_MVar - x_slack <= hotspot_threshold * target_dose_vec,
                 )
+                self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                constraint_counter += num_dose_points
+
+                ## Saving weights info for later potential resetting of the model
+                self.structure_weights_d[structure.name] = {
+                    "hotspot_weight": hotspot_weight,
+                    "num_dose_points": num_dose_points,
+                    "hotspot_coeff": hotspot_weight / num_dose_points # is a linear coeff
+                }
                 hotspot_weight_vec = np.full(num_dose_points, hotspot_weight / num_dose_points)
                 penalty_terms["hotspot"] += (hotspot_weight_vec @ x_slack)
 
@@ -309,11 +544,20 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     A_sparse @ t_MVar - x_slack <= target_dose_vec,
                     name=f"dose_oar_{structure.name}"
                 )
+                constraint_counter += num_dose_points
 
+                ## Saving weights info for later potential resetting of the model
+                self.structure_weights_d[structure.name] = {
+                    "linear_weight": linear_weight,
+                    "quadratic_weight": quadratic_weight,
+                    "num_dose_points": num_dose_points,
+                    "linear_coeff": linear_weight / num_dose_points,
+                    "quadratic_coeff": quadratic_weight / num_dose_points,
+                }
                 # Add penalty terms
                 linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
                 quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
-                
+
                 penalty_terms["linear"] += linear_weight_vec @ x_slack
                 penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
 
@@ -327,62 +571,58 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         )
         model.update()
 
+
+    def reset_model_from_config(self, config: dict) -> None:
+        r"""
+        ### Purpose:
+        - A function to reset the model with new penalty weights.
+        ### Inputs:
+        - model: Model := The Gurobi model to be reset.
+        - config: dict := A dictionary containing the penalty weights for each structure.
+            Example:
+            {'td_PTV': 3.5358764542564374,
+            'linear_w_Skin': 96.60924792289734, 
+            'linear_w_Chestwall': 90.46064639091492, 
+            'linear_w_PTV': 1000.0, 
+            'quadratic_w_PTV': 1.0}
+
+        ### Outputs:
+        - model: Model := The reset Gurobi model.
+        """
+
+        _, updated_structure_weights_d = modify_model_objective_with_new_penalty_weights_and_td(
+            model=self.model, 
+            # self.structure_weights_d will be modified with the next set of penalty weights
+            # It will store the current "state" of the model.
+            og_setup_for_objective=self.structure_weights_d, 
+            new_penalty_weights=config, 
+            target_constraints_coords=self.target_constraints_coords, 
+            hotspot_constraints_coords=self.hotspot_constraints_coords, 
+            hotspot_threshold=self.hotspot_threshold)
+
+        ### Updating state of the penalty weights of the model dict
+        self.structure_weights_d = updated_structure_weights_d
+
     def run(self):
         r"""
         ### Purpose:
         - A function to run the optimizer. See `BrachyDwellTimeOptim.run` for details. 
         """
-        time_start = time.time()
-        self.model.optimize()
-        time_end = time.time()
-        self.solve_time = time_end - time_start
-        if self.model.status == GRB.OPTIMAL:
-            print("Optimal solution found.")
-            self.solution_found = True
-        else:
-            print("No optimal solution found.")
+        self.model, self.solution_found, self.solve_time = _run(self.model)
 
     def get_optimized_plan_from_model(
         self,
-        inplace=True,
+        inplace:bool=True,
         ) -> BrachyPlan | None:
         r"""
         See `BrachyDwellTime.get_optimized_plan_from_model` for details.
         """
-        if self.plan is None:
-            raise ValueError("Plan is not set. Please set the plan first.")
-        if self.model is None:
-            raise ValueError("Model is not set. Please set the model first.")
-        if self.dwellTimeVariables is None:
-            raise ValueError("DwellTimeVariables are not set. Please set the DwellTimeVariables first.")
 
-        # run the optimization
-        self.run()
-        if self.solution_found == False:
-            warnings.warn(
-                "No optimal solution found. Return None.",
-                stacklevel=2)
-            return None
-
-        for variable in self.dwellTimeVariables:
-            # set the dwell time to the optimized value
-            variable.dwell_time = variable._model_variable.X
-            if variable.dwell_time < 0.1:
-                variable.dwell_time = 0
-            # set the dwell time to the plan
-            if inplace:
-                outplan:BrachyPlan = self.plan
-            else:
-                outplan:BrachyPlan = deepcopy(self.plan)
-            for catheter in outplan.catheter_table:
-                for dwell_position in catheter.dwells:
-                    if (
-                        f"catheter_{catheter.index}_dwell_{dwell_position.index}"
-                        == variable.name
-                    ):
-                        dwell_position.time = variable.dwell_time        
-        # update the plan with the new dwell times
-        outplan.update_plan_from_catheter_table()
+        self.model, outplan, self.solution_found, self.solve_time = _get_optimized_plan_from_model(
+            plan=self.plan,
+            model=self.model,
+            inplace=inplace
+            )
         return outplan
 
     def bound_dwell_time(
@@ -399,3 +639,603 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 variable.set_bounds(lower_bound=lower_bound, upper_bound=upper_bound)
                 break
         self.model.update()
+
+    def evaluate_penaltyWeight(self, config: dict, return_cat_table:bool=False, inplace:bool=False) -> dict:
+        r"""
+        ### Purpose:
+        - A function to evaluate penalty weights by resetting the model with new penalty weights
+        and re-optimizing. The results are collected in a dictionary.
+        ### Inputs:
+        - config: dict := A dictionary containing the penalty weights for each structure.
+            Example:
+            {'linear_w_Skin': 96.60924792289734, 
+            'linear_w_Chestwall': 90.46064639091492, 
+            'linear_w_PTV': 1000.0, 
+            'quadratic_w_PTV': 1.0}
+        - return_cat_table: bool := Whether to return the catheter table along with the DVH metrics. Default is False.
+        - inplace: bool := Whether to modify the original plan or return a new optimized plan. Default is False.
+        ### Outputs:
+        - output: dict := A dictionary containing the DVH metrics and penalty weights.
+        If return_cat_table is True, returns a tuple (output, catheter_table).
+        WARNING: If inplace is True, the original plan will be modified.
+        By returning the catheter table, one can reconstruct the optimized plan afterwards
+        by manually setting the catheter_table attribute of the BrachyPlan object and then
+        calling the update_plan_from_catheter_table() method.
+        """
+        if not len(config.keys()) > 0:
+            raise ValueError("Config is empty. Please provide a valid config.")
+        config_wo_td = deepcopy(config)
+        # The method directly modifies the self.model object used later
+        # in get_optimized_plan_from_model function
+        self.reset_model_from_config(config_wo_td)
+
+        optimized_plan = self.get_optimized_plan_from_model(inplace=inplace)
+        dvh_metrics = optimized_plan.get_dvh_metrics()
+        output = {}
+        for dvh_metric_name, dvh_value in dvh_metrics.items():
+            output[dvh_metric_name] = float(dvh_value)
+
+        output.update(config)
+        if return_cat_table:
+            return output, deepcopy(optimized_plan.catheter_table)
+        else:
+            return output
+
+    def evaluate_penaltyWeight_space(self, list_of_configs: List[dict], return_cat_table:bool=False) -> dict:
+        r"""
+        ### Purpose:
+        - A function to evaluate the penalty weight space by resetting the model with new penalty weights
+        and re-optimizing in parallel. The results are collected in a dataframe.
+        ### Inputs:
+        - list_of_configs: List[dict] := A list of dictionaries containing the penalty weights
+        for each structure.
+            Example:
+            [{'linear_w_Skin': 96.60924792289734, 
+            'linear_w_Chestwall': 90.46064639091492, 
+            'linear_w_PTV': 1000.0, 
+            'quadratic_w_PTV': 1.0},
+            {'linear_w_Skin': 50.0, 
+            'linear_w_Chestwall': 50.0, 
+            'linear_w_PTV': 500.0, 
+            'quadratic_w_PTV': 0.5}]
+        dose. Default is False.
+        ### Outputs:
+        - results: pd.DataFrame := A dataframe containing the DVH metrics and penalty weights
+        for each configuration.
+        """
+       
+        model_data = get_model_data(self.model)
+
+        ## Pickling the BrachyPlan is doable but it makes the Pool operation sequential. 
+        # so we use a global variable _plan instead that we initialize with self.plan
+        with Pool(min(10, os.cpu_count(), len(list_of_configs)), initializer=_init_worker, initargs=(self.plan,)) as pl:
+
+            res = pl.starmap(_run_and_organize_results, zip(
+                range(len(list_of_configs)),  # dummy arg instead of self.plan
+                [model_data] * len(list_of_configs),
+                # If you want to return plans you need to pass the inplace arg as False
+                # otherwise all your plans are the same object which will be the last
+                # optimized plan. However, deepcopying the plan makes the Pool operation
+                # sequential and slow. Instead one can return only the catheter table
+                [True]*len(list_of_configs),
+                list_of_configs,
+                [return_cat_table]*len(list_of_configs),
+                [deepcopy(self.structure_weights_d)]*len(list_of_configs), 
+                [self.target_constraints_coords]*len(list_of_configs),
+                [self.hotspot_constraints_coords]*len(list_of_configs),
+                [self.hotspot_threshold]*len(list_of_configs)
+            )
+            )
+        if return_cat_table:
+            weights_and_dvh_space = []
+            optimized_cat_table = {}
+            for i, r in enumerate(res):
+                weights_and_dvh_space.append(r[0])
+                optimized_cat_table[f"trial_{i}"] = r[1]
+            return pd.DataFrame(weights_and_dvh_space), optimized_cat_table
+        else:
+            return pd.DataFrame(res)
+        
+def _format_path(p, k):
+    return f"{p}.{k}" if p else str(k)
+
+def deep_diff(d1, d2, path=""):
+    r"""
+    Recursively compare two objects (dicts, lists, tuples, numpy arrays, sparse matrices, scalars).
+    Returns a list of differences as strings. Useful for debugging model serialization.
+    Was mostly useful for debugging the get_model_data and update_model_from_data functions.
+    ### Inputs:
+    - d1: dict := The first dictionary to compare, obtained from get_model_data function
+    - d2: dict := The second dictionary to compare, obtained from get_model_data function
+    ### Outputs:
+    None - prints differences to console.
+    """
+    diffs = []
+
+    # Compare dicts
+    if isinstance(d1, dict) and isinstance(d2, dict):
+        keys1 = set(d1.keys())
+        keys2 = set(d2.keys())
+        for k in keys1 - keys2:
+            diffs.append(f"Key '{_format_path(path, k)}' missing in second dict")
+        for k in keys2 - keys1:
+            diffs.append(f"Key '{_format_path(path, k)}' missing in first dict")
+        for k in keys1 & keys2:
+            diffs.extend(deep_diff(d1[k], d2[k], _format_path(path, k)))
+        return diffs
+
+    # Compare lists/tuples
+    if isinstance(d1, (list, tuple)) and isinstance(d2, (list, tuple)):
+        if len(d1) != len(d2):
+            diffs.append(f"Length mismatch at '{path}': {len(d1)} vs {len(d2)}")
+        else:
+            for i, (v1, v2) in enumerate(zip(d1, d2)):
+                diffs.extend(deep_diff(v1, v2, f"{path}[{i}]"))
+        return diffs
+
+    # Compare numpy arrays
+    if isinstance(d1, np.ndarray) and isinstance(d2, np.ndarray):
+        if d1.shape != d2.shape:
+            diffs.append(f"Shape mismatch at '{path}': {d1.shape} vs {d2.shape}")
+        elif np.issubdtype(d1.dtype, np.number) and np.issubdtype(d2.dtype, np.number):
+            if not np.allclose(d1, d2, equal_nan=True):
+                idx = np.where(~np.isclose(d1, d2, equal_nan=True))
+                for i in zip(*idx):
+                    diffs.append(f"Value mismatch at '{path}{i}': {d1[i]} vs {d2[i]}")
+        else:
+            # fallback for non-numeric arrays (e.g., string arrays)
+            if not np.array_equal(d1, d2):
+                idx = np.where(d1 != d2)
+                for i in zip(*idx):
+                    diffs.append(f"Value mismatch at '{path}{i}': {d1[i]} vs {d2[i]}")
+        return diffs
+
+    # Compare sparse matrices
+    if isinstance(d1, csr_matrix) and isinstance(d2, csr_matrix):
+        if d1.shape != d2.shape:
+            diffs.append(f"Sparse shape mismatch at '{path}': {d1.shape} vs {d2.shape}")
+        elif (d1 != d2).nnz != 0:
+            diffs.append(f"Sparse value mismatch at '{path}'")
+        return diffs
+
+    # Compare floats
+    if isinstance(d1, float) and isinstance(d2, float):
+        if not np.isclose(d1, d2, equal_nan=True):
+            diffs.append(f"Float mismatch at '{path}': {d1} vs {d2}")
+        return diffs
+
+    # Compare everything else
+    if d1 != d2:
+        diffs.append(f"Value mismatch at '{path}': {d1} vs {d2}")
+    return diffs
+
+
+def _run_and_organize_results(
+    _, 
+    model_inputs_data:dict,
+    inplace:bool=True,
+    config_wo_td:dict = {},
+    return_cat_table:bool=False,
+    og_setup_for_objective:dict = {},
+    target_constraints_coords: List[int] = [],
+    hotspot_constraints_coords: List[int] = [],
+    hotspot_threshold: float = 1.2
+
+):
+    # print(f"PID {os.getpid()} starting work")
+    # time.sleep(2)
+    # print(f"PID {os.getpid()} done")
+    # return None
+    
+    # use global _plan because pickling BrachyPlan prevents multiprocessing
+    # and makes the pool execution sequential
+    plan = deepcopy(_plan)
+    new_weight_config = deepcopy(config_wo_td)
+    with Env() as env, Model(env=env) as model:
+        model = update_model_from_data(model_inputs_data, model)       
+        _ = modify_model_objective_with_new_penalty_weights_and_td(
+            model=model, 
+            og_setup_for_objective=og_setup_for_objective, 
+            new_penalty_weights=new_weight_config, 
+            target_constraints_coords=target_constraints_coords, 
+            hotspot_constraints_coords=hotspot_constraints_coords, 
+            hotspot_threshold=hotspot_threshold)
+        _, optimized_plan, _, _ = _get_optimized_plan_from_model(plan, model, inplace=inplace)
+
+    dvh_metrics = optimized_plan.get_dvh_metrics()
+    output = {}
+    for dvh_metric_name, dvh_value in dvh_metrics.items():
+        output[dvh_metric_name] = float(dvh_value)
+    output.update(config_wo_td)
+
+    if return_cat_table:
+        return output, deepcopy(optimized_plan.catheter_table)
+    else:
+        return output
+
+def save_quadexpr(quadexpr):
+    # Save QuadExpr parameters: constant, linear terms, quadratic terms
+    saved = {}
+    
+    linear_expr = quadexpr.getLinExpr()
+    c = linear_expr.getConstant()
+    saved['constant'] = c
+    saved_linear = []
+    for i in range(linear_expr.size()):
+        var = linear_expr.getVar(i)
+        coeff = linear_expr.getCoeff(i)
+        saved_linear.append((var.varName, var.VType, var.LB, var.UB, coeff))
+    saved['linear_list'] = saved_linear
+    
+    saved_quad = []
+    for i in range(quadexpr.size()):
+        v1, v2 = quadexpr.getVar1(i), quadexpr.getVar2(i)
+        coeff = quadexpr.getCoeff(i)
+        saved_quad.append(deepcopy((v1.varName, v2.varName, coeff)))
+    saved['quadratic_list'] = saved_quad
+    
+    return saved
+
+def load_quadexpr(saved, model):
+    # Reconstruct QuadExpr from saved parameters given variable name mapping
+    quad_expr = QuadExpr()
+    quad_expr.addConstant(saved['constant'])
+    
+    # Add linear terms
+    for vname, vtype, lb, ub, coeff in saved['linear_list']:
+        var = model.getVarByName(vname)
+        quad_expr.add(coeff * var)
+
+    # Add quadratic terms
+    for vname1, vname2, coeff in saved['quadratic_list']:
+        quad_expr.add(coeff * model.getVarByName(vname1) * model.getVarByName(vname2))
+    
+    return quad_expr
+
+
+def compare_gurobi_models(model1, model2):
+    # Compare variables
+    
+    vars1 = {v.VarName: (v.VType, v.LB, v.UB, v.VarName) for v in model1.getVars()}
+    vars2 = {v.VarName: (v.VType, v.LB, v.UB, v.VarName) for v in model2.getVars()}
+    if vars1 != vars2:
+        return False, "Variables differ"
+
+    # Compare constraints
+    constrs1 = {}
+    for c in model1.getConstrs():
+        expr = model1.getRow(c)
+        coeffs = {expr.getVar(i).VarName: expr.getCoeff(i) for i in range(expr.size())}
+        constrs1[c.ConstrName] = (c.Sense, c.RHS, coeffs)
+
+    constrs2 = {}
+    for c in model2.getConstrs():
+        expr = model2.getRow(c)
+        coeffs = {expr.getVar(i).VarName: expr.getCoeff(i) for i in range(expr.size())}
+        constrs2[c.ConstrName] = (c.Sense, c.RHS, coeffs)
+
+    if constrs1 != constrs2:
+        return False, "Constraints differ"
+
+    # Compare objectives
+    obj1 = model1.getObjective()
+    obj2 = model2.getObjective()
+    if model1.ModelSense != model2.ModelSense:
+        return False, "Objectives have different senses"
+    if obj1.size() != obj2.size():
+        return False, "Objectives have different number of terms"
+    else:
+        if type(obj1) != type(obj2):
+            return False, f"Objectives are of different types, you have {type(obj1)} and {type(obj2)}"
+        if isinstance(obj1, QuadExpr) and isinstance(obj2, QuadExpr):
+            for i in range(obj1.size()):
+                var1 = obj1.getVar1(i)
+                var2 = obj2.getVar1(i)
+                if var1.VarName != var2.VarName or obj1.getCoeff(i) != obj2.getCoeff(i):
+                    return False, "Objective terms differ from first variable "
+                var1 = obj1.getVar2(i)
+                var2 = obj2.getVar2(i)
+                if var1.VarName != var2.VarName or obj1.getCoeff(i) != obj2.getCoeff(i):
+                    return False, "Objective terms differ from second variable "
+        else:
+            assert isinstance(obj1, LinExpr) and isinstance(obj2, LinExpr), "Objective is neither linear nor quadratic"
+            for i in range(obj1.size()):
+                var1 = obj1.getVar(i)
+                var2 = obj2.getVar(i)
+                if var1.VarName != var2.VarName or obj1.getCoeff(i) != obj2.getCoeff(i):
+                    return False, "Objective terms differ from variable "
+                
+    for var1, var2 in tqdm.tqdm(zip(model1.getVars(), model2.getVars()), total=len(model1.getVars()), desc="Comparing objective coefficients"):
+        for const1, const2 in zip(model1.getConstrs(), model2.getConstrs()):
+            if model1.getCoeff(const1, var1) != model2.getCoeff(const2, var2):
+                return False, "Objective coefficients differ"
+
+    return True, "Models match"
+
+
+def modify_model_objective_with_new_penalty_weights_and_td(
+        model: Model, 
+        og_setup_for_objective: dict, 
+        new_penalty_weights: dict,
+        target_constraints_coords: List[int] = [],
+        hotspot_constraints_coords: List[int] = [],
+        hotspot_threshold: float = 1.2
+          # , inplace: bool = True
+    ) -> Model:
+    """
+
+    A function to modify the objective function of a Gurobi model by updating the penalty weights
+    for different structures based on a provided configuration. The function identifies the variables
+    associated with each structure and adjusts their coefficients in the objective function accordingly.
+    Modifies the model inplace. 
+    ### Inputs:
+    # model: Model := The Gurobi optimization model whose objective function is to be modified.
+    # og_setup_for_objective: dict := A dictionary containing the original setup for each structure,
+    # including weights and coefficients.
+    # new_penalty_weights: dict := A dictionary containing the new penalty weights for each structure.
+    og_setup is something like:
+    {
+    "PTV": {
+        "linear_weight": 1000.0,
+        "quadratic_weight": 1.0,
+        "uniformity_weight": 1.0,
+        "num_dose_points": 1788,
+        "coeff": 0.5592841163310962
+    },
+    "Skin": {
+        "linear_weight": 100.0,
+        "quadratic_weight": 1.0,
+        "num_dose_points": 5620,
+        "coeff": 0.017793594306049824
+    },
+    "Chestwall": {
+        "linear_weight": 100.0,
+        "quadratic_weight": 1.0,
+        "num_dose_points": 6710,
+        "coeff": 0.014903129657228018
+    },
+    "hotspot_estimator:catheter_0_dwell_2/catheter_0_dwell_3": {
+        "hotspot_weight": 1.0,
+        "num_dose_points": 12,
+        "coeff": 0.08333333333333333
+    },
+    ....
+    }
+
+    new_penalty_weights is something like:
+
+    {'td_PTV': 3.5358764542564374, 
+     'linear_w_PTV': 1000.0, 
+     'quadratic_w_PTV': 1.0, 
+     'linear_w_Skin': 351.9170277168017, 
+     'linear_w_Chestwall': 7.679852357735809}
+     which we reorganize into 
+    {"PTV": {"linear":500, "quadratic":0.5}, "Skin": {"linear":50, "quadratic":0.5}, "Chestwall": {"linear":50, "quadratic":0.5}}, 
+    """
+
+
+    new_setup_for_model_penalty_weights = {}
+
+    # Extract target dose from new_penalty_weights if present and remove it from the dict
+    new_target_dose = None
+    found = False
+
+    penalty_weights_to_set = deepcopy(new_penalty_weights)
+    for k, v in penalty_weights_to_set.items():
+        if "td_" in k.lower() :
+            new_target_dose = deepcopy(v)
+            to_remove = k
+            found = True
+            break
+    if found:
+        penalty_weights_to_set.pop(to_remove, None)
+
+    ## Reorganize dict by structure name because input config used in MOBO is flat
+    reorganized_new_penalty_weights = {}
+    for k, v in penalty_weights_to_set.items():
+        struct_name = k.split("_")[2]
+        if struct_name not in reorganized_new_penalty_weights:
+            reorganized_new_penalty_weights[struct_name] = {}
+        param_name = k.split("_")[0] 
+        reorganized_new_penalty_weights[struct_name][param_name] = v
+
+    old_objective = model.getObjective()
+    assert isinstance(old_objective, QuadExpr), "Objective is not a quadratic expression as expected"
+    new_objective = QuadExpr()
+    # Constant does not change so we do not need to call model.getConstant()
+
+    old_linear_expr = old_objective.getLinExpr()
+   
+    for i in range(old_linear_expr.size()):
+        var = old_linear_expr.getVar(i)
+        coeff = old_linear_expr.getCoeff(i)
+
+        # Determine which structure this variable belongs to
+        struct_name = None
+        for sname in og_setup_for_objective.keys():
+            if coeff == og_setup_for_objective[sname].get("linear_coeff", None) or \
+                coeff == og_setup_for_objective[sname].get("hotspot_coeff", None):
+                struct_name = sname
+
+        if struct_name is None:
+            raise ValueError(f"Variable {var.VarName} does not belong to any known structure, with og_setup {og_setup_for_objective}, and coeff {coeff}, and new config {new_penalty_weights}")
+        # Get the original coefficient and weight
+        if not "hotspot" in struct_name:
+            og_weight = og_setup_for_objective[struct_name]["linear_weight"]
+            if struct_name in reorganized_new_penalty_weights:
+                if "linear" in reorganized_new_penalty_weights[struct_name]:
+                    new_weight = reorganized_new_penalty_weights[struct_name]["linear"]
+                else:
+                    new_weight = og_weight
+            else:
+                new_weight = og_weight
+        else:
+            og_weight = og_setup_for_objective[struct_name]["hotspot_weight"]
+            if struct_name in reorganized_new_penalty_weights:
+                if "hotspot" in reorganized_new_penalty_weights[struct_name]:
+                    new_weight = reorganized_new_penalty_weights[struct_name]["hotspot"]
+                else:
+                    new_weight = og_weight
+            else:
+                new_weight = og_weight
+     
+        # Calculate new coefficient
+        new_coeff = (new_weight / og_weight) * coeff
+        # Store in new setup for model penalty weights
+        if not struct_name in new_setup_for_model_penalty_weights:
+            new_setup_for_model_penalty_weights[struct_name] = {}
+            if not "hotspot" in struct_name:
+                new_setup_for_model_penalty_weights[struct_name]["linear_weight"] = new_weight
+                new_setup_for_model_penalty_weights[struct_name]["linear_coeff"] = new_coeff
+            else:
+                new_setup_for_model_penalty_weights[struct_name]["hotspot_weight"] = new_weight
+                new_setup_for_model_penalty_weights[struct_name]["hotspot_coeff"] = new_coeff
+            new_setup_for_model_penalty_weights[struct_name]["num_dose_points"] = og_setup_for_objective[struct_name]["num_dose_points"]
+
+        # Add to new objective if
+        if new_coeff != 0:
+            new_objective.addTerms(new_coeff, var)
+
+    coeff_type = None
+    for i in range(old_objective.size()):
+        v1, v2 = old_objective.getVar1(i), old_objective.getVar2(i)
+        coeff = old_objective.getCoeff(i)
+        # Determine which structure this variable belongs to
+        struct_name = None
+        for sname in og_setup_for_objective.keys():
+            if coeff == og_setup_for_objective[sname].get("quadratic_coeff", None) or \
+                coeff == og_setup_for_objective[sname].get("uniformity_coeff", None):
+                struct_name = sname
+                if coeff == og_setup_for_objective[sname].get("quadratic_coeff", None):
+                    coeff_type = "quadratic"
+                else:
+                    coeff_type = "uniformity"
+
+        if struct_name is None:
+            raise ValueError(f"Variable pair {v1.VarName}, {v2.VarName} does not belong to any known structure, with og_setup {og_setup_for_objective}, and coeff {coeff}, and new config {new_penalty_weights}")
+        
+        # Get the original coefficient and weight
+        og_weight = og_setup_for_objective[struct_name][f"{coeff_type}_weight"]
+        if struct_name in reorganized_new_penalty_weights:
+            if coeff_type in reorganized_new_penalty_weights[struct_name]:
+                new_weight = reorganized_new_penalty_weights[struct_name][coeff_type]
+            else:
+                new_weight = og_weight
+        else:
+            new_weight = og_weight
+      
+                
+        # Calculate new coefficient
+        new_coeff = (new_weight / og_weight) * coeff
+        # Store in new setup for model penalty weights
+        if coeff_type == "quadratic":
+            if not "quadratic_weight" in new_setup_for_model_penalty_weights[struct_name]:
+                new_setup_for_model_penalty_weights[struct_name]["quadratic_weight"] = new_weight
+                new_setup_for_model_penalty_weights[struct_name]["quadratic_coeff"] = new_coeff
+        else:
+            if not "uniformity_weight" in new_setup_for_model_penalty_weights[struct_name]:
+                new_setup_for_model_penalty_weights[struct_name]["uniformity_weight"] = new_weight
+                new_setup_for_model_penalty_weights[struct_name]["uniformity_coeff"] = new_coeff
+            
+        if new_coeff != 0:
+            new_objective.addTerms(new_coeff, v1, v2)
+
+   
+    model.setObjective(new_objective)
+    model.update()
+    if found:
+        change_model_dose_to_target(
+            new_target_dose=new_target_dose, 
+            model=model, 
+            coords_target_constraint=target_constraints_coords, 
+            coords_hotspot_constraint=hotspot_constraints_coords, 
+            hotspot_threshold=hotspot_threshold
+        )
+    
+    return model, new_setup_for_model_penalty_weights
+
+def update_model_from_data(input_data: dict, model:Model):
+
+    model.ModelSense = input_data['model_sense']
+    
+    model.addMVar((len(input_data['varnames']),), lb=input_data['lb'], ub=input_data['ub'],
+                    obj=input_data['var_obj'], vtype=input_data['vtype'],
+                    name=input_data['varnames'])
+    model.addMConstr(A=input_data['A'], x=None, sense=input_data['con_sense'], b=input_data['rhs'],
+                        name=input_data['connames'])
+    model.update()  # <-- This is critical otherwise the load_quadexpr cannot access variables.
+
+    objective = load_quadexpr(input_data["objective"], model) # {v.VarName: v for v in model.getVars()})
+    model.setObjective(objective)
+    model.update()
+    return model
+
+def get_model_data(model: Model):
+    model_data = dict()
+    model_data['name'] = deepcopy(model.ModelName)
+    model_data['A'] = deepcopy(model.getA())
+    model_data['model_sense'] = deepcopy(model.ModelSense)
+    model_data['con_sense'] = deepcopy(np.array(model.getAttr("Sense")))
+    model_data['rhs'] = deepcopy(np.array(model.getAttr("rhs")))
+    model_data['lb'] = deepcopy(np.array(model.getAttr("LB")))
+    model_data['ub'] = deepcopy(np.array(model.getAttr("UB")))
+    model_data['vtype'] = deepcopy(np.array(model.getAttr("Vtype")))
+    model_data['var_obj'] = deepcopy(np.array(model.getAttr("Obj")))
+    model_data['varnames'] = deepcopy(model.getAttr("VarName"))
+    model_data['connames'] = deepcopy(model.getAttr("ConstrName"))
+
+    objective = model.getObjective()
+    assert isinstance(objective, QuadExpr), "Objective is not a quadratic expression"
+    model_data["objective"] = save_quadexpr(objective)
+
+    return model_data
+
+_plan = None  # global in worker processes
+
+def _init_worker(plan):
+    global _plan
+    _plan = plan
+
+if __name__ == "__main__":
+    import gurobipy as gb
+    import json
+    env = Env(empty=True)
+    env.start()
+
+    model = gb.read("/app/EngerLab/tests/brachyutils/optim/model.mps")
+    # print(len(model.getAttr("VarName")))
+    # print(len(model.getAttr("Obj")))
+    # print(np.array(model.getAttr("rhs")))
+    print(len(np.array(model.getAttr("Obj"))))
+    print(np.unique(np.array(model.getAttr("Obj")), return_counts=True))
+    print(np.array(model.getAttr("Obj")))
+    exit()
+    # model = gb.read("/app/EngerLab/AI_Assisted_Brachytherapy/ai_pipeline_results_test_mobo_clean/Dataset007Dataset050/val_benchmark_fold_0/259984/manual_clinical_structures__clinical_dwellpos__auto_optimization/model_0.mps", env)
+    model_data = get_model_data(model)
+    with open("/app/EngerLab/tests/brachyutils/optim/coeffs.json", "r") as file:
+        coeffs = json.load(file)
+    # print(coeffs)
+    with Env() as env, Model(env=env) as new_model:
+        model_remade = update_model_from_data(model_data, new_model)
+        model_remade = modify_model_objective_with_new_penalty_weights(
+            model_remade, coeffs, 
+            # {"PTV": {"linear":500, "quadratic":0.5}, "Skin": {"linear":50, "quadratic":0.5}, "Chestwall": {"linear":50, "quadratic":0.5}}, 
+            {"PTV": {"linear":1000, "quadratic":1}, "Skin": {"linear":100, "quadratic":1}, "Chestwall": {"linear":100, "quadratic":1}}, 
+            inplace=True)
+        print(model_remade.getVarByName("C275(1)").Obj)
+        print(model.getVarByName("C275(1)").Obj)
+        print(compare_gurobi_models(model, model_remade))
+        exit(0)
+
+    print(model_data["objective"].keys())
+    print(model_data["objective"]["linear_list"][:2])
+    print(model.getVarByName("C276(1)").Obj)
+    exit()
+    print('model_data["lb"]', model_data["lb"])
+    with Env() as env, Model(env=env) as model:
+        model_remade = update_model_from_data(model_data, model)
+        print(compare_gurobi_models(model, model_remade))
+        exit()
+
+   # https://support.gurobi.com/hc/en-us/community/posts/12678106466321-Fast-creation-of-Gurobi-models
+

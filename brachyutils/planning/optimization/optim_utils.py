@@ -2,10 +2,86 @@ from typing import List, Any
 from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
 import numpy as np
+import SimpleITK as sitk
+import gurobipy as gb
 from opentps.core.data.images import ROIMask
 from opentps.core.data import ROIContour
 from brachyutils.types import BrachyPlan
 from abc import ABC, abstractmethod
+from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
+
+from ai_assisted_brachy.utils.utils import compute_new_origin_for_resampling
+
+def crop_resample_dose_rate_map_and_mask(
+    dose_rate_map: np.ndarray,
+    template_dose_obj: BrachyDose,
+    roi_bounds: List[List[float]],
+    structure_mask: ROIMask | ROIContour,
+    optim_spacing: List[float], 
+    sitk_interpolator_dose=sitk.sitkLinear,
+    sitk_interpolator_contour=sitk.sitkLinear, 
+    shift_origin: bool = False
+    ) -> np.ndarray:
+    r"""
+    ### Purpose:
+    - A function to crop the dose rate map to the roi bounds, mask it by the structure mask
+    and resample it to the optimization spacing.
+    ### Inputs:
+    - dose_rate_map: np.ndarray := The dose rate map to be cropped and resampled.
+    - template_dose_obj: BrachyDose := The template dose object to use for cropping and resampling.
+    - roi_bounds: List[List[float]] := The bounds of the region of interest (roi) to crop the dose rate map.
+    - structure_mask: ROIMask | ROIContour := The structure mask to apply to the dose rate map.
+    - optim_spacing: List[float] := The spacing of the optimization grid in mm.
+    - sitk_interpolator_dose: sitk interpolator type := The sitk interpolator to use for resampling the dose rate map. Default is sitk.sitkLinear.
+    - sitk_interpolator_contour: sitk interpolator type := The sitk interpolator to use for resampling the structure mask. Default is sitk.sitkLinear.
+    - shift_origin: bool := Whether to shift the origin of the resampled dose rate map to align with the new spacing. Default is False.
+    ### Outputs:
+    - np.ndarray := The cropped and resampled dose rate map and mask.
+    """
+    from opentps.core.processing.imageProcessing.resampler3D import (
+        crop3DDataAroundBox, resampleImage3DOnImage3D, resampleImage3D
+    )
+    # create a dose object from the dose_rate_map tensor.
+    # The coordinates of the dose object is the same as the combined_dose in the plan.
+    dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
+    dose_rate_obj.set_dose_array(dose_rate_map)
+    # apply the optimization roi bounds to the dose rate image
+
+    crop3DDataAroundBox(
+        dose_rate_obj.dose_image,
+        roi_bounds)
+   
+    # resample the dose rate map to the optimization resolution
+    if isinstance(optim_spacing, float):
+        optim_spacing = [optim_spacing] * 3
+    if shift_origin:
+        origin_for_resampling = compute_new_origin_for_resampling(
+            image3DToSITK(dose_rate_obj.dose_image), 
+            new_spacing=optim_spacing
+        )
+    else:
+        origin_for_resampling = None
+    resampleImage3D(
+        dose_rate_obj.dose_image,
+        spacing=optim_spacing,
+        inPlace=True, 
+        origin=origin_for_resampling, 
+        sitk_interpolator=sitk_interpolator_dose
+        )
+    
+    # get the structure mask from the contour
+    if isinstance(structure_mask, ROIContour):
+        structure_mask = structure_mask.getBinaryMask()
+    # apply the structure mask to the dose rate map object                
+    if not(structure_mask.hasSameGrid(dose_rate_obj.dose_image)):
+        structure_mask = resampleImage3DOnImage3D(
+            structure_mask,
+            dose_rate_obj.dose_image,
+            inPlace=False,
+            fillValue=0, 
+            sitk_interpolator=sitk_interpolator_contour
+        )
+    return dose_rate_obj, structure_mask
 
 def crop_mask_resample_dose_rate_map(
     dose_rate_map: np.ndarray,
@@ -58,10 +134,8 @@ def crop_mask_resample_dose_rate_map(
             inPlace=False,
             fillValue=0
         )
+    return masked_dose_rate_obj, structure_mask
 
-    structure_mask = structure_mask.imageArray.astype(bool)
-    masked_dose_array = masked_dose_rate_obj.dose_image.imageArray.astype(float)
-    return masked_dose_array[structure_mask==1].flatten()
 
 class Optimization_Config(BaseModel):
     """
@@ -261,12 +335,9 @@ class BrachyDwellTimeOptim(ABC):
         inclusion_boundaries = np.ones((3, 2))
         dwell_bounds = np.zeros((3, 2))
         for axis in [0, 1, 2]:
-            dwell_bounds[axis, 0] = np.min(
-                [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
-            )
-            dwell_bounds[axis, 1] = np.max(
-                [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
-            )
+            dwell_coord_axis = [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
+            dwell_bounds[axis, 0] = np.min(dwell_coord_axis)
+            dwell_bounds[axis, 1] = np.max(dwell_coord_axis)
             inclusion_boundaries[axis, 0] = (
                 dwell_bounds[axis, 0] - roi_margin_mm[axis]
             )

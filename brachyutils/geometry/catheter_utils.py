@@ -1,14 +1,17 @@
+import copy
 import numpy as np
 from typing import List, Union, Dict, Any, Optional, Tuple
 from pathlib import Path
 from pydantic import BaseModel, computed_field, ConfigDict
 import json
+import SimpleITK as sitk
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
+from opentps.core.data.images import ROIMask
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 
 from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
 from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
-from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position, CatheterSetUp
+from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position, CatheterSetUp, dilate_mask_in_mm
 from ai_assisted_brachy.catheter.catheter_api import (
     dicom_to_catheter_table, _update_catheter_table, CreatedSetUp
 )
@@ -101,6 +104,24 @@ class DwellPosition(BaseModel):
         - List[float] := the position of the dwell position.
         """
         return self.position
+    
+    def isin_mask(self, mask:Union[ROIMask, sitk.Image]) -> bool:
+        r"""
+        ### Purpose:
+        - To check if the dwell position is inside a given mask.
+        
+        ### Inputs:
+        - self := the DwellPosition object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to check if the dwell position is inside.
+
+        ### Outputs:
+        - bool := True if the dwell position is inside the mask, False otherwise.
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        index = mask.TransformPhysicalPointToIndex(self.position)
+        in_mask = mask.GetPixel(index) > 0
+        return in_mask
 
 class Catheter(BaseModel):
     r"""
@@ -237,7 +258,7 @@ class Catheter(BaseModel):
             "points": self.points,
             "afterloader_channel_number": self.afterloader_channel_number,
             "insert_position": self.insert_position,
-            "channel_total_time": total_time,
+            "channel_total_time": self.channel_total_time,
             "channel_length": self.channel_length
         }
 
@@ -342,6 +363,55 @@ class Catheter(BaseModel):
         - List[List[float]] := the list of points on the spline.
         """
         return PiecewiseLinear3D(points=points)
+
+    def remove_outside_mask(self, mask:Union[ROIMask, sitk.Image]) -> None:
+        r"""
+        ### Purpose:
+        - To filter out the dwell positions that are outside a given mask.
+
+        ### Inputs:
+        - self := the Catheter object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to filter the dwell positions.
+
+        ### Outputs:
+        - None
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        filtered_dwells = []
+        dwell_idx = 0
+        for dwell in self.dwells:
+            if dwell.isin_mask(mask):
+                new_dwell = copy.deepcopy(dwell)
+                new_dwell.index = dwell_idx
+                filtered_dwells.append(new_dwell)
+                dwell_idx += 1
+        self.dwells = filtered_dwells
+
+    def remove_inside_mask(self, mask:Union[ROIMask, sitk.Image]) -> None:
+        r"""
+        ### Purpose:
+        - To remove the dwell positions that are inside a given mask.
+
+        ### Inputs:
+        - self := the Catheter object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to remove the dwell positions.
+
+        ### Outputs:
+        - None
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        filtered_dwells = []
+        dwell_idx = 0
+        for dwell in self.dwells:
+            if not dwell.isin_mask(mask):
+                new_dwell = copy.deepcopy(dwell)
+                new_dwell.index = dwell_idx
+                filtered_dwells.append(new_dwell)
+                dwell_idx += 1
+        self.dwells = filtered_dwells
+
 
 class CatheterTable(BaseModel):
     r"""
@@ -725,6 +795,45 @@ class CatheterTable(BaseModel):
             dwell_positions.extend(catheter.get_dwell_positions_as_list())
         return dwell_positions
 
+    def remove_inside_mask(self, mask:Union[ROIMask, sitk.Image], margin_mm: float = 0.0) -> None:
+        r"""
+        ### Purpose:
+        - To filter out the dwell positions that are inside a given mask.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to filter the dwell positions.
+
+        ### Outputs:
+        - None
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        if margin_mm > 0.0:
+            mask = dilate_mask_in_mm(mask, margin_mm, voxel_based=False)
+
+        for catheter in self.catheter_list:
+            catheter.remove_inside_mask(mask)
+        
+    def remove_outside_mask(self, mask:Union[ROIMask, sitk.Image], margin_mm: float = 0.0) -> None:
+        r"""
+        ### Purpose:
+        - To filter out the dwell positions that are outside a given mask.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to filter the dwell positions.
+
+        ### Outputs:
+        - None
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        if margin_mm > 0.0:
+            mask = dilate_mask_in_mm(mask, margin_mm, voxel_based=False)
+
+        for catheter in self.catheter_list:
+            catheter.remove_outside_mask(mask)
 
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""

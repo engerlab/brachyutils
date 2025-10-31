@@ -1,6 +1,6 @@
 import copy
 import difflib
-
+from collections import defaultdict
 # import logging
 import lzma
 import os
@@ -71,7 +71,7 @@ class BrachyDose:
 
     def __init__(
         self,
-        pth_dose_file: Optional[Path] = None,
+        pth_dose_file: Optional[Path] | tuple[np.ndarray, defaultdict] = None,
         load_uncertainty: Optional[bool] = True,
     ):
         self.path = pth_dose_file
@@ -107,26 +107,32 @@ class BrachyDose:
             - load_from_dicom()
             - create_interpolation_function()
         """
-        pth_dose_file = os.path.abspath(pth_dose_file)
-
-        file_extension = os.path.splitext(pth_dose_file)[-1]
-
-        if file_extension == ".3ddose":
-            self.load_from_3ddose(pth_dose_file, load_uncertainty)
-        elif file_extension == ".nrrd":
+        if isinstance(pth_dose_file, tuple):
+            assert len(pth_dose_file) == 2, "If a tuple is provided, it must be of length 2"
+            assert isinstance(pth_dose_file[0], np.ndarray), "First element of the tuple must be a numpy array"
+            assert isinstance(pth_dose_file[1], defaultdict), "Second element of the tuple must be a dictionary"
             self.load_from_nrrd(pth_dose_file)
-        elif file_extension == ".dcm":
-            self.load_from_dicom(pth_dose_file)
-        elif file_extension == ".minidos":
-            raise NotImplementedError(
-                "loading dose from .minidos file is not currently supported"
-            )
-        elif file_extension == ".bindose":
-            raise NotImplementedError("Writing to .bindose not implemented")
         else:
-            raise ValueError("file extension not recognized")
-        if self.dose_image is None:
-            raise ValueError("dose image not loaded")
+            pth_dose_file = os.path.abspath(pth_dose_file)
+
+            file_extension = os.path.splitext(pth_dose_file)[-1]
+
+            if file_extension == ".3ddose":
+                self.load_from_3ddose(pth_dose_file, load_uncertainty)
+            elif file_extension == ".nrrd":
+                self.load_from_nrrd(pth_dose_file)
+            elif file_extension == ".dcm":
+                self.load_from_dicom(pth_dose_file)
+            elif file_extension == ".minidos":
+                raise NotImplementedError(
+                    "loading dose from .minidos file is not currently supported"
+                )
+            elif file_extension == ".bindose":
+                raise NotImplementedError("Writing to .bindose not implemented")
+            else:
+                raise ValueError("file extension not recognized")
+            if self.dose_image is None:
+                raise ValueError("dose image not loaded")
         # voxel_centers = self.get_voxel_centers()
         # print(len(self.voxel_edges))
         if self.interpolation_function is None and self.dose_image is not None:
@@ -274,7 +280,7 @@ class BrachyDose:
             )
             self.voxel_edges = self.get_voxel_edges()
 
-    def load_from_nrrd(self, pth_nrrd: Path) -> None:
+    def load_from_nrrd(self, pth_nrrd: Path|tuple[np.ndarray, defaultdict]) -> None:
         r"""
         Purpose:
             - given the path to a .nrrd dose file, it will load its content into self:BrachyDose
@@ -287,7 +293,10 @@ class BrachyDose:
             - get_voxel_edges()
         """
         # nrrd.reader._READ_CHUNKSIZE = 500 * 1024 * 1024  # 500MB
-        dose_uncertainty, header = nrrd.read(pth_nrrd, index_order="C")
+        if isinstance(pth_nrrd, tuple):
+            dose_uncertainty, header = pth_nrrd
+        else:
+            dose_uncertainty, header = nrrd.read(pth_nrrd, index_order="C")
 
         if dose_uncertainty.shape[0] == 2:
             dose_array = dose_uncertainty[0]
@@ -297,7 +306,7 @@ class BrachyDose:
             uncertainty_array = dose_uncertainty[:, :, :, 1]
             affine = header.get("space directions")[1:]
         else:
-            print("Uncertainty not found in the nrrd file")
+            # print("Uncertainty not found in the nrrd file")
             dose_array = dose_uncertainty
             uncertainty_array = None
             affine = header.get("space directions")
@@ -696,33 +705,22 @@ class BrachyDose:
         assert (
             str(pth_output).endswith(".nrrd")
         ), "the file should have '.nrrd' extension"
-        
-        from collections import defaultdict
-        header = defaultdict(str)
-        header = header | metadata if metadata is not None else header
-        # # Common metadata
-        # header["type"] = "double"
-        header["space"] = "left-posterior-superior" if anatomical_coordinate_system == "LPS" else "right-anterior-superior"
-        # header["endian"] = "little"
-        header["encoding"] = "gzip"
+
         dose_array = self.get_dose_array()
-        # make a dummy uncertainty array and write it to 1
         if self.uncertainty_image is None:
             uncertainty_array = np.ones_like(dose_array, dtype=np.float32)
         else:
             uncertainty_array = self.get_uncertainty_array()
-        header["dimension"] = "4"
-        header["kinds"] = ["list", "domain", "domain", "domain"]
-        header["space origin"] = self.dose_image.origin.tolist()
-        header["space directions"] = [
-            [np.nan, np.nan, np.nan],
-            [self.dose_image.spacing[0], 0.0, 0.0],
-            [0.0, self.dose_image.spacing[1], 0.0],
-            [0.0, 0.0, self.dose_image.spacing[2]],
-        ]
-        # header["spacing"] = [np.nan] + self.dose_image.spacing.tolist()
-        # header["space units"] = ["None", "mm", "mm", "mm"]
-        dose_uncertainty_array = np.stack([dose_array, uncertainty_array], axis=3)
+        spacing = self.dose_image.spacing
+        origin = self.dose_image.origin.tolist()
+        dose_uncertainty_array, header = create_nrrd_object(
+            dose_array=dose_array,
+            uncertainty_array=uncertainty_array,
+            spacing=spacing,
+            origin=origin,
+            anatomical_coordinate_system=anatomical_coordinate_system,
+            metadata=metadata,
+        )
         nrrd.write(str(pth_output), dose_uncertainty_array, header, index_order="C", compression_level=1)
 
     def write_to_npz(self, file_name: str):
@@ -1202,7 +1200,47 @@ from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 from tqdm import tqdm
-    
+
+
+def create_nrrd_object(dose_array:np.ndarray, 
+                       spacing:List[float], 
+                       origin:List[float], 
+                       uncertainty_array:np.ndarray=None,
+                       metadata: Optional[dict] = None, 
+                       anatomical_coordinate_system: Literal["LPS", "RAS"] = "LPS",) -> tuple:
+    """
+    Create nrrd head and data to match with brachyutils format for brachyDose.
+    """
+    header = defaultdict(str)
+    header = header | metadata if metadata is not None else header
+    # Common metadata
+    # header["type"] = "double"
+    header["space"] = "left-posterior-superior" if anatomical_coordinate_system == "LPS" else "right-anterior-superior"
+    # header["endian"] = "little"
+    header["encoding"] = "gzip"
+
+    # make a dummy uncertainty array and write it to 1
+    if uncertainty_array is None:
+        uncertainty_array = np.ones_like(dose_array, dtype=np.float32)
+    else:
+        assert dose_array.shape == uncertainty_array.shape, "dose and uncertainty arrays must have the same shape"
+
+    header["dimension"] = "4"
+    header["kinds"] = ["list", "domain", "domain", "domain"]
+    header["space origin"] = origin
+    header["space directions"] = np.array([
+        [np.nan, np.nan, np.nan],
+        [spacing[0], 0.0, 0.0],
+        [0.0, spacing[1], 0.0],
+        [0.0, 0.0, spacing[2]],
+    ])
+    # header["spacing"] = [np.nan] + self.dose_image.spacing.tolist()
+    # header["space units"] = ["None", "mm", "mm", "mm"]
+    dose_uncertainty_array = np.stack([dose_array, uncertainty_array], axis=3)
+
+    return dose_uncertainty_array, header
+
+
 def _prepare_dose_loading_item(pth_input: Path) -> dict:
     """Prepare loading item for dose files."""
     full_suffix = "".join(pth_input.suffixes)

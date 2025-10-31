@@ -51,7 +51,7 @@ class DoseTG43(BrachyDoseGenerator):
     def __init__(
         self,
         dir_plan_export: Union[Path, str],
-        pth_dose_executable: Union[Path, str],
+        pth_dose_executable: Union[Path, str]="http://192.168.1.12:8000/calculate_dose_tg43",
     ) -> None:
         r"""
         Purpose:
@@ -141,6 +141,13 @@ class DoseTG43(BrachyDoseGenerator):
                 },
                 timeout=None,
             )
+            # let's handle the response here
+            if response.status_code == 200:
+                print("Dose calculation completed successfully.")
+            else:
+                raise RuntimeError(
+                    f"Dose calculation failed with status code {response.status_code}: {response.text}"
+                )
         elif ".py" in self.pth_dose_executable:
             # use subprocess to run the python script
             raise NotImplementedError("This feature is not implemented yet.")
@@ -171,7 +178,9 @@ class DoseTG43(BrachyDoseGenerator):
 
 class DoseMonteCarlo(BrachyDoseGenerator):
     def __init__(
-        self, dir_plan_export: Path | str, pth_dose_executable: Path | str
+        self,
+        dir_plan_export: Path | str,
+        pth_dose_executable: Path | str="http://192.168.1.11:8000/calculate_dose_mc",
     ) -> None:
         r"""
         Purpose:

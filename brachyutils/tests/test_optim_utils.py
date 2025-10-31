@@ -1,30 +1,42 @@
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from brachyutils.types import BrachyPlan
-def get_a_plan_to_optimize()->BrachyPlan:
-    pth_dicom = "data_test/prostate-glen-p1-dcm"
-    pth_dir_dose_rate = "data_test/prostate-glen-p1-dose"
+from pathlib import Path
+
+def get_a_plan_to_optimize(
+    pth_dicom: str | Path,
+    dir_dose_rates: str | Path,
+    generate_dose_rates: bool = False,
+    )->BrachyPlan:
+    pth_dicom = Path(pth_dicom)
+    dir_dose_rates = Path(dir_dose_rates)
+    # check if the dose rate files exist
+    dose_rate_files = list(dir_dose_rates.glob("*.seq.nrrd"))
+    if len(dose_rate_files) < 1 and not generate_dose_rates:
+        raise FileNotFoundError(f"No dose rate files found in {dir_dose_rates}. Set generate_dose_rates=True to create them.")
+
     target_dose = 21
     dvh_metric_goals = {
-        "D95%(CTV_BRACHY)": target_dose,
-        "D1cc(RECTUM_BRACHY)": target_dose * 0.75,
-        "D0.1cc(URETHRA_BRACHY)": target_dose * 1.25,
-        "CI(CTV_BRACHY)": 1.0,
-        "HI(CTV_BRACHY)": 0.5,
+        "D95%(CTV)": target_dose,
+        "D1cc(RECTUM)": target_dose * 0.75,
+        "D0.1cc(URETHRA)": target_dose * 1.25,
+        "CI(CTV)": 1.0,
+        "HI(CTV)": 0.5,
     }
+
     optimization_config_list=[
         Optimization_Config(
-            structure_name="CTV_BRACHY",
-            dose_voxel_goal=dvh_metric_goals["D95%(CTV_BRACHY)"],
+            structure_name="CTV",
+            dose_voxel_goal=dvh_metric_goals["D95%(CTV)"],
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
-            penalty_weight_uniformity=1,
+            penalty_weight_uniformity=0,
             penalty_weight_hotspot=1,
             hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
-            structure_name="URETHRA_BRACHY",
+            structure_name="URETHRA",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
@@ -32,25 +44,75 @@ def get_a_plan_to_optimize()->BrachyPlan:
             mask_margin_mm=0,
             spacing_mm=1),
         Optimization_Config(
-            structure_name="RECTUM_BRACHY",
+            structure_name="RECTUM",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             # penalty_weight_uniformity=0,
             mask_margin_mm=0,
-            spacing_mm=3
-        )
+            spacing_mm=3)
     ]
+
     plan_obj = load_dicom_to_plan(
         dir_dicom=pth_dicom,
         load_dicom_dose=False,
+        strict_name_match=False,
         delivered_catheter_table=True,
-        dir_dose_rate=pth_dir_dose_rate,
         multi_processing=True,
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
         optimization_config_list=optimization_config_list)
+
+    if generate_dose_rates:
+        from brachyutils import DoseTG43
+        pth_material = Path("admin/constants/structure_materials_prostate.json")
+        mat_from_ct = False
+        crop_by_contour = "body"
+        content_to_export = {
+            "number_histories": 1E6,
+            "number_of_threads": 16,
+        }
+        content_to_export = {
+            "egsphant": True,
+            "materials_table": pth_material,
+            "assign_material_from_ct": mat_from_ct,
+            "resampled_spacing": [1., 1., 1.],
+            "strict_name_match": False,
+            "crop_by_contour": crop_by_contour,
+            "plan": True,
+            "mac": True,
+            "combined_only": True,
+            "ApplicatorMaterials": False,
+            "applicator_geometry": False,
+        }
+        plan_obj.export_brachy_plan(
+            dir_export=dir_dose_rates,
+            content_to_export=content_to_export,
+        )
+        dose_gen_obj = DoseTG43(
+            dir_plan_export=dir_dose_rates
+            )
+        dose_gen_obj.generate_dose(
+            output_dose_per_dwell="dose_rate"
+        )
+
+    plan_obj.load_dose_rate_or_uncertainty_tensor(
+        dir_dose_rate=dir_dose_rates,
+        multi_processing=True,
+    )
+
     return plan_obj
+
+def test_get_a_plan_to_optimize():
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    dir_dose_rates = "temp_data/tg43/optim_test"
+    plan_obj = get_a_plan_to_optimize(
+        pth_dicom=pth_dicom,
+        dir_dose_rates=dir_dose_rates,
+        generate_dose_rates=True,
+    )
+    plan_obj.get_dvh_metrics()
+    print("breakpoint")
 
 def test_DwellTime_Gurobi():
     from brachyutils.planning.optimization.optim_gurobi import DwellTime_Gurobi, Model
@@ -78,7 +140,13 @@ def test_get_optimization_roi_bounds():
 
 def test_run_gurobi_optim():
     from brachyutils.planning.optimization.optim_gurobi import BrachyOptim_Gurobi
-    plan_obj = get_a_plan_to_optimize()
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    dir_dose_rates = "temp_data/tg43/optim_test"
+    plan_obj = get_a_plan_to_optimize(
+        pth_dicom=pth_dicom,
+        dir_dose_rates=dir_dose_rates,
+        generate_dose_rates=False,
+    )
     optim_obj = BrachyOptim_Gurobi(plan=plan_obj)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     print(optimized_plan.get_dvh_metrics())
@@ -194,6 +262,7 @@ def test_run_ortool_optim():
     results.to_csv("data_test/test_export_plan/prostate/ortools_solvers.csv")
 
 if __name__ == "__main__":
+    # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
     test_run_gurobi_optim()
