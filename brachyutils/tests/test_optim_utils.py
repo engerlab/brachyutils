@@ -29,10 +29,10 @@ def get_a_plan_to_optimize(
             structure_name="CTV",
             dose_voxel_goal=dvh_metric_goals["D95%(CTV)"],
             penalty_weight_linear=300,
-            # penalty_weight_quadratic=1,
+            penalty_weight_quadratic=1,
             penalty_weight_uniformity=0,
-            # penalty_weight_hotspot=1,
-            # hotspot_threshold=1.5,
+            penalty_weight_hotspot=1,
+            hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -58,7 +58,6 @@ def get_a_plan_to_optimize(
         load_dicom_dose=False,
         strict_name_match=False,
         delivered_catheter_table=True,
-        # dir_dose_rate=dir_dose_rates,
         multi_processing=True,
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
@@ -69,16 +68,9 @@ def get_a_plan_to_optimize(
         pth_material = Path("admin/constants/structure_materials_prostate.json")
         mat_from_ct = False
         crop_by_contour = "body"
-        # sim_dict = {
-        #     "number_histories": 1E6,
-        #     "number_of_threads": 16,
-        # }
         content_to_export = {
             "number_histories": 1E6,
-            # "total_time": 0,
             "number_of_threads": 16,
-            # "PrintProgress": 10000,
-            # "beam_on": 10000,
         }
         content_to_export = {
             "egsphant": True,
@@ -148,7 +140,13 @@ def test_get_optimization_roi_bounds():
 
 def test_run_gurobi_optim():
     from brachyutils.planning.optimization.optim_gurobi import BrachyOptim_Gurobi
-    plan_obj = get_a_plan_to_optimize()
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    dir_dose_rates = "temp_data/tg43/optim_test"
+    plan_obj = get_a_plan_to_optimize(
+        pth_dicom=pth_dicom,
+        dir_dose_rates=dir_dose_rates,
+        generate_dose_rates=False,
+    )
     optim_obj = BrachyOptim_Gurobi(plan=plan_obj)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     print(optimized_plan.get_dvh_metrics())
@@ -264,10 +262,10 @@ def test_run_ortool_optim():
     results.to_csv("data_test/test_export_plan/prostate/ortools_solvers.csv")
 
 if __name__ == "__main__":
-    test_get_a_plan_to_optimize()
+    # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
     # test_run_ampl_optim()
     # test_dwelltime_orTools()

@@ -39,7 +39,7 @@ def crop_resample_dose_rate_map_and_mask(
     - np.ndarray := The cropped and resampled dose rate map and mask.
     """
     from opentps.core.processing.imageProcessing.resampler3D import (
-        crop3DDataAroundBox, resampleImage3DOnImage3D, resample
+        crop3DDataAroundBox, resampleImage3DOnImage3D, resampleImage3D
     )
     # create a dose object from the dose_rate_map tensor.
     # The coordinates of the dose object is the same as the combined_dose in the plan.
@@ -61,7 +61,7 @@ def crop_resample_dose_rate_map_and_mask(
         )
     else:
         origin_for_resampling = None
-    resample(
+    resampleImage3D(
         dose_rate_obj.dose_image,
         spacing=optim_spacing,
         inPlace=True, 
