@@ -774,27 +774,27 @@ if __name__ == "__main__":
     prescription_dose = 21 # in Gy
 
     # export all dicoms to plans
-    # for dir_export in [
-    #     dir_export_tg43,
-    #     dir_export_mc
-    #     # # dir_export_test
-    #     ]:
-    #     run_export(
-    #         dir_all_dicoms=dir_all_dicoms,
-    #         dir_export=dir_export,
-    #         multi_proc=False,
-    #     )
+    for dir_export in [
+        dir_export_tg43,
+        dir_export_mc
+        # # dir_export_test
+        ]:
+        run_export(
+            dir_all_dicoms=dir_all_dicoms,
+            dir_export=dir_export,
+            multi_proc=False,
+        )
 
     # # run dose generation for all plans
-    # run_dose_generation(
-    #     dir_plan_export=dir_export_tg43,
-    #     method="tg43"
-    # )
-    # run_dose_generation(
-    #     dir_plan_export=dir_export_mc,
-    #     method="mc"
-    # )
-    # this may be needed if the air kerma used in MC dose generation was incorrect
+    run_dose_generation(
+        dir_plan_export=dir_export_tg43,
+        method="tg43"
+    )
+    run_dose_generation(
+        dir_plan_export=dir_export_mc,
+        method="mc"
+    )
+    # # this may be needed if the air kerma used in MC dose generation was incorrect
     # scale_by_airkerma(
     #     # dir_all_plans=dir_export_tg43,        
     #     dir_all_plans=dir_export_mc,
@@ -811,12 +811,12 @@ if __name__ == "__main__":
             dir_doses=dir_export,
             dose_format="nrrd" if dir_export != dir_all_dicoms else "dicom"
         )
-        # get_dvh_metrics_all_plans(
-        #     dosimetry_inputs=dosimetry_inputs,
-        #     dvh_metric_goals=dvh_metric_goals,
-        #     pth_out_csv=dir_export/"dose_generation_dvh.csv",
-        #     prescription_dose=prescription_dose
-        # )
+        get_dvh_metrics_all_plans(
+            dosimetry_inputs=dosimetry_inputs,
+            dvh_metric_goals=dvh_metric_goals,
+            pth_out_csv=dir_export/"dose_generation_dvh.csv",
+            prescription_dose=prescription_dose
+        )
         if dir_export == dir_export_mc:
             # get the mean and max uncertanity inside ctv
             get_uncertainty_in_ctv(
@@ -825,32 +825,32 @@ if __name__ == "__main__":
                 dvh_metric_goals=dvh_metric_goals,
             )
 
-    # gen_box_plots_dvh_timing(
-    #     pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",
-    #     pth_dvh_csv_mc=dir_export_mc/"dose_generation_dvh.csv",
-    #     pth_timing_csv_tg43=dir_export_tg43/"dose_generation_timing.csv",
-    #     pth_timing_csv_mc=dir_export_mc/"dose_generation_timing.csv",
-    # )
+    gen_box_plots_dvh_timing(
+        pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",
+        pth_dvh_csv_mc=dir_export_mc/"dose_generation_dvh.csv",
+        pth_timing_csv_tg43=dir_export_tg43/"dose_generation_timing.csv",
+        pth_timing_csv_mc=dir_export_mc/"dose_generation_timing.csv",
+    )
 
-    # dosimetry_inputs_tg43 = gen_dosimetry_inputs(
-    #     dir_phnatoms=dir_all_dicoms,
-    #     dir_doses=dir_export_tg43,
-    #     dose_format="nrrd"
-    # )
+    dosimetry_inputs_tg43 = gen_dosimetry_inputs(
+        dir_phnatoms=dir_all_dicoms,
+        dir_doses=dir_export_tg43,
+        dose_format="nrrd"
+    )
 
-    # dosimetry_inputs_mc = gen_dosimetry_inputs(
-    #     dir_phnatoms=dir_all_dicoms,
-    #     dir_doses=dir_export_mc,
-    #     dose_format="nrrd"
-    # )
-    # gen_percent_error_maps(
-    #     dosimetry_inputs_mc=dosimetry_inputs_mc,
-    #     dosimetry_inputs_tg43=dosimetry_inputs_tg43,
-    #     dir_output=Path("temp_data/dose_error_maps/prostate-glen-2023"),
-    #     z_coords_to_visualize = {
-    #         "p12": -1199,
-    #         "p9": -1159,
-    #         "p7": -1154,
-    #         "p3": -1248,
-    #     }
-    # )
+    dosimetry_inputs_mc = gen_dosimetry_inputs(
+        dir_phnatoms=dir_all_dicoms,
+        dir_doses=dir_export_mc,
+        dose_format="nrrd"
+    )
+    gen_percent_error_maps(
+        dosimetry_inputs_mc=dosimetry_inputs_mc,
+        dosimetry_inputs_tg43=dosimetry_inputs_tg43,
+        dir_output=Path("temp_data/dose_error_maps/prostate-glen-2023"),
+        z_coords_to_visualize = {
+            "p12": -1199,
+            "p9": -1159,
+            "p7": -1154,
+            "p3": -1248,
+        }
+    )
