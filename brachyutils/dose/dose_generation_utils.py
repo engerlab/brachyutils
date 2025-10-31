@@ -141,6 +141,13 @@ class DoseTG43(BrachyDoseGenerator):
                 },
                 timeout=None,
             )
+            # let's handle the response here
+            if response.status_code == 200:
+                print("Dose calculation completed successfully.")
+            else:
+                raise RuntimeError(
+                    f"Dose calculation failed with status code {response.status_code}: {response.text}"
+                )
         elif ".py" in self.pth_dose_executable:
             # use subprocess to run the python script
             raise NotImplementedError("This feature is not implemented yet.")
