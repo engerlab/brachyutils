@@ -1,30 +1,44 @@
-from brachyutils.planning.plan_utils import load_dicom_to_plan
+from brachyutils.planning.plan_utils import load_dicom_to_plan, export_plan_from_dicom
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from brachyutils.types import BrachyPlan
-def get_a_plan_to_optimize()->BrachyPlan:
-    pth_dicom = "data_test/prostate-glen-p1-dcm"
-    pth_dir_dose_rate = "data_test/prostate-glen-p1-dose"
+from pathlib import Path
+
+def get_a_plan_to_optimize(
+        pth_dicom: str | Path,
+        pth_dose_rate: str | Path,
+        generate_dose_rates: bool = False,
+    )->BrachyPlan:
+    pth_dicom = Path(pth_dicom)
+    pth_dose_rate = Path(pth_dose_rate)
+    
+    # check if the dose rate files exist
+    dose_rate_files = list(pth_dose_rate.glob("*.seq.nrrd"))
+    if len(dose_rate_files) < 1 and not generate_dose_rates:
+        raise FileNotFoundError(f"No dose rate files found in {pth_dose_rate}. Set generate_dose_rates=True to create them.")
+
+    # pth_dicom = "data_test/prostate-glen-p1-dcm"
+    # pth_dir_dose_rate = "data_test/prostate-glen-p1-dose"
     target_dose = 21
     dvh_metric_goals = {
-        "D95%(CTV_BRACHY)": target_dose,
-        "D1cc(RECTUM_BRACHY)": target_dose * 0.75,
-        "D0.1cc(URETHRA_BRACHY)": target_dose * 1.25,
-        "CI(CTV_BRACHY)": 1.0,
-        "HI(CTV_BRACHY)": 0.5,
+        "D95%(CTV)": target_dose,
+        "D1cc(RECTUM)": target_dose * 0.75,
+        "D0.1cc(URETHRA)": target_dose * 1.25,
+        "CI(CTV)": 1.0,
+        "HI(CTV)": 0.5,
     }
     optimization_config_list=[
         Optimization_Config(
-            structure_name="CTV_BRACHY",
-            dose_voxel_goal=dvh_metric_goals["D95%(CTV_BRACHY)"],
+            structure_name="CTV",
+            dose_voxel_goal=dvh_metric_goals["D95%(CTV)"],
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
-            penalty_weight_uniformity=1,
+            penalty_weight_uniformity=0,
             penalty_weight_hotspot=1,
             hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
-            structure_name="URETHRA_BRACHY",
+            structure_name="URETHRA",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
@@ -32,7 +46,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
             mask_margin_mm=0,
             spacing_mm=1),
         Optimization_Config(
-            structure_name="RECTUM_BRACHY",
+            structure_name="RECTUM",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
@@ -44,6 +58,7 @@ def get_a_plan_to_optimize()->BrachyPlan:
     plan_obj = load_dicom_to_plan(
         dir_dicom=pth_dicom,
         load_dicom_dose=False,
+        strict_name_matching=False,
         delivered_catheter_table=True,
         dir_dose_rate=pth_dir_dose_rate,
         multi_processing=True,

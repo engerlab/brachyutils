@@ -1778,37 +1778,3 @@ def load_dicom_to_plan(
         simulation_setup=new_sim_setup,
         **kwargs
     )
-
-def export_plan_from_dicom(
-    dir_dicom:Path | str,
-    dir_export: Path | str,
-    sim_dict: Dict[str, Union[str, int]] = None,
-    content_to_export: Dict[str, bool] = None,
-    ) -> Path:
-    r"""
-    ### Purpose:
-        - Export the plans to the given directory.
-
-    ### Inputs:
-        - dir_dicom: Path | str: The path to the dicom directory for one plan. it should have images,
-        and a plan file. Structure file is optional.
-        - dir_export: Path | str: The directory to export the plans to. Each plan will have its own subdir.
-
-    ### Outputs:
-        - dir_export_plan: Path: The path to the exported plan.
-    """
-    plan_obj = load_dicom_to_plan(
-        dir_dicom,
-        simulation_setup=sim_dict,
-        delivered_catheter_table=True
-        )
-
-    dir_export = Path(dir_export)
-    dir_export.mkdir(parents=True, exist_ok=True)
-
-    dir_export_plan = dir_export.joinpath(dir_dicom.stem)
-
-    plan_obj.export_brachy_plan(
-        dir_export=dir_export_plan,
-        content_to_export=content_to_export,
-    )
