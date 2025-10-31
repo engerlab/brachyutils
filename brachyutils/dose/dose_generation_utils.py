@@ -51,7 +51,7 @@ class DoseTG43(BrachyDoseGenerator):
     def __init__(
         self,
         dir_plan_export: Union[Path, str],
-        pth_dose_executable: Union[Path, str],
+        pth_dose_executable: Union[Path, str]="http://192.168.1.12:8000/calculate_dose_tg43",
     ) -> None:
         r"""
         Purpose:
@@ -171,7 +171,9 @@ class DoseTG43(BrachyDoseGenerator):
 
 class DoseMonteCarlo(BrachyDoseGenerator):
     def __init__(
-        self, dir_plan_export: Path | str, pth_dose_executable: Path | str
+        self,
+        dir_plan_export: Path | str,
+        pth_dose_executable: Path | str="http://192.168.1.11:8000/calculate_dose_mc",
     ) -> None:
         r"""
         Purpose:
