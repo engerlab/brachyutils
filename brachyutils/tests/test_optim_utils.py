@@ -119,6 +119,7 @@ def test_get_a_plan_to_optimize():
         dir_dose_rates=dir_dose_rates,
         generate_dose_rates=True,
     )
+    plan_obj.get_dvh_metrics()
     print("breakpoint")
 
 def test_DwellTime_Gurobi():
