@@ -5,6 +5,8 @@ from brachyutils.types import BrachyPlan
 from pathlib import Path
 from pandas import DataFrame
 from time import time
+import numpy as np
+
 def get_a_plan_to_optimize(
     pth_dicom: str | Path,
     dir_dose_rates: str | Path,
@@ -137,7 +139,7 @@ def generate_all_dose_rates(
             generate_dose_rates=True,
         )
         
-def eval_gurobi(
+def eval_optim(
     dir_all_dicoms: str | Path,
     dir_all_dose_rates: str | Path,
     dvh_metric_goals: dict[str, float],
@@ -288,11 +290,39 @@ def eval_gurobi(
                 optimization_config_list=config_list, 
             )
             t1_loading = time()
+            # XXX this part could be wrapped into a function for other optimizers
             from brachyutils import BrachyOptim_Gurobi
-            optim_obj = BrachyOptim_Gurobi(
-                brachy_plan=brachy_plan,
-            )
-            
+            try:
+                t0_model_building = time()
+                optim_obj = BrachyOptim_Gurobi(
+                    brachy_plan=brachy_plan,
+                )
+                t1_model_building = time()
+                t0_solving = time()
+                brachy_plan = optim_obj.get_optimized_plan_from_model()
+                t1_solving = time()
+                result_dvh_metrics = brachy_plan.get_dvh_metrics()
+                status = "OPTIMIZED"
+            except Exception as e:
+                print(f"Optimization failed for {pth_dicom.name} with config {config_var}: {e}")
+                t1_model_building = np.nan
+                t1_solving = np.nan
+                result_dvh_metrics = {key: np.nan for key in dvh_metric_goals.keys()}
+                status = "FAILED"
+            results_solver.loc[len(results_solver)] = {
+                "package": "gurobi",
+                "objective_terms": config_var,
+                "loading_time": t1_loading - t0_loading,
+                "model_building_time": t1_model_building - t0_model_building,
+                "solving_time": t1_solving - t0_solving,
+                "status": status,
+                "num_dwells": len(optim_obj.dwell_time_variable_list),
+                **result_dvh_metrics
+            }
+            results_solver.to_csv(
+                dir_all_dose_rates/"eval_optim_gurobi_results.csv",
+                index=False)
+
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_all_dose_rates = Path("temp_data/tg43/optimization") # for tg43
@@ -313,7 +343,7 @@ if __name__ == "__main__":
     #     dir_all_dose_rates,
     # )
     
-    eval_gurobi(
+    eval_optim(
         dir_all_dicoms,
         dir_all_dose_rates,
         dvh_metric_goals=dvh_metric_goals,
