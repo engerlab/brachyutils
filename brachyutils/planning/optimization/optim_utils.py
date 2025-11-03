@@ -258,7 +258,7 @@ class BrachyDwellTimeOptim(ABC):
         """
         self.plan: Any
         self.solver: str = None
-        self.dwellTimeVariables: List[BrachyDwellTime_ABC] = None
+        self.dwellTimeVariables: List[BrachyDwellTime] = None
         self.model: Any = None
         self.roi_bounds: List[List[float]] = None  # [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
         self.roi_margin_mm: List[float] | float = 3.0

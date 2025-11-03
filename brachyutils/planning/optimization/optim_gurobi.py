@@ -334,7 +334,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
     ) -> List[List[float]]:
         r"""
-        See `BrachyDwellTime_ABC.get_optimization_roi_bounds` for details.
+        See `BrachyDwellTime.get_optimization_roi_bounds` for details.
         """
         return super().get_optimization_roi_bounds(
             plan=plan,
