@@ -12,6 +12,21 @@ def get_a_plan_to_optimize(
     target_dose: float = 21,
     optimization_config_list: list[Optimization_Config] | None = None,
     )->BrachyPlan:
+    r"""
+    ### Purpose:
+    - Load a brachytherapy plan from DICOM files and prepare it for optimization.
+    Optinally generate dose rate files if they do not exist.
+    ### Inputs:
+    - `pth_dicom`: Path to the DICOM directory containing the brachytherapy plan.
+    - `dir_dose_rates`: Directory where dose rate files are stored or will be generated.
+    - `generate_dose_rates`: Boolean flag to indicate whether to generate dose rate files if they do not exist.
+    - `dvh_metric_goals`: Dictionary specifying dose-volume histogram (DVH) metric goals for optimization.
+    - `target_dose`: Target dose for the plan.
+    - `optimization_config_list`: List of `Optimization_Config` 
+    objects specifying optimization parameters for different structures.
+    ### Outputs:
+    - `plan_obj`: A `BrachyPlan` object ready for optimization.
+    """
     pth_dicom = Path(pth_dicom)
     dir_dose_rates = Path(dir_dose_rates)
     # check if the dose rate files exist
@@ -121,6 +136,13 @@ def generate_all_dose_rates(
             generate_dose_rates=True,
         )
         
+def eval_gurobi(
+    dir_all_dicoms: str | Path,
+    dir_all_dose_rates: str | Path,
+    dvh_metric_goals: dict[str, float], 
+):
+    
+       
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_all_dose_rates = Path("temp_data/tg43/optimization") # for tg43
@@ -141,4 +163,8 @@ if __name__ == "__main__":
     #     dir_all_dose_rates,
     # )
     
-    
+    eval_gurobi(
+        dir_all_dicoms,
+        dir_all_dose_rates,
+        dvh_metric_goals=dvh_metric_goals,
+    )
