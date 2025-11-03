@@ -141,8 +141,13 @@ def eval_gurobi(
     dir_all_dose_rates: str | Path,
     dvh_metric_goals: dict[str, float], 
 ):
-    
-       
+    r"""
+    Purpose:
+    - Evaluate the optimization performance of Gurobi on multiple brachytherapy plans.
+    """
+    dir_all_dicoms = Path(dir_all_dicoms)
+    dir_all_dose_rates = Path(dir_all_dose_rates)
+
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_all_dose_rates = Path("temp_data/tg43/optimization") # for tg43
