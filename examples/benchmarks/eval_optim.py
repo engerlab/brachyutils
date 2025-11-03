@@ -3,7 +3,8 @@ from brachyutils.planning.optimization.optim_utils import Optimization_Config
 
 from brachyutils.types import BrachyPlan
 from pathlib import Path
-
+from pandas import DataFrame
+from time import time
 def get_a_plan_to_optimize(
     pth_dicom: str | Path,
     dir_dose_rates: str | Path,
@@ -115,12 +116,12 @@ def get_a_plan_to_optimize(
             output_dose_per_dwell="dose_rate"
         )
 
-    # plan_obj.load_dose_rate_or_uncertainty_tensor(
-    #     dir_dose_rate=dir_dose_rates,
-    #     multi_processing=True,
-    # )
+    plan_obj.load_dose_rate_or_uncertainty_tensor(
+        dir_dose_rate=dir_dose_rates,
+        multi_processing=True,
+    )
 
-    # return plan_obj
+    return plan_obj
 
 def generate_all_dose_rates(
     dir_all_dicoms: str | Path,
@@ -139,15 +140,159 @@ def generate_all_dose_rates(
 def eval_gurobi(
     dir_all_dicoms: str | Path,
     dir_all_dose_rates: str | Path,
-    dvh_metric_goals: dict[str, float], 
+    dvh_metric_goals: dict[str, float],
+    target_dose: float = 21,
 ):
     r"""
     Purpose:
     - Evaluate the optimization performance of Gurobi on multiple brachytherapy plans.
     """
-    dir_all_dicoms = Path(dir_all_dicoms)
+    dir_all_dicoms = list(Path(dir_all_dicoms).glob("*/"))
     dir_all_dose_rates = Path(dir_all_dose_rates)
 
+    results_solver = DataFrame(columns=[
+        "package", "objective_terms", "loading_time",
+        "model_building_time", "solving_time", "status",
+        "num_dwells"
+        ]+list(dvh_metric_goals.keys()))
+    
+    config_variations = {
+        "L": [
+            Optimization_Config(
+                structure_name="CTV",
+                dose_voxel_goal=target_dose,
+                penalty_weight_linear=300,
+                mask_margin_mm=0,
+                spacing_mm=3),
+            Optimization_Config(
+                structure_name="URETHRA",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                mask_margin_mm=0,
+                spacing_mm=1),
+            Optimization_Config(
+                structure_name="RECTUM",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                mask_margin_mm=0,
+                spacing_mm=3)
+        ],
+        "LQ": [
+            Optimization_Config(
+                structure_name="CTV",
+                dose_voxel_goal=target_dose,
+                penalty_weight_linear=300,
+                penalty_weight_quadratic=1,
+                mask_margin_mm=0,
+                spacing_mm=3),
+            Optimization_Config(
+                structure_name="URETHRA",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                penalty_weight_quadratic=1,
+                mask_margin_mm=0,
+                spacing_mm=1),
+            Optimization_Config(
+                structure_name="RECTUM",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                penalty_weight_quadratic=1,
+                mask_margin_mm=0,
+                spacing_mm=3)
+        ],
+        "LH": [
+            Optimization_Config(
+                structure_name="CTV",
+                dose_voxel_goal=target_dose,
+                penalty_weight_linear=300,
+                penalty_weight_hotspot=1,
+                hotspot_threshold=1.5,
+                mask_margin_mm=0,
+                spacing_mm=3),
+            Optimization_Config(
+                structure_name="URETHRA",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                mask_margin_mm=0,
+                spacing_mm=1),
+            Optimization_Config(
+                structure_name="RECTUM",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                mask_margin_mm=0,
+                spacing_mm=3)
+        ],
+        "LQH": [
+            Optimization_Config(
+                structure_name="CTV",
+                dose_voxel_goal=target_dose,
+                penalty_weight_linear=300,
+                penalty_weight_quadratic=1,
+                penalty_weight_hotspot=1,
+                hotspot_threshold=1.5,
+                mask_margin_mm=0,
+                spacing_mm=3),
+            Optimization_Config(
+                structure_name="URETHRA",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                penalty_weight_quadratic=1,
+                mask_margin_mm=0,
+                spacing_mm=1),
+            Optimization_Config(
+                structure_name="RECTUM",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                penalty_weight_quadratic=1,
+                mask_margin_mm=0,
+                spacing_mm=3)
+        ],
+        "LQU": [
+            Optimization_Config(
+                structure_name="CTV",
+                dose_voxel_goal=target_dose,
+                penalty_weight_linear=300,
+                penalty_weight_quadratic=1,
+                penalty_weight_uniformity=1,
+                mask_margin_mm=0,
+                spacing_mm=3),
+            Optimization_Config(
+                structure_name="URETHRA",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                penalty_weight_quadratic=1,
+                penalty_weight_uniformity=1,
+                mask_margin_mm=0,
+                spacing_mm=1),
+            Optimization_Config(
+                structure_name="RECTUM",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                penalty_weight_quadratic=1,
+                penalty_weight_uniformity=1,
+                mask_margin_mm=0,
+                spacing_mm=3)
+        ]
+    }
+
+    for config_var in config_variations:
+        config_list = config_variations[config_var]
+        for pth_dicom in dir_all_dicoms:
+            t0_loading = time()
+            brachy_plan = get_a_plan_to_optimize(
+                pth_dicom=pth_dicom,
+                dir_dose_rates=dir_all_dose_rates/pth_dicom.name,
+                generate_dose_rates=False,
+                dvh_metric_goals=dvh_metric_goals,
+                target_dose=target_dose,
+                optimization_config_list=config_list, 
+            )
+            t1_loading = time()
+            from brachyutils import BrachyOptim_Gurobi
+            optim_obj = BrachyOptim_Gurobi(
+                brachy_plan=brachy_plan,
+            )
+            
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_all_dose_rates = Path("temp_data/tg43/optimization") # for tg43
