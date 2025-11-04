@@ -1548,7 +1548,7 @@ class BrachyPlan:
                     )
                 self.create_hotspot_structures(config)
             for struc in structure_list:
-                if config.structure_name == struc.name:
+                if config.structure_name.lower() == struc.name.lower():
                     struc.set_optimization_config(config)
                     break
 
