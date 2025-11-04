@@ -169,8 +169,8 @@ def eval_optim(
     dir_all_dose_rates = Path(dir_all_dose_rates)
 
     results_solver = DataFrame(columns=[
-        "case_name",
-        "package", "objective_terms", "loading_time",
+        "case_name", "package", "solver",
+        "objective_terms", "loading_time",
         "model_building_time", "solving_time", "status",
         ]+list(dvh_metric_goals.keys()))
     
@@ -309,6 +309,7 @@ def eval_optim(
             # XXX this part could be wrapped into a function for other optimizers
             from brachyutils import BrachyOptim_Gurobi
             package="gurobi"
+            solver="gurobi"
             # try:
             t0_model_building = time()
             optim_obj = BrachyOptim_Gurobi(
@@ -330,6 +331,7 @@ def eval_optim(
             results_solver.loc[len(results_solver)] = {
                 "case_name": pth_dicom.name,
                 "package": "gurobi",
+                "solver": solver,
                 "objective_terms": config_var,
                 "loading_time": t1_loading - t0_loading,
                 "model_building_time": t1_model_building - t0_model_building,
@@ -340,7 +342,8 @@ def eval_optim(
             results_solver.to_csv(
                 dir_all_dose_rates/f"eval_optim_results_{package}.csv",
                 index=False)
-            return # for debugging only
+        #     return # for debugging only
+        # return # for debugging only
 
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")

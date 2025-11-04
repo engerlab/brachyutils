@@ -29,17 +29,17 @@ def get_a_plan_to_optimize(
             structure_name="CTV",
             dose_voxel_goal=dvh_metric_goals["D95%(CTV)"],
             penalty_weight_linear=300,
-            penalty_weight_quadratic=1,
-            penalty_weight_uniformity=0,
-            penalty_weight_hotspot=1,
-            hotspot_threshold=1.5,
+            # penalty_weight_quadratic=1,
+            # penalty_weight_uniformity=0,
+            # penalty_weight_hotspot=1,
+            # hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
             structure_name="URETHRA",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            penalty_weight_quadratic=1,
+            # penalty_weight_quadratic=1,
             # penalty_weight_uniformity=0,
             mask_margin_mm=0,
             spacing_mm=1),
@@ -47,7 +47,7 @@ def get_a_plan_to_optimize(
             structure_name="RECTUM",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            penalty_weight_quadratic=1,
+            # penalty_weight_quadratic=1,
             # penalty_weight_uniformity=0,
             mask_margin_mm=0,
             spacing_mm=3)
@@ -140,8 +140,12 @@ def test_get_optimization_roi_bounds():
 
 def test_run_gurobi_optim():
     from brachyutils.planning.optimization.optim_gurobi import BrachyOptim_Gurobi
-    pth_dicom = "data_test/prostate-glen-p1-dcm"
-    dir_dose_rates = "temp_data/tg43/optim_test"
+    # pth_dicom = "data_test/prostate-glen-p1-dcm"
+    # dir_dose_rates = "temp_data/tg43/optim_test"
+    # for debugging on server
+    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
+    dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
+
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
         dir_dose_rates=dir_dose_rates,
