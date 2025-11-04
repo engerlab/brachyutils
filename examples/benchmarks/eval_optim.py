@@ -301,7 +301,8 @@ def eval_optim(
                 t0_solving = time()
                 brachy_plan = optim_obj.get_optimized_plan_from_model()
                 t1_solving = time()
-                result_dvh_metrics = brachy_plan.get_dvh_metrics()
+                result_dvh_metrics = brachy_plan.get_dvh_metrics(
+                    return_percentage=True)
                 status = "OPTIMIZED"
             except Exception as e:
                 print(f"Optimization failed for {pth_dicom.name} with config {config_var}: {e}")
@@ -322,13 +323,15 @@ def eval_optim(
             results_solver.to_csv(
                 dir_all_dose_rates/"eval_optim_gurobi_results.csv",
                 index=False)
+            return # for debugging only
 
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_all_dose_rates = Path("temp_data/tg43/optimization") # for tg43
+    target_dose = 21
     dvh_metric_goals = {
         "V100%(ctv)": 95,
-        "D90%(ctv)": 21,
+        "D90%(ctv)": target_dose,
         "V150%(ctv)": 40,
         "HI(ctv)": 1,
         "CI(ctv)": 1,
@@ -347,4 +350,5 @@ if __name__ == "__main__":
         dir_all_dicoms,
         dir_all_dose_rates,
         dvh_metric_goals=dvh_metric_goals,
+        target_dose=target_dose,
     )
