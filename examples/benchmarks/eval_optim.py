@@ -6,6 +6,7 @@ from pathlib import Path
 from pandas import DataFrame
 from time import time
 import numpy as np
+from tqdm import tqdm
 
 def get_a_plan_to_optimize(
     pth_dicom: str | Path,
@@ -90,10 +91,11 @@ def get_a_plan_to_optimize(
         pth_material = Path("admin/constants/structure_materials_prostate.json")
         mat_from_ct = False
         crop_by_contour = "body"
-        content_to_export = {
-            "number_histories": 1E6,
-            "number_of_threads": 16,
-        }
+        timing_df = DataFrame(columns=["case_name", "time", "num_dwells"])
+        # content_to_export = {
+        #     "number_histories": 1E6,
+        #     "number_of_threads": 16,
+        # }
         content_to_export = {
             "egsphant": True,
             "materials_table": pth_material,
@@ -107,17 +109,29 @@ def get_a_plan_to_optimize(
             "ApplicatorMaterials": False,
             "applicator_geometry": False,
         }
+        t0_dose_gen = time()
         plan_obj.export_brachy_plan(
             dir_export=dir_dose_rates,
             content_to_export=content_to_export,
         )
         dose_gen_obj = DoseTG43(
-            dir_plan_export=dir_dose_rates
+            dir_plan_export=dir_dose_rates,
             )
         dose_gen_obj.generate_dose(
-            output_dose_per_dwell="dose_rate"
+            output_dose_per_dwell="dose_rate",
+            num_threads=24,
         )
-
+        t1_dose_gen = time()
+        num_dwells = plan_obj.num_dwells
+        timing_df.loc[len(timing_df)] = {
+            "case_name": pth_dicom.name,
+            "time": t1_dose_gen - t0_dose_gen,
+            "num_dwells": num_dwells,
+        }
+        timing_df.to_csv(
+            dir_dose_rates/"dose_rate_generation_timing.csv",
+            index=False,
+        )
     plan_obj.load_dose_rate_or_uncertainty_tensor(
         dir_dose_rate=dir_dose_rates,
         multi_processing=True,
@@ -131,14 +145,16 @@ def generate_all_dose_rates(
     ):
     dir_all_dicoms = Path(dir_all_dicoms)
     dir_all_dose_rates = Path(dir_all_dose_rates)
-
-    for dicom_dir in Path(dir_all_dicoms).glob("*/"):
+    for dicom_dir in tqdm(Path(dir_all_dicoms).glob("*/")):
+        # if dicom_dir.name in ["p1", "p4", "p7"]:
+        #     continue
         get_a_plan_to_optimize(
             pth_dicom=dicom_dir,
             dir_dose_rates=dir_all_dose_rates/dicom_dir.name,
             generate_dose_rates=True,
         )
-        
+        # break # for debugging only
+
 def eval_optim(
     dir_all_dicoms: str | Path,
     dir_all_dose_rates: str | Path,
@@ -153,9 +169,9 @@ def eval_optim(
     dir_all_dose_rates = Path(dir_all_dose_rates)
 
     results_solver = DataFrame(columns=[
+        "case_name",
         "package", "objective_terms", "loading_time",
         "model_building_time", "solving_time", "status",
-        "num_dwells"
         ]+list(dvh_metric_goals.keys()))
     
     config_variations = {
@@ -292,36 +308,37 @@ def eval_optim(
             t1_loading = time()
             # XXX this part could be wrapped into a function for other optimizers
             from brachyutils import BrachyOptim_Gurobi
-            try:
-                t0_model_building = time()
-                optim_obj = BrachyOptim_Gurobi(
-                    brachy_plan=brachy_plan,
-                )
-                t1_model_building = time()
-                t0_solving = time()
-                brachy_plan = optim_obj.get_optimized_plan_from_model()
-                t1_solving = time()
-                result_dvh_metrics = brachy_plan.get_dvh_metrics(
-                    return_percentage=True)
-                status = "OPTIMIZED"
-            except Exception as e:
-                print(f"Optimization failed for {pth_dicom.name} with config {config_var}: {e}")
-                t1_model_building = np.nan
-                t1_solving = np.nan
-                result_dvh_metrics = {key: np.nan for key in dvh_metric_goals.keys()}
-                status = "FAILED"
+            package="gurobi"
+            # try:
+            t0_model_building = time()
+            optim_obj = BrachyOptim_Gurobi(
+                plan=brachy_plan,
+            )
+            t1_model_building = time()
+            t0_solving = time()
+            brachy_plan = optim_obj.get_optimized_plan_from_model()
+            t1_solving = time()
+            result_dvh_metrics = brachy_plan.get_dvh_metrics(
+                return_percentage=True)
+            status = "OPTIMIZED"
+            # except Exception as e:
+            #     print(f"Optimization failed for {pth_dicom.name} with config {config_var}: {e}")
+            #     t1_model_building = np.nan
+            #     t1_solving = np.nan
+            #     result_dvh_metrics = {key: np.nan for key in dvh_metric_goals.keys()}
+            #     status = "FAILED"
             results_solver.loc[len(results_solver)] = {
+                "case_name": pth_dicom.name,
                 "package": "gurobi",
                 "objective_terms": config_var,
                 "loading_time": t1_loading - t0_loading,
                 "model_building_time": t1_model_building - t0_model_building,
                 "solving_time": t1_solving - t0_solving,
                 "status": status,
-                "num_dwells": len(optim_obj.dwell_time_variable_list),
                 **result_dvh_metrics
             }
             results_solver.to_csv(
-                dir_all_dose_rates/"eval_optim_gurobi_results.csv",
+                dir_all_dose_rates/f"eval_optim_results_{package}.csv",
                 index=False)
             return # for debugging only
 
@@ -340,12 +357,12 @@ if __name__ == "__main__":
         "D30%(urethra)": 15,
     }
 
-    # # first, generate all the dose rate files
+    # first, generate all the dose rate files
     # generate_all_dose_rates(
     #     dir_all_dicoms,
     #     dir_all_dose_rates,
     # )
-    
+
     eval_optim(
         dir_all_dicoms,
         dir_all_dose_rates,
