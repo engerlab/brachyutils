@@ -38,43 +38,43 @@ def get_a_plan_to_optimize(
     if len(dose_rate_files) < 1 and not generate_dose_rates:
         raise FileNotFoundError(f"No dose rate files found in {dir_dose_rates}. Set generate_dose_rates=True to create them.")
 
-    if dvh_metric_goals is None:
-        dvh_metric_goals = {
-            "D95%(CTV)": target_dose,
-            "D1cc(RECTUM)": target_dose * 0.75,
-            "D0.1cc(URETHRA)": target_dose * 1.25,
-            "CI(CTV)": 1.0,
-            "HI(CTV)": 0.5,
-        }
-    if optimization_config_list is None:
-        optimization_config_list=[
-            Optimization_Config(
-                structure_name="CTV",
-                dose_voxel_goal=dvh_metric_goals["D95%(CTV)"],
-                penalty_weight_linear=300,
-                # penalty_weight_quadratic=1,
-                # penalty_weight_uniformity=0,
-                # penalty_weight_hotspot=1,
-                # hotspot_threshold=1.5,
-                mask_margin_mm=0,
-                spacing_mm=3),
-            Optimization_Config(
-                structure_name="URETHRA",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                # penalty_weight_quadratic=1,
-                # penalty_weight_uniformity=0,
-                mask_margin_mm=0,
-                spacing_mm=1),
-            Optimization_Config(
-                structure_name="RECTUM",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                # penalty_weight_quadratic=1,
-                # penalty_weight_uniformity=0,
-                mask_margin_mm=0,
-                spacing_mm=3)
-        ]
+    # if dvh_metric_goals is None:
+    #     dvh_metric_goals = {
+    #         "D95%(CTV)": target_dose,
+    #         "D1cc(RECTUM)": target_dose * 0.75,
+    #         "D0.1cc(URETHRA)": target_dose * 1.25,
+    #         "CI(CTV)": 1.0,
+    #         "HI(CTV)": 0.5,
+    #     }
+    # if optimization_config_list is None:
+    #     optimization_config_list=[
+    #         Optimization_Config(
+    #             structure_name="CTV",
+    #             dose_voxel_goal=dvh_metric_goals["D95%(CTV)"],
+    #             penalty_weight_linear=300,
+    #             # penalty_weight_quadratic=1,
+    #             # penalty_weight_uniformity=0,
+    #             # penalty_weight_hotspot=1,
+    #             # hotspot_threshold=1.5,
+    #             mask_margin_mm=0,
+    #             spacing_mm=3),
+    #         Optimization_Config(
+    #             structure_name="URETHRA",
+    #             dose_voxel_goal=0,
+    #             penalty_weight_linear=1,
+    #             # penalty_weight_quadratic=1,
+    #             # penalty_weight_uniformity=0,
+    #             mask_margin_mm=0,
+    #             spacing_mm=1),
+    #         Optimization_Config(
+    #             structure_name="RECTUM",
+    #             dose_voxel_goal=0,
+    #             penalty_weight_linear=1,
+    #             # penalty_weight_quadratic=1,
+    #             # penalty_weight_uniformity=0,
+    #             mask_margin_mm=0,
+    #             spacing_mm=3)
+    #     ]
 
     plan_obj = load_dicom_to_plan(
         dir_dicom=pth_dicom,
@@ -84,7 +84,8 @@ def get_a_plan_to_optimize(
         multi_processing=True,
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
-        optimization_config_list=optimization_config_list)
+        optimization_config_list=optimization_config_list
+        )
 
     if generate_dose_rates:
         from brachyutils import DoseTG43
@@ -293,20 +294,25 @@ def eval_optim(
         ]
     }
 
-    for config_var in config_variations:
-        config_list = config_variations[config_var]
-        for pth_dicom in dir_all_dicoms:
-            t0_loading = time()
-            brachy_plan = get_a_plan_to_optimize(
-                pth_dicom=pth_dicom,
-                dir_dose_rates=dir_all_dose_rates/pth_dicom.name,
-                generate_dose_rates=False,
-                dvh_metric_goals=dvh_metric_goals,
-                target_dose=target_dose,
-                optimization_config_list=config_list, 
+    for pth_dicom in dir_all_dicoms:
+        t0_loading = time()
+        brachy_plan = get_a_plan_to_optimize(
+            pth_dicom=pth_dicom,
+            dir_dose_rates=dir_all_dose_rates/pth_dicom.name,
+            generate_dose_rates=False,
+            dvh_metric_goals=dvh_metric_goals,
+            target_dose=target_dose,
+            # optimization_config_list=config_list, 
             )
-            t1_loading = time()
-            # XXX this part could be wrapped into a function for other optimizers
+        t1_loading = time()
+        for config_var in config_variations:
+            config_list = config_variations[config_var]
+            brachy_plan.optimization_config_list = config_list
+            brachy_plan.setup_optimization(
+                brachy_plan.optimization_config_list,
+                brachy_plan.structure_list,
+            )
+            # TODO(hossers) this part could be wrapped into a function for other optimizers
             from brachyutils import BrachyOptim_Gurobi
             package="gurobi"
             solver="gurobi"
@@ -342,8 +348,8 @@ def eval_optim(
             results_solver.to_csv(
                 dir_all_dose_rates/f"eval_optim_results_{package}.csv",
                 index=False)
-        #     return # for debugging only
-        # return # for debugging only
+            return # for debugging only
+        return # for debugging only
 
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
