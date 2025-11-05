@@ -969,10 +969,10 @@ def modify_model_objective_with_new_penalty_weights_and_td(
     associated with each structure and adjusts their coefficients in the objective function accordingly.
     Modifies the model inplace. 
     ### Inputs:
-    # model: Model := The Gurobi optimization model whose objective function is to be modified.
-    # og_setup_for_objective: dict := A dictionary containing the original setup for each structure,
-    # including weights and coefficients.
-    # new_penalty_weights: dict := A dictionary containing the new penalty weights for each structure.
+    - model: Model := The Gurobi optimization model whose objective function is to be modified.
+    - og_setup_for_objective: dict := A dictionary containing the original setup for each structure,
+    - including weights and coefficients.
+    - new_penalty_weights: dict := A dictionary containing the new penalty weights for each structure.
     og_setup is something like:
     {
     "PTV": {
