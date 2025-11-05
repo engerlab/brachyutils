@@ -596,7 +596,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         if config_list is None and config is None:
             # create config dict from config_list
             # to match seb's previous implementation
-            # TODO: factor out custom configs and use Optimization_Config everywhere
+            # TODO(sebers): factor out custom configs and use Optimization_Config everywhere
             config = defaultdict(float)
             for opt in config_list:
                 config[f"linear_w_{opt.name}"] = opt.penalty_weight_linear
