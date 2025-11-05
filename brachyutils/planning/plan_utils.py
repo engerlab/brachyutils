@@ -1647,7 +1647,7 @@ class BrachyPlan:
         for structure in self.structure_list:
             if structure.name.startswith("hotspot_estimator:"):
                 self.structure_list.remove(structure)
-                self.phantom.remove_structure_by_name(structure.name)
+                self.phantom.remove_structure(structure.name)
                 continue
             structure.optimization_config = None
 
