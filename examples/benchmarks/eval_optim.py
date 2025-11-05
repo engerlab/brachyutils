@@ -310,8 +310,8 @@ def eval_optim(
             results_solver.to_csv(
                 dir_all_dose_rates/f"eval_optim_results_{package}.csv",
                 index=False)
-            return # for debugging only
-        return # for debugging only
+        #     return # for debugging only
+        # return # for debugging only
 
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")

@@ -1529,6 +1529,7 @@ class BrachyPlan:
         structure_list:List[BrachyStructure]):
         r"""
         """
+        self._reset_optimization()
         if isinstance(optimization_config_list, (Path, str)):
             optimization_config_list = Path(optimization_config_list).resolve()
             if str(optimization_config_list).endswith(".json"):
@@ -1546,13 +1547,13 @@ class BrachyPlan:
                     raise ValueError(
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
-                self.create_hotspot_structures(config)
+                self._create_hotspot_structures(config)
             for struc in structure_list:
                 if config.structure_name.lower() == struc.name.lower():
                     struc.set_optimization_config(config)
                     break
 
-    def create_hotspot_structures(
+    def _create_hotspot_structures(
         self,
         config:Optimization_Config
         ):
@@ -1633,6 +1634,22 @@ class BrachyPlan:
                 mask_dict={dwell_contour.name: dwell_contour},
                 mask_colors=[251, 159, 255]
                 )
+
+    def _reset_optimization(self):
+        r"""
+        ### Purpose:
+        - to reset the optimization configurations of all structures in the plan.
+        ### Inputs:
+        - self := the BrachyPlan object
+        ### Outputs:
+        - None := optimization_config attribute of all structures in the plan is set to None
+        """
+        for structure in self.structure_list:
+            if structure.name.startswith("hotspot_estimator:"):
+                self.structure_list.remove(structure)
+                self.phantom.remove_structure_by_name(structure.name)
+                continue
+            structure.optimization_config = None
 
 def _export_single_dose_rate(
     dose_grid: np.array,
