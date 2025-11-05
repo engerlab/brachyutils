@@ -1,3 +1,4 @@
+from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 
@@ -118,6 +119,70 @@ def generate_all_dose_rates(
         )
         # break # for debugging only
 
+def run_optimization(
+    plan,
+    config_list,
+    package,
+    solver,
+):
+    r"""
+    Purpose:
+    - Run optimization on a brachytherapy plan using specified package and solver.
+    """
+    # reset the optimization setup
+    plan._reset_optimization()
+    plan.optimization_config_list = config_list
+    plan.setup_optimization(
+        plan.optimization_config_list,
+        plan.structure_list,
+    )
+    case_name = plan.phantom.pth_image.name
+    try:
+        t0_model_building = time()
+        if package == "gurobi":
+            from brachyutils import BrachyOptim_Gurobi
+            optim_obj = BrachyOptim_Gurobi(
+                plan=plan,
+            )
+        elif package == "ampl":
+            from brachyutils import BrachyOptim_AMPL
+            optim_obj = BrachyOptim_AMPL(
+                plan=plan,
+                solver=solver,
+            )
+        elif package == "ortools":
+            from brachyutils import BrachyOptim_ORTools
+            optim_obj = BrachyOptim_ORTools(
+                plan=plan,
+                solver=solver,
+            )
+        else:
+            raise ValueError(f"Unsupported optimization package: {package}")
+        t1_model_building = time()
+        t0_solving = time()
+        brachy_plan = optim_obj.get_optimized_plan_from_model()
+        t1_solving = time()
+        result_dvh_metrics = brachy_plan.get_dvh_metrics(
+            return_percentage=True)
+        status = "OPTIMIZED"
+    except Exception as e:
+        print(f"Optimization failed for {case_name} with config {config_list}, package {package}, solver {solver}: {e}")
+        t1_model_building = np.nan
+        t1_solving = np.nan
+        result_dvh_metrics = {key: np.nan for key in plan.dvh_metric_goals.keys()}
+        status = "FAILED"
+    optim_trial_result = {
+        "case_name": case_name,
+        "package": package,
+        "solver": solver,
+        # "objective_terms": ",".join([cfg.structure_name for cfg in config_list]),
+        "model_building_time": t1_model_building - t0_model_building,
+        "solving_time": t1_solving - t0_solving,
+        "status": status,
+        **result_dvh_metrics
+    }
+    return optim_trial_result
+
 def eval_optim(
     dir_all_dicoms: str | Path,
     dir_all_dose_rates: str | Path,
@@ -136,6 +201,12 @@ def eval_optim(
         "objective_terms", "loading_time",
         "model_building_time", "solving_time", "status",
         ]+list(dvh_metric_goals.keys()))
+
+    package_solver_dict = {
+        "gurobi": ["gurobi"],
+        # "ampl": ["xpress", "cplex", "highs", "scip"],
+        # "ortools": ["GLOP", "PDLP","GSCIP", "GLPK"],
+    }
     
     config_variations = {
         "L": [
@@ -267,52 +338,22 @@ def eval_optim(
             # optimization_config_list=config_list, 
             )
         t1_loading = time()
-        for config_var in config_variations:
-            # reset the optimization setup
-            brachy_plan._reset_optimization()
-            brachy_plan.optimization_config_list = config_variations[config_var]
-            brachy_plan.setup_optimization(
-                brachy_plan.optimization_config_list,
-                brachy_plan.structure_list,
-            )
-            # TODO(hossers) this part could be wrapped into a function for other optimizers
-            from brachyutils import BrachyOptim_Gurobi
-            package="gurobi"
-            solver="gurobi"
-            # try:
-            t0_model_building = time()
-            optim_obj = BrachyOptim_Gurobi(
-                plan=brachy_plan,
-            )
-            t1_model_building = time()
-            t0_solving = time()
-            brachy_plan = optim_obj.get_optimized_plan_from_model()
-            t1_solving = time()
-            result_dvh_metrics = brachy_plan.get_dvh_metrics(
-                return_percentage=True)
-            status = "OPTIMIZED"
-            # except Exception as e:
-            #     print(f"Optimization failed for {pth_dicom.name} with config {config_var}: {e}")
-            #     t1_model_building = np.nan
-            #     t1_solving = np.nan
-            #     result_dvh_metrics = {key: np.nan for key in dvh_metric_goals.keys()}
-            #     status = "FAILED"
-            results_solver.loc[len(results_solver)] = {
-                "case_name": pth_dicom.name,
-                "package": "gurobi",
-                "solver": solver,
-                "objective_terms": config_var,
-                "loading_time": t1_loading - t0_loading,
-                "model_building_time": t1_model_building - t0_model_building,
-                "solving_time": t1_solving - t0_solving,
-                "status": status,
-                **result_dvh_metrics
-            }
-            results_solver.to_csv(
-                dir_all_dose_rates/f"eval_optim_results_{package}.csv",
-                index=False)
-        #     return # for debugging only
-        # return # for debugging only
+        for package in package_solver_dict:
+            for solver in package_solver_dict[package]:
+                for config_var in config_variations:
+                    optim_trial_result = run_optimization(
+                    plan=brachy_plan,
+                    config_list=config_variations[config_var],
+                    package=package,
+                    solver=solver,
+                )
+                    results_solver.loc[len(results_solver)] = optim_trial_result | {
+                        "loading_time": t1_loading - t0_loading,
+                        "objective_terms": config_var
+                    }
+                    results_solver.to_csv(
+                        dir_all_dose_rates/f"eval_optim_results.csv",
+                        index=False)
 
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
