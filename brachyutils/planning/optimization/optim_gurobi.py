@@ -1,5 +1,5 @@
 # from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 import tqdm
 import time
 from copy import deepcopy
@@ -21,7 +21,7 @@ from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DT
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, 
-    crop_resample_dose_rate_map_and_mask
+    crop_resample_dose_rate_map_and_mask, Optimization_Config
 )
 
 
@@ -572,12 +572,16 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         model.update()
 
 
-    def reset_model_from_config(self, config: dict) -> None:
+    def reset_model_from_config(
+        self,
+        config_list:List[Optimization_Config] = None,
+        config: Optional[dict] = None) -> None:
         r"""
         ### Purpose:
         - A function to reset the model with new penalty weights.
         ### Inputs:
         - model: Model := The Gurobi model to be reset.
+        - 
         - config: dict := A dictionary containing the penalty weights for each structure.
             Example:
             {'td_PTV': 3.5358764542564374,
@@ -589,6 +593,16 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         ### Outputs:
         - model: Model := The reset Gurobi model.
         """
+        if config_list is None and config is None:
+            # create config dict from config_list
+            # to match seb's previous implementation
+            # TODO: factor out custom configs and use Optimization_Config everywhere
+            config = defaultdict(float)
+            for opt in config_list:
+                config[f"linear_w_{opt.name}"] = opt.penalty_weight_linear
+                config[f"quadratic_w_{opt.name}"] = opt.penalty_weight_quadratic
+                if opt.name == "PTV" or opt.name == "CTV":
+                    config[f"td_{opt.name}"] = opt.dose_voxel_goal
 
         _, updated_structure_weights_d = modify_model_objective_with_new_penalty_weights_and_td(
             model=self.model, 
