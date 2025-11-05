@@ -1537,12 +1537,12 @@ class BrachyPlan:
             else:
                 raise ValueError("optimization_config_list can be a json file or a list of Optimization_Config objects")
         target_structure_names = [
-            structure.name for structure in self.structure_list
+            structure.name.lower() for structure in self.structure_list
             if structure.target_volume
             ]
         for config in optimization_config_list:
             if config.penalty_weight_hotspot != 0:
-                if config.structure_name not in target_structure_names:
+                if config.structure_name.lower() not in target_structure_names:
                     raise ValueError(
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
