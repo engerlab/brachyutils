@@ -134,7 +134,7 @@ def crop_mask_resample_dose_rate_map(
             inPlace=False,
             fillValue=0
         )
-    return masked_dose_rate_obj, structure_mask
+    return masked_dose_rate_obj.get_dose_array()#, structure_mask
 
 
 class Optimization_Config(BaseModel):
