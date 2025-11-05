@@ -160,11 +160,11 @@ class Optimization_Config(BaseModel):
     structure_name:str = None
     spacing_mm:float | List[float]= None
     dose_voxel_goal:float = None
-    penalty_weight_linear:float = 1
-    penalty_weight_quadratic:float = 1
+    penalty_weight_linear:float = 0
+    penalty_weight_quadratic:float = 0
     penalty_weight_hotspot:float = 0
     hotspot_threshold:float = 0
-    penalty_weight_uniformity:float = 1
+    penalty_weight_uniformity:float = 0
     mask_margin_mm:float | List[float]= 0
     min_dose:float = 0
     max_dose:float = 500
