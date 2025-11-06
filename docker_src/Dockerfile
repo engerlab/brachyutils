@@ -18,7 +18,7 @@ RUN apt update && apt install -y zip unzip wget curl net-tools\
 RUN apt install -y build-essential zlib1g zlib1g-dev libncurses5-dev \
     libgdbm-dev pkg-config libnss3-dev libssl-dev libreadline-dev \
     libffi-dev libsqlite3-dev wget nano liblzma-dev libbz2-dev \
-    libxrender1 libgl1 libglib2.0-0 tk-dev xz-utils llvm
+    libxrender1 libgl1 libglib2.0-0 tk-dev xz-utils llvm libgfortran5
 
 COPY docker_src/repositories/install_python.sh ${dir_software}/install_python.sh
 RUN --mount=type=ssh bash ${dir_software}/install_python.sh
