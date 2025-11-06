@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List, Any, Tuple
 from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
 import numpy as np
@@ -21,7 +21,7 @@ def crop_resample_dose_rate_map_and_mask(
     sitk_interpolator_dose=sitk.sitkLinear,
     sitk_interpolator_contour=sitk.sitkLinear, 
     shift_origin: bool = False
-    ) -> np.ndarray:
+    ) -> Tuple[BrachyDose, ROIMask]:
     r"""
     ### Purpose:
     - A function to crop the dose rate map to the roi bounds, mask it by the structure mask

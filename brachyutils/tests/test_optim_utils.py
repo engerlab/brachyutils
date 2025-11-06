@@ -1,3 +1,4 @@
+from pandas import DataFrame
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from brachyutils.types import BrachyPlan
@@ -27,7 +28,7 @@ def get_a_plan_to_optimize(
     optimization_config_list=[
         Optimization_Config(
             structure_name="CTV",
-            dose_voxel_goal=dvh_metric_goals["D95%(CTV)"],
+            dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
             # penalty_weight_quadratic=1,
             # penalty_weight_uniformity=0,
@@ -146,21 +147,36 @@ def test_run_gurobi_optim():
     pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
     dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
 
+    solver = "gurobi"
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
         dir_dose_rates=dir_dose_rates,
         generate_dose_rates=False,
     )
+    results = DataFrame(
+        columns=[
+            "solver", "status",
+            "mean(dwell_times)", "std(dwell_times)",
+            "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
+        )
+
     optim_obj = BrachyOptim_Gurobi(plan=plan_obj)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
-    print(optimized_plan.get_dvh_metrics())
-    print(optimized_plan.dwell_times)
-    optimized_plan.export_brachy_plan(
-        dir_export="data_test/test_export_plan/prostate",
-        content_to_export={
-            "dose": True,
-        }
-        )
+    dvh_metrics = optimized_plan.get_dvh_metrics(return_percentage=True)
+    results.loc[len(results)] = {
+    "solver": solver,
+    "status": "Solved" if optim_obj.solution_found else "Failed",
+    "mean(dwell_times)": optimized_plan.dwell_times.mean(),
+    "std(dwell_times)": optimized_plan.dwell_times.std(),
+    "solve_time": optim_obj.solve_time} | dvh_metrics
+    results.to_csv("data_test/test_export_plan/prostate/solvers_linObj_gurobi.csv")
+    # print(optimized_plan.dwell_times)
+    # optimized_plan.export_brachy_plan(
+    #     dir_export="data_test/test_export_plan/prostate",
+    #     content_to_export={
+    #         "dose": True,
+    #     }
+    #     )
 
     # # test setting a bound on a specific dwell time variable
     # optim_obj.bound_dwell_time(
@@ -210,7 +226,7 @@ def test_run_ampl_optim():
             "mean(dwell_times)", "std(dwell_times)",
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
-    for solver in ["ipopt"]: # [
+    for solver in ["gurobi"]: # [
         # "couenne", "bonmin", "copt", 
         # "mosek" "ipopt", "xpress",
         # "cplex", "highs", "scip",
@@ -221,7 +237,7 @@ def test_run_ampl_optim():
         dvh_metrics = optimized_plan.get_dvh_metrics(return_percentage=True)
         results.loc[len(results)] = {
             "solver": solver,
-            "status": optim_obj.model.solve_result,
+            "status": "Solved" if optim_obj.solution_found else "Failed",
             "mean(dwell_times)": optimized_plan.dwell_times.mean(),
             "std(dwell_times)": optimized_plan.dwell_times.std(),
             "solve_time": optim_obj.solve_time} | dvh_metrics
@@ -231,7 +247,7 @@ def test_run_ampl_optim():
         # except Exception as e:
         #     # raise e
         #     continue
-    results.to_csv("data_test/test_export_plan/prostate/solvers_linObj.csv")
+    results.to_csv("data_test/test_export_plan/prostate/solvers_linObj_ampl.csv")
     # results.to_csv("data_test/test_export_plan/prostate/solvers_quadObj.csv")
 
 def test_dwelltime_orTools():
@@ -286,8 +302,8 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    test_run_ampl_optim()
+    # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
