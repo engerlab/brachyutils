@@ -210,7 +210,7 @@ def test_run_ampl_optim():
             "mean(dwell_times)", "std(dwell_times)",
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
-    for solver in ["gcg"]: # [
+    for solver in ["ipopt"]: # [
         # "couenne", "bonmin", "copt", 
         # "mosek" "ipopt", "xpress",
         # "cplex", "highs", "scip",
