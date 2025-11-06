@@ -277,9 +277,9 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                     )
 
                     # Add penalties to the objective function
-                    penalty_terms["linear"] += linear_weight/num_dose_points * x_slack
-                    penalty_terms["uniformity"] += uniformity_weight/num_dose_points * y_slack * y_slack
-                    penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack * x_slack
+                    penalty_terms["linear"] += (linear_weight/num_dose_points) * x_slack
+                    penalty_terms["uniformity"] += (uniformity_weight/(num_dose_points*1000)) * y_slack * y_slack
+                    penalty_terms["quadratic"] += (quadratic_weight/num_dose_points) * x_slack * x_slack
 
             elif "hotspot_estimator:" in structure.name.lower():
                 for i in range(num_dose_points):
