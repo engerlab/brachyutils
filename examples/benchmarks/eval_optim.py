@@ -180,6 +180,8 @@ def run_optimization(
         "status": status,
         **result_dvh_metrics
     }
+    # for debugging
+    # print("Dwell Times are: \n", brachy_plan.dwell_times)
     del optim_obj
     return optim_trial_result
 
