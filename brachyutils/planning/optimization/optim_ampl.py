@@ -6,7 +6,8 @@ import numpy as np
 from pathlib import Path
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, crop_mask_resample_dose_rate_map
+    BrachyDwellTimeOptim, BrachyDwellTime, 
+    process_variable, compute_dose_rate_matrices
 )
 from amplpy import AMPL
 
@@ -199,6 +200,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
         plan: BrachyPlan,
         dwellTimeVariables: List[DwellTime_AMPL],
         model: AMPL,
+        multi_processing: bool = True,
         ):
         r"""
         ### Purpose:
@@ -264,30 +266,36 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
             hotspot_weight = structure.optimization_config.penalty_weight_hotspot
 
             # Build dose rate matrix and dwell time vector for this structure
-            dose_rate_matrices = []
-            dwell_vars = []
-            for variable in dwellTimeVariables:
-                if "hotspot_estimator:" in structure.name.lower():
-                    relevant_dwells = structure.name.lower().split("hotspot_estimator:")[1].split("/")
-                    if variable.name not in relevant_dwells:
-                        continue
-                dwell_vars.append(variable._model_variable)
-                cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
-                    dose_rate_map=variable.dose_rate_map,
-                    template_dose_obj=plan.combined_dose,
-                    roi_bounds=self.roi_bounds,
-                    structure_mask=structure_mask,
-                    optim_spacing=optim_spacing
+            if not multi_processing:
+                dose_rate_matrices = []
+                dwell_vars = []
+                for var in dwellTimeVariables:
+                    dwell_var, valid_dose_points = process_variable(
+                        var,
+                        structure.name,
+                        structure_mask,
+                        plan,
+                        optim_spacing,
+                        self.roi_bounds, 
+                        shift_origin=True
+                        )
+                    dwell_vars.append(dwell_var)
+                    dose_rate_matrices.append(valid_dose_points)
+            else:
+                dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+                    dwellTimeVariables,
+                    structure,
+                    structure_mask,
+                    plan,
+                    optim_spacing,
+                    self.roi_bounds,
+                    max_workers=4, 
+                    shift_origin=True
                 )
-                # Extract valid dose points and flatten
-                valid_dose_points = cropped_resampled_dose_rate_map[
-                    cropped_resampled_dose_rate_map > 0
-                ].flatten()
-                dose_rate_matrices.append(valid_dose_points)
 
             if not dose_rate_matrices:
                 continue
-                
+
             # create the dose rate matrix A (n x m) for this structure
             A = np.column_stack(dose_rate_matrices)
             num_dose_points = A.shape[0]
