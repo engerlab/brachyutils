@@ -2,8 +2,10 @@ from typing import List, Any, Tuple
 from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import tqdm
 import SimpleITK as sitk
-import gurobipy as gb
+# import gurobipy as gb
 from opentps.core.data.images import ROIMask
 from opentps.core.data import ROIContour
 from brachyutils.types import BrachyPlan
@@ -83,58 +85,125 @@ def crop_resample_dose_rate_map_and_mask(
         )
     return dose_rate_obj, structure_mask
 
-def crop_mask_resample_dose_rate_map(
-    dose_rate_map: np.ndarray,
-    template_dose_obj: BrachyDose,
-    roi_bounds: List[List[float]],
-    structure_mask: ROIMask | ROIContour,
-    optim_spacing: List[float]
-    ) -> np.ndarray:
-    r"""
-    ### Purpose:
-    - A function to crop the dose rate map to the roi bounds, mask it by the structure mask
-    and resample it to the optimization spacing.
-    ### Inputs:
-    - dose_rate_map: np.ndarray := The dose rate map to be cropped and resampled.
-    - template_dose_obj: BrachyDose := The template dose object to use for cropping and resampling.
-    - roi_bounds: List[List[float]] := The bounds of the region of interest (roi) to crop the dose rate map.
-    - structure_mask: ROIMask | ROIContour := The structure mask to apply to the dose rate map.
-    - optim_spacing: List[float] := The spacing of the optimization grid in mm.
-    ### Outputs:
-    - np.ndarray := The cropped, masked and resampled dose rate map.
-    """
-    from opentps.core.processing.imageProcessing.resampler3D import (
-        crop3DDataAroundBox, resampleImage3DOnImage3D, resample
-    )
-    # create a dose object from the dose_rate_map tensor.
-    # The coordinates of the dose object is the same as the combined_dose in the plan.
-    masked_dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
-    masked_dose_rate_obj.set_dose_array(dose_rate_map)
-    # apply the optimization roi bounds to the dose rate image
-    crop3DDataAroundBox(
-        masked_dose_rate_obj.dose_image,
-        roi_bounds)
-    
-    # resample the dose rate map to the optimization resolution
-    if isinstance(optim_spacing, float):
-        optim_spacing = [optim_spacing] * 3
-    resample(
-        masked_dose_rate_obj.dose_image,
-        spacing = optim_spacing,
-        inPlace=True)
-    
-    # get the structure mask from the contour
-    if isinstance(structure_mask, ROIContour):
-        structure_mask = structure_mask.getBinaryMask()
-    # apply the structure mask to the dose rate map object                
-    if not(structure_mask.hasSameGrid(masked_dose_rate_obj.dose_image)):
-        structure_mask = resampleImage3DOnImage3D(
-            structure_mask,
-            masked_dose_rate_obj.dose_image,
-            inPlace=False,
-            fillValue=0
+def process_variable(variable, structure_name, structure_mask, plan, optim_spacing, roi_bounds, shift_origin:bool=False):
+
+    if "hotspot_estimator:" in structure_name.lower():
+        relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
+        if variable.name not in relevant_dwells:
+            return None
+    dwell_var = variable._model_variable
+
+    if (
+        isinstance(structure_mask, ROIMask)
+        and np.allclose(plan.combined_dose.dose_image.origin, structure_mask.origin)
+        and np.allclose(plan.combined_dose.dose_image.spacing, structure_mask.spacing)
+        and np.allclose(plan.combined_dose.dose_image.spacing, optim_spacing)
+        and np.all(np.swapaxes(variable.dose_rate_map, 0, 2).shape == structure_mask.imageArray.shape)
+    ):
+        masked_dose_array = np.swapaxes(variable.dose_rate_map, 0, 2)
+    else:
+        dose_rate_obj, structure_for_masking = crop_resample_dose_rate_map_and_mask(
+            dose_rate_map=variable.dose_rate_map,
+            template_dose_obj=plan.combined_dose,
+            roi_bounds=roi_bounds,
+            structure_mask=structure_mask,
+            optim_spacing=optim_spacing,
+            sitk_interpolator_dose=sitk.sitkLinear,
+            # Using Linear instead of NearestNeighbor since NN does a bad job when downsampling
+            sitk_interpolator_contour=sitk.sitkLinear, #sitkNearestNeighbor # sitkLinear
+            shift_origin=shift_origin
         )
-    return masked_dose_rate_obj.get_dose_array()#, structure_mask
+        masked_dose_array = dose_rate_obj.dose_image.imageArray.astype(float)
+        structure_mask = structure_for_masking
+
+    structure_for_masking = structure_mask.imageArray.astype(bool)
+    valid_dose_points = masked_dose_array[structure_for_masking == 1].flatten()
+
+    return dwell_var, valid_dose_points
+
+def compute_dose_rate_matrices(
+        dwellTimeVariables, structure, structure_mask, plan, 
+        optim_spacing, roi_bounds, max_workers:int=8, shift_origin:bool=False):
+    dose_rate_matrices = []
+    dwell_vars = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(
+                process_variable,
+                variable,
+                structure.name,
+                structure_mask,
+                plan,
+                optim_spacing,
+                roi_bounds, 
+                shift_origin
+            ): variable
+            for variable in dwellTimeVariables
+        }
+
+        for future in tqdm.tqdm(as_completed(futures), total=len(futures), desc=f"Processing dwell positions dose rates for {structure.name}"):
+            result = future.result()
+            if result is not None:
+                dwell_var, valid_dose_points = result
+                dwell_vars.append(dwell_var)
+                dose_rate_matrices.append(valid_dose_points)
+
+    return dwell_vars, dose_rate_matrices
+
+
+# def crop_mask_resample_dose_rate_map(
+#     dose_rate_map: np.ndarray,
+#     template_dose_obj: BrachyDose,
+#     roi_bounds: List[List[float]],
+#     structure_mask: ROIMask | ROIContour,
+#     optim_spacing: List[float]
+#     ) -> np.ndarray:
+#     r"""
+#     ### Purpose:
+#     - A function to crop the dose rate map to the roi bounds, mask it by the structure mask
+#     and resample it to the optimization spacing.
+#     ### Inputs:
+#     - dose_rate_map: np.ndarray := The dose rate map to be cropped and resampled.
+#     - template_dose_obj: BrachyDose := The template dose object to use for cropping and resampling.
+#     - roi_bounds: List[List[float]] := The bounds of the region of interest (roi) to crop the dose rate map.
+#     - structure_mask: ROIMask | ROIContour := The structure mask to apply to the dose rate map.
+#     - optim_spacing: List[float] := The spacing of the optimization grid in mm.
+#     ### Outputs:
+#     - np.ndarray := The cropped, masked and resampled dose rate map.
+#     """
+#     from opentps.core.processing.imageProcessing.resampler3D import (
+#         crop3DDataAroundBox, resampleImage3DOnImage3D, resample
+#     )
+#     # create a dose object from the dose_rate_map tensor.
+#     # The coordinates of the dose object is the same as the combined_dose in the plan.
+#     masked_dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
+#     masked_dose_rate_obj.set_dose_array(dose_rate_map)
+#     # apply the optimization roi bounds to the dose rate image
+#     crop3DDataAroundBox(
+#         masked_dose_rate_obj.dose_image,
+#         roi_bounds)
+    
+#     # resample the dose rate map to the optimization resolution
+#     if isinstance(optim_spacing, float):
+#         optim_spacing = [optim_spacing] * 3
+#     resample(
+#         masked_dose_rate_obj.dose_image,
+#         spacing = optim_spacing,
+#         inPlace=True)
+    
+#     # get the structure mask from the contour
+#     if isinstance(structure_mask, ROIContour):
+#         structure_mask = structure_mask.getBinaryMask()
+#     # apply the structure mask to the dose rate map object                
+#     if not(structure_mask.hasSameGrid(masked_dose_rate_obj.dose_image)):
+#         structure_mask = resampleImage3DOnImage3D(
+#             structure_mask,
+#             masked_dose_rate_obj.dose_image,
+#             inPlace=False,
+#             fillValue=0
+#         )
+#     return masked_dose_rate_obj.get_dose_array()#, structure_mask
 
 
 class Optimization_Config(BaseModel):

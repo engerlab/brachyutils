@@ -7,7 +7,7 @@ import warnings
 import time
 from multiprocessing import Pool
 import os 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+# from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from gurobipy import Model, Var, GRB, MVar, Env, QuadExpr, LinExpr
@@ -16,80 +16,80 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
 
-from opentps.core.data.images import ROIMask
+# from opentps.core.data.images import ROIMask
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, 
-    crop_resample_dose_rate_map_and_mask, Optimization_Config
+    process_variable, compute_dose_rate_matrices, Optimization_Config
 )
 
 
-def process_variable(variable, structure_name, structure_mask, plan, optim_spacing, roi_bounds, shift_origin:bool=False):
+# def process_variable(variable, structure_name, structure_mask, plan, optim_spacing, roi_bounds, shift_origin:bool=False):
 
-    if "hotspot_estimator:" in structure_name.lower():
-        relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
-        if variable.name not in relevant_dwells:
-            return None
-    dwell_var = variable._model_variable
+#     if "hotspot_estimator:" in structure_name.lower():
+#         relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
+#         if variable.name not in relevant_dwells:
+#             return None
+#     dwell_var = variable._model_variable
 
-    if (
-        isinstance(structure_mask, ROIMask)
-        and np.allclose(plan.combined_dose.dose_image.origin, structure_mask.origin)
-        and np.allclose(plan.combined_dose.dose_image.spacing, structure_mask.spacing)
-        and np.allclose(plan.combined_dose.dose_image.spacing, optim_spacing)
-        and np.all(np.swapaxes(variable.dose_rate_map, 0, 2).shape == structure_mask.imageArray.shape)
-    ):
-        masked_dose_array = np.swapaxes(variable.dose_rate_map, 0, 2)
-    else:
-        dose_rate_obj, structure_for_masking = crop_resample_dose_rate_map_and_mask(
-            dose_rate_map=variable.dose_rate_map,
-            template_dose_obj=plan.combined_dose,
-            roi_bounds=roi_bounds,
-            structure_mask=structure_mask,
-            optim_spacing=optim_spacing,
-            sitk_interpolator_dose=sitk.sitkLinear,
-            # Using Linear instead of NearestNeighbor since NN does a bad job when downsampling
-            sitk_interpolator_contour=sitk.sitkLinear, #sitkNearestNeighbor # sitkLinear
-            shift_origin=shift_origin
-        )
-        masked_dose_array = dose_rate_obj.dose_image.imageArray.astype(float)
-        structure_mask = structure_for_masking
+#     if (
+#         isinstance(structure_mask, ROIMask)
+#         and np.allclose(plan.combined_dose.dose_image.origin, structure_mask.origin)
+#         and np.allclose(plan.combined_dose.dose_image.spacing, structure_mask.spacing)
+#         and np.allclose(plan.combined_dose.dose_image.spacing, optim_spacing)
+#         and np.all(np.swapaxes(variable.dose_rate_map, 0, 2).shape == structure_mask.imageArray.shape)
+#     ):
+#         masked_dose_array = np.swapaxes(variable.dose_rate_map, 0, 2)
+#     else:
+#         dose_rate_obj, structure_for_masking = crop_resample_dose_rate_map_and_mask(
+#             dose_rate_map=variable.dose_rate_map,
+#             template_dose_obj=plan.combined_dose,
+#             roi_bounds=roi_bounds,
+#             structure_mask=structure_mask,
+#             optim_spacing=optim_spacing,
+#             sitk_interpolator_dose=sitk.sitkLinear,
+#             # Using Linear instead of NearestNeighbor since NN does a bad job when downsampling
+#             sitk_interpolator_contour=sitk.sitkLinear, #sitkNearestNeighbor # sitkLinear
+#             shift_origin=shift_origin
+#         )
+#         masked_dose_array = dose_rate_obj.dose_image.imageArray.astype(float)
+#         structure_mask = structure_for_masking
 
-    structure_for_masking = structure_mask.imageArray.astype(bool)
-    valid_dose_points = masked_dose_array[structure_for_masking == 1].flatten()
+#     structure_for_masking = structure_mask.imageArray.astype(bool)
+#     valid_dose_points = masked_dose_array[structure_for_masking == 1].flatten()
 
-    return dwell_var, valid_dose_points
+#     return dwell_var, valid_dose_points
 
-def compute_dose_rate_matrices(
-        dwellTimeVariables, structure, structure_mask, plan, 
-        optim_spacing, roi_bounds, max_workers:int=8, shift_origin:bool=False):
-    dose_rate_matrices = []
-    dwell_vars = []
+# def compute_dose_rate_matrices(
+#         dwellTimeVariables, structure, structure_mask, plan, 
+#         optim_spacing, roi_bounds, max_workers:int=8, shift_origin:bool=False):
+#     dose_rate_matrices = []
+#     dwell_vars = []
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(
-                process_variable,
-                variable,
-                structure.name,
-                structure_mask,
-                plan,
-                optim_spacing,
-                roi_bounds, 
-                shift_origin
-            ): variable
-            for variable in dwellTimeVariables
-        }
+#     with ThreadPoolExecutor(max_workers=max_workers) as executor:
+#         futures = {
+#             executor.submit(
+#                 process_variable,
+#                 variable,
+#                 structure.name,
+#                 structure_mask,
+#                 plan,
+#                 optim_spacing,
+#                 roi_bounds, 
+#                 shift_origin
+#             ): variable
+#             for variable in dwellTimeVariables
+#         }
 
-        for future in tqdm.tqdm(as_completed(futures), total=len(futures), desc=f"Processing dwell positions dose rates for {structure.name}"):
-            result = future.result()
-            if result is not None:
-                dwell_var, valid_dose_points = result
-                dwell_vars.append(dwell_var)
-                dose_rate_matrices.append(valid_dose_points)
+#         for future in tqdm.tqdm(as_completed(futures), total=len(futures), desc=f"Processing dwell positions dose rates for {structure.name}"):
+#             result = future.result()
+#             if result is not None:
+#                 dwell_var, valid_dose_points = result
+#                 dwell_vars.append(dwell_var)
+#                 dose_rate_matrices.append(valid_dose_points)
 
-    return dwell_vars, dose_rate_matrices
+#     return dwell_vars, dose_rate_matrices
 
 class DwellTime_Gurobi(BrachyDwellTime):
     r"""
