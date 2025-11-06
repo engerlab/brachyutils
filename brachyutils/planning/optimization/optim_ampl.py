@@ -292,7 +292,8 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
             A = np.column_stack(dose_rate_matrices)
             num_dose_points = A.shape[0]
             num_dwells = len(dwell_vars)
-            
+            if num_dose_points == 0:
+                continue
             # Define structure-specific sets and parameters
             struct_id = f"s{structure_counter}"
             model.eval(f"param num_dose_points_{struct_id} := {num_dose_points};")
