@@ -441,7 +441,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 x_slack = model.addMVar(
                     shape=num_dose_points,
                     lb=0.0,
-                    ub=hotspot_threshold * target_dose - min_dose,
+                    ub=structure_max_dose -  hotspot_threshold * target_dose,
                     name=f"hotspot_slack_{structure.name}"
                 )
                 # Hotspot estimator constraints
