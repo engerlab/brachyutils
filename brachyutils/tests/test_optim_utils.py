@@ -210,12 +210,12 @@ def test_run_ampl_optim():
             "mean(dwell_times)", "std(dwell_times)",
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
-    for solver in ["gurobi"]:#, "xpress", "cplex", "highs", "scip"]:
+    for solver in ["cplex"]: # "couenne", "bonmin", "copt" "mosek" "ipopt", "xpress", "cplex", "highs", "scip", "gurobi"]:
     # for solver in ["gcg"]: # GCG Causes Memory Crash. Avoid it
         # try:
         optim_obj = BrachyOptim_AMPL(plan=plan_obj, solver=solver, verbose=True)
         optimized_plan = optim_obj.get_optimized_plan_from_model(inplace=False)
-        dvh_metrics = optimized_plan.get_dvh_metrics()
+        dvh_metrics = optimized_plan.get_dvh_metrics(return_percentage=True)
         results.loc[len(results)] = {
             "solver": solver,
             "status": optim_obj.model.solve_result,

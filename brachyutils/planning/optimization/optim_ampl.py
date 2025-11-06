@@ -119,7 +119,12 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
         if pth_logfile is None:
             pth_logfile = Path(f"temp_data/{self.solver}.log").resolve()
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
-        list_of_solvers = ["highs", "gurobi", "xpress", "cplex", "scip", "gcg"]
+        list_of_solvers = [
+            "highs", "gurobi", "xpress",
+            "cplex", "scip", "gcg", 
+            "couenne", "bonmin", "copt",
+            "mosek", "ipopt", "cuopt"
+            ]
         if solver not in list_of_solvers:
             raise ValueError(f"Unsupported solver: {solver}. Supported solvers are {list_of_solvers}.")
 
@@ -136,7 +141,10 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
             model.option["log_file"] = str(pth_logfile)
             print(f"AMPL log file: {pth_logfile}")
             print(f"Using solver: {solver}")
-            
+
+        # set 10 minute time limit
+        model.option["timelim"] = 600
+
         return model
 
     def set_dwellTimeVariables(

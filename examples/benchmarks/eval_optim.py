@@ -162,8 +162,7 @@ def run_optimization(
         t0_solving = time()
         brachy_plan = optim_obj.get_optimized_plan_from_model()
         t1_solving = time()
-        result_dvh_metrics = brachy_plan.get_dvh_metrics(
-            return_percentage=True)
+        result_dvh_metrics = brachy_plan.get_dvh_metrics(return_percentage=True)
         status = "OPTIMIZED"
     except Exception as e:
         print(f"Optimization failed for {case_name} with config {config_list}, package {package}, solver {solver}: {e}")
