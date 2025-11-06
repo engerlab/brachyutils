@@ -238,28 +238,6 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                     shift_origin=True
                 )
 
-            # # Build dose rate matrix and dwell time vector for this structure
-            # dose_rate_matrices = []
-            # dwell_vars = []
-            # for variable in dwellTimeVariables:
-            #     if "hotspot_estimator:" in structure.name.lower():
-            #         relevant_dwells = structure.name.lower().split("hotspot_estimator:")[1].split("/")
-            #         if variable.name not in relevant_dwells:
-            #             continue
-            #     dwell_vars.append(variable._model_variable)
-            #     cropped_resampled_dose_rate_map = crop_resample_dose_rate_map_and_mask(
-            #         dose_rate_map=variable.dose_rate_map,
-            #         template_dose_obj=plan.combined_dose,
-            #         roi_bounds=self.roi_bounds,
-            #         structure_mask=structure_mask,
-            #         optim_spacing=optim_spacing
-            #     )
-            #     # Extract valid dose points and flatten
-            #     valid_dose_points = cropped_resampled_dose_rate_map[
-            #         cropped_resampled_dose_rate_map > 0
-            #     ].flatten()
-            #     dose_rate_matrices.append(valid_dose_points)
-
             if not dose_rate_matrices:
                 continue
 

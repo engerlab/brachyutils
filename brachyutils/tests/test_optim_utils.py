@@ -208,7 +208,6 @@ def test_dwellTime_AMPL():
 
 def test_run_ampl_optim():
     from brachyutils.planning.optimization.optim_ampl import BrachyOptim_AMPL
-    from copy import deepcopy
     from pandas import DataFrame
 
     pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
@@ -269,22 +268,36 @@ def test_dwelltime_orTools():
 
 def test_run_ortool_optim():
     from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
-    plan_obj = get_a_plan_to_optimize()
-    optim_obj = BrachyOptim_ORTools(plan=plan_obj, solver="GLPK")
-    from pandas import DataFrame    
-    results = DataFrame(columns=["solver", "status", "dvh_metrics", "mean(dwell_times)", "std(dwell_times)", "solve_time"])
-    for solver in ["GLOP", "PDLP","GSCIP", "GLPK"]:
+    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
+    dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
+
+    plan_obj = get_a_plan_to_optimize(
+        pth_dicom=pth_dicom,
+        dir_dose_rates=dir_dose_rates,
+        generate_dose_rates=False,
+    )
+    
+    results = DataFrame(
+        columns=[
+            "solver", "status",
+            "mean(dwell_times)", "std(dwell_times)",
+            "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
+        )
+    for solver in ["GLOP"]: #["GLOP", "PDLP","GSCIP", "GLPK"]:
         # try:
-        optimized_plan = optim_obj.get_optimized_plan_from_model(solver=solver, inplace=True)
-        print(f"Solver {solver} succeeded.")
+        optim_obj = BrachyOptim_ORTools(plan=plan_obj, solver="GLPK")
+        optimized_plan = optim_obj.get_optimized_plan_from_model(solver=solver, inplace=False)
+        dvh_metrics = optimized_plan.get_dvh_metrics(return_percentage=True)        
         results.loc[len(results)] = {
             "solver": solver,
             "status": "Solved" if optim_obj.solution_found else "Failed",
-            "dvh_metrics": optimized_plan.get_dvh_metrics(),
             "mean(dwell_times)": optimized_plan.dwell_times.mean(),
             "std(dwell_times)": optimized_plan.dwell_times.std(),
-            "solve_time": optim_obj.solve_time
-            }
+            "solve_time": optim_obj.solve_time} | dvh_metrics
+        # except Exception as e:
+        #     # raise e
+        #     continue
+        results.to_csv("data_test/test_export_plan/prostate/solvers_linObj_ortools.csv")
         # except:
         #     print(f"Solver {solver} failed.")
         #     results.loc[len(results)] = {
@@ -296,7 +309,7 @@ def test_run_ortool_optim():
         #         "solve_time": 0
         #         }
         #     continue
-    results.to_csv("data_test/test_export_plan/prostate/ortools_solvers.csv")
+    # results.to_csv("data_test/test_export_plan/prostate/ortools_solvers.csv")
 
 if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
@@ -304,6 +317,6 @@ if __name__ == "__main__":
     # test_get_optimization_roi_bounds()
     # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    test_run_ampl_optim()
+    # test_run_ampl_optim()
     # test_dwelltime_orTools()
-    # test_run_ortool_optim()
+    test_run_ortool_optim()
