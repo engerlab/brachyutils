@@ -181,7 +181,7 @@ def run_optimization(
         **result_dvh_metrics
     }
     # for debugging
-    # print("Dwell Times are: \n", brachy_plan.dwell_times)
+    print("Dwell Times are: \n", brachy_plan.dwell_times)
     del optim_obj
     return optim_trial_result
 
@@ -391,6 +391,7 @@ if __name__ == "__main__":
         "V100%(ctv)": 95,
         "D90%(ctv)": target_dose,
         "V150%(ctv)": 40,
+        "V200%(ctv)": 10,
         "HI(ctv)": 1,
         "CI(ctv)": 1,
         "D2cc(rectum)": 10,
