@@ -124,6 +124,7 @@ def run_optimization(
     config_list,
     package,
     solver,
+    pth_out_dose: str | Path = None,
 ):
     r"""
     Purpose:
@@ -182,6 +183,10 @@ def run_optimization(
     }
     # for debugging
     print("Dwell Times are: \n", brachy_plan.dwell_times)
+    if pth_out_dose is not None and status == "OPTIMIZED":
+        brachy_plan.combined_dose.write_brachydose_to_file(
+            pth_out_dose
+        )
     del optim_obj
     return optim_trial_result
 
@@ -285,7 +290,7 @@ def eval_optim(
                 structure_name="CTV",
                 dose_voxel_goal=target_dose,
                 penalty_weight_linear=300,
-                penalty_weight_hotspot=300,
+                penalty_weight_hotspot=10000,
                 hotspot_threshold=1.5,
                 mask_margin_mm=0,
                 spacing_mm=3),
@@ -374,6 +379,7 @@ def eval_optim(
                     config_list=config_variations[config_var],
                     package=package,
                     solver=solver,
+                    pth_out_dose=dir_all_dose_rates/f"optimized_{pth_dicom.name}_{package}_{solver}_{config_var}.nrrd",
                 )
                     results_solver.loc[len(results_solver)] = optim_trial_result | {
                         "loading_time": t1_loading - t0_loading,
