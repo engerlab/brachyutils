@@ -446,7 +446,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 )
                 # Hotspot estimator constraints
                 model.addConstr(
-                    A_sparse @ t_MVar - x_slack <= hotspot_threshold * target_dose_vec,
+                    ((A_sparse @ t_MVar)/num_dose_points) - x_slack <= hotspot_threshold * target_dose_vec,
                 )
                 self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
                 constraint_counter += num_dose_points
@@ -457,7 +457,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "num_dose_points": num_dose_points,
                     "hotspot_coeff": hotspot_weight / num_dose_points # is a linear coeff
                 }
-                hotspot_weight_vec = np.full(num_dose_points, hotspot_weight /(1000 * num_dose_points))
+                hotspot_weight_vec = np.full(num_dose_points, hotspot_weight)
                 penalty_terms["hotspot"] += (hotspot_weight_vec @ x_slack)
 
             else:

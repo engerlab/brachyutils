@@ -285,7 +285,7 @@ def eval_optim(
                 structure_name="CTV",
                 dose_voxel_goal=target_dose,
                 penalty_weight_linear=300,
-                penalty_weight_hotspot=1,
+                penalty_weight_hotspot=300,
                 hotspot_threshold=1.5,
                 mask_margin_mm=0,
                 spacing_mm=3),
@@ -382,6 +382,7 @@ def eval_optim(
                     results_solver.to_csv(
                         dir_all_dose_rates/f"eval_optim_results_{package}.csv",
                         index=False)
+        break # for debugging only
 
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
