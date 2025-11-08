@@ -290,7 +290,7 @@ def eval_optim(
                 structure_name="CTV",
                 dose_voxel_goal=target_dose,
                 penalty_weight_linear=300,
-                penalty_weight_hotspot=10000,
+                penalty_weight_hotspot=1,
                 hotspot_threshold=1.5,
                 mask_margin_mm=0,
                 spacing_mm=3),
