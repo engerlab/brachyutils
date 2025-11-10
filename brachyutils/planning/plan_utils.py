@@ -706,7 +706,10 @@ class BrachyPlan:
             }
             dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
         if phantom.cached_structure_masks is not None:
-            structure_masks = phantom.cached_structure_masks
+            structure_masks = deepcopy(phantom.cached_structure_masks)
+            for k in list(structure_masks.keys()):
+                if k not in structure_names_in_dvh:
+                    structure_masks.pop(k)
         else:
             structure_masks: dict = phantom.get_structure_mask(
                 structure_names_in_dvh, mask_type, strict_name_match=strict_name_match
@@ -721,9 +724,16 @@ class BrachyPlan:
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
             self.structure_list.append(structure_obj)
-        self.body_contour = phantom.get_structure_mask(
-            ["body"], ROIContour, strict_name_match=False
-        ).get("body", None)
+        if phantom.cached_structure_masks is not None:
+            body_key = None
+            for k in phantom.cached_structure_masks.keys():
+                if k.lower() == "body":
+                    body_key = k
+            self.body_contour = phantom.cached_structure_masks.get(body_key, None)
+        else:
+            self.body_contour = phantom.get_structure_mask(
+                ["body"], ROIContour, strict_name_match=False
+            ).get("body", None)
 
     def load_applicator_list(
         self,
