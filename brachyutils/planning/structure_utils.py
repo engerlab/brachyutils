@@ -166,7 +166,12 @@ class BrachyStructure:
                     ) 
             elif metric_string.startswith("HI"):
                 self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.homogeneityIndex()
-            elif metric_string.startswith("CI") and body_contour is not None:
+            elif metric_string.startswith("CI"):
+                if body_contour is None:
+                    raise ValueError("body_contour should be defined to compute the conformity index")
+                else:
+                    assert np.allclose(body_contour.gridSize, combined_dose.dose_image.gridSize), \
+                    f"body contour grid size does not match dose grid size, {body_contour.gridSize} vs {combined_dose.dose_image.gridSize}"
                 self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformityIndex(body_contour)
             else:
                 raise ValueError(
