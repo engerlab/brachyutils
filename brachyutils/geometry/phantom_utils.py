@@ -156,7 +156,7 @@ class BrachyPhantom:
         assert os.path.exists(pth_image), "The input path does not exist."
         # Load the images only, RD, RS, RP files are not needed here.
         image_files = [file for file in glob((str(pth_image) + "/*.[Dd][Cc][Mm]"))
-                       if not os.path.basename(file).startswith("[Rr]")]
+                       if not os.path.basename(file).startswith(("R", "r"))]
 
         if len(image_files) == 0:
             raise ValueError("No DICOM files found in the input directory.")
@@ -1153,7 +1153,8 @@ class BrachyPhantom:
         spacing:np.array=None,
         inplace:bool=True,
         gridSize:np.array=None,
-        interpolator_img=sitk.sitkLinear) -> "BrachyPhantom":
+        interpolator_img=sitk.sitkLinear, 
+        interpolator_contours=sitk.sitkLinear) -> "BrachyPhantom":
         r"""
         ### Purpose:
             - resample the phantom to a new origin and spacing.
@@ -1183,7 +1184,7 @@ class BrachyPhantom:
                 new_cached_structure_masks[structure_name] = resampleImage3DOnImage3D(
                     mask,
                     new_img_obj,
-                    sitk_interpolator=sitk.sitkNearestNeighbor
+                    sitk_interpolator=interpolator_contours
                     )
                 new_cached_structure_masks[structure_name]._displayColor = old_color
             self.cached_structure_masks = new_cached_structure_masks
