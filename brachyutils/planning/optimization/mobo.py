@@ -264,7 +264,7 @@ class MOBOOptimizer:
             results = pd.DataFrame()
 
         
-        for _ in range(num_iterations+1):
+        for _ in range(num_iterations):
             parameters, trial_index = ax_client.get_next_trial()
 
             dvh_metrics, optimized_cat_table = self.brachy_optim.evaluate_penaltyWeight(
