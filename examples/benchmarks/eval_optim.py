@@ -182,7 +182,7 @@ def run_optimization(
         **result_dvh_metrics
     }
     # for debugging
-    print("Dwell Times are: \n", brachy_plan.dwell_times)
+    # print("Dwell Times are: \n", brachy_plan.dwell_times)
     if pth_out_dose is not None and status == "OPTIMIZED":
         brachy_plan.combined_dose.write_brachydose_to_file(
             pth_out_dose
@@ -212,7 +212,7 @@ def eval_optim(
     package_solver_dict = {
         # "gurobi": ["gurobi"],
         "ampl": ["xpress", "cplex", "highs", "gcg"],
-        "ortools": ["GLOP", "PDLP","GSCIP"],
+        # "ortools": ["GLOP", "PDLP","GSCIP"],
     }
     
     config_variations = {
