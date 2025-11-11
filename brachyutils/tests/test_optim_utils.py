@@ -283,9 +283,9 @@ def test_run_ortool_optim():
             "mean(dwell_times)", "std(dwell_times)",
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
-    for solver in ["GLOP"]: #["GLOP", "PDLP","GSCIP", "GLPK"]:
+    for solver in ["GLPK"]: #["GLOP", "PDLP","GSCIP", "GLPK"]:
         # try:
-        optim_obj = BrachyOptim_ORTools(plan=plan_obj, solver="GLPK")
+        optim_obj = BrachyOptim_ORTools(plan=plan_obj, solver=solver)
         optimized_plan = optim_obj.get_optimized_plan_from_model(solver=solver, inplace=False)
         dvh_metrics = optimized_plan.get_dvh_metrics(return_percentage=True)        
         results.loc[len(results)] = {
