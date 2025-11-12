@@ -211,8 +211,8 @@ def eval_optim(
 
     package_solver_dict = {
         # "gurobi": ["gurobi"],
-        "ampl": ["xpress", "cplex", "highs", "gcg"],
-        # "ortools": ["GLOP", "PDLP","GSCIP"],
+        # "ampl": ["xpress", "cplex", "highs", "gcg"],
+        "ortools": ["GLOP", "PDLP","GSCIP"],
     }
     
     config_variations = {
