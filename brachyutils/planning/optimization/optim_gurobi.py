@@ -437,12 +437,12 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 penalty_terms["uniformity"] += uniformity_weight_vec @ (y_uniform * y_uniform)
 
             elif "hotspot_estimator:" in structure.name.lower():
+                x_slack = model.addVar(
                 # slack variable for hotspot estimator
-                x_slack = model.addMVar(
-                    shape=num_dose_points,
-                    lb=-(target_dose-min_dose),
-                    ub=(target_dose-min_dose),
-                    name=f"hotspot_slack_{structure.name}"
+                    # shape=num_dose_points,
+                    lb=0.0,
+                    ub=(GRB.INFINITY),
+                    name=f"hotspot_slack_{structure.name.split(":")[-1]}"
                 )
                 # Hotspot estimator constraints
                 model.addConstr(
@@ -457,8 +457,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "num_dose_points": num_dose_points,
                     "hotspot_coeff": hotspot_weight / num_dose_points # is a linear coeff
                 }
-                hotspot_weight_vec = np.full(num_dose_points, hotspot_weight/num_dose_points)
-                penalty_terms["hotspot"] += (hotspot_weight_vec @ x_slack)
+                # hotspot_weight_vec = np.full(num_dose_points, hotspot_weight/num_dose_points)
+                penalty_terms["hotspot"] += (hotspot_weight * x_slack)/num_dose_points
 
             else:
                 # OAR (Organ at Risk) constraints and penalties

@@ -7,6 +7,7 @@ from pathlib import Path
 def get_a_plan_to_optimize(
     pth_dicom: str | Path,
     dir_dose_rates: str | Path,
+    optimization_config_list,
     generate_dose_rates: bool = False,
     )->BrachyPlan:
     pth_dicom = Path(pth_dicom)
@@ -23,36 +24,8 @@ def get_a_plan_to_optimize(
         "D0.1cc(URETHRA)": target_dose * 1.25,
         "CI(CTV)": 1.0,
         "HI(CTV)": 0.5,
+        "V200%(CTV)": 0.0,
     }
-
-    optimization_config_list=[
-        Optimization_Config(
-            structure_name="CTV",
-            dose_voxel_goal=target_dose,
-            penalty_weight_linear=300,
-            # penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=0,
-            # penalty_weight_hotspot=1,
-            # hotspot_threshold=1.5,
-            mask_margin_mm=0,
-            spacing_mm=3),
-        Optimization_Config(
-            structure_name="URETHRA",
-            dose_voxel_goal=0,
-            penalty_weight_linear=1,
-            # penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=0,
-            mask_margin_mm=0,
-            spacing_mm=1),
-        Optimization_Config(
-            structure_name="RECTUM",
-            dose_voxel_goal=0,
-            penalty_weight_linear=1,
-            # penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=0,
-            mask_margin_mm=0,
-            spacing_mm=3)
-    ]
 
     plan_obj = load_dicom_to_plan(
         dir_dicom=pth_dicom,
@@ -144,14 +117,44 @@ def test_run_gurobi_optim():
     # pth_dicom = "data_test/prostate-glen-p1-dcm"
     # dir_dose_rates = "temp_data/tg43/optim_test"
     # for debugging on server
-    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
+    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p5_body")
+    dir_dose_rates = Path("temp_data/tg43/optimization/p5_body") # for tg43
+    target_dose = 21
+    optimization_config_list=[
+        Optimization_Config(
+            structure_name="CTV",
+            dose_voxel_goal=target_dose,
+            penalty_weight_linear=300,
+            # penalty_weight_quadratic=1,
+            # penalty_weight_uniformity=0,
+            # penalty_weight_hotspot=1000,
+            # hotspot_threshold=1.1,
+            mask_margin_mm=0,
+            spacing_mm=3),
+        Optimization_Config(
+            structure_name="URETHRA",
+            dose_voxel_goal=0,
+            penalty_weight_linear=1,
+            # penalty_weight_quadratic=1,
+            # penalty_weight_uniformity=0,
+            mask_margin_mm=0,
+            spacing_mm=1),
+        Optimization_Config(
+            structure_name="RECTUM",
+            dose_voxel_goal=0,
+            penalty_weight_linear=1,
+            # penalty_weight_quadratic=1,
+            # penalty_weight_uniformity=0,
+            mask_margin_mm=0,
+            spacing_mm=3)
+    ]
 
     solver = "gurobi"
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
         dir_dose_rates=dir_dose_rates,
         generate_dose_rates=False,
+        optimization_config_list=optimization_config_list,
     )
     results = DataFrame(
         columns=[
@@ -170,7 +173,7 @@ def test_run_gurobi_optim():
     "std(dwell_times)": optimized_plan.dwell_times.std(),
     "solve_time": optim_obj.solve_time} | dvh_metrics
     results.to_csv("data_test/test_export_plan/prostate/solvers_linObj_gurobi.csv")
-    # print(optimized_plan.dwell_times)
+    print(optimized_plan.dwell_times)
     # optimized_plan.export_brachy_plan(
     #     dir_export="data_test/test_export_plan/prostate",
     #     content_to_export={
@@ -315,8 +318,8 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
     # test_run_ampl_optim()
     # test_dwelltime_orTools()
-    test_run_ortool_optim()
+    # test_run_ortool_optim()
