@@ -1,3 +1,5 @@
+import pandas as pd
+from copy import deepcopy
 from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
@@ -390,6 +392,78 @@ def eval_optim(
                         index=False)
         # break # for debugging only
 
+def gen_box_plots_optim_results(
+    results_df: DataFrame,
+    filter_by: dict[str, str | float | int] = None,
+    pth_mean_std_csv: str | Path = None,
+    ):
+    r"""
+    ### Purpose:
+    - Generate the box plots for each metric. the metrics 
+    are model_building_time, solve_time, and DVH metrics.
+    in each box the data from the same patients is presented.
+    it is possible to filter the data, for example only the 
+    columns with objective_terms == "L" will be plotted. or
+    only the columns with Status == "OPTIMIZED". 
+    ### Inputs:
+    - `results_df`: DataFrame containing all the optimization results.
+    - `filter_by`: Dictionary specifying filtering criteria for the DataFrame.
+    """
+    if pth_mean_std_csv is not None:
+        mean_std_df = pd.DataFrame(columns=results_df.columns)
+
+    filtered_df = deepcopy(results_df)
+    for key, val in filter_by.items():
+        filtered_df = filtered_df.loc[filtered_df[key] == val]
+    print("debug")
+    # get unique packages and solvers
+    unique_packages = filtered_df["package"].unique()
+    unique_solvers = filtered_df["solver"].unique()
+    
+    # # filter the dataframe based on packages and solvers
+    # # skip if there is no data for a package-solver combination
+    data_for_box_plots = {}
+    for package in unique_packages:
+        for solver in unique_solvers:
+            df_subset = filtered_df.loc[
+                (filtered_df["package"] == package) &
+                (filtered_df["solver"] == solver)
+            ]
+            if df_subset.empty:
+                continue
+            # generate box plots for each metric
+            metrics_to_plot = [
+                "model_building_time",
+                "solving_time",
+            ] + [col for col in filtered_df.columns if col not in [
+                "case_name", "package", "solver", "objective_terms",
+                "loading_time",  "model_building_time", "solving_time", "status"
+            ]]
+            if pth_mean_std_csv is not None:
+                mean_std_df.loc[len(mean_std_df)] = {
+                    "case_name": "MEAN",
+                    "package": package,
+                    "solver": solver,
+                    "objective_terms": df_subset["objective_terms"].iloc[0],
+                    "status": df_subset["status"].iloc[0],                    
+                } | df_subset[metrics_to_plot + ["loading_time"]].mean().to_dict()
+                mean_std_df.loc[len(mean_std_df)] = {
+                    "case_name": "STD",
+                    "package": package,
+                    "solver": solver,
+                    "objective_terms": df_subset["objective_terms"].iloc[0],
+                    "status": df_subset["status"].iloc[0],                    
+                } | df_subset[metrics_to_plot + ["loading_time"]].std().to_dict()
+                mean_std_df.to_csv(pth_mean_std_csv, index=False)
+            # gatheter data for the box plots
+            # in a dictionary.
+            data_for_box_plots[f"{package}_{solver}"] = df_subset[metrics_to_plot]
+    
+def box_plot(
+    
+    ):
+    pass
+
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_all_dose_rates = Path("temp_data/tg43/optimization") # for tg43
@@ -406,15 +480,26 @@ if __name__ == "__main__":
         "D30%(urethra)": 15,
     }
 
-    # first, generate all the dose rate files
+    # # first, generate all the dose rate files
     # generate_all_dose_rates(
     #     dir_all_dicoms,
     #     dir_all_dose_rates,
     # )
-
-    eval_optim(
-        dir_all_dicoms,
-        dir_all_dose_rates,
-        dvh_metric_goals=dvh_metric_goals,
-        target_dose=target_dose,
+    # # evaluate the optimization performance for packages, solvers and configs
+    # eval_optim(
+    #     dir_all_dicoms,
+    #     dir_all_dose_rates,
+    #     dvh_metric_goals=dvh_metric_goals,
+    #     target_dose=target_dose,
+    # )
+    
+    # # load the results dataframes for all the packages
+    all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
+    list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
+    all_data_df = pd.concat(list_all_data_df, ignore_index=True)
+    # # compare package-solvers on linear only config
+    gen_box_plots_optim_results(
+        all_data_df,
+        filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
+        pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
     )
