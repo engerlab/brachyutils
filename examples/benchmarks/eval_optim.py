@@ -435,6 +435,8 @@ def gen_box_plots_optim_results(
             ]
             if df_subset.empty:
                 continue
+            if package == "ortools":
+                continue
             if solver == "gcg":
                 continue
             # generate box plots for each metric
@@ -489,13 +491,15 @@ def box_plots(
     pth_save: str | Path = None,
     ):
     import matplotlib.pyplot as plt
+    plt.rcParams.update({"font.size": 16})
     plt.figure(figsize=(10, 6))
     plt.boxplot(data, labels=labels)
-    plt.title(title)
-    plt.ylabel(y_label)
-    plt.xlabel(x_label)
-    plt.grid(True, axis='y')
-    plt.xticks(rotation=45)
+    plt.title(title, fontsize=18)
+    plt.ylabel(y_label, fontsize=16)
+    plt.xlabel(x_label, fontsize=16)
+    plt.grid(True, axis="y")
+    plt.xticks(rotation=45, fontsize=14)
+    plt.yticks(fontsize=14)
     plt.tight_layout()
     if pth_save is not None:
         plt.savefig(pth_save)
