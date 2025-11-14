@@ -394,7 +394,9 @@ def eval_optim(
 
 def gen_box_plots_optim_results(
     results_df: DataFrame,
-    filter_by: dict[str, str | float | int] = None,
+    filter_by: dict[str, str | float | int],
+    penalty_term: str,
+    dir_fig_save: str | Path,
     pth_mean_std_csv: str | Path = None,
     ):
     r"""
@@ -409,6 +411,8 @@ def gen_box_plots_optim_results(
     - `results_df`: DataFrame containing all the optimization results.
     - `filter_by`: Dictionary specifying filtering criteria for the DataFrame.
     """
+    dir_fig_save = Path(dir_fig_save)
+    dir_fig_save.mkdir(parents=True, exist_ok=True)
     if pth_mean_std_csv is not None:
         mean_std_df = pd.DataFrame(columns=results_df.columns)
 
@@ -430,6 +434,8 @@ def gen_box_plots_optim_results(
                 (filtered_df["solver"] == solver)
             ]
             if df_subset.empty:
+                continue
+            if solver == "gcg":
                 continue
             # generate box plots for each metric
             metrics_to_plot = [
@@ -458,11 +464,43 @@ def gen_box_plots_optim_results(
             # gatheter data for the box plots
             # in a dictionary.
             data_for_box_plots[f"{package}_{solver}"] = df_subset[metrics_to_plot]
-    
-def box_plot(
-    
+    for metric in metrics_to_plot:
+        package_solver_labels = []
+        data_to_plot = []
+        for key in data_for_box_plots:
+            package_solver_labels.append(key)
+            data_to_plot.append(data_for_box_plots[key][metric])
+        # generate box plot
+        box_plots(
+            title=f"{metric} for {penalty_term} penalty",
+            data=data_to_plot,
+            labels=package_solver_labels,
+            y_label=metric,
+            x_label="Package_Solver",
+            pth_save=dir_fig_save/f"boxplot_{metric}.svg"
+        )
+
+def box_plots(
+    title: str,
+    data: list[pd.Series],
+    labels: list[str],
+    y_label: str,
+    x_label: str,
+    pth_save: str | Path = None,
     ):
-    pass
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(10, 6))
+    plt.boxplot(data, labels=labels)
+    plt.title(title)
+    plt.ylabel(y_label)
+    plt.xlabel(x_label)
+    plt.grid(True, axis='y')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    if pth_save is not None:
+        plt.savefig(pth_save)
+    else:
+        plt.show()
 
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
@@ -501,5 +539,7 @@ if __name__ == "__main__":
     gen_box_plots_optim_results(
         all_data_df,
         filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
+        penalty_term="linear",
+        dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
         pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
     )
