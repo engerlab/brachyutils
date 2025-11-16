@@ -1764,7 +1764,7 @@ def load_dicom_to_plan(
     dose_dcm = []
     plan_dcm = []
     if load_dicom_dose:
-        dose_dcm = [dcm for dcm in all_dicom_files if "rd" in str(dcm.name).lower()]
+        dose_dcm = [dcm for dcm in all_dicom_files if str(dcm.name).lower().startswith("rd")]
     if load_dicom_plan:
         plan_dcm = [
             dcm for dcm in all_dicom_files if
