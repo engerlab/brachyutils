@@ -241,7 +241,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "Dwell position does not match max dose rate position. Check dose rate tensor and dwell positions."
                 )
 
-                dt_var_name = f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                dt_var_name = f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
                 dwellTimeVariable_list.append(
                     DwellTime_Gurobi(
                         model=self.model,
@@ -439,9 +439,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             elif "hotspot_estimator:" in structure.name.lower():
                 x_slack = model.addVar(
                 # slack variable for hotspot estimator
-                    # shape=num_dose_points,
+                    # shape=num_dose_points,XXX put back the ub and lb after.
                     lb=0.0,
-                    ub=(GRB.INFINITY),
+                    ub=hotspot_threshold * target_dose - target_dose,
                     name=f"hotspot_slack_{structure.name.split(":")[-1]}"
                 )
                 # Hotspot estimator constraints

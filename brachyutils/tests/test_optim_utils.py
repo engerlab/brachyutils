@@ -117,8 +117,8 @@ def test_run_gurobi_optim():
     # pth_dicom = "data_test/prostate-glen-p1-dcm"
     # dir_dose_rates = "temp_data/tg43/optim_test"
     # for debugging on server
-    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p5_body")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p5_body") # for tg43
+    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p12")
+    dir_dose_rates = Path("temp_data/tg43/optimization/p12") # for tg43
     target_dose = 21
     optimization_config_list=[
         Optimization_Config(
@@ -127,8 +127,8 @@ def test_run_gurobi_optim():
             penalty_weight_linear=300,
             # penalty_weight_quadratic=1,
             # penalty_weight_uniformity=0,
-            # penalty_weight_hotspot=1000,
-            # hotspot_threshold=1.1,
+            penalty_weight_hotspot=300,
+            hotspot_threshold=1.1,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -172,7 +172,7 @@ def test_run_gurobi_optim():
     "mean(dwell_times)": optimized_plan.dwell_times.mean(),
     "std(dwell_times)": optimized_plan.dwell_times.std(),
     "solve_time": optim_obj.solve_time} | dvh_metrics
-    results.to_csv("data_test/test_export_plan/prostate/solvers_linObj_gurobi.csv")
+    results.to_csv("data_test/test_export_plan/prostate/HS_gurobi.csv")
     print(optimized_plan.dwell_times)
     # optimized_plan.export_brachy_plan(
     #     dir_export="data_test/test_export_plan/prostate",
@@ -389,9 +389,9 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
     # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
-    test_hotspot_estimators()
+    # test_hotspot_estimators()
