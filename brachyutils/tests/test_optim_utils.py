@@ -316,11 +316,11 @@ def test_run_ortool_optim():
 
 def test_hotspot_estimators():
     from brachyutils.planning.optimization.optim_gurobi import BrachyOptim_Gurobi
-    # pth_dicom = "data_test/prostate-glen-p1-dcm"
-    # dir_dose_rates = "temp_data/tg43/optim_test"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    dir_dose_rates = "data_test/prostate-glen-p1-dose"
     # for debugging on server
-    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
+    # pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
+    # dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
     target_dose = 21
     optimization_config_list=[
         Optimization_Config(

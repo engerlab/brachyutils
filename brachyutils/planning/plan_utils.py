@@ -1588,12 +1588,12 @@ class BrachyPlan:
                         {
                             "dwell_pair": (
                                 {
-                                    "catheter":self.dwell_coordinates[i]["catheter_index"],
-                                    "dwell": self.dwell_coordinates[i]["dwell_index"]
+                                    "catheter":self.dwell_coordinates[i]["catheter_index"]+1,
+                                    "dwell": self.dwell_coordinates[i]["dwell_index"]+1
                                 },
                                 {
-                                    "catheter":self.dwell_coordinates[j]["catheter_index"],
-                                    "dwell": self.dwell_coordinates[j]["dwell_index"]
+                                    "catheter":self.dwell_coordinates[j]["catheter_index"]+1,
+                                    "dwell": self.dwell_coordinates[j]["dwell_index"]+1
                                 }),
                             "center": center(
                                 np.array(self.dwell_coordinates[i]["position"]),
@@ -1673,6 +1673,7 @@ def _export_single_dose_rate(
     ### Output:
     - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
     """
+    raise Exception("Bug found here. file name should match the new standard")
     doseObj = BrachyDose.dose_with_empty_grid_like(doseObj_template)
     doseObj.set_dose_array(dose_grid)
     if uncertainty is not None:
