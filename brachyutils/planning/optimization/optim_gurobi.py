@@ -161,7 +161,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
     def __init__(
         self,
         plan:BrachyPlan,
-        roi_margin_mm: List[float] | float = 5.0):
+        roi_margin_mm: List[float] | float = 5.0,
+        multi_processing: bool = True
+        ):
         r"""
         ### Purpose:
         - A function to initialize the optimizer.
@@ -178,6 +180,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.hotspot_constraints_coords = []
         self.hotspot_threshold = None
         self.structure_weights_d = {}
+        self.multi_processing = multi_processing
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
@@ -188,7 +191,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.set_penalty_function_and_constraints(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
-            model=self.model)
+            model=self.model,
+            multi_processing=self.multi_processing)
 
     def initialize_model(
         self,
