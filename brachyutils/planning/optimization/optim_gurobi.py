@@ -385,38 +385,47 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             # Create target dose vector
             target_dose_vec = np.full(num_dose_points, target_dose)
 
+            # Target volume constraints and penalties
             if structure.target_volume:
-                # Target volume constraints and penalties
-                # Create slack variables for underdosing
-                x_slack = model.addMVar(
-                    shape=num_dose_points,
-                    lb=0.0,
-                    ub=target_dose - min_dose,
-                    name=f"dose_slack_{structure.name}"
-                )
+                
+                # handle the linear penalty
+                if linear_weight > 0:
+                    x_slack = model.addMVar(
+                        shape=num_dose_points,
+                        lb=0.0,
+                        ub=target_dose - min_dose,
+                        name=f"dose_slack_{structure.name}"
+                    )
+                    linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
+                    penalty_terms["linear"] += linear_weight_vec @ x_slack
+                    model.addConstr(
+                        A_sparse @ t_MVar + x_slack >= target_dose_vec,
+                        name=f"dose_target_{structure.name}"
+                    )
+                    self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                    constraint_counter += num_dose_points
 
+                if quadratic_weight > 0:
                 # Create slack variables for uniformity
-                y_uniform = model.addMVar(
-                    shape=num_dose_points,
-                    lb=0.0,
-                    ub=target_dose - min_dose,
-                    name=f"uniform_slack_{structure.name}"
-                )
-                # Dose constraints: A @ dwell_times + x_slack >= target_dose
-                model.addConstr(
-                    A_sparse @ t_MVar + x_slack >= target_dose_vec,
-                    name=f"dose_target_{structure.name}"
-                )
-                self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
-                constraint_counter += num_dose_points
+                    quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                    penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
 
-                # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
-                model.addConstr(
-                    A_sparse @ t_MVar + y_uniform == target_dose_vec,
-                    name=f"dose_uniform_{structure.name}"
-                )
-                self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
-                constraint_counter += num_dose_points
+                if uniformity_weight > 0:
+                    y_uniform = model.addMVar(
+                        shape=num_dose_points,
+                        lb=0.0,
+                        ub=target_dose - min_dose,
+                        name=f"uniform_slack_{structure.name}"
+                    )
+                    # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
+                    model.addConstr(
+                        A_sparse @ t_MVar + y_uniform == target_dose_vec,
+                        name=f"dose_uniform_{structure.name}"
+                    )
+                    self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                    constraint_counter += num_dose_points
+                    uniformity_weight_vec = np.full(num_dose_points, uniformity_weight / (num_dose_points * 1000))
+                    penalty_terms["uniformity"] += uniformity_weight_vec @ (y_uniform * y_uniform)
 
                 ## Saving weights info for later potential resetting of the model
                 self.structure_weights_d[structure.name] = {
@@ -428,17 +437,6 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "quadratic_coeff":quadratic_weight / num_dose_points,
                     "uniformity_coeff":uniformity_weight / (num_dose_points * 1000) # is quadratic weight
                 }
-                # Add penalty terms using matrix operations
-                linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
-                quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
-                uniformity_weight_vec = np.full(num_dose_points, uniformity_weight / (num_dose_points * 1000))
-
-                # Linear penalty: sum(linear_weight_vec @ x_slack)
-                penalty_terms["linear"] += linear_weight_vec @ x_slack
-                # Quadratic penalty: sum(quadratic_weight_vec * x_slack * x_slack)
-                penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
-                # Uniformity penalty: sum(uniformity_weight_vec * y_uniform * y_uniform)
-                penalty_terms["uniformity"] += uniformity_weight_vec @ (y_uniform * y_uniform)
 
             elif "hotspot_estimator:" in structure.name.lower():
                 x_slack = model.addVar(
@@ -463,21 +461,30 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 }
                 penalty_terms["hotspot"] += (hotspot_weight * x_slack)/num_dose_points
 
+            # OAR (Organ at Risk) constraints and penalties
             else:
-                # OAR (Organ at Risk) constraints and penalties
-                # Create slack variables for overdosing
-                x_slack = model.addMVar(
-                    shape=num_dose_points,
-                    lb=0.0,
-                    ub=structure_max_dose - target_dose,
-                    name=f"oar_slack_{structure.name}"
-                )
-                # Dose constraints: A @ dwell_times - x_slack <= target_dose
-                model.addConstr(
-                    A_sparse @ t_MVar - x_slack <= target_dose_vec,
-                    name=f"dose_oar_{structure.name}"
-                )
-                constraint_counter += num_dose_points
+                if linear_weight > 0 or quadratic_weight > 0:
+                    x_slack = model.addMVar(
+                        shape=num_dose_points,
+                        lb=0.0,
+                        ub=structure_max_dose - target_dose,
+                        name=f"oar_slack_{structure.name}"
+                    )
+                    # Dose constraints: A @ dwell_times - x_slack <= target_dose
+                    model.addConstr(
+                        A_sparse @ t_MVar - x_slack <= target_dose_vec,
+                        name=f"dose_oar_{structure.name}"
+                    )
+                    self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                if linear_weight > 0:
+                    constraint_counter += num_dose_points
+                    linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
+                    penalty_terms["linear"] += linear_weight_vec @ x_slack
+
+                if quadratic_weight > 0:
+                    quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                    penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
+                    constraint_counter += num_dose_points
 
                 ## Saving weights info for later potential resetting of the model
                 self.structure_weights_d[structure.name] = {
@@ -487,12 +494,6 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "linear_coeff": linear_weight / num_dose_points,
                     "quadratic_coeff": quadratic_weight / num_dose_points,
                 }
-                # Add penalty terms
-                linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
-                quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
-
-                penalty_terms["linear"] += linear_weight_vec @ x_slack
-                penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
 
         # Set objective function
         model.setObjective(
