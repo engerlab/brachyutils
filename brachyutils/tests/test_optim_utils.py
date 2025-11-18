@@ -118,6 +118,7 @@ def test_run_gurobi_optim():
     from brachyutils.planning.optimization.optim_gurobi import BrachyOptim_Gurobi
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     dir_dose_rates = "data_test/prostate-glen-p1-dose"
+    dir_result_out = Path("data_test/test_export_plan/prostate")
     # for debugging on server
     # pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p12")
     # dir_dose_rates = Path("temp_data/tg43/optimization/p12") # for tg43
@@ -126,11 +127,11 @@ def test_run_gurobi_optim():
         Optimization_Config(
             structure_name="CTV",
             dose_voxel_goal=target_dose,
-            penalty_weight_linear=300,
-            penalty_weight_quadratic=1,
-            penalty_weight_uniformity=1,
-            # penalty_weight_hotspot=300,
-            # hotspot_threshold=1.1,
+            penalty_weight_linear=1000,
+            # penalty_weight_quadratic=1,
+            # penalty_weight_uniformity=1,
+            # penalty_weight_hotspot=1,
+            # hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -140,7 +141,7 @@ def test_run_gurobi_optim():
             # penalty_weight_quadratic=1,
             # penalty_weight_uniformity=0,
             mask_margin_mm=0,
-            spacing_mm=1),
+            spacing_mm=3),
         Optimization_Config(
             structure_name="RECTUM",
             dose_voxel_goal=0,
@@ -158,6 +159,21 @@ def test_run_gurobi_optim():
         generate_dose_rates=False,
         optimization_config_list=optimization_config_list,
     )
+    # # print out the delivered plan dose and dvh metrics
+    # plan_obj.combined_dose.write_brachydose_to_file(
+    #     dir_result_out.joinpath("p1_delivered.seq.nrrd")
+    #     )
+
+    # delivered_dvh_metrics = plan_obj.get_dvh_metrics(return_percentage=True)
+    # DataFrame([
+    #     delivered_dvh_metrics | {
+    #         "mean_dwell_times": plan_obj.dwell_times.mean(),
+    #         "std_dwell_times": plan_obj.dwell_times.std(),
+    #         }]).to_csv(
+    #         dir_result_out.joinpath("p1_delivered_dvh_metrics.csv")
+    #         )
+
+    # # Optimize the plan and get the data
     results = DataFrame(
         columns=[
             "solver", "status",
@@ -174,8 +190,18 @@ def test_run_gurobi_optim():
     "mean(dwell_times)": optimized_plan.dwell_times.mean(),
     "std(dwell_times)": optimized_plan.dwell_times.std(),
     "solve_time": optim_obj.solve_time} | dvh_metrics
-    results.to_csv("data_test/test_export_plan/prostate/HS_gurobi.csv")
+    results.to_csv(dir_result_out.joinpath("noHS_gurobi.csv"))
     print(optimized_plan.dwell_times)
+    # export phantom
+    # plan_obj.phantom.export_to(
+    #     dir_nrrd_out=dir_result_out,
+        # dir_dicom_out=dir_result_out.joinpath("dcm")
+        # )
+    # export optimized dose
+    plan_obj.combined_dose.write_brachydose_to_file(
+        dir_result_out.joinpath("p1_noHSgurobi.seq.nrrd")
+        )
+
     # optimized_plan.export_brachy_plan(
     #     dir_export="data_test/test_export_plan/prostate",
     #     content_to_export={
@@ -331,8 +357,8 @@ def test_hotspot_estimators():
             penalty_weight_linear=300,
             # penalty_weight_quadratic=1,
             # penalty_weight_uniformity=0,
-            penalty_weight_hotspot=1,
-            hotspot_threshold=1.5,
+            # penalty_weight_hotspot=1,
+            # hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -360,13 +386,14 @@ def test_hotspot_estimators():
         generate_dose_rates=False,
         optimization_config_list=optimization_config_list,
     )
+    print(plan_obj.dwell_times)
     # export the phantom structures to make sure the hotspot estimators are working correctly
     # will write them to both nrrd and dicom format.
-    plan_obj.phantom.export_to(
-        dir_nrrd_out="data_test/test_export_plan/prostate",
-        dir_dicom_out="data_test/test_export_plan/prostate/dcm"
-        )
-    plan_obj.combined_dose.write_brachydose_to_file("data_test/test_export_plan/prostate/p1_dose.seq.nrrd")
+    # plan_obj.phantom.export_to(
+    #     dir_nrrd_out="data_test/test_export_plan/prostate",
+    #     dir_dicom_out="data_test/test_export_plan/prostate/dcm"
+    #     )
+    # plan_obj.combined_dose.write_brachydose_to_file("data_test/test_export_plan/prostate/p1_dose.seq.nrrd")
     # results = DataFrame(
     #     columns=[
     #         "solver", "status",
@@ -391,9 +418,9 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
     # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
-    test_hotspot_estimators()
+    # test_hotspot_estimators()
