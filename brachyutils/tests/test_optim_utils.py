@@ -125,10 +125,10 @@ def test_run_gurobi_optim():
             structure_name="CTV",
             dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
-            # penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=0,
-            penalty_weight_hotspot=300,
-            hotspot_threshold=1.1,
+            penalty_weight_quadratic=1,
+            penalty_weight_uniformity=0,
+            # penalty_weight_hotspot=300,
+            # hotspot_threshold=1.1,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -163,7 +163,7 @@ def test_run_gurobi_optim():
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
 
-    optim_obj = BrachyOptim_Gurobi(plan=plan_obj)
+    optim_obj = BrachyOptim_Gurobi(plan=plan_obj, multi_processing=True)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     dvh_metrics = optimized_plan.get_dvh_metrics(return_percentage=True)
     results.loc[len(results)] = {

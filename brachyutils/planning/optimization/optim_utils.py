@@ -46,6 +46,7 @@ def crop_resample_dose_rate_map_and_mask(
     # create a dose object from the dose_rate_map tensor.
     # The coordinates of the dose object is the same as the combined_dose in the plan.
     dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
+    # XXX the max sometimes changes here!
     dose_rate_obj.set_dose_array(dose_rate_map)
     # apply the optimization roi bounds to the dose rate image
 
@@ -53,7 +54,7 @@ def crop_resample_dose_rate_map_and_mask(
         dose_rate_obj.dose_image,
         roi_bounds)
    
-    # resample the dose rate map to the optimization resolution
+    # # resample the dose rate map to the optimization resolution
     if isinstance(optim_spacing, float):
         optim_spacing = [optim_spacing] * 3
     if shift_origin:
@@ -66,11 +67,11 @@ def crop_resample_dose_rate_map_and_mask(
     resampleImage3D(
         dose_rate_obj.dose_image,
         spacing=optim_spacing,
-        inPlace=True, 
-        origin=origin_for_resampling, 
+        inPlace=True,
+        origin=origin_for_resampling,
         sitk_interpolator=sitk_interpolator_dose
         )
-    
+
     # get the structure mask from the contour
     if isinstance(structure_mask, ROIContour):
         structure_mask = structure_mask.getBinaryMask()
