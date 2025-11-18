@@ -445,7 +445,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 # slack variable for hotspot estimator
                     # shape=num_dose_points,XXX put back the ub and lb after.
                     lb=0.0,
-                    ub=hotspot_threshold * target_dose - target_dose,
+                    ub=hotspot_threshold * target_dose - min_dose,
                     name=f"hotspot_slack_{structure.name.split(":")[-1]}"
                 )
                 # Hotspot estimator constraints
