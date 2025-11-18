@@ -306,7 +306,6 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         if not plan.structure_list:
             raise ValueError("Plan does not contain any structures.")
 
-        from scipy import sparse as sp
         penalty_terms = {
         "linear": 0,
         "quadratic": 0,
@@ -376,8 +375,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             num_dose_points = A.shape[0]
             if num_dose_points == 0:
                 continue
-            # Convert A to sparse matrix
-            A_sparse = sp.csr_matrix(A)
+            # Convert A to sparse matrix -> No need
+            # A_sparse = sp.csr_matrix(A)
+            A_sparse = A
             # Create target dose vector
             target_dose_vec = np.full(num_dose_points, target_dose)
 
@@ -394,7 +394,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 # Create slack variables for uniformity
                 y_uniform = model.addMVar(
                     shape=num_dose_points,
-                    lb=-GRB.INFINITY,
+                    lb=0.0,
                     ub=target_dose - min_dose,
                     name=f"uniform_slack_{structure.name}"
                 )
