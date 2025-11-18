@@ -19,12 +19,14 @@ def get_a_plan_to_optimize(
 
     target_dose = 21
     dvh_metric_goals = {
-        "D95%(CTV)": target_dose,
+        "D90%(CTV)": target_dose,
         "D1cc(RECTUM)": target_dose * 0.75,
         "D0.1cc(URETHRA)": target_dose * 1.25,
         "CI(CTV)": 1.0,
         "HI(CTV)": 0.5,
         "V200%(CTV)": 0.0,
+        "V150%(CTV)": 0.0,
+        "V100%(CTV)": 100.0,
     }
 
     plan_obj = load_dicom_to_plan(
@@ -126,7 +128,7 @@ def test_run_gurobi_optim():
             dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
-            penalty_weight_uniformity=0,
+            penalty_weight_uniformity=1,
             # penalty_weight_hotspot=300,
             # hotspot_threshold=1.1,
             mask_margin_mm=0,
