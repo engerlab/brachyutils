@@ -387,23 +387,24 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
 
             # Target volume constraints and penalties
             if structure.target_volume:
-                
-                # handle the linear penalty
-                if linear_weight > 0:
+                if linear_weight > 0 or quadratic_weight > 0:
                     x_slack = model.addMVar(
                         shape=num_dose_points,
                         lb=0.0,
                         ub=target_dose - min_dose,
                         name=f"dose_slack_{structure.name}"
-                    )
-                    linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
-                    penalty_terms["linear"] += linear_weight_vec @ x_slack
+                        )
                     model.addConstr(
                         A_sparse @ t_MVar + x_slack >= target_dose_vec,
                         name=f"dose_target_{structure.name}"
-                    )
+                        )
                     self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
                     constraint_counter += num_dose_points
+
+                # handle the linear penalty
+                if linear_weight > 0:
+                    linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
+                    penalty_terms["linear"] += linear_weight_vec @ x_slack
 
                 if quadratic_weight > 0:
                 # Create slack variables for uniformity
