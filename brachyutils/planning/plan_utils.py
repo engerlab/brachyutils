@@ -676,6 +676,7 @@ class BrachyPlan:
         self,
         phantom: BrachyPhantom,
         dvh_metric_goals: dict,
+        mask_type: Union[ROIContour, ROIMask] = ROIMask,
         strict_name_match: bool = True,
     ):
         r"""
@@ -704,9 +705,16 @@ class BrachyPlan:
                 if structure_name in key
             }
             dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
-        structure_masks: dict = phantom.get_structure_mask(
-            structure_names_in_dvh, ROIContour, strict_name_match=strict_name_match
-        )
+        if phantom.cached_structure_masks is not None:
+            structure_masks = deepcopy(phantom.cached_structure_masks)
+            for k in list(structure_masks.keys()):
+                if k not in structure_names_in_dvh:
+                    structure_masks.pop(k)
+        else:
+            structure_masks: dict = phantom.get_structure_mask(
+                structure_names_in_dvh, mask_type, strict_name_match=strict_name_match
+            )
+
         for structure_name in structure_masks.keys():
             structure_obj = BrachyStructure(
                 name=structure_name,
@@ -716,9 +724,16 @@ class BrachyPlan:
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
             self.structure_list.append(structure_obj)
-        self.body_contour = phantom.get_structure_mask(
-            ["body"], ROIContour, strict_name_match=False
-        ).get("body", None)
+        if phantom.cached_structure_masks is not None:
+            body_key = None
+            for k in phantom.cached_structure_masks.keys():
+                if k.lower() == "body":
+                    body_key = k
+            self.body_contour = phantom.cached_structure_masks.get(body_key, None)
+        else:
+            self.body_contour = phantom.get_structure_mask(
+                ["body"], ROIContour, strict_name_match=False
+            ).get("body", None)
 
     def load_applicator_list(
         self,
@@ -1632,7 +1647,7 @@ class BrachyPlan:
             )
             self.phantom.set_structure_set(
                 mask_dict={dwell_contour.name: dwell_contour},
-                mask_colors=[251, 159, 255]
+                mask_colors={dwell_contour.name:[251, 159, 255]}
                 )
 
     def _reset_optimization(self):
@@ -1767,7 +1782,7 @@ def load_dicom_to_plan(
     dose_dcm = []
     plan_dcm = []
     if load_dicom_dose:
-        dose_dcm = [dcm for dcm in all_dicom_files if "rd" in str(dcm.name).lower()]
+        dose_dcm = [dcm for dcm in all_dicom_files if str(dcm.name).lower().startswith("rd")]
     if load_dicom_plan:
         plan_dcm = [
             dcm for dcm in all_dicom_files if
