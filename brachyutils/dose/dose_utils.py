@@ -138,7 +138,7 @@ class BrachyDose:
         if self.interpolation_function is None and self.dose_image is not None:
             self.create_interpolation_function()
 
-    def write_brachydose_to_file(self, pth_dose_file: Path) -> None:
+    def write_brachydose_to_file(self, pth_dose_file: Path | str) -> None:
         r"""
         Purpose:
             - To write a brachy dose object to the given file path. this function will automatically
@@ -156,6 +156,7 @@ class BrachyDose:
         Output:
             - None := contents of self is written to "pth_dose_file"
         """
+        pth_dose_file = Path(pth_dose_file)
         file_extension = os.path.splitext(pth_dose_file)[-1]
 
         if file_extension == ".3ddose":

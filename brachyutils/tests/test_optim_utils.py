@@ -366,7 +366,7 @@ def test_hotspot_estimators():
         dir_nrrd_out="data_test/test_export_plan/prostate",
         dir_dicom_out="data_test/test_export_plan/prostate/dcm"
         )
-
+    plan_obj.combined_dose.write_brachydose_to_file("data_test/test_export_plan/prostate/p1_dose.seq.nrrd")
     # results = DataFrame(
     #     columns=[
     #         "solver", "status",
@@ -391,9 +391,9 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    test_run_gurobi_optim()
+    # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
     # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
-    # test_hotspot_estimators()
+    test_hotspot_estimators()
