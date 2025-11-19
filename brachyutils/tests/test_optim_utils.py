@@ -129,9 +129,9 @@ def test_run_gurobi_optim():
             dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
-            penalty_weight_uniformity=1,
-            # penalty_weight_hotspot=300,
-            # hotspot_threshold=1.5,
+            # penalty_weight_uniformity=1,
+            penalty_weight_hotspot=300,
+            hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=1),
         Optimization_Config(
@@ -188,7 +188,7 @@ def test_run_gurobi_optim():
         "mean(dwell_times)": optimized_plan.dwell_times.mean(),
         "std(dwell_times)": optimized_plan.dwell_times.std(),
         "solve_time": optim_obj.solve_time} | dvh_metrics
-    results.to_csv(dir_result_out.joinpath("U_gurobi.csv"))
+    results.to_csv(dir_result_out.joinpath("HS_gurobi.csv"))
     print(optimized_plan.dwell_times)
     # export phantom
     # plan_obj.phantom.export_to(
@@ -197,7 +197,7 @@ def test_run_gurobi_optim():
         # )
     # export optimized dose
     plan_obj.combined_dose.write_brachydose_to_file(
-        dir_result_out.joinpath("p1_Ugurobi.seq.nrrd")
+        dir_result_out.joinpath("p1_HSgurobi.seq.nrrd")
         )
 
     # optimized_plan.export_brachy_plan(
