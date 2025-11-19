@@ -414,7 +414,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 if uniformity_weight > 0:
                     y_uniform = model.addMVar(
                         shape=num_dose_points,
-                        lb=0.0,
+                        lb=-GRB.INFINITY,
                         ub=target_dose - min_dose,
                         name=f"uniform_slack_{structure.name}"
                     )
