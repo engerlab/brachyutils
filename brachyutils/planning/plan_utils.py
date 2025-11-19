@@ -676,7 +676,7 @@ class BrachyPlan:
         self,
         phantom: BrachyPhantom,
         dvh_metric_goals: dict,
-        mask_type: Union[ROIContour, ROIMask] = ROIMask,
+        mask_type: Union[ROIContour, ROIMask] = ROIContour,
         strict_name_match: bool = True,
     ):
         r"""
