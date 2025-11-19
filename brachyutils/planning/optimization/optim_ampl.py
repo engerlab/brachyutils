@@ -167,7 +167,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                 dwellTimeVariable_list.append(
                     DwellTime_AMPL(
                         model=self.model,
-                        name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
+                        name=f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}",
                         dwell_time=initial_dwell_time,
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
