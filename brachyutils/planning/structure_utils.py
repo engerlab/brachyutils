@@ -131,7 +131,12 @@ class BrachyStructure:
         assert isinstance(
             combined_dose, BrachyDose
         ), "combined dose is not a BrachyDose object"
-        self.dvh_obj = DVH(self.mask, combined_dose.dose_image, prescription=prescription_dose)
+        self.dvh_obj = DVH(
+            self.mask,
+            combined_dose.dose_image,
+            prescription=prescription_dose,
+            maxDVH=combined_dose.dose_image.imageArray.max(),
+            )
         self.dvh_metrics_observed = {}
 
         for dvh_metric_name in self.dvh_metric_goals.keys():
