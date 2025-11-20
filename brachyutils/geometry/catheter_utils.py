@@ -190,23 +190,29 @@ class Catheter(BaseModel):
         - **data: dict := the dictionary containing the catheter attributes.
         """
         super().__init__(**data)
-
         # Set afterloader_channel_number to index if not provided
         if self.afterloader_channel_number is None:
             self.afterloader_channel_number = self.index
 
+        tip_pos_and_last_dwell_provided = (self.tip_position is not None and
+                                                    self.last_dwell_coordinate is not None)
+
         # Initialize dwells based on available inputs
-        if self.dwells:
+        if self.dwells is not None:
+
             # Convert dict dwells to DwellPosition objects if needed
-            if isinstance(self.dwells[0], dict):
-                self.dwells = [DwellPosition(**dwell) for dwell in self.dwells]
+            # Catheters could be empty if masked to be inside PTV for instance
+            if len(self.dwells) > 0:
+                if isinstance(self.dwells[0], dict):
+                    self.dwells = [DwellPosition(**dwell) for dwell in self.dwells]
+                                
         elif self.fit_function is not None:
             # Create dwells from fit function
             self.dwells = self.get_dwells_from_fit(
                 fit_function=self.fit_function,
                 step_size=self.step_size,
             )
-        elif self.points:
+        elif self.points is not None:
             # Create fit and dwells from points
             self.fit_function = self.get_fit_from_points(points=self.points)
             self.dwells = self.get_dwells_from_fit(
@@ -227,11 +233,10 @@ class Catheter(BaseModel):
             tip and last dwell coordinate coordinates to create a catheter.""")
 
         # Set tip_position and last_dwell_coordinate from dwells
-        if self.dwells and len(self.dwells) > 0:
-            self.tip_position = self.dwells[0].position
-            self.last_dwell_coordinate = self.dwells[-1].position
-        else:
-            raise ValueError("No dwell positions found in the catheter. Please provide valid dwells.")
+        if not tip_pos_and_last_dwell_provided:
+            if self.dwells is not None and len(self.dwells) > 0:
+                self.tip_position = self.dwells[0].position
+                self.last_dwell_coordinate = self.dwells[-1].position
 
     def to_dict(self, total_time=None) -> dict:
         r"""
