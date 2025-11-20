@@ -174,12 +174,6 @@ class BrachyStructure:
             elif metric_string.startswith("CI"):
                 if body_contour is None:
                     raise ValueError("body_contour should be defined to compute the conformity index")
-                elif isinstance(body_contour, ROIMask):
-                    assert np.allclose(body_contour.gridSize, combined_dose.dose_image.gridSize), \
-                    f"body contour grid size does not match dose grid size, {body_contour.gridSize} vs {combined_dose.dose_image.gridSize}"
-                else:
-                    # body contour is ROIContour, it's good to go
-                    pass
                 self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformityIndex(body_contour)
             else:
                 raise ValueError(
