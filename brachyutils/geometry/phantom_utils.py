@@ -913,9 +913,9 @@ class BrachyPhantom:
                 new_color = old_color
             else:
                 new_color = structure_color
-            if not np.array_equal(mask.spacing, self.image_obj.spacing) or \
-                not np.array_equal(mask.origin, self.image_obj.origin) or \
-                not np.array_equal(mask.gridSize, self.image_obj.gridSize):
+            if not np.allclose(mask.spacing, self.image_obj.spacing) or \
+                not np.allclose(mask.origin, self.image_obj.origin) or \
+                not np.allclose(mask.gridSize, self.image_obj.gridSize):
                 new_structure_dict[struc] = resampleImage3DOnImage3D(
                     mask,
                     self.image_obj,
@@ -1076,17 +1076,18 @@ class BrachyPhantom:
         assert len(self.structure_set) > 0 or len(self.cached_structure_masks) > 0, (
             "No structures to rename. Please load the structures first."
         )
-        if len(self.cached_structure_masks) > 0:
-            new_cached_structure_masks = {}
-            for old_name, new_name in structure_name_dict.items():
-                if old_name in self.cached_structure_masks:
-                    if new_name == "REMOVE":
-                        continue
-                    new_cached_structure_masks[new_name] = self.cached_structure_masks[old_name]
-                else:
-                    warnings.warn(f"The structure {old_name} does not exist in the cached masks.")
-            self.cached_structure_masks = new_cached_structure_masks
-            
+        if self.cached_structure_masks is not None:
+            if len(self.cached_structure_masks) > 0:
+                new_cached_structure_masks = {}
+                for old_name, new_name in structure_name_dict.items():
+                    if old_name in self.cached_structure_masks:
+                        if new_name == "REMOVE":
+                            continue
+                        new_cached_structure_masks[new_name] = self.cached_structure_masks[old_name]
+                    else:
+                        warnings.warn(f"The structure {old_name} does not exist in the cached masks.")
+                self.cached_structure_masks = new_cached_structure_masks
+
         if len(self.structure_set) > 0:
             for old_name, new_name in structure_name_dict.items():
                 if new_name == "REMOVE":
@@ -1223,12 +1224,21 @@ class BrachyPhantom:
         """
         assert self.image_obj is not None, "No image object to get the volume from."
         assert self.structure_set is not None, "No structure set to get the volume from."
-        mask_dict = self.get_structure_mask(structure_names, mask_type=ROIMask)
-        volume_dict = {}
-        for name, mask in mask_dict.items():
-            assert mask is not None, f"No mask found for structure {name}."
-            volume_dict[name] = mask.getVolume()/1000 # convert to cm^3
-        return volume_dict
+        if self.cached_structure_masks is not None:
+            if len(self.cached_structure_masks) > 0:
+                volume_dict = {}
+                for name in structure_names:
+                    mask = self.cached_structure_masks.get(name)
+                    assert mask is not None, f"No mask found for structure {name}. In your dict you have {list(self.cached_structure_masks.keys())}"
+                    volume_dict[name] = mask.getVolume()/1000 # convert to cm^3
+                return volume_dict
+        else:
+            mask_dict = self.get_structure_mask(structure_names, mask_type=ROIMask)
+            volume_dict = {}
+            for name, mask in mask_dict.items():
+                assert mask is not None, f"No mask found for structure {name}."
+                volume_dict[name] = mask.getVolume()/1000 # convert to cm^3
+            return volume_dict
 
 # helper functions
 def phantom_with_empty_image_like(
@@ -1616,7 +1626,7 @@ def _getExtentOfMask(mask: np.array) -> List[int]:
     Outputs:
         - extent: List[int] := the extent of the mask in [xmin, xmax, ymin, ymax, zmin, zmax]
     """
-    ones = np.where(mask == True)
+    ones = np.where(mask.astype(bool) == True)
     boxInVoxel = [np.min(ones[2]), np.max(ones[2]),
                 np.min(ones[1]), np.max(ones[1]),
                 np.min(ones[0]), np.max(ones[0])]
