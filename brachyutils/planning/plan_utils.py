@@ -1218,7 +1218,7 @@ class BrachyPlan:
         """
         file_path = dir_export + "/catheter_table.json"
         with open(file_path, "w") as file:
-            json.dump(self.catheter_table.to_dict(), file, indent=4)
+            json.dump(self.catheter_table.to_dict(), file, indent=4, default=convert_numpy)
 
     def _export_plan_file(
         self,
@@ -1745,6 +1745,17 @@ def _load_single_dose_or_uncertainty_to_dict(
 
     return dose_or_uncert_map
 
+
+def convert_numpy(obj):
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        raise TypeError(f"Type {type(obj)} not serializable")
+    
 
 def _type_nested_dict_list(data):
 
