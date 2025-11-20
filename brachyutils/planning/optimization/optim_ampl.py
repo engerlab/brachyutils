@@ -316,58 +316,68 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
             # Define structure-specific parameters
             model.eval(f"param target_dose_{struct_id} := {target_dose};")
             model.eval(f"param min_dose_{struct_id} := {min_dose};")
-
+            # Set up constraints and objective terms based on structure type
             if structure.target_volume:
-                # Create structure-specific slack variables for underdosing
-                model.eval(f"var x_slack_{struct_id} {{D_{struct_id}}} >= 0 <= target_dose_{struct_id} - min_dose_{struct_id};")
-                # For uniformity
-                model.eval(f"var y_slack_{struct_id} {{D_{struct_id}}} >= -Infinity <= target_dose_{struct_id} - min_dose_{struct_id};")
-
+                if linear_weight > 0 or quadratic_weight > 0:
+                    # Create structure-specific slack variables for underdosing
+                    model.eval(f"var x_slack_{struct_id} {{D_{struct_id}}} >= 0 <= target_dose_{struct_id} - min_dose_{struct_id};")
                 # Create structure-specific constraints
-                model.eval(
-                    f"""
-                    subject to dose_constraint_{struct_id} {{i in D_{struct_id}}}:
-                        sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] + x_slack_{struct_id}[i] >= target_dose_{struct_id};
-                    """)
-                model.eval(
-                    f"""
-                    subject to uniformity_constraint_{struct_id} {{i in D_{struct_id}}}:
-                        sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] + y_slack_{struct_id}[i] = target_dose_{struct_id};
-                    """)
+                    model.eval(
+                        f"""
+                        subject to dose_constraint_{struct_id} {{i in D_{struct_id}}}:
+                            sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] + x_slack_{struct_id}[i] >= target_dose_{struct_id};
+                        """)
+                if linear_weight > 0:
+                    # Add penalty terms to objective
+                    linear_term = f"({linear_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]"
+                    objective_terms.extend([linear_term])
+                if quadratic_weight > 0:
+                    quadratic_term = f"({quadratic_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]^2"
+                    objective_terms.extend([quadratic_term])
+                if uniformity_weight > 0:
+                    # slack variable for uniformity
+                    model.eval(f"var y_slack_{struct_id} {{D_{struct_id}}} >= 0 <= target_dose_{struct_id} - min_dose_{struct_id};")
 
-                # Add penalty terms to objective
-                linear_term = f"({linear_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]"
-                quadratic_term = f"({quadratic_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]^2"
-                uniformity_term = f"({uniformity_weight / (num_dose_points * 1000)}) * sum{{i in D_{struct_id}}} y_slack_{struct_id}[i]^2"
-                objective_terms.extend([linear_term, quadratic_term, uniformity_term])
+                    model.eval(
+                        f"""
+                        subject to uniformity_constraint_{struct_id} {{i in D_{struct_id}}}:
+                            sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] - y_slack_{struct_id}[i] = target_dose_{struct_id};
+                        """)
+                    uniformity_term = f"({uniformity_weight / (num_dose_points * 1000)}) * sum{{i in D_{struct_id}}} y_slack_{struct_id}[i]^2"
+                    objective_terms.extend([uniformity_term])
                 
             elif "hotspot_estimator:" in structure.name.lower():
-                # slack variable for hotspot estimator
-                model.eval(f"var x_slack_{struct_id} {{{{D_{struct_id}}}}} >= 0 <= {hotspot_threshold} * target_dose_{struct_id} - min_dose_{struct_id};")
+                # Scalar slack variable for hotspot estimator
+                model.eval(f"var x_slack_{struct_id} >= 0 <= {hotspot_threshold} * target_dose_{struct_id} - min_dose_{struct_id};")
+                
+                # Single constraint: average dose across all points minus slack
                 model.eval(
                     f"""
-                    subject to hotspot_constraint_{struct_id} {{i in D_{struct_id}}}:
-                        sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] - x_slack_{struct_id}[i] <= {hotspot_threshold} * target_dose_{struct_id};
+                    subject to hotspot_constraint_{struct_id}:
+                        (sum{{i in D_{struct_id}, j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j]) / card(D_{struct_id}) - x_slack_{struct_id} <= {hotspot_threshold} * target_dose_{struct_id};
                     """)
                 
-                # Add hotspot penalty term
-                hotspot_term = f"({hotspot_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]"
-                objective_terms.append(hotspot_term)
-                
+                # Add hotspot penalty term (no summation needed - scalar variable)
+                hotspot_term = f"{hotspot_weight} * x_slack_{struct_id}"
+                objective_terms.extend([hotspot_term])
+
             else:
                 # OAR (Organ at Risk) constraints and penalties
-                model.eval(f"param structure_max_dose_{struct_id} := {structure_max_dose};")
-                model.eval(f"var x_slack_{struct_id} {{{{D_{struct_id}}}}} >= 0 <= structure_max_dose_{struct_id} - target_dose_{struct_id};")
-                model.eval(
-                    f"""
-                    subject to oar_constraint_{struct_id} {{i in D_{struct_id}}}:
-                        sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] - x_slack_{struct_id}[i] <= target_dose_{struct_id};
-                    """)
-                
-                # Add OAR penalty terms
-                linear_term = f"({linear_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]"
-                quadratic_term = f"({quadratic_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]^2"
-                objective_terms.extend([linear_term, quadratic_term])
+                if linear_weight >0 or quadratic_weight >0:
+                    
+                    model.eval(f"param structure_max_dose_{struct_id} := {structure_max_dose};")
+                    model.eval(f"var x_slack_{struct_id} {{{{D_{struct_id}}}}} >= 0 <= structure_max_dose_{struct_id} - target_dose_{struct_id};")
+                    model.eval(
+                        f"""
+                        subject to oar_constraint_{struct_id} {{i in D_{struct_id}}}:
+                            sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] - x_slack_{struct_id}[i] <= target_dose_{struct_id};
+                        """)
+                if linear_weight > 0:
+                    linear_term = f"({linear_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]"
+                    objective_terms.extend([linear_term])
+                if quadratic_weight > 0:
+                    quadratic_term = f"({quadratic_weight / num_dose_points}) * sum{{i in D_{struct_id}}} x_slack_{struct_id}[i]^2"
+                    objective_terms.extend([quadratic_term])
 
         # Create the combined objective function once all structures are processed
         if objective_terms:

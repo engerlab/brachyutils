@@ -130,24 +130,24 @@ def test_run_gurobi_optim():
             penalty_weight_linear=300,
             # penalty_weight_quadratic=1,
             # penalty_weight_uniformity=1,
-            penalty_weight_hotspot=100,
-            hotspot_threshold=1.5,
+            # penalty_weight_hotspot=100,
+            # hotspot_threshold=1.5,
             mask_margin_mm=0,
-            spacing_mm=5),
+            spacing_mm=3),
         Optimization_Config(
             structure_name="URETHRA",
             dose_voxel_goal=0,
-            penalty_weight_linear=50,
+            penalty_weight_linear=1,
             # penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=5),
+            spacing_mm=1),
         Optimization_Config(
             structure_name="RECTUM",
             dose_voxel_goal=0,
-            penalty_weight_linear=10,
+            penalty_weight_linear=1,
             # penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=5)
+            spacing_mm=3)
     ]
 
     solver = "gurobi"
@@ -188,7 +188,7 @@ def test_run_gurobi_optim():
         "mean(dwell_times)": optimized_plan.dwell_times.mean(),
         "std(dwell_times)": optimized_plan.dwell_times.std(),
         "solve_time": optim_obj.solve_time} | dvh_metrics
-    results.to_csv(dir_result_out.joinpath("HS_gurobi.csv"))
+    results.to_csv(dir_result_out.joinpath("gurobi_lin.csv"))
     print(optimized_plan.dwell_times)
     # export phantom
     # plan_obj.phantom.export_to(
@@ -196,9 +196,9 @@ def test_run_gurobi_optim():
         # dir_dicom_out=dir_result_out.joinpath("dcm")
         # )
     # export optimized dose
-    plan_obj.combined_dose.write_brachydose_to_file(
-        dir_result_out.joinpath("p1_HSgurobi.seq.nrrd")
-        )
+    # plan_obj.combined_dose.write_brachydose_to_file(
+    #     dir_result_out.joinpath("p1_HSgurobi.seq.nrrd")
+    #     )
 
     # optimized_plan.export_brachy_plan(
     #     dir_export="data_test/test_export_plan/prostate",
@@ -238,14 +238,44 @@ def test_dwellTime_AMPL():
 def test_run_ampl_optim():
     from brachyutils.planning.optimization.optim_ampl import BrachyOptim_AMPL
     from pandas import DataFrame
-
-    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
-
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    dir_dose_rates = "data_test/prostate-glen-p1-dose"
+    dir_result_out = Path("data_test/test_export_plan/prostate")
+    # for debugging on server
+    # pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p12")
+    # dir_dose_rates = Path("temp_data/tg43/optimization/p12") # for tg43
+    target_dose = 21
+    optimization_config_list=[
+        Optimization_Config(
+            structure_name="CTV",
+            dose_voxel_goal=target_dose,
+            penalty_weight_linear=300,
+            # penalty_weight_quadratic=1,
+            # penalty_weight_uniformity=1,
+            # penalty_weight_hotspot=100,
+            # hotspot_threshold=1.5,
+            mask_margin_mm=0,
+            spacing_mm=3),
+        Optimization_Config(
+            structure_name="URETHRA",
+            dose_voxel_goal=0,
+            penalty_weight_linear=1,
+            # penalty_weight_quadratic=1,
+            mask_margin_mm=0,
+            spacing_mm=1),
+        Optimization_Config(
+            structure_name="RECTUM",
+            dose_voxel_goal=0,
+            penalty_weight_linear=1,
+            # penalty_weight_quadratic=1,
+            mask_margin_mm=0,
+            spacing_mm=3)
+    ]
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
         dir_dose_rates=dir_dose_rates,
         generate_dose_rates=False,
+        optimization_config_list=optimization_config_list,
     )
     
     results = DataFrame(
@@ -275,7 +305,7 @@ def test_run_ampl_optim():
         # except Exception as e:
         #     # raise e
         #     continue
-    results.to_csv("data_test/test_export_plan/prostate/solvers_linObj_ampl.csv")
+    results.to_csv("data_test/test_export_plan/prostate/ampl_lin.csv")
     # results.to_csv("data_test/test_export_plan/prostate/solvers_quadObj.csv")
 
 def test_dwelltime_orTools():
