@@ -702,6 +702,8 @@ class BrachyDose:
             writes [3D dose, 3D uncertainty], voxel size, origin (origin_coordinates), and metadata to the file_name_dose.nrrd
         """
         # check if the directory exists, if not create it. make sure the file extension is write.
+        if isinstance(pth_output, str):
+            pth_output = Path(pth_output)
         Path.mkdir(pth_output.parent, exist_ok=True)
         assert (
             str(pth_output).endswith(".nrrd")
