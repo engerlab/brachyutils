@@ -249,37 +249,38 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
             if structure.target_volume:
                 for i in range(num_dose_points):
                     # Linear penalty for underdosing
-                    x_slack = model.add_variable(
-                        lb=0.0,
-                        ub=target_dose-min_dose,
-                        name=f"{structure.name}_slack_{i}",
-                        is_integer=False)
-                    # quadratic penalty for uniformity
-                    y_slack = model.add_variable(
-                        lb=0.0,
-                        ub=target_dose - min_dose,
-                        name=f"{structure.name}_uniformity_slack_{i}",
-                        is_integer=False
-                    )
-
-                    # add linear constraint for underdosing
-                    model.add_linear_constraint(
-                        sum(
-                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
-                        ) + x_slack >= target_dose
-                    )
+                    if linear_weight > 0 or quadratic_weight > 0:
+                        x_slack = model.add_variable(
+                            lb=0.0,
+                            ub=target_dose-min_dose,
+                            name=f"{structure.name}_slack_{i}",
+                            is_integer=False)
+                        # add linear constraint for underdosing
+                        model.add_linear_constraint(
+                            sum(
+                                A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
+                            ) + x_slack >= target_dose
+                        )
                     
-                    # linear constarint for uniformity
-                    model.add_linear_constraint(
-                        sum(
-                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
-                        ) + y_slack == target_dose
-                    )
-
-                    # Add penalties to the objective function
-                    penalty_terms["linear"] += (linear_weight/num_dose_points) * x_slack
-                    penalty_terms["uniformity"] += (uniformity_weight/(num_dose_points*1000)) * y_slack * y_slack
-                    penalty_terms["quadratic"] += (quadratic_weight/num_dose_points) * x_slack * x_slack
+                    if linear_weight > 0:
+                        penalty_terms["linear"] += (linear_weight/num_dose_points) * x_slack                        
+                    if quadratic_weight > 0:
+                        penalty_terms["quadratic"] += (quadratic_weight/num_dose_points) * x_slack * x_slack
+                    if uniformity_weight > 0:
+                        y_slack = model.add_variable(
+                            lb=0.0,
+                            ub=target_dose - min_dose,
+                            name=f"{structure.name}_uniformity_slack_{i}",
+                            is_integer=False
+                        )
+                        # linear constarint for uniformity
+                        model.add_linear_constraint(
+                            sum(
+                                A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
+                            ) + y_slack == target_dose
+                        )
+                        # Add penalties to the objective function
+                        penalty_terms["uniformity"] += (uniformity_weight/(num_dose_points*1000)) * y_slack * y_slack
 
             elif "hotspot_estimator:" in structure.name.lower():
                 for i in range(num_dose_points):
@@ -291,27 +292,30 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                     )
                     model.add_linear_constraint(
                         sum(
-                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
+                            sum(A[i, j] * dwell_vars[j] for j in range(len(dwell_vars)))/num_dose_points
                         ) - x_slack <= hotspot_threshold * target_dose
                     )
                     penalty_terms["hotspot"] += hotspot_weight/num_dose_points * x_slack
             else:
                 for i in range(num_dose_points):
                     # Linear penalty for overdosing
-                    x_slack = model.add_variable(
-                        lb=0.0,
-                        ub=structure_max_dose - target_dose,
-                        name=f"{structure.name}_slack_{i}",
-                        is_integer=False)
-                    # add the linear constraint
-                    model.add_linear_constraint(
-                        sum(
-                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
-                        ) - x_slack <= target_dose
-                    )
-                    # Add penalties to the objective function
-                    penalty_terms["linear"] += linear_weight/num_dose_points * x_slack
-                    penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack * x_slack
+                    if linear_weight > 0 or quadratic_weight > 0:
+                        x_slack = model.add_variable(
+                            lb=0.0,
+                            ub=structure_max_dose - target_dose,
+                            name=f"{structure.name}_slack_{i}",
+                            is_integer=False)
+                        # add the linear constraint
+                        model.add_linear_constraint(
+                            sum(
+                                A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
+                            ) - x_slack <= target_dose
+                        )
+                    if linear_weight > 0:
+                        # Add penalties to the objective function
+                        penalty_terms["linear"] += linear_weight/num_dose_points * x_slack
+                    if quadratic_weight > 0:
+                        penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack * x_slack
         # Set the objective function
         model.minimize(
             penalty_terms["linear"] +

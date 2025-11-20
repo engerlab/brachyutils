@@ -327,22 +327,53 @@ def test_dwelltime_orTools():
 
 def test_run_ortool_optim():
     from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
-    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
-
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    dir_dose_rates = "data_test/prostate-glen-p1-dose"
+    dir_result_out = Path("data_test/test_export_plan/prostate")
+    # for debugging on server
+    # pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p12")
+    # dir_dose_rates = Path("temp_data/tg43/optimization/p12") # for tg43
+    target_dose = 21
+    optimization_config_list=[
+        Optimization_Config(
+            structure_name="CTV",
+            dose_voxel_goal=target_dose,
+            penalty_weight_linear=300,
+            # penalty_weight_quadratic=1,
+            # penalty_weight_uniformity=1,
+            # penalty_weight_hotspot=100,
+            # hotspot_threshold=1.5,
+            mask_margin_mm=0,
+            spacing_mm=3),
+        Optimization_Config(
+            structure_name="URETHRA",
+            dose_voxel_goal=0,
+            penalty_weight_linear=1,
+            # penalty_weight_quadratic=1,
+            mask_margin_mm=0,
+            spacing_mm=1),
+        Optimization_Config(
+            structure_name="RECTUM",
+            dose_voxel_goal=0,
+            penalty_weight_linear=1,
+            # penalty_weight_quadratic=1,
+            mask_margin_mm=0,
+            spacing_mm=3)
+    ]
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
         dir_dose_rates=dir_dose_rates,
         generate_dose_rates=False,
+        optimization_config_list=optimization_config_list,
     )
-    
+
     results = DataFrame(
         columns=[
             "solver", "status",
             "mean(dwell_times)", "std(dwell_times)",
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
-    for solver in ["GLPK"]: #["GLOP", "PDLP","GSCIP", "GLPK"]:
+    for solver in ["GLOP"]: #["GLOP", "PDLP","GSCIP", "GLPK"]:
         # try:
         optim_obj = BrachyOptim_ORTools(plan=plan_obj, solver=solver)
         optimized_plan = optim_obj.get_optimized_plan_from_model(solver=solver, inplace=False)
@@ -356,7 +387,7 @@ def test_run_ortool_optim():
         # except Exception as e:
         #     # raise e
         #     continue
-        results.to_csv("data_test/test_export_plan/prostate/solvers_linObj_ortools.csv")
+        results.to_csv(dir_result_out.joinpath("ortools_lin.csv"))
         # except:
         #     print(f"Solver {solver} failed.")
         #     results.loc[len(results)] = {
@@ -446,9 +477,9 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    test_run_gurobi_optim()
+    # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
     # test_run_ampl_optim()
     # test_dwelltime_orTools()
-    # test_run_ortool_optim()
+    test_run_ortool_optim()
     # test_hotspot_estimators()
