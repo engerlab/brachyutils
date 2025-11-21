@@ -127,25 +127,25 @@ def test_run_gurobi_optim():
         Optimization_Config(
             structure_name="CTV",
             dose_voxel_goal=target_dose,
-            penalty_weight_linear=300,
-            # penalty_weight_quadratic=1,
+            penalty_weight_linear=1000,
+            penalty_weight_quadratic=1,
             # penalty_weight_uniformity=1,
-            # penalty_weight_hotspot=100,
-            # hotspot_threshold=1.5,
+            penalty_weight_hotspot=100,
+            hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
             structure_name="URETHRA",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            # penalty_weight_quadratic=1,
+            penalty_weight_quadratic=1,
             mask_margin_mm=0,
             spacing_mm=1),
         Optimization_Config(
             structure_name="RECTUM",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            # penalty_weight_quadratic=1,
+            penalty_weight_quadratic=1,
             mask_margin_mm=0,
             spacing_mm=3)
     ]
@@ -188,7 +188,7 @@ def test_run_gurobi_optim():
         "mean(dwell_times)": optimized_plan.dwell_times.mean(),
         "std(dwell_times)": optimized_plan.dwell_times.std(),
         "solve_time": optim_obj.solve_time} | dvh_metrics
-    results.to_csv(dir_result_out.joinpath("gurobi_lin.csv"))
+    results.to_csv(dir_result_out.joinpath("gurobi_full.csv"))
     print(optimized_plan.dwell_times)
     # export phantom
     # plan_obj.phantom.export_to(
@@ -414,26 +414,24 @@ def test_hotspot_estimators():
             structure_name="CTV",
             dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
-            # penalty_weight_quadratic=1,
+            penalty_weight_quadratic=1,
             # penalty_weight_uniformity=0,
-            # penalty_weight_hotspot=1,
-            # hotspot_threshold=1.5,
+            penalty_weight_hotspot=100,
+            hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
             structure_name="URETHRA",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            # penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=0,
+            penalty_weight_quadratic=1,
             mask_margin_mm=0,
             spacing_mm=1),
         Optimization_Config(
             structure_name="RECTUM",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            # penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=0,
+            penalty_weight_quadratic=1,
             mask_margin_mm=0,
             spacing_mm=3)
     ]
@@ -477,9 +475,9 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
     # test_run_ampl_optim()
     # test_dwelltime_orTools()
-    test_run_ortool_optim()
+    # test_run_ortool_optim()
     # test_hotspot_estimators()
