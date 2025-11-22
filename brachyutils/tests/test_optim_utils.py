@@ -20,12 +20,13 @@ def get_a_plan_to_optimize(
     target_dose = 21
     dvh_metric_goals = {
         "D90%(CTV)": target_dose,
-        "D1cc(RECTUM)": target_dose * 0.75,
-        "D0.1cc(URETHRA)": target_dose * 1.25,
+        "D2cc(RECTUM)": target_dose * 0.75,
+        "D10%(URETHRA)": target_dose * 1.133,
+        "D30%(URETHRA)": target_dose,
         "CI(CTV)": 1.0,
         "HI(CTV)": 0.5,
-        "V200%(CTV)": 0.0,
-        "V150%(CTV)": 0.0,
+        "V200%(CTV)": target_dose * 0.2,
+        "V150%(CTV)": target_dose * 0.4,
         "V100%(CTV)": 100.0,
     }
 
@@ -126,24 +127,24 @@ def test_run_gurobi_optim():
     optimization_config_list=[
         Optimization_Config(
             structure_name="CTV",
-            dose_voxel_goal=target_dose,
-            penalty_weight_linear=1000,
+            dose_voxel_goal=target_dose*1.15,
+            penalty_weight_linear=300,
             penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=1,
-            penalty_weight_hotspot=100,
-            hotspot_threshold=1.5,
+            penalty_weight_uniformity=1,
+            # penalty_weight_hotspot=100,
+            # hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
             structure_name="URETHRA",
-            dose_voxel_goal=0,
+            dose_voxel_goal=0,#target_dose * 1.1,
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=1),
+            spacing_mm=3),
         Optimization_Config(
             structure_name="RECTUM",
-            dose_voxel_goal=0,
+            dose_voxel_goal=0,#target_dose * 0.75,
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             mask_margin_mm=0,
