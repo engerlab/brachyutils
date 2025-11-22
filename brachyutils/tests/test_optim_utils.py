@@ -127,7 +127,7 @@ def test_run_gurobi_optim():
     optimization_config_list=[
         Optimization_Config(
             structure_name="CTV",
-            dose_voxel_goal=target_dose*1.15,
+            dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
             penalty_weight_uniformity=1,
