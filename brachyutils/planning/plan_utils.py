@@ -237,7 +237,7 @@ class BrachyPlan:
                             )
                         self.catheter_table.remove_outside_mask(
                             mask=mask,
-                            margin_mm=10.0,
+                            margin_mm=5.0,
                         )
 
             self.update_plan_from_catheter_table()
