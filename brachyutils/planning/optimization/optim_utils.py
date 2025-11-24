@@ -22,7 +22,7 @@ def crop_resample_dose_rate_map_and_mask(
     optim_spacing: List[float], 
     sitk_interpolator_dose=sitk.sitkLinear,
     sitk_interpolator_contour=sitk.sitkLinear, 
-    shift_origin: bool = False
+    shift_origin: bool = True
     ) -> Tuple[BrachyDose, ROIMask]:
     r"""
     ### Purpose:
@@ -82,7 +82,15 @@ def crop_resample_dose_rate_map_and_mask(
         )
     return dose_rate_obj, structure_mask
 
-def process_variable(variable, structure_name, structure_mask, plan, optim_spacing, roi_bounds, shift_origin:bool=False):
+def process_variable(
+    variable,
+    structure_name,
+    structure_mask,
+    plan,
+    optim_spacing,
+    roi_bounds,
+    shift_origin:bool=True
+    ):
 
     if "hotspot_estimator:" in structure_name.lower():
         relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
