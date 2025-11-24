@@ -1647,6 +1647,7 @@ class BrachyPlan:
                     + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
                     ),
             )
+            config.structure_name = dwell_contour.name
             self.structure_list.append(
                 BrachyStructure(
                     name=dwell_contour.name,
