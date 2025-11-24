@@ -492,7 +492,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
             for catheter in outplan.catheter_table:
                 for dwell_position in catheter.dwells:
                     if (
-                        f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                        f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
                         == variable.name
                     ):
                         dwell_position.time = variable.dwell_time

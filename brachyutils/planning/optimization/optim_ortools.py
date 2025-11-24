@@ -128,7 +128,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                 dwellTimeVariable_list.append(
                     DwellTime_ORTools(
                         model=self.model,
-                        name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
+                        name=f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}",
                         dwell_time=initial_dwell_time,
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
@@ -388,7 +388,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
             for catheter in outplan.catheter_table:
                 for dwell_position in catheter.dwells:
                     if (
-                        f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                        f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
                         == variable.name
                     ):
                         dwell_position.time = variable.dwell_time        
