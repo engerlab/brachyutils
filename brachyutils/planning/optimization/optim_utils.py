@@ -46,7 +46,6 @@ def crop_resample_dose_rate_map_and_mask(
     # create a dose object from the dose_rate_map tensor.
     # The coordinates of the dose object is the same as the combined_dose in the plan.
     dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
-    # XXX the max sometimes changes here!
     dose_rate_obj.set_dose_array(dose_rate_map)
     # apply the optimization roi bounds to the dose rate image
 
@@ -197,7 +196,7 @@ class BrachyDwellTime(BaseModel, ABC):
     
     name: str = Field(
         pattern=r"catheter_\d+_dwell_\d+",
-        description="Name of the DwellTimeVariable in the format catheter_{catheter_number}_dwell_{dwell_position_number}")
+        description="Name of the DwellTimeVariable in the format catheter_{catheter_number+1}_dwell_{dwell_position_number+1}")
     dwell_time: float = Field(ge=0, description="Initial dwell time of the DwellTimeVariable in seconds.")
     lower_bound: float = Field(ge=0, description="Lower bound of the DwellTimeVariable in seconds.")
     upper_bound: float = Field(ge=0, description="Upper bound of the DwellTimeVariable in seconds.")
