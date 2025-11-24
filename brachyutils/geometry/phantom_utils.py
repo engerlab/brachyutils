@@ -1155,7 +1155,7 @@ class BrachyPhantom:
         inplace:bool=True,
         gridSize:np.array=None,
         interpolator_img=sitk.sitkLinear, 
-        interpolator_contours=sitk.sitkLinear) -> "BrachyPhantom":
+        interpolator_contours=sitk.sitkNearestNeighbor) -> "BrachyPhantom":
         r"""
         ### Purpose:
             - resample the phantom to a new origin and spacing.
