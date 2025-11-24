@@ -100,7 +100,9 @@ class BrachyPlan:
         simulation_setup: dict | Path | str = None,
         #### for optimization setup:
         optimization_config_list:  List[Optimization_Config] | Path | str = None,
+        **kwargs
     ):
+        # XXX: add kwargs to handle future inputs without breaking the code
         r"""
         ### Purpose:
         - To initialize the BrachyPlan object.
@@ -227,8 +229,20 @@ class BrachyPlan:
                 raise ValueError(
                     "catheter_table should be a path or a CatheterTable object"
                 )
-            # if delivered_catheter_table:
-            #     self.catheter_table = self.catheter_table.get_delivered_catheter_table()
+            if kwargs.get("dwells_near_ptv", False):
+                for structure in self.structure_list:
+                    if structure.is_target:
+                        if isinstance(structure.mask, ROIContour):
+                            mask = structure.mask.getBinaryMask(
+                                origin=self.phantom.image_obj.origin,
+                                gridSize=self.phantom.image_obj.gridSize,
+                                spacing=self.phantom.image_obj.spacing,
+                            )
+                        self.catheter_table.remove_outside_mask(
+                            mask=mask,
+                            margin_mm=10.0,
+                        )
+
             self.update_plan_from_catheter_table()
 
         # load the dose rate tensor if the path is provided
