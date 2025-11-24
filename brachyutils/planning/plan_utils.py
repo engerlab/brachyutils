@@ -228,7 +228,7 @@ class BrachyPlan:
                 )
             if kwargs.get("dwells_near_ptv", False):
                 for structure in self.structure_list:
-                    if structure.is_target:
+                    if structure.target_volume:
                         if isinstance(structure.mask, ROIContour):
                             mask = structure.mask.getBinaryMask(
                                 origin=self.phantom.image_obj.origin,

@@ -38,7 +38,9 @@ def get_a_plan_to_optimize(
         multi_processing=True,
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
-        optimization_config_list=optimization_config_list)
+        optimization_config_list=optimization_config_list,
+        dwells_near_ptv=True,
+        )
 
     if generate_dose_rates:
         from brachyutils import DoseTG43
@@ -131,8 +133,8 @@ def test_run_gurobi_optim():
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
             penalty_weight_uniformity=1,
-            penalty_weight_hotspot=1,
-            hotspot_threshold=1.5,
+            # penalty_weight_hotspot=1,
+            # hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -189,7 +191,7 @@ def test_run_gurobi_optim():
         "mean(dwell_times)": optimized_plan.dwell_times.mean(),
         "std(dwell_times)": optimized_plan.dwell_times.std(),
         "solve_time": optim_obj.solve_time} | dvh_metrics
-    results.to_csv(dir_result_out.joinpath("gurobi_hs_pairs.csv"))
+    results.to_csv(dir_result_out.joinpath("gurobi_noHS.csv"))
     print(optimized_plan.dwell_times)
     # export phantom
     # plan_obj.phantom.export_to(
