@@ -143,7 +143,7 @@ def _get_optimized_plan_from_model(
         for catheter in outplan.catheter_table:
             for dwell_position in catheter.dwells:
                 if (
-                    f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                    f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
                     == name
                 ):
                     dwell_position.time = dwell_time
