@@ -102,7 +102,6 @@ class BrachyPlan:
         optimization_config_list:  List[Optimization_Config] | Path | str = None,
         **kwargs
     ):
-        # XXX: add kwargs to handle future inputs without breaking the code
         r"""
         ### Purpose:
         - To initialize the BrachyPlan object.
@@ -133,18 +132,16 @@ class BrachyPlan:
         - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
+        #### Keywords Arguments:
+        - dwells_near_ptv: bool = False := if True, will remove the dwell positions that are outside PTV
+        with a margine of 10 mm.
+        XXX simplify the constructor inputs by using only kwargs for optional inputs?
+
         #### for simulation setup:
         - simulation_setup = None := dictionary containing the simulation setup,
 
         ### Outputs:
             - Void := will initialize the BrachyPlan object
-
-        ### Dependencies:
-            - BrachyPhantom
-            - BrachyDose
-            - BrachyStructure
-            - CatheterTable
-            - BrachySimulation
         """
         # declare the attributes
         # patient origin is used as a reference point for the catheter table,
