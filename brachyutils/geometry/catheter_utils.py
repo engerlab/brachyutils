@@ -302,7 +302,7 @@ class Catheter(BaseModel):
             # the tip is the first point in the first segment
             previous_pt = fit_function.point_pairs[0][0]
             t_used = 0.0
-            dwell_index = 1
+            dwell_index = 0
             while t_used < 0.9999:
                 point, t, distance_prev_current = fit_function.step_in_pw_line(
                     previous_pt, step_size, bound_min=t_used
