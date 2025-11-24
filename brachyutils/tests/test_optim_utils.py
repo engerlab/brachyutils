@@ -20,12 +20,13 @@ def get_a_plan_to_optimize(
     target_dose = 21
     dvh_metric_goals = {
         "D90%(CTV)": target_dose,
-        "D1cc(RECTUM)": target_dose * 0.75,
-        "D0.1cc(URETHRA)": target_dose * 1.25,
+        "D2cc(RECTUM)": target_dose * 0.75,
+        "D10%(URETHRA)": target_dose * 1.133,
+        "D30%(URETHRA)": target_dose,
         "CI(CTV)": 1.0,
         "HI(CTV)": 0.5,
-        "V200%(CTV)": 0.0,
-        "V150%(CTV)": 0.0,
+        "V200%(CTV)": target_dose * 0.2,
+        "V150%(CTV)": target_dose * 0.4,
         "V100%(CTV)": 100.0,
     }
 
@@ -37,7 +38,9 @@ def get_a_plan_to_optimize(
         multi_processing=True,
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
-        optimization_config_list=optimization_config_list)
+        optimization_config_list=optimization_config_list,
+        dwells_near_ptv=True,
+        )
 
     if generate_dose_rates:
         from brachyutils import DoseTG43
@@ -128,24 +131,24 @@ def test_run_gurobi_optim():
             structure_name="CTV",
             dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
-            # penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=1,
-            # penalty_weight_hotspot=100,
+            penalty_weight_quadratic=1,
+            penalty_weight_uniformity=1,
+            # penalty_weight_hotspot=1,
             # hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
             structure_name="URETHRA",
-            dose_voxel_goal=0,
+            dose_voxel_goal=0,#target_dose * 1.1,
             penalty_weight_linear=1,
-            # penalty_weight_quadratic=1,
+            penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=1),
+            spacing_mm=3),
         Optimization_Config(
             structure_name="RECTUM",
-            dose_voxel_goal=0,
+            dose_voxel_goal=0,#target_dose * 0.75,
             penalty_weight_linear=1,
-            # penalty_weight_quadratic=1,
+            penalty_weight_quadratic=1,
             mask_margin_mm=0,
             spacing_mm=3)
     ]
@@ -188,7 +191,7 @@ def test_run_gurobi_optim():
         "mean(dwell_times)": optimized_plan.dwell_times.mean(),
         "std(dwell_times)": optimized_plan.dwell_times.std(),
         "solve_time": optim_obj.solve_time} | dvh_metrics
-    results.to_csv(dir_result_out.joinpath("gurobi_lin.csv"))
+    results.to_csv(dir_result_out.joinpath("gurobi_noHS.csv"))
     print(optimized_plan.dwell_times)
     # export phantom
     # plan_obj.phantom.export_to(
@@ -414,26 +417,24 @@ def test_hotspot_estimators():
             structure_name="CTV",
             dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
-            # penalty_weight_quadratic=1,
+            penalty_weight_quadratic=1,
             # penalty_weight_uniformity=0,
-            # penalty_weight_hotspot=1,
-            # hotspot_threshold=1.5,
+            penalty_weight_hotspot=100,
+            hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
             structure_name="URETHRA",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            # penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=0,
+            penalty_weight_quadratic=1,
             mask_margin_mm=0,
             spacing_mm=1),
         Optimization_Config(
             structure_name="RECTUM",
             dose_voxel_goal=0,
             penalty_weight_linear=1,
-            # penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=0,
+            penalty_weight_quadratic=1,
             mask_margin_mm=0,
             spacing_mm=3)
     ]
@@ -477,9 +478,9 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
     # test_run_ampl_optim()
     # test_dwelltime_orTools()
-    test_run_ortool_optim()
+    # test_run_ortool_optim()
     # test_hotspot_estimators()

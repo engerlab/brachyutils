@@ -143,7 +143,7 @@ def _get_optimized_plan_from_model(
         for catheter in outplan.catheter_table:
             for dwell_position in catheter.dwells:
                 if (
-                    f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                    f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
                     == name
                 ):
                     dwell_position.time = dwell_time
@@ -438,63 +438,64 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "quadratic_coeff":quadratic_weight / num_dose_points,
                     "uniformity_coeff":uniformity_weight / (num_dose_points * 1000) # is quadratic weight
                 }
-
-            elif "hotspot_estimator:" in structure.name.lower():
-                x_slack = model.addVar(
-                # slack variable for hotspot estimator
-                    # shape=num_dose_points,
-                    lb=0.0,
-                    ub=hotspot_threshold * target_dose - min_dose,
-                    name=f"hotspot_slack_{structure.name.split(":")[-1]}"
-                )
-                # Hotspot estimator constraints
-                model.addConstr(
-                    sum(A_sparse @ t_MVar)/num_dose_points - x_slack <= (target_dose*hotspot_threshold),
-                )
-                self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
-                constraint_counter += num_dose_points
-
-                ## Saving weights info for later potential resetting of the model
-                self.structure_weights_d[structure.name] = {
-                    "hotspot_weight": hotspot_weight,
-                    "num_dose_points": num_dose_points,
-                    "hotspot_coeff": hotspot_weight / num_dose_points # is a linear coeff
-                }
-                penalty_terms["hotspot"] += (hotspot_weight * x_slack)/num_dose_points
-
             # OAR (Organ at Risk) constraints and penalties
+            # or hot spot volume
             else:
-                if linear_weight > 0 or quadratic_weight > 0:
-                    x_slack = model.addMVar(
-                        shape=num_dose_points,
+                if ("hotspot_estimator:" in structure.name.lower()
+                    and hotspot_weight > 0):
+                    x_slack = model.addVar(
+                    # slack variable for hotspot estimator
+                        # shape=num_dose_points,
                         lb=0.0,
-                        ub=structure_max_dose - target_dose,
-                        name=f"oar_slack_{structure.name}"
+                        ub=hotspot_threshold * target_dose - min_dose,
+                        name=f"hotspot_slack_{structure.name.split(":")[-1]}"
                     )
-                    # Dose constraints: A @ dwell_times - x_slack <= target_dose
+                    # Hotspot estimator constraints
                     model.addConstr(
-                        A_sparse @ t_MVar - x_slack <= target_dose_vec,
-                        name=f"dose_oar_{structure.name}"
+                        sum(A_sparse @ t_MVar)/num_dose_points - x_slack <= (target_dose*hotspot_threshold),
                     )
-                    self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
-                if linear_weight > 0:
-                    constraint_counter += num_dose_points
-                    linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
-                    penalty_terms["linear"] += linear_weight_vec @ x_slack
-
-                if quadratic_weight > 0:
-                    quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
-                    penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
+                    self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
                     constraint_counter += num_dose_points
 
-                ## Saving weights info for later potential resetting of the model
-                self.structure_weights_d[structure.name] = {
-                    "linear_weight": linear_weight,
-                    "quadratic_weight": quadratic_weight,
-                    "num_dose_points": num_dose_points,
-                    "linear_coeff": linear_weight / num_dose_points,
-                    "quadratic_coeff": quadratic_weight / num_dose_points,
-                }
+                    ## Saving weights info for later potential resetting of the model
+                    self.structure_weights_d[structure.name] = {
+                        "hotspot_weight": hotspot_weight,
+                        "num_dose_points": num_dose_points,
+                        "hotspot_coeff": hotspot_weight / num_dose_points # is a linear coeff
+                    }
+                    penalty_terms["hotspot"] += (hotspot_weight * x_slack)/num_dose_points
+                else:
+                    if linear_weight > 0 or quadratic_weight > 0:
+                        x_slack = model.addMVar(
+                            shape=num_dose_points,
+                            lb=0.0,
+                            ub=structure_max_dose - target_dose,
+                            name=f"oar_slack_{structure.name}"
+                        )
+                        # Dose constraints: A @ dwell_times - x_slack <= target_dose
+                        model.addConstr(
+                            A_sparse @ t_MVar - x_slack <= target_dose_vec,
+                            name=f"dose_oar_{structure.name}"
+                        )
+                        self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                    if linear_weight > 0:
+                        constraint_counter += num_dose_points
+                        linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
+                        penalty_terms["linear"] += linear_weight_vec @ x_slack
+
+                    if quadratic_weight > 0:
+                        quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                        penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
+                        constraint_counter += num_dose_points
+
+                    ## Saving weights info for later potential resetting of the model
+                    self.structure_weights_d[structure.name] = {
+                        "linear_weight": linear_weight,
+                        "quadratic_weight": quadratic_weight,
+                        "num_dose_points": num_dose_points,
+                        "linear_coeff": linear_weight / num_dose_points,
+                        "quadratic_coeff": quadratic_weight / num_dose_points,
+                    }
 
         # Set objective function
         model.setObjective(

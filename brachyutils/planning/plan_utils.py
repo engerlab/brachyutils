@@ -100,6 +100,7 @@ class BrachyPlan:
         simulation_setup: dict | Path | str = None,
         #### for optimization setup:
         optimization_config_list:  List[Optimization_Config] | Path | str = None,
+        **kwargs
     ):
         r"""
         ### Purpose:
@@ -131,18 +132,16 @@ class BrachyPlan:
         - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
+        #### Keywords Arguments:
+        - dwells_near_ptv: bool = False := if True, will remove the dwell positions that are outside PTV
+        with a margine of 10 mm.
+        XXX simplify the constructor inputs by using only kwargs for optional inputs?
+
         #### for simulation setup:
         - simulation_setup = None := dictionary containing the simulation setup,
 
         ### Outputs:
             - Void := will initialize the BrachyPlan object
-
-        ### Dependencies:
-            - BrachyPhantom
-            - BrachyDose
-            - BrachyStructure
-            - CatheterTable
-            - BrachySimulation
         """
         # declare the attributes
         # patient origin is used as a reference point for the catheter table,
@@ -227,8 +226,20 @@ class BrachyPlan:
                 raise ValueError(
                     "catheter_table should be a path or a CatheterTable object"
                 )
-            # if delivered_catheter_table:
-            #     self.catheter_table = self.catheter_table.get_delivered_catheter_table()
+            if kwargs.get("dwells_near_ptv", False):
+                for structure in self.structure_list:
+                    if structure.target_volume:
+                        if isinstance(structure.mask, ROIContour):
+                            mask = structure.mask.getBinaryMask(
+                                origin=self.phantom.image_obj.origin,
+                                gridSize=self.phantom.image_obj.gridSize,
+                                spacing=self.phantom.image_obj.spacing,
+                            )
+                        self.catheter_table.remove_outside_mask(
+                            mask=mask,
+                            margin_mm=5.0,
+                        )
+
             self.update_plan_from_catheter_table()
 
         # load the dose rate tensor if the path is provided
