@@ -17,7 +17,7 @@ from scipy.sparse import csr_matrix
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, ROIContour,
+    BrachyDwellTimeOptim, BrachyDwellTime, resample_mask_or_contour_to_dosegrid,
     process_variable, compute_dose_rate_matrices, Optimization_Config
 )
 
@@ -341,14 +341,11 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                         f" Found {self.hotspot_threshold} and {hotspot_threshold}"
                     )
             hotspot_weight = structure.optimization_config.penalty_weight_hotspot
-            
-                # get the structure mask from the contour
-            if isinstance(structure_mask, ROIContour):
-                structure_mask = structure_mask.getBinaryMask(
-                    origin=plan.combined_dose.dose_image.origin,
-                    spacing=plan.combined_dose.dose_image.spacing,
-                    gridSize=plan.combined_dose.dose_image.gridSize
-                )
+
+            structure_mask = resample_mask_or_contour_to_dosegrid(
+                structure_mask=structure_mask,
+                template_dose_obj=plan.combined_dose,
+            )
 
             # Build dose rate matrix and dwell time vector for this structure
             if not multi_processing:
