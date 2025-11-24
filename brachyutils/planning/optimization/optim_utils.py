@@ -18,7 +18,7 @@ def crop_resample_dose_rate_map_and_mask(
     dose_rate_map: np.ndarray,
     template_dose_obj: BrachyDose,
     roi_bounds: List[List[float]],
-    structure_mask: ROIMask | ROIContour,
+    structure_mask: ROIMask,
     optim_spacing: List[float], 
     sitk_interpolator_dose=sitk.sitkLinear,
     sitk_interpolator_contour=sitk.sitkLinear, 
@@ -32,7 +32,7 @@ def crop_resample_dose_rate_map_and_mask(
     - dose_rate_map: np.ndarray := The dose rate map to be cropped and resampled.
     - template_dose_obj: BrachyDose := The template dose object to use for cropping and resampling.
     - roi_bounds: List[List[float]] := The bounds of the region of interest (roi) to crop the dose rate map.
-    - structure_mask: ROIMask | ROIContour := The structure mask to apply to the dose rate map.
+    - structure_mask: ROIMask := The structure mask to apply to the dose rate map. it has to be in the same grid as the template_dose_obj.
     - optim_spacing: List[float] := The spacing of the optimization grid in mm.
     - sitk_interpolator_dose: sitk interpolator type := The sitk interpolator to use for resampling the dose rate map. Default is sitk.sitkLinear.
     - sitk_interpolator_contour: sitk interpolator type := The sitk interpolator to use for resampling the structure mask. Default is sitk.sitkLinear.
@@ -71,9 +71,6 @@ def crop_resample_dose_rate_map_and_mask(
         sitk_interpolator=sitk_interpolator_dose
         )
 
-    # get the structure mask from the contour
-    if isinstance(structure_mask, ROIContour):
-        structure_mask = structure_mask.getBinaryMask()
     # apply the structure mask to the dose rate map object                
     if not(structure_mask.hasSameGrid(dose_rate_obj.dose_image)):
         structure_mask = resampleImage3DOnImage3D(

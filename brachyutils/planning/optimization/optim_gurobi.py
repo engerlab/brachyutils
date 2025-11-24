@@ -17,7 +17,7 @@ from scipy.sparse import csr_matrix
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, 
+    BrachyDwellTimeOptim, BrachyDwellTime, ROIContour,
     process_variable, compute_dose_rate_matrices, Optimization_Config
 )
 
@@ -181,6 +181,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.hotspot_threshold = None
         self.structure_weights_d = {}
         self.multi_processing = multi_processing
+        self._cached_A_matrix = np.ndarray([], dtype=object)
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
@@ -339,8 +340,16 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                         "Since only one structure (PTV or CTV) should have the hotspot estimator."
                         f" Found {self.hotspot_threshold} and {hotspot_threshold}"
                     )
-
             hotspot_weight = structure.optimization_config.penalty_weight_hotspot
+            
+                # get the structure mask from the contour
+            if isinstance(structure_mask, ROIContour):
+                structure_mask = structure_mask.getBinaryMask(
+                    origin=plan.combined_dose.dose_image.origin,
+                    spacing=plan.combined_dose.dose_image.spacing,
+                    gridSize=plan.combined_dose.dose_image.gridSize
+                )
+
             # Build dose rate matrix and dwell time vector for this structure
             if not multi_processing:
                 dose_rate_matrices = []
