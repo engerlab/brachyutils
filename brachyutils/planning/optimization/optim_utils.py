@@ -63,7 +63,7 @@ def resample_mask_or_contour_to_dosegrid(
 
     return structure_mask
 
-def crop_resample_mask_dose_rate_map(
+def resample_mask_crop_dose_rate_map(
     dose_rate_map: np.ndarray,
     template_dose_obj: BrachyDose,
     roi_bounds: List[List[float]],
@@ -74,8 +74,8 @@ def crop_resample_mask_dose_rate_map(
     ) -> np.ndarray:
     r"""
     ### Purpose:
-    - A function to crop the dose rate map to the roi bounds, mask it by the structure mask
-    and resample it to the optimization spacing.
+    - A function to resample to the optimization spacing the dose rate map to the, mask it by the structure mask
+    and crop it to the roi bounds the optimization spacing.
     ### Inputs:
     - dose_rate_map: np.ndarray := The dose rate map to be cropped and resampled.
     - template_dose_obj: BrachyDose := The template dose object to use for cropping and resampling.
@@ -83,7 +83,6 @@ def crop_resample_mask_dose_rate_map(
     - structure_mask: ROIMask := The structure mask to apply to the dose rate map. it has to be in the same grid as the template_dose_obj.
     - optim_spacing: List[float] := The spacing of the optimization grid in mm.
     - sitk_interpolator_dose: sitk interpolator type := The sitk interpolator to use for resampling the dose rate map. Default is sitk.sitkLinear.
-    - sitk_interpolator_contour: sitk interpolator type := The sitk interpolator to use for resampling the structure mask. Default is sitk.sitkLinear.
     - shift_origin: bool := Whether to shift the origin of the resampled dose rate map to align with the new spacing. Default is False.
     ### Outputs:
     - np.ndarray := The cropped and resampled dose rate map and mask.
@@ -154,7 +153,7 @@ def process_variable(
             return None
     dwell_var = variable._model_variable
 
-    valid_dose_points = crop_resample_mask_dose_rate_map(
+    valid_dose_points = resample_mask_crop_dose_rate_map(
         dose_rate_map=variable.dose_rate_map,
         template_dose_obj=plan.combined_dose,
         roi_bounds=roi_bounds,
