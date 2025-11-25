@@ -162,10 +162,10 @@ def process_variable(
     - Tuple[BrachyDwellTime, np.ndarray] | None := A tuple of the dwell time variable and its dose rate matrix for the given structure.
     If the variable is not relevant for the structure (e.g., hotspot estimator), returns None.
     """
-    if "hotspot_estimator:" in structure_name.lower():
-        relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
-        if variable.name not in relevant_dwells:
-            return None
+    # if "hotspot_estimator:" in structure_name.lower():
+    #     relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
+    #     if variable.name not in relevant_dwells:
+    #         return None
     dwell_var = variable._model_variable
 
     valid_dose_points = resample_mask_crop_the_doseRateMap_to_optimGrid(
@@ -191,6 +191,9 @@ def compute_dose_rate_matrices(
         roi_bounds=None,
         max_workers:int=8,
         shift_origin:bool=False):
+    
+    if structure_name is None:
+        structure_name = "No"
     dose_rate_matrices = []
     dwell_vars = []
 
@@ -212,7 +215,7 @@ def compute_dose_rate_matrices(
         for future in tqdm.tqdm(
             as_completed(futures),
             total=len(futures),
-            desc=f"Processing dwell positions dose rates for {structure_name}"):
+            desc=f"{structure_name} mask is applied to all dose rate maps"):
             result = future.result()
             if result is not None:
                 dwell_var, valid_dose_points = result

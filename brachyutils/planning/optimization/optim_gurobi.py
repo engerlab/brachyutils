@@ -21,6 +21,7 @@ from brachyutils.planning.optimization.optim_utils import (
     process_variable, compute_dose_rate_matrices, Optimization_Config
 )
 import multiprocessing as mp
+from functools import partial
 
 class DwellTime_Gurobi(BrachyDwellTime):
     r"""
@@ -443,6 +444,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                         hotspot_threshold = hotspot_threshold,
                         hotspot_weight = hotspot_weight,
                         plan = plan,
+                        optim_spacing=optim_spacing,
+                        roi_bounds = self.roi_bounds,
                         model = model,
                         dwelltime_variables = dwellTimeVariables,
                     )
@@ -520,8 +523,10 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         hotspot_threshold: float,
         hotspot_weight: float,
         plan: BrachyPlan,
+        optim_spacing: List[float],
+        roi_bounds: List[List[float]],
         model: Model,
-        dwelltime_variables: List[DwellTime_Gurobi],
+        dwellTimeVariables: List[DwellTime_Gurobi],
         ) -> LinExpr:
         r"""
         ### Purpose:
@@ -542,11 +547,29 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             structure.mask if "hotspot_estimator" in structure.name else None 
             for structure in plan.structure_list
             ]
-        with mp.Pool(processes=8):
-            processed_masks = []
+        with mp.Pool(processes=8) as pool:
+            partial_func = partial(
+                resample_crop_the_mask_or_contour_to_optimGrid,
+                template_dose_obj=plan.combined_dose,
+                optim_spacing=optim_spacing,
+                roi_bounds=roi_bounds
+            )
+            processed_masks = list(pool.imap(partial_func, hotspot_masks))
 
         # setup a general A matrix once for all the hotspot estimators at once.
-
+        dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+            dwellTimeVariables=dwellTimeVariables,
+            plan=plan,
+            structure_name=None,
+            structure_mask=None,
+            optim_spacing=optim_spacing,
+            roi_bounds=self.roi_bounds,
+            max_workers=8, 
+            shift_origin=True
+        )
+        t_MVar = MVar.fromlist(dwell_vars)
+        A = np.column_stack(dose_rate_matrices)
+        print("let's pause here for debugging hotspot estimator")            
 
     def reset_model_from_config(
         self,
