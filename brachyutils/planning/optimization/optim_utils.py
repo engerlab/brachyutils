@@ -19,7 +19,8 @@ from ai_assisted_brachy.utils.utils import compute_new_origin_for_resampling
 def resample_mask_or_contour_to_dosegrid(
     structure_mask: ROIMask | ROIContour,
     template_dose_obj: BrachyDose,
-    optim_spacing: List[float],
+    optim_spacing: List[float] = None,
+    roi_bounds: List[List[float]] = None,
     sitk_interpolator_contour=sitk.sitkLinear,
     shift_origin: bool = True
 ) -> ROIMask:
@@ -44,23 +45,34 @@ def resample_mask_or_contour_to_dosegrid(
             spacing=template_dose_obj.dose_image.spacing,
             gridSize=template_dose_obj.dose_image.gridSize
         )
+    need_resampling = False
     # apply the structure mask to the dose rate map object
-    origin_for_resampling = template_dose_obj.dose_image.origin
     if not(structure_mask.hasSameGrid(template_dose_obj.dose_image)):
+        origin_for_resampling = template_dose_obj.dose_image.origin
+        spacing_for_resampling = template_dose_obj.dose_image.spacing
+        need_resampling = True
+    if optim_spacing is not None:
         if shift_origin:
             origin_for_resampling = compute_new_origin_for_resampling(
                 image3DToSITK(template_dose_obj.dose_image), 
                 new_spacing=template_dose_obj.dose_image.spacing
             )
-    structure_mask = resampleImage3D(
-        structure_mask,
-        spacing=optim_spacing,
-        inPlace=False,
-        fillValue=0,
-        origin=origin_for_resampling,
-        sitk_interpolator=sitk_interpolator_contour
-    )
-
+        spacing_for_resampling = optim_spacing
+        need_resampling = True
+    if need_resampling:
+        structure_mask = resampleImage3D(
+            structure_mask,
+            spacing=spacing_for_resampling,
+            inPlace=False,
+            fillValue=0,
+            origin=origin_for_resampling,
+            sitk_interpolator=sitk_interpolator_contour
+        )
+    # crop the structure mask to the roi bounds
+    if roi_bounds is not None:
+        crop3DDataAroundBox(
+            structure_mask,
+            roi_bounds)
     return structure_mask
 
 def resample_mask_crop_dose_rate_map(

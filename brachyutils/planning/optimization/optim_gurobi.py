@@ -20,6 +20,7 @@ from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, resample_mask_or_contour_to_dosegrid,
     process_variable, compute_dose_rate_matrices, Optimization_Config
 )
+import multiprocessing as mp
 
 class DwellTime_Gurobi(BrachyDwellTime):
     r"""
@@ -535,16 +536,17 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 "Since only one structure (PTV or CTV) should have the hotspot estimator."
                 f" Found {self.hotspot_threshold} and {hotspot_threshold}"
             )
+
+        # resample hotspot masks and crop to roi bounds
         hotspot_masks = [
             structure.mask if "hotspot_estimator" in structure.name else None 
             for structure in plan.structure_list
             ]
-        # setup a general A matrix once for all the hotspot estimators
-        # this A metrix has the complete dose rate info.
-        # we apply the hotspot masks directly on the A matrix. this means
-        # that resampling and flattening is done the same way for A matrix and all hotspot estimators.
-        # since we have one A matrix and many hotspot masks, we parallelize over the hotspot masks.
-        
+        with mp.Pool(processes=8):
+            processed_masks = []
+
+        # setup a general A matrix once for all the hotspot estimators at once.
+
 
     def reset_model_from_config(
         self,
