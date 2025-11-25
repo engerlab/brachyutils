@@ -182,7 +182,7 @@ def test_run_gurobi_optim():
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
 
-    optim_obj = BrachyOptim_Gurobi(plan=plan_obj, multi_processing=True)
+    optim_obj = BrachyOptim_Gurobi(plan=plan_obj, multi_processing=False)
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     dvh_metrics = optimized_plan.get_dvh_metrics(return_percentage=True)
     results.loc[len(results)] = {
