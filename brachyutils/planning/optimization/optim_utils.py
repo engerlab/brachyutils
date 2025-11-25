@@ -66,9 +66,9 @@ def resample_mask_or_contour_to_dosegrid(
 def resample_mask_crop_dose_rate_map(
     dose_rate_map: np.ndarray,
     template_dose_obj: BrachyDose,
-    roi_bounds: List[List[float]],
-    structure_mask: ROIMask,
-    optim_spacing: List[float], 
+    roi_bounds: List[List[float]]=None,
+    structure_mask: ROIMask=None,
+    optim_spacing: List[float]=None, 
     sitk_interpolator_dose=sitk.sitkLinear,
     shift_origin: bool = True
     ) -> np.ndarray:
@@ -93,31 +93,34 @@ def resample_mask_crop_dose_rate_map(
     dose_rate_obj.set_dose_array(dose_rate_map)
 
     # # resample the dose rate map to the optimization resolution
-    if isinstance(optim_spacing, float):
-        optim_spacing = [optim_spacing] * 3
-    if shift_origin:
-        origin_for_resampling = compute_new_origin_for_resampling(
-            image3DToSITK(dose_rate_obj.dose_image), 
-            new_spacing=optim_spacing
-        )
-    else:
-        origin_for_resampling = None
-    resampleImage3D(
-        dose_rate_obj.dose_image,
-        spacing=optim_spacing,
-        inPlace=True,
-        origin=origin_for_resampling,
-        sitk_interpolator=sitk_interpolator_dose
-        )
-
+    if optim_spacing is not None:
+        if isinstance(optim_spacing, float):
+            optim_spacing = [optim_spacing] * 3
+        if shift_origin:
+            origin_for_resampling = compute_new_origin_for_resampling(
+                image3DToSITK(dose_rate_obj.dose_image), 
+                new_spacing=optim_spacing
+            )
+        else:
+            origin_for_resampling = None
+        resampleImage3D(
+            dose_rate_obj.dose_image,
+            spacing=optim_spacing,
+            inPlace=True,
+            origin=origin_for_resampling,
+            sitk_interpolator=sitk_interpolator_dose
+            )
 
     # by now the structure mask is in the same grid as the template dose object
     # apply the structure mask to the dose rate map
-    dose_rate_obj.dose_image.imageArray = dose_rate_obj.dose_image.imageArray * structure_mask.imageArray
+    if structure_mask is not None:
+        dose_rate_obj.dose_image.imageArray = dose_rate_obj.dose_image.imageArray * structure_mask.imageArray
 
-    crop3DDataAroundBox(
-    dose_rate_obj.dose_image,
-    roi_bounds)
+    # crop the dose rate map to the roi bounds
+    if roi_bounds is not None:
+        crop3DDataAroundBox(
+        dose_rate_obj.dose_image,
+        roi_bounds)
 
     return dose_rate_obj.get_dose_array().flatten()
 
