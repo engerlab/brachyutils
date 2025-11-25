@@ -16,7 +16,7 @@ from opentps.core.processing.imageProcessing.resampler3D import (
 )
 from ai_assisted_brachy.utils.utils import compute_new_origin_for_resampling
 
-def resample_mask_or_contour_to_dosegrid(
+def resample_crop_the_mask_or_contour_to_optimGrid(
     structure_mask: ROIMask | ROIContour,
     template_dose_obj: BrachyDose,
     optim_spacing: List[float] = None,
@@ -75,7 +75,7 @@ def resample_mask_or_contour_to_dosegrid(
             roi_bounds)
     return structure_mask
 
-def resample_mask_crop_dose_rate_map(
+def resample_mask_crop_the_doseRateMap_to_optimGrid(
     dose_rate_map: np.ndarray,
     template_dose_obj: BrachyDose,
     roi_bounds: List[List[float]]=None,
@@ -168,7 +168,7 @@ def process_variable(
             return None
     dwell_var = variable._model_variable
 
-    valid_dose_points = resample_mask_crop_dose_rate_map(
+    valid_dose_points = resample_mask_crop_the_doseRateMap_to_optimGrid(
         dose_rate_map=variable.dose_rate_map,
         template_dose_obj=plan.combined_dose,
         roi_bounds=roi_bounds,

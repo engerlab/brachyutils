@@ -17,7 +17,7 @@ from scipy.sparse import csr_matrix
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, resample_mask_or_contour_to_dosegrid,
+    BrachyDwellTimeOptim, BrachyDwellTime, resample_crop_the_mask_or_contour_to_optimGrid,
     process_variable, compute_dose_rate_matrices, Optimization_Config
 )
 import multiprocessing as mp
@@ -334,7 +334,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             hotspot_threshold = structure.optimization_config.hotspot_threshold
             hotspot_weight = structure.optimization_config.penalty_weight_hotspot
 
-            structure_mask = resample_mask_or_contour_to_dosegrid(
+            structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
                 structure_mask=structure_mask,
                 template_dose_obj=plan.combined_dose,
                 optim_spacing=optim_spacing,
