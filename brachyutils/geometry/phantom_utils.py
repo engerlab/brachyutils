@@ -810,6 +810,13 @@ class BrachyPhantom:
             else:
                 marginInMM = [1, 1, 1]
             crop3DDataAroundBox(self.image_obj, coordinate_range, marginInMM=marginInMM)
+
+            # Cropping the structure masks if they are cached
+            if self.cached_structure_masks is not None and len(self.cached_structure_masks) > 0:
+                for structure_name, mask in self.cached_structure_masks.items():
+                    crop3DDataAroundBox(
+                        mask, coordinate_range, marginInMM=marginInMM
+                    )
         else:
             new_phantom: BrachyPhantom = copy.deepcopy(self)
             new_phantom.crop_by_coordinates(coordinate_range, inplace=True, no_margin=no_margin)
