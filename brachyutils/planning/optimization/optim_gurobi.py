@@ -358,9 +358,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             else:
                 dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
                     dwellTimeVariables,
-                    structure,
-                    structure_mask,
                     plan,
+                    structure.name,
+                    structure_mask,
                     optim_spacing,
                     self.roi_bounds,
                     max_workers=4, 
@@ -543,6 +543,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         # this A metrix has the complete dose rate info.
         # we apply the hotspot masks directly on the A matrix. this means
         # that resampling and flattening is done the same way for A matrix and all hotspot estimators.
+        # since we have one A matrix and many hotspot masks, we parallelize over the hotspot masks.
         
 
     def reset_model_from_config(

@@ -171,8 +171,14 @@ def process_variable(
     return dwell_var, valid_dose_points
 
 def compute_dose_rate_matrices(
-        dwellTimeVariables, structure, structure_mask, plan, 
-        optim_spacing, roi_bounds, max_workers:int=8, shift_origin:bool=False):
+        dwellTimeVariables,
+        plan,
+        structure_name,
+        structure_mask=None,
+        optim_spacing=None,
+        roi_bounds=None,
+        max_workers:int=8,
+        shift_origin:bool=False):
     dose_rate_matrices = []
     dwell_vars = []
 
@@ -181,7 +187,7 @@ def compute_dose_rate_matrices(
             executor.submit(
                 process_variable,
                 variable,
-                structure.name,
+                structure_name,
                 structure_mask,
                 plan,
                 optim_spacing,
@@ -194,7 +200,7 @@ def compute_dose_rate_matrices(
         for future in tqdm.tqdm(
             as_completed(futures),
             total=len(futures),
-            desc=f"Processing dwell positions dose rates for {structure.name}"):
+            desc=f"Processing dwell positions dose rates for {structure_name}"):
             result = future.result()
             if result is not None:
                 dwell_var, valid_dose_points = result
