@@ -13,6 +13,7 @@ Author
 '''
 from time import perf_counter
 from typing import List 
+import copy 
 
 import numpy as np
 import pandas as pd
@@ -46,6 +47,7 @@ class MOBOOptimizer:
         self.target_dose = target_dose
         self.optimization_config_list = optimization_config_list
         self.clinic_dvh_goal = clinic_dvh_goal
+        self.target_structure_name = None  # to be defined in child class
        
     def generate_mobo_parameters(self, **kwargs) -> List[dict]:
         r''' generate a list of paremeters that ax api can interface with
@@ -75,25 +77,47 @@ class MOBOOptimizer:
         #         hyper-volume of the Pareto front.
         pass
     
-    def evaluate_penaltyWeight_space_helper(self, weight_space:pd.DataFrame, multiprocessing:bool=True):
+    def get_optim_config_and_target_dose_from_parameters(self, penalty_weights:dict):
+        r''' this function updates the optimization configuration list with the new penalty weights
+        inputs:
+            - penalty_weights := a dictionary containing the penalty weights for each structure.
+                the keys are the structure names, and the values are the penalty weights.
+        outputs:
+            - VOID := this method returns nothing, but it updates the optimization_config_list attribute of the class.
+        '''
+        new_opt_config_l = copy.deepcopy(self.optimization_config_list)
+
+        for key, val in penalty_weights.items():
+            structure_name = key.split("_")[-1]
+            attr_name = key.replace(f"_{structure_name}", "")
+            for opt_conf in new_opt_config_l:
+                if opt_conf.structure_name == structure_name:
+                    setattr(opt_conf, attr_name, val)
+        for opt_conf in new_opt_config_l:
+            if opt_conf.structure_name == self.target_structure_name:
+                new_target_dose = opt_conf.dose_voxel_goal
+        return new_opt_config_l, new_target_dose
+
+    def evaluate_penaltyWeight_space_helper(
+            self, list_of_opt_config_lists:List[List[Optimization_Config]], 
+            list_of_target_doses:List[float], multiprocessing:bool=True):
         r''' This function evaluates a space of penalty weights in parallel using multiprocessing library. 
         inputs:
-            - weight_space := a pandas dataframe containing the penalty weight vectors to be evaluated. 
-                each row is a weight vector, and each column is a structure name with the prefix "w_"
-            - multi_thread := if true, the evaluation is done in parallel using multiprocessing library
+            - list_of_opt_config_lists := a list of optimization configuration lists to be evaluated.
+            - list_of_target_doses := a list of target doses corresponding to each optimization configuration list
+            - multiprocessing := a boolean indicating whether to use multiprocessing or not.
         outputs:
 
             - a pandas dataframe containing the result of penalty weight evaluations.
         '''
-        weight_space_list_of_d = weight_space.to_dict('records')
-
         if multiprocessing:
             
             # The BrachyOptim object cannot be pickled due to all the internal attributes 
             # like gurobi variables that are not picklable. So, we need to use a workaround here.
             # The BrachyOptim class itself should provide a method to evaluate penalty weights in parallel.
             weights_and_dvh_space, cat_tables = self.brachy_optim.evaluate_penaltyWeight_space(
-                weight_space_list_of_d,
+                list_of_opt_config_lists,
+                list_of_target_doses,
                 return_cat_table=True,
             )
             return pd.DataFrame(weights_and_dvh_space), cat_tables
@@ -101,9 +125,9 @@ class MOBOOptimizer:
 
             results = {}
             cat_tables = {}
-            for i, w_space in enumerate(weight_space_list_of_d):
-                res, cat_table = self.brachy_optim.evaluate_penaltyWeight(w_space, return_cat_table=True)
-                res.update(w_space)
+            for i, (opt_config_list, target_dose) in enumerate(zip(list_of_opt_config_lists, list_of_target_doses)):
+                optim_config_list, target_dose = self.get_optim_config_and_target_dose_from_parameters(opt_config_list)
+                res, cat_table = self.brachy_optim.evaluate_penaltyWeight(optim_config_list, target_dose, return_cat_table=True)
                 results[i] = res
                 cat_tables[f"trial_{i}"] = cat_table
             return pd.DataFrame.from_dict(results, orient='index'), cat_tables
@@ -141,8 +165,15 @@ class MOBOOptimizer:
                 random_weight_space[parameter] = np.ones(num_fmio_runs)*parameters[parameter].value
 
         # run penalty weight evaluation on all the weight vecotrs in parallel
+        list_of_opt_config_lists = []
+        list_of_target_doses = []
+        for index, config_params in random_weight_space.iterrows():
+            optim_config_list, target_dose = self.get_optim_config_and_target_dose_from_parameters(config_params)
+            list_of_opt_config_lists.append(optim_config_list)
+            list_of_target_doses.append(target_dose)
+
         random_weight_dvh_space, cat_tables = self.evaluate_penaltyWeight_space_helper(
-            random_weight_space, multiprocessing=True)
+            list_of_opt_config_lists, list_of_target_doses, multiprocessing=True)
 
         # put the results into the axclient
         for indx in random_weight_dvh_space.index:
@@ -155,12 +186,13 @@ class MOBOOptimizer:
 
 
     def run(self,
-            param_config:dict,
             num_iterations:int, 
             num_random_initiation:int=5, 
             parallel_random_init:bool=True,
             output_filename:str=None,
-            calc_hv:bool=True,
+            calc_hv:bool=False,
+            mobo_objective_kwargs:dict=None, 
+            mobo_parameter_kwargs:dict=None
             ):
         r'''This function runs multi-objective bayesian optimization (mobo) for as many iterations as the user commands it to. 
             it will save the result of all iterations in a pandas dataframe. 
@@ -177,15 +209,10 @@ class MOBOOptimizer:
                 function. If not, the runs are initiated one by one inside the mobo loop with the semirandom sobol generator 
                 of ax api. Must be greater than 0, otherwise qNoisyExpectedImprovement will not be able to search for next 
                 trial.
-            - param_config:= a dictionary containing the configuration of the parameter. it must have the following keys: 
-                {
-                'relative_weights':bool := if true, the penalty weight of the OARs is normalized to the penalty weight of tumor volume, 
-                'weight_range':list := the minimal and maximal value for each weight. for example [0.001, 1],
-                'target_dose_range':list := the minimal and maximal value for the target dose. for example [10, 20],
-                }
             - output_filename:= the name of the file to save the result of mobo iterations.
             - calc_hv:= if true, the hypervolume of the pareto front is calculated at each iteration and returned as a list.
-
+            - mobo_objective_kwargs:= a dictionary containing the keyword arguments for the generate_mobo_objectives() method.
+            - mobo_parameter_kwargs:= a dictionary containing the keyword arguments for the generate_mobo_parameters
         outputs:
             - results:dict := a dictionary containing many outcomes of the mobo iterations. 
             - optimized_cat_tables:dict := a dictionary containing the optimized catheter tables for each iteration.
@@ -204,6 +231,7 @@ class MOBOOptimizer:
         )
 
         steps=[]
+        
         if not parallel_random_init:
             steps.append(
                 GenerationStep(
@@ -213,6 +241,10 @@ class MOBOOptimizer:
                     num_trials=num_random_initiation,
                 )
             )
+            # The loop though ax client will add num_iterations to the initial num_random_initiation
+            total_ax_iterations = num_iterations + num_random_initiation
+        else:
+            total_ax_iterations = num_iterations
 
         steps.append(GenerationStep(
             ## Refer to 
@@ -238,9 +270,9 @@ class MOBOOptimizer:
         )
         ax_client = AxClient(generation_strategy=generation_strategy_forMOBO,)
 
-        variable_parameters_forMOBO = self.generate_mobo_parameters(param_config)
+        variable_parameters_forMOBO = self.generate_mobo_parameters(**mobo_parameter_kwargs)
 
-        objectives_forMOBO = self.generate_mobo_objectives()
+        objectives_forMOBO = self.generate_mobo_objectives(**mobo_objective_kwargs)
 
         ax_client.create_experiment(
             name="MOBO_penalty_weights",
@@ -264,15 +296,20 @@ class MOBOOptimizer:
             results = pd.DataFrame()
 
         
-        for _ in range(num_iterations):
-            parameters, trial_index = ax_client.get_next_trial()
-
-            dvh_metrics, optimized_cat_table = self.brachy_optim.evaluate_penaltyWeight(
-                parameters, return_cat_table=True, inplace=False) # inplace Flase since we add the new plan to the dict
-            results = pd.concat([results, pd.DataFrame({**dvh_metrics}, index=[trial_index])], ignore_index=True)
+        for i in range(total_ax_iterations):
+            print("RUNNING MOBO ITERATION ", i+1, " OUT OF ", total_ax_iterations)
+            try:
+                parameters, trial_index = ax_client.get_next_trial()
+            except Exception as e:
+                print("Failed to get next trial from axClient: ", e)
+                break
+            optim_config_list, target_dose = self.get_optim_config_and_target_dose_from_parameters(parameters)
+            dvh_metrics_and_config, optimized_cat_table = self.brachy_optim.evaluate_penaltyWeight(
+                optim_config_list, target_dose, return_cat_table=True, inplace=False) # inplace Flase since we add the new plan to the dict
+            results = pd.concat([results, pd.DataFrame({**dvh_metrics_and_config}, index=[trial_index])], ignore_index=True)
             optimized_cat_tables[f"trial_{trial_index}"] = optimized_cat_table
             # local evaluation here can be replaced with deployment to external systems
-            ax_client.complete_trial(trial_index=trial_index, raw_data=dvh_metrics)
+            ax_client.complete_trial(trial_index=trial_index, raw_data=dvh_metrics_and_config)
             if calc_hv:
                 try:
                     current_model = Generators.MOO(
