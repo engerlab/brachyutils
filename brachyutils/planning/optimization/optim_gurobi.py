@@ -331,7 +331,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             min_dose = structure.optimization_config.min_dose
             structure_max_dose = structure.optimization_config.max_dose
             hotspot_threshold = structure.optimization_config.hotspot_threshold
-            if hotspot_threshold != 0.:
+            if hotspot_threshold != 0:
                 if self.hotspot_threshold is None:
                     self.hotspot_threshold = hotspot_threshold
                 else:
@@ -345,7 +345,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             structure_mask = resample_mask_or_contour_to_dosegrid(
                 structure_mask=structure_mask,
                 template_dose_obj=plan.combined_dose,
-            )
+                optim_spacing=optim_spacing,
+                )
 
             # Build dose rate matrix and dwell time vector for this structure
             if not multi_processing:

@@ -19,6 +19,7 @@ from ai_assisted_brachy.utils.utils import compute_new_origin_for_resampling
 def resample_mask_or_contour_to_dosegrid(
     structure_mask: ROIMask | ROIContour,
     template_dose_obj: BrachyDose,
+    optim_spacing: List[float],
     sitk_interpolator_contour=sitk.sitkLinear,
     shift_origin: bool = True
 ) -> ROIMask:
@@ -43,23 +44,22 @@ def resample_mask_or_contour_to_dosegrid(
             spacing=template_dose_obj.dose_image.spacing,
             gridSize=template_dose_obj.dose_image.gridSize
         )
-    # apply the structure mask to the dose rate map object                
+    # apply the structure mask to the dose rate map object
+    origin_for_resampling = template_dose_obj.dose_image.origin
     if not(structure_mask.hasSameGrid(template_dose_obj.dose_image)):
         if shift_origin:
             origin_for_resampling = compute_new_origin_for_resampling(
                 image3DToSITK(template_dose_obj.dose_image), 
                 new_spacing=template_dose_obj.dose_image.spacing
             )
-        else:
-            origin_for_resampling = template_dose_obj.dose_image.origin
-        structure_mask = resampleImage3D(
-            structure_mask,
-            spacing=template_dose_obj.dose_image.spacing,
-            inPlace=False,
-            fillValue=0,
-            origin=origin_for_resampling,
-            sitk_interpolator=sitk_interpolator_contour
-        )
+    structure_mask = resampleImage3D(
+        structure_mask,
+        spacing=optim_spacing,
+        inPlace=False,
+        fillValue=0,
+        origin=origin_for_resampling,
+        sitk_interpolator=sitk_interpolator_contour
+    )
 
     return structure_mask
 
@@ -88,20 +88,10 @@ def crop_resample_mask_dose_rate_map(
     ### Outputs:
     - np.ndarray := The cropped and resampled dose rate map and mask.
     """
-    
-    # by now the structure mask is in the same grid as the template dose object
-    # apply the structure mask to the dose rate map
-    masked_dose_rate_map = dose_rate_map * structure_mask.imageArray.astype(bool).swapaxes(0, 2)
-
     # create a dose object from the dose_rate_map tensor.
     # The coordinates of the dose object is the same as the combined_dose in the plan.
     dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
-    dose_rate_obj.set_dose_array(masked_dose_rate_map)
-    # apply the optimization roi bounds to the dose rate image
-
-    crop3DDataAroundBox(
-        dose_rate_obj.dose_image,
-        roi_bounds)
+    dose_rate_obj.set_dose_array(dose_rate_map)
 
     # # resample the dose rate map to the optimization resolution
     if isinstance(optim_spacing, float):
@@ -120,6 +110,15 @@ def crop_resample_mask_dose_rate_map(
         origin=origin_for_resampling,
         sitk_interpolator=sitk_interpolator_dose
         )
+
+
+    # by now the structure mask is in the same grid as the template dose object
+    # apply the structure mask to the dose rate map
+    dose_rate_obj.dose_image.imageArray = dose_rate_obj.dose_image.imageArray * structure_mask.imageArray
+
+    crop3DDataAroundBox(
+    dose_rate_obj.dose_image,
+    roi_bounds)
 
     return dose_rate_obj.get_dose_array().flatten()
 
