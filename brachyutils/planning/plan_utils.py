@@ -1274,7 +1274,7 @@ class BrachyPlan:
             dwell_coordinates_str = (
                 ",".join(
                     [
-                        str(int(coord)) if coord == int(coord) else format(coord, ".6f")
+                        str(int(coord)) if coord == int(coord) else str(np.round(coord, 2)) # Rounding to a 100th of millimeter
                         for coord in dwell_coordinates_str
                     ]
                 )
