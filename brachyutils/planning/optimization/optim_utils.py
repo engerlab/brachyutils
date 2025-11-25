@@ -3,6 +3,8 @@ from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pydantic import computed_field
+
 import tqdm
 import SimpleITK as sitk
 # import gurobipy as gb
@@ -171,6 +173,14 @@ class Optimization_Config(BaseModel):
     - mask_margin_mm: List[float] | float := Margin around structure for optimization in mm. Default 0.
     - min_dose: float := Minimum allowed dose in Gy. Default 0.
     - max_dose: float := Maximum allowed dose in Gy. Default 500.
+    - num_dose_points: int := Number of dose points in the structure after applying the optimization mask and resampling.
+    This is computed during the optimization setup.
+    ### Computed Fields:
+    - linear_coeff: float := The linear coefficient for the optimization objective function.
+    - quadratic_coeff: float := The quadratic coefficient for the optimization objective function.
+    - uniformity_coeff: float := The uniformity coefficient for the optimization objective function.
+    ### Functions:
+    - to_dict() -> dict := A function to convert the Optimization_Config object to a dictionary
     """
     structure_name:str = None
     spacing_mm:float | List[float]= None
@@ -183,8 +193,71 @@ class Optimization_Config(BaseModel):
     mask_margin_mm:float | List[float]= 0
     min_dose:float = 0
     max_dose:float = 500
+    num_dose_points: int = None
     # may be needed later
     # self.index_range_constraints: List[int] = None
+
+    @computed_field
+    def linear_coeff(self) -> float:
+        r"""
+        ### Purpose:
+        - A computed field to get the linear coefficient for the optimization objective function.
+        ### Outputs:
+        - linear_coeff: float := The linear coefficient for the optimization objective function.
+        """
+        return self.penalty_weight_linear / self.num_dose_points
+    
+    @computed_field
+    def quadratic_coeff(self) -> float:
+        r"""
+        ### Purpose:
+        - A computed field to get the quadratic coefficient for the optimization objective function.
+        ### Outputs:
+        - quadratic_coeff: float := The quadratic coefficient for the optimization objective function.
+        """
+        return self.penalty_weight_quadratic / self.num_dose_points
+    
+    @computed_field
+    def uniformity_coeff(self) -> float:
+        r"""
+        ### Purpose:
+        - A computed field to get the uniformity coefficient for the optimization objective function.
+        ### Outputs:
+        - uniformity_coeff: float := The uniformity coefficient for the optimization objective function.
+        """
+        return self.penalty_weight_uniformity / (self.num_dose_points * 1000)
+
+    @computed_field
+    def hotspot_coeff(self) -> float:
+        r"""
+        ### Purpose:
+        - A computed field to get the hotspot coefficient for the optimization objective function.
+        ### Outputs:
+        - hotspot_coeff: float := The hotspot coefficient for the optimization objective function.
+        """
+        return self.penalty_weight_hotspot / self.num_dose_points
+    
+    def to_dict(self) -> dict:
+        r"""
+        ### Purpose:
+        - A function to convert the Optimization_Config object to a dictionary.
+        ### Outputs:
+        - config_dict: dict := The dictionary representation of the Optimization_Config object.
+        """
+        return {
+            "structure_name": self.structure_name,
+            "spacing_mm": self.spacing_mm,
+            "dose_voxel_goal": self.dose_voxel_goal,
+            "penalty_weight_linear": self.penalty_weight_linear,
+            "penalty_weight_quadratic": self.penalty_weight_quadratic,
+            "penalty_weight_hotspot": self.penalty_weight_hotspot,
+            "hotspot_threshold": self.hotspot_threshold,
+            "penalty_weight_uniformity": self.penalty_weight_uniformity,
+            "mask_margin_mm": self.mask_margin_mm,
+            "min_dose": self.min_dose,
+            "max_dose": self.max_dose,
+            "num_dose_points": self.num_dose_points
+        }
 
 class BrachyDwellTime(BaseModel, ABC):
     """
