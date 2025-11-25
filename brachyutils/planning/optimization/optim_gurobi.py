@@ -962,20 +962,20 @@ def modify_model_objective_with_new_penalty_weights_and_td(
         for new_opt_conf in optim_config_list_to_set:
             if new_opt_conf.structure_name == struct_name:
                 new_opt_conf_of_interest = new_opt_conf
+                assert new_opt_conf_of_interest.num_dose_points == opt_conf_of_interest.num_dose_points, (
+                    f"Number of dose points for structure {struct_name} has changed from "
+                    f"{opt_conf_of_interest.num_dose_points} to {new_opt_conf_of_interest.num_dose_points}. "
+                    "This is not allowed when modifying penalty weights."
+                )
                 break
 
         if struct_name is None:
             raise ValueError(f"Variable {var.VarName} does not belong to any known structure, with og_conf_list {og_optim_config_list}, and coeff {coeff}, and new opt config list {new_optim_config_list}")
         # Get the original coefficient and weight
         if not "hotspot" in struct_name:
-            og_weight = opt_conf_of_interest.penalty_weight_linear
-            new_weight = new_opt_conf_of_interest.penalty_weight_linear
+            new_coeff = new_opt_conf_of_interest.linear_coeff
         else:
-            og_weight = opt_conf_of_interest.penalty_weight_hotspot
-            new_weight = new_opt_conf_of_interest.penalty_weight_hotspot
-     
-        # Calculate new coefficient
-        new_coeff = (new_weight / og_weight) * coeff
+            new_coeff = new_opt_conf_of_interest.hotspot_coeff
 
         # Add to new objective if
         if new_coeff != 0:
@@ -993,28 +993,27 @@ def modify_model_objective_with_new_penalty_weights_and_td(
                 struct_name = opt_conf.structure_name
                 opt_conf_of_interest = opt_conf
                 coeff_type = "quadratic"
-                og_weight = opt_conf.penalty_weight_quadratic
             elif np.isclose(coeff, opt_conf.uniformity_coeff, atol=1e-6):
                 struct_name = opt_conf.structure_name
                 opt_conf_of_interest = opt_conf
                 coeff_type = "uniformity"
-                og_weight = opt_conf.penalty_weight_uniformity
         for new_opt_conf in optim_config_list_to_set:
             if new_opt_conf.structure_name == struct_name:
                 new_opt_conf_of_interest = new_opt_conf
+                assert new_opt_conf_of_interest.num_dose_points == opt_conf_of_interest.num_dose_points, (
+                    f"Number of dose points for structure {struct_name} has changed from "
+                    f"{opt_conf_of_interest.num_dose_points} to {new_opt_conf_of_interest.num_dose_points}. "
+                    "This is not allowed when modifying penalty weights."
+                )
                 if coeff_type == "quadratic":
-                    new_weight = new_opt_conf_of_interest.penalty_weight_quadratic
+                    new_coeff = new_opt_conf_of_interest.quadratic_coeff
                 else:
-                    new_weight = new_opt_conf_of_interest.penalty_weight_uniformity
+                    new_coeff = new_opt_conf_of_interest.uniformity_coeff
                 break
 
         if struct_name is None:
             raise ValueError(f"Variable pair {v1.VarName}, {v2.VarName} does not belong to any known structure, with og_conf_list {og_optim_config_list}, and coeff {coeff}, and new opt config list {new_optim_config_list}")
       
-                
-        # Calculate new coefficient
-        new_coeff = (new_weight / og_weight) * coeff
-            
         if new_coeff != 0:
             new_objective.addTerms(new_coeff, v1, v2)
 
