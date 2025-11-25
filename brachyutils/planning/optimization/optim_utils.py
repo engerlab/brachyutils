@@ -113,7 +113,7 @@ def process_variable(variable, structure_name, structure_mask, plan, optim_spaci
             optim_spacing=optim_spacing,
             sitk_interpolator_dose=sitk.sitkLinear,
             # Using Linear instead of NearestNeighbor since NN does a bad job when downsampling
-            sitk_interpolator_contour=sitk.sitkLinear, #sitkNearestNeighbor # sitkLinear
+            sitk_interpolator_contour=sitk.sitkNearestNeighbor,
             shift_origin=shift_origin
         )
         masked_dose_array = dose_rate_obj.dose_image.imageArray.astype(float)
@@ -205,6 +205,7 @@ class Optimization_Config(BaseModel):
         ### Outputs:
         - linear_coeff: float := The linear coefficient for the optimization objective function.
         """
+        assert self.num_dose_points is not None, "num_dose_points must be set before accessing linear_coeff"
         return self.penalty_weight_linear / self.num_dose_points
     
     @computed_field
@@ -215,6 +216,7 @@ class Optimization_Config(BaseModel):
         ### Outputs:
         - quadratic_coeff: float := The quadratic coefficient for the optimization objective function.
         """
+        assert self.num_dose_points is not None, "num_dose_points must be set before accessing quadratic_coeff"
         return self.penalty_weight_quadratic / self.num_dose_points
     
     @computed_field
@@ -225,6 +227,7 @@ class Optimization_Config(BaseModel):
         ### Outputs:
         - uniformity_coeff: float := The uniformity coefficient for the optimization objective function.
         """
+        assert self.num_dose_points is not None, "num_dose_points must be set before accessing uniformity_coeff"
         return self.penalty_weight_uniformity / (self.num_dose_points * 1000)
 
     @computed_field
@@ -235,6 +238,7 @@ class Optimization_Config(BaseModel):
         ### Outputs:
         - hotspot_coeff: float := The hotspot coefficient for the optimization objective function.
         """
+        assert self.num_dose_points is not None, "num_dose_points must be set before accessing hotspot_coeff"
         return self.penalty_weight_hotspot / self.num_dose_points
     
     def to_dict(self) -> dict:
