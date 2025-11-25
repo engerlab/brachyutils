@@ -198,13 +198,13 @@ def compute_dose_rate_matrices(
         futures = {
             executor.submit(
                 process_variable,
-                variable,
-                structure_name,
-                structure_mask,
-                plan,
-                optim_spacing,
-                roi_bounds, 
-                shift_origin
+                variable=variable,
+                structure_name=structure_name,
+                structure_mask=structure_mask,
+                plan=plan,
+                optim_spacing=optim_spacing,
+                roi_bounds=roi_bounds, 
+                shift_origin=shift_origin
             ): variable
             for variable in dwellTimeVariables
         }
