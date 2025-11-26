@@ -339,6 +339,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 structure_mask=structure_mask,
                 template_dose_obj=plan.combined_dose,
                 optim_spacing=optim_spacing,
+                roi_bounds=self.roi_bounds
                 )
 
             # Build dose rate matrix and dwell time vector for this structure
