@@ -510,8 +510,19 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         ) -> LinExpr:
         r"""
         ### Purpose:
-        - Due to the computational overhead of adding hotspot estimators, 
-        
+        - Make penalty and constraints for the hotspot estimator structures.
+        ### Inputs:
+        - target_dose: float := The target dose for the structure.
+        - hotspot_threshold: float := The hotspot threshold for the structure.
+        - hotspot_weight: float := The hotspot weight for the structure.
+        - plan: BrachyPlan := The brachytherapy plan.
+        - optim_spacing: List[float] := The optimization spacing.
+        - roi_bounds: List[List[float]] := The ROI bounds.
+        - model: Model := The Gurobi model.
+        - dwellTimeVariables: List[DwellTime_Gurobi] := The dwell time variables.
+        - constraint_counter: int := The current constraint counter (used for resetting weights later).
+        ### Outputs:
+        - hotspot_penalty: LinExpr := The hotspot penalty term to be added to the objective function.
         """
         if self.hotspot_threshold is None:
             self.hotspot_threshold = hotspot_threshold
