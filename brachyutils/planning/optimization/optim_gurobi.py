@@ -447,7 +447,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                         optim_spacing=optim_spacing,
                         roi_bounds = self.roi_bounds,
                         model = model,
-                        dwelltime_variables = dwellTimeVariables,
+                        dwellTimeVariables = dwellTimeVariables,
                     )
             # OAR (Organ at Risk) constraints and penalties
             # or hot spot volume
@@ -544,8 +544,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
 
         # resample hotspot masks and crop to roi bounds
         hotspot_masks = [
-            structure.mask if "hotspot_estimator" in structure.name else None 
-            for structure in plan.structure_list
+            structure.mask for structure in plan.structure_list
+            if "hotspot_estimator" in structure.name
             ]
         with mp.Pool(processes=8) as pool:
             partial_func = partial(
@@ -554,7 +554,13 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 optim_spacing=optim_spacing,
                 roi_bounds=roi_bounds
             )
-            processed_masks = list(pool.imap(partial_func, hotspot_masks))
+            processed_masks = list(
+                tqdm.tqdm(
+                    pool.imap(partial_func, hotspot_masks),
+                    total=len(hotspot_masks),
+                    desc="Resampling and cropping hotspot estimator masks"
+                    )
+                )
 
         # setup a general A matrix once for all the hotspot estimators at once.
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(

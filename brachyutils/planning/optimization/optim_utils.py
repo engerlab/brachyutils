@@ -52,12 +52,12 @@ def resample_crop_the_mask_or_contour_to_optimGrid(
         spacing_for_resampling = template_dose_obj.dose_image.spacing
         need_resampling = True
     if optim_spacing is not None:
+        spacing_for_resampling = [optim_spacing]*3 if isinstance(optim_spacing, float) else optim_spacing
         if shift_origin:
             origin_for_resampling = compute_new_origin_for_resampling(
                 image3DToSITK(template_dose_obj.dose_image), 
-                new_spacing=template_dose_obj.dose_image.spacing
+                new_spacing=spacing_for_resampling
             )
-        spacing_for_resampling = optim_spacing
         need_resampling = True
     if need_resampling:
         structure_mask = resampleImage3D(
