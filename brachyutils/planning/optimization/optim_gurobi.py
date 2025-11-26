@@ -342,31 +342,17 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 )
 
             # Build dose rate matrix and dwell time vector for this structure
-            if not multi_processing:
-                dose_rate_matrices = []
-                dwell_vars = []
-                for var in dwellTimeVariables:
-                    dwell_var, valid_dose_points = process_variable(
-                        var,
-                        structure_mask,
-                        plan,
-                        optim_spacing,
-                        self.roi_bounds, 
-                        shift_origin=True
-                        )
-                    dwell_vars.append(dwell_var)
-                    dose_rate_matrices.append(valid_dose_points)
-            else:
-                dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
-                    dwellTimeVariables,
-                    plan,
-                    structure.name,
-                    structure_mask,
-                    optim_spacing,
-                    self.roi_bounds,
-                    max_workers=4, 
-                    shift_origin=True
-                )
+            dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+                dwellTimeVariables,
+                plan,
+                structure.name,
+                structure_mask,
+                optim_spacing,
+                self.roi_bounds,
+                max_workers=4, 
+                shift_origin=True,
+                multi_processing=multi_processing
+            )
 
             if not dose_rate_matrices:
                 continue
@@ -544,8 +530,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 optim_spacing=optim_spacing,
                 roi_bounds=roi_bounds
             )
-            processed_masks = list(
-                tqdm.tqdm(
+            processed_masks = tqdm.tqdm(list(
                     pool.imap(partial_func, hotspot_masks),
                     total=len(hotspot_masks),
                     desc="Resampling and cropping hotspot estimator masks"

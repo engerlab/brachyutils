@@ -190,36 +190,71 @@ def compute_dose_rate_matrices(
         optim_spacing=None,
         roi_bounds=None,
         max_workers:int=8,
-        shift_origin:bool=False):
-    
+        shift_origin:bool=False,
+        multi_processing:bool=True):
+    r"""
+    ### Purpose:
+    - A function to compute the resampled, masked and cropped dose rate matrices
+    for a list of dwell time variables for a given structure. This function can 
+    use multi-processing to speed up the computation.
+    ### Inputs:
+    - dwellTimeVariables: List[BrachyDwellTime] := The list of dwell time variables to process.
+    - plan: BrachyPlan := The brachytherapy plan to use for processing.
+    - structure_name: str := The name of the structure to process.
+    - structure_mask: ROIMask := The structure mask to use for processing. it has
+    to be in the same grid as the plan.combined_dose.
+    - optim_spacing: List[float] := The spacing of the optimization grid in mm.
+    - roi_bounds: List[List[float]] := The bounds of the region of interest (
+    roi) to crop the dose rate map.
+    - max_workers: int := The maximum number of workers to use for multi-processing. Default is 8.
+    - shift_origin: bool := Whether to shift the origin of the resampled dose rate map to align with the new spacing. Default is False.
+    - multi_processing: bool := Whether to use multi-processing. Default is True.
+    ### Outputs:
+    - Tuple[List[Any], List[np.ndarray]] := A tuple of two lists:
+        - The first list contains the model variables of the dwell time variables.
+        - The second list contains the processed dose rate matrices for each dwell time variable.
+    """
     if structure_name is None:
         structure_name = "No"
     dose_rate_matrices = []
     dwell_vars = []
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(
-                process_variable,
-                variable=variable,
+    if multi_processing:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(
+                    process_variable,
+                    variable=variable,
+                    structure_mask=structure_mask,
+                    plan=plan,
+                    optim_spacing=optim_spacing,
+                    roi_bounds=roi_bounds, 
+                    shift_origin=shift_origin
+                ): variable
+                for variable in dwellTimeVariables
+            }
+
+            for future in tqdm.tqdm(
+                as_completed(futures),
+                total=len(futures),
+                desc=f"{structure_name} mask is applied to all dose rate maps"):
+                result = future.result()
+                if result is not None:
+                    dwell_var, valid_dose_points = result
+                    dwell_vars.append(dwell_var)
+                    dose_rate_matrices.append(valid_dose_points)
+    else:
+        for var in dwellTimeVariables:
+            dwell_var, valid_dose_points = process_variable(
+                variable=var,
                 structure_mask=structure_mask,
                 plan=plan,
                 optim_spacing=optim_spacing,
                 roi_bounds=roi_bounds, 
                 shift_origin=shift_origin
-            ): variable
-            for variable in dwellTimeVariables
-        }
-
-        for future in tqdm.tqdm(
-            as_completed(futures),
-            total=len(futures),
-            desc=f"{structure_name} mask is applied to all dose rate maps"):
-            result = future.result()
-            if result is not None:
-                dwell_var, valid_dose_points = result
-                dwell_vars.append(dwell_var)
-                dose_rate_matrices.append(valid_dose_points)
+                )
+            dwell_vars.append(dwell_var)
+            dose_rate_matrices.append(valid_dose_points)
 
     return dwell_vars, dose_rate_matrices
 
