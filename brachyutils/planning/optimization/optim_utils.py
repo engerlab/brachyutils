@@ -202,7 +202,6 @@ def compute_dose_rate_matrices(
             executor.submit(
                 process_variable,
                 variable=variable,
-                # structure_name=structure_name,
                 structure_mask=structure_mask,
                 plan=plan,
                 optim_spacing=optim_spacing,

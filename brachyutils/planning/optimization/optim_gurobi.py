@@ -348,7 +348,6 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 for var in dwellTimeVariables:
                     dwell_var, valid_dose_points = process_variable(
                         var,
-                        # structure.name,
                         structure_mask,
                         plan,
                         optim_spacing,
