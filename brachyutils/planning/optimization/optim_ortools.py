@@ -202,7 +202,6 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
 
         for structure in plan.structure_list:
             if "hotspot_estimator:" in structure.name.lower():
-                structure_counter += 1
                 structure_mask = structure.mask
                 hotspot_config.structure_name = structure.name
                 optim_spacing = hotspot_config.spacing_mm
@@ -218,7 +217,6 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
             elif structure.optimization_config is None:
                 continue
             else:
-                structure_counter += 1
                 structure_mask = structure.mask
                 optim_spacing = structure.optimization_config.spacing_mm
                 target_dose = structure.optimization_config.dose_voxel_goal
@@ -227,17 +225,6 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                 uniformity_weight = structure.optimization_config.penalty_weight_uniformity
                 min_dose = structure.optimization_config.min_dose
                 structure_max_dose = structure.optimization_config.max_dose
-
-            structure_mask = structure.mask
-            optim_spacing = structure.optimization_config.spacing_mm
-            target_dose = structure.optimization_config.dose_voxel_goal
-            linear_weight = structure.optimization_config.penalty_weight_linear
-            quadratic_weight = structure.optimization_config.penalty_weight_quadratic
-            uniformity_weight = structure.optimization_config.penalty_weight_uniformity
-            min_dose = structure.optimization_config.min_dose
-            structure_max_dose = structure.optimization_config.max_dose
-            hotspot_threshold = structure.optimization_config.hotspot_threshold
-            hotspot_weight = structure.optimization_config.penalty_weight_hotspot
 
             structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
                 structure_mask=structure_mask,
