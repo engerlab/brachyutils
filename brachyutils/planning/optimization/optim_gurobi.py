@@ -561,7 +561,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     desc="Resampling and cropping hotspot estimator masks"
                     )
                 )
-
+        processed_masks = [mask.imageArray.swapaxes(0, 2).flatten() for mask in processed_masks]
         # setup a general A matrix once for all the hotspot estimators at once.
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
             dwellTimeVariables=dwellTimeVariables,
@@ -576,7 +576,12 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         t_MVar = MVar.fromlist(dwell_vars)
         A = np.column_stack(dose_rate_matrices)
         print("let's pause here for debugging hotspot estimator")            
-
+        unmasked_dose = A @ t_MVar
+        for mask in processed_masks:
+            masked_dose = unmasked_dose[mask.astype(bool)]
+            # XXX figure it out from here.        
+        
+        
     def reset_model_from_config(
         self,
         config_list:List[Optimization_Config] = None,
