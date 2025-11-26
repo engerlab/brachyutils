@@ -18,7 +18,7 @@ from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DT
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, resample_crop_the_mask_or_contour_to_optimGrid,
-    process_variable, compute_dose_rate_matrices, Optimization_Config
+    compute_dose_rate_matrices, Optimization_Config
 )
 import multiprocessing as mp
 from functools import partial
