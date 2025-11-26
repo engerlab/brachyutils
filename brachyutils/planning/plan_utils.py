@@ -573,7 +573,7 @@ class BrachyPlan:
         assert (
             len(dose_rate_files) == self.num_dwells
         ), ("number of dose rate files does not match the number of dwell positions"
-            f" in the catheter table. Expected {self.num_dwells} but found {len(dose_rate_files)} at {os.path.join(dir_dose_rate, f"run*{type_dose_file}")}"
+            f" in the catheter table. Expected {self.num_dwells} but found {len(dose_rate_files)} at {os.path.join(dir_dose_rate, f'run*{type_dose_file}')}"
         )
 
         test_dose_obj = BrachyDose(dose_rate_files[0])
@@ -1647,14 +1647,15 @@ class BrachyPlan:
                     + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
                     ),
             )
-            config.structure_name = dwell_contour.name
+            copy_config = deepcopy(config)
+            copy_config.structure_name = dwell_contour.name
             self.structure_list.append(
                 BrachyStructure(
                     name=dwell_contour.name,
                     mask=dwell_contour,
                     target_volume=False,
                     in_dvh=False,
-                    optimization_config=config
+                    optimization_config=copy_config
                 )
             )
             self.phantom.set_structure_set(
