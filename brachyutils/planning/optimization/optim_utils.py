@@ -138,7 +138,7 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
 
 def process_variable(
     variable,
-    structure_name,
+    # structure_name,
     structure_mask,
     plan,
     optim_spacing,
@@ -202,7 +202,7 @@ def compute_dose_rate_matrices(
             executor.submit(
                 process_variable,
                 variable=variable,
-                structure_name=structure_name,
+                # structure_name=structure_name,
                 structure_mask=structure_mask,
                 plan=plan,
                 optim_spacing=optim_spacing,
