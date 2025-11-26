@@ -1635,8 +1635,10 @@ class BrachyPlan:
                     )
         # create hotspot structures masks for each dwell pair
         from brachyutils.geometry.phantom_utils import generate_sphere_mask
+        # with mp.Pool(processes=8) as pool:
+            
         for dwellpair in dwell_pairs:
-            dwell_contour = generate_sphere_mask(
+            dwell_mask = generate_sphere_mask(
                 center=dwellpair["center"],
                 radius=dwellpair["radius"],
                 gridSize=self.phantom.image_obj.gridSize,
@@ -1649,16 +1651,16 @@ class BrachyPlan:
             )
             self.structure_list.append(
                 BrachyStructure(
-                    name=dwell_contour.name,
-                    mask=dwell_contour,
+                    name=dwell_mask.name,
+                    mask=dwell_mask,
                     target_volume=False,
                     in_dvh=False,
-                    optimization_config=config
+                    # optimization_config=config
                 )
             )
             self.phantom.set_structure_set(
-                mask_dict={dwell_contour.name: dwell_contour},
-                mask_colors={dwell_contour.name:[251, 159, 255]}
+                mask_dict={dwell_mask.name: dwell_mask},
+                mask_colors={dwell_mask.name:[251, 159, 255]}
                 )
 
     def _reset_optimization(self):
