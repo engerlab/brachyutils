@@ -438,6 +438,9 @@ def convert_nrrd_dose_3ddose(
 
 
 if __name__ == "__main__":
+    
+    pth_nrrd_data = "temp_data/bench_io/nrrd_io"
+    
     # convert_nrrd_dose_to_dicom(
     #     "temp_data/nrrd_io",
     #     "temp_data/dicom_io"
