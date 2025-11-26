@@ -122,17 +122,15 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
             origin=origin_for_resampling,
             sitk_interpolator=sitk_interpolator_dose
             )
-
-    # by now the structure mask is in the same grid as the template dose object
-    # apply the structure mask to the dose rate map
-    if structure_mask is not None:
-        dose_rate_obj.dose_image.imageArray = dose_rate_obj.dose_image.imageArray * structure_mask.imageArray
-
     # crop the dose rate map to the roi bounds
     if roi_bounds is not None:
         crop3DDataAroundBox(
         dose_rate_obj.dose_image,
         roi_bounds)
+    # by now the structure mask is in the same grid as the template dose object
+    # apply the structure mask to the dose rate map
+    if structure_mask is not None:
+        dose_rate_obj.dose_image.imageArray = dose_rate_obj.dose_image.imageArray * structure_mask.imageArray
 
     return dose_rate_obj.get_dose_array().flatten()
 
