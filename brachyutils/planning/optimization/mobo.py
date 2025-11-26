@@ -93,6 +93,26 @@ class MOBOOptimizer:
             for opt_conf in new_opt_config_l:
                 if opt_conf.structure_name == structure_name:
                     setattr(opt_conf, attr_name, val)
+        
+        #Find the target config to copy to hotspot if any
+        target_config = None
+        for opt_conf in new_opt_config_l:
+            if opt_conf.structure_name == self.target_structure_name:
+                target_config = opt_conf
+                break
+        assert target_config is not None, (
+            "Target structure optimization config not found in the optimization_config_list."
+        )
+        # Modifying the hotspot structures if any
+        for key, val in penalty_weights.items():
+            structure_name = key.split("_")[-1]
+            if structure_name.lower() != self.target_structure_name.lower():
+                continue
+            attr_name = key.replace(f"_{structure_name}", "")
+            for opt_conf in new_opt_config_l:
+                if "hotspot_estimator" in opt_conf.structure_name.lower():
+                    setattr(opt_conf, attr_name, val)
+
         for opt_conf in new_opt_config_l:
             if opt_conf.structure_name == self.target_structure_name:
                 new_target_dose = opt_conf.dose_voxel_goal
@@ -295,7 +315,6 @@ class MOBOOptimizer:
         else:
             results = pd.DataFrame()
 
-        
         for i in range(total_ax_iterations):
             print("RUNNING MOBO ITERATION ", i+1, " OUT OF ", total_ax_iterations)
             try:
@@ -309,7 +328,8 @@ class MOBOOptimizer:
             results = pd.concat([results, pd.DataFrame({**dvh_metrics_and_config}, index=[trial_index])], ignore_index=True)
             optimized_cat_tables[f"trial_{trial_index}"] = optimized_cat_table
             # local evaluation here can be replaced with deployment to external systems
-            ax_client.complete_trial(trial_index=trial_index, raw_data=dvh_metrics_and_config)
+            ax_client.complete_trial(trial_index=trial_index, raw_data={k:v for k,v in dvh_metrics_and_config.items() if k in list(ax_client.experiment.metrics.keys())})
+            
             if calc_hv:
                 try:
                     current_model = Generators.MOO(
