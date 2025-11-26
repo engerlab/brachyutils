@@ -1629,7 +1629,7 @@ def generate_sphere_mask(
     spacing: List[float] = [1.0, 1.0, 1.0],
     origin: List[float] = [0.0, 0.0, 0.0],
     name: str = "Sphere",
-) -> ROIContour:
+) -> ROIMask:
     r"""
     Purpose:
         - Generate a sphere mask with the given center and radius inside a 3D grid. 
