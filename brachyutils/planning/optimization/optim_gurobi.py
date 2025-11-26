@@ -445,7 +445,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                         # shape=num_dose_points,
                         lb=0.0,
                         ub=hotspot_threshold * target_dose - min_dose,
-                        name=f"hotspot_slack_{structure.name.split(":")[-1]}"
+                        name=f"hotspot_slack_{structure.name.split(':')[-1]}"
                     )
                     # Hotspot estimator constraints
                     model.addConstr(
@@ -595,9 +595,12 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
 
         for opt_conf in optim_config_list:
             s_name = opt_conf.structure_name
-            for attr_name, attr_value in opt_conf.to_dict().items():
-                if attr_name != "structure_name":
-                    output[f"{attr_name}_{s_name}"] = attr_value
+            # We don't care about saving hotspot config since 
+            # they replicate the PTV one
+            if not "hotspot_estimator:" in s_name:
+                for attr_name, attr_value in opt_conf.to_dict().items():
+                    if attr_name != "structure_name":
+                        output[f"{attr_name}_{s_name}"] = attr_value
 
         if return_cat_table:
             return output, deepcopy(optimized_plan.catheter_table)
@@ -959,6 +962,11 @@ def modify_model_objective_with_new_penalty_weights_and_td(
                 np.isclose(coeff, opt_conf.hotspot_coeff, atol=1e-6):
                 struct_name = opt_conf.structure_name
                 opt_conf_of_interest = opt_conf
+                if np.isclose(coeff, opt_conf.linear_coeff, atol=1e-6):
+                    coeff_type = "linear"
+                else:
+                    coeff_type = "hotspot"
+
         for new_opt_conf in optim_config_list_to_set:
             if new_opt_conf.structure_name == struct_name:
                 new_opt_conf_of_interest = new_opt_conf
@@ -972,7 +980,7 @@ def modify_model_objective_with_new_penalty_weights_and_td(
         if struct_name is None:
             raise ValueError(f"Variable {var.VarName} does not belong to any known structure, with og_conf_list {og_optim_config_list}, and coeff {coeff}, and new opt config list {new_optim_config_list}")
         # Get the original coefficient and weight
-        if not "hotspot" in struct_name:
+        if coeff_type == "linear":
             new_coeff = new_opt_conf_of_interest.linear_coeff
         else:
             new_coeff = new_opt_conf_of_interest.hotspot_coeff
@@ -1035,12 +1043,16 @@ def modify_model_objective_with_new_penalty_weights_and_td(
                np.isclose(coeff, new_opt_conf.hotspot_coeff, atol=1e-6):
                 struct_name = new_opt_conf.structure_name
                 new_opt_conf_of_interest = new_opt_conf
+                if np.isclose(coeff, new_opt_conf.linear_coeff, atol=1e-6):
+                    coeff_type = "linear"
+                else:
+                    coeff_type = "hotspot"
         for og_opt_conf in og_optim_config_list:
             if og_opt_conf.structure_name == struct_name:
                 og_opt_conf_of_interest = og_opt_conf
                 break
         # Get the original coefficient and weight
-        if not "hotspot" in struct_name:
+        if coeff_type == "linear":
             new_weight = new_opt_conf_of_interest.penalty_weight_linear
             og_opt_conf_of_interest.penalty_weight_linear = new_weight
         else:
