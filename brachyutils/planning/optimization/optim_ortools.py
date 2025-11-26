@@ -6,8 +6,8 @@ import numpy as np
 from pathlib import Path
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, 
-    process_variable, compute_dose_rate_matrices
+    BrachyDwellTimeOptim, BrachyDwellTime, resample_crop_the_mask_or_contour_to_optimGrid,
+    compute_dose_rate_matrices, Optimization_Config
 )
 from ortools.math_opt.python.mathopt import (
     Model,
@@ -195,9 +195,38 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
             "uniformity": 0
         }
 
+        # get structure optimization configs for hotspot estimators
         for structure in plan.structure_list:
-            if structure.optimization_config is None:
+            if structure.target_volume and structure.optimization_config.penalty_weight_hotspot > 0:
+                hotspot_config = structure.optimization_config
+
+        for structure in plan.structure_list:
+            if "hotspot_estimator:" in structure.name.lower():
+                structure_counter += 1
+                structure_mask = structure.mask
+                hotspot_config.structure_name = structure.name
+                optim_spacing = hotspot_config.spacing_mm
+                target_dose = hotspot_config.dose_voxel_goal
+                linear_weight = hotspot_config.penalty_weight_linear
+                quadratic_weight = hotspot_config.penalty_weight_quadratic
+                uniformity_weight = hotspot_config.penalty_weight_uniformity
+                min_dose = hotspot_config.min_dose
+                structure_max_dose = hotspot_config.max_dose
+                hotspot_weight = hotspot_config.penalty_weight_hotspot
+                hotspot_threshold = hotspot_config.hotspot_threshold
+
+            elif structure.optimization_config is None:
                 continue
+            else:
+                structure_counter += 1
+                structure_mask = structure.mask
+                optim_spacing = structure.optimization_config.spacing_mm
+                target_dose = structure.optimization_config.dose_voxel_goal
+                linear_weight = structure.optimization_config.penalty_weight_linear
+                quadratic_weight = structure.optimization_config.penalty_weight_quadratic
+                uniformity_weight = structure.optimization_config.penalty_weight_uniformity
+                min_dose = structure.optimization_config.min_dose
+                structure_max_dose = structure.optimization_config.max_dose
 
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
@@ -210,33 +239,25 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
             hotspot_threshold = structure.optimization_config.hotspot_threshold
             hotspot_weight = structure.optimization_config.penalty_weight_hotspot
 
-            # Build dose rate matrix and dwell time vector for this structure
-            if not multi_processing:
-                dose_rate_matrices = []
-                dwell_vars = []
-                for var in dwellTimeVariables:
-                    dwell_var, valid_dose_points = process_variable(
-                        var,
-                        structure.name,
-                        structure_mask,
-                        plan,
-                        optim_spacing,
-                        self.roi_bounds, 
-                        shift_origin=True
-                        )
-                    dwell_vars.append(dwell_var)
-                    dose_rate_matrices.append(valid_dose_points)
-            else:
-                dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
-                    dwellTimeVariables,
-                    structure,
-                    structure_mask,
-                    plan,
-                    optim_spacing,
-                    self.roi_bounds,
-                    max_workers=4, 
-                    shift_origin=True
+            structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
+                structure_mask=structure_mask,
+                template_dose_obj=plan.combined_dose,
+                optim_spacing=optim_spacing,
+                roi_bounds=self.roi_bounds,
                 )
+
+            # Build dose rate matrix and dwell time vector for this structure
+            dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+                dwellTimeVariables,
+                plan,
+                structure.name,
+                structure_mask,
+                optim_spacing,
+                self.roi_bounds,
+                max_workers=8, 
+                shift_origin=True,
+                multi_processing=multi_processing
+            )
 
             if not dose_rate_matrices:
                 continue
