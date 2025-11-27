@@ -158,7 +158,7 @@ class BrachyDose:
         """
         pth_dose_file = Path(pth_dose_file)
         file_extension = os.path.splitext(pth_dose_file)[-1]
-
+        pth_dose_file.parent.mkdir(parents=True, exist_ok=True)
         if file_extension == ".3ddose":
             self.write_to_3ddose(pth_dose_file)
 
@@ -765,7 +765,7 @@ class BrachyDose:
     def write_to_dicom(self, filename:Path | str):
         from opentps.core.io.dicomIO import writeRTDose
         filename=Path(filename)
-        writeRTDose(self.dose_image, str(filename.parent), str(filename.name))
+        writeRTDose(self.dose_image, str(filename.parent), str(filename.stem))
 
     def get_voxel_edges(self):
         r"""
