@@ -294,7 +294,7 @@ def convert_nrrd_to_dicom(
           with subdirectories named after the original NRRD directories.
     """ 
     nrrd_patients = list(Path(nrrd_patients).glob("*/"))
-    for patient_nrrd in nrrd_patients:
+    for patient_nrrd in tqdm(nrrd_patients):
         data_nrrd = list(patient_nrrd.glob("*.nrrd"))
         data_img = list(filter(
             lambda x: "seq" not in x.name and ".seg.nrrd" not in x.name,
@@ -335,13 +335,26 @@ def convert_nrrd_to_egs(
           with subdirectories named after the original NRRD directories.
     """
     nrrd_patients = list(Path(nrrd_patients).glob("*/"))
-    for patient_nrrd in nrrd_patients:
+    for patient_nrrd in tqdm(nrrd_patients):
         data_nrrd = list(patient_nrrd.glob("*.nrrd"))
         data_seq = list(filter(lambda x: ".seq.nrrd" in x.name, data_nrrd))
-        data_egsphant = list(filter(lambda x: "egsphant" in x.name, data_seq)).pop()
+        data_egsphant = list(filter(lambda x: "egsphant" in x.name, data_seq))
         data_dose = list(filter(lambda x: "egsphant" not in x.name, data_seq)).pop()
         # now convert phantom to egsphant
-        
+        for sample in data_egsphant:
+            BrachyEgsphant(
+                pth_egsphant_file=sample
+            ).write_to_file(
+                fileName=Path(egs_patients).joinpath(
+                    patient_nrrd.name).joinpath(sample.name.replace("_egsphant.seq.nrrd", ".egsphant"))
+            )
+        # convert does to 3ddose
+        BrachyDose(
+            pth_dose_file=data_dose
+        ).write_brachydose_to_file(
+            pth_dose_file=Path(egs_patients).joinpath(
+                patient_nrrd.name).joinpath(data_dose.name.replace(".seq.nrrd", ".3ddose"))
+        )
 
 def eval_nrrd_io(dir_nrrds: Path | str):
     """
@@ -487,22 +500,22 @@ if __name__ == "__main__":
     
     # anonymize and convert all data to nrrd. we'll start assuming data is in nrrd.
     # generate egsphants in nrrd format
-    generate_egsphants(
-        nrrd_patients=pth_nrrd_data,
-        pth_material_dict=pth_material_dict,
-        multi_thread=False
-    )
+    # generate_egsphants(
+    #     nrrd_patients=pth_nrrd_data,
+    #     pth_material_dict=pth_material_dict,
+    #     multi_thread=False
+    # )
 
     # to benchmark dicom io, we convert all data from nrrd to dicom and egs.
     # convert_nrrd_to_dicom(
     #     pth_nrrd_data,
     #     pth_dicom_data
     # )
-    # convert_nrrd_to_egs(
-    #     pth_nrrd_data,
-    #     pth_egs_data
-    # )
-    
+    convert_nrrd_to_egs(
+        pth_nrrd_data,
+        pth_egs_data
+    )
+
     # eval_dicom_io(
     #     "temp_data/dicom_io",
     #     "temp_data/dicom_io"
