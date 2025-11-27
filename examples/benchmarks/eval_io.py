@@ -97,27 +97,38 @@ def time_phantom_io(
         pth_phantom_file: Path = None,
         pth_structures_file: Path = None,
     ):
-        try:
-            t0_read = time()
-            phantom_obj = BrachyPhantom(
-                dir_dicom=dir_dicom,
-                pth_phantom_file=pth_phantom_file,
-                pth_structures_file=pth_structures_file
-                )
-            tf_read = time()
-        except Exception as e:
-            t0_read, tf_read = (float("nan"), float("nan"))
-        try:
-            if type_out == "dicom":
-                t0_write = time()
-                phantom_obj.export_to(dir_dicom_out=dir_out)
-            elif type_out == "nrrd":
-                t0_write = time()
-                phantom_obj.export_to(dir_nrrd_out=dir_out)
+        # try:
+        t0_read = time()
+        phantom_obj = BrachyPhantom(
+            dir_dicom=dir_dicom,
+            pth_phantom_file=pth_phantom_file,
+            pth_structures_file=pth_structures_file
+            )
+        tf_read = time()
+        # except Exception as e:
+        #     t0_read, tf_read = (float("nan"), float("nan"))
+        # try:
+        if type_out == "dicom":
+            t0_write = time()
+            phantom_obj.export_to(dir_dicom_out=dir_out)
             tf_write = time()
-        except Exception as e:
-            t0_write, tf_write = (float("nan"), float("nan"))
-        return (tf_read - t0_read, tf_write - t0_write)
+            new_dcm_files = list(dir_out.glob("*.dcm"))
+            new_dcm_files = list(filter(lambda x: "RD" not in x.name and "RS" not in x.name, new_dcm_files))
+            total_size_bytes = sum(f.stat().st_size for f in new_dcm_files) / (1024 * 1024)
+            if pth_structures_file is not None:
+                total_size_bytes += pth_structures_file.stat().st_size / (1024 * 1024)
+        elif type_out == "nrrd":
+            t0_write = time()
+            phantom_obj.export_to(dir_nrrd_out=dir_out)
+            tf_write = time()
+            new_nrrd_files = list(dir_out.glob("*.nrrd"))
+            new_nrrd_files = list(filter(lambda x: ".seq.nrrd" not in x.name and ".seg.nrrd" not in x.name, new_nrrd_files))
+            total_size_bytes = sum(f.stat().st_size for f in new_nrrd_files) / (1024 * 1024)
+            if pth_structures_file is not None:
+                total_size_bytes += pth_structures_file.stat().st_size / (1024 * 1024)
+        # except Exception as e:
+        #     t0_write, tf_write, total_size_bytes = (float("nan"), float("nan"), float("nan"))
+        return (tf_read - t0_read, tf_write - t0_write, total_size_bytes)
 
 def time_dose_io(
     pth_dose_in: Path,
@@ -177,32 +188,32 @@ def eval_dicom_io(pth_dicom_data: Path | str):
     # dir_out = Path(dir_out)
     # dir_out = Path("temp_data/dicom_io")
     timing_df = pd.DataFrame(columns=[
-        "read_time_scan", "write_time_scan",
-        "read_time_scan+seg", "write_time_scan+seg",
-        "read_time_dose", "write_time_dose"
+        "read_time_scan", "write_time_scan", "scan_file_size_mb",
+        "read_time_scan+seg", "write_time_scan+seg", "scan+seg_file_size_mb",
+        "read_time_dose", "write_time_dose", "dose_file_size_mb",
         ], index=[dicom.name for dicom in dicom_patients_list] + ["average", "std"])
 
     for dicom in tqdm(dicom_patients_list):
-        t_read_scan, t_write_scan = time_phantom_io(
+        t_read_scan, t_write_scan, scan_file_size_mb = time_phantom_io(
             dir_out=pth_dicom_data.joinpath(dicom.name),
             type_out="dicom",
             dir_dicom=dicom
             )
-        t_read_scan_seg, t_write_scan_seg = time_phantom_io(
+        t_read_scan_seg, t_write_scan_seg, scan_seg_file_size_mb = time_phantom_io(
             dir_out=pth_dicom_data.joinpath(dicom.name),
             type_out="dicom",
             dir_dicom=dicom,
             pth_structures_file=list(dicom.glob("RS*.dcm")).pop()
         )
         pth_dose_file = list(dicom.glob("RD*.dcm")).pop()
-        t_read_dose, t_write_dose = time_dose_io(
+        t_read_dose, t_write_dose, file_size_mb = time_dose_io(
             pth_dose_in=pth_dose_file,
             pth_dose_out=pth_dicom_data.joinpath(dicom.name).joinpath(pth_dose_file.name)
         )
         timing_df.loc[dicom.name] = [
-            t_read_scan, t_write_scan,
-            t_read_scan_seg, t_write_scan_seg,
-            t_read_dose, t_write_dose
+            t_read_scan, t_write_scan, scan_file_size_mb,
+            t_read_scan_seg, t_write_scan_seg, scan_seg_file_size_mb,
+            t_read_dose, t_write_dose, file_size_mb
             ]
 
     timing_df.loc["average"] = timing_df.mean()
@@ -501,12 +512,12 @@ if __name__ == "__main__":
     eval_dicom_io(
         pth_dicom_data=pth_dicom_data,
     )
-    eval_nrrd_io(
-        pth_nrrd_data=pth_nrrd_data,
-    )
-    eval_egs_io(
-        pth_egs_data=pth_egs_data,
-    )
-    eval_3ddose_io(
-        patients_3ddose=pth_egs_data,
-    )
+    # eval_nrrd_io(
+    #     pth_nrrd_data=pth_nrrd_data,
+    # )
+    # eval_egs_io(
+    #     pth_egs_data=pth_egs_data,
+    # )
+    # eval_3ddose_io(
+    #     patients_3ddose=pth_egs_data,
+    # )
