@@ -166,53 +166,30 @@ def time_egsphant_io(
     #     t0_write, tf_write = (float("nan"), float("nan"))
         return (tf_read - t0_read, tf_write - t0_write, filesize_mb)
 
-def eval_dicom_io(dicom_patients: Path | str, dir_out: Path | str):
+def eval_dicom_io(pth_dicom_data: Path | str):
     """
-    Evaluate DICOM I/O performance by benchmarking read and write operations.
-    This function performs timing benchmarks for various DICOM file operations including:
-    - Phantom scan reading and writing (CT/MR images)
-    - Phantom scan with segmentation structures reading and writing
-    - Dose file reading and writing
-    The function processes all DICOM directories found in the specified data path,
-    measures execution times for each operation type, and generates statistical
-    summaries (average and standard deviation) of the timing results.
-    Directory Structure Expected:
-        ~/YourLocalHome/Data/prostate-glen-2023/
-        ├── patient1/
-        │   ├── CT*.dcm (scan files) or MR*.dcm
-        │   ├── RS*.dcm (structure set files)
-        │   └── RD*.dcm (dose files)
-        └── patient2/
-            └── ...
-    Output:
-        Creates a CSV file 'timing_dicom_io.csv' in 'temp_data/dicom_io/' containing
-        timing results for all operations across all processed DICOM directories.
-    Raises:
-        FileNotFoundError: If the specified DICOM data directory doesn't exist
-        IndexError: If required DICOM files (RS*.dcm or RD*.dcm) are not found
-    Note:
-        Requires the following functions to be available:
-        - time_phantom_io(): Times phantom reading/writing operations
-        - time_dose_io(): Times dose file reading/writing operations
+    ### Purpose:
+    - To evaluate DICOM file I/O performance by timing read and write operations
+    of scan, segmentation and dose.
     """
-    dicom_patients = Path(dicom_patients)
-    dicom_patients = list(dicom_patients.glob("*/"))
-    dir_out = Path(dir_out)
+    pth_dicom_data = Path(pth_dicom_data)
+    dicom_patients_list = list(pth_dicom_data.glob("*/"))
+    # dir_out = Path(dir_out)
     # dir_out = Path("temp_data/dicom_io")
     timing_df = pd.DataFrame(columns=[
         "read_time_scan", "write_time_scan",
         "read_time_scan+seg", "write_time_scan+seg",
         "read_time_dose", "write_time_dose"
-        ], index=[dicom.name for dicom in dicom_patients] + ["average", "std"])
-    
-    for dicom in tqdm(dicom_patients):
+        ], index=[dicom.name for dicom in dicom_patients_list] + ["average", "std"])
+
+    for dicom in tqdm(dicom_patients_list):
         t_read_scan, t_write_scan = time_phantom_io(
-            dir_out=dir_out.joinpath(dicom.name),
+            dir_out=pth_dicom_data.joinpath(dicom.name),
             type_out="dicom",
             dir_dicom=dicom
             )
         t_read_scan_seg, t_write_scan_seg = time_phantom_io(
-            dir_out=dir_out.joinpath(dicom.name),
+            dir_out=pth_dicom_data.joinpath(dicom.name),
             type_out="dicom",
             dir_dicom=dicom,
             pth_structures_file=list(dicom.glob("RS*.dcm")).pop()
@@ -220,7 +197,7 @@ def eval_dicom_io(dicom_patients: Path | str, dir_out: Path | str):
         pth_dose_file = list(dicom.glob("RD*.dcm")).pop()
         t_read_dose, t_write_dose = time_dose_io(
             pth_dose_in=pth_dose_file,
-            pth_dose_out=dir_out.joinpath(dicom.name).joinpath(pth_dose_file.name)
+            pth_dose_out=pth_dicom_data.joinpath(dicom.name).joinpath(pth_dose_file.name)
         )
         timing_df.loc[dicom.name] = [
             t_read_scan, t_write_scan,
@@ -230,11 +207,11 @@ def eval_dicom_io(dicom_patients: Path | str, dir_out: Path | str):
 
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
-    timing_df.to_csv(dir_out.joinpath("timing_dicom_io.csv"))
+    timing_df.to_csv(pth_dicom_data.joinpath("timing_dicom_io.csv"))
 
 def convert_dicom_to_nrrd(
-    dicom_patients: Path | str,
-    dir_out: Path | str
+    pth_dicom_data: Path | str,
+    pth_nrrd_data: Path | str
     ):
     """
     Convert DICOM files to NRRD format for brachytherapy data.
@@ -257,7 +234,7 @@ def convert_dicom_to_nrrd(
         Expects DICOM directories to contain RS*.dcm (structure) and RD*.dcm (dose) files.
     """
 
-    dicom_patients = list(Path().home().joinpath(dicom_patients).glob("*/"))
+    dicom_patients = list(Path().home().joinpath(pth_dicom_data).glob("*/"))
     # first converting everything to nrrd files
     for dicom in dicom_patients:
         # Convert DICOM to NRRD
@@ -267,13 +244,13 @@ def convert_dicom_to_nrrd(
                 pth_structures_file=list(dicom.glob("RS*.dcm")).pop()
                 )
             phantom_obj.export_to(
-                dir_nrrd_out=dir_out.joinpath(dicom.name)
+                dir_nrrd_out=pth_nrrd_data.joinpath(dicom.name)
                 )
             dose_obj = BrachyDose(
                 pth_dose_file=list(dicom.glob("RD*.dcm")).pop()
             )
             dose_obj.write_brachydose_to_file(
-                pth_dose_file=Path(dir_out).joinpath(dicom.name).joinpath(dicom.name+".seq.nrrd")
+                pth_dose_file=pth_nrrd_data.joinpath(dicom.name).joinpath(dicom.name+".seq.nrrd")
             )
         except Exception as e:
             print(f"Error converting {dicom.name} to NRRD: {e}")
@@ -492,58 +469,44 @@ def eval_3ddose_io(
     timing_df.to_csv(dir_out.joinpath("timing_3ddose_io.csv"))
 
 if __name__ == "__main__":
-    
+    pth_source_data = "YourLocalHome/Data/prostate-glen-2023"
     pth_nrrd_data = "temp_data/bench_io/nrrd_io"
     pth_dicom_data = "temp_data/bench_io/dicom_io"
     pth_egs_data = "temp_data/bench_io/egs_io"
     pth_material_dict = "admin/constants/structure_materials_prostate.json"
     
-    # anonymize and convert all data to nrrd. we'll start assuming data is in nrrd.
-    # generate egsphants in nrrd format
+    # # anonymize and convert all data to nrrd. we'll start assuming data is in nrrd.
+    # convert_dicom_to_nrrd(
+    #     pth_source_data,
+    #     pth_nrrd_data
+    # )
+
+    # # generate egsphants in nrrd format
     # generate_egsphants(
     #     nrrd_patients=pth_nrrd_data,
     #     pth_material_dict=pth_material_dict,
     #     multi_thread=False
     # )
 
-    # to benchmark dicom io, we convert all data from nrrd to dicom and egs.
+    # # to benchmark dicom io, we convert all data from nrrd to dicom and egs.
     # convert_nrrd_to_dicom(
     #     pth_nrrd_data,
     #     pth_dicom_data
     # )
-    convert_nrrd_to_egs(
-        pth_nrrd_data,
-        pth_egs_data
-    )
+    # convert_nrrd_to_egs(
+    #     pth_nrrd_data,
+    #     pth_egs_data
+    # )
 
-    # eval_dicom_io(
-    #     "temp_data/dicom_io",
-    #     "temp_data/dicom_io"
-    # )
-    # convert_dicom_to_nrrd(
-    #     "YourLocalHome/Data/prostate-glen-2023",
-    #     "temp_data/nrrd_io"
-    # )
-    # eval_nrrd_io(
-    #     "temp_data/nrrd_io",
-    # )
-    # eval_nifti_io()
-    # generate_egsphants(
-    #     "temp_data/nrrd_io",
-    #     # "admin/constants/structure_materials_prostate.json",
-    #     "admin/constants/CTtoDensityProstate.txt",
-    #     True,
-    #     True
-    # )
-    # eval_egs_io(
-    #     "temp_data/nrrd_io",
-    #     "temp_data/egs_io"
-    # )
-    # convert_nrrd_dose_3ddose(
-    #     "temp_data/nrrd_io",
-    #     "temp_data/3ddose_io"
-    # )
-    # eval_3ddose_io(
-    #     "temp_data/3ddose_io",
-    #     "temp_data/3ddose_io"
-    # )
+    eval_dicom_io(
+        pth_dicom_data=pth_dicom_data,
+    )
+    eval_nrrd_io(
+        pth_nrrd_data=pth_nrrd_data,
+    )
+    eval_egs_io(
+        pth_egs_data=pth_egs_data,
+    )
+    eval_3ddose_io(
+        patients_3ddose=pth_egs_data,
+    )
