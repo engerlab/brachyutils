@@ -196,6 +196,55 @@ def convert_dicom_to_nrrd(
             print(f"Error converting {dicom.name} to NRRD: {e}")
             continue
 
+def convert_nrrd_to_dicom(
+    nrrd_patients: Path | str,
+    dir_out: Path | str
+    ):
+    """
+    Convert NRRD files to DICOM format for brachytherapy data.
+    This function processes NRRD directories containing brachytherapy data and converts
+    them to DICOM format. It handles both phantom structures and dose data.
+    The function:
+    - Searches for NRRD directories in the specified input path
+    - Creates BrachyPhantom objects from NRRD files and structure files (.seg.nrrd)
+    - Exports phantom data to DICOM format in the output directory
+    - Creates BrachyDose objects from dose files (.seq.nrrd)
+    - Writes dose data to DICOM files
+    Output files are saved to the specified output directory with subdirectories
+    named after the original NRRD directory names.
+    Raises:
+        Exception: Catches and prints any conversion errors for individual NRRD
+                  directories, then continues processing remaining directories.
+    Note:
+        Requires BrachyPhantom and BrachyDose classes to be imported and available.
+        Expects NRRD directories to contain .seg.nrrd (structure) and .seq.nrrd (dose) files.
+    """ 
+    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
+    for patient_nrrd in nrrd_patients:
+        data_nrrd = list(patient_nrrd.glob("*.nrrd"))
+        data_img = list(filter(
+            lambda x: "seq" not in x.name and ".seg.nrrd" not in x.name,
+            data_nrrd)).pop()
+        data_seg = list(filter(lambda x: ".seg.nrrd" in x.name, data_nrrd)).pop()
+        data_seq = list(filter(lambda x: ".seq.nrrd" in x.name, data_nrrd))
+        data_dose = list(filter(lambda x: "egsphant" not in x.name, data_seq)).pop()
+        
+        # now convert phantom to dicom
+        BrachyPhantom(
+            pth_phantom_file=data_img,
+            pth_structures_file=data_seg
+        ).export_to(
+            dir_dicom_out=Path(dir_out).joinpath(patient_nrrd.name)
+        )
+        # convert does to dicom
+        pth_dose_dicom_out = Path(dir_out).joinpath(
+            patient_nrrd.name).joinpath("RD.dcm")
+        BrachyDose(
+            pth_dose_file=data_dose
+        ).write_brachydose_to_file(
+            pth_dose_file=pth_dose_dicom_out
+        )
+
 def eval_nrrd_io(dir_nrrds: Path | str):
     """
     Evaluate NRRD file I/O performance by timing read and write operations.
@@ -231,6 +280,14 @@ def eval_nrrd_io(dir_nrrds: Path | str):
         ], index=[nrrd.name for nrrd in dir_nrrds] + ["average", "std"])
 
     for nrrd in tqdm(dir_nrrds):
+        data_nrrd = list(nrrd.glob("*.nrrd"))
+        data_img = list(filter(
+            lambda x: "seq" not in x.name and ".seg.nrrd" not in x.name,
+            data_nrrd)).pop()
+        data_seg = list(filter(lambda x: ".seg.nrrd" in x.name, data_nrrd)).pop()
+        data_seq = list(filter(lambda x: ".seq.nrrd" in x.name, data_nrrd))
+        data_dose = list(filter(lambda x: "egsphant" not in x.name, data_seq)).pop()
+
         t_read_scan, t_write_scan = time_phantom_io(
             dir_out=nrrd,
             type_out="nrrd",
@@ -440,7 +497,14 @@ def convert_nrrd_dose_3ddose(
 if __name__ == "__main__":
     
     pth_nrrd_data = "temp_data/bench_io/nrrd_io"
-    
+    pth_dicom_data = "temp_data/bench_io/dicom_io"
+    pth_egs_data = "temp_data/bench_io/egs_io"
+
+    # first, we convert all data from nrrd to dicom and egs.
+    convert_nrrd_to_dicom(
+        pth_nrrd_data,
+        pth_dicom_data
+    )
     # convert_nrrd_dose_to_dicom(
     #     "temp_data/nrrd_io",
     #     "temp_data/dicom_io"
@@ -453,9 +517,9 @@ if __name__ == "__main__":
     #     "YourLocalHome/Data/prostate-glen-2023",
     #     "temp_data/nrrd_io"
     # )
-    eval_nrrd_io(
-        "temp_data/nrrd_io",
-    )
+    # eval_nrrd_io(
+    #     "temp_data/nrrd_io",
+    # )
     # eval_nifti_io()
     # generate_egsphants(
     #     "temp_data/nrrd_io",
