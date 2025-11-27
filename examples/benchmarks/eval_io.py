@@ -280,13 +280,6 @@ def eval_nrrd_io(dir_nrrds: Path | str):
         ], index=[nrrd.name for nrrd in dir_nrrds] + ["average", "std"])
 
     for nrrd in tqdm(dir_nrrds):
-        data_nrrd = list(nrrd.glob("*.nrrd"))
-        data_img = list(filter(
-            lambda x: "seq" not in x.name and ".seg.nrrd" not in x.name,
-            data_nrrd)).pop()
-        data_seg = list(filter(lambda x: ".seg.nrrd" in x.name, data_nrrd)).pop()
-        data_seq = list(filter(lambda x: ".seq.nrrd" in x.name, data_nrrd))
-        data_dose = list(filter(lambda x: "egsphant" not in x.name, data_seq)).pop()
 
         t_read_scan, t_write_scan = time_phantom_io(
             dir_out=nrrd,
@@ -464,21 +457,6 @@ def _gen_one_egsphant(
     )
 
 
-def convert_nrrd_dose_to_dicom(
-    nrrd_patients: Path | str,
-    dicom_patients: Path | str
-    ):
-    from brachyutils import convert_dose_files
-    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
-    dicom_patients = Path(dicom_patients)
-
-    for nrrd in nrrd_patients:
-        convert_dose_files(
-            pth_inputs=[nrrd.joinpath(nrrd.name+".seq.nrrd")],
-            type_out=".dcm",
-            dir_output=dicom_patients.joinpath(nrrd.name)
-            )
-
 def convert_nrrd_dose_3ddose(
     nrrd_patients: Path | str,
     threeddose_patients: Path | str
@@ -501,14 +479,16 @@ if __name__ == "__main__":
     pth_egs_data = "temp_data/bench_io/egs_io"
 
     # first, we convert all data from nrrd to dicom and egs.
-    convert_nrrd_to_dicom(
-        pth_nrrd_data,
-        pth_dicom_data
-    )
-    # convert_nrrd_dose_to_dicom(
-    #     "temp_data/nrrd_io",
-    #     "temp_data/dicom_io"
+    # convert_nrrd_to_dicom(
+    #     pth_nrrd_data,
+    #     pth_dicom_data
     # )
+
+    convert_nrrd_to_egs(
+        pth_nrrd_data,
+        pth_egs_data
+    )
+    
     # eval_dicom_io(
     #     "temp_data/dicom_io",
     #     "temp_data/dicom_io"
