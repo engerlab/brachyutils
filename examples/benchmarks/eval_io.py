@@ -7,6 +7,89 @@ from brachyutils import BrachyPhantom
 from brachyutils import BrachyDose
 from brachyutils import BrachyEgsphant
 
+def generate_egsphants(
+    nrrd_patients: Path | str,
+    pth_material_dict: Path | str,
+    multi_thread: bool = False,
+    ):
+    r"""
+    ### Purpose:
+    - To generate egsphant files from patient geometry storied in NRRD format. For each patient,
+    the directory should contain:
+        - A scan file named "{patient_name}.nrrd"
+        - A segmentation file named "{patient_name}.seg.nrrd"
+    ### Inputs:
+        - nrrd_patients (Path | str): Path to directory containing subdirectories with NRRD files.
+        - material_dict (dict | Path | str): A dictionary or path to a JSON file mapping structure names
+          to material properties required for egsphant generation.
+    ### Outputs:
+        - Egsphant files saved in the same directory as the input NRRD files,
+          named "egsphant.seq.nrrd" and "ct.egsphant".
+    """
+    nrrd_patients = Path(nrrd_patients)
+    pth_material_dict = Path(pth_material_dict)
+    
+    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
+    if not multi_thread:
+        for patient in tqdm(nrrd_patients):
+            _gen_one_egsphant(
+                pth_patient=patient,
+                pth_material_dict=pth_material_dict,
+            )
+    else:
+        from multiprocessing import Pool, cpu_count
+        from functools import partial
+        num_cores = cpu_count() - 2
+        with Pool(num_cores) as p:
+            
+            r = list(tqdm(p.imap(
+                func=partial(
+                    _gen_one_egsphant, 
+                    pth_material_dict=pth_material_dict,
+                ),
+                iterable=nrrd_patients
+                ), total=len(nrrd_patients)
+            ))
+
+def _gen_one_egsphant(
+    pth_patient: Path,
+    pth_material_dict: Path,
+    ):
+    """
+    ### Purpose:
+    - Generate egsphant files for a single patient from NRRD files. 
+    both segmentation-based and CT-based egsphants are created.
+    ### inputs:
+    - pth_patient (Path): path to patient directory containing NRRD files.
+    - pth_material_dict (Path): path to material dictionary file.
+    ### Outputs:
+    - Egsphant files saved in the patient directory,
+      named "seg_egsphant.seq.nrrd" and "ct_egsphant.seq.nrrd".
+    """
+    nrrd_files = list(pth_patient.glob("*.nrrd"))
+    for pth in nrrd_files:
+        if ".seg.nrrd" in pth.name:
+                pth_seg_nrrd = pth
+        elif ".seq.nrrd" in pth.name:
+            pth_dose_nrrd = pth
+        elif ".nrrd" in pth.name and "egsphant" not in pth.name:
+            pth_scan_nrrd = pth
+    phantom_obj = BrachyPhantom(
+        pth_phantom_file=pth_scan_nrrd,
+        pth_structures_file=pth_seg_nrrd
+        )
+    phantom_obj.write_to_egsphant(
+        pth_output=pth_patient.joinpath("seg_egsphant.seq.nrrd"),
+        material_dict=pth_material_dict,
+        assign_material_from_ct=False
+    )
+    phantom_obj.write_to_egsphant(
+        pth_output=pth_patient.joinpath("ct_egsphant.seq.nrrd"),
+        material_dict=pth_material_dict,
+        assign_material_from_ct=True
+    )
+
+
 def time_phantom_io(
         dir_out: Path,
         type_out: Literal["dicom", "nrrd", "nifti", "egs"],
@@ -198,26 +281,17 @@ def convert_dicom_to_nrrd(
 
 def convert_nrrd_to_dicom(
     nrrd_patients: Path | str,
-    dir_out: Path | str
+    dicom_patients: Path | str
     ):
     """
-    Convert NRRD files to DICOM format for brachytherapy data.
-    This function processes NRRD directories containing brachytherapy data and converts
-    them to DICOM format. It handles both phantom structures and dose data.
-    The function:
-    - Searches for NRRD directories in the specified input path
-    - Creates BrachyPhantom objects from NRRD files and structure files (.seg.nrrd)
-    - Exports phantom data to DICOM format in the output directory
-    - Creates BrachyDose objects from dose files (.seq.nrrd)
-    - Writes dose data to DICOM files
-    Output files are saved to the specified output directory with subdirectories
-    named after the original NRRD directory names.
-    Raises:
-        Exception: Catches and prints any conversion errors for individual NRRD
-                  directories, then continues processing remaining directories.
-    Note:
-        Requires BrachyPhantom and BrachyDose classes to be imported and available.
-        Expects NRRD directories to contain .seg.nrrd (structure) and .seq.nrrd (dose) files.
+    ### Purpose:
+    - To convert NRRD image, segmentation and dose files to DICOM format.
+    ### Inputs:
+        - nrrd_patients (Path | str): Path to directory containing subdirectories with NRRD files.
+        - dicom_patients (Path | str): Path to directory to save converted DICOM files.
+    ### Outputs:
+        - DICOM files saved in the specified output directory,
+          with subdirectories named after the original NRRD directories.
     """ 
     nrrd_patients = list(Path(nrrd_patients).glob("*/"))
     for patient_nrrd in nrrd_patients:
@@ -234,16 +308,40 @@ def convert_nrrd_to_dicom(
             pth_phantom_file=data_img,
             pth_structures_file=data_seg
         ).export_to(
-            dir_dicom_out=Path(dir_out).joinpath(patient_nrrd.name)
+            dir_dicom_out=Path(dicom_patients).joinpath(patient_nrrd.name)
         )
         # convert does to dicom
-        pth_dose_dicom_out = Path(dir_out).joinpath(
+        pth_dose_dicom_out = Path(dicom_patients).joinpath(
             patient_nrrd.name).joinpath("RD.dcm")
         BrachyDose(
             pth_dose_file=data_dose
         ).write_brachydose_to_file(
             pth_dose_file=pth_dose_dicom_out
         )
+
+def convert_nrrd_to_egs(
+    nrrd_patients: Path | str,
+    egs_patients: Path | str,
+    ):
+    """
+    ### Purpose:
+    - To convert egsphant and dose files from NRRD format to EGS format.
+    ### Inputs:
+        - nrrd_patients (Path | str): Path to directory containing subdirectories with
+        ct_egsphant.seq.nrrd and seg_egsphant.seq.nrrd files.
+        - egs_patients (Path | str): Path to directory to save converted EGS files.
+    ### Outputs:
+        - Egsphant and dose files saved in the specified output directory,
+          with subdirectories named after the original NRRD directories.
+    """
+    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
+    for patient_nrrd in nrrd_patients:
+        data_nrrd = list(patient_nrrd.glob("*.nrrd"))
+        data_seq = list(filter(lambda x: ".seq.nrrd" in x.name, data_nrrd))
+        data_egsphant = list(filter(lambda x: "egsphant" in x.name, data_seq)).pop()
+        data_dose = list(filter(lambda x: "egsphant" not in x.name, data_seq)).pop()
+        # now convert phantom to egsphant
+        
 
 def eval_nrrd_io(dir_nrrds: Path | str):
     """
@@ -380,114 +478,30 @@ def eval_3ddose_io(
     timing_df.loc["std"] = timing_df.std()
     timing_df.to_csv(dir_out.joinpath("timing_3ddose_io.csv"))
 
-
-def generate_egsphants(
-    nrrd_patients: Path | str,
-    pth_material_dict: Path | str,
-    multi_thread: bool = False,
-    assign_material_from_ct: bool = True
-    ):
-    r"""
-    ### Purpose:
-    - To generate egsphant files from patient geometry storied in NRRD format. For each patient,
-    the directory should contain:
-        - A scan file named "{patient_name}.nrrd"
-        - A segmentation file named "{patient_name}.seg.nrrd"
-    ### Inputs:
-        - nrrd_patients (Path | str): Path to directory containing subdirectories with NRRD files.
-        - material_dict (dict | Path | str): A dictionary or path to a JSON file mapping structure names
-          to material properties required for egsphant generation.
-    ### Outputs:
-        - Egsphant files saved in the same directory as the input NRRD files,
-          named "egsphant.seq.nrrd" and "ct.egsphant".
-    """
-    nrrd_patients = Path(nrrd_patients)
-    pth_material_dict = Path(pth_material_dict)
-    
-    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
-    if not multi_thread:
-        for patient in tqdm(nrrd_patients):
-            _gen_one_egsphant(
-                pth_patient=patient,
-                pth_material_dict=pth_material_dict,
-                assign_material_from_ct=assign_material_from_ct
-            )
-    else:
-        from multiprocessing import Pool, cpu_count
-        from functools import partial
-        num_cores = cpu_count() - 2
-        with Pool(num_cores) as p:
-            
-            r = list(tqdm(p.imap(
-                func=partial(
-                    _gen_one_egsphant, 
-                    pth_material_dict=pth_material_dict,
-                    assign_material_from_ct=assign_material_from_ct
-                ),
-                iterable=nrrd_patients
-                ), total=len(nrrd_patients)
-            ))
-
-def _gen_one_egsphant(
-    pth_patient: Path,
-    pth_material_dict: Path,
-    assign_material_from_ct: bool = True
-):
-    nrrd_files = list(pth_patient.glob("*.nrrd"))
-    for pth in nrrd_files:
-        if ".seg.nrrd" in pth.name:
-                pth_seg_nrrd = pth
-        elif ".seq.nrrd" in pth.name:
-            pth_dose_nrrd = pth
-        elif ".nrrd" in pth.name:
-            pth_scan_nrrd = pth
-    phantom_obj = BrachyPhantom(
-        pth_phantom_file=pth_scan_nrrd,
-        pth_structures_file=pth_seg_nrrd
-        )
-    phantom_obj.write_to_egsphant(
-        pth_output=pth_patient.joinpath("egsphant.seq.nrrd"),
-        material_dict=pth_material_dict,
-        assign_material_from_ct=assign_material_from_ct
-    )
-    phantom_obj.write_to_egsphant(
-        pth_output=pth_patient.joinpath("ct.egsphant"),
-        material_dict=pth_material_dict,
-        assign_material_from_ct=assign_material_from_ct
-    )
-
-
-def convert_nrrd_dose_3ddose(
-    nrrd_patients: Path | str,
-    threeddose_patients: Path | str
-    ):
-    from brachyutils import convert_dose_files
-    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
-    threeddose_patients = Path(threeddose_patients)
-    for nrrd in nrrd_patients:
-        convert_dose_files(
-            pth_inputs=[nrrd.joinpath(nrrd.name+".seq.nrrd")],
-            type_out=".3ddose",
-            dir_output=threeddose_patients.joinpath(nrrd.name)
-            )
-
-
 if __name__ == "__main__":
     
     pth_nrrd_data = "temp_data/bench_io/nrrd_io"
     pth_dicom_data = "temp_data/bench_io/dicom_io"
     pth_egs_data = "temp_data/bench_io/egs_io"
+    pth_material_dict = "admin/constants/structure_materials_prostate.json"
+    
+    # anonymize and convert all data to nrrd. we'll start assuming data is in nrrd.
+    # generate egsphants in nrrd format
+    generate_egsphants(
+        nrrd_patients=pth_nrrd_data,
+        pth_material_dict=pth_material_dict,
+        multi_thread=False
+    )
 
-    # first, we convert all data from nrrd to dicom and egs.
+    # to benchmark dicom io, we convert all data from nrrd to dicom and egs.
     # convert_nrrd_to_dicom(
     #     pth_nrrd_data,
     #     pth_dicom_data
     # )
-
-    convert_nrrd_to_egs(
-        pth_nrrd_data,
-        pth_egs_data
-    )
+    # convert_nrrd_to_egs(
+    #     pth_nrrd_data,
+    #     pth_egs_data
+    # )
     
     # eval_dicom_io(
     #     "temp_data/dicom_io",
