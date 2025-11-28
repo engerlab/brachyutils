@@ -344,7 +344,7 @@ def convert_nrrd_to_egs(
                 patient_nrrd.name).joinpath(data_dose.name.replace(".seq.nrrd", ".3ddose"))
         )
 
-def eval_nrrd_io(dir_nrrds: Path | str):
+def eval_nrrd_io(pth_nrrd_data: Path | str):
     """
     Evaluate NRRD file I/O performance by timing read and write operations.
     This function benchmarks the performance of reading and writing NRRD files
@@ -370,22 +370,24 @@ def eval_nrrd_io(dir_nrrds: Path | str):
         The function uses tqdm for progress tracking and pandas for data management.
         Each subdirectory name is used as an index in the resulting DataFrame.
     """
-    
-    dir_nrrds = list(Path(dir_nrrds).glob("*/"))
+
+    dir_nrrds = list(Path(pth_nrrd_data).glob("*/"))
     timing_df = pd.DataFrame(columns=[
-        "read_time_scan", "write_time_scan",
-        "read_time_scan+seg", "write_time_scan+seg",
-        "read_time_dose", "write_time_dose", "file_size_dose"
+        "read_time_scan", "write_time_scan", "file_size_scan",
+        "read_time_scan+seg", "write_time_scan+seg", "file_size_scan+seg",
+        "read_time_dose", "write_time_dose", "file_size_dose",
+        "read_time_ctegsphant", "write_time_ctegsphant", "file_size_ctegsphant",
+        "read_time_segegsphant", "write_time_segegsphant", "file_size_segegsphant",
         ], index=[nrrd.name for nrrd in dir_nrrds] + ["average", "std"])
 
     for nrrd in tqdm(dir_nrrds):
 
-        t_read_scan, t_write_scan = time_phantom_io(
+        t_read_scan, t_write_scan, file_size_scan = time_phantom_io(
             dir_out=nrrd,
             type_out="nrrd",
             pth_phantom_file=nrrd.joinpath(nrrd.name+".nrrd")
             )
-        t_read_scan_seg, t_write_scan_seg = time_phantom_io(
+        t_read_scan_seg, t_write_scan_seg, file_size_scan_seg = time_phantom_io(
             dir_out=nrrd,
             type_out="nrrd",
             pth_phantom_file=nrrd.joinpath(nrrd.name+".nrrd"),
@@ -400,7 +402,11 @@ def eval_nrrd_io(dir_nrrds: Path | str):
             pth_dose_in=pth_dose_file,
             pth_dose_out=nrrd.joinpath(nrrd.name).joinpath(pth_dose_file.name)
         )
-        # except:
+        pth_ct_egsphant = nrrd.joinpath("ct_egsphant.seq.nrrd")
+        t_read_ct_egs, t_write_ct_egs, file_size_ct_egs = time_egsphant_io(
+            pth_egsphant_in=pth_ct_egsphant)
+        # XXX: work on the egsphant nrrd.
+        # # except:
         #     timing_df.loc[nrrd.name] = [
         #     t_read_scan, t_write_scan,
         #     t_read_scan_seg, t_write_scan_seg,
@@ -409,22 +415,22 @@ def eval_nrrd_io(dir_nrrds: Path | str):
         #     ]
         #     continue
         timing_df.loc[nrrd.name] = [
-            t_read_scan, t_write_scan,
-            t_read_scan_seg, t_write_scan_seg,
+            t_read_scan, t_write_scan, file_size_scan,
+            t_read_scan_seg, t_write_scan_seg, file_size_scan_seg,
             t_read_dose, t_write_dose, file_size_dose,
             ]
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
-    timing_df.to_csv(dir_nrrds[0].parent.joinpath("timing_nrrd_io_dose.csv"))
+    timing_df.to_csv(dir_nrrds[0].parent.joinpath("timing_nrrd_io.csv"))
 
 def eval_egs_io(
-    egs_patients:Path | str,
+    pth_egs_data:Path | str,
     dir_out: Path | str = None
     ):
     """
     To time the reading and writing of egsphant files.
     """
-    egs_patients = Path(egs_patients)
+    egs_patients = Path(pth_egs_data)
     dir_out = Path(dir_out)
     egs_patients = list(egs_patients.glob("*/"))
     timing_df = pd.DataFrame(columns=[
@@ -508,16 +514,15 @@ if __name__ == "__main__":
     #     pth_nrrd_data,
     #     pth_egs_data
     # )
-
-    eval_dicom_io(
-        pth_dicom_data=pth_dicom_data,
-    )
+    # eval_dicom_io(
+    #     pth_dicom_data=pth_dicom_data,
+    # )
     # eval_nrrd_io(
     #     pth_nrrd_data=pth_nrrd_data,
     # )
-    # eval_egs_io(
-    #     pth_egs_data=pth_egs_data,
-    # )
+    eval_egs_io(
+        pth_egs_data=pth_egs_data,
+    )
     # eval_3ddose_io(
     #     patients_3ddose=pth_egs_data,
     # )
