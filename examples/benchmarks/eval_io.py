@@ -459,35 +459,7 @@ def eval_egs_io(
         # break
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
-    timing_df.to_csv(pth_egs_data.joinpath("timing_egs_io.csv"))
-
-def eval_3ddose_io(
-    patients_3ddose:Path | str,
-    dir_out: Path | str = None
-    ):
-    """
-    To time the reading and writing of 3ddose files.
-    """
-    patients_3ddose = Path(patients_3ddose)
-    dir_out = Path(dir_out)
-    patients_3ddose = list(patients_3ddose.glob("*/"))
-    timing_df = pd.DataFrame(columns=[
-        "read_time_3ddose", "write_time_3ddose", "file_size_3ddose"
-        ], index=[pat.name for pat in patients_3ddose] + ["average", "std"])
-    for patient in tqdm(patients_3ddose):
-        pth_3ddose = list(patient.glob("*.3ddose")).pop()
-        t_read_3ddose, t_write_3ddose = time_dose_io(
-            pth_dose_in=pth_3ddose,
-            pth_dose_out=dir_out.joinpath(f"{patient.name}/{pth_3ddose.name}")
-        )
-        file_size_3ddose = pth_3ddose.stat().st_size / (1024 * 1024)
-        timing_df.loc[patient.name] = [
-            t_read_3ddose, t_write_3ddose, file_size_3ddose
-        ]
-        # break
-    timing_df.loc["average"] = timing_df.mean()
-    timing_df.loc["std"] = timing_df.std()
-    timing_df.to_csv(dir_out.joinpath("timing_3ddose_io.csv"))
+    timing_df.to_csv(Path(pth_egs_data).joinpath("timing_egs_io.csv"))
 
 if __name__ == "__main__":
     pth_source_data = "YourLocalHome/Data/prostate-glen-2023"
@@ -496,6 +468,7 @@ if __name__ == "__main__":
     pth_egs_data = "temp_data/bench_io/egs_io"
     pth_seg_material_dict = "admin/constants/structure_materials_prostate.json"
     pth_ct_material_dict = "admin/constants/CTtoDensityProstate.txt"
+
     # # anonymize and convert all data to nrrd. we'll start assuming data is in nrrd.
     # convert_dicom_to_nrrd(
     #     pth_source_data,
@@ -509,7 +482,6 @@ if __name__ == "__main__":
     #     pth_ct_material_dict=pth_ct_material_dict,
     #     multi_thread=False
     # )
-
     # # to benchmark dicom io, we convert all data from nrrd to dicom and egs.
     # convert_nrrd_to_dicom(
     #     pth_nrrd_data,
@@ -519,6 +491,8 @@ if __name__ == "__main__":
     #     pth_nrrd_data,
     #     pth_egs_data
     # )
+
+    # # now run evals
     # eval_dicom_io(
     #     pth_dicom_data=pth_dicom_data,
     # )
@@ -528,6 +502,3 @@ if __name__ == "__main__":
     eval_egs_io(
         pth_egs_data=pth_egs_data,
     )
-    # eval_3ddose_io(
-    #     patients_3ddose=pth_egs_data,
-    # )
