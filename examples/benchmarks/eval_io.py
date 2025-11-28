@@ -9,7 +9,8 @@ from brachyutils import BrachyEgsphant
 
 def generate_egsphants(
     nrrd_patients: Path | str,
-    pth_material_dict: Path | str,
+    pth_seg_material_dict: Path | str,
+    pth_ct_material_dict= Path | str,
     multi_thread: bool = False,
     ):
     r"""
@@ -27,14 +28,15 @@ def generate_egsphants(
           named "egsphant.seq.nrrd" and "ct.egsphant".
     """
     nrrd_patients = Path(nrrd_patients)
-    pth_material_dict = Path(pth_material_dict)
+    pth_seg_material_dict = Path(pth_seg_material_dict)
     
     nrrd_patients = list(Path(nrrd_patients).glob("*/"))
     if not multi_thread:
         for patient in tqdm(nrrd_patients):
             _gen_one_egsphant(
                 pth_patient=patient,
-                pth_material_dict=pth_material_dict,
+                pth_seg_material_dict=pth_seg_material_dict,
+                pth_ct_material_dict=pth_ct_material_dict
             )
     else:
         from multiprocessing import Pool, cpu_count
@@ -45,7 +47,8 @@ def generate_egsphants(
             r = list(tqdm(p.imap(
                 func=partial(
                     _gen_one_egsphant, 
-                    pth_material_dict=pth_material_dict,
+                    pth_seg_material_dict=pth_seg_material_dict,
+                    pth_ct_material_dict=pth_ct_material_dict
                 ),
                 iterable=nrrd_patients
                 ), total=len(nrrd_patients)
@@ -53,7 +56,8 @@ def generate_egsphants(
 
 def _gen_one_egsphant(
     pth_patient: Path,
-    pth_material_dict: Path,
+    pth_seg_material_dict: Path,
+    pth_ct_material_dict:Path
     ):
     """
     ### Purpose:
@@ -80,15 +84,15 @@ def _gen_one_egsphant(
         )
     phantom_obj.write_to_egsphant(
         pth_output=pth_patient.joinpath("seg_egsphant.seq.nrrd"),
-        material_dict=pth_material_dict,
+        material_dict=pth_seg_material_dict,
         assign_material_from_ct=False
     )
+    phantom_obj.egsphant_obj = None
     phantom_obj.write_to_egsphant(
         pth_output=pth_patient.joinpath("ct_egsphant.seq.nrrd"),
-        material_dict=pth_material_dict,
+        material_dict=pth_ct_material_dict,
         assign_material_from_ct=True
     )
-
 
 def time_phantom_io(
         dir_out: Path,
@@ -154,13 +158,12 @@ def time_dose_io(
     return (tf_read - t0_read, tf_write - t0_write, file_size_mb)
 
 def time_egsphant_io(
-    pth_egsphant_in: Path,
-    pth_egsphant_out: Path
+    pth_egsphant: Path,
     ):
     # try:
         t0_read = time()
         egsphant_obj = BrachyEgsphant(
-            pth_egsphant_file=pth_egsphant_in
+            pth_egsphant_file=pth_egsphant
         )
         tf_read = time()
     # except Exception as e:
@@ -169,10 +172,10 @@ def time_egsphant_io(
     # try:
         t0_write = time()
         egsphant_obj.write_to_file(
-            fileName=pth_egsphant_out
+            fileName=pth_egsphant
         )
         tf_write = time()
-        filesize_mb = pth_egsphant_out.stat().st_size / (1024 * 1024)
+        filesize_mb = pth_egsphant.stat().st_size / (1024 * 1024)
     # except Exception as e:
     #     t0_write, tf_write = (float("nan"), float("nan"))
         return (tf_read - t0_read, tf_write - t0_write, filesize_mb)
@@ -404,21 +407,19 @@ def eval_nrrd_io(pth_nrrd_data: Path | str):
         )
         pth_ct_egsphant = nrrd.joinpath("ct_egsphant.seq.nrrd")
         t_read_ct_egs, t_write_ct_egs, file_size_ct_egs = time_egsphant_io(
-            pth_egsphant_in=pth_ct_egsphant)
-        # XXX: work on the egsphant nrrd.
-        # # except:
-        #     timing_df.loc[nrrd.name] = [
-        #     t_read_scan, t_write_scan,
-        #     t_read_scan_seg, t_write_scan_seg,
-        #     float("nan"), float("nan")
-        #     # t_read_dose, t_write_dose
-        #     ]
-        #     continue
+            pth_egsphant=pth_ct_egsphant)
+        pth_ct_egsphant = nrrd.joinpath("seg_egsphant.seq.nrrd")
+        t_read_seg_egs, t_write_seg_egs, file_size_seg_egs = time_egsphant_io(
+            pth_egsphant=pth_ct_egsphant)
+
         timing_df.loc[nrrd.name] = [
             t_read_scan, t_write_scan, file_size_scan,
             t_read_scan_seg, t_write_scan_seg, file_size_scan_seg,
             t_read_dose, t_write_dose, file_size_dose,
+            t_read_ct_egs, t_write_ct_egs, file_size_ct_egs,
+            t_read_seg_egs, t_write_seg_egs, file_size_seg_egs
             ]
+
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
     timing_df.to_csv(dir_nrrds[0].parent.joinpath("timing_nrrd_io.csv"))
@@ -490,8 +491,8 @@ if __name__ == "__main__":
     pth_nrrd_data = "temp_data/bench_io/nrrd_io"
     pth_dicom_data = "temp_data/bench_io/dicom_io"
     pth_egs_data = "temp_data/bench_io/egs_io"
-    pth_material_dict = "admin/constants/structure_materials_prostate.json"
-    
+    pth_seg_material_dict = "admin/constants/structure_materials_prostate.json"
+    pth_ct_material_dict = "admin/constants/CTtoDensityProstate.txt"
     # # anonymize and convert all data to nrrd. we'll start assuming data is in nrrd.
     # convert_dicom_to_nrrd(
     #     pth_source_data,
@@ -499,11 +500,12 @@ if __name__ == "__main__":
     # )
 
     # # generate egsphants in nrrd format
-    # generate_egsphants(
-    #     nrrd_patients=pth_nrrd_data,
-    #     pth_material_dict=pth_material_dict,
-    #     multi_thread=False
-    # )
+    generate_egsphants(
+        nrrd_patients=pth_nrrd_data,
+        pth_seg_material_dict=pth_seg_material_dict,
+        pth_ct_material_dict=pth_ct_material_dict,
+        multi_thread=False
+    )
 
     # # to benchmark dicom io, we convert all data from nrrd to dicom and egs.
     # convert_nrrd_to_dicom(
@@ -520,9 +522,9 @@ if __name__ == "__main__":
     # eval_nrrd_io(
     #     pth_nrrd_data=pth_nrrd_data,
     # )
-    eval_egs_io(
-        pth_egs_data=pth_egs_data,
-    )
+    # eval_egs_io(
+    #     pth_egs_data=pth_egs_data,
+    # )
     # eval_3ddose_io(
     #     patients_3ddose=pth_egs_data,
     # )
