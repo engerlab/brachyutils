@@ -469,36 +469,36 @@ if __name__ == "__main__":
     pth_seg_material_dict = "admin/constants/structure_materials_prostate.json"
     pth_ct_material_dict = "admin/constants/CTtoDensityProstate.txt"
 
-    # # anonymize and convert all data to nrrd. we'll start assuming data is in nrrd.
-    # convert_dicom_to_nrrd(
-    #     pth_source_data,
-    #     pth_nrrd_data
-    # )
+    # anonymize and convert all data to nrrd. we'll start assuming data is in nrrd.
+    convert_dicom_to_nrrd(
+        pth_source_data,
+        pth_nrrd_data
+    )
 
-    # # generate egsphants in nrrd format
-    # generate_egsphants(
-    #     nrrd_patients=pth_nrrd_data,
-    #     pth_seg_material_dict=pth_seg_material_dict,
-    #     pth_ct_material_dict=pth_ct_material_dict,
-    #     multi_thread=False
-    # )
-    # # to benchmark dicom io, we convert all data from nrrd to dicom and egs.
-    # convert_nrrd_to_dicom(
-    #     pth_nrrd_data,
-    #     pth_dicom_data
-    # )
-    # convert_nrrd_to_egs(
-    #     pth_nrrd_data,
-    #     pth_egs_data
-    # )
+    # generate egsphants in nrrd format
+    generate_egsphants(
+        nrrd_patients=pth_nrrd_data,
+        pth_seg_material_dict=pth_seg_material_dict,
+        pth_ct_material_dict=pth_ct_material_dict,
+        multi_thread=False
+    )
+    # to benchmark dicom io, we convert all data from nrrd to dicom and egs.
+    convert_nrrd_to_dicom(
+        pth_nrrd_data,
+        pth_dicom_data
+    )
+    convert_nrrd_to_egs(
+        pth_nrrd_data,
+        pth_egs_data
+    )
 
-    # # now run evals
-    # eval_dicom_io(
-    #     pth_dicom_data=pth_dicom_data,
-    # )
-    # eval_nrrd_io(
-    #     pth_nrrd_data=pth_nrrd_data,
-    # )
+    # now run evals
+    eval_dicom_io(
+        pth_dicom_data=pth_dicom_data,
+    )
+    eval_nrrd_io(
+        pth_nrrd_data=pth_nrrd_data,
+    )
     eval_egs_io(
         pth_egs_data=pth_egs_data,
     )
