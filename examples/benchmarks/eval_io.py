@@ -426,37 +426,40 @@ def eval_nrrd_io(pth_nrrd_data: Path | str):
 
 def eval_egs_io(
     pth_egs_data:Path | str,
-    dir_out: Path | str = None
     ):
     """
     To time the reading and writing of egsphant files.
     """
     egs_patients = Path(pth_egs_data)
-    dir_out = Path(dir_out)
     egs_patients = list(egs_patients.glob("*/"))
     timing_df = pd.DataFrame(columns=[
-        "read_time_egsphant", "write_time_egsphant", "file_size_egsphant",
-        "read_time_egsphant_nrrd", "write_time_egsphant_nrrd", "file_size_egsphant_nrrd"
+        "read_time_ct_egsphant", "write_time_ct_egsphant", "file_size_ct_egsphant",
+        "read_time_seg_egsphant", "write_time_seg_egsphant", "file_size_seg_egsphant",
+        "read_time_3ddose", "write_time_3ddose", "file_size_3ddose",        
         ], index=[egs.name for egs in egs_patients] + ["average", "std"])
     for patient in tqdm(egs_patients):
         pth_ct_egsphant = list(patient.glob("ct.egsphant")).pop()
-        pth_egsphant_nrrd = list(patient.glob("egsphant.seq.nrrd")).pop()
+        pth_seg_egsphant = list(patient.glob("seg.egsphant")).pop()
+        pth_3ddose = list(patient.glob("*3ddose")).pop()
         t_read_ct_egs, t_write_ct_egs, file_size_ct = time_egsphant_io(
-            pth_egsphant_in=pth_ct_egsphant,
-            pth_egsphant_out=dir_out.joinpath(f"{patient.name}/ct.egsphant")
+            pth_egsphant=pth_ct_egsphant,
         )
-        t_read_egs_nrrd, t_write_egs_nrrd, file_size_nrrd = time_egsphant_io(
-            pth_egsphant_in=pth_egsphant_nrrd,
-            pth_egsphant_out=dir_out.joinpath(f"{patient.name}/egsphant.seq.nrrd")
+        t_read_seg_egsphant, t_write_seg_egsphant, file_size_nrrd = time_egsphant_io(
+            pth_egsphant=pth_seg_egsphant,
+        )
+        read_time_3ddose, write_time_3ddose, file_size_3ddose = time_dose_io(
+            pth_dose_in=pth_3ddose,
+            pth_dose_out=pth_3ddose
         )
         timing_df.loc[patient.name] = [
             t_read_ct_egs, t_write_ct_egs, file_size_ct,
-            t_read_egs_nrrd, t_write_egs_nrrd, file_size_nrrd
+            t_read_seg_egsphant, t_write_seg_egsphant, file_size_nrrd,
+            read_time_3ddose, write_time_3ddose, file_size_3ddose
         ]
         # break
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
-    timing_df.to_csv(dir_out.joinpath("timing_egs_io.csv"))
+    timing_df.to_csv(pth_egs_data.joinpath("timing_egs_io.csv"))
 
 def eval_3ddose_io(
     patients_3ddose:Path | str,
@@ -519,12 +522,12 @@ if __name__ == "__main__":
     # eval_dicom_io(
     #     pth_dicom_data=pth_dicom_data,
     # )
-    eval_nrrd_io(
-        pth_nrrd_data=pth_nrrd_data,
-    )
-    # eval_egs_io(
-    #     pth_egs_data=pth_egs_data,
+    # eval_nrrd_io(
+    #     pth_nrrd_data=pth_nrrd_data,
     # )
+    eval_egs_io(
+        pth_egs_data=pth_egs_data,
+    )
     # eval_3ddose_io(
     #     patients_3ddose=pth_egs_data,
     # )
