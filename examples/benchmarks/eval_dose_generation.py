@@ -72,7 +72,7 @@ def run_export(
         # "pth_phantom": "ct.egsphant",
         "number_histories": 1E6,
         # "total_time": 0,
-        "number_of_threads": 16,
+        "number_of_threads": 46,
         # "PrintProgress": 10000,
         # "beam_on": 10000,
     }
@@ -151,7 +151,7 @@ def run_single_tg43_dose_generation(dir_plan):
     dose_gen_obj = DoseTG43(
         dir_plan_export=dir_plan,
         pth_dose_executable="http://192.168.1.12:8000/calculate_dose_tg43"
-    ).generate_dose()
+    ).generate_dose(num_threads=46)
 
 def run_single_mc_dose_generation(dir_plan):
     dose_gen_obj = DoseMonteCarlo(
@@ -775,16 +775,16 @@ if __name__ == "__main__":
     prescription_dose = 21 # in Gy
 
     # export all dicoms to plans
-    for dir_export in [
-        dir_export_tg43,
-        # dir_export_mc
-        # # dir_export_test
-        ]:
-        run_export(
-            dir_all_dicoms=dir_all_dicoms,
-            dir_export=dir_export,
-            multi_proc=False,
-        )
+    # for dir_export in [
+    #     dir_export_tg43,
+    #     # dir_export_mc
+    #     # # dir_export_test
+    #     ]:
+    #     run_export(
+    #         dir_all_dicoms=dir_all_dicoms,
+    #         dir_export=dir_export,
+    #         multi_proc=False,
+    #     )
 
     # # run dose generation for all plans
     run_dose_generation(
