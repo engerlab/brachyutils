@@ -350,7 +350,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 structure_mask,
                 optim_spacing,
                 self.roi_bounds,
-                max_workers=8,
+                max_workers=46,
                 shift_origin=True,
                 multi_processing=multi_processing
             )
@@ -518,7 +518,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 "Since only one structure (PTV or CTV) should have the hotspot estimator."
                 f" Found {self.hotspot_threshold} and {hotspot_threshold}"
             )
-
+        print("adding the hotspot estimator penalty")
         # resample hotspot masks and crop to roi bounds
         hotspot_masks = [
             structure.mask for structure in plan.structure_list
@@ -532,11 +532,11 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 roi_bounds=roi_bounds
             )
             processed_masks = tqdm.tqdm(list(
-                    pool.imap(partial_func, hotspot_masks),
+                    pool.imap(partial_func, hotspot_masks)),
                     total=len(hotspot_masks),
                     desc="Resampling and cropping hotspot estimator masks"
                     )
-                )
+
         # setup a general A matrix once for all the hotspot estimators at once.
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
             dwellTimeVariables=dwellTimeVariables,
@@ -545,12 +545,11 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             structure_mask=None,
             optim_spacing=optim_spacing,
             roi_bounds=self.roi_bounds,
-            max_workers=8, 
+            # max_workers=46,
             shift_origin=True
         )
         t_MVar = MVar.fromlist(dwell_vars)
         A = np.column_stack(dose_rate_matrices)
-        print("let's pause here for debugging hotspot estimator")            
         unmasked_dose = A @ t_MVar
         hotspot_penalty = 0
         for mask in processed_masks:

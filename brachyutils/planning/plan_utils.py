@@ -590,8 +590,8 @@ class BrachyPlan:
             )
 
         # load the dose rate tensor
-        if multi_processing:                        
-            with Pool(processes=8 if cpu_count()>8 else 4) as pool:
+        if multi_processing:
+            with Pool(processes=16 if cpu_count()>8 else 4) as pool:
                 func = partial(
                     _load_single_dose_or_uncertainty_to_dict,
                     load_dose_or_uncertainty=load_dose_or_uncertainty,

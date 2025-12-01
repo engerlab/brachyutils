@@ -297,7 +297,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                 structure_mask,
                 optim_spacing,
                 self.roi_bounds,
-                max_workers=8, 
+                # max_workers=8, 
                 shift_origin=True,
                 multi_processing=multi_processing
             )
