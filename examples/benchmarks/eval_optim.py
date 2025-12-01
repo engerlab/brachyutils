@@ -207,10 +207,10 @@ def eval_optim(
 
     package_solver_dict = {
         "gurobi": ["gurobi"],
-        "ampl": ["xpress", "cplex", "highs", "gcg"],
+        "ampl": ["xpress", "cplex", "highs"],
         "ortools": ["GLOP", "PDLP","GSCIP"],
     }
-    
+
     config_variations = {
         "L": [
             Optimization_Config(
@@ -359,10 +359,10 @@ def eval_optim(
     results_solver_dict = {}
     for package in package_solver_dict:
         results_solver_dict[package] = DataFrame(columns=[
-    "case_name", "package", "solver",
-    "objective_terms", "loading_time",
-    "model_building_time", "solving_time", "status",
-    ]+list(dvh_metric_goals.keys()))
+            "case_name", "package", "solver",
+            "objective_terms", "loading_time",
+            "model_building_time", "solving_time", "status",
+            ]+list(dvh_metric_goals.keys()))
 
     for pth_dicom in dir_all_dicoms:
         t0_loading = time()
