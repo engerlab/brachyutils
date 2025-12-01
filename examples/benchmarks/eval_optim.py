@@ -356,6 +356,14 @@ def eval_optim(
         # ],
     }
 
+    results_solver_dict = {}
+    for package in package_solver_dict:
+        results_solver_dict[package] = DataFrame(columns=[
+    "case_name", "package", "solver",
+    "objective_terms", "loading_time",
+    "model_building_time", "solving_time", "status",
+    ]+list(dvh_metric_goals.keys()))
+
     for pth_dicom in dir_all_dicoms:
         t0_loading = time()
         brachy_plan = get_a_plan_to_optimize(
@@ -368,11 +376,6 @@ def eval_optim(
             )
         t1_loading = time()
         for package in package_solver_dict:
-            results_solver = DataFrame(columns=[
-            "case_name", "package", "solver",
-            "objective_terms", "loading_time",
-            "model_building_time", "solving_time", "status",
-            ]+list(dvh_metric_goals.keys()))
             for solver in package_solver_dict[package]:
                 for config_var in config_variations:
                     optim_trial_result = run_optimization(
@@ -382,11 +385,11 @@ def eval_optim(
                     solver=solver,
                     # pth_out_dose=dir_all_dose_rates/f"optimized_{pth_dicom.name}_{package}_{solver}_{config_var}.nrrd",
                 )
-                    results_solver.loc[len(results_solver)] = optim_trial_result | {
+                    results_solver_dict[package].loc[len(results_solver_dict[package])] = optim_trial_result | {
                         "loading_time": t1_loading - t0_loading,
                         "objective_terms": config_var
                     }
-                    results_solver.to_csv(
+                    results_solver_dict[package].to_csv(
                         dir_all_dose_rates/f"eval_optim_results_{package}.csv",
                         index=False)
         # break # for debugging only
