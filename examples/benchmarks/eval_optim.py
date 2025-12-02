@@ -207,8 +207,8 @@ def eval_optim(
 
     package_solver_dict = {
         "gurobi": ["gurobi"],
-        # "ampl": ["xpress", "cplex", "highs"],
-        # "ortools": ["GLOP", "PDLP","GSCIP"],
+        "ampl": ["xpress", "cplex", "highs"],
+        "ortools": ["GLOP", "PDLP","GSCIP"],
     }
 
     config_variations = {
@@ -232,102 +232,102 @@ def eval_optim(
                 mask_margin_mm=0,
                 spacing_mm=3)
         ],
-        "LQ": [
-            Optimization_Config(
-                structure_name="CTV",
-                dose_voxel_goal=target_dose,
-                penalty_weight_linear=300,
-                penalty_weight_quadratic=1,
-                mask_margin_mm=0,
-                spacing_mm=3),
-            Optimization_Config(
-                structure_name="URETHRA",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                penalty_weight_quadratic=1,
-                mask_margin_mm=0,
-                spacing_mm=1),
-            Optimization_Config(
-                structure_name="RECTUM",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                penalty_weight_quadratic=1,
-                mask_margin_mm=0,
-                spacing_mm=3)
-        ],
-        "LQU": [
-            Optimization_Config(
-                structure_name="CTV",
-                dose_voxel_goal=target_dose,
-                penalty_weight_linear=300,
-                penalty_weight_quadratic=1,
-                penalty_weight_uniformity=1,
-                mask_margin_mm=0,
-                spacing_mm=3),
-            Optimization_Config(
-                structure_name="URETHRA",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                penalty_weight_quadratic=1,
-                penalty_weight_uniformity=1,
-                mask_margin_mm=0,
-                spacing_mm=1),
-            Optimization_Config(
-                structure_name="RECTUM",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                penalty_weight_quadratic=1,
-                penalty_weight_uniformity=1,
-                mask_margin_mm=0,
-                spacing_mm=3)
-        ],
-        "LH": [
-            Optimization_Config(
-                structure_name="CTV",
-                dose_voxel_goal=target_dose,
-                penalty_weight_linear=300,
-                penalty_weight_hotspot=1,
-                hotspot_threshold=1.5,
-                mask_margin_mm=0,
-                spacing_mm=3),
-            Optimization_Config(
-                structure_name="URETHRA",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                mask_margin_mm=0,
-                spacing_mm=1),
-            Optimization_Config(
-                structure_name="RECTUM",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                mask_margin_mm=0,
-                spacing_mm=3)
-        ],
-        "LQH": [
-            Optimization_Config(
-                structure_name="CTV",
-                dose_voxel_goal=target_dose,
-                penalty_weight_linear=300,
-                penalty_weight_quadratic=1,
-                penalty_weight_hotspot=1,
-                hotspot_threshold=1.5,
-                mask_margin_mm=0,
-                spacing_mm=3),
-            Optimization_Config(
-                structure_name="URETHRA",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                penalty_weight_quadratic=1,
-                mask_margin_mm=0,
-                spacing_mm=1),
-            Optimization_Config(
-                structure_name="RECTUM",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                penalty_weight_quadratic=1,
-                mask_margin_mm=0,
-                spacing_mm=3)
-        ],
+        # "LQ": [
+        #     Optimization_Config(
+        #         structure_name="CTV",
+        #         dose_voxel_goal=target_dose,
+        #         penalty_weight_linear=300,
+        #         penalty_weight_quadratic=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=3),
+        #     Optimization_Config(
+        #         structure_name="URETHRA",
+        #         dose_voxel_goal=0,
+        #         penalty_weight_linear=1,
+        #         penalty_weight_quadratic=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=1),
+        #     Optimization_Config(
+        #         structure_name="RECTUM",
+        #         dose_voxel_goal=0,
+        #         penalty_weight_linear=1,
+        #         penalty_weight_quadratic=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=3)
+        # ],
+        # "LQU": [
+        #     Optimization_Config(
+        #         structure_name="CTV",
+        #         dose_voxel_goal=target_dose,
+        #         penalty_weight_linear=300,
+        #         penalty_weight_quadratic=1,
+        #         penalty_weight_uniformity=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=3),
+        #     Optimization_Config(
+        #         structure_name="URETHRA",
+        #         dose_voxel_goal=0,
+        #         penalty_weight_linear=1,
+        #         penalty_weight_quadratic=1,
+        #         penalty_weight_uniformity=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=1),
+        #     Optimization_Config(
+        #         structure_name="RECTUM",
+        #         dose_voxel_goal=0,
+        #         penalty_weight_linear=1,
+        #         penalty_weight_quadratic=1,
+        #         penalty_weight_uniformity=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=3)
+        # ],
+        # "LH": [
+        #     Optimization_Config(
+        #         structure_name="CTV",
+        #         dose_voxel_goal=target_dose,
+        #         penalty_weight_linear=300,
+        #         penalty_weight_hotspot=1,
+        #         hotspot_threshold=1.5,
+        #         mask_margin_mm=0,
+        #         spacing_mm=3),
+        #     Optimization_Config(
+        #         structure_name="URETHRA",
+        #         dose_voxel_goal=0,
+        #         penalty_weight_linear=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=1),
+        #     Optimization_Config(
+        #         structure_name="RECTUM",
+        #         dose_voxel_goal=0,
+        #         penalty_weight_linear=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=3)
+        # ],
+        # "LQH": [
+        #     Optimization_Config(
+        #         structure_name="CTV",
+        #         dose_voxel_goal=target_dose,
+        #         penalty_weight_linear=300,
+        #         penalty_weight_quadratic=1,
+        #         penalty_weight_hotspot=1,
+        #         hotspot_threshold=1.5,
+        #         mask_margin_mm=0,
+        #         spacing_mm=3),
+        #     Optimization_Config(
+        #         structure_name="URETHRA",
+        #         dose_voxel_goal=0,
+        #         penalty_weight_linear=1,
+        #         penalty_weight_quadratic=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=1),
+        #     Optimization_Config(
+        #         structure_name="RECTUM",
+        #         dose_voxel_goal=0,
+        #         penalty_weight_linear=1,
+        #         penalty_weight_quadratic=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=3)
+        # ],
         # "LQHU": [
         #     Optimization_Config(
         #         structure_name="CTV",
@@ -390,7 +390,7 @@ def eval_optim(
                         "objective_terms": config_var
                     }
                     results_solver_dict[package].to_csv(
-                        dir_all_dose_rates/f"eval_optim_results_{package}_full.csv",
+                        dir_all_dose_rates/f"eval_optim_results_{package}.csv",
                         index=False)
         # break # for debugging only
 
@@ -437,10 +437,10 @@ def gen_box_plots_optim_results(
             ]
             if df_subset.empty:
                 continue
-            if package == "ortools":
-                continue
-            if solver == "gcg":
-                continue
+            # if package == "ortools":
+            #     continue
+            # if solver == "gcg":
+            #     continue
             # generate box plots for each metric
             metrics_to_plot = [
                 "model_building_time",
@@ -538,14 +538,14 @@ if __name__ == "__main__":
     )
     
     # # load the results dataframes for all the packages
-    # all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
-    # list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
-    # all_data_df = pd.concat(list_all_data_df, ignore_index=True)
-    # # # compare package-solvers on linear only config
-    # gen_box_plots_optim_results(
-    #     all_data_df,
-    #     filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
-    #     penalty_term="linear",
-    #     dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
-    #     pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
-    # )
+    all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
+    list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
+    all_data_df = pd.concat(list_all_data_df, ignore_index=True)
+    # # compare package-solvers on linear only config
+    gen_box_plots_optim_results(
+        all_data_df,
+        filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
+        penalty_term="linear",
+        dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
+        pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
+    )
