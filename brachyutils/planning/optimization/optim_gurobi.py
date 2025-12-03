@@ -350,7 +350,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 structure_mask,
                 optim_spacing,
                 self.roi_bounds,
-                max_workers=46,
+                max_workers=16,
                 shift_origin=True,
                 multi_processing=multi_processing
             )

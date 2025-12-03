@@ -3,6 +3,7 @@ from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from brachyutils.types import BrachyPlan
 from pathlib import Path
+from time import time
 
 def get_a_plan_to_optimize(
     pth_dicom: str | Path,
@@ -123,8 +124,8 @@ def test_run_gurobi_optim():
     # dir_dose_rates = "data_test/prostate-glen-p1-dose"
     dir_result_out = Path("data_test/test_export_plan/prostate")
     # for debugging on server
-    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p5_body")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p5_body") # for tg43
+    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p7")
+    dir_dose_rates = Path("temp_data/tg43/optimization/p7") # for tg43
     target_dose = 21
     optimization_config_list=[
         Optimization_Config(
@@ -180,9 +181,11 @@ def test_run_gurobi_optim():
             "solver", "status",
             "mean(dwell_times)", "std(dwell_times)",
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
+            + ["model_build_time"]
         )
-
+    t0=time()
     optim_obj = BrachyOptim_Gurobi(plan=plan_obj, multi_processing=True)
+    t1 = time()
     optimized_plan = optim_obj.get_optimized_plan_from_model()
     dvh_metrics = optimized_plan.get_dvh_metrics(return_percentage=True)
     results.loc[len(results)] = {
@@ -190,7 +193,9 @@ def test_run_gurobi_optim():
         "status": "Solved" if optim_obj.solution_found else "Failed",
         "mean(dwell_times)": optimized_plan.dwell_times.mean(),
         "std(dwell_times)": optimized_plan.dwell_times.std(),
-        "solve_time": optim_obj.solve_time} | dvh_metrics
+        "solve_time": optim_obj.solve_time,
+        "model_build_time": t1-t0,
+        } | dvh_metrics
     results.to_csv(dir_result_out.joinpath("gurobi_lin.csv"))
     print(optimized_plan.dwell_times)
     # export phantom

@@ -192,7 +192,7 @@ def compute_dose_rate_matrices(
         structure_mask=None,
         optim_spacing=None,
         roi_bounds=None,
-        max_workers:int=46,
+        max_workers:int=16,
         shift_origin:bool=False,
         multi_processing:bool=True):
     r"""
