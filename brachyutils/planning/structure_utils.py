@@ -135,7 +135,7 @@ class BrachyStructure:
             self.mask,
             combined_dose.dose_image,
             prescription=prescription_dose,
-            maxDVH=combined_dose.dose_image.imageArray.max(),
+            # maxDVH=combined_dose.dose_image.imageArray.max(), XXX if the max dose is veyr large, it'll break the histogram
             )
         self.dvh_metrics_observed = {}
 
