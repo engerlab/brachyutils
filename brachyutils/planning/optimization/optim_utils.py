@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import tqdm
 import SimpleITK as sitk
 # import gurobipy as gb
-from opentps.core.data.images import ROIMask
+from opentps.core.data.images import ROIMask, DoseImage
 from opentps.core.data import ROIContour
 from brachyutils.types import BrachyPlan
 from abc import ABC, abstractmethod
@@ -101,8 +101,13 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
     """
     # create a dose object from the dose_rate_map tensor.
     # The coordinates of the dose object is the same as the combined_dose in the plan.
-    dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
-    dose_rate_obj.set_dose_array(dose_rate_map)
+    # dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
+    # dose_rate_obj.set_dose_array(dose_rate_map)
+    dose_rate_img = DoseImage(
+        imageArray=dose_rate_map.swapaxes(0, 2),
+        origin=template_dose_obj.dose_image.origin,
+        spacing=template_dose_obj.dose_image.spacing
+    )
 
     # # resample the dose rate map to the optimization resolution
     if optim_spacing is not None:
@@ -110,13 +115,13 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
             optim_spacing = [optim_spacing] * 3
         if shift_origin:
             origin_for_resampling = compute_new_origin_for_resampling(
-                image3DToSITK(dose_rate_obj.dose_image), 
+                image3DToSITK(dose_rate_img), 
                 new_spacing=optim_spacing
             )
         else:
             origin_for_resampling = None
         resampleImage3D(
-            dose_rate_obj.dose_image,
+            dose_rate_img,
             spacing=optim_spacing,
             inPlace=True,
             origin=origin_for_resampling,
@@ -125,14 +130,14 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
     # crop the dose rate map to the roi bounds
     if roi_bounds is not None:
         crop3DDataAroundBox(
-        dose_rate_obj.dose_image,
+        dose_rate_img,
         roi_bounds)
     # by now the structure mask is in the same grid as the template dose object
     # apply the structure mask to the dose rate map
     if structure_mask is not None:
-        dose_rate_obj.dose_image.imageArray = dose_rate_obj.dose_image.imageArray * structure_mask.imageArray
+        dose_rate_img.imageArray = dose_rate_img.imageArray * structure_mask.imageArray
 
-    return dose_rate_obj.get_dose_array().flatten()
+    return dose_rate_img.imageArray.swapaxes(0, 2).flatten()
 
 def process_variable(
     variable,
