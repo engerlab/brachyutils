@@ -233,21 +233,19 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
         if self.verbose:
             print(f"Setting up {total_dwells} dwell time variables...")
         
-        model.eval(f"param total_dwells := {total_dwells};")
-        model.eval("set ALL_DWELLS := 1 .. total_dwells;")
-        model.eval("var t_vec {ALL_DWELLS};")
-        
-        # Link individual dwell variables to the global vector
-        for i, d_var in enumerate(dwellTimeVariables):
-            model.eval(f"subject to t_def_{i+1}: t_vec[{i+1}] = {d_var._model_variable.name()};")
-        
         # Initialize objective function components
         objective_terms = []
         structure_counter = 0
-        
-        structures_with_config = [s for s in plan.structure_list if s.optimization_config is not None]
-        if self.verbose:
-            print(f"Processing {len(structures_with_config)} structures with optimization configs...")
+        model.eval(f"param total_dwells := {total_dwells};")
+        model.eval("set ALL_DWELLS := 1 .. total_dwells;")
+        model.eval("var t_vec {ALL_DWELLS};")
+        # Link individual dwell variables to the global vector
+        for i, d_var in enumerate(dwellTimeVariables):
+            model.eval(f"subject to t_def_{i+1}: t_vec[{i+1}] = {d_var._model_variable.name()};")
+
+        # structures_with_config = [s for s in plan.structure_list if s.optimization_config is not None]
+        # if self.verbose:
+        #     print(f"Processing {len(structures_with_config)} structures with optimization configs...")
         
         # get structure optimization configs for hotspot estimators
         for structure in plan.structure_list:
@@ -290,7 +288,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                 )
 
             # Build dose rate matrix and dwell time vector for this structure
-            dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+            dwell_vars_chaos, dose_rate_matrices_chaos = compute_dose_rate_matrices(
                 dwellTimeVariables,
                 plan,
                 structure.name,
@@ -302,9 +300,16 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                 multi_processing=multi_processing
             )
 
-            if not dose_rate_matrices:
+            if not dose_rate_matrices_chaos:
                 continue
-
+            dwell_vars = []
+            dose_rate_matrices = []
+            # sort the dwell_vars and dose_rate_matrices according to the original dwellTimeVariables order
+            for var in dwellTimeVariables:
+                for var_mat in zip(dwell_vars_chaos, dose_rate_matrices_chaos):
+                    if var_mat[0].name() == var.name:
+                        dwell_vars.append(var_mat[0])
+                        dose_rate_matrices.append(var_mat[1])
             # create the dose rate matrix A (n x m) for this structure
             A = np.column_stack(dose_rate_matrices)
             num_dose_points = A.shape[0]
@@ -317,7 +322,6 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
             model.eval(f"param num_dwells_{struct_id} := {num_dwells};")
             model.eval(f"set D_{struct_id} := 1 .. num_dose_points_{struct_id};")
             model.eval(f"set T_{struct_id} := 1 .. num_dwells_{struct_id};")
-            
             # Define structure-specific dose rate matrix
             model.eval(f"param A_{struct_id}{{{{D_{struct_id},T_{struct_id}}}}};")
             model.param[f"A_{struct_id}"] = A
