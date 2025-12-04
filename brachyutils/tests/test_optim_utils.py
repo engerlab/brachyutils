@@ -120,19 +120,19 @@ def test_get_optimization_roi_bounds():
 
 def test_run_gurobi_optim():
     from brachyutils.planning.optimization.optim_gurobi import BrachyOptim_Gurobi
-    # pth_dicom = "data_test/prostate-glen-p1-dcm"
-    # dir_dose_rates = "data_test/prostate-glen-p1-dose"
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    dir_dose_rates = "data_test/prostate-glen-p1-dose"
     dir_result_out = Path("data_test/test_export_plan/prostate")
     # for debugging on server
-    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p5_body")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p5_body") # for tg43
+    # pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p5_body")
+    # dir_dose_rates = Path("temp_data/tg43/optimization/p5_body") # for tg43
     target_dose = 21
     optimization_config_list=[
         Optimization_Config(
             structure_name="CTV",
             dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
-            penalty_weight_quadratic=1,
+            # penalty_weight_quadratic=1,
             # penalty_weight_uniformity=1,
             # penalty_weight_hotspot=1,
             # hotspot_threshold=1.5,
@@ -144,7 +144,7 @@ def test_run_gurobi_optim():
             penalty_weight_linear=1,
             # penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=1),
+            spacing_mm=3),
         Optimization_Config(
             structure_name="RECTUM",
             dose_voxel_goal=0,#target_dose * 0.75,
