@@ -121,7 +121,9 @@ def _get_optimized_plan_from_model(
 
     dwelltime_and_name = []
     for x in model.getVars():
-        if ("catheter" in x.VarName) and ("dwell" in x.VarName):
+        if (("catheter" in x.VarName)
+            and ("dwell" in x.VarName)
+            and not("hotspot" in x.VarName)):
             dwelltime_and_name.append((x.X, x.VarName))
     
     if not solution_found:
@@ -553,8 +555,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         # sort the dwell_vars and dose_rate_matrices according to the original dwellTimeVariables order
         for msk in hotspot_masks:
             for var_mat in zip(dwell_vars_chaos, dose_rate_matrices_chaos):
-                # XXX name maching needs work
-                if var_mat[0].VarName == msk.name:
+                if var_mat[0].VarName == msk.name.split(":")[-1].split("/")[0]:
                     dwell_vars.append(var_mat[0])
                     dose_rate_matrices.append(var_mat[1])
 
@@ -568,16 +569,16 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             masked_dose = unmasked_dose[mask_array]
             # slack variable for hotspot estimator
             x_slack = model.addVar(
-                    lb=0.0,
-                    ub=hotspot_threshold * target_dose,
+                    # lb=0 # -GRB.INFINITY,
+                    # ub=hotspot_threshold * target_dose,
                     name=f"hotspot_slack_{mask.name.split(":")[-1]}"
                 )
             # Hotspot estimator constraints
             model.addConstr(
-                sum(masked_dose)/num_dose_points - x_slack <= (target_dose*hotspot_threshold),
+                x_slack >= sum(masked_dose)/num_dose_points - (target_dose*hotspot_threshold),
             )
-            hotspot_penalty += (hotspot_weight * x_slack)/num_dose_points
-            
+            hotspot_penalty += (hotspot_weight * x_slack)#/num_dose_points
+
             self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
             constraint_counter += num_dose_points
 
