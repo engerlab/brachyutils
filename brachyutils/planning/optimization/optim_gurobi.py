@@ -538,7 +538,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     )
 
         # setup a general A matrix once for all the hotspot estimators at once.
-        dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+        dwell_vars_chaos, dose_rate_matrices_chaos = compute_dose_rate_matrices(
             dwellTimeVariables=dwellTimeVariables,
             plan=plan,
             structure_name=None,
@@ -548,6 +548,16 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             # max_workers=46,
             shift_origin=True
         )
+        dwell_vars = []
+        dose_rate_matrices = []
+        # sort the dwell_vars and dose_rate_matrices according to the original dwellTimeVariables order
+        for msk in hotspot_masks:
+            for var_mat in zip(dwell_vars_chaos, dose_rate_matrices_chaos):
+                # XXX name maching needs work
+                if var_mat[0].VarName == msk.name:
+                    dwell_vars.append(var_mat[0])
+                    dose_rate_matrices.append(var_mat[1])
+
         t_MVar = MVar.fromlist(dwell_vars)
         A = np.column_stack(dose_rate_matrices)
         unmasked_dose = A @ t_MVar

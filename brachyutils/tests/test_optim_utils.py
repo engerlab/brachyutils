@@ -134,8 +134,8 @@ def test_run_gurobi_optim():
             penalty_weight_linear=300,
             # penalty_weight_quadratic=1,
             # penalty_weight_uniformity=1,
-            # penalty_weight_hotspot=1,
-            # hotspot_threshold=1.5,
+            penalty_weight_hotspot=1,
+            hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -196,7 +196,7 @@ def test_run_gurobi_optim():
         "solve_time": optim_obj.solve_time,
         "model_build_time": t1-t0,
         } | dvh_metrics
-    results.to_csv(dir_result_out.joinpath("gurobi_lin.csv"))
+    results.to_csv(dir_result_out.joinpath("gurobi_lin_HS.csv"))
     print(optimized_plan.dwell_times)
     # export phantom
     # plan_obj.phantom.export_to(
@@ -481,9 +481,9 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    test_run_ampl_optim()
+    # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
     # test_hotspot_estimators()
