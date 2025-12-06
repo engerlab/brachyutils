@@ -336,6 +336,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             structure_max_dose = structure.optimization_config.max_dose
             hotspot_threshold = structure.optimization_config.hotspot_threshold
             hotspot_weight = structure.optimization_config.penalty_weight_hotspot
+            penalty_weight_std_time_L2 = structure.optimization_config.penalty_weight_std_time_L2
 
             structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
                 structure_mask=structure_mask,
@@ -474,6 +475,12 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "quadratic_coeff": quadratic_weight / num_dose_points,
                 }
 
+        # set a regularization term on the dwell times to avoid extreme values
+        mean_dwell_time = sum(t_MVar) / t_MVar.size
+        penalty_terms["quadratic"] += (
+            penalty_weight_std_time_L2 * 1e-3 
+            * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
+        )
         # Set objective function
         model.setObjective(
             penalty_terms["linear"]

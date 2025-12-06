@@ -136,6 +136,7 @@ def test_run_gurobi_optim():
             # penalty_weight_uniformity=1,
             penalty_weight_hotspot=1,
             hotspot_threshold=1.5,
+            penalty_weight_std_time_L2=1,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
