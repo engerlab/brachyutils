@@ -576,7 +576,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             masked_dose = unmasked_dose[mask_array]
             # slack variable for hotspot estimator
             x_slack = model.addVar(
-                    # lb=0 # -GRB.INFINITY,
+                    # lb=0, # -GRB.INFINITY,
                     # ub=hotspot_threshold * target_dose,
                     name=f"hotspot_slack_{mask.name.split(":")[-1]}"
                 )
