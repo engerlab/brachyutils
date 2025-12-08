@@ -896,6 +896,7 @@ class BrachyEgsphant:
             # sort out the materials and density based on the HU values
             self._sort_materials_by("HU_limit")
             low_HU_threshold = - float("inf")
+            density_low_bound = 0.0 #dummy default value for first iter
 
             for i, material in enumerate(list(self.material_dict.keys())):
 

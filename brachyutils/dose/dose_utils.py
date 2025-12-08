@@ -423,7 +423,7 @@ class BrachyDose:
             fill_value=0,
         )
 
-    def extract_dose_values_from_coordinates(self, x, y, z):
+    def extract_dose_values_from_coordinates(self, x, y, z, uncertainty = False):
         # r""" """
         # raise DeprecationWarning(
         #    "This function is no longer supported due to migration to open tps. please use self.get_dose_at_coordinates() instead."
@@ -446,14 +446,23 @@ class BrachyDose:
         coord_grid_z, coord_grid_y, coord_grid_x = np.meshgrid(
             [z], [y], [x], indexing="ij"
         )
+        if not uncertainty:
         # trunk-ignore(ruff/E731)
-        dose_grid_lambda = lambda xs, ys, zs: self.dose_image.getDataAtPosition(
-            (xs, ys, zs)
-        )
-        dose_grid_function = np.vectorize(dose_grid_lambda)
-        dose_grid = dose_grid_function(coord_grid_x, coord_grid_y, coord_grid_z)
-        dose_grid.reshape(shape)
-        return dose_grid.squeeze()
+            dose_grid_lambda = lambda xs, ys, zs: self.dose_image.getDataAtPosition(
+                (xs, ys, zs)
+            )
+            dose_grid_function = np.vectorize(dose_grid_lambda)
+            dose_grid = dose_grid_function(coord_grid_x, coord_grid_y, coord_grid_z)
+            dose_grid.reshape(shape)
+            return dose_grid.squeeze()
+        else:
+            uncertainty_grid_lambda = lambda xs, ys, zs: self.uncertainty_image.getDataAtPosition(
+                (xs, ys, zs)
+            )
+            uncertainty_grid_function = np.vectorize(uncertainty_grid_lambda)
+            uncertainty_grid = uncertainty_grid_function(coord_grid_x, coord_grid_y, coord_grid_z)
+            uncertainty_grid.reshape(shape)
+            return uncertainty_grid.squeeze()
 
     def extract_profile_2d(
         self,
