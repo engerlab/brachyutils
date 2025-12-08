@@ -500,6 +500,68 @@ def box_plots(
     else:
         plt.show()
 
+
+def gen_box_plots_penalty_results(
+    results_df: DataFrame,
+    dir_fig_save: str | Path,
+    pth_mean_std_csv: str | Path = None,
+):
+    r"""
+    ### Purpose:
+    - Generate box plots to compare the effect of different penalty terms on optimization results.
+    ### Inputs:
+    - `results_df`: DataFrame containing all the optimization results.
+    - `dir_fig_save`: Directory to save the generated box plots.
+    - `pth_mean_std_csv`: Path to save the mean and standard deviation of results as a CSV file.
+    ### Outputs:
+    - Box plots saved in the specified directory.
+    """
+    dir_fig_save = Path(dir_fig_save)
+    dir_fig_save.mkdir(parents=True, exist_ok=True)
+
+    metrics_to_plot = [col for col in results_df.columns if col not in [
+        "case_name", "package", "solver", "objective_terms", "status"]]
+    unique_penalty_terms = results_df["objective_terms"].unique()
+    if pth_mean_std_csv is not None:
+        mean_std_df = pd.DataFrame(columns=["case_name"] + metrics_to_plot)
+
+    for penalty_term in unique_penalty_terms:
+        df_subset = results_df.loc[
+                results_df["objective_terms"] == penalty_term
+            ].loc[:, metrics_to_plot]
+        if df_subset.empty:
+            continue
+        if pth_mean_std_csv is not None:
+            mean_std_df.loc[len(mean_std_df)] = {
+                "case_name": f"MEAN({penalty_term})",
+            } | df_subset.mean().to_dict()
+            mean_std_df.loc[len(mean_std_df)] = {
+                "case_name": f"STD({penalty_term})",
+            } | df_subset.std().to_dict()
+            mean_std_df.to_csv(pth_mean_std_csv, index=False)
+
+    for metric in metrics_to_plot:
+        penalty_term_labels = []
+        data_to_plot = []
+        for penalty_term in unique_penalty_terms:
+            df_subset = results_df.loc[
+                    results_df["objective_terms"] == penalty_term
+                ]
+            if df_subset.empty:
+                continue
+            penalty_term_labels.append(penalty_term)
+            data_to_plot.append(df_subset[metric])
+        # # generate box plot
+        box_plots(
+            title=f"{metric} for different penalty terms",
+            data=data_to_plot,
+            labels=penalty_term_labels,
+            y_label=metric,
+            x_label="Penalty Terms",
+            pth_save=dir_fig_save/f"boxplot_{metric}.svg"
+        )
+
+
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_all_dose_rates = Path("temp_data/tg43/optimization") # for tg43
@@ -545,10 +607,8 @@ if __name__ == "__main__":
     # # compare the effect of different penalty terms using gurobi
     pth_full_results_gurobi = dir_all_dose_rates/"full_eval_optim_results_gurobi.csv"
     results_gurobi_df = pd.read_csv(pth_full_results_gurobi)
-    gen_box_plots_solvers_results(
+    gen_box_plots_penalty_results(
         results_gurobi_df,
-        filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
-        penalty_term="linear",
         dir_fig_save=dir_all_dose_rates/"figs_optim_results_full",
-        pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
+        pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_full.csv",
     )
