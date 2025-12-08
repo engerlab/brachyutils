@@ -7,6 +7,93 @@ from brachyutils import BrachyPhantom
 from brachyutils import BrachyDose
 from brachyutils import BrachyEgsphant
 
+def generate_egsphants(
+    nrrd_patients: Path | str,
+    pth_seg_material_dict: Path | str,
+    pth_ct_material_dict= Path | str,
+    multi_thread: bool = False,
+    ):
+    r"""
+    ### Purpose:
+    - To generate egsphant files from patient geometry storied in NRRD format. For each patient,
+    the directory should contain:
+        - A scan file named "{patient_name}.nrrd"
+        - A segmentation file named "{patient_name}.seg.nrrd"
+    ### Inputs:
+        - nrrd_patients (Path | str): Path to directory containing subdirectories with NRRD files.
+        - material_dict (dict | Path | str): A dictionary or path to a JSON file mapping structure names
+          to material properties required for egsphant generation.
+    ### Outputs:
+        - Egsphant files saved in the same directory as the input NRRD files,
+          named "egsphant.seq.nrrd" and "ct.egsphant".
+    """
+    nrrd_patients = Path(nrrd_patients)
+    pth_seg_material_dict = Path(pth_seg_material_dict)
+    
+    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
+    if not multi_thread:
+        for patient in tqdm(nrrd_patients):
+            _gen_one_egsphant(
+                pth_patient=patient,
+                pth_seg_material_dict=pth_seg_material_dict,
+                pth_ct_material_dict=pth_ct_material_dict
+            )
+    else:
+        from multiprocessing import Pool, cpu_count
+        from functools import partial
+        num_cores = cpu_count() - 2
+        with Pool(num_cores) as p:
+            
+            r = list(tqdm(p.imap(
+                func=partial(
+                    _gen_one_egsphant, 
+                    pth_seg_material_dict=pth_seg_material_dict,
+                    pth_ct_material_dict=pth_ct_material_dict
+                ),
+                iterable=nrrd_patients
+                ), total=len(nrrd_patients)
+            ))
+
+def _gen_one_egsphant(
+    pth_patient: Path,
+    pth_seg_material_dict: Path,
+    pth_ct_material_dict:Path
+    ):
+    """
+    ### Purpose:
+    - Generate egsphant files for a single patient from NRRD files. 
+    both segmentation-based and CT-based egsphants are created.
+    ### inputs:
+    - pth_patient (Path): path to patient directory containing NRRD files.
+    - pth_material_dict (Path): path to material dictionary file.
+    ### Outputs:
+    - Egsphant files saved in the patient directory,
+      named "seg_egsphant.seq.nrrd" and "ct_egsphant.seq.nrrd".
+    """
+    nrrd_files = list(pth_patient.glob("*.nrrd"))
+    for pth in nrrd_files:
+        if ".seg.nrrd" in pth.name:
+                pth_seg_nrrd = pth
+        elif ".seq.nrrd" in pth.name:
+            pth_dose_nrrd = pth
+        elif ".nrrd" in pth.name and "egsphant" not in pth.name:
+            pth_scan_nrrd = pth
+    phantom_obj = BrachyPhantom(
+        pth_phantom_file=pth_scan_nrrd,
+        pth_structures_file=pth_seg_nrrd
+        )
+    phantom_obj.write_to_egsphant(
+        pth_output=pth_patient.joinpath("seg_egsphant.seq.nrrd"),
+        material_dict=pth_seg_material_dict,
+        assign_material_from_ct=False
+    )
+    phantom_obj.egsphant_obj = None
+    phantom_obj.write_to_egsphant(
+        pth_output=pth_patient.joinpath("ct_egsphant.seq.nrrd"),
+        material_dict=pth_ct_material_dict,
+        assign_material_from_ct=True
+    )
+
 def time_phantom_io(
         dir_out: Path,
         type_out: Literal["dicom", "nrrd", "nifti", "egs"],
@@ -14,27 +101,38 @@ def time_phantom_io(
         pth_phantom_file: Path = None,
         pth_structures_file: Path = None,
     ):
-        try:
-            t0_read = time()
-            phantom_obj = BrachyPhantom(
-                dir_dicom=dir_dicom,
-                pth_phantom_file=pth_phantom_file,
-                pth_structures_file=pth_structures_file
-                )
-            tf_read = time()
-        except Exception as e:
-            t0_read, tf_read = (float("nan"), float("nan"))
-        try:
-            if type_out == "dicom":
-                t0_write = time()
-                phantom_obj.export_to(dir_dicom_out=dir_out)
-            elif type_out == "nrrd":
-                t0_write = time()
-                phantom_obj.export_to(dir_nrrd_out=dir_out)
+        # try:
+        t0_read = time()
+        phantom_obj = BrachyPhantom(
+            dir_dicom=dir_dicom,
+            pth_phantom_file=pth_phantom_file,
+            pth_structures_file=pth_structures_file
+            )
+        tf_read = time()
+        # except Exception as e:
+        #     t0_read, tf_read = (float("nan"), float("nan"))
+        # try:
+        if type_out == "dicom":
+            t0_write = time()
+            phantom_obj.export_to(dir_dicom_out=dir_out)
             tf_write = time()
-        except Exception as e:
-            t0_write, tf_write = (float("nan"), float("nan"))
-        return (tf_read - t0_read, tf_write - t0_write)
+            new_dcm_files = list(dir_out.glob("*.dcm"))
+            new_dcm_files = list(filter(lambda x: "RD" not in x.name and "RS" not in x.name, new_dcm_files))
+            total_size_bytes = sum(f.stat().st_size for f in new_dcm_files) / (1024 * 1024)
+            if pth_structures_file is not None:
+                total_size_bytes += pth_structures_file.stat().st_size / (1024 * 1024)
+        elif type_out == "nrrd":
+            t0_write = time()
+            phantom_obj.export_to(dir_nrrd_out=dir_out)
+            tf_write = time()
+            new_nrrd_files = list(dir_out.glob("*.nrrd"))
+            new_nrrd_files = list(filter(lambda x: ".seq.nrrd" not in x.name and ".seg.nrrd" not in x.name, new_nrrd_files))
+            total_size_bytes = sum(f.stat().st_size for f in new_nrrd_files) / (1024 * 1024)
+            if pth_structures_file is not None:
+                total_size_bytes += pth_structures_file.stat().st_size / (1024 * 1024)
+        # except Exception as e:
+        #     t0_write, tf_write, total_size_bytes = (float("nan"), float("nan"), float("nan"))
+        return (tf_read - t0_read, tf_write - t0_write, total_size_bytes)
 
 def time_dose_io(
     pth_dose_in: Path,
@@ -60,13 +158,12 @@ def time_dose_io(
     return (tf_read - t0_read, tf_write - t0_write, file_size_mb)
 
 def time_egsphant_io(
-    pth_egsphant_in: Path,
-    pth_egsphant_out: Path
+    pth_egsphant: Path,
     ):
     # try:
         t0_read = time()
         egsphant_obj = BrachyEgsphant(
-            pth_egsphant_file=pth_egsphant_in
+            pth_egsphant_file=pth_egsphant
         )
         tf_read = time()
     # except Exception as e:
@@ -75,83 +172,60 @@ def time_egsphant_io(
     # try:
         t0_write = time()
         egsphant_obj.write_to_file(
-            fileName=pth_egsphant_out
+            fileName=pth_egsphant
         )
         tf_write = time()
-        filesize_mb = pth_egsphant_out.stat().st_size / (1024 * 1024)
+        filesize_mb = pth_egsphant.stat().st_size / (1024 * 1024)
     # except Exception as e:
     #     t0_write, tf_write = (float("nan"), float("nan"))
         return (tf_read - t0_read, tf_write - t0_write, filesize_mb)
 
-def eval_dicom_io(dicom_patients: Path | str, dir_out: Path | str):
+def eval_dicom_io(pth_dicom_data: Path | str):
     """
-    Evaluate DICOM I/O performance by benchmarking read and write operations.
-    This function performs timing benchmarks for various DICOM file operations including:
-    - Phantom scan reading and writing (CT/MR images)
-    - Phantom scan with segmentation structures reading and writing
-    - Dose file reading and writing
-    The function processes all DICOM directories found in the specified data path,
-    measures execution times for each operation type, and generates statistical
-    summaries (average and standard deviation) of the timing results.
-    Directory Structure Expected:
-        ~/YourLocalHome/Data/prostate-glen-2023/
-        ├── patient1/
-        │   ├── CT*.dcm (scan files) or MR*.dcm
-        │   ├── RS*.dcm (structure set files)
-        │   └── RD*.dcm (dose files)
-        └── patient2/
-            └── ...
-    Output:
-        Creates a CSV file 'timing_dicom_io.csv' in 'temp_data/dicom_io/' containing
-        timing results for all operations across all processed DICOM directories.
-    Raises:
-        FileNotFoundError: If the specified DICOM data directory doesn't exist
-        IndexError: If required DICOM files (RS*.dcm or RD*.dcm) are not found
-    Note:
-        Requires the following functions to be available:
-        - time_phantom_io(): Times phantom reading/writing operations
-        - time_dose_io(): Times dose file reading/writing operations
+    ### Purpose:
+    - To evaluate DICOM file I/O performance by timing read and write operations
+    of scan, segmentation and dose.
     """
-    dicom_patients = Path(dicom_patients)
-    dicom_patients = list(dicom_patients.glob("*/"))
-    dir_out = Path(dir_out)
+    pth_dicom_data = Path(pth_dicom_data)
+    dicom_patients_list = list(pth_dicom_data.glob("*/"))
+    # dir_out = Path(dir_out)
     # dir_out = Path("temp_data/dicom_io")
     timing_df = pd.DataFrame(columns=[
-        "read_time_scan", "write_time_scan",
-        "read_time_scan+seg", "write_time_scan+seg",
-        "read_time_dose", "write_time_dose"
-        ], index=[dicom.name for dicom in dicom_patients] + ["average", "std"])
-    
-    for dicom in tqdm(dicom_patients):
-        t_read_scan, t_write_scan = time_phantom_io(
-            dir_out=dir_out.joinpath(dicom.name),
+        "read_time_scan", "write_time_scan", "scan_file_size_mb",
+        "read_time_scan+seg", "write_time_scan+seg", "scan+seg_file_size_mb",
+        "read_time_dose", "write_time_dose", "dose_file_size_mb",
+        ], index=[dicom.name for dicom in dicom_patients_list] + ["average", "std"])
+
+    for dicom in tqdm(dicom_patients_list):
+        t_read_scan, t_write_scan, scan_file_size_mb = time_phantom_io(
+            dir_out=pth_dicom_data.joinpath(dicom.name),
             type_out="dicom",
             dir_dicom=dicom
             )
-        t_read_scan_seg, t_write_scan_seg = time_phantom_io(
-            dir_out=dir_out.joinpath(dicom.name),
+        t_read_scan_seg, t_write_scan_seg, scan_seg_file_size_mb = time_phantom_io(
+            dir_out=pth_dicom_data.joinpath(dicom.name),
             type_out="dicom",
             dir_dicom=dicom,
             pth_structures_file=list(dicom.glob("RS*.dcm")).pop()
         )
         pth_dose_file = list(dicom.glob("RD*.dcm")).pop()
-        t_read_dose, t_write_dose = time_dose_io(
+        t_read_dose, t_write_dose, file_size_mb = time_dose_io(
             pth_dose_in=pth_dose_file,
-            pth_dose_out=dir_out.joinpath(dicom.name).joinpath(pth_dose_file.name)
+            pth_dose_out=pth_dicom_data.joinpath(dicom.name).joinpath(pth_dose_file.name)
         )
         timing_df.loc[dicom.name] = [
-            t_read_scan, t_write_scan,
-            t_read_scan_seg, t_write_scan_seg,
-            t_read_dose, t_write_dose
+            t_read_scan, t_write_scan, scan_file_size_mb,
+            t_read_scan_seg, t_write_scan_seg, scan_seg_file_size_mb,
+            t_read_dose, t_write_dose, file_size_mb
             ]
 
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
-    timing_df.to_csv(dir_out.joinpath("timing_dicom_io.csv"))
+    timing_df.to_csv(pth_dicom_data.joinpath("timing_dicom_io.csv"))
 
 def convert_dicom_to_nrrd(
-    dicom_patients: Path | str,
-    dir_out: Path | str
+    pth_dicom_data: Path | str,
+    pth_nrrd_data: Path | str
     ):
     """
     Convert DICOM files to NRRD format for brachytherapy data.
@@ -174,7 +248,7 @@ def convert_dicom_to_nrrd(
         Expects DICOM directories to contain RS*.dcm (structure) and RD*.dcm (dose) files.
     """
 
-    dicom_patients = list(Path().home().joinpath(dicom_patients).glob("*/"))
+    dicom_patients = list(Path().home().joinpath(pth_dicom_data).glob("*/"))
     # first converting everything to nrrd files
     for dicom in dicom_patients:
         # Convert DICOM to NRRD
@@ -184,19 +258,96 @@ def convert_dicom_to_nrrd(
                 pth_structures_file=list(dicom.glob("RS*.dcm")).pop()
                 )
             phantom_obj.export_to(
-                dir_nrrd_out=dir_out.joinpath(dicom.name)
+                dir_nrrd_out=pth_nrrd_data.joinpath(dicom.name)
                 )
             dose_obj = BrachyDose(
                 pth_dose_file=list(dicom.glob("RD*.dcm")).pop()
             )
             dose_obj.write_brachydose_to_file(
-                pth_dose_file=Path(dir_out).joinpath(dicom.name).joinpath(dicom.name+".seq.nrrd")
+                pth_dose_file=pth_nrrd_data.joinpath(dicom.name).joinpath(dicom.name+".seq.nrrd")
             )
         except Exception as e:
             print(f"Error converting {dicom.name} to NRRD: {e}")
             continue
 
-def eval_nrrd_io(dir_nrrds: Path | str):
+def convert_nrrd_to_dicom(
+    nrrd_patients: Path | str,
+    dicom_patients: Path | str
+    ):
+    """
+    ### Purpose:
+    - To convert NRRD image, segmentation and dose files to DICOM format.
+    ### Inputs:
+        - nrrd_patients (Path | str): Path to directory containing subdirectories with NRRD files.
+        - dicom_patients (Path | str): Path to directory to save converted DICOM files.
+    ### Outputs:
+        - DICOM files saved in the specified output directory,
+          with subdirectories named after the original NRRD directories.
+    """ 
+    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
+    for patient_nrrd in tqdm(nrrd_patients):
+        data_nrrd = list(patient_nrrd.glob("*.nrrd"))
+        data_img = list(filter(
+            lambda x: "seq" not in x.name and ".seg.nrrd" not in x.name,
+            data_nrrd)).pop()
+        data_seg = list(filter(lambda x: ".seg.nrrd" in x.name, data_nrrd)).pop()
+        data_seq = list(filter(lambda x: ".seq.nrrd" in x.name, data_nrrd))
+        data_dose = list(filter(lambda x: "egsphant" not in x.name, data_seq)).pop()
+        
+        # now convert phantom to dicom
+        BrachyPhantom(
+            pth_phantom_file=data_img,
+            pth_structures_file=data_seg
+        ).export_to(
+            dir_dicom_out=Path(dicom_patients).joinpath(patient_nrrd.name)
+        )
+        # convert does to dicom
+        pth_dose_dicom_out = Path(dicom_patients).joinpath(
+            patient_nrrd.name).joinpath("RD.dcm")
+        BrachyDose(
+            pth_dose_file=data_dose
+        ).write_brachydose_to_file(
+            pth_dose_file=pth_dose_dicom_out
+        )
+
+def convert_nrrd_to_egs(
+    nrrd_patients: Path | str,
+    egs_patients: Path | str,
+    ):
+    """
+    ### Purpose:
+    - To convert egsphant and dose files from NRRD format to EGS format.
+    ### Inputs:
+        - nrrd_patients (Path | str): Path to directory containing subdirectories with
+        ct_egsphant.seq.nrrd and seg_egsphant.seq.nrrd files.
+        - egs_patients (Path | str): Path to directory to save converted EGS files.
+    ### Outputs:
+        - Egsphant and dose files saved in the specified output directory,
+          with subdirectories named after the original NRRD directories.
+    """
+    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
+    for patient_nrrd in tqdm(nrrd_patients):
+        data_nrrd = list(patient_nrrd.glob("*.nrrd"))
+        data_seq = list(filter(lambda x: ".seq.nrrd" in x.name, data_nrrd))
+        data_egsphant = list(filter(lambda x: "egsphant" in x.name, data_seq))
+        data_dose = list(filter(lambda x: "egsphant" not in x.name, data_seq)).pop()
+        # now convert phantom to egsphant
+        for sample in data_egsphant:
+            BrachyEgsphant(
+                pth_egsphant_file=sample
+            ).write_to_file(
+                fileName=Path(egs_patients).joinpath(
+                    patient_nrrd.name).joinpath(sample.name.replace("_egsphant.seq.nrrd", ".egsphant"))
+            )
+        # convert does to 3ddose
+        BrachyDose(
+            pth_dose_file=data_dose
+        ).write_brachydose_to_file(
+            pth_dose_file=Path(egs_patients).joinpath(
+                patient_nrrd.name).joinpath(data_dose.name.replace(".seq.nrrd", ".3ddose"))
+        )
+
+def eval_nrrd_io(pth_nrrd_data: Path | str):
     """
     Evaluate NRRD file I/O performance by timing read and write operations.
     This function benchmarks the performance of reading and writing NRRD files
@@ -222,21 +373,24 @@ def eval_nrrd_io(dir_nrrds: Path | str):
         The function uses tqdm for progress tracking and pandas for data management.
         Each subdirectory name is used as an index in the resulting DataFrame.
     """
-    
-    dir_nrrds = list(Path(dir_nrrds).glob("*/"))
+
+    dir_nrrds = list(Path(pth_nrrd_data).glob("*/"))
     timing_df = pd.DataFrame(columns=[
-        "read_time_scan", "write_time_scan",
-        "read_time_scan+seg", "write_time_scan+seg",
-        "read_time_dose", "write_time_dose", "file_size_dose"
+        "read_time_scan", "write_time_scan", "file_size_scan",
+        "read_time_scan+seg", "write_time_scan+seg", "file_size_scan+seg",
+        "read_time_dose", "write_time_dose", "file_size_dose",
+        "read_time_ctegsphant", "write_time_ctegsphant", "file_size_ctegsphant",
+        "read_time_segegsphant", "write_time_segegsphant", "file_size_segegsphant",
         ], index=[nrrd.name for nrrd in dir_nrrds] + ["average", "std"])
 
     for nrrd in tqdm(dir_nrrds):
-        t_read_scan, t_write_scan = time_phantom_io(
+
+        t_read_scan, t_write_scan, file_size_scan = time_phantom_io(
             dir_out=nrrd,
             type_out="nrrd",
             pth_phantom_file=nrrd.joinpath(nrrd.name+".nrrd")
             )
-        t_read_scan_seg, t_write_scan_seg = time_phantom_io(
+        t_read_scan_seg, t_write_scan_seg, file_size_scan_seg = time_phantom_io(
             dir_out=nrrd,
             type_out="nrrd",
             pth_phantom_file=nrrd.joinpath(nrrd.name+".nrrd"),
@@ -251,225 +405,100 @@ def eval_nrrd_io(dir_nrrds: Path | str):
             pth_dose_in=pth_dose_file,
             pth_dose_out=nrrd.joinpath(nrrd.name).joinpath(pth_dose_file.name)
         )
-        # except:
-        #     timing_df.loc[nrrd.name] = [
-        #     t_read_scan, t_write_scan,
-        #     t_read_scan_seg, t_write_scan_seg,
-        #     float("nan"), float("nan")
-        #     # t_read_dose, t_write_dose
-        #     ]
-        #     continue
+        pth_ct_egsphant = nrrd.joinpath("ct_egsphant.seq.nrrd")
+        t_read_ct_egs, t_write_ct_egs, file_size_ct_egs = time_egsphant_io(
+            pth_egsphant=pth_ct_egsphant)
+        pth_ct_egsphant = nrrd.joinpath("seg_egsphant.seq.nrrd")
+        t_read_seg_egs, t_write_seg_egs, file_size_seg_egs = time_egsphant_io(
+            pth_egsphant=pth_ct_egsphant)
+
         timing_df.loc[nrrd.name] = [
-            t_read_scan, t_write_scan,
-            t_read_scan_seg, t_write_scan_seg,
+            t_read_scan, t_write_scan, file_size_scan,
+            t_read_scan_seg, t_write_scan_seg, file_size_scan_seg,
             t_read_dose, t_write_dose, file_size_dose,
+            t_read_ct_egs, t_write_ct_egs, file_size_ct_egs,
+            t_read_seg_egs, t_write_seg_egs, file_size_seg_egs
             ]
+
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
-    timing_df.to_csv(dir_nrrds[0].parent.joinpath("timing_nrrd_io_dose.csv"))
+    timing_df.to_csv(dir_nrrds[0].parent.joinpath("timing_nrrd_io.csv"))
 
 def eval_egs_io(
-    egs_patients:Path | str,
-    dir_out: Path | str = None
+    pth_egs_data:Path | str,
     ):
     """
     To time the reading and writing of egsphant files.
     """
-    egs_patients = Path(egs_patients)
-    dir_out = Path(dir_out)
+    egs_patients = Path(pth_egs_data)
     egs_patients = list(egs_patients.glob("*/"))
     timing_df = pd.DataFrame(columns=[
-        "read_time_egsphant", "write_time_egsphant", "file_size_egsphant",
-        "read_time_egsphant_nrrd", "write_time_egsphant_nrrd", "file_size_egsphant_nrrd"
+        "read_time_ct_egsphant", "write_time_ct_egsphant", "file_size_ct_egsphant",
+        "read_time_seg_egsphant", "write_time_seg_egsphant", "file_size_seg_egsphant",
+        "read_time_3ddose", "write_time_3ddose", "file_size_3ddose",        
         ], index=[egs.name for egs in egs_patients] + ["average", "std"])
     for patient in tqdm(egs_patients):
         pth_ct_egsphant = list(patient.glob("ct.egsphant")).pop()
-        pth_egsphant_nrrd = list(patient.glob("egsphant.seq.nrrd")).pop()
+        pth_seg_egsphant = list(patient.glob("seg.egsphant")).pop()
+        pth_3ddose = list(patient.glob("*3ddose")).pop()
         t_read_ct_egs, t_write_ct_egs, file_size_ct = time_egsphant_io(
-            pth_egsphant_in=pth_ct_egsphant,
-            pth_egsphant_out=dir_out.joinpath(f"{patient.name}/ct.egsphant")
+            pth_egsphant=pth_ct_egsphant,
         )
-        t_read_egs_nrrd, t_write_egs_nrrd, file_size_nrrd = time_egsphant_io(
-            pth_egsphant_in=pth_egsphant_nrrd,
-            pth_egsphant_out=dir_out.joinpath(f"{patient.name}/egsphant.seq.nrrd")
+        t_read_seg_egsphant, t_write_seg_egsphant, file_size_nrrd = time_egsphant_io(
+            pth_egsphant=pth_seg_egsphant,
+        )
+        read_time_3ddose, write_time_3ddose, file_size_3ddose = time_dose_io(
+            pth_dose_in=pth_3ddose,
+            pth_dose_out=pth_3ddose
         )
         timing_df.loc[patient.name] = [
             t_read_ct_egs, t_write_ct_egs, file_size_ct,
-            t_read_egs_nrrd, t_write_egs_nrrd, file_size_nrrd
+            t_read_seg_egsphant, t_write_seg_egsphant, file_size_nrrd,
+            read_time_3ddose, write_time_3ddose, file_size_3ddose
         ]
         # break
     timing_df.loc["average"] = timing_df.mean()
     timing_df.loc["std"] = timing_df.std()
-    timing_df.to_csv(dir_out.joinpath("timing_egs_io.csv"))
-
-def eval_3ddose_io(
-    patients_3ddose:Path | str,
-    dir_out: Path | str = None
-    ):
-    """
-    To time the reading and writing of 3ddose files.
-    """
-    patients_3ddose = Path(patients_3ddose)
-    dir_out = Path(dir_out)
-    patients_3ddose = list(patients_3ddose.glob("*/"))
-    timing_df = pd.DataFrame(columns=[
-        "read_time_3ddose", "write_time_3ddose", "file_size_3ddose"
-        ], index=[pat.name for pat in patients_3ddose] + ["average", "std"])
-    for patient in tqdm(patients_3ddose):
-        pth_3ddose = list(patient.glob("*.3ddose")).pop()
-        t_read_3ddose, t_write_3ddose = time_dose_io(
-            pth_dose_in=pth_3ddose,
-            pth_dose_out=dir_out.joinpath(f"{patient.name}/{pth_3ddose.name}")
-        )
-        file_size_3ddose = pth_3ddose.stat().st_size / (1024 * 1024)
-        timing_df.loc[patient.name] = [
-            t_read_3ddose, t_write_3ddose, file_size_3ddose
-        ]
-        # break
-    timing_df.loc["average"] = timing_df.mean()
-    timing_df.loc["std"] = timing_df.std()
-    timing_df.to_csv(dir_out.joinpath("timing_3ddose_io.csv"))
-
-
-def generate_egsphants(
-    nrrd_patients: Path | str,
-    pth_material_dict: Path | str,
-    multi_thread: bool = False,
-    assign_material_from_ct: bool = True
-    ):
-    r"""
-    ### Purpose:
-    - To generate egsphant files from patient geometry storied in NRRD format. For each patient,
-    the directory should contain:
-        - A scan file named "{patient_name}.nrrd"
-        - A segmentation file named "{patient_name}.seg.nrrd"
-    ### Inputs:
-        - nrrd_patients (Path | str): Path to directory containing subdirectories with NRRD files.
-        - material_dict (dict | Path | str): A dictionary or path to a JSON file mapping structure names
-          to material properties required for egsphant generation.
-    ### Outputs:
-        - Egsphant files saved in the same directory as the input NRRD files,
-          named "egsphant.seq.nrrd" and "ct.egsphant".
-    """
-    nrrd_patients = Path(nrrd_patients)
-    pth_material_dict = Path(pth_material_dict)
-    
-    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
-    if not multi_thread:
-        for patient in tqdm(nrrd_patients):
-            _gen_one_egsphant(
-                pth_patient=patient,
-                pth_material_dict=pth_material_dict,
-                assign_material_from_ct=assign_material_from_ct
-            )
-    else:
-        from multiprocessing import Pool, cpu_count
-        from functools import partial
-        num_cores = cpu_count() - 2
-        with Pool(num_cores) as p:
-            
-            r = list(tqdm(p.imap(
-                func=partial(
-                    _gen_one_egsphant, 
-                    pth_material_dict=pth_material_dict,
-                    assign_material_from_ct=assign_material_from_ct
-                ),
-                iterable=nrrd_patients
-                ), total=len(nrrd_patients)
-            ))
-
-def _gen_one_egsphant(
-    pth_patient: Path,
-    pth_material_dict: Path,
-    assign_material_from_ct: bool = True
-):
-    nrrd_files = list(pth_patient.glob("*.nrrd"))
-    for pth in nrrd_files:
-        if ".seg.nrrd" in pth.name:
-                pth_seg_nrrd = pth
-        elif ".seq.nrrd" in pth.name:
-            pth_dose_nrrd = pth
-        elif ".nrrd" in pth.name:
-            pth_scan_nrrd = pth
-    phantom_obj = BrachyPhantom(
-        pth_phantom_file=pth_scan_nrrd,
-        pth_structures_file=pth_seg_nrrd
-        )
-    phantom_obj.write_to_egsphant(
-        pth_output=pth_patient.joinpath("egsphant.seq.nrrd"),
-        material_dict=pth_material_dict,
-        assign_material_from_ct=assign_material_from_ct
-    )
-    phantom_obj.write_to_egsphant(
-        pth_output=pth_patient.joinpath("ct.egsphant"),
-        material_dict=pth_material_dict,
-        assign_material_from_ct=assign_material_from_ct
-    )
-
-
-def convert_nrrd_dose_to_dicom(
-    nrrd_patients: Path | str,
-    dicom_patients: Path | str
-    ):
-    from brachyutils import convert_dose_files
-    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
-    dicom_patients = Path(dicom_patients)
-
-    for nrrd in nrrd_patients:
-        convert_dose_files(
-            pth_inputs=[nrrd.joinpath(nrrd.name+".seq.nrrd")],
-            type_out=".dcm",
-            dir_output=dicom_patients.joinpath(nrrd.name)
-            )
-
-def convert_nrrd_dose_3ddose(
-    nrrd_patients: Path | str,
-    threeddose_patients: Path | str
-    ):
-    from brachyutils import convert_dose_files
-    nrrd_patients = list(Path(nrrd_patients).glob("*/"))
-    threeddose_patients = Path(threeddose_patients)
-    for nrrd in nrrd_patients:
-        convert_dose_files(
-            pth_inputs=[nrrd.joinpath(nrrd.name+".seq.nrrd")],
-            type_out=".3ddose",
-            dir_output=threeddose_patients.joinpath(nrrd.name)
-            )
-
+    timing_df.to_csv(Path(pth_egs_data).joinpath("timing_egs_io.csv"))
 
 if __name__ == "__main__":
-    # convert_nrrd_dose_to_dicom(
-    #     "temp_data/nrrd_io",
-    #     "temp_data/dicom_io"
-    # )
-    # eval_dicom_io(
-    #     "temp_data/dicom_io",
-    #     "temp_data/dicom_io"
-    # )
-    # convert_dicom_to_nrrd(
-    #     "YourLocalHome/Data/prostate-glen-2023",
-    #     "temp_data/nrrd_io"
-    # )
-    eval_nrrd_io(
-        "temp_data/nrrd_io",
+    pth_source_data = "YourLocalHome/Data/prostate-glen-2023"
+    pth_nrrd_data = "temp_data/bench_io/nrrd_io"
+    pth_dicom_data = "temp_data/bench_io/dicom_io"
+    pth_egs_data = "temp_data/bench_io/egs_io"
+    pth_seg_material_dict = "admin/constants/structure_materials_prostate.json"
+    pth_ct_material_dict = "admin/constants/CTtoDensityProstate.txt"
+
+    # anonymize and convert all data to nrrd. we'll start assuming data is in nrrd.
+    convert_dicom_to_nrrd(
+        pth_source_data,
+        pth_nrrd_data
     )
-    # eval_nifti_io()
-    # generate_egsphants(
-    #     "temp_data/nrrd_io",
-    #     # "admin/constants/structure_materials_prostate.json",
-    #     "admin/constants/CTtoDensityProstate.txt",
-    #     True,
-    #     True
-    # )
-    # eval_egs_io(
-    #     "temp_data/nrrd_io",
-    #     "temp_data/egs_io"
-    # )
-    # convert_nrrd_dose_3ddose(
-    #     "temp_data/nrrd_io",
-    #     "temp_data/3ddose_io"
-    # )
-    # eval_3ddose_io(
-    #     "temp_data/3ddose_io",
-    #     "temp_data/3ddose_io"
-    # )
+
+    # generate egsphants in nrrd format
+    generate_egsphants(
+        nrrd_patients=pth_nrrd_data,
+        pth_seg_material_dict=pth_seg_material_dict,
+        pth_ct_material_dict=pth_ct_material_dict,
+        multi_thread=False
+    )
+    # to benchmark dicom io, we convert all data from nrrd to dicom and egs.
+    convert_nrrd_to_dicom(
+        pth_nrrd_data,
+        pth_dicom_data
+    )
+    convert_nrrd_to_egs(
+        pth_nrrd_data,
+        pth_egs_data
+    )
+
+    # now run evals
+    eval_dicom_io(
+        pth_dicom_data=pth_dicom_data,
+    )
+    eval_nrrd_io(
+        pth_nrrd_data=pth_nrrd_data,
+    )
+    eval_egs_io(
+        pth_egs_data=pth_egs_data,
+    )

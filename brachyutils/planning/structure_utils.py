@@ -131,7 +131,12 @@ class BrachyStructure:
         assert isinstance(
             combined_dose, BrachyDose
         ), "combined dose is not a BrachyDose object"
-        self.dvh_obj = DVH(self.mask, combined_dose.dose_image, prescription=prescription_dose)
+        self.dvh_obj = DVH(
+            self.mask,
+            combined_dose.dose_image,
+            prescription=prescription_dose,
+            # maxDVH=combined_dose.dose_image.imageArray.max(), XXX if the max dose is veyr large, it'll break the histogram
+            )
         self.dvh_metrics_observed = {}
 
         for dvh_metric_name in self.dvh_metric_goals.keys():
@@ -169,9 +174,12 @@ class BrachyStructure:
             elif metric_string.startswith("CI"):
                 if body_contour is None:
                     raise ValueError("body_contour should be defined to compute the conformity index")
-                else:
+                elif isinstance(body_contour, ROIMask):
                     assert np.allclose(body_contour.gridSize, combined_dose.dose_image.gridSize), \
                     f"body contour grid size does not match dose grid size, {body_contour.gridSize} vs {combined_dose.dose_image.gridSize}"
+                else:
+                    # body contour is ROIContour, it's good to go
+                    pass
                 self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformityIndex(body_contour)
             else:
                 raise ValueError(

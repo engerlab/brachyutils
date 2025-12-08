@@ -9,7 +9,7 @@ from functools import partial
 from glob import glob
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
-from typing import List, Literal, Union, Dict
+from typing import List, Literal, Union, Dict, Tuple
 
 import numpy as np
 from opentps.core.data import DVH, ROIContour
@@ -100,6 +100,7 @@ class BrachyPlan:
         simulation_setup: dict | Path | str = None,
         #### for optimization setup:
         optimization_config_list:  List[Optimization_Config] | Path | str = None,
+        **kwargs
     ):
         r"""
         ### Purpose:
@@ -131,18 +132,18 @@ class BrachyPlan:
         - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
+        #### Keywords Arguments:
+        - dwells_near_ptv: bool = False := if True, will remove the dwell positions that are outside PTV
+        with a margine of 10 mm.
+        - add_hotspots_to_phantom: bool = False := if True, will add hotspot structures to the phantom.
+        this is good for debugging, but slows down the plan creation process.
+        XXX simplify the constructor inputs by using only kwargs for optional inputs?
+
         #### for simulation setup:
         - simulation_setup = None := dictionary containing the simulation setup,
 
         ### Outputs:
             - Void := will initialize the BrachyPlan object
-
-        ### Dependencies:
-            - BrachyPhantom
-            - BrachyDose
-            - BrachyStructure
-            - CatheterTable
-            - BrachySimulation
         """
         # declare the attributes
         # patient origin is used as a reference point for the catheter table,
@@ -227,8 +228,20 @@ class BrachyPlan:
                 raise ValueError(
                     "catheter_table should be a path or a CatheterTable object"
                 )
-            # if delivered_catheter_table:
-            #     self.catheter_table = self.catheter_table.get_delivered_catheter_table()
+            if kwargs.get("dwells_near_ptv", False):
+                for structure in self.structure_list:
+                    if structure.target_volume:
+                        if isinstance(structure.mask, ROIContour):
+                            mask = structure.mask.getBinaryMask(
+                                origin=self.phantom.image_obj.origin,
+                                gridSize=self.phantom.image_obj.gridSize,
+                                spacing=self.phantom.image_obj.spacing,
+                            )
+                        self.catheter_table.remove_outside_mask(
+                            mask=mask,
+                            margin_mm=5.0,
+                        )
+
             self.update_plan_from_catheter_table()
 
         # load the dose rate tensor if the path is provided
@@ -281,7 +294,11 @@ class BrachyPlan:
         # # setup optimization
         if optimization_config_list is not None:
             self.optimization_config_list = optimization_config_list
-            self.setup_optimization(self.optimization_config_list, self.structure_list)
+            self.setup_optimization(
+                self.optimization_config_list,
+                self.structure_list,
+                add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False)
+            )
 
     def load_phantom(self, pth_phantom: Union[Path, dict]):
         r"""
@@ -573,8 +590,8 @@ class BrachyPlan:
             )
 
         # load the dose rate tensor
-        if multi_processing:                        
-            with Pool(processes=max(os.cpu_count(), 8)) as pool:
+        if multi_processing:
+            with Pool(processes=16 if cpu_count()>8 else 4) as pool:
                 func = partial(
                     _load_single_dose_or_uncertainty_to_dict,
                     load_dose_or_uncertainty=load_dose_or_uncertainty,
@@ -676,7 +693,7 @@ class BrachyPlan:
         self,
         phantom: BrachyPhantom,
         dvh_metric_goals: dict,
-        mask_type: Union[ROIContour, ROIMask] = ROIMask,
+        mask_type: Union[ROIContour, ROIMask] = ROIContour,
         strict_name_match: bool = True,
     ):
         r"""
@@ -1541,9 +1558,12 @@ class BrachyPlan:
     def setup_optimization(
         self, 
         optimization_config_list:List[Optimization_Config] | Path | str,
-        structure_list:List[BrachyStructure]):
+        structure_list:List[BrachyStructure],
+        add_hotspots_to_phantom:bool=False
+        ):
         r"""
         """
+        self._reset_optimization()
         if isinstance(optimization_config_list, (Path, str)):
             optimization_config_list = Path(optimization_config_list).resolve()
             if str(optimization_config_list).endswith(".json"):
@@ -1552,24 +1572,25 @@ class BrachyPlan:
             else:
                 raise ValueError("optimization_config_list can be a json file or a list of Optimization_Config objects")
         target_structure_names = [
-            structure.name for structure in self.structure_list
+            structure.name.lower() for structure in self.structure_list
             if structure.target_volume
             ]
         for config in optimization_config_list:
             if config.penalty_weight_hotspot != 0:
-                if config.structure_name not in target_structure_names:
+                if config.structure_name.lower() not in target_structure_names:
                     raise ValueError(
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
-                self.create_hotspot_structures(config)
+                self._create_hotspot_structures(
+                    add_hotspots_to_phantom=add_hotspots_to_phantom)
             for struc in structure_list:
-                if config.structure_name == struc.name:
+                if config.structure_name.lower() == struc.name.lower():
                     struc.set_optimization_config(config)
                     break
 
-    def create_hotspot_structures(
+    def _create_hotspot_structures(
         self,
-        config:Optimization_Config
+        add_hotspots_to_phantom:bool=False
         ):
         r"""
         ### Purpose:
@@ -1602,12 +1623,12 @@ class BrachyPlan:
                         {
                             "dwell_pair": (
                                 {
-                                    "catheter":self.dwell_coordinates[i]["catheter_index"],
-                                    "dwell": self.dwell_coordinates[i]["dwell_index"]
+                                    "catheter":self.dwell_coordinates[i]["catheter_index"]+1,
+                                    "dwell": self.dwell_coordinates[i]["dwell_index"]+1
                                 },
                                 {
-                                    "catheter":self.dwell_coordinates[j]["catheter_index"],
-                                    "dwell": self.dwell_coordinates[j]["dwell_index"]
+                                    "catheter":self.dwell_coordinates[j]["catheter_index"]+1,
+                                    "dwell": self.dwell_coordinates[j]["dwell_index"]+1
                                 }),
                             "center": center(
                                 np.array(self.dwell_coordinates[i]["position"]),
@@ -1622,32 +1643,88 @@ class BrachyPlan:
                         }
                     )
         # create hotspot structures masks for each dwell pair
-        from brachyutils.geometry.phantom_utils import generate_sphere_mask
-        for dwellpair in dwell_pairs:
-            dwell_contour = generate_sphere_mask(
-                center=dwellpair["center"],
-                radius=dwellpair["radius"],
+        with Pool(processes=8) as pool:
+            partial_func = partial(
+                _gen_hotspot_mask,
                 gridSize=self.phantom.image_obj.gridSize,
                 origin=self.phantom.image_obj.origin,
                 spacing=self.phantom.image_obj.spacing,
-                name=(
-                    f"hotspot_estimator:catheter_{(dwellpair['dwell_pair'])[0]['catheter']}_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
-                    + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
-                    ),
             )
+            hotspot_mask_list = tqdm(
+                list(pool.imap(partial_func,dwell_pairs)),
+                total=len(dwell_pairs),
+                desc="Generating hotspot structures"
+            )
+
+        for mask in hotspot_mask_list:
             self.structure_list.append(
                 BrachyStructure(
-                    name=dwell_contour.name,
-                    mask=dwell_contour,
+                    name=mask.name,
+                    mask=mask.mask,
                     target_volume=False,
                     in_dvh=False,
-                    optimization_config=config
+                    # optimization_config=config
                 )
             )
-            self.phantom.set_structure_set(
-                mask_dict={dwell_contour.name: dwell_contour},
-                mask_colors={dwell_contour.name:[251, 159, 255]}
-                )
+            if add_hotspots_to_phantom:
+                self.phantom.set_structure_set(
+                    mask_dict={mask.name: mask.mask},
+                    mask_colors={mask.name:[251, 159, 255]}
+                    )
+
+    def _reset_optimization(self):
+        r"""
+        ### Purpose:
+        - to reset the optimization configurations of all structures in the plan.
+        ### Inputs:
+        - self := the BrachyPlan object
+        ### Outputs:
+        - None := optimization_config attribute of all structures in the plan is set to None
+        """
+        for structure in self.structure_list:
+            if structure.name.startswith("hotspot_estimator:"):
+                self.structure_list.remove(structure)
+                self.phantom.remove_structure(structure.name)
+                continue
+            structure.optimization_config = None
+
+def _gen_hotspot_mask(
+    dwellpair: dict,
+    gridSize: Tuple[int, int, int],
+    origin: Tuple[float, float, float],
+    spacing: Tuple[float, float, float],
+    ):
+    r"""
+    ### Purpose:
+    - to create structures where hotspots are likely to occur inside the ptv or ctv.
+    These structures are created as spheres with radius of dwell step size centered in 
+    between two dwell positions that are within a step size distance from each other.
+    There could be only one hotspot structure per each dwell pair.
+    ### Inputs:
+    - dwellpair := dictionary containing the dwell pair information
+        {}
+    ### Outputs:
+    - None := hot spot structures are appended to the self.structure_list
+    """
+    from brachyutils.geometry.phantom_utils import generate_sphere_mask
+        
+    dwell_mask = generate_sphere_mask(
+        center=dwellpair["center"],
+        radius=dwellpair["radius"],
+        gridSize=gridSize,
+        origin=origin,
+        spacing=spacing,
+        name=(
+            f"hotspot_estimator:catheter_{(dwellpair['dwell_pair'])[0]['catheter']}_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
+            + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
+            ),
+    )
+    return BrachyStructure(
+        name=dwell_mask.name,
+        mask=dwell_mask,
+        target_volume=False,
+        in_dvh=False,
+    )
 
 def _export_single_dose_rate(
     dose_grid: np.array,
@@ -1671,6 +1748,7 @@ def _export_single_dose_rate(
     ### Output:
     - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
     """
+    raise Exception("Bug found here. file name should match the new standard")
     doseObj = BrachyDose.dose_with_empty_grid_like(doseObj_template)
     doseObj.set_dose_array(dose_grid)
     if uncertainty is not None:
