@@ -440,22 +440,26 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             else:
                 if ("hotspot_estimator:" in structure.name.lower()
                     and hotspot_weight > 0):
-                    x_slack = model.addVar(
                     # slack variable for hotspot estimator
-                        # shape=num_dose_points,
+                    x_slack = model.addMVar(
+                        shape=num_dose_points,
                         lb=0.0,
                         ub=hotspot_threshold * target_dose - min_dose,
                         name=f"hotspot_slack_{structure.name.split(':')[-1]}"
                     )
+                    assert min_dose == 0.0, (
+                        "min_dose for hotspot estimator structure should be 0.0, otherwise modifying the model costraint in reset_model_from_config will be wrong."
+                    )
                     # Hotspot estimator constraints
                     model.addConstr(
-                        sum(A_sparse @ t_MVar)/num_dose_points - x_slack <= (target_dose*hotspot_threshold),
-                    )
-        
-                    self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + 1)))
-                    constraint_counter += 1
+                        A_sparse @ t_MVar - x_slack <= (target_dose*hotspot_threshold),
+                        name=f"hotspot_slack_constr_{structure.name}"
+                        )
+                    self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                    constraint_counter += num_dose_points
+                    hotspot_weight_vec = np.full(num_dose_points, structure.optimization_config.hotspot_coeff)
+                    penalty_terms["hotspot"] += hotspot_weight_vec @ x_slack                    
 
-                    penalty_terms["hotspot"] += x_slack * (structure.optimization_config.hotspot_coeff)
                 else:
                     if linear_weight > 0 or quadratic_weight > 0:
                         x_slack = model.addMVar(
@@ -646,7 +650,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
 
         ## Pickling the BrachyPlan is doable but it makes the Pool operation sequential. 
         # so we use a global variable _plan instead that we initialize with self.plan
-        with Pool(min(10, os.cpu_count(), len(list_of_opt_config_lists)), initializer=_init_worker, initargs=(self.plan,)) as pl:
+        with Pool(min(5, os.cpu_count(), len(list_of_opt_config_lists)), initializer=_init_worker, initargs=(self.plan,)) as pl:
         
             res = pl.starmap(_run_and_organize_results, zip(
                 range(len(list_of_opt_config_lists)),  # dummy arg instead of self.plan

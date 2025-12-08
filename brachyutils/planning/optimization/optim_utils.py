@@ -91,9 +91,10 @@ def crop_resample_dose_rate_map_and_mask(
 def process_variable(variable, structure_name, structure_mask, plan, optim_spacing, roi_bounds, shift_origin:bool=False):
 
     if "hotspot_estimator:" in structure_name.lower():
-        relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
-        if variable.name not in relevant_dwells:
-            return None
+        if not "all_dwell_pairs" in structure_name.lower():
+            relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
+            if variable.name not in relevant_dwells:
+                return None
     dwell_var = variable._model_variable
 
     if (

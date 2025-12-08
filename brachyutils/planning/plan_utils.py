@@ -1581,7 +1581,8 @@ class BrachyPlan:
 
     def _create_hotspot_structures(
         self,
-        config:Optimization_Config
+        config:Optimization_Config, 
+        one_structure:bool=True
         ):
         r"""
         ### Purpose:
@@ -1592,6 +1593,7 @@ class BrachyPlan:
         ### Inputs:
         - self := the BrachyPlan object
         - config := the optimization config object that contains the parameters for the hotspot structure
+        - one_structure := if True, only one hotspot structure will be created for all dwell pairs.
         ### Outputs:
         - None := hot spot structures are appended to the self.structure_list
         """
@@ -1635,6 +1637,8 @@ class BrachyPlan:
                     )
         # create hotspot structures masks for each dwell pair
         from brachyutils.geometry.phantom_utils import generate_sphere_mask
+        if one_structure:
+            roi_masks = []
         for dwellpair in dwell_pairs:
             dwell_contour = generate_sphere_mask(
                 center=dwellpair["center"],
@@ -1647,20 +1651,53 @@ class BrachyPlan:
                     + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
                     ),
             )
-            copy_config = deepcopy(config)
-            copy_config.structure_name = dwell_contour.name
-            self.structure_list.append(
-                BrachyStructure(
-                    name=dwell_contour.name,
-                    mask=dwell_contour,
-                    target_volume=False,
-                    in_dvh=False,
-                    optimization_config=copy_config
+            if not one_structure:
+                copy_config = deepcopy(config)
+                copy_config.structure_name = dwell_contour.name
+                self.structure_list.append(
+                    BrachyStructure(
+                        name=dwell_contour.name,
+                        mask=dwell_contour,
+                        target_volume=False,
+                        in_dvh=False,
+                        optimization_config=copy_config
+                    )
                 )
+                self.phantom.set_structure_set(
+                    mask_dict={dwell_contour.name: dwell_contour},
+                    mask_colors={dwell_contour.name:[251, 159, 255]}
+                    )
+            else:
+                roi_masks.append(dwell_contour)
+        if one_structure and len(roi_masks) > 0:
+            ### Put roi mask as bool, and put all masks together
+            combined_roi_array = np.zeros(
+                self.phantom.image_obj.gridSize, dtype=bool
             )
+            for roi_mask in roi_masks:
+                combined_roi_array = np.logical_or(
+                    combined_roi_array, roi_mask.imageArray.astype(bool)
+                )
+            combined_roi_mask = ROIMask(
+                imageArray=combined_roi_array,
+                name="hotspot_estimator:all_dwell_pairs",
+                origin=self.phantom.image_obj.origin.tolist(),
+                spacing=self.phantom.image_obj.spacing.tolist(),
+            )
+            copy_config = deepcopy(config)
+            copy_config.structure_name = combined_roi_mask.name
+            self.structure_list.append(
+                    BrachyStructure(
+                        name=combined_roi_mask.name,
+                        mask=combined_roi_mask,
+                        target_volume=False,
+                        in_dvh=False,
+                        optimization_config=copy_config
+                    )
+                )
             self.phantom.set_structure_set(
-                mask_dict={dwell_contour.name: dwell_contour},
-                mask_colors={dwell_contour.name:[251, 159, 255]}
+                mask_dict={combined_roi_mask.name: combined_roi_mask},
+                mask_colors={combined_roi_mask.name:[251, 159, 255]}
                 )
 
     def _reset_optimization(self):
