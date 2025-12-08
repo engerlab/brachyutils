@@ -485,15 +485,15 @@ def box_plots(
     pth_save: str | Path = None,
     ):
     import matplotlib.pyplot as plt
-    plt.rcParams.update({"font.size": 16})
+    plt.rcParams.update({"font.size": 20})
     plt.figure(figsize=(10, 6))
     plt.boxplot(data, labels=labels)
-    plt.title(title.replace("_", " "), fontsize=18)
-    plt.ylabel(y_label.replace("_", " "), fontsize=16)
-    plt.xlabel(x_label.replace("_", " "), fontsize=16)
+    plt.title(title.replace("_", " "), fontsize=20)
+    plt.ylabel(y_label.replace("_", " "), fontsize=18)
+    plt.xlabel(x_label.replace("_", " "), fontsize=18)
     plt.grid(True, axis="y")
-    plt.xticks(rotation=45, fontsize=14)
-    plt.yticks(fontsize=14)
+    plt.xticks(rotation=45, fontsize=16)
+    plt.yticks(fontsize=16)
     plt.tight_layout()
     if pth_save is not None:
         plt.savefig(pth_save)
@@ -592,17 +592,17 @@ if __name__ == "__main__":
     # )
     
     # # load the results dataframes for all the packages
-    # all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
-    # list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
-    # all_data_df = pd.concat(list_all_data_df, ignore_index=True)
-    # # # compare package-solvers on linear only config
-    # gen_box_plots_solvers_results(
-    #     all_data_df,
-    #     filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
-    #     penalty_term="linear",
-    #     dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
-    #     pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
-    # )
+    all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
+    list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
+    all_data_df = pd.concat(list_all_data_df, ignore_index=True)
+    # # compare package-solvers on linear only config
+    gen_box_plots_solvers_results(
+        all_data_df,
+        filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
+        penalty_term="linear",
+        dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
+        pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
+    )
     
     # # compare the effect of different penalty terms using gurobi
     pth_full_results_gurobi = dir_all_dose_rates/"full_eval_optim_results_gurobi.csv"
