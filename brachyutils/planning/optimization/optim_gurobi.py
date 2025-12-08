@@ -1,5 +1,5 @@
 # from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 import tqdm
 import time
 from copy import deepcopy
@@ -7,89 +7,21 @@ import warnings
 import time
 from multiprocessing import Pool
 import os 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from gurobipy import Model, Var, GRB, MVar, Env, QuadExpr, LinExpr
-import SimpleITK as sitk
 import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
 
-from opentps.core.data.images import ROIMask
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, 
-    crop_resample_dose_rate_map_and_mask
+    BrachyDwellTimeOptim, BrachyDwellTime, resample_crop_the_mask_or_contour_to_optimGrid,
+    compute_dose_rate_matrices, Optimization_Config
 )
-
-
-def process_variable(variable, structure_name, structure_mask, plan, optim_spacing, roi_bounds, shift_origin:bool=False):
-
-    if "hotspot_estimator:" in structure_name.lower():
-        relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
-        if variable.name not in relevant_dwells:
-            return None
-    dwell_var = variable._model_variable
-
-    if (
-        isinstance(structure_mask, ROIMask)
-        and np.allclose(plan.combined_dose.dose_image.origin, structure_mask.origin)
-        and np.allclose(plan.combined_dose.dose_image.spacing, structure_mask.spacing)
-        and np.allclose(plan.combined_dose.dose_image.spacing, optim_spacing)
-        and np.all(np.swapaxes(variable.dose_rate_map, 0, 2).shape == structure_mask.imageArray.shape)
-    ):
-        masked_dose_array = np.swapaxes(variable.dose_rate_map, 0, 2)
-    else:
-        dose_rate_obj, structure_for_masking = crop_resample_dose_rate_map_and_mask(
-            dose_rate_map=variable.dose_rate_map,
-            template_dose_obj=plan.combined_dose,
-            roi_bounds=roi_bounds,
-            structure_mask=structure_mask,
-            optim_spacing=optim_spacing,
-            sitk_interpolator_dose=sitk.sitkLinear,
-            # Using Linear instead of NearestNeighbor since NN does a bad job when downsampling
-            sitk_interpolator_contour=sitk.sitkLinear, #sitkNearestNeighbor # sitkLinear
-            shift_origin=shift_origin
-        )
-        masked_dose_array = dose_rate_obj.dose_image.imageArray.astype(float)
-        structure_mask = structure_for_masking
-
-    structure_for_masking = structure_mask.imageArray.astype(bool)
-    valid_dose_points = masked_dose_array[structure_for_masking == 1].flatten()
-
-    return dwell_var, valid_dose_points
-
-def compute_dose_rate_matrices(
-        dwellTimeVariables, structure, structure_mask, plan, 
-        optim_spacing, roi_bounds, max_workers:int=8, shift_origin:bool=False):
-    dose_rate_matrices = []
-    dwell_vars = []
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(
-                process_variable,
-                variable,
-                structure.name,
-                structure_mask,
-                plan,
-                optim_spacing,
-                roi_bounds, 
-                shift_origin
-            ): variable
-            for variable in dwellTimeVariables
-        }
-
-        for future in tqdm.tqdm(as_completed(futures), total=len(futures), desc=f"Processing dwell positions dose rates for {structure.name}"):
-            result = future.result()
-            if result is not None:
-                dwell_var, valid_dose_points = result
-                dwell_vars.append(dwell_var)
-                dose_rate_matrices.append(valid_dose_points)
-
-    return dwell_vars, dose_rate_matrices
+import multiprocessing as mp
+from functools import partial
 
 class DwellTime_Gurobi(BrachyDwellTime):
     r"""
@@ -128,8 +60,6 @@ class DwellTime_Gurobi(BrachyDwellTime):
         """
         super().__init__(**data)
         self.build_backend_variable(model) 
-
-
 
 def change_model_dose_to_target(new_target_dose:float, model:Model, coords_target_constraint:List[int], 
                                  coords_hotspot_constraint:List[int], hotspot_threshold:float):
@@ -191,7 +121,9 @@ def _get_optimized_plan_from_model(
 
     dwelltime_and_name = []
     for x in model.getVars():
-        if ("catheter" in x.VarName) and ("dwell" in x.VarName):
+        if (("catheter" in x.VarName)
+            and ("dwell" in x.VarName)
+            and not("hotspot" in x.VarName)):
             dwelltime_and_name.append((x.X, x.VarName))
     
     if not solution_found:
@@ -213,14 +145,13 @@ def _get_optimized_plan_from_model(
         for catheter in outplan.catheter_table:
             for dwell_position in catheter.dwells:
                 if (
-                    f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                    f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
                     == name
                 ):
                     dwell_position.time = dwell_time
     # update the plan with the new dwell times
     outplan.update_plan_from_catheter_table()
     return model, outplan, solution_found, solve_time
-
 
 class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
     r"""
@@ -231,7 +162,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
     def __init__(
         self,
         plan:BrachyPlan,
-        roi_margin_mm: List[float] | float = 5.0):
+        roi_margin_mm: List[float] | float = 5.0,
+        multi_processing: bool = True
+        ):
         r"""
         ### Purpose:
         - A function to initialize the optimizer.
@@ -248,6 +181,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.hotspot_constraints_coords = []
         self.hotspot_threshold = None
         self.structure_weights_d = {}
+        self.multi_processing = multi_processing
+        # self._cached_A_matrix = np.ndarray([], dtype=object)
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
         self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
@@ -258,7 +193,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.set_penalty_function_and_constraints(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
-            model=self.model)
+            model=self.model,
+            multi_processing=self.multi_processing)
 
     def initialize_model(
         self,
@@ -311,7 +247,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "Dwell position does not match max dose rate position. Check dose rate tensor and dwell positions."
                 )
 
-                dt_var_name = f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                dt_var_name = f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
                 dwellTimeVariable_list.append(
                     DwellTime_Gurobi(
                         model=self.model,
@@ -334,7 +270,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
     ) -> List[List[float]]:
         r"""
-        See `BrachyDwellTime_ABC.get_optimization_roi_bounds` for details.
+        See `BrachyDwellTime.get_optimization_roi_bounds` for details.
         """
         return super().get_optimization_roi_bounds(
             plan=plan,
@@ -376,7 +312,6 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         if not plan.structure_list:
             raise ValueError("Plan does not contain any structures.")
 
-        from scipy import sparse as sp
         penalty_terms = {
         "linear": 0,
         "quadratic": 0,
@@ -388,6 +323,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
+            if "hotspot_estimator:" in structure.name.lower():
+                continue
+
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
             target_dose = structure.optimization_config.dose_voxel_goal
@@ -397,44 +335,28 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             min_dose = structure.optimization_config.min_dose
             structure_max_dose = structure.optimization_config.max_dose
             hotspot_threshold = structure.optimization_config.hotspot_threshold
-            if hotspot_threshold != 0.:
-                if self.hotspot_threshold is None:
-                    self.hotspot_threshold = hotspot_threshold
-                else:
-                    assert np.isclose(self.hotspot_threshold, hotspot_threshold), (
-                        "All structures with hotspot estimator should have the same hotspot threshold."
-                        "Since only one structure (PTV or CTV) should have the hotspot estimator."
-                        f" Found {self.hotspot_threshold} and {hotspot_threshold}"
-                    )
-
             hotspot_weight = structure.optimization_config.penalty_weight_hotspot
-            # Build dose rate matrix and dwell time vector for this structure
-            if not multi_processing:
-                dose_rate_matrices = []
-                dwell_vars = []
-                for var in dwellTimeVariables:
-                    dwell_var, valid_dose_points = process_variable(
-                        var,
-                        structure.name,
-                        structure_mask,
-                        plan,
-                        optim_spacing,
-                        self.roi_bounds, 
-                        shift_origin=True
-                        )
-                    dwell_vars.append(dwell_var)
-                    dose_rate_matrices.append(valid_dose_points)
-            else:
-                dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
-                    dwellTimeVariables,
-                    structure,
-                    structure_mask,
-                    plan,
-                    optim_spacing,
-                    self.roi_bounds,
-                    max_workers=4, 
-                    shift_origin=True
+            penalty_weight_std_time_L2 = structure.optimization_config.penalty_weight_std_time_L2
+
+            structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
+                structure_mask=structure_mask,
+                template_dose_obj=plan.combined_dose,
+                optim_spacing=optim_spacing,
+                roi_bounds=self.roi_bounds
                 )
+
+            # Build dose rate matrix and dwell time vector for this structure
+            dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+                dwellTimeVariables,
+                plan,
+                structure.name,
+                structure_mask,
+                optim_spacing,
+                self.roi_bounds,
+                max_workers=16,
+                shift_origin=True,
+                multi_processing=multi_processing
+            )
 
             if not dose_rate_matrices:
                 continue
@@ -446,43 +368,54 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             num_dose_points = A.shape[0]
             if num_dose_points == 0:
                 continue
-            # Convert A to sparse matrix
-            A_sparse = sp.csr_matrix(A)
+            # Convert A to sparse matrix -> No need
+            # A_sparse = sp.csr_matrix(A)
+            A_sparse = A
             # Create target dose vector
             target_dose_vec = np.full(num_dose_points, target_dose)
 
+            # Target volume constraints and penalties
             if structure.target_volume:
-                # Target volume constraints and penalties
-                # Create slack variables for underdosing
-                x_slack = model.addMVar(
-                    shape=num_dose_points,
-                    lb=0.0,
-                    ub=target_dose - min_dose,
-                    name=f"dose_slack_{structure.name}"
-                )
+                if linear_weight > 0 or quadratic_weight > 0:
+                    x_slack = model.addMVar(
+                        shape=num_dose_points,
+                        lb=0.0,
+                        ub=target_dose - min_dose,
+                        name=f"dose_slack_{structure.name}"
+                        )
+                    model.addConstr(
+                        A_sparse @ t_MVar + x_slack >= target_dose_vec,
+                        name=f"dose_target_{structure.name}"
+                        )
+                    self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                    constraint_counter += num_dose_points
 
+                # handle the linear penalty
+                if linear_weight > 0:
+                    linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
+                    penalty_terms["linear"] += linear_weight_vec @ x_slack
+
+                if quadratic_weight > 0:
                 # Create slack variables for uniformity
-                y_uniform = model.addMVar(
-                    shape=num_dose_points,
-                    lb=-GRB.INFINITY,
-                    ub=target_dose - min_dose,
-                    name=f"uniform_slack_{structure.name}"
-                )
-                # Dose constraints: A @ dwell_times + x_slack >= target_dose
-                model.addConstr(
-                    A_sparse @ t_MVar + x_slack >= target_dose_vec,
-                    name=f"dose_target_{structure.name}"
-                )
-                self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
-                constraint_counter += num_dose_points
+                    quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                    penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
 
-                # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
-                model.addConstr(
-                    A_sparse @ t_MVar + y_uniform == target_dose_vec,
-                    name=f"dose_uniform_{structure.name}"
-                )
-                self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
-                constraint_counter += num_dose_points
+                if uniformity_weight > 0:
+                    y_uniform = model.addMVar(
+                        shape=num_dose_points,
+                        lb=-GRB.INFINITY,
+                        ub=target_dose - min_dose,
+                        name=f"uniform_slack_{structure.name}"
+                    )
+                    # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
+                    model.addConstr(
+                        A_sparse @ t_MVar + y_uniform == target_dose_vec,
+                        name=f"dose_uniform_{structure.name}"
+                    )
+                    self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                    constraint_counter += num_dose_points
+                    uniformity_weight_vec = np.full(num_dose_points, uniformity_weight / (num_dose_points * 1000))
+                    penalty_terms["uniformity"] += uniformity_weight_vec @ (y_uniform * y_uniform)
 
                 ## Saving weights info for later potential resetting of the model
                 self.structure_weights_d[structure.name] = {
@@ -494,57 +427,44 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "quadratic_coeff":quadratic_weight / num_dose_points,
                     "uniformity_coeff":uniformity_weight / (num_dose_points * 1000) # is quadratic weight
                 }
-                # Add penalty terms using matrix operations
-                linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
-                quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
-                uniformity_weight_vec = np.full(num_dose_points, uniformity_weight / (num_dose_points * 1000))
+                
+                if hotspot_weight > 0 and hotspot_threshold > 0:
+                    penalty_terms["hotspot"] = self.set_penalty_constraint_hotspot_estimators(
+                        target_dose=target_dose,
+                        hotspot_threshold = hotspot_threshold,
+                        hotspot_weight = hotspot_weight,
+                        plan = plan,
+                        optim_spacing=optim_spacing,
+                        roi_bounds = self.roi_bounds,
+                        model = model,
+                        dwellTimeVariables = dwellTimeVariables,
+                        constraint_counter=constraint_counter
+                    )
 
-                # Linear penalty: sum(linear_weight_vec @ x_slack)
-                penalty_terms["linear"] += linear_weight_vec @ x_slack
-                # Quadratic penalty: sum(quadratic_weight_vec * x_slack * x_slack)
-                penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
-                # Uniformity penalty: sum(uniformity_weight_vec * y_uniform * y_uniform)
-                penalty_terms["uniformity"] += uniformity_weight_vec @ (y_uniform * y_uniform)
-
-            elif "hotspot_estimator:" in structure.name.lower():
-                # slack variable for hotspot estimator
-                x_slack = model.addMVar(
-                    shape=num_dose_points,
-                    lb=0.0,
-                    ub=hotspot_threshold * target_dose - min_dose,
-                    name=f"hotspot_slack_{structure.name}"
-                )
-                # Hotspot estimator constraints
-                model.addConstr(
-                    A_sparse @ t_MVar - x_slack <= hotspot_threshold * target_dose_vec,
-                )
-                self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
-                constraint_counter += num_dose_points
-
-                ## Saving weights info for later potential resetting of the model
-                self.structure_weights_d[structure.name] = {
-                    "hotspot_weight": hotspot_weight,
-                    "num_dose_points": num_dose_points,
-                    "hotspot_coeff": hotspot_weight / num_dose_points # is a linear coeff
-                }
-                hotspot_weight_vec = np.full(num_dose_points, hotspot_weight / num_dose_points)
-                penalty_terms["hotspot"] += (hotspot_weight_vec @ x_slack)
-
+            # OAR (Organ at Risk) constraints and penalties
             else:
-                # OAR (Organ at Risk) constraints and penalties
-                # Create slack variables for overdosing
-                x_slack = model.addMVar(
-                    shape=num_dose_points,
-                    lb=0.0,
-                    ub=structure_max_dose - target_dose,
-                    name=f"oar_slack_{structure.name}"
-                )
-                # Dose constraints: A @ dwell_times - x_slack <= target_dose
-                model.addConstr(
-                    A_sparse @ t_MVar - x_slack <= target_dose_vec,
-                    name=f"dose_oar_{structure.name}"
-                )
-                constraint_counter += num_dose_points
+                if linear_weight > 0 or quadratic_weight > 0:
+                    x_slack = model.addMVar(
+                        shape=num_dose_points,
+                        lb=0.0,
+                        ub=structure_max_dose - target_dose,
+                        name=f"oar_slack_{structure.name}"
+                    )
+                    # Dose constraints: A @ dwell_times - x_slack <= target_dose
+                    model.addConstr(
+                        A_sparse @ t_MVar - x_slack <= target_dose_vec,
+                        name=f"dose_oar_{structure.name}"
+                    )
+                    self.target_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                if linear_weight > 0:
+                    constraint_counter += num_dose_points
+                    linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
+                    penalty_terms["linear"] += linear_weight_vec @ x_slack
+
+                if quadratic_weight > 0:
+                    quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                    penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
+                    constraint_counter += num_dose_points
 
                 ## Saving weights info for later potential resetting of the model
                 self.structure_weights_d[structure.name] = {
@@ -554,13 +474,13 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "linear_coeff": linear_weight / num_dose_points,
                     "quadratic_coeff": quadratic_weight / num_dose_points,
                 }
-                # Add penalty terms
-                linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
-                quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
 
-                penalty_terms["linear"] += linear_weight_vec @ x_slack
-                penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
-
+        # set a regularization term on the dwell times to avoid extreme values
+        mean_dwell_time = sum(t_MVar) / t_MVar.size
+        penalty_terms["quadratic"] += (
+            penalty_weight_std_time_L2 * 1e-3 
+            * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
+        )
         # Set objective function
         model.setObjective(
             penalty_terms["linear"]
@@ -571,13 +491,123 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         )
         model.update()
 
+    def set_penalty_constraint_hotspot_estimators(
+        self,
+        target_dose: float,
+        hotspot_threshold: float,
+        hotspot_weight: float,
+        plan: BrachyPlan,
+        optim_spacing: List[float],
+        roi_bounds: List[List[float]],
+        model: Model,
+        dwellTimeVariables: List[DwellTime_Gurobi],
+        constraint_counter: int
+        ) -> LinExpr:
+        r"""
+        ### Purpose:
+        - Make penalty and constraints for the hotspot estimator structures.
+        ### Inputs:
+        - target_dose: float := The target dose for the structure.
+        - hotspot_threshold: float := The hotspot threshold for the structure.
+        - hotspot_weight: float := The hotspot weight for the structure.
+        - plan: BrachyPlan := The brachytherapy plan.
+        - optim_spacing: List[float] := The optimization spacing.
+        - roi_bounds: List[List[float]] := The ROI bounds.
+        - model: Model := The Gurobi model.
+        - dwellTimeVariables: List[DwellTime_Gurobi] := The dwell time variables.
+        - constraint_counter: int := The current constraint counter (used for resetting weights later).
+        ### Outputs:
+        - hotspot_penalty: LinExpr := The hotspot penalty term to be added to the objective function.
+        """
+        if self.hotspot_threshold is None:
+            self.hotspot_threshold = hotspot_threshold
+        else:
+            assert np.isclose(self.hotspot_threshold, hotspot_threshold), (
+                "All structures with hotspot estimator should have the same hotspot threshold."
+                "Since only one structure (PTV or CTV) should have the hotspot estimator."
+                f" Found {self.hotspot_threshold} and {hotspot_threshold}"
+            )
+        print("adding the hotspot estimator penalty")
+        # resample hotspot masks and crop to roi bounds
+        hotspot_masks = [
+            structure.mask for structure in plan.structure_list
+            if "hotspot_estimator" in structure.name
+            ]
+        with mp.Pool(processes=8) as pool:
+            partial_func = partial(
+                resample_crop_the_mask_or_contour_to_optimGrid,
+                template_dose_obj=plan.combined_dose,
+                optim_spacing=optim_spacing,
+                roi_bounds=roi_bounds
+            )
+            processed_masks = tqdm.tqdm(list(
+                    pool.imap(partial_func, hotspot_masks)),
+                    total=len(hotspot_masks),
+                    desc="Resampling and cropping hotspot estimator masks"
+                    )
 
-    def reset_model_from_config(self, config: dict) -> None:
+        # setup a general A matrix once for all the hotspot estimators at once.
+        dwell_vars_chaos, dose_rate_matrices_chaos = compute_dose_rate_matrices(
+            dwellTimeVariables=dwellTimeVariables,
+            plan=plan,
+            structure_name=None,
+            structure_mask=None,
+            optim_spacing=optim_spacing,
+            roi_bounds=self.roi_bounds,
+            # max_workers=46,
+            shift_origin=True
+        )
+        dwell_vars = []
+        dose_rate_matrices = []
+        # sort the dwell_vars and dose_rate_matrices according to the original dwellTimeVariables order
+        for msk in hotspot_masks:
+            for var_mat in zip(dwell_vars_chaos, dose_rate_matrices_chaos):
+                if var_mat[0].VarName == msk.name.split(":")[-1].split("/")[0]:
+                    dwell_vars.append(var_mat[0])
+                    dose_rate_matrices.append(var_mat[1])
+
+        t_MVar = MVar.fromlist(dwell_vars)
+        A = np.column_stack(dose_rate_matrices)
+        unmasked_dose = A @ t_MVar
+        hotspot_penalty = 0
+        for mask in processed_masks:
+            mask_array = mask.imageArray.swapaxes(0, 2).flatten().astype(bool)
+            num_dose_points = np.sum(mask_array)
+            masked_dose = unmasked_dose[mask_array]
+            # slack variable for hotspot estimator
+            x_slack = model.addVar(
+                    # lb=0, # -GRB.INFINITY,
+                    # ub=hotspot_threshold * target_dose,
+                    name=f"hotspot_slack_{mask.name.split(":")[-1]}"
+                )
+            # Hotspot estimator constraints
+            model.addConstr(
+                x_slack >= sum(masked_dose)/num_dose_points - (target_dose*hotspot_threshold),
+            )
+            hotspot_penalty += (hotspot_weight * x_slack)#/num_dose_points
+
+            self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+            constraint_counter += num_dose_points
+
+            ## Saving weights info for later potential resetting of the model
+            self.structure_weights_d[mask.name] = {
+                "hotspot_weight": hotspot_weight,
+                "num_dose_points": num_dose_points,
+                "hotspot_coeff": hotspot_weight / num_dose_points # is a linear coeff
+            }
+
+        return hotspot_penalty
+
+    def reset_model_from_config(
+        self,
+        config_list:List[Optimization_Config] = None,
+        config: Optional[dict] = None) -> None:
         r"""
         ### Purpose:
         - A function to reset the model with new penalty weights.
         ### Inputs:
         - model: Model := The Gurobi model to be reset.
+        - 
         - config: dict := A dictionary containing the penalty weights for each structure.
             Example:
             {'td_PTV': 3.5358764542564374,
@@ -589,6 +619,16 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         ### Outputs:
         - model: Model := The reset Gurobi model.
         """
+        if config_list is None and config is None:
+            # create config dict from config_list
+            # to match seb's previous implementation
+            # TODO(sebers): factor out custom configs and use Optimization_Config everywhere
+            config = defaultdict(float)
+            for opt in config_list:
+                config[f"linear_w_{opt.name}"] = opt.penalty_weight_linear
+                config[f"quadratic_w_{opt.name}"] = opt.penalty_weight_quadratic
+                if opt.name == "PTV" or opt.name == "CTV":
+                    config[f"td_{opt.name}"] = opt.dose_voxel_goal
 
         _, updated_structure_weights_d = modify_model_objective_with_new_penalty_weights_and_td(
             model=self.model, 
@@ -969,10 +1009,10 @@ def modify_model_objective_with_new_penalty_weights_and_td(
     associated with each structure and adjusts their coefficients in the objective function accordingly.
     Modifies the model inplace. 
     ### Inputs:
-    # model: Model := The Gurobi optimization model whose objective function is to be modified.
-    # og_setup_for_objective: dict := A dictionary containing the original setup for each structure,
-    # including weights and coefficients.
-    # new_penalty_weights: dict := A dictionary containing the new penalty weights for each structure.
+    - model: Model := The Gurobi optimization model whose objective function is to be modified.
+    - og_setup_for_objective: dict := A dictionary containing the original setup for each structure,
+    - including weights and coefficients.
+    - new_penalty_weights: dict := A dictionary containing the new penalty weights for each structure.
     og_setup is something like:
     {
     "PTV": {
@@ -1195,47 +1235,3 @@ _plan = None  # global in worker processes
 def _init_worker(plan):
     global _plan
     _plan = plan
-
-if __name__ == "__main__":
-    import gurobipy as gb
-    import json
-    env = Env(empty=True)
-    env.start()
-
-    model = gb.read("/app/EngerLab/tests/brachyutils/optim/model.mps")
-    # print(len(model.getAttr("VarName")))
-    # print(len(model.getAttr("Obj")))
-    # print(np.array(model.getAttr("rhs")))
-    print(len(np.array(model.getAttr("Obj"))))
-    print(np.unique(np.array(model.getAttr("Obj")), return_counts=True))
-    print(np.array(model.getAttr("Obj")))
-    exit()
-    # model = gb.read("/app/EngerLab/AI_Assisted_Brachytherapy/ai_pipeline_results_test_mobo_clean/Dataset007Dataset050/val_benchmark_fold_0/259984/manual_clinical_structures__clinical_dwellpos__auto_optimization/model_0.mps", env)
-    model_data = get_model_data(model)
-    with open("/app/EngerLab/tests/brachyutils/optim/coeffs.json", "r") as file:
-        coeffs = json.load(file)
-    # print(coeffs)
-    with Env() as env, Model(env=env) as new_model:
-        model_remade = update_model_from_data(model_data, new_model)
-        model_remade = modify_model_objective_with_new_penalty_weights(
-            model_remade, coeffs, 
-            # {"PTV": {"linear":500, "quadratic":0.5}, "Skin": {"linear":50, "quadratic":0.5}, "Chestwall": {"linear":50, "quadratic":0.5}}, 
-            {"PTV": {"linear":1000, "quadratic":1}, "Skin": {"linear":100, "quadratic":1}, "Chestwall": {"linear":100, "quadratic":1}}, 
-            inplace=True)
-        print(model_remade.getVarByName("C275(1)").Obj)
-        print(model.getVarByName("C275(1)").Obj)
-        print(compare_gurobi_models(model, model_remade))
-        exit(0)
-
-    print(model_data["objective"].keys())
-    print(model_data["objective"]["linear_list"][:2])
-    print(model.getVarByName("C276(1)").Obj)
-    exit()
-    print('model_data["lb"]', model_data["lb"])
-    with Env() as env, Model(env=env) as model:
-        model_remade = update_model_from_data(model_data, model)
-        print(compare_gurobi_models(model, model_remade))
-        exit()
-
-   # https://support.gurobi.com/hc/en-us/community/posts/12678106466321-Fast-creation-of-Gurobi-models
-

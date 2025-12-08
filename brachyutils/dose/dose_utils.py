@@ -138,7 +138,7 @@ class BrachyDose:
         if self.interpolation_function is None and self.dose_image is not None:
             self.create_interpolation_function()
 
-    def write_brachydose_to_file(self, pth_dose_file: Path) -> None:
+    def write_brachydose_to_file(self, pth_dose_file: Path | str) -> None:
         r"""
         Purpose:
             - To write a brachy dose object to the given file path. this function will automatically
@@ -156,8 +156,9 @@ class BrachyDose:
         Output:
             - None := contents of self is written to "pth_dose_file"
         """
+        pth_dose_file = Path(pth_dose_file)
         file_extension = os.path.splitext(pth_dose_file)[-1]
-
+        pth_dose_file.parent.mkdir(parents=True, exist_ok=True)
         if file_extension == ".3ddose":
             self.write_to_3ddose(pth_dose_file)
 
@@ -773,7 +774,7 @@ class BrachyDose:
     def write_to_dicom(self, filename:Path | str):
         from opentps.core.io.dicomIO import writeRTDose
         filename=Path(filename)
-        writeRTDose(self.dose_image, str(filename.parent), str(filename.name))
+        writeRTDose(self.dose_image, str(filename.parent), str(filename.stem))
 
     def get_voxel_edges(self):
         r"""

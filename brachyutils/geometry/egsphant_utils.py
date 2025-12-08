@@ -876,7 +876,7 @@ class BrachyEgsphant:
         phantom_ct_image = phantom_obj.get_image_array()
         background_encoding = BrachyEgsphant._materials_encoding_array.index(
             self.material_dict.get(background_material).get("encoding")
-        )
+        ) # XXX should it go from 0 or 1. in text files, it's 1.
         background_density = self.material_dict.get(background_material).get("density")
         # prepare matricies to hold material and density images. initialize them with background values
         material_matrix = (

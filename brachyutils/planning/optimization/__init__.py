@@ -2,7 +2,6 @@ __all__ = [
     'Optimization_Config',
     'BrachyDwellTime',
     'BrachyDwellTimeOptim',
-    'crop_mask_resample_dose_rate_map',
     'DwellTime_Gurobi',
     'BrachyOptim_Gurobi',
     'DwellTime_AMPL',
@@ -16,7 +15,6 @@ from .optim_utils import (
     Optimization_Config,
     BrachyDwellTime,
     BrachyDwellTimeOptim,
-    crop_mask_resample_dose_rate_map
 )
 
 # trunk-ignore(ruff/F401)

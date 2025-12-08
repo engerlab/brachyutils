@@ -6,7 +6,8 @@ import numpy as np
 from pathlib import Path
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, crop_mask_resample_dose_rate_map
+    BrachyDwellTimeOptim, BrachyDwellTime, resample_crop_the_mask_or_contour_to_optimGrid,
+    compute_dose_rate_matrices, Optimization_Config
 )
 from ortools.math_opt.python.mathopt import (
     Model,
@@ -127,7 +128,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                 dwellTimeVariable_list.append(
                     DwellTime_ORTools(
                         model=self.model,
-                        name=f"catheter_{catheter.index}_dwell_{dwell_position.index}",
+                        name=f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}",
                         dwell_time=initial_dwell_time,
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
@@ -159,6 +160,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
         plan: BrachyPlan,
         dwellTimeVariables: List[DwellTime_ORTools],
         model: Model,
+        multi_processing: bool = True,
         ):
         r"""
         ### Purpose:
@@ -193,41 +195,56 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
             "uniformity": 0
         }
 
+        # get structure optimization configs for hotspot estimators
         for structure in plan.structure_list:
-            if structure.optimization_config is None:
-                continue
+            if structure.target_volume and structure.optimization_config.penalty_weight_hotspot > 0:
+                hotspot_config = structure.optimization_config
 
-            structure_mask = structure.mask
-            optim_spacing = structure.optimization_config.spacing_mm
-            target_dose = structure.optimization_config.dose_voxel_goal
-            linear_weight = structure.optimization_config.penalty_weight_linear
-            quadratic_weight = structure.optimization_config.penalty_weight_quadratic
-            uniformity_weight = structure.optimization_config.penalty_weight_uniformity
-            min_dose = structure.optimization_config.min_dose
-            structure_max_dose = structure.optimization_config.max_dose
-            hotspot_threshold = structure.optimization_config.hotspot_threshold
-            hotspot_weight = structure.optimization_config.penalty_weight_hotspot
-            # Build dose rate matrix and dwell time vector for this structure
-            dose_rate_matrices = []
-            dwell_vars = []
-            for variable in dwellTimeVariables:
-                if "hotspot_estimator:" in structure.name.lower():
-                    relevant_dwells = structure.name.lower().split("hotspot_estimator:")[1].split("/")
-                    if variable.name not in relevant_dwells:
-                        continue
-                dwell_vars.append(variable._model_variable)
-                cropped_resampled_dose_rate_map = crop_mask_resample_dose_rate_map(
-                    dose_rate_map=variable.dose_rate_map,
-                    template_dose_obj=plan.combined_dose,
-                    roi_bounds=self.roi_bounds,
-                    structure_mask=structure_mask,
-                    optim_spacing=optim_spacing
+        for structure in plan.structure_list:
+            if "hotspot_estimator:" in structure.name.lower():
+                structure_mask = structure.mask
+                hotspot_config.structure_name = structure.name
+                optim_spacing = hotspot_config.spacing_mm
+                target_dose = hotspot_config.dose_voxel_goal
+                linear_weight = hotspot_config.penalty_weight_linear
+                quadratic_weight = hotspot_config.penalty_weight_quadratic
+                uniformity_weight = hotspot_config.penalty_weight_uniformity
+                min_dose = hotspot_config.min_dose
+                structure_max_dose = hotspot_config.max_dose
+                hotspot_weight = hotspot_config.penalty_weight_hotspot
+                hotspot_threshold = hotspot_config.hotspot_threshold
+
+            elif structure.optimization_config is None:
+                continue
+            else:
+                structure_mask = structure.mask
+                optim_spacing = structure.optimization_config.spacing_mm
+                target_dose = structure.optimization_config.dose_voxel_goal
+                linear_weight = structure.optimization_config.penalty_weight_linear
+                quadratic_weight = structure.optimization_config.penalty_weight_quadratic
+                uniformity_weight = structure.optimization_config.penalty_weight_uniformity
+                min_dose = structure.optimization_config.min_dose
+                structure_max_dose = structure.optimization_config.max_dose
+
+            structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
+                structure_mask=structure_mask,
+                template_dose_obj=plan.combined_dose,
+                optim_spacing=optim_spacing,
+                roi_bounds=self.roi_bounds,
                 )
-                # Extract valid dose points and flatten
-                valid_dose_points = cropped_resampled_dose_rate_map[
-                    cropped_resampled_dose_rate_map > 0
-                ].flatten()
-                dose_rate_matrices.append(valid_dose_points)
+
+            # Build dose rate matrix and dwell time vector for this structure
+            dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+                dwellTimeVariables,
+                plan,
+                structure.name,
+                structure_mask,
+                optim_spacing,
+                self.roi_bounds,
+                # max_workers=8, 
+                shift_origin=True,
+                multi_processing=multi_processing
+            )
 
             if not dose_rate_matrices:
                 continue
@@ -240,37 +257,38 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
             if structure.target_volume:
                 for i in range(num_dose_points):
                     # Linear penalty for underdosing
-                    x_slack = model.add_variable(
-                        lb=0.0,
-                        ub=target_dose-min_dose,
-                        name=f"{structure.name}_slack_{i}",
-                        is_integer=False)
-                    # quadratic penalty for uniformity
-                    y_slack = model.add_variable(
-                        lb=0.0,
-                        ub=target_dose - min_dose,
-                        name=f"{structure.name}_uniformity_slack_{i}",
-                        is_integer=False
-                    )
-
-                    # add linear constraint for underdosing
-                    model.add_linear_constraint(
-                        sum(
-                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
-                        ) + x_slack >= target_dose
-                    )
+                    if linear_weight > 0 or quadratic_weight > 0:
+                        x_slack = model.add_variable(
+                            lb=0.0,
+                            ub=target_dose-min_dose,
+                            name=f"{structure.name}_slack_{i}",
+                            is_integer=False)
+                        # add linear constraint for underdosing
+                        model.add_linear_constraint(
+                            sum(
+                                A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
+                            ) + x_slack >= target_dose
+                        )
                     
-                    # linear constarint for uniformity
-                    model.add_linear_constraint(
-                        sum(
-                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
-                        ) + y_slack == target_dose
-                    )
-
-                    # Add penalties to the objective function
-                    penalty_terms["linear"] += linear_weight/num_dose_points * x_slack
-                    penalty_terms["uniformity"] += uniformity_weight/num_dose_points * y_slack * y_slack
-                    penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack * x_slack
+                    if linear_weight > 0:
+                        penalty_terms["linear"] += (linear_weight/num_dose_points) * x_slack                        
+                    if quadratic_weight > 0:
+                        penalty_terms["quadratic"] += (quadratic_weight/num_dose_points) * x_slack * x_slack
+                    if uniformity_weight > 0:
+                        y_slack = model.add_variable(
+                            lb=0.0,
+                            ub=target_dose - min_dose,
+                            name=f"{structure.name}_uniformity_slack_{i}",
+                            is_integer=False
+                        )
+                        # linear constarint for uniformity
+                        model.add_linear_constraint(
+                            sum(
+                                A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
+                            ) + y_slack == target_dose
+                        )
+                        # Add penalties to the objective function
+                        penalty_terms["uniformity"] += (uniformity_weight/(num_dose_points*1000)) * y_slack * y_slack
 
             elif "hotspot_estimator:" in structure.name.lower():
                 for i in range(num_dose_points):
@@ -282,27 +300,30 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                     )
                     model.add_linear_constraint(
                         sum(
-                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
+                            sum(A[i, j] * dwell_vars[j] for j in range(len(dwell_vars)))/num_dose_points
                         ) - x_slack <= hotspot_threshold * target_dose
                     )
                     penalty_terms["hotspot"] += hotspot_weight/num_dose_points * x_slack
             else:
                 for i in range(num_dose_points):
                     # Linear penalty for overdosing
-                    x_slack = model.add_variable(
-                        lb=0.0,
-                        ub=structure_max_dose - target_dose,
-                        name=f"{structure.name}_slack_{i}",
-                        is_integer=False)
-                    # add the linear constraint
-                    model.add_linear_constraint(
-                        sum(
-                            A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
-                        ) - x_slack <= target_dose
-                    )
-                    # Add penalties to the objective function
-                    penalty_terms["linear"] += linear_weight/num_dose_points * x_slack
-                    penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack * x_slack
+                    if linear_weight > 0 or quadratic_weight > 0:
+                        x_slack = model.add_variable(
+                            lb=0.0,
+                            ub=structure_max_dose - target_dose,
+                            name=f"{structure.name}_slack_{i}",
+                            is_integer=False)
+                        # add the linear constraint
+                        model.add_linear_constraint(
+                            sum(
+                                A[i, j] * dwell_vars[j] for j in range(len(dwell_vars))
+                            ) - x_slack <= target_dose
+                        )
+                    if linear_weight > 0:
+                        # Add penalties to the objective function
+                        penalty_terms["linear"] += linear_weight/num_dose_points * x_slack
+                    if quadratic_weight > 0:
+                        penalty_terms["quadratic"] += quadratic_weight/num_dose_points * x_slack * x_slack
         # Set the objective function
         model.minimize(
             penalty_terms["linear"] +
@@ -375,7 +396,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
             for catheter in outplan.catheter_table:
                 for dwell_position in catheter.dwells:
                     if (
-                        f"catheter_{catheter.index}_dwell_{dwell_position.index}"
+                        f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
                         == variable.name
                     ):
                         dwell_position.time = variable.dwell_time        
