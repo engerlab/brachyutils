@@ -134,9 +134,9 @@ def test_run_gurobi_optim():
             dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
-            penalty_weight_uniformity=1,
-            # penalty_weight_hotspot=1,
-            # hotspot_threshold=1.5,
+            # penalty_weight_uniformity=1,
+            penalty_weight_hotspot=1,
+            hotspot_threshold=1.5,
             # penalty_weight_std_time_L2=1,
             mask_margin_mm=0,
             spacing_mm=3),
@@ -146,7 +146,7 @@ def test_run_gurobi_optim():
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=3),
+            spacing_mm=1),
         Optimization_Config(
             structure_name="RECTUM",
             dose_voxel_goal=0,#target_dose * 0.75,
@@ -262,8 +262,8 @@ def test_run_ampl_optim():
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
             penalty_weight_uniformity=1,
-            # penalty_weight_hotspot=1,
-            # hotspot_threshold=1.5,
+            penalty_weight_hotspot=1,
+            hotspot_threshold=1.5,
             mask_margin_mm=0,
             spacing_mm=3),
         Optimization_Config(
@@ -294,7 +294,7 @@ def test_run_ampl_optim():
             "mean(dwell_times)", "std(dwell_times)",
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
-    for solver in ["gurobi"]: # [
+    for solver in ["xpress"]: # [
         # "couenne", "bonmin", "copt", 
         # "mosek" "ipopt", "xpress",
         # "cplex", "highs", "scip",
@@ -485,7 +485,7 @@ if __name__ == "__main__":
     # test_get_optimization_roi_bounds()
     test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    test_run_ampl_optim()
+    # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
     # test_hotspot_estimators()
