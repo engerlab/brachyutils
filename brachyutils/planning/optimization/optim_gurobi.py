@@ -427,7 +427,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "quadratic_coeff":quadratic_weight / num_dose_points,
                     "uniformity_coeff":uniformity_weight / (num_dose_points * 1000) # is quadratic weight
                 }
-                
+
                 if hotspot_weight > 0 and hotspot_threshold > 0:
                     penalty_terms["hotspot"] = self.set_penalty_constraint_hotspot_estimators(
                         target_dose=target_dose,

@@ -349,7 +349,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                     objective_terms.extend([quadratic_term])
                 if uniformity_weight > 0:
                     # slack variable for uniformity
-                    model.eval(f"var y_slack_{struct_id} {{D_{struct_id}}} >= 0 <= target_dose_{struct_id} - min_dose_{struct_id};")
+                    model.eval(f"var y_slack_{struct_id} {{D_{struct_id}}} >= -Infinity <= target_dose_{struct_id} - min_dose_{struct_id};")
 
                     model.eval(
                         f"""
