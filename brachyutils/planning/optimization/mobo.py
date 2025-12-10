@@ -17,6 +17,7 @@ import copy
 
 import numpy as np
 import pandas as pd
+import torch
 
 from ax.adapter.adapter_utils import observed_hypervolume
 from ax.adapter.registry import Generators
@@ -252,6 +253,15 @@ class MOBOOptimizer:
 
         steps=[]
         
+        # Random init runs are parallelized on the CPU while q-noisy search is done on GPU if available
+        # Check if CUDA is available and set the device
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+            print("CUDA is available for MOBO. Using GPU.")
+        else:
+            device = torch.device("cpu")
+            print("CUDA not available for MOBO. Using CPU.")
+
         if not parallel_random_init:
             steps.append(
                 GenerationStep(
@@ -259,6 +269,9 @@ class MOBOOptimizer:
                     # https://ax.dev/docs/0.5.0/tutorials/multiobjective_optimization/
                     generator=Generators.SOBOL,
                     num_trials=num_random_initiation,
+                    model_kwargs={
+                        "torch_device": device,
+                    }
                 )
             )
             # The loop though ax client will add num_iterations to the initial num_random_initiation
@@ -276,19 +289,20 @@ class MOBOOptimizer:
             num_trials=-1,
             model_kwargs={
                 "botorch_acqf_class": qLogNoisyExpectedImprovement,
+                "torch_device": device,
             },
             model_gen_kwargs={
                 "pending_observations":get_pending_observation_features
             },
         ))
         
-        
         # Instantiating an Ax Client object
         generation_strategy_forMOBO = GenerationStrategy(
             # https://ax.dev/docs/0.5.0/tutorials/generation_strategy/
             steps=steps
         )
-        ax_client = AxClient(generation_strategy=generation_strategy_forMOBO,)
+        # torch-device  as argument to the AxClient here should be useless with a custom generation strategy
+        ax_client = AxClient(generation_strategy=generation_strategy_forMOBO,torch_device=device)
 
         variable_parameters_forMOBO = self.generate_mobo_parameters(**mobo_parameter_kwargs)
 
@@ -319,6 +333,11 @@ class MOBOOptimizer:
             print("RUNNING MOBO ITERATION ", i+1, " OUT OF ", total_ax_iterations)
             try:
                 parameters, trial_index = ax_client.get_next_trial()
+                ## To print device used
+                # genstep = ax_client.generation_strategy.current_step
+                # generator = genstep.generator_specs[0]
+                # print("Generator is on device:", generator.fitted_adapter.device)
+
             except Exception as e:
                 print("Failed to get next trial from axClient: ", e)
                 break
