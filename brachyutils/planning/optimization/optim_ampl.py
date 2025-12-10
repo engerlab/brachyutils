@@ -354,7 +354,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                     model.eval(
                         f"""
                         subject to uniformity_constraint_{struct_id} {{i in D_{struct_id}}}:
-                            sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] - y_slack_{struct_id}[i] = target_dose_{struct_id};
+                            sum{{j in T_{struct_id}}} A_{struct_id}[i,j] * t_vec[j] + y_slack_{struct_id}[i] = target_dose_{struct_id};
                         """)
                     uniformity_term = f"({uniformity_weight / (num_dose_points * 1000)}) * sum{{i in D_{struct_id}}} y_slack_{struct_id}[i]^2"
                     objective_terms.extend([uniformity_term])

@@ -272,7 +272,7 @@ def test_run_ampl_optim():
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=1),
+            spacing_mm=3),
         Optimization_Config(
             structure_name="RECTUM",
             dose_voxel_goal=0,
@@ -485,7 +485,7 @@ if __name__ == "__main__":
     # test_get_optimization_roi_bounds()
     test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    # test_run_ampl_optim()
+    test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
     # test_hotspot_estimators()
