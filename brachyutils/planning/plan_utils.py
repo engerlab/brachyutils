@@ -1670,6 +1670,7 @@ class BrachyPlan:
                 BrachyStructure(
                     name="hotspot_estimator:combined",
                     mask=ROIMask(
+                        name="hotspot_estimator:combined",
                         imageArray=mask_union,
                         origin=self.phantom.image_obj.origin,
                         spacing=self.phantom.image_obj.spacing,
