@@ -306,7 +306,7 @@ def eval_optim(
         #         structure_name="CTV",
         #         dose_voxel_goal=target_dose,
         #         penalty_weight_linear=300,
-        #         penalty_weight_std_time_L2=1,
+        #         penalty_weight_variance_time=1,
         #         mask_margin_mm=0,
         #         spacing_mm=3),
         #     Optimization_Config(
@@ -331,7 +331,7 @@ def eval_optim(
         #         penalty_weight_uniformity=1,
         #         penalty_weight_hotspot=1,
         #         hotspot_threshold=1.5,
-        #         penalty_weight_std_time_L2=1,
+        #         penalty_weight_variance_time=1,
         #         mask_margin_mm=0,
         #         spacing_mm=3),
         #     Optimization_Config(

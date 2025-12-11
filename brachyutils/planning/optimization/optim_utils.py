@@ -289,7 +289,7 @@ class Optimization_Config(BaseModel):
     penalty_weight_hotspot:float = 0
     hotspot_threshold:float = 0
     penalty_weight_uniformity:float = 0
-    penalty_weight_std_time_L2:float = 0
+    penalty_weight_variance_time:float = 0
     mask_margin_mm:float | List[float]= 0
     min_dose:float = 0
     max_dose:float = 500
