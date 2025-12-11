@@ -439,10 +439,9 @@ def gen_box_plots_solvers_results(
             # generate box plots for each metric
             metrics_to_plot = [
                 "model_building_time",
-                "solve_time",
             ] + [col for col in filtered_df.columns if col not in [
-                "case_name", "package", "solver", "objective_terms",
-                "loading_time",  "model_building_time", "solve_time", "status"
+                "case_name", "package", "solver",
+                "objective_terms", "status"
             ]]
             if pth_mean_std_csv is not None:
                 mean_std_df.loc[len(mean_std_df)] = {
@@ -587,25 +586,25 @@ if __name__ == "__main__":
     #     dir_all_dose_rates,
     # )
     # # evaluate the optimization performance for packages, solvers and configs
-    eval_optim(
-        dir_all_dicoms,
-        dir_all_dose_rates,
-        dvh_metric_goals=dvh_metric_goals,
-        target_dose=target_dose,
-    )
+    # eval_optim(
+    #     dir_all_dicoms,
+    #     dir_all_dose_rates,
+    #     dvh_metric_goals=dvh_metric_goals,
+    #     target_dose=target_dose,
+    # )
 
     # # load the results dataframes for all the packages
-    # all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
-    # list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
-    # all_data_df = pd.concat(list_all_data_df, ignore_index=True)
-    # # # compare package-solvers on linear only config
-    # gen_box_plots_solvers_results(
-    #     all_data_df,
-    #     filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
-    #     penalty_term="linear",
-    #     dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
-    #     pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
-    # )
+    all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
+    list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
+    all_data_df = pd.concat(list_all_data_df, ignore_index=True)
+    # # compare package-solvers on linear only config
+    gen_box_plots_solvers_results(
+        all_data_df,
+        filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
+        penalty_term="linear",
+        dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
+        pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
+    )
     
     # # # compare the effect of different penalty terms using gurobi
     # pth_full_results_gurobi = dir_all_dose_rates/"full_eval_optim_results_gurobi.csv"
