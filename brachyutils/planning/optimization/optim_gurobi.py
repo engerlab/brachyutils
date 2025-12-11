@@ -476,11 +476,12 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 }
 
         # set a regularization term on the dwell times to avoid extreme values
-        mean_dwell_time = sum(t_MVar) / t_MVar.size
-        penalty_terms["quadratic"] += (
-            penalty_weight_std_time_L2 * 1e-3 
-            * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
-        )
+        if penalty_weight_std_time_L2 > 0:
+            mean_dwell_time = sum(t_MVar) / t_MVar.size
+            penalty_terms["quadratic"] += (
+                penalty_weight_std_time_L2 * 1e-3 
+                * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
+            )
         # Set objective function
         model.setObjective(
             penalty_terms["linear"]
@@ -533,70 +534,113 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             structure.mask for structure in plan.structure_list
             if "hotspot_estimator" in structure.name
             ]
-        with mp.Pool(processes=8) as pool:
-            partial_func = partial(
-                resample_crop_the_mask_or_contour_to_optimGrid,
+
+        if len(hotspot_masks) == 1:
+            # one combined hotspot estimator structure
+            processed_mask = resample_crop_the_mask_or_contour_to_optimGrid(
                 template_dose_obj=plan.combined_dose,
+                structure_mask=hotspot_masks[0],
                 optim_spacing=optim_spacing,
                 roi_bounds=roi_bounds
             )
-            processed_masks = tqdm.tqdm(list(
-                    pool.imap(partial_func, hotspot_masks)),
-                    total=len(hotspot_masks),
-                    desc="Resampling and cropping hotspot estimator masks"
-                    )
-
-        # setup a general A matrix once for all the hotspot estimators at once.
-        dwell_vars_chaos, dose_rate_matrices_chaos = compute_dose_rate_matrices(
-            dwellTimeVariables=dwellTimeVariables,
-            plan=plan,
-            structure_name=None,
-            structure_mask=None,
-            optim_spacing=optim_spacing,
-            roi_bounds=self.roi_bounds,
-            # max_workers=46,
-            shift_origin=True
-        )
-        dwell_vars = []
-        dose_rate_matrices = []
-        # sort the dwell_vars and dose_rate_matrices according to the original dwellTimeVariables order
-        for msk in hotspot_masks:
-            for var_mat in zip(dwell_vars_chaos, dose_rate_matrices_chaos):
-                if var_mat[0].VarName == msk.name.split(":")[-1].split("/")[0]:
-                    dwell_vars.append(var_mat[0])
-                    dose_rate_matrices.append(var_mat[1])
-
-        t_MVar = MVar.fromlist(dwell_vars)
-        A = np.column_stack(dose_rate_matrices)
-        unmasked_dose = A @ t_MVar
-        hotspot_penalty = 0
-        for mask in processed_masks:
-            mask_array = mask.imageArray.swapaxes(0, 2).flatten().astype(bool)
-            num_dose_points = np.sum(mask_array)
-            masked_dose = unmasked_dose[mask_array]
-            # slack variable for hotspot estimator
-            x_slack = model.addVar(
-                    # lb=0, # -GRB.INFINITY,
-                    # ub=hotspot_threshold * target_dose,
-                    name=f"hotspot_slack_{mask.name.split(":")[-1]}"
-                )
-            # Hotspot estimator constraints
-            model.addConstr(
-                x_slack >= sum(masked_dose)/num_dose_points - (target_dose*hotspot_threshold),
+            dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+                dwellTimeVariables=dwellTimeVariables,
+                plan=plan,
+                structure_name=processed_mask.name,
+                structure_mask=processed_mask,
+                optim_spacing=optim_spacing,
+                roi_bounds=self.roi_bounds,
+                # max_workers=46,
+                shift_origin=True
             )
-            hotspot_penalty += (hotspot_weight * x_slack)#/num_dose_points
+            t_MVar = MVar.fromlist(dwell_vars)
+            A = np.column_stack(dose_rate_matrices)
+            num_dose_points = A.shape[0]
+            x_slack = model.addMVar(
+                shape=num_dose_points,
+                name=f"hotspot_slack_{processed_mask.name.replace(':', '_')}",
+                )
+            model.addConstr(
+                A @ t_MVar - x_slack <= (target_dose*hotspot_threshold),
+                name=f"hotspot_constraint_{processed_mask.name.replace(':', '_')}",
+            )
+            hotspot_penalty = sum((x_slack))*hotspot_weight/num_dose_points
 
             self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
             constraint_counter += num_dose_points
 
             ## Saving weights info for later potential resetting of the model
-            self.structure_weights_d[mask.name] = {
+            self.structure_weights_d[processed_mask.name] = {
                 "hotspot_weight": hotspot_weight,
                 "num_dose_points": num_dose_points,
                 "hotspot_coeff": hotspot_weight / num_dose_points # is a linear coeff
             }
+            return hotspot_penalty
+        else:
+            with mp.Pool(processes=8) as pool:
+                partial_func = partial(
+                    resample_crop_the_mask_or_contour_to_optimGrid,
+                    template_dose_obj=plan.combined_dose,
+                    optim_spacing=optim_spacing,
+                    roi_bounds=roi_bounds
+                )
+                processed_masks = tqdm.tqdm(list(
+                        pool.imap(partial_func, hotspot_masks)),
+                        total=len(hotspot_masks),
+                        desc="Resampling and cropping hotspot estimator masks"
+                        )
 
-        return hotspot_penalty
+            # setup a general A matrix once for all the hotspot estimators at once.
+            dwell_vars_chaos, dose_rate_matrices_chaos = compute_dose_rate_matrices(
+                dwellTimeVariables=dwellTimeVariables,
+                plan=plan,
+                structure_name=None,
+                structure_mask=None,
+                optim_spacing=optim_spacing,
+                roi_bounds=self.roi_bounds,
+                # max_workers=46,
+                shift_origin=True
+            )
+            dwell_vars = []
+            dose_rate_matrices = []
+            # sort the dwell_vars and dose_rate_matrices according to the original dwellTimeVariables order
+            for msk in hotspot_masks:
+                for var_mat in zip(dwell_vars_chaos, dose_rate_matrices_chaos):
+                    if var_mat[0].VarName == msk.name.split(":")[-1].split("/")[0]:
+                        dwell_vars.append(var_mat[0])
+                        dose_rate_matrices.append(var_mat[1])
+
+            t_MVar = MVar.fromlist(dwell_vars)
+            A = np.column_stack(dose_rate_matrices)
+            unmasked_dose = A @ t_MVar
+            hotspot_penalty = 0
+            for mask in processed_masks:
+                mask_array = mask.imageArray.swapaxes(0, 2).flatten().astype(bool)
+                num_dose_points = np.sum(mask_array)
+                masked_dose = unmasked_dose[mask_array]
+                # slack variable for hotspot estimator
+                x_slack = model.addVar(
+                        # lb=0, # -GRB.INFINITY,
+                        # ub=hotspot_threshold * target_dose,
+                        name=f"hotspot_slack_{mask.name.split(':')[-1]}"
+                    )
+                # Hotspot estimator constraints
+                model.addConstr(
+                    sum(masked_dose)/num_dose_points - x_slack <= (target_dose*hotspot_threshold),
+                    name=f"hotspot_constraint_{mask.name.split(':')[-1]}"
+                )
+                hotspot_penalty += (hotspot_weight * x_slack)
+
+                self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
+                constraint_counter += num_dose_points
+
+                ## Saving weights info for later potential resetting of the model
+                self.structure_weights_d[mask.name] = {
+                    "hotspot_weight": hotspot_weight,
+                    "num_dose_points": num_dose_points,
+                    "hotspot_coeff": hotspot_weight / num_dose_points # is a linear coeff
+                }
+            return hotspot_penalty
 
     def reset_model_from_config(
         self,

@@ -137,6 +137,7 @@ class BrachyPlan:
         with a margine of 10 mm.
         - add_hotspots_to_phantom: bool = False := if True, will add hotspot structures to the phantom.
         this is good for debugging, but slows down the plan creation process.
+        - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures 
         XXX simplify the constructor inputs by using only kwargs for optional inputs?
 
         #### for simulation setup:
@@ -297,7 +298,8 @@ class BrachyPlan:
             self.setup_optimization(
                 self.optimization_config_list,
                 self.structure_list,
-                add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False)
+                add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
+                one_hotspot_structure=kwargs.get("one_hotspot_structure", False),
             )
 
     def load_phantom(self, pth_phantom: Union[Path, dict]):
@@ -1559,7 +1561,8 @@ class BrachyPlan:
         self, 
         optimization_config_list:List[Optimization_Config] | Path | str,
         structure_list:List[BrachyStructure],
-        add_hotspots_to_phantom:bool=False
+        add_hotspots_to_phantom:bool=False,
+        one_hotspot_structure:bool=False
         ):
         r"""
         """
@@ -1582,7 +1585,8 @@ class BrachyPlan:
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
                 self._create_hotspot_structures(
-                    add_hotspots_to_phantom=add_hotspots_to_phantom)
+                    add_hotspots_to_phantom=add_hotspots_to_phantom,
+                    one_hotspot_structure=one_hotspot_structure)
             for struc in structure_list:
                 if config.structure_name.lower() == struc.name.lower():
                     struc.set_optimization_config(config)
@@ -1590,7 +1594,8 @@ class BrachyPlan:
 
     def _create_hotspot_structures(
         self,
-        add_hotspots_to_phantom:bool=False
+        add_hotspots_to_phantom:bool=False,
+        one_hotspot_structure:bool=False
         ):
         r"""
         ### Purpose:
@@ -1650,22 +1655,32 @@ class BrachyPlan:
                 origin=self.phantom.image_obj.origin,
                 spacing=self.phantom.image_obj.spacing,
             )
-            hotspot_mask_list = tqdm(
-                list(pool.imap(partial_func,dwell_pairs)),
+            hotspot_mask_list = list(
+                tqdm(pool.imap(partial_func,dwell_pairs),
                 total=len(dwell_pairs),
-                desc="Generating hotspot structures"
+                desc="Generating hotspot structures")
             )
-
-        for mask in hotspot_mask_list:
-            self.structure_list.append(
+        if one_hotspot_structure:
+            mask_union = np.zeros_like(
+                hotspot_mask_list[0].mask.imageArray, dtype=bool
+            )
+            for mask in hotspot_mask_list:
+                mask_union = np.logical_or(mask_union, mask.mask.imageArray)
+            hotspot_mask_list = [
                 BrachyStructure(
-                    name=mask.name,
-                    mask=mask.mask,
+                    name="hotspot_estimator:combined",
+                    mask=ROIMask(
+                        imageArray=mask_union,
+                        origin=self.phantom.image_obj.origin,
+                        spacing=self.phantom.image_obj.spacing,
+                    ),
                     target_volume=False,
                     in_dvh=False,
-                    # optimization_config=config
                 )
-            )
+            ]
+
+        for mask in hotspot_mask_list:
+            self.structure_list.append(mask)
             if add_hotspots_to_phantom:
                 self.phantom.set_structure_set(
                     mask_dict={mask.name: mask.mask},
