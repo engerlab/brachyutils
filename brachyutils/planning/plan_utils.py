@@ -299,7 +299,7 @@ class BrachyPlan:
                 self.optimization_config_list,
                 self.structure_list,
                 add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
-                one_hotspot_structure=kwargs.get("one_hotspot_structure", False),
+                one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
             )
 
     def load_phantom(self, pth_phantom: Union[Path, dict]):
@@ -1562,7 +1562,7 @@ class BrachyPlan:
         optimization_config_list:List[Optimization_Config] | Path | str,
         structure_list:List[BrachyStructure],
         add_hotspots_to_phantom:bool=False,
-        one_hotspot_structure:bool=False
+        one_hotspot_structure:bool=True
         ):
         r"""
         """
@@ -1595,7 +1595,7 @@ class BrachyPlan:
     def _create_hotspot_structures(
         self,
         add_hotspots_to_phantom:bool=False,
-        one_hotspot_structure:bool=False
+        one_hotspot_structure:bool=True
         ):
         r"""
         ### Purpose:
