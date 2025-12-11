@@ -600,12 +600,12 @@ if __name__ == "__main__":
     #     dir_all_dose_rates,
     # )
     # # evaluate the optimization performance for packages, solvers and configs
-    eval_optim(
-        dir_all_dicoms,
-        dir_all_dose_rates,
-        dvh_metric_goals=dvh_metric_goals,
-        target_dose=target_dose,
-    )
+    # eval_optim(
+    #     dir_all_dicoms,
+    #     dir_all_dose_rates,
+    #     dvh_metric_goals=dvh_metric_goals,
+    #     target_dose=target_dose,
+    # )
 
     # # load the results dataframes for all the packages
     # all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
@@ -621,10 +621,10 @@ if __name__ == "__main__":
     # )
     
     # # # compare the effect of different penalty terms using gurobi
-    # pth_full_results_gurobi = dir_all_dose_rates/"full_eval_optim_results_gurobi.csv"
-    # results_gurobi_df = pd.read_csv(pth_full_results_gurobi)
-    # gen_box_plots_penalty_results(
-    #     results_gurobi_df,
-    #     dir_fig_save=dir_all_dose_rates/"figs_optim_results_full",
-    #     pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_full.csv",
-    # )
+    pth_full_results_gurobi = dir_all_dose_rates/"full_eval_optim_results_gurobi.csv"
+    results_gurobi_df = pd.read_csv(pth_full_results_gurobi)
+    gen_box_plots_penalty_results(
+        results_gurobi_df,
+        dir_fig_save=dir_all_dose_rates/"figs_optim_results_full",
+        pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_full.csv",
+    )
