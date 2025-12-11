@@ -135,9 +135,10 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
     # by now the structure mask is in the same grid as the template dose object
     # apply the structure mask to the dose rate map
     if structure_mask is not None:
-        dose_rate_img.imageArray = dose_rate_img.imageArray * structure_mask.imageArray
-
-    return dose_rate_img.imageArray.swapaxes(0, 2).flatten()
+        non_zero_dose_rate = dose_rate_img.imageArray[structure_mask.imageArray==True]
+    else:
+        non_zero_dose_rate = dose_rate_img.imageArray.swapaxes(0, 2).flatten()
+    return non_zero_dose_rate
 
 def process_variable(
     variable,
