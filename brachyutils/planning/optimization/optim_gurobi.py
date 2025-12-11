@@ -476,11 +476,12 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 }
 
         # set a regularization term on the dwell times to avoid extreme values
-        mean_dwell_time = sum(t_MVar) / t_MVar.size
-        penalty_terms["quadratic"] += (
-            penalty_weight_std_time_L2 * 1e-3 
-            * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
-        )
+        if penalty_weight_std_time_L2 > 0:
+            mean_dwell_time = sum(t_MVar) / t_MVar.size
+            penalty_terms["quadratic"] += (
+                penalty_weight_std_time_L2 * 1e-3 
+                * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
+            )
         # Set objective function
         model.setObjective(
             penalty_terms["linear"]
@@ -563,7 +564,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 A @ t_MVar - x_slack <= (target_dose*hotspot_threshold),
                 name=f"hotspot_constraint_{processed_mask.name.replace(':', '_')}",
             )
-            hotspot_penalty = sum((hotspot_weight * x_slack)/num_dose_points)
+            hotspot_penalty = sum((x_slack))*hotspot_weight/num_dose_points
 
             self.hotspot_constraints_coords.extend(list(range(constraint_counter, constraint_counter + num_dose_points)))
             constraint_counter += num_dose_points

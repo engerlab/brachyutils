@@ -41,7 +41,7 @@ def get_a_plan_to_optimize(
         dvh_metric_goals=dvh_metric_goals,
         optimization_config_list=optimization_config_list,
         dwells_near_ptv=True,
-        add_hotspots_to_phantom=True,
+        # add_hotspots_to_phantom=True,
         one_hotspot_structure=True,
         )
 
