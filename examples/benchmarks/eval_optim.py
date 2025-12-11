@@ -168,6 +168,12 @@ def run_optimization(
         solve_time = optim_obj.solve_time
         result_dvh_metrics = brachy_plan.get_dvh_metrics(return_percentage=True)
         status = "OPTIMIZED"
+        median_dwell_time = np.median(brachy_plan.dwell_times)
+        iqr_dwell_time = np.percentile(brachy_plan.dwell_times, 75) - np.percentile(brachy_plan.dwell_times, 25)
+        num_dose_points = {
+            f"num_dose_points({key})": val.get("num_dose_points")
+            for key, val in optim_obj.structure_weights_d.items()
+        }
     except Exception as e:
         print(f"Optimization failed for {case_name} with config {config_list}, package {package}, solver {solver}: {e}")
         t1_model_building = np.nan
@@ -184,7 +190,10 @@ def run_optimization(
         "solve_time": solve_time,
         "post_processing_time": t1_post_proc - t0_post_proc - solve_time,
         "status": status,
-        **result_dvh_metrics
+        "median(dwell_time)": median_dwell_time,
+        "IQR(dwell_time)": iqr_dwell_time,
+        **result_dvh_metrics,
+        **num_dose_points,
     }
     # for debugging
     # print("Dwell Times are: \n", brachy_plan.dwell_times)
@@ -210,31 +219,31 @@ def eval_optim(
 
     package_solver_dict = {
         "gurobi": ["gurobi"],
-        "ampl": ["xpress", "cplex", "highs"],
-        "ortools": ["GLOP", "PDLP","GSCIP"],
+        # "ampl": ["xpress", "cplex", "highs"],
+        # "ortools": ["GLOP", "PDLP","GSCIP"],
     }
 
     config_variations = {
-        "L": [
-            Optimization_Config(
-                structure_name="CTV",
-                dose_voxel_goal=target_dose,
-                penalty_weight_linear=300,
-                mask_margin_mm=0,
-                spacing_mm=3),
-            Optimization_Config(
-                structure_name="URETHRA",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                mask_margin_mm=0,
-                spacing_mm=1),
-            Optimization_Config(
-                structure_name="RECTUM",
-                dose_voxel_goal=0,
-                penalty_weight_linear=1,
-                mask_margin_mm=0,
-                spacing_mm=3)
-        ],
+        # "L": [
+        #     Optimization_Config(
+        #         structure_name="CTV",
+        #         dose_voxel_goal=target_dose,
+        #         penalty_weight_linear=300,
+        #         mask_margin_mm=0,
+        #         spacing_mm=3),
+        #     Optimization_Config(
+        #         structure_name="URETHRA",
+        #         dose_voxel_goal=0,
+        #         penalty_weight_linear=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=1),
+        #     Optimization_Config(
+        #         structure_name="RECTUM",
+        #         dose_voxel_goal=0,
+        #         penalty_weight_linear=1,
+        #         mask_margin_mm=0,
+        #         spacing_mm=3)
+        # ],
         # "LQ": [
         #     Optimization_Config(
         #         structure_name="CTV",
@@ -279,28 +288,28 @@ def eval_optim(
         #         mask_margin_mm=0,
         #         spacing_mm=3)
         # ],
-        # "LH": [
-        #     Optimization_Config(
-        #         structure_name="CTV",
-        #         dose_voxel_goal=target_dose,
-        #         penalty_weight_linear=300,
-        #         penalty_weight_hotspot=1,
-        #         hotspot_threshold=1.5,
-        #         mask_margin_mm=0,
-        #         spacing_mm=3),
-        #     Optimization_Config(
-        #         structure_name="URETHRA",
-        #         dose_voxel_goal=0,
-        #         penalty_weight_linear=1,
-        #         mask_margin_mm=0,
-        #         spacing_mm=1),
-        #     Optimization_Config(
-        #         structure_name="RECTUM",
-        #         dose_voxel_goal=0,
-        #         penalty_weight_linear=1,
-        #         mask_margin_mm=0,
-        #         spacing_mm=3)
-        # ],
+        "LH": [
+            Optimization_Config(
+                structure_name="CTV",
+                dose_voxel_goal=target_dose,
+                penalty_weight_linear=300,
+                penalty_weight_hotspot=1,
+                hotspot_threshold=1.5,
+                mask_margin_mm=0,
+                spacing_mm=3),
+            Optimization_Config(
+                structure_name="URETHRA",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                mask_margin_mm=0,
+                spacing_mm=1),
+            Optimization_Config(
+                structure_name="RECTUM",
+                dose_voxel_goal=0,
+                penalty_weight_linear=1,
+                mask_margin_mm=0,
+                spacing_mm=3)
+        ],
         # "LT": [
         #     Optimization_Config(
         #         structure_name="CTV",
@@ -357,7 +366,14 @@ def eval_optim(
             "case_name", "package", "solver",
             "objective_terms", "loading_time", "model_building_time",
             "solve_time", "post_processing_time", "status",
-            ]+list(dvh_metric_goals.keys()))
+            "median(dwell_time)", "IQR(dwell_time)"
+            ]
+            + list(dvh_metric_goals.keys()) 
+            + np.unique([
+                f"num_dose_points({key.split('(')[-1].split(')')[0]})"
+                for key in dvh_metric_goals.keys()
+                ]).tolist()
+            + ["num_dose_points(hotspot_estimator:combined)"])
 
     for pth_dicom in dir_all_dicoms:
         t0_loading = time()
@@ -379,15 +395,15 @@ def eval_optim(
                     package=package,
                     solver=solver,
                     # pth_out_dose=dir_all_dose_rates/f"optimized_{pth_dicom.name}_{package}_{solver}_{config_var}.nrrd",
-                )
+                    )
                     results_solver_dict[package].loc[len(results_solver_dict[package])] = optim_trial_result | {
                         "loading_time": t1_loading - t0_loading,
                         "objective_terms": config_var
                     }
                     results_solver_dict[package].to_csv(
-                        dir_all_dose_rates/f"eval_optim_results_{package}.csv",
+                        dir_all_dose_rates/f"test_eval_optim_results_{package}.csv",
                         index=False)
-        # break # for debugging only
+        break # for debugging only
 
 def gen_box_plots_solvers_results(
     results_df: DataFrame,
@@ -584,25 +600,25 @@ if __name__ == "__main__":
     #     dir_all_dose_rates,
     # )
     # # evaluate the optimization performance for packages, solvers and configs
-    # eval_optim(
-    #     dir_all_dicoms,
-    #     dir_all_dose_rates,
-    #     dvh_metric_goals=dvh_metric_goals,
-    #     target_dose=target_dose,
-    # )
+    eval_optim(
+        dir_all_dicoms,
+        dir_all_dose_rates,
+        dvh_metric_goals=dvh_metric_goals,
+        target_dose=target_dose,
+    )
 
     # # load the results dataframes for all the packages
-    all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
-    list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
-    all_data_df = pd.concat(list_all_data_df, ignore_index=True)
-    # # compare package-solvers on linear only config
-    gen_box_plots_solvers_results(
-        all_data_df,
-        filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
-        penalty_term="linear",
-        dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
-        pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
-    )
+    # all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
+    # list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
+    # all_data_df = pd.concat(list_all_data_df, ignore_index=True)
+    # # # compare package-solvers on linear only config
+    # gen_box_plots_solvers_results(
+    #     all_data_df,
+    #     filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
+    #     penalty_term="linear",
+    #     dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
+    #     pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
+    # )
     
     # # # compare the effect of different penalty terms using gurobi
     # pth_full_results_gurobi = dir_all_dose_rates/"full_eval_optim_results_gurobi.csv"
