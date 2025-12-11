@@ -403,7 +403,7 @@ def eval_optim(
                     results_solver_dict[package].to_csv(
                         dir_all_dose_rates/f"full_eval_optim_results_{package}.csv",
                         index=False)
-        break # for debugging only
+        # break # for debugging only
 
 def gen_box_plots_solvers_results(
     results_df: DataFrame,
