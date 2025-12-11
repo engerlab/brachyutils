@@ -437,9 +437,7 @@ def gen_box_plots_solvers_results(
             # if solver == "gcg":
             #     continue
             # generate box plots for each metric
-            metrics_to_plot = [
-                "model_building_time",
-            ] + [col for col in filtered_df.columns if col not in [
+            metrics_to_plot = [col for col in filtered_df.columns if col not in [
                 "case_name", "package", "solver",
                 "objective_terms", "status"
             ]]
