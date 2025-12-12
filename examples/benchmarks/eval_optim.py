@@ -162,15 +162,23 @@ def run_optimization(
         else:
             raise ValueError(f"Unsupported optimization package: {package}")
         t1_model_building = time()
-        t0_solving = time()
+        t0_post_proc = time()
         brachy_plan = optim_obj.get_optimized_plan_from_model()
-        t1_solving = time()
+        t1_post_proc = time()
+        solve_time = optim_obj.solve_time
         result_dvh_metrics = brachy_plan.get_dvh_metrics(return_percentage=True)
         status = "OPTIMIZED"
+        median_dwell_time = np.median(brachy_plan.dwell_times)
+        iqr_dwell_time = np.percentile(brachy_plan.dwell_times, 75) - np.percentile(brachy_plan.dwell_times, 25)
+        num_dose_points = {
+            f"num_dose_points({key})": val.get("num_dose_points")
+            for key, val in optim_obj.structure_weights_d.items()
+        }
     except Exception as e:
         print(f"Optimization failed for {case_name} with config {config_list}, package {package}, solver {solver}: {e}")
         t1_model_building = np.nan
-        t1_solving = np.nan
+        t1_post_proc = np.nan
+        solve_time = np.nan
         result_dvh_metrics = {key: np.nan for key in plan.dvh_metric_goals.keys()}
         status = "FAILED"
     optim_trial_result = {
@@ -179,9 +187,13 @@ def run_optimization(
         "solver": solver,
         # "objective_terms": ",".join([cfg.structure_name for cfg in config_list]),
         "model_building_time": t1_model_building - t0_model_building,
-        "solving_time": t1_solving - t0_solving,
+        "solve_time": solve_time,
+        "post_processing_time": t1_post_proc - t0_post_proc - solve_time,
         "status": status,
-        **result_dvh_metrics
+        "median(dwell_time)": median_dwell_time,
+        "IQR(dwell_time)": iqr_dwell_time,
+        **result_dvh_metrics,
+        **num_dose_points,
     }
     # for debugging
     # print("Dwell Times are: \n", brachy_plan.dwell_times)
@@ -303,7 +315,7 @@ def eval_optim(
                 structure_name="CTV",
                 dose_voxel_goal=target_dose,
                 penalty_weight_linear=300,
-                penalty_weight_std_time_L2=1,
+                penalty_weight_variance_time=1,
                 mask_margin_mm=0,
                 spacing_mm=3),
             Optimization_Config(
@@ -328,7 +340,7 @@ def eval_optim(
                 penalty_weight_uniformity=1,
                 penalty_weight_hotspot=1,
                 hotspot_threshold=1.5,
-                penalty_weight_std_time_L2=1,
+                penalty_weight_variance_time=1,
                 mask_margin_mm=0,
                 spacing_mm=3),
             Optimization_Config(
@@ -352,9 +364,16 @@ def eval_optim(
     for package in package_solver_dict:
         results_solver_dict[package] = DataFrame(columns=[
             "case_name", "package", "solver",
-            "objective_terms", "loading_time",
-            "model_building_time", "solving_time", "status",
-            ]+list(dvh_metric_goals.keys()))
+            "objective_terms", "loading_time", "model_building_time",
+            "solve_time", "post_processing_time", "status",
+            "median(dwell_time)", "IQR(dwell_time)"
+            ]
+            + list(dvh_metric_goals.keys()) 
+            + np.unique([
+                f"num_dose_points({key.split('(')[-1].split(')')[0]})"
+                for key in dvh_metric_goals.keys()
+                ]).tolist()
+            + ["num_dose_points(hotspot_estimator:combined)"])
 
     for pth_dicom in dir_all_dicoms:
         t0_loading = time()
@@ -376,7 +395,7 @@ def eval_optim(
                     package=package,
                     solver=solver,
                     # pth_out_dose=dir_all_dose_rates/f"optimized_{pth_dicom.name}_{package}_{solver}_{config_var}.nrrd",
-                )
+                    )
                     results_solver_dict[package].loc[len(results_solver_dict[package])] = optim_trial_result | {
                         "loading_time": t1_loading - t0_loading,
                         "objective_terms": config_var
@@ -434,12 +453,9 @@ def gen_box_plots_solvers_results(
             # if solver == "gcg":
             #     continue
             # generate box plots for each metric
-            metrics_to_plot = [
-                "model_building_time",
-                "solving_time",
-            ] + [col for col in filtered_df.columns if col not in [
-                "case_name", "package", "solver", "objective_terms",
-                "loading_time",  "model_building_time", "solving_time", "status"
+            metrics_to_plot = [col for col in filtered_df.columns if col not in [
+                "case_name", "package", "solver",
+                "objective_terms", "status"
             ]]
             if pth_mean_std_csv is not None:
                 mean_std_df.loc[len(mean_std_df)] = {
@@ -590,21 +606,21 @@ if __name__ == "__main__":
     #     dvh_metric_goals=dvh_metric_goals,
     #     target_dose=target_dose,
     # )
-    
+
     # # load the results dataframes for all the packages
-    all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
-    list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
-    all_data_df = pd.concat(list_all_data_df, ignore_index=True)
-    # # compare package-solvers on linear only config
-    gen_box_plots_solvers_results(
-        all_data_df,
-        filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
-        penalty_term="linear",
-        dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
-        pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
-    )
+    # all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*.csv"))
+    # list_all_data_df = [pd.read_csv(pth) for pth in all_results_pths]
+    # all_data_df = pd.concat(list_all_data_df, ignore_index=True)
+    # # # compare package-solvers on linear only config
+    # gen_box_plots_solvers_results(
+    #     all_data_df,
+    #     filter_by={"objective_terms": "L", "status": "OPTIMIZED"},
+    #     penalty_term="linear",
+    #     dir_fig_save=dir_all_dose_rates/"figs_optim_results_L",
+    #     pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_L.csv",
+    # )
     
-    # # compare the effect of different penalty terms using gurobi
+    # # # compare the effect of different penalty terms using gurobi
     pth_full_results_gurobi = dir_all_dose_rates/"full_eval_optim_results_gurobi.csv"
     results_gurobi_df = pd.read_csv(pth_full_results_gurobi)
     gen_box_plots_penalty_results(
