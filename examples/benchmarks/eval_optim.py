@@ -170,10 +170,10 @@ def run_optimization(
         status = "OPTIMIZED"
         median_dwell_time = np.median(brachy_plan.dwell_times)
         iqr_dwell_time = np.percentile(brachy_plan.dwell_times, 75) - np.percentile(brachy_plan.dwell_times, 25)
-        num_dose_points = {
-            f"num_dose_points({key})": val.get("num_dose_points")
-            for key, val in optim_obj.structure_weights_d.items()
-        }
+        # num_dose_points = {
+        #     f"num_dose_points({key})": val.get("num_dose_points")
+        #     for key, val in optim_obj.structure_weights_d.items()
+        # }
     except Exception as e:
         print(f"Optimization failed for {case_name} with config {config_list}, package {package}, solver {solver}: {e}")
         t1_model_building = np.nan
@@ -193,7 +193,7 @@ def run_optimization(
         "median(dwell_time)": median_dwell_time,
         "IQR(dwell_time)": iqr_dwell_time,
         **result_dvh_metrics,
-        **num_dose_points,
+        # **num_dose_points,
     }
     # for debugging
     # print("Dwell Times are: \n", brachy_plan.dwell_times)
@@ -219,7 +219,7 @@ def eval_optim(
 
     package_solver_dict = {
         "gurobi": ["gurobi"],
-        "ampl": ["xpress", "cplex", "copt", "mosek", "bonmin", "ipopt"],
+        "ampl": ["xpress", "cplex", "copt", "mosek", "bonmin"],
         # "ortools": ["GLOP", "PDLP","GSCIP"],
         "ortools": ["PDLP"]
     }
@@ -369,12 +369,12 @@ def eval_optim(
             "solve_time", "post_processing_time", "status",
             "median(dwell_time)", "IQR(dwell_time)"
             ]
-            + list(dvh_metric_goals.keys()) 
-            + np.unique([
-                f"num_dose_points({key.split('(')[-1].split(')')[0]})"
-                for key in dvh_metric_goals.keys()
-                ]).tolist()
-            + ["num_dose_points(hotspot_estimator:combined)"])
+            + list(dvh_metric_goals.keys()))
+            # + np.unique([
+            #     f"num_dose_points({key.split('(')[-1].split(')')[0]})"
+            #     for key in dvh_metric_goals.keys()
+            #     ]).tolist()
+            # + ["num_dose_points(hotspot_estimator:combined)"])
 
     for pth_dicom in dir_all_dicoms:
         t0_loading = time()
