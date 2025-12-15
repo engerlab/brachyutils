@@ -295,7 +295,7 @@ def test_run_ampl_optim():
             "mean(dwell_times)", "std(dwell_times)",
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
-    for solver in ["highs"]: # [
+    for solver in ["copt"]: # [
         # "couenne", "bonmin", "copt", 
         # "mosek" "ipopt", "xpress",
         # "cplex", "highs", "scip",
@@ -484,9 +484,9 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    test_run_gurobi_optim()
+    # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    # test_run_ampl_optim()
+    test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
     # test_hotspot_estimators()

@@ -578,6 +578,82 @@ def gen_box_plots_penalty_results(
         )
 
 
+def get_plan_stats(
+    dir_all_dicoms: Path | str,
+    pth_df_out: Path | str = None,
+    ):
+    r"""
+    ### Purpose:
+    - Get number of catheters, dwell positions and the volume of each structure
+    for all plans in the specified directory.
+    ### Inputs:
+    - `dir_all_dicoms`: Directory containing DICOM files for all plans.
+    
+    """
+    dir_all_dicoms = Path(dir_all_dicoms)
+    df_out = pd.DataFrame(columns=[
+        "case_name",
+        "num_catheters",
+        "num_dwells",
+        "volume_CTV_cc",
+        "volume_URETHRA_cc",
+        "volume_RECTUM_cc",
+    ])
+    for pth_dicom in dir_all_dicoms.glob("*/"):
+        brachy_plan = load_dicom_to_plan(
+            dir_dicom=pth_dicom,
+            load_dicom_dose=False,
+            strict_name_match=False,
+            delivered_catheter_table=True,
+        )
+        vol_dict = brachy_plan.phantom.get_structures_volume(brachy_plan.phantom.structure_names)
+        volume_dict = {}
+        for key, val in vol_dict.items():
+            key = "volume_" + key.replace("_BRACHY", "").upper() + "_cc"
+            volume_dict[key] = val
+        df_out.loc[len(df_out)] = {
+            "case_name": pth_dicom.name,
+            "num_catheters": brachy_plan.num_catheters,
+            "num_dwells": brachy_plan.num_dwells,
+            **volume_dict,
+        }
+    # get the median and IQR for each column as well as mean and std
+    df_out.loc[len(df_out)] = {
+        "case_name": "MEDIAN",
+        "num_catheters": df_out["num_catheters"].median(),
+        "num_dwells": df_out["num_dwells"].median(),
+        "volume_CTV_cc": df_out["volume_CTV_cc"].median(),
+        "volume_URETHRA_cc": df_out["volume_URETHRA_cc"].median(),
+        "volume_RECTUM_cc": df_out["volume_RECTUM_cc"].median(),
+    }
+    df_out.loc[len(df_out)] = {
+        "case_name": "IQR",
+        "num_catheters": df_out["num_catheters"].quantile(0.75) - df_out["num_catheters"].quantile(0.25),
+        "num_dwells": df_out["num_dwells"].quantile(0.75) - df_out["num_dwells"].quantile(0.25),
+        "volume_CTV_cc": df_out["volume_CTV_cc"].quantile(0.75) - df_out["volume_CTV_cc"].quantile(0.25),
+        "volume_URETHRA_cc": df_out["volume_URETHRA_cc"].quantile(0.75) - df_out["volume_URETHRA_cc"].quantile(0.25),
+        "volume_RECTUM_cc": df_out["volume_RECTUM_cc"].quantile(0.75) - df_out["volume_RECTUM_cc"].quantile(0.25),
+    }
+    df_out.loc[len(df_out)] = {
+        "case_name": "MEAN",
+        "num_catheters": df_out["num_catheters"].mean(),
+        "num_dwells": df_out["num_dwells"].mean(),
+        "volume_CTV_cc": df_out["volume_CTV_cc"].mean(),
+        "volume_URETHRA_cc": df_out["volume_URETHRA_cc"].mean(),
+        "volume_RECTUM_cc": df_out["volume_RECTUM_cc"].mean(),
+    }
+    df_out.loc[len(df_out)] = {
+        "case_name": "STD",
+        "num_catheters": df_out["num_catheters"].std(),
+        "num_dwells": df_out["num_dwells"].std(),
+        "volume_CTV_cc": df_out["volume_CTV_cc"].std(),
+        "volume_URETHRA_cc": df_out["volume_URETHRA_cc"].std(),
+        "volume_RECTUM_cc": df_out["volume_RECTUM_cc"].std(),
+    }
+
+    if pth_df_out is not None:
+        df_out.to_csv(pth_df_out, index=False)
+
 if __name__ == "__main__":
     dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
     dir_all_dose_rates = Path("temp_data/tg43/optimization") # for tg43
@@ -621,10 +697,16 @@ if __name__ == "__main__":
     # )
     
     # # # compare the effect of different penalty terms using gurobi
-    pth_full_results_gurobi = dir_all_dose_rates/"full_eval_optim_results_gurobi.csv"
-    results_gurobi_df = pd.read_csv(pth_full_results_gurobi)
-    gen_box_plots_penalty_results(
-        results_gurobi_df,
-        dir_fig_save=dir_all_dose_rates/"figs_optim_results_full",
-        pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_full.csv",
+    # pth_full_results_gurobi = dir_all_dose_rates/"full_eval_optim_results_gurobi.csv"
+    # results_gurobi_df = pd.read_csv(pth_full_results_gurobi)
+    # gen_box_plots_penalty_results(
+    #     results_gurobi_df,
+    #     dir_fig_save=dir_all_dose_rates/"figs_optim_results_full",
+    #     pth_mean_std_csv=dir_all_dose_rates/"mean_std_optim_results_full.csv",
+    # )
+
+    # # # get number of catheters, dwell positions and the volume of each structure.
+    get_plan_stats(
+        dir_all_dicoms=dir_all_dicoms,
+        pth_df_out=dir_all_dose_rates/"plan_stats.csv",
     )
