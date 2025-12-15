@@ -253,8 +253,8 @@ def test_run_ampl_optim():
     # dir_dose_rates = "data_test/prostate-glen-p1-dose"
     dir_result_out = Path("data_test/test_export_plan/prostate")
     # for debugging on server
-    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
+    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p7")
+    dir_dose_rates = Path("temp_data/tg43/optimization/p7") # for tg43
     target_dose = 21
     optimization_config_list=[
         Optimization_Config(
@@ -273,7 +273,7 @@ def test_run_ampl_optim():
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=3),
+            spacing_mm=1),
         Optimization_Config(
             structure_name="RECTUM",
             dose_voxel_goal=0,
@@ -295,7 +295,7 @@ def test_run_ampl_optim():
             "mean(dwell_times)", "std(dwell_times)",
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
-    for solver in ["copt"]: # [
+    for solver in ["bonmin"]: # [
         # "couenne", "bonmin", "copt", 
         # "mosek" "ipopt", "xpress",
         # "cplex", "highs", "scip",
@@ -340,8 +340,8 @@ def test_run_ortool_optim():
     # dir_dose_rates = "data_test/prostate-glen-p1-dose"
     dir_result_out = Path("data_test/test_export_plan/prostate")
     # for debugging on server
-    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
+    pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p7")
+    dir_dose_rates = Path("temp_data/tg43/optimization/p7") # for tg43
     target_dose = 21
     optimization_config_list=[
         Optimization_Config(
@@ -382,7 +382,7 @@ def test_run_ortool_optim():
             "mean(dwell_times)", "std(dwell_times)",
             "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
         )
-    for solver in ["GSCIP"]: #["GLOP", "PDLP","GSCIP", "GLPK"]:
+    for solver in ["PDLP"]: #["GLOP", "PDLP","GSCIP", "GLPK"]:
         # try:
         optim_obj = BrachyOptim_ORTools(plan=plan_obj, solver=solver)
         optimized_plan = optim_obj.get_optimized_plan_from_model(solver=solver, inplace=False)
