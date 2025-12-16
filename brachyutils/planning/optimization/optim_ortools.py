@@ -276,7 +276,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                         penalty_terms["quadratic"] += (quadratic_weight/num_dose_points) * x_slack * x_slack
                     if uniformity_weight > 0:
                         y_slack = model.add_variable(
-                            lb=0.0,
+                            lb=float(-np.inf),
                             ub=target_dose - min_dose,
                             name=f"{structure.name}_uniformity_slack_{i}",
                             is_integer=False
