@@ -218,8 +218,8 @@ def eval_optim(
     dir_all_dose_rates = Path(dir_all_dose_rates)
 
     package_solver_dict = {
-        "gurobi": ["gurobi"],
-        "ampl": ["xpress", "cplex", "copt", "mosek", "bonmin"],
+        # "gurobi": ["gurobi"],
+        # "ampl": ["xpress", "cplex", "copt", "mosek", "bonmin"],
         # "ortools": ["GLOP", "PDLP","GSCIP"],
         "ortools": ["PDLP"]
     }
@@ -677,12 +677,12 @@ if __name__ == "__main__":
     #     dir_all_dose_rates,
     # )
     # # evaluate the optimization performance for packages, solvers and configs
-    # eval_optim(
-    #     dir_all_dicoms,
-    #     dir_all_dose_rates,
-    #     dvh_metric_goals=dvh_metric_goals,
-    #     target_dose=target_dose,
-    # )
+    eval_optim(
+        dir_all_dicoms,
+        dir_all_dose_rates,
+        dvh_metric_goals=dvh_metric_goals,
+        target_dose=target_dose,
+    )
 
     # load the results dataframes for all the packages
     all_results_pths = list(dir_all_dose_rates.glob("eval_optim_results_*LQU.csv"))
