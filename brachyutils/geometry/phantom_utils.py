@@ -11,6 +11,9 @@ from pathlib import Path
 from copy import deepcopy
 from collections import defaultdict
 
+from vtk import vtkPolyData, vtkDelaunay2D, vtkPoints, vtkDecimatePro
+from vtkmodules.vtkIOGeometry import vtkSTLWriter
+
 import nrrd
 import pydicom
 
@@ -347,7 +350,7 @@ class BrachyPhantom:
     def get_structure_mask(
         self,
         query_structure_list: List[str],
-        mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
+        mask_type: Union[np.ndarray, ROIContour, ROIMask, str] = ROIMask,
         strict_name_match: bool = True,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
@@ -359,9 +362,9 @@ class BrachyPhantom:
         ### Inputs:
         - query_structure_list := list of structure names to find the mask of.
         - mask_type: Union[np.ndarray, ROIContour, ROIMask] := the type of the mask to return.
-            if np.ndarray, the mask will be returned as a numpy array in [z, y, x] format.
-            if ROIContour, the mask will be returned as a ROIContour object in [x, y, z] format.
-            if ROIMask, the mask will be returned as a ROIMask object in [x, y, z] format.
+            if np.ndarray (or str "array"), the mask will be returned as a numpy array in [z, y, x] format.
+            if ROIContour (or str "contour"), the mask will be returned as a ROIContour object in [x, y, z] format.
+            if ROIMask (or str "mask"), the mask will be returned as a ROIMask object in [x, y, z] format.
         ### Outputs:
         - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
@@ -398,15 +401,15 @@ class BrachyPhantom:
                         mask.origin = self.image_obj.origin
                         mask.spacing = self.image_obj.spacing
                         mask.gridSize = self.image_obj.gridSize
-                    if mask_type == np.ndarray:
+                    if mask_type == np.ndarray or mask_type == "array":
                         mask_dict[query_structure] = np.swapaxes(
                             mask.imageArray, 0, 2
                         )
-                    elif mask_type == ROIContour:
+                    elif mask_type == ROIContour or mask_type == "contour":
                         mask_dict[query_structure] = (
                             self.structure_set.getContourByName(mask_name)
                         )
-                    elif mask_type == ROIMask:
+                    elif mask_type == ROIMask or mask_type == "mask":
                         mask_dict[query_structure] = mask
                     else:
                         raise ValueError(f"mask_type {mask_type} not recognized")
@@ -1841,6 +1844,60 @@ def masksToNrrd(
 
         # # Write the image
         nrrd.write(str(pth_output), all_masks, header, index_order="C", compression_level=1)
+
+def contour_to_stl(roi_contour: ROIContour, pth_output: Path) -> None:
+    r"""
+    Purpose:
+        - Export the contour to an STL file via vtkPolyData
+    Inputs:
+        - roi_contour: ROIContour := the contour to export.
+        - pth_output: Path := the path to save the STL file.
+    Outputs:
+        - None
+    Dependencies:
+    """
+    #raise NotImplementedError("STL export of contours from ROIContour is not implement yet.")
+    #vertices, faces
+    if not isinstance(roi_contour, ROIContour):
+        raise ValueError("The input roi_contour should be an instance of ROIContour.")
+    structure_polygon_mesh = roi_contour.polygonMesh #each slice has a (1D) list of coordinates [x1, y1, z1, x2, y2, z2]
+    #structure coordinates into a single list of points (tuples)
+    points_list : List[Tuple[float, float, float]] = []
+    for i_slice, slice_points in enumerate(structure_polygon_mesh):
+        #if it's the first or last slice, we need to add in points manually inside to complete the top and bottom of the mesh
+        #if i_slice == 0 or i_slice == len(structure_polygon_mesh) - 1:
+        #    #get the centroid of the slice
+        #    xs = slice_points[0::3]
+        #    ys = slice_points[1::3]
+        #    zs = slice_points[2::3]
+        #    centroid = (sum(xs) / len(xs), sum(ys) / len(ys), sum(zs) / len(zs))
+        #    points_list.append(centroid)
+        for i in range(0, len(slice_points), 3):
+            point = [slice_points[i], slice_points[i+1], slice_points[i+2]]
+            points_list.append(point)
+    structure_points = vtk.vtkPoints()
+    for point in points_list:
+        structure_points.InsertNextPoint(point)
+
+    structure_polydata = vtk.vtkPolyData()
+    structure_polydata.SetPoints(structure_points)
+
+    
+    delaunay = vtk.vtkDelaunay2D()
+    delaunay.SetInputData(structure_polydata)
+    delaunay.Update()
+    structure_polydata = delaunay.GetOutput()
+
+    decimate = vtk.vtkDecimatePro()
+    decimate.SetInputData(structure_polydata)
+    #decimate.PreserveTopologyOn()
+    decimate.SetTargetReduction(0.01)
+    decimate.Update()
+
+    stl_writer = vtk.vtkSTLWriter()
+    stl_writer.SetFileName(str(pth_output))
+    stl_writer.SetInputData(structure_polydata)
+    stl_writer.Write()
 
 def get_slicer_color_by_name(name: str) -> List[int]:
     r"""
