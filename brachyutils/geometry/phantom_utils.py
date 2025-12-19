@@ -11,7 +11,7 @@ from pathlib import Path
 from copy import deepcopy
 from collections import defaultdict
 
-from vtk import vtkPolyData, vtkDelaunay2D, vtkPoints, vtkDecimatePro
+from vtk import vtkPolyData, vtkDelaunay2D, vtkPoints, vtkDecimatePro, vtkPolygon
 from vtkmodules.vtkIOGeometry import vtkSTLWriter
 
 import nrrd
@@ -1862,16 +1862,42 @@ def contour_to_stl(roi_contour: ROIContour, pth_output: Path) -> None:
         raise ValueError("The input roi_contour should be an instance of ROIContour.")
     structure_polygon_mesh = roi_contour.polygonMesh #each slice has a (1D) list of coordinates [x1, y1, z1, x2, y2, z2]
     #structure coordinates into a single list of points (tuples)
-    points_list : List[Tuple[float, float, float]] = []
+    points_list : List[List[float, float, float]] = []
     for i_slice, slice_points in enumerate(structure_polygon_mesh):
-        #if it's the first or last slice, we need to add in points manually inside to complete the top and bottom of the mesh
-        #if i_slice == 0 or i_slice == len(structure_polygon_mesh) - 1:
-        #    #get the centroid of the slice
-        #    xs = slice_points[0::3]
-        #    ys = slice_points[1::3]
-        #    zs = slice_points[2::3]
-        #    centroid = (sum(xs) / len(xs), sum(ys) / len(ys), sum(zs) / len(zs))
-        #    points_list.append(centroid)
+        if i_slice == 0 or i_slice == len(structure_polygon_mesh) - 1:
+            # Create vtkPoints object properly
+            polygon_points = vtk.vtkPoints()
+            slice_polygon = vtk.vtkPolygon()
+            
+            n_points = len(slice_points) // 3
+            for i in range(0, len(slice_points), 3):
+                point = [slice_points[i], slice_points[i+1], slice_points[i+2]]
+                polygon_points.InsertNextPoint(point)
+            
+            # Properly set up the polygon with points and point IDs
+            slice_polygon.GetPointIds().SetNumberOfIds(n_points)
+            for i in range(n_points):
+                slice_polygon.GetPointIds().SetId(i, i)
+            slice_polygon.GetPoints().DeepCopy(polygon_points)
+            
+            #generate 100 random points between the min and max coordinates in the slice
+            random_slice_points = np.random.uniform(low=[min(slice_points[::3]), min(slice_points[1::3]), min(slice_points[2::3])],
+                                                    high=[max(slice_points[::3]), max(slice_points[1::3]), max(slice_points[2::3])],
+                                                    size=(1000, 3)) 
+            
+            # Compute normal - it's a static method that takes points array
+            polygon_normal = [0.0, 0.0, 0.0]
+            vtk.vtkPolygon.ComputeNormal(polygon_points, polygon_normal)
+            print(f"Polygon normal for slice {i_slice}: {polygon_normal}")
+            exit(2)
+            
+            # Get bounds
+            bounds = polygon_points.GetBounds()
+            
+            for point in random_slice_points:
+                # PointInPolygon expects: point, numPoints, points (as double array), bounds, normal
+                if slice_polygon.PointInPolygon(point, n_points, polygon_points.GetData(), bounds, polygon_normal) >= 0:
+                    points_list.append(list(point))
         for i in range(0, len(slice_points), 3):
             point = [slice_points[i], slice_points[i+1], slice_points[i+2]]
             points_list.append(point)
