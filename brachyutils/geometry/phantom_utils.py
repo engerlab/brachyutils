@@ -1865,64 +1865,139 @@ def contour_to_stl(roi_contour: ROIContour, pth_output: Path) -> None:
     points_list : List[List[float, float, float]] = []
     for i_slice, slice_points in enumerate(structure_polygon_mesh):
         if i_slice == 0 or i_slice == len(structure_polygon_mesh) - 1:
-            # Create vtkPoints object properly
-            polygon_points = vtk.vtkPoints()
-            slice_polygon = vtk.vtkPolygon()
+            pass
+            ## Create vtkPoints object properly
             
-            n_points = len(slice_points) // 3
-            for i in range(0, len(slice_points), 3):
-                point = [slice_points[i], slice_points[i+1], slice_points[i+2]]
-                polygon_points.InsertNextPoint(point)
+            #polygon_points = vtk.vtkPoints()
             
-            # Properly set up the polygon with points and point IDs
-            slice_polygon.GetPointIds().SetNumberOfIds(n_points)
-            for i in range(n_points):
-                slice_polygon.GetPointIds().SetId(i, i)
-            slice_polygon.GetPoints().DeepCopy(polygon_points)
+            #slice_polygon = vtk.vtkPolygon()
             
-            #generate 100 random points between the min and max coordinates in the slice
-            random_slice_points = np.random.uniform(low=[min(slice_points[::3]), min(slice_points[1::3]), min(slice_points[2::3])],
-                                                    high=[max(slice_points[::3]), max(slice_points[1::3]), max(slice_points[2::3])],
-                                                    size=(1000, 3)) 
+            #
             
-            # Compute normal - it's a static method that takes points array
-            polygon_normal = [0.0, 0.0, 0.0]
-            vtk.vtkPolygon.ComputeNormal(polygon_points, polygon_normal)
-            print(f"Polygon normal for slice {i_slice}: {polygon_normal}")
-            exit(2)
+            #n_points = len(slice_points) // 3
             
-            # Get bounds
-            bounds = polygon_points.GetBounds()
+            #for i in range(0, len(slice_points), 3):
             
-            for point in random_slice_points:
-                # PointInPolygon expects: point, numPoints, points (as double array), bounds, normal
-                if slice_polygon.PointInPolygon(point, n_points, polygon_points.GetData(), bounds, polygon_normal) >= 0:
-                    points_list.append(list(point))
+            #    point = [slice_points[i], slice_points[i+1], slice_points[i+2]]
+            
+            #    polygon_points.InsertNextPoint(point)
+            
+            #
+            
+            ## Properly set up the polygon with points and point IDs
+            
+            #slice_polygon.GetPointIds().SetNumberOfIds(n_points)
+            
+            #for i in range(n_points):
+            
+            #    slice_polygon.GetPointIds().SetId(i, i)
+            
+            #slice_polygon.GetPoints().DeepCopy(polygon_points)
+            
+            #
+            
+            ##generate 100 random points between the min and max coordinates in the slice
+            
+            #random_slice_points = np.random.uniform(low=[min(slice_points[::3]), min(slice_points[1::3]), min(slice_points[2::3])],
+            
+            #                                        high=[max(slice_points[::3]), max(slice_points[1::3]), max(slice_points[2::3])],
+            
+            #                                        size=(1000, 3)) 
+            
+            #
+            
+            ## Compute normal - it's a static method that takes points array
+            
+            #polygon_normal = [0.0, 0.0, 0.0]
+            
+            #vtk.vtkPolygon.ComputeNormal(polygon_points, polygon_normal)
+            
+            #
+            
+            ## Get bounds
+            
+            #bounds = polygon_points.GetBounds()
+            
+            #
+            
+            #for point in random_slice_points:
+            
+            #    # PointInPolygon expects: point, numPoints, points (as double array), bounds, normal
+            
+            #    if slice_polygon.PointInPolygon(point, n_points, polygon_points.GetData(), bounds, polygon_normal) >= 0:
+            
+            #        points_list.append(list(point))
         for i in range(0, len(slice_points), 3):
             point = [slice_points[i], slice_points[i+1], slice_points[i+2]]
             points_list.append(point)
+
+    print(f"Total number of raw points: {len(points_list)}")
+    #randomly sample 1000 points from the list
+    import random
+    points_list = random.sample(points_list, min(1000, len(points_list)))
     structure_points = vtk.vtkPoints()
     for point in points_list:
         structure_points.InsertNextPoint(point)
 
+    print(f"Total number of points before cleaning: {structure_points.GetNumberOfPoints()}")
+
     structure_polydata = vtk.vtkPolyData()
     structure_polydata.SetPoints(structure_points)
 
+    # Adapted from VTK ExtractSurface example
+    # Get bounds of the points
+    bounds = structure_polydata.GetBounds()
+    range_vals = [
+        bounds[1] - bounds[0],
+        bounds[3] - bounds[2],
+        bounds[5] - bounds[4]
+    ]
     
-    delaunay = vtk.vtkDelaunay2D()
-    delaunay.SetInputData(structure_polydata)
-    delaunay.Update()
-    structure_polydata = delaunay.GetOutput()
+    # Estimate normals using PCANormalEstimation
+    sample_size = max(10, int(structure_polydata.GetNumberOfPoints() * 0.00005))
+    normals = vtk.vtkPCANormalEstimation()
+    normals.SetInputData(structure_polydata)
+    normals.SetSampleSize(sample_size)
+    normals.SetNormalOrientationToGraphTraversal()
+    normals.FlipNormalsOn()
+    
+    # Create signed distance field
+    dimension = 256
+    radius = max(range_vals) / dimension * 8 # ~8 voxels
+    
+    distance = vtk.vtkSignedDistance()
+    distance.SetInputConnection(normals.GetOutputPort())
+    distance.SetRadius(radius)
+    distance.SetDimensions(dimension, dimension, dimension)
+    distance.SetBounds(
+        bounds[0] - range_vals[0] * 0.1, bounds[1] + range_vals[0] * 0.1,
+        bounds[2] - range_vals[1] * 0.1, bounds[3] + range_vals[1] * 0.1,
+        bounds[4] - range_vals[2] * 0.1, bounds[5] + range_vals[2] * 0.1
+    )
+    
+    # Extract surface
+    surface = vtk.vtkExtractSurface()
+    surface.SetInputConnection(distance.GetOutputPort())
+    surface.SetRadius(radius * 0.99)
+    surface.Update()
 
-    decimate = vtk.vtkDecimatePro()
-    decimate.SetInputData(structure_polydata)
-    #decimate.PreserveTopologyOn()
-    decimate.SetTargetReduction(0.01)
-    decimate.Update()
+    #clean_points = vtk.vtkCleanPolyData()
+    #clean_points.SetInputConnection(surface.GetOutputPort())
+    #clean_points.SetTolerance(0)
+    #clean_points.Update()
+    #structure_polydata = clean_points.GetOutput()
+
+    fill_holes = vtk.vtkFillHolesFilter()
+    fill_holes.SetInputConnection(surface.GetOutputPort())
+    fill_holes.SetHoleSize(1000.0)  # Adjust hole size as needed
+    fill_holes.Update()
+
+
+    print(f"Number of points after cleaning: {surface.GetOutput().GetNumberOfPoints()}")
 
     stl_writer = vtk.vtkSTLWriter()
     stl_writer.SetFileName(str(pth_output))
-    stl_writer.SetInputData(structure_polydata)
+    stl_writer.SetInputConnection(fill_holes.GetOutputPort())
     stl_writer.Write()
 
 def get_slicer_color_by_name(name: str) -> List[int]:
