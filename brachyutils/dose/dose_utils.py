@@ -123,6 +123,8 @@ class BrachyDose:
                 self.load_from_nrrd(pth_dose_file)
             elif file_extension == ".dcm":
                 self.load_from_dicom(pth_dose_file)
+            elif file_extension == ".gz" or file_extension == ".nii":
+                self.load_from_nifti(pth_dose_file)
             elif file_extension == ".minidos":
                 raise NotImplementedError(
                     "loading dose from .minidos file is not currently supported"
@@ -387,6 +389,25 @@ class BrachyDose:
                 )
 
         self.voxel_edges = self.get_voxel_edges()
+
+    def load_from_nifti(self, pth_nifti: Path):
+        pth_nifti = Path(pth_nifti)
+        import nibabel as nib
+        dose_nifti = nib.load(str(pth_nifti))
+        orientation = "".join(nib.aff2axcodes(dose_nifti.affine))
+        dose_data = np.ascontiguousarray(dose_nifti.get_fdata())
+        origin = dose_nifti.affine[:3, 3]
+        spacing = dose_nifti.header.get("pixdim")[1:4]
+        
+        if orientation.endswith("I"):
+            dose_data = np.flip(dose_data, axis=2)
+        
+        self.dose_image = DoseImage(
+            imageArray=dose_data,
+            origin=origin,
+            spacing=spacing,
+        )
+        # self.voxel_edges = self.get_voxel_edges()
 
     def load_from_minidos(self, pth_minidos):
         r"""
