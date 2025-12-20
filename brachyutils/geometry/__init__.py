@@ -9,10 +9,11 @@ __all__ = [
     "CatheterTable",
     "get_uniform_phantom",
     "contour_to_stl",
+    "mask_to_stl",
 ]
 # trunk-ignore(ruff/F401)
 from .phantom_utils import BrachyPhantom
-from .phantom_utils import get_uniform_phantom, contour_to_stl
+from .phantom_utils import get_uniform_phantom, contour_to_stl, mask_to_stl
 
 # trunk-ignore(ruff/F401)
 from .egsphant_utils import BrachyEgsphant

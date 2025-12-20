@@ -1854,151 +1854,116 @@ def contour_to_stl(roi_contour: ROIContour, pth_output: Path) -> None:
         - pth_output: Path := the path to save the STL file.
     Outputs:
         - None
-    Dependencies:
+    :
     """
-    #raise NotImplementedError("STL export of contours from ROIContour is not implement yet.")
-    #vertices, faces
-    if not isinstance(roi_contour, ROIContour):
-        raise ValueError("The input roi_contour should be an instance of ROIContour.")
-    structure_polygon_mesh = roi_contour.polygonMesh #each slice has a (1D) list of coordinates [x1, y1, z1, x2, y2, z2]
-    #structure coordinates into a single list of points (tuples)
-    points_list : List[List[float, float, float]] = []
-    for i_slice, slice_points in enumerate(structure_polygon_mesh):
-        if i_slice == 0 or i_slice == len(structure_polygon_mesh) - 1:
-            pass
-            ## Create vtkPoints object properly
-            
-            #polygon_points = vtk.vtkPoints()
-            
-            #slice_polygon = vtk.vtkPolygon()
-            
-            #
-            
-            #n_points = len(slice_points) // 3
-            
-            #for i in range(0, len(slice_points), 3):
-            
-            #    point = [slice_points[i], slice_points[i+1], slice_points[i+2]]
-            
-            #    polygon_points.InsertNextPoint(point)
-            
-            #
-            
-            ## Properly set up the polygon with points and point IDs
-            
-            #slice_polygon.GetPointIds().SetNumberOfIds(n_points)
-            
-            #for i in range(n_points):
-            
-            #    slice_polygon.GetPointIds().SetId(i, i)
-            
-            #slice_polygon.GetPoints().DeepCopy(polygon_points)
-            
-            #
-            
-            ##generate 100 random points between the min and max coordinates in the slice
-            
-            #random_slice_points = np.random.uniform(low=[min(slice_points[::3]), min(slice_points[1::3]), min(slice_points[2::3])],
-            
-            #                                        high=[max(slice_points[::3]), max(slice_points[1::3]), max(slice_points[2::3])],
-            
-            #                                        size=(1000, 3)) 
-            
-            #
-            
-            ## Compute normal - it's a static method that takes points array
-            
-            #polygon_normal = [0.0, 0.0, 0.0]
-            
-            #vtk.vtkPolygon.ComputeNormal(polygon_points, polygon_normal)
-            
-            #
-            
-            ## Get bounds
-            
-            #bounds = polygon_points.GetBounds()
-            
-            #
-            
-            #for point in random_slice_points:
-            
-            #    # PointInPolygon expects: point, numPoints, points (as double array), bounds, normal
-            
-            #    if slice_polygon.PointInPolygon(point, n_points, polygon_points.GetData(), bounds, polygon_normal) >= 0:
-            
-            #        points_list.append(list(point))
-        for i in range(0, len(slice_points), 3):
-            point = [slice_points[i], slice_points[i+1], slice_points[i+2]]
-            points_list.append(point)
+    raise NotImplementedError("The implementation of this conversion from " \
+        "slicewise polygons of the contours to a 3D structured mesh is highly non-trivial." \
+        "Please use mask_to_stl instead.")
 
-    print(f"Total number of raw points: {len(points_list)}")
-    #randomly sample 1000 points from the list
-    import random
-    points_list = random.sample(points_list, min(1000, len(points_list)))
-    structure_points = vtk.vtkPoints()
-    for point in points_list:
-        structure_points.InsertNextPoint(point)
-
-    print(f"Total number of points before cleaning: {structure_points.GetNumberOfPoints()}")
-
-    structure_polydata = vtk.vtkPolyData()
-    structure_polydata.SetPoints(structure_points)
-
-    # Adapted from VTK ExtractSurface example
-    # Get bounds of the points
-    bounds = structure_polydata.GetBounds()
-    range_vals = [
-        bounds[1] - bounds[0],
-        bounds[3] - bounds[2],
-        bounds[5] - bounds[4]
-    ]
+def mask_to_stl(roi_mask: ROIMask, pth_output: Path) -> None:
+    r"""
+    Purpose:
+        - Convert an ROI mask to an STL file.
     
-    # Estimate normals using PCANormalEstimation
-    sample_size = max(10, int(structure_polydata.GetNumberOfPoints() * 0.00005))
-    normals = vtk.vtkPCANormalEstimation()
-    normals.SetInputData(structure_polydata)
-    normals.SetSampleSize(sample_size)
-    normals.SetNormalOrientationToGraphTraversal()
-    normals.FlipNormalsOn()
+    Inputs:
+        - roi_mask: ROIMask := The ROI mask object containing the 3D binary mask data to be converted.
+        - pth_output: Path := The output file path where the STL file will be saved.
     
-    # Create signed distance field
-    dimension = 256
-    radius = max(range_vals) / dimension * 8 # ~8 voxels
+    Outputs:
+        - None
+    """
+
+    # Note: Implementation is cannablized from PolySeg (https://github.com/PerkLab/PolySeg/)
+    if not isinstance(roi_mask, ROIMask):
+        raise ValueError("The input roi_mask should be an instance of ROIMask.")
     
-    distance = vtk.vtkSignedDistance()
-    distance.SetInputConnection(normals.GetOutputPort())
-    distance.SetRadius(radius)
-    distance.SetDimensions(dimension, dimension, dimension)
-    distance.SetBounds(
-        bounds[0] - range_vals[0] * 0.1, bounds[1] + range_vals[0] * 0.1,
-        bounds[2] - range_vals[1] * 0.1, bounds[3] + range_vals[1] * 0.1,
-        bounds[4] - range_vals[2] * 0.1, bounds[5] + range_vals[2] * 0.1
+    # Get mask data in [z, y, x] format for VTK
+    mask_array = roi_mask.imageArray.astype(np.uint8)
+    
+    # Create VTK image data
+    vtk_image = vtk.vtkImageData()
+    vtk_image.SetDimensions(mask_array.shape)
+    vtk_image.SetSpacing(roi_mask.spacing)
+    vtk_image.SetOrigin(roi_mask.origin)
+    vtk_image.GetPointData().SetScalars(vtk.util.numpy_support.numpy_to_vtk(
+        num_array=mask_array.ravel(order='F'),
+        deep=True,
+        array_type=vtk.VTK_UNSIGNED_CHAR,
+    ))
+
+    
+    # Pad the image if border voxels are non-zero to ensure closed surface
+    extent = vtk_image.GetExtent()
+    padder = vtk.vtkImageConstantPad()
+    padder.SetInputData(vtk_image)
+    padder.SetOutputWholeExtent(
+        extent[0] - 1, extent[1] + 1,
+        extent[2] - 1, extent[3] + 1,
+        extent[4] - 1, extent[5] + 1
     )
+    padder.SetConstant(0)
+    padder.Update()
+    vtk_image = padder.GetOutput()
     
-    # Extract surface
-    surface = vtk.vtkExtractSurface()
-    surface.SetInputConnection(distance.GetOutputPort())
-    surface.SetRadius(radius * 0.99)
-    surface.Update()
+    # Use Flying Edges (faster than marching cubes) or Marching Cubes for surface extraction
+    marching_cubes = vtk.vtkDiscreteFlyingEdges3D()
 
-    #clean_points = vtk.vtkCleanPolyData()
-    #clean_points.SetInputConnection(surface.GetOutputPort())
-    #clean_points.SetTolerance(0)
-    #clean_points.Update()
-    #structure_polydata = clean_points.GetOutput()
+    marching_cubes.SetInputData(vtk_image)
+    marching_cubes.SetValue(0, 1)  # Extract surface at label value 1
+    marching_cubes.ComputeGradientsOff()
+    marching_cubes.ComputeNormalsOff()
+    marching_cubes.Update()
+    
+    poly_data = marching_cubes.GetOutput()
+    
+    if poly_data.GetNumberOfPolys() == 0:
+        raise ValueError("No surface could be generated from the mask. The mask may be empty.")
+    
 
-    fill_holes = vtk.vtkFillHolesFilter()
-    fill_holes.SetInputConnection(surface.GetOutputPort())
-    fill_holes.SetHoleSize(1000.0)  # Adjust hole size as needed
-    fill_holes.Update()
+    print(f"Pre-filtration mesh quality: {poly_data.GetNumberOfPolys()} polygons")
+    i = 0
+    while poly_data.GetNumberOfPolys() > 10000 and i < 10:
+        print(f"Current mesh quality: {poly_data.GetNumberOfPolys()} polygons")
+        # Apply decimation (0.0 = no decimation, using minimal decimation)
+        decimation_factor = 0.5
+        if decimation_factor > 0.0:
+            decimator = vtk.vtkDecimatePro()
+            decimator.SetInputData(poly_data)
+            decimator.SetTargetReduction(decimation_factor)
+            decimator.SetFeatureAngle(60)
+            decimator.SplittingOff()
+            decimator.PreserveTopologyOn()
+            decimator.SetMaximumError(1.0)
+            decimator.Update()
+            poly_data = decimator.GetOutput()
+                
+        # Apply smoothing (0.5 = moderate smoothing)
+        smoothing_factor = 1.0
+        if smoothing_factor > 0:
+            smoother = vtk.vtkWindowedSincPolyDataFilter()
+            smoother.SetInputData(poly_data)
+            smoother.SetNumberOfIterations(50)
+            # Map smoothing factor to pass band: 0.0->1.0, 0.5->0.01, 1.0->0.001
+            pass_band = pow(10.0, -4.0 * smoothing_factor)
+            smoother.SetPassBand(pass_band)
+            smoother.BoundarySmoothingOn()
+            smoother.FeatureEdgeSmoothingOn()
+            smoother.NonManifoldSmoothingOn()
+            smoother.NormalizeCoordinatesOn()
+            smoother.Update()
+            poly_data = smoother.GetOutput()
+        print(f"Iter {i+1} post-smoothing mesh quality: {poly_data.GetNumberOfPolys()} polygons")
+        i += 1
+        
+    print(f"Final mesh quality: {poly_data.GetNumberOfPolys()} polygons")
+        
+    # Write to STL file
+    writer = vtk.vtkSTLWriter()
+    writer.SetFileName(str(pth_output))
+    writer.SetInputData(poly_data)
+    writer.Write()
 
 
-    print(f"Number of points after cleaning: {surface.GetOutput().GetNumberOfPoints()}")
-
-    stl_writer = vtk.vtkSTLWriter()
-    stl_writer.SetFileName(str(pth_output))
-    stl_writer.SetInputConnection(fill_holes.GetOutputPort())
-    stl_writer.Write()
 
 def get_slicer_color_by_name(name: str) -> List[int]:
     r"""
