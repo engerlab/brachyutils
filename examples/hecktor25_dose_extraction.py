@@ -18,10 +18,20 @@ if __name__ == "__main__":
         pth_structures_file=pth_seg,
     )
     # # for debugging
-    # phantom_obj.export_to(dir_nrrd_out=dir_test_export)
-    
+    phantom_obj.export_to(dir_nrrd_out=dir_test_export)
+    # }
+
     dose_obj = BrachyDose(
         pth_dose_file=pth_dose,
     )
-    # for debugging
-    dose_obj.write_brachydose_to_file(pth_dose_file=dir_test_export/"dose.seq.nrrd")
+    # # for debugging
+    dose_obj.write_brachydose_to_file(
+        pth_dose_file=dir_test_export/"dose.seq.nrrd")
+    
+    # # create a plan from phantom and dose
+    plan_obj = BrachyPlan(
+        phantom=phantom_obj,
+        combined_dose=dose_obj,
+        dvh_metric_goals=None,
+        prescription_dose=None,
+    )
