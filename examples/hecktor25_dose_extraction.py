@@ -1,5 +1,5 @@
 from pathlib import Path
-from brachyutils import BrachyDose, BrachyPlan, BrachyPhantom
+from brachyutils import BrachyDose, BrachyPlan, BrachyPhantom, Registration_OpenTPS
 
 if __name__ == "__main__":
     dir_test_export = Path("data_test/test_export_plan/hecktor")
@@ -9,19 +9,34 @@ if __name__ == "__main__":
     # dir_hecktor_nifti = dir_home / "Data/HECKTOR25/test/CHUM-001"
     dir_hecktor_nifti = dir_home / "Data/HECKTOR25/CTPlanning_RTDose/MDA-402"
     # # set the path to the Nifti files
-    pth_ct = dir_hecktor_nifti / (dir_hecktor_nifti.name + "__PlanningCT.nii.gz")
-    pth_seg = dir_hecktor_nifti / (dir_hecktor_nifti.name + "_seg.nii.gz")
-    pth_dose = dir_hecktor_nifti / (dir_hecktor_nifti.name + "__RTDOSE.nii.gz")
+    pth_ct_static = dir_hecktor_nifti / (dir_hecktor_nifti.name + "__PlanningCT.nii.gz")
+    pth_ct_moving = dir_hecktor_nifti / (dir_hecktor_nifti.name + "__CT.nii.gz")
+    pth_seg_moving = dir_hecktor_nifti / (dir_hecktor_nifti.name + "_seg.nii.gz")
+    pth_dose_static = dir_hecktor_nifti / (dir_hecktor_nifti.name + "__RTDOSE.nii.gz")
 
     # # load the CT and structures in the digital phantom object
-    phantom_obj = BrachyPhantom(
-        pth_phantom_file=pth_ct,
+    phantom_obj_static = BrachyPhantom(
+        pth_phantom_file=pth_ct_static,
         # pth_structures_file=pth_seg,
     )
     # # for debugging
-    phantom_obj.export_to(dir_nrrd_out=dir_test_export)
+    # phantom_obj_static.export_to(dir_nrrd_out=dir_test_export)
     # }
-
+    # registered the moving phantom to the static phantom
+    phantom_obj_moving = BrachyPhantom(
+        pth_phantom_file=pth_ct_moving,
+        pth_structures_file=pth_seg_moving,
+    )
+    reg_obj = Registration_OpenTPS(
+        static_phantom=phantom_obj_static,
+        moving_phantom=phantom_obj_moving,
+    )
+    phantom_registered = reg_obj.register()
+    # # for debugging {
+    phantom_registered.export_to(dir_nrrd_out=dir_test_export/"phantom_registered")
+    # }
+    
+    # # load the dose file
     # dose_obj = BrachyDose(
     #     pth_dose_file=pth_dose,
     # )
