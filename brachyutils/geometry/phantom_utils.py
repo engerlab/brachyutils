@@ -1128,7 +1128,19 @@ class BrachyPhantom:
         assert self.image_obj is not None, "No image object to convert orientation."
         assert self.anatomical_coordinate_system is not None, "Orientation is not set."
         if self.anatomical_coordinate_system == "LAS":
-            raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
+            pass
+            # raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
+            image_array = self.get_image_array()
+            image_array = np.flip(image_array, axis=1)
+            self.set_image_array(image_array)
+            # self.image_obj.spacing = self.image_obj.spacing * np.array([1, -1, 1])
+            self.image_obj.origin = self.image_obj.origin * np.array([-1, 1, 1])
+            # self.image_obj.origin = np.array([
+            #     self.image_obj.origin[0],
+            #     self.image_obj.origin[1] + (self.image_obj.gridSizeInWorldUnit[1] - self.image_obj.spacing[1]),
+            #     self.image_obj.origin[2],
+            # ])
+            self.anatomical_coordinate_system = "LPS"
         elif self.anatomical_coordinate_system == "RAS":
             # # flipping the image array allows the registration and segmentation to work.
             # # the image is shown correctly in 3D slicer, but the coordinates wont match
