@@ -591,7 +591,7 @@ class BrachyEgsphant:
             [0.0, self.density_image.spacing[1], 0.0],
             [0.0, 0.0, self.density_image.spacing[2]],
         ]
-        header["kinds"] = ["2-vector", "space", "space", "space"]
+        header["kinds"] = ["list", "space", "space", "space"]
         header["labels"] = ["", "x", "y", "z"]
         header["endian"] = "little"
         header["encoding"] = "gzip"
