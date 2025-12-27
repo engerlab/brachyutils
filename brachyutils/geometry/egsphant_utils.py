@@ -281,10 +281,12 @@ class BrachyEgsphant:
             self.unit_length = "mm"
             # Extract material density from the density matrix and update the material dictionary
             for material in self.material_dict:
-                encoding = int(self.material_dict[material]["encoding"])
+                encoding_int = BrachyEgsphant._materials_encoding_array.index(
+                    self.material_dict[material]["encoding"]
+                )
                 density = np.unique(
                     self.density_image.imageArray[
-                        self.material_image.imageArray == encoding-1
+                        self.material_image.imageArray == encoding_int-1
                     ]
                 )
                 density = density.min() if len(density) != 0 else 0
@@ -601,7 +603,9 @@ class BrachyEgsphant:
         header = header | {
             "material_dict": {
             material: {
-                "encoding": int(self.material_dict.get(material).get("encoding")),
+                "encoding": BrachyEgsphant._materials_encoding_array.index(
+                    self.material_dict[material].get("encoding")
+                ),
                 "density": float(self.material_dict.get(material).get("density")),
                 "HU_limit": (
                 float(self.material_dict.get(material).get("HU_limit"))
