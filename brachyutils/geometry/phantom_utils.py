@@ -1116,50 +1116,6 @@ class BrachyPhantom:
         else:
             warnings.warn(f"The structure {structure_name} does not exist.")
 
-    def _convert_orientation_to_LPS(self) -> None:
-        r"""
-        Purpose:
-            - Convert the orientation of the image from what ever it is to LPS.
-        Inputs:
-            - None
-        Outputs:
-            - None
-        """
-        # raise DeprecationWarning("This function is deprecated. converting to LPS is done when loading from each file type.")
-        assert self.image_obj is not None, "No image object to convert orientation."
-        assert self.anatomical_coordinate_system is not None, "Orientation is not set."
-        if self.anatomical_coordinate_system == "LAS":
-            # pass
-            # raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
-            image_array = self.get_image_array()
-            image_array = np.flip(image_array, axis=1)
-            self.set_image_array(image_array)
-            self.image_obj.origin = np.array([
-                self.image_obj.origin[0],
-                # -1 * self.image_obj.origin[0],
-                # self.image_obj.origin[1],
-                -1* (self.image_obj.origin[1] + (self.image_obj.gridSizeInWorldUnit[1] - self.image_obj.spacing[1])),
-                self.image_obj.origin[2],
-            ])
-            self.anatomical_coordinate_system = "LPS"
-        elif self.anatomical_coordinate_system == "RAS":
-            # # flipping the image array allows the registration and segmentation to work.
-            # # the image is shown correctly in 3D slicer, but the coordinates wont match
-            # # the coordinates in the Nifti file.
-            image_array = self.get_image_array()
-            image_array = np.flip(image_array, axis=1)
-            image_array = np.flip(image_array, axis=2)
-            self.set_image_array(image_array)
-            # # negating the x and y origin and spacing allows the image to be 
-            # # displayed in the correct orientation in 3D slicer.
-            # self.image_obj.origin = self.image_obj.origin * np.array([-1, -1, 1])
-            # self.image_obj.spacing = self.image_obj.spacing * np.array([-1, -1, 1])
-            self.anatomical_coordinate_system = "LPS"
-        elif self.anatomical_coordinate_system == "LPS":
-            pass
-        else:
-            raise ValueError("The orientation is not recognized. please leave an issue on github.")
-
     def resample_to(
         self,
         origin:np.array=None,
