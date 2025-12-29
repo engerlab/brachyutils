@@ -1522,8 +1522,12 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     if structure_nifti.header.data_layout == "F":
         structure_data = np.swapaxes(structure_data, 0, 2)
     origin = structure_nifti.affine[:3, 3]
-    spacing = structure_nifti.header.get("pixdim")[1:4]
-
+    spacing = structure_nifti.header.get("pixdim")[1:4]    
+    origin = origin * [
+    np.sign(structure_nifti.affine[0][0]),
+    np.sign(structure_nifti.affine[1][1]),
+    np.sign(structure_nifti.affine[2][2]),
+    ]
     # God knows what is the name of the structures in the nifti files
     # I will just number them and hope for the best
     n_dim = structure_data.ndim
@@ -1551,8 +1555,12 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
         # spacing = spacing * np.array([-1, -1, 1])
     elif orientation == "LAS":
         structure_data = np.flip(structure_data, axis=1)
-        # origin = origin * np.array([1, -1, 1])
-        # spacing = spacing * np.array([1, -1, 1])
+        origin = np.array([
+            origin[0],
+            -1* (origin[1] + (structure_data.shape[1] -1) * spacing[1]),
+            origin[2],
+        ])
+
     elif orientation == "LPS":
         pass
     else:
