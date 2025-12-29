@@ -398,9 +398,13 @@ class BrachyDose:
         dose_data = np.ascontiguousarray(dose_nifti.get_fdata())
         origin = dose_nifti.affine[:3, 3]
         spacing = dose_nifti.header.get("pixdim")[1:4]
-        
-        if orientation.endswith("I"):
-            dose_data = np.flip(dose_data, axis=2)
+        origin = np.array([
+            origin[0] * np.sign(dose_nifti.affine[0][0]),
+            origin[1] * np.sign(dose_nifti.affine[1][1]),
+            origin[2] * np.sign(dose_nifti.affine[2][2]),
+        ])
+        # if orientation.endswith("I"):
+        #     dose_data = np.flip(dose_data, axis=2)
         
         self.dose_image = DoseImage(
             imageArray=dose_data,
