@@ -1494,7 +1494,8 @@ def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
                 origin=origin,
                 spacing=spacing,
                 name=name,
-            ).to_lps(current_orientation=orientation)
+            )
+            roi_mask.to_lps(current_orientation=orientation)
             structure_mask_dict[name] = roi_mask
             i += 1
     return structure_mask_dict, "LPS"
@@ -1564,7 +1565,8 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
             origin=origin,
             spacing=spacing,
             name=segment_name,
-        ).to_lps(current_orientation=orientation)
+        )
+        roi_mask.to_lps(current_orientation=orientation)
         structure_mask_dict[segment_name] = roi_mask
         # del segment_mask
     return structure_mask_dict, "LPS"

@@ -316,7 +316,8 @@ class BrachyDose:
 
         voxel_size = affine.diagonal()
         origin_coordinates = np.array(header.get("space origin")).astype(np.float32)
-
+        orientation = header.get("space").split("-")
+        orientation = "".join([char[0].upper() for char in orientation])
         self.dose_image = DoseImage(
             # imageArray=np.swapaxes(dose_array, 0, 2),
             origin=origin_coordinates,
@@ -334,6 +335,7 @@ class BrachyDose:
         )
         if self.uncertainty_image is not None:
             self.set_uncertainty_array(uncertainty_array)
+        self.dose_image.to_lps(current_orientation=orientation)
         self.voxel_edges = self.get_voxel_edges()
 
     def load_from_npz(self, pth_npz: Path) -> None:
@@ -403,14 +405,12 @@ class BrachyDose:
             origin[1] * np.sign(dose_nifti.affine[1][1]),
             origin[2] * np.sign(dose_nifti.affine[2][2]),
         ])
-        # if orientation.endswith("I"):
-        #     dose_data = np.flip(dose_data, axis=2)
-
         self.dose_image = DoseImage(
             imageArray=dose_data,
             origin=origin,
             spacing=spacing,
         )
+        self.dose_image.to_lps(current_orientation=orientation)
         # self.voxel_edges = self.get_voxel_edges()
 
     def load_from_minidos(self, pth_minidos):

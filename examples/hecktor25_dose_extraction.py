@@ -26,15 +26,15 @@ if __name__ == "__main__":
     # print("breaking point")
     # # }
     # registered the moving phantom to the static phantom
-    phantom_obj_moving = BrachyPhantom(
-        pth_phantom_file=pth_ct_moving,
-        pth_structures_file=pth_seg_moving,
-    )
-    # # for debugging {
-    phantom_obj_moving.export_to(
-        dir_nrrd_out=dir_test_export
-        )
-    # }
+    # phantom_obj_moving = BrachyPhantom(
+    #     pth_phantom_file=pth_ct_moving,
+    #     pth_structures_file=pth_seg_moving,
+    # )
+    # # # for debugging {
+    # phantom_obj_moving.export_to(
+    #     dir_nrrd_out=dir_test_export
+    #     )
+    # # }
     # exported_phantom_moving = BrachyPhantom(
     # reg_obj = Registration_OpenTPS(
     #     static_phantom=phantom_obj_static,
@@ -46,13 +46,17 @@ if __name__ == "__main__":
     # }
     
     # # load the dose file
-    # dose_obj = BrachyDose(
-    #     pth_dose_file=pth_dose,
-    # )
-    # # for debugging
-    # dose_obj.write_brachydose_to_file(
-    #     pth_dose_file=dir_test_export/"dose.seq.nrrd")
-    
+    dose_obj = BrachyDose(
+        pth_dose_file=pth_dose_static,
+    )
+    # # for debugging{
+    dose_obj.write_brachydose_to_file(
+        pth_dose_file=dir_test_export/"dose.seq.nrrd"
+        )
+    test_dose_obj = BrachyDose(
+        pth_dose_file=dir_test_export/"dose.seq.nrrd"
+    )
+    # # }
     # # create a plan from phantom and dose
     # plan_obj = BrachyPlan(
     #     phantom=phantom_obj,
