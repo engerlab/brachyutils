@@ -123,6 +123,8 @@ class BrachyDose:
                 self.load_from_nrrd(pth_dose_file)
             elif file_extension == ".dcm":
                 self.load_from_dicom(pth_dose_file)
+            elif file_extension == ".gz" or file_extension == ".nii":
+                self.load_from_nifti(pth_dose_file)
             elif file_extension == ".minidos":
                 raise NotImplementedError(
                     "loading dose from .minidos file is not currently supported"
@@ -314,7 +316,8 @@ class BrachyDose:
 
         voxel_size = affine.diagonal()
         origin_coordinates = np.array(header.get("space origin")).astype(np.float32)
-
+        orientation = header.get("space").split("-")
+        orientation = "".join([char[0].upper() for char in orientation])
         self.dose_image = DoseImage(
             # imageArray=np.swapaxes(dose_array, 0, 2),
             origin=origin_coordinates,
@@ -332,6 +335,7 @@ class BrachyDose:
         )
         if self.uncertainty_image is not None:
             self.set_uncertainty_array(uncertainty_array)
+        self.dose_image.to_lps(current_orientation=orientation)
         self.voxel_edges = self.get_voxel_edges()
 
     def load_from_npz(self, pth_npz: Path) -> None:
@@ -387,6 +391,27 @@ class BrachyDose:
                 )
 
         self.voxel_edges = self.get_voxel_edges()
+
+    def load_from_nifti(self, pth_nifti: Path):
+        pth_nifti = Path(pth_nifti)
+        import nibabel as nib
+        dose_nifti = nib.load(str(pth_nifti))
+        orientation = "".join(nib.aff2axcodes(dose_nifti.affine))
+        dose_data = np.ascontiguousarray(dose_nifti.get_fdata())
+        origin = dose_nifti.affine[:3, 3]
+        spacing = dose_nifti.header.get("pixdim")[1:4]
+        origin = np.array([
+            origin[0] * np.sign(dose_nifti.affine[0][0]),
+            origin[1] * np.sign(dose_nifti.affine[1][1]),
+            origin[2] * np.sign(dose_nifti.affine[2][2]),
+        ])
+        self.dose_image = DoseImage(
+            imageArray=dose_data,
+            origin=origin,
+            spacing=spacing,
+        )
+        self.dose_image.to_lps(current_orientation=orientation)
+        # self.voxel_edges = self.get_voxel_edges()
 
     def load_from_minidos(self, pth_minidos):
         r"""
