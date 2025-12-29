@@ -405,7 +405,7 @@ class BrachyDose:
         ])
         # if orientation.endswith("I"):
         #     dose_data = np.flip(dose_data, axis=2)
-        
+
         self.dose_image = DoseImage(
             imageArray=dose_data,
             origin=origin,

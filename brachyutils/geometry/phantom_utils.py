@@ -26,8 +26,6 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
     writeDicomCT,
     writeRTStruct,
 )
-import vtk
-# from vtk.util import numpy_support
 
 import json
 from pathlib import Path
@@ -131,8 +129,6 @@ class BrachyPhantom:
             #     "No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file."
             # )
             warnings.warn("No geometry source file provided. Creating an empty Phantom", stacklevel=2)
-        if self.image_obj is not None:
-            self._convert_orientation_to_LPS()
 
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)
@@ -238,8 +234,6 @@ class BrachyPhantom:
                 char_list.append("I")
             orientation = "".join(char_list)
 
-        self.anatomical_coordinate_system = orientation
-
         modality = header.get("modality", "unknown")
         if modality == "unknown":
             if "ct" in pth_image.name.lower():
@@ -256,6 +250,8 @@ class BrachyPhantom:
             spacing=spacing,
         )
         self.set_image_array(image_nrrd)
+        self.image_obj.to_lps(current_orientation=orientation)
+        self.anatomical_coordinate_system = "LPS"
         self.image_modality = modality
 
     def _load_nifti_image_file(self, pth_image: Path) -> None:
@@ -301,12 +297,13 @@ class BrachyPhantom:
             else:
                 warnings.warn("The modality of the image is not recognized.")
 
-        self.anatomical_coordinate_system = orientation
         self.image_obj = Image3D(
             origin=origin,
             spacing=spacing,
         )
         self.set_image_array(image_data)
+        self.image_obj.to_lps(current_orientation=orientation)
+        self.anatomical_coordinate_system = "LPS"
 
     def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
@@ -1497,10 +1494,10 @@ def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
                 origin=origin,
                 spacing=spacing,
                 name=name,
-            )
+            ).to_lps(current_orientation=orientation)
             structure_mask_dict[name] = roi_mask
             i += 1
-    return structure_mask_dict, orientation
+    return structure_mask_dict, "LPS"
 
 def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     r"""
@@ -1539,33 +1536,6 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
         # encoded by value. zero is ignored.
         num_structures = len(np.unique(structure_data))-1
 
-    # flip the origina and spacing if the orientation is not LPS:
-    # this worked for the messed up protate mri images from the micro-registration
-    # challenge. however, be careful with it on a new Nifti images. please
-    # do not modify the file writers.
-    if orientation == "RAS":
-        structure_data = np.flip(structure_data, axis=[1, 2])
-        # # either flip the mask on x and y axis or negating the origin and spacing. not both.
-        # # flipping allows spacing and origin to be positive, which is required by SITK and correct
-        # # display in 3D slicer.
-        # # negating allows for correct display in 3D slicer and the coordinates will match what
-        # # slicer shows when you load the original Nifti files. However, registration and segmentation
-        # # will not work correctly.
-        # origin = origin * np.array([-1, -1, 1])
-        # spacing = spacing * np.array([-1, -1, 1])
-    elif orientation == "LAS":
-        structure_data = np.flip(structure_data, axis=1)
-        origin = np.array([
-            origin[0],
-            -1* (origin[1] + (structure_data.shape[1] -1) * spacing[1]),
-            origin[2],
-        ])
-
-    elif orientation == "LPS":
-        pass
-    else:
-        raise ValueError("The orientation of the segmentation is not recognized.")
-
     structure_mask_dict: Dict[str, ROIMask] = {}
     for i in range(num_structures):
         # generate segment labels
@@ -1594,7 +1564,7 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
             origin=origin,
             spacing=spacing,
             name=segment_name,
-        )
+        ).to_lps(current_orientation=orientation)
         structure_mask_dict[segment_name] = roi_mask
         # del segment_mask
     return structure_mask_dict, "LPS"

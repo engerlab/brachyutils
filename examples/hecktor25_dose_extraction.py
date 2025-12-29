@@ -24,7 +24,7 @@ if __name__ == "__main__":
     #     pth_phantom_file=dir_test_export / (dir_hecktor_nifti.name + "__PlanningCT.nrrd")
     # )
     # print("breaking point")
-    # }
+    # # }
     # registered the moving phantom to the static phantom
     phantom_obj_moving = BrachyPhantom(
         pth_phantom_file=pth_ct_moving,
