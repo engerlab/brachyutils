@@ -277,7 +277,11 @@ class BrachyPhantom:
         image_data = np.ascontiguousarray(image_nifti.get_fdata())
         origin = image_nifti.affine[:3, 3]
         spacing = image_nifti.header.get("pixdim")[1:4]
-
+        origin = origin * [
+            np.sign(image_nifti.affine[0][0]),
+            np.sign(image_nifti.affine[1][1]),
+            np.sign(image_nifti.affine[2][2]),
+        ]
         if image_data.ndim == 4:
             image_data = image_data[:, :, :, 0]
         if image_nifti.header.data_layout == "F":
@@ -590,7 +594,7 @@ class BrachyPhantom:
         imageToNrrd(
             image_obj=self.image_obj,
             pth_output=Path(pth_output),
-            anatomical_coordinate_system=self.anatomical_coordinate_system,
+            # anatomical_coordinate_system=self.anatomical_coordinate_system,
             modality=self.image_modality,
             metadata=metadata,
         )
@@ -1128,18 +1132,20 @@ class BrachyPhantom:
         assert self.image_obj is not None, "No image object to convert orientation."
         assert self.anatomical_coordinate_system is not None, "Orientation is not set."
         if self.anatomical_coordinate_system == "LAS":
-            pass
+            # pass
             # raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
-            image_array = self.get_image_array()
-            image_array = np.flip(image_array, axis=1)
-            self.set_image_array(image_array)
+            # image_array = self.get_image_array()
+            # image_array = np.flip(image_array, axis=1)
+            # self.set_image_array(image_array)
             # self.image_obj.spacing = self.image_obj.spacing * np.array([1, -1, 1])
-            self.image_obj.origin = self.image_obj.origin * np.array([-1, 1, 1])
-            # self.image_obj.origin = np.array([
-            #     self.image_obj.origin[0],
-            #     self.image_obj.origin[1] + (self.image_obj.gridSizeInWorldUnit[1] - self.image_obj.spacing[1]),
-            #     self.image_obj.origin[2],
-            # ])
+            # self.image_obj.origin = self.image_obj.origin * np.array([-1, 1, 1])
+            self.image_obj.origin = np.array([
+                self.image_obj.origin[0],
+                # -1 * self.image_obj.origin[0],
+                self.image_obj.origin[1],
+                # -1* (self.image_obj.origin[1] + (self.image_obj.gridSizeInWorldUnit[1] - self.image_obj.spacing[1])),
+                self.image_obj.origin[2],
+            ])
             self.anatomical_coordinate_system = "LPS"
         elif self.anatomical_coordinate_system == "RAS":
             # # flipping the image array allows the registration and segmentation to work.
@@ -1683,7 +1689,7 @@ def generate_sphere_mask(
 def imageToNrrd(
     image_obj: Image3D,
     pth_output: Path,
-    anatomical_coordinate_system: str = "LPS",
+    anatomical_coordinate_system: str = "left-posterior-superior",
     modality: str = "N/A",
     metadata: Optional[Dict[str, str]] = None,
     ) -> None:
