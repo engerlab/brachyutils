@@ -1134,16 +1134,14 @@ class BrachyPhantom:
         if self.anatomical_coordinate_system == "LAS":
             # pass
             # raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
-            # image_array = self.get_image_array()
-            # image_array = np.flip(image_array, axis=1)
-            # self.set_image_array(image_array)
-            # self.image_obj.spacing = self.image_obj.spacing * np.array([1, -1, 1])
-            # self.image_obj.origin = self.image_obj.origin * np.array([-1, 1, 1])
+            image_array = self.get_image_array()
+            image_array = np.flip(image_array, axis=1)
+            self.set_image_array(image_array)
             self.image_obj.origin = np.array([
                 self.image_obj.origin[0],
                 # -1 * self.image_obj.origin[0],
-                self.image_obj.origin[1],
-                # -1* (self.image_obj.origin[1] + (self.image_obj.gridSizeInWorldUnit[1] - self.image_obj.spacing[1])),
+                # self.image_obj.origin[1],
+                -1* (self.image_obj.origin[1] + (self.image_obj.gridSizeInWorldUnit[1] - self.image_obj.spacing[1])),
                 self.image_obj.origin[2],
             ])
             self.anatomical_coordinate_system = "LPS"
