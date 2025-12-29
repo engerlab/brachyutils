@@ -15,26 +15,26 @@ if __name__ == "__main__":
     pth_dose_static = dir_hecktor_nifti / (dir_hecktor_nifti.name + "__RTDOSE.nii.gz")
 
     # # load the CT and structures in the digital phantom object
-    # phantom_obj_static = BrachyPhantom(
-    #     pth_phantom_file=pth_ct_static,
-    # )
+    phantom_obj_static = BrachyPhantom(
+        pth_phantom_file=pth_ct_static,
+    )
     # # for debugging
-    # phantom_obj_static.export_to(dir_nrrd_out=dir_test_export)
-    # exported_phantom = BrachyPhantom(
-    #     pth_phantom_file=dir_test_export / (dir_hecktor_nifti.name + "__PlanningCT.nrrd")
-    # )
+    phantom_obj_static.export_to(dir_nrrd_out=dir_test_export)
+    exported_phantom = BrachyPhantom(
+        pth_phantom_file=dir_test_export / (dir_hecktor_nifti.name + "__PlanningCT.nrrd")
+    )
     # print("breaking point")
     # # }
     # registered the moving phantom to the static phantom
-    # phantom_obj_moving = BrachyPhantom(
-    #     pth_phantom_file=pth_ct_moving,
-    #     pth_structures_file=pth_seg_moving,
-    # )
-    # # # for debugging {
-    # phantom_obj_moving.export_to(
-    #     dir_nrrd_out=dir_test_export
-    #     )
-    # # }
+    phantom_obj_moving = BrachyPhantom(
+        pth_phantom_file=pth_ct_moving,
+        pth_structures_file=pth_seg_moving,
+    )
+    # # for debugging {
+    phantom_obj_moving.export_to(
+        dir_nrrd_out=dir_test_export
+        )
+    # }
     # exported_phantom_moving = BrachyPhantom(
     # reg_obj = Registration_OpenTPS(
     #     static_phantom=phantom_obj_static,
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     # # # for debugging {
     # phantom_registered.export_to(dir_nrrd_out=dir_test_export/"phantom_registered")
     # }
-    
+
     # # load the dose file
     dose_obj = BrachyDose(
         pth_dose_file=pth_dose_static,
