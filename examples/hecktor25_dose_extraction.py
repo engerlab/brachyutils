@@ -18,7 +18,7 @@ if __name__ == "__main__":
     phantom_obj_static = BrachyPhantom(
         pth_phantom_file=pth_ct_static,
     )
-    # # for debugging
+    # for debugging {
     phantom_obj_static.export_to(dir_nrrd_out=dir_test_export)
     exported_phantom = BrachyPhantom(
         pth_phantom_file=dir_test_export / (dir_hecktor_nifti.name + "__PlanningCT.nrrd")
@@ -30,32 +30,42 @@ if __name__ == "__main__":
         pth_phantom_file=pth_ct_moving,
         pth_structures_file=pth_seg_moving,
     )
-    # # for debugging {
+    # for debugging {
     phantom_obj_moving.export_to(
         dir_nrrd_out=dir_test_export
         )
     # }
-    # exported_phantom_moving = BrachyPhantom(
+    
+    # # # crop the static phantom to match the coordinates of moving phantom grid
+    # from opentps.core.processing.imageProcessing.resampler3D import crop3DDataAroundBox
+    # phantom_obj_moving.image_obj.getPositionFromVoxelIndex()
+    # # # for debugging {
+    # phantom_obj_moving.export_to(
+    #     dir_nrrd_out=dir_test_export/"phantom_moving_resampled"
+    #     )
+    # # # }
+
     # reg_obj = Registration_OpenTPS(
     #     static_phantom=phantom_obj_static,
     #     moving_phantom=phantom_obj_moving,
     # )
-    # phantom_registered = reg_obj.register()
+    # phantom_registered, _ = reg_obj.register()
     # # # for debugging {
     # phantom_registered.export_to(dir_nrrd_out=dir_test_export/"phantom_registered")
-    # }
+    # print("debug here")
+    # # }
 
     # # load the dose file
-    dose_obj = BrachyDose(
-        pth_dose_file=pth_dose_static,
-    )
-    # # for debugging{
-    dose_obj.write_brachydose_to_file(
-        pth_dose_file=dir_test_export/"dose.seq.nrrd"
-        )
-    test_dose_obj = BrachyDose(
-        pth_dose_file=dir_test_export/"dose.seq.nrrd"
-    )
+    # dose_obj = BrachyDose(
+    #     pth_dose_file=pth_dose_static,
+    # )
+    # # # for debugging{
+    # dose_obj.write_brachydose_to_file(
+    #     pth_dose_file=dir_test_export/"dose.seq.nrrd"
+    #     )
+    # test_dose_obj = BrachyDose(
+    #     pth_dose_file=dir_test_export/"dose.seq.nrrd"
+    # )
     # # }
     # # create a plan from phantom and dose
     # plan_obj = BrachyPlan(
