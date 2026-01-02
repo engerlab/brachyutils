@@ -419,7 +419,14 @@ class CatheterTable(BaseModel):
     r"""
     ### Purpose:
     - This class holds the information regarding the catheter table.
-
+    catheter table could be created from multiple sources:
+        1. from a dicom file
+            1.1. from the delivered dwell positions
+            1.2. from the digitization points
+        2. from a list of catheter dictionaries
+        3. from a json file
+        4. from a CatheterSetUp object XXX clean this
+        5. from a CreatedSetUp object XXX clean this
     ### Attributes:
     - catheter_list : List[Catheter] := the list of catheter objects in the catheter table.
     - step_size: float := the step size in mm between the dwell positions on the catheter table.
@@ -443,7 +450,7 @@ class CatheterTable(BaseModel):
     step_size: float = 5.0
     # brachy_source:Any = None
     delivered_dwell_coordinates: Dict[str, List[List[float]]] = None
-    delivered_catheter_table: bool = False
+    from_delivered_dwellpositions: bool = False
 
     @computed_field
     def treatment_time(self) -> float:
@@ -509,16 +516,23 @@ class CatheterTable(BaseModel):
 
             if str(catheter_file).endswith(".json"):
                 cat_dict = self.load_from_json(catheter_file)
-            elif str(catheter_file).endswith(".dcm") and not self.delivered_catheter_table:
-                cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file)
-                if delivered_dwell_coordinates is not None:
-                    self.delivered_dwell_coordinates = delivered_dwell_coordinates
-            elif str(catheter_file).endswith(".dcm") and self.delivered_catheter_table:
-                cat_dict = load_delivered_cathetertable_from_dicom(pth_dicom=catheter_file)
-            elif catheter_file.is_dir():
-                cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
-                if delivered_dwell_coordinates is not None:
-                    self.delivered_dwell_coordinates = delivered_dwell_coordinates
+            elif str(catheter_file).endswith(".dcm"):
+                cat_dict = self.load_from_dicom(
+                    pth_dicom=catheter_file,
+                    
+                )
+            
+            # XXX delete this elif str(catheter_file).endswith(".dcm") and not self.from_delivered_dwellpositions:
+            #     cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file)
+            #     if delivered_dwell_coordinates is not None:
+            #         self.delivered_dwell_coordinates = delivered_dwell_coordinates
+            # elif str(catheter_file).endswith(".dcm") and self.from_delivered_dwellpositions:
+            #     cat_dict = load_delivered_cathetertable_from_dicom(pth_dicom=catheter_file)
+
+            # XXX delete this: elif catheter_file.is_dir():
+            #     cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
+            #     if delivered_dwell_coordinates is not None:
+            #         self.delivered_dwell_coordinates = delivered_dwell_coordinates
 
             self.catheter_list = cat_dict["catheter_list"]
             self.step_size = cat_dict["step_size"]
@@ -627,7 +641,7 @@ class CatheterTable(BaseModel):
             remove_text=kwargs.get("remove_text", True),
         )
 
-    def get_delivered_catheter_table(self) -> "CatheterTable":
+    def get_from_delivered_dwellpositions(self) -> "CatheterTable":
         r"""
         ### Purpose:
         - To get the catheter table with the dwell positions that were used for the treatment.
@@ -637,7 +651,7 @@ class CatheterTable(BaseModel):
         list of dwell position coordinates [x, y, z] that had non zero dwell time in 
         the catheter table.
         ### Output:
-        - delivered_catheter_table: CatheterTable := a catheter table where all the dwell positions
+        - from_delivered_dwellpositions: CatheterTable := a catheter table where all the dwell positions
         were used in the clinic.
         """
         if self.delivered_dwell_coordinates is None:
@@ -731,7 +745,7 @@ class CatheterTable(BaseModel):
     def load_from_dicom(
         cls,
         pth_dicom: Path,
-        delivered_catheter_table: bool = False,
+        from_delivered_dwellpositions: bool = False,
         ) -> Tuple[Dict, Dict]:
         r"""
         ### Purpose:

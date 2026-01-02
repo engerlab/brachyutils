@@ -86,7 +86,7 @@ class BrachyPlan:
         strict_name_match: bool = True,
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
-        delivered_catheter_table: bool = False,
+        from_delivered_dwellpositions: bool = False,
         applicator_pth_list: Union[Path, str, list] = None,
         applicator_format: Literal["RapidBrachy", "WebApp"] = None,
         #### for loading dose or uncertainty:
@@ -118,7 +118,7 @@ class BrachyPlan:
 
         #### for loading catheter table and applicators:
         - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
-        delivered_catheter_table: bool = True := If true, only the subset of dwell positions that had
+        from_delivered_dwellpositions: bool = True := If true, only the subset of dwell positions that had
         none zero dwell times in the DICOM plan file will be loaded. If false, all the dwell positions
         from the digitization points will be loaded.
         - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
@@ -221,7 +221,7 @@ class BrachyPlan:
             if isinstance(catheter_table, (str, Path)):
                 self.catheter_table = CatheterTable(
                     catheter_list=catheter_table,
-                    delivered_catheter_table=delivered_catheter_table
+                    from_delivered_dwellpositions=from_delivered_dwellpositions
                     )
             elif isinstance(catheter_table, CatheterTable):
                 self.catheter_table = catheter_table
