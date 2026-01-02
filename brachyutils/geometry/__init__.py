@@ -4,6 +4,9 @@ __all__ = [
     "BrachyPhantomRegistration",
     "BrachyEgsphant",
     "_load_json",
+    "DwellPosition",
+    "Catheter",
+    "CatheterTable",
     "get_uniform_phantom",
 ]
 # trunk-ignore(ruff/F401)
@@ -18,6 +21,7 @@ from .egsphant_utils import _load_json
 from .applicator_utils import BrachyApplicator
 
 # trunk-ignore(ruff/F401)
-from .registration_utils import BrachyPhantomRegistration
+from .catheter_utils import DwellPosition, Catheter, CatheterTable
 
-from .catheter_utils import *
+# trunk-ignore(ruff/F401)
+from .registration_utils import BrachyPhantomRegistration
