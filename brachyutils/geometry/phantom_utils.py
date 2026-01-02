@@ -1954,6 +1954,17 @@ def mask_to_stl(roi_mask: ROIMask, pth_output: Path) -> None:
             poly_data = smoother.GetOutput()
         print(f"Iter {i+1} post-smoothing mesh quality: {poly_data.GetNumberOfPolys()} polygons")
         i += 1
+
+    #clean the mesh
+    cleaner = vtk.vtkCleanPolyData()
+    cleaner.SetInputData(poly_data)
+    cleaner.SetTolerance(1e-3)
+    cleaner.SetPointMerging(True)
+    cleaner.SetConvertLinesToPoints(True)
+    cleaner.SetConvertPolysToLines(True)
+    cleaner.SetConvertStripsToPolys(True)
+    cleaner.Update()
+    poly_data = cleaner.GetOutput()
         
     print(f"Final mesh quality: {poly_data.GetNumberOfPolys()} polygons")
         
@@ -1962,6 +1973,8 @@ def mask_to_stl(roi_mask: ROIMask, pth_output: Path) -> None:
     writer.SetFileName(str(pth_output))
     writer.SetInputData(poly_data)
     writer.Write()
+
+    print(f"STL file saved to {pth_output}")
 
 
 
