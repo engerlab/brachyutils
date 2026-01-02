@@ -11,8 +11,10 @@ from brachyutils.geometry.phantom_utils import BrachyPhantom
 
 from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
 from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
-from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position, CatheterSetUp, dilate_mask_in_mm
-from ai_assisted_brachy.catheter.catheter_api import (
+from brachyutils.geometry.catheter_utils.catheter_setup import (
+    get_rotation_from_position, CatheterSetUp, dilate_mask_in_mm
+)
+from catheter_api import (
     dicom_to_catheter_table, _update_catheter_table, CreatedSetUp
 )
 
@@ -726,26 +728,24 @@ class CatheterTable(BaseModel):
                 }
 
     @classmethod
-    def load_from_dicom(cls, pth_dicom: Path, from_ct: bool = False) -> Tuple[Dict, Dict]:
+    def load_from_dicom(
+        cls,
+        pth_dicom: Path,
+        delivered_catheter_table: bool = False,
+        ) -> Tuple[Dict, Dict]:
         r"""
         ### Purpose:
         - Load the catheter table from a dicom file.
 
         ### Inputs:
         - pth_dicom: Path := the path to the dicom file containing the catheter table.
-        - from_ct: bool = False := if True, catheters will be contoured on CT images, then digitized.
 
         ### Outputs:
         - catheter_table_dict := the dictionary containing the catheter table.
         - delivered_dwell_coordinates := maps "Needle_#" to the list of dwell position coordinates
         that were used to deliver a plan.
         """
-        if from_ct:
-            phantom = BrachyPhantom(dir_dicom=pth_dicom)
-            catheter_table_dict = cls.load_from_phantom(image=phantom)
-            catheter_setup = None
-        else:
-            catheter_table_dict, catheter_setup = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+        catheter_table_dict, catheter_setup = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
 
         if catheter_setup is not None:
             delivered_dwell_coordinates = catheter_setup.non_zero_dwell_positions
@@ -753,31 +753,6 @@ class CatheterTable(BaseModel):
             delivered_dwell_coordinates = None
 
         return catheter_table_dict, delivered_dwell_coordinates
-
-    @classmethod
-    def load_from_phantom(cls, image: Path | str | BrachyPhantom) -> dict:
-        r"""
-        ### Purpose:
-        - Load the catheter table from a phantom object.
-        
-        ### Inputs:
-        - image: Path | BrachyPhantom := the path to the phantom file or the phantom object.
-        
-        ### Outputs:
-        - catheter_table_dict := the dictionary containing the catheter table.
-        """
-        from ai_assisted_brachy.catheter.catheter_api import ct_to_catheter_table
-        # if "image" a path to a file, just pass along
-        if isinstance(image, Path) or isinstance(image, str):
-            image = Path(image)                
-        # if "image" is a BrachyPhantom object, convert it to sitk and pass it along 
-        elif isinstance(image, BrachyPhantom):
-            image = imageToSITK(image.image_obj)
-        else:
-            raise ValueError("image should be either a Path or a BrachyPhantom object.")
-
-        cat_table_dict = ct_to_catheter_table(image=image)
-        return cat_table_dict
     
     def get_dwell_positions_as_list(self) -> List[List[float]]:
         r"""
