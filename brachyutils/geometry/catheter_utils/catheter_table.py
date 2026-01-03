@@ -164,7 +164,7 @@ class Catheter(BaseModel):
     step_size: float = 5.0
     # in case dwells and fit is missing and digitization points are provided.
     # we assume tip is the first digitization point and last dwell is the last digitization point.
-    points: List[List[float]] = None
+    digitization_points: List[List[float]] = None
     # auxiliary attributes
     afterloader_channel_number: Optional[int] = None # if none, will be set to index
     insert_position: Optional[List[float]] = None
@@ -208,9 +208,9 @@ class Catheter(BaseModel):
                 fit_function=self.fit_function,
                 step_size=self.step_size,
             )
-        elif self.points:
+        elif self.digitization_points:
             # Create fit and dwells from points
-            self.fit_function = self.get_fit_from_points(points=self.points)
+            self.fit_function = self.get_fit_from_points(points=self.digitization_points)
             self.dwells = self.get_dwells_from_fit(
                 fit_function=self.fit_function,
                 step_size=self.step_size,
@@ -257,7 +257,7 @@ class Catheter(BaseModel):
             "tip_position": self.tip_position,
             "last_dwell_coordinate": self.last_dwell_coordinate,
             "step_size": self.step_size,
-            "points": self.points,
+            "digitization_points": self.digitization_points,
             "afterloader_channel_number": self.afterloader_channel_number,
             "insert_position": self.insert_position,
             "channel_total_time": self.channel_total_time,
@@ -618,7 +618,7 @@ class CatheterTable(BaseModel):
             raise ValueError("The output file name should end with .mrk.json")
         pth_mrk_json.parent.mkdir(parents=True, exist_ok=True)
 
-        point_list = [catheter.points for catheter in self]
+        point_list = [catheter.digitization_points for catheter in self]
         
         create_slicer_markup_points(
             output_path=str(pth_mrk_json),
@@ -680,7 +680,7 @@ class CatheterTable(BaseModel):
                     tip_position=catheter.tip_position,
                     last_dwell_coordinate=new_dwells[-1].position,
                     step_size=catheter.step_size,
-                    points=catheter.points,
+                    digitization_points=catheter.digitization_points,
                     afterloader_channel_number=catheter.afterloader_channel_number,
                     insert_position=catheter.insert_position,
                     )
@@ -751,9 +751,9 @@ class CatheterTable(BaseModel):
         if from_delivered_dwellpositions:
             catheter_table_dict = load_delivered_cathetertable_from_dicom(pth_dicom=pth_dicom)
         else:
-            catheter_table_dict, catheter_setup = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+            catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
         return catheter_table_dict
-    
+
     def get_dwell_positions_as_list(self) -> List[List[float]]:
         r"""
         ### Purpose:
