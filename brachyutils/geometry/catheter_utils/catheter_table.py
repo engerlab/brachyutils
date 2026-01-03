@@ -418,7 +418,6 @@ class Catheter(BaseModel):
                 dwell_idx += 1
         self.dwells = filtered_dwells
 
-
 class CatheterTable(BaseModel):
     r"""
     ### Purpose:
@@ -452,7 +451,6 @@ class CatheterTable(BaseModel):
 
     catheter_list: List[Catheter] | List[dict] | str | Path | CatheterSetUp | CreatedSetUp
     step_size: float = 5.0
-    non_zero_dwell_positions: Dict[str, List[List[float]]] = None
     from_delivered_dwellpositions: bool = False
 
     @computed_field
@@ -497,6 +495,30 @@ class CatheterTable(BaseModel):
         """
         return np.sum([len(catheter.dwells) for catheter in self.catheter_list])
 
+    @computed_field
+    def non_zero_dwell_positions(
+        self,
+        ) -> Dict[str, List[List[float]]]:
+        r"""
+        ### Purpose:
+        - To get the non zero dwell positions in the catheter table.
+        
+        ### Inputs:
+        - catheter_table:CatheterTable := the catheter table object.
+        
+        ### Outputs:
+        - Dict[str, List[List[float]]] := the dictionary mapping each catheter to the list of 
+        dwell positions that were actually used for plan delivery.
+        """
+        non_zero_dwell_positions = {}
+        for catheter in self.catheter_list:
+            dwell_positions = []
+            for dwell in catheter.dwells:
+                if dwell.time > 0.0:
+                    dwell_positions.append(dwell.position)
+            non_zero_dwell_positions[f"Needle_{catheter.index}"] = dwell_positions
+        return non_zero_dwell_positions
+
     def __init__(self, **data):
         r"""
         ### Purpose:
@@ -526,8 +548,8 @@ class CatheterTable(BaseModel):
                 )
             self.catheter_list = cat_dict["catheter_list"]
             self.step_size = cat_dict["step_size"]
-            if cat_dict.get("non_zero_dwell_positions") is not None:
-                self.non_zero_dwell_positions = cat_dict["non_zero_dwell_positions"]
+            # if cat_dict.get("non_zero_dwell_positions") is not None:
+            #     self.non_zero_dwell_positions = cat_dict["non_zero_dwell_positions"]
         elif isinstance(self.catheter_list, CatheterSetUp):
             # if the catheter_list is a CatheterSetUp object, convert it to a CatheterTable
             cat_setup = self.catheter_list
@@ -540,7 +562,7 @@ class CatheterTable(BaseModel):
             )
             self.catheter_list = updated_catheter_dict["catheter_list"]
             self.step_size = updated_catheter_dict["step_size"]
-            self.non_zero_dwell_positions = cat_setup.non_zero_dwell_positions
+            # self.non_zero_dwell_positions = cat_setup.non_zero_dwell_positions
         elif isinstance(self.catheter_list, CreatedSetUp):
             created_setup = self.catheter_list
             updated_catheter_dict = created_setup.to_brachyutils_CatheterTable_format()
