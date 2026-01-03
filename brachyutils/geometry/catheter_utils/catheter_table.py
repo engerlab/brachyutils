@@ -141,7 +141,7 @@ class Catheter(BaseModel):
     ### Attributes:
     - index:int := the index of the catheter.
     - tip_position: The coordinate position of the tip of the catheter.
-    - points:List[np.array] := the list of digitization points of the catheter.
+    - digitization_points:List[np.array] := the list of digitization points of the catheter.
     - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
     - afterloader_channel_number:int := the afterloader channel number of the catheter.
     - channel_total_time:float := the total time of the catheter.
