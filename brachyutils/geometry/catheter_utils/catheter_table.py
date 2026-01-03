@@ -601,7 +601,6 @@ class CatheterTable(BaseModel):
         ### Purpose:
         - To print the information about the catheter table.
         """
-        # print(self.to_dict())
         print("Catheter table info is as follows:")
         print(f"Number of catheters: {len(self.catheter_list)}")
         print(f"Total treatment time: {self.treatment_time}")
@@ -626,6 +625,7 @@ class CatheterTable(BaseModel):
         with open(pth_json, "w") as json_file:
             json.dump(self.to_dict(), json_file, indent=4
             )
+
     def write_to_slicer_markup(self, pth_mrk_json: Path | str, **kwargs) -> None:
         r"""
         ### Purpose:
