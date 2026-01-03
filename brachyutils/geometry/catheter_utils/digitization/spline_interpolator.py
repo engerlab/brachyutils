@@ -11,8 +11,7 @@ from scipy.optimize import minimize_scalar
 from scipy.spatial.distance import cdist
 from scipy import ndimage
 
-from brachyutils.geometry.catheter_utils.utils import create_slicer_markup_points
-from ai_assisted_brachy.preprocessing.cropping import crop_around_mask
+from brachyutils.geometry.catheter_utils.utils import create_slicer_markup_points, crop_around_mask
 from brachyutils.geometry.catheter_utils.catheter_setup import CatheterSetUp
 from brachyutils.geometry.catheter_utils.digitization.rotation import (
     calculate_rotation_matrix,

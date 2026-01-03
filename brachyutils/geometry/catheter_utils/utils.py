@@ -1232,3 +1232,90 @@ def create_marker_pts_from_catheter_dict(
                 outpath, catheter_pts, previous_dict=slicer_dict, color=color)
         cathter_idx += 1
 
+########################## GENERAL USE ##########################
+
+
+def sitk_crop(image, bounding_box):
+    """
+    Crop the image to the bounding box
+    """
+    return sitk.RegionOfInterest(
+        image,
+        # bounding_box[0:3] is the x_min, y_min, z_min
+        bounding_box[int(len(bounding_box) / 2) :],
+        # bounding_box[3:6] is the x_size, y_size, z_size
+        bounding_box[0 : int(len(bounding_box) / 2)],
+    )
+
+########################## AIR + KNOWLEDGE BASED CROPPING ##########################
+
+def get_air_bounds(volume, inside_value=0, outside_value=1):
+    bin_image = sitk.OtsuThreshold(volume, inside_value, outside_value)
+
+    # Get the bounding box of the anatomy
+    label_shape_filter = sitk.LabelShapeStatisticsImageFilter()
+    label_shape_filter.Execute(bin_image)
+    bounding_box_air = label_shape_filter.GetBoundingBox(outside_value)
+    return bounding_box_air
+
+def crop_volumes_around_mask(ct:sitk.Image, mask:sitk.Image, margin_mm:float=0):
+    """
+    Crops the CT and the mask around the mask with a margin of margin_mm
+    Also crops the remaining air around the body.
+    """
+    cropped_mask, bounding_box = crop_around_mask(mask, margin_mm=margin_mm)
+    # cropping based on the mask
+    ct_cropped_around_mask = sitk_crop(ct, bounding_box)
+
+    # cropping remaining air
+    air_bb = get_air_bounds(ct_cropped_around_mask)
+
+    return sitk_crop(ct_cropped_around_mask, air_bb), sitk_crop(cropped_mask, air_bb)
+
+def crop_around_mask(volume:sitk.Image, margin_mm:float=0., use_sitk:bool=True):
+    """
+    Gets cropping boundaries to crop any volume around the specified mask.
+    """
+    spacings = volume.GetSpacing()
+    if use_sitk:
+        non_zero_mask = sitk.BinaryThreshold(volume, lowerThreshold=1) 
+
+        # Get bounding box from contour
+        label_shape_filter = sitk.LabelShapeStatisticsImageFilter()
+        label_shape_filter.Execute(non_zero_mask)
+        bounding_box = list(label_shape_filter.GetBoundingBox(1))
+
+        # Add margin
+        for i in range(0, 3):
+            bounding_box[i] = max(0, bounding_box[i] - int(margin_mm / spacings[i]))
+        for i in range(3, 6):
+            bounding_box[i] = min(
+                # min between bounding box with margin size and remaining volume shape from bounding box
+                volume.GetSize()[i-3] - bounding_box[i-3], 
+                bounding_box[i] + int(margin_mm / spacings[i-3])*2
+                )
+    else:
+        # Doing everything with numpy, slower.
+        mask_array = sitk.GetArrayFromImage(volume)
+        # Get nonzero mask indices efficiently
+        nz = np.where(mask_array > 0) # Faster than np.nonzero(mask_array)
+        if len(nz[0]) == 0:
+            raise ValueError("No nonzero voxels found in catheter_contours.")
+        # Compute min/max for each axis directly
+        zmin, ymin, xmin = [int(np.min(a)) for a in nz]
+        zmax, ymax, xmax = [int(np.max(a)) + 1 for a in nz]
+        # Add margin and clamp to array shape
+        shape = mask_array.shape
+        zmin = max(0, zmin - int(margin_mm / spacings[2]))
+        ymin = max(0, ymin - int(margin_mm / spacings[1]))
+        xmin = max(0, xmin - int(margin_mm / spacings[0]))
+        zmax = min(shape[0], zmax + int(margin_mm / spacings[2]))
+        ymax = min(shape[1], ymax + int(margin_mm / spacings[1]))
+        xmax = min(shape[2], xmax + int(margin_mm / spacings[0]))
+        # bounding_box: [x, y, z, size_x, size_y, size_z]
+        bounding_box = [
+            xmin, ymin, zmin,
+            xmax - xmin, ymax - ymin, zmax - zmin
+        ]
+
+    return sitk_crop(volume, bounding_box), bounding_box
