@@ -1,7 +1,7 @@
 import os 
 from typing import List, Dict
 from itertools import combinations
-
+import json
 import numpy as np
 import SimpleITK as sitk
 from scipy.optimize import curve_fit, minimize_scalar, linear_sum_assignment, root_scalar
@@ -11,8 +11,6 @@ from scipy.interpolate import splprep, splev
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 from sklearn.decomposition import PCA
 from sklearn.cluster import DBSCAN, HDBSCAN
-
-from ai_assisted_brachy.preprocessing.utils import create_slicer_markup_points, create_slicer_markup_segments
 
 def is_headless():
     return os.environ.get('DISPLAY') is None
@@ -1075,3 +1073,162 @@ def determine_breast_side(ct_volume:sitk.Image, dwellpositions:List[List[float]]
             "This could indicate an error in the dwell positions or the CT volume."
         )
         return "left"
+
+######################################## 3DSlicer catheter utils ########################################
+
+def get_slicer_marker_pt_dict():
+    """
+    This function returns a dictionary that can be used to save a list of points in 3D Slicer.
+    """
+    slicer_dict = {}
+    slicer_dict["@schema"] = (
+        "https://raw.githubusercontent.com/slicer/slicer/master/Modules/Loadable/Markups/Resources/Schema/markups-schema-v1.0.3.json#"
+    )
+    markup_template = {
+            "type": "Fiducial",
+            "coordinateSystem": "LPS",
+            "coordinateUnits": "mm",
+            "locked": False,
+            "fixedNumberOfControlPoints": False,
+            "labelFormat": "%N-%d",
+            "lastUsedControlPointNumber": 1,
+            "controlPoints": [],
+            "measurements": [],
+            "display": {
+                "visibility": True,
+                "opacity": 1.0,
+                "color": [0.4, 1.0, 1.0],
+                "selectedColor": [1.0, 0.5000076295109484, 0.5000076295109484],
+                "activeColor": [0.4, 1.0, 0.0],
+                "propertiesLabelVisibility": False,
+                "pointLabelsVisibility": True,
+                "textScale": 2.3000000000000004,
+                "glyphType": "Sphere3D",
+                "glyphScale": 3.0,
+                "glyphSize": 5.0,
+                "useGlyphScale": True,
+                "sliceProjection": False,
+                "sliceProjectionUseFiducialColor": True,
+                "sliceProjectionOutlinedBehindSlicePlane": False,
+                "sliceProjectionColor": [1.0, 1.0, 1.0],
+                "sliceProjectionOpacity": 0.6,
+                "lineThickness": 0.2,
+                "lineColorFadingStart": 1.0,
+                "lineColorFadingEnd": 10.0,
+                "lineColorFadingSaturation": 1.0,
+                "lineColorFadingHueOffset": 0.0,
+                "handlesInteractive": False,
+                "translationHandleVisibility": True,
+                "rotationHandleVisibility": True,
+                "scaleHandleVisibility": True,
+                "interactionHandleScale": 3.0,
+                "snapMode": "toVisibleSurface",
+            },
+        }
+    slicer_dict["markups"] = []
+    ctrl_pt_dict_template = {
+        # id, label and position are to be updated
+                "id": None,
+                "label": None,
+                "description": "",
+                "associatedNodeID": "vtkMRMLScalarVolumeNode32",
+                "position": None,
+                "orientation": [-1.0, -0.0, -0.0, -0.0, -1.0, -0.0, 0.0, 0.0, 1.0],
+                "selected": True,
+                "locked": False,
+                "visibility": True,
+                "positionStatus": "defined",
+            }
+    return slicer_dict, markup_template, ctrl_pt_dict_template
+
+def create_slicer_markup_segments(output_path, point_list, color=None, remove_text=True, previous_dict:dict=None):
+    """
+    This function creates a json file that can be loaded in 3D Slicer to visualize a list of points.
+    If there exists a previous_dict, we will add another sequence of points to the existing file.
+    """
+    assert len(point_list) == 2, "You should be porviding a list of 2 points if you want to plot segments."
+    slicer_dict = create_slicer_markup_points(
+        output_path, point_list, color=color, remove_text=remove_text, previous_dict=previous_dict
+        )
+    # Changing type of markup
+    for i in range(len(slicer_dict["markups"])):
+        slicer_dict["markups"][i]["type"] = "Line"
+    # Overwriting the points markup with segment markupo\
+    with open(output_path,"w") as f:
+        json.dump(slicer_dict, f, indent=4)
+    return slicer_dict 
+
+def create_slicer_markup_points(output_path, point_list, color=None, remove_text=True, previous_dict:dict=None):
+    """
+    This function creates a json file that can be loaded in 3D Slicer to visualize a list of points.
+    If there exists a previous_dict, we will add another sequence of points to the existing file.
+    """
+    if previous_dict is not None:
+        slicer_dict = previous_dict
+        _ , markup_dict, ctrl_pt_dict = get_slicer_marker_pt_dict()
+    else:
+        slicer_dict, markup_dict, ctrl_pt_dict = get_slicer_marker_pt_dict()
+    slicer_dict["markups"].append(markup_dict)
+    if color is not None:
+        assert isinstance(color, list) and len(color) == 3, "Color should be a list of 3 elements."
+        assert isinstance(color[0], float) and color[0] <= 1.0 and color[0] >= 0.0, "Color should be a float between 0 and 1."
+        if previous_dict is not None:
+            slicer_dict["markups"][-1]["display"]["color"] = color
+        slicer_dict["markups"][-1]["display"]["selectedColor"] = color
+    assert output_path[-9:] == ".mrk.json", "you need this extension for your file name."
+    file_name_template = os.path.basename(output_path)[:-9]
+    if remove_text:
+        slicer_dict["markups"][-1]["display"]["textScale"] = 0.0
+    for pt_idx, pt in enumerate(point_list):
+        temp_ctrl_pt_dict = ctrl_pt_dict.copy()
+        temp_ctrl_pt_dict["id"] = str(pt_idx + 1)
+        temp_ctrl_pt_dict["position"] = pt
+        temp_ctrl_pt_dict["label"] = f"{file_name_template}-{pt_idx+1}"
+        slicer_dict["markups"][-1]["controlPoints"].append(temp_ctrl_pt_dict)
+    if not os.path.isdir(os.path.dirname(output_path)):
+        print(f"Creating directory {os.path.dirname(output_path)}")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path,"w") as f:
+        json.dump(slicer_dict, f, indent=4)
+
+    return slicer_dict
+
+def create_marker_pts_from_catheter_table(output_path, catheter_table, one_markup_per_catheter=False, color=None):
+    assert output_path.endswith(".mrk.json"), "You need to provide a file name with the extension .mrk.json"
+    out_dir = os.path.dirname(output_path)
+    out_name = os.path.basename(output_path)[:-9]
+    os.makedirs(out_dir, exist_ok=True)
+    for catheter_idx, catheter in enumerate(catheter_table):
+        point_list = [dp["position"].tolist() for dp in catheter["dwells"]]
+        if one_markup_per_catheter:
+            outpath = os.path.join(out_dir,f"{out_name}_{catheter_idx}.mrk.json")
+        else:
+            outpath = os.path.join(out_dir,f"{out_name}.mrk.json")
+        if catheter_idx==0 or one_markup_per_catheter:
+            slicer_dict = create_slicer_markup_points(
+                outpath, point_list, color=color)
+        else:
+            slicer_dict = create_slicer_markup_points(
+                outpath, point_list, previous_dict=slicer_dict, color=color)
+
+
+def create_marker_pts_from_catheter_dict(
+        output_path, catheter_dict, one_markup_per_catheter=False, color=None):
+    assert output_path.endswith(".mrk.json"), "You need to provide a file name with the extension .mrk.json"
+    out_dir = os.path.dirname(output_path)
+    out_name = os.path.basename(output_path)[:-9]
+    cathter_idx = 0
+    for catheter_key, catheter_pts in catheter_dict.items():
+        # assert len(point_list) != 0, "No points found for catheter."
+        if one_markup_per_catheter:
+            outpath = os.path.join(out_dir,f"{out_name}_{catheter_key}.mrk.json")
+        else:
+            outpath = os.path.join(out_dir,f"{out_name}.mrk.json")
+        if cathter_idx==0 or one_markup_per_catheter:
+            slicer_dict = create_slicer_markup_points(
+                outpath, catheter_pts, color=color)
+        else:
+            slicer_dict = create_slicer_markup_points(
+                outpath, catheter_pts, previous_dict=slicer_dict, color=color)
+        cathter_idx += 1
+

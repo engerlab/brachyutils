@@ -637,7 +637,7 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - Void := will write the catheter table to a json file in the slicer markup format.
         """
-        from ai_assisted_brachy.preprocessing.utils import create_slicer_markup_points
+        from brachyutils.geometry.catheter_utils.utils import create_slicer_markup_points
         pth_mrk_json = Path(pth_mrk_json)
         if not str(pth_mrk_json).endswith(".mrk.json"):
             raise ValueError("The output file name should end with .mrk.json")
