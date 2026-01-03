@@ -6,7 +6,6 @@ from ai_assisted_brachy.catheter.contour.creator import CatheterContourCreator
 from ai_assisted_brachy.catheter.digitization.contour_digitizer import DwellPositionCreator, CatheterTableTimesFiller
 from ai_assisted_brachy.catheter.contour.postprocess import CatheterPostProcessor
 
-import torch
 import numpy as np
 import json
 
@@ -220,6 +219,8 @@ def ct_to_catheter_table(
     - catheter_table: list := see dicom_to_catheter_table for details
     """
     from ai_assisted_brachy.inference.catheters import CatheterDLSegmentor
+    import torch
+
     # take care of image pathing if needed
     if isinstance(image, (str, Path)):
         ct_path = Path(image)
