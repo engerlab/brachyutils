@@ -432,7 +432,7 @@ class CatheterTable(BaseModel):
     - step_size: float := the step size in mm between the dwell positions on the catheter table.
     - treatment_time: float = None := the total treatment time of the catheter table.
     this attributed is computed from the catheter list.
-    - delivered_dwell_coordinates := The dictionary mapping each catheter to the list of 
+    - non_zero_dwell_positions := The dictionary mapping each catheter to the list of 
     dwell positions that were actually used for plan delivery.
     - num_catheters: int = None := the number of catheters in the catheter table.
     - num_dwell_positions: int = None := the number of dwell positions in the catheter table.
@@ -448,8 +448,7 @@ class CatheterTable(BaseModel):
 
     catheter_list: List[Catheter] | List[dict] | str | Path | CatheterSetUp | CreatedSetUp
     step_size: float = 5.0
-    # brachy_source:Any = None
-    delivered_dwell_coordinates: Dict[str, List[List[float]]] = None
+    non_zero_dwell_positions: Dict[str, List[List[float]]] = None
     from_delivered_dwellpositions: bool = False
 
     @computed_field
@@ -519,25 +518,12 @@ class CatheterTable(BaseModel):
             elif str(catheter_file).endswith(".dcm"):
                 cat_dict = self.load_from_dicom(
                     pth_dicom=catheter_file,
-                    
+                    from_delivered_dwellpositions=self.from_delivered_dwellpositions,
                 )
-            
-            # XXX delete this elif str(catheter_file).endswith(".dcm") and not self.from_delivered_dwellpositions:
-            #     cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file)
-            #     if delivered_dwell_coordinates is not None:
-            #         self.delivered_dwell_coordinates = delivered_dwell_coordinates
-            # elif str(catheter_file).endswith(".dcm") and self.from_delivered_dwellpositions:
-            #     cat_dict = load_delivered_cathetertable_from_dicom(pth_dicom=catheter_file)
-
-            # XXX delete this: elif catheter_file.is_dir():
-            #     cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
-            #     if delivered_dwell_coordinates is not None:
-            #         self.delivered_dwell_coordinates = delivered_dwell_coordinates
-
             self.catheter_list = cat_dict["catheter_list"]
             self.step_size = cat_dict["step_size"]
-            if cat_dict.get("delivered_dwell_coordinates") is not None:
-                self.delivered_dwell_coordinates = cat_dict["delivered_dwell_coordinates"]
+            if cat_dict.get("non_zero_dwell_positions") is not None:
+                self.non_zero_dwell_positions = cat_dict["non_zero_dwell_positions"]
         elif isinstance(self.catheter_list, CatheterSetUp):
             # if the catheter_list is a CatheterSetUp object, convert it to a CatheterTable
             cat_setup = self.catheter_list
@@ -550,13 +536,13 @@ class CatheterTable(BaseModel):
             )
             self.catheter_list = updated_catheter_dict["catheter_list"]
             self.step_size = updated_catheter_dict["step_size"]
-            self.delivered_dwell_coordinates = cat_setup.non_zero_dwell_positions
+            self.non_zero_dwell_positions = cat_setup.non_zero_dwell_positions
         elif isinstance(self.catheter_list, CreatedSetUp):
             created_setup = self.catheter_list
             updated_catheter_dict = created_setup.to_brachyutils_CatheterTable_format()
             self.catheter_list = updated_catheter_dict["catheter_list"]
             self.step_size = updated_catheter_dict["step_size"]
-            self.delivered_dwell_coordinates = created_setup.get_non_zero_dwell_positions()
+            self.non_zero_dwell_positions = created_setup.get_non_zero_dwell_positions()
 
         if isinstance(self.catheter_list[0], dict):
             self.catheter_list = [
@@ -647,19 +633,19 @@ class CatheterTable(BaseModel):
         - To get the catheter table with the dwell positions that were used for the treatment.
         ### Input:
         - self: an instant of CatheterTable object
-        - delivered_dwell_coordinates: A dictonary mapping the catheters as keys (Needle_#) to the 
+        - non_zero_dwell_positions: A dictonary mapping the catheters as keys (Needle_#) to the 
         list of dwell position coordinates [x, y, z] that had non zero dwell time in 
         the catheter table.
         ### Output:
         - from_delivered_dwellpositions: CatheterTable := a catheter table where all the dwell positions
         were used in the clinic.
         """
-        if self.delivered_dwell_coordinates is None:
-            raise ValueError("delivered_dwell_coordinates is None. Please provide the delivered dwell coordinates.")
+        if self.non_zero_dwell_positions is None:
+            raise ValueError("non_zero_dwell_positions is None. Please provide the delivered dwell coordinates.")
 
         delivered_catheter_list = []        
         for catheter, delivered_cat in zip(
-            self.catheter_list, list(self.delivered_dwell_coordinates.values())):
+            self.catheter_list, list(self.non_zero_dwell_positions.values())):
             if len(delivered_cat) == 0:
                 continue
             new_dwells = []
@@ -703,7 +689,7 @@ class CatheterTable(BaseModel):
         return CatheterTable(
             catheter_list=delivered_catheter_list,
             step_size=self.step_size,
-            delivered_dwell_coordinates=self.delivered_dwell_coordinates,
+            non_zero_dwell_positions=self.non_zero_dwell_positions,
         )
 
     @classmethod
@@ -727,7 +713,7 @@ class CatheterTable(BaseModel):
             elif isinstance(cat_table, dict):
                 catheter_table_list = cat_table.get("catheter_list", None)
                 step_size = cat_table.get("step_size", None)
-                delivered_dwell_coordinates = cat_table.get("delivered_dwell_coordinates", None)
+                non_zero_dwell_positions = cat_table.get("non_zero_dwell_positions", None)
             else:
                 raise ValueError(f"contents of the catheter file {pth_json} should be a list or dictionary")
             if catheter_table_list is None:
@@ -738,7 +724,7 @@ class CatheterTable(BaseModel):
             return {
                 "catheter_list":raw_catheter_table,
                 "step_size":step_size,
-                "delivered_dwell_coordinates": delivered_dwell_coordinates
+                "non_zero_dwell_positions": non_zero_dwell_positions
                 }
 
     @classmethod
@@ -753,20 +739,20 @@ class CatheterTable(BaseModel):
 
         ### Inputs:
         - pth_dicom: Path := the path to the dicom file containing the catheter table.
-
+        - from_delivered_dwellpositions: bool := if true, the dwell positions inside the 
+        catheter_list will only be the ones with non-zero dwell times. If false, the
+        dwell positions will be created from the digitization points.
         ### Outputs:
-        - catheter_table_dict := the dictionary containing the catheter table.
-        - delivered_dwell_coordinates := maps "Needle_#" to the list of dwell position coordinates
-        that were used to deliver a plan.
+        cat_dict := a dictionary containing the following keys:
+            - catheter_list
+            - step_size
         """
-        catheter_table_dict, catheter_setup = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
-
-        if catheter_setup is not None:
-            delivered_dwell_coordinates = catheter_setup.non_zero_dwell_positions
+        
+        if from_delivered_dwellpositions:
+            catheter_table_dict = load_delivered_cathetertable_from_dicom(pth_dicom=pth_dicom)
         else:
-            delivered_dwell_coordinates = None
-
-        return catheter_table_dict, delivered_dwell_coordinates
+            catheter_table_dict, catheter_setup = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+        return catheter_table_dict
     
     def get_dwell_positions_as_list(self) -> List[List[float]]:
         r"""
