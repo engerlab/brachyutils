@@ -168,6 +168,7 @@ class Catheter(BaseModel):
     # auxiliary attributes
     afterloader_channel_number: Optional[int] = None # if none, will be set to index
     insert_position: Optional[List[float]] = None
+    points: Optional[List[List[float]]] = None  # to keep compatibility with previous versions
 
     @computed_field
     def channel_total_time(self) -> float:
@@ -192,6 +193,9 @@ class Catheter(BaseModel):
         - **data: dict := the dictionary containing the catheter attributes.
         """
         super().__init__(**data)
+        # Set digitization_points from points if digitization_points is None
+        if self.points is not None and self.digitization_points is None:
+            self.digitization_points = self.points
 
         # Set afterloader_channel_number to index if not provided
         if self.afterloader_channel_number is None:
