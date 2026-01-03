@@ -13,14 +13,14 @@ from scipy import ndimage
 
 from ai_assisted_brachy.preprocessing.utils import create_slicer_markup_points
 from ai_assisted_brachy.preprocessing.cropping import crop_around_mask
-from ai_assisted_brachy.preprocessing.utils import create_slicer_markup_points
-from ai_assisted_brachy.catheter.catheter_setup import CatheterSetUp
-from ai_assisted_brachy.catheter.digitization.rotation import (
+# from ai_assisted_brachy.preprocessing.utils import create_slicer_markup_points
+from brachyutils.geometry.catheter_utils.catheter_setup import CatheterSetUp
+from brachyutils.geometry.catheter_utils.digitization.rotation import (
     calculate_rotation_matrix,
     create_rotation_transform,
     rotate_volume
 )
-from ai_assisted_brachy.catheter.utils import (
+from brachyutils.geometry.catheter_utils.utils import (
     distance,
     find_extremal_points_a,
     fit_line,

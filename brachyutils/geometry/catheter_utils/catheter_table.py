@@ -9,8 +9,8 @@ from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToS
 from opentps.core.data.images import ROIMask
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 
-from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
-from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
+from brachyutils.geometry.catheter_utils.digitization.pw_linear_interpolator import PiecewiseLinear3D
+from brachyutils.geometry.catheter_utils.digitization.spline_interpolator import NeedleSplineCreator
 from brachyutils.geometry.catheter_utils.catheter_setup import (
     get_rotation_from_position, CatheterSetUp, dilate_mask_in_mm
 )
