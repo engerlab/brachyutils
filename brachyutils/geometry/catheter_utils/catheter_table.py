@@ -548,8 +548,7 @@ class CatheterTable(BaseModel):
                 )
             self.catheter_list = cat_dict["catheter_list"]
             self.step_size = cat_dict["step_size"]
-            # if cat_dict.get("non_zero_dwell_positions") is not None:
-            #     self.non_zero_dwell_positions = cat_dict["non_zero_dwell_positions"]
+
         elif isinstance(self.catheter_list, CatheterSetUp):
             # if the catheter_list is a CatheterSetUp object, convert it to a CatheterTable
             cat_setup = self.catheter_list
@@ -562,7 +561,7 @@ class CatheterTable(BaseModel):
             )
             self.catheter_list = updated_catheter_dict["catheter_list"]
             self.step_size = updated_catheter_dict["step_size"]
-            # self.non_zero_dwell_positions = cat_setup.non_zero_dwell_positions
+
         elif isinstance(self.catheter_list, CreatedSetUp):
             created_setup = self.catheter_list
             updated_catheter_dict = created_setup.to_brachyutils_CatheterTable_format()
