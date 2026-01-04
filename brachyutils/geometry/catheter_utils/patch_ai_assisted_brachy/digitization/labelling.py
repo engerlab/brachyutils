@@ -3051,40 +3051,40 @@ if __name__ == "__main__":
         # print("Time to get insertion grid as rows: ", t1-t0)
         # exit()
 
-        identificator = CatheterIdentificator(
-            ct_volume_path=ct_volume_path,
-            catheters_contour_path=contour_path,
-            save_details_folder=save_details_folder
-            )
-        new_d, identified_n_rows = identificator.order_catheter_by_JGH_breast_convention(
-            created_needle_dict, user_input=user_input, save_files=True)
-        identificator.save_dwell_positions_by_channel(new_d, dwell_pos_name="analytical_contour")
-        identificator.apply_transforms_and_save_pts(clinical_dwell_positions)
+        # identificator = CatheterIdentificator(
+        #     ct_volume_path=ct_volume_path,
+        #     catheters_contour_path=contour_path,
+        #     save_details_folder=save_details_folder
+        #     )
+        # new_d, identified_n_rows = identificator.order_catheter_by_JGH_breast_convention(
+        #     created_needle_dict, user_input=user_input, save_files=True)
+        # identificator.save_dwell_positions_by_channel(new_d, dwell_pos_name="analytical_contour")
+        # identificator.apply_transforms_and_save_pts(clinical_dwell_positions)
 
-        ### Evaluate channel labelling positions
-        digi_results = DigitizationResults(
-            os.path.join(save_details_folder, "channel_labelling_results"), 
-            None, 
-            experiments=["analytical_contour"], 
-            load_model=False
-            )
-        prepared_d = {
-            "analytical_contour": new_d
-        }
+        # ### Evaluate channel labelling positions
+        # digi_results = DigitizationResults(
+        #     os.path.join(save_details_folder, "channel_labelling_results"), 
+        #     None, 
+        #     experiments=["analytical_contour"], 
+        #     load_model=False
+        #     )
+        # prepared_d = {
+        #     "analytical_contour": new_d
+        # }
 
-        digi_results.evaluate_one_patient(
-            patient_path=patient_plan, create=False, path_to_created_catheters=None, created_catheters=prepared_d
-            )
-        res = digi_results.per_patient_channel_labelling_results
-        print("res", res)
-        if res['analytical_contour'][patient_nb]['correct_percent'] != 1.0:
-            print("***************************************************")
-            print("===================================================")
-            print("CHANNELS ARE NOT LABELLED CORRECTLY for patient ", patient_nb)
-            print("===================================================")
-            print("***************************************************")
-            with open(os.path.join(Path(__file__).parents[0], "patient_wrong_labelization.txt" ), "a") as myfile:
-                myfile.write(f"****************************** {patient_nb} ******************************\n")
-                myfile.write(f"The catheter labelling is not correct for patient {patient_nb}.\n") 
-                myfile.write(f"{identified_n_rows} rows have been identified by our algo.\n")
-                myfile.write(f"{res['analytical_contour'][patient_nb]['correctnumber']} correct for {res['analytical_contour'][patient_nb]['wrongnumber']} wrong assingement. \n \n")
+        # digi_results.evaluate_one_patient(
+        #     patient_path=patient_plan, create=False, path_to_created_catheters=None, created_catheters=prepared_d
+        #     )
+        # res = digi_results.per_patient_channel_labelling_results
+        # print("res", res)
+        # if res['analytical_contour'][patient_nb]['correct_percent'] != 1.0:
+        #     print("***************************************************")
+        #     print("===================================================")
+        #     print("CHANNELS ARE NOT LABELLED CORRECTLY for patient ", patient_nb)
+        #     print("===================================================")
+        #     print("***************************************************")
+        #     with open(os.path.join(Path(__file__).parents[0], "patient_wrong_labelization.txt" ), "a") as myfile:
+        #         myfile.write(f"****************************** {patient_nb} ******************************\n")
+        #         myfile.write(f"The catheter labelling is not correct for patient {patient_nb}.\n") 
+        #         myfile.write(f"{identified_n_rows} rows have been identified by our algo.\n")
+        #         myfile.write(f"{res['analytical_contour'][patient_nb]['correctnumber']} correct for {res['analytical_contour'][patient_nb]['wrongnumber']} wrong assingement. \n \n")

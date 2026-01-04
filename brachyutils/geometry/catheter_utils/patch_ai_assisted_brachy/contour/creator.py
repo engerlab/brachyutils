@@ -450,10 +450,10 @@ class CatheterContourCreator:
             self, multiprocess=True, use_1_mm_isotropic_spacing:bool=True, 
             write=False, out_path=None, write_ct:bool=False):
 
-        if not os.path.exists(self.patient_volume_path):
-            convert_dicom_images_folder_to_nii(
-                (self.patient_path, self.patient_volume_path)
-            )
+        # if not os.path.exists(self.patient_volume_path):
+        #     convert_dicom_images_folder_to_nii(
+        #         (self.patient_path, self.patient_volume_path)
+        #     ) XXX HJ: commenting out to avoid errors
 
         patient_volume_sitk = sitk.ReadImage(self.patient_volume_path)
         if use_1_mm_isotropic_spacing:
@@ -679,10 +679,10 @@ if __name__ == "__main__":
     patient_volume_path = (
         os.path.join(patient_path, "processed", "ct.nrrd")
     )
-    if not os.path.exists(patient_volume_path):
-        convert_dicom_images_folder_to_nii(
-            (patient_path, patient_volume_path)
-        )
+    # if not os.path.exists(patient_volume_path):
+    #     convert_dicom_images_folder_to_nii(
+    #         (patient_path, patient_volume_path)
+    #     ) XXX HJ: commenting out to avoid errors
 
     creator = CatheterContourCreator(patient_path, patient_volume_path)
     catheter_contour = creator.create_catheter_contour(write=True, out_path=os.path.join(patient_path, "processed", "catheters.seg.nrrd"))
