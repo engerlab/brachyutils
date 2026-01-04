@@ -21,8 +21,8 @@ from brachyutils.geometry.catheter_utils.catheter_setup import CatheterSetUp
 #     convert_dicom_images_folder_to_nii,
 # )
 from brachyutils.geometry.catheter_utils.utils import get_slicer_marker_pt_dict
-from ai_assisted_brachy.preprocessing.cropping import sitk_crop
-from ai_assisted_brachy.utils.utils import resample_volume
+from brachyutils.geometry.catheter_utils.utils import sitk_crop
+from brachyutils.geometry.catheter_utils.utils import resample_volume
 
 class CatheterContourCreator:
     def __init__(

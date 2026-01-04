@@ -1,10 +1,10 @@
 from pathlib import Path
 from typing import Tuple, Literal, Dict, List
 import SimpleITK as sitk
-from ai_assisted_brachy.catheter.catheter_setup import CatheterSetUp
-from ai_assisted_brachy.catheter.contour.creator import CatheterContourCreator
-from ai_assisted_brachy.catheter.digitization.contour_digitizer import DwellPositionCreator, CatheterTableTimesFiller
-from ai_assisted_brachy.catheter.contour.postprocess import CatheterPostProcessor
+from brachyutils.geometry.catheter_utils.catheter_setup import CatheterSetUp
+from brachyutils.geometry.catheter_utils.contour.creator import CatheterContourCreator
+from brachyutils.geometry.catheter_utils.digitization.contour_digitizer import DwellPositionCreator, CatheterTableTimesFiller
+from brachyutils.geometry.catheter_utils.contour.postprocess import CatheterPostProcessor
 
 import numpy as np
 import json
