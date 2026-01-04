@@ -2941,9 +2941,9 @@ if __name__ == "__main__":
     import time
     import pickle
     # from ai_assisted_brachy.catheter.evaluation.evaluate_dwell_positions import DigitizationResults
-    from ai_assisted_brachy.catheter.catheter_setup import CatheterSetUp
-    from ai_assisted_brachy.catheter.contour.creator import CatheterContourCreator
-    from ai_assisted_brachy.catheter.digitization.contour_digitizer import DwellPositionCreator
+    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup import CatheterSetUp
+    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.contour.creator import CatheterContourCreator
+    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.contour_digitizer import DwellPositionCreator
 
 
     home = "/home/sebq"
