@@ -1425,3 +1425,67 @@ def resample_volume(
         useNearestNeighborExtrapolator=use_nearest_extrapolator,
         outputPixelType=input_pixel_type,
     )
+
+#### FROM PREPROCESSING CROPPING ####
+def get_non_zeros_bounds(volume:sitk.Image, margin_mm:float=0.0):
+    """
+    Get boundaries to crop a volume to non-0 region.
+    """
+    spacings = volume.GetSpacing()
+    size = volume.GetSize()
+
+    volume_npy = np.swapaxes(sitk.GetArrayFromImage(volume), 0, 2)
+    non_zero_coord = np.where(volume_npy != 0)
+
+    bounding_box = [
+        int(max(0, 
+                np.min(non_zero_coord[i]) - int(margin_mm / spacings[i]))
+                ) for i in range(3)
+    ] 
+    for i in range(3):
+        bounding_box.append(
+            int(min(size[i] - bounding_box[i], 
+                    np.max(non_zero_coord[i])  + int(margin_mm / spacings[i]) - bounding_box[i]))
+        )
+    return bounding_box
+
+# Adapted from https://github.com/SimpleITK/SimpleITKUtilities/blob/b3d148cd8a0a354a279b84d3a5d3f4c7d09a8305/SimpleITK/utilities/resize.py#L77
+def compute_new_origin_for_resampling(
+    image: sitk.Image,
+    new_spacing: Sequence[float] = [1.0, 1.0, 1.0],
+) -> sitk.Image:
+    """
+    Resize an image to an arbitrary size while retaining the original image's spatial location.
+
+    Allows for specification of the target image size in pixels, and whether the image pixels spacing should be
+    isotropic. The physical extent of the image's data is retained in the new image, with the new image's spacing
+    adjusted to achieve the desired size. The image is centered in the new image.
+
+    Anti-aliasing is enabled by default.
+
+    Runtime performance can be increased by disabling anti-aliasing ( anti_aliasing_sigma=0 ), and by setting
+    the interpolator to sitkNearestNeighbor at the cost of decreasing image quality.
+
+    :param image: A SimpleITK image.
+    :param new_spacing: The new image spacing in mm.
+    :return: A SimpleITK image with desired size.
+    """
+
+
+    new_size = [
+        int(round(osz * ospc / nspc)) 
+        for osz, ospc, nspc in zip(image.GetSize(), image.GetSpacing(), new_spacing)
+    ]
+
+    center_cidx = [0.5 * (sz - 1) for sz in image.GetSize()]
+    new_center_cidx = [0.5 * (sz - 1) for sz in new_size]
+
+    new_origin_cidx = [0] * image.GetDimension()
+
+    # The continuous index of the new center of the image, in the original image's continuous index space.
+    for i in range(image.GetDimension()):
+        new_origin_cidx[i] = center_cidx[i] - new_center_cidx[i] * (
+            new_spacing[i] / image.GetSpacing()[i]
+        )
+    new_origin = image.TransformContinuousIndexToPhysicalPoint(new_origin_cidx)
+    return new_origin

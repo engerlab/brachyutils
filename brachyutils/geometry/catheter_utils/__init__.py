@@ -5,5 +5,5 @@ __all__ = [
     "CatheterSetUp"
 ]
 
-from .catheter_utils import DwellPosition, Catheter, CatheterTable
-from .catheter_setup import CatheterSetUp
+from .catheter_table import DwellPosition, Catheter, CatheterTable
+from .patch_ai_assisted_brachy.catheter_setup import CatheterSetUp

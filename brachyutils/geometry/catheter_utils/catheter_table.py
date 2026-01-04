@@ -11,10 +11,10 @@ from brachyutils.geometry.phantom_utils import BrachyPhantom
 
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import PiecewiseLinear3D
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.spline_interpolator import NeedleSplineCreator
-from brachyutils.geometry.catheter_utils.catheter_setup import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup import (
     get_rotation_from_position, CatheterSetUp, dilate_mask_in_mm
 )
-from catheter_api import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_api import (
     dicom_to_catheter_table, _update_catheter_table, CreatedSetUp
 )
 

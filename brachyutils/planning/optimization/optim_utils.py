@@ -14,7 +14,7 @@ from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DT
 from opentps.core.processing.imageProcessing.resampler3D import (
     resampleImage3DOnImage3D, crop3DDataAroundBox, resampleImage3D
 )
-from ai_assisted_brachy.utils.utils import compute_new_origin_for_resampling
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import compute_new_origin_for_resampling
 
 def resample_crop_the_mask_or_contour_to_optimGrid(
     structure_mask: ROIMask | ROIContour,
