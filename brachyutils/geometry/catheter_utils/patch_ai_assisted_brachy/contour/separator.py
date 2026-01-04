@@ -11,14 +11,14 @@ import multiprocessing as mp
 import numpy as np
 from scipy import ndimage
 
-from brachyutils.geometry.catheter_utils.log import Logger
-from brachyutils.geometry.catheter_utils.contour.creator import extrapolate_point
-from brachyutils.geometry.catheter_utils.digitization.pw_linear_interpolator import Segment
-from brachyutils.geometry.catheter_utils.digitization.falsifier import NeedleFalsifier
-from brachyutils.geometry.catheter_utils.digitization.spline_interpolator import NeedleSplineCreator
-from brachyutils.geometry.catheter_utils.utils import get_physical_coord_for_needle, distance, describe_array
-from brachyutils.geometry.catheter_utils.utils import sitk_crop, crop_around_mask
-from brachyutils.geometry.catheter_utils.utils import create_slicer_markup_points
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.log import Logger
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.contour.creator import extrapolate_point
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import Segment
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.falsifier import NeedleFalsifier
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.spline_interpolator import NeedleSplineCreator
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import get_physical_coord_for_needle, distance, describe_array
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import sitk_crop, crop_around_mask
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import create_slicer_markup_points
 
 ### These functions are out of any class to enable efficient multiprocessing
 def fit_spline(neelde_contour: sitk.Image, multiclass:bool=True):

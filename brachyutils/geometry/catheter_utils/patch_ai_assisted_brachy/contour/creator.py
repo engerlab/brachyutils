@@ -13,16 +13,16 @@ import SimpleITK as sitk
 from scipy import ndimage
 from scipy.spatial.distance import cdist
 
-from brachyutils.geometry.catheter_utils.digitization.falsifier import NeedleFalsifier
-from brachyutils.geometry.catheter_utils.digitization.pw_linear_interpolator import extrapolate_point
-from brachyutils.geometry.catheter_utils.utils import find_extremal_points_a
-from brachyutils.geometry.catheter_utils.catheter_setup import CatheterSetUp
-# from ai_assisted_brachy.preprocessing.dicom_to_sitk import (
-#     convert_dicom_images_folder_to_nii,
-# )
-from brachyutils.geometry.catheter_utils.utils import get_slicer_marker_pt_dict
-from brachyutils.geometry.catheter_utils.utils import sitk_crop
-from brachyutils.geometry.catheter_utils.utils import resample_volume
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.falsifier import NeedleFalsifier
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import extrapolate_point
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import find_extremal_points_a
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup import CatheterSetUp
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils.dicom_to_sitk import (
+    convert_dicom_images_folder_to_nii,
+)
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import get_slicer_marker_pt_dict
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import sitk_crop
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import resample_volume
 
 class CatheterContourCreator:
     def __init__(

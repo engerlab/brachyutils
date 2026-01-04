@@ -18,9 +18,9 @@ import numpy as np
 from scipy.spatial.distance import cdist
 import SimpleITK as sitk
 
-from brachyutils.geometry.catheter_utils.utils import distance, min_dist_two_list, min_cost_two_list
-from brachyutils.geometry.catheter_utils.digitization.pw_linear_interpolator import PiecewiseLinear3D, Segment, extrapolate_point
-from brachyutils.geometry.catheter_utils.utils import create_marker_pts_from_catheter_dict, create_slicer_markup_points
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import distance, min_dist_two_list, min_cost_two_list
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import PiecewiseLinear3D, Segment, extrapolate_point
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import create_marker_pts_from_catheter_dict, create_slicer_markup_points
 
 class CatheterSetUp(object):
 

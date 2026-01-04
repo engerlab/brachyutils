@@ -7,14 +7,14 @@ import numpy as np
 from scipy.spatial.distance import jensenshannon, cdist
 import SimpleITK as sitk
 
-from brachyutils.geometry.catheter_utils.utils import sitk_crop
-from brachyutils.geometry.catheter_utils.utils import create_slicer_markup_points
-from brachyutils.geometry.catheter_utils.digitization.spline_interpolator import NeedleSplineCreator
-from brachyutils.geometry.catheter_utils.utils import get_physical_coord_for_needle
-from brachyutils.geometry.catheter_utils.contour.separator import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import sitk_crop
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import create_slicer_markup_points
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.spline_interpolator import NeedleSplineCreator
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import get_physical_coord_for_needle
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.contour.separator import (
     ContourSeparator, ContourExpander, extend_catheter_contour_on_both_sides, 
     get_bounds_for_step, get_segment_endpoints_and_t)
-from brachyutils.geometry.catheter_utils.log import Logger
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.log import Logger
 
 
 def identify_points_too_far_from_a_group(pts_coords:List[List[float]]):

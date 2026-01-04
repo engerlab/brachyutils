@@ -9,15 +9,15 @@ from scipy.interpolate import splev
 from scipy.signal import find_peaks
 from scipy.spatial.distance import cdist
 
-from ai_assisted_brachy.catheter.catheter_setup import CatheterSetUp, get_rotation_from_position, dilate_mask_in_mm
-from ai_assisted_brachy.catheter.contour.separator import ContourSeparator
-from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup import CatheterSetUp, get_rotation_from_position, dilate_mask_in_mm
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.contour.separator import ContourSeparator
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import (
     create_segments_by_slice,
     PiecewiseLinear3D,
     Segment,
 )
-from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
-from ai_assisted_brachy.catheter.utils import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.spline_interpolator import NeedleSplineCreator
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import (
     x_y_z_to_list,
     list_to_x_y_z,
     reorder_points_tsp,
@@ -30,7 +30,7 @@ from ai_assisted_brachy.catheter.utils import (
     min_dist_two_list,
     avg_dist_closest_pts_two_lists
 )
-from ai_assisted_brachy.catheter.digitization.labelling import CatheterIdentificator
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.labelling import CatheterIdentificator
 
 
 def remove_dp_inside_mask(created_needle_dict:Dict[str,Any], mask:sitk.Image, margin_mm: float = 0.0) -> None:

@@ -6,7 +6,7 @@ from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
-from brachyutils.geometry.catheter_utils.utils import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import (
     find_extremal_points_a,
     fit_line,
     distance,

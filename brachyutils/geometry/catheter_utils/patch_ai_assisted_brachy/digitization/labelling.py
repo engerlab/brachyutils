@@ -13,7 +13,7 @@ from scipy.interpolate import splev
 from scipy.optimize import linear_sum_assignment
 import matplotlib.pyplot as plt
 
-from ai_assisted_brachy.catheter.utils import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import (
     check_corners_convex_hull,
     fit_line, 
     fit_spline,
@@ -34,17 +34,17 @@ from ai_assisted_brachy.catheter.utils import (
     get_potential_mean_directions_oriented_rows,
     project_on_z_coord
 )
-from ai_assisted_brachy.catheter.digitization.rotation import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.rotation import (
     calculate_rotation_matrix,
     create_rotation_transform,
     rotate_volume
 )
-from ai_assisted_brachy.preprocessing.utils import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import (
     create_marker_pts_from_catheter_dict, 
     create_slicer_markup_points
 )
-from ai_assisted_brachy.preprocessing.cropping import get_non_zeros_bounds, sitk_crop, crop_around_mask
-from ai_assisted_brachy.catheter.utils import determine_breast_side
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import get_non_zeros_bounds, sitk_crop, crop_around_mask
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import determine_breast_side
 
 
 

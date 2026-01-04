@@ -9,8 +9,8 @@ from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToS
 from opentps.core.data.images import ROIMask
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 
-from brachyutils.geometry.catheter_utils.digitization.pw_linear_interpolator import PiecewiseLinear3D
-from brachyutils.geometry.catheter_utils.digitization.spline_interpolator import NeedleSplineCreator
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import PiecewiseLinear3D
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.spline_interpolator import NeedleSplineCreator
 from brachyutils.geometry.catheter_utils.catheter_setup import (
     get_rotation_from_position, CatheterSetUp, dilate_mask_in_mm
 )
@@ -637,7 +637,7 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - Void := will write the catheter table to a json file in the slicer markup format.
         """
-        from brachyutils.geometry.catheter_utils.utils import create_slicer_markup_points
+        from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import create_slicer_markup_points
         pth_mrk_json = Path(pth_mrk_json)
         if not str(pth_mrk_json).endswith(".mrk.json"):
             raise ValueError("The output file name should end with .mrk.json")

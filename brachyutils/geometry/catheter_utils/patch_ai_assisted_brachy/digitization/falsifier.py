@@ -8,7 +8,7 @@ from scipy import ndimage
 from skimage.draw import line_nd
 import torchio as tio
 
-from ai_assisted_brachy.catheter.utils import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import (
     find_extremal_points_a,
     fit_line,
     project_point_to_line,
