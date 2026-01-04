@@ -503,10 +503,10 @@ if __name__ == "__main__":
     matplotlib.use('tkAgg')
     import matplotlib.pyplot as plt
 
-    from catheter.contour.creator import CatheterContourCreator
-    from catheter.digitization.contour_digitizer import DwellPositionCreator
+    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.contour.creator import CatheterContourCreator
+    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.contour_digitizer import DwellPositionCreator
 
-    from catheter.catheter_setup import CatheterSetUp
+    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup import CatheterSetUp
 
     patient_path = "/home/sebquet/EngerLab/Data/Hamed_breastCancer_patient/"
     patient_id = "1167439"

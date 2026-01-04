@@ -17,9 +17,9 @@ from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.f
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import extrapolate_point
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import find_extremal_points_a
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup import CatheterSetUp
-from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils.dicom_to_sitk import (
-    convert_dicom_images_folder_to_nii,
-)
+# from ai_assisted_brachy.preprocessing.dicom_to_sitk import (
+#     convert_dicom_images_folder_to_nii,
+# ) XXX HJ: commenting out to avoid errors
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import get_slicer_marker_pt_dict
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import sitk_crop
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import resample_volume
@@ -71,11 +71,11 @@ class CatheterContourCreator:
         self.add_tip_marker_contour = add_tip_marker_contour
         self.extend_catheters_to_body = extend_catheters_to_body
         self.body_contour_mask = body_contour_mask
-        if not os.path.exists(self.patient_volume_path):
-            print(f"The CT did not exist in nrrd format for patient {os.path.basename(self.patient_path)}, we convert from DICOM.")
-            convert_dicom_images_folder_to_nii(
-                (self.patient_path, self.patient_volume_path)
-            )
+        # if not os.path.exists(self.patient_volume_path): XXX HJ: commenting out to avoid errors
+        #     print(f"The CT did not exist in nrrd format for patient {os.path.basename(self.patient_path)}, we convert from DICOM.")
+        #     convert_dicom_images_folder_to_nii(
+        #         (self.patient_path, self.patient_volume_path)
+        #     )
         
         self.extra_points_input_button = None
         self.extra_pt_tip_marker = None

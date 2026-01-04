@@ -1209,7 +1209,7 @@ if __name__ == "__main__":
     matplotlib.use('tkAgg')
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
-    from catheter.contour.creator import CatheterContourCreator
+    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.contour.creator import CatheterContourCreator
     # from brachyutils.dicom_utils import get_catheter_table_and_source_info_from_dicom
 
 

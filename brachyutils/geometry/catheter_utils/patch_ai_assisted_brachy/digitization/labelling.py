@@ -2297,10 +2297,10 @@ class CatheterIdentificator:
                 row_color = np.random.uniform(low=0, high=1, size=(3)).tolist()
                 save_dir = os.path.join(self.save_details_folder, save_sub_dir)
                 row_means.append(mean)
-                save_segments_from_points(
-                    grp, mean, direction, save_dir, 
-                    file_name=f"row_{grp_idx}_direction_segments.mrk.json", 
-                    color=row_color, save_pts=True)    
+                # save_segments_from_points( XXX HJ: commenting this out to avoid errors
+                #     grp, mean, direction, save_dir, 
+                #     file_name=f"row_{grp_idx}_direction_segments.mrk.json", 
+                #     color=row_color, save_pts=True)    
                 
                 
         # Get a mean direction vector for all the catheters
@@ -2940,7 +2940,7 @@ if __name__ == "__main__":
     
     import time
     import pickle
-    from ai_assisted_brachy.catheter.evaluation.evaluate_dwell_positions import DigitizationResults
+    # from ai_assisted_brachy.catheter.evaluation.evaluate_dwell_positions import DigitizationResults
     from ai_assisted_brachy.catheter.catheter_setup import CatheterSetUp
     from ai_assisted_brachy.catheter.contour.creator import CatheterContourCreator
     from ai_assisted_brachy.catheter.digitization.contour_digitizer import DwellPositionCreator

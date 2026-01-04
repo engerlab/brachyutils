@@ -682,7 +682,7 @@ if __name__ == "__main__":
 
     my_first_fake_needle.elastic_transform(10, 6)
 
-    import dicom2nifti
+    # import dicom2nifti XXX: commenting out to avoid errors
     import nibabel as nib  # nibabel to handle nifti files
 
     my_CT_dir = "/home/sebquet/EngerLab/Patient_Data/TCIA_data/QIN_Breast/manifest-1542731172463/QIN-BREAST/QIN-BREAST-01-0001/09-01-1991-NA-BREAST PRONE-21963/2.000000-CTAC-02377"
