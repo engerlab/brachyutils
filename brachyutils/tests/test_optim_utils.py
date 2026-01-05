@@ -35,7 +35,7 @@ def get_a_plan_to_optimize(
         dir_dicom=pth_dicom,
         load_dicom_dose=False,
         strict_name_match=False,
-        delivered_catheter_table=True,
+        from_delivered_dwellpositions=True,
         multi_processing=True,
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
@@ -484,9 +484,9 @@ if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    # test_run_gurobi_optim()
+    test_run_gurobi_optim()
     # test_dwellTime_AMPL()
-    test_run_ampl_optim()
+    # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
     # test_hotspot_estimators()

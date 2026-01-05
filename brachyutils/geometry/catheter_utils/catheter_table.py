@@ -9,10 +9,12 @@ from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToS
 from opentps.core.data.images import ROIMask
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 
-from ai_assisted_brachy.catheter.digitization.pw_linear_interpolator import PiecewiseLinear3D
-from ai_assisted_brachy.catheter.digitization.spline_interpolator import NeedleSplineCreator
-from ai_assisted_brachy.catheter.catheter_setup import get_rotation_from_position, CatheterSetUp, dilate_mask_in_mm
-from ai_assisted_brachy.catheter.catheter_api import (
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import PiecewiseLinear3D
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.spline_interpolator import NeedleSplineCreator
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup import (
+    get_rotation_from_position, CatheterSetUp, dilate_mask_in_mm
+)
+from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_api import (
     dicom_to_catheter_table, _update_catheter_table, CreatedSetUp
 )
 
@@ -139,7 +141,7 @@ class Catheter(BaseModel):
     ### Attributes:
     - index:int := the index of the catheter.
     - tip_position: The coordinate position of the tip of the catheter.
-    - points:List[np.array] := the list of digitization points of the catheter.
+    - digitization_points:List[np.array] := the list of digitization points of the catheter.
     - dwells:List[DwellPosition] := the list of dwell positions of the catheter.
     - afterloader_channel_number:int := the afterloader channel number of the catheter.
     - channel_total_time:float := the total time of the catheter.
@@ -162,10 +164,11 @@ class Catheter(BaseModel):
     step_size: float = 5.0
     # in case dwells and fit is missing and digitization points are provided.
     # we assume tip is the first digitization point and last dwell is the last digitization point.
-    points: List[List[float]] = None
+    digitization_points: List[List[float]] = None
     # auxiliary attributes
     afterloader_channel_number: Optional[int] = None # if none, will be set to index
     insert_position: Optional[List[float]] = None
+    points: Optional[List[List[float]]] = None  # to keep compatibility with previous versions
 
     @computed_field
     def channel_total_time(self) -> float:
@@ -190,6 +193,9 @@ class Catheter(BaseModel):
         - **data: dict := the dictionary containing the catheter attributes.
         """
         super().__init__(**data)
+        # Set digitization_points from points if digitization_points is None
+        if self.points is not None and self.digitization_points is None:
+            self.digitization_points = self.points
 
         # Set afterloader_channel_number to index if not provided
         if self.afterloader_channel_number is None:
@@ -206,9 +212,9 @@ class Catheter(BaseModel):
                 fit_function=self.fit_function,
                 step_size=self.step_size,
             )
-        elif self.points:
+        elif self.digitization_points:
             # Create fit and dwells from points
-            self.fit_function = self.get_fit_from_points(points=self.points)
+            self.fit_function = self.get_fit_from_points(points=self.digitization_points)
             self.dwells = self.get_dwells_from_fit(
                 fit_function=self.fit_function,
                 step_size=self.step_size,
@@ -255,7 +261,7 @@ class Catheter(BaseModel):
             "tip_position": self.tip_position,
             "last_dwell_coordinate": self.last_dwell_coordinate,
             "step_size": self.step_size,
-            "points": self.points,
+            "digitization_points": self.digitization_points,
             "afterloader_channel_number": self.afterloader_channel_number,
             "insert_position": self.insert_position,
             "channel_total_time": self.channel_total_time,
@@ -412,18 +418,24 @@ class Catheter(BaseModel):
                 dwell_idx += 1
         self.dwells = filtered_dwells
 
-
 class CatheterTable(BaseModel):
     r"""
     ### Purpose:
     - This class holds the information regarding the catheter table.
-
+    catheter table could be created from multiple sources:
+        1. from a dicom file
+            1.1. from the delivered dwell positions
+            1.2. from the digitization points
+        2. from a list of catheter dictionaries
+        3. from a json file
+        4. from a CatheterSetUp object XXX clean this
+        5. from a CreatedSetUp object XXX clean this
     ### Attributes:
     - catheter_list : List[Catheter] := the list of catheter objects in the catheter table.
     - step_size: float := the step size in mm between the dwell positions on the catheter table.
     - treatment_time: float = None := the total treatment time of the catheter table.
     this attributed is computed from the catheter list.
-    - delivered_dwell_coordinates := The dictionary mapping each catheter to the list of 
+    - non_zero_dwell_positions := The dictionary mapping each catheter to the list of 
     dwell positions that were actually used for plan delivery.
     - num_catheters: int = None := the number of catheters in the catheter table.
     - num_dwell_positions: int = None := the number of dwell positions in the catheter table.
@@ -439,9 +451,7 @@ class CatheterTable(BaseModel):
 
     catheter_list: List[Catheter] | List[dict] | str | Path | CatheterSetUp | CreatedSetUp
     step_size: float = 5.0
-    # brachy_source:Any = None
-    delivered_dwell_coordinates: Dict[str, List[List[float]]] = None
-    delivered_catheter_table: bool = False
+    from_delivered_dwellpositions: bool = False
 
     @computed_field
     def treatment_time(self) -> float:
@@ -485,13 +495,42 @@ class CatheterTable(BaseModel):
         """
         return np.sum([len(catheter.dwells) for catheter in self.catheter_list])
 
+    @computed_field
+    def non_zero_dwell_positions(
+        self,
+        ) -> Dict[str, List[List[float]]]:
+        r"""
+        ### Purpose:
+        - To get the non zero dwell positions in the catheter table.
+        
+        ### Inputs:
+        - catheter_table:CatheterTable := the catheter table object.
+        
+        ### Outputs:
+        - Dict[str, List[List[float]]] := the dictionary mapping each catheter to the list of 
+        dwell positions that were actually used for plan delivery.
+        """
+        non_zero_dwell_positions = {}
+        for catheter in self.catheter_list:
+            dwell_positions = []
+            for dwell in catheter.dwells:
+                if dwell.time > 0.0:
+                    dwell_positions.append(dwell.position)
+            non_zero_dwell_positions[f"Needle_{catheter.index}"] = dwell_positions
+        return non_zero_dwell_positions
+
     def __init__(self, **data):
         r"""
         ### Purpose:
         - To initialize the CatheterTable object.
         
         ### Inputs:
-        - **data: dict := the dictionary containing the catheter table attributes.
+        - catheter_list: List[Catheter] | List[dict] | str | Path | CatheterSetUp | CreatedSetUp :=
+        the list of catheter objects in the catheter table or the path to a json or dicom file.
+        - step_size: float := the step size in mm between the dwell positions on the catheter table.
+        - from_delivered_dwellpositions: bool := if true, the dwell positions inside the delivered dwell positions will be used.
+        ### Outputs:
+        - CatheterTable := the catheter table object.
         """
         super().__init__(**data)
         if (isinstance(self.catheter_list, str) or
@@ -507,21 +546,14 @@ class CatheterTable(BaseModel):
 
             if str(catheter_file).endswith(".json"):
                 cat_dict = self.load_from_json(catheter_file)
-            elif str(catheter_file).endswith(".dcm") and not self.delivered_catheter_table:
-                cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file)
-                if delivered_dwell_coordinates is not None:
-                    self.delivered_dwell_coordinates = delivered_dwell_coordinates
-            elif str(catheter_file).endswith(".dcm") and self.delivered_catheter_table:
-                cat_dict = load_delivered_cathetertable_from_dicom(pth_dicom=catheter_file)
-            elif catheter_file.is_dir():
-                cat_dict, delivered_dwell_coordinates = self.load_from_dicom(pth_dicom=catheter_file, from_ct=True)
-                if delivered_dwell_coordinates is not None:
-                    self.delivered_dwell_coordinates = delivered_dwell_coordinates
-
+            elif str(catheter_file).endswith(".dcm"):
+                cat_dict = self.load_from_dicom(
+                    pth_dicom=catheter_file,
+                    from_delivered_dwellpositions=self.from_delivered_dwellpositions,
+                )
             self.catheter_list = cat_dict["catheter_list"]
             self.step_size = cat_dict["step_size"]
-            if cat_dict.get("delivered_dwell_coordinates") is not None:
-                self.delivered_dwell_coordinates = cat_dict["delivered_dwell_coordinates"]
+
         elif isinstance(self.catheter_list, CatheterSetUp):
             # if the catheter_list is a CatheterSetUp object, convert it to a CatheterTable
             cat_setup = self.catheter_list
@@ -534,13 +566,13 @@ class CatheterTable(BaseModel):
             )
             self.catheter_list = updated_catheter_dict["catheter_list"]
             self.step_size = updated_catheter_dict["step_size"]
-            self.delivered_dwell_coordinates = cat_setup.non_zero_dwell_positions
+
         elif isinstance(self.catheter_list, CreatedSetUp):
             created_setup = self.catheter_list
             updated_catheter_dict = created_setup.to_brachyutils_CatheterTable_format()
             self.catheter_list = updated_catheter_dict["catheter_list"]
             self.step_size = updated_catheter_dict["step_size"]
-            self.delivered_dwell_coordinates = created_setup.get_non_zero_dwell_positions()
+            self.non_zero_dwell_positions = created_setup.get_non_zero_dwell_positions()
 
         if isinstance(self.catheter_list[0], dict):
             self.catheter_list = [
@@ -574,7 +606,6 @@ class CatheterTable(BaseModel):
         ### Purpose:
         - To print the information about the catheter table.
         """
-        # print(self.to_dict())
         print("Catheter table info is as follows:")
         print(f"Number of catheters: {len(self.catheter_list)}")
         print(f"Total treatment time: {self.treatment_time}")
@@ -599,7 +630,13 @@ class CatheterTable(BaseModel):
         with open(pth_json, "w") as json_file:
             json.dump(self.to_dict(), json_file, indent=4
             )
-    def write_to_slicer_markup(self, pth_mrk_json: Path | str, **kwargs) -> None:
+
+    def write_to_slicer_markup(
+        self,
+        pth_mrk_json: Path | str,
+        remove_text: bool = True,
+        one_markup_per_catheter: bool = False,
+        ) -> None:
         r"""
         ### Purpose:
         - Write the catheter table to a json file in the slicer markup format.
@@ -610,84 +647,19 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - Void := will write the catheter table to a json file in the slicer markup format.
         """
-        from ai_assisted_brachy.preprocessing.utils import create_slicer_markup_points
+        from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import create_marker_pts_from_catheter_table
         pth_mrk_json = Path(pth_mrk_json)
         if not str(pth_mrk_json).endswith(".mrk.json"):
             raise ValueError("The output file name should end with .mrk.json")
         pth_mrk_json.parent.mkdir(parents=True, exist_ok=True)
 
-        point_list = [catheter.points for catheter in self]
+        # point_list = [catheter.digitization_points for catheter in self]
         
-        create_slicer_markup_points(
+        create_marker_pts_from_catheter_table(
             output_path=str(pth_mrk_json),
-            point_list=point_list,
-            color=kwargs.get("color", None),
-            remove_text=kwargs.get("remove_text", True),
-        )
-
-    def get_delivered_catheter_table(self) -> "CatheterTable":
-        r"""
-        ### Purpose:
-        - To get the catheter table with the dwell positions that were used for the treatment.
-        ### Input:
-        - self: an instant of CatheterTable object
-        - delivered_dwell_coordinates: A dictonary mapping the catheters as keys (Needle_#) to the 
-        list of dwell position coordinates [x, y, z] that had non zero dwell time in 
-        the catheter table.
-        ### Output:
-        - delivered_catheter_table: CatheterTable := a catheter table where all the dwell positions
-        were used in the clinic.
-        """
-        if self.delivered_dwell_coordinates is None:
-            raise ValueError("delivered_dwell_coordinates is None. Please provide the delivered dwell coordinates.")
-
-        delivered_catheter_list = []        
-        for catheter, delivered_cat in zip(
-            self.catheter_list, list(self.delivered_dwell_coordinates.values())):
-            if len(delivered_cat) == 0:
-                continue
-            new_dwells = []
-            for i, coordinate in enumerate(delivered_cat):
-                dwell_position = list(
-                    filter(
-                        lambda dp : np.isclose(dp.position, coordinate).all(),
-                        catheter.dwells)
-                )
-                if len(dwell_position) == 0:
-                    raise ValueError("The delivered coordinate was not found the entire catheter table")
-                if len(dwell_position) > 1:
-                    raise ValueError("The delivered coordinate was found in multiple dwell positions")
-
-                dwell_position = dwell_position[0]
-                new_dwells.append(
-                    DwellPosition(
-                        index=i,
-                        angle=dwell_position.angle,
-                        position=dwell_position.position,
-                        rotation=dwell_position.rotation,
-                        relativePos=dwell_position.relativePos,
-                        time=dwell_position.time,
-                    )
-                )
-
-            delivered_catheter_list.append(
-                Catheter(
-                    index=catheter.index,
-                    dwells=new_dwells,
-                    fit_function=catheter.fit_function,
-                    tip_position=catheter.tip_position,
-                    last_dwell_coordinate=new_dwells[-1].position,
-                    step_size=catheter.step_size,
-                    points=catheter.points,
-                    afterloader_channel_number=catheter.afterloader_channel_number,
-                    insert_position=catheter.insert_position,
-                    )
-            )
-
-        return CatheterTable(
-            catheter_list=delivered_catheter_list,
-            step_size=self.step_size,
-            delivered_dwell_coordinates=self.delivered_dwell_coordinates,
+            catheter_table=self.to_dict(),
+            one_markup_per_catheter=one_markup_per_catheter,
+            remove_text=remove_text,
         )
 
     @classmethod
@@ -711,7 +683,7 @@ class CatheterTable(BaseModel):
             elif isinstance(cat_table, dict):
                 catheter_table_list = cat_table.get("catheter_list", None)
                 step_size = cat_table.get("step_size", None)
-                delivered_dwell_coordinates = cat_table.get("delivered_dwell_coordinates", None)
+                non_zero_dwell_positions = cat_table.get("non_zero_dwell_positions", None)
             else:
                 raise ValueError(f"contents of the catheter file {pth_json} should be a list or dictionary")
             if catheter_table_list is None:
@@ -722,63 +694,36 @@ class CatheterTable(BaseModel):
             return {
                 "catheter_list":raw_catheter_table,
                 "step_size":step_size,
-                "delivered_dwell_coordinates": delivered_dwell_coordinates
+                "non_zero_dwell_positions": non_zero_dwell_positions
                 }
 
     @classmethod
-    def load_from_dicom(cls, pth_dicom: Path, from_ct: bool = False) -> Tuple[Dict, Dict]:
+    def load_from_dicom(
+        cls,
+        pth_dicom: Path,
+        from_delivered_dwellpositions: bool = False,
+        ) -> Tuple[Dict, Dict]:
         r"""
         ### Purpose:
         - Load the catheter table from a dicom file.
 
         ### Inputs:
         - pth_dicom: Path := the path to the dicom file containing the catheter table.
-        - from_ct: bool = False := if True, catheters will be contoured on CT images, then digitized.
-
+        - from_delivered_dwellpositions: bool := if true, the dwell positions inside the 
+        catheter_list will only be the ones with non-zero dwell times. If false, the
+        dwell positions will be created from the digitization points.
         ### Outputs:
-        - catheter_table_dict := the dictionary containing the catheter table.
-        - delivered_dwell_coordinates := maps "Needle_#" to the list of dwell position coordinates
-        that were used to deliver a plan.
+        cat_dict := a dictionary containing the following keys:
+            - catheter_list
+            - step_size
         """
-        if from_ct:
-            phantom = BrachyPhantom(dir_dicom=pth_dicom)
-            catheter_table_dict = cls.load_from_phantom(image=phantom)
-            catheter_setup = None
-        else:
-            catheter_table_dict, catheter_setup = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
-
-        if catheter_setup is not None:
-            delivered_dwell_coordinates = catheter_setup.non_zero_dwell_positions
-        else:
-            delivered_dwell_coordinates = None
-
-        return catheter_table_dict, delivered_dwell_coordinates
-
-    @classmethod
-    def load_from_phantom(cls, image: Path | str | BrachyPhantom) -> dict:
-        r"""
-        ### Purpose:
-        - Load the catheter table from a phantom object.
         
-        ### Inputs:
-        - image: Path | BrachyPhantom := the path to the phantom file or the phantom object.
-        
-        ### Outputs:
-        - catheter_table_dict := the dictionary containing the catheter table.
-        """
-        from ai_assisted_brachy.catheter.catheter_api import ct_to_catheter_table
-        # if "image" a path to a file, just pass along
-        if isinstance(image, Path) or isinstance(image, str):
-            image = Path(image)                
-        # if "image" is a BrachyPhantom object, convert it to sitk and pass it along 
-        elif isinstance(image, BrachyPhantom):
-            image = imageToSITK(image.image_obj)
+        if from_delivered_dwellpositions:
+            catheter_table_dict = load_delivered_cathetertable_from_dicom(pth_dicom=pth_dicom)
         else:
-            raise ValueError("image should be either a Path or a BrachyPhantom object.")
+            catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+        return catheter_table_dict
 
-        cat_table_dict = ct_to_catheter_table(image=image)
-        return cat_table_dict
-    
     def get_dwell_positions_as_list(self) -> List[List[float]]:
         r"""
         ### Purpose:

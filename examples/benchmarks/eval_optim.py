@@ -45,7 +45,7 @@ def get_a_plan_to_optimize(
         dir_dicom=pth_dicom,
         load_dicom_dose=False,
         strict_name_match=False,
-        delivered_catheter_table=True,
+        from_delivered_dwellpositions=True,
         multi_processing=True,
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
@@ -605,7 +605,7 @@ def get_plan_stats(
             dir_dicom=pth_dicom,
             load_dicom_dose=False,
             strict_name_match=False,
-            delivered_catheter_table=True,
+            from_delivered_dwellpositions=True,
         )
         vol_dict = brachy_plan.phantom.get_structures_volume(brachy_plan.phantom.structure_names)
         volume_dict = {}
