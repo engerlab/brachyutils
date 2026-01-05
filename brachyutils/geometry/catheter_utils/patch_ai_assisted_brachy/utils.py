@@ -1199,8 +1199,8 @@ def create_marker_pts_from_catheter_table(output_path, catheter_table, one_marku
     out_dir = os.path.dirname(output_path)
     out_name = os.path.basename(output_path)[:-9]
     os.makedirs(out_dir, exist_ok=True)
-    for catheter_idx, catheter in enumerate(catheter_table):
-        point_list = [dp["position"].tolist() for dp in catheter["dwells"]]
+    for catheter_idx, catheter in enumerate(catheter_table.get("catheter_list")):
+        point_list = [dp["position"] for dp in catheter["dwells"]]
         if one_markup_per_catheter:
             outpath = os.path.join(out_dir,f"{out_name}_{catheter_idx}.mrk.json")
         else:
