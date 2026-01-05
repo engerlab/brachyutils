@@ -28,8 +28,8 @@ COPY docker_src/repositories/install_opentps.sh ${dir_software}/install_opentps.
 RUN --mount=type=ssh bash ${dir_software}/install_opentps.sh
 
 # # install ai-assisted-brachytherapy
-COPY docker_src/repositories/install_ai_bt.sh ${dir_software}/install_ai_bt.sh
-RUN --mount=type=ssh bash ${dir_software}/install_ai_bt.sh
+# COPY docker_src/repositories/install_ai_bt.sh ${dir_software}/install_ai_bt.sh
+# RUN --mount=type=ssh bash ${dir_software}/install_ai_bt.sh
 
 # # install brachyutils
 COPY install_brachyutils.sh ${dir_software}/install_brachyutils.sh
