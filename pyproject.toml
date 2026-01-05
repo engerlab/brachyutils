@@ -48,6 +48,10 @@ dependencies = [
     # }
     "nibabel",
     "pydantic",
+    "scikit-learn",
+    "amplpy",
+    "gurobipy",
+    "ortools"
 ]
 
 [project.optional-dependencies]

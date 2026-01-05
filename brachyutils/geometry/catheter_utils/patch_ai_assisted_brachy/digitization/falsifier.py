@@ -6,7 +6,7 @@ from scipy.ndimage import gaussian_filter
 from scipy.spatial.distance import cdist
 from scipy import ndimage
 from skimage.draw import line_nd
-import torchio as tio
+# import torchio as tio
 
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import (
     find_extremal_points_a,
@@ -516,6 +516,7 @@ class NeedleFalsifier(object):
             )
 
     def elastic_transform(self, max_displacement=15, num_control_points=5):
+        import torchio as tio
         random_elastic = tio.RandomElasticDeformation(
             max_displacement=(max_displacement, max_displacement, 0),
             num_control_points=num_control_points,
