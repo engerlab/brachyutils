@@ -202,15 +202,15 @@ class BrachyEgsphant:
             self._sanity_axis = np.array(
                 [
                     np.array(
-                        [np.round(float(x), decimals=3) for x in egsphant.readline().strip().split()],
+                        [float(x) for x in egsphant.readline().strip().split()],
                         dtype=np.float32,
                     ),
                     np.array(
-                        [np.round(float(y), decimals=3) for y in egsphant.readline().strip().split()],
+                        [float(y) for y in egsphant.readline().strip().split()],
                         dtype=np.float32,
                     ),
                     np.array(
-                        [np.round(float(z), decimals=3) for z in egsphant.readline().strip().split()],
+                        [float(z) for z in egsphant.readline().strip().split()],
                         dtype=np.float32,
                     ),
                 ],
@@ -235,12 +235,11 @@ class BrachyEgsphant:
             origin = np.array(
                 [
                     self._sanity_axis[0][0] + spacing[0] / 2,
-                    self._sanity_axis[1][0] + spacing[0] / 2,
-                    self._sanity_axis[2][0] + spacing[0] / 2,
+                    self._sanity_axis[1][0] + spacing[1] / 2,
+                    self._sanity_axis[2][0] + spacing[2] / 2,
                 ],
                 dtype=np.float32,
             )
-
             # prepare empty matricies to hold material and density images
             material_matrix = np.zeros(
                 (gridSize[2], gridSize[1], gridSize[0]), dtype=str
@@ -503,27 +502,9 @@ class BrachyEgsphant:
         materials = "\n".join(self.material_dict.keys()) + "\n"
         spacing = "0 0 0 0 0 0 0 0 0\n"
         dimensions = " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
-        x_axis = (
-            " ".join(
-                egsphant_voxel_edges[0]
-                # map(str, np.round(egsphant_voxel_edges[0].astype(float), decimals=3))
-            )
-            + "\n"
-        )
-        y_axis = (
-            " ".join(
-                egsphant_voxel_edges[1]
-                # map(str, np.round(egsphant_voxel_edges[1].astype(float), decimals=3))
-            )
-            + "\n"
-        )
-        z_axis = (
-            " ".join(
-                egsphant_voxel_edges[2]
-                # map(str, np.round(egsphant_voxel_edges[2].astype(float), decimals=3))
-            )
-            + "\n"
-        )
+        x_axis = (" ".join(egsphant_voxel_edges[0]) + "\n")
+        y_axis = (" ".join(egsphant_voxel_edges[1]) + "\n")
+        z_axis = (" ".join(egsphant_voxel_edges[2])+ "\n")
         material_matrix = self.get_material_array()
         material_matrix = _to_single_string(
             _convert_material_matrix_to(material_matrix, dtype=str), ""
