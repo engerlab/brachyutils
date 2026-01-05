@@ -1194,7 +1194,12 @@ def create_slicer_markup_points(output_path, point_list, color=None, remove_text
 
     return slicer_dict
 
-def create_marker_pts_from_catheter_table(output_path, catheter_table, one_markup_per_catheter=False, color=None):
+def create_marker_pts_from_catheter_table(
+    output_path,
+    catheter_table,
+    one_markup_per_catheter=False,
+    color=None,
+    remove_text=True):
     assert output_path.endswith(".mrk.json"), "You need to provide a file name with the extension .mrk.json"
     out_dir = os.path.dirname(output_path)
     out_name = os.path.basename(output_path)[:-9]
@@ -1207,10 +1212,10 @@ def create_marker_pts_from_catheter_table(output_path, catheter_table, one_marku
             outpath = os.path.join(out_dir,f"{out_name}.mrk.json")
         if catheter_idx==0 or one_markup_per_catheter:
             slicer_dict = create_slicer_markup_points(
-                outpath, point_list, color=color)
+                outpath, point_list, color=color, remove_text=remove_text)
         else:
             slicer_dict = create_slicer_markup_points(
-                outpath, point_list, previous_dict=slicer_dict, color=color)
+                outpath, point_list, previous_dict=slicer_dict, color=color, remove_text=remove_text)
 
 
 def create_marker_pts_from_catheter_dict(

@@ -631,7 +631,12 @@ class CatheterTable(BaseModel):
             json.dump(self.to_dict(), json_file, indent=4
             )
 
-    def write_to_slicer_markup(self, pth_mrk_json: Path | str, **kwargs) -> None:
+    def write_to_slicer_markup(
+        self,
+        pth_mrk_json: Path | str,
+        remove_text: bool = True,
+        one_markup_per_catheter: bool = False,
+        ) -> None:
         r"""
         ### Purpose:
         - Write the catheter table to a json file in the slicer markup format.
@@ -653,7 +658,8 @@ class CatheterTable(BaseModel):
         create_marker_pts_from_catheter_table(
             output_path=str(pth_mrk_json),
             catheter_table=self.to_dict(),
-            # one_markup_per_catheter=False,
+            one_markup_per_catheter=one_markup_per_catheter,
+            remove_text=remove_text,
         )
 
     @classmethod
