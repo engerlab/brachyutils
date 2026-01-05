@@ -121,17 +121,25 @@ class MOBOOptimizer:
 
     def evaluate_penaltyWeight_space_helper(
             self, list_of_opt_config_lists:List[List[Optimization_Config]], 
-            list_of_target_doses:List[float], multiprocessing:bool=True):
+            list_of_target_doses:List[float], num_parallel_iterations:int,
+            list_of_experiment_indexes:List[int]):
         r''' This function evaluates a space of penalty weights in parallel using multiprocessing library. 
         inputs:
             - list_of_opt_config_lists := a list of optimization configuration lists to be evaluated.
             - list_of_target_doses := a list of target doses corresponding to each optimization configuration list
-            - multiprocessing := a boolean indicating whether to use multiprocessing or not.
+            - num_parallel_iterations := number of parallel iterations to run
+            - list_of_experiment_indexes := a list of experiment indexes corresponding to each optimization configuration list
         outputs:
 
             - a pandas dataframe containing the result of penalty weight evaluations.
         '''
-        if multiprocessing:
+        assert len(list_of_opt_config_lists) == len(list_of_target_doses), (
+            "The length of list_of_opt_config_lists must be equal to the length of list_of_target_doses."
+        )
+        assert list_of_experiment_indexes is not None, (
+            "list_of_experiment_indexes must be provided."
+        )
+        if num_parallel_iterations > 1:
             
             # The BrachyOptim object cannot be pickled due to all the internal attributes 
             # like gurobi variables that are not picklable. So, we need to use a workaround here.
@@ -139,27 +147,32 @@ class MOBOOptimizer:
             weights_and_dvh_space, cat_tables = self.brachy_optim.evaluate_penaltyWeight_space(
                 list_of_opt_config_lists,
                 list_of_target_doses,
+                list_of_experiment_indexes,
                 return_cat_table=True,
+                max_parallel_runs=num_parallel_iterations
             )
             return pd.DataFrame(weights_and_dvh_space), cat_tables
         else:
 
             results = {}
             cat_tables = {}
-            for i, (opt_config_list, target_dose) in enumerate(zip(list_of_opt_config_lists, list_of_target_doses)):
+            for i, (opt_config_list, target_dose, exp_indx) in enumerate(
+                zip(list_of_opt_config_lists, list_of_target_doses,list_of_experiment_indexes)):
                 optim_config_list, target_dose = self.get_optim_config_and_target_dose_from_parameters(opt_config_list)
                 res, cat_table = self.brachy_optim.evaluate_penaltyWeight(optim_config_list, target_dose, return_cat_table=True)
+                res["trial_index"] = exp_indx
                 results[i] = res
-                cat_tables[f"trial_{i}"] = cat_table
+                cat_tables[f"trial_{exp_indx}"] = cat_table
             return pd.DataFrame.from_dict(results, orient='index'), cat_tables
 
   
 
-    def initialize_experiment(self, axClient:AxClient, num_fmio_runs:int):
+    def initialize_experiment(self, axClient:AxClient, num_random_initiations:int, num_parallel_iterations:int):
         r''' In this function, we initialize the experiment object with a user-defined number of randomly generated penalty weight vectors
         inputs:
             - axClient := an ax client object that has been already initialized with the right parameters and objectives
-            - num_fmio_runs := number of fmio calls to be run in parallel
+            - num_random_initiations := number of fmio calls to be run in parallel
+            - num_parallel_iterations := number of parallel iterations to run
 
         outputs:
             - VOID := this method returns nothing, but it updates the axClient with the result of penalty weight evaluations
@@ -173,17 +186,17 @@ class MOBOOptimizer:
         parameters=axClient.experiment.search_space.parameters
 
         # initialize a dataframe that will hold all the random penalty weight vectors 
-        initial_weights_space = np.zeros([num_fmio_runs, len(parameters)])
+        initial_weights_space = np.zeros([num_random_initiations, len(parameters)])
         random_weight_space = pd.DataFrame(initial_weights_space, columns=list(parameters.keys()))
 
         # fill the dataframe with the weight vectors in the right range
         for parameter in parameters:
             try:
                 random_weight_space[parameter] = np.random.uniform(
-                    low=parameters[parameter].lower, high = parameters[parameter].upper, size=num_fmio_runs)
+                    low=parameters[parameter].lower, high = parameters[parameter].upper, size=num_random_initiations)
             # in case you have a fixed parameter, set the value accordingly for all rows
             except: 
-                random_weight_space[parameter] = np.ones(num_fmio_runs)*parameters[parameter].value
+                random_weight_space[parameter] = np.ones(num_random_initiations)*parameters[parameter].value
 
         # run penalty weight evaluation on all the weight vecotrs in parallel
         list_of_opt_config_lists = []
@@ -192,14 +205,22 @@ class MOBOOptimizer:
             optim_config_list, target_dose = self.get_optim_config_and_target_dose_from_parameters(config_params)
             list_of_opt_config_lists.append(optim_config_list)
             list_of_target_doses.append(target_dose)
-
+        
+        list_of_experiment_indexes = range(len(list_of_target_doses))
         random_weight_dvh_space, cat_tables = self.evaluate_penaltyWeight_space_helper(
-            list_of_opt_config_lists, list_of_target_doses, multiprocessing=True)
+            list_of_opt_config_lists=list_of_opt_config_lists, 
+            list_of_target_doses=list_of_target_doses, 
+            list_of_experiment_indexes=list_of_experiment_indexes,
+            num_parallel_iterations=num_parallel_iterations)
 
         # put the results into the axclient
-        for indx in random_weight_dvh_space.index:
-            axClient.attach_trial(random_weight_dvh_space.iloc[[indx]][list(parameters.keys())].to_dict('records')[0])
-            axClient.complete_trial(indx, random_weight_dvh_space.iloc[[indx]][list(axClient.experiment.metrics.keys())].to_dict('records')[0])
+        for indx in list_of_experiment_indexes:
+            sub_df = random_weight_dvh_space[random_weight_dvh_space['trial_index'] == indx]
+            axClient.attach_trial(sub_df[list(parameters.keys())].to_dict('records')[0])
+            axClient.complete_trial(
+                trial_index=indx, 
+                raw_data=sub_df[list(axClient.experiment.metrics.keys())].to_dict('records')[0]
+                )
         # for debugging{ in case you want to view the result of added trials uncomment the line below
         # axClient.get_trials_data_frame()
         # }
@@ -207,9 +228,9 @@ class MOBOOptimizer:
 
 
     def run(self,
-            num_iterations:int, 
+            num_mobo_iterations:int, 
             num_random_initiation:int=5, 
-            parallel_random_init:bool=True,
+            num_parallel_iterations:int=1,
             output_filename:str=None,
             calc_hv:bool=False,
             mobo_objective_kwargs:dict=None, 
@@ -224,9 +245,9 @@ class MOBOOptimizer:
         BrachyPlan object and then calling the update_plan_from_catheter_table() method.
 
         inputs:
-            - num_iterations:= the number of desired mobo iterations
+            - num_mobo_iterations:= the number of desired mobo iterations
             - num_random_initiation := fmio calls are used to initiate axClient.experiment
-                If parallel_random_init, these runs are completely random and run in parallel with the initialize_experiment()
+                If num_parallel_iterations > 1, these runs are completely random and run in parallel with the initialize_experiment()
                 function. If not, the runs are initiated one by one inside the mobo loop with the semirandom sobol generator 
                 of ax api. Must be greater than 0, otherwise qNoisyExpectedImprovement will not be able to search for next 
                 trial.
@@ -262,7 +283,7 @@ class MOBOOptimizer:
             device = torch.device("cpu")
             print("CUDA not available for MOBO. Using CPU.")
 
-        if not parallel_random_init:
+        if num_parallel_iterations <= 1:
             steps.append(
                 GenerationStep(
                     ## This is quasi random sampling, good for initial exploration of the space
@@ -274,10 +295,10 @@ class MOBOOptimizer:
                     }
                 )
             )
-            # The loop though ax client will add num_iterations to the initial num_random_initiation
-            total_ax_iterations = num_iterations + num_random_initiation
+            # The loop though ax client will add num_mobo_iterations to the initial num_random_initiation
+            total_ax_iterations = num_mobo_iterations + num_random_initiation
         else:
-            total_ax_iterations = num_iterations
+            total_ax_iterations = num_mobo_iterations
 
         steps.append(GenerationStep(
             ## Refer to 
@@ -319,63 +340,125 @@ class MOBOOptimizer:
         tic = perf_counter()
         tac = None
         optimized_cat_tables = {}
-        if parallel_random_init:
+        if num_parallel_iterations > 1:
             # Completely random experiment initialization in parallel
             results, cat_tables = self.initialize_experiment(ax_client,
-                                       num_random_initiation)
+                                       num_random_initiations=num_random_initiation,
+                                       num_parallel_iterations=num_parallel_iterations)
             optimized_cat_tables.update(cat_tables)
             tac = perf_counter()
             print(f"Time taken for {num_random_initiation} parallel initialization: {tac - tic:0.4f} seconds")
         else:
             results = pd.DataFrame()
 
-        for i in range(total_ax_iterations):
-            print("RUNNING MOBO ITERATION ", i+1, " OUT OF ", total_ax_iterations)
-            try:
-                parameters, trial_index = ax_client.get_next_trial()
-                ## To print device used
-                # genstep = ax_client.generation_strategy.current_step
-                # generator = genstep.generator_specs[0]
-                # print("Generator is on device:", generator.fitted_adapter.device)
-
-            except Exception as e:
-                print("Failed to get next trial from axClient: ", e)
-                break
-            optim_config_list, target_dose = self.get_optim_config_and_target_dose_from_parameters(parameters)
-            dvh_metrics_and_config, optimized_cat_table = self.brachy_optim.evaluate_penaltyWeight(
-                optim_config_list, target_dose, return_cat_table=True, inplace=False) # inplace Flase since we add the new plan to the dict
-            results = pd.concat([results, pd.DataFrame({**dvh_metrics_and_config}, index=[trial_index])], ignore_index=True)
-            optimized_cat_tables[f"trial_{trial_index}"] = optimized_cat_table
-            # local evaluation here can be replaced with deployment to external systems
-            ax_client.complete_trial(trial_index=trial_index, raw_data={k:v for k,v in dvh_metrics_and_config.items() if k in list(ax_client.experiment.metrics.keys())})
-            
-            if calc_hv:
+        if num_parallel_iterations <= 1:
+            for i in range(total_ax_iterations):
+                print("RUNNING MOBO ITERATION ", i+1, " OUT OF ", total_ax_iterations)
+                
+                # Sequential experiment parameter generation and evaluation
                 try:
-                    current_model = Generators.MOO(
-                        experiment=ax_client.experiment,
-                        data=ax_client.experiment.fetch_data(),
-                        search_space=ax_client.experiment.search_space
+                    parameters, trial_index = ax_client.get_next_trial()
+                    ## To print device used
+                    # genstep = ax_client.generation_strategy.current_step
+                    # generator = genstep.generator_specs[0]
+                    # print("Generator is on device:", generator.fitted_adapter.device)
+
+                except Exception as e:
+                    print("Failed to get next trial from axClient: ", e)
+                    break
+                optim_config_list, target_dose = self.get_optim_config_and_target_dose_from_parameters(parameters)
+                dvh_metrics_and_config, optimized_cat_table = self.brachy_optim.evaluate_penaltyWeight(
+                    optim_config_list, target_dose, return_cat_table=True, inplace=False) # inplace Flase since we add the new plan to the dict
+                dvh_metrics_and_config["trial_index"] = trial_index
+                results = pd.concat([results, pd.DataFrame({**dvh_metrics_and_config})])
+                optimized_cat_tables[f"trial_{trial_index}"] = optimized_cat_table
+                # local evaluation here can be replaced with deployment to external systems
+                ax_client.complete_trial(trial_index=trial_index, raw_data={
+                    k:v for k,v in dvh_metrics_and_config.items() if k in list(ax_client.experiment.metrics.keys())})
+                
+                if calc_hv:
+                    genstep = ax_client.generation_strategy.current_step
+                    generator = genstep.generator_specs[0]
+                    # TO get training data
+                    # generator.fitted_adapter.get_training_data()
+                    hv = observed_hypervolume(
+                            adapter=generator.fitted_adapter,
+                            objective_thresholds=ax_client.experiment.optimization_config.objective_thresholds,
+                            optimization_config=ax_client.experiment.optimization_config,
+                            selected_metrics=list(ax_client.experiment.metrics.keys())
                         )
-                    
-                    hv = observed_hypervolume(modelbridge=current_model)
-                except:
-                    hv = 0
-                    print("failed to compute hv")
-                hv_list.append(hv)  
+                    hv_list.append(hv)  
+                    print(f"Hypervolume after iteration {i+1}: {hv:0.4f}")
+        else:
+            # Parallel experiment parameter generation and evaluation
+            total_mobo_iter = 0
+            for _ in range(int(np.ceil(total_ax_iterations/num_parallel_iterations))):
+                if total_mobo_iter + num_parallel_iterations <= total_ax_iterations:
+                    max_trials = num_parallel_iterations
+                else:
+                    max_trials = total_ax_iterations - total_mobo_iter
+
+                total_mobo_iter += max_trials
+
+                parameters, _ = ax_client.get_next_trials(max_trials=max_trials)
+                list_of_opt_config_lists = []
+                list_of_target_doses = []
+                trial_indices = []
+                for t_index, param_dict in parameters.items():
+                    optim_config_list, target_dose = self.get_optim_config_and_target_dose_from_parameters(param_dict)
+                    list_of_opt_config_lists.append(optim_config_list)
+                    list_of_target_doses.append(target_dose)
+                    trial_indices.append(int(t_index))
+                    assert int(t_index) not in  optimized_cat_tables.keys(), (
+                        "Trial index already exists in optimized_cat_tables. This should not happen."
+                    )
+                dvh_metrics_and_config_df, cat_tables = self.evaluate_penaltyWeight_space_helper(
+                    list_of_opt_config_lists=list_of_opt_config_lists, 
+                    list_of_target_doses=list_of_target_doses,
+                    num_parallel_iterations=num_parallel_iterations,
+                    list_of_experiment_indexes=trial_indices)
+
+                optimized_cat_tables.update(cat_tables)
+                results = pd.concat([results, dvh_metrics_and_config_df], ignore_index=True)
+                for trial_ind in trial_indices:
+                    print("Completing trial index:", trial_ind)
+                    sub_df = dvh_metrics_and_config_df[dvh_metrics_and_config_df['trial_index'] == trial_ind]
+                    ax_client.complete_trial(
+                        trial_index=trial_ind,
+                        raw_data={k:v for k,v in sub_df.iloc[[0]][
+                            list(ax_client.experiment.metrics.keys())
+                            ].to_dict('records')[0].items()}
+                    )
+                    if calc_hv:
+                        genstep = ax_client.generation_strategy.current_step
+                        generator = genstep.generator_specs[0]
+                        hv = observed_hypervolume(
+                                adapter=generator.fitted_adapter,
+                                objective_thresholds=ax_client.experiment.optimization_config.objective_thresholds,
+                                optimization_config=ax_client.experiment.optimization_config,
+                                selected_metrics=list(ax_client.experiment.metrics.keys())
+                            )
+
+                        hv_list.append(hv)  
+                        print(f"Hypervolume after iteration {trial_ind}: {hv:0.4f}")
 
         toc = perf_counter()
         if tac is not None:
             parallel_init_time = tac - tic
             mobo_time = toc - tac
             print(f"Time taken for {num_random_initiation} parallel initialization: {tac - tic:0.4f} seconds")
-            print(f"Time taken for {num_iterations} MOBO iterations after initialization: {toc - tac:0.4f} seconds")
+            print(f"Time taken for {num_mobo_iterations} MOBO iterations after initialization: {toc - tac:0.4f} seconds")
         else:
             mobo_time = toc - tic
             parallel_init_time = 0
-            print(f"Time taken for {num_iterations} MOBO iterations: {toc - tic:0.4f} seconds")
+            print(f"Time taken for {num_mobo_iterations} MOBO iterations: {toc - tic:0.4f} seconds")
 
         trial_only_results = ax_client.get_trials_data_frame().sort_values(by=["trial_index"])
         trial_only_results.to_csv(output_filename, index=False)
+        # Merging both to have the trial indexes and all DVH metrics
+        results = trial_only_results.merge(
+            results, how='inner'
+        )
         results.to_csv(output_filename.replace('.csv', '_with_all_DVH_metrics.csv'), index=False)
         return results, optimized_cat_tables, hv_list, mobo_time, parallel_init_time
 
