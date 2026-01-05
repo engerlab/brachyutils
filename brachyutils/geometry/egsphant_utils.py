@@ -415,8 +415,7 @@ class BrachyEgsphant:
         self.voxel_edges = np.empty(len(voxel_centers), dtype=object)
         for i in range(len(voxel_centers)):
             self.voxel_edges[i] = (
-                np.round(voxel_centers[i], decimals=1) -
-                np.round(self.density_image.spacing[i] / 2.0, decimals=1)
+               voxel_centers[i] - self.density_image.spacing[i] / 2.0
             )
 
         return self.voxel_edges
@@ -484,10 +483,14 @@ class BrachyEgsphant:
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
         Path.mkdir(fileName.parent, exist_ok=True, parents=True)
+
+        #auto select precision for egsphant
+        precision = 3 if self.density_image.spacing.min() > 0.1 else 5
+
         egsphant_voxel_edges = np.array(
             [
                 np.char.mod(
-                    "%.3f",
+                    f"%.{precision}f",
                     np.append(axis, axis[-1] + self.density_image.spacing[i]) / 10,
                     # axis / 10,
                 )
