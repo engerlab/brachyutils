@@ -525,7 +525,12 @@ class CatheterTable(BaseModel):
         - To initialize the CatheterTable object.
         
         ### Inputs:
-        - **data: dict := the dictionary containing the catheter table attributes.
+        - catheter_list: List[Catheter] | List[dict] | str | Path | CatheterSetUp | CreatedSetUp :=
+        the list of catheter objects in the catheter table or the path to a json or dicom file.
+        - step_size: float := the step size in mm between the dwell positions on the catheter table.
+        - from_delivered_dwellpositions: bool := if true, the dwell positions inside the delivered dwell positions will be used.
+        ### Outputs:
+        - CatheterTable := the catheter table object.
         """
         super().__init__(**data)
         if (isinstance(self.catheter_list, str) or
