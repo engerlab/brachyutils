@@ -43,8 +43,8 @@ dependencies = [
     "pytest",
     "vtk",
     # comment out for docker build{
-    "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
-    "ai_assisted_brachy @ git+https://github.com/engerlab/AI_Assisted_Brachytherapy.git",
+    # "opentps @ git+https://github.com/engerlab/OpenTPS-brachyutils.git",
+    # "ai_assisted_brachy @ git+https://github.com/engerlab/AI_Assisted_Brachytherapy.git",
     # }
     "nibabel",
     "pydantic",
