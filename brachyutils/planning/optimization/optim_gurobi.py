@@ -615,7 +615,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             self, 
             list_of_opt_config_lists: List[List[Optimization_Config]], 
             list_of_target_doses: List[float] = None,
-            return_cat_table: bool = False) -> dict:
+            list_of_experiment_indexes: List[int] = None,
+            return_cat_table: bool = False,
+            max_parallel_runs: int = 5) -> dict:
         r"""
         ### Purpose:
         - A function to evaluate the penalty weight space by resetting the model with new penalty weights
@@ -637,7 +639,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         - results: pd.DataFrame := A dataframe containing the DVH metrics and penalty weights
         for each configuration.
         """
-       
+        if list_of_experiment_indexes is None:
+            list_of_experiment_indexes = list(range(len(list_of_opt_config_lists)))
+
         model_data = get_model_data(self.model)
 
         list_original_opt_config_lists = []
@@ -650,7 +654,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
 
         ## Pickling the BrachyPlan is doable but it makes the Pool operation sequential. 
         # so we use a global variable _plan instead that we initialize with self.plan
-        with Pool(min(5, os.cpu_count(), len(list_of_opt_config_lists)), initializer=_init_worker, initargs=(self.plan,)) as pl:
+        with Pool(min(max_parallel_runs, 
+                      os.cpu_count(), 
+                      len(list_of_opt_config_lists)), initializer=_init_worker, initargs=(self.plan,)) as pl:
         
             res = pl.starmap(_run_and_organize_results, zip(
                 range(len(list_of_opt_config_lists)),  # dummy arg instead of self.plan
@@ -677,9 +683,12 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             optimized_cat_table = {}
             for i, r in enumerate(res):
                 weights_and_dvh_space.append(r[0])
-                optimized_cat_table[f"trial_{i}"] = r[1]
+                weights_and_dvh_space[-1]["trial_index"] = list_of_experiment_indexes[i]
+                optimized_cat_table[f"trial_{list_of_experiment_indexes[i]}"] = r[1]
             return pd.DataFrame(weights_and_dvh_space), optimized_cat_table
         else:
+            for i, r in enumerate(res):
+                r["trial_index"] = list_of_experiment_indexes[i]
             return pd.DataFrame(res)
         
 def _format_path(p, k):
@@ -948,12 +957,16 @@ def modify_model_objective_with_new_penalty_weights_and_td(
                           f" is the same as the original target dose.")
 
     old_objective = model.getObjective()
-    assert isinstance(old_objective, QuadExpr), "Objective is not a quadratic expression as expected"
-    new_objective = QuadExpr()
+    obj_is_quad = isinstance(old_objective, QuadExpr)
+    if obj_is_quad:
+        new_objective = QuadExpr()
+        old_linear_expr = old_objective.getLinExpr()
+    else:
+        new_objective = LinExpr()
+        old_linear_expr = old_objective
     # Constant does not change so we do not need to call model.getConstant()
 
-    old_linear_expr = old_objective.getLinExpr()
-   
+    # First handle linear terms
     for i in range(old_linear_expr.size()):
         var = old_linear_expr.getVar(i)
         coeff = old_linear_expr.getCoeff(i)
@@ -993,41 +1006,44 @@ def modify_model_objective_with_new_penalty_weights_and_td(
         if new_coeff != 0:
             new_objective.addTerms(new_coeff, var)
 
-    coeff_type = None
-    for i in range(old_objective.size()):
-        v1, v2 = old_objective.getVar1(i), old_objective.getVar2(i)
-        coeff = old_objective.getCoeff(i)
-        # Determine which structure this variable belongs to
-        struct_name = None
-        opt_conf_of_interest = None
-        for opt_conf in og_optim_config_list:
-            if np.isclose(coeff, opt_conf.quadratic_coeff, atol=1e-6):
-                struct_name = opt_conf.structure_name
-                opt_conf_of_interest = opt_conf
-                coeff_type = "quadratic"
-            elif np.isclose(coeff, opt_conf.uniformity_coeff, atol=1e-6):
-                struct_name = opt_conf.structure_name
-                opt_conf_of_interest = opt_conf
-                coeff_type = "uniformity"
-        for new_opt_conf in optim_config_list_to_set:
-            if new_opt_conf.structure_name == struct_name:
-                new_opt_conf_of_interest = new_opt_conf
-                assert new_opt_conf_of_interest.num_dose_points == opt_conf_of_interest.num_dose_points, (
-                    f"Number of dose points for structure {struct_name} has changed from "
-                    f"{opt_conf_of_interest.num_dose_points} to {new_opt_conf_of_interest.num_dose_points}. "
-                    "This is not allowed when modifying penalty weights."
-                )
-                if coeff_type == "quadratic":
-                    new_coeff = new_opt_conf_of_interest.quadratic_coeff
-                else:
-                    new_coeff = new_opt_conf_of_interest.uniformity_coeff
-                break
 
-        if struct_name is None:
-            raise ValueError(f"Variable pair {v1.VarName}, {v2.VarName} does not belong to any known structure, with og_conf_list {og_optim_config_list}, and coeff {coeff}, and new opt config list {new_optim_config_list}")
-      
-        if new_coeff != 0:
-            new_objective.addTerms(new_coeff, v1, v2)
+    if obj_is_quad:
+        # Now handle quadratic terms
+        coeff_type = None
+        for i in range(old_objective.size()):
+            v1, v2 = old_objective.getVar1(i), old_objective.getVar2(i)
+            coeff = old_objective.getCoeff(i)
+            # Determine which structure this variable belongs to
+            struct_name = None
+            opt_conf_of_interest = None
+            for opt_conf in og_optim_config_list:
+                if np.isclose(coeff, opt_conf.quadratic_coeff, atol=1e-6):
+                    struct_name = opt_conf.structure_name
+                    opt_conf_of_interest = opt_conf
+                    coeff_type = "quadratic"
+                elif np.isclose(coeff, opt_conf.uniformity_coeff, atol=1e-6):
+                    struct_name = opt_conf.structure_name
+                    opt_conf_of_interest = opt_conf
+                    coeff_type = "uniformity"
+            for new_opt_conf in optim_config_list_to_set:
+                if new_opt_conf.structure_name == struct_name:
+                    new_opt_conf_of_interest = new_opt_conf
+                    assert new_opt_conf_of_interest.num_dose_points == opt_conf_of_interest.num_dose_points, (
+                        f"Number of dose points for structure {struct_name} has changed from "
+                        f"{opt_conf_of_interest.num_dose_points} to {new_opt_conf_of_interest.num_dose_points}. "
+                        "This is not allowed when modifying penalty weights."
+                    )
+                    if coeff_type == "quadratic":
+                        new_coeff = new_opt_conf_of_interest.quadratic_coeff
+                    else:
+                        new_coeff = new_opt_conf_of_interest.uniformity_coeff
+                    break
+
+            if struct_name is None:
+                raise ValueError(f"Variable pair {v1.VarName}, {v2.VarName} does not belong to any known structure, with og_conf_list {og_optim_config_list}, and coeff {coeff}, and new opt config list {new_optim_config_list}")
+        
+            if new_coeff != 0:
+                new_objective.addTerms(new_coeff, v1, v2)
 
 
     # Updating conf list at the end so that we have the correct weights when updating linear and hotspot terms
@@ -1035,7 +1051,11 @@ def modify_model_objective_with_new_penalty_weights_and_td(
     # We cannot directly touch the original opt conf list in the loop above because we need to update each
     # dose voxel constraint coefficient first. If modiying the weight after first voxel is changed then 
     # mapping with the coeff will be lost for the next voxel.
-    new_linear_expr = new_objective.getLinExpr()
+    if obj_is_quad:
+        new_linear_expr = new_objective.getLinExpr()
+    else:
+        new_linear_expr = new_objective
+        
     for i in range(new_linear_expr.size()):
         coeff = new_linear_expr.getCoeff(i)
         # Determine which structure this variable belongs to
