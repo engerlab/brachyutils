@@ -25,7 +25,7 @@ from functools import partial
 # likley to be factored out later
 from brachyutils.geometry.catheter_utils.catheter_table import Catheter 
 
-class Catheter_Gurobi():
+class CatheterVar_Gurobi():
     r"""
     ### Purpose:
     - a class representing a catheter variable to be used in Gurobi optimization models    

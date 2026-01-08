@@ -1,5 +1,5 @@
 from pathlib import Path
-from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import Catheter_Gurobi
+from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import CatheterVar_Gurobi
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from gurobipy import Model
 
@@ -12,7 +12,7 @@ def test_catheter_gurobi_initialization():
     model = Model("test_model")
     for catheter in cat_table:
         catheter_vars.append(
-            Catheter_Gurobi(
+            CatheterVar_Gurobi(
             catheter=catheter,
             model=model,
             )
