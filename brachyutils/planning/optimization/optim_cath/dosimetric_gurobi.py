@@ -31,6 +31,8 @@ class Catheter_Gurobi():
         self,
         catheter: Catheter,
         model: Model,
+        lower_dwelltime: Optional[float] = 0.0,
+        upper_dwelltime: Optional[float] = 100.0,
         ):
         r"""
         ### Purpose:
@@ -47,11 +49,11 @@ class Catheter_Gurobi():
                 DwellTime_Gurobi(
                     model = model,
                     name = f"{self.name}_dwell_{dwell.index+1}",
-                    dwell_time = dwell.dwell_time,
-                    lower_bound = dwell.lower_bound,
-                    upper_bound = dwell.upper_bound,
-                    coordinates = dwell.coordinates,
-                    dose_rate_map = dwell.dose_rate_map,
+                    dwell_time = dwell.time,
+                    lower_bound = lower_dwelltime,
+                    upper_bound = upper_dwelltime,
+                    coordinates = dwell.position,
+                    # dose_rate_map = dwell.dose_rate_map,
                 )
             )
     def build_backend_variable(self, model: Model):
