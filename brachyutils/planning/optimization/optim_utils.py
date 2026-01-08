@@ -294,6 +294,7 @@ class Optimization_Config(BaseModel):
     mask_margin_mm:float | List[float]= 0
     min_dose:float = 0
     max_dose:float = 500
+    catheter_recommendaion: bool = False
     # may be needed later
     # self.index_range_constraints: List[int] = None
 
