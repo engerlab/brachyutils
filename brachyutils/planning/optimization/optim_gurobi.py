@@ -170,7 +170,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         - A function to initialize the optimizer.
         ### Parameters:
         - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
-        - roi_margin_mm: The distance from the furthest dwell position along each axis:
+        - roi_margin_mm: The distance from the furthest dwell position along each axis when defining
+        the region of interest for optimization:
             - [x_margin_mm, y_margin_mm, z_margin_mm] or a single float value for all axes.
         """
         super().__init__()
