@@ -320,8 +320,8 @@ class BrachyDwellTime(BaseModel, ABC):
     dwell_time: float = Field(ge=0, description="Initial dwell time of the DwellTimeVariable in seconds.")
     lower_bound: float = Field(ge=0, description="Lower bound of the DwellTimeVariable in seconds.")
     upper_bound: float = Field(ge=0, description="Upper bound of the DwellTimeVariable in seconds.")
-    coordinates: List[float] = Field(default=None, description="Coordinates of the dwell position for this DwellTimeVariable.")
-    dose_rate_map: np.ndarray = Field(default=None, description="Dose rate map for this DwellTimeVariable.")
+    coordinates: List[float] | None = Field(default=None, description="Coordinates of the dwell position for this DwellTimeVariable.")
+    dose_rate_map: np.ndarray | None = Field(default=None, description="Dose rate map for this DwellTimeVariable.")
 
     _model_variable: Any = PrivateAttr(default=None)
 

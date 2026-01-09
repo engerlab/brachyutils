@@ -39,8 +39,8 @@ class CatheterVar_Gurobi():
         self,
         catheter: Catheter,
         model: Model,
-        lower_dwelltime: Optional[float] | Dict[str:float] = 0.0,
-        upper_dwelltime: Optional[float] | Dict[str:float] = 100.0,
+        lower_dwelltime: Optional[float] | Dict[str, float] = 0.0,
+        upper_dwelltime: Optional[float] | Dict[str, float] = 100.0,
         dose_rates_dict: Optional[Dict[str, np.ndarray]] = None,
         ):
         r"""

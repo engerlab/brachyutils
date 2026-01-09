@@ -1707,7 +1707,7 @@ class BrachyPlan:
     def get_dose_rate_matrices_for_catheter(
         self,
         catheter_index: int
-    ) -> Dict[str, ]:
+    ) -> Dict[int, List[np.ndarray]]:
         r"""
         ### Purpose:
         - to get the dose rate matrices for all dwell positions in a given catheter.
@@ -1716,7 +1716,8 @@ class BrachyPlan:
         ### Inputs:
         - catheter_index := the index of the catheter in the catheter table
         ### Outputs:
-        - dose_rate_matrices := a dictionary mapping catheter index to the dose rate matrices
+        - dose_rate_matrices := a dictionary mapping catheter index to the list of dose rate matrices
+        from the dwell positions in that catheter.
         """
         start_doserate_index = 0
         end_doserate_index = 0
