@@ -68,4 +68,5 @@ def test_catheter_table_optim():
 
     
 if __name__ == "__main__":
-    test_catheter_gurobi_initialization()
+    # test_catheter_gurobi_initialization()
+    test_catheter_table_optim()
