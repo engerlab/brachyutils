@@ -41,7 +41,7 @@ class CatheterVar_Gurobi():
         model: Model,
         lower_dwelltime: Optional[float] | Dict[str, float] = 0.0,
         upper_dwelltime: Optional[float] | Dict[str, float] = 100.0,
-        dose_rates_dict: Optional[Dict[str, np.ndarray]] = None,
+        dose_rates: Optional[List[np.ndarray]] = None,
         ):
         r"""
         ### Purpose:
@@ -52,11 +52,11 @@ class CatheterVar_Gurobi():
         - `model`: Model := the Gurobi model to which the variables will be added.
         - `lower_dwelltime`: Optional[float] | Dict[str:float] := the lower bound(s) for the dwell time variables.
         - `upper_dwelltime`: Optional[float] | Dict[str:float] := the upper bound(s) for the dwell time variables.
-        - `dose_rate_dict`: Optional[Dict[str, np.ndarray]] := the dose rate matrices for the dwell positions in this catheter.
+        - `dose_rates`: Optional[List[np.ndarray]] := the dose rate matrices for all the dwell positions in this catheter.
         """
         self.name: str = f"catheter_{catheter.index+1}"
         self.dwelltime_variables: List[DwellTime_Gurobi] = []
-        self.dose_rates_dict = dose_rates_dict
+        self.dose_rates = dose_rates
         self.build_backend_variable(model=model)
         for dwell in catheter.dwells:
             self.dwelltime_variables.append(
@@ -67,7 +67,7 @@ class CatheterVar_Gurobi():
                     lower_bound = lower_dwelltime,
                     upper_bound = upper_dwelltime,
                     coordinates = dwell.position,
-                    dose_rate_map = self.dose_rates_dict[dwell.index] if self.dose_rates_dict is not None else None,
+                    dose_rate_map = self.dose_rates[dwell.index] if self.dose_rates is not None else None,
                 )
             )
     def build_backend_variable(self, model: Model):
@@ -170,12 +170,12 @@ class CatheterTableOptim_Gurobi():
         catheter_vars = []
         for catheter in plan.catheter_table:
             # get the dose rate matrices for each catheter
-            dose_rates_dict = plan.get_dose_rate_matrices_for_catheter(catheter.index)
+            dose_rates = plan.get_dose_rate_matrices_for_catheter(catheter.index)
             catheter_vars.append(
                 CatheterVar_Gurobi(
                 catheter=catheter,
                 model=model,
-                dose_rates_dict=dose_rates_dict,
+                dose_rates=dose_rates,
                 )
             )
         model.update()

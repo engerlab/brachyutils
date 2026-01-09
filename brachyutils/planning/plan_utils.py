@@ -1707,7 +1707,7 @@ class BrachyPlan:
     def get_dose_rate_matrices_for_catheter(
         self,
         catheter_index: int
-    ) -> Dict[int, List[np.ndarray]]:
+    ) -> List[List[np.ndarray]]:
         r"""
         ### Purpose:
         - to get the dose rate matrices for all dwell positions in a given catheter.
@@ -1732,9 +1732,7 @@ class BrachyPlan:
             start=start_doserate_index,
             stop=end_doserate_index,
             step=1)
-        return {
-            catheter_index: self.dose_rate_tensor[dose_rate_indicices]
-        }
+        return self.dose_rate_tensor[dose_rate_indicices]
 
 def _gen_hotspot_mask(
     dwellpair: dict,
