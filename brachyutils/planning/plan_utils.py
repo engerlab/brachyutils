@@ -1132,6 +1132,7 @@ class BrachyPlan:
                     assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
                     crop_by_contour=content_to_export.get("crop_by_contour", None),
                     strict_name_match=content_to_export.get("strict_name_match", True),
+                    phantom_filename=content_to_export.get("phantom_filename", "ct.egsphant"),
                     resampled_spacing=content_to_export.get("resampled_spacing", None),
                     resampled_origin=content_to_export.get("resampled_origin", None),
                     background_material=content_to_export.get("background_material", "Air"),
@@ -1380,7 +1381,9 @@ class BrachyPlan:
         resampled_spacing: List[float] = None,
         resampled_origin: List[float] = None,
         background_material: str = None,
-        strict_name_match: bool = True
+        strict_name_match: bool = True,
+        phantom_filename: str = "ct.egsphant",
+
     ):
         r"""
         ### Purpose:
@@ -1395,18 +1398,22 @@ class BrachyPlan:
             "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
         ]
         - assign_material_from_ct := if True, the material names will be assigned from the ct.egsphant file.
+        - output_filename: str := the name of the output egsphant file
+
         ### Outputs:
         - void := egsphant file is generated from phantom and is written to ct.egsphant
         ### Dependencies:
         - BrachyEgsphant
         """
-        file_path = dir_export + "/ct.egsphant"
+        if isinstance(dir_export, str):
+            dir_export = Path(dir_export)
+        file_path = dir_export / phantom_filename
         # if isinstance(material_dict, Path):
         #     with open(material_dict, "r") as json_file:
         #         material_dict = json.load(json_file)
 
         self.phantom.write_to_egsphant(
-            pth_output=Path(file_path),
+            pth_output=file_path,
             material_dict=material_dict,
             assign_material_from_ct=assign_material_from_ct,
             crop_by_contour=crop_by_contour,

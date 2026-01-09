@@ -672,11 +672,7 @@ class BrachyPhantom:
             - background_material: Optional[str] := the name of the background material. default is "Air".
         """
         pth_output = Path(pth_output)
-        if str(pth_output).endswith(".egsphant"):
-            pass
-        elif str(pth_output).endswith(".seq.nrrd"):
-            pass
-        else:
+        if not str(pth_output).endswith(".egsphant") and not str(pth_output).endswith(".seq.nrrd"):
             raise ValueError("The output file should have '.egsphant' or '.seq.nrrd' extension.")
         #if the egsphant is already made, write it
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
