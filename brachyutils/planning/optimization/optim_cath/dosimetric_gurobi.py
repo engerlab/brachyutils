@@ -23,8 +23,8 @@ import multiprocessing as mp
 from functools import partial
 
 # likley to be factored out later
-from brachyutils.geometry.catheter_utils.catheter_table import Catheter 
-
+from brachyutils.geometry.catheter_utils.catheter_table import Catheter, CatheterTable
+ 
 class CatheterVar_Gurobi():
     r"""
     ### Purpose:
@@ -67,7 +67,7 @@ class CatheterVar_Gurobi():
                     lower_bound = lower_dwelltime,
                     upper_bound = upper_dwelltime,
                     coordinates = dwell.position,
-                    # dose_rate_map = dwell.dose_rate_map,
+                    dose_rate_map = dwell.dose_rate_map,
                 )
             )
     def build_backend_variable(self, model: Model):
@@ -86,4 +86,100 @@ class CatheterVar_Gurobi():
             lb=0,
             ub=1
         )
-    
+
+
+class CatheterTableOptim_Gurobi():
+    r"""
+    ### Purpose:
+    - a class to optimize the catheter table using Gurobi.
+    ### Attributes:
+    XXX: tbd
+    """
+    def __init__(
+        self,
+        plan: BrachyPlan,
+        roi_margin_mm: float = 5.0,
+        multi_processing: bool = False,
+        ):
+        r"""
+        ### Purpose:
+        - An catheter table optimization object for Gurobi solver. 
+        ### Inputs:
+        - `plan`: BrachyPlan := the brachytherapy plan to be optimized.
+        - `roi_margin_mm`: float := margin in mm to add around the ROIs when resampling to the optimization grid.
+        """
+        # # Initialize the attributes to their default values
+        self.plan: BrachyPlan = plan
+        self.solver = "gurobi"
+        self.model = None
+        self.catheter_vars: List[CatheterVar_Gurobi] = []
+        self.roi_bounds: List[List[float]] = None
+        self.roi_margin_mm: float = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
+        self.solution_found: bool = False
+        self.solve_time: float = 0.0
+        self.multi_processing = multi_processing
+        
+        # attributes for later developement XXX
+        # self.target_constraints_coords = []
+        # self.hotspot_constraints_coords = []
+        # self.hotspot_threshold = None
+        # self.structure_weights_d = {}
+
+        # start buliding this optimization object
+        self.model = self.initialize_model(self.solver)
+        self.catheter_vars = self.set_catheter_variables(
+            plan=self.plan,
+            model=self.model,
+            )
+        self.roi_bounds = self.get_optimization_roi_bounds(
+            plan=self.plan,
+            roi_margin_mm=self.roi_margin_mm,
+        )
+        self.set_penalty_function_and_constraints(
+            plan=self.plan,
+            catheter_vars=self.catheter_vars,
+            model=self.model,
+            multi_processing=self.multi_processing,
+        )
+        
+    def initialize_model(self, solver: str, pth_logfile) -> Model:
+        r"""
+        ### Purpose:
+        - initializes the Gurobi optimization model and set the log paths.
+        ### Inputs:
+        - `solver`: str := the solver to be used. only "gurobi" is supported.
+        - `pth_logfile`: Optional[Path] := the path to the logfile. if
+        None, default is temp_data/gurobi_model.log.
+        ### Returns:
+        - Model := the initialized Gurobi model.
+        """
+        if solver.lower() != "gurobi":
+            raise ValueError("Only Gurobi solver is supported in this class.")
+        if pth_logfile is None:
+            pth_logfile = Path("temp_data/gurobi_model.log").resolve()
+        pth_logfile.parent.mkdir(parents=True, exist_ok=True)
+        model = Model("CatheterTable_Optimization")
+        model.setParam("LogFile", str(pth_logfile))
+        return model
+
+    def set_catheter_variables(
+        plan: BrachyPlan,
+        model: Model,
+        ) -> List[CatheterVar_Gurobi]:
+        catheter_vars = []
+        for catheter in plan.catheter_table:
+            # get the dose rate matrices for each catheter
+            dose_rate_dict = plan.get_dose_rate_matrices_for_catheter(catheter)
+            catheter_vars.append(
+                CatheterVar_Gurobi(
+                catheter=catheter,
+                model=model,
+                )
+            )
+        model.update()
+
+    def get_optimization_roi_bounds():
+        pass
+
+    def set_penalty_function_and_constraints():
+        pass
