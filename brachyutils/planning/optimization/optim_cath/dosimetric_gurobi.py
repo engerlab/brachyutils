@@ -41,7 +41,7 @@ class CatheterVar_Gurobi():
         model: Model,
         lower_dwelltime: Optional[float] | Dict[str:float] = 0.0,
         upper_dwelltime: Optional[float] | Dict[str:float] = 100.0,
-        dose_rate_dict: Optional[Dict[str, np.ndarray]] = None,
+        dose_rates_dict: Optional[Dict[str, np.ndarray]] = None,
         ):
         r"""
         ### Purpose:
@@ -56,7 +56,7 @@ class CatheterVar_Gurobi():
         """
         self.name: str = f"catheter_{catheter.index+1}"
         self.dwelltime_variables: List[DwellTime_Gurobi] = []
-        self.dose_rate_dict = dose_rate_dict
+        self.dose_rates_dict = dose_rates_dict
         self.build_backend_variable(model=model)
         for dwell in catheter.dwells:
             self.dwelltime_variables.append(
@@ -67,7 +67,7 @@ class CatheterVar_Gurobi():
                     lower_bound = lower_dwelltime,
                     upper_bound = upper_dwelltime,
                     coordinates = dwell.position,
-                    dose_rate_map = dwell.dose_rate_map,
+                    dose_rate_map = self.dose_rates_dict[dwell.index] if self.dose_rates_dict is not None else None,
                 )
             )
     def build_backend_variable(self, model: Model):
@@ -169,11 +169,12 @@ class CatheterTableOptim_Gurobi():
         catheter_vars = []
         for catheter in plan.catheter_table:
             # get the dose rate matrices for each catheter
-            dose_rate_dict = plan.get_dose_rate_matrices_for_catheter(catheter)
+            dose_rates_dict = plan.get_dose_rate_matrices_for_catheter(catheter.index)
             catheter_vars.append(
                 CatheterVar_Gurobi(
                 catheter=catheter,
                 model=model,
+                dose_rates_dict=dose_rates_dict,
                 )
             )
         model.update()
