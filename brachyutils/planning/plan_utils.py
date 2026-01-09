@@ -27,7 +27,7 @@ from brachyutils.dose.dose_utils import BrachyDose
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry.applicator_utils import BrachyApplicator 
 from brachyutils.geometry.phantom_utils import BrachyPhantom
-from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+from brachyutils.geometry.catheter_utils.catheter_table import Catheter, CatheterTable
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
 from brachyutils.types import Optimization_Config
@@ -1703,6 +1703,37 @@ class BrachyPlan:
                 self.phantom.remove_structure(structure.name)
                 continue
             structure.optimization_config = None
+
+    def get_dose_rate_matrices_for_catheter(
+        self,
+        catheter_index: int
+    ) -> Dict[str, ]:
+        r"""
+        ### Purpose:
+        - to get the dose rate matrices for all dwell positions in a given catheter.
+        this function assumes that the dose rate tensor is already sorted from small to 
+        large catheter and dwell indices.
+        ### Inputs:
+        - catheter_index := the index of the catheter in the catheter table
+        ### Outputs:
+        - dose_rate_matrices := a dictionary mapping catheter index to the dose rate matrices
+        """
+        start_doserate_index = 0
+        end_doserate_index = 0
+        for cat in self.catheter_table:
+            num_dwells_in_catheter = len(cat.dwell_positions)
+            if cat.catheter_index < catheter_index:
+                start_doserate_index += num_dwells_in_catheter
+            elif cat.catheter_index == catheter_index:
+                end_doserate_index = start_doserate_index + num_dwells_in_catheter
+                break
+        dose_rate_indicices = np.arange(
+            start=start_doserate_index,
+            stop=end_doserate_index,
+            step=1)
+        return {
+            catheter_index: self.dose_rate_tensor[dose_rate_indicices]
+        }
 
 def _gen_hotspot_mask(
     dwellpair: dict,
