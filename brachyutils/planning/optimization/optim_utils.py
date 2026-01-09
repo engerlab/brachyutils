@@ -267,7 +267,13 @@ class Optimization_Config(BaseModel):
     ### Purpose:
     - This class holds the information regarding the optimization configuration per each structure.
     When loading the BrachyPlan the optimization config is created for each structure in the plan.structure_list.
-
+    Some attributes are unique to target structures (CTV/PTV) and some are common to all structures.
+    target attributes: 
+        - penalty_weight_hotspot
+        - hotspot_threshold
+        - catheter_recommendaion
+        - penalty_weight_variance_time
+        - penalty_weight_uniformity
     ### Attributes:
     - structure_name: str := The name of the structure to which this optimization config applies.
     - spacing_mm: List[float] | float := The spacing of the optimization grid in mm. 
@@ -281,6 +287,7 @@ class Optimization_Config(BaseModel):
     - mask_margin_mm: List[float] | float := Margin around structure for optimization in mm. Default 0.
     - min_dose: float := Minimum allowed dose in Gy. Default 0.
     - max_dose: float := Maximum allowed dose in Gy. Default 500.
+    - catheter_recommendaion: bool := If True, catheter positions will be optimized as well. Default False.
     """
     structure_name:str = None
     spacing_mm:float | List[float]= None
