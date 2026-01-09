@@ -17,7 +17,7 @@ from scipy.sparse import csr_matrix
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, resample_crop_the_mask_or_contour_to_optimGrid,
+    BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices, Optimization_Config
 )
 import multiprocessing as mp
@@ -186,7 +186,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         # self._cached_A_matrix = np.ndarray([], dtype=object)
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
-        self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
+        self.roi_bounds: List[List[float]] = get_optimization_roi_bounds(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
             roi_margin_mm=self.roi_margin_mm,
@@ -264,20 +264,20 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.model.update()
         return dwellTimeVariable_list
 
-    def get_optimization_roi_bounds(
-        self,
-        plan: BrachyPlan,
-        dwellTimeVariables: List[DwellTime_Gurobi],
-        roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
-    ) -> List[List[float]]:
-        r"""
-        See `BrachyDwellTime.get_optimization_roi_bounds` for details.
-        """
-        return super().get_optimization_roi_bounds(
-            plan=plan,
-            dwellTimeVariables=dwellTimeVariables,
-            roi_margin_mm=roi_margin_mm
-        )
+    # def get_optimization_roi_bounds(
+    #     self,
+    #     plan: BrachyPlan,
+    #     dwellTimeVariables: List[DwellTime_Gurobi],
+    #     roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
+    # ) -> List[List[float]]:
+    #     r"""
+    #     See `BrachyDwellTime.get_optimization_roi_bounds` for details.
+    #     """
+    #     return super().get_optimization_roi_bounds(
+    #         plan=plan,
+    #         dwellTimeVariables=dwellTimeVariables,
+    #         roi_margin_mm=roi_margin_mm
+    #     )
 
     def set_penalty_function_and_constraints(
         self,

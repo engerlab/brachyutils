@@ -180,8 +180,8 @@ class CatheterTableOptim_Gurobi():
             )
         model.update()
 
-    def get_optimization_roi_bounds(self):
-        pass
+    # def get_optimization_roi_bounds(self):
+    #     pass
 
     def set_penalty_function_and_constraints(self):
         pass

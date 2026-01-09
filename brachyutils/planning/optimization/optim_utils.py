@@ -374,7 +374,6 @@ class BrachyDwellTimeOptim(ABC):
     ### Functions:
     - initialize_model: A function to initialize the optimization model (prepare the solver and the log files).
     - set_dwellTimeVariables: A function to create the DwellTimeVariable objects based on the treatment plan. 
-    - get_optimization_roi_bounds: A function to get the optimization region of interest bounds (furhter dwells +/- margin).
     - set_penalty_function_and_constraints: A function to set the penalty function and constraints for the optimization.
     - run: A function to run the optimization model inside the solver and capture the solve time.
     - get_optimized_plan_from_model: A function to get the optimized BrachyPlan from the model.
@@ -441,61 +440,6 @@ class BrachyDwellTimeOptim(ABC):
         pass
 
     @abstractmethod
-    def get_optimization_roi_bounds(
-        self,
-        plan: BrachyPlan,
-        dwellTimeVariables: List[Any],
-        roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
-    ) -> List[List[float]]:
-        r"""
-        ### Purpose:
-        - A function to get the coordinate bounds for the optimization region of
-        interest (roi) from the plan.  The roi is the inclusion mask for the voxels
-        to be included in the optimization. The roi is defined as the region around 
-        the furthest dwell position along each axis plus the margin.
-        ### Inputs:
-        - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
-        - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
-        - roi_margin_mm:List[float] := The distance from the furthest dwell position along each axis
-        to consider voxels the dose rate maps. for each axis:
-            inclusion_space = [
-                closest_dwell_position - roi_margin_mm[axis] :
-                furthest_dwell_position + roi_margin_mm[axis]
-                ]
-        ### Outputs:
-        - roi_optimization:ROIMask := The optimization region of interest (roi) from the plan.
-        """
-        # get the inclusion mask for the voxels to be included
-        inclusion_boundaries = np.ones((3, 2))
-        dwell_bounds = np.zeros((3, 2))
-        for axis in [0, 1, 2]:
-            dwell_coord_axis = [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
-            dwell_bounds[axis, 0] = np.min(dwell_coord_axis)
-            dwell_bounds[axis, 1] = np.max(dwell_coord_axis)
-            inclusion_boundaries[axis, 0] = (
-                dwell_bounds[axis, 0] - roi_margin_mm[axis]
-            )
-            inclusion_boundaries[axis, 1] = (
-                dwell_bounds[axis, 1] + roi_margin_mm[axis]
-            )
-            # if the inclusion bound is outside the dose image, set it to the dose image bounds
-            if (
-                inclusion_boundaries[axis][0]
-                < plan.combined_dose.dose_image.origin[axis]
-            ):
-                inclusion_boundaries[axis][0] = plan.combined_dose.dose_image.origin[axis]
-            if (
-                inclusion_boundaries[axis][1]
-                > plan.combined_dose.dose_image.origin[axis]
-                + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
-            ):
-                inclusion_boundaries[axis][1] = (
-                    plan.combined_dose.dose_image.origin[axis]
-                    + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
-                )
-        return inclusion_boundaries
-
-    @abstractmethod
     def set_penalty_function_and_constraints(
         self,
         plan: BrachyPlan,
@@ -555,3 +499,56 @@ class BrachyDwellTimeOptim(ABC):
         - None
         """
         pass
+
+def get_optimization_roi_bounds(
+    plan: BrachyPlan,
+    dwellTimeVariables: List[Any],
+    roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
+) -> List[List[float]]:
+    r"""
+    ### Purpose:
+    - A function to get the coordinate bounds for the optimization region of
+    interest (roi) from the plan.  The roi is the inclusion mask for the voxels
+    to be included in the optimization. The roi is defined as the region around 
+    the furthest dwell position along each axis plus the margin.
+    ### Inputs:
+    - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
+    - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
+    - roi_margin_mm:List[float] := The distance from the furthest dwell position along each axis
+    to consider voxels the dose rate maps. for each axis:
+        inclusion_space = [
+            closest_dwell_position - roi_margin_mm[axis] :
+            furthest_dwell_position + roi_margin_mm[axis]
+            ]
+    ### Outputs:
+    - roi_optimization:ROIMask := The optimization region of interest (roi) from the plan.
+    """
+    # get the inclusion mask for the voxels to be included
+    inclusion_boundaries = np.ones((3, 2))
+    dwell_bounds = np.zeros((3, 2))
+    for axis in [0, 1, 2]:
+        dwell_coord_axis = [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
+        dwell_bounds[axis, 0] = np.min(dwell_coord_axis)
+        dwell_bounds[axis, 1] = np.max(dwell_coord_axis)
+        inclusion_boundaries[axis, 0] = (
+            dwell_bounds[axis, 0] - roi_margin_mm[axis]
+        )
+        inclusion_boundaries[axis, 1] = (
+            dwell_bounds[axis, 1] + roi_margin_mm[axis]
+        )
+        # if the inclusion bound is outside the dose image, set it to the dose image bounds
+        if (
+            inclusion_boundaries[axis][0]
+            < plan.combined_dose.dose_image.origin[axis]
+        ):
+            inclusion_boundaries[axis][0] = plan.combined_dose.dose_image.origin[axis]
+        if (
+            inclusion_boundaries[axis][1]
+            > plan.combined_dose.dose_image.origin[axis]
+            + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
+        ):
+            inclusion_boundaries[axis][1] = (
+                plan.combined_dose.dose_image.origin[axis]
+                + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
+            )
+    return inclusion_boundaries

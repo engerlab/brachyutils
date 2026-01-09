@@ -148,10 +148,10 @@ class DwellTimeOptimizer(Protocol):
         self, plan: Any, initial_dwell_time: float = 0.0, 
         lower_bound: float = 0.0, upper_bound: float = 100
     ) -> List[Any]: ...
-    def get_optimization_roi_bounds(
-        self, plan: Any, dwellTimeVariables: List[Any],
-        roi_margin_mm: List[float]
-    ) -> List[List[float]]: ...
+    # def get_optimization_roi_bounds(
+    #     self, plan: Any, dwellTimeVariables: List[Any],
+    #     roi_margin_mm: List[float]
+    # ) -> List[List[float]]: ...
     def set_penalty_function(
         self, plan: Any, dwellTimeVariables: List[Any],
         model: Any
