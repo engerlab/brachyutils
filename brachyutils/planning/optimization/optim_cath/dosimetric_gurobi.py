@@ -15,7 +15,7 @@ import pandas as pd
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, resample_crop_the_mask_or_contour_to_optimGrid,
+    BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices, Optimization_Config
 )
 from brachyutils.planning.optimization.optim_gurobi import DwellTime_Gurobi
@@ -24,7 +24,8 @@ from functools import partial
 
 # likley to be factored out later
 from brachyutils.geometry.catheter_utils.catheter_table import Catheter, CatheterTable
- 
+from itertools import chain
+
 class CatheterVar_Gurobi():
     r"""
     ### Purpose:
@@ -86,7 +87,10 @@ class CatheterVar_Gurobi():
             lb=0,
             ub=1
         )
-
+    
+    def __iter__(self):
+        for dwell_var in self.dwelltime_variables:
+            yield dwell_var
 
 class CatheterTableOptim_Gurobi():
     r"""
@@ -131,8 +135,9 @@ class CatheterTableOptim_Gurobi():
             plan=self.plan,
             model=self.model,
             )
-        self.roi_bounds = self.get_optimization_roi_bounds(
+        self.roi_bounds = get_optimization_roi_bounds(
             plan=self.plan,
+            dwellTimeVariables=list(chain.from_iterable(self.catheter_vars)),
             roi_margin_mm=self.roi_margin_mm,
         )
         self.set_penalty_function_and_constraints(
@@ -179,9 +184,7 @@ class CatheterTableOptim_Gurobi():
                 )
             )
         model.update()
-
-    # def get_optimization_roi_bounds(self):
-    #     pass
-
+        return catheter_vars
+    
     def set_penalty_function_and_constraints(self):
         pass
