@@ -142,7 +142,7 @@ class CatheterTableOptim_Gurobi():
             multi_processing=self.multi_processing,
         )
         
-    def initialize_model(self, solver: str, pth_logfile) -> Model:
+    def initialize_model(self, solver: str, pth_logfile:str=None) -> Model:
         r"""
         ### Purpose:
         - initializes the Gurobi optimization model and set the log paths.
@@ -163,6 +163,7 @@ class CatheterTableOptim_Gurobi():
         return model
 
     def set_catheter_variables(
+        self,
         plan: BrachyPlan,
         model: Model,
         ) -> List[CatheterVar_Gurobi]:
@@ -179,8 +180,8 @@ class CatheterTableOptim_Gurobi():
             )
         model.update()
 
-    def get_optimization_roi_bounds():
+    def get_optimization_roi_bounds(self):
         pass
 
-    def set_penalty_function_and_constraints():
+    def set_penalty_function_and_constraints(self):
         pass

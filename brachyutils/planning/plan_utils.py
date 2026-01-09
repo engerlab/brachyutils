@@ -1722,10 +1722,10 @@ class BrachyPlan:
         start_doserate_index = 0
         end_doserate_index = 0
         for cat in self.catheter_table:
-            num_dwells_in_catheter = len(cat.dwell_positions)
-            if cat.catheter_index < catheter_index:
+            num_dwells_in_catheter = len(cat.dwells)
+            if cat.index < catheter_index:
                 start_doserate_index += num_dwells_in_catheter
-            elif cat.catheter_index == catheter_index:
+            elif cat.index == catheter_index:
                 end_doserate_index = start_doserate_index + num_dwells_in_catheter
                 break
         dose_rate_indicices = np.arange(
