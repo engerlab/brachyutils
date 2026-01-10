@@ -55,6 +55,7 @@ class CatheterVar_Gurobi():
         - `upper_dwelltime`: Optional[float] | Dict[str:float] := the upper bound(s) for the dwell time variables.
         - `dose_rates`: Optional[List[np.ndarray]] := the dose rate matrices for all the dwell positions in this catheter.
         """
+        self._model_variable: Var = None
         self.name: str = f"catheter_{catheter.index+1}"
         self.dwelltime_variables: List[DwellTime_Gurobi] = []
         self.dose_rates = dose_rates
@@ -146,7 +147,7 @@ class CatheterTableOptim_Gurobi():
             model=self.model,
             multi_processing=self.multi_processing,
         )
-        
+
     def initialize_model(self, solver: str, pth_logfile:str=None) -> Model:
         r"""
         ### Purpose:
@@ -186,5 +187,114 @@ class CatheterTableOptim_Gurobi():
         model.update()
         return catheter_vars
     
-    def set_penalty_function_and_constraints(self):
-        pass
+    def set_penalty_function_and_constraints(
+        self,
+        plan: BrachyPlan,
+        catheter_vars: List[CatheterVar_Gurobi],
+        model: Model,
+        multi_processing: bool = False,):
+        r"""
+        ### Purpose:
+        - sets the penalty function and constraints for the optimization model.
+        ### Inputs:
+        - `plan`: BrachyPlan := the brachytherapy plan to be optimized.
+        - `catheter_vars`: List[CatheterVar_Gurobi] := the catheter variables to be used in the optimization.
+        - `model`: Model := the Gurobi model to which the variables will be added.
+        - `multi_processing`: bool := whether to use multi-processing for dose rate matrix computations.
+        """
+        if not plan.structure_list:
+            raise ValueError("Plan does not contain any structures.")
+
+        penalty_terms = {
+        "linear": 0,
+        "quadratic": 0,
+        "hotspot": 0,
+        "uniformity": 0
+        }
+        for structure in plan.structure_list:
+            if structure.optimization_config is None:
+                continue
+            if "hotspot_estimator:" in structure.name.lower():
+                continue
+            structure_mask = structure.mask
+            optim_spacing = structure.optimization_config.spacing_mm
+            min_dose = structure.optimization_config.min_dose
+            max_dose = structure.optimization_config.max_dose
+
+            # XXX convert these to gurobi variable and build a constraint for each
+            # this will get rid of sebbers hacky way dictionaries for MOBO
+            target_dose = structure.optimization_config.dose_voxel_goal
+            linear_weight = structure.optimization_config.penalty_weight_linear
+            quadratic_weight = structure.optimization_config.penalty_weight_quadratic
+            uniformity_weight = structure.optimization_config.penalty_weight_uniformity
+            hotspot_threshold = structure.optimization_config.hotspot_threshold
+            hotspot_weight = structure.optimization_config.penalty_weight_hotspot
+            penalty_weight_variance_time = structure.optimization_config.penalty_weight_variance_time
+
+            structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
+                structure_mask=structure_mask,
+                template_dose_obj=plan.combined_dose,
+                optim_spacing=optim_spacing,
+                roi_bounds=self.roi_bounds
+                )
+
+            for cath_var in catheter_vars:
+                # Build dose rate matrix and dwell time vector for this structure
+                dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+                    cath_var,
+                    plan,
+                    structure.name,
+                    structure_mask,
+                    optim_spacing,
+                    self.roi_bounds,
+                    max_workers=16,
+                    shift_origin=True,
+                    multi_processing=multi_processing
+                )
+                if not dose_rate_matrices:
+                    continue
+
+                t_MVar = MVar(dwell_vars)
+                A_sparse = np.column_stack(dose_rate_matrices)
+                num_dose_points = A_sparse.shape[0]
+                if num_dose_points == 0:
+                    continue
+                # XXX conver to gurobi variable and set it using a constraint
+                target_dose_vec = np.full((num_dose_points,), target_dose)
+                
+                if structure.target_volume:
+                    if linear_weight > 0 or quadratic_weight > 0:
+                        x_slack = model.addMVar(
+                            shape=num_dose_points,
+                            lb=0.0,
+                            ub=target_dose - min_dose,
+                            name=f"dose_slack_{structure.name}"
+                            )
+                        model.addConstr(
+                            A_sparse @ (cath_var._model_variable * t_MVar) + x_slack >= target_dose_vec,
+                            name=f"dose_target_{structure.name}"
+                            )
+                    if linear_weight > 0:
+                        # XXX conver to gurobi variable and set it using a constraint
+                        linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
+                        penalty_terms["linear"] += linear_weight_vec @ x_slack
+
+                    if quadratic_weight > 0:
+                        # XXX conver to gurobi variable and set it using a constraint
+                        quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                        penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
+
+                    if uniformity_weight > 0:
+                        # XXX conver to gurobi variable and set it using a constraint
+                        y_uniform = model.addMVar(
+                            shape=num_dose_points,
+                            lb=-GRB.INFINITY,
+                            ub=target_dose - min_dose,
+                            name=f"uniform_slack_{structure.name}"
+                        )
+                        # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
+                        model.addConstr(
+                            A_sparse @ (cath_var._model_variable * t_MVar) + y_uniform == target_dose_vec,
+                            name=f"dose_uniform_{structure.name}"
+                        )
+

@@ -187,12 +187,12 @@ def process_variable(
     return dwell_var, valid_dose_points
 
 def compute_dose_rate_matrices(
-        dwellTimeVariables,
-        plan,
-        structure_name,
-        structure_mask=None,
-        optim_spacing=None,
-        roi_bounds=None,
+        dwellTimeVariables: List[BrachyDwellTime],
+        plan: BrachyPlan,
+        structure_name: str = None,
+        structure_mask: ROIMask = None,
+        optim_spacing: List[float] = None,
+        roi_bounds: List[List[float]] = None,
         max_workers:int=16,
         shift_origin:bool=False,
         multi_processing:bool=True):
@@ -502,7 +502,7 @@ class BrachyDwellTimeOptim(ABC):
 
 def get_optimization_roi_bounds(
     plan: BrachyPlan,
-    dwellTimeVariables: List[Any],
+    dwellTimeVariables: List[BrachyDwellTime],
     roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
 ) -> List[List[float]]:
     r"""
