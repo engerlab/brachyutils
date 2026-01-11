@@ -264,21 +264,6 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.model.update()
         return dwellTimeVariable_list
 
-    # def get_optimization_roi_bounds(
-    #     self,
-    #     plan: BrachyPlan,
-    #     dwellTimeVariables: List[DwellTime_Gurobi],
-    #     roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
-    # ) -> List[List[float]]:
-    #     r"""
-    #     See `BrachyDwellTime.get_optimization_roi_bounds` for details.
-    #     """
-    #     return super().get_optimization_roi_bounds(
-    #         plan=plan,
-    #         dwellTimeVariables=dwellTimeVariables,
-    #         roi_margin_mm=roi_margin_mm
-    #     )
-
     def set_penalty_function_and_constraints(
         self,
         plan: BrachyPlan,
