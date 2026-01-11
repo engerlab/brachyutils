@@ -18,7 +18,8 @@ from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices, Optimization_Config
 )
-from brachyutils.planning.optimization.optim_gurobi import DwellTime_Gurobi
+from brachyutils.planning.optimization.optim_gurobi import (
+    DwellTime_Gurobi, _run, _get_optimized_plan_from_model)
 import multiprocessing as mp
 from functools import partial
 
@@ -297,4 +298,74 @@ class CatheterTableOptim_Gurobi():
                             A_sparse @ (cath_var._model_variable * t_MVar) + y_uniform == target_dose_vec,
                             name=f"dose_uniform_{structure.name}"
                         )
+                    if hotspot_weight > 0 and hotspot_threshold is not None:
+                        # XXX conver to gurobi variable and set it using a constraint
+                        pass
+                    if penalty_weight_variance_time > 0:
+                        # XXX conver to gurobi variable and set it using a constraint
+                        pass
+                # OAR constraints and penalties
+                else:
+                    if linear_weight > 0 or quadratic_weight > 0:
+                        x_slack_oar = model.addMVar(
+                            shape=num_dose_points,
+                            lb=0.0,
+                            ub=max_dose - min_dose,
+                            name=f"dose_slack_oar_{structure.name}"
+                        )
+                        model.addConstr(
+                            A_sparse @ (cath_var._model_variable * t_MVar) - x_slack_oar <= max_dose,
+                            name=f"dose_oar_{structure.name}"
+                        )
+                    if linear_weight > 0:
+                        # XXX conver to gurobi variable and set it using a constraint
+                        linear_weight_vec_oar = np.full(num_dose_points, linear_weight / num_dose_points)
+                        penalty_terms["linear"] += linear_weight_vec_oar @ x_slack_oar
+                    if quadratic_weight > 0:
+                        # XXX conver to gurobi variable and set it using a constraint
+                        quadratic_weight_vec_oar = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                        penalty_terms["quadratic"] += quadratic_weight_vec_oar @ (x_slack_oar * x_slack_oar)
+        # Set the objective function
+        model.setObjective(
+            penalty_terms["linear"]
+            + penalty_terms["quadratic"]
+            + penalty_terms["uniformity"]
+            + penalty_terms["hotspot"],
+            GRB.MINIMIZE
+        )
+        model.update()
 
+    def run(self):
+        r"""
+        ### Purpose:
+        - A function to run the optimizer. See `BrachyDwellTimeOptim.run` for details. 
+        """
+        self.model, self.solution_found, self.solve_time = _run(self.model)
+
+    def get_optimized_plan_from_model(
+        self,
+        inplace:bool=True,
+        ) -> BrachyPlan | None:
+        r"""
+        See `BrachyDwellTime.get_optimized_plan_from_model` for details.
+        """
+        # XXX adapt this for catheter table optimization, maintain the signature!
+        self.model, outplan, self.solution_found, self.solve_time = _get_optimized_plan_from_model(
+            plan=self.plan,
+            model=self.model,
+            inplace=inplace
+            )
+        return outplan
+
+    def bound_variables(
+        self,
+        new_bounds: Dict[str, Dict[str, float]],
+        ):
+        r"""
+        ### Purpose:
+        - bound specific catheter or dwell time variables in the optimization model.
+        ### Inputs:
+        - `new_bounds`: Dict[str, Dict[str, float]] := a dictionary where keys are catheter or dwell time variable names
+            and values are dictionaries with 'equality', 'lower' and 'upper' keys for the new bounds.
+        """
+        pass
