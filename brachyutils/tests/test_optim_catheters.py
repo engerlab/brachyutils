@@ -67,7 +67,7 @@ def test_catheter_table_optim():
         multi_processing=True,
     )
     optimized_plan = catheter_optim_obj.get_optimized_plan_from_model()
-
+    
     
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()

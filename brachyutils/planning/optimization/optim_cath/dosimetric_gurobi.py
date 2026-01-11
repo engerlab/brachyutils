@@ -267,10 +267,7 @@ class CatheterTableOptim_Gurobi():
                         dwell_vars.append(var_mat[0])
                         dose_rate_matrices.append(var_mat[1])
             t_MVar = MVar(dwell_vars)
-            c_MVar = []
-            for c in catheter_vars:
-                for _ in c:
-                    c_MVar.append(c._model_variable)
+            c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
             A_sparse = np.column_stack(dose_rate_matrices)
             num_dose_points = A_sparse.shape[0]
             if num_dose_points == 0:
@@ -279,7 +276,7 @@ class CatheterTableOptim_Gurobi():
             # for cath_var in catheter_vars:
             #     # XXX conver to gurobi variable and set it using a constraint
             target_dose_vec = np.full((num_dose_points,), target_dose)
-
+            
             if structure.target_volume:
                 if linear_weight > 0 or quadratic_weight > 0:
                     x_slack = model.addMVar(
@@ -331,7 +328,7 @@ class CatheterTableOptim_Gurobi():
                         name=f"dose_slack_oar_{structure.name}"
                     )
                     model.addConstr(
-                        A_sparse @ (c_MVar * t_MVar) - x_slack_oar <= max_dose,
+                        A_sparse @ (c_MVar * t_MVar) - x_slack_oar <= target_dose_vec,
                         name=f"dose_oar_{structure.name}"
                     )
                 if linear_weight > 0:
