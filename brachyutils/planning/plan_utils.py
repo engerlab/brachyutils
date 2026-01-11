@@ -1157,7 +1157,7 @@ class BrachyPlan:
         self,
         dir_export: str,
         with_uncertainty=False,
-        dose_type=".minidos",
+        dose_type=".seq.nrrd",
         dose_rate_maps=False,
     ):
         r"""
