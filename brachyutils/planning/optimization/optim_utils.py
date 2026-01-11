@@ -187,7 +187,7 @@ def process_variable(
     return dwell_var, valid_dose_points
 
 def compute_dose_rate_matrices(
-        dwellTimeVariables: List[BrachyDwellTime],
+        dwellTimeVariables: List[Any],
         plan: BrachyPlan,
         structure_name: str = None,
         structure_mask: ROIMask = None,
