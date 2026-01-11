@@ -119,6 +119,7 @@ class CatheterTableOptim_Gurobi():
         self.solver = "gurobi"
         self.model = None
         self.catheter_vars: List[CatheterVar_Gurobi] = []
+        self.dwellTimeVariables: List[DwellTime_Gurobi] = []
         self.roi_bounds: List[List[float]] = None
         self.roi_margin_mm: float = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solution_found: bool = False
@@ -137,9 +138,10 @@ class CatheterTableOptim_Gurobi():
             plan=self.plan,
             model=self.model,
             )
+        self.dwellTimeVariables = list(chain.from_iterable(self.catheter_vars))
         self.roi_bounds = get_optimization_roi_bounds(
             plan=self.plan,
-            dwellTimeVariables=list(chain.from_iterable(self.catheter_vars)),
+            dwellTimeVariables=self.dwellTimeVariables,
             roi_margin_mm=self.roi_margin_mm,
         )
         self.set_penalty_function_and_constraints(
@@ -238,93 +240,108 @@ class CatheterTableOptim_Gurobi():
                 optim_spacing=optim_spacing,
                 roi_bounds=self.roi_bounds
                 )
+            # Build dose rate matrix and dwell time vector for this structure
+            dwell_vars_chaos, dose_rate_matrices_chaos = compute_dose_rate_matrices(
+                self.dwellTimeVariables,
+                plan,
+                structure.name,
+                structure_mask,
+                optim_spacing,
+                self.roi_bounds,
+                max_workers=16,
+                shift_origin=True,
+                multi_processing=multi_processing
+            )
+            if not dose_rate_matrices_chaos:
+                continue
+            
+            # now sort the dose rate matrices and dwell vars per catheter
+            if not dose_rate_matrices_chaos:
+                continue
+            dwell_vars = []
+            dose_rate_matrices = []
+            # sort the dwell_vars and dose_rate_matrices according to the original dwellTimeVariables order
+            for var in self.dwellTimeVariables:
+                for var_mat in zip(dwell_vars_chaos, dose_rate_matrices_chaos):
+                    if var_mat[0].VarName == var.name:
+                        dwell_vars.append(var_mat[0])
+                        dose_rate_matrices.append(var_mat[1])
+            t_MVar = MVar(dwell_vars)
+            c_MVar = []
+            for c in catheter_vars:
+                for _ in c:
+                    c_MVar.append(c._model_variable)
+            A_sparse = np.column_stack(dose_rate_matrices)
+            num_dose_points = A_sparse.shape[0]
+            if num_dose_points == 0:
+                continue
 
-            for cath_var in catheter_vars:
-                # Build dose rate matrix and dwell time vector for this structure
-                dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
-                    cath_var,
-                    plan,
-                    structure.name,
-                    structure_mask,
-                    optim_spacing,
-                    self.roi_bounds,
-                    max_workers=16,
-                    shift_origin=True,
-                    multi_processing=multi_processing
-                )
-                if not dose_rate_matrices:
-                    continue
+            # for cath_var in catheter_vars:
+            #     # XXX conver to gurobi variable and set it using a constraint
+            target_dose_vec = np.full((num_dose_points,), target_dose)
 
-                t_MVar = MVar(dwell_vars)
-                A_sparse = np.column_stack(dose_rate_matrices)
-                num_dose_points = A_sparse.shape[0]
-                if num_dose_points == 0:
-                    continue
-                # XXX conver to gurobi variable and set it using a constraint
-                target_dose_vec = np.full((num_dose_points,), target_dose)
-                
-                if structure.target_volume:
-                    if linear_weight > 0 or quadratic_weight > 0:
-                        x_slack = model.addMVar(
-                            shape=num_dose_points,
-                            lb=0.0,
-                            ub=target_dose - min_dose,
-                            name=f"dose_slack_{structure.name}"
-                            )
-                        model.addConstr(
-                            A_sparse @ (cath_var._model_variable * t_MVar) + x_slack >= target_dose_vec,
-                            name=f"dose_target_{structure.name}"
-                            )
-                    if linear_weight > 0:
-                        # XXX conver to gurobi variable and set it using a constraint
-                        linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
-                        penalty_terms["linear"] += linear_weight_vec @ x_slack
+            if structure.target_volume:
+                if linear_weight > 0 or quadratic_weight > 0:
+                    x_slack = model.addMVar(
+                        shape=num_dose_points,
+                        lb=0.0,
+                        ub=target_dose - min_dose,
+                        name=f"dose_slack_{structure.name}"
+                        )
+                    model.addConstr(
+                        A_sparse @ (c_MVar * t_MVar) + x_slack >= target_dose_vec,
+                        name=f"dose_target_{structure.name}"
+                        )
+                if linear_weight > 0:
+                    # XXX conver to gurobi variable and set it using a constraint
+                    linear_weight_vec = np.full(num_dose_points, linear_weight / num_dose_points)
+                    penalty_terms["linear"] += linear_weight_vec @ x_slack
 
-                    if quadratic_weight > 0:
-                        # XXX conver to gurobi variable and set it using a constraint
-                        quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
-                        penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
+                if quadratic_weight > 0:
+                    # XXX conver to gurobi variable and set it using a constraint
+                    quadratic_weight_vec = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                    penalty_terms["quadratic"] += quadratic_weight_vec @ (x_slack * x_slack)
 
-                    if uniformity_weight > 0:
-                        # XXX conver to gurobi variable and set it using a constraint
-                        y_uniform = model.addMVar(
-                            shape=num_dose_points,
-                            lb=-GRB.INFINITY,
-                            ub=target_dose - min_dose,
-                            name=f"uniform_slack_{structure.name}"
-                        )
-                        # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
-                        model.addConstr(
-                            A_sparse @ (cath_var._model_variable * t_MVar) + y_uniform == target_dose_vec,
-                            name=f"dose_uniform_{structure.name}"
-                        )
-                    if hotspot_weight > 0 and hotspot_threshold is not None:
-                        # XXX conver to gurobi variable and set it using a constraint
-                        pass
-                    if penalty_weight_variance_time > 0:
-                        # XXX conver to gurobi variable and set it using a constraint
-                        pass
-                # OAR constraints and penalties
-                else:
-                    if linear_weight > 0 or quadratic_weight > 0:
-                        x_slack_oar = model.addMVar(
-                            shape=num_dose_points,
-                            lb=0.0,
-                            ub=max_dose - min_dose,
-                            name=f"dose_slack_oar_{structure.name}"
-                        )
-                        model.addConstr(
-                            A_sparse @ (cath_var._model_variable * t_MVar) - x_slack_oar <= max_dose,
-                            name=f"dose_oar_{structure.name}"
-                        )
-                    if linear_weight > 0:
-                        # XXX conver to gurobi variable and set it using a constraint
-                        linear_weight_vec_oar = np.full(num_dose_points, linear_weight / num_dose_points)
-                        penalty_terms["linear"] += linear_weight_vec_oar @ x_slack_oar
-                    if quadratic_weight > 0:
-                        # XXX conver to gurobi variable and set it using a constraint
-                        quadratic_weight_vec_oar = np.full(num_dose_points, quadratic_weight / num_dose_points)
-                        penalty_terms["quadratic"] += quadratic_weight_vec_oar @ (x_slack_oar * x_slack_oar)
+                if uniformity_weight > 0:
+                    # XXX conver to gurobi variable and set it using a constraint
+                    y_uniform = model.addMVar(
+                        shape=num_dose_points,
+                        lb=-GRB.INFINITY,
+                        ub=target_dose - min_dose,
+                        name=f"uniform_slack_{structure.name}"
+                    )
+                    # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
+                    model.addConstr(
+                        A_sparse @ (c_MVar * t_MVar) + y_uniform == target_dose_vec,
+                        name=f"dose_uniform_{structure.name}"
+                    )
+                if hotspot_weight > 0 and hotspot_threshold is not None:
+                    # XXX conver to gurobi variable and set it using a constraint
+                    pass
+                if penalty_weight_variance_time > 0:
+                    # XXX conver to gurobi variable and set it using a constraint
+                    pass
+            # OAR constraints and penalties
+            else:
+                if linear_weight > 0 or quadratic_weight > 0:
+                    x_slack_oar = model.addMVar(
+                        shape=num_dose_points,
+                        lb=0.0,
+                        ub=max_dose - min_dose,
+                        name=f"dose_slack_oar_{structure.name}"
+                    )
+                    model.addConstr(
+                        A_sparse @ (c_MVar * t_MVar) - x_slack_oar <= max_dose,
+                        name=f"dose_oar_{structure.name}"
+                    )
+                if linear_weight > 0:
+                    # XXX conver to gurobi variable and set it using a constraint
+                    linear_weight_vec_oar = np.full(num_dose_points, linear_weight / num_dose_points)
+                    penalty_terms["linear"] += linear_weight_vec_oar @ x_slack_oar
+                if quadratic_weight > 0:
+                    # XXX conver to gurobi variable and set it using a constraint
+                    quadratic_weight_vec_oar = np.full(num_dose_points, quadratic_weight / num_dose_points)
+                    penalty_terms["quadratic"] += quadratic_weight_vec_oar @ (x_slack_oar * x_slack_oar)
         # Set the objective function
         model.setObjective(
             penalty_terms["linear"]
@@ -369,3 +386,28 @@ class CatheterTableOptim_Gurobi():
             and values are dictionaries with 'equality', 'lower' and 'upper' keys for the new bounds.
         """
         pass
+    
+# def _get_optimized_plan_from_model(
+#     plan: BrachyPlan,
+#     model: Model,
+#     inplace: bool = True,
+#     ) -> BrachyPlan | None:
+#     r"""
+#     ### Purpose:
+#     - extracts the optimized plan from the Gurobi model after optimization.
+#     ### Inputs:
+#     - `plan`: BrachyPlan := the brachytherapy plan to be optimized.
+#     - `model`: Model := the Gurobi model after optimization.
+#     - `inplace`: bool := whether to modify the input plan in place or return a new plan.
+#     ### Returns:
+#     - BrachyPlan | None := the optimized brachytherapy plan if solution found, else None.
+#     """
+#     if plan is None or model is None:
+#         raise ValueError("Both plan and model must be provided.")
+    
+#     model, solution_found, solve_time = _run(model)
+#     variable_name_list = []
+#     for x in model.getVars():
+#         # need to isolate catheter and dwell time variables. it 
+#         # may be better to get the variable by name directly!
+#         print("debug here")

@@ -64,7 +64,9 @@ def test_catheter_table_optim():
         generate_dose_rates=gen_dose_rates,)
     catheter_optim_obj = CatheterTableOptim_Gurobi(
         plan=plan,
+        multi_processing=True,
     )
+    optimized_plan = catheter_optim_obj.get_optimized_plan_from_model()
 
     
 if __name__ == "__main__":
