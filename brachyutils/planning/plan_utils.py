@@ -133,7 +133,7 @@ class BrachyPlan:
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
         #### Keywords Arguments:
-        - dwells_near_ptv: bool = False := if True, will remove the dwell positions that are outside PTV
+        - dwells_near_ptv: bool = True := if True, will remove the dwell positions that are outside PTV
         with a margine of 10 mm.
         - add_hotspots_to_phantom: bool = False := if True, will add hotspot structures to the phantom.
         this is good for debugging, but slows down the plan creation process.
@@ -229,7 +229,7 @@ class BrachyPlan:
                 raise ValueError(
                     "catheter_table should be a path or a CatheterTable object"
                 )
-            if kwargs.get("dwells_near_ptv", False):
+            if kwargs.get("dwells_near_ptv", True):
                 for structure in self.structure_list:
                     if structure.target_volume:
                         if isinstance(structure.mask, ROIContour):
