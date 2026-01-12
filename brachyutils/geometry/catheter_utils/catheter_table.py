@@ -255,17 +255,17 @@ class Catheter(BaseModel):
         if total_time is None:
             total_time = self.channel_total_time
         return {
-            "index": self.index,
+            "index": int(self.index),
             "dwells": [dwell.to_dict(total_time) for dwell in self.dwells],
             # "fit_function": self.fit_function,
-            "tip_position": self.tip_position,
-            "last_dwell_coordinate": self.last_dwell_coordinate,
-            "step_size": self.step_size,
-            "digitization_points": self.digitization_points,
-            "afterloader_channel_number": self.afterloader_channel_number,
-            "insert_position": self.insert_position,
-            "channel_total_time": self.channel_total_time,
-            "channel_length": self.channel_length
+            "tip_position": [float(x) for x in self.tip_position],
+            "last_dwell_coordinate": [float(x) for x in self.last_dwell_coordinate],
+            "step_size": float(self.step_size),
+            "digitization_points": [[float(x) for x in point] for point in self.digitization_points] if self.digitization_points else None,
+            "afterloader_channel_number": int(self.afterloader_channel_number) if self.afterloader_channel_number is not None else None,
+            "insert_position": [float(x) for x in self.insert_position] if self.insert_position else None,
+            "channel_total_time": float(self.channel_total_time),
+            "channel_length": float(self.channel_length) if self.channel_length is not None else None
         }
 
     def add_dwell(self, dwell:DwellPosition) -> None:
@@ -598,8 +598,8 @@ class CatheterTable(BaseModel):
                 catheter.to_dict(total_time=treatment_t) 
                 for catheter in self.catheter_list
                 ],
-            "step_size": self.step_size,
-            "treatment_time": treatment_t
+            "step_size": float(self.step_size),
+            "treatment_time": float(treatment_t)
         }
     def info(self) -> None:
         r"""
