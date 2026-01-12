@@ -252,10 +252,10 @@ class CatheterTableOptim_Gurobi():
             hotspot_weight == optimization_config.penalty_weight_hotspot,
             name=f"hotspot_weight_value_{structure_name}"
         )
-        penalty_weight_variance_time = model.addVar(name=f"variance_time_weight_{structure_name}")
+        penalty_weight_variance_time = model.addVar(name=f"variance_time_weight")
         model.addConstr(
             penalty_weight_variance_time == optimization_config.penalty_weight_variance_time,
-            name=f"variance_time_weight_value_{structure_name}"
+            name=f"variance_time_weight_value"
         )
         model.update()
         return model
@@ -382,7 +382,7 @@ class CatheterTableOptim_Gurobi():
                     penalty_terms["uniformity"] += (uniformity_weight_vec/num_dose_points) @ (y_uniform * y_uniform)
 
                 if hotspot_weight > 0 and hotspot_threshold is not None:
-                    self._set_hotspot_penalty_and_constraints(
+                    penalty_terms["hotspot"] += self._set_hotspot_penalty_and_constraints(
                         plan=plan,
                         model=model,
                         optim_spacing=optim_spacing,
@@ -391,8 +391,11 @@ class CatheterTableOptim_Gurobi():
                         catheter_vars=catheter_vars)
 
                 if penalty_weight_variance_time > 0:
-                    # XXX conver to gurobi variable and set it using a constraint
-                    pass
+                    mean_dwell_time = sum(t_MVar) / t_MVar.size
+                    penalty_terms["quadratic"] += (
+                        model.getVarByName("variance_time_weight") * 1e-3 
+                        * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
+                    )
             # OAR constraints and penalties
             else:
                 if linear_weight > 0 or quadratic_weight > 0:
@@ -434,15 +437,14 @@ class CatheterTableOptim_Gurobi():
         plan: BrachyPlan,
         model: Model,
         optim_spacing: float,
-        roi_bounds: List[List[float]],
         structure_name: str,
         catheter_vars: List[CatheterVar_Gurobi],
+        roi_bounds: List[List[float]] = None,
         ) -> LinExpr:
         r"""
         ### Purpose:
         - sets the hotspot penalty and constraints for the optimization model.
-        ### Inputs:
-        - None XXX to be implemented later.
+        XXX down the line this function should just be removed, but for now let it be.
         """
         hotspot_masks = [
             structure.mask for structure in plan.structure_list
