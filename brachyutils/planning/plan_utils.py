@@ -946,7 +946,7 @@ class BrachyPlan:
         self,
         combined_dose: BrachyDose=None,
         prescription_dose: float = None,
-        return_percentage: bool = False,
+        return_percentage: bool = True,
         ):
         r"""
         ### Purpose:
