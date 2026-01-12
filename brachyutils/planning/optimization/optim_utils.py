@@ -252,8 +252,8 @@ def compute_dose_rate_matrices(
         # sort the dwell_vars and dose_rate_matrices according to the original dwellTimeVariables order
         for var in dwellTimeVariables:
             for var_mat in zip(dwell_vars_chaos, dose_rate_matrices_chaos):
-                if var_mat[0].VarName == var.name:
-                    dwell_vars.append(var_mat[0])
+                if var_mat[0].VarName == var.name: # XXX this line will cause error for AMPL and gurobi
+                    dwell_vars.append(var_mat[0])  # as they have different name attributes for their model variables
                     dose_rate_matrices.append(var_mat[1])
     else:
         for var in dwellTimeVariables:
