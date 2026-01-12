@@ -220,9 +220,8 @@ def compute_dose_rate_matrices(
     """
     if structure_name is None:
         structure_name = "No"
-    dose_rate_matrices = []
-    dwell_vars = []
-
+    dose_rate_matrices_chaos = []
+    dwell_vars_chaos = []
     if multi_processing:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
@@ -245,8 +244,17 @@ def compute_dose_rate_matrices(
                 result = future.result()
                 if result is not None:
                     dwell_var, valid_dose_points = result
-                    dwell_vars.append(dwell_var)
-                    dose_rate_matrices.append(valid_dose_points)
+                    dwell_vars_chaos.append(dwell_var)
+                    dose_rate_matrices_chaos.append(valid_dose_points)
+    
+        dwell_vars = []
+        dose_rate_matrices = []
+        # sort the dwell_vars and dose_rate_matrices according to the original dwellTimeVariables order
+        for var in dwellTimeVariables:
+            for var_mat in zip(dwell_vars_chaos, dose_rate_matrices_chaos):
+                if var_mat[0].VarName == var.name:
+                    dwell_vars.append(var_mat[0])
+                    dose_rate_matrices.append(var_mat[1])
     else:
         for var in dwellTimeVariables:
             dwell_var, valid_dose_points = process_variable(
