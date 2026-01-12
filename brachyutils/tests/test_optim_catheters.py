@@ -5,6 +5,7 @@ from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from gurobipy import Model
 from brachyutils.tests.test_optim_utils import get_a_plan_to_optimize
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
+from pandas import DataFrame
 def test_catheter_gurobi_initialization():
     # we need a catheter table first!
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
@@ -24,8 +25,9 @@ def test_catheter_gurobi_initialization():
 
 def test_catheter_table_optim():
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
-    cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
+    # cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
     dir_dose_rates = Path("data_test/prostate-glen-p1-dose").resolve()
+    dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
     gen_dose_rates = False
     # XXX to try later: Generate dose rates from cropped egsphant, consider all dwell positions
@@ -67,8 +69,19 @@ def test_catheter_table_optim():
         multi_processing=True,
     )
     optimized_plan = catheter_optim_obj.get_optimized_plan_from_model()
+    optimized_plan.export_brachy_plan(
+        dir_export=dir_export,
+        content_to_export={
+            "dose": True
+        }
+    )
+    dvh_metrics_dict = optimized_plan.get_dvh_metrics(return_percentage=True)
+    cat_table = optimized_plan.catheter_table.write_to_json(
+        pth_json = dir_export / "catheter_table.json")
+    DataFrame([dvh_metrics_dict]).to_csv(
+        dir_export / "dvh_metrics.csv", index=False)
     
-    
+
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
     test_catheter_table_optim()
