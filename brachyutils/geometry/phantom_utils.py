@@ -868,8 +868,16 @@ class BrachyPhantom:
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
 
         mask_dict = self.get_structure_mask([contour_name], mask_type=ROIMask)
-        resampled_mask = resampleImage3DOnImage3D(
+        resampled_img3d = resampleImage3DOnImage3D(
             mask_dict[contour_name], self.image_obj
+        )
+        resampled_mask = ROIMask(
+            imageArray=resampled_img3d.imageArray,
+            name=contour_name,
+            origin=resampled_img3d.origin,
+            spacing=resampled_img3d.spacing,
+            angles=resampled_img3d.angles,
+            displayColor=mask_dict[contour_name].color,
         )
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
         return self.crop_by_coordinates(box_around_mask, inplace, no_margin=no_margin)
@@ -914,23 +922,31 @@ class BrachyPhantom:
         new_structure_dict = {}
         for struc in structure_dict.keys():
             mask = structure_dict[struc]
-            old_color = mask._displayColor
+            old_color = mask.color
             structure_color = mask_colors.get(struc)
-            if not(old_color is None):
+            if not(old_color is None) and not (old_color==(0,0,0)):
                 new_color = old_color
             else:
                 new_color = structure_color
             if not np.allclose(mask.spacing, self.image_obj.spacing) or \
                 not np.allclose(mask.origin, self.image_obj.origin) or \
                 not np.allclose(mask.gridSize, self.image_obj.gridSize):
-                new_structure_dict[struc] = resampleImage3DOnImage3D(
+                img3d = resampleImage3DOnImage3D(
                     mask,
                     self.image_obj,
                     sitk_interpolator=interpolator_contours
                     )
+
             else:
-                new_structure_dict[struc] = mask
-            new_structure_dict[struc]._displayColor = new_color
+                img3d = mask
+            new_structure_dict[struc] = ROIMask(
+                imageArray=img3d.imageArray, 
+                name=struc, 
+                origin=img3d.origin, 
+                spacing=img3d.spacing, 
+                angles=img3d.angles, 
+                displayColor=new_color
+            )
         # Store the resampled masks in the cached_structure_masks attribute
         self.cached_structure_masks = new_structure_dict
 
@@ -1006,7 +1022,13 @@ class BrachyPhantom:
                         not np.array_equal(mask.origin, self.image_obj.origin) or \
                         not np.array_equal(mask.gridSize, self.image_obj.gridSize):
                         # Resample the mask to the image object
-                        mask = resampleImage3DOnImage3D(mask, self.image_obj)   
+                        img3d = resampleImage3DOnImage3D(mask, self.image_obj)   
+                        mask = ROIMask(
+                            imageArray=img3d.imageArray,  
+                            origin=img3d.origin, 
+                            spacing=img3d.spacing, 
+                            angles=img3d.angles,
+                        )
             elif isinstance(mask_dict.get(structure_name), sitk.Image):
                 mask = ROIMask(
                     name=structure_name,
@@ -1044,7 +1066,7 @@ class BrachyPhantom:
                     # elif i == 5:
                         # mask.imageArray[:, :, -1] = 0
 
-            mask._displayColor = structure_color
+            mask.color = structure_color
             self.structure_set.appendContour(mask.getROIContour())
             del mask
 
@@ -1188,13 +1210,20 @@ class BrachyPhantom:
         if self.cached_structure_masks is not None and len(self.cached_structure_masks) > 0:
             new_cached_structure_masks = {}
             for structure_name, mask in self.cached_structure_masks.items():
-                old_color = mask._displayColor
-                new_cached_structure_masks[structure_name] = resampleImage3DOnImage3D(
+                old_color = mask.color
+                resampled_img3d = resampleImage3DOnImage3D(
                     mask,
                     new_img_obj,
                     sitk_interpolator=interpolator_contours
                     )
-                new_cached_structure_masks[structure_name]._displayColor = old_color
+                new_cached_structure_masks[structure_name] = ROIMask(
+                    imageArray=resampled_img3d.imageArray,
+                    name=structure_name,
+                    origin=resampled_img3d.origin,
+                    spacing=resampled_img3d.spacing,
+                    angles=resampled_img3d.angles,
+                    displayColor=old_color
+                )
             self.cached_structure_masks = new_cached_structure_masks
 
         if inplace:
@@ -1499,6 +1528,10 @@ def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
                 spacing=spacing,
                 name=name,
             )
+            if f"Segment{i}_Color" in header:
+                if header[f"Segment{i}_Color"] is not None:
+                    roi_mask.color = [
+                        int(float(x)*255) for x in header[f"Segment{i}_Color"].split(" ")]
             structure_mask_dict[name] = roi_mask
             i += 1
     return structure_mask_dict, orientation
