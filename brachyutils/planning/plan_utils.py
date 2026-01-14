@@ -1582,7 +1582,8 @@ class BrachyPlan:
     def _create_hotspot_structures(
         self,
         config:Optimization_Config, 
-        one_structure:bool=True
+        one_structure:bool=True,
+        mask_within_target:bool=True
         ):
         r"""
         ### Purpose:
@@ -1594,6 +1595,7 @@ class BrachyPlan:
         - self := the BrachyPlan object
         - config := the optimization config object that contains the parameters for the hotspot structure
         - one_structure := if True, only one hotspot structure will be created for all dwell pairs.
+        - mask_within_target := if True, the hotspot structures will be masked to be within the target structure.
         ### Outputs:
         - None := hot spot structures are appended to the self.structure_list
         """
@@ -1654,6 +1656,18 @@ class BrachyPlan:
             if not one_structure:
                 copy_config = deepcopy(config)
                 copy_config.structure_name = dwell_contour.name
+                if mask_within_target:
+                    # The target structure is assumed to be the one related with hotspots
+                    for bstruc in self.structure_list:
+                        if bstruc.name.lower() == config.structure_name.lower():
+                            target_structure = bstruc
+                            break
+                    target_mask_array = target_structure.mask.imageArray.astype(bool)
+                    dwell_contour_array = dwell_contour.imageArray.astype(bool)
+                    dwell_contour.imageArray = np.logical_and(
+                        dwell_contour_array, target_mask_array
+                    )
+
                 self.structure_list.append(
                     BrachyStructure(
                         name=dwell_contour.name,
@@ -1678,6 +1692,17 @@ class BrachyPlan:
                 combined_roi_array = np.logical_or(
                     combined_roi_array, roi_mask.imageArray.astype(bool)
                 )
+            if mask_within_target:
+                # The target structure is assumed to be the one related with hotspots
+                for bstruc in self.structure_list:
+                    if bstruc.name.lower() == config.structure_name.lower():
+                        target_structure = bstruc
+                        break
+                target_mask_array = target_structure.mask.imageArray.astype(bool)
+                combined_roi_array = np.logical_and(
+                    combined_roi_array, target_mask_array
+                )
+             
             combined_roi_mask = ROIMask(
                 imageArray=combined_roi_array,
                 name="hotspot_estimator:all_dwell_pairs",
