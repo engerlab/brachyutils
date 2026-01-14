@@ -67,7 +67,7 @@ def test_catheter_table_optim():
     catheter_optim_obj = CatheterTableOptim_Gurobi(
         plan=plan,
         multi_processing=True,
-    )
+        )
     optimized_plan = catheter_optim_obj.get_optimized_plan_from_model()
     optimized_plan.export_brachy_plan(
         dir_export=dir_export,

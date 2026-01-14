@@ -141,6 +141,7 @@ class CatheterTableOptim_Gurobi():
         self.multi_processing = multi_processing
         
         # attributes for later developement XXX
+        # these may not be needed
         # self.target_constraints_coords = []
         # self.hotspot_constraints_coords = []
         # self.hotspot_threshold = None
@@ -203,63 +204,6 @@ class CatheterTableOptim_Gurobi():
             )
         model.update()
         return catheter_vars
-    
-    def _set_hyperparameters_per_structure(
-        self,
-        optimization_config: Optimization_Config,
-        structure_name: str,
-        model: Model,
-        num_dose_points:int):
-        r"""
-        ### Purpose:
-        - sets the hyper-parameters for each structure in the optimization model. This allows us to 
-        avoid keeping track of the index of each variable.
-        The hyper-parameters are stored in optimization config of each structure.
-        They include:
-            - target dose
-            - penalty weights for linear, quadratic, uniformity and hotspot penalties
-            - hotspot threshold
-        ### Inputs:
-        - `optimization_config`: Optimization_Config := the optimization configuration for the structures.
-        - `model`: Model := the Gurobi model to which the variables will be added.
-        """
-        td = model.addVar(name=f"voxel_goal_{structure_name}")
-        model.addConstr(
-            td == optimization_config.dose_voxel_goal,
-            name=f"voxel_goal_value_{structure_name}"
-        )
-        linear_weight = model.addVar(name=f"linear_weight_{structure_name}")
-        model.addConstr(
-            linear_weight == optimization_config.penalty_weight_linear/num_dose_points,
-            name=f"linear_weight_value_{structure_name}"
-        )
-        quadratic_weight = model.addVar(name=f"quadratic_weight_{structure_name}")
-        model.addConstr(
-            quadratic_weight == optimization_config.penalty_weight_quadratic/num_dose_points,
-            name=f"quadratic_weight_value_{structure_name}"
-        )
-        uniformity_weight = model.addVar(name=f"uniformity_weight_{structure_name}")
-        model.addConstr(
-            uniformity_weight == optimization_config.penalty_weight_uniformity/num_dose_points,
-            name=f"uniformity_weight_value_{structure_name}"
-        )
-        hotspot_threshold = model.addVar(name=f"hotspot_threshold")
-        model.addConstr(
-            hotspot_threshold == optimization_config.hotspot_threshold,
-            name=f"hotspot_threshold_value"
-        )
-        hotspot_weight = model.addVar(name=f"hotspot_weight")
-        model.addConstr(
-            hotspot_weight == optimization_config.penalty_weight_hotspot,
-            name=f"hotspot_weight_value"
-        )
-        penalty_weight_variance_time = model.addVar(name=f"variance_time_weight")
-        model.addConstr(
-            penalty_weight_variance_time == optimization_config.penalty_weight_variance_time/num_dose_points,
-            name=f"variance_time_weight_value"
-        )
-        model.update()
-        return model
 
     def set_penalty_function_and_constraints(
         self,
@@ -332,7 +276,7 @@ class CatheterTableOptim_Gurobi():
             if num_dose_points == 0:
                 continue
 
-            model = self._set_hyperparameters_per_structure(
+            model = _set_hyperparameters_per_structure(
                 optimization_config=structure.optimization_config,
                 structure_name=structure.name,
                 model=model,
@@ -447,7 +391,8 @@ class CatheterTableOptim_Gurobi():
         r"""
         ### Purpose:
         - sets the hotspot penalty and constraints for the optimization model.
-        XXX down the line this function should just be removed, but for now let it be.
+        XXX down the line this function should just be removed if we decided that individual 
+        hot spot masks are useless, but for now let it be.
         """
         hotspot_masks = [
             structure.mask for structure in plan.structure_list
@@ -527,3 +472,59 @@ youself :p.")
             and values are dictionaries with 'equality', 'lower' and 'upper' keys for the new bounds.
         """
         pass
+
+def _set_hyperparameters_per_structure(
+    optimization_config: Optimization_Config,
+    structure_name: str,
+    model: Model,
+    num_dose_points:int):
+    r"""
+    ### Purpose:
+    - sets the hyper-parameters for each structure in the optimization model. This allows us to 
+    avoid keeping track of the index of each variable.
+    The hyper-parameters are stored in optimization config of each structure.
+    They include:
+        - target dose
+        - penalty weights for linear, quadratic, uniformity and hotspot penalties
+        - hotspot threshold
+    ### Inputs:
+    - `optimization_config`: Optimization_Config := the optimization configuration for the structures.
+    - `model`: Model := the Gurobi model to which the variables will be added.
+    """
+    td = model.addVar(name=f"voxel_goal_{structure_name}")
+    model.addConstr(
+        td == optimization_config.dose_voxel_goal,
+        name=f"voxel_goal_value_{structure_name}"
+    )
+    linear_weight = model.addVar(name=f"linear_weight_{structure_name}")
+    model.addConstr(
+        linear_weight == optimization_config.penalty_weight_linear/num_dose_points,
+        name=f"linear_weight_value_{structure_name}"
+    )
+    quadratic_weight = model.addVar(name=f"quadratic_weight_{structure_name}")
+    model.addConstr(
+        quadratic_weight == optimization_config.penalty_weight_quadratic/num_dose_points,
+        name=f"quadratic_weight_value_{structure_name}"
+    )
+    uniformity_weight = model.addVar(name=f"uniformity_weight_{structure_name}")
+    model.addConstr(
+        uniformity_weight == optimization_config.penalty_weight_uniformity/num_dose_points,
+        name=f"uniformity_weight_value_{structure_name}"
+    )
+    hotspot_threshold = model.addVar(name=f"hotspot_threshold")
+    model.addConstr(
+        hotspot_threshold == optimization_config.hotspot_threshold,
+        name=f"hotspot_threshold_value"
+    )
+    hotspot_weight = model.addVar(name=f"hotspot_weight")
+    model.addConstr(
+        hotspot_weight == optimization_config.penalty_weight_hotspot,
+        name=f"hotspot_weight_value"
+    )
+    penalty_weight_variance_time = model.addVar(name=f"variance_time_weight")
+    model.addConstr(
+        penalty_weight_variance_time == optimization_config.penalty_weight_variance_time/num_dose_points,
+        name=f"variance_time_weight_value"
+    )
+    model.update()
+    return model
