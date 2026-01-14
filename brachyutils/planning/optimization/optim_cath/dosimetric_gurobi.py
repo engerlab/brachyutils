@@ -418,6 +418,12 @@ class CatheterTableOptim_Gurobi():
             c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
             A = np.column_stack(dose_rate_matrices)
             num_dose_points = A.shape[0]
+
+            num_voxels = model.addVar(name=f"num_dose_points_{structure_name}")
+            model.addConstr(
+                num_voxels == num_dose_points,
+                name=f"num_dose_points_value_{structure_name}")
+
             x_slack = model.addMVar(
                 shape=num_dose_points,
                 name=f"hotspot_slack_{processed_mask.name.replace(':', '_')}")
@@ -491,6 +497,10 @@ def _set_hyperparameters_per_structure(
     - `optimization_config`: Optimization_Config := the optimization configuration for the structures.
     - `model`: Model := the Gurobi model to which the variables will be added.
     """
+    num_voxels = model.addVar(name=f"num_dose_points_{structure_name}")
+    model.addConstr(
+        num_voxels == num_dose_points,
+        name=f"num_dose_points_value_{structure_name}")
     td = model.addVar(name=f"voxel_goal_{structure_name}")
     model.addConstr(
         td == optimization_config.dose_voxel_goal,
@@ -498,17 +508,17 @@ def _set_hyperparameters_per_structure(
     )
     linear_weight = model.addVar(name=f"linear_weight_{structure_name}")
     model.addConstr(
-        linear_weight == optimization_config.penalty_weight_linear/num_dose_points,
+        linear_weight == optimization_config.penalty_weight_linear/num_voxels,
         name=f"linear_weight_value_{structure_name}"
     )
     quadratic_weight = model.addVar(name=f"quadratic_weight_{structure_name}")
     model.addConstr(
-        quadratic_weight == optimization_config.penalty_weight_quadratic/num_dose_points,
+        quadratic_weight == optimization_config.penalty_weight_quadratic/num_voxels,
         name=f"quadratic_weight_value_{structure_name}"
     )
     uniformity_weight = model.addVar(name=f"uniformity_weight_{structure_name}")
     model.addConstr(
-        uniformity_weight == optimization_config.penalty_weight_uniformity/num_dose_points,
+        uniformity_weight == optimization_config.penalty_weight_uniformity/num_voxels,
         name=f"uniformity_weight_value_{structure_name}"
     )
     hotspot_threshold = model.addVar(name=f"hotspot_threshold")
@@ -523,7 +533,7 @@ def _set_hyperparameters_per_structure(
     )
     penalty_weight_variance_time = model.addVar(name=f"variance_time_weight")
     model.addConstr(
-        penalty_weight_variance_time == optimization_config.penalty_weight_variance_time/num_dose_points,
+        penalty_weight_variance_time == optimization_config.penalty_weight_variance_time/num_voxels,
         name=f"variance_time_weight_value"
     )
     model.update()
