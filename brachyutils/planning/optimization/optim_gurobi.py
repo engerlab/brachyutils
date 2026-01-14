@@ -818,15 +818,9 @@ def save_quadexpr(quadexpr):
     saved = {}
     
     linear_expr = quadexpr.getLinExpr()
-    c = linear_expr.getConstant()
-    saved['constant'] = c
-    saved_linear = []
-    for i in range(linear_expr.size()):
-        var = linear_expr.getVar(i)
-        coeff = linear_expr.getCoeff(i)
-        saved_linear.append((var.varName, var.VType, var.LB, var.UB, coeff))
-    saved['linear_list'] = saved_linear
-    
+    cst_lin = save_linexpr(linear_expr)
+    saved.update(cst_lin)
+
     saved_quad = []
     for i in range(quadexpr.size()):
         v1, v2 = quadexpr.getVar1(i), quadexpr.getVar2(i)
@@ -835,6 +829,20 @@ def save_quadexpr(quadexpr):
     saved['quadratic_list'] = saved_quad
     
     return saved
+
+def save_linexpr(linexpr):
+    # Save LinExpr parameters: constant, linear terms
+    saved = {}
+    c = linexpr.getConstant()
+    saved['constant'] = c
+    saved_linear = []
+    for i in range(linexpr.size()):
+        var = linexpr.getVar(i)
+        coeff = linexpr.getCoeff(i)
+        saved_linear.append((var.varName, var.VType, var.LB, var.UB, coeff))
+    saved['linear_list'] = saved_linear
+    return saved
+
 
 def load_quadexpr(saved, model):
     # Reconstruct QuadExpr from saved parameters given variable name mapping
@@ -852,6 +860,17 @@ def load_quadexpr(saved, model):
     
     return quad_expr
 
+def load_linexpr(saved, model):
+    # Reconstruct LinExpr from saved parameters given variable name mapping
+    lin_expr = LinExpr()
+    lin_expr.addConstant(saved['constant'])
+    
+    # Add linear terms
+    for vname, vtype, lb, ub, coeff in saved['linear_list']:
+        var = model.getVarByName(vname)
+        lin_expr.add(coeff * var)
+    
+    return lin_expr
 
 def compare_gurobi_models(model1, model2):
     # Compare variables
@@ -1134,7 +1153,12 @@ def update_model_from_data(input_data: dict, model:Model):
                         name=input_data['connames'])
     model.update()  # <-- This is critical otherwise the load_quadexpr cannot access variables.
 
-    objective = load_quadexpr(input_data["objective"], model) # {v.VarName: v for v in model.getVars()})
+    assert "linear_list" in input_data["objective"].keys(), "Objective must have linear terms."
+    if "quadratic_list" in input_data["objective"].keys():
+        objective = load_quadexpr(input_data["objective"], model) 
+    else:
+        objective = load_linexpr(input_data["objective"], model) 
+
     model.setObjective(objective)
     model.update()
     return model
@@ -1154,9 +1178,12 @@ def get_model_data(model: Model):
     model_data['connames'] = deepcopy(model.getAttr("ConstrName"))
 
     objective = model.getObjective()
-    assert isinstance(objective, QuadExpr), "Objective is not a quadratic expression"
-    model_data["objective"] = save_quadexpr(objective)
 
+    obj_is_quad = isinstance(objective, QuadExpr)
+    if obj_is_quad:
+        model_data["objective"] = save_quadexpr(objective)
+    else:
+        model_data["objective"] = save_linexpr(objective)
     return model_data
 
 _plan = None  # global in worker processes
