@@ -197,7 +197,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
 
         # get structure optimization configs for hotspot estimators
         for structure in plan.structure_list:
-            if structure.target_volume and structure.optimization_config.penalty_weight_hotspot > 0:
+            if structure.is_target and structure.optimization_config.penalty_weight_hotspot > 0:
                 hotspot_config = structure.optimization_config
 
         for structure in plan.structure_list:
@@ -254,7 +254,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
             if num_dose_points == 0:
                 continue
 
-            if structure.target_volume:
+            if structure.is_target:
                 for i in range(num_dose_points):
                     # Linear penalty for underdosing
                     if linear_weight > 0 or quadratic_weight > 0:

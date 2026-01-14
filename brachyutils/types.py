@@ -63,7 +63,7 @@ class BrachyStructure(Protocol):
     """Protocol for BrachyStructure class"""
     name: str
     mask: Any
-    target_volume: bool
+    is_target: bool
     optimization_spacing_mm: Union[float, List[float]]
     in_dvh: Optional[bool]
     dvh_metric_goals: Optional[Dict[str, float]]

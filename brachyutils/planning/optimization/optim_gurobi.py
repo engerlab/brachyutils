@@ -361,7 +361,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             target_dose_vec = np.full(num_dose_points, target_dose)
 
             # Target volume constraints and penalties
-            if structure.target_volume:
+            if structure.is_target:
                 if linear_weight > 0 or quadratic_weight > 0:
                     x_slack = model.addMVar(
                         shape=num_dose_points,

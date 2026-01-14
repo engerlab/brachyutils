@@ -287,7 +287,7 @@ class CatheterTableOptim_Gurobi():
                 model.getVarByName(f"voxel_goal_{structure.name}") 
                 for _ in range(num_dose_points)])
 
-            if structure.target_volume:
+            if structure.is_target:
                 if linear_weight > 0 or quadratic_weight > 0:
                     x_slack = model.addMVar(
                         shape=num_dose_points,

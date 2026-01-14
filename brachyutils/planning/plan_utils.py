@@ -231,7 +231,7 @@ class BrachyPlan:
                 )
             if kwargs.get("dwells_near_ptv", True):
                 for structure in self.structure_list:
-                    if structure.target_volume:
+                    if structure.is_target:
                         if isinstance(structure.mask, ROIContour):
                             mask = structure.mask.getBinaryMask(
                                 origin=self.phantom.image_obj.origin,
@@ -738,7 +738,7 @@ class BrachyPlan:
             structure_obj = BrachyStructure(
                 name=structure_name,
                 mask=structure_masks[structure_name],
-                target_volume=True if ("ctv" in structure_name.lower() or "ptv" in structure_name.lower())  else False,
+                is_target=True if ("ctv" in structure_name.lower() or "ptv" in structure_name.lower())  else False,
                 in_dvh=True,
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
@@ -1576,7 +1576,7 @@ class BrachyPlan:
                 raise ValueError("optimization_config_list can be a json file or a list of Optimization_Config objects")
         target_structure_names = [
             structure.name.lower() for structure in self.structure_list
-            if structure.target_volume
+            if structure.is_target
             ]
         for config in optimization_config_list:
             if config.penalty_weight_hotspot != 0:
@@ -1675,7 +1675,7 @@ class BrachyPlan:
                         origin=self.phantom.image_obj.origin,
                         spacing=self.phantom.image_obj.spacing,
                     ),
-                    target_volume=False,
+                    is_target=False,
                     in_dvh=False,
                 )
             ]
@@ -1768,7 +1768,7 @@ def _gen_hotspot_mask(
     return BrachyStructure(
         name=dwell_mask.name,
         mask=dwell_mask,
-        target_volume=False,
+        is_target=False,
         in_dvh=False,
     )
 

@@ -249,7 +249,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
         
         # get structure optimization configs for hotspot estimators
         for structure in plan.structure_list:
-            if structure.target_volume and structure.optimization_config.penalty_weight_hotspot > 0:
+            if structure.is_target and structure.optimization_config.penalty_weight_hotspot > 0:
                 hotspot_config = structure.optimization_config
                 # hotspot_config.structure_name = "hotspot"
         for structure in plan.structure_list:
@@ -330,7 +330,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
             model.eval(f"param target_dose_{struct_id} := {target_dose};")
             model.eval(f"param min_dose_{struct_id} := {min_dose};")
             # Set up constraints and objective terms based on structure type
-            if structure.target_volume:
+            if structure.is_target:
                 if linear_weight > 0 or quadratic_weight > 0:
                     # Create structure-specific slack variables for underdosing
                     model.eval(f"var x_slack_{struct_id} {{D_{struct_id}}} >= 0 <= target_dose_{struct_id} - min_dose_{struct_id};")

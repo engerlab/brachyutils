@@ -301,7 +301,7 @@ def test_brachy_structure():
         structure_obj = BrachyStructure(
             name=structure_name,
             mask=mask_contour,
-            target_volume=True if "ctv" in structure_name.lower() else False,
+            is_target=True if "ctv" in structure_name.lower() else False,
             in_dvh=True,
             dvh_metric_goals=dvh_metric_goals_per_structure
         )
