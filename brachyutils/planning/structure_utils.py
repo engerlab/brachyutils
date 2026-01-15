@@ -66,8 +66,6 @@ class BrachyStructure:
         # dose volume histogram
         self.in_dvh:bool = in_dvh
         self.dvh_metric_goals: Dict[str, float] = None
-        # self.dvh_metric_name: str = None
-        # self.dvh_metric_clinical_goal: float = None
         self.dvh_metrics_observed: Dict[str, float] = None
         self.dvh_obj: DVH = None
 
@@ -80,10 +78,6 @@ class BrachyStructure:
 
         # optimization attributes
         self.optimization_config: Optimization_Config = None
-        # # simulation attributes
-        # self.density: float = None  # 0
-        # self.density_mode: str = None  # ""
-        # self.material: str = None  # "CT Material"
         self.in_dvh = in_dvh
         if self.in_dvh:
             if dvh_metric_goals is None:
