@@ -34,6 +34,7 @@ def test_catheter_table_optim():
     optimization_config_list=[
         Optimization_Config(
             structure_name="CTV",
+            is_target=True,
             dose_voxel_goal=target_dose,
             penalty_weight_linear=300,
             # penalty_weight_quadratic=1,
@@ -46,6 +47,7 @@ def test_catheter_table_optim():
             catheter_recommendaion=True),
         Optimization_Config(
             structure_name="URETHRA",
+            is_target=False,
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             # penalty_weight_quadratic=1,
@@ -53,6 +55,7 @@ def test_catheter_table_optim():
             spacing_mm=3),
         Optimization_Config(
             structure_name="RECTUM",
+            is_target=False,
             dose_voxel_goal=0,
             penalty_weight_linear=1,
             # penalty_weight_quadratic=1,
