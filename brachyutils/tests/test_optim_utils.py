@@ -10,6 +10,7 @@ def get_a_plan_to_optimize(
     dir_dose_rates: str | Path,
     optimization_config_list,
     generate_dose_rates: bool = False,
+    **kwargs
     )->BrachyPlan:
     pth_dicom = Path(pth_dicom)
     dir_dose_rates = Path(dir_dose_rates)
@@ -41,8 +42,8 @@ def get_a_plan_to_optimize(
         dvh_metric_goals=dvh_metric_goals,
         optimization_config_list=optimization_config_list,
         dwells_near_ptv=True,
-        # add_hotspots_to_phantom=True,
-        one_hotspot_structure=True,
+        add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
+        one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
         )
 
     if generate_dose_rates:
@@ -410,8 +411,7 @@ def test_run_ortool_optim():
         #     continue
     # results.to_csv("data_test/test_export_plan/prostate/ortools_solvers.csv")
 
-def test_hotspot_estimators():
-    from brachyutils.planning.optimization.optim_gurobi import BrachyOptim_Gurobi
+def test_hotspot_estimators_generation():
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     dir_dose_rates = "data_test/prostate-glen-p1-dose"
     # for debugging on server
@@ -422,9 +422,10 @@ def test_hotspot_estimators():
         Optimization_Config(
             structure_name="CTV",
             dose_voxel_goal=target_dose,
+            is_target=True,
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
-            # penalty_weight_uniformity=0,
+            penalty_weight_uniformity=0,
             penalty_weight_hotspot=100,
             hotspot_threshold=1.5,
             mask_margin_mm=0,
@@ -445,48 +446,29 @@ def test_hotspot_estimators():
             spacing_mm=3)
     ]
 
-    solver = "gurobi"
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
         dir_dose_rates=dir_dose_rates,
         generate_dose_rates=False,
         optimization_config_list=optimization_config_list,
+        add_hotspots_to_phantom=True,
     )
-    print(plan_obj.dwell_times)
+    # print(plan_obj.dwell_times)
     # export the phantom structures to make sure the hotspot estimators are working correctly
     # will write them to both nrrd and dicom format.
-    # plan_obj.phantom.export_to(
-    #     dir_nrrd_out="data_test/test_export_plan/prostate",
-    #     dir_dicom_out="data_test/test_export_plan/prostate/dcm"
-    #     )
+    plan_obj.phantom.export_to(
+        dir_nrrd_out="data_test/test_export_plan/prostate",
+        dir_dicom_out="data_test/test_export_plan/prostate/dcm"
+        )
     # plan_obj.combined_dose.write_brachydose_to_file("data_test/test_export_plan/prostate/p1_dose.seq.nrrd")
-    # results = DataFrame(
-    #     columns=[
-    #         "solver", "status",
-    #         "mean(dwell_times)", "std(dwell_times)",
-    #         "solve_time"] + list(plan_obj.dvh_metric_goals.keys())
-    #     )
-
-    # optim_obj = BrachyOptim_Gurobi(plan=plan_obj)
-    # optimized_plan = optim_obj.get_optimized_plan_from_model()
-    # dvh_metrics = optimized_plan.get_dvh_metrics(return_percentage=True)
-    # results.loc[len(results)] = {
-    # "solver": solver,
-    # "status": "Solved" if optim_obj.solution_found else "Failed",
-    # "mean(dwell_times)": optimized_plan.dwell_times.mean(),
-    # "std(dwell_times)": optimized_plan.dwell_times.std(),
-    # "solve_time": optim_obj.solve_time} | dvh_metrics
-    # results.to_csv("data_test/test_export_plan/prostate/solvers_linObj_gurobi.csv")
-    # print(optimized_plan.dwell_times)
-
-
+    print('debug here')
 if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    test_run_gurobi_optim()
+    # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
     # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
-    # test_hotspot_estimators()
+    test_hotspot_estimators_generation()

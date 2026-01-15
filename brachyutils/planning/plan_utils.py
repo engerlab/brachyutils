@@ -30,7 +30,8 @@ from brachyutils.geometry.phantom_utils import BrachyPhantom
 from brachyutils.geometry.catheter_utils.catheter_table import Catheter, CatheterTable
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
-from brachyutils.types import Optimization_Config
+# from brachyutils.types import Optimization_Config
+from brachyutils.planning.optimization.optim_utils import Optimization_Config
 
 class BrachyPlan:
     r"""
@@ -1549,7 +1550,6 @@ class BrachyPlan:
         ### Dependencies:
         - None
         """
-
         print("****BrachyPlan Information****")
         for attr, value in self.__dict__.items():
             if isinstance(value, np.ndarray):
@@ -1558,7 +1558,7 @@ class BrachyPlan:
                 print(f"{attr} := {len(value)}")
             else:
                 print(f"{attr} := {value}")
-    
+
     def setup_optimization(
         self, 
         optimization_config_list:List[Optimization_Config] | Path | str,
@@ -1567,6 +1567,10 @@ class BrachyPlan:
         one_hotspot_structure:bool=True
         ):
         r"""
+        ### Purpose:
+        - Given the optimization config list either as a list or in a json file, put each
+        optimization config inside the BrachyStructures. Also, create the hotspot estimator
+        structure if needed.
         """
         self._reset_optimization()
         if isinstance(optimization_config_list, (Path, str)):
@@ -1587,6 +1591,7 @@ class BrachyPlan:
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
                 self._create_hotspot_structures(
+                    target_optim_config=config,
                     add_hotspots_to_phantom=add_hotspots_to_phantom,
                     one_hotspot_structure=one_hotspot_structure)
             for struc in structure_list:
@@ -1598,6 +1603,7 @@ config do not match for structure {struc.name}"
 
     def _create_hotspot_structures(
         self,
+        target_optim_config: Optimization_Config,
         add_hotspots_to_phantom:bool=False,
         one_hotspot_structure:bool=True
         ):
@@ -1670,6 +1676,14 @@ config do not match for structure {struc.name}"
             )
             for mask in hotspot_mask_list:
                 mask_union = np.logical_or(mask_union, mask.mask.imageArray)
+
+            hotspot_config = Optimization_Config(
+                structure_name="hotspot_estimator:combined",
+                is_target=False,
+                spacing_mm=target_optim_config.spacing_mm,
+                dose_voxel_goal=target_optim_config.dose_voxel_goal*target_optim_config.hotspot_threshold,
+                penalty_weight_linear=target_optim_config.penalty_weight_hotspot
+            )
             hotspot_mask_list = [
                 BrachyStructure(
                     name="hotspot_estimator:combined",
@@ -1681,6 +1695,7 @@ config do not match for structure {struc.name}"
                     ),
                     is_target=False,
                     in_dvh=False,
+                    optimization_config=hotspot_config
                 )
             ]
 
