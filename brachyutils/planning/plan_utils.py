@@ -738,7 +738,9 @@ class BrachyPlan:
             structure_obj = BrachyStructure(
                 name=structure_name,
                 mask=structure_masks[structure_name],
-                is_target=True if ("ctv" in structure_name.lower() or "ptv" in structure_name.lower())  else False,
+                is_target=True if (
+                    "ctv" in structure_name.lower()
+                    or "ptv" in structure_name.lower())  else False,
                 in_dvh=True,
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
@@ -1589,6 +1591,8 @@ class BrachyPlan:
                     one_hotspot_structure=one_hotspot_structure)
             for struc in structure_list:
                 if config.structure_name.lower() == struc.name.lower():
+                    assert config.is_target == struc.is_target, f"The target structure in plan and optimization \
+config do not match for structure {struc.name}"
                     struc.set_optimization_config(config)
                     break
 

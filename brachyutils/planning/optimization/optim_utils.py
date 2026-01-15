@@ -284,6 +284,7 @@ class Optimization_Config(BaseModel):
         - penalty_weight_uniformity
     ### Attributes:
     - structure_name: str := The name of the structure to which this optimization config applies.
+    - is_target: bool := If true, we're looking at a target structure.
     - spacing_mm: List[float] | float := The spacing of the optimization grid in mm. 
     - dose_voxel_goal: float := The dose goal for every voxel in the structure in Gy.
     - penalty_weight_linear: float := Weight for linear penalty term in objective function. Default 1.
@@ -298,6 +299,7 @@ class Optimization_Config(BaseModel):
     - catheter_recommendaion: bool := If True, catheter positions will be optimized as well. Default False.
     """
     structure_name:str = None
+    is_target:bool = None
     spacing_mm:float | List[float]= None
     dose_voxel_goal:float = None
     penalty_weight_linear:float = 0
