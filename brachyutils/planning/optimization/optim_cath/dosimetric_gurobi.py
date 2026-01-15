@@ -140,7 +140,7 @@ class CatheterTableOptim_Gurobi():
         self.solve_time: float = 0.0
         self.multi_processing = multi_processing
         
-        # attributes for later developement XXX
+        # attributes for later developement. may not be needed XXX
         # these may not be needed
         # self.target_constraints_coords = []
         # self.hotspot_constraints_coords = []
@@ -233,8 +233,6 @@ class CatheterTableOptim_Gurobi():
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
-            # if "hotspot_estimator_" in structure.name.lower():
-            #     continue XXX delete later
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
             min_dose = structure.optimization_config.min_dose
@@ -279,7 +277,7 @@ class CatheterTableOptim_Gurobi():
 
             model = set_hyperparameters_per_structure(
                 optimization_config=structure.optimization_config,
-                structure_name=structure.name.replace(":", "_"),
+                structure_name=structure.name,
                 model=model,
                 num_dose_points=num_dose_points
             )
@@ -356,11 +354,11 @@ class CatheterTableOptim_Gurobi():
                         shape=num_dose_points,
                         lb=0.0,
                         ub=max_dose - min_dose,
-                        name=f"dose_slack_oar_{structure.name}"
+                        name=f"p_L_{structure.name}"
                     )
                     model.addConstr(
                         A_sparse @ (c_MVar * t_MVar) - x_slack_oar <= voxel_goal_vec,
-                        name=f"dose_oar_{structure.name}"
+                        name=f"c_L_{structure.name}"
                     )
 
                 if linear_weight > 0:
@@ -400,7 +398,6 @@ class CatheterTableOptim_Gurobi():
         r"""
         See `BrachyDwellTime.get_optimized_plan_from_model` for details.
         """
-        # XXX adapt this for catheter table optimization, maintain the signature!
         self.model, outplan, self.solution_found, self.solve_time = _get_optimized_plan_from_model(
             plan=self.plan,
             model=self.model,
