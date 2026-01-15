@@ -939,6 +939,7 @@ class BrachyPlan:
         combined_dose: BrachyDose=None,
         prescription_dose: float = None,
         return_percentage: bool = False,
+        bin_size: float = None,
         ):
         r"""
         ### Purpose:
@@ -946,6 +947,10 @@ class BrachyPlan:
         the observed value is calculated from the combined dose map.
         ### Inputs:
         - self := the BrachyPlan object
+        - combined_dose := the combined dose map. if None, the BrachyPlan.combined_dose will be used.
+        - prescription_dose := the prescription dose. if None, the BrachyPlan.prescription_dose will be used.
+        - return_percentage := if True, the observed value will be returned as a percentage of the prescription dose.
+        - bin_size := the bin size for the dvh calculation. if None, the default bin size in OpenTPS will be used: maxDose/4096.
         ### Outputs:
         - Void := will update the BrachyStructure.dvh_metrics_observed attribute
         """
@@ -964,6 +969,7 @@ class BrachyPlan:
                 prescription_dose,
                 return_percentage,
                 self.body_contour,
+                bin_size=bin_size
                 )
             self.dvh_metrics_observed.update(observed_metrics)
         return self.dvh_metrics_observed

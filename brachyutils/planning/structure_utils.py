@@ -102,6 +102,7 @@ class BrachyStructure:
         prescription_dose: float = None,
         return_percentage: bool = False,
         body_contour: ROIContour = None,
+        bin_size: float = None,
         ) -> Dict[str, float]:
         r"""
         ### Purpose:
@@ -118,6 +119,8 @@ class BrachyStructure:
         the prescription dose for Dcc or D% and to the volume of the organName for VGy or V%.
         - body_contour := the body contour is needed for conformity index calculation.
         If the body contour is not provided, the conformity index will not be calculated.
+        - bin_size := the bin size to be used for the DVH calculation. 
+        If None, the default bin size in OpenTPS will be used: maxDose/4096.
         ### Outputs:
         - Void := will update the BrachyStructure.dvh_metrics_observed dictionary and
         BrachyStructure.dvh_obj attributes. Will also update the last calculated value
@@ -136,6 +139,7 @@ class BrachyStructure:
             combined_dose.dose_image,
             prescription=prescription_dose,
             maxDVH=combined_dose.dose_image.imageArray.max(),
+            bin_size=bin_size,
             )
         self.dvh_metrics_observed = {}
 
