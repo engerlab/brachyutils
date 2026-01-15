@@ -418,7 +418,7 @@ class CatheterTableOptim_Gurobi():
             c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
             A = np.column_stack(dose_rate_matrices)
             num_dose_points = A.shape[0]
-
+            # XXX make sure the structure name is unique to hotspot and not the target
             num_voxels = model.addVar(name=f"num_dose_points_{structure_name}")
             model.addConstr(
                 num_voxels == num_dose_points,
@@ -437,7 +437,7 @@ class CatheterTableOptim_Gurobi():
                 name=f"hotspot_constraint_{processed_mask.name.replace(':', '_')}",
             )
             hotspot_weight = model.getVarByName(f"hotspot_weight")
-            hotspot_penalty = sum((x_slack))*hotspot_weight/num_dose_points
+            hotspot_penalty = sum((x_slack))*hotspot_weight/num_voxels
             return hotspot_penalty
         else:
             raise NotImplementedError("Multiple hotspot estimators not supported, please use \
