@@ -299,7 +299,7 @@ class Optimization_Config(BaseModel):
     - catheter_recommendaion: bool := If True, catheter positions will be optimized as well. Default False.
     """
     structure_name:str = None
-    is_target:bool = None
+    is_target:bool = False
     spacing_mm:float | List[float]= None
     dose_voxel_goal:float = None
     penalty_weight_linear:float = 0
