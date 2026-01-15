@@ -293,21 +293,21 @@ class CatheterTableOptim_Gurobi():
                         shape=num_dose_points,
                         lb=0.0,
                         ub=target_dose - min_dose,
-                        name=f"dose_slack_{structure.name}"
+                        name=f"p_L_{structure.name}"
                         )
                     model.addConstr(
                         A_sparse @ (c_MVar * t_MVar) + x_slack >= voxel_goal_vec,
-                        name=f"dose_target_{structure.name}"
+                        name=f"c_L_{structure.name}"
                         )
                 if linear_weight > 0:
                     linear_weight_vec = MVar([
-                        model.getVarByName(f"linear_weight_{structure.name}")
+                        model.getVarByName(f"w_L_{structure.name}")
                         for _ in range(num_dose_points)])
                     penalty_terms["linear"] += (linear_weight_vec) @ x_slack
 
                 if quadratic_weight > 0:
                     quadratic_weight_vec = MVar([
-                        model.getVarByName(f"quadratic_weight_{structure.name}")
+                        model.getVarByName(f"w_Q_{structure.name}")
                         for _ in range(num_dose_points)])
                     penalty_terms["quadratic"] += (quadratic_weight_vec) @ (x_slack * x_slack)
 
@@ -316,38 +316,37 @@ class CatheterTableOptim_Gurobi():
                         shape=num_dose_points,
                         lb=-GRB.INFINITY,
                         ub=target_dose - min_dose,
-                        name=f"uniform_slack_{structure.name}"
+                        name=f"p_U_{structure.name}"
                     )
                     # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
                     model.addConstr(
                         A_sparse @ (c_MVar * t_MVar) + y_uniform == voxel_goal_vec,
-                        name=f"dose_uniform_{structure.name}"
+                        name=f"c_U_{structure.name}"
                     )
                     uniformity_weight_vec = MVar([
-                        model.getVarByName(f"uniformity_weight_{structure.name}")
+                        model.getVarByName(f"w_U_{structure.name}")
                         for _ in range(num_dose_points)])
                     penalty_terms["uniformity"] += (uniformity_weight_vec) @ (y_uniform * y_uniform)
 
                 if penalty_weight_variance_time > 0:
                     mean_dwell_time = sum(t_MVar) / t_MVar.size
                     penalty_terms["quadratic"] += (
-                        model.getVarByName("variance_time_weight") * 1e-3 
+                        model.getVarByName("w_TV") * 1e-3 
                         * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
                     )
 
-
-                # if hotspot_weight > 0 and hotspot_threshold is not None:
-            elif structure.name == "hotspot_estimator_combined":
+            elif "hotspot_estimator_" in structure.name:
+                num_voxels_hotspot = model.getVarByName(f"num_voxels_{structure.name}")
                 x_slack = model.addMVar(
                     shape=num_dose_points,
-                    name=f"hotspot_slack_{processed_mask.name.replace(':', '_')}")
-
-                model.addConstr(
-                A_sparse @ (c_MVar * t_MVar)/num_dose_points - x_slack <= (voxel_goal_vec * model.getVarByName(f"hotspot_threshold")),
-                name=f"hotspot_constraint_{processed_mask.name.replace(':', '_')}",
+                    name=f"p_H_{structure.name}"
                 )
-                hotspot_weight = model.getVarByName(f"hotspot_weight")
-                penalty_terms["hotspot"] += sum((x_slack))*hotspot_weight/num_voxels
+                model.addConstr(
+                A_sparse @ (c_MVar * t_MVar)/num_voxels_hotspot - x_slack <= (voxel_goal_vec),
+                name=f"c_H_{structure.name}",
+                )
+                hotspot_weight = model.getVarByName(f"w_L_{structure.name}")
+                penalty_terms["hotspot"] += sum((x_slack))*hotspot_weight
 
             # OAR constraints and penalties
             else:
@@ -365,13 +364,13 @@ class CatheterTableOptim_Gurobi():
 
                 if linear_weight > 0:
                     linear_weight_vec_oar = MVar([
-                        model.getVarByName(f"linear_weight_{structure.name}")
+                        model.getVarByName(f"w_L_{structure.name}")
                         for _ in range(num_dose_points)])
                     penalty_terms["linear"] += (linear_weight_vec_oar) @ x_slack_oar
 
                 if quadratic_weight > 0:
                     quadratic_weight_vec_oar = MVar([
-                        model.getVarByName(f"quadratic_weight_{structure.name}")
+                        model.getVarByName(f"w_Q_{structure.name}")
                         for _ in range(num_dose_points)])
                     penalty_terms["quadratic"] += (quadratic_weight_vec_oar) @ (x_slack_oar * x_slack_oar)
 
@@ -385,70 +384,70 @@ class CatheterTableOptim_Gurobi():
         )
         model.update()
 
-    def _set_hotspot_penalty_and_constraints(
-        self,
-        plan: BrachyPlan,
-        model: Model,
-        optim_spacing: float,
-        structure_name: str,
-        catheter_vars: List[CatheterVar_Gurobi],
-        roi_bounds: List[List[float]] = None,
-        ) -> LinExpr:
-        r"""
-        ### Purpose:
-        - sets the hotspot penalty and constraints for the optimization model.
-        XXX down the line this function should just be removed if we decided that individual 
-        hot spot masks are useless, but for now let it be.
-        """
-        hotspot_masks = [
-            structure.mask for structure in plan.structure_list
-            if "hotspot_estimator" in structure.name]
-        if len(hotspot_masks) == 1:
-            processed_mask = resample_crop_the_mask_or_contour_to_optimGrid(
-                template_dose_obj=plan.combined_dose,
-                structure_mask=hotspot_masks[0],
-                optim_spacing=optim_spacing,
-                roi_bounds=roi_bounds
-            )
-            dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
-                dwellTimeVariables=self.dwellTimeVariables,
-                plan=plan,
-                structure_name=processed_mask.name,
-                structure_mask=processed_mask,
-                optim_spacing=optim_spacing,
-                roi_bounds=self.roi_bounds, # XXX ensure cropping is optional for high efficiency
-                shift_origin=True
-            )
+#     def _set_hotspot_penalty_and_constraints( XXX abolish this
+#         self,
+#         plan: BrachyPlan,
+#         model: Model,
+#         optim_spacing: float,
+#         structure_name: str,
+#         catheter_vars: List[CatheterVar_Gurobi],
+#         roi_bounds: List[List[float]] = None,
+#         ) -> LinExpr:
+#         r"""
+#         ### Purpose:
+#         - sets the hotspot penalty and constraints for the optimization model.
+#         XXX down the line this function should just be removed if we decided that individual 
+#         hot spot masks are useless, but for now let it be.
+#         """
+#         hotspot_masks = [
+#             structure.mask for structure in plan.structure_list
+#             if "hotspot_estimator" in structure.name]
+#         if len(hotspot_masks) == 1:
+#             processed_mask = resample_crop_the_mask_or_contour_to_optimGrid(
+#                 template_dose_obj=plan.combined_dose,
+#                 structure_mask=hotspot_masks[0],
+#                 optim_spacing=optim_spacing,
+#                 roi_bounds=roi_bounds
+#             )
+#             dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+#                 dwellTimeVariables=self.dwellTimeVariables,
+#                 plan=plan,
+#                 structure_name=processed_mask.name,
+#                 structure_mask=processed_mask,
+#                 optim_spacing=optim_spacing,
+#                 roi_bounds=self.roi_bounds, # XXX ensure cropping is optional for high efficiency
+#                 shift_origin=True
+#             )
 
-            t_MVar = MVar.fromlist(dwell_vars)
-            c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
-            A = np.column_stack(dose_rate_matrices)
-            num_dose_points = A.shape[0]
-            # XXX make sure the structure name is unique to hotspot and not the target
-            num_voxels = model.addVar(name=f"num_dose_points_{structure_name}")
-            model.addConstr(
-                num_voxels == num_dose_points,
-                name=f"num_dose_points_value_{structure_name}")
+#             t_MVar = MVar.fromlist(dwell_vars)
+#             c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
+#             A = np.column_stack(dose_rate_matrices)
+#             num_dose_points = A.shape[0]
+#             # XXX make sure the structure name is unique to hotspot and not the target
+#             num_voxels = model.addVar(name=f"num_voxels_{structure_name}")
+#             model.addConstr(
+#                 num_voxels == num_dose_points,
+#                 name=f"num_voxels_value_{structure_name}")
 
-            x_slack = model.addMVar(
-                shape=num_dose_points,
-                name=f"hotspot_slack_{processed_mask.name.replace(':', '_')}")
+#             x_slack = model.addMVar(
+#                 shape=num_dose_points,
+#                 name=f"hotspot_slack_{processed_mask.name.replace(':', '_')}")
 
-            voxel_goal_vec = MVar([
-                model.getVarByName(f"voxel_goal_{structure_name}") 
-                for _ in range(num_dose_points)])
+#             voxel_goal_vec = MVar([
+#                 model.getVarByName(f"voxel_goal_{structure_name}") 
+#                 for _ in range(num_dose_points)])
 
-            model.addConstr(
-                A @ (c_MVar * t_MVar)/num_dose_points - x_slack <= (voxel_goal_vec * model.getVarByName(f"hotspot_threshold")),
-                name=f"hotspot_constraint_{processed_mask.name.replace(':', '_')}",
-            )
-            hotspot_weight = model.getVarByName(f"hotspot_weight")
-            hotspot_penalty = sum((x_slack))*hotspot_weight/num_voxels
-            return hotspot_penalty
-        else:
-            raise NotImplementedError("Multiple hotspot estimators not supported, please use \
-optim_gurobi.BrachyOptim_Gurobi instead if only using dwell time optimization. else implement it \
-youself :p.")
+#             model.addConstr(
+#                 A @ (c_MVar * t_MVar)/num_dose_points - x_slack <= (voxel_goal_vec * model.getVarByName(f"hotspot_threshold")),
+#                 name=f"hotspot_constraint_{processed_mask.name.replace(':', '_')}",
+#             )
+#             hotspot_weight = model.getVarByName(f"hotspot_weight")
+#             hotspot_penalty = sum((x_slack))*hotspot_weight/num_voxels
+#             return hotspot_penalty
+#         else:
+#             raise NotImplementedError("Multiple hotspot estimators not supported, please use \
+# optim_gurobi.BrachyOptim_Gurobi instead if only using dwell time optimization. else implement it \
+# youself :p.")
 
     def run(self):
         r"""
@@ -503,29 +502,29 @@ def set_hyperparameters_per_structure(
     - `optimization_config`: Optimization_Config := the optimization configuration for the structures.
     - `model`: Model := the Gurobi model to which the variables will be added.
     """
-    num_voxels = model.addVar(name=f"num_dose_points_{structure_name}")
+    num_voxels = model.addVar(name=f"num_voxels_{structure_name}")
     model.addConstr(
         num_voxels == num_dose_points,
-        name=f"num_dose_points_value_{structure_name}")
+        name=f"num_voxels_value_{structure_name}")
     td = model.addVar(name=f"voxel_goal_{structure_name}")
     model.addConstr(
         td == optimization_config.dose_voxel_goal,
         name=f"voxel_goal_value_{structure_name}"
     )
-    linear_weight = model.addVar(name=f"linear_weight_{structure_name}")
+    linear_weight = model.addVar(name=f"w_L_{structure_name}")
     model.addConstr(
         linear_weight == optimization_config.penalty_weight_linear/num_voxels,
-        name=f"linear_weight_value_{structure_name}"
+        name=f"w_L_value_{structure_name}"
     )
-    quadratic_weight = model.addVar(name=f"quadratic_weight_{structure_name}")
+    quadratic_weight = model.addVar(name=f"w_Q_{structure_name}")
     model.addConstr(
         quadratic_weight == optimization_config.penalty_weight_quadratic/num_voxels,
-        name=f"quadratic_weight_value_{structure_name}"
+        name=f"w_Q_value_{structure_name}"
     )
-    uniformity_weight = model.addVar(name=f"uniformity_weight_{structure_name}")
+    uniformity_weight = model.addVar(name=f"w_U_{structure_name}")
     model.addConstr(
         uniformity_weight == optimization_config.penalty_weight_uniformity/num_voxels,
-        name=f"uniformity_weight_value_{structure_name}"
+        name=f"w_U_value_{structure_name}"
     )
     # hotspot_threshold = model.addVar(name=f"hotspot_threshold")
     # model.addConstr(
@@ -537,10 +536,10 @@ def set_hyperparameters_per_structure(
     #     hotspot_weight == optimization_config.penalty_weight_hotspot,
     #     name=f"hotspot_weight_value"
     # )
-    penalty_weight_variance_time = model.addVar(name=f"variance_time_weight")
+    penalty_weight_variance_time = model.addVar(name=f"w_TV")
     model.addConstr(
         penalty_weight_variance_time == optimization_config.penalty_weight_variance_time/num_voxels,
-        name=f"variance_time_weight_value"
+        name=f"w_TV_value"
     )
     model.update()
     return model
