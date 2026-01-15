@@ -227,7 +227,8 @@ class CatheterTableOptim_Gurobi():
         "linear": 0,
         "quadratic": 0,
         "hotspot": 0,
-        "uniformity": 0
+        "uniformity": 0,
+        "dwelltimes":0
         }
         for structure in plan.structure_list:
             if structure.optimization_config is None:
@@ -330,7 +331,7 @@ class CatheterTableOptim_Gurobi():
 
                 if penalty_weight_variance_time > 0:
                     mean_dwell_time = sum(t_MVar) / t_MVar.size
-                    penalty_terms["quadratic"] += (
+                    penalty_terms["dwelltimes"] += (
                         model.getVarByName("w_TV") * 1e-3 
                         * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
                     )
@@ -379,75 +380,11 @@ class CatheterTableOptim_Gurobi():
             penalty_terms["linear"]
             + penalty_terms["quadratic"]
             + penalty_terms["uniformity"]
-            + penalty_terms["hotspot"],
+            + penalty_terms["hotspot"]
+            + penalty_terms["dwelltimes"],
             GRB.MINIMIZE
         )
         model.update()
-
-#     def _set_hotspot_penalty_and_constraints( XXX abolish this
-#         self,
-#         plan: BrachyPlan,
-#         model: Model,
-#         optim_spacing: float,
-#         structure_name: str,
-#         catheter_vars: List[CatheterVar_Gurobi],
-#         roi_bounds: List[List[float]] = None,
-#         ) -> LinExpr:
-#         r"""
-#         ### Purpose:
-#         - sets the hotspot penalty and constraints for the optimization model.
-#         XXX down the line this function should just be removed if we decided that individual 
-#         hot spot masks are useless, but for now let it be.
-#         """
-#         hotspot_masks = [
-#             structure.mask for structure in plan.structure_list
-#             if "hotspot_estimator" in structure.name]
-#         if len(hotspot_masks) == 1:
-#             processed_mask = resample_crop_the_mask_or_contour_to_optimGrid(
-#                 template_dose_obj=plan.combined_dose,
-#                 structure_mask=hotspot_masks[0],
-#                 optim_spacing=optim_spacing,
-#                 roi_bounds=roi_bounds
-#             )
-#             dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
-#                 dwellTimeVariables=self.dwellTimeVariables,
-#                 plan=plan,
-#                 structure_name=processed_mask.name,
-#                 structure_mask=processed_mask,
-#                 optim_spacing=optim_spacing,
-#                 roi_bounds=self.roi_bounds, # XXX ensure cropping is optional for high efficiency
-#                 shift_origin=True
-#             )
-
-#             t_MVar = MVar.fromlist(dwell_vars)
-#             c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
-#             A = np.column_stack(dose_rate_matrices)
-#             num_dose_points = A.shape[0]
-#             # XXX make sure the structure name is unique to hotspot and not the target
-#             num_voxels = model.addVar(name=f"num_voxels_{structure_name}")
-#             model.addConstr(
-#                 num_voxels == num_dose_points,
-#                 name=f"num_voxels_value_{structure_name}")
-
-#             x_slack = model.addMVar(
-#                 shape=num_dose_points,
-#                 name=f"hotspot_slack_{processed_mask.name.replace(':', '_')}")
-
-#             voxel_goal_vec = MVar([
-#                 model.getVarByName(f"voxel_goal_{structure_name}") 
-#                 for _ in range(num_dose_points)])
-
-#             model.addConstr(
-#                 A @ (c_MVar * t_MVar)/num_dose_points - x_slack <= (voxel_goal_vec * model.getVarByName(f"hotspot_threshold")),
-#                 name=f"hotspot_constraint_{processed_mask.name.replace(':', '_')}",
-#             )
-#             hotspot_weight = model.getVarByName(f"hotspot_weight")
-#             hotspot_penalty = sum((x_slack))*hotspot_weight/num_voxels
-#             return hotspot_penalty
-#         else:
-#             raise NotImplementedError("Multiple hotspot estimators not supported, please use \
-# optim_gurobi.BrachyOptim_Gurobi instead if only using dwell time optimization. else implement it \
-# youself :p.")
 
     def run(self):
         r"""
@@ -538,7 +475,7 @@ def set_hyperparameters_per_structure(
     # )
     penalty_weight_variance_time = model.addVar(name=f"w_TV")
     model.addConstr(
-        penalty_weight_variance_time == optimization_config.penalty_weight_variance_time/num_voxels,
+        penalty_weight_variance_time == optimization_config.penalty_weight_variance_time,
         name=f"w_TV_value"
     )
     model.update()
