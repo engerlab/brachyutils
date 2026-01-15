@@ -103,6 +103,7 @@ class BrachyStructure:
         return_percentage: bool = False,
         body_contour: ROIContour = None,
         bin_size: float = None,
+        query_dvh_metrics : List[str] = None,
         ) -> Dict[str, float]:
         r"""
         ### Purpose:
@@ -121,6 +122,8 @@ class BrachyStructure:
         If the body contour is not provided, the conformity index will not be calculated.
         - bin_size := the bin size to be used for the DVH calculation. 
         If None, the default bin size in OpenTPS will be used: maxDose/4096.
+        - query_dvh_metrics := list of dvh metric names to be calculated. 
+        If None, all dvh metrics in dvh_metric_goals will be calculated.
         ### Outputs:
         - Void := will update the BrachyStructure.dvh_metrics_observed dictionary and
         BrachyStructure.dvh_obj attributes. Will also update the last calculated value
@@ -134,6 +137,10 @@ class BrachyStructure:
         assert isinstance(
             combined_dose, BrachyDose
         ), "combined dose is not a BrachyDose object"
+
+        if query_dvh_metrics is None:
+            # Querying all dvh metrics from the structure
+            query_dvh_metrics = list(self.dvh_metric_goals.keys())
         self.dvh_obj = DVH(
             self.mask,
             combined_dose.dose_image,
@@ -144,6 +151,8 @@ class BrachyStructure:
         self.dvh_metrics_observed = {}
 
         for dvh_metric_name in self.dvh_metric_goals.keys():
+            if dvh_metric_name not in query_dvh_metrics:
+                continue
             metric_string = dvh_metric_name.split("(")[0]
 
             if metric_string.startswith("D"):

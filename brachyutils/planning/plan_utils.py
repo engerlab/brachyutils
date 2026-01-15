@@ -940,6 +940,7 @@ class BrachyPlan:
         prescription_dose: float = None,
         return_percentage: bool = False,
         bin_size: float = None,
+        query_dvh_metrics : list = None,
         ):
         r"""
         ### Purpose:
@@ -951,6 +952,7 @@ class BrachyPlan:
         - prescription_dose := the prescription dose. if None, the BrachyPlan.prescription_dose will be used.
         - return_percentage := if True, the observed value will be returned as a percentage of the prescription dose.
         - bin_size := the bin size for the dvh calculation. if None, the default bin size in OpenTPS will be used: maxDose/4096.
+        - query_dvh_metrics := list of dvh metrics to query. if None, all dvh metrics in the BrachyPlan.dvh_metric_goals will be queried.
         ### Outputs:
         - Void := will update the BrachyStructure.dvh_metrics_observed attribute
         """
@@ -960,16 +962,23 @@ class BrachyPlan:
             combined_dose = self.combined_dose
         if prescription_dose is None:
             prescription_dose = self.prescription_dose
+        if query_dvh_metrics is None:
+            # Querying all dvh metrics from all structures
+            assert self.dvh_metric_goals is not None, "dvh metric goals are not set"
+            query_dvh_metrics = list(self.dvh_metric_goals.keys())
         self.dvh_metrics_observed = {}
         for structure_obj in self.structure_list:
             if "hotspot_estimator" in structure_obj.name.lower():
+                continue
+            if not (any([structure_obj.name.lower() in s.lower() for s in query_dvh_metrics])):
                 continue
             observed_metrics = structure_obj.get_dvh_metric(
                 combined_dose,
                 prescription_dose,
                 return_percentage,
                 self.body_contour,
-                bin_size=bin_size
+                bin_size=bin_size,
+                query_dvh_metrics=query_dvh_metrics,
                 )
             self.dvh_metrics_observed.update(observed_metrics)
         return self.dvh_metrics_observed
