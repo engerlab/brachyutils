@@ -122,13 +122,15 @@ class MOBOOptimizer:
     def evaluate_penaltyWeight_space_helper(
             self, list_of_opt_config_lists:List[List[Optimization_Config]], 
             list_of_target_doses:List[float], num_parallel_iterations:int,
-            list_of_experiment_indexes:List[int]):
+            list_of_experiment_indexes:List[int],
+            objective_to_scale_to: dict[str, float] = None):
         r''' This function evaluates a space of penalty weights in parallel using multiprocessing library. 
         inputs:
             - list_of_opt_config_lists := a list of optimization configuration lists to be evaluated.
             - list_of_target_doses := a list of target doses corresponding to each optimization configuration list
             - num_parallel_iterations := number of parallel iterations to run
             - list_of_experiment_indexes := a list of experiment indexes corresponding to each optimization configuration list
+            - objective_to_scale_to:= a dictionary containing the objective name as key and the value to scale the plan to as value.
         outputs:
 
             - a pandas dataframe containing the result of penalty weight evaluations.
@@ -149,7 +151,8 @@ class MOBOOptimizer:
                 list_of_target_doses=list_of_target_doses,
                 list_of_experiment_indexes=list_of_experiment_indexes,
                 return_cat_table=True,
-                max_parallel_runs=num_parallel_iterations
+                max_parallel_runs=num_parallel_iterations,
+                objective_to_scale_to=objective_to_scale_to
             )
             return pd.DataFrame(weights_and_dvh_space), cat_tables
         else:
@@ -159,7 +162,10 @@ class MOBOOptimizer:
             for i, (opt_config_list, target_dose, exp_indx) in enumerate(
                 zip(list_of_opt_config_lists, list_of_target_doses,list_of_experiment_indexes)):
                 optim_config_list, target_dose = self.get_optim_config_and_target_dose_from_parameters(opt_config_list)
-                res, cat_table = self.brachy_optim.evaluate_penaltyWeight(optim_config_list, target_dose, return_cat_table=True)
+                res, cat_table = self.brachy_optim.evaluate_penaltyWeight(
+                    optim_config_list, target_dose, return_cat_table=True,
+                    objective_to_scale_to=objective_to_scale_to
+                )
                 res["trial_index"] = exp_indx
                 results[i] = res
                 cat_tables[f"trial_{exp_indx}"] = cat_table
@@ -269,12 +275,15 @@ class MOBOOptimizer:
         return parameters
 
 
-    def initialize_experiment(self, axClient:AxClient, num_random_initiations:int, num_parallel_iterations:int):
+    def initialize_experiment(
+            self, axClient:AxClient, num_random_initiations:int, num_parallel_iterations:int,
+            objective_to_scale_to: dict[str, float] = None):
         r''' In this function, we initialize the experiment object with a user-defined number of randomly generated penalty weight vectors
         inputs:
             - axClient := an ax client object that has been already initialized with the right parameters and objectives
             - num_random_initiations := number of fmio calls to be run in parallel
             - num_parallel_iterations := number of parallel iterations to run
+            - objective_to_scale_to:= a dictionary containing the objective name as key and the value to scale the plan to as value.
 
         outputs:
             - VOID := this method returns nothing, but it updates the axClient with the result of penalty weight evaluations
@@ -296,16 +305,20 @@ class MOBOOptimizer:
             axClient=axClient,
             parameters=parameters,
             num_parallel_iterations=num_parallel_iterations,
-            calc_hv=False
+            calc_hv=False,
+            objective_to_scale_to=objective_to_scale_to
         )
 
-    def complete_multiple_trials(self, axClient:AxClient, parameters:dict, num_parallel_iterations:int, calc_hv:bool=False):
+    def complete_multiple_trials(
+            self, axClient:AxClient, parameters:dict, num_parallel_iterations:int, 
+            calc_hv:bool=False, objective_to_scale_to: dict[str, float] = None):
         r''' This function completes multiple trials given their parameters
         inputs:
             - axClient := an ax client object that has been already initialized with the right parameters and objectives
             - parameters := a dictionary containing the parameters for each trial
             - num_parallel_iterations := number of parallel iterations to run
             - calc_hv := if true, calculate the hypervolume after completing the trials
+            - objective_to_scale_to:= a dictionary containing the objective name as key and the value to scale the plan to as value.
         outputs:
             - dvh_metrics_and_config_df := a pandas dataframe containing the result of penalty weight evaluations.
             - cat_tables := a dictionary containing the catheter tables for each trial
@@ -325,7 +338,9 @@ class MOBOOptimizer:
             list_of_opt_config_lists=list_of_opt_config_lists, 
             list_of_target_doses=list_of_target_doses,
             num_parallel_iterations=num_parallel_iterations,
-            list_of_experiment_indexes=trial_indices)
+            list_of_experiment_indexes=trial_indices,
+            objective_to_scale_to=objective_to_scale_to
+        )
         if calc_hv:
             hvs = []
         else:
@@ -352,12 +367,15 @@ class MOBOOptimizer:
                 hvs.append(hv)
         return dvh_metrics_and_config_df, cat_tables, hvs
 
-    def complete_single_trial(self, axClient:AxClient, parameters:dict, trial_index:int, calc_hv:bool=False):
+    def complete_single_trial(
+            self, axClient:AxClient, parameters:dict, trial_index:int, 
+            calc_hv:bool=False, objective_to_scale_to: dict[str, float] = None):
         r''' This function completes a single trial given its parameters
         inputs:
             - axClient := an ax client object that has been already initialized with the right parameters and objectives
             - parameters := a dictionary containing the parameters for the trial
             - calc_hv := if true, calculate the hypervolume after completing the trial
+            - objective_to_scale_to:= a dictionary containing the objective name as key and the value to scale the plan to as value.
         outputs:
             - dvh_metrics_and_config := a dictionary containing the result of penalty weight evaluation.
             - cat_table := a catheter table for the trial
@@ -367,7 +385,8 @@ class MOBOOptimizer:
         optim_config_list, target_dose = self.get_optim_config_and_target_dose_from_parameters(parameters)
                 
         dvh_metrics_and_config, cat_table = self.brachy_optim.evaluate_penaltyWeight(
-            optim_config_list, target_dose, return_cat_table=True, inplace=False) # inplace Flase since we add the new plan to the dict
+            optim_config_list, target_dose, return_cat_table=True, inplace=False,
+            objective_to_scale_to=objective_to_scale_to) # inplace Flase since we add the new plan to the dict
         dvh_metrics_and_config["trial_index"] = trial_index
 
         
@@ -399,7 +418,8 @@ class MOBOOptimizer:
             output_filename:str=None,
             calc_hv:bool=False,
             mobo_objective_kwargs:dict=None, 
-            mobo_parameter_kwargs:dict=None
+            mobo_parameter_kwargs:dict=None,
+            objective_to_scale_to: dict[str, float] = None
             ):
         r'''This function runs multi-objective bayesian optimization (mobo) for as many iterations as the user commands it to. 
             it will save the result of all iterations in a pandas dataframe. 
@@ -422,6 +442,7 @@ class MOBOOptimizer:
             - calc_hv:= if true, the hypervolume of the pareto front is calculated at each iteration and returned as a list.
             - mobo_objective_kwargs:= a dictionary containing the keyword arguments for the generate_mobo_objectives() method.
             - mobo_parameter_kwargs:= a dictionary containing the keyword arguments for the generate_mobo_parameters
+            - objective_to_scale_to:= a dictionary containing the objective name as key and the value to scale the plan to as value.
         outputs:
             - results:dict := a dictionary containing many outcomes of the mobo iterations. 
             - optimized_cat_tables:dict := a dictionary containing the optimized catheter tables for each iteration.
@@ -533,7 +554,8 @@ class MOBOOptimizer:
                     axClient=ax_client,
                     parameters=parameters,
                     trial_index=trial_index,
-                    calc_hv=calc_hv and num_random_initiation <= i
+                    calc_hv=calc_hv and num_random_initiation <= i,
+                    objective_to_scale_to=objective_to_scale_to
                 )
                 results = pd.concat([results, pd.DataFrame({**dvh_metrics_and_config}, index=[trial_index])], ignore_index=True)
                 optimized_cat_tables[f"trial_{trial_index}"] = optimized_cat_table
@@ -552,7 +574,9 @@ class MOBOOptimizer:
                 results, cat_tables, _ = self.initialize_experiment(
                     ax_client,
                     num_random_initiations=num_random_initiation,
-                    num_parallel_iterations=num_parallel_iterations)
+                    num_parallel_iterations=num_parallel_iterations,
+                    objective_to_scale_to=objective_to_scale_to
+                    )
                 optimized_cat_tables.update(cat_tables)
                 tac = perf_counter()
                 print(f"Time taken for {num_random_initiation} {init_randomization} parallel initialization: {tac - tic:0.4f} seconds")
@@ -583,7 +607,8 @@ class MOBOOptimizer:
                     axClient=ax_client,
                     parameters=parameters,
                     num_parallel_iterations=num_parallel_iterations,
-                    calc_hv=calc_hv
+                    calc_hv=calc_hv,
+                    objective_to_scale_to=objective_to_scale_to
                 )
 
                 optimized_cat_tables.update(cat_tables)

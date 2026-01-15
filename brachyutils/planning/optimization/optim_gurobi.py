@@ -18,7 +18,8 @@ from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DT
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, 
-    process_variable, compute_dose_rate_matrices, Optimization_Config
+    process_variable, compute_dose_rate_matrices, 
+    Optimization_Config, scale_to_objective
 )
 
 class DwellTime_Gurobi(BrachyDwellTime):
@@ -108,6 +109,7 @@ def _get_optimized_plan_from_model(
     plan: BrachyPlan,
     model: Model,
     inplace=True,
+    objective_to_scale_to: dict[str, float] = None
     ) -> BrachyPlan | None:
     r"""
     See `BrachyDwellTime.get_optimized_plan_from_model` for details.
@@ -138,8 +140,6 @@ def _get_optimized_plan_from_model(
 
     for dwell_time, name in dwelltime_and_name:
         # set the dwell time to the optimized value
-        if dwell_time < 0.1:
-            dwell_time = 0
         for catheter in outplan.catheter_table:
             for dwell_position in catheter.dwells:
                 if (
@@ -147,6 +147,17 @@ def _get_optimized_plan_from_model(
                     == name
                 ):
                     dwell_position.time = dwell_time
+
+    if objective_to_scale_to is not None:
+        outplan = scale_to_objective(outplan, objective_to_scale_to)
+
+    # set very small dwell times to zero
+    for catheter in outplan.catheter_table:
+        for dwell_position in catheter.dwells:
+            if dwell_position.time < 0.1:
+                dwell_position.time = 0
+
+
     # update the plan with the new dwell times
     outplan.update_plan_from_catheter_table()
     return model, outplan, solution_found, solve_time
@@ -528,6 +539,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
     def get_optimized_plan_from_model(
         self,
         inplace:bool=True,
+        objective_to_scale_to: dict[str, float] = None
         ) -> BrachyPlan | None:
         r"""
         See `BrachyDwellTime.get_optimized_plan_from_model` for details.
@@ -536,7 +548,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         self.model, outplan, self.solution_found, self.solve_time = _get_optimized_plan_from_model(
             plan=self.plan,
             model=self.model,
-            inplace=inplace
+            inplace=inplace, 
+            objective_to_scale_to=objective_to_scale_to
             )
         return outplan
 
@@ -560,7 +573,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             optim_config_list: List[Optimization_Config], 
             target_dose: float,
             return_cat_table:bool=False, 
-            inplace:bool=False) -> dict:
+            inplace:bool=False,
+            objective_to_scale_to: dict[str, float] = None
+            ) -> dict:
         r"""
         ### Purpose:
         - A function to evaluate penalty weights by resetting the model with new penalty weights
@@ -571,6 +586,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         - target_dose: float := The new target dose.
         - return_cat_table: bool := Whether to return the catheter table along with the DVH metrics. Default is False.
         - inplace: bool := Whether to modify the original plan or return a new optimized plan. Default is False.
+        - objective_to_scale_to: dict[str, float] := A dictionary containing the objective metrics to scale the plan to. Default is None.
+        If None is provided, no scaling is performed.
         The Optimization_Config objects of the structure list will still be modified!!!
         ### Outputs:
         - output: dict := A dictionary containing the DVH metrics and penalty weights.
@@ -591,8 +608,9 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         # in get_optimized_plan_from_model function
         self.reset_model_from_config(new_config_list=optim_config_list, new_target_dose=target_dose)
 
-        optimized_plan = self.get_optimized_plan_from_model(inplace=inplace)
-        dvh_metrics = optimized_plan.get_dvh_metrics()
+        optimized_plan = self.get_optimized_plan_from_model(inplace=inplace,
+                                                            objective_to_scale_to=objective_to_scale_to)
+        dvh_metrics = optimized_plan.get_dvh_metrics(bin_size=0.0001)
         output = {}
         for dvh_metric_name, dvh_value in dvh_metrics.items():
             output[dvh_metric_name] = float(dvh_value)
@@ -617,24 +635,23 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             list_of_target_doses: List[float] = None,
             list_of_experiment_indexes: List[int] = None,
             return_cat_table: bool = False,
-            max_parallel_runs: int = 5) -> dict:
+            max_parallel_runs: int = 5,
+            objective_to_scale_to: dict[str, float] = None
+            ) -> dict:
         r"""
         ### Purpose:
         - A function to evaluate the penalty weight space by resetting the model with new penalty weights
         and re-optimizing in parallel. The results are collected in a dataframe.
         ### Inputs:
-        - list_of_configs: List[dict] := A list of dictionaries containing the penalty weights
+        - list_of_opt_config_lists: List[List[Optimization_Config]] := A list of lists of optimization configurations
         for each structure.
-            Example:
-            [{'linear_w_Skin': 96.60924792289734, 
-            'linear_w_Chestwall': 90.46064639091492, 
-            'linear_w_PTV': 1000.0, 
-            'quadratic_w_PTV': 1.0},
-            {'linear_w_Skin': 50.0, 
-            'linear_w_Chestwall': 50.0, 
-            'linear_w_PTV': 500.0, 
-            'quadratic_w_PTV': 0.5}]
-        dose. Default is False.
+        - list_of_target_doses: List[float] := A list of new target doses. If None, the original target dose is used for all runs.
+        - list_of_experiment_indexes: List[int] := A list of experiment indexes to label the results. If None, indexes
+        from 0 to N-1 are used.
+        - return_cat_table: bool := Whether to return the catheter tables along with the DVH metrics. Default is False.
+        - max_parallel_runs: int := The maximum number of parallel runs. Default is 5.
+        - objective_to_scale_to: dict[str, float] := A dictionary containing the objective metrics to scale the plan to. Default is None.
+        If None is provided, no scaling is performed.
         ### Outputs:
         - results: pd.DataFrame := A dataframe containing the DVH metrics and penalty weights
         for each configuration.
@@ -675,7 +692,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 list_of_target_doses,
                 [self.target_constraints_coords]*len(list_of_opt_config_lists),
                 [self.hotspot_constraints_coords]*len(list_of_opt_config_lists),
-                [self.hotspot_threshold]*len(list_of_opt_config_lists)
+                [self.hotspot_threshold]*len(list_of_opt_config_lists),
+                [objective_to_scale_to]*len(list_of_opt_config_lists)
             )
             )
         if return_cat_table:
@@ -775,7 +793,8 @@ def _run_and_organize_results(
     new_target_dose:float = None,
     target_constraints_coords: List[int] = [],
     hotspot_constraints_coords: List[int] = [],
-    hotspot_threshold: float = 1.2
+    hotspot_threshold: float = 1.2,
+    objective_to_scale_to: dict[str, float] = None
 
 ):
     # print(f"PID {os.getpid()} starting work")
@@ -796,9 +815,10 @@ def _run_and_organize_results(
             target_constraints_coords=target_constraints_coords, 
             hotspot_constraints_coords=hotspot_constraints_coords, 
             hotspot_threshold=hotspot_threshold)
-        _, optimized_plan, _, _ = _get_optimized_plan_from_model(plan, model, inplace=inplace)
+        _, optimized_plan, _, _ = _get_optimized_plan_from_model(
+            plan, model, inplace=inplace, objective_to_scale_to=objective_to_scale_to)
 
-    dvh_metrics = optimized_plan.get_dvh_metrics()
+    dvh_metrics = optimized_plan.get_dvh_metrics(bin_size=0.0001)
     output = {}
     for dvh_metric_name, dvh_value in dvh_metrics.items():
         output[dvh_metric_name] = float(dvh_value)

@@ -16,6 +16,130 @@ from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DT
 
 from ai_assisted_brachy.utils.utils import compute_new_origin_for_resampling
 
+
+def scale_to_objective(
+    plan: BrachyPlan,
+    objective_to_scale_to: dict[str, float]
+    ) -> BrachyPlan:
+    r"""
+    ### Purpose:
+    - A function to scale the dwell times in the plan to match a target objective value.
+    ### Inputs:
+    - plan: BrachyPlan := The brachytherapy plan to be scaled.
+    - objective_to_scale_to: dict[str, float] := A dictionary mapping structure names to target objective values.
+    ### Outputs:
+    - outplan: BrachyPlan := The scaled brachytherapy plan.
+    """
+
+    plan.update_plan_from_catheter_table()
+    
+    current_dvh_metrics = plan.get_dvh_metrics(
+        # This is essential not to return percentages but absolute values
+        return_percentage=False, 
+        # For V metrics, since we are counting voxels which resolution is in the mm range,
+        # and that in OpenTPS DVH calculation the is interpolation of cm3 volumes, reducing 
+        # the bin size helps to have an accurate number of mm3 voxels. If this bin size is
+        # lets say 10-7, the the number of voxels should be exact. However here we use a smaller
+        # as a trade off between accuracy and computation time. Using a bin_size too large 
+        # will break this scaling function.
+        bin_size=0.0001)
+
+    assert len(objective_to_scale_to) == 1, "Only one structure scaling is supported at a time."
+    metric_to_scale = list(objective_to_scale_to.keys())[0]
+
+    target_metric_value = objective_to_scale_to[metric_to_scale]
+    if metric_to_scale not in current_dvh_metrics:
+        raise ValueError(f"Structure {metric_to_scale} not found in plan DVH metrics.")
+    current_metric_value = current_dvh_metrics[metric_to_scale]
+    if metric_to_scale.startswith("D"):
+        # Simple scaling since we directly scale the dose
+        scale_factor = target_metric_value / current_metric_value if current_metric_value != 0 else 1.0
+    else:
+        assert metric_to_scale.startswith("V"), "Metric to scale must start with 'D' or 'V'."
+        # More complicated scaling since we have to find the number of voxels missing 
+        # to reach the target volume, find the smallest dose in that voxel and use this 
+        # dose to estimate the scale factor
+        current_metric_value *= 1000. # From cm3 to mm3
+        target_metric_value *= 1000. # From cm3 to mm3
+        volume_diff = target_metric_value - current_metric_value
+        voxels_cubic_size_mm = np.prod(plan.combined_dose.dose_image.spacing)
+        number_of_voxels_diff =int(np.round(np.abs(volume_diff) / voxels_cubic_size_mm))
+
+        strucname_used_for_scaling = metric_to_scale.split("(")[1][:-1]  # e.g., V100%(PTV) -> PTV
+
+        if plan.phantom.cached_structure_masks is None:
+            # WARNING: this can be slow if there are many structures in the plan
+            # TODO: consider caching only the needed structure
+            plan.phantom.cache_structure_set_as_masks()
+        structure_mask = plan.phantom.cached_structure_masks[strucname_used_for_scaling].imageArray.astype(bool)
+        masked_dose = plan.combined_dose.dose_image.imageArray[structure_mask] # this is flattened: dim (1, num_dose_points in structure)
+    
+        # Getting the current number of voxels used to compute the metric
+        current_number_voxels_considered = current_metric_value / voxels_cubic_size_mm
+        current_number_voxels_considered = int(np.round(current_number_voxels_considered))
+        dose_points_sorted = np.sort(masked_dose)[::-1] # descending order from hotest voxels so that Vx is first chunk of voxels 
+
+        current_max_dose_considered_for_metric = dose_points_sorted[int(current_number_voxels_considered)-1]
+
+        if volume_diff == 0:
+            scale_factor = 1.0
+        else:
+            # Uncertainty linked to open TPS interpolation in DVH calculation in cc which
+            # can lead to many many 1mm3 voxels difference in the DVH calculation
+            uncertainty_in_numvoxels_in_dvh_cacl = 0.01
+            if volume_diff > 0:
+                # need to increase volume by number_of_voxels_diff voxels
+                # We check the dose that is ordered in the number_of_voxels_diff voxel after the current metric 
+                new_min_dose_to_scale_up = dose_points_sorted[
+                    min(
+                        current_number_voxels_considered-1 + 
+                        # We want to make sure we remain above threshold
+                        int(number_of_voxels_diff * (1 + uncertainty_in_numvoxels_in_dvh_cacl)),
+                        len(dose_points_sorted)-1
+                    )]
+                assert new_min_dose_to_scale_up < current_max_dose_considered_for_metric, \
+                    "New min dose to scale up must be less than current max dose considered for metric."
+                scale_factor = current_max_dose_considered_for_metric/new_min_dose_to_scale_up
+                assert scale_factor > 1.0, "Scale factor must be greater than 1.0 when increasing volume for V dvh metric."
+
+            else:
+                new_max_dose_to_scale_down = dose_points_sorted[
+                    max(
+                    current_number_voxels_considered-1 - 
+                    # We want to make sure we remain above threshold
+                    int(number_of_voxels_diff * (1 - uncertainty_in_numvoxels_in_dvh_cacl)),
+                    0
+                    )]
+                assert new_max_dose_to_scale_down > current_max_dose_considered_for_metric, \
+                    "New max dose to scale down must be greater than current max dose considered for metric."
+                scale_factor = current_max_dose_considered_for_metric/new_max_dose_to_scale_down
+                assert scale_factor < 1.0, "Scale factor must be less than 1.0 when decreasing volume for V dvh metric."
+
+    # Scaling the dwell times
+    for catheter in plan.catheter_table:
+        for dwell_position in catheter.dwells:
+            new_dwell_time = dwell_position.time * scale_factor
+            dwell_position.time = new_dwell_time
+    plan.update_plan_from_catheter_table()
+    new_dvh_metrics = plan.get_dvh_metrics(return_percentage=False, bin_size=0.0001)
+    
+    # Putting everything in mm, if V metric, it has already been scaled above
+    ogval = current_metric_value if metric_to_scale.startswith("V") else current_metric_value * 1000.
+    newval = new_dvh_metrics[metric_to_scale] * 1000.
+    targetval = target_metric_value if metric_to_scale.startswith("V") else target_metric_value * 1000.
+    print(f"""Scaling plan from {ogval:.2f} to {newval:.2f} with scale factor {scale_factor:.4f} for dwell times to match \
+          target {metric_to_scale} of {targetval:.2f}""")
+
+    assert newval > targetval, \
+        f"Scaling failed to reach target {metric_to_scale}. Current value: {newval:.2f}, Target value: {targetval:.2f}"
+
+    # Checking we got closer to the target
+    assert abs(newval - targetval) < abs(ogval - targetval), \
+        f"Failed to get closer to target {metric_to_scale}. Before: {ogval:.2f}, After: {newval:.2f}, Target: {targetval:.2f}"
+
+    return plan
+
+
 def crop_resample_dose_rate_map_and_mask(
     dose_rate_map: np.ndarray,
     template_dose_obj: BrachyDose,
