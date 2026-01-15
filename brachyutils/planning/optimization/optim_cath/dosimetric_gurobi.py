@@ -302,13 +302,13 @@ class CatheterTableOptim_Gurobi():
                     linear_weight_vec = MVar([
                         model.getVarByName(f"w_L_{structure.name}")
                         for _ in range(num_dose_points)])
-                    penalty_terms["linear"] += (linear_weight_vec) @ x_slack
+                    penalty_terms["linear"] += sum((linear_weight_vec) * x_slack)
 
                 if quadratic_weight > 0:
                     quadratic_weight_vec = MVar([
                         model.getVarByName(f"w_Q_{structure.name}")
                         for _ in range(num_dose_points)])
-                    penalty_terms["quadratic"] += (quadratic_weight_vec) @ (x_slack * x_slack)
+                    penalty_terms["quadratic"] += sum((quadratic_weight_vec) * (x_slack * x_slack))
 
                 if uniformity_weight > 0:
                     y_uniform = model.addMVar(
@@ -325,7 +325,7 @@ class CatheterTableOptim_Gurobi():
                     uniformity_weight_vec = MVar([
                         model.getVarByName(f"w_U_{structure.name}")
                         for _ in range(num_dose_points)])
-                    penalty_terms["uniformity"] += (uniformity_weight_vec) @ (y_uniform * y_uniform)
+                    penalty_terms["uniformity"] += sum((uniformity_weight_vec) * (y_uniform * y_uniform))
 
                 if penalty_weight_variance_time > 0:
                     mean_dwell_time = sum(t_MVar) / t_MVar.size
@@ -335,17 +335,23 @@ class CatheterTableOptim_Gurobi():
                     )
 
             elif "hotspot_estimator_" in structure.name:
-                num_voxels_hotspot = model.getVarByName(f"num_voxels_{structure.name}")
-                x_slack = model.addMVar(
+                # num_voxels_hotspot_vec = MVar([
+                #     model.getVarByName(f"num_voxels_{structure.name}")
+                #     for _ in range(num_dose_points)
+                #     ])
+                x_slack_hotspot = model.addMVar(
                     shape=num_dose_points,
                     name=f"p_H_{structure.name}"
                 )
                 model.addConstr(
-                A_sparse @ (c_MVar * t_MVar)/num_voxels_hotspot - x_slack <= (voxel_goal_vec),
+                (A_sparse @ (c_MVar * t_MVar)) - x_slack_hotspot <= (voxel_goal_vec),
                 name=f"c_H_{structure.name}",
                 )
-                hotspot_weight = model.getVarByName(f"w_L_{structure.name}")
-                penalty_terms["hotspot"] += sum((x_slack))*hotspot_weight
+                hotspot_weight_vec = MVar([
+                    model.getVarByName(f"w_L_{structure.name}")
+                    for _ in range(num_dose_points)
+                ])
+                penalty_terms["hotspot"] += sum(hotspot_weight_vec * x_slack_hotspot)
 
             # OAR constraints and penalties
             else:
@@ -365,13 +371,13 @@ class CatheterTableOptim_Gurobi():
                     linear_weight_vec_oar = MVar([
                         model.getVarByName(f"w_L_{structure.name}")
                         for _ in range(num_dose_points)])
-                    penalty_terms["linear"] += (linear_weight_vec_oar) @ x_slack_oar
+                    penalty_terms["linear"] += sum(linear_weight_vec_oar * x_slack_oar)
 
                 if quadratic_weight > 0:
                     quadratic_weight_vec_oar = MVar([
                         model.getVarByName(f"w_Q_{structure.name}")
                         for _ in range(num_dose_points)])
-                    penalty_terms["quadratic"] += (quadratic_weight_vec_oar) @ (x_slack_oar * x_slack_oar)
+                    penalty_terms["quadratic"] += sum(quadratic_weight_vec_oar * (x_slack_oar * x_slack_oar))
 
         # Set the objective function
         model.setObjective(

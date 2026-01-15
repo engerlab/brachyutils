@@ -322,6 +322,7 @@ class Optimization_Config(BaseModel):
             assert self.catheter_recommendaion == False, "only target structure can have catheter_recommendaion"
             assert self.penalty_weight_variance_time == 0, "only target structure can have penalty_weight_variance_time"
             assert self.penalty_weight_uniformity == 0, "only target structure can have penalty_weight_uniformity"
+        return self
 
 class BrachyDwellTime(BaseModel, ABC):
     """
