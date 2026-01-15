@@ -309,7 +309,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
-            if "hotspot_estimator:" in structure.name.lower():
+            if "hotspot_estimator_" in structure.name.lower():
                 continue
 
             structure_mask = structure.mask
@@ -1064,7 +1064,7 @@ def modify_model_objective_with_new_penalty_weights_and_td(
         "num_dose_points": 6710,
         "coeff": 0.014903129657228018
     },
-    "hotspot_estimator:catheter_0_dwell_2/catheter_0_dwell_3": {
+    "hotspot_estimator_catheter_0_dwell_2/catheter_0_dwell_3": {
         "hotspot_weight": 1.0,
         "num_dose_points": 12,
         "coeff": 0.08333333333333333

@@ -166,8 +166,8 @@ def process_variable(
     - Tuple[BrachyDwellTime, np.ndarray] | None := A tuple of the dwell time variable and its dose rate matrix for the given structure.
     If the variable is not relevant for the structure (e.g., hotspot estimator), returns None.
     """
-    # if "hotspot_estimator:" in structure_name.lower():
-    #     relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
+    # if "hotspot_estimator_" in structure_name.lower():
+    #     relevant_dwells = structure_name.lower().split("hotspot_estimator_")[1].split("/")
     #     if variable.name not in relevant_dwells:
     #         return None
     dwell_var = variable._model_variable

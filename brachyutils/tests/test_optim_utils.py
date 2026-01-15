@@ -456,10 +456,10 @@ def test_hotspot_estimators_generation():
     # print(plan_obj.dwell_times)
     # export the phantom structures to make sure the hotspot estimators are working correctly
     # will write them to both nrrd and dicom format.
-    plan_obj.phantom.export_to(
-        dir_nrrd_out="data_test/test_export_plan/prostate",
-        dir_dicom_out="data_test/test_export_plan/prostate/dcm"
-        )
+    # plan_obj.phantom.export_to(
+    #     dir_nrrd_out="data_test/test_export_plan/prostate",
+    #     dir_dicom_out="data_test/test_export_plan/prostate/dcm"
+    #     )
     # plan_obj.combined_dose.write_brachydose_to_file("data_test/test_export_plan/prostate/p1_dose.seq.nrrd")
     print('debug here')
 if __name__ == "__main__":

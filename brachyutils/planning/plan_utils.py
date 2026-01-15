@@ -1678,7 +1678,7 @@ config do not match for structure {struc.name}"
                 mask_union = np.logical_or(mask_union, mask.mask.imageArray)
 
             hotspot_config = Optimization_Config(
-                structure_name="hotspot_estimator:combined",
+                structure_name="hotspot_estimator_combined",
                 is_target=False,
                 spacing_mm=target_optim_config.spacing_mm,
                 dose_voxel_goal=target_optim_config.dose_voxel_goal*target_optim_config.hotspot_threshold,
@@ -1686,9 +1686,9 @@ config do not match for structure {struc.name}"
             )
             hotspot_mask_list = [
                 BrachyStructure(
-                    name="hotspot_estimator:combined",
+                    name="hotspot_estimator_combined",
                     mask=ROIMask(
-                        name="hotspot_estimator:combined",
+                        name="hotspot_estimator_combined",
                         imageArray=mask_union,
                         origin=self.phantom.image_obj.origin,
                         spacing=self.phantom.image_obj.spacing,
@@ -1717,7 +1717,7 @@ config do not match for structure {struc.name}"
         - None := optimization_config attribute of all structures in the plan is set to None
         """
         for structure in self.structure_list:
-            if structure.name.startswith("hotspot_estimator:"):
+            if structure.name.startswith("hotspot_estimator_"):
                 self.structure_list.remove(structure)
                 self.phantom.remove_structure(structure.name)
                 continue
@@ -1780,7 +1780,7 @@ def _gen_hotspot_mask(
         origin=origin,
         spacing=spacing,
         name=(
-            f"hotspot_estimator:catheter_{(dwellpair['dwell_pair'])[0]['catheter']}_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
+            f"hotspot_estimator_catheter_{(dwellpair['dwell_pair'])[0]['catheter']}_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
             + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
             ),
     )

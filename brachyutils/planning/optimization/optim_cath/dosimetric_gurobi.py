@@ -232,8 +232,8 @@ class CatheterTableOptim_Gurobi():
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
-            if "hotspot_estimator:" in structure.name.lower():
-                continue
+            # if "hotspot_estimator_" in structure.name.lower():
+            #     continue XXX delete later
             structure_mask = structure.mask
             optim_spacing = structure.optimization_config.spacing_mm
             min_dose = structure.optimization_config.min_dose
@@ -243,8 +243,8 @@ class CatheterTableOptim_Gurobi():
             linear_weight = structure.optimization_config.penalty_weight_linear
             quadratic_weight = structure.optimization_config.penalty_weight_quadratic
             uniformity_weight = structure.optimization_config.penalty_weight_uniformity
-            hotspot_threshold = structure.optimization_config.hotspot_threshold
-            hotspot_weight = structure.optimization_config.penalty_weight_hotspot
+            # hotspot_threshold = structure.optimization_config.hotspot_threshold
+            # hotspot_weight = structure.optimization_config.penalty_weight_hotspot
             penalty_weight_variance_time = structure.optimization_config.penalty_weight_variance_time
 
             structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
@@ -276,9 +276,9 @@ class CatheterTableOptim_Gurobi():
             if num_dose_points == 0:
                 continue
 
-            model = _set_hyperparameters_per_structure(
+            model = set_hyperparameters_per_structure(
                 optimization_config=structure.optimization_config,
-                structure_name=structure.name,
+                structure_name=structure.name.replace(":", "_"),
                 model=model,
                 num_dose_points=num_dose_points
             )
@@ -328,21 +328,27 @@ class CatheterTableOptim_Gurobi():
                         for _ in range(num_dose_points)])
                     penalty_terms["uniformity"] += (uniformity_weight_vec) @ (y_uniform * y_uniform)
 
-                if hotspot_weight > 0 and hotspot_threshold is not None:
-                    penalty_terms["hotspot"] += self._set_hotspot_penalty_and_constraints(
-                        plan=plan,
-                        model=model,
-                        optim_spacing=optim_spacing,
-                        roi_bounds=self.roi_bounds,
-                        structure_name=structure.name,
-                        catheter_vars=catheter_vars)
-
                 if penalty_weight_variance_time > 0:
                     mean_dwell_time = sum(t_MVar) / t_MVar.size
                     penalty_terms["quadratic"] += (
                         model.getVarByName("variance_time_weight") * 1e-3 
                         * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
                     )
+
+
+                # if hotspot_weight > 0 and hotspot_threshold is not None:
+            elif structure.name == "hotspot_estimator_combined":
+                x_slack = model.addMVar(
+                    shape=num_dose_points,
+                    name=f"hotspot_slack_{processed_mask.name.replace(':', '_')}")
+
+                model.addConstr(
+                A_sparse @ (c_MVar * t_MVar)/num_dose_points - x_slack <= (voxel_goal_vec * model.getVarByName(f"hotspot_threshold")),
+                name=f"hotspot_constraint_{processed_mask.name.replace(':', '_')}",
+                )
+                hotspot_weight = model.getVarByName(f"hotspot_weight")
+                penalty_terms["hotspot"] += sum((x_slack))*hotspot_weight/num_voxels
+
             # OAR constraints and penalties
             else:
                 if linear_weight > 0 or quadratic_weight > 0:
@@ -479,7 +485,7 @@ youself :p.")
         """
         pass
 
-def _set_hyperparameters_per_structure(
+def set_hyperparameters_per_structure(
     optimization_config: Optimization_Config,
     structure_name: str,
     model: Model,
@@ -521,16 +527,16 @@ def _set_hyperparameters_per_structure(
         uniformity_weight == optimization_config.penalty_weight_uniformity/num_voxels,
         name=f"uniformity_weight_value_{structure_name}"
     )
-    hotspot_threshold = model.addVar(name=f"hotspot_threshold")
-    model.addConstr(
-        hotspot_threshold == optimization_config.hotspot_threshold,
-        name=f"hotspot_threshold_value"
-    )
-    hotspot_weight = model.addVar(name=f"hotspot_weight")
-    model.addConstr(
-        hotspot_weight == optimization_config.penalty_weight_hotspot,
-        name=f"hotspot_weight_value"
-    )
+    # hotspot_threshold = model.addVar(name=f"hotspot_threshold")
+    # model.addConstr(
+    #     hotspot_threshold == optimization_config.hotspot_threshold,
+    #     name=f"hotspot_threshold_value"
+    # )
+    # hotspot_weight = model.addVar(name=f"hotspot_weight")
+    # model.addConstr(
+    #     hotspot_weight == optimization_config.penalty_weight_hotspot,
+    #     name=f"hotspot_weight_value"
+    # )
     penalty_weight_variance_time = model.addVar(name=f"variance_time_weight")
     model.addConstr(
         penalty_weight_variance_time == optimization_config.penalty_weight_variance_time/num_voxels,

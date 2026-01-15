@@ -201,7 +201,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                 hotspot_config = structure.optimization_config
 
         for structure in plan.structure_list:
-            if "hotspot_estimator:" in structure.name.lower():
+            if "hotspot_estimator_" in structure.name.lower():
                 structure_mask = structure.mask
                 hotspot_config.structure_name = structure.name
                 optim_spacing = hotspot_config.spacing_mm
@@ -290,7 +290,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                         # Add penalties to the objective function
                         penalty_terms["uniformity"] += (uniformity_weight/(num_dose_points*1000)) * y_slack * y_slack
 
-            elif "hotspot_estimator:" in structure.name.lower():
+            elif "hotspot_estimator_" in structure.name.lower():
                 for i in range(num_dose_points):
                     x_slack = model.add_variable(
                         lb=0.0,

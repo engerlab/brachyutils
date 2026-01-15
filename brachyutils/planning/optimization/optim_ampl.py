@@ -253,7 +253,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                 hotspot_config = structure.optimization_config
                 # hotspot_config.structure_name = "hotspot"
         for structure in plan.structure_list:
-            if "hotspot_estimator:" in structure.name.lower():
+            if "hotspot_estimator_" in structure.name.lower():
                 structure_counter += 1
                 structure_mask = structure.mask
                 hotspot_config.structure_name = structure.name
@@ -359,7 +359,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                     uniformity_term = f"({uniformity_weight / (num_dose_points * 1000)}) * sum{{i in D_{struct_id}}} y_slack_{struct_id}[i]^2"
                     objective_terms.extend([uniformity_term])
                 
-            elif "hotspot_estimator:" in structure.name.lower():
+            elif "hotspot_estimator_" in structure.name.lower():
                 # Scalar slack variable for hotspot estimator
                 model.eval(f"var x_slack_{struct_id} >= 0 <= {hotspot_threshold} * target_dose_{struct_id} - min_dose_{struct_id};")
                 
