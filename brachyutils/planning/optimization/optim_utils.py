@@ -1,6 +1,6 @@
 from typing import List, Any, Tuple
 from brachyutils.dose.dose_utils import BrachyDose
-from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
+from pydantic import BaseModel, Field, ConfigDict, PrivateAttr, model_validator
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tqdm
@@ -314,6 +314,14 @@ class Optimization_Config(BaseModel):
     catheter_recommendaion: bool = False
     # may be needed later
     # self.index_range_constraints: List[int] = None
+    @model_validator(mode="after")
+    def validate_target_only_fields(self):
+        if not self.is_target:
+            assert self.penalty_weight_hotspot == 0, "only target structure can have penalty_weight_hotspot"
+            assert self.hotspot_threshold == 0, "only target structure can have hotspot_threshold"
+            assert self.catheter_recommendaion == False, "only target structure can have catheter_recommendaion"
+            assert self.penalty_weight_variance_time == 0, "only target structure can have penalty_weight_variance_time"
+            assert self.penalty_weight_uniformity == 0, "only target structure can have penalty_weight_uniformity"
 
 class BrachyDwellTime(BaseModel, ABC):
     """
