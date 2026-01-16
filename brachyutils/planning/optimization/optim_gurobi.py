@@ -139,6 +139,9 @@ def _get_optimized_plan_from_model(
         outplan:BrachyPlan = deepcopy(plan)     
 
     for dwell_time, name in dwelltime_and_name:
+        # set very small dwell times to zero
+        if dwell_time < 0.1:
+            dwell_time = 0.0
         # set the dwell time to the optimized value
         for catheter in outplan.catheter_table:
             for dwell_position in catheter.dwells:
@@ -151,11 +154,6 @@ def _get_optimized_plan_from_model(
     if objective_to_scale_to is not None:
         outplan = scale_to_objective(outplan, objective_to_scale_to)
 
-    # set very small dwell times to zero
-    for catheter in outplan.catheter_table:
-        for dwell_position in catheter.dwells:
-            if dwell_position.time < 0.1:
-                dwell_position.time = 0
 
 
     # update the plan with the new dwell times
