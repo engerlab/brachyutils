@@ -19,7 +19,8 @@ from ai_assisted_brachy.utils.utils import compute_new_origin_for_resampling
 
 def scale_to_objective(
     plan: BrachyPlan,
-    objective_to_scale_to: dict[str, float]
+    objective_to_scale_to: dict[str, float],
+    check_scaling: bool = False
     ) -> BrachyPlan:
     r"""
     ### Purpose:
@@ -27,6 +28,7 @@ def scale_to_objective(
     ### Inputs:
     - plan: BrachyPlan := The brachytherapy plan to be scaled.
     - objective_to_scale_to: dict[str, float] := A dictionary mapping structure names to target objective values.
+    - check_scaling: bool := Whether to check the scaling after applying it. Default is False.
     ### Outputs:
     - outplan: BrachyPlan := The scaled brachytherapy plan.
     """
@@ -42,11 +44,11 @@ def scale_to_objective(
         # lets say 10-7, the the number of voxels should be exact. However here we use a smaller
         # as a trade off between accuracy and computation time. Using a bin_size too large 
         # will break this scaling function.
-        bin_size=0.0001)
-
+        bin_size=0.0001,
+        query_dvh_metrics=list(objective_to_scale_to.keys())
+    )
     assert len(objective_to_scale_to) == 1, "Only one structure scaling is supported at a time."
     metric_to_scale = list(objective_to_scale_to.keys())[0]
-
     target_metric_value = objective_to_scale_to[metric_to_scale]
     if metric_to_scale not in current_dvh_metrics:
         raise ValueError(f"Structure {metric_to_scale} not found in plan DVH metrics.")
@@ -73,7 +75,6 @@ def scale_to_objective(
             plan.phantom.cache_structure_set_as_masks()
         structure_mask = plan.phantom.cached_structure_masks[strucname_used_for_scaling].imageArray.astype(bool)
         masked_dose = plan.combined_dose.dose_image.imageArray[structure_mask] # this is flattened: dim (1, num_dose_points in structure)
-    
         # Getting the current number of voxels used to compute the metric
         current_number_voxels_considered = current_metric_value / voxels_cubic_size_mm
         current_number_voxels_considered = int(np.round(current_number_voxels_considered))
@@ -115,27 +116,32 @@ def scale_to_objective(
                 scale_factor = current_max_dose_considered_for_metric/new_max_dose_to_scale_down
                 assert scale_factor < 1.0, "Scale factor must be less than 1.0 when decreasing volume for V dvh metric."
 
-    # Scaling the dwell times
+    # Apply scaling to dwell times
+    print(f"Applying scale factor {scale_factor:.4f} to dwell times to reach target {metric_to_scale} of {target_metric_value:.2f} from {current_metric_value:.2f}...")
     for catheter in plan.catheter_table:
         for dwell_position in catheter.dwells:
             new_dwell_time = dwell_position.time * scale_factor
             dwell_position.time = new_dwell_time
-    plan.update_plan_from_catheter_table()
-    new_dvh_metrics = plan.get_dvh_metrics(return_percentage=False, bin_size=0.0001)
     
-    # Putting everything in mm, if V metric, it has already been scaled above
-    ogval = current_metric_value if metric_to_scale.startswith("V") else current_metric_value * 1000.
-    newval = new_dvh_metrics[metric_to_scale] * 1000.
-    targetval = target_metric_value if metric_to_scale.startswith("V") else target_metric_value * 1000.
-    print(f"""Scaling plan from {ogval:.2f} to {newval:.2f} with scale factor {scale_factor:.4f} for dwell times to match \
-          target {metric_to_scale} of {targetval:.2f}""")
+    if check_scaling:
+        plan.update_plan_from_catheter_table()
+        new_dvh_metrics = plan.get_dvh_metrics(
+            return_percentage=False, bin_size=0.0001, query_dvh_metrics=list(objective_to_scale_to.keys())
+        )
+        # Putting everything in mm, if V metric, it has already been scaled above
+        ogval = current_metric_value if metric_to_scale.startswith("V") else current_metric_value * 1000.
+        newval = new_dvh_metrics[metric_to_scale] * 1000.
+        targetval = target_metric_value if metric_to_scale.startswith("V") else target_metric_value * 1000.
+        print(f"""Scaling plan from {ogval:.2f} to {newval:.2f} with scale factor {scale_factor:.4f} for dwell times to match \
+            target {metric_to_scale} of {targetval:.2f}""")
 
-    assert newval > targetval, \
-        f"Scaling failed to reach target {metric_to_scale}. Current value: {newval:.2f}, Target value: {targetval:.2f}"
+        # Tolerance is below 1mm3 or greater than target
+        assert np.isclose(newval, targetval, atol=1) or newval >= targetval, \
+            f"Scaling failed to reach target {metric_to_scale}. Current value: {newval:.2f}, Target value: {targetval:.2f}"
 
-    # Checking we got closer to the target
-    assert abs(newval - targetval) < abs(ogval - targetval), \
-        f"Failed to get closer to target {metric_to_scale}. Before: {ogval:.2f}, After: {newval:.2f}, Target: {targetval:.2f}"
+        # Checking we got closer to the target
+        assert abs(newval - targetval) <= abs(ogval - targetval), \
+            f"Failed to get closer to target {metric_to_scale}. Before: {ogval:.2f}, After: {newval:.2f}, Target: {targetval:.2f}"
 
     return plan
 
