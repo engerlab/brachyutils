@@ -162,7 +162,7 @@ class CatheterTableOptim_Gurobi():
                 roi_margin_mm=self.roi_margin_mm,
                 multi_processing=multi_processing
             )
-        set_coeff_tensor_per_structure(
+        set_coeff_dict_per_structure(
             plan=self.plan,
             dwellTimeVaiables=self.dwellTimeVariables,
             optim_roi_bounds=self.roi_bounds,
@@ -219,7 +219,7 @@ class CatheterTableOptim_Gurobi():
         dwellTimeVariables:List[DwellTime_Gurobi],
         catheter_vars: List[CatheterVar_Gurobi],
         model: Model,
-        multi_processing: bool = False,):
+        ):
         r"""
         ### Purpose:
         - sets the penalty function and constraints for the optimization model.
@@ -246,6 +246,10 @@ class CatheterTableOptim_Gurobi():
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
+            else:
+                if structure.optimization_coeff_dict is None:
+                    raise ValueError("The coefficint dictionary is empty. please run set_coeff_dict_per_structure")
+
             # structure_mask = structure.mask
             # optim_spacing = structure.optimization_config.spacing_mm
             min_dose = structure.optimization_config.min_dose
@@ -436,7 +440,7 @@ class CatheterTableOptim_Gurobi():
         """
         pass
 
-def set_coeff_tensor_per_structure(
+def set_coeff_dict_per_structure(
     plan: BrachyPlan,
     dwellTimeVariables:List[DwellTime_Gurobi],
     optim_roi_bounds:List[List[float]]=None,
