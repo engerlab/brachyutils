@@ -116,7 +116,7 @@ class CatheterTableOptim_Gurobi():
     def __init__(
         self,
         plan: BrachyPlan,
-        roi_margin_mm: float = 5.0,
+        roi_margin_mm: float = None,
         multi_processing: bool = False,
         ):
         r"""
@@ -154,14 +154,18 @@ class CatheterTableOptim_Gurobi():
             model=self.model,
             )
         self.dwellTimeVariables = list(chain.from_iterable(self.catheter_vars))
-        self.set_masked_doserate_per_structure(
+
+        if self.roi_margin_mm is not None:
+            self.roi_bounds = get_optimization_roi_bounds(
+                plan=self.plan,
+                dwellTimeVariables=self.dwellTimeVariables,
+                roi_margin_mm=self.roi_margin_mm,
+                multi_processing=multi_processing
+            )
+        set_coeff_tensor_per_structure(
             plan=self.plan,
             dwellTimeVaiables=self.dwellTimeVariables,
-        )
-        self.roi_bounds = get_optimization_roi_bounds(
-            plan=self.plan,
-            dwellTimeVariables=self.dwellTimeVariables,
-            roi_margin_mm=self.roi_margin_mm,
+            optim_roi_bounds=self.roi_bounds,
         )
         self.set_penalty_function_and_constraints(
             plan=self.plan,
@@ -212,6 +216,7 @@ class CatheterTableOptim_Gurobi():
     def set_penalty_function_and_constraints(
         self,
         plan: BrachyPlan,
+        dwellTimeVariables:List[DwellTime_Gurobi],
         catheter_vars: List[CatheterVar_Gurobi],
         model: Model,
         multi_processing: bool = False,):
@@ -234,15 +239,19 @@ class CatheterTableOptim_Gurobi():
         "uniformity": 0,
         "dwelltimes":0
         }
+        # # create the 
+        t_MVar = MVar([dt._model_variable for dt in dwellTimeVariables])
+        c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
+
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
-            structure_mask = structure.mask
-            optim_spacing = structure.optimization_config.spacing_mm
+            # structure_mask = structure.mask
+            # optim_spacing = structure.optimization_config.spacing_mm
             min_dose = structure.optimization_config.min_dose
             max_dose = structure.optimization_config.max_dose
 
-            target_dose = structure.optimization_config.dose_voxel_goal
+            voxel_goal = structure.optimization_config.dose_voxel_goal
             linear_weight = structure.optimization_config.penalty_weight_linear
             quadratic_weight = structure.optimization_config.penalty_weight_quadratic
             uniformity_weight = structure.optimization_config.penalty_weight_uniformity
@@ -250,31 +259,30 @@ class CatheterTableOptim_Gurobi():
             # hotspot_weight = structure.optimization_config.penalty_weight_hotspot
             penalty_weight_variance_time = structure.optimization_config.penalty_weight_variance_time
 
-            structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
-                structure_mask=structure_mask,
-                template_dose_obj=plan.combined_dose,
-                optim_spacing=optim_spacing,
-                roi_bounds=self.roi_bounds
-                )
-            # Build dose rate matrix and dwell time vector for this structure
-            dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
-                self.dwellTimeVariables,
-                plan,
-                structure.name,
-                structure_mask,
-                optim_spacing,
-                self.roi_bounds, # XXX ensure cropping is optional for high efficiency
-                max_workers=16,
-                shift_origin=True,
-                multi_processing=multi_processing
-            )
-            if not dose_rate_matrices:
-                continue
+            # structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
+            #     structure_mask=structure_mask,
+            #     template_dose_obj=plan.combined_dose,
+            #     optim_spacing=optim_spacing,
+            #     roi_bounds=self.roi_bounds
+            #     )
+            # # Build dose rate matrix and dwell time vector for this structure
+            # dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+            #     self.dwellTimeVariables,
+            #     plan,
+            #     structure.name,
+            #     structure_mask,
+            #     optim_spacing,
+            #     self.roi_bounds, # XXX ensure cropping is optional for high efficiency
+            #     max_workers=16,
+            #     shift_origin=True,
+            #     multi_processing=multi_processing
+            # )
+            # if not dose_rate_matrices:
+            #     continue
 
             # now sort the dose rate matrices and dwell vars per catheter
-            t_MVar = MVar(dwell_vars)
-            c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
-            A_sparse = np.column_stack(dose_rate_matrices)
+            A_sparse = np.column_stack(list(structure.optimization_coeff_dict.values()))
+
             num_dose_points = A_sparse.shape[0]
             if num_dose_points == 0:
                 continue
@@ -295,7 +303,7 @@ class CatheterTableOptim_Gurobi():
                     x_slack = model.addMVar(
                         shape=num_dose_points,
                         lb=0.0,
-                        ub=target_dose - min_dose,
+                        ub=voxel_goal - min_dose,
                         name=f"p_L_{structure.name}"
                         )
                     model.addConstr(
@@ -318,10 +326,10 @@ class CatheterTableOptim_Gurobi():
                     y_uniform = model.addMVar(
                         shape=num_dose_points,
                         lb=-GRB.INFINITY,
-                        ub=target_dose - min_dose,
+                        ub=voxel_goal - min_dose,
                         name=f"p_U_{structure.name}"
                     )
-                    # Uniformity constraints: A @ dwell_times + y_uniform == target_dose
+                    # Uniformity constraints: A @ dwell_times + y_uniform == voxel_goal
                     model.addConstr(
                         A_sparse @ (c_MVar * t_MVar) + y_uniform == voxel_goal_vec,
                         name=f"c_U_{structure.name}"
@@ -415,20 +423,6 @@ class CatheterTableOptim_Gurobi():
             )
         return outplan
 
-    def set_masked_doserate_per_structure(
-        plan: BrachyPlan,
-        dwellTimeVariables:List[DwellTime_Gurobi]
-        ):
-        r"""
-        ### Purpose:
-        - To build the coefficients tensor (A matrix) per each structure to be used later for
-        the constraint and penalty weight creation
-        ### Inputs:
-        - plan: BrachyPlan:= a treatment plan containing the masks of the structures and catheter table
-        - dwellTimeVariables:= i don't know if this is needed...  
-        """
-        pass 
-
     def bound_variables(
         self,
         new_bounds: Dict[str, Dict[str, float]],
@@ -441,6 +435,53 @@ class CatheterTableOptim_Gurobi():
             and values are dictionaries with 'equality', 'lower' and 'upper' keys for the new bounds.
         """
         pass
+
+def set_coeff_tensor_per_structure(
+    plan: BrachyPlan,
+    dwellTimeVariables:List[DwellTime_Gurobi],
+    optim_roi_bounds:List[List[float]]=None,
+    multi_processing:bool=False,
+    ):
+    r"""
+    ### Purpose:
+    - To build the coefficients tensor (A matrix) per each structure to be used later for
+    the constraint and penalty weight creation.
+    If structure.optimization_mask is not None, this function will not recreate it.
+    If new catheters are inserted, only provide the dwellTimeVariables from the new catheters
+    ### Inputs:
+    - plan: BrachyPlan:= a treatment plan containing the masks of the structures and catheter table
+    - dwellTimeVariables:= a list of dwell time variables. they could belong to the etire
+    catheter table or just a new set of catheters.
+    - optim_roi_bounds:= The optimization region of interest (roi) from the plan.
+    - multi_processing:= whether to use multi-processing for cropping, masking and resampling 
+    dose rate maps.
+    """
+    for structure in plan.structure_list:
+        if structure.optimization_config is None:
+            continue
+        if structure.optimization_mask is None:
+            structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
+                structure_mask=structure_mask,
+                template_dose_obj=plan.combined_dose,
+                optim_spacing=structure.optimization_config.spacing_mm,
+                roi_bounds=optim_roi_bounds,
+                )
+            structure.optimization_mask = structure_mask
+        # Build dose rate matrix and dwell time vector for this structure
+        dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
+            dwellTimeVariables,
+            plan,
+            structure.name,
+            structure_mask,
+            structure.optimization_config.spacing_mm,
+            optim_spacing=optim_roi_bounds,
+            max_workers=16,
+            shift_origin=True,
+            multi_processing=multi_processing,
+            )
+        # build the coeff matricies
+        for var, coeff in zip(dwell_vars, dose_rate_matrices):
+            structure.optimization_coeff_dict[var.name] = coeff
 
 def set_hyperparameters_per_structure(
     optimization_config: Optimization_Config,

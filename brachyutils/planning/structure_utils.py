@@ -1,4 +1,4 @@
-from typing import List, Literal, Union, Dict
+from typing import Any, Dict
 from opentps.core.data.images import ROIMask
 from opentps.core.data import DVH, ROIContour
 import numpy as np
@@ -78,6 +78,9 @@ class BrachyStructure:
 
         # optimization attributes
         self.optimization_config: Optimization_Config = None
+        self.optimization_coeff_dict:Dict[str, np.array] = None
+        self.optimization_mask: ROIMask = None
+
         self.in_dvh = in_dvh
         if self.in_dvh:
             if dvh_metric_goals is None:
@@ -89,8 +92,6 @@ class BrachyStructure:
              "name should be in dvh metric name enclosed by paranthesis"
         if optimization_config is not None:
             self.set_optimization_config(optimization_config)
-        # this one will be used for the A matrix
-        self.masked_doserate_tensor = None
 
     def get_dvh_metric(
         self,
