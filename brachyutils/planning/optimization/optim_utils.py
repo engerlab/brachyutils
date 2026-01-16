@@ -536,7 +536,8 @@ def get_optimization_roi_bounds(
             furthest_dwell_position + roi_margin_mm[axis]
             ]
     ### Outputs:
-    - roi_optimization:ROIMask := The optimization region of interest (roi) from the plan.
+    - inclusion_boundaries:List[List[float]] := The min and max of the roi along each axis after
+    applying the margin.
     """
     # get the inclusion mask for the voxels to be included
     inclusion_boundaries = np.ones((3, 2))
