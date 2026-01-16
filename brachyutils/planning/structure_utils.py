@@ -89,6 +89,8 @@ class BrachyStructure:
              "name should be in dvh metric name enclosed by paranthesis"
         if optimization_config is not None:
             self.set_optimization_config(optimization_config)
+        # this one will be used for the A matrix
+        self.masked_doserate_tensor = None
 
     def get_dvh_metric(
         self,

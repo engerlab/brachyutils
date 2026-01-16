@@ -139,7 +139,7 @@ class CatheterTableOptim_Gurobi():
         self.solution_found: bool = False
         self.solve_time: float = 0.0
         self.multi_processing = multi_processing
-        
+
         # attributes for later developement. may not be needed XXX
         # these may not be needed
         # self.target_constraints_coords = []
@@ -154,6 +154,10 @@ class CatheterTableOptim_Gurobi():
             model=self.model,
             )
         self.dwellTimeVariables = list(chain.from_iterable(self.catheter_vars))
+        self.set_masked_doserate_per_structure(
+            plan=self.plan,
+            dwellTimeVaiables=self.dwellTimeVariables,
+        )
         self.roi_bounds = get_optimization_roi_bounds(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
@@ -410,6 +414,20 @@ class CatheterTableOptim_Gurobi():
             inplace=inplace
             )
         return outplan
+
+    def set_masked_doserate_per_structure(
+        plan: BrachyPlan,
+        dwellTimeVariables:List[DwellTime_Gurobi]
+        ):
+        r"""
+        ### Purpose:
+        - To build the coefficients tensor (A matrix) per each structure to be used later for
+        the constraint and penalty weight creation
+        ### Inputs:
+        - plan: BrachyPlan:= a treatment plan containing the masks of the structures and catheter table
+        - dwellTimeVariables:= i don't know if this is needed...  
+        """
+        pass 
 
     def bound_variables(
         self,
