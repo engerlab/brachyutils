@@ -1,4 +1,4 @@
-from typing import List, Any, Tuple
+from typing import List, Any, Dict
 from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr, model_validator
 import numpy as np
@@ -293,7 +293,14 @@ class Optimization_Config(BaseModel):
     - min_dose: float := Minimum allowed dose in Gy. Default 0.
     - max_dose: float := Maximum allowed dose in Gy. Default 500.
     - catheter_recommendaion: bool := If True, catheter positions will be optimized as well. Default False.
+    - dwell_coef_dict: Dict[str, np.array] := A dictionary mapping the name of the dwell position to the cropped, masked
+    and flattend dose rate map corresponding to that dwell positition.
     """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,
+        )
+
     structure_name:str = None
     is_target:bool = False
     spacing_mm:float | List[float]= None
@@ -308,6 +315,8 @@ class Optimization_Config(BaseModel):
     min_dose:float = 0
     max_dose:float = 500
     catheter_recommendaion: bool = False
+    dwell_coef_dict:Dict[str, np.array] = None
+    mask:ROIMask = None
     # may be needed later
     # self.index_range_constraints: List[int] = None
     @model_validator(mode="after")

@@ -80,8 +80,8 @@ class BrachyStructure:
 
         # optimization attributes
         self.optimization_config: Optimization_Config = None
-        self.optimization_coeff_dict:Dict[str, np.array] = None
-        self.optimization_mask: ROIMask = None
+        # self.optimization_dwell_coef_dict:Dict[str, np.array] = None XXX delete
+        # self.optimization_mask: ROIMask = None
 
         self.in_dvh = in_dvh
         if self.in_dvh:
@@ -257,4 +257,4 @@ class BrachyStructure:
             if kwargs is None:
                 raise ValueError("Please provide optimization config")
             self.optimization_config = Optimization_Config(kwargs)
-        self.optimization_coeff_dict = defaultdict()
+        self.optimization_config.dwell_coef_dict = defaultdict()

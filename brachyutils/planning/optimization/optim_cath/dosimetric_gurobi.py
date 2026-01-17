@@ -161,7 +161,7 @@ class CatheterTableOptim_Gurobi():
                 dwellTimeVariables=self.dwellTimeVariables,
                 roi_margin_mm=self.roi_margin_mm,
             )
-        set_coeff_dict_per_structure(
+        set_dwell_coef_dict_per_structure(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
             optim_roi_bounds=self.roi_bounds,
@@ -247,8 +247,9 @@ class CatheterTableOptim_Gurobi():
             if structure.optimization_config is None:
                 continue
             else:
-                if not structure.optimization_coeff_dict:
-                    raise ValueError("The coefficint dictionary is empty. please run set_coeff_dict_per_structure")
+                if not structure.optimization_config.dwell_coef_dict:
+                    raise ValueError("The coefficint dictionary is empty. \
+please run set_dwell_coef_dict_per_structure")
 
             min_dose = structure.optimization_config.min_dose
             max_dose = structure.optimization_config.max_dose
@@ -261,7 +262,7 @@ class CatheterTableOptim_Gurobi():
             penalty_weight_variance_time = structure.optimization_config.penalty_weight_variance_time
 
             # now sort the dose rate matrices and dwell vars per catheter
-            A_sparse = np.column_stack(list(structure.optimization_coeff_dict.values()))
+            A_sparse = np.column_stack(list(structure.optimization_config.dwell_coef_dict.values()))
             num_dose_points = A_sparse.shape[0]
             if num_dose_points == 0:
                 continue
@@ -389,7 +390,7 @@ class CatheterTableOptim_Gurobi():
         """
         pass
 
-def set_coeff_dict_per_structure(
+def set_dwell_coef_dict_per_structure(
     plan: BrachyPlan,
     dwellTimeVariables:List[DwellTime_Gurobi],
     optim_roi_bounds:List[List[float]]=None,
@@ -399,7 +400,7 @@ def set_coeff_dict_per_structure(
     ### Purpose:
     - To build the coefficients tensor (A matrix) per each structure to be used later for
     the constraint and penalty weight creation.
-    If structure.optimization_mask is not None, this function will not recreate it.
+    If structure.optimization_config.mask is not None, this function will not recreate it.
     If new catheters are inserted, only provide the dwellTimeVariables from the new catheters
     ### Inputs:
     - plan: BrachyPlan:= a treatment plan containing the masks of the structures and catheter table
@@ -412,14 +413,14 @@ def set_coeff_dict_per_structure(
     for structure in plan.structure_list:
         if structure.optimization_config is None:
             continue
-        if structure.optimization_mask is None:
+        if structure.optimization_config.mask is None:
             structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
                 structure_mask=structure.mask,
                 template_dose_obj=plan.combined_dose,
                 optim_spacing=structure.optimization_config.spacing_mm,
                 roi_bounds=optim_roi_bounds,
                 )
-            structure.optimization_mask = structure_mask
+            structure.optimization_config.mask = structure_mask
         # Build dose rate matrix and dwell time vector for this structure
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
             dwellTimeVariables,
@@ -434,4 +435,4 @@ def set_coeff_dict_per_structure(
             )
         # build the coeff matricies
         for var, coeff in zip(dwell_vars, dose_rate_matrices):
-            structure.optimization_coeff_dict[var.VarName] = coeff
+            structure.optimization_config.dwell_coef_dict[var.VarName] = coeff
