@@ -250,8 +250,6 @@ class CatheterTableOptim_Gurobi():
                 if not structure.optimization_coeff_dict:
                     raise ValueError("The coefficint dictionary is empty. please run set_coeff_dict_per_structure")
 
-            # structure_mask = structure.mask
-            # optim_spacing = structure.optimization_config.spacing_mm
             min_dose = structure.optimization_config.min_dose
             max_dose = structure.optimization_config.max_dose
 
@@ -259,43 +257,14 @@ class CatheterTableOptim_Gurobi():
             linear_weight = structure.optimization_config.penalty_weight_linear
             quadratic_weight = structure.optimization_config.penalty_weight_quadratic
             uniformity_weight = structure.optimization_config.penalty_weight_uniformity
-            # hotspot_threshold = structure.optimization_config.hotspot_threshold
-            # hotspot_weight = structure.optimization_config.penalty_weight_hotspot
-            penalty_weight_variance_time = structure.optimization_config.penalty_weight_variance_time
 
-            # structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
-            #     structure_mask=structure_mask,
-            #     template_dose_obj=plan.combined_dose,
-            #     optim_spacing=optim_spacing,
-            #     roi_bounds=self.roi_bounds
-            #     )
-            # # Build dose rate matrix and dwell time vector for this structure
-            # dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
-            #     self.dwellTimeVariables,
-            #     plan,
-            #     structure.name,
-            #     structure_mask,
-            #     optim_spacing,
-            #     self.roi_bounds, # XXX ensure cropping is optional for high efficiency
-            #     max_workers=16,
-            #     shift_origin=True,
-            #     multi_processing=multi_processing
-            # )
-            # if not dose_rate_matrices:
-            #     continue
+            penalty_weight_variance_time = structure.optimization_config.penalty_weight_variance_time
 
             # now sort the dose rate matrices and dwell vars per catheter
             A_sparse = np.column_stack(list(structure.optimization_coeff_dict.values()))
             num_dose_points = A_sparse.shape[0]
             if num_dose_points == 0:
                 continue
-
-            # model = set_hyperparameters_per_structure(
-            #     optimization_config=structure.optimization_config,
-            #     structure_name=structure.name,
-            #     model=model,
-            #     num_dose_points=num_dose_points
-            # )
 
             voxel_goal_vec = np.ones(num_dose_points)*voxel_goal
 
@@ -342,10 +311,6 @@ class CatheterTableOptim_Gurobi():
                     )
 
             elif "hotspot_estimator_" in structure.name:
-                # num_voxels_hotspot_vec = MVar([
-                #     model.getVarByName(f"num_voxels_{structure.name}")
-                #     for _ in range(num_dose_points)
-                #     ])
                 x_slack_hotspot = model.addMVar(
                     shape=num_dose_points,
                     name=f"p_H_{structure.name}"
@@ -470,63 +435,3 @@ def set_coeff_dict_per_structure(
         # build the coeff matricies
         for var, coeff in zip(dwell_vars, dose_rate_matrices):
             structure.optimization_coeff_dict[var.VarName] = coeff
-
-# def set_hyperparameters_per_structure(
-#     optimization_config: Optimization_Config,
-#     structure_name: str,
-#     model: Model,
-#     num_dose_points:int):
-#     r"""
-#     ### Purpose:
-#     - sets the hyper-parameters for each structure in the optimization model. This allows us to 
-#     avoid keeping track of the index of each variable.
-#     The hyper-parameters are stored in optimization config of each structure.
-#     They include:
-#         - target dose
-#         - penalty weights for linear, quadratic, uniformity and hotspot penalties
-#         - hotspot threshold
-#     ### Inputs:
-#     - `optimization_config`: Optimization_Config := the optimization configuration for the structures.
-#     - `model`: Model := the Gurobi model to which the variables will be added.
-#     """
-#     num_voxels = model.addVar(name=f"num_voxels_{structure_name}")
-#     model.addConstr(
-#         num_voxels == num_dose_points,
-#         name=f"num_voxels_value_{structure_name}")
-#     td = model.addVar(name=f"voxel_goal_{structure_name}")
-#     model.addConstr(
-#         td == optimization_config.dose_voxel_goal,
-#         name=f"voxel_goal_value_{structure_name}"
-#     )
-#     linear_weight = model.addVar(name=f"w_L_{structure_name}")
-#     model.addConstr(
-#         linear_weight == optimization_config.penalty_weight_linear/num_voxels,
-#         name=f"w_L_value_{structure_name}"
-#     )
-#     quadratic_weight = model.addVar(name=f"w_Q_{structure_name}")
-#     model.addConstr(
-#         quadratic_weight == optimization_config.penalty_weight_quadratic/num_voxels,
-#         name=f"w_Q_value_{structure_name}"
-#     )
-#     uniformity_weight = model.addVar(name=f"w_U_{structure_name}")
-#     model.addConstr(
-#         uniformity_weight == optimization_config.penalty_weight_uniformity/num_voxels,
-#         name=f"w_U_value_{structure_name}"
-#     )
-#     # hotspot_threshold = model.addVar(name=f"hotspot_threshold")
-#     # model.addConstr(
-#     #     hotspot_threshold == optimization_config.hotspot_threshold,
-#     #     name=f"hotspot_threshold_value"
-#     # )
-#     # hotspot_weight = model.addVar(name=f"hotspot_weight")
-#     # model.addConstr(
-#     #     hotspot_weight == optimization_config.penalty_weight_hotspot,
-#     #     name=f"hotspot_weight_value"
-#     # )
-#     penalty_weight_variance_time = model.addVar(name=f"w_TV")
-#     model.addConstr(
-#         penalty_weight_variance_time == optimization_config.penalty_weight_variance_time,
-#         name=f"w_TV_value"
-#     )
-#     model.update()
-#     return model
