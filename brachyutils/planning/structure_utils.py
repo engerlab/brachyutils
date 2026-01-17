@@ -5,6 +5,8 @@ import numpy as np
 import warnings
 from brachyutils.dose.dose_utils import BrachyDose
 from brachyutils.types import Optimization_Config
+from collections import defaultdict
+
 class BrachyStructure:
     r"""
     ### Purpose:
@@ -255,3 +257,4 @@ class BrachyStructure:
             if kwargs is None:
                 raise ValueError("Please provide optimization config")
             self.optimization_config = Optimization_Config(kwargs)
+        self.optimization_coeff_dict = defaultdict()
