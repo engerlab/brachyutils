@@ -217,14 +217,14 @@ class CatheterTableOptim_Gurobi():
             )
         model.update()
         return catheter_vars
-
+    
     def set_penalty_function_and_constraints(
-        self,
-        optimization_configs:List[Optimization_Config],
-        dwellTimeVariables:List[DwellTime_Gurobi],
-        catheter_vars: List[CatheterVar_Gurobi],
-        model: Model,
-        ):
+    self,
+    optimization_configs:List[Optimization_Config],
+    dwellTimeVariables:List[DwellTime_Gurobi],
+    catheter_vars: List[CatheterVar_Gurobi],
+    model: Model,
+    ):
         r"""
         ### Purpose:
         - sets the penalty function and constraints for the optimization model.
@@ -235,129 +235,12 @@ class CatheterTableOptim_Gurobi():
         - `model`: Model := the Gurobi model to which the variables will be added.
         - `multi_processing`: bool := whether to use multi-processing for dose rate matrix computations.
         """
-        # if not plan.structure_list:
-        #     raise ValueError("Plan does not contain any structures.")
-
-        penalty_terms = {
-        "linear": 0,
-        "quadratic": 0,
-        "hotspot": 0,
-        "uniformity": 0,
-        "dwelltimes":0
-        }
-        # # create the 
-        t_MVar = MVar([dt._model_variable for dt in dwellTimeVariables])
-        c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
-
-        for optimization_config in optimization_configs:
-            if not optimization_config.dwell_coef_dict:
-                raise ValueError("The coefficint dictionary is empty. \
-please run set_dwell_coef_dict_per_structure")
-
-            min_dose = optimization_config.min_dose
-            max_dose = optimization_config.max_dose
-
-            voxel_goal = optimization_config.dose_voxel_goal
-            linear_weight = optimization_config.penalty_weight_linear
-            quadratic_weight = optimization_config.penalty_weight_quadratic
-            uniformity_weight = optimization_config.penalty_weight_uniformity
-
-            penalty_weight_variance_time = optimization_config.penalty_weight_variance_time
-
-            # now sort the dose rate matrices and dwell vars per catheter
-            A_sparse = np.column_stack(list(optimization_config.dwell_coef_dict.values()))
-            num_dose_points = A_sparse.shape[0]
-            if num_dose_points == 0:
-                continue
-
-            voxel_goal_vec = np.ones(num_dose_points)*voxel_goal
-
-            if optimization_config.is_target:
-                if linear_weight > 0 or quadratic_weight > 0:
-                    x_slack = model.addMVar(
-                        shape=num_dose_points,
-                        lb=0.0,
-                        ub=voxel_goal - min_dose,
-                        name=f"p_L_{optimization_config.structure_name}"
-                        )
-                    model.addConstr(
-                        A_sparse @ (c_MVar * t_MVar) + x_slack >= voxel_goal_vec,
-                        name=f"c_L_{optimization_config.structure_name}"
-                        )
-                if linear_weight > 0:
-                    linear_weight_vec = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
-                    penalty_terms["linear"] += sum((linear_weight_vec) * x_slack)
-
-                if quadratic_weight > 0:
-                    quadratic_weight_vec = np.ones_like(voxel_goal_vec)*quadratic_weight/num_dose_points
-                    penalty_terms["quadratic"] += sum((quadratic_weight_vec) * (x_slack * x_slack))
-
-                if uniformity_weight > 0:
-                    y_uniform = model.addMVar(
-                        shape=num_dose_points,
-                        lb=-GRB.INFINITY,
-                        ub=voxel_goal - min_dose,
-                        name=f"p_U_{optimization_config.structure_name}"
-                    )
-                    # Uniformity constraints: A @ dwell_times + y_uniform == voxel_goal
-                    model.addConstr(
-                        A_sparse @ (c_MVar * t_MVar) + y_uniform == voxel_goal_vec,
-                        name=f"c_U_{optimization_config.structure_name}"
-                    )
-                    uniformity_weight_vec = np.ones_like(voxel_goal_vec)*uniformity_weight/num_dose_points
-                    penalty_terms["uniformity"] += sum((uniformity_weight_vec) * (y_uniform * y_uniform))
-
-                if penalty_weight_variance_time > 0:
-                    mean_dwell_time = sum(t_MVar) / t_MVar.size
-                    penalty_terms["dwelltimes"] += (
-                        penalty_weight_variance_time * 1e-3 
-                        * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
-                    )
-
-            elif "hotspot_estimator_" in optimization_config.structure_name:
-                x_slack_hotspot = model.addMVar(
-                    shape=num_dose_points,
-                    name=f"p_H_{optimization_config.structure_name}"
-                )
-                model.addConstr(
-                (A_sparse @ (c_MVar * t_MVar)) - x_slack_hotspot <= (voxel_goal_vec),
-                name=f"c_H_{optimization_config.structure_name}",
-                )
-                hotspot_weight_vec = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
-                penalty_terms["hotspot"] += sum(hotspot_weight_vec * x_slack_hotspot)
-
-            # OAR constraints and penalties
-            else:
-                if linear_weight > 0 or quadratic_weight > 0:
-                    x_slack_oar = model.addMVar(
-                        shape=num_dose_points,
-                        lb=0.0,
-                        ub=max_dose - min_dose,
-                        name=f"p_L_{optimization_config.structure_name}"
-                    )
-                    model.addConstr(
-                        A_sparse @ (c_MVar * t_MVar) - x_slack_oar <= voxel_goal_vec,
-                        name=f"c_L_{optimization_config.structure_name}"
-                    )
-
-                if linear_weight > 0:
-                    linear_weight_vec_oar = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
-                    penalty_terms["linear"] += sum(linear_weight_vec_oar * x_slack_oar)
-
-                if quadratic_weight > 0:
-                    quadratic_weight_vec_oar = np.ones_like(voxel_goal_vec)*quadratic_weight/num_dose_points
-                    penalty_terms["quadratic"] += sum(quadratic_weight_vec_oar * (x_slack_oar * x_slack_oar))
-
-        # Set the objective function
-        model.setObjective(
-            penalty_terms["linear"]
-            + penalty_terms["quadratic"]
-            + penalty_terms["uniformity"]
-            + penalty_terms["hotspot"]
-            + penalty_terms["dwelltimes"],
-            GRB.MINIMIZE
+        set_penalty_function_and_constraints(
+        optimization_configs = optimization_configs,
+        dwellTimeVariables = dwellTimeVariables,
+        catheter_vars = catheter_vars,
+        model = model,
         )
-        model.update()
 
     def run(self):
         r"""
@@ -392,6 +275,147 @@ please run set_dwell_coef_dict_per_structure")
             and values are dictionaries with 'equality', 'lower' and 'upper' keys for the new bounds.
         """
         pass
+
+def set_penalty_function_and_constraints(
+    optimization_configs:List[Optimization_Config],
+    dwellTimeVariables:List[DwellTime_Gurobi],
+    catheter_vars: List[CatheterVar_Gurobi],
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - sets the penalty function and constraints for the optimization model.
+    ### Inputs:
+    - `optimization_configs`: List[Optimization_Config] := List of optimization configs containing the
+    penalty weights, target dose, mask, dwell_coef_dict and other attibutes.
+    - `catheter_vars`: List[CatheterVar_Gurobi] := the catheter variables to be used in the optimization.
+    - `model`: Model := the Gurobi model to which the variables will be added.
+    - `multi_processing`: bool := whether to use multi-processing for dose rate matrix computations.
+    """
+    # if not plan.structure_list:
+    #     raise ValueError("Plan does not contain any structures.")
+
+    penalty_terms = {
+    "linear": 0,
+    "quadratic": 0,
+    "hotspot": 0,
+    "uniformity": 0,
+    "dwelltimes":0
+    }
+    # # create the 
+    t_MVar = MVar([dt._model_variable for dt in dwellTimeVariables])
+    c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
+
+    for optimization_config in optimization_configs:
+        if not optimization_config.dwell_coef_dict:
+            raise ValueError("The coefficint dictionary is empty. \
+please run set_dwell_coef_dict_per_structure")
+
+        min_dose = optimization_config.min_dose
+        max_dose = optimization_config.max_dose
+
+        voxel_goal = optimization_config.dose_voxel_goal
+        linear_weight = optimization_config.penalty_weight_linear
+        quadratic_weight = optimization_config.penalty_weight_quadratic
+        uniformity_weight = optimization_config.penalty_weight_uniformity
+
+        penalty_weight_variance_time = optimization_config.penalty_weight_variance_time
+
+        # now sort the dose rate matrices and dwell vars per catheter
+        A_sparse = np.column_stack(list(optimization_config.dwell_coef_dict.values()))
+        num_dose_points = A_sparse.shape[0]
+        if num_dose_points == 0:
+            continue
+
+        voxel_goal_vec = np.ones(num_dose_points)*voxel_goal
+
+        if optimization_config.is_target:
+            if linear_weight > 0 or quadratic_weight > 0:
+                x_slack = model.addMVar(
+                    shape=num_dose_points,
+                    lb=0.0,
+                    ub=voxel_goal - min_dose,
+                    name=f"p_L_{optimization_config.structure_name}"
+                    )
+                model.addConstr(
+                    A_sparse @ (c_MVar * t_MVar) + x_slack >= voxel_goal_vec,
+                    name=f"c_L_{optimization_config.structure_name}"
+                    )
+            if linear_weight > 0:
+                linear_weight_vec = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
+                penalty_terms["linear"] += sum((linear_weight_vec) * x_slack)
+
+            if quadratic_weight > 0:
+                quadratic_weight_vec = np.ones_like(voxel_goal_vec)*quadratic_weight/num_dose_points
+                penalty_terms["quadratic"] += sum((quadratic_weight_vec) * (x_slack * x_slack))
+
+            if uniformity_weight > 0:
+                y_uniform = model.addMVar(
+                    shape=num_dose_points,
+                    lb=-GRB.INFINITY,
+                    ub=voxel_goal - min_dose,
+                    name=f"p_U_{optimization_config.structure_name}"
+                )
+                # Uniformity constraints: A @ dwell_times + y_uniform == voxel_goal
+                model.addConstr(
+                    A_sparse @ (c_MVar * t_MVar) + y_uniform == voxel_goal_vec,
+                    name=f"c_U_{optimization_config.structure_name}"
+                )
+                uniformity_weight_vec = np.ones_like(voxel_goal_vec)*uniformity_weight/num_dose_points
+                penalty_terms["uniformity"] += sum((uniformity_weight_vec) * (y_uniform * y_uniform))
+
+            if penalty_weight_variance_time > 0:
+                mean_dwell_time = sum(t_MVar) / t_MVar.size
+                penalty_terms["dwelltimes"] += (
+                    penalty_weight_variance_time * 1e-3 
+                    * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
+                )
+
+        elif "hotspot_estimator_" in optimization_config.structure_name:
+            x_slack_hotspot = model.addMVar(
+                shape=num_dose_points,
+                name=f"p_H_{optimization_config.structure_name}"
+            )
+            model.addConstr(
+            (A_sparse @ (c_MVar * t_MVar)) - x_slack_hotspot <= (voxel_goal_vec),
+            name=f"c_H_{optimization_config.structure_name}",
+            )
+            hotspot_weight_vec = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
+            penalty_terms["hotspot"] += sum(hotspot_weight_vec * x_slack_hotspot)
+
+        # OAR constraints and penalties
+        else:
+            if linear_weight > 0 or quadratic_weight > 0:
+                x_slack_oar = model.addMVar(
+                    shape=num_dose_points,
+                    lb=0.0,
+                    ub=max_dose - min_dose,
+                    name=f"p_L_{optimization_config.structure_name}"
+                )
+                model.addConstr(
+                    A_sparse @ (c_MVar * t_MVar) - x_slack_oar <= voxel_goal_vec,
+                    name=f"c_L_{optimization_config.structure_name}"
+                )
+
+            if linear_weight > 0:
+                linear_weight_vec_oar = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
+                penalty_terms["linear"] += sum(linear_weight_vec_oar * x_slack_oar)
+
+            if quadratic_weight > 0:
+                quadratic_weight_vec_oar = np.ones_like(voxel_goal_vec)*quadratic_weight/num_dose_points
+                penalty_terms["quadratic"] += sum(quadratic_weight_vec_oar * (x_slack_oar * x_slack_oar))
+
+    # Set the objective function
+    model.setObjective(
+        penalty_terms["linear"]
+        + penalty_terms["quadratic"]
+        + penalty_terms["uniformity"]
+        + penalty_terms["hotspot"]
+        + penalty_terms["dwelltimes"],
+        GRB.MINIMIZE
+    )
+    model.update()
+
 
 def set_dwell_coef_dict_per_structure(
     plan: BrachyPlan,
