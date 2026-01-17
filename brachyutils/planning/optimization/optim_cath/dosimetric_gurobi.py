@@ -204,6 +204,9 @@ class CatheterTableOptim_Gurobi():
         catheter_vars = []
         for catheter in plan.catheter_table:
             # get the dose rate matrices for each catheter
+            # XXX: think about how to make plan dynamic with respect to the catheter table!
+            # a new catheter added, only loading the new dose_rates. we may convert the
+            # dose rate tensor to a dose rate dictionary in the plan. that's a big update!
             dose_rates = plan.get_dose_rate_matrices_for_catheter(catheter.index)
             catheter_vars.append(
                 CatheterVar_Gurobi(
