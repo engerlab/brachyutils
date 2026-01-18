@@ -200,24 +200,14 @@ class CatheterTableOptim_Gurobi():
         self,
         plan: BrachyPlan,
         model: Model,
+        catheter_vars_to_keep:List[CatheterVar_Gurobi]=None,
         ) -> List[CatheterVar_Gurobi]:
-        catheter_vars = []
-        for catheter in plan.catheter_table:
-            # get the dose rate matrices for each catheter
-            # XXX: think about how to make plan dynamic with respect to the catheter table!
-            # a new catheter added, only loading the new dose_rates. we may convert the
-            # dose rate tensor to a dose rate dictionary in the plan. that's a big update!
-            dose_rates = plan.get_dose_rate_matrices_for_catheter(catheter.index)
-            catheter_vars.append(
-                CatheterVar_Gurobi(
-                catheter=catheter,
-                model=model,
-                dose_rates=dose_rates,
-                )
-            )
-        model.update()
-        return catheter_vars
-    
+        set_catheter_variables(
+            plan=plan,
+            model=model,
+            catheter_vars_to_keep=catheter_vars_to_keep
+        )
+
     def set_penalty_function_and_constraints(
     self,
     optimization_configs:List[Optimization_Config],
@@ -271,10 +261,49 @@ class CatheterTableOptim_Gurobi():
         ### Purpose:
         - bound specific catheter or dwell time variables in the optimization model.
         ### Inputs:
-        - `new_bounds`: Dict[str, Dict[str, float]] := a dictionary where keys are catheter or dwell time variable names
-            and values are dictionaries with 'equality', 'lower' and 'upper' keys for the new bounds.
+        - `new_bounds`: Dict[str, Dict[str, float]] := a dictionary where keys are 
+        catheter or dwell time variable names and values are dictionaries with 
+        'equality', 'lower' and 'upper' keys for the new bounds.
         """
         pass
+
+def set_catheter_variables(
+    plan: BrachyPlan,
+    model: Model,
+    catheter_vars_to_keep:List[CatheterVar_Gurobi]=None,
+    ) -> List[CatheterVar_Gurobi]:
+    r"""
+    ### Purpose:
+    - To extract catheter variables from the plan (catheter table and dose rate dict).
+    If a catheter is already in catheter_vars_to_keep, it will not be re-written
+    ### Inputs:
+    - plan:= Brachy plan with a new catheter table and dose rate dict
+    - model:= the optimization model that will have the new catheter and dwell time variables
+    - catheter_vars_to_keep:= The list of catheter variables that we want to keep in the model
+    otherwise, they will be re-written.
+    ### Output:
+    - List[CatheterVar_Gurobi] := the new list of catheter variables that have been added
+    to the model.
+    """
+    catheter_vars_to_add = []
+    if not catheter_vars_to_keep:
+        name_cath_to_keep = [cath.name for cath in catheter_vars_to_keep]
+    else:
+        catheter_vars_to_keep=[]
+        name_cath_to_keep=[]
+    for catheter in plan.catheter_table:
+        if f"catheter_{catheter.index+1}" in name_cath_to_keep:
+            continue
+        dose_rates = plan.get_dose_rate_matrices_for_catheter(catheter.index)
+        catheter_vars_to_add.append(
+            CatheterVar_Gurobi(
+            catheter=catheter,
+            model=model,
+            dose_rates=dose_rates,
+            )
+        )
+    model.update()
+    return catheter_vars_to_keep+catheter_vars_to_add
 
 def set_penalty_function_and_constraints(
     optimization_configs:List[Optimization_Config],
