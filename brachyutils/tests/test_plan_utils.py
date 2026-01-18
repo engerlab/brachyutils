@@ -42,7 +42,7 @@ def test_load_dose_rate_or_uncertainty_tensor():
         multi_processing=True,
     )
 
-    print(f"The shape of the dose rate tensor is {plan_obj.dose_rate_tensor.shape}")
+    print(f"The shape of the dose rate tensor is {plan_obj.dose_rate_dict.shape}")
     print(
         f"The shape of the combined dose is {plan_obj.combined_dose.dose_image.gridSize}"
     )

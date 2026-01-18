@@ -15,13 +15,10 @@ import numpy as np
 from opentps.core.data import DVH, ROIContour
 from opentps.core.data.images import ROIMask
 
-# from multipledispatch import dispatch
 from scipy import interpolate, ndimage
 
-# from typing import Optional
 from tqdm import tqdm
 
-# from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose.dose_utils import BrachyDose
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
@@ -178,7 +175,7 @@ class BrachyPlan:
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
         # dose attributes
-        self.dose_rate_tensor = np.array(
+        self.dose_rate_dict = np.array(
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
         self.combined_dose: BrachyDose = None
@@ -440,7 +437,7 @@ class BrachyPlan:
             len(self.dwell_numbers) == self.dwell_numbers[-1]
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
-        if self.dose_rate_tensor.any():
+        if self.dose_rate_dict.any():
             self._calculate_combined_dose()
 
     def _update_catheter_table_from_plan(self):
@@ -531,7 +528,7 @@ class BrachyPlan:
         we use 8 cores for parallel processing.
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
         ### Outputs:
-        - Void := will update the BrachyPlan.dose_rate_tensor attribute
+        - Void := will update the BrachyPlan.dose_rate_dict attribute
         ### Dependencies:
         - glob
         - BrachyDose
@@ -617,14 +614,14 @@ class BrachyPlan:
             # print(dose_or_uncertainty_list.shape)
 
         if load_dose_or_uncertainty == "both":
-            self.dose_rate_tensor = np.array(
+            self.dose_rate_dict = np.array(
                 dose_or_uncertainty_list, dtype=np.float32
             )[0, :]
             self.uncertainty_tensor = np.array(
                 dose_or_uncertainty_list, dtype=np.float32
             )[1, :]
         elif load_dose_or_uncertainty == "dose":
-            self.dose_rate_tensor = np.array(dose_or_uncertainty_list, dtype=np.float32)
+            self.dose_rate_dict = np.array(dose_or_uncertainty_list, dtype=np.float32)
         elif load_dose_or_uncertainty == "uncertainty":
             self.uncertainty_tensor = np.array(
                 dose_or_uncertainty_list, dtype=np.float32
@@ -645,7 +642,7 @@ class BrachyPlan:
             self._calculate_combined_uncertainty()
         # free up memory
         if combined_dose_only:
-            self.dose_rate_tensor = None
+            self.dose_rate_dict = None
             self.uncertainty_tensor = None
 
         # if len(self.structure_list) != 0:
@@ -664,16 +661,16 @@ class BrachyPlan:
             AssertionError: If the dose rate tensor or dwell times array is empty.
         """
         assert (
-            self.dose_rate_tensor.size != 0
+            self.dose_rate_dict.size != 0
         ), "dose rate tensor is empty. Run load_dose_rate_or_uncertainty_tensor()"
         assert (
             self.dwell_times.size != 0
         ), "dwell times array is empty. Run update_plan_from_catheter_table()"
 
         # calculate the combined dose and store the result in the combined_dose attribute
-        temp_dose_array = np.zeros_like(self.dose_rate_tensor[0])
+        temp_dose_array = np.zeros_like(self.dose_rate_dict[0])
         for i in range(self.num_dwells):
-            temp_dose_array += self.dose_rate_tensor[i] * self.dwell_times[i]
+            temp_dose_array += self.dose_rate_dict[i] * self.dwell_times[i]
 
         self.combined_dose.set_dose_array(temp_dose_array)
 
@@ -1188,7 +1185,7 @@ class BrachyPlan:
             if cpu_count() < 4:
                 for i in self.dwell_numbers:
                     _export_single_dose_rate(
-                        self.dose_rate_tensor[i - 1],
+                        self.dose_rate_dict[i - 1],
                         i,
                         self.combined_dose,
                         dir_export,
@@ -1202,7 +1199,7 @@ class BrachyPlan:
                     giant_export_list = [
                         (dose_grid, dwell_number, uncertainty)
                         for dose_grid, dwell_number, uncertainty in zip(
-                            self.dose_rate_tensor,
+                            self.dose_rate_dict,
                             self.dwell_numbers,
                             self.uncertainty_tensor,
                         )
@@ -1212,7 +1209,7 @@ class BrachyPlan:
                     giant_export_list = [
                         (dose_grid, dwell_number)
                         for dose_grid, dwell_number in zip(
-                            self.dose_rate_tensor, self.dwell_numbers
+                            self.dose_rate_dict, self.dwell_numbers
                         )
                     ]
                 with Pool(cpu_count() - 2) as mp_pool:
@@ -1751,7 +1748,7 @@ config do not match for structure {struc.name}"
             start=start_doserate_index,
             stop=end_doserate_index,
             step=1)
-        return self.dose_rate_tensor[dose_rate_indicices]
+        return self.dose_rate_dict[dose_rate_indicices]
 
 def _gen_hotspot_mask(
     dwellpair: dict,

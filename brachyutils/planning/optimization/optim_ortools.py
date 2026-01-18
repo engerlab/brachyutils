@@ -133,7 +133,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
                         coordinates=dwell_position.position,
-                        dose_rate_map=plan.dose_rate_tensor[dwell_counter]
+                        dose_rate_map=plan.dose_rate_dict[dwell_counter]
                     )
                 )
                 dwell_counter += 1

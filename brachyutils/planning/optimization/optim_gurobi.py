@@ -235,7 +235,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         dwell_counter = 0
         for catheter in plan.catheter_table:
             for dwell_position in catheter.dwells:
-                ag = np.where(plan.dose_rate_tensor[dwell_counter] == plan.dose_rate_tensor[dwell_counter].max())
+                ag = np.where(plan.dose_rate_dict[dwell_counter] == plan.dose_rate_dict[dwell_counter].max())
                 i = image3DToSITK(plan.combined_dose.dose_image)
                 rev_argmax = list(int(u[0]) for u in ag)[::-1]
                 tmp_pos = i.TransformIndexToPhysicalPoint(rev_argmax)
@@ -257,7 +257,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
                         coordinates=dwell_position.position,
-                        dose_rate_map=plan.dose_rate_tensor[dwell_counter]
+                        dose_rate_map=plan.dose_rate_dict[dwell_counter]
                     )
                 )
                 dwell_counter += 1
