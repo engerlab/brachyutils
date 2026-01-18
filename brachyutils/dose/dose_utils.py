@@ -74,7 +74,7 @@ class BrachyDose:
         pth_dose_file: Optional[Path] | tuple[np.ndarray, defaultdict] = None,
         load_uncertainty: Optional[bool] = True,
     ):
-        self.path = pth_dose_file
+        self.path = Path(pth_dose_file)
         self.dose_image: DoseImage = None
         self.uncertainty_image: DoseImage = None
         self.voxel_edges: np.ndarray = None
@@ -86,6 +86,7 @@ class BrachyDose:
         # default dose unit length is mm
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
+        self.modification_time:float = self.path.stat().st_mtime
 
     def load_file_to_brachydose(
         self, pth_dose_file: Path, load_uncertainty: Optional[bool] = True
@@ -135,8 +136,6 @@ class BrachyDose:
                 raise ValueError("file extension not recognized")
             if self.dose_image is None:
                 raise ValueError("dose image not loaded")
-        # voxel_centers = self.get_voxel_centers()
-        # print(len(self.voxel_edges))
         if self.interpolation_function is None and self.dose_image is not None:
             self.create_interpolation_function()
 

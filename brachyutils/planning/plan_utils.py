@@ -2,7 +2,6 @@ import gc
 import json
 import os
 
-# import re
 import warnings
 from copy import deepcopy
 from functools import partial
@@ -10,12 +9,12 @@ from glob import glob
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from typing import List, Literal, Union, Dict, Tuple
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 from opentps.core.data import DVH, ROIContour
 from opentps.core.data.images import ROIMask
-
-from scipy import interpolate, ndimage
 
 from tqdm import tqdm
 
@@ -64,7 +63,7 @@ class BrachyPlan:
     - update_plan_from_catheter_table()
     - _update_catheter_table_from_plan()
     - _update_dose_after_change_in_plan()
-    - load_dose_rate_or_uncertainty_tensor()
+    - load_dose_rate_dict()
     - _calculate_combined_dose()
     - set_dvh_metric_goals()
     - create_brachy_structure_set()
@@ -90,8 +89,9 @@ class BrachyPlan:
         #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
-        type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
-        load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
+        # type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
+        # load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
+        load_uncertainty:bool=False,
         multi_processing: bool = False,
         combined_dose_only: bool = False,
         #### for simulation setup:
@@ -175,11 +175,9 @@ class BrachyPlan:
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
         # dose attributes
-        self.dose_rate_dict = np.array(
-            [], dtype=np.float32
-        )  # shape: (num_dwells, z, y, x)
+        self.dose_rate_dict = defaultdict(BrachyDose)
         self.combined_dose: BrachyDose = None
-        self.uncertainty_tensor = np.array(
+        self.uncertainty_tensor = np.array( # XXX remove uncertainty tensor next!
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
 
@@ -243,12 +241,13 @@ class BrachyPlan:
 
             self.update_plan_from_catheter_table()
 
-        # load the dose rate tensor if the path is provided
+        # load the dose rate dict if the path is provided
         if dir_dose_rate is not None and combined_dose is None:
-            self.load_dose_rate_or_uncertainty_tensor(
+            self.load_dose_rate_dict(
                 dir_dose_rate=dir_dose_rate,
-                type_dose_file=type_dose_file,
-                load_dose_or_uncertainty=load_dose_or_uncertainty,
+                # type_dose_file=type_dose_file,
+                # load_dose_or_uncertainty=load_dose_or_uncertainty,
+                load_uncertainty=load_uncertainty,
                 multi_processing=multi_processing,
                 combined_dose_only=combined_dose_only,
             )
@@ -437,7 +436,7 @@ class BrachyPlan:
             len(self.dwell_numbers) == self.dwell_numbers[-1]
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
-        if self.dose_rate_dict.any():
+        if any(self.dose_rate_dict):
             self._calculate_combined_dose()
 
     def _update_catheter_table_from_plan(self):
@@ -504,11 +503,12 @@ class BrachyPlan:
         self._update_catheter_table_from_plan()
         self._calculate_combined_dose()
 
-    def load_dose_rate_or_uncertainty_tensor(
+    def load_dose_rate_dict(
         self,
-        dir_dose_rate: str,
-        type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
-        load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
+        dir_dose_rate: str| Path,
+        # type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
+        # load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
+        load_uncertainty:bool=False,
         multi_processing: bool = False,
         combined_dose_only: bool = False,
     ):
@@ -518,7 +518,7 @@ class BrachyPlan:
         patient's dose rate files and the catheter table loaded into the BrachyPlan object.
         In addition, combined dose is calculated as a linear combination of the dose rates
         and dwell times.
-        ### Inputs:
+        ### Inputs: XXX update inputs
         - dir_dose_rate :=  path to the directory containing the dose rate files. we assume
         that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
         - type_dose_file := the type of dose rate file. The type could be ".nrrd" or ".3ddose"
@@ -540,110 +540,145 @@ class BrachyPlan:
         assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
         assert self.num_dwells is not None, "number of dwells is not extracted"
 
+        pth_dose_rate = Path(dir_dose_rate).resolve()
+        if not pth_dose_rate.exists():
+            raise ValueError(f"directory of dose rates does not exist: {pth_dose_rate}")
+        dose_rate_files = list(pth_dose_rate.glob("run_*.seq.nrrd"))
 
-        def get_dwell_order(dose_rate_path):
-            file_name = os.path.basename(dose_rate_path)
-            return get_dwell_order_from_file_name(file_name)
-
-        def get_dwell_order_from_file_name(file_name):
-            """
-            Files should have this format:
-            run_{catheter#}_{Dwell#incatheter}_{shieldangle}.seq.nrrd
-            Assuming that there are less than 10000 dwell positions per catheter
-            We order based on 10000 * catheter# + Dwell#incatheter
-            """
-            x = file_name.split(".")[0][4:]
-            catheter_nb, dwell_nb, shield_angle = x.split("_")
-            return 10000 * int(catheter_nb) + int(dwell_nb)
-        
-        # here is the list of the dose rate files
-        if isinstance(dir_dose_rate, str) or isinstance(dir_dose_rate, Path):
-            dose_rate_files = glob(os.path.join(dir_dose_rate, f"run*{type_dose_file}"))
-            dose_rate_files = [
-                dosefile for dosefile in dose_rate_files if "combined" not in dosefile
-            ]
-            dose_rate_files.sort(
-                key=lambda x: get_dwell_order(x)
-            )
-
+        new_dose_rate_files = []
+        # load file if they have not been loaded since modification
+        for pth in dose_rate_files:
+            if not self.dose_rate_dict.get(pth.name, None):
+                new_dose_rate_files.append(pth)
+            elif Path.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
+                new_dose_rate_files.append(pth)
+            else:
+                continue                
+            
+        if multi_processing:       
+            with ThreadPoolExecutor() as executor:
+                futures = {
+                    executor.submit(_load_single_dose_rate, pth, load_uncertainty): pth
+                    for pth in new_dose_rate_files
+                    }
+                for action in tqdm(as_completed(futures), desc="Loading dose rate maps"):
+                    try:
+                        dose_rate = action.result()
+                        self.dose_rate_dict[dose_rate.path.name] = dose_rate
+                    except:
+                        failed_path = futures[action]
+                        raise ValueError(f"Failed loading f{failed_path}")
         else:
-            assert isinstance(dir_dose_rate, dict) and isinstance(dir_dose_rate[list(dir_dose_rate.keys())[0]][0], np.ndarray), (
-                "Expected a folder with dose rate files saved or a dictionary of tuples (numpy arrays, header info)."
-            )
-            dose_rate_files = dir_dose_rate
-            sorted_dict = dict(sorted(dose_rate_files.items(), key=lambda item: get_dwell_order_from_file_name(item[0])))
-            dose_rate_files = [x for x in sorted_dict.values()]
+            for pth in tqdm(new_dose_rate_files, desc="Loading dose rate maps"):
+                dose_rate = _load_single_dose_rate(
+                    pth_dose_rate=pth,
+                    load_uncertainty=load_uncertainty)
+                self.dose_rate_dict[dose_rate.path.name] = dose_rate
+
+        print("debug here")
+        # def get_dwell_order(dose_rate_path):
+        #     file_name = os.path.basename(dose_rate_path)
+        #     return get_dwell_order_from_file_name(file_name)
+
+        # def get_dwell_order_from_file_name(file_name):
+        #     """
+        #     Files should have this format:
+        #     run_{catheter#}_{Dwell#incatheter}_{shieldangle}.seq.nrrd
+        #     Assuming that there are less than 10000 dwell positions per catheter
+        #     We order based on 10000 * catheter# + Dwell#incatheter
+        #     """
+        #     x = file_name.split(".")[0][4:]
+        #     catheter_nb, dwell_nb, shield_angle = x.split("_")
+        #     return 10000 * int(catheter_nb) + int(dwell_nb)
+        
+        # # here is the list of the dose rate files
+        # if isinstance(dir_dose_rate, str) or isinstance(dir_dose_rate, Path):
+        #     dose_rate_files = glob(os.path.join(dir_dose_rate, f"run*{type_dose_file}"))
+        #     dose_rate_files = [
+        #         dosefile for dosefile in dose_rate_files if "combined" not in dosefile
+        #     ]
+        #     dose_rate_files.sort(
+        #         key=lambda x: get_dwell_order(x)
+        #     )
+
+        # else:
+        #     assert isinstance(dir_dose_rate, dict) and isinstance(dir_dose_rate[list(dir_dose_rate.keys())[0]][0], np.ndarray), (
+        #         "Expected a folder with dose rate files saved or a dictionary of tuples (numpy arrays, header info)."
+        #     )
+        #     dose_rate_files = dir_dose_rate
+        #     sorted_dict = dict(sorted(dose_rate_files.items(), key=lambda item: get_dwell_order_from_file_name(item[0])))
+        #     dose_rate_files = [x for x in sorted_dict.values()]
 
         
 
-        assert (
-            len(dose_rate_files) == self.num_dwells
-        ), ("number of dose rate files does not match the number of dwell positions"
-            f" in the catheter table. Expected {self.num_dwells} but found {len(dose_rate_files)} at {os.path.join(dir_dose_rate, f"run*{type_dose_file}")}"
-        )
+        # assert (
+        #     len(dose_rate_files) == self.num_dwells
+        # ), ("number of dose rate files does not match the number of dwell positions"
+        #     f" in the catheter table. Expected {self.num_dwells} but found {len(dose_rate_files)} at {os.path.join(dir_dose_rate, f"run*{type_dose_file}")}"
+        # )
 
-        test_dose_obj = BrachyDose(dose_rate_files[0])
+        # test_dose_obj = BrachyDose(dose_rate_files[0])
 
-        if load_dose_or_uncertainty not in ["dose", "uncertainty", "both"]:
-            raise ValueError(
-                "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
-            )
+        # # if load_dose_or_uncertainty not in ["dose", "uncertainty", "both"]:
+        # #     raise ValueError(
+        # #         "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
+        # #     )
 
-        # load the dose rate tensor
-        if multi_processing:
-            with Pool(processes=16 if cpu_count()>8 else 4) as pool:
-                func = partial(
-                    _load_single_dose_or_uncertainty_to_dict,
-                    load_dose_or_uncertainty=load_dose_or_uncertainty,
-                )
-                dose_or_uncertainty_list = list(
-                    tqdm(
-                        pool.imap(func, dose_rate_files),
-                        total=len(dose_rate_files),
-                        desc="Loading dose rates...",
-                    )
-                )    
+        # # load the dose rate tensor
+        # if multi_processing:
+        #     with Pool(processes=16 if cpu_count()>8 else 4) as pool:
+        #         func = partial(
+        #             _load_single_dose_or_uncertainty_to_dict,
+        #             # load_dose_or_uncertainty=load_dose_or_uncertainty,
+        #         )
+        #         dose_or_uncertainty_list = list(
+        #             tqdm(
+        #                 pool.imap(func, dose_rate_files),
+        #                 total=len(dose_rate_files),
+        #                 desc="Loading dose rates...",
+        #             )
+        #         )    
 
-        else:
-            # dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
-            dose_or_uncertainty_list = [None] * len(dose_rate_files)
-            for i, pth_dose_rate in tqdm(enumerate(dose_rate_files), total=len(dose_rate_files), desc="Loading dose rates..."):
-                dose_or_uncertainty_list[i] = _load_single_dose_or_uncertainty_to_dict(
-                    pth_dose_rate, load_dose_or_uncertainty
-                )
+        # else:
+        #     # dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
+        #     dose_or_uncertainty_list = [None] * len(dose_rate_files)
+        #     for i, pth_dose_rate in tqdm(enumerate(dose_rate_files), total=len(dose_rate_files), desc="Loading dose rates..."):
+        #         dose_or_uncertainty_list[i] = _load_single_dose_or_uncertainty_to_dict(
+        #             # pth_dose_rate, load_dose_or_uncertainty
+        #         )
             # print(dose_or_uncertainty_list.shape)
 
-        if load_dose_or_uncertainty == "both":
-            self.dose_rate_dict = np.array(
-                dose_or_uncertainty_list, dtype=np.float32
-            )[0, :]
-            self.uncertainty_tensor = np.array(
-                dose_or_uncertainty_list, dtype=np.float32
-            )[1, :]
-        elif load_dose_or_uncertainty == "dose":
-            self.dose_rate_dict = np.array(dose_or_uncertainty_list, dtype=np.float32)
-        elif load_dose_or_uncertainty == "uncertainty":
-            self.uncertainty_tensor = np.array(
-                dose_or_uncertainty_list, dtype=np.float32
-            )
-        else:
-            raise ValueError(
-                "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
-            )
+        # if load_dose_or_uncertainty == "both":
+        #     self.dose_rate_dict = np.array(
+        #         dose_or_uncertainty_list, dtype=np.float32
+        #     )[0, :]
+        #     self.uncertainty_tensor = np.array(
+        #         dose_or_uncertainty_list, dtype=np.float32
+        #     )[1, :]
+        # elif load_dose_or_uncertainty == "dose":
+        #     self.dose_rate_dict = np.array(dose_or_uncertainty_list, dtype=np.float32)
+        # elif load_dose_or_uncertainty == "uncertainty":
+        #     self.uncertainty_tensor = np.array(
+        #         dose_or_uncertainty_list, dtype=np.float32
+        #     )
+        # else:
+        #     raise ValueError(
+        #         "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
+        #     )
 
-        del dose_or_uncertainty_list
-        gc.collect()
+        # del dose_or_uncertainty_list
+        # gc.collect()
 
-        self.combined_dose = BrachyDose.dose_with_empty_grid_like(test_dose_obj)
+        # self.combined_dose = BrachyDose.dose_with_empty_grid_like(test_dose_obj)
 
-        if load_dose_or_uncertainty != "uncertainty":
-            self._calculate_combined_dose()
-        if load_dose_or_uncertainty != "dose":
-            self._calculate_combined_uncertainty()
-        # free up memory
-        if combined_dose_only:
-            self.dose_rate_dict = None
-            self.uncertainty_tensor = None
+        # if load_dose_or_uncertainty != "uncertainty":
+        #     self._calculate_combined_dose()
+        # if load_dose_or_uncertainty != "dose":
+        #     self._calculate_combined_uncertainty()
+        # # free up memory
+        # if combined_dose_only:
+        #     self.dose_rate_dict = None
+        #     self.uncertainty_tensor = None
 
         # if len(self.structure_list) != 0:
         #     for structure in self.structure_list:
@@ -662,7 +697,7 @@ class BrachyPlan:
         """
         assert (
             self.dose_rate_dict.size != 0
-        ), "dose rate tensor is empty. Run load_dose_rate_or_uncertainty_tensor()"
+        ), "dose rate tensor is empty. Run load_dose_rate_dict()"
         assert (
             self.dwell_times.size != 0
         ), "dwell times array is empty. Run update_plan_from_catheter_table()"
@@ -1817,6 +1852,12 @@ def _export_single_dose_rate(
         doseObj.set_uncertainty_array(uncertainty)
 
     doseObj.write_brachydose_to_file(dir_export + f"/run_{dwell_number}" + dose_type)
+
+def _load_single_dose_rate(
+    pth_dose_rate:Path,
+    load_uncertainty=False
+    )->BrachyDose:
+        return BrachyDose(pth_dose_file=pth_dose_rate, load_uncertainty=load_uncertainty)
 
 def _load_single_dose_or_uncertainty_to_dict(
     pth_dose_rate: str, load_dose_or_uncertainty: str = "both"

@@ -31,12 +31,16 @@ def test_update_catheter_table_from_plan():
     plan_obj.catheter_table.info()
 
 
-def test_load_dose_rate_or_uncertainty_tensor():
-    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
+def test_load_dose_rate_dict():
+    from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
     dir_dose_rate = "data_test/prostate-glen-p1-dose"
 
+    catheter_table = CatheterTable(catheter_list=pth_plan)
+
     plan_obj = BrachyPlan(
-        catheter_table=pth_cathTable_json,
+        catheter_table=catheter_table,
         dir_dose_rate=dir_dose_rate,
         load_dose_or_uncertainty="dose",
         multi_processing=True,
@@ -326,14 +330,14 @@ def test_load_phantom():
 if __name__ == "__main__":
     # testupdate_plan_from_catheter_table()
     # test_update_catheter_table_from_plan()
-    # test_load_dose_rate_or_uncertainty_tensor()
+    test_load_dose_rate_dict()
     # test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
     # test_export_brachy_plan()
-    test_load_brachy_plan_from_dicom()
+    # test_load_brachy_plan_from_dicom()
     # test_load_applicator_list()
     # test__export_applicator_geometry()
     # test_brachy_structure()
