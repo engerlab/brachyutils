@@ -202,6 +202,19 @@ class CatheterTableOptim_Gurobi():
         model: Model,
         catheter_vars_to_keep:List[CatheterVar_Gurobi]=None,
         ) -> List[CatheterVar_Gurobi]:
+        r"""
+        ### Purpose:
+        - To extract catheter variables from the plan (catheter table and dose rate dict).
+        If a catheter is already in catheter_vars_to_keep, it will not be re-written
+        ### Inputs:
+        - plan:= Brachy plan with a new catheter table and dose rate dict
+        - model:= the optimization model that will have the new catheter and dwell time variables
+        - catheter_vars_to_keep:= The list of catheter variables that we want to keep in the model
+        otherwise, they will be re-written.
+        ### Output:
+        - List[CatheterVar_Gurobi] := the new list of catheter variables that have been added
+        to the model.
+        """
         return set_catheter_variables(
             plan=plan,
             model=model,
@@ -314,12 +327,17 @@ def set_penalty_function_and_constraints(
     r"""
     ### Purpose:
     - sets the penalty function and constraints for the optimization model.
+    XXX more details to be added for the docs
     ### Inputs:
     - `optimization_configs`: List[Optimization_Config] := List of optimization configs containing the
     penalty weights, target dose, mask, dwell_coef_dict and other attibutes.
+    - `dwellTimeVariables`: The list of the dwell times variables in the catheter table. it should be
+    synched up with catheter_vars.
     - `catheter_vars`: List[CatheterVar_Gurobi] := the catheter variables to be used in the optimization.
     - `model`: Model := the Gurobi model to which the variables will be added.
     - `multi_processing`: bool := whether to use multi-processing for dose rate matrix computations.
+    ### Output:
+    - None: The model is updated with the constraints and penalty function.
     """
     # if not plan.structure_list:
     #     raise ValueError("Plan does not contain any structures.")
