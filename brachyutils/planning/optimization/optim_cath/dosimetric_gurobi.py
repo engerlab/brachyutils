@@ -202,7 +202,7 @@ class CatheterTableOptim_Gurobi():
         model: Model,
         catheter_vars_to_keep:List[CatheterVar_Gurobi]=None,
         ) -> List[CatheterVar_Gurobi]:
-        set_catheter_variables(
+        return set_catheter_variables(
             plan=plan,
             model=model,
             catheter_vars_to_keep=catheter_vars_to_keep
@@ -286,7 +286,7 @@ def set_catheter_variables(
     to the model.
     """
     catheter_vars_to_add = []
-    if not catheter_vars_to_keep:
+    if catheter_vars_to_keep:
         name_cath_to_keep = [cath.name for cath in catheter_vars_to_keep]
     else:
         catheter_vars_to_keep=[]
