@@ -1,4 +1,5 @@
 from typing import List, Any, Dict
+from copy import deepcopy
 from brachyutils.dose.dose_utils import BrachyDose
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr, model_validator
 import numpy as np
@@ -76,8 +77,8 @@ def resample_crop_the_mask_or_contour_to_optimGrid(
     return structure_mask
 
 def resample_mask_crop_the_doseRateMap_to_optimGrid(
-    dose_rate_map: np.ndarray,
-    template_dose_obj: BrachyDose,
+    dose_rate_map: np.ndarray | BrachyDose,
+    template_dose_obj: BrachyDose=None,
     roi_bounds: List[List[float]]=None,
     structure_mask: ROIMask=None,
     optim_spacing: List[float]=None, 
@@ -103,11 +104,16 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
     # The coordinates of the dose object is the same as the combined_dose in the plan.
     # dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
     # dose_rate_obj.set_dose_array(dose_rate_map)
-    dose_rate_img = DoseImage(
-        imageArray=dose_rate_map.swapaxes(0, 2),
-        origin=template_dose_obj.dose_image.origin,
-        spacing=template_dose_obj.dose_image.spacing
-    )
+    if isinstance(dose_rate_map, BrachyDose):
+        dose_rate_img=deepcopy(dose_rate_map.dose_image)
+    else:
+        if template_dose_obj is None:
+            raise ValueError("if dose rate map is a numpy array, please provide template_dose_obj")
+        dose_rate_img = DoseImage(
+            imageArray=dose_rate_map.swapaxes(0, 2),
+            origin=template_dose_obj.dose_image.origin,
+            spacing=template_dose_obj.dose_image.spacing
+        )
 
     # # resample the dose rate map to the optimization resolution
     if optim_spacing is not None:
@@ -144,9 +150,9 @@ def process_variable(
     variable,
     # structure_name,
     structure_mask,
-    plan,
     optim_spacing,
     roi_bounds,
+    plan:BrachyPlan=None,
     shift_origin:bool=True
     ):
     r"""
@@ -170,7 +176,7 @@ def process_variable(
 
     valid_dose_points = resample_mask_crop_the_doseRateMap_to_optimGrid(
         dose_rate_map=variable.dose_rate_map,
-        template_dose_obj=plan.combined_dose,
+        template_dose_obj=plan.combined_dose if plan is not None else None,
         roi_bounds=roi_bounds,
         structure_mask=structure_mask,
         optim_spacing=optim_spacing,
@@ -184,7 +190,7 @@ def process_variable(
 
 def compute_dose_rate_matrices(
         dwellTimeVariables: List[Any],
-        plan: BrachyPlan,
+        plan: BrachyPlan=None,
         structure_name: str = None,
         structure_mask: ROIMask = None,
         optim_spacing: List[float] = None,
@@ -345,7 +351,7 @@ class BrachyDwellTime(BaseModel, ABC):
     lower_bound: float = Field(ge=0, description="Lower bound of the DwellTimeVariable in seconds.")
     upper_bound: float = Field(ge=0, description="Upper bound of the DwellTimeVariable in seconds.")
     coordinates: List[float] | None = Field(default=None, description="Coordinates of the dwell position for this DwellTimeVariable.")
-    dose_rate_map: np.ndarray | None = Field(default=None, description="Dose rate map for this DwellTimeVariable.")
+    dose_rate_map: BrachyDose | np.ndarray | None = Field(default=None, description="Dose rate map for this DwellTimeVariable.")
 
     _model_variable: Any = PrivateAttr(default=None)
 

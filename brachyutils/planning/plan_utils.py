@@ -1,27 +1,21 @@
-import gc
+import re
 import json
 import os
 
-# import re
 import warnings
 from copy import deepcopy
-from functools import partial
 from glob import glob
-from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from typing import List, Literal, Union, Dict, Tuple
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
-from opentps.core.data import DVH, ROIContour
+from opentps.core.data import ROIContour
 from opentps.core.data.images import ROIMask
 
-# from multipledispatch import dispatch
-from scipy import interpolate, ndimage
-
-# from typing import Optional
 from tqdm import tqdm
 
-# from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose.dose_utils import BrachyDose
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
@@ -67,7 +61,7 @@ class BrachyPlan:
     - update_plan_from_catheter_table()
     - _update_catheter_table_from_plan()
     - _update_dose_after_change_in_plan()
-    - load_dose_rate_or_uncertainty_tensor()
+    - load_dose_rate_dict()
     - _calculate_combined_dose()
     - set_dvh_metric_goals()
     - create_brachy_structure_set()
@@ -93,8 +87,7 @@ class BrachyPlan:
         #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
-        type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
-        load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
+        load_uncertainty:bool=False,
         multi_processing: bool = False,
         combined_dose_only: bool = False,
         #### for simulation setup:
@@ -178,11 +171,9 @@ class BrachyPlan:
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
         # dose attributes
-        self.dose_rate_tensor = np.array(
-            [], dtype=np.float32
-        )  # shape: (num_dwells, z, y, x)
+        self.dose_rate_dict = defaultdict(BrachyDose)
         self.combined_dose: BrachyDose = None
-        self.uncertainty_tensor = np.array(
+        self.uncertainty_tensor = np.array( # XXX remove uncertainty tensor next!
             [], dtype=np.float32
         )  # shape: (num_dwells, z, y, x)
 
@@ -246,12 +237,11 @@ class BrachyPlan:
 
             self.update_plan_from_catheter_table()
 
-        # load the dose rate tensor if the path is provided
+        # load the dose rate dict if the path is provided
         if dir_dose_rate is not None and combined_dose is None:
-            self.load_dose_rate_or_uncertainty_tensor(
+            self.load_dose_rate_dict(
                 dir_dose_rate=dir_dose_rate,
-                type_dose_file=type_dose_file,
-                load_dose_or_uncertainty=load_dose_or_uncertainty,
+                load_uncertainty=load_uncertainty,
                 multi_processing=multi_processing,
                 combined_dose_only=combined_dose_only,
             )
@@ -440,7 +430,7 @@ class BrachyPlan:
             len(self.dwell_numbers) == self.dwell_numbers[-1]
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
-        if self.dose_rate_tensor.any():
+        if any(self.dose_rate_dict):
             self._calculate_combined_dose()
 
     def _update_catheter_table_from_plan(self):
@@ -507,34 +497,29 @@ class BrachyPlan:
         self._update_catheter_table_from_plan()
         self._calculate_combined_dose()
 
-    def load_dose_rate_or_uncertainty_tensor(
+    def load_dose_rate_dict(
         self,
-        dir_dose_rate: str,
-        type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
-        load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
+        dir_dose_rate: str| Path,
+        load_uncertainty:bool=False,
         multi_processing: bool = False,
         combined_dose_only: bool = False,
     ):
         r"""
         ### Purpose:
-        - To load the dose rate tensor into the BrachyPlan object given a folder with
+        - To load the dose rates into the BrachyPlan object given a folder with
         patient's dose rate files and the catheter table loaded into the BrachyPlan object.
         In addition, combined dose is calculated as a linear combination of the dose rates
         and dwell times.
         ### Inputs:
-        - dir_dose_rate :=  path to the directory containing the dose rate files. we assume
-        that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
-        - type_dose_file := the type of dose rate file. The type could be ".nrrd" or ".3ddose"
-        consult BrachyDose in dose_utils.py for more info on the dose rate file types.
-        - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
-        - multi_processing := if True, the dose rate files will be loaded in parallel. By default,
+        - `dir_dose_rate` :=  path to the directory containing the dose rate files. we assume
+        that the name of the dose rate files end as "run_X_X_X.seq.nrrd", "run_X_X_X.seq.nrrd", etc.
+        where the X corresponds to the catheter index+1, dwell index+1, and angle in increasing order.
+        - `load_uncertainty`:= If true, uncertainty is loaded from the dose file, else it'll be set to 1. 
+        - `multi_processing` := if True, the dose rate files will be loaded in parallel. By default,
         we use 8 cores for parallel processing.
-        - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
+        - `combined_dose_only`:bool = False := flag to keep only the combined dose in memory after loading.
         ### Outputs:
-        - Void := will update the BrachyPlan.dose_rate_tensor attribute
-        ### Dependencies:
-        - glob
-        - BrachyDose
+        - Void := will update the BrachyPlan.dose_rate_dict attribute
         """
         # make sure catheter table is loaded
         assert self.catheter_table is not None, "catheter table is not loaded"
@@ -543,139 +528,86 @@ class BrachyPlan:
         assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
         assert self.num_dwells is not None, "number of dwells is not extracted"
 
+        pth_dose_rate = Path(dir_dose_rate).resolve()
+        if not pth_dose_rate.exists():
+            raise ValueError(f"directory of dose rates does not exist: {pth_dose_rate}")
+        dose_rate_files = list(pth_dose_rate.glob("run_*.seq.nrrd"))
 
-        def get_dwell_order(dose_rate_path):
-            file_name = os.path.basename(dose_rate_path)
-            return get_dwell_order_from_file_name(file_name)
+        new_dose_rate_files = []
+        # load file if they have not been loaded since modification
+        for pth in dose_rate_files:
+            if not self.dose_rate_dict.get(pth.name, None):
+                new_dose_rate_files.append(pth)
+            elif Path.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
+                new_dose_rate_files.append(pth)
+            else:
+                continue
 
-        def get_dwell_order_from_file_name(file_name):
-            """
-            Files should have this format:
-            run_{catheter#}_{Dwell#incatheter}_{shieldangle}.seq.nrrd
-            Assuming that there are less than 10000 dwell positions per catheter
-            We order based on 10000 * catheter# + Dwell#incatheter
-            """
-            x = file_name.split(".")[0][4:]
-            catheter_nb, dwell_nb, shield_angle = x.split("_")
-            return 10000 * int(catheter_nb) + int(dwell_nb)
-        
-        # here is the list of the dose rate files
-        if isinstance(dir_dose_rate, str) or isinstance(dir_dose_rate, Path):
-            dose_rate_files = glob(os.path.join(dir_dose_rate, f"run*{type_dose_file}"))
-            dose_rate_files = [
-                dosefile for dosefile in dose_rate_files if "combined" not in dosefile
-            ]
-            dose_rate_files.sort(
-                key=lambda x: get_dwell_order(x)
-            )
-
+        if multi_processing:       
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                futures = {
+                    executor.submit(_load_single_dose_rate, pth, load_uncertainty): pth
+                    for pth in new_dose_rate_files
+                    }
+                for action in tqdm(
+                    as_completed(futures),
+                    desc="Loading dose rate maps",
+                    total=len(new_dose_rate_files)):
+                    try:
+                        dose_rate = action.result()
+                        self.dose_rate_dict[dose_rate.path.name] = dose_rate
+                    except:
+                        failed_path = futures[action]
+                        raise ValueError(f"Failed loading f{failed_path}")
         else:
-            assert isinstance(dir_dose_rate, dict) and isinstance(dir_dose_rate[list(dir_dose_rate.keys())[0]][0], np.ndarray), (
-                "Expected a folder with dose rate files saved or a dictionary of tuples (numpy arrays, header info)."
-            )
-            dose_rate_files = dir_dose_rate
-            sorted_dict = dict(sorted(dose_rate_files.items(), key=lambda item: get_dwell_order_from_file_name(item[0])))
-            dose_rate_files = [x for x in sorted_dict.values()]
+            for pth in tqdm(
+                new_dose_rate_files,
+                desc="Loading dose rate maps",
+                total=len(new_dose_rate_files)):
+                dose_rate = _load_single_dose_rate(
+                    pth_dose_rate=pth,
+                    load_uncertainty=load_uncertainty)
+                self.dose_rate_dict[dose_rate.path.name] = dose_rate
 
-        
-
-        assert (
-            len(dose_rate_files) == self.num_dwells
-        ), ("number of dose rate files does not match the number of dwell positions"
-            f" in the catheter table. Expected {self.num_dwells} but found {len(dose_rate_files)} at {os.path.join(dir_dose_rate, f"run*{type_dose_file}")}"
+        # now sort dose rates according to increasing catheter name and shield numbers
+        # Fastest and most compact version
+        sorted_items = sorted(
+            self.dose_rate_dict.items(),
+            key=lambda f: tuple(map(int, f[0].removeprefix('run_').removesuffix('.seq.nrrd').split('_')))
         )
+        self.dose_rate_dict = defaultdict(BrachyDose, sorted_items)
 
-        test_dose_obj = BrachyDose(dose_rate_files[0])
-
-        if load_dose_or_uncertainty not in ["dose", "uncertainty", "both"]:
-            raise ValueError(
-                "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
-            )
-
-        # load the dose rate tensor
-        if multi_processing:
-            with Pool(processes=16 if cpu_count()>8 else 4) as pool:
-                func = partial(
-                    _load_single_dose_or_uncertainty_to_dict,
-                    load_dose_or_uncertainty=load_dose_or_uncertainty,
-                )
-                dose_or_uncertainty_list = list(
-                    tqdm(
-                        pool.imap(func, dose_rate_files),
-                        total=len(dose_rate_files),
-                        desc="Loading dose rates...",
-                    )
-                )    
-
-        else:
-            # dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
-            dose_or_uncertainty_list = [None] * len(dose_rate_files)
-            for i, pth_dose_rate in tqdm(enumerate(dose_rate_files), total=len(dose_rate_files), desc="Loading dose rates..."):
-                dose_or_uncertainty_list[i] = _load_single_dose_or_uncertainty_to_dict(
-                    pth_dose_rate, load_dose_or_uncertainty
-                )
-            # print(dose_or_uncertainty_list.shape)
-
-        if load_dose_or_uncertainty == "both":
-            self.dose_rate_tensor = np.array(
-                dose_or_uncertainty_list, dtype=np.float32
-            )[0, :]
-            self.uncertainty_tensor = np.array(
-                dose_or_uncertainty_list, dtype=np.float32
-            )[1, :]
-        elif load_dose_or_uncertainty == "dose":
-            self.dose_rate_tensor = np.array(dose_or_uncertainty_list, dtype=np.float32)
-        elif load_dose_or_uncertainty == "uncertainty":
-            self.uncertainty_tensor = np.array(
-                dose_or_uncertainty_list, dtype=np.float32
-            )
-        else:
-            raise ValueError(
-                "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
-            )
-
-        del dose_or_uncertainty_list
-        gc.collect()
-
-        self.combined_dose = BrachyDose.dose_with_empty_grid_like(test_dose_obj)
-
-        if load_dose_or_uncertainty != "uncertainty":
-            self._calculate_combined_dose()
-        if load_dose_or_uncertainty != "dose":
+        self._calculate_combined_dose()
+        if load_uncertainty:
             self._calculate_combined_uncertainty()
-        # free up memory
         if combined_dose_only:
-            self.dose_rate_tensor = None
-            self.uncertainty_tensor = None
-
-        # if len(self.structure_list) != 0:
-        #     for structure in self.structure_list:
-        #         structure.mask = _resize_structure_mask(
-        #             structure.mask, self.combined_dose.grid.shape
-        #         )
+            del self.dose_rate_dict
 
     def _calculate_combined_dose(self):
         """
         ### Purpose:
-        - To calculate the combined dose by multiplying the dose rate tensor with the dwell times array.
+        - To calculate the combined dose by multiplying the dose rates with the dwell times.
         The result is stored in the combined_dose attribute.
-
+        We require strict name matching between the dwell names and dose rate names!
+        ### Inputs:
+        - None: but it needs the following attributes to be filled:
+        - self.dose_rate_dict
+        - self.catheter_table
         ### Raises:
             AssertionError: If the dose rate tensor or dwell times array is empty.
         """
-        assert (
-            self.dose_rate_tensor.size != 0
-        ), "dose rate tensor is empty. Run load_dose_rate_or_uncertainty_tensor()"
-        assert (
-            self.dwell_times.size != 0
-        ), "dwell times array is empty. Run update_plan_from_catheter_table()"
+        if not any(self.dose_rate_dict):
+            raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
+        if not any(self.dwell_times):
+            raise ValueError("dwell times array is empty. Run update_plan_from_catheter_table()")
 
-        # calculate the combined dose and store the result in the combined_dose attribute
-        temp_dose_array = np.zeros_like(self.dose_rate_tensor[0])
-        for i in range(self.num_dwells):
-            temp_dose_array += self.dose_rate_tensor[i] * self.dwell_times[i]
-
-        self.combined_dose.set_dose_array(temp_dose_array)
+        self.combined_dose = BrachyDose.dose_with_empty_grid_like(
+            list(self.dose_rate_dict.values())[0])
+        for catheter in self.catheter_table:
+            for dwell in catheter.dwells:
+                self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
+                    f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                    ).dose_image.imageArray * dwell.time
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
@@ -927,23 +859,28 @@ class BrachyPlan:
     def _calculate_combined_uncertainty(self):
         r"""
         ### Purpose:
-        - To calculate the combined uncertainty of the combined dose map.
+        - To calculate the combined uncertainty of the combined dose map based on the
+        dose rate dictionary and dwell times.
+        We require strict name matching between the dwell names and the name of dose rate files
         ### Inputs:
         - self := the BrachyPlan object
         ### Outputs:
         - Void := will update the BrachyPlan.combined_dose.uncertainty attribute
         """
-        assert self.uncertainty_tensor is not None, "uncertainty tensor is not loaded"
-        assert self.dwell_times is not None, "dwell times are not extracted"
         assert self.combined_dose is not None, "combined dose is not calculated yet"
+        if not any(self.dose_rate_dict):
+            raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
+        if not any(self.dwell_times):
+            raise ValueError("dwell times array is empty. Run update_plan_from_catheter_table()")
 
-        normalized_times = self.dwell_times / np.sum(self.dwell_times)
-
-        uncertainty = np.zeros_like(self.combined_dose.get_dose_array())
-        for i in range(self.num_dwells):
-            uncertainty += (self.uncertainty_tensor[i] * normalized_times[i]) ** 2
-        uncertainty = np.sqrt(uncertainty)
-        self.combined_dose.set_uncertainty_array(uncertainty)
+        treatment_time = self.catheter_table.treatment_time
+        for catheter in self.catheter_table:
+            for dwell in catheter.dwells:
+                self.combined_dose.uncertainty_image.imageArray += (self.dose_rate_dict.get(
+                    f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                    ).uncertainty_image.imageArray * (dwell.time/treatment_time)**2)
+        self.combined_dose.uncertainty_image.imageArray = np.sqrt(
+            self.combined_dose.uncertainty_image.imageArray)
 
     def get_dvh_metrics(
         self,
@@ -1052,7 +989,8 @@ class BrachyPlan:
         self,
         dir_export: str | Path,
         content_to_export: Dict[str, bool | str] = None,
-        export_format: str = "RapidBrachy"
+        export_format: str = "RapidBrachy",
+        multi_processing:str = True,
     ):
         r"""
         ### Purpose:
@@ -1062,7 +1000,7 @@ class BrachyPlan:
         - export_format := the export_format of the exported plan. options are:
 
             - "RapidBrachy":
-                - "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
+                - "run_#_#_#.3ddose" or "run_#_#_#.minidos" or "run_#_#_#.seq.nrrd",
                 - "catheter_table.json"
                 - "dwell_#.plan",
                 - "run_#.mac",
@@ -1101,9 +1039,10 @@ class BrachyPlan:
             if content_to_export.get("dose", False):
                 self._export_dose(
                     dir_export=str(dir_export),
-                    with_uncertainty=content_to_export.get("uncertainty", False),
-                    dose_type=content_to_export.get("dose_type", ".seq.nrrd"),
+                    # with_uncertainty=content_to_export.get("uncertainty", False),
+                    dose_extension=content_to_export.get("dose_type", ".seq.nrrd"),
                     dose_rate_maps=content_to_export.get("dose_rate_maps", False),
+                    multi_processing=multi_processing
                 )
                 print("Dose exported successfully")
             if content_to_export.get("catheter_table", False):
@@ -1159,9 +1098,9 @@ class BrachyPlan:
     def _export_dose(
         self,
         dir_export: str,
-        with_uncertainty=False,
-        dose_type=".seq.nrrd",
+        dose_extension=".seq.nrrd",
         dose_rate_maps=False,
+        multi_processing:bool=True,
     ):
         r"""
         ### Purpose:
@@ -1170,61 +1109,39 @@ class BrachyPlan:
         ### Inputs:
         - dir_export := the directory to which the dose map will be exported.
         - uncertainty := if True, the uncertainty map will be exported as well.
-        - dose_type := the type of dose map to be exported. options are ".3ddose", ".minidos", or ".nrrd".
+        - dose_extension := the type of dose map to be exported. options are ".3ddose", ".minidos", or ".nrrd".
         - dose_rate_maps := if True, the dose rate maps will be exported as well.
         ### Outputs:
         - Void := will export the dose map into the specified export directory.
         ### Dependencies:
-        - _export_single_dose_rate()
+        - _write_single_dose_rate()
         - multiprocessing
         """
         assert self.combined_dose is not None, "combined dose is not calculated yet"
         # if uncertainty:
         self.combined_dose.write_brachydose_to_file(
-            Path(dir_export) / f"combined{dose_type}"
+            Path(dir_export) / f"combined{dose_extension}"
         )
 
         if dose_rate_maps:
-            if cpu_count() < 4:
-                for i in self.dwell_numbers:
-                    _export_single_dose_rate(
-                        self.dose_rate_tensor[i - 1],
-                        i,
-                        self.combined_dose,
-                        dir_export,
-                        dose_type,
-                        self.uncertainty_tensor[i - 1],
-                    )
+            if multi_processing:
+                with ThreadPoolExecutor(max_workers=16) as executor:
+                    futures = {
+                        executor.submit(_write_single_dose_rate, self.dose_rate_dict.get(dose_rate_name), dir_export, dose_extension):
+                            dose_rate_name for dose_rate_name in self.dose_rate_dict
+                        }
+                    for action in tqdm(as_completed(futures), desc="Writing dose rate maps"):
+                        try:
+                            action.result()
+                        except:
+                            failed_path = futures[action]
+                            raise ValueError(f"Failed writing f{failed_path}")
             else:
-                # prepare inputs to the parallel processing
-                if with_uncertainty and self.uncertainty_tensor is not None:
-                    print("Exporting dose rate maps with uncertainty")
-                    giant_export_list = [
-                        (dose_grid, dwell_number, uncertainty)
-                        for dose_grid, dwell_number, uncertainty in zip(
-                            self.dose_rate_tensor,
-                            self.dwell_numbers,
-                            self.uncertainty_tensor,
-                        )
-                    ]
-                else:
-                    print("Exporting dose rate maps without uncertainty")
-                    giant_export_list = [
-                        (dose_grid, dwell_number)
-                        for dose_grid, dwell_number in zip(
-                            self.dose_rate_tensor, self.dwell_numbers
-                        )
-                    ]
-                with Pool(cpu_count() - 2) as mp_pool:
-                    mp_pool.starmap(
-                        partial(
-                            _export_single_dose_rate,
-                            doseObj_template=self.combined_dose,
-                            dir_export=dir_export,
-                            dose_type=dose_type,
-                        ),
-                        giant_export_list,
-                    )
+                for dose_rate in tqdm(self.dose_rate_dict, desc="Writing dose rate maps"):
+                    _write_single_dose_rate(
+                        dose_rate=self.dose_rate_dict.get(dose_rate),
+                        dir_export=dir_export,
+                        dose_extension=dose_extension)
 
     def _export_catheter_table(self, dir_export: str):
         r"""
@@ -1658,18 +1575,27 @@ config do not match for structure {struc.name}"
                         }
                     )
         # create hotspot structures masks for each dwell pair
-        with Pool(processes=8) as pool:
-            partial_func = partial(
-                _gen_hotspot_mask,
-                gridSize=self.phantom.image_obj.gridSize,
-                origin=self.phantom.image_obj.origin,
-                spacing=self.phantom.image_obj.spacing,
-            )
-            hotspot_mask_list = list(
-                tqdm(pool.imap(partial_func,dwell_pairs),
-                total=len(dwell_pairs),
-                desc="Generating hotspot structures")
-            )
+        hotspot_mask_list = []
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(
+                    _gen_hotspot_mask,
+                    dwell_pair,
+                    self.phantom.image_obj.gridSize,
+                    self.phantom.image_obj.origin,
+                    self.phantom.image_obj.spacing,
+                ): dwell_pair for dwell_pair in dwell_pairs
+            }
+            for action in tqdm(
+                as_completed(futures),
+                desc="Generating hotspot estimator volumes",
+                total=len(dwell_pairs)
+            ):
+                try:
+                    hotspot_mask_list.append(action.result())
+                except:
+                    raise ValueError("failed building hotspot volumes")
+                    
         if one_hotspot_structure:
             mask_union = np.zeros_like(
                 hotspot_mask_list[0].mask.imageArray, dtype=bool
@@ -1726,32 +1652,27 @@ config do not match for structure {struc.name}"
     def get_dose_rate_matrices_for_catheter(
         self,
         catheter_index: int
-    ) -> List[List[np.ndarray]]:
+    ) -> Dict[str, BrachyDose]:
         r"""
         ### Purpose:
         - to get the dose rate matrices for all dwell positions in a given catheter.
-        this function assumes that the dose rate tensor is already sorted from small to 
-        large catheter and dwell indices.
+        this function assumes that dose rate dictionary matches the index+1 convension.
         ### Inputs:
         - catheter_index := the index of the catheter in the catheter table
         ### Outputs:
-        - dose_rate_matrices := a dictionary mapping catheter index to the list of dose rate matrices
-        from the dwell positions in that catheter.
+        - Dict[BrachyDose]: A dictionary containing the dose rates for the speicific catheter.
+        the keys are in the format catheter_{index+1}_dwell_{index+1}
+        TODO: get rid of +1 when moving towards catheter generation from digi points
+        TODO: Consider adding angle to the name later when IMBT is involved.
         """
-        start_doserate_index = 0
-        end_doserate_index = 0
-        for cat in self.catheter_table:
-            num_dwells_in_catheter = len(cat.dwells)
-            if cat.index < catheter_index:
-                start_doserate_index += num_dwells_in_catheter
-            elif cat.index == catheter_index:
-                end_doserate_index = start_doserate_index + num_dwells_in_catheter
-                break
-        dose_rate_indicices = np.arange(
-            start=start_doserate_index,
-            stop=end_doserate_index,
-            step=1)
-        return self.dose_rate_tensor[dose_rate_indicices]
+        dose_rates_catheter = defaultdict(BrachyDose)
+        
+        for name, dose_rate in self.dose_rate_dict.items():
+            cath_num = name.split("_")[1]
+            if catheter_index+1 == int(cath_num):
+                dwell_num = name.split("_")[2]
+                dose_rates_catheter[f"catheter_{cath_num}_dwell_{dwell_num}"] = dose_rate
+        return dose_rates_catheter
 
 def _gen_hotspot_mask(
     dwellpair: dict,
@@ -1791,85 +1712,37 @@ def _gen_hotspot_mask(
         in_dvh=False,
     )
 
-def _export_single_dose_rate(
-    dose_grid: np.array,
-    dwell_number: int,
-    uncertainty: np.array = None,
-    doseObj_template: BrachyDose = None,
-    dir_export: str = None,
-    dose_type: str = None,
-):
+def _write_single_dose_rate(
+    dose_rate:BrachyDose,
+    dir_export: str | Path = None,
+    dose_extension: str = None,
+    file_name: str = None,
+    ):
     r"""
     ### Purpose:
-    to write out a single dose rate map given the numpy grid for dose and uncertainty and
-    a template dose object that has the same origin, voxel spacing and axis.
+    to write out a single dose rate map and uncertainty to a directory.
     ### Inputs:
-    - dose_grid := the numpy array holding the dose rate maps
-    - dwell_number:= the dwell number of the dose rate map
-    - doseObj_template := a BrachyDose object that has the same origin, voxel spacing and axis
+    - dose_rate:= The BrachyDose object for the dose rate data.
     - dir_export:= the directory to which the dose rate maps will be exported
-    - dose_type := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
-    - uncertainty := the numpy array holding the uncertainty maps
+    - file_name:= The name of the file inside dir_export. Following the RapidBrachy standard, it should be
+    "run_{catheter.index+1}_{dwell.index+1}_{angle}.seq.nrrd". if none, dose_rate.path.name is used.
+    - dose_extension := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
     ### Output:
-    - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
+    - Void := dose file is written to dir_export+f"/{file_name}.{dose_type}
     """
-    raise Exception("Bug found here. file name should match the new standard")
-    doseObj = BrachyDose.dose_with_empty_grid_like(doseObj_template)
-    doseObj.set_dose_array(dose_grid)
-    if uncertainty is not None:
-        doseObj.set_uncertainty_array(uncertainty)
+    if file_name is None:
+        file_name = dose_rate.path.name.split(".")[0]
+    if dose_extension is None:
+        dose_extension = ".seq.nrrd"
+    dir_export = Path(dir_export)
+    pth_out = dir_export/(file_name+dose_extension)
+    dose_rate.write_brachydose_to_file(pth_dose_file=pth_out)
 
-    doseObj.write_brachydose_to_file(dir_export + f"/run_{dwell_number}" + dose_type)
-
-def _load_single_dose_or_uncertainty_to_dict(
-    pth_dose_rate: str, load_dose_or_uncertainty: str = "both"
-):
-    r""" "
-    ### Purpose:
-    - To load a single dose rate file into the BrachyPlan object.
-    this is to be used in the case of multiprocessing.
-    ### Inputs:
-    - pth_dose_rate := path to the dose rate file
-    - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
-    ### Outputs:
-    - dose_or_uncert_map := the dose rate or uncertainty map of the dwell position
-    specified by the index.
-        If load_dose_or_uncertainty == "both", then dose_or_uncert_map[0] is dose and
-        dose_or_uncert_map[1] is uncertainty.
-    ### Dependencies:
-    - BrachyDose()
-    """
-    # print("loading dose or uncertainty from:", pth_dose_rate)
-    dose_obj = BrachyDose(pth_dose_rate)
-    if load_dose_or_uncertainty == "both":
-        dose_or_uncert_map = np.zeros(
-            (2, *dose_obj.get_dose_array().shape), dtype=np.float32
-        )
-        dose_or_uncert_map[0] = dose_obj.get_dose_array()
-        dose_or_uncert_map[1] = dose_obj.get_uncertainty_array()
-
-    elif load_dose_or_uncertainty == "uncertainty":
-        try:
-            dose_or_uncert_map = np.zeros_like(
-                dose_obj.get_dose_array(), dtype=np.float32
-            )
-            dose_or_uncert_map = dose_obj.get_uncertainty_array()
-        except AttributeError:
-            warnings.warn(
-                f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...",
-                stacklevel=2,
-            )
-
-    elif load_dose_or_uncertainty == "dose":
-        dose_or_uncert_map = np.zeros_like(dose_obj.get_dose_array(), dtype=np.float32)
-        dose_or_uncert_map = dose_obj.get_dose_array()
-    else:
-        raise ValueError(
-            "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
-        )
-
-    return dose_or_uncert_map
-
+def _load_single_dose_rate(
+    pth_dose_rate:Path,
+    load_uncertainty=False
+    )->BrachyDose:
+        return BrachyDose(pth_dose_file=pth_dose_rate, load_uncertainty=load_uncertainty)
 
 def _type_nested_dict_list(data):
 

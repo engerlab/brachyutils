@@ -74,7 +74,7 @@ class BrachyDose:
         pth_dose_file: Optional[Path] | tuple[np.ndarray, defaultdict] = None,
         load_uncertainty: Optional[bool] = True,
     ):
-        self.path = pth_dose_file
+        self.path = Path(pth_dose_file) if pth_dose_file else None
         self.dose_image: DoseImage = None
         self.uncertainty_image: DoseImage = None
         self.voxel_edges: np.ndarray = None
@@ -86,6 +86,7 @@ class BrachyDose:
         # default dose unit length is mm
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
+        self.modification_time:float = self.path.stat().st_mtime if self.path else None
 
     def load_file_to_brachydose(
         self, pth_dose_file: Path, load_uncertainty: Optional[bool] = True
@@ -135,8 +136,6 @@ class BrachyDose:
                 raise ValueError("file extension not recognized")
             if self.dose_image is None:
                 raise ValueError("dose image not loaded")
-        # voxel_centers = self.get_voxel_centers()
-        # print(len(self.voxel_edges))
         if self.interpolation_function is None and self.dose_image is not None:
             self.create_interpolation_function()
 
@@ -1117,9 +1116,9 @@ class BrachyDose:
         Outputs:
             - dose_array := a numpy array containing the dose grid. in zyx order.
         """
-        return np.swapaxes(self.dose_image.imageArray, 0, 2)
+        return np.swapaxes(self.dose_image.imageArray, 0, 2).astype(float)
 
-    def set_dose_array(self, dose_array: np.ndarray) -> None:
+    def set_dose_array(self, dose_array: np.ndarray, dtype=np.float32) -> None:
         r"""
         Purpose:
             - To set the dose grid to a numpy array.
@@ -1129,7 +1128,7 @@ class BrachyDose:
         Outputs:
             - Void
         """
-        self.dose_image.imageArray = np.swapaxes(dose_array, 0, 2)
+        self.dose_image.imageArray = np.swapaxes(dose_array, 0, 2).astype(dtype)
 
     def get_uncertainty_array(self) -> np.ndarray:
         r"""
@@ -1140,9 +1139,9 @@ class BrachyDose:
         Outputs:
             - dose_array := a numpy array containing the uncertainty grid. in zyx order.
         """
-        return np.swapaxes(self.uncertainty_image.imageArray, 0, 2)
+        return np.swapaxes(self.uncertainty_image.imageArray, 0, 2).astype(float)
 
-    def set_uncertainty_array(self, uncertainty_array: np.ndarray) -> None:
+    def set_uncertainty_array(self, uncertainty_array: np.ndarray, dtype=np.float32) -> None:
         r"""
         Purpose:
             - To set the uncertainty grid to a numpy array.
@@ -1153,7 +1152,7 @@ class BrachyDose:
             - Void
         """
         if not (uncertainty_array is None):
-            self.uncertainty_image.imageArray = np.swapaxes(uncertainty_array, 0, 2)
+            self.uncertainty_image.imageArray = np.swapaxes(uncertainty_array, 0, 2).astype(dtype)
         else:
             self.uncertainty_image = None
 

@@ -1,30 +1,20 @@
 from typing import Dict, List, Optional
-import tqdm
-import time
-from copy import deepcopy
-import warnings
-import time
-from multiprocessing import Pool
-import os 
+from tqdm import tqdm
 from pathlib import Path
 
-from gurobipy import Model, Var, GRB, MVar, Env, QuadExpr, LinExpr
+from gurobipy import Model, Var, GRB, MVar
 import numpy as np
-import pandas as pd
 
-from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
-from brachyutils.types import BrachyPlan
+from brachyutils.types import BrachyPlan, BrachyDose
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
+    get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices, Optimization_Config
 )
 from brachyutils.planning.optimization.optim_gurobi import (
     DwellTime_Gurobi, _run, _get_optimized_plan_from_model)
-import multiprocessing as mp
-from functools import partial
 
 # likley to be factored out later
-from brachyutils.geometry.catheter_utils.catheter_table import Catheter, CatheterTable
+from brachyutils.geometry.catheter_utils.catheter_table import Catheter
 from itertools import chain
 
 class CatheterVar_Gurobi():
@@ -43,7 +33,7 @@ class CatheterVar_Gurobi():
         model: Model,
         lower_dwelltime: Optional[float] | Dict[str, float] = 0.0,
         upper_dwelltime: Optional[float] | Dict[str, float] = 100.0,
-        dose_rates: Optional[List[np.ndarray]] = None,
+        dose_rates: Optional[List[np.ndarray] | Dict[str, BrachyDose]] = None,
         ):
         r"""
         ### Purpose:
@@ -62,15 +52,16 @@ class CatheterVar_Gurobi():
         self.dose_rates = dose_rates
         self.build_backend_variable(model=model)
         for dwell in catheter.dwells:
+            dwell_var_name=f"{self.name}_dwell_{dwell.index+1}"
             self.dwelltime_variables.append(
                 DwellTime_Gurobi(
                     model = model,
-                    name = f"{self.name}_dwell_{dwell.index+1}",
+                    name = dwell_var_name,
                     dwell_time = dwell.time,
                     lower_bound = lower_dwelltime,
                     upper_bound = upper_dwelltime,
                     coordinates = dwell.position,
-                    dose_rate_map = self.dose_rates[dwell.index] if self.dose_rates is not None else None,
+                    dose_rate_map = self.dose_rates.get(dwell_var_name) if self.dose_rates is not None else None,
                 )
             )
     def build_backend_variable(self, model: Model):
@@ -304,10 +295,14 @@ def set_catheter_variables(
     else:
         catheter_vars_to_keep=[]
         name_cath_to_keep=[]
-    for catheter in plan.catheter_table:
+    for catheter in tqdm(
+        plan.catheter_table,
+        total=len(plan.catheter_table.catheter_list),
+        desc="Creating optimization variables from new catheters"):
         if f"catheter_{catheter.index+1}" in name_cath_to_keep:
             continue
         dose_rates = plan.get_dose_rate_matrices_for_catheter(catheter.index)
+
         catheter_vars_to_add.append(
             CatheterVar_Gurobi(
             catheter=catheter,
@@ -498,7 +493,7 @@ def set_dwell_coef_dict_per_structure(
         # Build dose rate matrix and dwell time vector for this structure
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
             dwellTimeVariables,
-            plan,
+            # plan,
             structure_name=structure.name,
             structure_mask=structure_mask,
             optim_spacing=structure.optimization_config.spacing_mm,
