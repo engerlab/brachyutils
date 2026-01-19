@@ -699,9 +699,12 @@ class BrachyPlan:
     def _calculate_combined_dose(self):
         """
         ### Purpose:
-        - To calculate the combined dose by multiplying the dose rate tensor with the dwell times array.
+        - To calculate the combined dose by multiplying the dose rates with the dwell times.
         The result is stored in the combined_dose attribute.
-
+        ### Inputs:
+        - None: but it needs the following attributes to be filled:
+        - self.dose_rate_dict
+        - self.catheter_table
         ### Raises:
             AssertionError: If the dose rate tensor or dwell times array is empty.
         """
@@ -709,13 +712,14 @@ class BrachyPlan:
             raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
         if not any(self.dwell_times):
             raise ValueError("dwell times array is empty. Run update_plan_from_catheter_table()")
-        
-        dose_rate_values:BrachyDose = list(self.dose_rate_dict.values())
-        
-        self.combined_dose = BrachyDose.dose_with_empty_grid_like(dose_rate_values[0])
-        # calculate the combined dose and store the result in the combined_dose attribute
-        for i, dose_rate in enumerate(dose_rate_values):
-            self.combined_dose.dose_image.imageArray += dose_rate.dose_image.imageArray * self.dwell_times[i]
+
+        self.combined_dose = BrachyDose.dose_with_empty_grid_like(
+            list(self.dose_rate_dict.values())[0])
+        for catheter in self.catheter_table:
+            for dwell in catheter.dwells:
+                self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
+                    f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                    ).dose_image.imageArray * dwell.time
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
