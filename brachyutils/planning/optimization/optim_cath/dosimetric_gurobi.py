@@ -62,15 +62,16 @@ class CatheterVar_Gurobi():
         self.dose_rates = dose_rates
         self.build_backend_variable(model=model)
         for dwell in catheter.dwells:
+            dwell_var_name=f"{self.name}_dwell_{dwell.index+1}"
             self.dwelltime_variables.append(
                 DwellTime_Gurobi(
                     model = model,
-                    name = f"{self.name}_dwell_{dwell.index+1}",
+                    name = dwell_var_name,
                     dwell_time = dwell.time,
                     lower_bound = lower_dwelltime,
                     upper_bound = upper_dwelltime,
                     coordinates = dwell.position,
-                    dose_rate_map = self.dose_rates[dwell.index] if self.dose_rates is not None else None,
+                    dose_rate_map = self.dose_rates.get(dwell_var_name) if self.dose_rates is not None else None,
                 )
             )
     def build_backend_variable(self, model: Model):
@@ -308,6 +309,7 @@ def set_catheter_variables(
         if f"catheter_{catheter.index+1}" in name_cath_to_keep:
             continue
         dose_rates = plan.get_dose_rate_matrices_for_catheter(catheter.index)
+
         catheter_vars_to_add.append(
             CatheterVar_Gurobi(
             catheter=catheter,

@@ -66,7 +66,8 @@ def test_catheter_table_optim():
         pth_dicom=pth_dicom,
         dir_dose_rates=dir_dose_rates,
         optimization_config_list=optimization_config_list,
-        generate_dose_rates=gen_dose_rates,)
+        generate_dose_rates=gen_dose_rates,
+        )
     catheter_optim_obj = CatheterTableOptim_Gurobi(
         plan=plan,
         multi_processing=True,

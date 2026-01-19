@@ -551,7 +551,10 @@ class BrachyPlan:
                     executor.submit(_load_single_dose_rate, pth, load_uncertainty): pth
                     for pth in new_dose_rate_files
                     }
-                for action in tqdm(as_completed(futures), desc="Loading dose rate maps"):
+                for action in tqdm(
+                    as_completed(futures),
+                    desc="Loading dose rate maps",
+                    total=len(new_dose_rate_files)):
                     try:
                         dose_rate = action.result()
                         self.dose_rate_dict[dose_rate.path.name] = dose_rate
@@ -559,7 +562,10 @@ class BrachyPlan:
                         failed_path = futures[action]
                         raise ValueError(f"Failed loading f{failed_path}")
         else:
-            for pth in tqdm(new_dose_rate_files, desc="Loading dose rate maps"):
+            for pth in tqdm(
+                new_dose_rate_files,
+                desc="Loading dose rate maps",
+                total=len(new_dose_rate_files)):
                 dose_rate = _load_single_dose_rate(
                     pth_dose_rate=pth,
                     load_uncertainty=load_uncertainty)
@@ -1639,32 +1645,27 @@ config do not match for structure {struc.name}"
     def get_dose_rate_matrices_for_catheter(
         self,
         catheter_index: int
-    ) -> List[List[np.ndarray]]:
+    ) -> Dict[str, BrachyDose]:
         r"""
         ### Purpose:
         - to get the dose rate matrices for all dwell positions in a given catheter.
-        this function assumes that the dose rate tensor is already sorted from small to 
-        large catheter and dwell indices.
+        this function assumes that dose rate dictionary matches the index+1 convension.
         ### Inputs:
         - catheter_index := the index of the catheter in the catheter table
         ### Outputs:
-        - dose_rate_matrices := a dictionary mapping catheter index to the list of dose rate matrices
-        from the dwell positions in that catheter.
+        - Dict[BrachyDose]: A dictionary containing the dose rates for the speicific catheter.
+        the keys are in the format catheter_{index+1}_dwell_{index+1}
+        TODO: get rid of +1 when moving towards catheter generation from digi points
+        TODO: Consider adding angle to the name later when IMBT is involved.
         """
-        start_doserate_index = 0
-        end_doserate_index = 0
-        for cat in self.catheter_table:
-            num_dwells_in_catheter = len(cat.dwells)
-            if cat.index < catheter_index:
-                start_doserate_index += num_dwells_in_catheter
-            elif cat.index == catheter_index:
-                end_doserate_index = start_doserate_index + num_dwells_in_catheter
-                break
-        dose_rate_indicices = np.arange(
-            start=start_doserate_index,
-            stop=end_doserate_index,
-            step=1)
-        return self.dose_rate_dict[dose_rate_indicices]
+        dose_rates_catheter = defaultdict(BrachyDose)
+        
+        for name, dose_rate in self.dose_rate_dict.items():
+            cath_num = name.split("_")[1]
+            if catheter_index+1 == int(cath_num):
+                dwell_num = name.split("_")[2]
+                dose_rates_catheter[f"catheter_{cath_num}_dwell_{dwell_num}"] = dose_rate
+        return dose_rates_catheter
 
 def _gen_hotspot_mask(
     dwellpair: dict,
@@ -1735,56 +1736,6 @@ def _load_single_dose_rate(
     load_uncertainty=False
     )->BrachyDose:
         return BrachyDose(pth_dose_file=pth_dose_rate, load_uncertainty=load_uncertainty)
-
-# def _load_single_dose_or_uncertainty_to_dict(
-#     pth_dose_rate: str, load_dose_or_uncertainty: str = "both"
-# ):
-#     r""" "
-#     ### Purpose:
-#     - To load a single dose rate file into the BrachyPlan object.
-#     this is to be used in the case of multiprocessing.
-#     ### Inputs:
-#     - pth_dose_rate := path to the dose rate file
-#     - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
-#     ### Outputs:
-#     - dose_or_uncert_map := the dose rate or uncertainty map of the dwell position
-#     specified by the index.
-#         If load_dose_or_uncertainty == "both", then dose_or_uncert_map[0] is dose and
-#         dose_or_uncert_map[1] is uncertainty.
-#     ### Dependencies:
-#     - BrachyDose()
-#     """
-#     # print("loading dose or uncertainty from:", pth_dose_rate)
-#     dose_obj = BrachyDose(pth_dose_rate)
-#     if load_dose_or_uncertainty == "both":
-#         dose_or_uncert_map = np.zeros(
-#             (2, *dose_obj.get_dose_array().shape), dtype=np.float32
-#         )
-#         dose_or_uncert_map[0] = dose_obj.get_dose_array()
-#         dose_or_uncert_map[1] = dose_obj.get_uncertainty_array()
-
-#     elif load_dose_or_uncertainty == "uncertainty":
-#         try:
-#             dose_or_uncert_map = np.zeros_like(
-#                 dose_obj.get_dose_array(), dtype=np.float32
-#             )
-#             dose_or_uncert_map = dose_obj.get_uncertainty_array()
-#         except AttributeError:
-#             warnings.warn(
-#                 f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...",
-#                 stacklevel=2,
-#             )
-
-#     elif load_dose_or_uncertainty == "dose":
-#         dose_or_uncert_map = np.zeros_like(dose_obj.get_dose_array(), dtype=np.float32)
-#         dose_or_uncert_map = dose_obj.get_dose_array()
-#     else:
-#         raise ValueError(
-#             "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
-#         )
-
-#     return dose_or_uncert_map
-
 
 def _type_nested_dict_list(data):
 
