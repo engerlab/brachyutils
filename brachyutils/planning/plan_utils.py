@@ -89,8 +89,6 @@ class BrachyPlan:
         #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
-        # type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
-        # load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
         load_uncertainty:bool=False,
         multi_processing: bool = False,
         combined_dose_only: bool = False,
@@ -506,8 +504,6 @@ class BrachyPlan:
     def load_dose_rate_dict(
         self,
         dir_dose_rate: str| Path,
-        # type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
-        # load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
         load_uncertainty:bool=False,
         multi_processing: bool = False,
         combined_dose_only: bool = False,
@@ -518,17 +514,16 @@ class BrachyPlan:
         patient's dose rate files and the catheter table loaded into the BrachyPlan object.
         In addition, combined dose is calculated as a linear combination of the dose rates
         and dwell times.
-        ### Inputs: XXX update inputs
-        - dir_dose_rate :=  path to the directory containing the dose rate files. we assume
-        that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
-        - multi_processing := if True, the dose rate files will be loaded in parallel. By default,
+        ### Inputs:
+        - `dir_dose_rate` :=  path to the directory containing the dose rate files. we assume
+        that the name of the dose rate files end as "run_X_X_X.seq.nrrd", "run_X_X_X.seq.nrrd", etc.
+        where the X corresponds to the catheter index+1, dwell index+1, and angle in increasing order.
+        - `load_uncertainty`:= If true, uncertainty is loaded from the dose file, else it'll be set to 1. 
+        - `multi_processing` := if True, the dose rate files will be loaded in parallel. By default,
         we use 8 cores for parallel processing.
-        - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
+        - `combined_dose_only`:bool = False := flag to keep only the combined dose in memory after loading.
         ### Outputs:
         - Void := will update the BrachyPlan.dose_rate_dict attribute
-        ### Dependencies:
-        - glob
-        - BrachyDose
         """
         # make sure catheter table is loaded
         assert self.catheter_table is not None, "catheter table is not loaded"
@@ -550,8 +545,8 @@ class BrachyPlan:
             elif Path.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
                 new_dose_rate_files.append(pth)
             else:
-                continue                
-            
+                continue
+
         if multi_processing:       
             with ThreadPoolExecutor() as executor:
                 futures = {
@@ -571,7 +566,7 @@ class BrachyPlan:
                     pth_dose_rate=pth,
                     load_uncertainty=load_uncertainty)
                 self.dose_rate_dict[dose_rate.path.name] = dose_rate
-        
+
         # now sort dose rates according to increasing catheter name and shield numbers
         # Fastest and most compact version
         sorted_items = sorted(

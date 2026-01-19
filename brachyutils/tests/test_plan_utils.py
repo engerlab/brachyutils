@@ -82,23 +82,22 @@ def test_create_structures_and_calc_dvh_metrics():
 
 
 def test_calculate_combined_uncertainty():
-    pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
+    from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
     dir_dose_rate = "data_test/prostate-glen-p1-dose"
 
+    catheter_table = CatheterTable(
+        catheter_list=pth_plan,
+        from_delivered_dwellpositions=True,
+    )
     plan_obj = BrachyPlan(
-        catheter_table=pth_cathTable_json,
+        catheter_table=catheter_table,
         dir_dose_rate=dir_dose_rate,
-        load_dose_or_uncertainty="uncertainty",
+        load_uncertainty=True,
         multi_processing=True,
     )
-
-    print(
-        f"The shape of the combined uncertainty is {plan_obj.combined_dose.uncertainty.shape}"
-    )
-    assert (
-        plan_obj.combined_dose.uncertainty.shape == plan_obj.combined_dose.grid.shape
-    ), "combined uncertainty shape does not match combined dose shape"
-
+    print(plan_obj.combined_dose.uncertainty_image.imageArray.mean())
 
 def test_calculate_uncertainty_per_structure():
     pth_catheter_table_json = (
@@ -330,9 +329,9 @@ def test_load_phantom():
 if __name__ == "__main__":
     # testupdate_plan_from_catheter_table()
     # test_update_catheter_table_from_plan()
-    test_load_dose_rate_dict()
+    # test_load_dose_rate_dict()
     # test_create_structures_and_calc_dvh_metrics()
-    # test_calculate_combined_uncertainty()
+    test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
