@@ -37,8 +37,10 @@ def test_load_dose_rate_dict():
     pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
     dir_dose_rate = "data_test/prostate-glen-p1-dose"
 
-    catheter_table = CatheterTable(catheter_list=pth_plan)
-
+    catheter_table = CatheterTable(
+        catheter_list=pth_plan,
+        from_delivered_dwellpositions=True,
+    )
     plan_obj = BrachyPlan(
         catheter_table=catheter_table,
         dir_dose_rate=dir_dose_rate,
