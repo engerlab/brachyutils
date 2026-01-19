@@ -473,14 +473,77 @@ def test_hotspot_estimators():
     # results.to_csv("data_test/test_export_plan/prostate/solvers_linObj_gurobi.csv")
     # print(optimized_plan.dwell_times)
 
+def test_scaling_plan_to_objective():
+    from brachyutils.planning.optimization.optim_utils import scale_to_objective
+    from brachyutils.geometry.phantom_utils import BrachyPhantom
+    from brachyutils.planning.plan_utils import BrachyPlan
+
+    from ai_assisted_brachy.utils.utils import sitk_bb_to_opentps_range
+    
+    import json
+    import os 
+    import glob
+
+    ai_assisted_brachy_pipeline_out_folder = "/home/sebq/EngerLab/AI_Assisted_Brachytherapy/ai_pipeline_validation_results_oar_lw_up_to_500_hotspotupto200_contraints_by_voxel_hotspothr2_more_runs_focusoptim50cc_scalingplans_mostcriteria/cat_Dataset010_oar_Dataset030/val_benchmark_fold_0/592479/"
+    exp_folder = os.path.join(ai_assisted_brachy_pipeline_out_folder, "manual_clinical_structures__clinical_dwellpos__auto_optimization")
+    phantom = BrachyPhantom(
+        pth_phantom_file=os.path.join(ai_assisted_brachy_pipeline_out_folder, "ct_isotropic_1mm.nrrd"),
+        pth_structures_file=os.path.join(ai_assisted_brachy_pipeline_out_folder, "manual_clinical_structures_isotropic_1mm.seg.nrrd"),
+    )
+    # Cropping the phantom to dose shape 
+    cropped_bounds_potential_path = glob.glob(os.path.join(exp_folder, "Doses", "*_cropped_bounds.json"))
+    assert len(cropped_bounds_potential_path) > 0, (
+        f"TG43 and MC DL doses already exist but could not find the cropped bounds file in {os.path.join(exp_folder, 'Doses')}."
+    )
+    with open(cropped_bounds_potential_path[0], "r") as file:
+        bounds_used = json.load(file)
+    bounds_index_range = sitk_bb_to_opentps_range(bounds_used)
+    phantom.crop_by_index(index_range=bounds_index_range, inplace=True, no_margin=True)
+    
+    dvh_goal_metrics_path = os.path.join(
+        ai_assisted_brachy_pipeline_out_folder, 
+        "manual_clinical_structures__clinical_dwellpos__auto_optimization",
+        "dvh_metric_goals.json")
+    with open(dvh_goal_metrics_path, 'r') as f:
+        dvh_metric_goals = json.load(f)
+
+    plan = BrachyPlan(
+        phantom=phantom,
+        dvh_metric_goals=dvh_metric_goals,
+        prescription_dose=dvh_metric_goals["target_dose"],
+        catheter_table=os.path.join(exp_folder, "optimized_catheter_table_30_randominit_20_moboiter_opt_on_tg43.json"),
+        # dir_dose_rate=os.path.join(ai_assisted_brachy_pipeline_out_folder, "test_numdosepoints/cat_Dataset010_oar_Dataset030/val_benchmark_fold_0/592479/AI_structures__AI_catheter_contour_created_dwellpos__auto_optimization/Doses/TG43_doses"),
+        combined_dose=os.path.join(exp_folder, "Doses/TG43_doses/combined_30_randominit_20_moboiter_opt_on_tg43.seq.nrrd"),
+    )
+
+    print("Before scaling:", plan.get_dvh_metrics(return_percentage=False, bin_size=0.0001))
+    plan, scale_factor = scale_to_objective(
+        plan=plan,
+        objective_to_scale_to={"V100%(PTV)": 81}, # 87.1169}, # {"D90%(CTV)": 6.}, #
+    )
+    ## If you loaded dose rates
+    # plan.update_plan_from_catheter_table()
+
+    ## If you loaded combined dose directly
+    plan.combined_dose.dose_image.imageArray = plan.combined_dose.dose_image.imageArray * scale_factor
+    print("After scaling:", plan.get_dvh_metrics(return_percentage=False, bin_size=0.0001))
+
+    plan, scale_factor = scale_to_objective(
+        plan=plan,
+        objective_to_scale_to={"V100%(PTV)": 81}, # 87.1169}, # {"D90%(CTV)": 6.}, #
+    )
+    plan.combined_dose.dose_image.imageArray = plan.combined_dose.dose_image.imageArray * scale_factor
+    print("After second scaling:", plan.get_dvh_metrics(return_percentage=False, bin_size=0.0001))
+
 
 if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()
     # test_get_optimization_roi_bounds()
-    test_run_gurobi_optim()
+    # test_run_gurobi_optim()
     # test_dwellTime_AMPL()
     # test_run_ampl_optim()
     # test_dwelltime_orTools()
     # test_run_ortool_optim()
     # test_hotspot_estimators()
+    test_scaling_plan_to_objective()

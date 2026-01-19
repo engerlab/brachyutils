@@ -77,6 +77,7 @@ def scale_to_objective(
         masked_dose = plan.combined_dose.dose_image.imageArray[structure_mask] # this is flattened: dim (1, num_dose_points in structure)
         # Getting the current number of voxels used to compute the metric
         current_number_voxels_considered = current_metric_value / voxels_cubic_size_mm
+        # Dvh metrics returned by OpenTPS can be floating points since they are interpolated
         current_number_voxels_considered = int(np.round(current_number_voxels_considered))
         dose_points_sorted = np.sort(masked_dose)[::-1] # descending order from hotest voxels so that Vx is first chunk of voxels 
 
@@ -91,19 +92,24 @@ def scale_to_objective(
             if volume_diff > 0:
                 # need to increase volume by number_of_voxels_diff voxels
                 # We check the dose that is ordered in the number_of_voxels_diff voxel after the current metric 
-                new_min_dose_to_scale_up = dose_points_sorted[
-                    min(
+                index = min(
                         current_number_voxels_considered-1 + 
                         # We want to make sure we remain above threshold
                         int(number_of_voxels_diff * (1 + uncertainty_in_numvoxels_in_dvh_cacl)),
                         len(dose_points_sorted)-1
-                    )]
-                assert new_min_dose_to_scale_up < current_max_dose_considered_for_metric, \
-                    "New min dose to scale up must be less than current max dose considered for metric."
+                    )
+                new_min_dose_to_scale_up = dose_points_sorted[index]
+                assert new_min_dose_to_scale_up <= current_max_dose_considered_for_metric, \
+                    f"""New min dose to scale up must be less than current max dose considered for metric.
+                    But got new_min_dose_to_scale_up: {new_min_dose_to_scale_up:.2f}, and 
+                    current_max_dose_considered_for_metric: {current_max_dose_considered_for_metric:.2f}"""
+                if index == len(dose_points_sorted)-1:
+                    print("WARNING: Your V DVH metric cannot exceed the size of the structure you are scaling the DVH metric for.")
                 scale_factor = current_max_dose_considered_for_metric/new_min_dose_to_scale_up
-                assert scale_factor > 1.0, "Scale factor must be greater than 1.0 when increasing volume for V dvh metric."
+                assert scale_factor >= 1.0, "Scale factor must be greater than 1.0 when increasing volume for V dvh metric."
 
             else:
+                # need to decrease volume by number_of_voxels_diff voxels
                 new_max_dose_to_scale_down = dose_points_sorted[
                     max(
                     current_number_voxels_considered-1 - 
@@ -111,10 +117,12 @@ def scale_to_objective(
                     int(number_of_voxels_diff * (1 - uncertainty_in_numvoxels_in_dvh_cacl)),
                     0
                     )]
-                assert new_max_dose_to_scale_down > current_max_dose_considered_for_metric, \
-                    "New max dose to scale down must be greater than current max dose considered for metric."
+                assert new_max_dose_to_scale_down >= current_max_dose_considered_for_metric, \
+                    f"""New max dose to scale down must be greater than current max dose considered for metric.
+                    But got new_max_dose_to_scale_down: {new_max_dose_to_scale_down:.2f}, and
+                    current_max_dose_considered_for_metric: {current_max_dose_considered_for_metric:.2f}"""
                 scale_factor = current_max_dose_considered_for_metric/new_max_dose_to_scale_down
-                assert scale_factor < 1.0, "Scale factor must be less than 1.0 when decreasing volume for V dvh metric."
+                assert scale_factor <= 1.0, "Scale factor must be less than 1.0 when decreasing volume for V dvh metric."
 
     # Apply scaling to dwell times
     print(f"Applying scale factor {scale_factor:.4f} to dwell times to reach target {metric_to_scale} of {target_metric_value:.2f} from {current_metric_value:.2f}...")
@@ -143,7 +151,7 @@ def scale_to_objective(
         assert abs(newval - targetval) <= abs(ogval - targetval), \
             f"Failed to get closer to target {metric_to_scale}. Before: {ogval:.2f}, After: {newval:.2f}, Target: {targetval:.2f}"
 
-    return plan
+    return plan, scale_factor
 
 
 def crop_resample_dose_rate_map_and_mask(
@@ -348,7 +356,7 @@ class Optimization_Config(BaseModel):
         - quadratic_coeff: float := The quadratic coefficient for the optimization objective function.
         """
         assert self.num_dose_points is not None, "num_dose_points must be set before accessing quadratic_coeff"
-        return self.penalty_weight_quadratic / self.num_dose_points
+        return self.penalty_weight_quadratic / (self.num_dose_points * self.num_dose_points)
     
     @computed_field
     def uniformity_coeff(self) -> float:
@@ -359,7 +367,7 @@ class Optimization_Config(BaseModel):
         - uniformity_coeff: float := The uniformity coefficient for the optimization objective function.
         """
         assert self.num_dose_points is not None, "num_dose_points must be set before accessing uniformity_coeff"
-        return self.penalty_weight_uniformity / (self.num_dose_points * 1000)
+        return self.penalty_weight_uniformity / (self.num_dose_points * self.num_dose_points)
 
     @computed_field
     def hotspot_coeff(self) -> float:
