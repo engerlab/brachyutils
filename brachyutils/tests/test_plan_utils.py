@@ -141,12 +141,16 @@ def test_BrachyPlan():
     }
     t0 = time.time()
     plan_obj = BrachyPlan(
+        prescription_dose=21,
         catheter_table=pth_catheter_table_json,
         phantom=dir_dicom,
         dvh_metric_goals=dvh_metric_goals,
     )
     t1 = time.time()
     print(f"loading the plan took {t1-t0} seconds")
+    plan_obj.combined_dose.write_brachydose_to_file(
+        "data_test/test_export_plan/prostate/combined.seq.nrrd"
+    )
 
 
 def test__load_single_dose_or_uncertainty_to_dict():
@@ -223,10 +227,11 @@ def test_load_brachy_plan_from_dicom():
     from brachyutils.geometry.phantom_utils import BrachyPhantom
 
     pth_dicom = Path("data_test/prostate-glen-p1-dcm")
+    pth_dose_rates = Path("data_test/prostate-glen-p1-dose")
     dvh_metric_goals = {
-        "D95%(ctv)": 15,
-        "D1cc(rectum)": 11.25,
-        "D0.1cc(urethra)": 18.75,
+        "D95%(ctv)": 21,
+        "D1cc(rectum)": 21*0.75,
+        "D0.1cc(urethra)": 21*1.25,
     }
     brachy_phant = BrachyPhantom(
         dir_dicom=pth_dicom,
@@ -234,10 +239,17 @@ def test_load_brachy_plan_from_dicom():
     )
     plan_obj = BrachyPlan(
         phantom=brachy_phant,
-        prescription_dose=15,
+        prescription_dose=21,
         dvh_metric_goals=dvh_metric_goals,
+        dir_dose_rate=pth_dose_rates,
+        combined_dose_only=True,
+        catheter_table=list(pth_dicom.glob("RP*.dcm"))[0],
+        from_delivered_dwellpositions=True,
     )
     plan_obj.info()
+    plan_obj.combined_dose.write_brachydose_to_file(
+        "data_test/test_export_plan/prostate/combined.seq.nrrd"
+    )
 
 def test_load_applicator_list():
     dir_dicom = "data_test/rectal-jgh-dcm"
