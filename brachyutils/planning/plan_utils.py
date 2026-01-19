@@ -996,7 +996,7 @@ class BrachyPlan:
         - export_format := the export_format of the exported plan. options are:
 
             - "RapidBrachy":
-                - "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
+                - "run_#_#_#.3ddose" or "run_#_#_#.minidos" or "run_#_#_#.seq.nrrd",
                 - "catheter_table.json"
                 - "dwell_#.plan",
                 - "run_#.mac",
@@ -1094,7 +1094,6 @@ class BrachyPlan:
     def _export_dose(
         self,
         dir_export: str,
-        # with_uncertainty=False,
         dose_extension=".seq.nrrd",
         dose_rate_maps=False,
         multi_processing:bool=True,
