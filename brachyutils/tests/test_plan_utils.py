@@ -250,6 +250,9 @@ def test_load_brachy_plan_from_dicom():
     plan_obj.combined_dose.write_brachydose_to_file(
         "data_test/test_export_plan/prostate/combined.seq.nrrd"
     )
+    plan_obj.catheter_table.write_to_json(
+        "data_test/test_export_plan/prostate/combined_cathtable.json"
+    )
 
 def test_load_applicator_list():
     dir_dicom = "data_test/rectal-jgh-dcm"
