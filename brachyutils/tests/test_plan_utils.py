@@ -45,12 +45,8 @@ def test_load_dose_rate_dict():
         load_dose_or_uncertainty="dose",
         multi_processing=True,
     )
-
-    print(f"The shape of the dose rate tensor is {plan_obj.dose_rate_dict.shape}")
-    print(
-        f"The shape of the combined dose is {plan_obj.combined_dose.dose_image.gridSize}"
-    )
-
+    plan_obj.combined_dose.write_brachydose_to_file(
+        "data_test/test_export_plan/prostate/new_combined.seq.nrrd")
 
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "data_test/prostate-glen-p1-dcm"
