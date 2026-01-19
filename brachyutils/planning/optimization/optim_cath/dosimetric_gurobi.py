@@ -500,7 +500,7 @@ def set_dwell_coef_dict_per_structure(
         # Build dose rate matrix and dwell time vector for this structure
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
             dwellTimeVariables,
-            plan,
+            # plan,
             structure_name=structure.name,
             structure_mask=structure_mask,
             optim_spacing=structure.optimization_config.spacing_mm,
