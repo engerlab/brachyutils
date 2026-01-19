@@ -152,7 +152,7 @@ def _get_optimized_plan_from_model(
                     dwell_position.time = dwell_time
 
     if objective_to_scale_to is not None:
-        outplan = scale_to_objective(outplan, objective_to_scale_to)
+        outplan, _ = scale_to_objective(outplan, objective_to_scale_to)
 
 
 
