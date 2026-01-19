@@ -10,7 +10,7 @@ from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from typing import List, Literal, Union, Dict, Tuple
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 
 import numpy as np
 from opentps.core.data import DVH, ROIContour
@@ -1577,18 +1577,27 @@ config do not match for structure {struc.name}"
                         }
                     )
         # create hotspot structures masks for each dwell pair
-        with Pool(processes=8) as pool:
-            partial_func = partial(
-                _gen_hotspot_mask,
-                gridSize=self.phantom.image_obj.gridSize,
-                origin=self.phantom.image_obj.origin,
-                spacing=self.phantom.image_obj.spacing,
-            )
-            hotspot_mask_list = list(
-                tqdm(pool.imap(partial_func,dwell_pairs),
-                total=len(dwell_pairs),
-                desc="Generating hotspot structures")
-            )
+        hotspot_mask_list = []
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(
+                    _gen_hotspot_mask,
+                    dwell_pair,
+                    self.phantom.image_obj.gridSize,
+                    self.phantom.image_obj.origin,
+                    self.phantom.image_obj.spacing,
+                ): dwell_pair for dwell_pair in dwell_pairs
+            }
+            for action in tqdm(
+                as_completed(futures),
+                desc="Generating hotspot estimator volumes",
+                total=len(dwell_pairs)
+            ):
+                try:
+                    hotspot_mask_list.append(action.result())
+                except:
+                    raise ValueError("failed building hotspot volumes")
+                    
         if one_hotspot_structure:
             mask_union = np.zeros_like(
                 hotspot_mask_list[0].mask.imageArray, dtype=bool
