@@ -47,6 +47,8 @@ def test_load_dose_rate_dict():
     )
     plan_obj.combined_dose.write_brachydose_to_file(
         "data_test/test_export_plan/prostate/new_combined.seq.nrrd")
+    plan_obj.catheter_table.write_to_json(
+        "data_test/test_export_plan/prostate/new_cathtabel.json")
 
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "data_test/prostate-glen-p1-dcm"
