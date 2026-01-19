@@ -243,8 +243,6 @@ class BrachyPlan:
         if dir_dose_rate is not None and combined_dose is None:
             self.load_dose_rate_dict(
                 dir_dose_rate=dir_dose_rate,
-                # type_dose_file=type_dose_file,
-                # load_dose_or_uncertainty=load_dose_or_uncertainty,
                 load_uncertainty=load_uncertainty,
                 multi_processing=multi_processing,
                 combined_dose_only=combined_dose_only,
@@ -548,7 +546,7 @@ class BrachyPlan:
                 continue
 
         if multi_processing:       
-            with ThreadPoolExecutor() as executor:
+            with ThreadPoolExecutor(max_workers=16) as executor:
                 futures = {
                     executor.submit(_load_single_dose_rate, pth, load_uncertainty): pth
                     for pth in new_dose_rate_files
@@ -987,7 +985,8 @@ class BrachyPlan:
         self,
         dir_export: str | Path,
         content_to_export: Dict[str, bool | str] = None,
-        export_format: str = "RapidBrachy"
+        export_format: str = "RapidBrachy",
+        multi_processing:str = True,
     ):
         r"""
         ### Purpose:
@@ -1036,9 +1035,10 @@ class BrachyPlan:
             if content_to_export.get("dose", False):
                 self._export_dose(
                     dir_export=str(dir_export),
-                    with_uncertainty=content_to_export.get("uncertainty", False),
-                    dose_type=content_to_export.get("dose_type", ".seq.nrrd"),
+                    # with_uncertainty=content_to_export.get("uncertainty", False),
+                    dose_extension=content_to_export.get("dose_type", ".seq.nrrd"),
                     dose_rate_maps=content_to_export.get("dose_rate_maps", False),
+                    multi_processing=multi_processing
                 )
                 print("Dose exported successfully")
             if content_to_export.get("catheter_table", False):
@@ -1094,9 +1094,10 @@ class BrachyPlan:
     def _export_dose(
         self,
         dir_export: str,
-        with_uncertainty=False,
-        dose_type=".seq.nrrd",
+        # with_uncertainty=False,
+        dose_extension=".seq.nrrd",
         dose_rate_maps=False,
+        multi_processing:bool=True,
     ):
         r"""
         ### Purpose:
@@ -1105,61 +1106,39 @@ class BrachyPlan:
         ### Inputs:
         - dir_export := the directory to which the dose map will be exported.
         - uncertainty := if True, the uncertainty map will be exported as well.
-        - dose_type := the type of dose map to be exported. options are ".3ddose", ".minidos", or ".nrrd".
+        - dose_extension := the type of dose map to be exported. options are ".3ddose", ".minidos", or ".nrrd".
         - dose_rate_maps := if True, the dose rate maps will be exported as well.
         ### Outputs:
         - Void := will export the dose map into the specified export directory.
         ### Dependencies:
-        - _export_single_dose_rate()
+        - _write_single_dose_rate()
         - multiprocessing
         """
         assert self.combined_dose is not None, "combined dose is not calculated yet"
         # if uncertainty:
         self.combined_dose.write_brachydose_to_file(
-            Path(dir_export) / f"combined{dose_type}"
+            Path(dir_export) / f"combined{dose_extension}"
         )
 
         if dose_rate_maps:
-            if cpu_count() < 4:
-                for i in self.dwell_numbers:
-                    _export_single_dose_rate(
-                        self.dose_rate_dict[i - 1],
-                        i,
-                        self.combined_dose,
-                        dir_export,
-                        dose_type,
-                        self.uncertainty_tensor[i - 1],
-                    )
+            if multi_processing:
+                with ThreadPoolExecutor(max_workers=16) as executor:
+                    futures = {
+                        executor.submit(_write_single_dose_rate, self.dose_rate_dict.get(dose_rate_name), dir_export, dose_extension):
+                            dose_rate_name for dose_rate_name in self.dose_rate_dict
+                        }
+                    for action in tqdm(as_completed(futures), desc="Writing dose rate maps"):
+                        try:
+                            action.result()
+                        except:
+                            failed_path = futures[action]
+                            raise ValueError(f"Failed writing f{failed_path}")
             else:
-                # prepare inputs to the parallel processing
-                if with_uncertainty and self.uncertainty_tensor is not None:
-                    print("Exporting dose rate maps with uncertainty")
-                    giant_export_list = [
-                        (dose_grid, dwell_number, uncertainty)
-                        for dose_grid, dwell_number, uncertainty in zip(
-                            self.dose_rate_dict,
-                            self.dwell_numbers,
-                            self.uncertainty_tensor,
-                        )
-                    ]
-                else:
-                    print("Exporting dose rate maps without uncertainty")
-                    giant_export_list = [
-                        (dose_grid, dwell_number)
-                        for dose_grid, dwell_number in zip(
-                            self.dose_rate_dict, self.dwell_numbers
-                        )
-                    ]
-                with Pool(cpu_count() - 2) as mp_pool:
-                    mp_pool.starmap(
-                        partial(
-                            _export_single_dose_rate,
-                            doseObj_template=self.combined_dose,
-                            dir_export=dir_export,
-                            dose_type=dose_type,
-                        ),
-                        giant_export_list,
-                    )
+                for dose_rate in tqdm(self.dose_rate_dict, desc="Writing dose rate maps"):
+                    _write_single_dose_rate(
+                        dose_rate=self.dose_rate_dict.get(dose_rate),
+                        dir_export=dir_export,
+                        dose_extension=dose_extension)
 
     def _export_catheter_table(self, dir_export: str):
         r"""
@@ -1726,35 +1705,31 @@ def _gen_hotspot_mask(
         in_dvh=False,
     )
 
-def _export_single_dose_rate(
-    dose_grid: np.array,
-    dwell_number: int,
-    uncertainty: np.array = None,
-    doseObj_template: BrachyDose = None,
-    dir_export: str = None,
-    dose_type: str = None,
-):
+def _write_single_dose_rate(
+    dose_rate:BrachyDose,
+    dir_export: str | Path = None,
+    dose_extension: str = None,
+    file_name: str = None,
+    ):
     r"""
     ### Purpose:
-    to write out a single dose rate map given the numpy grid for dose and uncertainty and
-    a template dose object that has the same origin, voxel spacing and axis.
+    to write out a single dose rate map and uncertainty to a directory.
     ### Inputs:
-    - dose_grid := the numpy array holding the dose rate maps
-    - dwell_number:= the dwell number of the dose rate map
-    - doseObj_template := a BrachyDose object that has the same origin, voxel spacing and axis
+    - dose_rate:= The BrachyDose object for the dose rate data.
     - dir_export:= the directory to which the dose rate maps will be exported
-    - dose_type := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
-    - uncertainty := the numpy array holding the uncertainty maps
+    - file_name:= The name of the file inside dir_export. Following the RapidBrachy standard, it should be
+    "run_{catheter.index+1}_{dwell.index+1}_{angle}.seq.nrrd". if none, dose_rate.path.name is used.
+    - dose_extension := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
     ### Output:
-    - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
+    - Void := dose file is written to dir_export+f"/{file_name}.{dose_type}
     """
-    raise Exception("Bug found here. file name should match the new standard")
-    doseObj = BrachyDose.dose_with_empty_grid_like(doseObj_template)
-    doseObj.set_dose_array(dose_grid)
-    if uncertainty is not None:
-        doseObj.set_uncertainty_array(uncertainty)
-
-    doseObj.write_brachydose_to_file(dir_export + f"/run_{dwell_number}" + dose_type)
+    if file_name is None:
+        file_name = dose_rate.path.name.split(".")[0]
+    if dose_extension is None:
+        dose_extension = ".seq.nrrd"
+    dir_export = Path(dir_export)
+    pth_out = dir_export/(file_name+dose_extension)
+    dose_rate.write_brachydose_to_file(pth_dose_file=pth_out)
 
 def _load_single_dose_rate(
     pth_dose_rate:Path,
@@ -1762,54 +1737,54 @@ def _load_single_dose_rate(
     )->BrachyDose:
         return BrachyDose(pth_dose_file=pth_dose_rate, load_uncertainty=load_uncertainty)
 
-def _load_single_dose_or_uncertainty_to_dict(
-    pth_dose_rate: str, load_dose_or_uncertainty: str = "both"
-):
-    r""" "
-    ### Purpose:
-    - To load a single dose rate file into the BrachyPlan object.
-    this is to be used in the case of multiprocessing.
-    ### Inputs:
-    - pth_dose_rate := path to the dose rate file
-    - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
-    ### Outputs:
-    - dose_or_uncert_map := the dose rate or uncertainty map of the dwell position
-    specified by the index.
-        If load_dose_or_uncertainty == "both", then dose_or_uncert_map[0] is dose and
-        dose_or_uncert_map[1] is uncertainty.
-    ### Dependencies:
-    - BrachyDose()
-    """
-    # print("loading dose or uncertainty from:", pth_dose_rate)
-    dose_obj = BrachyDose(pth_dose_rate)
-    if load_dose_or_uncertainty == "both":
-        dose_or_uncert_map = np.zeros(
-            (2, *dose_obj.get_dose_array().shape), dtype=np.float32
-        )
-        dose_or_uncert_map[0] = dose_obj.get_dose_array()
-        dose_or_uncert_map[1] = dose_obj.get_uncertainty_array()
+# def _load_single_dose_or_uncertainty_to_dict(
+#     pth_dose_rate: str, load_dose_or_uncertainty: str = "both"
+# ):
+#     r""" "
+#     ### Purpose:
+#     - To load a single dose rate file into the BrachyPlan object.
+#     this is to be used in the case of multiprocessing.
+#     ### Inputs:
+#     - pth_dose_rate := path to the dose rate file
+#     - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
+#     ### Outputs:
+#     - dose_or_uncert_map := the dose rate or uncertainty map of the dwell position
+#     specified by the index.
+#         If load_dose_or_uncertainty == "both", then dose_or_uncert_map[0] is dose and
+#         dose_or_uncert_map[1] is uncertainty.
+#     ### Dependencies:
+#     - BrachyDose()
+#     """
+#     # print("loading dose or uncertainty from:", pth_dose_rate)
+#     dose_obj = BrachyDose(pth_dose_rate)
+#     if load_dose_or_uncertainty == "both":
+#         dose_or_uncert_map = np.zeros(
+#             (2, *dose_obj.get_dose_array().shape), dtype=np.float32
+#         )
+#         dose_or_uncert_map[0] = dose_obj.get_dose_array()
+#         dose_or_uncert_map[1] = dose_obj.get_uncertainty_array()
 
-    elif load_dose_or_uncertainty == "uncertainty":
-        try:
-            dose_or_uncert_map = np.zeros_like(
-                dose_obj.get_dose_array(), dtype=np.float32
-            )
-            dose_or_uncert_map = dose_obj.get_uncertainty_array()
-        except AttributeError:
-            warnings.warn(
-                f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...",
-                stacklevel=2,
-            )
+#     elif load_dose_or_uncertainty == "uncertainty":
+#         try:
+#             dose_or_uncert_map = np.zeros_like(
+#                 dose_obj.get_dose_array(), dtype=np.float32
+#             )
+#             dose_or_uncert_map = dose_obj.get_uncertainty_array()
+#         except AttributeError:
+#             warnings.warn(
+#                 f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...",
+#                 stacklevel=2,
+#             )
 
-    elif load_dose_or_uncertainty == "dose":
-        dose_or_uncert_map = np.zeros_like(dose_obj.get_dose_array(), dtype=np.float32)
-        dose_or_uncert_map = dose_obj.get_dose_array()
-    else:
-        raise ValueError(
-            "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
-        )
+#     elif load_dose_or_uncertainty == "dose":
+#         dose_or_uncert_map = np.zeros_like(dose_obj.get_dose_array(), dtype=np.float32)
+#         dose_or_uncert_map = dose_obj.get_dose_array()
+#     else:
+#         raise ValueError(
+#             "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
+#         )
 
-    return dose_or_uncert_map
+#     return dose_or_uncert_map
 
 
 def _type_nested_dict_list(data):
