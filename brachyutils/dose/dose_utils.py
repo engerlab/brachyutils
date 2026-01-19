@@ -74,7 +74,7 @@ class BrachyDose:
         pth_dose_file: Optional[Path] | tuple[np.ndarray, defaultdict] = None,
         load_uncertainty: Optional[bool] = True,
     ):
-        self.path = Path(pth_dose_file)
+        self.path = Path(pth_dose_file) if pth_dose_file else None
         self.dose_image: DoseImage = None
         self.uncertainty_image: DoseImage = None
         self.voxel_edges: np.ndarray = None
@@ -86,7 +86,7 @@ class BrachyDose:
         # default dose unit length is mm
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
-        self.modification_time:float = self.path.stat().st_mtime
+        self.modification_time:float = self.path.stat().st_mtime if self.path else None
 
     def load_file_to_brachydose(
         self, pth_dose_file: Path, load_uncertainty: Optional[bool] = True
