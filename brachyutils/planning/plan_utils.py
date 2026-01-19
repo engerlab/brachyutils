@@ -4,16 +4,14 @@ import os
 
 import warnings
 from copy import deepcopy
-from functools import partial
 from glob import glob
-from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from typing import List, Literal, Union, Dict, Tuple
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
-from opentps.core.data import DVH, ROIContour
+from opentps.core.data import ROIContour
 from opentps.core.data.images import ROIMask
 
 from tqdm import tqdm
