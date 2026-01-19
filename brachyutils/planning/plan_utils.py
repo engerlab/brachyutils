@@ -10,7 +10,7 @@ from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from typing import List, Literal, Union, Dict, Tuple
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 from opentps.core.data import DVH, ROIContour
