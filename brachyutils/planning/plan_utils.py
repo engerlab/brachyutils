@@ -705,19 +705,17 @@ class BrachyPlan:
         ### Raises:
             AssertionError: If the dose rate tensor or dwell times array is empty.
         """
-        assert (
-            self.dose_rate_dict.size != 0
-        ), "dose rate tensor is empty. Run load_dose_rate_dict()"
-        assert (
-            self.dwell_times.size != 0
-        ), "dwell times array is empty. Run update_plan_from_catheter_table()"
-
+        if not any(self.dose_rate_dict):
+            raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
+        if not any(self.dwell_times):
+            raise ValueError("dwell times array is empty. Run update_plan_from_catheter_table()")
+        
+        dose_rate_values:BrachyDose = list(self.dose_rate_dict.values())
+        
+        self.combined_dose = BrachyDose.dose_with_empty_grid_like(dose_rate_values[0])
         # calculate the combined dose and store the result in the combined_dose attribute
-        temp_dose_array = np.zeros_like(self.dose_rate_dict[0])
-        for i in range(self.num_dwells):
-            temp_dose_array += self.dose_rate_dict[i] * self.dwell_times[i]
-
-        self.combined_dose.set_dose_array(temp_dose_array)
+        for i, dose_rate in enumerate(dose_rate_values):
+            self.combined_dose.dose_image.imageArray += dose_rate.dose_image.imageArray * self.dwell_times[i]
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
