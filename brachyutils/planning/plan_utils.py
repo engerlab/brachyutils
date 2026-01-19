@@ -1,4 +1,4 @@
-import gc
+import re
 import json
 import os
 
@@ -514,16 +514,13 @@ class BrachyPlan:
     ):
         r"""
         ### Purpose:
-        - To load the dose rate tensor into the BrachyPlan object given a folder with
+        - To load the dose rates into the BrachyPlan object given a folder with
         patient's dose rate files and the catheter table loaded into the BrachyPlan object.
         In addition, combined dose is calculated as a linear combination of the dose rates
         and dwell times.
         ### Inputs: XXX update inputs
         - dir_dose_rate :=  path to the directory containing the dose rate files. we assume
         that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
-        - type_dose_file := the type of dose rate file. The type could be ".nrrd" or ".3ddose"
-        consult BrachyDose in dose_utils.py for more info on the dose rate file types.
-        - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
         - multi_processing := if True, the dose rate files will be loaded in parallel. By default,
         we use 8 cores for parallel processing.
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
@@ -574,8 +571,21 @@ class BrachyPlan:
                     pth_dose_rate=pth,
                     load_uncertainty=load_uncertainty)
                 self.dose_rate_dict[dose_rate.path.name] = dose_rate
+        
+        # now sort dose rates according to increasing catheter name and shield numbers
+        # Fastest and most compact version
+        sorted_items = sorted(
+            self.dose_rate_dict.items(),
+            key=lambda f: tuple(map(int, f[0].removeprefix('run_').removesuffix('.seq.nrrd').split('_')))
+        )
+        self.dose_rate_dict = defaultdict(BrachyDose, sorted_items)
 
-        print("debug here")
+        self._calculate_combined_dose()
+        if load_uncertainty:
+            self._calculate_combined_uncertainty()
+        if combined_dose_only:
+            del self.dose_rate_dict
+
         # def get_dwell_order(dose_rate_path):
         #     file_name = os.path.basename(dose_rate_path)
         #     return get_dwell_order_from_file_name(file_name)
