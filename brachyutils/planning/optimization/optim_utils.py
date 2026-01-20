@@ -289,22 +289,24 @@ class Constraint_Config(BaseModel):
     _model_variable: Any = None
     """
     name: str
-    minimum: int | float = 0
+    minimum: int | float = None
     maximum: int | float = None
     equal: int | float = None
     # _model_variable: Any = None
     @model_validator(mode="after")
     def sanity_check(self):
         if self.maximum is not None:
-            if self.minimum > self.maximum:
-                raise ValueError(f"maximum value cannot be less than \
+            if self.minimum:
+                if self.minimum > self.maximum:
+                    raise ValueError(f"maximum value cannot be less than \
 minimum value for constraint {self.name}")
-            if self.equal is not None and self.equal > self.maximum:
-                raise ValueError(f"equality value cannot be larger than \
+                if self.equal is not None and self.equal > self.maximum:
+                    raise ValueError(f"equality value cannot be larger than \
 maximum value for constraint {self.name}")
         if self.equal is not None:
-            if self.equal < self.minimum:
-                raise ValueError(f"equality value cannot be less than \
+            if self.minimum:
+                if self.equal < self.minimum:
+                    raise ValueError(f"equality value cannot be less than \
 minimum value for constrant {self.name}")
 
 class Optimization_Config(BaseModel):
