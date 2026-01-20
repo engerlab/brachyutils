@@ -356,6 +356,11 @@ def set_penalty_function_and_constraints(
             raise ValueError("The coefficint dictionary is empty. \
 please run set_dwell_coef_dict_per_structure")
 
+        for dt, dt_name in zip(t_MVar, list(optimization_config.dwell_coef_dict.keys())):
+            if dt.VarName != dt_name:
+                raise ValueError("The order of the dwell times is not matching the order \
+of the corresponding dose rate coefficients.")
+
         min_dose = optimization_config.min_dose
         max_dose = optimization_config.max_dose
 
