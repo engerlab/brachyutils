@@ -259,17 +259,27 @@ class CatheterTableOptim_Gurobi():
 
     def bound_variables(
         self,
-        new_bounds: Dict[str, Dict[str, float]],
+        constraint_configs:List[Constraint_Config],
         ):
-        r"""
-        ### Purpose:
-        - bound specific catheter or dwell time variables in the optimization model.
-        ### Inputs:
-        - `new_bounds`: Dict[str, Dict[str, float]] := a dictionary where keys are 
-        catheter or dwell time variable names and values are dictionaries with 
-        'equality', 'lower' and 'upper' keys for the new bounds.
         """
-        pass
+        ### Purpose:
+        - To bound the model variables according the list of constraint config. The bound could be on the 
+        lower bound, upper bound or equality value of the variable.
+        - The name of the constraints on the number of catheters (sum of binary variable) or the total
+        dwell times should being with "sum_catheters" and "sum_dwelltimes".
+
+        ### Inputs:
+        - constraint_configs (List[Constraint_Config]): Each item in this list contains the name of the
+        variable as well as minimum, maximum and equality constraints on that variable.
+        - model (Model): The model containing the variables. The name of the variables in the constraint list 
+        should match the name of the variable. Otherwies, Error will be thrown.
+        ### Outputs:
+        - None: model is updated with the new constraints
+        """
+        bound_variables(
+            constraint_configs=constraint_configs,
+            model=self.model
+        )
 
 def set_catheter_variables(
     plan: BrachyPlan,
