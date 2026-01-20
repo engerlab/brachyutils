@@ -213,12 +213,12 @@ class CatheterTableOptim_Gurobi():
         )
 
     def set_penalty_function_and_constraints(
-    self,
-    optimization_configs:List[Optimization_Config],
-    dwellTimeVariables:List[DwellTime_Gurobi],
-    catheter_vars: List[CatheterVar_Gurobi],
-    model: Model,
-    ):
+        self,
+        optimization_configs:List[Optimization_Config],
+        dwellTimeVariables:List[DwellTime_Gurobi],
+        catheter_vars: List[CatheterVar_Gurobi],
+        model: Model,
+        ):
         r"""
         ### Purpose:
         - sets the penalty function and constraints for the optimization model.
