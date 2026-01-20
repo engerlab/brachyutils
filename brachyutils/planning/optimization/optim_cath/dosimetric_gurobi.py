@@ -131,13 +131,6 @@ class CatheterTableOptim_Gurobi():
         self.solve_time: float = 0.0
         self.multi_processing = multi_processing
 
-        # attributes for later developement. may not be needed XXX
-        # these may not be needed
-        # self.target_constraints_coords = []
-        # self.hotspot_constraints_coords = []
-        # self.hotspot_threshold = None
-        # self.structure_weights_d = {}
-
         # start buliding this optimization object
         self.model = self.initialize_model(self.solver)
         self.catheter_vars = self.set_catheter_variables(
