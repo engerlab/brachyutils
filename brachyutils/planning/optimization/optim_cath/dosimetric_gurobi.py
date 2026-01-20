@@ -325,7 +325,13 @@ def set_penalty_function_and_constraints(
     r"""
     ### Purpose:
     - sets the penalty function and constraints for the optimization model.
-    XXX more details to be added for the docs
+    The objective function takes the form:
+        minimize sum(weights * penalties) where penalties include:
+        - Linear penalties for over/under dosing relative to target dose
+        - Quadratic penalties for over/under dosing 
+        - Uniformity penalties for target volumes
+        - Hotspot penalties for hotspot estimator structures encapsulating two closest dwell positions.
+
     ### Inputs:
     - `optimization_configs`: List[Optimization_Config] := List of optimization configs containing the
     penalty weights, target dose, mask, dwell_coef_dict and other attibutes.
@@ -337,8 +343,6 @@ def set_penalty_function_and_constraints(
     ### Output:
     - None: The model is updated with the constraints and penalty function.
     """
-    # if not plan.structure_list:
-    #     raise ValueError("Plan does not contain any structures.")
 
     penalty_terms = {
     "linear": 0,
