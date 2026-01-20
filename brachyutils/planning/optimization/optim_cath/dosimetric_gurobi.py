@@ -8,7 +8,7 @@ import numpy as np
 from brachyutils.types import BrachyPlan, BrachyDose
 from brachyutils.planning.optimization.optim_utils import (
     get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
-    compute_dose_rate_matrices, Optimization_Config
+    compute_dose_rate_matrices, Optimization_Config, Constraint_Config
 )
 from brachyutils.planning.optimization.optim_gurobi import (
     DwellTime_Gurobi, _run, _get_optimized_plan_from_model)
@@ -505,3 +505,79 @@ def set_dwell_coef_dict_per_structure(
         # build the coeff matricies
         for var, coeff in zip(dwell_vars, dose_rate_matrices):
             structure.optimization_config.dwell_coef_dict[var.VarName] = coeff
+
+def bound_variables(
+    constraint_configs:List[Constraint_Config],
+    model:Model,
+    ):
+    """
+    ### Purpose:
+    - To bound the model variables according the list of constraint config. The bound could be on the 
+    lower bound, upper bound or equality value of the variable.
+    - The name of the constraints on the number of catheters (sum of binary variable) or the total
+    dwell times should being with "sum_catheters" and "sum_dwelltimes".
+
+    ### Inputs:
+    - constraint_configs (List[Constraint_Config]): Each item in this list contains the name of the
+    variable as well as minimum, maximum and equality constraints on that variable.
+    - model (Model): The model containing the variables. The name of the variables in the constraint list 
+    should match the name of the variable. Otherwies, Error will be thrown.
+    ### Outputs:
+    - None: model is updated with the new constraints
+    """
+    for constraint in constraint_configs:
+        # check if the constraint already exists, if yes remove it
+        old_constraint = model.getConstrByName(f"c_{constraint.name}")
+        if old_constraint:
+            model.remove(old_constraint)
+            model.update()
+
+        # if the constraint is on the sum of catheters or dwell times
+        if constraint.name.startswith("sum_"):
+            all_vars = model.getVars()
+            var_target = constraint.name.split("_")[-1]
+            vars_needed = []
+            # gatheter all catheter or dwell variables
+            for this_var in all_vars:
+                if var_target == "catheters":
+                    # we are looking for catheter variables only
+                    if (this_var.name.startswith("catheter") and 
+                        not "dwell" in this_var.name):
+                        vars_needed.append(this_var)
+                elif var_target == "dwelltimes":
+                    if (this_var.name.startswith("catheter") and 
+                        "dwell" in this_var.name):
+                        vars_needed.append(this_var)
+            # apply the constraint
+            vars_needed = MVar(vars_needed)
+            if constraint.minimum:
+                model.addConstr(
+                    sum(vars_needed) >= constraint.minimum,
+                    name=f"c_{constraint.name}"
+                )
+            if constraint.maximum:
+                model.addConstr(
+                    sum(vars_needed) <= constraint.maximum,
+                    name=f"c_{constraint.name}"
+                )
+            if constraint.equal:
+                model.addConstr(
+                    sum(vars_needed) == constraint.equal,
+                    name=f"c_{constraint.name}"
+                )
+        # other
+        else:
+            variable = model.getVarByName(constraint.name)
+            if not variable:
+                raise ValueError(f"No variable with name {constraint.name} was found. \
+Ensure the constraint name is correct.")
+            if constraint.minimum:
+                variable.LB = constraint.minimum
+            if constraint.maximum:
+                variable.UB = constraint.maximum
+            if constraint.equal:
+                model.addConstr(
+                    variable == constraint.equal, 
+                    name=f"c_{constraint.name}"
+                )
+    model.update()
