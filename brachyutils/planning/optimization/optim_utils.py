@@ -278,6 +278,9 @@ class Constraint_Config(BaseModel):
     - A class to represent the constraint information on other dwell time or catheter
     variables. The name of the config should match the name of the variable in the optimization model.
     Each variable can have min, max or equality constraints.
+    The name of the constraints on the number of catheters or the total dwell times should being with
+    "sum_catheters" and "sum_dwelltimes"
+
     ### Attributes:
     name:= The name of the model variable 
     minimum: int | float = 0
@@ -303,7 +306,7 @@ maximum value for constraint {self.name}")
             if self.equal < self.minimum:
                 raise ValueError(f"equality value cannot be less than \
 minimum value for constrant {self.name}")
-                
+
 class Optimization_Config(BaseModel):
     """
     ### Purpose:
