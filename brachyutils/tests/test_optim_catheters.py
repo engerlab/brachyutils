@@ -60,7 +60,8 @@ def test_catheter_table_optim():
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=3)
+            spacing_mm=3,
+            )
     ]
     plan = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,

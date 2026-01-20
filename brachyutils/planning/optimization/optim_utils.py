@@ -272,6 +272,38 @@ def compute_dose_rate_matrices(
 
     return dwell_vars, dose_rate_matrices
 
+class Constraint_Config(BaseModel):
+    """
+    ### Purpose:
+    - A class to represent the constraint information on other dwell time or catheter
+    variables. The name of the config should match the name of the variable in the optimization model.
+    Each variable can have min, max or equality constraints.
+    ### Attributes:
+    name:= The name of the model variable 
+    minimum: int | float = 0
+    maximum: int | float = None
+    equal: int | float = None
+    _model_variable: Any = None
+    """
+    name: str
+    minimum: int | float = 0
+    maximum: int | float = None
+    equal: int | float = None
+    # _model_variable: Any = None
+    @model_validator(mode="after")
+    def sanity_check(self):
+        if self.maximum is not None:
+            if self.minimum > self.maximum:
+                raise ValueError(f"maximum value cannot be less than \
+minimum value for constraint {self.name}")
+            if self.equal is not None and self.equal > self.maximum:
+                raise ValueError(f"equality value cannot be larger than \
+maximum value for constraint {self.name}")
+        if self.equal is not None:
+            if self.equal < self.minimum:
+                raise ValueError(f"equality value cannot be less than \
+minimum value for constrant {self.name}")
+                
 class Optimization_Config(BaseModel):
     """
     ### Purpose:
@@ -298,6 +330,8 @@ class Optimization_Config(BaseModel):
     - mask_margin_mm: List[float] | float := Margin around structure for optimization in mm. Default 0.
     - min_dose: float := Minimum allowed dose in Gy. Default 0.
     - max_dose: float := Maximum allowed dose in Gy. Default 500.
+    - constraint_num_catheters: int := The constraint on the number of catheters. Could specify the 
+    minimum, maximum and the exact number of catheters desired in the plan.
     - catheter_recommendaion: bool := If True, catheter positions will be optimized as well. Default False.
     - dwell_coef_dict: Dict[str, np.array] := A dictionary mapping the name of the dwell position to the cropped, masked
     and flattend dose rate map corresponding to that dwell positition.
@@ -321,6 +355,7 @@ class Optimization_Config(BaseModel):
     min_dose:float = 0
     max_dose:float = 500
     catheter_recommendaion: bool = False
+    constraint_num_catheters: Constraint_Config = None
     dwell_coef_dict:Dict[str, np.array] = None
     mask:ROIMask = None
     # may be needed later
