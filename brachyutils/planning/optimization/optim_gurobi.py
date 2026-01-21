@@ -669,13 +669,28 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
 
         ## Pickling the BrachyPlan is doable but it makes the Pool operation sequential. 
         # so we use a global variable _plan instead that we initialize with self.plan
-        with Pool(min(max_parallel_runs, 
-                      os.cpu_count(), 
-                      len(list_of_opt_config_lists)), initializer=_init_worker, initargs=(self.plan,)) as pl:
-        
+
+        num_workers = min(
+            5, 
+            os.cpu_count(), 
+            len(list_of_opt_config_lists)
+        )
+        thread_per_model_gurobi = max(os.cpu_count() // num_workers)
+        with Pool(
+            num_workers, 
+            initializer=_init_worker, 
+            initargs=(self.plan, 
+                      model_data,
+                      self.target_constraints_coords,
+                      self.hotspot_constraints_coords,
+                      self.hotspot_threshold),
+            # Force deletion of each process after one task to avoid memory leak in gurobi
+            # If maxtasksperchild==1 that means each process will start by runnning the _init_worker function again
+            # If maxtasksperchild>1 that means each process will be reused for multiple tasks and will 
+            # run the _init_worker function only once at the begining.
+            maxtasksperchild=1
+            ) as pl:
             res = pl.starmap(_run_and_organize_results, zip(
-                range(len(list_of_opt_config_lists)),  # dummy arg instead of self.plan
-                [model_data] * len(list_of_opt_config_lists),
                 # If you want to return plans you need to pass the inplace arg as False
                 # otherwise all your plans are the same object which will be the last
                 # optimized plan. However, deepcopying the plan makes the Pool operation
@@ -688,9 +703,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 list_of_opt_config_lists,
                 # new target doses
                 list_of_target_doses,
-                [self.target_constraints_coords]*len(list_of_opt_config_lists),
-                [self.hotspot_constraints_coords]*len(list_of_opt_config_lists),
-                [self.hotspot_threshold]*len(list_of_opt_config_lists),
+                # divide number of thread depending on number of processes
+                [thread_per_model_gurobi]*len(list_of_opt_config_lists),
                 [objective_to_scale_to]*len(list_of_opt_config_lists)
             )
             )
@@ -782,18 +796,13 @@ def deep_diff(d1, d2, path=""):
 
 
 def _run_and_organize_results(
-    _, 
-    model_inputs_data:dict,
     inplace:bool=True,
     return_cat_table:bool=False,
     og_optim_config_list:List[Optimization_Config] = [],
     new_config_list:List[Optimization_Config] = [],
     new_target_dose:float = None,
-    target_constraints_coords: List[int] = [],
-    hotspot_constraints_coords: List[int] = [],
-    hotspot_threshold: float = 1.2,
+    thread_per_model_gurobi:int = 1,
     objective_to_scale_to: dict[str, float] = None
-
 ):
     # print(f"PID {os.getpid()} starting work")
     # time.sleep(2)
@@ -804,15 +813,16 @@ def _run_and_organize_results(
     # and makes the pool execution sequential
     plan = deepcopy(_plan)
     with Env() as env, Model(env=env) as model:
-        model = update_model_from_data(model_inputs_data, model)       
+        model = update_model_from_data(_model_data, model) 
+        model.setParam("Threads", thread_per_model_gurobi)      
         _ = modify_model_objective_with_new_penalty_weights_and_td(
             model=model, 
             og_optim_config_list=og_optim_config_list, 
             new_optim_config_list=new_config_list, 
             new_target_dose=new_target_dose,
-            target_constraints_coords=target_constraints_coords, 
-            hotspot_constraints_coords=hotspot_constraints_coords, 
-            hotspot_threshold=hotspot_threshold)
+            target_constraints_coords=_target_constraints_coords, 
+            hotspot_constraints_coords=_hotspot_constraints_coords, 
+            hotspot_threshold=_hotspot_threshold)
         _, optimized_plan, _, _ = _get_optimized_plan_from_model(
             plan, model, inplace=inplace, objective_to_scale_to=objective_to_scale_to)
 
@@ -1204,11 +1214,24 @@ def get_model_data(model: Model):
         model_data["objective"] = save_linexpr(objective)
     return model_data
 
-_plan = None  # global in worker processes
+# global in worker processes
+_plan = None  
+_model_data = None
+_target_constraints_coords = None
+_hotspot_constraints_coords = None
+_hotspot_threshold = None
 
-def _init_worker(plan):
+def _init_worker(plan, model_data, target_constraints_coords, hotspot_constraints_coords, hotspot_threshold):
     global _plan
     _plan = plan
+    global _model_data
+    _model_data = model_data
+    global _target_constraints_coords
+    _target_constraints_coords = target_constraints_coords
+    global _hotspot_constraints_coords
+    _hotspot_constraints_coords = hotspot_constraints_coords
+    global _hotspot_threshold
+    _hotspot_threshold = hotspot_threshold
 
 # if __name__ == "__main__":
 #     import gurobipy as gb
