@@ -1135,7 +1135,7 @@ class BrachyPlan:
                             action.result()
                         except:
                             failed_path = futures[action]
-                            raise ValueError(f"Failed writing f{failed_path}")
+                            raise ValueError(f"Failed writing {failed_path}")
             else:
                 for dose_rate in tqdm(self.dose_rate_dict, desc="Writing dose rate maps"):
                     _write_single_dose_rate(
