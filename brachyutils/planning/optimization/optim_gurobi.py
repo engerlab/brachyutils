@@ -675,7 +675,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             os.cpu_count(), 
             len(list_of_opt_config_lists)
         )
-        thread_per_model_gurobi = max(os.cpu_count() // num_workers)
+        thread_per_gurobi_model = int(os.cpu_count() // num_workers)
         with Pool(
             num_workers, 
             initializer=_init_worker, 
@@ -704,7 +704,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                 # new target doses
                 list_of_target_doses,
                 # divide number of thread depending on number of processes
-                [thread_per_model_gurobi]*len(list_of_opt_config_lists),
+                [thread_per_gurobi_model]*len(list_of_opt_config_lists),
                 [objective_to_scale_to]*len(list_of_opt_config_lists)
             )
             )
@@ -801,7 +801,7 @@ def _run_and_organize_results(
     og_optim_config_list:List[Optimization_Config] = [],
     new_config_list:List[Optimization_Config] = [],
     new_target_dose:float = None,
-    thread_per_model_gurobi:int = 1,
+    thread_per_gurobi_model:int = 1,
     objective_to_scale_to: dict[str, float] = None
 ):
     # print(f"PID {os.getpid()} starting work")
@@ -814,7 +814,7 @@ def _run_and_organize_results(
     plan = deepcopy(_plan)
     with Env() as env, Model(env=env) as model:
         model = update_model_from_data(_model_data, model) 
-        model.setParam("Threads", thread_per_model_gurobi)      
+        model.setParam("Threads", thread_per_gurobi_model)      
         _ = modify_model_objective_with_new_penalty_weights_and_td(
             model=model, 
             og_optim_config_list=og_optim_config_list, 
