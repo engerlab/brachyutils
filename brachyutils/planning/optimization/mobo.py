@@ -27,6 +27,9 @@ from ax.generation_strategy.generation_node import GenerationStep
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
+from botorch.acquisition.multi_objective.logei import qLogNoisyExpectedHypervolumeImprovement
+from botorch.acquisition.multi_objective.monte_carlo import qNoisyExpectedHypervolumeImprovement
+
 
 from brachyutils.planning.optimization.optim_utils import BrachyDwellTimeOptim, Optimization_Config
 
@@ -495,7 +498,8 @@ class MOBOOptimizer:
             generator=Generators.BOTORCH_MODULAR,  # Use this for multi-objective optimization
             num_trials=-1,
             model_kwargs={
-                "botorch_acqf_class": qLogNoisyExpectedImprovement,
+                "botorch_acqf_class": qLogNoisyExpectedHypervolumeImprovement, # qNoisyExpectedHypervolumeImprovement,# qLogNoisyExpectedImprovement,
+                # "botorch_acqf_options": {"prune_baseline": True},
                 "torch_device": device,
 
                 # TODO: Explore other multi-output GP models available in BoTorch for potentially better performance:
@@ -517,8 +521,14 @@ class MOBOOptimizer:
             # https://ax.dev/docs/0.5.0/tutorials/generation_strategy/
             steps=steps
         )
-        # torch-device  as argument to the AxClient here should be useless with a custom generation strategy
-        ax_client = AxClient(generation_strategy=generation_strategy_forMOBO,torch_device=device)
+        
+        ax_client = AxClient(
+            generation_strategy=generation_strategy_forMOBO,
+            # torch-device  as argument to the AxClient here should be useless with a custom generation strategy
+            torch_device=device,
+            # Putting this to False messes up with the Optimization results
+            enforce_sequential_optimization=True
+            )
 
         variable_parameters_forMOBO = self.generate_mobo_parameters(**mobo_parameter_kwargs)
 
