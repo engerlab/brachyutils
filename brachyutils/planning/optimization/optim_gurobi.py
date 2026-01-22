@@ -671,7 +671,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         # so we use a global variable _plan instead that we initialize with self.plan
 
         num_workers = min(
-            5, 
+            10, 
             os.cpu_count(), 
             len(list_of_opt_config_lists)
         )
