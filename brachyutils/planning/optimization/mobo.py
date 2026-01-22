@@ -610,9 +610,9 @@ class MOBOOptimizer:
                 )
                 # We can only compute hv with MBOO iterations not sobol initialization
                 if init_randomization == "sobol":
-                    calc_hv = True if total_mobo_iter > num_random_initiation else False
+                    calc_hv = calc_hv if total_mobo_iter > num_random_initiation else False
                 else:
-                    calc_hv = True
+                    calc_hv = calc_hv
                 dvh_metrics_and_config_df, cat_tables, hvs = self.complete_multiple_trials(
                     axClient=ax_client,
                     parameters=parameters,
