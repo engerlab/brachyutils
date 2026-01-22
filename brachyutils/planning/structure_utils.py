@@ -147,6 +147,9 @@ class BrachyStructure:
             prescription=prescription_dose,
             maxDVH=combined_dose.dose_image.imageArray.max(),
             bin_size=bin_size,
+            # We don't want any GUI here so we don't need signals
+            # which can cause memory leak if DVH class is created in a loop
+            use_signals=False,
             )
         self.dvh_metrics_observed = {}
 
@@ -188,6 +191,10 @@ class BrachyStructure:
                 if body_contour is None:
                     raise ValueError("body_contour should be defined to compute the conformity index")
                 self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformityIndex(body_contour)
+            elif metric_string.startswith("COIN"):
+                if body_contour is None:
+                    raise ValueError("body_contour should be defined to compute the conformal index")
+                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformalIndex(body_contour)
             else:
                 raise ValueError(
                     "invalid name for DVH metric name. \
