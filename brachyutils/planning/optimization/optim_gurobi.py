@@ -141,7 +141,8 @@ def _get_optimized_plan_from_model(
     for dwell_time, name in dwelltime_and_name:
         # set very small dwell times to zero
         if dwell_time < 0.1:
-            dwell_time = 0.0
+            # Setting the dwell time to either 0.0 or rounding it to 0.1
+            dwell_time = np.round(dwell_time, decimals=1)
         # set the dwell time to the optimized value
         for catheter in outplan.catheter_table:
             for dwell_position in catheter.dwells:
@@ -152,13 +153,25 @@ def _get_optimized_plan_from_model(
                     dwell_position.time = dwell_time
 
     if objective_to_scale_to is not None:
-        outplan, _ = scale_to_objective(outplan, objective_to_scale_to)
-
-
+        outplan, scaling_factor = scale_to_objective(outplan, objective_to_scale_to)
+        # Set very small dwell times to zero. We do this after a scaling
+        # because let's say we have a dwell time of 0.105 and we scale the plan
+        # by 0.8 then the dwell time becomes 0.084 which is < 0.1
+        for catheter in outplan.catheter_table:
+            for dwell_position in catheter.dwells:
+                if dwell_position.time < 0.1:
+                    # Setting the dwell time to either 0.0 or rounding it to 0.1
+                    # We round instead or of setting to 0.0 in order to still pass
+                    # the criteria if we scaled the plan. In some edge cases 
+                    # setting a dwell time to 0 might lead to the criteria not passing
+                    # even though it passed when scaling the plan.
+                    dwell_position.time = np.round(dwell_position.time, decimals=1)
+    else:
+        scaling_factor = 1.0
 
     # update the plan with the new dwell times
     outplan.update_plan_from_catheter_table()
-    return model, outplan, solution_found, solve_time
+    return model, outplan, solution_found, solve_time, scaling_factor
 
 
 class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
@@ -542,14 +555,13 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         r"""
         See `BrachyDwellTime.get_optimized_plan_from_model` for details.
         """
-
-        self.model, outplan, self.solution_found, self.solve_time = _get_optimized_plan_from_model(
+        self.model, outplan, self.solution_found, self.solve_time, scaling_factor = _get_optimized_plan_from_model(
             plan=self.plan,
             model=self.model,
             inplace=inplace, 
             objective_to_scale_to=objective_to_scale_to
             )
-        return outplan
+        return outplan, scaling_factor
 
     def bound_dwell_time(
         self,
@@ -606,10 +618,11 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         # in get_optimized_plan_from_model function
         self.reset_model_from_config(new_config_list=optim_config_list, new_target_dose=target_dose)
 
-        optimized_plan = self.get_optimized_plan_from_model(inplace=inplace,
+        optimized_plan, scaling_factor = self.get_optimized_plan_from_model(inplace=inplace,
                                                             objective_to_scale_to=objective_to_scale_to)
         dvh_metrics = optimized_plan.get_dvh_metrics(bin_size=0.0001)
         output = {}
+        output["scaling_factor"] = scaling_factor
         for dvh_metric_name, dvh_value in dvh_metrics.items():
             output[dvh_metric_name] = float(dvh_value)
 
@@ -823,11 +836,12 @@ def _run_and_organize_results(
             target_constraints_coords=_target_constraints_coords, 
             hotspot_constraints_coords=_hotspot_constraints_coords, 
             hotspot_threshold=_hotspot_threshold)
-        _, optimized_plan, _, _ = _get_optimized_plan_from_model(
+        _, optimized_plan, _, _, scaling_factor = _get_optimized_plan_from_model(
             plan, model, inplace=inplace, objective_to_scale_to=objective_to_scale_to)
 
     dvh_metrics = optimized_plan.get_dvh_metrics(bin_size=0.0001)
     output = {}
+    output["scaling_factor"] = scaling_factor
     for dvh_metric_name, dvh_value in dvh_metrics.items():
         output[dvh_metric_name] = float(dvh_value)
     for opt_conf in new_config_list:
