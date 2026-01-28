@@ -513,6 +513,19 @@ class MOBOOptimizer:
             model_gen_kwargs={
                 "pending_observations":get_pending_observation_features
             },
+            # After BoTorch parameter generation, the process is already using PyTorch, BLAS 
+            # (MKL/OpenBLAS), and OpenMP threads, which maintain complex native state in memory. 
+            # If multiprocessing is then started (which is what we do when launching 
+            # evaluatepenaltyweightspace), especially with fork (default on Linux) or by passing 
+            # large Python objects such as plans or model data into worker processes, the child processes 
+            # inherit this unstable native state and potentially non-fork-safe objects (e.g., 
+            # hidden torch tensors, Gurobi objects, or shared memory). This combination can lead 
+            # to race conditions, thread oversubscription, corrupted memory, and improper cleanup 
+            # of system resources, which significantly increases the risk of segmentation faults 
+            # during the parallel optimization phase. Problem is if we set mp.set_start_method('spawn') globally,
+            # it will make the start of process super slow. So the current solution is to limit the number of
+            # threads used in the gurobi model see optim_gurobi.py evaluate_penaltyWeight_space() 
+            # thread_per_gurobi_model, for more details.
             max_parallelism=num_parallel_iterations,
         ))
         
