@@ -534,7 +534,10 @@ class BrachyPlan:
         assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
         assert self.num_dwells is not None, "number of dwells is not extracted"
 
-
+        # Clear self.dose_rate_tensor from memory to save RAM to load new dose rates
+        self.dose_rate_tensor = np.array([], dtype=np.float32)
+        self.uncertainty_tensor = np.array([], dtype=np.float32)
+        
         def get_dwell_order(dose_rate_path):
             file_name = os.path.basename(dose_rate_path)
             return get_dwell_order_from_file_name(file_name)
