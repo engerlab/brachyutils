@@ -688,7 +688,12 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             os.cpu_count(), 
             len(list_of_opt_config_lists)
         )
-        thread_per_gurobi_model = int(os.cpu_count() // num_workers)
+        # We dont consider total cpu count to set up gurobi threads since 
+        # other libraries might already be using threads like scientific 
+        # libraries (numpy, scipy, torch, botorch), and we want to avoid 
+        # overloading the CPU or oversubscription of threads. So we divide 
+        # by 2 the total cpu count to leave some room for other libraries. 
+        thread_per_gurobi_model = int(int(os.cpu_count()/2) // num_workers)
         with Pool(
             num_workers, 
             initializer=_init_worker, 
