@@ -34,41 +34,37 @@ class BrachyPlan:
     as well as all the functions to support the necessary plan operations.
 
     ### Attributes:
-    - phantom:= A BrachyPhantom object containing the patient geometry and structures.
-    - dvh_metric_goals:= A dictionary containing the DVH metric goals for the plan.
-    - dvh_metrics_observed:= A dictionary containing the observed DVH metrics for the plan.
-    - structure_list:= A list of BrachyStructure objects containing the patient structures.
-    - phantom_origin:= The origin of the phantom in the patient coordinate system.
-    - organ_bounds:= A dictionary containing the min and max coordinates of the patient organs on each axis. 
-    - catheter_table:= A catheter table object containing the catheter information.
-    - num_catheters:= The number of catheters in the plan.
-    - catheter_numbers:= The catheter id numbers for each catheter in the catheter table.
-    - num_dwells:= The total number of dwell positions along all catheters in the plan.
-    - dwell_numbers:= The dwell number id of each dwell position in the plan.
-    - dwell_times:= The dwell time for each dwell position in the plan.
-    - dwell_coordinates:= The coordinate of each dwell position in patient coordinates?
-    - applicator_list:= The list of all the applicators in the plan.
-    - applicator_rotation_axis:= The rotation axis of each applicator
-    - applicator_rotation_origin:= The rotation origin of each applicator.
-    - dose_rate_tensor:= a tensor holding 3D dose rate maps for each dwell position.
-    - combined_dose:= sum of the dose rate maps weighted by the dwell times.
-    - uncertainty_tensor:= sqaure root of the sum of the squares of the uncertainty maps weighted by the 
-    dwell times normalized to the treatment time.
-    - simulation_setup:= A simulation setup object containing the source info as well as simulation parameters.
-    - prescription_dose:= The dose that is prescribed to the target volume.
+    #### Geometry and Structure Attributes:
+    - phantom (BrachyPhantom): A BrachyPhantom object containing the patient geometry and structures.
+    - structure_list (List[BrachyStructure]): A list of BrachyStructure objects containing the patient structures.
+    - body_contour (ROIContour): The body contour of the patient.
+    - phantom_origin (list): The origin of the phantom in the patient coordinate system.
+    - organ_bounds (list): Min and max coordinates of the patient organs on each axis.
+    - dvh_metric_goals (dict): Dictionary containing the DVH metric goals for the plan.
+    - dvh_metrics_observed (dict): Dictionary containing the observed DVH metrics for the plan.
+    - prescription_dose (float): The dose prescribed to the target volume.
 
-    ### Functions:
-    - update_plan_from_catheter_table()
-    - _update_catheter_table_from_plan()
-    - _update_dose_after_change_in_plan()
-    - load_dose_rate_dict()
-    - _calculate_combined_dose()
-    - set_dvh_metric_goals()
-    - create_brachy_structure_set()
-    - get_dvh_metrics()
-    - _calculate_combined_uncertainty()
-    - calculate_uncertainty_per_structure()
-    - export_brachy_plan ()
+    #### Catheter and Dwell Position Attributes:
+    - catheter_table (CatheterTable): A catheter table object containing the catheter information.
+    - num_catheters (int): The number of catheters in the plan.
+    - catheter_numbers (list): The catheter ID numbers for each catheter in the catheter table.
+    - num_dwells (int): The total number of dwell positions along all catheters in the plan.
+    - dwell_numbers (list): The dwell number ID of each dwell position in the plan.
+    - dwell_times (List[float]): The dwell time for each dwell position in the plan.
+    - dwell_coordinates (List[list]): The coordinates of each dwell position in patient coordinates.
+
+    #### Applicator Attributes:
+    - applicator_list (List[BrachyApplicator]): The list of all applicators in the plan.
+    - applicator_rotation_axis (np.array): The rotation axis of applicators (default: [0, 0, 1]).
+    - applicator_rotation_origin (np.array): The rotation origin of applicators (default: [0, 0, 0]).
+
+    #### Dose Attributes:
+    - dose_rate_dict (defaultdict[BrachyDose]): Dictionary holding 3D dose rate maps for each dwell position.
+    - combined_dose (BrachyDose): Sum of the dose rate maps weighted by the dwell times.
+
+    #### Simulation and Optimization Attributes:
+    - simulation_setup (BrachySimulation): A simulation setup object containing source info and simulation parameters.
+    - optimization_config_list (List[Optimization_Config]): List of optimization configurations for the plan.
     """
 
     def __init__(
@@ -173,9 +169,6 @@ class BrachyPlan:
         # dose attributes
         self.dose_rate_dict = defaultdict(BrachyDose)
         self.combined_dose: BrachyDose = None
-        self.uncertainty_tensor = np.array( # XXX remove uncertainty tensor next!
-            [], dtype=np.float32
-        )  # shape: (num_dwells, z, y, x)
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
