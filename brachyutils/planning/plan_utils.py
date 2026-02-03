@@ -38,7 +38,7 @@ class ExportConfig_Dose(BaseModel):
         use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
     )
     
-    dir_export: str | Path = Field(..., description="Directory where dose files are exported.")
+    dir_export: str | Path = Field(None, description="Directory where dose files are exported.")
     name_combine_dose: str = Field("combined", description="File name for combined dose output.")
     file_extension: Literal[".seq.nrrd", ".3ddose"] = Field(
         ".seq.nrrd", description="Allowed file extensions for dose files."
@@ -55,6 +55,8 @@ class ExportConfig_Dose(BaseModel):
 
     @model_validator(mode="after")
     def validate_config(self):
+        if self.dir_export is None:
+            raise ValueError("dir_export is not set for this config")
         self.dir_export = Path(self.dir_export)
         return self
 
@@ -63,6 +65,9 @@ class ExportConfig_Egsphant(BaseModel):
 
 class ExportConfig_PlanFile(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    dir_export: str | Path = Field(None, description="Directory where dose files are exported.")
+    combined_only:bool = Field(True, description="If true, only combined plan is written. Per dwell position plan is generated.")
+    name_combined_plan:str = Field("combined", description="The name of the file for combined plan")
 
 class ExportConfig_MacFile(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -89,6 +94,12 @@ class ExportConfig_BrachyPlan(BaseModel):
 
     export_catheter_table:bool = False
 
+    @model_validator
+    def validate_config(self):
+        # make sure that the paths of dir exports are 
+        # set correctly for all the inner attributes
+        return self
+    
 class BrachyPlan:
     r"""
     ### Purpose:
@@ -498,6 +509,7 @@ class BrachyPlan:
         ### Outputs:
         - Void := will update the self.catheter_table attribute
         """
+        raise ValueError("This function is deprecated and never used anyways")
         assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
         assert self.dwell_times.size != 0, "dwell times are not extracted"
         assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
@@ -549,6 +561,7 @@ class BrachyPlan:
         - Void := will update the BrachyPlan.catheter_table and BrachyPlan.combined_dose
         attributes
         """
+        raise ValueError("This function is also deprecated")
         self._update_catheter_table_from_plan()
         self._calculate_combined_dose()
 
@@ -578,10 +591,10 @@ class BrachyPlan:
         """
         # make sure catheter table is loaded
         assert self.catheter_table is not None, "catheter table is not loaded"
-        assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
-        assert self.dwell_times.size != 0, "dwell times are not extracted"
-        assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
-        assert self.num_dwells is not None, "number of dwells is not extracted"
+        # assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
+        # assert self.dwell_times.size != 0, "dwell times are not extracted"
+        # assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
+        # assert self.num_dwells is not None, "number of dwells is not extracted"
 
         pth_dose_rate = Path(dir_dose_rate).resolve()
         if not pth_dose_rate.exists():
@@ -653,8 +666,6 @@ class BrachyPlan:
         """
         if not any(self.dose_rate_dict):
             raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
-        if not any(self.dwell_times):
-            raise ValueError("dwell times array is empty. Run update_plan_from_catheter_table()")
 
         self.combined_dose = BrachyDose.dose_with_empty_grid_like(
             list(self.dose_rate_dict.values())[0])
@@ -925,8 +936,6 @@ class BrachyPlan:
         assert self.combined_dose is not None, "combined dose is not calculated yet"
         if not any(self.dose_rate_dict):
             raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
-        if not any(self.dwell_times):
-            raise ValueError("dwell times array is empty. Run update_plan_from_catheter_table()")
 
         treatment_time = self.catheter_table.treatment_time
         for catheter in self.catheter_table:
@@ -1087,15 +1096,19 @@ class BrachyPlan:
         dir_export.mkdir(parents=True, exist_ok=True)
 
         if content_to_export.get("export_config_dose", None):
-            self._export_dose(content_to_export.get("export_config_dose"))
+            self.export_dose(content_to_export.get("export_config_dose"))
 
         if content_to_export.get("export_catheter_table", False):
             # assumes file name is "catheter_table.json"
-            self._export_catheter_table(str(dir_export))
+            file_path = dir_export + "/catheter_table.json"
+            with open(file_path, "w") as file:
+                json.dump(self.catheter_table.to_dict(), file, indent=4)
+            print("Catheter Table exported successfully")
+
 
         if content_to_export.get("plan", False):
             # assumes file name is "dwell_#.plan"
-            self._export_plan_file(
+            self.export_plan_files(
                 dir_export=str(dir_export),
                 combined_only=content_to_export.get("combined_only", True)
                 )
@@ -1135,7 +1148,7 @@ class BrachyPlan:
             )
             print("structure set file was exported successfully")
 
-    def _export_dose(
+    def export_dose(
         self,
         export_config_dose: ExportConfig_Dose
     ):
@@ -1179,27 +1192,11 @@ class BrachyPlan:
                         dose_extension=export_config_dose.file_extension)
         print(f"Dose exported to {dir_export}")
 
-    def _export_catheter_table(self, dir_export: str):
-        r"""
-        ### Purpose:
-        - to export catheter table of the plan into a file called catheter_table.json
-        inside dir_export.
-        ### Inputs:
-        - dir_export := path to the directory where the export happens
-        ### Outputs:
-        - void := self.catheter_table is written to catheter_table.json
-        ### Dependencies:
-        - json
-        """
-        file_path = dir_export + "/catheter_table.json"
-        with open(file_path, "w") as file:
-            json.dump(self.catheter_table.to_dict(), file, indent=4)
-        print("Catheter Table exported successfully")
-
-    def _export_plan_file(
+    def export_plan_files(
         self,
-        dir_export: str,
-        combined_only:bool=True):
+        export_config_planfile:ExportConfig_PlanFile,
+        catheter_table:CatheterTable,
+        ):
         r"""
         ### Purpose:
         - To export dwell positions and their normalized times into ".plan" text files in the
@@ -1223,49 +1220,52 @@ class BrachyPlan:
         ### Dependencies:
             - None
         """
-        total_dwell_time = np.sum(self.dwell_times)
+        # total_dwell_time = np.sum(self.dwell_times)
+        total_dwell_time = catheter_table.treatment_time
+        num_dwells = catheter_table.num_dwell_positions
         combined_plan = "Treatment Plan\n"
-        combined_plan += f"{self.num_dwells} Control Points\n"
+        combined_plan += f"{num_dwells} Control Points\n"
 
-        for dwell_i in range(self.num_dwells):
-            dwell_coordinates_str = np.array(
-                list(self.dwell_coordinates[dwell_i]["position"])
-                + list(self.dwell_coordinates[dwell_i]["rotation"])
-                + [self.dwell_coordinates[dwell_i]["angle"]]
-                + list(self.applicator_rotation_axis)
-                + list(self.applicator_rotation_origin),
-                dtype=np.float32,
-            )
-            dwell_coordinates_str = (
-                ",".join(
-                    [
-                        str(int(coord)) if coord == int(coord) else format(coord, ".6f")
-                        for coord in dwell_coordinates_str
-                    ]
+        for cat in catheter_table:
+            for dwell in cat.dwells:
+                dwell_coordinates_str = np.array(
+                    list(dwell.position)
+                    + list(dwell.rotation)
+                    + list(dwell.angle)
+                    + list(self.applicator_rotation_axis)
+                    + list(self.applicator_rotation_origin),
+                    dtype=np.float32,
                 )
-                + "\n"
-            )
+                dwell_coordinates_str = (
+                    ",".join(
+                        [
+                            str(int(coord)) if coord == int(coord) else format(coord, ".6f")
+                            for coord in dwell_coordinates_str
+                        ]
+                    )
+                    + "\n"
+                )
 
-            catheter_idx = self.dwell_coordinates[dwell_i]["catheter_index"]
-            dwell_idx = self.dwell_coordinates[dwell_i]["dwell_index"]
-            combined_plan += "Control Point\n"
-            combined_plan += f"weight = {self.dwell_times[dwell_i]/total_dwell_time}\n"
-            combined_plan += f"1 Dwell Position - Catheter {catheter_idx + 1}\n"
-            combined_plan += dwell_coordinates_str
+                catheter_idx = cat.index
+                dwell_idx = dwell.index
+                combined_plan += "Control Point\n"
+                combined_plan += f"weight = {dwell.time/total_dwell_time}\n"
+                combined_plan += f"1 Dwell Position - Catheter {catheter_idx + 1}\n"
+                combined_plan += dwell_coordinates_str
 
-            run_i_plan = "Treatment Plan\n"
-            run_i_plan += "1 Control Points\n"
-            run_i_plan += "Control Point\nweight = 1.0\n"
-            run_i_plan += "1 Dwell Position\n"
-            run_i_plan += dwell_coordinates_str
-            # Not dealing with shield angle for now but the new convention for filename is
-            # xxx_catheter#_dwell#_shieldangle.plan
-            shield_angle = 0
-            if not combined_only:
-                with open(dir_export + f"/dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan", "w") as file:
-                    file.write(run_i_plan)
+                run_i_plan = "Treatment Plan\n"
+                run_i_plan += "1 Control Points\n"
+                run_i_plan += "Control Point\nweight = 1.0\n"
+                run_i_plan += "1 Dwell Position\n"
+                run_i_plan += dwell_coordinates_str
+                # Not dealing with shield angle for now but the new convention for filename is
+                # xxx_catheter#_dwell#_shieldangle.plan
+                shield_angle = 0
+                if not export_config_planfile.combined_only:
+                    with open(export_config_planfile.dir_export + f"/dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan", "w") as file:
+                        file.write(run_i_plan)
 
-        with open(dir_export + "/combined.plan", "w") as file:
+        with open(export_config_planfile.dir_export + "/combined.plan", "w") as file:
             file.write(combined_plan)
 
     def _export_dwell_mac_file(
