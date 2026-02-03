@@ -27,7 +27,7 @@ from brachyutils.planning.simulation_utils import BrachySimulation
 # from brachyutils.types import Optimization_Config
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, computed_field
 
 class ExportConfig_Dose(BaseModel):
     """
@@ -49,6 +49,14 @@ class ExportConfig_Dose(BaseModel):
     multi_processing: bool = Field(
         True, description="Enable multiprocessing for export (yes/no toggle)."
     )
+    @computed_field
+    def pth_combined(self):
+        return self.dir_export/(self.name_combine_dose+self.file_extension)
+
+    @model_validator(mode="after")
+    def validate_config(self):
+        self.dir_export = Path(self.dir_export)
+        return self
 
 class ExportConfig_Egsphant(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -78,6 +86,8 @@ class ExportConfig_BrachyPlan(BaseModel):
     export_config_cathetertable: ExportConfig_CatheterTable = None
     export_config_applicator: ExportConfig_Applicator = None
     export_config_phantom: ExportConfig_BrachyStructure = None
+
+    export_catheter_table:bool = False
 
 class BrachyPlan:
     r"""
@@ -1075,24 +1085,13 @@ class BrachyPlan:
         """
         dir_export = Path(dir_export)
         dir_export.mkdir(parents=True, exist_ok=True)
-        # if export_format == "WebApp":
 
-            # raise NotImplementedError("export to WebApp is not implemented yet")
+        if content_to_export.get("export_config_dose", None):
+            self._export_dose(content_to_export.get("export_config_dose"))
 
-        # elif export_format == "RapidBrachy":
-
-        if content_to_export.get("dose", False):
-            self._export_dose(
-                dir_export=str(dir_export),
-                dose_extension=content_to_export.get("dose_type", ".seq.nrrd"),
-                dose_rate_maps=content_to_export.get("dose_rate_maps", False),
-                multi_processing=multi_processing
-            )
-            print("Dose exported successfully")
-        if content_to_export.get("catheter_table", False):
+        if content_to_export.get("export_catheter_table", False):
             # assumes file name is "catheter_table.json"
             self._export_catheter_table(str(dir_export))
-            print("Catheter Table exported successfully")
 
         if content_to_export.get("plan", False):
             # assumes file name is "dwell_#.plan"
@@ -1139,36 +1138,31 @@ class BrachyPlan:
     def _export_dose(
         self,
         export_config_dose: ExportConfig_Dose
-        # dir_export: str,
-        # dose_extension=".seq.nrrd",
-        # dose_rate_maps=False,
-        # multi_processing:bool=True,
     ):
         r"""
         ### Purpose:
-        - to export combined dose map with or without uncertainty in the provided export directory.
+        - to export combined dose map and if needed the dose rate maps to a given directory.
         exporting dose rate maps is optional.
         ### Inputs:
-        - dir_export := the directory to which the dose map will be exported.
-        - dose_extension := the type of dose map to be exported. options are ".3ddose", ".minidos", or ".nrrd".
-        - dose_rate_maps := if True, the dose rate maps will be exported as well.
+        - export_config_dose: The dose export configuration. Look at ExportConfig_Dose for more info 
         ### Outputs:
-        - Void := will export the dose map into the specified export directory.
+        - None := will export the dose map into the specified export directory.
         ### Dependencies:
         - _write_single_dose_rate()
         - multiprocessing
         """
         assert self.combined_dose is not None, "combined dose is not calculated yet"
-        # if uncertainty:
+        dir_export = Path(export_config_dose.dir_export)
+        # write combined dose
         self.combined_dose.write_brachydose_to_file(
-            Path(dir_export) / f"combined{dose_extension}"
+            export_config_dose.pth_combined
         )
 
-        if dose_rate_maps:
-            if multi_processing:
+        if export_config_dose.write_dose_rate_maps:
+            if export_config_dose.multi_processing:
                 with ThreadPoolExecutor(max_workers=16) as executor:
                     futures = {
-                        executor.submit(_write_single_dose_rate, self.dose_rate_dict.get(dose_rate_name), dir_export, dose_extension):
+                        executor.submit(_write_single_dose_rate, self.dose_rate_dict.get(dose_rate_name), dir_export, export_config_dose.file_extension):
                             dose_rate_name for dose_rate_name in self.dose_rate_dict
                         }
                     for action in tqdm(as_completed(futures), desc="Writing dose rate maps"):
@@ -1182,7 +1176,8 @@ class BrachyPlan:
                     _write_single_dose_rate(
                         dose_rate=self.dose_rate_dict.get(dose_rate),
                         dir_export=dir_export,
-                        dose_extension=dose_extension)
+                        dose_extension=export_config_dose.file_extension)
+        print(f"Dose exported to {dir_export}")
 
     def _export_catheter_table(self, dir_export: str):
         r"""
@@ -1199,6 +1194,7 @@ class BrachyPlan:
         file_path = dir_export + "/catheter_table.json"
         with open(file_path, "w") as file:
             json.dump(self.catheter_table.to_dict(), file, indent=4)
+        print("Catheter Table exported successfully")
 
     def _export_plan_file(
         self,
