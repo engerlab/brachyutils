@@ -584,11 +584,18 @@ class BrachyEgsphant:
         header["space origin"] = self.density_image.origin.tolist()
         header["spacing"] = [np.nan] + self.density_image.spacing.tolist()
         
+        # each voxel in the material matrix is encoded with a single character
+            # from this array that represents a unique material recognized by RapidBrachyMC.
+        #have to redefine here since nrrd egsphants start at 0
+        BrachyEgsphant._materials_encoding_array = [str(i) for i in range(0, 10)] + [
+            chr(i) for i in range(ord("A"), ord("Z") + 1)
+        ]
+
         header = header | {
             "material_dict": {
             material: {
                 "encoding": BrachyEgsphant._materials_encoding_array.index(
-                    self.material_dict[material].get("encoding")
+                    str(self.material_dict[material].get("encoding"))
                 ),
                 "density": float(self.material_dict.get(material).get("density")),
                 "HU_limit": (

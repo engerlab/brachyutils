@@ -1872,6 +1872,9 @@ def mask_to_stl(roi_mask: ROIMask, pth_output: Path) -> None:
     # Note: Implementation is cannablized from PolySeg (https://github.com/PerkLab/PolySeg/)
     if not isinstance(roi_mask, ROIMask):
         raise ValueError("The input roi_mask should be an instance of ROIMask.")
+
+    elif not pth_output.suffix.lower() == ".stl":
+        raise ValueError("The output file must have a .stl extension.")
     
     # Get mask data in [z, y, x] format for VTK
     mask_array = roi_mask.imageArray.astype(np.uint8)
