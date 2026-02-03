@@ -982,7 +982,7 @@ class BrachyPlan:
         self,
         dir_export: str | Path,
         content_to_export: Dict[str, bool | str] = None,
-        export_format: str = "RapidBrachy",
+        # export_format: str = "RapidBrachy",
         multi_processing:str = True,
     ):
         r"""
@@ -1023,70 +1023,66 @@ class BrachyPlan:
         """
         dir_export = Path(dir_export)
         dir_export.mkdir(parents=True, exist_ok=True)
-        if export_format == "WebApp":
+        # if export_format == "WebApp":
 
-            raise NotImplementedError("export to WebApp is not implemented yet")
+            # raise NotImplementedError("export to WebApp is not implemented yet")
 
-        elif export_format == "RapidBrachy":
+        # elif export_format == "RapidBrachy":
 
-            if content_to_export.get("dose", False):
-                self._export_dose(
-                    dir_export=str(dir_export),
-                    # with_uncertainty=content_to_export.get("uncertainty", False),
-                    dose_extension=content_to_export.get("dose_type", ".seq.nrrd"),
-                    dose_rate_maps=content_to_export.get("dose_rate_maps", False),
-                    multi_processing=multi_processing
+        if content_to_export.get("dose", False):
+            self._export_dose(
+                dir_export=str(dir_export),
+                dose_extension=content_to_export.get("dose_type", ".seq.nrrd"),
+                dose_rate_maps=content_to_export.get("dose_rate_maps", False),
+                multi_processing=multi_processing
+            )
+            print("Dose exported successfully")
+        if content_to_export.get("catheter_table", False):
+            # assumes file name is "catheter_table.json"
+            self._export_catheter_table(str(dir_export))
+            print("Catheter Table exported successfully")
+
+        if content_to_export.get("plan", False):
+            # assumes file name is "dwell_#.plan"
+            self._export_plan_file(
+                dir_export=str(dir_export),
+                combined_only=content_to_export.get("combined_only", True)
                 )
-                print("Dose exported successfully")
-            if content_to_export.get("catheter_table", False):
-                # assumes file name is "catheter_table.json"
-                self._export_catheter_table(str(dir_export))
-                print("Catheter Table exported successfully")
+            print(".plan files were exported successfully")
 
-            if content_to_export.get("plan", False):
-                # assumes file name is "dwell_#.plan"
-                self._export_plan_file(
-                    dir_export=str(dir_export),
-                    combined_only=content_to_export.get("combined_only", True)
-                    )
-                print(".plan files were exported successfully")
-
-            if content_to_export.get("mac", False):
-                # assumes file name is "run_#.mac"
-                self._export_dwell_mac_file(
-                    dir_export=str(dir_export),
-                    combined_only=content_to_export.get("combined_only", True)
-                    )
-                print(".mac files were exported successfully")
-
-            if content_to_export.get("egsphant", False):
-                # assumes file name is "ct.egsphant"
-                self._export_egsphant(
-                    dir_export=str(dir_export),
-                    material_dict=content_to_export.get("materials_table", None),
-                    assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
-                    crop_by_contour=content_to_export.get("crop_by_contour", None),
-                    strict_name_match=content_to_export.get("strict_name_match", True),
-                    resampled_spacing=content_to_export.get("resampled_spacing", None),
-                    resampled_origin=content_to_export.get("resampled_origin", None),
-                    background_material=content_to_export.get("background_material", "Air"),
+        if content_to_export.get("mac", False):
+            # assumes file name is "run_#.mac"
+            self._export_dwell_mac_file(
+                dir_export=str(dir_export),
+                combined_only=content_to_export.get("combined_only", True)
                 )
-                print("Egsphant file was exported successfully")
+            print(".mac files were exported successfully")
 
-            if content_to_export.get("applicator_geometry", False):
-                # assumes file name is "applicator_geometry.json"
-                self._export_applicator_geometry(str(dir_export), export_format)
-                print("applicator geometry file was exported successfully")
+        if content_to_export.get("egsphant", False):
+            # assumes file name is "ct.egsphant"
+            self._export_egsphant(
+                dir_export=str(dir_export),
+                material_dict=content_to_export.get("materials_table", None),
+                assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
+                crop_by_contour=content_to_export.get("crop_by_contour", None),
+                strict_name_match=content_to_export.get("strict_name_match", True),
+                resampled_spacing=content_to_export.get("resampled_spacing", None),
+                resampled_origin=content_to_export.get("resampled_origin", None),
+                background_material=content_to_export.get("background_material", "Air"),
+            )
+            print("Egsphant file was exported successfully")
 
-            if content_to_export.get("structure_set", False):
-                # assumes file name is "structure_set.json"
-                self._export_structure_set(
-                    str(dir_export), content_to_export.get("materials_table", None)
-                )
-                print("structure set file was exported successfully")
+        if content_to_export.get("applicator_geometry", False):
+            # assumes file name is "applicator_geometry.json"
+            self._export_applicator_geometry(str(dir_export))# export_format)
+            print("applicator geometry file was exported successfully")
 
-        else:
-            raise ValueError("export_format should be either 'RapidBrachy' or 'WebApp'")
+        if content_to_export.get("structure_set", False):
+            # assumes file name is "structure_set.json"
+            self._export_structure_set(
+                str(dir_export), content_to_export.get("materials_table", None)
+            )
+            print("structure set file was exported successfully")
 
     def _export_dose(
         self,
@@ -1802,3 +1798,38 @@ def load_dicom_to_plan(
         simulation_setup=new_sim_setup,
         **kwargs
     )
+
+
+from pydantic import BaseModel, ConfigDict, model_validator
+
+class ExportConfig_Dose(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_Egsphant(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_PlanFile(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_MacFile(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_CatheterTable(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_Applicator(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_BrachyStructure(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_BrachyPlan(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    dir_export:str
+    export_config_dose: ExportConfig_Dose = None
+    export_config_egsphant: ExportConfig_Egsphant = None
+    export_config_planfile: ExportConfig_PlanFile = None
+    export_config_macfile: ExportConfig_MacFile = None
+    export_config_cathetertable: ExportConfig_CatheterTable = None
+    export_config_applicator: ExportConfig_Applicator = None
+    export_config_phantom: ExportConfig_BrachyStructure = None    

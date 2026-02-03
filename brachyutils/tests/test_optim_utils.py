@@ -36,7 +36,7 @@ def get_a_plan_to_optimize(
         dir_dicom=pth_dicom,
         load_dicom_dose=False,
         strict_name_match=False,
-        from_delivered_dwellpositions=True,
+        from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", True),
         multi_processing=True,
         prescription_dose=target_dose,
         dvh_metric_goals=dvh_metric_goals,
