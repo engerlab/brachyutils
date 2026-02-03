@@ -38,7 +38,7 @@ def export_plan_from_dicom(
     plan_obj = load_dicom_to_plan(
         dir_dicom,
         simulation_setup=sim_dict,
-        delivered_catheter_table=True
+        from_delivered_dwellpositions=True
         )
 
     dir_export = Path(dir_export)
@@ -166,7 +166,7 @@ def get_dvh_metrics_single_plan(
     load_dose_from: Literal["dicom"] | Path | str = "dicom",
     dir_dose_rate: Path | str = None,
     export_combined_dose: bool = True,
-    delivered_catheter_table: bool = True,
+    from_delivered_dwellpositions: bool = True,
     strict_name_match: bool = False,
 ) -> Dict[str, float]:
     r"""
@@ -189,7 +189,7 @@ def get_dvh_metrics_single_plan(
             dvh_metric_goals=dvh_metric_goals,
             combined_dose_only=True,
             prescription_dose=prescription_dose,
-            delivered_catheter_table=delivered_catheter_table,
+            from_delivered_dwellpositions=from_delivered_dwellpositions,
             strict_name_match=strict_name_match
             )
     elif isinstance(load_dose_from, str) or isinstance(load_dose_from, Path):
@@ -203,7 +203,7 @@ def get_dvh_metrics_single_plan(
                 combined_dose=load_dose_from,
                 combined_dose_only=True,
                 multi_processing=True,
-                delivered_catheter_table=delivered_catheter_table,
+                from_delivered_dwellpositions=from_delivered_dwellpositions,
                 strict_name_match=strict_name_match,
                 )
         elif load_dose_from.is_dir():
@@ -215,7 +215,7 @@ def get_dvh_metrics_single_plan(
             dir_dose_rate=dir_dose_rate,
             combined_dose_only=True,
             multi_processing=True,
-            delivered_catheter_table=delivered_catheter_table,
+            from_delivered_dwellpositions=from_delivered_dwellpositions,
             strict_name_match=strict_name_match,
             )
         else:
@@ -738,7 +738,7 @@ def get_uncertainty_in_ctv(
             combined_dose_only=True,
             load_dose_or_uncertainty="both",
             multi_processing=True,
-            delivered_catheter_table=True,
+            from_delivered_dwellpositions=True,
             strict_name_match=False,
         )
         plan_obj.calculate_uncertainty_per_structure()

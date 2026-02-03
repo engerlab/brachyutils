@@ -15,7 +15,7 @@
         "structure_name":["RECTUM_BRACHY", "RECTUM"]
     },
     "Prostate" : {
-        "density":1.824,
+        "density":1.200,
         "HU_limit":1230.0,
         "structure_name": ["CTV_BRACHY", "CTV"]
     }

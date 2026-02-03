@@ -29,8 +29,6 @@ from opentps.core.io.dicomIO import (  # writeRTDose,
     writeDicomCT,
     writeRTStruct,
 )
-import vtk
-# from vtk.util import numpy_support
 
 import json
 from pathlib import Path
@@ -134,8 +132,6 @@ class BrachyPhantom:
             #     "No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file."
             # )
             warnings.warn("No geometry source file provided. Creating an empty Phantom", stacklevel=2)
-        if self.image_obj is not None:
-            self._convert_orientation_to_LPS()
 
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)
@@ -241,8 +237,6 @@ class BrachyPhantom:
                 char_list.append("I")
             orientation = "".join(char_list)
 
-        self.anatomical_coordinate_system = orientation
-
         modality = header.get("modality", "unknown")
         if modality == "unknown":
             if "ct" in pth_image.name.lower():
@@ -259,6 +253,8 @@ class BrachyPhantom:
             spacing=spacing,
         )
         self.set_image_array(image_nrrd)
+        self.image_obj.to_lps(current_orientation=orientation)
+        self.anatomical_coordinate_system = "LPS"
         self.image_modality = modality
 
     def _load_nifti_image_file(self, pth_image: Path) -> None:
@@ -280,7 +276,11 @@ class BrachyPhantom:
         image_data = np.ascontiguousarray(image_nifti.get_fdata())
         origin = image_nifti.affine[:3, 3]
         spacing = image_nifti.header.get("pixdim")[1:4]
-
+        origin = origin * [
+            np.sign(image_nifti.affine[0][0]),
+            np.sign(image_nifti.affine[1][1]),
+            np.sign(image_nifti.affine[2][2]),
+        ]
         if image_data.ndim == 4:
             image_data = image_data[:, :, :, 0]
         if image_nifti.header.data_layout == "F":
@@ -300,12 +300,13 @@ class BrachyPhantom:
             else:
                 warnings.warn("The modality of the image is not recognized.")
 
-        self.anatomical_coordinate_system = orientation
         self.image_obj = Image3D(
             origin=origin,
             spacing=spacing,
         )
         self.set_image_array(image_data)
+        self.image_obj.to_lps(current_orientation=orientation)
+        self.anatomical_coordinate_system = "LPS"
 
     def _load_structure_file(self, pth_structure: Path) -> None:
         r"""
@@ -593,7 +594,7 @@ class BrachyPhantom:
         imageToNrrd(
             image_obj=self.image_obj,
             pth_output=Path(pth_output),
-            anatomical_coordinate_system=self.anatomical_coordinate_system,
+            # anatomical_coordinate_system=self.anatomical_coordinate_system,
             modality=self.image_modality,
             metadata=metadata,
         )
@@ -1114,38 +1115,6 @@ class BrachyPhantom:
         else:
             warnings.warn(f"The structure {structure_name} does not exist.")
 
-    def _convert_orientation_to_LPS(self) -> None:
-        r"""
-        Purpose:
-            - Convert the orientation of the image from what ever it is to LPS.
-        Inputs:
-            - None
-        Outputs:
-            - None
-        """
-        # raise DeprecationWarning("This function is deprecated. converting to LPS is done when loading from each file type.")
-        assert self.image_obj is not None, "No image object to convert orientation."
-        assert self.anatomical_coordinate_system is not None, "Orientation is not set."
-        if self.anatomical_coordinate_system == "LAS":
-            raise NotImplementedError("Conversion from LAS to LPS is not implemented yet.")
-        elif self.anatomical_coordinate_system == "RAS":
-            # # flipping the image array allows the registration and segmentation to work.
-            # # the image is shown correctly in 3D slicer, but the coordinates wont match
-            # # the coordinates in the Nifti file.
-            image_array = self.get_image_array()
-            image_array = np.flip(image_array, axis=1)
-            image_array = np.flip(image_array, axis=2)
-            self.set_image_array(image_array)
-            # # negating the x and y origin and spacing allows the image to be 
-            # # displayed in the correct orientation in 3D slicer.
-            # self.image_obj.origin = self.image_obj.origin * np.array([-1, -1, 1])
-            # self.image_obj.spacing = self.image_obj.spacing * np.array([-1, -1, 1])
-            self.anatomical_coordinate_system = "LPS"
-        elif self.anatomical_coordinate_system == "LPS":
-            pass
-        else:
-            raise ValueError("The orientation is not recognized. please leave an issue on github.")
-
     def resample_to(
         self,
         origin:np.array=None,
@@ -1481,9 +1450,10 @@ def readNrrdStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
                 spacing=spacing,
                 name=name,
             )
+            roi_mask.to_lps(current_orientation=orientation)
             structure_mask_dict[name] = roi_mask
             i += 1
-    return structure_mask_dict, orientation
+    return structure_mask_dict, "LPS"
 
 def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     r"""
@@ -1505,8 +1475,12 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
     if structure_nifti.header.data_layout == "F":
         structure_data = np.swapaxes(structure_data, 0, 2)
     origin = structure_nifti.affine[:3, 3]
-    spacing = structure_nifti.header.get("pixdim")[1:4]
-
+    spacing = structure_nifti.header.get("pixdim")[1:4]    
+    origin = origin * [
+    np.sign(structure_nifti.affine[0][0]),
+    np.sign(structure_nifti.affine[1][1]),
+    np.sign(structure_nifti.affine[2][2]),
+    ]
     # God knows what is the name of the structures in the nifti files
     # I will just number them and hope for the best
     n_dim = structure_data.ndim
@@ -1517,29 +1491,6 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
         # the segments are non-overlapping, stored in a 3 dimensional array and
         # encoded by value. zero is ignored.
         num_structures = len(np.unique(structure_data))-1
-
-    # flip the origina and spacing if the orientation is not LPS:
-    # this worked for the messed up protate mri images from the micro-registration
-    # challenge. however, be careful with it on a new Nifti images. please
-    # do not modify the file writers.
-    if orientation == "RAS":
-        structure_data = np.flip(structure_data, axis=[1, 2])
-        # # either flip the mask on x and y axis or negating the origin and spacing. not both.
-        # # flipping allows spacing and origin to be positive, which is required by SITK and correct
-        # # display in 3D slicer.
-        # # negating allows for correct display in 3D slicer and the coordinates will match what
-        # # slicer shows when you load the original Nifti files. However, registration and segmentation
-        # # will not work correctly.
-        # origin = origin * np.array([-1, -1, 1])
-        # spacing = spacing * np.array([-1, -1, 1])
-    elif orientation == "LAS":
-        structure_data = np.flip(structure_data, axis=1)
-        # origin = origin * np.array([1, -1, 1])
-        # spacing = spacing * np.array([1, -1, 1])
-    elif orientation == "LPS":
-        pass
-    else:
-        raise ValueError("The orientation of the segmentation is not recognized.")
 
     structure_mask_dict: Dict[str, ROIMask] = {}
     for i in range(num_structures):
@@ -1570,6 +1521,7 @@ def readNiftiStruct(pth_structure: Path) -> Tuple[Dict[str, ROIMask], str]:
             spacing=spacing,
             name=segment_name,
         )
+        roi_mask.to_lps(current_orientation=orientation)
         structure_mask_dict[segment_name] = roi_mask
         # del segment_mask
     return structure_mask_dict, "LPS"
@@ -1670,7 +1622,7 @@ def generate_sphere_mask(
 def imageToNrrd(
     image_obj: Image3D,
     pth_output: Path,
-    anatomical_coordinate_system: str = "LPS",
+    anatomical_coordinate_system: str = "left-posterior-superior",
     modality: str = "N/A",
     metadata: Optional[Dict[str, str]] = None,
     ) -> None:

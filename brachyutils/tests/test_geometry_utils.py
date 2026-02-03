@@ -137,7 +137,7 @@ def test_crop_phantom():
 
 
 def test_catheter_table():
-    from brachyutils.geometry.catheter_utils import DwellPosition, Catheter, CatheterTable
+    from brachyutils.geometry.catheter_utils.catheter_table import DwellPosition, Catheter, CatheterTable
     dwell_dict_0 = {
         "index": 0,
         # "angle": 0,
@@ -192,7 +192,7 @@ def test_catheter_table():
     cat_tab_json.info()
 
 def test_catheter():
-    from brachyutils.geometry.catheter_utils import Catheter, DwellPosition
+    from brachyutils.geometry.catheter_utils.catheter_table import Catheter, DwellPosition
     # # create a catheter from tip and last dwell position
     new_catheter = Catheter(
         index=0,
@@ -210,7 +210,7 @@ def test_catheter():
     print(new_catheter)
 
 def test_catheter_to_mrk_json():
-    from brachyutils.geometry.catheter_utils import CatheterTable
+    from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
     pth_out = "data_test/test_export_plan/prostate/test_catheter_table.mrk.json"
     cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
@@ -356,12 +356,12 @@ def test_dicom_rt_tools():
     phantom_obj.export_to(dir_nrrd_out=pth_out)
 
 
-def test_get_delivered_catheter_table():
+def test_get_from_delivered_dwellpositions():
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
-    from brachyutils.geometry.catheter_utils import CatheterTable
+    from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
     cat_table = CatheterTable(catheter_list=pth_plan)
-    delivered_cat_table = cat_table.get_delivered_catheter_table()
+    delivered_cat_table = cat_table.get_from_delivered_dwellpositions()
     assert cat_table.num_catheters >= delivered_cat_table.num_catheters, "Test failed the number of catheters in the delivered table is not equal to the original table."
     assert cat_table.num_dwell_positions >= delivered_cat_table.num_dwell_positions, "Test failed the number of dwell positions in the delivered table is not equal to the original table."
 
@@ -395,12 +395,10 @@ if __name__ == "__main__":
     # test_upsample_structure()
     # test_write_structures_to_dicom()
     # test_read_structures_from_nrrd()
-    test_write_to_egsphant()
+    # test_write_to_egsphant()
     # test_load_egsphant()
     # test_crop_phantom()
     # print("testing CatheterTable")
-    # test_catheter_table()
-    # test_catheter()
     # print("testing BrachyApplicator")
     # test_BrachyApplicator()
     # test_BrachyApplicator_to_mac()
@@ -409,7 +407,9 @@ if __name__ == "__main__":
     # test_load_nifti_image_and_segmentation_file()
     # test_resample_to()
     # test_dicom_rt_tools()
-    # test_catheter_to_mrk_json()
-    # test_get_delivered_catheter_table()
+    # test_catheter_table()
+    # test_catheter()
+    test_catheter_to_mrk_json()
+    # test_get_from_delivered_dwellpositions()
     # test_generate_sphere_mask()
     # test_load_pet_dicom()
