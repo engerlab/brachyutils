@@ -27,6 +27,58 @@ from brachyutils.planning.simulation_utils import BrachySimulation
 # from brachyutils.types import Optimization_Config
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+class ExportConfig_Dose(BaseModel):
+    """
+    Configuration for exporting dose data from the plan.
+    """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
+    )
+    
+    dir_export: str | Path = Field(..., description="Directory where dose files are exported.")
+    name_combine_dose: str = Field("combined", description="File name for combined dose output.")
+    file_extension: Literal[".seq.nrrd", ".3ddose"] = Field(
+        ".seq.nrrd", description="Allowed file extensions for dose files."
+    )
+    write_dose_rate_maps: bool = Field(
+        False, description="Whether to write individual dose rate maps to files."
+    )
+    multi_processing: bool = Field(
+        True, description="Enable multiprocessing for export (yes/no toggle)."
+    )
+
+class ExportConfig_Egsphant(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_PlanFile(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_MacFile(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_CatheterTable(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_Applicator(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_BrachyStructure(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_BrachyPlan(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    dir_export:str
+    export_config_dose: ExportConfig_Dose = None
+    export_config_egsphant: ExportConfig_Egsphant = None
+    export_config_planfile: ExportConfig_PlanFile = None
+    export_config_macfile: ExportConfig_MacFile = None
+    export_config_cathetertable: ExportConfig_CatheterTable = None
+    export_config_applicator: ExportConfig_Applicator = None
+    export_config_phantom: ExportConfig_BrachyStructure = None
+
 class BrachyPlan:
     r"""
     ### Purpose:
@@ -1086,10 +1138,11 @@ class BrachyPlan:
 
     def _export_dose(
         self,
-        dir_export: str,
-        dose_extension=".seq.nrrd",
-        dose_rate_maps=False,
-        multi_processing:bool=True,
+        export_config_dose: ExportConfig_Dose
+        # dir_export: str,
+        # dose_extension=".seq.nrrd",
+        # dose_rate_maps=False,
+        # multi_processing:bool=True,
     ):
         r"""
         ### Purpose:
@@ -1097,7 +1150,6 @@ class BrachyPlan:
         exporting dose rate maps is optional.
         ### Inputs:
         - dir_export := the directory to which the dose map will be exported.
-        - uncertainty := if True, the uncertainty map will be exported as well.
         - dose_extension := the type of dose map to be exported. options are ".3ddose", ".minidos", or ".nrrd".
         - dose_rate_maps := if True, the dose rate maps will be exported as well.
         ### Outputs:
@@ -1798,38 +1850,3 @@ def load_dicom_to_plan(
         simulation_setup=new_sim_setup,
         **kwargs
     )
-
-
-from pydantic import BaseModel, ConfigDict, model_validator
-
-class ExportConfig_Dose(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-class ExportConfig_Egsphant(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-class ExportConfig_PlanFile(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-class ExportConfig_MacFile(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-class ExportConfig_CatheterTable(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-class ExportConfig_Applicator(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-class ExportConfig_BrachyStructure(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-class ExportConfig_BrachyPlan(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dir_export:str
-    export_config_dose: ExportConfig_Dose = None
-    export_config_egsphant: ExportConfig_Egsphant = None
-    export_config_planfile: ExportConfig_PlanFile = None
-    export_config_macfile: ExportConfig_MacFile = None
-    export_config_cathetertable: ExportConfig_CatheterTable = None
-    export_config_applicator: ExportConfig_Applicator = None
-    export_config_phantom: ExportConfig_BrachyStructure = None    
