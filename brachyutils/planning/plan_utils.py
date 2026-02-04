@@ -1124,9 +1124,7 @@ class BrachyPlan:
         self,
         dir_export: str | Path,
         content_to_export: Dict[str, bool | str] = None,
-        # # export_format: str = "RapidBrachy",
-        # multi_processing:str = True,
-    ):
+        ):
         r"""
         ### Purpose:
         - To export the treatment plan file into a given export_format.
@@ -1166,46 +1164,39 @@ class BrachyPlan:
         dir_export = Path(dir_export)
         dir_export.mkdir(parents=True, exist_ok=True)
 
-        if content_to_export.get("export_config_dose", None):
-            self.export_dose(content_to_export.get("export_config_dose"))
+        if content_to_export.export_config_dose is not None:
+            self.export_dose(content_to_export.export_config_dose)
 
-        if content_to_export.get("export_config_cathetertable", None):
+        if content_to_export.export_config_cathetertable is not None:
             self.export_catheter_table(
-                export_config_cathetertable=content_to_export.get("export_config_cathetertable"),
+                export_config_cathetertable=content_to_export.export_config_cathetertable,
                 catheter_table=self.catheter_table,
             )
 
-        if content_to_export.get("plan", None):
-            # assumes file name is "dwell_#.plan"
+        if content_to_export.export_config_planfile is not None:
             self.export_plan_files(
-                export_config_planfile=content_to_export.get("plan", None),
+                export_config_planfile=content_to_export.export_config_planfile,
                 catheter_table=self.catheter_table,
                 )
 
-        if content_to_export.get("mac", None):
-            # assumes file name is "run_#.mac"
+        if content_to_export.export_config_macfile is not None:
             self.export_mac_files(
-                export_config_macfile=content_to_export.get("export_config_macfile"),
+                export_config_macfile=content_to_export.export_config_macfile,
                 catheter_table=self.catheter_table
                 )
 
-        if content_to_export.get("egsphant", False):
-            # assumes file name is "ct.egsphant"
+        if content_to_export.export_config_egsphant is not None:
             self._export_egsphant(
-                export_config_egsphant=content_to_export.get("export_config_egsphant")
+                export_config_egsphant=content_to_export.export_config_egsphant
             )
 
-        if content_to_export.get("applicator_geometry", False):
-            # assumes file name is "applicator_geometry.json"
-            self._export_applicator_geometry(str(dir_export))# export_format)
-            print("applicator geometry file was exported successfully")
+        if content_to_export.applicator_geometry:
+            self._export_applicator_geometry(str(content_to_export.dir_export))
 
-        if content_to_export.get("structure_set", False):
-            # assumes file name is "structure_set.json"
+        if content_to_export.structure_set:
             self._export_structure_set(
                 str(dir_export), content_to_export.get("materials_table", None)
             )
-            print("structure set file was exported successfully")
 
     def export_catheter_table(
         self,
@@ -1529,12 +1520,12 @@ class BrachyPlan:
         # export the mac files for each applicator
         for applicator in self.applicator_list:
             applicator.to_mac(os.path.join(dir_export, f"{applicator.name}.mac"))
+        print("applicator geometry file was exported successfully")
 
     def _export_structure_set(
         self,
         dir_export: str,
         materials_table: Union[dict, Path] = None,
-        export_format: str = "RapidBrachy",
     ):
         r"""
         ### Purpose:
@@ -1553,7 +1544,7 @@ class BrachyPlan:
         written to structure_set.json
         ### Dependencies:
         """
-
+        raise NotImplementedError("now that you are here, finish this function thank you!")
         structure_set = []
         for structure in self.structure_list:
             structure_set.append(structure.to_dict(export_format))
@@ -1574,6 +1565,7 @@ class BrachyPlan:
         file_path = os.path.join(dir_export, "structure_set.json")
         with open(file_path, "w") as file:
             json.dump(structure_set, file, indent=4)
+        print("structure set file was exported successfully")
 
     def info(self):
         r"""

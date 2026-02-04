@@ -174,28 +174,19 @@ def test_export_brachy_plan():
     pth_material = "admin/constants/structure_materials_prostate.json"
     # assign materials based on CT values:
     # pth_material = "data_test/CTtoDensityProstate.txt"
+    target_dose = 21
     dvh_metric_goals = {
-        "D95%(ctv)": 15,
-        "D1cc(rectum)": 11.25,
-        "D0.1cc(urethra)": 18.75,
+        "D90%(CTV)": target_dose,
+        "D2cc(RECTUM)": target_dose * 0.75,
+        "D10%(URETHRA)": target_dose * 1.133,
+        "D30%(URETHRA)": target_dose,
+        "CI(CTV)": 1.0,
+        "HI(CTV)": 0.5,
+        "V200%(CTV)": target_dose * 0.2,
+        "V150%(CTV)": target_dose * 0.4,
+        "V100%(CTV)": 100.0,
     }
-    sim_dict = {
-        "treatment_type": "HDR",
-        "source_geometry": "MicroSelectronV2",
-        "core_material": "G4_Ir",
-        "mass_number": "192",
-        "atomic_number": "77",
-        "pth_plan": "combined.plan",
-        "pth_phantom": "ct.egsphant",
-        "air_kerma_per_history": 1.149000e-11,
-        "reference_air_kerma": 4.278729e04,
-        "number_histories": 1000000,
-        "total_time": 5983,
-        "number_of_threads": 12,
-        "PrintProgress": 10000,
-        "beam_on": 10000,
-    }
-    dir_export = "data_test/test_export_plan/prostate/glen_p1/"
+    dir_export = "data_test/test_export_plan/prostate"
     export_format = "RapidBrachy"
     os.makedirs(dir_export, exist_ok=True)
 
