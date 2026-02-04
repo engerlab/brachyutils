@@ -93,9 +93,13 @@ class ExportConfig_MacFile(BaseModel):
     combined_only:bool = Field(True, description="If true, only combined mac is written. \
 Per dwell position plan is generated.")
     name_combined:str = Field("combined", description="The name of the file for combined mac")
+    body_name_stl: str = Field("BODY", description="Name of the body structure to be saved as a separate STL.")
     @computed_field
     def pth_combined(self):
         return self.dir_export/(self.name_combined+self.file_extension)
+    @computed_field    
+    def pth_body_stl(self):
+        return self.dir_export/(self.body_name_stl+".stl")
     @model_validator(mode="after")
     def validate_config(self):
         if self.dir_export is None:
@@ -104,6 +108,12 @@ Per dwell position plan is generated.")
         return self
 
 class ExportConfig_Egsphant(BaseModel):
+    r"""
+    The Export info needed for exporting Egsphant files.
+    If using Monte Carlo simulations from RapidBrachyMC, It is recommended that
+    the user crop the egsphant to a small region around the relevant anatomy and
+    use provide the body_name_stl to save the body structure as a separate STL file. 
+    """
     model_config = ConfigDict(arbitrary_types_allowed=True)
     dir_export: str | Path = Field(None, description="Directory where Egsphant file is exported.")
     name_egsphant: str = Field("egsphant", description="File name for Egsphant output.")
@@ -117,7 +127,12 @@ class ExportConfig_Egsphant(BaseModel):
     resampled_origin: List[float] = Field(None, description="Origin for resampling the phantom.")
     background_material: str = Field(None, description="Material name for background.")
     strict_name_match: bool = Field(True, description="Whether to enforce strict name matching for materials.")
-
+    body_name_stl: str = Field("BODY", description="Name of the body structure to be saved as a separate STL.")
+    @computed_field
+    def pth_egsphant(self):
+        return self.dir_export/(self.name_egsphant+self.file_extension)
+    def pth_body_stl(self):
+        return self.dir_export/(self.body_name_stl+".stl")
 
 class ExportConfig_CatheterTable(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -1331,7 +1346,7 @@ class BrachyPlan:
 
         plan contains info of a single dwell position.
 
-        The format of each .plan file is given in this example:
+        The format of each .mac file is given in this example:
             /source_world/treatmentType HDR
             /source_world/switch MicroSelectronV2
             /source_world/coreMaterial G4_Ir
