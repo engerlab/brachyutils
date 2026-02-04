@@ -6,7 +6,37 @@ from pathlib import Path
 import numpy as np
 
 from brachyutils.planning.plan_utils import BrachyPlan
+from brachyutils.planning.plan_utils import load_dicom_to_plan
+def get_a_plan(
+    pth_dicom:str | Path,
+    **kwargs):
+    target_dose = 21.0
+    dvh_metric_goals = {
+        "D90%(CTV)": target_dose,
+        "D2cc(RECTUM)": target_dose * 0.75,
+        "D10%(URETHRA)": target_dose * 1.133,
+        "D30%(URETHRA)": target_dose,
+        "CI(CTV)": 1.0,
+        "HI(CTV)": 0.5,
+        "V200%(CTV)": target_dose * 0.2,
+        "V150%(CTV)": target_dose * 0.4,
+        "V100%(CTV)": 100.0,
+    }
 
+    plan_obj = load_dicom_to_plan(
+        dir_dicom=pth_dicom,
+        load_dicom_dose=False,
+        strict_name_match=False,
+        from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", True),
+        multi_processing=True,
+        prescription_dose=target_dose,
+        dvh_metric_goals=dvh_metric_goals,
+        optimization_config_list=kwargs.get("optimization_config_list", None),
+        dwells_near_ptv=True,
+        add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
+        one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
+        )
+    return plan_obj
 
 def testupdate_plan_from_catheter_table():
     pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
@@ -162,67 +192,35 @@ def test__load_single_dose_or_uncertainty_to_dict():
     print(dose_rate_dict[0].shape)  # dose
     print(dose_rate_dict[1].shape)  # uncertainty
 
-
 def test_export_brachy_plan():
-    # pth_cathTable_json = "data_test/prostate-glen-p1-planFiles/catheter_table.json"
-    dir_dose_rate = "data_test/prostate-glen-p1-dose"
-    dir_dicom = "data_test/prostate-glen-p1-dcm/"
-    pth_combined_dose = glob(dir_dicom + "/RD*.dcm")[0]
-    pth_cathTable_dcm = glob(dir_dicom + "/RP*.dcm")[0]
-    # dir_egsphant = "data_test/prostate-glen-p1-planFiles/ct.egsphant"
-    # assign material based on contours:
-    pth_material = "admin/constants/structure_materials_prostate.json"
-    # assign materials based on CT values:
-    # pth_material = "data_test/CTtoDensityProstate.txt"
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
+    dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
-    dvh_metric_goals = {
-        "D90%(CTV)": target_dose,
-        "D2cc(RECTUM)": target_dose * 0.75,
-        "D10%(URETHRA)": target_dose * 1.133,
-        "D30%(URETHRA)": target_dose,
-        "CI(CTV)": 1.0,
-        "HI(CTV)": 0.5,
-        "V200%(CTV)": target_dose * 0.2,
-        "V150%(CTV)": target_dose * 0.4,
-        "V100%(CTV)": 100.0,
-    }
-    dir_export = "data_test/test_export_plan/prostate"
-    export_format = "RapidBrachy"
-    os.makedirs(dir_export, exist_ok=True)
+    # # for loading the delivered dose rates. 
+    dir_dose_rates = Path("data_test/prostate-glen-p1-dose").resolve()
+    gen_dose_rates = False
+    from_delivered_dwellpositions=True
 
-    content_to_export = {
-        "dose": True,
-        "dose_type": ".seq.nrrd",
-        "dose_rate_maps": True,
-        "uncertainty": True,
-        "catheter_table": True,
-        "egsphant": True,
-        "materials_table": pth_material,
-        "assign_material_from_ct": False,
-        "structure_set": False,
-        "plan": False,
-        "mac": False,
-        "ApplicatorMaterials": False,
+    export_config = {
+        "dir_export": dir_export,
+        "export_config_dose": {},
+        "export_config_cathetertable": {},
+        # "export_config_egsphant": {},
+        # "export_config_planfile": {},
+        # "export_config_macfile": {},
         "applicator_geometry": False,
+        "structure_set": False
     }
 
-    plan_obj = BrachyPlan(
-        phantom=dir_dicom,
-        # dvh_metric_goals=dvh_metric_goals,
-        catheter_table=pth_cathTable_dcm,
-        from_delivered_dwellpositions=True,
-        dir_dose_rate=dir_dose_rate,
-        multi_processing=True
-        # combined_dose=pth_combined_dose,
-        # simulation_setup=sim_dict,
-    )
-    # # This function tests all the exporting functions.
-    plan_obj.export_brachy_plan(
-        dir_export=dir_export,
-        content_to_export=content_to_export,
-        multi_processing=True,
+    plan:BrachyPlan = get_a_plan(
+        pth_dicom=pth_dicom,
+        dir_dose_rates=dir_dose_rates,
+        from_delivered_dwellpositions=from_delivered_dwellpositions,
+        generate_dose_rates=gen_dose_rates,
         )
-
+    plan.export_brachy_plan(
+        content_to_export=export_config
+    )
 
 def test_load_brachy_plan_from_dicom():
     from brachyutils.geometry.phantom_utils import BrachyPhantom

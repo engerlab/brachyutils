@@ -49,7 +49,7 @@ class ExportConfig_Dose(BaseModel):
         True, description="Enable multiprocessing for export (yes/no toggle)."
     )
     @computed_field
-    def pth_combined(self):
+    def pth_combined(self)->Path:
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.name_combined+self.file_extension)
 
@@ -66,8 +66,9 @@ class ExportConfig_PlanFile(BaseModel):
     combined_only:bool = Field(True, description="If true, only combined plan is written. \
 Per dwell position plan is generated.")
     name_combined:str = Field("combined", description="The name of the file for combined plan")
+    file_extension: Literal[".plan"] = Field(".plan", description="File extension for plan files.")
     @computed_field
-    def pth_combined(self):
+    def pth_combined(self)->Path:
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.name_combined+self.file_extension)
 
@@ -83,12 +84,13 @@ class ExportConfig_MacFile(BaseModel):
     combined_only:bool = Field(True, description="If true, only combined mac is written. \
 Per dwell position plan is generated.")
     name_combined:str = Field("combined", description="The name of the file for combined mac")
+    file_extension: Literal[".mac"] = Field(".mac", description="File extension for mac files.")
     body_name_stl: str = Field("BODY", description="Name of the body structure to be saved as a separate STL.")
     @computed_field
-    def pth_combined(self):
+    def pth_combined(self)->Path:
         return self.dir_export/(self.name_combined+self.file_extension)
     @computed_field    
-    def pth_body_stl(self):
+    def pth_body_stl(self)->Path:
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.body_name_stl+".stl")
 
@@ -116,10 +118,10 @@ class ExportConfig_Egsphant(BaseModel):
     strict_name_match: bool = Field(True, description="Whether to enforce strict name matching for materials.")
     body_name_stl: str = Field(None, description="Name of the body structure to be saved as a separate STL.")
     @computed_field
-    def pth_egsphant(self):
+    def pth_egsphant(self)->Path:
         return self.dir_export/(self.name+self.file_extension)
     @computed_field
-    def pth_body_stl(self):
+    def pth_body_stl(self)->Path:
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.body_name_stl+".stl")
 
@@ -132,7 +134,7 @@ class ExportConfig_CatheterTable(BaseModel):
     remove_text: bool = Field(True, description="Text to remove from dwell names.")
     one_markup_per_catheter: bool = Field(False, description="Whether to create one markup per catheter.")
     @computed_field
-    def pth_catheter_table(self):
+    def pth_catheter_table(self)->Path:
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.name+self.file_extension)
 
@@ -149,7 +151,7 @@ class ExportConfig_BrachyPlan(BaseModel):
     The components are catheter table, dose, egsphant, plan file, and mac file.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    dir_export:str = Field(..., description="Base directory where all plan components are exported.")
+    dir_export:str | Path = Field(..., description="Base directory where all plan components are exported.")
     export_config_dose: ExportConfig_Dose = Field(None, description="Configuration for exporting dose data.")
     export_config_cathetertable: ExportConfig_CatheterTable = Field(None, description="Configuration for exporting catheter table.")
     export_config_egsphant: ExportConfig_Egsphant = Field(None, description="Configuration for exporting egsphant file.")
@@ -1122,8 +1124,7 @@ class BrachyPlan:
 
     def export_brachy_plan(
         self,
-        dir_export: str | Path,
-        content_to_export: Dict[str, bool | str] = None,
+        content_to_export: ExportConfig_BrachyPlan | dict,
         ):
         r"""
         ### Purpose:
@@ -1161,7 +1162,9 @@ class BrachyPlan:
         ### Outputs:
             - Void := will export the available parts of a plan into the specified export_format.
         """
-        dir_export = Path(dir_export)
+        if isinstance(content_to_export, dict):
+            content_to_export = ExportConfig_BrachyPlan(**content_to_export)
+        dir_export = content_to_export.dir_export
         dir_export.mkdir(parents=True, exist_ok=True)
 
         if content_to_export.export_config_dose is not None:
