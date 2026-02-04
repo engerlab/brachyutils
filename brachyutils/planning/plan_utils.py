@@ -147,29 +147,32 @@ class ExportConfig_CatheterTable(BaseModel):
     name: str = Field("catheter_table", description="File name for catheter table output.")
     file_extension: Literal[".json", ".mrk.json"] = Field(
         ".mrk.json", description="File extension for catheter table export.)")
+    remove_text: bool = Field(True, description="Text to remove from dwell names.")
+    one_markup_per_catheter: bool = Field(False, description="Whether to create one markup per catheter.")
     @computed_field
     def pth_catheter_table(self):
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.name+self.file_extension)
 
-class ExportConfig_Applicator(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+# class ExportConfig_Applicator(BaseModel):
+#     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-class ExportConfig_BrachyStructure(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+# class ExportConfig_BrachyStructure(BaseModel):
+#     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 class ExportConfig_BrachyPlan(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     dir_export:str
+    export_catheter_table: ExportConfig_CatheterTable = None
     export_config_dose: ExportConfig_Dose = None
     export_config_egsphant: ExportConfig_Egsphant = None
     export_config_planfile: ExportConfig_PlanFile = None
     export_config_macfile: ExportConfig_MacFile = None
     export_config_cathetertable: ExportConfig_CatheterTable = None
-    export_config_applicator: ExportConfig_Applicator = None
-    export_config_phantom: ExportConfig_BrachyStructure = None
-
-    export_catheter_table:bool = False
+    # export_config_applicator: ExportConfig_Applicator = None
+    # export_config_phantom: ExportConfig_BrachyStructure = None
+    applicator_geometry: bool = False
+    structure_set: bool = False
 
     @model_validator
     def validate_config(self):
@@ -1175,12 +1178,11 @@ class BrachyPlan:
         if content_to_export.get("export_config_dose", None):
             self.export_dose(content_to_export.get("export_config_dose"))
 
-        if content_to_export.get("export_catheter_table", False):
-            # assumes file name is "catheter_table.json"
-            file_path = dir_export / "catheter_table.json"
-            with open(file_path, "w") as file:
-                json.dump(self.catheter_table.to_dict(), file, indent=4)
-            print("Catheter Table exported successfully")
+        if content_to_export.get("export_config_cathetertable", None):
+            self.export_catheter_table(
+                export_config_cathetertable=content_to_export.get("export_config_cathetertable"),
+                catheter_table=self.catheter_table,
+            )
 
         if content_to_export.get("plan", None):
             # assumes file name is "dwell_#.plan"
@@ -1213,6 +1215,31 @@ class BrachyPlan:
                 str(dir_export), content_to_export.get("materials_table", None)
             )
             print("structure set file was exported successfully")
+
+    def export_catheter_table(
+        self,
+        export_config_cathetertable: ExportConfig_CatheterTable,
+        catheter_table: CatheterTable,
+        ):
+        r"""
+        ### Purpose:
+        - to export the catheter table to a given directory in mrk.json or .json format.
+        ### Inputs:
+        - export_config_cathetertable: The catheter table export configuration. Look at ExportConfig_CatheterTable for more info
+        - catheter_table: The catheter table to export.
+        ### Outputs:
+        - None := will export the catheter table into the specified export directory.
+        """
+        if export_config_cathetertable.file_format == "mrk.json":
+            catheter_table.write_to_slicer_markup(
+                pth_mrk_json=export_config_cathetertable.pth_catheter_table,
+                remove_text=export_config_cathetertable.remove_text,
+                one_markup_per_catheter=export_config_cathetertable.one_markup_per_catheter,
+            )
+        elif export_config_cathetertable.file_format == ".json":
+            catheter_table.write_json(
+                export_config_cathetertable.dir_export
+            )
 
     def export_dose(
         self,
