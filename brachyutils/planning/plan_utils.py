@@ -117,7 +117,9 @@ class ExportConfig_Egsphant(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     dir_export: str | Path = Field(None, description="Directory where Egsphant file is exported.")
     name_egsphant: str = Field("egsphant", description="File name for Egsphant output.")
-    file_extension: Literal[".seq.nrrd", ".egsphant"] = Field(".seq.nrrd", description="Allowed file extensions for Egsphant files.")
+    file_extension: Literal[".seq.nrrd", ".egsphant"] = Field(
+        ".seq.nrrd", 
+        description="Allowed file extensions for Egsphant files.")
     material_dict: dict | Path = Field(
         Path("admin/constants/structure_materials_prostate.json"),
         description="Dictionary of material names and their properties.")
@@ -127,12 +129,17 @@ class ExportConfig_Egsphant(BaseModel):
     resampled_origin: List[float] = Field(None, description="Origin for resampling the phantom.")
     background_material: str = Field(None, description="Material name for background.")
     strict_name_match: bool = Field(True, description="Whether to enforce strict name matching for materials.")
-    body_name_stl: str = Field("BODY", description="Name of the body structure to be saved as a separate STL.")
+    body_name_stl: str = Field(None, description="Name of the body structure to be saved as a separate STL.")
     @computed_field
     def pth_egsphant(self):
         return self.dir_export/(self.name_egsphant+self.file_extension)
     def pth_body_stl(self):
         return self.dir_export/(self.body_name_stl+".stl")
+    def validate_config(self):
+        if self.dir_export is None:
+            raise ValueError("dir_export is not set for this config")
+        self.dir_export = Path(self.dir_export)
+        return self
 
 class ExportConfig_CatheterTable(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -1115,8 +1122,8 @@ class BrachyPlan:
         self,
         dir_export: str | Path,
         content_to_export: Dict[str, bool | str] = None,
-        # export_format: str = "RapidBrachy",
-        multi_processing:str = True,
+        # # export_format: str = "RapidBrachy",
+        # multi_processing:str = True,
     ):
         r"""
         ### Purpose:
@@ -1185,16 +1192,16 @@ class BrachyPlan:
         if content_to_export.get("egsphant", False):
             # assumes file name is "ct.egsphant"
             self._export_egsphant(
-                dir_export=str(dir_export),
-                material_dict=content_to_export.get("materials_table", None),
-                assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
-                crop_by_contour=content_to_export.get("crop_by_contour", None),
-                strict_name_match=content_to_export.get("strict_name_match", True),
-                resampled_spacing=content_to_export.get("resampled_spacing", None),
-                resampled_origin=content_to_export.get("resampled_origin", None),
-                background_material=content_to_export.get("background_material", "Air"),
+                export_config_egsphant=content_to_export.get("export_config_egsphant")
             )
-            print("Egsphant file was exported successfully")
+                # dir_export=str(dir_export),
+                # material_dict=content_to_export.get("materials_table", None),
+                # assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
+                # crop_by_contour=content_to_export.get("crop_by_contour", None),
+                # strict_name_match=content_to_export.get("strict_name_match", True),
+                # resampled_spacing=content_to_export.get("resampled_spacing", None),
+                # resampled_origin=content_to_export.get("resampled_origin", None),
+                # background_material=content_to_export.get("background_material", "Air"),
 
         if content_to_export.get("applicator_geometry", False):
             # assumes file name is "applicator_geometry.json"
@@ -1395,48 +1402,41 @@ class BrachyPlan:
 
     def _export_egsphant(
         self,
-        dir_export: Union[str, Path],
-        material_dict: Union[dict, Path],
-        assign_material_from_ct: bool,
-        crop_by_contour: str = None,
-        resampled_spacing: List[float] = None,
-        resampled_origin: List[float] = None,
-        background_material: str = None,
-        strict_name_match: bool = True
-    ):
+        export_config_egsphant: ExportConfig_Egsphant,
+        ):
         r"""
         ### Purpose:
         - to export the egsphant file of the plan into dir_export
         ### Inputs:
-        - dir_export := path to the directory where the export happens
-        - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
-        The dictionary contains the name of the elements for each voxel,
-        and the following keys: [
-            "density" := the density of the material in g/cm^3,
-            "HU_limit" := the lower HU limit threshold of the material,
-            "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
-        ]
-        - assign_material_from_ct := if True, the material names will be assigned from the ct.egsphant file.
+        - export_config_egsphant:= The export configuration for egsphant file. see ExportConfig_Egsphant
         ### Outputs:
-        - void := egsphant file is generated from phantom and is written to ct.egsphant
+        - None := egsphant file is generated from phantom and is written to ct.egsphant
         ### Dependencies:
         - BrachyEgsphant
         """
-        file_path = dir_export + "/ct.egsphant"
-        # if isinstance(material_dict, Path):
-        #     with open(material_dict, "r") as json_file:
-        #         material_dict = json.load(json_file)
-
         self.phantom.write_to_egsphant(
-            pth_output=Path(file_path),
-            material_dict=material_dict,
-            assign_material_from_ct=assign_material_from_ct,
-            crop_by_contour=crop_by_contour,
-            resampled_spacing=resampled_spacing,
-            resampled_origin=resampled_origin,
-            background_material=background_material,
-            strict_name_match=strict_name_match
+            pth_output=export_config_egsphant.pth_egsphant,
+            material_dict=export_config_egsphant.material_dict,
+            assign_material_from_ct=export_config_egsphant.assign_material_from_ct,
+            crop_by_contour=export_config_egsphant.crop_by_contour,
+            resampled_spacing=export_config_egsphant.resampled_spacing,
+            resampled_origin=export_config_egsphant.resampled_origin,
+            background_material=export_config_egsphant.background_material,
+            strict_name_match=export_config_egsphant.strict_name_match
         )
+        if export_config_egsphant.body_name_stl is not None:
+            body_mask = self.body_contour.getBinaryMask(
+                origin=self.phantom.origin,
+                spacing=self.phantom.spacing,
+                gridSize=self.phantom.gridSize
+            )
+            self.phantom.mask_to_stl(
+                roi_mask=self.body_contour,
+                mask=body_mask,
+                pth_output=export_config_egsphant.pth_body_stl
+            )
+
+        print("Egsphant file was exported successfully")
 
     def _export_applicator_geometry(
         self, dir_export: str, export_format: str = "RapidBrachy"
