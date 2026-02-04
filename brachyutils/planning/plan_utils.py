@@ -52,12 +52,6 @@ class ExportConfig_Dose(BaseModel):
     def pth_combined(self):
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.name_combined+self.file_extension)
-    # @model_validator(mode="after")
-    # def validate_config(self):
-    #     if self.dir_export is None:
-    #         raise ValueError("dir_export is not set for this config")
-    #     self.dir_export = Path(self.dir_export)
-    #     return self
 
 class ExportConfig_PlanFile(BaseModel):
     """
@@ -76,12 +70,6 @@ Per dwell position plan is generated.")
     def pth_combined(self):
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.name_combined+self.file_extension)
-    # @model_validator(mode="after")
-    # def validate_config(self):
-    #     if self.dir_export is None:
-    #         raise ValueError("dir_export is not set for this config")
-    #     self.dir_export = Path(self.dir_export)
-    #     return self
 
 class ExportConfig_MacFile(BaseModel):
     """
@@ -103,12 +91,6 @@ Per dwell position plan is generated.")
     def pth_body_stl(self):
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.body_name_stl+".stl")
-    # @model_validator(mode="after")
-    # def validate_config(self):
-    #     if self.dir_export is None:
-    #         raise ValueError("dir_export is not set for this config")
-    #     self.dir_export = Path(self.dir_export)
-    #     return self
 
 class ExportConfig_Egsphant(BaseModel):
     r"""
@@ -154,7 +136,7 @@ class ExportConfig_CatheterTable(BaseModel):
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.name+self.file_extension)
 
-# TODO: in future, add these export configs
+# TODO: in future, add these export configs if neeeded
 # class ExportConfig_Applicator(BaseModel):
 #     model_config = ConfigDict(arbitrary_types_allowed=True)
 # class ExportConfig_BrachyStructure(BaseModel):
@@ -173,7 +155,7 @@ class ExportConfig_BrachyPlan(BaseModel):
     export_config_egsphant: ExportConfig_Egsphant = Field(None, description="Configuration for exporting egsphant file.")
     export_config_planfile: ExportConfig_PlanFile = Field(None, description="Configuration for exporting plan file.")
     export_config_macfile: ExportConfig_MacFile = Field(None, description="Configuration for exporting mac file.")
-    # TODO: in future, add these export configs
+    # TODO: in future, add these export configs if neeeded
     # export_config_applicator: ExportConfig_Applicator = None
     # export_config_phantom: ExportConfig_BrachyStructure = None
     applicator_geometry: bool = Field(False, description="Whether to export applicator geometry into a stl file.")
@@ -183,16 +165,10 @@ class ExportConfig_BrachyPlan(BaseModel):
     def validate_config(self):
         # make sure that the paths of dir exports are 
         # set correctly for all the inner attributes
-        if self.export_config_dose is not None:
-            self.export_config_dose.dir_export = self.dir_export
-        if self.export_config_cathetertable is not None:
-            self.export_config_cathetertable.dir_export = self.dir_export
-        if self.export_config_egsphant is not None:
-            self.export_config_egsphant.dir_export = self.dir_export
-        if self.export_config_planfile is not None:
-            self.export_config_planfile.dir_export = self.dir_export
-        if self.export_config_macfile is not None:
-            self.export_config_macfile.dir_export = self.dir_export
+        for _, value in self:
+            if isinstance(value, BaseModel):
+                if value.dir_export is None:
+                    value.dir_export = self.dir_export
         return self
 
 class BrachyPlan:
