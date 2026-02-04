@@ -154,32 +154,47 @@ class ExportConfig_CatheterTable(BaseModel):
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.name+self.file_extension)
 
+# TODO: in future, add these export configs
 # class ExportConfig_Applicator(BaseModel):
 #     model_config = ConfigDict(arbitrary_types_allowed=True)
-
 # class ExportConfig_BrachyStructure(BaseModel):
 #     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 class ExportConfig_BrachyPlan(BaseModel):
+    r"""
+    ### Purpose:
+    - Configuration for exporting various components of a brachytherapy treatment plan.
+    The components are catheter table, dose, egsphant, plan file, and mac file.
+    """
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    dir_export:str
-    export_catheter_table: ExportConfig_CatheterTable = None
-    export_config_dose: ExportConfig_Dose = None
-    export_config_egsphant: ExportConfig_Egsphant = None
-    export_config_planfile: ExportConfig_PlanFile = None
-    export_config_macfile: ExportConfig_MacFile = None
-    export_config_cathetertable: ExportConfig_CatheterTable = None
+    dir_export:str = Field(..., description="Base directory where all plan components are exported.")
+    export_config_dose: ExportConfig_Dose = Field(None, description="Configuration for exporting dose data.")
+    export_config_cathetertable: ExportConfig_CatheterTable = Field(None, description="Configuration for exporting catheter table.")
+    export_config_egsphant: ExportConfig_Egsphant = Field(None, description="Configuration for exporting egsphant file.")
+    export_config_planfile: ExportConfig_PlanFile = Field(None, description="Configuration for exporting plan file.")
+    export_config_macfile: ExportConfig_MacFile = Field(None, description="Configuration for exporting mac file.")
+    # TODO: in future, add these export configs
     # export_config_applicator: ExportConfig_Applicator = None
     # export_config_phantom: ExportConfig_BrachyStructure = None
-    applicator_geometry: bool = False
-    structure_set: bool = False
+    applicator_geometry: bool = Field(False, description="Whether to export applicator geometry into a stl file.")
+    structure_set: bool = Field(False, description="Whether to export structure set info into a json file.")
 
-    @model_validator
+    @model_validator(mode="after")
     def validate_config(self):
         # make sure that the paths of dir exports are 
         # set correctly for all the inner attributes
+        if self.export_config_dose is not None:
+            self.export_config_dose.dir_export = self.dir_export
+        if self.export_config_cathetertable is not None:
+            self.export_config_cathetertable.dir_export = self.dir_export
+        if self.export_config_egsphant is not None:
+            self.export_config_egsphant.dir_export = self.dir_export
+        if self.export_config_planfile is not None:
+            self.export_config_planfile.dir_export = self.dir_export
+        if self.export_config_macfile is not None:
+            self.export_config_macfile.dir_export = self.dir_export
         return self
-    
+
 class BrachyPlan:
     r"""
     ### Purpose:
