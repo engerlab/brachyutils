@@ -50,13 +50,14 @@ class ExportConfig_Dose(BaseModel):
     )
     @computed_field
     def pth_combined(self):
-        return self.dir_export/(self.name_combined+self.file_extension)
-    @model_validator(mode="after")
-    def validate_config(self):
-        if self.dir_export is None:
-            raise ValueError("dir_export is not set for this config")
         self.dir_export = Path(self.dir_export)
-        return self
+        return self.dir_export/(self.name_combined+self.file_extension)
+    # @model_validator(mode="after")
+    # def validate_config(self):
+    #     if self.dir_export is None:
+    #         raise ValueError("dir_export is not set for this config")
+    #     self.dir_export = Path(self.dir_export)
+    #     return self
 
 class ExportConfig_PlanFile(BaseModel):
     """
@@ -73,13 +74,14 @@ Per dwell position plan is generated.")
     name_combined:str = Field("combined", description="The name of the file for combined plan")
     @computed_field
     def pth_combined(self):
-        return self.dir_export/(self.name_combined+self.file_extension)
-    @model_validator(mode="after")
-    def validate_config(self):
-        if self.dir_export is None:
-            raise ValueError("dir_export is not set for this config")
         self.dir_export = Path(self.dir_export)
-        return self
+        return self.dir_export/(self.name_combined+self.file_extension)
+    # @model_validator(mode="after")
+    # def validate_config(self):
+    #     if self.dir_export is None:
+    #         raise ValueError("dir_export is not set for this config")
+    #     self.dir_export = Path(self.dir_export)
+    #     return self
 
 class ExportConfig_MacFile(BaseModel):
     """
@@ -99,13 +101,14 @@ Per dwell position plan is generated.")
         return self.dir_export/(self.name_combined+self.file_extension)
     @computed_field    
     def pth_body_stl(self):
-        return self.dir_export/(self.body_name_stl+".stl")
-    @model_validator(mode="after")
-    def validate_config(self):
-        if self.dir_export is None:
-            raise ValueError("dir_export is not set for this config")
         self.dir_export = Path(self.dir_export)
-        return self
+        return self.dir_export/(self.body_name_stl+".stl")
+    # @model_validator(mode="after")
+    # def validate_config(self):
+    #     if self.dir_export is None:
+    #         raise ValueError("dir_export is not set for this config")
+    #     self.dir_export = Path(self.dir_export)
+    #     return self
 
 class ExportConfig_Egsphant(BaseModel):
     r"""
@@ -116,7 +119,7 @@ class ExportConfig_Egsphant(BaseModel):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
     dir_export: str | Path = Field(None, description="Directory where Egsphant file is exported.")
-    name_egsphant: str = Field("egsphant", description="File name for Egsphant output.")
+    name: str = Field("egsphant", description="File name for Egsphant output.")
     file_extension: Literal[".seq.nrrd", ".egsphant"] = Field(
         ".seq.nrrd", 
         description="Allowed file extensions for Egsphant files.")
@@ -132,17 +135,22 @@ class ExportConfig_Egsphant(BaseModel):
     body_name_stl: str = Field(None, description="Name of the body structure to be saved as a separate STL.")
     @computed_field
     def pth_egsphant(self):
-        return self.dir_export/(self.name_egsphant+self.file_extension)
+        return self.dir_export/(self.name+self.file_extension)
+    @computed_field
     def pth_body_stl(self):
-        return self.dir_export/(self.body_name_stl+".stl")
-    def validate_config(self):
-        if self.dir_export is None:
-            raise ValueError("dir_export is not set for this config")
         self.dir_export = Path(self.dir_export)
-        return self
+        return self.dir_export/(self.body_name_stl+".stl")
 
 class ExportConfig_CatheterTable(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    dir_export: str | Path = Field(None, description="Directory where catheter table is exported.")
+    name: str = Field("catheter_table", description="File name for catheter table output.")
+    file_extension: Literal[".json", ".mrk.json"] = Field(
+        ".mrk.json", description="File extension for catheter table export.)")
+    @computed_field
+    def pth_catheter_table(self):
+        self.dir_export = Path(self.dir_export)
+        return self.dir_export/(self.name+self.file_extension)
 
 class ExportConfig_Applicator(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
