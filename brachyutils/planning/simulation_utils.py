@@ -258,18 +258,19 @@ class BrachySimulation(BaseModel):
         Dependencies:
             - None
         """
-        return {
-            "brachy_source": self.brachy_source.to_dict(),
-            "world_material": self.world_material,
-            "number_histories": self.number_histories,
-            "total_time": self.total_time,
-            "dose_format": self.dose_format,
-            "number_of_threads": self.number_of_threads,
-            "control_verbose": self.control_verbose,
-            "run_verbose": self.run_verbose,
-            "tracking_verbose": self.tracking_verbose,
-            "print_progress": self.print_progress,
-        }
+        return (dict(self))
+        # return {
+        #     "brachy_source": self.brachy_source.to_dict(),
+        #     "world_material": self.world_material,
+        #     "number_histories": self.number_histories,
+        #     "total_time": self.total_time,
+        #     "dose_format": self.dose_format,
+        #     "number_of_threads": self.number_of_threads,
+        #     "control_verbose": self.control_verbose,
+        #     "run_verbose": self.run_verbose,
+        #     "tracking_verbose": self.tracking_verbose,
+        #     "print_progress": self.print_progress,
+        # }
 
     def to_json(self, output_path: Union[str, Path]):
         r"""
