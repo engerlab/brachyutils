@@ -1169,11 +1169,10 @@ class BrachyPlan:
 
         if content_to_export.get("export_catheter_table", False):
             # assumes file name is "catheter_table.json"
-            file_path = dir_export + "/catheter_table.json"
+            file_path = dir_export / "catheter_table.json"
             with open(file_path, "w") as file:
                 json.dump(self.catheter_table.to_dict(), file, indent=4)
             print("Catheter Table exported successfully")
-
 
         if content_to_export.get("plan", None):
             # assumes file name is "dwell_#.plan"
@@ -1194,14 +1193,6 @@ class BrachyPlan:
             self._export_egsphant(
                 export_config_egsphant=content_to_export.get("export_config_egsphant")
             )
-                # dir_export=str(dir_export),
-                # material_dict=content_to_export.get("materials_table", None),
-                # assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
-                # crop_by_contour=content_to_export.get("crop_by_contour", None),
-                # strict_name_match=content_to_export.get("strict_name_match", True),
-                # resampled_spacing=content_to_export.get("resampled_spacing", None),
-                # resampled_origin=content_to_export.get("resampled_origin", None),
-                # background_material=content_to_export.get("background_material", "Air"),
 
         if content_to_export.get("applicator_geometry", False):
             # assumes file name is "applicator_geometry.json"
