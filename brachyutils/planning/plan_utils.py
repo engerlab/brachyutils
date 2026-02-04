@@ -37,9 +37,8 @@ class ExportConfig_Dose(BaseModel):
         arbitrary_types_allowed=True,
         use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
     )
-    
     dir_export: str | Path = Field(None, description="Directory where dose files are exported.")
-    name_combine_dose: str = Field("combined", description="File name for combined dose output.")
+    name_combined: str = Field("combined", description="File name for combined dose output.")
     file_extension: Literal[".seq.nrrd", ".3ddose"] = Field(
         ".seq.nrrd", description="Allowed file extensions for dose files."
     )
@@ -51,8 +50,52 @@ class ExportConfig_Dose(BaseModel):
     )
     @computed_field
     def pth_combined(self):
-        return self.dir_export/(self.name_combine_dose+self.file_extension)
+        return self.dir_export/(self.name_combined+self.file_extension)
+    @model_validator(mode="after")
+    def validate_config(self):
+        if self.dir_export is None:
+            raise ValueError("dir_export is not set for this config")
+        self.dir_export = Path(self.dir_export)
+        return self
 
+class ExportConfig_PlanFile(BaseModel):
+    """
+    Configuration for exporting .plan files from the plan.
+    """
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
+    )
+    dir_export: str | Path = Field(None, description="Directory where the plan files are exported.")
+    combined_only:bool = Field(True, description="If true, only combined plan is written. \
+Per dwell position plan is generated.")
+    name_combined:str = Field("combined", description="The name of the file for combined plan")
+    @computed_field
+    def pth_combined(self):
+        return self.dir_export/(self.name_combined+self.file_extension)
+    @model_validator(mode="after")
+    def validate_config(self):
+        if self.dir_export is None:
+            raise ValueError("dir_export is not set for this config")
+        self.dir_export = Path(self.dir_export)
+        return self
+
+class ExportConfig_MacFile(BaseModel):
+    """
+    Configuration for exporting .mac files from the plan.
+    """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
+    )
+    dir_export: str | Path = Field(None, description="Directory where Mac files are exported.")
+    combined_only:bool = Field(True, description="If true, only combined mac is written. \
+Per dwell position plan is generated.")
+    name_combined:str = Field("combined", description="The name of the file for combined mac")
+    @computed_field
+    def pth_combined(self):
+        return self.dir_export/(self.name_combined+self.file_extension)
     @model_validator(mode="after")
     def validate_config(self):
         if self.dir_export is None:
@@ -62,15 +105,19 @@ class ExportConfig_Dose(BaseModel):
 
 class ExportConfig_Egsphant(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    dir_export: str | Path = Field(None, description="Directory where Egsphant file is exported.")
+    name_egsphant: str = Field("egsphant", description="File name for Egsphant output.")
+    file_extension: Literal[".seq.nrrd", ".egsphant"] = Field(".seq.nrrd", description="Allowed file extensions for Egsphant files.")
+    material_dict: dict | Path = Field(
+        Path("admin/constants/structure_materials_prostate.json"),
+        description="Dictionary of material names and their properties.")
+    assign_material_from_ct: bool = Field(False, description="Whether to assign materials from CT data or based on contours.")
+    crop_by_contour: str = Field(None, description="Name of the contour to crop by.")
+    resampled_spacing: List[float] = Field(None, description="Spacing for resampling the phantom.")
+    resampled_origin: List[float] = Field(None, description="Origin for resampling the phantom.")
+    background_material: str = Field(None, description="Material name for background.")
+    strict_name_match: bool = Field(True, description="Whether to enforce strict name matching for materials.")
 
-class ExportConfig_PlanFile(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dir_export: str | Path = Field(None, description="Directory where dose files are exported.")
-    combined_only:bool = Field(True, description="If true, only combined plan is written. Per dwell position plan is generated.")
-    name_combined_plan:str = Field("combined", description="The name of the file for combined plan")
-
-class ExportConfig_MacFile(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 class ExportConfig_CatheterTable(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -1106,21 +1153,19 @@ class BrachyPlan:
             print("Catheter Table exported successfully")
 
 
-        if content_to_export.get("plan", False):
+        if content_to_export.get("plan", None):
             # assumes file name is "dwell_#.plan"
             self.export_plan_files(
-                dir_export=str(dir_export),
-                combined_only=content_to_export.get("combined_only", True)
+                export_config_planfile=content_to_export.get("plan", None),
+                catheter_table=self.catheter_table,
                 )
-            print(".plan files were exported successfully")
 
-        if content_to_export.get("mac", False):
+        if content_to_export.get("mac", None):
             # assumes file name is "run_#.mac"
-            self._export_dwell_mac_file(
-                dir_export=str(dir_export),
-                combined_only=content_to_export.get("combined_only", True)
+            self.export_mac_files(
+                export_config_macfile=content_to_export.get("export_config_macfile"),
+                catheter_table=self.catheter_table
                 )
-            print(".mac files were exported successfully")
 
         if content_to_export.get("egsphant", False):
             # assumes file name is "ct.egsphant"
@@ -1202,9 +1247,8 @@ class BrachyPlan:
         - To export dwell positions and their normalized times into ".plan" text files in the
         format required by RapidBrachy.
         ### Inputs:
-        - dir_export := path to the directory where the export happens
-        - combined_only := if True, only the combined.plan file will be exported. if False,
-        the individual dwell position files will also be exported.
+        - export_config_planfile:= The export configuration for the plan files. see ExportConfig_PlanFile
+        - catheter_table:= The catheter table with the dwells.
         ### Outputs:
         - void := Two types of .plan files are written, one named combined.plan and the other
         named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and
@@ -1265,24 +1309,24 @@ class BrachyPlan:
                     with open(export_config_planfile.dir_export + f"/dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan", "w") as file:
                         file.write(run_i_plan)
 
-        with open(export_config_planfile.dir_export + "/combined.plan", "w") as file:
+        with open(export_config_planfile.pth_combined, "w") as file:
             file.write(combined_plan)
+        print(".plan files were exported successfully")
 
-    def _export_dwell_mac_file(
+    def export_mac_files(
         self,
-        dir_export: str,
-        combined_only: bool = True
-    ):
+        export_config_macfile: ExportConfig_MacFile,
+        catheter_table:CatheterTable,
+        ):
         r"""
         ### Purpose:
         - To export the simulation parameters of the plan into a macro files
-        called combine.mac and run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac
+        and run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac
         ### Inputs:
-        - dir_export := path to the directory where the export happens
-        - combined_only: bool:= if True, only the combined.mac file will be exported. if False,
-        the individual dwell position files will also be exported.
+        - export_config_macfile:= The export configuration for macro files.
+        - catheter_table:= The catheter table with the dwells.
         ### Outputs:
-        - void := Two types of .mac files are written, one named combined.mac and the other
+        - None := Two types of .mac files are written, one named combined.mac and the other
         named run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac. combined.plan contains
 
         plan contains info of a single dwell position.
@@ -1310,23 +1354,29 @@ class BrachyPlan:
         ### Dependencies:
         - simulation_utils
         """
-        for dwell_i in range(self.num_dwells):
+        sim_obj = deepcopy(self.simulation_setup)
+        sim_obj.total_time = catheter_table.treatment_time
 
-            catheter_idx = self.dwell_coordinates[dwell_i]["catheter_index"]
-            dwell_idx = self.dwell_coordinates[dwell_i]["dwell_index"]
-            # Not dealing with shield angle for now but the new convention for filename is
-            # xxx_catheter#_dwell#_shieldangle.plan
-            shield_angle = 0
-            sim_obj = deepcopy(self.simulation_setup)
-            sim_obj.pth_plan = f"dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan"
-            sim_obj.total_time = 1
-            if not combined_only:
-                with open(dir_export + f"/run_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.mac", "w") as file:
-                    file.write(sim_obj.to_string())
+        with open(export_config_macfile.pth_combined, "w") as file:
+            file.write(sim_obj.to_string())
 
-        self.simulation_setup.total_time = np.sum(self.dwell_times)
-        with open(dir_export + "/combined.mac", "w") as file:
-            file.write(self.simulation_setup.to_string())
+        if not export_config_macfile.combined_only:
+            for cat in catheter_table:
+                for dwell in cat.dwells:
+                    catheter_idx = cat.index
+                    dwell_idx = dwell.index
+                    # Not dealing with shield angle for now but the new convention for filename is
+                    # xxx_catheter#_dwell#_shieldangle.plan
+                    shield_angle = 0
+                    sim_obj = deepcopy(self.simulation_setup)
+                    order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
+                    sim_obj.pth_plan = f"dwell_{order}.plan"
+                    sim_obj.total_time = 1
+
+                    with open(export_config_macfile.dir_export 
+                            + f"/run_{order}.mac", "w") as file:
+                        file.write(sim_obj.to_string())
+        print(".mac files were exported successfully")
 
     def _export_egsphant(
         self,
