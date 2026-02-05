@@ -25,7 +25,7 @@ def get_a_plan(
 
     plan_obj = load_dicom_to_plan(
         dir_dicom=pth_dicom,
-        load_dicom_dose=False,
+        load_dicom_dose=kwargs.get("load_dicom_dose", True),
         strict_name_match=False,
         from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", True),
         multi_processing=True,
@@ -217,6 +217,7 @@ def test_export_brachy_plan():
         dir_dose_rates=dir_dose_rates,
         from_delivered_dwellpositions=from_delivered_dwellpositions,
         generate_dose_rates=gen_dose_rates,
+        load_dicom_dose=True,
         )
     plan.export_brachy_plan(
         content_to_export=export_config

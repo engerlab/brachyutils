@@ -1179,28 +1179,28 @@ class BrachyPlan:
         dir_export = content_to_export.dir_export
         dir_export.mkdir(parents=True, exist_ok=True)
 
-        if content_to_export.export_config_dose is not None:
+        if content_to_export.export_config_dose:
             self.export_dose(content_to_export.export_config_dose)
 
-        if content_to_export.export_config_cathetertable is not None:
+        if content_to_export.export_config_cathetertable:
             self.export_catheter_table(
                 export_config_cathetertable=content_to_export.export_config_cathetertable,
                 catheter_table=self.catheter_table,
             )
 
-        if content_to_export.export_config_planfile is not None:
+        if content_to_export.export_config_planfile:
             self.export_plan_files(
                 export_config_planfile=content_to_export.export_config_planfile,
                 catheter_table=self.catheter_table,
                 )
 
-        if content_to_export.export_config_macfile is not None:
+        if content_to_export.export_config_macfile:
             self.export_mac_files(
                 export_config_macfile=content_to_export.export_config_macfile,
                 catheter_table=self.catheter_table
                 )
 
-        if content_to_export.export_config_egsphant is not None:
+        if content_to_export.export_config_egsphant:
             self._export_egsphant(
                 export_config_egsphant=content_to_export.export_config_egsphant
             )
@@ -1227,13 +1227,13 @@ class BrachyPlan:
         ### Outputs:
         - None := will export the catheter table into the specified export directory.
         """
-        if export_config_cathetertable.file_format == "mrk.json":
+        if export_config_cathetertable.file_extension == "mrk.json":
             catheter_table.write_to_slicer_markup(
                 pth_mrk_json=export_config_cathetertable.pth_catheter_table,
                 remove_text=export_config_cathetertable.remove_text,
                 one_markup_per_catheter=export_config_cathetertable.one_markup_per_catheter,
             )
-        elif export_config_cathetertable.file_format == ".json":
+        elif export_config_cathetertable.file_extension == ".json":
             catheter_table.write_json(
                 export_config_cathetertable.dir_export
             )
@@ -1320,7 +1320,7 @@ class BrachyPlan:
                 dwell_coordinates_str = np.array(
                     list(dwell.position)
                     + list(dwell.rotation)
-                    + list(dwell.angle)
+                    + [dwell.angle]
                     + list(self.applicator_rotation_axis)
                     + list(self.applicator_rotation_origin),
                     dtype=np.float32,
