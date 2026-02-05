@@ -167,7 +167,7 @@ class ExportConfig_BrachyPlan(BaseModel):
     def validate_inputs(data):
         for k, v in data.items():
             if k.startswith("export_config_") and isinstance(v, bool):
-                data[k] = {} if v else None
+                data[k] = {} if v else False
         return data
 
     @model_validator(mode="after")
