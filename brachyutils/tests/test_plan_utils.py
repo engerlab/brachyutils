@@ -203,8 +203,8 @@ def test_export_brachy_plan():
 
     export_config = {
         "dir_export": dir_export,
-        "export_config_dose": {},
-        "export_config_cathetertable": {},
+        "export_config_dose": True,
+        "export_config_cathetertable": True,
         # "export_config_egsphant": {},
         # "export_config_planfile": {},
         # "export_config_macfile": {},

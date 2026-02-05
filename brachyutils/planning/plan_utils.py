@@ -152,22 +152,29 @@ class ExportConfig_BrachyPlan(BaseModel):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
     dir_export:str | Path = Field(..., description="Base directory where all plan components are exported.")
-    export_config_dose: ExportConfig_Dose = Field(None, description="Configuration for exporting dose data.")
-    export_config_cathetertable: ExportConfig_CatheterTable = Field(None, description="Configuration for exporting catheter table.")
-    export_config_egsphant: ExportConfig_Egsphant = Field(None, description="Configuration for exporting egsphant file.")
-    export_config_planfile: ExportConfig_PlanFile = Field(None, description="Configuration for exporting plan file.")
-    export_config_macfile: ExportConfig_MacFile = Field(None, description="Configuration for exporting mac file.")
+    export_config_dose: ExportConfig_Dose | bool = Field(False, description="Configuration for exporting dose data.")
+    export_config_cathetertable: ExportConfig_CatheterTable | bool = Field(False, description="Configuration for exporting catheter table.")
+    export_config_egsphant: ExportConfig_Egsphant | bool = Field(False, description="Configuration for exporting egsphant file.")
+    export_config_planfile: ExportConfig_PlanFile | bool = Field(False, description="Configuration for exporting plan file.")
+    export_config_macfile: ExportConfig_MacFile | bool = Field(False, description="Configuration for exporting mac file.")
     # TODO: in future, add these export configs if neeeded
     # export_config_applicator: ExportConfig_Applicator = None
     # export_config_phantom: ExportConfig_BrachyStructure = None
     applicator_geometry: bool = Field(False, description="Whether to export applicator geometry into a stl file.")
     structure_set: bool = Field(False, description="Whether to export structure set info into a json file.")
 
+    @model_validator(mode="before")
+    def validate_inputs(data):
+        for k, v in data.items():
+            if k.startswith("export_config_") and isinstance(v, bool):
+                data[k] = {} if v else None
+        return data
+
     @model_validator(mode="after")
     def validate_config(self):
         # make sure that the paths of dir exports are 
         # set correctly for all the inner attributes
-        for _, value in self:
+        for _, value in self:                
             if isinstance(value, BaseModel):
                 if value.dir_export is None:
                     value.dir_export = self.dir_export
@@ -1128,39 +1135,44 @@ class BrachyPlan:
         ):
         r"""
         ### Purpose:
-        - To export the treatment plan file into a given export_format.
-        The export_format can be either "RapidBrachy" or "WebApp".
+        - To export the brachytherapy treatment plan and its components to files based on the
+        provided export configuration. Supports exporting dose, catheter tables, plan files,
+        simulation macros, egsphant files, applicator geometries, and structure sets.
+
         ### Inputs:
-        - export_format := the export_format of the exported plan. options are:
+        - content_to_export := ExportConfig_BrachyPlan object or dictionary containing export
+        configuration. If a dictionary is provided, it will be converted to an ExportConfig_BrachyPlan object.
+        
+        The configuration object/dictionary should contain:
+            - dir_export (Path): Directory where exported files will be written.
+            - export_config_dose (ExportConfig_Dose|None): Dose export configuration.
+            - export_config_cathetertable (ExportConfig_CatheterTable|None): Catheter table export configuration.
+            - export_config_planfile (ExportConfig_PlanFile|None): Plan file export configuration.
+            - export_config_macfile (ExportConfig_MacFile|None): Macro file export configuration.
+            - export_config_egsphant (ExportConfig_Egsphant|None): Egsphant file export configuration.
+            - applicator_geometry (bool): Whether to export applicator geometry.
+            - structure_set (bool): Whether to export structure set.
 
-            - "RapidBrachy":
-                - "run_#_#_#.3ddose" or "run_#_#_#.minidos" or "run_#_#_#.seq.nrrd",
-                - "catheter_table.json"
-                - "dwell_#.plan",
-                - "run_#.mac",
-                - "ct.egsphant",
-                - "ApplicatorMaterials"
-                - "applicator_geometry.json",
-                - "structure_set.json"
-
-            - "WebApp": Not implemented yet
-                - "run_#.nrrd",
-                - "dwell_#.json",
-                - "run_#.json",
-
-        - dir_export := the directory to which the plan will be exported.
-        - content_to_export := a dictionary with which the user specifies what parts
-        of the plan to export. The keys are plan components, and the values are binary
-        (True or False) except for "dose type", which can be either ".3ddose", ".minidos",
-        or ".nrrd". The keys are:
-
-            - "dose":bool,
-            - "dose_type":str := "nrrd", "minidos" or "3ddose",
-            - "uncertainty", "dose rate maps",
-            - "catheter_table", "plan", "mac", "egsphant",
-            - "ApplicatorMaterials", applicator_geometry", "structure_set",
         ### Outputs:
-            - Void := will export the available parts of a plan into the specified export_format.
+        - None := Exported files are written to the directory specified in content_to_export.dir_export.
+        The function conditionally exports the following file types based on configuration:
+            - Dose files (combined dose and optionally dose rate maps)
+            - Catheter table (.json or .mrk.json)
+            - Plan files (.plan files for each dwell position)
+            - Macro files (.mac simulation files)
+            - Egsphant phantom file (ct.egsphant)
+            - Applicator geometry files (applicator_geometry.json and .mac files)
+            - Structure set file (structure_set.json)
+
+        ### Dependencies:
+        - ExportConfig_BrachyPlan
+        - export_dose()
+        - export_catheter_table()
+        - export_plan_files()
+        - export_mac_files()
+        - _export_egsphant()
+        - _export_applicator_geometry()
+        - _export_structure_set()
         """
         if isinstance(content_to_export, dict):
             content_to_export = ExportConfig_BrachyPlan(**content_to_export)
