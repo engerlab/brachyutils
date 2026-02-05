@@ -11,6 +11,9 @@ from pathlib import Path
 from copy import deepcopy
 from collections import defaultdict
 
+from vtk import vtkPolyData, vtkDelaunay2D, vtkPoints, vtkDecimatePro, vtkPolygon
+from vtkmodules.vtkIOGeometry import vtkSTLWriter
+
 import nrrd
 import pydicom
 
@@ -348,7 +351,7 @@ class BrachyPhantom:
     def get_structure_mask(
         self,
         query_structure_list: List[str],
-        mask_type: Union[np.ndarray, ROIContour, ROIMask] = ROIMask,
+        mask_type: Union[np.ndarray, ROIContour, ROIMask, str] = ROIMask,
         strict_name_match: bool = True,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
@@ -360,9 +363,9 @@ class BrachyPhantom:
         ### Inputs:
         - query_structure_list := list of structure names to find the mask of.
         - mask_type: Union[np.ndarray, ROIContour, ROIMask] := the type of the mask to return.
-            if np.ndarray, the mask will be returned as a numpy array in [z, y, x] format.
-            if ROIContour, the mask will be returned as a ROIContour object in [x, y, z] format.
-            if ROIMask, the mask will be returned as a ROIMask object in [x, y, z] format.
+            if np.ndarray (or str "array"), the mask will be returned as a numpy array in [z, y, x] format.
+            if ROIContour (or str "contour"), the mask will be returned as a ROIContour object in [x, y, z] format.
+            if ROIMask (or str "mask"), the mask will be returned as a ROIMask object in [x, y, z] format.
         ### Outputs:
         - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
@@ -399,15 +402,15 @@ class BrachyPhantom:
                         mask.origin = self.image_obj.origin
                         mask.spacing = self.image_obj.spacing
                         mask.gridSize = self.image_obj.gridSize
-                    if mask_type == np.ndarray:
+                    if mask_type == np.ndarray or mask_type == "array":
                         mask_dict[query_structure] = np.swapaxes(
                             mask.imageArray, 0, 2
                         )
-                    elif mask_type == ROIContour:
+                    elif mask_type == ROIContour or mask_type == "contour":
                         mask_dict[query_structure] = (
                             self.structure_set.getContourByName(mask_name)
                         )
-                    elif mask_type == ROIMask:
+                    elif mask_type == ROIMask or mask_type == "mask":
                         mask_dict[query_structure] = mask
                     else:
                         raise ValueError(f"mask_type {mask_type} not recognized")
@@ -670,11 +673,7 @@ class BrachyPhantom:
             - background_material: Optional[str] := the name of the background material. default is "Air".
         """
         pth_output = Path(pth_output)
-        if str(pth_output).endswith(".egsphant"):
-            pass
-        elif str(pth_output).endswith(".seq.nrrd"):
-            pass
-        else:
+        if not str(pth_output).endswith(".egsphant") and not str(pth_output).endswith(".seq.nrrd"):
             raise ValueError("The output file should have '.egsphant' or '.seq.nrrd' extension.")
         #if the egsphant is already made, write it
         os.makedirs(os.path.dirname(pth_output), exist_ok=True)
@@ -1793,6 +1792,142 @@ def masksToNrrd(
 
         # # Write the image
         nrrd.write(str(pth_output), all_masks, header, index_order="C", compression_level=1)
+
+def contour_to_stl(roi_contour: ROIContour, pth_output: Path) -> None:
+    r"""
+    Purpose:
+        - Export the contour to an STL file via vtkPolyData
+    Inputs:
+        - roi_contour: ROIContour := the contour to export.
+        - pth_output: Path := the path to save the STL file.
+    Outputs:
+        - None
+    :
+    """
+    raise NotImplementedError("The implementation of this conversion from " \
+        "slicewise polygons of the contours to a 3D structured mesh is highly non-trivial." \
+        "Please use mask_to_stl instead.")
+
+def mask_to_stl(roi_mask: ROIMask, pth_output: Path) -> None:
+    r"""
+    Purpose:
+        - Convert an ROI mask to an STL file.
+    
+    Inputs:
+        - roi_mask: ROIMask := The ROI mask object containing the 3D binary mask data to be converted.
+        - pth_output: Path := The output file path where the STL file will be saved.
+    
+    Outputs:
+        - None
+    """
+
+    # Note: Implementation is cannablized from PolySeg (https://github.com/PerkLab/PolySeg/)
+    if not isinstance(roi_mask, ROIMask):
+        raise ValueError("The input roi_mask should be an instance of ROIMask.")
+
+    elif not pth_output.suffix.lower() == ".stl":
+        raise ValueError("The output file must have a .stl extension.")
+    
+    # Get mask data in [z, y, x] format for VTK
+    mask_array = roi_mask.imageArray.astype(np.uint8)
+    
+    # Create VTK image data
+    vtk_image = vtk.vtkImageData()
+    vtk_image.SetDimensions(mask_array.shape)
+    vtk_image.SetSpacing(roi_mask.spacing)
+    vtk_image.SetOrigin(roi_mask.origin)
+    vtk_image.GetPointData().SetScalars(vtk.util.numpy_support.numpy_to_vtk(
+        num_array=mask_array.ravel(order='F'),
+        deep=True,
+        array_type=vtk.VTK_UNSIGNED_CHAR,
+    ))
+
+    
+    # Pad the image if border voxels are non-zero to ensure closed surface
+    extent = vtk_image.GetExtent()
+    padder = vtk.vtkImageConstantPad()
+    padder.SetInputData(vtk_image)
+    padder.SetOutputWholeExtent(
+        extent[0] - 1, extent[1] + 1,
+        extent[2] - 1, extent[3] + 1,
+        extent[4] - 1, extent[5] + 1
+    )
+    padder.SetConstant(0)
+    padder.Update()
+    vtk_image = padder.GetOutput()
+    
+    # Use Flying Edges (faster than marching cubes) or Marching Cubes for surface extraction
+    marching_cubes = vtk.vtkDiscreteFlyingEdges3D()
+
+    marching_cubes.SetInputData(vtk_image)
+    marching_cubes.SetValue(0, 1)  # Extract surface at label value 1
+    marching_cubes.ComputeGradientsOff()
+    marching_cubes.ComputeNormalsOff()
+    marching_cubes.Update()
+    
+    poly_data = marching_cubes.GetOutput()
+    
+    if poly_data.GetNumberOfPolys() == 0:
+        raise ValueError("No surface could be generated from the mask. The mask may be empty.")
+    
+
+    print(f"Pre-filtration mesh quality: {poly_data.GetNumberOfPolys()} polygons")
+    i = 0
+    while poly_data.GetNumberOfPolys() > 10000 and i < 10:
+        print(f"Current mesh quality: {poly_data.GetNumberOfPolys()} polygons")
+        # Apply decimation (0.0 = no decimation, using minimal decimation)
+        decimation_factor = 0.5
+        if decimation_factor > 0.0:
+            decimator = vtk.vtkDecimatePro()
+            decimator.SetInputData(poly_data)
+            decimator.SetTargetReduction(decimation_factor)
+            decimator.SetFeatureAngle(60)
+            decimator.SplittingOff()
+            decimator.PreserveTopologyOn()
+            decimator.SetMaximumError(1.0)
+            decimator.Update()
+            poly_data = decimator.GetOutput()
+                
+        # Apply smoothing (0.5 = moderate smoothing)
+        smoothing_factor = 1.0
+        if smoothing_factor > 0:
+            smoother = vtk.vtkWindowedSincPolyDataFilter()
+            smoother.SetInputData(poly_data)
+            smoother.SetNumberOfIterations(50)
+            # Map smoothing factor to pass band: 0.0->1.0, 0.5->0.01, 1.0->0.001
+            pass_band = pow(10.0, -4.0 * smoothing_factor)
+            smoother.SetPassBand(pass_band)
+            smoother.BoundarySmoothingOn()
+            smoother.FeatureEdgeSmoothingOn()
+            smoother.NonManifoldSmoothingOn()
+            smoother.NormalizeCoordinatesOn()
+            smoother.Update()
+            poly_data = smoother.GetOutput()
+        print(f"Iter {i+1} post-smoothing mesh quality: {poly_data.GetNumberOfPolys()} polygons")
+        i += 1
+
+    #clean the mesh
+    cleaner = vtk.vtkCleanPolyData()
+    cleaner.SetInputData(poly_data)
+    cleaner.SetTolerance(1e-3)
+    cleaner.SetPointMerging(True)
+    cleaner.SetConvertLinesToPoints(True)
+    cleaner.SetConvertPolysToLines(True)
+    cleaner.SetConvertStripsToPolys(True)
+    cleaner.Update()
+    poly_data = cleaner.GetOutput()
+        
+    print(f"Final mesh quality: {poly_data.GetNumberOfPolys()} polygons")
+        
+    # Write to STL file
+    writer = vtk.vtkSTLWriter()
+    writer.SetFileName(str(pth_output))
+    writer.SetInputData(poly_data)
+    writer.Write()
+
+    print(f"STL file saved to {pth_output}")
+
+
 
 def get_slicer_color_by_name(name: str) -> List[int]:
     r"""

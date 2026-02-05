@@ -202,15 +202,15 @@ class BrachyEgsphant:
             self._sanity_axis = np.array(
                 [
                     np.array(
-                        [np.round(float(x), decimals=3) for x in egsphant.readline().strip().split()],
+                        [float(x) for x in egsphant.readline().strip().split()],
                         dtype=np.float32,
                     ),
                     np.array(
-                        [np.round(float(y), decimals=3) for y in egsphant.readline().strip().split()],
+                        [float(y) for y in egsphant.readline().strip().split()],
                         dtype=np.float32,
                     ),
                     np.array(
-                        [np.round(float(z), decimals=3) for z in egsphant.readline().strip().split()],
+                        [float(z) for z in egsphant.readline().strip().split()],
                         dtype=np.float32,
                     ),
                 ],
@@ -235,12 +235,11 @@ class BrachyEgsphant:
             origin = np.array(
                 [
                     self._sanity_axis[0][0] + spacing[0] / 2,
-                    self._sanity_axis[1][0] + spacing[0] / 2,
-                    self._sanity_axis[2][0] + spacing[0] / 2,
+                    self._sanity_axis[1][0] + spacing[1] / 2,
+                    self._sanity_axis[2][0] + spacing[2] / 2,
                 ],
                 dtype=np.float32,
             )
-
             # prepare empty matricies to hold material and density images
             material_matrix = np.zeros(
                 (gridSize[2], gridSize[1], gridSize[0]), dtype=str
@@ -281,10 +280,12 @@ class BrachyEgsphant:
             self.unit_length = "mm"
             # Extract material density from the density matrix and update the material dictionary
             for material in self.material_dict:
-                encoding = int(self.material_dict[material]["encoding"])
+                encoding_int = BrachyEgsphant._materials_encoding_array.index(
+                    self.material_dict[material]["encoding"]
+                )
                 density = np.unique(
                     self.density_image.imageArray[
-                        self.material_image.imageArray == encoding-1
+                        self.material_image.imageArray == encoding_int-1
                     ]
                 )
                 density = density.min() if len(density) != 0 else 0
@@ -413,8 +414,7 @@ class BrachyEgsphant:
         self.voxel_edges = np.empty(len(voxel_centers), dtype=object)
         for i in range(len(voxel_centers)):
             self.voxel_edges[i] = (
-                np.round(voxel_centers[i], decimals=1) -
-                np.round(self.density_image.spacing[i] / 2.0, decimals=1)
+               voxel_centers[i] - self.density_image.spacing[i] / 2.0
             )
 
         return self.voxel_edges
@@ -482,10 +482,14 @@ class BrachyEgsphant:
             os.path.splitext(fileName)[-1] == ".egsphant"
         ), "file extension is not .egsphant"
         Path.mkdir(fileName.parent, exist_ok=True, parents=True)
+
+        #auto select precision for egsphant
+        precision = 3 if self.density_image.spacing.min() > 0.1 else 5
+
         egsphant_voxel_edges = np.array(
             [
                 np.char.mod(
-                    "%.3f",
+                    f"%.{precision}f",
                     np.append(axis, axis[-1] + self.density_image.spacing[i]) / 10,
                     # axis / 10,
                 )
@@ -498,27 +502,9 @@ class BrachyEgsphant:
         materials = "\n".join(self.material_dict.keys()) + "\n"
         spacing = "0 0 0 0 0 0 0 0 0\n"
         dimensions = " ".join(map(str, self.density_image.gridSize.astype(int))) + "\n"
-        x_axis = (
-            " ".join(
-                egsphant_voxel_edges[0]
-                # map(str, np.round(egsphant_voxel_edges[0].astype(float), decimals=3))
-            )
-            + "\n"
-        )
-        y_axis = (
-            " ".join(
-                egsphant_voxel_edges[1]
-                # map(str, np.round(egsphant_voxel_edges[1].astype(float), decimals=3))
-            )
-            + "\n"
-        )
-        z_axis = (
-            " ".join(
-                egsphant_voxel_edges[2]
-                # map(str, np.round(egsphant_voxel_edges[2].astype(float), decimals=3))
-            )
-            + "\n"
-        )
+        x_axis = (" ".join(egsphant_voxel_edges[0]) + "\n")
+        y_axis = (" ".join(egsphant_voxel_edges[1]) + "\n")
+        z_axis = (" ".join(egsphant_voxel_edges[2])+ "\n")
         material_matrix = self.get_material_array()
         material_matrix = _to_single_string(
             _convert_material_matrix_to(material_matrix, dtype=str), ""
@@ -591,17 +577,26 @@ class BrachyEgsphant:
             [0.0, self.density_image.spacing[1], 0.0],
             [0.0, 0.0, self.density_image.spacing[2]],
         ]
-        header["kinds"] = ["2-vector", "space", "space", "space"]
+        header["kinds"] = ["list", "space", "space", "space"]
         header["labels"] = ["", "x", "y", "z"]
         header["endian"] = "little"
         header["encoding"] = "gzip"
         header["space origin"] = self.density_image.origin.tolist()
         header["spacing"] = [np.nan] + self.density_image.spacing.tolist()
         
+        # each voxel in the material matrix is encoded with a single character
+            # from this array that represents a unique material recognized by RapidBrachyMC.
+        #have to redefine here since nrrd egsphants start at 0
+        BrachyEgsphant._materials_encoding_array = [str(i) for i in range(0, 10)] + [
+            chr(i) for i in range(ord("A"), ord("Z") + 1)
+        ]
+
         header = header | {
             "material_dict": {
             material: {
-                "encoding": int(self.material_dict.get(material).get("encoding")),
+                "encoding": BrachyEgsphant._materials_encoding_array.index(
+                    str(self.material_dict[material].get("encoding"))
+                ),
                 "density": float(self.material_dict.get(material).get("density")),
                 "HU_limit": (
                 float(self.material_dict.get(material).get("HU_limit"))
