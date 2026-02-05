@@ -1351,7 +1351,8 @@ class BrachyPlan:
                 # xxx_catheter#_dwell#_shieldangle.plan
                 shield_angle = 0
                 if not export_config_planfile.combined_only:
-                    with open(export_config_planfile.dir_export + f"/dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan", "w") as file:
+                    order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
+                    with open(export_config_planfile.dir_export / f"dwell_{order}.plan", "w") as file:
                         file.write(run_i_plan)
 
         with open(export_config_planfile.pth_combined, "w") as file:
@@ -1418,8 +1419,7 @@ class BrachyPlan:
                     sim_obj.pth_plan = f"dwell_{order}.plan"
                     sim_obj.total_time = 1
 
-                    with open(export_config_macfile.dir_export 
-                            + f"/run_{order}.mac", "w") as file:
+                    with open(export_config_macfile.dir_export / f"run_{order}.mac", "w") as file:
                         file.write(sim_obj.to_string())
         print(".mac files were exported successfully")
 
