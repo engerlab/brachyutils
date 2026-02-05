@@ -114,7 +114,7 @@ class ExportConfig_Egsphant(BaseModel):
     crop_by_contour: str = Field(None, description="Name of the contour to crop by.")
     resampled_spacing: List[float] = Field(None, description="Spacing for resampling the phantom.")
     resampled_origin: List[float] = Field(None, description="Origin for resampling the phantom.")
-    background_material: str = Field(None, description="Material name for background.")
+    background_material: str = Field("Air", description="Material name for background.")
     strict_name_match: bool = Field(True, description="Whether to enforce strict name matching for materials.")
     body_name_stl: str = Field(None, description="Name of the body structure to be saved as a separate STL.")
     @computed_field

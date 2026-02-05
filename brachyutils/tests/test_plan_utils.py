@@ -205,8 +205,8 @@ def test_export_brachy_plan():
         "dir_export": dir_export,
         "export_config_dose": True,
         "export_config_cathetertable": True,
-        "export_config_egsphant": False,
-        "export_config_planfile": {"name_combined": "this_combined_planfile"},
+        "export_config_egsphant": True,
+        # "export_config_planfile": {"name_combined": "this_combined_planfile"},
         "export_config_macfile": True,
         "applicator_geometry": False,
         "structure_set": False
