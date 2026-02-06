@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, resample_crop_the_mask_or_contour_to_optimGrid,
+    BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices, Optimization_Config
 )
 from amplpy import AMPL
@@ -96,7 +96,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
         self.verbose = verbose
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables:DwellTime_AMPL = self.set_dwellTimeVariables(plan=self.plan)
-        self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
+        self.roi_bounds: List[List[float]] = get_optimization_roi_bounds(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
             roi_margin_mm=self.roi_margin_mm
@@ -172,7 +172,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
                         coordinates=dwell_position.position,
-                        dose_rate_map=plan.dose_rate_tensor[dwell_counter]
+                        dose_rate_map=plan.dose_rate_dict[dwell_counter]
                     )
                 )
                 dwell_counter += 1
@@ -180,20 +180,20 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
         return dwellTimeVariable_list
 
 
-    def get_optimization_roi_bounds(
-        self,
-        plan: BrachyPlan,
-        dwellTimeVariables: List[DwellTime_AMPL],
-        roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
-    ) -> List[List[float]]:
-        r"""
-        See `BrachyDwellTime.get_optimization_roi_bounds` for details.
-        """
-        return super().get_optimization_roi_bounds(
-            plan=plan,
-            dwellTimeVariables=dwellTimeVariables,
-            roi_margin_mm=roi_margin_mm
-        )
+    # def get_optimization_roi_bounds(
+    #     self,
+    #     plan: BrachyPlan,
+    #     dwellTimeVariables: List[DwellTime_AMPL],
+    #     roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
+    # ) -> List[List[float]]:
+    #     r"""
+    #     See `BrachyDwellTime.get_optimization_roi_bounds` for details.
+    #     """
+    #     return get_optimization_roi_bounds(
+    #         plan=plan,
+    #         dwellTimeVariables=dwellTimeVariables,
+    #         roi_margin_mm=roi_margin_mm
+    #     )
 
     def set_penalty_function_and_constraints(
         self,
@@ -249,11 +249,11 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
         
         # get structure optimization configs for hotspot estimators
         for structure in plan.structure_list:
-            if structure.target_volume and structure.optimization_config.penalty_weight_hotspot > 0:
+            if structure.is_target and structure.optimization_config.penalty_weight_hotspot > 0:
                 hotspot_config = structure.optimization_config
                 # hotspot_config.structure_name = "hotspot"
         for structure in plan.structure_list:
-            if "hotspot_estimator:" in structure.name.lower():
+            if "hotspot_estimator_" in structure.name.lower():
                 structure_counter += 1
                 structure_mask = structure.mask
                 hotspot_config.structure_name = structure.name
@@ -330,7 +330,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
             model.eval(f"param target_dose_{struct_id} := {target_dose};")
             model.eval(f"param min_dose_{struct_id} := {min_dose};")
             # Set up constraints and objective terms based on structure type
-            if structure.target_volume:
+            if structure.is_target:
                 if linear_weight > 0 or quadratic_weight > 0:
                     # Create structure-specific slack variables for underdosing
                     model.eval(f"var x_slack_{struct_id} {{D_{struct_id}}} >= 0 <= target_dose_{struct_id} - min_dose_{struct_id};")
@@ -359,7 +359,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                     uniformity_term = f"({uniformity_weight / (num_dose_points * 1000)}) * sum{{i in D_{struct_id}}} y_slack_{struct_id}[i]^2"
                     objective_terms.extend([uniformity_term])
                 
-            elif "hotspot_estimator:" in structure.name.lower():
+            elif "hotspot_estimator_" in structure.name.lower():
                 # Scalar slack variable for hotspot estimator
                 model.eval(f"var x_slack_{struct_id} >= 0 <= {hotspot_threshold} * target_dose_{struct_id} - min_dose_{struct_id};")
                 

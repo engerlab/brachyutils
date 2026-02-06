@@ -1,6 +1,7 @@
-from typing import List, Any, Tuple
+from typing import List, Any, Dict
+from copy import deepcopy
 from brachyutils.dose.dose_utils import BrachyDose
-from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
+from pydantic import BaseModel, Field, ConfigDict, PrivateAttr, model_validator
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tqdm
@@ -76,8 +77,8 @@ def resample_crop_the_mask_or_contour_to_optimGrid(
     return structure_mask
 
 def resample_mask_crop_the_doseRateMap_to_optimGrid(
-    dose_rate_map: np.ndarray,
-    template_dose_obj: BrachyDose,
+    dose_rate_map: np.ndarray | BrachyDose,
+    template_dose_obj: BrachyDose=None,
     roi_bounds: List[List[float]]=None,
     structure_mask: ROIMask=None,
     optim_spacing: List[float]=None, 
@@ -103,11 +104,16 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
     # The coordinates of the dose object is the same as the combined_dose in the plan.
     # dose_rate_obj:BrachyDose = BrachyDose.dose_with_empty_grid_like(template_dose_obj)
     # dose_rate_obj.set_dose_array(dose_rate_map)
-    dose_rate_img = DoseImage(
-        imageArray=dose_rate_map.swapaxes(0, 2),
-        origin=template_dose_obj.dose_image.origin,
-        spacing=template_dose_obj.dose_image.spacing
-    )
+    if isinstance(dose_rate_map, BrachyDose):
+        dose_rate_img=deepcopy(dose_rate_map.dose_image)
+    else:
+        if template_dose_obj is None:
+            raise ValueError("if dose rate map is a numpy array, please provide template_dose_obj")
+        dose_rate_img = DoseImage(
+            imageArray=dose_rate_map.swapaxes(0, 2),
+            origin=template_dose_obj.dose_image.origin,
+            spacing=template_dose_obj.dose_image.spacing
+        )
 
     # # resample the dose rate map to the optimization resolution
     if optim_spacing is not None:
@@ -144,9 +150,9 @@ def process_variable(
     variable,
     # structure_name,
     structure_mask,
-    plan,
     optim_spacing,
     roi_bounds,
+    plan:BrachyPlan=None,
     shift_origin:bool=True
     ):
     r"""
@@ -166,15 +172,11 @@ def process_variable(
     - Tuple[BrachyDwellTime, np.ndarray] | None := A tuple of the dwell time variable and its dose rate matrix for the given structure.
     If the variable is not relevant for the structure (e.g., hotspot estimator), returns None.
     """
-    # if "hotspot_estimator:" in structure_name.lower():
-    #     relevant_dwells = structure_name.lower().split("hotspot_estimator:")[1].split("/")
-    #     if variable.name not in relevant_dwells:
-    #         return None
     dwell_var = variable._model_variable
 
     valid_dose_points = resample_mask_crop_the_doseRateMap_to_optimGrid(
         dose_rate_map=variable.dose_rate_map,
-        template_dose_obj=plan.combined_dose,
+        template_dose_obj=plan.combined_dose if plan is not None else None,
         roi_bounds=roi_bounds,
         structure_mask=structure_mask,
         optim_spacing=optim_spacing,
@@ -187,12 +189,12 @@ def process_variable(
     return dwell_var, valid_dose_points
 
 def compute_dose_rate_matrices(
-        dwellTimeVariables,
-        plan,
-        structure_name,
-        structure_mask=None,
-        optim_spacing=None,
-        roi_bounds=None,
+        dwellTimeVariables: List[Any],
+        plan: BrachyPlan=None,
+        structure_name: str = None,
+        structure_mask: ROIMask = None,
+        optim_spacing: List[float] = None,
+        roi_bounds: List[List[float]] = None,
         max_workers:int=16,
         shift_origin:bool=False,
         multi_processing:bool=True):
@@ -220,9 +222,8 @@ def compute_dose_rate_matrices(
     """
     if structure_name is None:
         structure_name = "No"
-    dose_rate_matrices = []
-    dwell_vars = []
-
+    dose_rate_matrices_chaos = []
+    dwell_vars_chaos = []
     if multi_processing:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
@@ -245,8 +246,17 @@ def compute_dose_rate_matrices(
                 result = future.result()
                 if result is not None:
                     dwell_var, valid_dose_points = result
-                    dwell_vars.append(dwell_var)
-                    dose_rate_matrices.append(valid_dose_points)
+                    dwell_vars_chaos.append(dwell_var)
+                    dose_rate_matrices_chaos.append(valid_dose_points)
+    
+        dwell_vars = []
+        dose_rate_matrices = []
+        # sort the dwell_vars and dose_rate_matrices according to the original dwellTimeVariables order
+        for var in dwellTimeVariables:
+            for var_mat in zip(dwell_vars_chaos, dose_rate_matrices_chaos):
+                if var_mat[0].VarName == var.name: # XXX this line will cause error for AMPL and gurobi
+                    dwell_vars.append(var_mat[0])  # as they have different name attributes for their model variables
+                    dose_rate_matrices.append(var_mat[1])
     else:
         for var in dwellTimeVariables:
             dwell_var, valid_dose_points = process_variable(
@@ -262,14 +272,58 @@ def compute_dose_rate_matrices(
 
     return dwell_vars, dose_rate_matrices
 
+class Constraint_Config(BaseModel):
+    """
+    ### Purpose:
+    - A class to represent the constraint information on other dwell time or catheter
+    variables. The name of the config should match the name of the variable in the optimization model.
+    Each variable can have min, max or equality constraints.
+    The name of the constraints on the number of catheters or the total dwell times should being with
+    "sum_catheters" and "sum_dwelltimes"
+
+    ### Attributes:
+    name:= The name of the model variable 
+    minimum: int | float = 0
+    maximum: int | float = None
+    equal: int | float = None
+    _model_variable: Any = None
+    """
+    name: str
+    minimum: int | float = None
+    maximum: int | float = None
+    equal: int | float = None
+    # _model_variable: Any = None
+    @model_validator(mode="after")
+    def sanity_check(self):
+        if self.maximum is not None:
+            if self.minimum:
+                if self.minimum > self.maximum:
+                    raise ValueError(f"maximum value cannot be less than \
+minimum value for constraint {self.name}")
+                if self.equal is not None and self.equal > self.maximum:
+                    raise ValueError(f"equality value cannot be larger than \
+maximum value for constraint {self.name}")
+        if self.equal is not None:
+            if self.minimum:
+                if self.equal < self.minimum:
+                    raise ValueError(f"equality value cannot be less than \
+minimum value for constrant {self.name}")
+
 class Optimization_Config(BaseModel):
     """
     ### Purpose:
     - This class holds the information regarding the optimization configuration per each structure.
     When loading the BrachyPlan the optimization config is created for each structure in the plan.structure_list.
-
+    Some attributes are unique to target structures (CTV/PTV) and some are common to all structures.
+    target attributes: 
+        - penalty_weight_hotspot
+        - hotspot_threshold
+        - catheter_recommendaion
+        - penalty_weight_variance_time
+        - penalty_weight_uniformity
     ### Attributes:
     - structure_name: str := The name of the structure to which this optimization config applies.
+    - is_target: bool := If true, we're looking at a target structure.
     - spacing_mm: List[float] | float := The spacing of the optimization grid in mm. 
     - dose_voxel_goal: float := The dose goal for every voxel in the structure in Gy.
     - penalty_weight_linear: float := Weight for linear penalty term in objective function. Default 1.
@@ -281,8 +335,19 @@ class Optimization_Config(BaseModel):
     - mask_margin_mm: List[float] | float := Margin around structure for optimization in mm. Default 0.
     - min_dose: float := Minimum allowed dose in Gy. Default 0.
     - max_dose: float := Maximum allowed dose in Gy. Default 500.
+    - constraint_num_catheters: int := The constraint on the number of catheters. Could specify the 
+    minimum, maximum and the exact number of catheters desired in the plan.
+    - catheter_recommendaion: bool := If True, catheter positions will be optimized as well. Default False.
+    - dwell_coef_dict: Dict[str, np.array] := A dictionary mapping the name of the dwell position to the cropped, masked
+    and flattend dose rate map corresponding to that dwell positition.
     """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,
+        )
+
     structure_name:str = None
+    is_target:bool = False
     spacing_mm:float | List[float]= None
     dose_voxel_goal:float = None
     penalty_weight_linear:float = 0
@@ -294,8 +359,21 @@ class Optimization_Config(BaseModel):
     mask_margin_mm:float | List[float]= 0
     min_dose:float = 0
     max_dose:float = 500
+    catheter_recommendaion: bool = False
+    constraint_num_catheters: Constraint_Config = None
+    dwell_coef_dict:Dict[str, np.array] = None
+    mask:ROIMask = None
     # may be needed later
     # self.index_range_constraints: List[int] = None
+    @model_validator(mode="after")
+    def validate_target_only_fields(self):
+        if not self.is_target:
+            assert self.penalty_weight_hotspot == 0, "only target structure can have penalty_weight_hotspot"
+            assert self.hotspot_threshold == 0, "only target structure can have hotspot_threshold"
+            assert self.catheter_recommendaion == False, "only target structure can have catheter_recommendaion"
+            assert self.penalty_weight_variance_time == 0, "only target structure can have penalty_weight_variance_time"
+            assert self.penalty_weight_uniformity == 0, "only target structure can have penalty_weight_uniformity"
+        return self
 
 class BrachyDwellTime(BaseModel, ABC):
     """
@@ -312,8 +390,8 @@ class BrachyDwellTime(BaseModel, ABC):
     dwell_time: float = Field(ge=0, description="Initial dwell time of the DwellTimeVariable in seconds.")
     lower_bound: float = Field(ge=0, description="Lower bound of the DwellTimeVariable in seconds.")
     upper_bound: float = Field(ge=0, description="Upper bound of the DwellTimeVariable in seconds.")
-    coordinates: List[float] = Field(default=None, description="Coordinates of the dwell position for this DwellTimeVariable.")
-    dose_rate_map: np.ndarray = Field(default=None, description="Dose rate map for this DwellTimeVariable.")
+    coordinates: List[float] | None = Field(default=None, description="Coordinates of the dwell position for this DwellTimeVariable.")
+    dose_rate_map: BrachyDose | np.ndarray | None = Field(default=None, description="Dose rate map for this DwellTimeVariable.")
 
     _model_variable: Any = PrivateAttr(default=None)
 
@@ -366,7 +444,6 @@ class BrachyDwellTimeOptim(ABC):
     ### Functions:
     - initialize_model: A function to initialize the optimization model (prepare the solver and the log files).
     - set_dwellTimeVariables: A function to create the DwellTimeVariable objects based on the treatment plan. 
-    - get_optimization_roi_bounds: A function to get the optimization region of interest bounds (furhter dwells +/- margin).
     - set_penalty_function_and_constraints: A function to set the penalty function and constraints for the optimization.
     - run: A function to run the optimization model inside the solver and capture the solve time.
     - get_optimized_plan_from_model: A function to get the optimized BrachyPlan from the model.
@@ -433,61 +510,6 @@ class BrachyDwellTimeOptim(ABC):
         pass
 
     @abstractmethod
-    def get_optimization_roi_bounds(
-        self,
-        plan: BrachyPlan,
-        dwellTimeVariables: List[Any],
-        roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
-    ) -> List[List[float]]:
-        r"""
-        ### Purpose:
-        - A function to get the coordinate bounds for the optimization region of
-        interest (roi) from the plan.  The roi is the inclusion mask for the voxels
-        to be included in the optimization. The roi is defined as the region around 
-        the furthest dwell position along each axis plus the margin.
-        ### Inputs:
-        - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
-        - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
-        - roi_margin_mm:List[float] := The distance from the furthest dwell position along each axis
-        to consider voxels the dose rate maps. for each axis:
-            inclusion_space = [
-                closest_dwell_position - roi_margin_mm[axis] :
-                furthest_dwell_position + roi_margin_mm[axis]
-                ]
-        ### Outputs:
-        - roi_optimization:ROIMask := The optimization region of interest (roi) from the plan.
-        """
-        # get the inclusion mask for the voxels to be included
-        inclusion_boundaries = np.ones((3, 2))
-        dwell_bounds = np.zeros((3, 2))
-        for axis in [0, 1, 2]:
-            dwell_coord_axis = [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
-            dwell_bounds[axis, 0] = np.min(dwell_coord_axis)
-            dwell_bounds[axis, 1] = np.max(dwell_coord_axis)
-            inclusion_boundaries[axis, 0] = (
-                dwell_bounds[axis, 0] - roi_margin_mm[axis]
-            )
-            inclusion_boundaries[axis, 1] = (
-                dwell_bounds[axis, 1] + roi_margin_mm[axis]
-            )
-            # if the inclusion bound is outside the dose image, set it to the dose image bounds
-            if (
-                inclusion_boundaries[axis][0]
-                < plan.combined_dose.dose_image.origin[axis]
-            ):
-                inclusion_boundaries[axis][0] = plan.combined_dose.dose_image.origin[axis]
-            if (
-                inclusion_boundaries[axis][1]
-                > plan.combined_dose.dose_image.origin[axis]
-                + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
-            ):
-                inclusion_boundaries[axis][1] = (
-                    plan.combined_dose.dose_image.origin[axis]
-                    + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
-                )
-        return inclusion_boundaries
-
-    @abstractmethod
     def set_penalty_function_and_constraints(
         self,
         plan: BrachyPlan,
@@ -547,3 +569,57 @@ class BrachyDwellTimeOptim(ABC):
         - None
         """
         pass
+
+def get_optimization_roi_bounds(
+    plan: BrachyPlan,
+    dwellTimeVariables: List[BrachyDwellTime],
+    roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
+) -> List[List[float]]:
+    r"""
+    ### Purpose:
+    - A function to get the coordinate bounds for the optimization region of
+    interest (roi) from the plan.  The roi is the inclusion mask for the voxels
+    to be included in the optimization. The roi is defined as the region around 
+    the furthest dwell position along each axis plus the margin.
+    ### Inputs:
+    - plan: BrachyPlan := The plan should have a catheter table with at least one dwell position.
+    - dwellTimeVariables:List[DwellTimeVariable] := The set of the dwellTimeVariables to be optimized.
+    - roi_margin_mm:List[float] := The distance from the furthest dwell position along each axis
+    to consider voxels the dose rate maps. for each axis:
+        inclusion_space = [
+            closest_dwell_position - roi_margin_mm[axis] :
+            furthest_dwell_position + roi_margin_mm[axis]
+            ]
+    ### Outputs:
+    - inclusion_boundaries:List[List[float]] := The min and max of the roi along each axis after
+    applying the margin.
+    """
+    # get the inclusion mask for the voxels to be included
+    inclusion_boundaries = np.ones((3, 2))
+    dwell_bounds = np.zeros((3, 2))
+    for axis in [0, 1, 2]:
+        dwell_coord_axis = [dwelltime.coordinates[axis] for dwelltime in dwellTimeVariables]
+        dwell_bounds[axis, 0] = np.min(dwell_coord_axis)
+        dwell_bounds[axis, 1] = np.max(dwell_coord_axis)
+        inclusion_boundaries[axis, 0] = (
+            dwell_bounds[axis, 0] - roi_margin_mm[axis]
+        )
+        inclusion_boundaries[axis, 1] = (
+            dwell_bounds[axis, 1] + roi_margin_mm[axis]
+        )
+        # if the inclusion bound is outside the dose image, set it to the dose image bounds
+        if (
+            inclusion_boundaries[axis][0]
+            < plan.combined_dose.dose_image.origin[axis]
+        ):
+            inclusion_boundaries[axis][0] = plan.combined_dose.dose_image.origin[axis]
+        if (
+            inclusion_boundaries[axis][1]
+            > plan.combined_dose.dose_image.origin[axis]
+            + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
+        ):
+            inclusion_boundaries[axis][1] = (
+                plan.combined_dose.dose_image.origin[axis]
+                + plan.combined_dose.dose_image.gridSizeInWorldUnit[axis]
+            )
+    return inclusion_boundaries

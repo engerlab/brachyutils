@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, resample_crop_the_mask_or_contour_to_optimGrid,
+    BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices, Optimization_Config
 )
 from ortools.math_opt.python.mathopt import (
@@ -86,7 +86,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
         self.solver = solver
         self.model = self.initialize_model(pth_logfile=pth_logfile)
         self.dwellTimeVariables:DwellTime_ORTools = self.set_dwellTimeVariables(plan=self.plan)
-        self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
+        self.roi_bounds: List[List[float]] = get_optimization_roi_bounds(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
             roi_margin_mm=self.roi_margin_mm
@@ -133,27 +133,27 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
                         coordinates=dwell_position.position,
-                        dose_rate_map=plan.dose_rate_tensor[dwell_counter]
+                        dose_rate_map=plan.dose_rate_dict[dwell_counter]
                     )
                 )
                 dwell_counter += 1
 
         return dwellTimeVariable_list
 
-    def get_optimization_roi_bounds(
-        self,
-        plan: BrachyPlan,
-        dwellTimeVariables: List[DwellTime_ORTools],
-        roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
-    ) -> List[List[float]]:
-        r"""
-        See `BrachyDwellTime.get_optimization_roi_bounds` for details.
-        """
-        return super().get_optimization_roi_bounds(
-            plan=plan,
-            dwellTimeVariables=dwellTimeVariables,
-            roi_margin_mm=roi_margin_mm
-        )
+    # def get_optimization_roi_bounds(
+    #     self,
+    #     plan: BrachyPlan,
+    #     dwellTimeVariables: List[DwellTime_ORTools],
+    #     roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
+    # ) -> List[List[float]]:
+    #     r"""
+    #     See `BrachyDwellTime.get_optimization_roi_bounds` for details.
+    #     """
+    #     return super().get_optimization_roi_bounds(
+    #         plan=plan,
+    #         dwellTimeVariables=dwellTimeVariables,
+    #         roi_margin_mm=roi_margin_mm
+    #     )
 
     def set_penalty_function_and_constraints(
         self,
@@ -197,11 +197,11 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
 
         # get structure optimization configs for hotspot estimators
         for structure in plan.structure_list:
-            if structure.target_volume and structure.optimization_config.penalty_weight_hotspot > 0:
+            if structure.is_target and structure.optimization_config.penalty_weight_hotspot > 0:
                 hotspot_config = structure.optimization_config
 
         for structure in plan.structure_list:
-            if "hotspot_estimator:" in structure.name.lower():
+            if "hotspot_estimator_" in structure.name.lower():
                 structure_mask = structure.mask
                 hotspot_config.structure_name = structure.name
                 optim_spacing = hotspot_config.spacing_mm
@@ -254,7 +254,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
             if num_dose_points == 0:
                 continue
 
-            if structure.target_volume:
+            if structure.is_target:
                 for i in range(num_dose_points):
                     # Linear penalty for underdosing
                     if linear_weight > 0 or quadratic_weight > 0:
@@ -290,7 +290,7 @@ class BrachyOptim_ORTools(BrachyDwellTimeOptim):
                         # Add penalties to the objective function
                         penalty_terms["uniformity"] += (uniformity_weight/(num_dose_points*1000)) * y_slack * y_slack
 
-            elif "hotspot_estimator:" in structure.name.lower():
+            elif "hotspot_estimator_" in structure.name.lower():
                 for i in range(num_dose_points):
                     x_slack = model.add_variable(
                         lb=0.0,

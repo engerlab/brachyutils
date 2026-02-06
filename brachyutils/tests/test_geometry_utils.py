@@ -183,13 +183,43 @@ def test_catheter_table():
 
     # # test loadin from dicom
     pth_dicom = "data_test/prostate-glen-p1-dcm"
-    pth_json = "data_test/test_export_plan/prostate/test_catheter_table.json"
+    pth_json_delivered = "data_test/test_export_plan/prostate/cat_table_delivered.mrk.json"
+    pth_json_all = "data_test/test_export_plan/prostate/cat_table_all.mrk.json"
+    pth_json_all_in_ptv = "data_test/test_export_plan/prostate/cat_table_all_in_ptv.mrk.json"
+
     pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
-    catheter_table = CatheterTable(catheter_list=pth_plan)
-    catheter_table.write_to_json(pth_json)
-    
-    cat_tab_json = CatheterTable(catheter_list=pth_json)
-    cat_tab_json.info()
+    catheter_table_delivered = CatheterTable(
+        catheter_list=pth_plan,
+        from_delivered_dwellpositions=True)
+    catheter_table_delivered.write_to_slicer_markup(
+        pth_mrk_json=pth_json_delivered
+    )
+    catheter_table_all = CatheterTable(
+        catheter_list=pth_plan,
+        from_delivered_dwellpositions=False)
+    catheter_table_all.write_to_slicer_markup(
+        pth_mrk_json=pth_json_all
+    )
+
+    # get the mask of the ptv
+    from brachyutils.geometry.phantom_utils import BrachyPhantom
+    phant = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=glob(pth_dicom + "/RS*.dcm")[0])
+    ptv_mask = phant.get_structure_mask(["CTV"], strict_name_match=False).popitem()[-1]
+    catheter_table_all_in_ptv = CatheterTable(
+        catheter_list=pth_plan,
+        from_delivered_dwellpositions=True)
+    catheter_table_all_in_ptv.remove_outside_mask(
+            mask=ptv_mask,
+            margin_mm=10
+        )
+    catheter_table_all_in_ptv.write_to_slicer_markup(
+        pth_mrk_json=pth_json_all_in_ptv
+    )
+
+    # cat_tab_json = CatheterTable(catheter_list=pth_json)
+    # cat_tab_json.info()
 
 def test_catheter():
     from brachyutils.geometry.catheter_utils.catheter_table import Catheter, DwellPosition
@@ -407,9 +437,9 @@ if __name__ == "__main__":
     # test_load_nifti_image_and_segmentation_file()
     # test_resample_to()
     # test_dicom_rt_tools()
-    # test_catheter_table()
+    test_catheter_table()
     # test_catheter()
-    test_catheter_to_mrk_json()
+    # test_catheter_to_mrk_json()
     # test_get_from_delivered_dwellpositions()
     # test_generate_sphere_mask()
     # test_load_pet_dicom()

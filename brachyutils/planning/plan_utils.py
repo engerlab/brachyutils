@@ -1,36 +1,184 @@
-import gc
+import re
 import json
 import os
 
-# import re
 import warnings
 from copy import deepcopy
-from functools import partial
 from glob import glob
-from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from typing import List, Literal, Union, Dict, Tuple
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
-from opentps.core.data import DVH, ROIContour
+from opentps.core.data import ROIContour
 from opentps.core.data.images import ROIMask
 
-# from multipledispatch import dispatch
-from scipy import interpolate, ndimage
-
-# from typing import Optional
 from tqdm import tqdm
 
-# from brachyutils.dicom_utils import BrachyDicom
 from brachyutils.dose.dose_utils import BrachyDose
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry.applicator_utils import BrachyApplicator 
 from brachyutils.geometry.phantom_utils import BrachyPhantom
-from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+from brachyutils.geometry.catheter_utils.catheter_table import Catheter, CatheterTable
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
-from brachyutils.types import Optimization_Config
+# from brachyutils.types import Optimization_Config
+from brachyutils.planning.optimization.optim_utils import Optimization_Config
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator, computed_field
+
+class ExportConfig_Dose(BaseModel):
+    """
+    Configuration for exporting dose data from the plan.
+    """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
+    )
+    dir_export: str | Path = Field(None, description="Directory where dose files are exported.")
+    name_combined: str = Field("combined", description="File name for combined dose output.")
+    file_extension: Literal[".seq.nrrd", ".3ddose"] = Field(
+        ".seq.nrrd", description="Allowed file extensions for dose files."
+    )
+    write_dose_rate_maps: bool = Field(
+        False, description="Whether to write individual dose rate maps to files."
+    )
+    multi_processing: bool = Field(
+        True, description="Enable multiprocessing for export (yes/no toggle)."
+    )
+    @computed_field
+    def pth_combined(self)->Path:
+        self.dir_export = Path(self.dir_export)
+        return self.dir_export/(self.name_combined+self.file_extension)
+
+class ExportConfig_PlanFile(BaseModel):
+    """
+    Configuration for exporting .plan files from the plan.
+    """
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
+    )
+    dir_export: str | Path = Field(None, description="Directory where the plan files are exported.")
+    combined_only:bool = Field(True, description="If true, only combined plan is written. \
+Per dwell position plan is generated.")
+    name_combined:str = Field("combined", description="The name of the file for combined plan")
+    file_extension: Literal[".plan"] = Field(".plan", description="File extension for plan files.")
+    @computed_field
+    def pth_combined(self)->Path:
+        self.dir_export = Path(self.dir_export)
+        return self.dir_export/(self.name_combined+self.file_extension)
+
+class ExportConfig_MacFile(BaseModel):
+    """
+    Configuration for exporting .mac files from the plan.
+    """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
+    )
+    dir_export: str | Path = Field(None, description="Directory where Mac files are exported.")
+    combined_only:bool = Field(True, description="If true, only combined mac is written. \
+Per dwell position plan is generated.")
+    name_combined:str = Field("combined", description="The name of the file for combined mac")
+    file_extension: Literal[".mac"] = Field(".mac", description="File extension for mac files.")
+    body_name_stl: str = Field("BODY", description="Name of the body structure to be saved as a separate STL.")
+    @computed_field
+    def pth_combined(self)->Path:
+        return self.dir_export/(self.name_combined+self.file_extension)
+    @computed_field    
+    def pth_body_stl(self)->Path:
+        self.dir_export = Path(self.dir_export)
+        return self.dir_export/(self.body_name_stl+".stl")
+
+class ExportConfig_Egsphant(BaseModel):
+    r"""
+    The Export info needed for exporting Egsphant files.
+    If using Monte Carlo simulations from RapidBrachyMC, It is recommended that
+    the user crop the egsphant to a small region around the relevant anatomy and
+    use provide the body_name_stl to save the body structure as a separate STL file. 
+    """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    dir_export: str | Path = Field(None, description="Directory where Egsphant file is exported.")
+    name: str = Field("egsphant", description="File name for Egsphant output.")
+    file_extension: Literal[".seq.nrrd", ".egsphant"] = Field(
+        ".seq.nrrd", 
+        description="Allowed file extensions for Egsphant files.")
+    material_dict: dict | Path = Field(
+        Path("admin/constants/structure_materials_prostate.json"),
+        description="Dictionary of material names and their properties.")
+    assign_material_from_ct: bool = Field(False, description="Whether to assign materials from CT data or based on contours.")
+    crop_by_contour: str = Field(None, description="Name of the contour to crop by.")
+    resampled_spacing: List[float] = Field(None, description="Spacing for resampling the phantom.")
+    resampled_origin: List[float] = Field(None, description="Origin for resampling the phantom.")
+    background_material: str = Field("Air", description="Material name for background.")
+    strict_name_match: bool = Field(True, description="Whether to enforce strict name matching for materials.")
+    body_name_stl: str = Field(None, description="Name of the body structure to be saved as a separate STL.")
+    @computed_field
+    def pth_egsphant(self)->Path:
+        return self.dir_export/(self.name+self.file_extension)
+    @computed_field
+    def pth_body_stl(self)->Path:
+        self.dir_export = Path(self.dir_export)
+        return self.dir_export/(self.body_name_stl+".stl")
+
+class ExportConfig_CatheterTable(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    dir_export: str | Path = Field(None, description="Directory where catheter table is exported.")
+    name: str = Field("catheter_table", description="File name for catheter table output.")
+    file_extension: Literal[".json", ".mrk.json"] = Field(
+        ".mrk.json", description="File extension for catheter table export.)")
+    remove_text: bool = Field(True, description="Text to remove from dwell names.")
+    one_markup_per_catheter: bool = Field(False, description="Whether to create one markup per catheter.")
+    @computed_field
+    def pth_catheter_table(self)->Path:
+        self.dir_export = Path(self.dir_export)
+        return self.dir_export/(self.name+self.file_extension)
+
+# TODO: in future, add these export configs if neeeded
+# class ExportConfig_Applicator(BaseModel):
+#     model_config = ConfigDict(arbitrary_types_allowed=True)
+# class ExportConfig_BrachyStructure(BaseModel):
+#     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class ExportConfig_BrachyPlan(BaseModel):
+    r"""
+    ### Purpose:
+    - Configuration for exporting various components of a brachytherapy treatment plan.
+    The components are catheter table, dose, egsphant, plan file, and mac file.
+    """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    dir_export:str | Path = Field(..., description="Base directory where all plan components are exported.")
+    export_config_dose: ExportConfig_Dose | bool = Field(False, description="Configuration for exporting dose data.")
+    export_config_cathetertable: ExportConfig_CatheterTable | bool = Field(False, description="Configuration for exporting catheter table.")
+    export_config_egsphant: ExportConfig_Egsphant | bool = Field(False, description="Configuration for exporting egsphant file.")
+    export_config_planfile: ExportConfig_PlanFile | bool = Field(False, description="Configuration for exporting plan file.")
+    export_config_macfile: ExportConfig_MacFile | bool = Field(False, description="Configuration for exporting mac file.")
+    # TODO: in future, add these export configs if neeeded
+    # export_config_applicator: ExportConfig_Applicator = None
+    # export_config_phantom: ExportConfig_BrachyStructure = None
+    applicator_geometry: bool = Field(False, description="Whether to export applicator geometry into a stl file.")
+    structure_set: bool = Field(False, description="Whether to export structure set info into a json file.")
+
+    @model_validator(mode="before")
+    def validate_inputs(data):
+        for k, v in data.items():
+            if k.startswith("export_config_") and isinstance(v, bool):
+                data[k] = {} if v else False
+        return data
+
+    @model_validator(mode="after")
+    def validate_config(self):
+        # make sure that the paths of dir exports are 
+        # set correctly for all the inner attributes
+        for _, value in self:                
+            if isinstance(value, BaseModel):
+                if value.dir_export is None:
+                    value.dir_export = self.dir_export
+        return self
 
 class BrachyPlan:
     r"""
@@ -39,41 +187,37 @@ class BrachyPlan:
     as well as all the functions to support the necessary plan operations.
 
     ### Attributes:
-    - phantom:= A BrachyPhantom object containing the patient geometry and structures.
-    - dvh_metric_goals:= A dictionary containing the DVH metric goals for the plan.
-    - dvh_metrics_observed:= A dictionary containing the observed DVH metrics for the plan.
-    - structure_list:= A list of BrachyStructure objects containing the patient structures.
-    - phantom_origin:= The origin of the phantom in the patient coordinate system.
-    - organ_bounds:= A dictionary containing the min and max coordinates of the patient organs on each axis. 
-    - catheter_table:= A catheter table object containing the catheter information.
-    - num_catheters:= The number of catheters in the plan.
-    - catheter_numbers:= The catheter id numbers for each catheter in the catheter table.
-    - num_dwells:= The total number of dwell positions along all catheters in the plan.
-    - dwell_numbers:= The dwell number id of each dwell position in the plan.
-    - dwell_times:= The dwell time for each dwell position in the plan.
-    - dwell_coordinates:= The coordinate of each dwell position in patient coordinates?
-    - applicator_list:= The list of all the applicators in the plan.
-    - applicator_rotation_axis:= The rotation axis of each applicator
-    - applicator_rotation_origin:= The rotation origin of each applicator.
-    - dose_rate_tensor:= a tensor holding 3D dose rate maps for each dwell position.
-    - combined_dose:= sum of the dose rate maps weighted by the dwell times.
-    - uncertainty_tensor:= sqaure root of the sum of the squares of the uncertainty maps weighted by the 
-    dwell times normalized to the treatment time.
-    - simulation_setup:= A simulation setup object containing the source info as well as simulation parameters.
-    - prescription_dose:= The dose that is prescribed to the target volume.
+    #### Geometry and Structure Attributes:
+    - phantom (BrachyPhantom): A BrachyPhantom object containing the patient geometry and structures.
+    - structure_list (List[BrachyStructure]): A list of BrachyStructure objects containing the patient structures.
+    - body_contour (ROIContour): The body contour of the patient.
+    - phantom_origin (list): The origin of the phantom in the patient coordinate system.
+    - organ_bounds (list): Min and max coordinates of the patient organs on each axis.
+    - dvh_metric_goals (dict): Dictionary containing the DVH metric goals for the plan.
+    - dvh_metrics_observed (dict): Dictionary containing the observed DVH metrics for the plan.
+    - prescription_dose (float): The dose prescribed to the target volume.
 
-    ### Functions:
-    - update_plan_from_catheter_table()
-    - _update_catheter_table_from_plan()
-    - _update_dose_after_change_in_plan()
-    - load_dose_rate_or_uncertainty_tensor()
-    - _calculate_combined_dose()
-    - set_dvh_metric_goals()
-    - create_brachy_structure_set()
-    - get_dvh_metrics()
-    - _calculate_combined_uncertainty()
-    - calculate_uncertainty_per_structure()
-    - export_brachy_plan ()
+    #### Catheter and Dwell Position Attributes:
+    - catheter_table (CatheterTable): A catheter table object containing the catheter information.
+    - num_catheters (int): The number of catheters in the plan.
+    - catheter_numbers (list): The catheter ID numbers for each catheter in the catheter table.
+    - num_dwells (int): The total number of dwell positions along all catheters in the plan.
+    - dwell_numbers (list): The dwell number ID of each dwell position in the plan.
+    - dwell_times (List[float]): The dwell time for each dwell position in the plan.
+    - dwell_coordinates (List[list]): The coordinates of each dwell position in patient coordinates.
+
+    #### Applicator Attributes:
+    - applicator_list (List[BrachyApplicator]): The list of all applicators in the plan.
+    - applicator_rotation_axis (np.array): The rotation axis of applicators (default: [0, 0, 1]).
+    - applicator_rotation_origin (np.array): The rotation origin of applicators (default: [0, 0, 0]).
+
+    #### Dose Attributes:
+    - dose_rate_dict (defaultdict[BrachyDose]): Dictionary holding 3D dose rate maps for each dwell position.
+    - combined_dose (BrachyDose): Sum of the dose rate maps weighted by the dwell times.
+
+    #### Simulation and Optimization Attributes:
+    - simulation_setup (BrachySimulation): A simulation setup object containing source info and simulation parameters.
+    - optimization_config_list (List[Optimization_Config]): List of optimization configurations for the plan.
     """
 
     def __init__(
@@ -92,8 +236,7 @@ class BrachyPlan:
         #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
-        type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
-        load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
+        load_uncertainty:bool=False,
         multi_processing: bool = False,
         combined_dose_only: bool = False,
         #### for simulation setup:
@@ -133,7 +276,7 @@ class BrachyPlan:
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
         #### Keywords Arguments:
-        - dwells_near_ptv: bool = False := if True, will remove the dwell positions that are outside PTV
+        - dwells_near_ptv: bool = True := if True, will remove the dwell positions that are outside PTV
         with a margine of 10 mm.
         - add_hotspots_to_phantom: bool = False := if True, will add hotspot structures to the phantom.
         this is good for debugging, but slows down the plan creation process.
@@ -177,13 +320,8 @@ class BrachyPlan:
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
         # dose attributes
-        self.dose_rate_tensor = np.array(
-            [], dtype=np.float32
-        )  # shape: (num_dwells, z, y, x)
+        self.dose_rate_dict = defaultdict(BrachyDose)
         self.combined_dose: BrachyDose = None
-        self.uncertainty_tensor = np.array(
-            [], dtype=np.float32
-        )  # shape: (num_dwells, z, y, x)
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
@@ -229,9 +367,9 @@ class BrachyPlan:
                 raise ValueError(
                     "catheter_table should be a path or a CatheterTable object"
                 )
-            if kwargs.get("dwells_near_ptv", False):
+            if kwargs.get("dwells_near_ptv", True):
                 for structure in self.structure_list:
-                    if structure.target_volume:
+                    if structure.is_target:
                         if isinstance(structure.mask, ROIContour):
                             mask = structure.mask.getBinaryMask(
                                 origin=self.phantom.image_obj.origin,
@@ -245,12 +383,11 @@ class BrachyPlan:
 
             self.update_plan_from_catheter_table()
 
-        # load the dose rate tensor if the path is provided
+        # load the dose rate dict if the path is provided
         if dir_dose_rate is not None and combined_dose is None:
-            self.load_dose_rate_or_uncertainty_tensor(
+            self.load_dose_rate_dict(
                 dir_dose_rate=dir_dose_rate,
-                type_dose_file=type_dose_file,
-                load_dose_or_uncertainty=load_dose_or_uncertainty,
+                load_uncertainty=load_uncertainty,
                 multi_processing=multi_processing,
                 combined_dose_only=combined_dose_only,
             )
@@ -439,7 +576,7 @@ class BrachyPlan:
             len(self.dwell_numbers) == self.dwell_numbers[-1]
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
-        if self.dose_rate_tensor.any():
+        if any(self.dose_rate_dict):
             self._calculate_combined_dose()
 
     def _update_catheter_table_from_plan(self):
@@ -452,6 +589,7 @@ class BrachyPlan:
         ### Outputs:
         - Void := will update the self.catheter_table attribute
         """
+        raise ValueError("This function is deprecated and never used anyways")
         assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
         assert self.dwell_times.size != 0, "dwell times are not extracted"
         assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
@@ -503,178 +641,119 @@ class BrachyPlan:
         - Void := will update the BrachyPlan.catheter_table and BrachyPlan.combined_dose
         attributes
         """
+        raise ValueError("This function is also deprecated")
         self._update_catheter_table_from_plan()
         self._calculate_combined_dose()
 
-    def load_dose_rate_or_uncertainty_tensor(
+    def load_dose_rate_dict(
         self,
-        dir_dose_rate: str,
-        type_dose_file: Literal[".nrrd", ".3ddose"] = ".nrrd",
-        load_dose_or_uncertainty: Literal["dose", "uncertainty", "both"] = "dose",
+        dir_dose_rate: str| Path,
+        load_uncertainty:bool=False,
         multi_processing: bool = False,
         combined_dose_only: bool = False,
     ):
         r"""
         ### Purpose:
-        - To load the dose rate tensor into the BrachyPlan object given a folder with
+        - To load the dose rates into the BrachyPlan object given a folder with
         patient's dose rate files and the catheter table loaded into the BrachyPlan object.
         In addition, combined dose is calculated as a linear combination of the dose rates
         and dwell times.
         ### Inputs:
-        - dir_dose_rate :=  path to the directory containing the dose rate files. we assume
-        that the name of the dose rate files end as "run_1.nrrd", "run_2.nrrd", etc.
-        - type_dose_file := the type of dose rate file. The type could be ".nrrd" or ".3ddose"
-        consult BrachyDose in dose_utils.py for more info on the dose rate file types.
-        - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
-        - multi_processing := if True, the dose rate files will be loaded in parallel. By default,
+        - `dir_dose_rate` :=  path to the directory containing the dose rate files. we assume
+        that the name of the dose rate files end as "run_X_X_X.seq.nrrd", "run_X_X_X.seq.nrrd", etc.
+        where the X corresponds to the catheter index+1, dwell index+1, and angle in increasing order.
+        - `load_uncertainty`:= If true, uncertainty is loaded from the dose file, else it'll be set to 1. 
+        - `multi_processing` := if True, the dose rate files will be loaded in parallel. By default,
         we use 8 cores for parallel processing.
-        - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
+        - `combined_dose_only`:bool = False := flag to keep only the combined dose in memory after loading.
         ### Outputs:
-        - Void := will update the BrachyPlan.dose_rate_tensor attribute
-        ### Dependencies:
-        - glob
-        - BrachyDose
+        - Void := will update the BrachyPlan.dose_rate_dict attribute
         """
         # make sure catheter table is loaded
         assert self.catheter_table is not None, "catheter table is not loaded"
-        assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
-        assert self.dwell_times.size != 0, "dwell times are not extracted"
-        assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
-        assert self.num_dwells is not None, "number of dwells is not extracted"
+        # assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
+        # assert self.dwell_times.size != 0, "dwell times are not extracted"
+        # assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
+        # assert self.num_dwells is not None, "number of dwells is not extracted"
 
+        pth_dose_rate = Path(dir_dose_rate).resolve()
+        if not pth_dose_rate.exists():
+            raise ValueError(f"directory of dose rates does not exist: {pth_dose_rate}")
+        dose_rate_files = list(pth_dose_rate.glob("run_*.seq.nrrd"))
 
-        def get_dwell_order(dose_rate_path):
-            file_name = os.path.basename(dose_rate_path)
-            return get_dwell_order_from_file_name(file_name)
+        new_dose_rate_files = []
+        # load file if they have not been loaded since modification
+        for pth in dose_rate_files:
+            if not self.dose_rate_dict.get(pth.name, None):
+                new_dose_rate_files.append(pth)
+            elif Path.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
+                new_dose_rate_files.append(pth)
+            else:
+                continue
 
-        def get_dwell_order_from_file_name(file_name):
-            """
-            Files should have this format:
-            run_{catheter#}_{Dwell#incatheter}_{shieldangle}.seq.nrrd
-            Assuming that there are less than 10000 dwell positions per catheter
-            We order based on 10000 * catheter# + Dwell#incatheter
-            """
-            x = file_name.split(".")[0][4:]
-            catheter_nb, dwell_nb, shield_angle = x.split("_")
-            return 10000 * int(catheter_nb) + int(dwell_nb)
-        
-        # here is the list of the dose rate files
-        if isinstance(dir_dose_rate, str) or isinstance(dir_dose_rate, Path):
-            dose_rate_files = glob(os.path.join(dir_dose_rate, f"run*{type_dose_file}"))
-            dose_rate_files = [
-                dosefile for dosefile in dose_rate_files if "combined" not in dosefile
-            ]
-            dose_rate_files.sort(
-                key=lambda x: get_dwell_order(x)
-            )
-
+        if multi_processing:       
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                futures = {
+                    executor.submit(_load_single_dose_rate, pth, load_uncertainty): pth
+                    for pth in new_dose_rate_files
+                    }
+                for action in tqdm(
+                    as_completed(futures),
+                    desc="Loading dose rate maps",
+                    total=len(new_dose_rate_files)):
+                    try:
+                        dose_rate = action.result()
+                        self.dose_rate_dict[dose_rate.path.name] = dose_rate
+                    except:
+                        failed_path = futures[action]
+                        raise ValueError(f"Failed loading f{failed_path}")
         else:
-            assert isinstance(dir_dose_rate, dict) and isinstance(dir_dose_rate[list(dir_dose_rate.keys())[0]][0], np.ndarray), (
-                "Expected a folder with dose rate files saved or a dictionary of tuples (numpy arrays, header info)."
-            )
-            dose_rate_files = dir_dose_rate
-            sorted_dict = dict(sorted(dose_rate_files.items(), key=lambda item: get_dwell_order_from_file_name(item[0])))
-            dose_rate_files = [x for x in sorted_dict.values()]
+            for pth in tqdm(
+                new_dose_rate_files,
+                desc="Loading dose rate maps",
+                total=len(new_dose_rate_files)):
+                dose_rate = _load_single_dose_rate(
+                    pth_dose_rate=pth,
+                    load_uncertainty=load_uncertainty)
+                self.dose_rate_dict[dose_rate.path.name] = dose_rate
 
-        
-
-        assert (
-            len(dose_rate_files) == self.num_dwells
-        ), ("number of dose rate files does not match the number of dwell positions"
-            f" in the catheter table. Expected {self.num_dwells} but found {len(dose_rate_files)} at {os.path.join(dir_dose_rate, f"run*{type_dose_file}")}"
+        # now sort dose rates according to increasing catheter name and shield numbers
+        # Fastest and most compact version
+        sorted_items = sorted(
+            self.dose_rate_dict.items(),
+            key=lambda f: tuple(map(int, f[0].removeprefix('run_').removesuffix('.seq.nrrd').split('_')))
         )
+        self.dose_rate_dict = defaultdict(BrachyDose, sorted_items)
 
-        test_dose_obj = BrachyDose(dose_rate_files[0])
-
-        if load_dose_or_uncertainty not in ["dose", "uncertainty", "both"]:
-            raise ValueError(
-                "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
-            )
-
-        # load the dose rate tensor
-        if multi_processing:
-            with Pool(processes=16 if cpu_count()>8 else 4) as pool:
-                func = partial(
-                    _load_single_dose_or_uncertainty_to_dict,
-                    load_dose_or_uncertainty=load_dose_or_uncertainty,
-                )
-                dose_or_uncertainty_list = list(
-                    tqdm(
-                        pool.imap(func, dose_rate_files),
-                        total=len(dose_rate_files),
-                        desc="Loading dose rates...",
-                    )
-                )    
-
-        else:
-            # dose_or_uncertainty_list = np.empty(len(dose_rate_files), dtype=object)
-            dose_or_uncertainty_list = [None] * len(dose_rate_files)
-            for i, pth_dose_rate in tqdm(enumerate(dose_rate_files), total=len(dose_rate_files), desc="Loading dose rates..."):
-                dose_or_uncertainty_list[i] = _load_single_dose_or_uncertainty_to_dict(
-                    pth_dose_rate, load_dose_or_uncertainty
-                )
-            # print(dose_or_uncertainty_list.shape)
-
-        if load_dose_or_uncertainty == "both":
-            self.dose_rate_tensor = np.array(
-                dose_or_uncertainty_list, dtype=np.float32
-            )[0, :]
-            self.uncertainty_tensor = np.array(
-                dose_or_uncertainty_list, dtype=np.float32
-            )[1, :]
-        elif load_dose_or_uncertainty == "dose":
-            self.dose_rate_tensor = np.array(dose_or_uncertainty_list, dtype=np.float32)
-        elif load_dose_or_uncertainty == "uncertainty":
-            self.uncertainty_tensor = np.array(
-                dose_or_uncertainty_list, dtype=np.float32
-            )
-        else:
-            raise ValueError(
-                "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
-            )
-
-        del dose_or_uncertainty_list
-        gc.collect()
-
-        self.combined_dose = BrachyDose.dose_with_empty_grid_like(test_dose_obj)
-
-        if load_dose_or_uncertainty != "uncertainty":
-            self._calculate_combined_dose()
-        if load_dose_or_uncertainty != "dose":
+        self._calculate_combined_dose()
+        if load_uncertainty:
             self._calculate_combined_uncertainty()
-        # free up memory
         if combined_dose_only:
-            self.dose_rate_tensor = None
-            self.uncertainty_tensor = None
-
-        # if len(self.structure_list) != 0:
-        #     for structure in self.structure_list:
-        #         structure.mask = _resize_structure_mask(
-        #             structure.mask, self.combined_dose.grid.shape
-        #         )
+            del self.dose_rate_dict
 
     def _calculate_combined_dose(self):
         """
         ### Purpose:
-        - To calculate the combined dose by multiplying the dose rate tensor with the dwell times array.
+        - To calculate the combined dose by multiplying the dose rates with the dwell times.
         The result is stored in the combined_dose attribute.
-
+        We require strict name matching between the dwell names and dose rate names!
+        ### Inputs:
+        - None: but it needs the following attributes to be filled:
+        - self.dose_rate_dict
+        - self.catheter_table
         ### Raises:
             AssertionError: If the dose rate tensor or dwell times array is empty.
         """
-        assert (
-            self.dose_rate_tensor.size != 0
-        ), "dose rate tensor is empty. Run load_dose_rate_or_uncertainty_tensor()"
-        assert (
-            self.dwell_times.size != 0
-        ), "dwell times array is empty. Run update_plan_from_catheter_table()"
+        if not any(self.dose_rate_dict):
+            raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
 
-        # calculate the combined dose and store the result in the combined_dose attribute
-        temp_dose_array = np.zeros_like(self.dose_rate_tensor[0])
-        for i in range(self.num_dwells):
-            temp_dose_array += self.dose_rate_tensor[i] * self.dwell_times[i]
-
-        self.combined_dose.set_dose_array(temp_dose_array)
+        self.combined_dose = BrachyDose.dose_with_empty_grid_like(
+            list(self.dose_rate_dict.values())[0])
+        for catheter in self.catheter_table:
+            for dwell in catheter.dwells:
+                self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
+                    f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                    ).dose_image.imageArray * dwell.time
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
@@ -738,7 +817,9 @@ class BrachyPlan:
             structure_obj = BrachyStructure(
                 name=structure_name,
                 mask=structure_masks[structure_name],
-                target_volume=True if ("ctv" in structure_name.lower() or "ptv" in structure_name.lower())  else False,
+                is_target=True if (
+                    "ctv" in structure_name.lower()
+                    or "ptv" in structure_name.lower())  else False,
                 in_dvh=True,
                 dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
@@ -924,29 +1005,32 @@ class BrachyPlan:
     def _calculate_combined_uncertainty(self):
         r"""
         ### Purpose:
-        - To calculate the combined uncertainty of the combined dose map.
+        - To calculate the combined uncertainty of the combined dose map based on the
+        dose rate dictionary and dwell times.
+        We require strict name matching between the dwell names and the name of dose rate files
         ### Inputs:
         - self := the BrachyPlan object
         ### Outputs:
         - Void := will update the BrachyPlan.combined_dose.uncertainty attribute
         """
-        assert self.uncertainty_tensor is not None, "uncertainty tensor is not loaded"
-        assert self.dwell_times is not None, "dwell times are not extracted"
         assert self.combined_dose is not None, "combined dose is not calculated yet"
+        if not any(self.dose_rate_dict):
+            raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
 
-        normalized_times = self.dwell_times / np.sum(self.dwell_times)
-
-        uncertainty = np.zeros_like(self.combined_dose.get_dose_array())
-        for i in range(self.num_dwells):
-            uncertainty += (self.uncertainty_tensor[i] * normalized_times[i]) ** 2
-        uncertainty = np.sqrt(uncertainty)
-        self.combined_dose.set_uncertainty_array(uncertainty)
+        treatment_time = self.catheter_table.treatment_time
+        for catheter in self.catheter_table:
+            for dwell in catheter.dwells:
+                self.combined_dose.uncertainty_image.imageArray += (self.dose_rate_dict.get(
+                    f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                    ).uncertainty_image.imageArray * (dwell.time/treatment_time)**2)
+        self.combined_dose.uncertainty_image.imageArray = np.sqrt(
+            self.combined_dose.uncertainty_image.imageArray)
 
     def get_dvh_metrics(
         self,
         combined_dose: BrachyDose=None,
         prescription_dose: float = None,
-        return_percentage: bool = False,
+        return_percentage: bool = True,
         ):
         r"""
         ### Purpose:
@@ -1047,211 +1131,169 @@ class BrachyPlan:
 
     def export_brachy_plan(
         self,
-        dir_export: str | Path,
-        content_to_export: Dict[str, bool | str] = None,
-        export_format: str = "RapidBrachy"
-    ):
+        content_to_export: ExportConfig_BrachyPlan | dict,
+        ):
         r"""
         ### Purpose:
-        - To export the treatment plan file into a given export_format.
-        The export_format can be either "RapidBrachy" or "WebApp".
+        - To export the brachytherapy treatment plan and its components to files based on the
+        provided export configuration. Supports exporting dose, catheter tables, plan files,
+        simulation macros, egsphant files, applicator geometries, and structure sets.
+
         ### Inputs:
-        - export_format := the export_format of the exported plan. options are:
+        - content_to_export := ExportConfig_BrachyPlan object or dictionary containing export
+        configuration. If a dictionary is provided, it will be converted to an ExportConfig_BrachyPlan object.
+        
+        The configuration object/dictionary should contain:
+            - dir_export (Path): Directory where exported files will be written.
+            - export_config_dose (ExportConfig_Dose|None): Dose export configuration.
+            - export_config_cathetertable (ExportConfig_CatheterTable|None): Catheter table export configuration.
+            - export_config_planfile (ExportConfig_PlanFile|None): Plan file export configuration.
+            - export_config_macfile (ExportConfig_MacFile|None): Macro file export configuration.
+            - export_config_egsphant (ExportConfig_Egsphant|None): Egsphant file export configuration.
+            - applicator_geometry (bool): Whether to export applicator geometry.
+            - structure_set (bool): Whether to export structure set.
 
-            - "RapidBrachy":
-                - "run_#.3ddose" or "run_#.minidos" or "run_#.nrrd",
-                - "catheter_table.json"
-                - "dwell_#.plan",
-                - "run_#.mac",
-                - "ct.egsphant",
-                - "ApplicatorMaterials"
-                - "applicator_geometry.json",
-                - "structure_set.json"
-
-            - "WebApp": Not implemented yet
-                - "run_#.nrrd",
-                - "dwell_#.json",
-                - "run_#.json",
-
-        - dir_export := the directory to which the plan will be exported.
-        - content_to_export := a dictionary with which the user specifies what parts
-        of the plan to export. The keys are plan components, and the values are binary
-        (True or False) except for "dose type", which can be either ".3ddose", ".minidos",
-        or ".nrrd". The keys are:
-
-            - "dose":bool,
-            - "dose_type":str := "nrrd", "minidos" or "3ddose",
-            - "uncertainty", "dose rate maps",
-            - "catheter_table", "plan", "mac", "egsphant",
-            - "ApplicatorMaterials", applicator_geometry", "structure_set",
         ### Outputs:
-            - Void := will export the available parts of a plan into the specified export_format.
+        - None := Exported files are written to the directory specified in content_to_export.dir_export.
+        The function conditionally exports the following file types based on configuration:
+            - Dose files (combined dose and optionally dose rate maps)
+            - Catheter table (.json or .mrk.json)
+            - Plan files (.plan files for each dwell position)
+            - Macro files (.mac simulation files)
+            - Egsphant phantom file (ct.egsphant)
+            - Applicator geometry files (applicator_geometry.json and .mac files)
+            - Structure set file (structure_set.json)
+
+        ### Dependencies:
+        - ExportConfig_BrachyPlan
+        - export_dose()
+        - export_catheter_table()
+        - export_plan_files()
+        - export_mac_files()
+        - _export_egsphant()
+        - _export_applicator_geometry()
+        - _export_structure_set()
         """
-        dir_export = Path(dir_export)
+        if isinstance(content_to_export, dict):
+            content_to_export = ExportConfig_BrachyPlan(**content_to_export)
+        dir_export = content_to_export.dir_export
         dir_export.mkdir(parents=True, exist_ok=True)
-        if export_format == "WebApp":
 
-            raise NotImplementedError("export to WebApp is not implemented yet")
+        if content_to_export.export_config_dose:
+            self.export_dose(content_to_export.export_config_dose)
 
-        elif export_format == "RapidBrachy":
+        if content_to_export.export_config_cathetertable:
+            self.export_catheter_table(
+                export_config_cathetertable=content_to_export.export_config_cathetertable,
+                catheter_table=self.catheter_table,
+            )
 
-            if content_to_export.get("dose", False):
-                self._export_dose(
-                    dir_export=str(dir_export),
-                    with_uncertainty=content_to_export.get("uncertainty", False),
-                    dose_type=content_to_export.get("dose_type", ".seq.nrrd"),
-                    dose_rate_maps=content_to_export.get("dose_rate_maps", False),
+        if content_to_export.export_config_planfile:
+            self.export_plan_files(
+                export_config_planfile=content_to_export.export_config_planfile,
+                catheter_table=self.catheter_table,
                 )
-                print("Dose exported successfully")
-            if content_to_export.get("catheter_table", False):
-                # assumes file name is "catheter_table.json"
-                self._export_catheter_table(str(dir_export))
-                print("Catheter Table exported successfully")
 
-            if content_to_export.get("plan", False):
-                # assumes file name is "dwell_#.plan"
-                self._export_plan_file(
-                    dir_export=str(dir_export),
-                    combined_only=content_to_export.get("combined_only", True)
-                    )
-                print(".plan files were exported successfully")
-
-            if content_to_export.get("mac", False):
-                # assumes file name is "run_#.mac"
-                self._export_dwell_mac_file(
-                    dir_export=str(dir_export),
-                    combined_only=content_to_export.get("combined_only", True)
-                    )
-                print(".mac files were exported successfully")
-
-            if content_to_export.get("egsphant", False):
-                # assumes file name is "ct.egsphant"
-                self._export_egsphant(
-                    dir_export=str(dir_export),
-                    material_dict=content_to_export.get("materials_table", None),
-                    assign_material_from_ct=content_to_export.get("assign_material_from_ct", True),
-                    crop_by_contour=content_to_export.get("crop_by_contour", None),
-                    strict_name_match=content_to_export.get("strict_name_match", True),
-                    phantom_filename=content_to_export.get("phantom_filename", "ct.egsphant"),
-                    resampled_spacing=content_to_export.get("resampled_spacing", None),
-                    resampled_origin=content_to_export.get("resampled_origin", None),
-                    background_material=content_to_export.get("background_material", "Air"),
+        if content_to_export.export_config_macfile:
+            self.export_mac_files(
+                export_config_macfile=content_to_export.export_config_macfile,
+                catheter_table=self.catheter_table
                 )
-                print("Egsphant file was exported successfully")
 
-            if content_to_export.get("applicator_geometry", False):
-                # assumes file name is "applicator_geometry.json"
-                self._export_applicator_geometry(str(dir_export), export_format)
-                print("applicator geometry file was exported successfully")
+        if content_to_export.export_config_egsphant:
+            self._export_egsphant(
+                export_config_egsphant=content_to_export.export_config_egsphant
+            )
 
-            if content_to_export.get("structure_set", False):
-                # assumes file name is "structure_set.json"
-                self._export_structure_set(
-                    str(dir_export), content_to_export.get("materials_table", None)
-                )
-                print("structure set file was exported successfully")
+        if content_to_export.applicator_geometry:
+            self._export_applicator_geometry(str(content_to_export.dir_export))
 
-        else:
-            raise ValueError("export_format should be either 'RapidBrachy' or 'WebApp'")
+        if content_to_export.structure_set:
+            self._export_structure_set(
+                str(dir_export), content_to_export.get("materials_table", None)
+            )
 
-    def _export_dose(
+    def export_catheter_table(
         self,
-        dir_export: str,
-        with_uncertainty=False,
-        dose_type=".minidos",
-        dose_rate_maps=False,
+        export_config_cathetertable: ExportConfig_CatheterTable,
+        catheter_table: CatheterTable,
+        ):
+        r"""
+        ### Purpose:
+        - to export the catheter table to a given directory in mrk.json or .json format.
+        ### Inputs:
+        - export_config_cathetertable: The catheter table export configuration. Look at ExportConfig_CatheterTable for more info
+        - catheter_table: The catheter table to export.
+        ### Outputs:
+        - None := will export the catheter table into the specified export directory.
+        """
+        if export_config_cathetertable.file_extension == "mrk.json":
+            catheter_table.write_to_slicer_markup(
+                pth_mrk_json=export_config_cathetertable.pth_catheter_table,
+                remove_text=export_config_cathetertable.remove_text,
+                one_markup_per_catheter=export_config_cathetertable.one_markup_per_catheter,
+            )
+        elif export_config_cathetertable.file_extension == ".json":
+            catheter_table.write_json(
+                export_config_cathetertable.dir_export
+            )
+
+    def export_dose(
+        self,
+        export_config_dose: ExportConfig_Dose
     ):
         r"""
         ### Purpose:
-        - to export combined dose map with or without uncertainty in the provided export directory.
+        - to export combined dose map and if needed the dose rate maps to a given directory.
         exporting dose rate maps is optional.
         ### Inputs:
-        - dir_export := the directory to which the dose map will be exported.
-        - uncertainty := if True, the uncertainty map will be exported as well.
-        - dose_type := the type of dose map to be exported. options are ".3ddose", ".minidos", or ".nrrd".
-        - dose_rate_maps := if True, the dose rate maps will be exported as well.
+        - export_config_dose: The dose export configuration. Look at ExportConfig_Dose for more info 
         ### Outputs:
-        - Void := will export the dose map into the specified export directory.
+        - None := will export the dose map into the specified export directory.
         ### Dependencies:
-        - _export_single_dose_rate()
+        - _write_single_dose_rate()
         - multiprocessing
         """
         assert self.combined_dose is not None, "combined dose is not calculated yet"
-        # if uncertainty:
+        dir_export = Path(export_config_dose.dir_export)
+        # write combined dose
         self.combined_dose.write_brachydose_to_file(
-            Path(dir_export) / f"combined{dose_type}"
+            export_config_dose.pth_combined
         )
 
-        if dose_rate_maps:
-            if cpu_count() < 4:
-                for i in self.dwell_numbers:
-                    _export_single_dose_rate(
-                        self.dose_rate_tensor[i - 1],
-                        i,
-                        self.combined_dose,
-                        dir_export,
-                        dose_type,
-                        self.uncertainty_tensor[i - 1],
-                    )
+        if export_config_dose.write_dose_rate_maps:
+            if export_config_dose.multi_processing:
+                with ThreadPoolExecutor(max_workers=16) as executor:
+                    futures = {
+                        executor.submit(_write_single_dose_rate, self.dose_rate_dict.get(dose_rate_name), dir_export, export_config_dose.file_extension):
+                            dose_rate_name for dose_rate_name in self.dose_rate_dict
+                        }
+                    for action in tqdm(as_completed(futures), desc="Writing dose rate maps"):
+                        try:
+                            action.result()
+                        except:
+                            failed_path = futures[action]
+                            raise ValueError(f"Failed writing {failed_path}")
             else:
-                # prepare inputs to the parallel processing
-                if with_uncertainty and self.uncertainty_tensor is not None:
-                    print("Exporting dose rate maps with uncertainty")
-                    giant_export_list = [
-                        (dose_grid, dwell_number, uncertainty)
-                        for dose_grid, dwell_number, uncertainty in zip(
-                            self.dose_rate_tensor,
-                            self.dwell_numbers,
-                            self.uncertainty_tensor,
-                        )
-                    ]
-                else:
-                    print("Exporting dose rate maps without uncertainty")
-                    giant_export_list = [
-                        (dose_grid, dwell_number)
-                        for dose_grid, dwell_number in zip(
-                            self.dose_rate_tensor, self.dwell_numbers
-                        )
-                    ]
-                with Pool(cpu_count() - 2) as mp_pool:
-                    mp_pool.starmap(
-                        partial(
-                            _export_single_dose_rate,
-                            doseObj_template=self.combined_dose,
-                            dir_export=dir_export,
-                            dose_type=dose_type,
-                        ),
-                        giant_export_list,
-                    )
+                for dose_rate in tqdm(self.dose_rate_dict, desc="Writing dose rate maps"):
+                    _write_single_dose_rate(
+                        dose_rate=self.dose_rate_dict.get(dose_rate),
+                        dir_export=dir_export,
+                        dose_extension=export_config_dose.file_extension)
+        print(f"Dose exported to {dir_export}")
 
-    def _export_catheter_table(self, dir_export: str):
-        r"""
-        ### Purpose:
-        - to export catheter table of the plan into a file called catheter_table.json
-        inside dir_export.
-        ### Inputs:
-        - dir_export := path to the directory where the export happens
-        ### Outputs:
-        - void := self.catheter_table is written to catheter_table.json
-        ### Dependencies:
-        - json
-        """
-        file_path = dir_export + "/catheter_table.json"
-        with open(file_path, "w") as file:
-            json.dump(self.catheter_table.to_dict(), file, indent=4)
-
-    def _export_plan_file(
+    def export_plan_files(
         self,
-        dir_export: str,
-        combined_only:bool=True):
+        export_config_planfile:ExportConfig_PlanFile,
+        catheter_table:CatheterTable,
+        ):
         r"""
         ### Purpose:
         - To export dwell positions and their normalized times into ".plan" text files in the
         format required by RapidBrachy.
         ### Inputs:
-        - dir_export := path to the directory where the export happens
-        - combined_only := if True, only the combined.plan file will be exported. if False,
-        the individual dwell position files will also be exported.
+        - export_config_planfile:= The export configuration for the plan files. see ExportConfig_PlanFile
+        - catheter_table:= The catheter table with the dwells.
         ### Outputs:
         - void := Two types of .plan files are written, one named combined.plan and the other
         named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and
@@ -1267,71 +1309,75 @@ class BrachyPlan:
         ### Dependencies:
             - None
         """
-        total_dwell_time = np.sum(self.dwell_times)
+        # total_dwell_time = np.sum(self.dwell_times)
+        total_dwell_time = catheter_table.treatment_time
+        num_dwells = catheter_table.num_dwell_positions
         combined_plan = "Treatment Plan\n"
-        combined_plan += f"{self.num_dwells} Control Points\n"
+        combined_plan += f"{num_dwells} Control Points\n"
 
-        for dwell_i in range(self.num_dwells):
-            dwell_coordinates_str = np.array(
-                list(self.dwell_coordinates[dwell_i]["position"])
-                + list(self.dwell_coordinates[dwell_i]["rotation"])
-                + [self.dwell_coordinates[dwell_i]["angle"]]
-                + list(self.applicator_rotation_axis)
-                + list(self.applicator_rotation_origin),
-                dtype=np.float32,
-            )
-            dwell_coordinates_str = (
-                ",".join(
-                    [
-                        str(int(coord)) if coord == int(coord) else format(coord, ".6f")
-                        for coord in dwell_coordinates_str
-                    ]
+        for cat in catheter_table:
+            for dwell in cat.dwells:
+                dwell_coordinates_str = np.array(
+                    list(dwell.position)
+                    + list(dwell.rotation)
+                    + [dwell.angle]
+                    + list(self.applicator_rotation_axis)
+                    + list(self.applicator_rotation_origin),
+                    dtype=np.float32,
                 )
-                + "\n"
-            )
+                dwell_coordinates_str = (
+                    ",".join(
+                        [
+                            str(int(coord)) if coord == int(coord) else format(coord, ".6f")
+                            for coord in dwell_coordinates_str
+                        ]
+                    )
+                    + "\n"
+                )
 
-            catheter_idx = self.dwell_coordinates[dwell_i]["catheter_index"]
-            dwell_idx = self.dwell_coordinates[dwell_i]["dwell_index"]
-            combined_plan += "Control Point\n"
-            combined_plan += f"weight = {self.dwell_times[dwell_i]/total_dwell_time}\n"
-            combined_plan += f"1 Dwell Position - Catheter {catheter_idx + 1}\n"
-            combined_plan += dwell_coordinates_str
+                catheter_idx = cat.index
+                dwell_idx = dwell.index
+                combined_plan += "Control Point\n"
+                combined_plan += f"weight = {dwell.time/total_dwell_time}\n"
+                combined_plan += f"1 Dwell Position - Catheter {catheter_idx + 1}\n"
+                combined_plan += dwell_coordinates_str
 
-            run_i_plan = "Treatment Plan\n"
-            run_i_plan += "1 Control Points\n"
-            run_i_plan += "Control Point\nweight = 1.0\n"
-            run_i_plan += "1 Dwell Position\n"
-            run_i_plan += dwell_coordinates_str
-            # Not dealing with shield angle for now but the new convention for filename is
-            # xxx_catheter#_dwell#_shieldangle.plan
-            shield_angle = 0
-            if not combined_only:
-                with open(dir_export + f"/dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan", "w") as file:
-                    file.write(run_i_plan)
+                run_i_plan = "Treatment Plan\n"
+                run_i_plan += "1 Control Points\n"
+                run_i_plan += "Control Point\nweight = 1.0\n"
+                run_i_plan += "1 Dwell Position\n"
+                run_i_plan += dwell_coordinates_str
+                # Not dealing with shield angle for now but the new convention for filename is
+                # xxx_catheter#_dwell#_shieldangle.plan
+                shield_angle = 0
+                if not export_config_planfile.combined_only:
+                    order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
+                    with open(export_config_planfile.dir_export / f"dwell_{order}.plan", "w") as file:
+                        file.write(run_i_plan)
 
-        with open(dir_export + "/combined.plan", "w") as file:
+        with open(export_config_planfile.pth_combined, "w") as file:
             file.write(combined_plan)
+        print(".plan files were exported successfully")
 
-    def _export_dwell_mac_file(
+    def export_mac_files(
         self,
-        dir_export: str,
-        combined_only: bool = True
-    ):
+        export_config_macfile: ExportConfig_MacFile,
+        catheter_table:CatheterTable,
+        ):
         r"""
         ### Purpose:
         - To export the simulation parameters of the plan into a macro files
-        called combine.mac and run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac
+        and run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac
         ### Inputs:
-        - dir_export := path to the directory where the export happens
-        - combined_only: bool:= if True, only the combined.mac file will be exported. if False,
-        the individual dwell position files will also be exported.
+        - export_config_macfile:= The export configuration for macro files.
+        - catheter_table:= The catheter table with the dwells.
         ### Outputs:
-        - void := Two types of .mac files are written, one named combined.mac and the other
+        - None := Two types of .mac files are written, one named combined.mac and the other
         named run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac. combined.plan contains
 
         plan contains info of a single dwell position.
 
-        The format of each .plan file is given in this example:
+        The format of each .mac file is given in this example:
             /source_world/treatmentType HDR
             /source_world/switch MicroSelectronV2
             /source_world/coreMaterial G4_Ir
@@ -1354,74 +1400,66 @@ class BrachyPlan:
         ### Dependencies:
         - simulation_utils
         """
-        for dwell_i in range(self.num_dwells):
+        sim_obj = deepcopy(self.simulation_setup)
+        sim_obj.total_time = catheter_table.treatment_time
 
-            catheter_idx = self.dwell_coordinates[dwell_i]["catheter_index"]
-            dwell_idx = self.dwell_coordinates[dwell_i]["dwell_index"]
-            # Not dealing with shield angle for now but the new convention for filename is
-            # xxx_catheter#_dwell#_shieldangle.plan
-            shield_angle = 0
-            sim_obj = deepcopy(self.simulation_setup)
-            sim_obj.pth_plan = f"dwell_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.plan"
-            sim_obj.total_time = 1
-            if not combined_only:
-                with open(dir_export + f"/run_{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}.mac", "w") as file:
-                    file.write(sim_obj.to_string())
+        with open(export_config_macfile.pth_combined, "w") as file:
+            file.write(sim_obj.to_string())
 
-        self.simulation_setup.total_time = np.sum(self.dwell_times)
-        with open(dir_export + "/combined.mac", "w") as file:
-            file.write(self.simulation_setup.to_string())
+        if not export_config_macfile.combined_only:
+            for cat in catheter_table:
+                for dwell in cat.dwells:
+                    catheter_idx = cat.index
+                    dwell_idx = dwell.index
+                    # Not dealing with shield angle for now but the new convention for filename is
+                    # xxx_catheter#_dwell#_shieldangle.plan
+                    shield_angle = 0
+                    sim_obj = deepcopy(self.simulation_setup)
+                    order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
+                    sim_obj.pth_plan = f"dwell_{order}.plan"
+                    sim_obj.total_time = 1
+
+                    with open(export_config_macfile.dir_export / f"run_{order}.mac", "w") as file:
+                        file.write(sim_obj.to_string())
+        print(".mac files were exported successfully")
 
     def _export_egsphant(
         self,
-        dir_export: Union[str, Path],
-        material_dict: Union[dict, Path],
-        assign_material_from_ct: bool,
-        crop_by_contour: str = None,
-        resampled_spacing: List[float] = None,
-        resampled_origin: List[float] = None,
-        background_material: str = None,
-        strict_name_match: bool = True,
-        phantom_filename: str = "ct.egsphant",
-
-    ):
+        export_config_egsphant: ExportConfig_Egsphant,
+        ):
         r"""
         ### Purpose:
         - to export the egsphant file of the plan into dir_export
         ### Inputs:
-        - dir_export := path to the directory where the export happens
-        - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
-        The dictionary contains the name of the elements for each voxel,
-        and the following keys: [
-            "density" := the density of the material in g/cm^3,
-            "HU_limit" := the lower HU limit threshold of the material,
-            "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
-        ]
-        - assign_material_from_ct := if True, the material names will be assigned from the ct.egsphant file.
-        - output_filename: str := the name of the output egsphant file
-
+        - export_config_egsphant:= The export configuration for egsphant file. see ExportConfig_Egsphant
         ### Outputs:
-        - void := egsphant file is generated from phantom and is written to ct.egsphant
+        - None := egsphant file is generated from phantom and is written to ct.egsphant
         ### Dependencies:
         - BrachyEgsphant
         """
-        if isinstance(dir_export, str):
-            dir_export = Path(dir_export)
-        file_path = dir_export / phantom_filename
-        # if isinstance(material_dict, Path):
-        #     with open(material_dict, "r") as json_file:
-        #         material_dict = json.load(json_file)
-
         self.phantom.write_to_egsphant(
-            pth_output=file_path,
-            material_dict=material_dict,
-            assign_material_from_ct=assign_material_from_ct,
-            crop_by_contour=crop_by_contour,
-            resampled_spacing=resampled_spacing,
-            resampled_origin=resampled_origin,
-            background_material=background_material,
-            strict_name_match=strict_name_match
+            pth_output=export_config_egsphant.pth_egsphant,
+            material_dict=export_config_egsphant.material_dict,
+            assign_material_from_ct=export_config_egsphant.assign_material_from_ct,
+            crop_by_contour=export_config_egsphant.crop_by_contour,
+            resampled_spacing=export_config_egsphant.resampled_spacing,
+            resampled_origin=export_config_egsphant.resampled_origin,
+            background_material=export_config_egsphant.background_material,
+            strict_name_match=export_config_egsphant.strict_name_match
         )
+        if export_config_egsphant.body_name_stl is not None:
+            body_mask = self.body_contour.getBinaryMask(
+                origin=self.phantom.origin,
+                spacing=self.phantom.spacing,
+                gridSize=self.phantom.gridSize
+            )
+            self.phantom.mask_to_stl(
+                roi_mask=self.body_contour,
+                mask=body_mask,
+                pth_output=export_config_egsphant.pth_body_stl
+            )
+
+        print("Egsphant file was exported successfully")
 
     def _export_applicator_geometry(
         self, dir_export: str, export_format: str = "RapidBrachy"
@@ -1497,12 +1535,12 @@ class BrachyPlan:
         # export the mac files for each applicator
         for applicator in self.applicator_list:
             applicator.to_mac(os.path.join(dir_export, f"{applicator.name}.mac"))
+        print("applicator geometry file was exported successfully")
 
     def _export_structure_set(
         self,
         dir_export: str,
         materials_table: Union[dict, Path] = None,
-        export_format: str = "RapidBrachy",
     ):
         r"""
         ### Purpose:
@@ -1521,7 +1559,7 @@ class BrachyPlan:
         written to structure_set.json
         ### Dependencies:
         """
-
+        raise NotImplementedError("now that you are here, finish this function thank you!")
         structure_set = []
         for structure in self.structure_list:
             structure_set.append(structure.to_dict(export_format))
@@ -1542,6 +1580,7 @@ class BrachyPlan:
         file_path = os.path.join(dir_export, "structure_set.json")
         with open(file_path, "w") as file:
             json.dump(structure_set, file, indent=4)
+        print("structure set file was exported successfully")
 
     def info(self):
         r"""
@@ -1554,7 +1593,6 @@ class BrachyPlan:
         ### Dependencies:
         - None
         """
-
         print("****BrachyPlan Information****")
         for attr, value in self.__dict__.items():
             if isinstance(value, np.ndarray):
@@ -1563,7 +1601,7 @@ class BrachyPlan:
                 print(f"{attr} := {len(value)}")
             else:
                 print(f"{attr} := {value}")
-    
+
     def setup_optimization(
         self, 
         optimization_config_list:List[Optimization_Config] | Path | str,
@@ -1572,6 +1610,10 @@ class BrachyPlan:
         one_hotspot_structure:bool=True
         ):
         r"""
+        ### Purpose:
+        - Given the optimization config list either as a list or in a json file, put each
+        optimization config inside the BrachyStructures. Also, create the hotspot estimator
+        structure if needed.
         """
         self._reset_optimization()
         if isinstance(optimization_config_list, (Path, str)):
@@ -1583,7 +1625,7 @@ class BrachyPlan:
                 raise ValueError("optimization_config_list can be a json file or a list of Optimization_Config objects")
         target_structure_names = [
             structure.name.lower() for structure in self.structure_list
-            if structure.target_volume
+            if structure.is_target
             ]
         for config in optimization_config_list:
             if config.penalty_weight_hotspot != 0:
@@ -1592,15 +1634,19 @@ class BrachyPlan:
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
                 self._create_hotspot_structures(
+                    target_optim_config=config,
                     add_hotspots_to_phantom=add_hotspots_to_phantom,
                     one_hotspot_structure=one_hotspot_structure)
             for struc in structure_list:
                 if config.structure_name.lower() == struc.name.lower():
+                    assert config.is_target == struc.is_target, f"The target structure in plan and optimization \
+config do not match for structure {struc.name}"
                     struc.set_optimization_config(config)
                     break
 
     def _create_hotspot_structures(
         self,
+        target_optim_config: Optimization_Config,
         add_hotspots_to_phantom:bool=False,
         one_hotspot_structure:bool=True
         ):
@@ -1655,35 +1701,53 @@ class BrachyPlan:
                         }
                     )
         # create hotspot structures masks for each dwell pair
-        with Pool(processes=8) as pool:
-            partial_func = partial(
-                _gen_hotspot_mask,
-                gridSize=self.phantom.image_obj.gridSize,
-                origin=self.phantom.image_obj.origin,
-                spacing=self.phantom.image_obj.spacing,
-            )
-            hotspot_mask_list = list(
-                tqdm(pool.imap(partial_func,dwell_pairs),
-                total=len(dwell_pairs),
-                desc="Generating hotspot structures")
-            )
+        hotspot_mask_list = []
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(
+                    _gen_hotspot_mask,
+                    dwell_pair,
+                    self.phantom.image_obj.gridSize,
+                    self.phantom.image_obj.origin,
+                    self.phantom.image_obj.spacing,
+                ): dwell_pair for dwell_pair in dwell_pairs
+            }
+            for action in tqdm(
+                as_completed(futures),
+                desc="Generating hotspot estimator volumes",
+                total=len(dwell_pairs)
+            ):
+                try:
+                    hotspot_mask_list.append(action.result())
+                except:
+                    raise ValueError("failed building hotspot volumes")
+                    
         if one_hotspot_structure:
             mask_union = np.zeros_like(
                 hotspot_mask_list[0].mask.imageArray, dtype=bool
             )
             for mask in hotspot_mask_list:
                 mask_union = np.logical_or(mask_union, mask.mask.imageArray)
+
+            hotspot_config = Optimization_Config(
+                structure_name="hotspot_estimator_combined",
+                is_target=False,
+                spacing_mm=target_optim_config.spacing_mm,
+                dose_voxel_goal=target_optim_config.dose_voxel_goal*target_optim_config.hotspot_threshold,
+                penalty_weight_linear=target_optim_config.penalty_weight_hotspot
+            )
             hotspot_mask_list = [
                 BrachyStructure(
-                    name="hotspot_estimator:combined",
+                    name="hotspot_estimator_combined",
                     mask=ROIMask(
-                        name="hotspot_estimator:combined",
+                        name="hotspot_estimator_combined",
                         imageArray=mask_union,
                         origin=self.phantom.image_obj.origin,
                         spacing=self.phantom.image_obj.spacing,
                     ),
-                    target_volume=False,
+                    is_target=False,
                     in_dvh=False,
+                    optimization_config=hotspot_config
                 )
             ]
 
@@ -1705,11 +1769,36 @@ class BrachyPlan:
         - None := optimization_config attribute of all structures in the plan is set to None
         """
         for structure in self.structure_list:
-            if structure.name.startswith("hotspot_estimator:"):
+            if structure.name.startswith("hotspot_estimator_"):
                 self.structure_list.remove(structure)
                 self.phantom.remove_structure(structure.name)
                 continue
             structure.optimization_config = None
+
+    def get_dose_rate_matrices_for_catheter(
+        self,
+        catheter_index: int
+    ) -> Dict[str, BrachyDose]:
+        r"""
+        ### Purpose:
+        - to get the dose rate matrices for all dwell positions in a given catheter.
+        this function assumes that dose rate dictionary matches the index+1 convension.
+        ### Inputs:
+        - catheter_index := the index of the catheter in the catheter table
+        ### Outputs:
+        - Dict[BrachyDose]: A dictionary containing the dose rates for the speicific catheter.
+        the keys are in the format catheter_{index+1}_dwell_{index+1}
+        TODO: get rid of +1 when moving towards catheter generation from digi points
+        TODO: Consider adding angle to the name later when IMBT is involved.
+        """
+        dose_rates_catheter = defaultdict(BrachyDose)
+        
+        for name, dose_rate in self.dose_rate_dict.items():
+            cath_num = name.split("_")[1]
+            if catheter_index+1 == int(cath_num):
+                dwell_num = name.split("_")[2]
+                dose_rates_catheter[f"catheter_{cath_num}_dwell_{dwell_num}"] = dose_rate
+        return dose_rates_catheter
 
 def _gen_hotspot_mask(
     dwellpair: dict,
@@ -1738,96 +1827,48 @@ def _gen_hotspot_mask(
         origin=origin,
         spacing=spacing,
         name=(
-            f"hotspot_estimator:catheter_{(dwellpair['dwell_pair'])[0]['catheter']}_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
+            f"hotspot_estimator_catheter_{(dwellpair['dwell_pair'])[0]['catheter']}_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
             + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
             ),
     )
     return BrachyStructure(
         name=dwell_mask.name,
         mask=dwell_mask,
-        target_volume=False,
+        is_target=False,
         in_dvh=False,
     )
 
-def _export_single_dose_rate(
-    dose_grid: np.array,
-    dwell_number: int,
-    uncertainty: np.array = None,
-    doseObj_template: BrachyDose = None,
-    dir_export: str = None,
-    dose_type: str = None,
-):
+def _write_single_dose_rate(
+    dose_rate:BrachyDose,
+    dir_export: str | Path = None,
+    dose_extension: str = None,
+    file_name: str = None,
+    ):
     r"""
     ### Purpose:
-    to write out a single dose rate map given the numpy grid for dose and uncertainty and
-    a template dose object that has the same origin, voxel spacing and axis.
+    to write out a single dose rate map and uncertainty to a directory.
     ### Inputs:
-    - dose_grid := the numpy array holding the dose rate maps
-    - dwell_number:= the dwell number of the dose rate map
-    - doseObj_template := a BrachyDose object that has the same origin, voxel spacing and axis
+    - dose_rate:= The BrachyDose object for the dose rate data.
     - dir_export:= the directory to which the dose rate maps will be exported
-    - dose_type := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
-    - uncertainty := the numpy array holding the uncertainty maps
+    - file_name:= The name of the file inside dir_export. Following the RapidBrachy standard, it should be
+    "run_{catheter.index+1}_{dwell.index+1}_{angle}.seq.nrrd". if none, dose_rate.path.name is used.
+    - dose_extension := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
     ### Output:
-    - Void := dose file is written to dir_export+f"/run_{dwell_number}"+dose_type
+    - Void := dose file is written to dir_export+f"/{file_name}.{dose_type}
     """
-    raise Exception("Bug found here. file name should match the new standard")
-    doseObj = BrachyDose.dose_with_empty_grid_like(doseObj_template)
-    doseObj.set_dose_array(dose_grid)
-    if uncertainty is not None:
-        doseObj.set_uncertainty_array(uncertainty)
+    if file_name is None:
+        file_name = dose_rate.path.name.split(".")[0]
+    if dose_extension is None:
+        dose_extension = ".seq.nrrd"
+    dir_export = Path(dir_export)
+    pth_out = dir_export/(file_name+dose_extension)
+    dose_rate.write_brachydose_to_file(pth_dose_file=pth_out)
 
-    doseObj.write_brachydose_to_file(dir_export + f"/run_{dwell_number}" + dose_type)
-
-def _load_single_dose_or_uncertainty_to_dict(
-    pth_dose_rate: str, load_dose_or_uncertainty: str = "both"
-):
-    r""" "
-    ### Purpose:
-    - To load a single dose rate file into the BrachyPlan object.
-    this is to be used in the case of multiprocessing.
-    ### Inputs:
-    - pth_dose_rate := path to the dose rate file
-    - load_dose_or_uncertainty := either "dose", "uncertainty", or "both"
-    ### Outputs:
-    - dose_or_uncert_map := the dose rate or uncertainty map of the dwell position
-    specified by the index.
-        If load_dose_or_uncertainty == "both", then dose_or_uncert_map[0] is dose and
-        dose_or_uncert_map[1] is uncertainty.
-    ### Dependencies:
-    - BrachyDose()
-    """
-    # print("loading dose or uncertainty from:", pth_dose_rate)
-    dose_obj = BrachyDose(pth_dose_rate)
-    if load_dose_or_uncertainty == "both":
-        dose_or_uncert_map = np.zeros(
-            (2, *dose_obj.get_dose_array().shape), dtype=np.float32
-        )
-        dose_or_uncert_map[0] = dose_obj.get_dose_array()
-        dose_or_uncert_map[1] = dose_obj.get_uncertainty_array()
-
-    elif load_dose_or_uncertainty == "uncertainty":
-        try:
-            dose_or_uncert_map = np.zeros_like(
-                dose_obj.get_dose_array(), dtype=np.float32
-            )
-            dose_or_uncert_map = dose_obj.get_uncertainty_array()
-        except AttributeError:
-            warnings.warn(
-                f"uncertainty map is not loaded from {pth_dose_rate}. Moving on...",
-                stacklevel=2,
-            )
-
-    elif load_dose_or_uncertainty == "dose":
-        dose_or_uncert_map = np.zeros_like(dose_obj.get_dose_array(), dtype=np.float32)
-        dose_or_uncert_map = dose_obj.get_dose_array()
-    else:
-        raise ValueError(
-            "load_dose_or_uncertainty should be either 'dose', 'uncertainty', or 'both'"
-        )
-
-    return dose_or_uncert_map
-
+def _load_single_dose_rate(
+    pth_dose_rate:Path,
+    load_uncertainty=False
+    )->BrachyDose:
+        return BrachyDose(pth_dose_file=pth_dose_rate, load_uncertainty=load_uncertainty)
 
 def _type_nested_dict_list(data):
 

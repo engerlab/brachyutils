@@ -17,7 +17,7 @@ from scipy.sparse import csr_matrix
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
-    BrachyDwellTimeOptim, BrachyDwellTime, resample_crop_the_mask_or_contour_to_optimGrid,
+    BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices, Optimization_Config
 )
 import multiprocessing as mp
@@ -170,7 +170,8 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         - A function to initialize the optimizer.
         ### Parameters:
         - plan: The brachytherapy plan to be optimized. Note that the plan will be modified in place.
-        - roi_margin_mm: The distance from the furthest dwell position along each axis:
+        - roi_margin_mm: The distance from the furthest dwell position along each axis when defining
+        the region of interest for optimization:
             - [x_margin_mm, y_margin_mm, z_margin_mm] or a single float value for all axes.
         """
         super().__init__()
@@ -185,7 +186,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         # self._cached_A_matrix = np.ndarray([], dtype=object)
         self.model = self.initialize_model(self.solver)
         self.dwellTimeVariables = self.set_dwellTimeVariables(plan=self.plan)
-        self.roi_bounds: List[List[float]] = self.get_optimization_roi_bounds(
+        self.roi_bounds: List[List[float]] = get_optimization_roi_bounds(
             plan=self.plan,
             dwellTimeVariables=self.dwellTimeVariables,
             roi_margin_mm=self.roi_margin_mm,
@@ -234,7 +235,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         dwell_counter = 0
         for catheter in plan.catheter_table:
             for dwell_position in catheter.dwells:
-                ag = np.where(plan.dose_rate_tensor[dwell_counter] == plan.dose_rate_tensor[dwell_counter].max())
+                ag = np.where(plan.dose_rate_dict[dwell_counter] == plan.dose_rate_dict[dwell_counter].max())
                 i = image3DToSITK(plan.combined_dose.dose_image)
                 rev_argmax = list(int(u[0]) for u in ag)[::-1]
                 tmp_pos = i.TransformIndexToPhysicalPoint(rev_argmax)
@@ -256,27 +257,12 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
                         coordinates=dwell_position.position,
-                        dose_rate_map=plan.dose_rate_tensor[dwell_counter]
+                        dose_rate_map=plan.dose_rate_dict[dwell_counter]
                     )
                 )
                 dwell_counter += 1
         self.model.update()
         return dwellTimeVariable_list
-
-    def get_optimization_roi_bounds(
-        self,
-        plan: BrachyPlan,
-        dwellTimeVariables: List[DwellTime_Gurobi],
-        roi_margin_mm: List[float] = [5.0, 5.0, 5.0],
-    ) -> List[List[float]]:
-        r"""
-        See `BrachyDwellTime.get_optimization_roi_bounds` for details.
-        """
-        return super().get_optimization_roi_bounds(
-            plan=plan,
-            dwellTimeVariables=dwellTimeVariables,
-            roi_margin_mm=roi_margin_mm
-        )
 
     def set_penalty_function_and_constraints(
         self,
@@ -323,7 +309,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
         for structure in plan.structure_list:
             if structure.optimization_config is None:
                 continue
-            if "hotspot_estimator:" in structure.name.lower():
+            if "hotspot_estimator_" in structure.name.lower():
                 continue
 
             structure_mask = structure.mask
@@ -375,7 +361,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
             target_dose_vec = np.full(num_dose_points, target_dose)
 
             # Target volume constraints and penalties
-            if structure.target_volume:
+            if structure.is_target:
                 if linear_weight > 0 or quadratic_weight > 0:
                     x_slack = model.addMVar(
                         shape=num_dose_points,
@@ -1078,7 +1064,7 @@ def modify_model_objective_with_new_penalty_weights_and_td(
         "num_dose_points": 6710,
         "coeff": 0.014903129657228018
     },
-    "hotspot_estimator:catheter_0_dwell_2/catheter_0_dwell_3": {
+    "hotspot_estimator_catheter_0_dwell_2/catheter_0_dwell_3": {
         "hotspot_weight": 1.0,
         "num_dose_points": 12,
         "coeff": 0.08333333333333333

@@ -1,10 +1,12 @@
-from typing import List, Literal, Union, Dict
+from typing import Any, Dict
 from opentps.core.data.images import ROIMask
 from opentps.core.data import DVH, ROIContour
 import numpy as np
 import warnings
 from brachyutils.dose.dose_utils import BrachyDose
 from brachyutils.types import Optimization_Config
+from collections import defaultdict
+
 class BrachyStructure:
     r"""
     ### Purpose:
@@ -14,7 +16,7 @@ class BrachyStructure:
     #### Basic Attributes
     - name:str
     - mask: ROIMask
-    - target_volume: bool
+    - is_target: bool
     #### DVH Attributes:
     - in_dvh: bool
     - dvh_metric_goals: Dict[str, float]
@@ -37,7 +39,7 @@ class BrachyStructure:
         self,
         name: str = None,
         mask: ROIMask | ROIContour = None,
-        target_volume: bool = None,
+        is_target: bool = None,
         in_dvh: bool = None,
         dvh_metric_goals: Dict[str, float] = None,
         optimization_config: Optimization_Config = None,
@@ -48,7 +50,7 @@ class BrachyStructure:
         ### Inputs:
         - name:str := the name of the structure.
         - mask:ROIMask | ROIContour := the mask or contour of the structure.
-        - target_volume:bool := flag to indicate whether the structure is a target volume or not.
+        - is_target:bool := flag to indicate whether the structure is a target volume or not.
         - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
         - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
         V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or. For example D95%(organName).
@@ -61,13 +63,11 @@ class BrachyStructure:
         """
         self.name = name
         self.mask = mask
-        self.target_volume = target_volume
+        self.is_target = is_target
 
         # dose volume histogram
         self.in_dvh:bool = in_dvh
         self.dvh_metric_goals: Dict[str, float] = None
-        # self.dvh_metric_name: str = None
-        # self.dvh_metric_clinical_goal: float = None
         self.dvh_metrics_observed: Dict[str, float] = None
         self.dvh_obj: DVH = None
 
@@ -80,10 +80,9 @@ class BrachyStructure:
 
         # optimization attributes
         self.optimization_config: Optimization_Config = None
-        # # simulation attributes
-        # self.density: float = None  # 0
-        # self.density_mode: str = None  # ""
-        # self.material: str = None  # "CT Material"
+        # self.optimization_dwell_coef_dict:Dict[str, np.array] = None XXX delete
+        # self.optimization_mask: ROIMask = None
+
         self.in_dvh = in_dvh
         if self.in_dvh:
             if dvh_metric_goals is None:
@@ -231,7 +230,7 @@ class BrachyStructure:
                 "min_dose": self.min_dose,
                 "name": self.name,
                 "quadratic_weight": self.penalty_weight_quadratic,
-                "type": "Target volume" if self.target_volume else "Organ at risk",
+                "type": "Target volume" if self.is_target else "Organ at risk",
                 "uniformity_weight": self.penalty_weight_uniformity,
             }
 
@@ -258,3 +257,4 @@ class BrachyStructure:
             if kwargs is None:
                 raise ValueError("Please provide optimization config")
             self.optimization_config = Optimization_Config(kwargs)
+        self.optimization_config.dwell_coef_dict = defaultdict()

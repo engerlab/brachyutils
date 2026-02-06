@@ -180,7 +180,9 @@ class BrachySimulation(BaseModel):
     print_progress: int = 1e4
     pth_plan: str = "combined.plan"
     pth_phantom: str = "ct.egsphant"
-    
+    pth_body_stl: str = None
+    body_material: str = "Water"
+
     def __init__(self, pth_simulation_setup: str | Path = None, **data):
         r"""
         ### Purpose:
@@ -221,7 +223,7 @@ class BrachySimulation(BaseModel):
             - None
         """
         # self.validate()
-        return (
+        outstring = (
             f"/source/treatmentType {self.brachy_source.treatment_type}\n"
             + f"/source/switch {self.brachy_source.source_geometry}\n"
             + f"/source/core/material {self.brachy_source.core_material}\n"
@@ -242,6 +244,13 @@ class BrachySimulation(BaseModel):
             + f"/run/printProgress {int(self.print_progress)}\n"
             + f"/sim/beamOn {int(self.number_histories)}"
         )
+        if self.pth_body_stl is not None:
+            outstring = (
+                outstring
+                + f"/world/body_mask {self.pth_body_stl}\n"
+                + f"/world/body_material {self.body_material}\n"
+                )
+        return outstring
 
     def to_dict(self):
         r"""
@@ -254,18 +263,7 @@ class BrachySimulation(BaseModel):
         Dependencies:
             - None
         """
-        return {
-            "brachy_source": self.brachy_source.to_dict(),
-            "world_material": self.world_material,
-            "number_histories": self.number_histories,
-            "total_time": self.total_time,
-            "dose_format": self.dose_format,
-            "number_of_threads": self.number_of_threads,
-            "control_verbose": self.control_verbose,
-            "run_verbose": self.run_verbose,
-            "tracking_verbose": self.tracking_verbose,
-            "print_progress": self.print_progress,
-        }
+        return (self.model_dump())
 
     def to_json(self, output_path: Union[str, Path]):
         r"""
