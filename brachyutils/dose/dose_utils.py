@@ -1107,7 +1107,7 @@ class BrachyDose:
         if scale_uncert and self.uncertainty_image is not None:
             self.uncertainty_image.imageArray *= scale_factor
 
-    def get_dose_array(self) -> np.ndarray:
+    def get_dose_array(self, dtype=np.float32) -> np.ndarray:
         r"""
         Purpose:
             - To return the dose grid as a numpy array.
@@ -1116,7 +1116,7 @@ class BrachyDose:
         Outputs:
             - dose_array := a numpy array containing the dose grid. in zyx order.
         """
-        return np.swapaxes(self.dose_image.imageArray, 0, 2).astype(float)
+        return np.swapaxes(self.dose_image.imageArray, 0, 2).astype(dtype)
 
     def set_dose_array(self, dose_array: np.ndarray, dtype=np.float32) -> None:
         r"""
@@ -1130,7 +1130,7 @@ class BrachyDose:
         """
         self.dose_image.imageArray = np.swapaxes(dose_array, 0, 2).astype(dtype)
 
-    def get_uncertainty_array(self) -> np.ndarray:
+    def get_uncertainty_array(self, dtype=np.float32) -> np.ndarray:
         r"""
         Purpose:
             - To return the uncersitainty grid as a numpy array.
@@ -1139,7 +1139,7 @@ class BrachyDose:
         Outputs:
             - dose_array := a numpy array containing the uncertainty grid. in zyx order.
         """
-        return np.swapaxes(self.uncertainty_image.imageArray, 0, 2).astype(float)
+        return np.swapaxes(self.uncertainty_image.imageArray, 0, 2).astype(dtype)
 
     def set_uncertainty_array(self, uncertainty_array: np.ndarray, dtype=np.float32) -> None:
         r"""
