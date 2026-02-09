@@ -631,6 +631,25 @@ class CatheterTable(BaseModel):
         new_cat_table.reset_index()
         return new_cat_table
 
+    def __iadd__(self, other: "CatheterTable") -> "CatheterTable":
+        r"""
+        ### Purpose:
+        - To add another catheter table to the current catheter table.
+
+        ### Inputs:
+        - self := the current CatheterTable object.
+        - other := the CatheterTable object to be added.
+
+        ### Outputs:
+        - CatheterTable := the updated CatheterTable object.
+        """
+        if not isinstance(other, CatheterTable):
+            raise ValueError("other should be a CatheterTable object.")
+        self.catheter_list += other.catheter_list
+        self.step_size = max(self.step_size, other.step_size)
+        self.reset_index()
+        return self
+
     def reset_index(self) -> None:
         r"""
         ### Purpose:
