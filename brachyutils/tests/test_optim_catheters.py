@@ -86,7 +86,7 @@ def test_catheter_table_optim():
     )
     dvh_metrics_dict = optimized_plan.get_dvh_metrics(return_percentage=True)
     cat_table = optimized_plan.catheter_table.write_to_slicer_markup(
-        pth_json = dir_export / "catheter_table.mrk.json")
+        pth_mrk_json = dir_export / "catheter_table.mrk.json")
     DataFrame([dvh_metrics_dict]).to_csv(
         dir_export / "dvh_metrics.csv", index=False)
 

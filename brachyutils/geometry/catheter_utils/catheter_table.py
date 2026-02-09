@@ -168,15 +168,30 @@ class Catheter(BaseModel):
         """
         return np.sum([dwell.time for dwell in self.dwells])
 
-    def __init__(self, **data):
+    @model_validator(mode="after")
+    def validate_catheter(self):
         r"""
-        ### Purpose:
-        - To initialize the Catheter object.
-        
-        ### Inputs:
-        - **data: dict := the dictionary containing the catheter attributes.
+        Validate the catheter object and set necessary attributes based on provided inputs.
+        This method ensures that the catheter has valid configuration by:
+        1. Setting digitization_points from points if not already provided
+        2. Setting afterloader_channel_number to index if not provided
+        3. Initializing dwells through one of several methods (in priority order):
+            - Converting existing dwells from dict format to DwellPosition objects
+            - Creating dwells from a provided fit_function
+            - Creating fit_function and dwells from digitization_points
+            - Creating fit_function and dwells from tip_position and last_dwell_coordinate
+        4. Setting tip_position and last_dwell_coordinate from the first and last dwell positions
+        Raises:
+             ValueError: If neither dwells, fit_function, points, nor tip/last_dwell coordinates are provided.
+             ValueError: If no dwell positions are found after initialization.
+        Attributes modified:
+             digitization_points: Set from points if None
+             afterloader_channel_number: Set to index if None
+             fit_function: Generated if not provided and dwells can be created from points
+             dwells: List of DwellPosition objects representing dwell positions along the catheter
+             tip_position: Set to the position of the first dwell
+             last_dwell_coordinate: Set to the position of the last dwell
         """
-        super().__init__(**data)
         # Set digitization_points from points if digitization_points is None
         if self.points is not None and self.digitization_points is None:
             self.digitization_points = self.points
