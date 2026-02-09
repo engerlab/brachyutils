@@ -608,6 +608,20 @@ class CatheterTable(BaseModel):
             step_size=self.step_size,
             )
 
+    def reset_index(self) -> None:
+        r"""
+        ### Purpose:
+        - To reset the index of the catheters in the catheter table.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+
+        ### Outputs:
+        - None
+        """
+        for i, catheter in enumerate(self.catheter_list):
+            catheter.index = i
+
     def to_dict(self) -> dict:
         r"""
         ### Purpose:
