@@ -231,7 +231,6 @@ class BrachyPlan:
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
         applicator_pth_list: Union[Path, str, list] = None,
-        applicator_format: Literal["RapidBrachy", "WebApp"] = None,
         #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
@@ -260,11 +259,7 @@ class BrachyPlan:
 
         #### for loading catheter table and applicators:
         - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
-        from_delivered_dwellpositions: bool = True := If true, only the subset of dwell positions that had
-        none zero dwell times in the DICOM plan file will be loaded. If false, all the dwell positions
-        from the digitization points will be loaded.
         - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
-        - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
 
         #### for loading dose rates or uncertainty maps per dwell position:
         - combined_dose: Path|BrachyDose := the path to the combined dose file or a BrachyDose object.
@@ -282,7 +277,9 @@ class BrachyPlan:
         with a margine of 10 mm.
         - add_hotspots_to_phantom: bool = False := if True, will add hotspot structures to the phantom.
         this is good for debugging, but slows down the plan creation process.
-        - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures 
+        - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures
+        - applicator_format:str = "RapidBrachy" := the format of the applicator list 
+        (default is "RapidBrachy"). See load_applicator_list() for more info. 
         XXX simplify the constructor inputs by using only kwargs for optional inputs?
 
         #### for simulation setup:
@@ -406,7 +403,8 @@ class BrachyPlan:
 
         # load the applicator list if the path is provided
         if applicator_pth_list is not None and applicator_format is not None:
-            self.load_applicator_list(applicator_pth_list, applicator_format)
+            self.load_applicator_list(
+                applicator_pth_list, kwargs.get("applicator_format", "RapidBrachy"))
 
         # # setup optimization
         if optimization_config_list is not None:
@@ -812,7 +810,7 @@ class BrachyPlan:
     def load_applicator_list(
         self,
         applicator_list_pth: Union[list, Path, str],
-        format: str = "WebApp",
+        format: Literal["WebApp", "RapidBrachy"] = "WebApp",
     ):
         r"""
         ### Purpose:
