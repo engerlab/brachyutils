@@ -579,57 +579,6 @@ class BrachyPlan:
         if any(self.dose_rate_dict):
             self._calculate_combined_dose()
 
-    def _update_catheter_table_from_plan(self):
-        r"""
-        ### Purpose:
-        - Assuming that the dwell times or coordinates have changed, we need to update
-        the catheter_table attribute to match the plan.
-        ### Inputs:
-        - self := the BrachyPlan object
-        ### Outputs:
-        - Void := will update the self.catheter_table attribute
-        """
-        raise ValueError("This function is deprecated and never used anyways")
-        assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
-        assert self.dwell_times.size != 0, "dwell times are not extracted"
-        assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
-        assert self.num_dwells is not None, "number of dwells is not extracted"
-
-        new_catheter_table = []
-
-        for catheter_i in self.catheter_numbers:
-            catheter = {}
-            catheter["index"] = int(catheter_i)
-            catheter["points"] = []
-            catheter["dwells"] = []
-            dwell = {}
-            for dwell_i in self.dwell_numbers:
-                if self.dwell_coordinates[dwell_i - 1]["catheter_index"] != catheter_i:
-                    continue
-                dwell["index"] = int(dwell_i)
-                dwell["angle"] = float(self.dwell_coordinates[dwell_i - 1]["angle"])
-                dwell["position"] = {
-                    "x": float(self.dwell_coordinates[dwell_i - 1]["position"][0]),
-                    "y": float(self.dwell_coordinates[dwell_i - 1]["position"][1]),
-                    "z": float(self.dwell_coordinates[dwell_i - 1]["position"][2]),
-                }
-                dwell["relativePos"] = float(
-                    self.dwell_coordinates[dwell_i - 1]["relativePos"]
-                )
-                dwell["rotation"] = {
-                    "x": float(self.dwell_coordinates[dwell_i - 1]["rotation"][0]),
-                    "y": float(self.dwell_coordinates[dwell_i - 1]["rotation"][1]),
-                    "z": float(self.dwell_coordinates[dwell_i - 1]["rotation"][2]),
-                }
-                dwell["time"] = float(self.dwell_times[dwell_i - 1].item())
-                dwell["weight"] = float(
-                    (self.dwell_times[dwell_i - 1] / np.sum(self.dwell_times)).item()
-                )
-                catheter["dwells"].append(deepcopy(dwell))
-
-            new_catheter_table.append(deepcopy(catheter))
-        self.catheter_table = CatheterTable(catheter_list=new_catheter_table)
-
     def _update_dose_after_change_in_plan(self):
         r"""
         ### Purpose:
