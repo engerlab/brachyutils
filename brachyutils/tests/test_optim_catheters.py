@@ -42,9 +42,9 @@ def test_catheter_table_optim():
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
             penalty_weight_uniformity=1,
-            penalty_weight_hotspot=1,
-            hotspot_threshold=1.5,
-            penalty_weight_variance_time=1,
+            # penalty_weight_hotspot=1,
+            # hotspot_threshold=1.5,
+            # penalty_weight_variance_time=1,
             mask_margin_mm=0,
             spacing_mm=3,
             catheter_recommendaion=True),
@@ -79,9 +79,9 @@ def test_catheter_table_optim():
         )
     optimized_plan = catheter_optim_obj.get_optimized_plan_from_model()
     optimized_plan.export_brachy_plan(
-        dir_export=dir_export,
         content_to_export={
-            "dose": True
+            "dir_export": dir_export,
+            "export_config_dose": True
         }
     )
     dvh_metrics_dict = optimized_plan.get_dvh_metrics(return_percentage=True)
@@ -128,5 +128,5 @@ def test_dynamic_plan_generation():
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
-    # test_catheter_table_optim()
-    test_dynamic_plan_generation()
+    test_catheter_table_optim()
+    # test_dynamic_plan_generation()

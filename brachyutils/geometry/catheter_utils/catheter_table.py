@@ -2,12 +2,11 @@ import copy
 import numpy as np
 from typing import List, Union, Dict, Any, Optional, Tuple
 from pathlib import Path
-from pydantic import BaseModel, computed_field, ConfigDict
+from pydantic import BaseModel, computed_field, ConfigDict, model_validator
 import json
 import SimpleITK as sitk
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.data.images import ROIMask
-from brachyutils.geometry.phantom_utils import BrachyPhantom
 
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import PiecewiseLinear3D
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.spline_interpolator import NeedleSplineCreator
@@ -41,21 +40,6 @@ class DwellPosition(BaseModel):
     relativePos: float
     rotation: List[float] | Dict[str, float]
     time: float = 0.0
-    # weight: float = None
-
-    def __init__(self, **data):
-        r"""
-        ### Purpose:
-        - To initialize the DwellPosition object.
-        ### Inputs:
-        - **data: dict := the dictionary containing the dwell position attributes.
-        """
-        super().__init__(**data)
-        # convert position and rotation to lists if they are dictionaries
-        if isinstance(self.position, dict):
-            self.position = list(self.position.values())
-        if isinstance(self.rotation, dict):
-            self.rotation = list(self.rotation.values())
     
     def weight(self, total_time: float) -> float:
         r"""
