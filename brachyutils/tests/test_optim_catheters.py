@@ -4,6 +4,7 @@ from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from gurobipy import Model
 from brachyutils.tests.test_optim_utils import get_a_plan_to_optimize
+from brachyutils.tests.test_plan_utils import get_a_plan
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from pandas import DataFrame
 def test_catheter_gurobi_initialization():
@@ -102,12 +103,20 @@ def test_dynamic_plan_generation():
     gen_dose_rates = True
     from_delivered_dwellpositions=False
 
-    plan = get_a_plan_to_optimize(
-        pth_dicom=pth_dicom,
-        dir_dose_rates=dir_dose_rates,
-        from_delivered_dwellpositions=from_delivered_dwellpositions,
-        generate_dose_rates=gen_dose_rates,
-        )
+    # # get the full catheter table.
+    full_cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
+    # # now split this catheter table into two.
+    cat_table_p1 = full_cat_table[:len(full_cat_table)//2]
+    cat_table_p2 = full_cat_table[len(full_cat_table)//2:]
+    cat_table_p1.info()
+    cat_table_p2.info()
+
+    # plan = get_a_plan(
+    #     pth_dicom=pth_dicom,
+    #     dir_dose_rates=dir_dose_rates,
+    #     from_delivered_dwellpositions=from_delivered_dwellpositions,
+    #     generate_dose_rates=gen_dose_rates,
+    #     )
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()

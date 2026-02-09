@@ -583,6 +583,31 @@ class CatheterTable(BaseModel):
         for catheter in self.catheter_list:
             yield catheter
 
+    def __len__(self):
+        return len(self.catheter_list)
+
+    def __getitem__(self, indicies: int| slice) -> List[Catheter]:
+        r"""
+        ### Purpose:
+        - To get a subset of the catheter table.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - indicies: int | slice := the index or slice to get.
+
+        ### Outputs:
+        - List[Catheter] := the list of catheters in the catheter table.
+        """
+        if isinstance(indicies, slice):
+            return CatheterTable(
+                catheter_list=self.catheter_list[indicies],
+                step_size=self.step_size,
+            )
+        return CatheterTable(
+            catheter_list= [self.catheter_list[indicies]],
+            step_size=self.step_size,
+            )
+
     def to_dict(self) -> dict:
         r"""
         ### Purpose:
