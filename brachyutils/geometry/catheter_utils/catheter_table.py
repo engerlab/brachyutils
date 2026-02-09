@@ -650,6 +650,21 @@ class CatheterTable(BaseModel):
         self.reset_index()
         return self
 
+    def __delitem__(self, index: int | slice):
+        r"""
+        ### Purpose:
+        - To delete a catheter from the catheter table.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - index: int | slice := the index or slice of the catheter to be deleted.
+
+        ### Outputs:
+        - None
+        """
+        del self.catheter_list[index]
+        self.reset_index()
+
     def reset_index(self) -> None:
         r"""
         ### Purpose:
