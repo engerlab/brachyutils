@@ -431,6 +431,9 @@ class CatheterTable(BaseModel):
         5. from a CreatedSetUp object XXX clean this
     ### Attributes:
     - catheter_list : List[Catheter] := the list of catheter objects in the catheter table.
+    - from_delivered_dwellpositions: bool := whether the catheter table was created from delivered 
+    dwell positions. only applicable if the catheter table is created from a dicom file.
+    If False, the catheter table will be created from the digitization points.
     - step_size: float := the step size in mm between the dwell positions on the catheter table.
     - treatment_time: float = None := the total treatment time of the catheter table.
     this attributed is computed from the catheter list.
@@ -518,7 +521,8 @@ class CatheterTable(BaseModel):
             non_zero_dwell_positions[f"Needle_{catheter.index}"] = dwell_positions
         return non_zero_dwell_positions
 
-    def __init__(self, **data):
+    @model_validator(mode="after")
+    def validate_catheter_table(self):
         r"""
         ### Purpose:
         - To initialize the CatheterTable object.
@@ -531,7 +535,6 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - CatheterTable := the catheter table object.
         """
-        super().__init__(**data)
         if (isinstance(self.catheter_list, str) or
             isinstance(self.catheter_list, Path)
             ):
