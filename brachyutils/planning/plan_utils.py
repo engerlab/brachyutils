@@ -230,7 +230,6 @@ class BrachyPlan:
         strict_name_match: bool = True,
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
-        from_delivered_dwellpositions: bool = False,
         applicator_pth_list: Union[Path, str, list] = None,
         applicator_format: Literal["RapidBrachy", "WebApp"] = None,
         #### for loading dose or uncertainty:
@@ -276,6 +275,9 @@ class BrachyPlan:
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
         #### Keywords Arguments:
+        - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
+        had non-zero dwell times in the DICOM plan file. If False, will load all the dwell positions
+        from the digitization points.
         - dwells_near_ptv: bool = True := if True, will remove the dwell positions that are outside PTV
         with a margine of 10 mm.
         - add_hotspots_to_phantom: bool = False := if True, will add hotspot structures to the phantom.
@@ -353,36 +355,13 @@ class BrachyPlan:
                 dvh_metric_goals=self.dvh_metric_goals,
                 strict_name_match=strict_name_match,
             )
-
         # load the catheter table if the path is provided
         if catheter_table is not None:
-            if isinstance(catheter_table, (str, Path)):
-                self.catheter_table = CatheterTable(
-                    catheter_list=catheter_table,
-                    from_delivered_dwellpositions=from_delivered_dwellpositions,
-                    )
-            elif isinstance(catheter_table, CatheterTable):
-                self.catheter_table = catheter_table
-            else:
-                raise ValueError(
-                    "catheter_table should be a path or a CatheterTable object"
+            self.set_catheter_table(
+                catheter_table=catheter_table,
+                from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", False),
+                dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
                 )
-            if kwargs.get("dwells_near_ptv", True):
-                for structure in self.structure_list:
-                    if structure.is_target:
-                        if isinstance(structure.mask, ROIContour):
-                            mask = structure.mask.getBinaryMask(
-                                origin=self.phantom.image_obj.origin,
-                                gridSize=self.phantom.image_obj.gridSize,
-                                spacing=self.phantom.image_obj.spacing,
-                            )
-                        self.catheter_table.remove_outside_mask(
-                            mask=mask,
-                            margin_mm=5.0,
-                        )
-
-            self.update_plan_from_catheter_table()
-
         # load the dose rate dict if the path is provided
         if dir_dose_rate is not None and combined_dose is None:
             self.load_dose_rate_dict(
@@ -522,6 +501,52 @@ class BrachyPlan:
             pth_egsphant_file=pth_egsphant_file,
         )
         self.phantom_origin = self.phantom.image_obj.origin
+
+    def set_catheter_table(
+        self,
+        catheter_table: Union[Path, CatheterTable],
+        from_delivered_dwellpositions: bool = True,
+        dwells_near_ptv: bool = True,):
+        r"""
+        ### Purpose:
+        - To set the catheter table of the plan and update the plan attributes accordingly.
+        ### Inputs:
+        - catheter_table: Path | CatheterTable := A catheter table object or the path to a
+        json file containing the information of the catheter table.
+        - from_delivered_dwellpositions: bool := Whether to load only the delivered dwell positions
+        from the catheter table. Only applicable if the catheter table is loaded from a DICOM plan file. 
+        If False, all the dwell positions from the digitization points will be loaded.
+        - dwells_near_ptv: bool := Whether to remove dwells that are far from the PTV.
+        ### Outputs:
+        - Void := will update the BrachyPlan.catheter_table attribute and all the related attributes
+        such as dwell times, coordinates, etc.
+        """
+        if isinstance(catheter_table, (str, Path)):
+            self.catheter_table = CatheterTable(
+                catheter_list=catheter_table,
+                from_delivered_dwellpositions=from_delivered_dwellpositions,
+                )
+        elif isinstance(catheter_table, CatheterTable):
+            self.catheter_table = catheter_table
+        else:
+            raise ValueError(
+                "catheter_table should be a path or a CatheterTable object"
+            )
+        if dwells_near_ptv:
+            for structure in self.structure_list:
+                if structure.is_target:
+                    if isinstance(structure.mask, ROIContour):
+                        mask = structure.mask.getBinaryMask(
+                            origin=self.phantom.image_obj.origin,
+                            gridSize=self.phantom.image_obj.gridSize,
+                            spacing=self.phantom.image_obj.spacing,
+                        )
+                    self.catheter_table.remove_outside_mask(
+                        mask=mask,
+                        margin_mm=5.0,
+                    )
+
+        self.update_plan_from_catheter_table()
 
     def update_plan_from_catheter_table(self):
         r"""
