@@ -121,7 +121,10 @@ def test_dynamic_plan_generation():
     # cat_table_p2.info()
 
     # # let's load catheter table, and calculate dose rates for the first half of the catheters.
-    
+    plan.set_catheter_table(
+        catheter_table=cat_table_p1 + cat_table_p2,
+    )
+    plan.catheter_table.info()
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()

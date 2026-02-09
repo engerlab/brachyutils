@@ -608,6 +608,29 @@ class CatheterTable(BaseModel):
             step_size=self.step_size,
             )
 
+    def __add__(self, other: "CatheterTable") -> "CatheterTable":
+        r"""
+        ### Purpose:
+        - To add two catheter tables together.
+
+        ### Inputs:
+        - self := the first CatheterTable object.
+        - other := the second CatheterTable object.
+
+        ### Outputs:
+        - CatheterTable := the combined CatheterTable object.
+        """
+        if not isinstance(other, CatheterTable):
+            raise ValueError("other should be a CatheterTable object.")
+        combined_catheter_list = self.catheter_list + other.catheter_list
+        combined_step_size = max(self.step_size, other.step_size)
+        new_cat_table =  CatheterTable(
+            catheter_list=combined_catheter_list,
+            step_size=combined_step_size,
+        )
+        new_cat_table.reset_index()
+        return new_cat_table
+
     def reset_index(self) -> None:
         r"""
         ### Purpose:
