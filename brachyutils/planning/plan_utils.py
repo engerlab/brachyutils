@@ -1886,7 +1886,8 @@ def _type_nested_dict_list(data):
 def load_dicom_to_plan(
     dir_dicom: Path | str,
     load_dicom_dose: bool = False,
-    load_dicom_plan: bool = True,
+    load_dicom_source: bool = True,
+    load_dicom_catheter_table: bool = True,
     **kwargs) -> BrachyPlan:
     r"""
     ### Purpose:
@@ -1894,7 +1895,8 @@ def load_dicom_to_plan(
     ### Inputs:
     - dir_dicom := the path to the dicom directory
     - load_dicom_dose := if True, the dose dicom file will be loaded
-    - load_dicom_plan := if True, the plan dicom file will be loaded
+    - load_dicom_source := if True, the source dicom file will be loaded
+    - load_dicom_catheter_table := if True, the catheter table dicom file will be loaded
     - **kwargs := additional arguments to be passed to the BrachyPlan constructor
     ### Outputs:
     - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
@@ -1907,7 +1909,7 @@ def load_dicom_to_plan(
     plan_dcm = []
     if load_dicom_dose:
         dose_dcm = [dcm for dcm in all_dicom_files if str(dcm.name).lower().startswith("rd")]
-    if load_dicom_plan:
+    if load_dicom_source:
         plan_dcm = [
             dcm for dcm in all_dicom_files if
             (
@@ -1930,7 +1932,7 @@ def load_dicom_to_plan(
     combined_dose = kwargs.pop("combined_dose", dose_dcm)
     return BrachyPlan(
         phantom=dir_dicom,
-        catheter_table=plan_dcm,
+        catheter_table=plan_dcm if load_dicom_catheter_table else None,
         combined_dose=combined_dose,
         simulation_setup=new_sim_setup,
         **kwargs

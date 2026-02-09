@@ -103,21 +103,23 @@ def test_dynamic_plan_generation():
     gen_dose_rates = True
     from_delivered_dwellpositions=False
 
+    # # get a plan without catheter table.
+    plan = get_a_plan(
+        pth_dicom=pth_dicom,
+        load_dicom_catheter_table=False,
+        )
+    # ensure that the plan does not have a catheter table.
+    assert plan.catheter_table is None, "The plan should not have a catheter table."
+
     # # get the full catheter table.
     full_cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
     # # now split this catheter table into two.
     cat_table_p1 = full_cat_table[:len(full_cat_table)//2]
     cat_table_p2 = full_cat_table[len(full_cat_table)//2:]
     cat_table_p2.reset_index()
-    cat_table_p1.info()
-    cat_table_p2.info()
+    # cat_table_p1.info()
+    # cat_table_p2.info()
 
-    # plan = get_a_plan(
-    #     pth_dicom=pth_dicom,
-    #     dir_dose_rates=dir_dose_rates,
-    #     from_delivered_dwellpositions=from_delivered_dwellpositions,
-    #     generate_dose_rates=gen_dose_rates,
-    #     )
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
