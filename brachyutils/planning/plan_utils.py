@@ -273,8 +273,6 @@ class BrachyPlan:
         #### for loading dose rates or uncertainty maps per dwell position:
         - combined_dose: Path|BrachyDose := the path to the combined dose file or a BrachyDose object.
         - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
-        - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
-        - load_dose_or_uncertainty:str = "dose" := specify whether to load "dose" or "uncertainty" or "both" (default is "dose").
         - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
