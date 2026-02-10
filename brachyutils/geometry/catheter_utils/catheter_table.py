@@ -237,6 +237,7 @@ class Catheter(BaseModel):
             self.last_dwell_coordinate = self.dwells[-1].position
         else:
             raise ValueError("No dwell positions found in the catheter. Please provide valid dwells.")
+        return self
 
     def to_dict(self, total_time=None) -> dict:
         r"""
@@ -581,6 +582,7 @@ class CatheterTable(BaseModel):
             self.catheter_list = [
                 Catheter(**catheter_dict) for catheter_dict in self.catheter_list
             ]
+        return self
 
     def __iter__(self):
         for catheter in self.catheter_list:
