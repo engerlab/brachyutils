@@ -142,8 +142,23 @@ def test_dynamic_plan_generation():
             "name_combined": "cat_p1"
         }
     }
+    # initialize the dose generator object
+    dose_generator = DoseTG43(
+        dir_plan_export=dir_dose_rates
+    )
+
     plan.export_brachy_plan(
         content_to_export=export_for_dose
+    )
+
+    dose_generator.generate_dose(
+        pth_mac=dir_dose_rates/"cat_p1.mac",
+        pth_egsphant=dir_dose_rates/"egsphant.seq.nrrd",
+        pth_plan=dir_dose_rates/"cat_p1.plan",
+        output_dose_per_dwell="dose_rate")
+
+    plan.load_dose_rate_dict(
+        dir_dose_rate=dir_dose_rates,
     )
 
     plan.set_catheter_table(
@@ -152,23 +167,25 @@ def test_dynamic_plan_generation():
     export_for_dose = {
         "dir_export": dir_dose_rates,
         "export_config_macfile": {
-            "name_combined": "cat_p1_p2"
+            "name_combined": "cat_p2"
         },
         "export_config_planfile": {
-            "name_combined": "cat_p1_p2"
+            "name_combined": "cat_p2"
         }
     }
     plan.export_brachy_plan(
         content_to_export=export_for_dose
-    )
-    dose_generator = DoseTG43(
-        dir_plan_export=dir_dose_rates
     )
     dose_generator.generate_dose(
         pth_mac=dir_dose_rates/"cat_p1.mac",
         pth_egsphant=dir_dose_rates/"egsphant.seq.nrrd",
         pth_plan=dir_dose_rates/"cat_p1.plan",
         output_dose_per_dwell="dose_rate")
+
+    plan.load_dose_rate_dict(
+        dir_dose_rates=dir_dose_rates,
+    )
+
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
