@@ -107,7 +107,16 @@ def test_dynamic_plan_generation():
         )
     # ensure that the plan does not have a catheter table.
     assert plan.catheter_table is None, "The plan should not have a catheter table."
-
+    # export the egsphant with cropping for dose generation
+    init_export_config = {
+        "dir_export": dir_export,
+        "export_config_egsphant": {
+            "strict_name_match": False,
+            "crop_by_contour": ["ctv", "urethra", "rectum"]}
+        }
+    plan.export_brachy_plan(
+        content_to_export=init_export_config
+    )
     # # get the full catheter table.
     full_cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
     # # now split this catheter table into two.
@@ -122,21 +131,8 @@ def test_dynamic_plan_generation():
         catheter_table=cat_table_p1,
     )
     # plan.catheter_table.info()
-    init_export_config = {
-        "dir_export": dir_export,
-        "export_config_egsphant": {
-            "strict_name_match": False,
-            "crop_by_contour": ["ctv", "urethra", "rectum"]
-        }
-        # "export_config_planfile":
-        # "export_config_macfile":
-        }
-    plan.export_brachy_plan(
-        content_to_export=init_export_config
-    )
     # # now generate dose rates for the first half of the catheters.
-    print("deb")
-
+    
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
     # test_catheter_table_optim()
