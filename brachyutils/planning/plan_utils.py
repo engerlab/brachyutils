@@ -287,7 +287,6 @@ class BrachyPlan:
         - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures
         - applicator_format:str = "RapidBrachy" := the format of the applicator list 
         (default is "RapidBrachy"). See load_applicator_list() for more info. 
-        XXX simplify the constructor inputs by using only kwargs for optional inputs?
 
         #### for simulation setup:
         - simulation_setup = None := dictionary containing the simulation setup,
@@ -609,26 +608,11 @@ class BrachyPlan:
         if any(self.dose_rate_dict):
             self._calculate_combined_dose()
 
-    def _update_dose_after_change_in_plan(self):
-        r"""
-        ### Purpose:
-        - Assuming that the dwell times or coordinates have changed, we need to update
-        the catheter_table attribute and the combined dose to match the plan.
-        ### Inputs:
-        - self := the BrachyPlan object
-        ### Outputs:
-        - Void := will update the BrachyPlan.catheter_table and BrachyPlan.combined_dose
-        attributes
-        """
-        raise ValueError("This function is also deprecated")
-        self._update_catheter_table_from_plan()
-        self._calculate_combined_dose()
-
     def load_dose_rate_dict(
         self,
         dir_dose_rate: str| Path,
         load_uncertainty:bool=False,
-        multi_processing: bool = False,
+        multi_processing: bool = True,
         combined_dose_only: bool = False,
     ):
         r"""
@@ -650,10 +634,6 @@ class BrachyPlan:
         """
         # make sure catheter table is loaded
         assert self.catheter_table is not None, "catheter table is not loaded"
-        # assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
-        # assert self.dwell_times.size != 0, "dwell times are not extracted"
-        # assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
-        # assert self.num_dwells is not None, "number of dwells is not extracted"
 
         pth_dose_rate = Path(dir_dose_rate).resolve()
         if not pth_dose_rate.exists():
