@@ -1290,6 +1290,9 @@ class BrachyPlan:
         combined_plan += f"{num_dwells} Control Points\n"
 
         for cat in catheter_table:
+            # skip if no need to export for dose rate calculation
+            if not cat.gen_dose_rates:
+                continue
             for dwell in cat.dwells:
                 dwell_coordinates_str = np.array(
                     list(dwell.position)
@@ -1328,7 +1331,8 @@ class BrachyPlan:
                     order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
                     with open(export_config_planfile.dir_export / f"dwell_{order}.plan", "w") as file:
                         file.write(run_i_plan)
-
+            # set to false so that we don't export the same catheter again for dose rate calculation
+            cat.gen_dose_rates = False
         with open(export_config_planfile.pth_combined, "w") as file:
             file.write(combined_plan)
         print(".plan files were exported successfully")
@@ -1376,6 +1380,7 @@ class BrachyPlan:
         """
         sim_obj = deepcopy(self.simulation_setup)
         sim_obj.total_time = catheter_table.treatment_time
+        sim_obj.pth_plan = export_config_macfile.name_combined+".plan"
 
         with open(export_config_macfile.pth_combined, "w") as file:
             file.write(sim_obj.to_string())

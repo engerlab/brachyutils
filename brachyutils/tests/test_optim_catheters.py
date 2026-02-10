@@ -133,7 +133,7 @@ def test_dynamic_plan_generation():
     # plan.catheter_table.info()
     # # now generate dose rates for the first half of the catheters.
     export_for_dose = {
-        "dir_export" = dir_dose_rates,
+        "dir_export": dir_dose_rates,
         "export_config_macfile": {
             "name_combined": "cat_p1"
         },
@@ -145,6 +145,22 @@ def test_dynamic_plan_generation():
         content_to_export=export_for_dose
     )
     
+    plan.set_catheter_table(
+        catheter_table=cat_table_p1+cat_table_p2,        
+    )
+    export_for_dose = {
+        "dir_export": dir_dose_rates,
+        "export_config_macfile": {
+            "name_combined": "cat_p1_p2"
+        },
+        "export_config_planfile": {
+            "name_combined": "cat_p1_p2"
+        }
+    }
+    plan.export_brachy_plan(
+        content_to_export=export_for_dose
+    )
+
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
     # test_catheter_table_optim()

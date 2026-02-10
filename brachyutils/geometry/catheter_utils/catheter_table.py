@@ -133,7 +133,7 @@ class Catheter(BaseModel):
     - fit_function:PiecewiseLinear3D := a line that connects the dwell positions together.
     - insert_position:list := The coordinates on patient body or insertion grid where the 
     catheter was inserted from.
-
+    - gen_dose_rates: bool := whether the catheter needs to be generated for dose calculation or not.
     ### Functions:
     - to_dict() -> dict := convert the catheter to a dictionary.
     - add_dwell(dwell:DwellPosition) -> None := add a dwell position to the catheter.
@@ -153,6 +153,7 @@ class Catheter(BaseModel):
     afterloader_channel_number: Optional[int] = None # if none, will be set to index
     insert_position: Optional[List[float]] = None
     # points: Optional[List[List[float]]] = None  # to keep compatibility with previous versions
+    gen_dose_rates: bool = True
 
     @computed_field
     def channel_total_time(self) -> float:
