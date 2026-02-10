@@ -96,12 +96,9 @@ def test_dynamic_plan_generation():
     """
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
     dir_export = Path("data_test/test_export_plan/prostate").resolve()
-    target_dose = 21
-    
+    target_dose = 21    
     # # for generating the dose rates on the fly
     dir_dose_rates=dir_export/"dose_rates"
-    gen_dose_rates = True
-    from_delivered_dwellpositions=False
 
     # # get a plan without catheter table.
     plan = get_a_plan(
@@ -122,11 +119,25 @@ def test_dynamic_plan_generation():
 
     # # let's load catheter table, and calculate dose rates for the first half of the catheters.
     plan.set_catheter_table(
-        catheter_table=cat_table_p1 + cat_table_p2,
+        catheter_table=cat_table_p1,
     )
-    plan.catheter_table.info()
+    # plan.catheter_table.info()
+    init_export_config = {
+        "dir_export": dir_export,
+        "export_config_egsphant": {
+            "strict_name_match": False,
+            "crop_by_contour": ["ctv", "urethra", "rectum"]
+        }
+        # "export_config_planfile":
+        # "export_config_macfile":
+        }
+    plan.export_brachy_plan(
+        content_to_export=init_export_config
+    )
+    # # now generate dose rates for the first half of the catheters.
+    print("deb")
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
-    test_catheter_table_optim()
-    # test_dynamic_plan_generation()
+    # test_catheter_table_optim()
+    test_dynamic_plan_generation()

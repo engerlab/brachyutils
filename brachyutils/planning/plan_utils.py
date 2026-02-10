@@ -111,7 +111,9 @@ class ExportConfig_Egsphant(BaseModel):
         Path("admin/constants/structure_materials_prostate.json"),
         description="Dictionary of material names and their properties.")
     assign_material_from_ct: bool = Field(False, description="Whether to assign materials from CT data or based on contours.")
-    crop_by_contour: str = Field(None, description="Name of the contour to crop by.")
+    crop_by_contour: str | List[str] = Field(None, description="Name of the contour to crop by. \
+If a list of strings is provided, the union of the contours will be used to crop the phantom.")
+    marginInMM: float = Field(10.0, description="Margin in mm to add around the contour when cropping the phantom.")
     resampled_spacing: List[float] = Field(None, description="Spacing for resampling the phantom.")
     resampled_origin: List[float] = Field(None, description="Origin for resampling the phantom.")
     background_material: str = Field("Air", description="Material name for background.")
@@ -1414,6 +1416,7 @@ class BrachyPlan:
             material_dict=export_config_egsphant.material_dict,
             assign_material_from_ct=export_config_egsphant.assign_material_from_ct,
             crop_by_contour=export_config_egsphant.crop_by_contour,
+            marginInMM=export_config_egsphant.marginInMM,
             resampled_spacing=export_config_egsphant.resampled_spacing,
             resampled_origin=export_config_egsphant.resampled_origin,
             background_material=export_config_egsphant.background_material,
