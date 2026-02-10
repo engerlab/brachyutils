@@ -685,6 +685,10 @@ class CatheterTable(BaseModel):
         for i, catheter in enumerate(self.catheter_list):
             catheter.index = i
     def get_catheters_for_dose_gen(self):
+        r"""
+        ### Purpose:
+        - To get a catheter table with only the catheters that are needed for dose rate generation
+        """
         dose_gen_list = [cat for cat in self if cat.gen_dose_rates]
         return CatheterTable(
             catheter_list=dose_gen_list,
