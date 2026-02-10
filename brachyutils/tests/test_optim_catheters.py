@@ -177,14 +177,15 @@ def test_dynamic_plan_generation():
         content_to_export=export_for_dose
     )
     dose_generator.generate_dose(
-        pth_mac=dir_dose_rates/"cat_p1.mac",
+        pth_mac=dir_dose_rates/"cat_p2.mac",
         pth_egsphant=dir_dose_rates/"egsphant.seq.nrrd",
-        pth_plan=dir_dose_rates/"cat_p1.plan",
+        pth_plan=dir_dose_rates/"cat_p2.plan",
         output_dose_per_dwell="dose_rate")
 
     plan.load_dose_rate_dict(
-        dir_dose_rates=dir_dose_rates,
+        dir_dose_rate=dir_dose_rates,
     )
+    print("debug here")
 
 
 if __name__ == "__main__":

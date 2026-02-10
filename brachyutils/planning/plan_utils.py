@@ -606,7 +606,9 @@ class BrachyPlan:
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
         if any(self.dose_rate_dict):
-            self._calculate_combined_dose()
+            # only calculating combined dose when all the  
+            if len(self.dose_rate_dict) == self.num_dwells:
+                self._calculate_combined_dose()
 
     def load_dose_rate_dict(
         self,
@@ -645,12 +647,12 @@ class BrachyPlan:
         for pth in dose_rate_files:
             if not self.dose_rate_dict.get(pth.name, None):
                 new_dose_rate_files.append(pth)
-            elif Path.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
+            elif pth.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
                 new_dose_rate_files.append(pth)
             else:
                 continue
 
-        if multi_processing:       
+        if multi_processing:
             with ThreadPoolExecutor(max_workers=16) as executor:
                 futures = {
                     executor.submit(_load_single_dose_rate, pth, load_uncertainty): pth
