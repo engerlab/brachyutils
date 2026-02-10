@@ -684,6 +684,7 @@ class CatheterTable(BaseModel):
         """
         for i, catheter in enumerate(self.catheter_list):
             catheter.index = i
+
     def get_catheters_for_dose_gen(self):
         r"""
         ### Purpose:
