@@ -86,6 +86,9 @@ Per dwell position plan is generated.")
     name_combined:str = Field("combined", description="The name of the file for combined mac")
     file_extension: Literal[".mac"] = Field(".mac", description="File extension for mac files.")
     body_name_stl: str = Field("BODY", description="Name of the body structure to be saved as a separate STL.")
+    pth_plan: str = Field("combined.plan", description="The relative path to the .plan file that corresponds to this .mac file. \
+This is used to link the .mac file to the correct .plan file in RapidBrachyMC/TG43.")
+    pth_phantom: Path | str = Field("egsphant.seq.nrrd", description="The relative path to the egsphant file.")
     @computed_field
     def pth_combined(self)->Path:
         return self.dir_export/(self.name_combined+self.file_extension)
@@ -180,6 +183,10 @@ class ExportConfig_BrachyPlan(BaseModel):
             if isinstance(value, BaseModel):
                 if value.dir_export is None:
                     value.dir_export = self.dir_export
+        if self.export_config_macfile:
+            if not self.export_config_planfile:
+                raise ValueError("export_config_planfile must be provided if export_config_macfile is provided.")
+            self.export_config_macfile.pth_plan = self.export_config_planfile.pth_combined.name
         return self
 
 class BrachyPlan:
@@ -1380,7 +1387,8 @@ class BrachyPlan:
         """
         sim_obj = deepcopy(self.simulation_setup)
         sim_obj.total_time = catheter_table.treatment_time
-        sim_obj.pth_plan = export_config_macfile.name_combined+".plan"
+        sim_obj.pth_plan = export_config_macfile.pth_plan
+        sim_obj.pth_phantom = export_config_macfile.pth_phantom
 
         with open(export_config_macfile.pth_combined, "w") as file:
             file.write(sim_obj.to_string())
