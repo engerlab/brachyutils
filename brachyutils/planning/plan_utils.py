@@ -1271,8 +1271,9 @@ class BrachyPlan:
             - None
         """
         # total_dwell_time = np.sum(self.dwell_times)
-        total_dwell_time = catheter_table.treatment_time
-        num_dwells = catheter_table.num_dwell_positions
+        cath_table_dose_gen = catheter_table.get_catheters_for_dose_gen()
+        total_dwell_time = cath_table_dose_gen.treatment_time
+        num_dwells = cath_table_dose_gen.num_dwell_positions
         combined_plan = "Treatment Plan\n"
         combined_plan += f"{num_dwells} Control Points\n"
 

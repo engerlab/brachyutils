@@ -684,7 +684,13 @@ class CatheterTable(BaseModel):
         """
         for i, catheter in enumerate(self.catheter_list):
             catheter.index = i
-
+    def get_catheters_for_dose_gen(self):
+        dose_gen_list = [cat for cat in self if cat.gen_dose_rates]
+        return CatheterTable(
+            catheter_list=dose_gen_list,
+            step_size=self.step_size,
+            from_delivered_dwellpositions=self.from_delivered_dwellpositions
+        )
     def to_dict(self) -> dict:
         r"""
         ### Purpose:
