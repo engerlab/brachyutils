@@ -4,8 +4,10 @@ from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from gurobipy import Model
 from brachyutils.tests.test_optim_utils import get_a_plan_to_optimize
+from brachyutils.tests.test_plan_utils import get_a_plan
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from pandas import DataFrame
+from brachyutils.dose.dose_generation_utils import DoseTG43
 def test_catheter_gurobi_initialization():
     # we need a catheter table first!
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
@@ -41,9 +43,9 @@ def test_catheter_table_optim():
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
             penalty_weight_uniformity=1,
-            penalty_weight_hotspot=1,
-            hotspot_threshold=1.5,
-            penalty_weight_variance_time=1,
+            # penalty_weight_hotspot=1,
+            # hotspot_threshold=1.5,
+            # penalty_weight_variance_time=1,
             mask_margin_mm=0,
             spacing_mm=3,
             catheter_recommendaion=True),
@@ -78,14 +80,14 @@ def test_catheter_table_optim():
         )
     optimized_plan = catheter_optim_obj.get_optimized_plan_from_model()
     optimized_plan.export_brachy_plan(
-        dir_export=dir_export,
         content_to_export={
-            "dose": True
+            "dir_export": dir_export,
+            "export_config_dose": True
         }
     )
     dvh_metrics_dict = optimized_plan.get_dvh_metrics(return_percentage=True)
     cat_table = optimized_plan.catheter_table.write_to_slicer_markup(
-        pth_json = dir_export / "catheter_table.mrk.json")
+        pth_mrk_json = dir_export / "catheter_table.mrk.json")
     DataFrame([dvh_metrics_dict]).to_csv(
         dir_export / "dvh_metrics.csv", index=False)
 
@@ -93,21 +95,98 @@ def test_dynamic_plan_generation():
     r"""
     ### Purpose:
     """
-    pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
-    dir_export = Path("data_test/test_export_plan/prostate").resolve()
-    target_dose = 21
-    
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm")
+    dir_export = Path("temp_data/tg43/optimization")
+    target_dose = 21    
     # # for generating the dose rates on the fly
-    dir_dose_rates=dir_export/"dose_rates"
-    gen_dose_rates = True
-    from_delivered_dwellpositions=False
+    dir_dose_rates=dir_export/"test"
 
-    plan = get_a_plan_to_optimize(
+    # # get a plan without catheter table.
+    plan = get_a_plan(
         pth_dicom=pth_dicom,
-        dir_dose_rates=dir_dose_rates,
-        from_delivered_dwellpositions=from_delivered_dwellpositions,
-        generate_dose_rates=gen_dose_rates,
+        load_dicom_catheter_table=False,
         )
+    # ensure that the plan does not have a catheter table.
+    assert plan.catheter_table is None, "The plan should not have a catheter table."
+    # export the egsphant with cropping for dose generation
+    init_export_config = {
+        "dir_export": dir_dose_rates,
+        "export_config_egsphant": {
+            "strict_name_match": False,
+            "crop_by_contour": ["ctv", "urethra", "rectum"]}
+        }
+    plan.export_brachy_plan(
+        content_to_export=init_export_config
+    )
+    # # get the full catheter table.
+    full_cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
+    # # now split this catheter table into two.
+    cat_table_p1 = full_cat_table[:len(full_cat_table)//2]
+    cat_table_p2 = full_cat_table[len(full_cat_table)//2:]
+    cat_table_p2.reset_index()
+    # cat_table_p1.info()
+    # cat_table_p2.info()
+
+    # # let's load catheter table, and calculate dose rates for the first half of the catheters.
+    plan.set_catheter_table(
+        catheter_table=cat_table_p1,
+    )
+    # plan.catheter_table.info()
+    # # now generate dose rates for the first half of the catheters.
+    export_for_dose = {
+        "dir_export": dir_dose_rates,
+        "export_config_macfile": {
+            "name_combined": "cat_p1"
+        },
+        "export_config_planfile": {
+            "name_combined": "cat_p1"
+        }
+    }
+    # initialize the dose generator object
+    dose_generator = DoseTG43(
+        dir_plan_export=dir_dose_rates
+    )
+
+    plan.export_brachy_plan(
+        content_to_export=export_for_dose
+    )
+
+    dose_generator.generate_dose(
+        pth_mac=dir_dose_rates/"cat_p1.mac",
+        pth_egsphant=dir_dose_rates/"egsphant.seq.nrrd",
+        pth_plan=dir_dose_rates/"cat_p1.plan",
+        output_dose_per_dwell="dose_rate")
+
+    plan.load_dose_rate_dict(
+        dir_dose_rate=dir_dose_rates,
+    )
+
+    plan.set_catheter_table(
+        catheter_table=cat_table_p1+cat_table_p2,        
+    )
+    export_for_dose = {
+        "dir_export": dir_dose_rates,
+        "export_config_macfile": {
+            "name_combined": "cat_p2"
+        },
+        "export_config_planfile": {
+            "name_combined": "cat_p2"
+        }
+    }
+    plan.export_brachy_plan(
+        content_to_export=export_for_dose
+    )
+    dose_generator.generate_dose(
+        pth_mac=dir_dose_rates/"cat_p2.mac",
+        pth_egsphant=dir_dose_rates/"egsphant.seq.nrrd",
+        pth_plan=dir_dose_rates/"cat_p2.plan",
+        output_dose_per_dwell="dose_rate")
+
+    plan.load_dose_rate_dict(
+        dir_dose_rate=dir_dose_rates,
+    )
+    print("debug here")
+
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()

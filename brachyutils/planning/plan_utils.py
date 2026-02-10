@@ -86,6 +86,9 @@ Per dwell position plan is generated.")
     name_combined:str = Field("combined", description="The name of the file for combined mac")
     file_extension: Literal[".mac"] = Field(".mac", description="File extension for mac files.")
     body_name_stl: str = Field("BODY", description="Name of the body structure to be saved as a separate STL.")
+    pth_plan: str = Field("combined.plan", description="The relative path to the .plan file that corresponds to this .mac file. \
+This is used to link the .mac file to the correct .plan file in RapidBrachyMC/TG43.")
+    pth_phantom: Path | str = Field("egsphant.seq.nrrd", description="The relative path to the egsphant file.")
     @computed_field
     def pth_combined(self)->Path:
         return self.dir_export/(self.name_combined+self.file_extension)
@@ -111,7 +114,9 @@ class ExportConfig_Egsphant(BaseModel):
         Path("admin/constants/structure_materials_prostate.json"),
         description="Dictionary of material names and their properties.")
     assign_material_from_ct: bool = Field(False, description="Whether to assign materials from CT data or based on contours.")
-    crop_by_contour: str = Field(None, description="Name of the contour to crop by.")
+    crop_by_contour: str | List[str] = Field(None, description="Name of the contour to crop by. \
+If a list of strings is provided, the union of the contours will be used to crop the phantom.")
+    marginInMM: float = Field(10.0, description="Margin in mm to add around the contour when cropping the phantom.")
     resampled_spacing: List[float] = Field(None, description="Spacing for resampling the phantom.")
     resampled_origin: List[float] = Field(None, description="Origin for resampling the phantom.")
     background_material: str = Field("Air", description="Material name for background.")
@@ -178,6 +183,10 @@ class ExportConfig_BrachyPlan(BaseModel):
             if isinstance(value, BaseModel):
                 if value.dir_export is None:
                     value.dir_export = self.dir_export
+        if self.export_config_macfile:
+            if not self.export_config_planfile:
+                raise ValueError("export_config_planfile must be provided if export_config_macfile is provided.")
+            self.export_config_macfile.pth_plan = self.export_config_planfile.pth_combined.name
         return self
 
 class BrachyPlan:
@@ -230,9 +239,7 @@ class BrachyPlan:
         strict_name_match: bool = True,
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
-        from_delivered_dwellpositions: bool = False,
         applicator_pth_list: Union[Path, str, list] = None,
-        applicator_format: Literal["RapidBrachy", "WebApp"] = None,
         #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
@@ -261,27 +268,25 @@ class BrachyPlan:
 
         #### for loading catheter table and applicators:
         - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
-        from_delivered_dwellpositions: bool = True := If true, only the subset of dwell positions that had
-        none zero dwell times in the DICOM plan file will be loaded. If false, all the dwell positions
-        from the digitization points will be loaded.
         - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
-        - applicator_format:str = "RapidBrachy" := the format of the applicator list (default is "RapidBrachy"). See load_applicator_list() for more info.
 
         #### for loading dose rates or uncertainty maps per dwell position:
         - combined_dose: Path|BrachyDose := the path to the combined dose file or a BrachyDose object.
         - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
-        - type_dose_file:str = ".nrrd" := the type of dose file to load (default is ".nrrd").
-        - load_dose_or_uncertainty:str = "dose" := specify whether to load "dose" or "uncertainty" or "both" (default is "dose").
         - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
         - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
         #### Keywords Arguments:
+        - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
+        had non-zero dwell times in the DICOM plan file. If False, will load all the dwell positions
+        from the digitization points.
         - dwells_near_ptv: bool = True := if True, will remove the dwell positions that are outside PTV
         with a margine of 10 mm.
         - add_hotspots_to_phantom: bool = False := if True, will add hotspot structures to the phantom.
         this is good for debugging, but slows down the plan creation process.
-        - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures 
-        XXX simplify the constructor inputs by using only kwargs for optional inputs?
+        - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures
+        - applicator_format:str = "RapidBrachy" := the format of the applicator list 
+        (default is "RapidBrachy"). See load_applicator_list() for more info. 
 
         #### for simulation setup:
         - simulation_setup = None := dictionary containing the simulation setup,
@@ -353,36 +358,13 @@ class BrachyPlan:
                 dvh_metric_goals=self.dvh_metric_goals,
                 strict_name_match=strict_name_match,
             )
-
         # load the catheter table if the path is provided
         if catheter_table is not None:
-            if isinstance(catheter_table, (str, Path)):
-                self.catheter_table = CatheterTable(
-                    catheter_list=catheter_table,
-                    from_delivered_dwellpositions=from_delivered_dwellpositions,
-                    )
-            elif isinstance(catheter_table, CatheterTable):
-                self.catheter_table = catheter_table
-            else:
-                raise ValueError(
-                    "catheter_table should be a path or a CatheterTable object"
+            self.set_catheter_table(
+                catheter_table=catheter_table,
+                from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", False),
+                dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
                 )
-            if kwargs.get("dwells_near_ptv", True):
-                for structure in self.structure_list:
-                    if structure.is_target:
-                        if isinstance(structure.mask, ROIContour):
-                            mask = structure.mask.getBinaryMask(
-                                origin=self.phantom.image_obj.origin,
-                                gridSize=self.phantom.image_obj.gridSize,
-                                spacing=self.phantom.image_obj.spacing,
-                            )
-                        self.catheter_table.remove_outside_mask(
-                            mask=mask,
-                            margin_mm=5.0,
-                        )
-
-            self.update_plan_from_catheter_table()
-
         # load the dose rate dict if the path is provided
         if dir_dose_rate is not None and combined_dose is None:
             self.load_dose_rate_dict(
@@ -427,7 +409,8 @@ class BrachyPlan:
 
         # load the applicator list if the path is provided
         if applicator_pth_list is not None and applicator_format is not None:
-            self.load_applicator_list(applicator_pth_list, applicator_format)
+            self.load_applicator_list(
+                applicator_pth_list, kwargs.get("applicator_format", "RapidBrachy"))
 
         # # setup optimization
         if optimization_config_list is not None:
@@ -523,6 +506,52 @@ class BrachyPlan:
         )
         self.phantom_origin = self.phantom.image_obj.origin
 
+    def set_catheter_table(
+        self,
+        catheter_table: Union[Path, CatheterTable],
+        from_delivered_dwellpositions: bool = True,
+        dwells_near_ptv: bool = True,):
+        r"""
+        ### Purpose:
+        - To set the catheter table of the plan and update the plan attributes accordingly.
+        ### Inputs:
+        - catheter_table: Path | CatheterTable := A catheter table object or the path to a
+        json file containing the information of the catheter table.
+        - from_delivered_dwellpositions: bool := Whether to load only the delivered dwell positions
+        from the catheter table. Only applicable if the catheter table is loaded from a DICOM plan file. 
+        If False, all the dwell positions from the digitization points will be loaded.
+        - dwells_near_ptv: bool := Whether to remove dwells that are far from the PTV.
+        ### Outputs:
+        - Void := will update the BrachyPlan.catheter_table attribute and all the related attributes
+        such as dwell times, coordinates, etc.
+        """
+        if isinstance(catheter_table, (str, Path)):
+            self.catheter_table = CatheterTable(
+                catheter_list=catheter_table,
+                from_delivered_dwellpositions=from_delivered_dwellpositions,
+                )
+        elif isinstance(catheter_table, CatheterTable):
+            self.catheter_table = catheter_table
+        else:
+            raise ValueError(
+                "catheter_table should be a path or a CatheterTable object"
+            )
+        if dwells_near_ptv:
+            for structure in self.structure_list:
+                if structure.is_target:
+                    if isinstance(structure.mask, ROIContour):
+                        mask = structure.mask.getBinaryMask(
+                            origin=self.phantom.image_obj.origin,
+                            gridSize=self.phantom.image_obj.gridSize,
+                            spacing=self.phantom.image_obj.spacing,
+                        )
+                    self.catheter_table.remove_outside_mask(
+                        mask=mask,
+                        margin_mm=5.0,
+                    )
+
+        self.update_plan_from_catheter_table()
+
     def update_plan_from_catheter_table(self):
         r"""
         ### Purpose:
@@ -577,79 +606,15 @@ class BrachyPlan:
         ), "dwell numbers are not extracted correctly"
         self.num_dwells = len(self.dwell_numbers)
         if any(self.dose_rate_dict):
-            self._calculate_combined_dose()
-
-    def _update_catheter_table_from_plan(self):
-        r"""
-        ### Purpose:
-        - Assuming that the dwell times or coordinates have changed, we need to update
-        the catheter_table attribute to match the plan.
-        ### Inputs:
-        - self := the BrachyPlan object
-        ### Outputs:
-        - Void := will update the self.catheter_table attribute
-        """
-        raise ValueError("This function is deprecated and never used anyways")
-        assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
-        assert self.dwell_times.size != 0, "dwell times are not extracted"
-        assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
-        assert self.num_dwells is not None, "number of dwells is not extracted"
-
-        new_catheter_table = []
-
-        for catheter_i in self.catheter_numbers:
-            catheter = {}
-            catheter["index"] = int(catheter_i)
-            catheter["points"] = []
-            catheter["dwells"] = []
-            dwell = {}
-            for dwell_i in self.dwell_numbers:
-                if self.dwell_coordinates[dwell_i - 1]["catheter_index"] != catheter_i:
-                    continue
-                dwell["index"] = int(dwell_i)
-                dwell["angle"] = float(self.dwell_coordinates[dwell_i - 1]["angle"])
-                dwell["position"] = {
-                    "x": float(self.dwell_coordinates[dwell_i - 1]["position"][0]),
-                    "y": float(self.dwell_coordinates[dwell_i - 1]["position"][1]),
-                    "z": float(self.dwell_coordinates[dwell_i - 1]["position"][2]),
-                }
-                dwell["relativePos"] = float(
-                    self.dwell_coordinates[dwell_i - 1]["relativePos"]
-                )
-                dwell["rotation"] = {
-                    "x": float(self.dwell_coordinates[dwell_i - 1]["rotation"][0]),
-                    "y": float(self.dwell_coordinates[dwell_i - 1]["rotation"][1]),
-                    "z": float(self.dwell_coordinates[dwell_i - 1]["rotation"][2]),
-                }
-                dwell["time"] = float(self.dwell_times[dwell_i - 1].item())
-                dwell["weight"] = float(
-                    (self.dwell_times[dwell_i - 1] / np.sum(self.dwell_times)).item()
-                )
-                catheter["dwells"].append(deepcopy(dwell))
-
-            new_catheter_table.append(deepcopy(catheter))
-        self.catheter_table = CatheterTable(catheter_list=new_catheter_table)
-
-    def _update_dose_after_change_in_plan(self):
-        r"""
-        ### Purpose:
-        - Assuming that the dwell times or coordinates have changed, we need to update
-        the catheter_table attribute and the combined dose to match the plan.
-        ### Inputs:
-        - self := the BrachyPlan object
-        ### Outputs:
-        - Void := will update the BrachyPlan.catheter_table and BrachyPlan.combined_dose
-        attributes
-        """
-        raise ValueError("This function is also deprecated")
-        self._update_catheter_table_from_plan()
-        self._calculate_combined_dose()
+            # only calculating combined dose when all the  
+            if len(self.dose_rate_dict) == self.num_dwells:
+                self._calculate_combined_dose()
 
     def load_dose_rate_dict(
         self,
         dir_dose_rate: str| Path,
         load_uncertainty:bool=False,
-        multi_processing: bool = False,
+        multi_processing: bool = True,
         combined_dose_only: bool = False,
     ):
         r"""
@@ -671,10 +636,6 @@ class BrachyPlan:
         """
         # make sure catheter table is loaded
         assert self.catheter_table is not None, "catheter table is not loaded"
-        # assert self.dwell_numbers.size != 0, "dwell numbers are not extracted"
-        # assert self.dwell_times.size != 0, "dwell times are not extracted"
-        # assert len(self.dwell_coordinates) != 0, "dwell coordinates are not extracted"
-        # assert self.num_dwells is not None, "number of dwells is not extracted"
 
         pth_dose_rate = Path(dir_dose_rate).resolve()
         if not pth_dose_rate.exists():
@@ -686,12 +647,12 @@ class BrachyPlan:
         for pth in dose_rate_files:
             if not self.dose_rate_dict.get(pth.name, None):
                 new_dose_rate_files.append(pth)
-            elif Path.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
+            elif pth.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
                 new_dose_rate_files.append(pth)
             else:
                 continue
 
-        if multi_processing:       
+        if multi_processing:
             with ThreadPoolExecutor(max_workers=16) as executor:
                 futures = {
                     executor.submit(_load_single_dose_rate, pth, load_uncertainty): pth
@@ -838,7 +799,7 @@ class BrachyPlan:
     def load_applicator_list(
         self,
         applicator_list_pth: Union[list, Path, str],
-        format: str = "WebApp",
+        format: Literal["WebApp", "RapidBrachy"] = "WebApp",
     ):
         r"""
         ### Purpose:
@@ -1310,12 +1271,16 @@ class BrachyPlan:
             - None
         """
         # total_dwell_time = np.sum(self.dwell_times)
-        total_dwell_time = catheter_table.treatment_time
-        num_dwells = catheter_table.num_dwell_positions
+        cath_table_dose_gen = catheter_table.get_catheters_for_dose_gen()
+        total_dwell_time = cath_table_dose_gen.treatment_time
+        num_dwells = cath_table_dose_gen.num_dwell_positions
         combined_plan = "Treatment Plan\n"
         combined_plan += f"{num_dwells} Control Points\n"
 
         for cat in catheter_table:
+            # skip if no need to export for dose rate calculation
+            if not cat.gen_dose_rates:
+                continue
             for dwell in cat.dwells:
                 dwell_coordinates_str = np.array(
                     list(dwell.position)
@@ -1354,7 +1319,8 @@ class BrachyPlan:
                     order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
                     with open(export_config_planfile.dir_export / f"dwell_{order}.plan", "w") as file:
                         file.write(run_i_plan)
-
+            # set to false so that we don't export the same catheter again for dose rate calculation
+            cat.gen_dose_rates = False
         with open(export_config_planfile.pth_combined, "w") as file:
             file.write(combined_plan)
         print(".plan files were exported successfully")
@@ -1402,6 +1368,8 @@ class BrachyPlan:
         """
         sim_obj = deepcopy(self.simulation_setup)
         sim_obj.total_time = catheter_table.treatment_time
+        sim_obj.pth_plan = export_config_macfile.pth_plan
+        sim_obj.pth_phantom = export_config_macfile.pth_phantom
 
         with open(export_config_macfile.pth_combined, "w") as file:
             file.write(sim_obj.to_string())
@@ -1442,6 +1410,7 @@ class BrachyPlan:
             material_dict=export_config_egsphant.material_dict,
             assign_material_from_ct=export_config_egsphant.assign_material_from_ct,
             crop_by_contour=export_config_egsphant.crop_by_contour,
+            marginInMM=export_config_egsphant.marginInMM,
             resampled_spacing=export_config_egsphant.resampled_spacing,
             resampled_origin=export_config_egsphant.resampled_origin,
             background_material=export_config_egsphant.background_material,
@@ -1886,7 +1855,8 @@ def _type_nested_dict_list(data):
 def load_dicom_to_plan(
     dir_dicom: Path | str,
     load_dicom_dose: bool = False,
-    load_dicom_plan: bool = True,
+    load_dicom_source: bool = True,
+    load_dicom_catheter_table: bool = True,
     **kwargs) -> BrachyPlan:
     r"""
     ### Purpose:
@@ -1894,7 +1864,8 @@ def load_dicom_to_plan(
     ### Inputs:
     - dir_dicom := the path to the dicom directory
     - load_dicom_dose := if True, the dose dicom file will be loaded
-    - load_dicom_plan := if True, the plan dicom file will be loaded
+    - load_dicom_source := if True, the source dicom file will be loaded
+    - load_dicom_catheter_table := if True, the catheter table dicom file will be loaded
     - **kwargs := additional arguments to be passed to the BrachyPlan constructor
     ### Outputs:
     - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
@@ -1907,7 +1878,7 @@ def load_dicom_to_plan(
     plan_dcm = []
     if load_dicom_dose:
         dose_dcm = [dcm for dcm in all_dicom_files if str(dcm.name).lower().startswith("rd")]
-    if load_dicom_plan:
+    if load_dicom_source:
         plan_dcm = [
             dcm for dcm in all_dicom_files if
             (
@@ -1930,7 +1901,7 @@ def load_dicom_to_plan(
     combined_dose = kwargs.pop("combined_dose", dose_dcm)
     return BrachyPlan(
         phantom=dir_dicom,
-        catheter_table=plan_dcm,
+        catheter_table=plan_dcm if load_dicom_catheter_table else None,
         combined_dose=combined_dose,
         simulation_setup=new_sim_setup,
         **kwargs
