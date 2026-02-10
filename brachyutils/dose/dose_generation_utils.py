@@ -63,7 +63,7 @@ class DoseTG43(BrachyDoseGenerator):
     def generate_dose(
         self,
         dir_output: Optional[str] = None,
-        dose_output_extension: Optional[Literal[".3ddose", ".nrrd"]] = ".nrrd",
+        dose_output_extension: Optional[Literal[".3ddose", ".seq.nrrd"]] = ".seq.nrrd",
         pth_egsphant: Optional[Path] = None,
         pth_plan: Optional[Path] = None,
         pth_mac: Optional[Path] = None,

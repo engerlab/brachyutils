@@ -7,6 +7,7 @@ from brachyutils.tests.test_optim_utils import get_a_plan_to_optimize
 from brachyutils.tests.test_plan_utils import get_a_plan
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from pandas import DataFrame
+from brachyutils.dose.dose_generation_utils import DoseTG43
 def test_catheter_gurobi_initialization():
     # we need a catheter table first!
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
@@ -94,11 +95,11 @@ def test_dynamic_plan_generation():
     r"""
     ### Purpose:
     """
-    pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
-    dir_export = Path("data_test/test_export_plan/prostate").resolve()
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm")
+    dir_export = Path("temp_data/tg43/optimization")
     target_dose = 21    
     # # for generating the dose rates on the fly
-    dir_dose_rates=dir_export/"dose_rates"
+    dir_dose_rates=dir_export/"test"
 
     # # get a plan without catheter table.
     plan = get_a_plan(
@@ -144,7 +145,7 @@ def test_dynamic_plan_generation():
     plan.export_brachy_plan(
         content_to_export=export_for_dose
     )
-    
+
     plan.set_catheter_table(
         catheter_table=cat_table_p1+cat_table_p2,        
     )
@@ -160,6 +161,14 @@ def test_dynamic_plan_generation():
     plan.export_brachy_plan(
         content_to_export=export_for_dose
     )
+    dose_generator = DoseTG43(
+        dir_plan_export=dir_dose_rates
+    )
+    dose_generator.generate_dose(
+        pth_mac=dir_dose_rates/"cat_p1.mac",
+        pth_egsphant=dir_dose_rates/"egsphant.seq.nrrd",
+        pth_plan=dir_dose_rates/"cat_p1.plan",
+        output_dose_per_dwell="dose_rate")
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
