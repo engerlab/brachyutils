@@ -647,7 +647,8 @@ class BrachyPhantom:
         pth_output: Path,
         material_dict: dict | Path = None,
         assign_material_from_ct: bool = None,
-        crop_by_contour: str = None,
+        crop_by_contour: str | List[str] = None,
+        marginInMM: float = 0,
         resampled_spacing: List[float] = None,
         resampled_origin: List[float] = None,
         resample_phantom_base: Optional[bool] = True,
@@ -655,22 +656,23 @@ class BrachyPhantom:
         strict_name_match: bool = True,
     ) -> None:
         r"""
-        Purpose:
-            - Write the BrachyPhantom object to an Egsphant file.
-
-        Inputs:
-            - pth_output: Path := the path to write the Egsphant file to.
-            - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
-            The dictionary contains the name of the elements for each voxel,
-            and the following keys: [
-                "density" := the density of the material in g/cm^3,
-                "HU_limit" := the lower HU limit threshold of the material,
-                "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
-            ]
-            - assign_material_from_ct: bool := if True, the material will be assigned from the CT image.
-            - crop_by_contour: str := the name of the structure in the dicom file to crop the phantom by.
-            - resampled_spacing: List[float] := the spacing to resample the egsphant to.
-            - background_material: Optional[str] := the name of the background material. default is "Air".
+        ### Purpose:
+        - Write the BrachyPhantom object to an Egsphant file.
+        ### Inputs:
+        - pth_output: Path := the path to write the Egsphant file to.
+        - material_dict: dict | Path := the dictionary of the materials. if Path, the path to the material file.
+        The dictionary contains the name of the elements for each voxel,
+        and the following keys: [
+            "density" := the density of the material in g/cm^3,
+            "HU_limit" := the lower HU limit threshold of the material,
+            "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
+        ]
+        - assign_material_from_ct: bool := if True, the material will be assigned from the CT image.
+        - crop_by_contour: str | List[str] := the name of the structure in the dicom file to crop the phantom by.
+        If a list of names is provided, the union of the structures will be used to crop the phantom.
+        - marginInMM: float := the margin in mm to add to the cropped phantom. default is 0.
+        - resampled_spacing: List[float] := the spacing to resample the egsphant to.
+        - background_material: Optional[str] := the name of the background material. default is "Air".
         """
         pth_output = Path(pth_output)
         if not str(pth_output).endswith(".egsphant") and not str(pth_output).endswith(".seq.nrrd"):
@@ -706,7 +708,8 @@ class BrachyPhantom:
                 self.egsphant_obj.crop_by_contour(
                     phantom_used_for_egsphant,
                     crop_by_contour,
-                    strict_name_match=strict_name_match)
+                    strict_name_match=strict_name_match,
+                    marginInMM=marginInMM)
 
             if resampled_spacing is not None and not resample_phantom_base:
                 self.egsphant_obj.material_image = resampleImage3D(

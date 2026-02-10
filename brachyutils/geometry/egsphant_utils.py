@@ -743,21 +743,24 @@ class BrachyEgsphant:
         return self.crop_by_coordinates(new_coords_range, inplace)
 
     def crop_by_coordinates(
-        self, coordinate_range: np.array, inplace: Optional[bool] = True
+        self,
+        coordinate_range: np.array,
+        inplace: Optional[bool] = True,
+        marginInMM: float | List[float] = 0.0,
     ) -> Union[None, "BrachyEgsphant"]:
         r"""
-        Purpose:
-            given a range of coordinates (mix and max on each axis), this function will crop
-            material and density matricies and will adjust the rest of the attributes accordingly.
-        Inputs:
-            - self: BrachyEgsphant object
-            - coordinate_range := a 3 x 2 array holding the min and max on x, y and z axis
-                [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
-        Output:
-            - Void := will crop out the material and density maps of self to have the range of the index range.
-                it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
-        Dependencies:
-            - None
+        ### Purpose:
+        -given a range of coordinates (mix and max on each axis), this function will crop
+        material and density matricies and will adjust the rest of the attributes accordingly.
+        ### Inputs:
+        - self: BrachyEgsphant object
+        - coordinate_range := a 3 x 2 array holding the min and max on x, y and z axis
+            [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
+        - marginInMM: list of float for the margin in mm for each dimension 
+        The margins in mm that is added around the box before cropping
+        ### Output:
+        - None := will crop out the material and density maps of self to have the range of the index range.
+        it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         """
         from opentps.core.processing.imageProcessing.resampler3D import (
             crop3DDataAroundBox,
@@ -769,28 +772,33 @@ class BrachyEgsphant:
             2,
         ), "coordinate_range should be a 3x2 array in x, y, z order"
 
+        if isinstance(marginInMM, (int, float)):
+            marginInMM = [float(marginInMM)] * 3
+
         if inplace:
-            crop3DDataAroundBox(self.material_image, coordinate_range)
-            crop3DDataAroundBox(self.density_image, coordinate_range)
+            crop3DDataAroundBox(self.material_image, coordinate_range, marginInMM)
+            crop3DDataAroundBox(self.density_image, coordinate_range, marginInMM)
             self.get_voxel_edges()
         else:
             new_egsphant: BrachyEgsphant = copy.deepcopy(self)
-            new_egsphant.crop_by_coordinates(coordinate_range, inplace=True)
+            new_egsphant.crop_by_coordinates(coordinate_range, inplace=True, marginInMM=marginInMM)
             return new_egsphant
 
     def crop_by_contour(
         self,
         phantom_obj: BrachyPhantom,
-        contour_name: str,
+        contour_name: str | List[str],
         inplace: Optional[bool] = True,
         strict_name_match: Optional[bool] = True,
+        marginInMM: float = 0.0,
     ) -> Union[None, "BrachyEgsphant"]:
         r"""
         Purpose:
             - to crop the material and density matrix based on the contour of a structure in the phantom object.
         Inputs:
             - phantom_obj:BrachyPhantom := a BrachyPhantom object containing the structure mask
-            - contour_name:str := the name of the structure in the phantom object
+            - contour_name:str := the name of the structure in the phantom object. If a list of strings
+            is provided, the function will crop based on the union of the contours of the structures in the list.
             - inplace:bool := if True, the function will crop the current object, if False, it will return a new object
         Output:
             - None or BrachyEgsphant := if inplace is True, the function will crop the current object, if False, it will return a new object
@@ -800,13 +808,27 @@ class BrachyEgsphant:
             resampleImage3DOnImage3D,
         )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
-
-        mask_dict = phantom_obj.get_structure_mask([contour_name], mask_type=ROIMask, strict_name_match=strict_name_match)
+        if isinstance(contour_name, str):
+            contour_name = [contour_name]
+        mask_dict = phantom_obj.get_structure_mask(
+            contour_name,
+            mask_type=ROIMask,
+            strict_name_match=strict_name_match)
+        combined_mask_array = np.zeros_like(
+            mask_dict[contour_name[0]].imageArray, dtype=bool
+        )
+        for name in contour_name:
+            combined_mask_array = np.logical_or(combined_mask_array, mask_dict[name].imageArray)
+        combined_mask = ROIMask(
+            imageArray=combined_mask_array,
+            origin=phantom_obj.image_obj.origin,
+            spacing=phantom_obj.image_obj.spacing,
+        )
         resampled_mask = resampleImage3DOnImage3D(
-            mask_dict[contour_name], self.density_image
+            combined_mask, self.density_image
         )
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
-        return self.crop_by_coordinates(box_around_mask, inplace)
+        return self.crop_by_coordinates(box_around_mask, inplace, marginInMM)
 
     def get_material_array(self):
         r"""

@@ -2,12 +2,11 @@ import copy
 import numpy as np
 from typing import List, Union, Dict, Any, Optional, Tuple
 from pathlib import Path
-from pydantic import BaseModel, computed_field, ConfigDict
+from pydantic import BaseModel, computed_field, ConfigDict, model_validator
 import json
 import SimpleITK as sitk
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.data.images import ROIMask
-from brachyutils.geometry.phantom_utils import BrachyPhantom
 
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import PiecewiseLinear3D
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.spline_interpolator import NeedleSplineCreator
@@ -41,21 +40,6 @@ class DwellPosition(BaseModel):
     relativePos: float
     rotation: List[float] | Dict[str, float]
     time: float = 0.0
-    # weight: float = None
-
-    def __init__(self, **data):
-        r"""
-        ### Purpose:
-        - To initialize the DwellPosition object.
-        ### Inputs:
-        - **data: dict := the dictionary containing the dwell position attributes.
-        """
-        super().__init__(**data)
-        # convert position and rotation to lists if they are dictionaries
-        if isinstance(self.position, dict):
-            self.position = list(self.position.values())
-        if isinstance(self.rotation, dict):
-            self.rotation = list(self.rotation.values())
     
     def weight(self, total_time: float) -> float:
         r"""
@@ -149,7 +133,7 @@ class Catheter(BaseModel):
     - fit_function:PiecewiseLinear3D := a line that connects the dwell positions together.
     - insert_position:list := The coordinates on patient body or insertion grid where the 
     catheter was inserted from.
-
+    - gen_dose_rates: bool := whether the catheter needs to be generated for dose calculation or not.
     ### Functions:
     - to_dict() -> dict := convert the catheter to a dictionary.
     - add_dwell(dwell:DwellPosition) -> None := add a dwell position to the catheter.
@@ -168,7 +152,8 @@ class Catheter(BaseModel):
     # auxiliary attributes
     afterloader_channel_number: Optional[int] = None # if none, will be set to index
     insert_position: Optional[List[float]] = None
-    points: Optional[List[List[float]]] = None  # to keep compatibility with previous versions
+    # points: Optional[List[List[float]]] = None  # to keep compatibility with previous versions
+    gen_dose_rates: bool = True
 
     @computed_field
     def channel_total_time(self) -> float:
@@ -184,18 +169,33 @@ class Catheter(BaseModel):
         """
         return np.sum([dwell.time for dwell in self.dwells])
 
-    def __init__(self, **data):
+    @model_validator(mode="after")
+    def validate_catheter(self):
         r"""
-        ### Purpose:
-        - To initialize the Catheter object.
-        
-        ### Inputs:
-        - **data: dict := the dictionary containing the catheter attributes.
+        Validate the catheter object and set necessary attributes based on provided inputs.
+        This method ensures that the catheter has valid configuration by:
+        1. Setting digitization_points from points if not already provided
+        2. Setting afterloader_channel_number to index if not provided
+        3. Initializing dwells through one of several methods (in priority order):
+            - Converting existing dwells from dict format to DwellPosition objects
+            - Creating dwells from a provided fit_function
+            - Creating fit_function and dwells from digitization_points
+            - Creating fit_function and dwells from tip_position and last_dwell_coordinate
+        4. Setting tip_position and last_dwell_coordinate from the first and last dwell positions
+        Raises:
+             ValueError: If neither dwells, fit_function, points, nor tip/last_dwell coordinates are provided.
+             ValueError: If no dwell positions are found after initialization.
+        Attributes modified:
+             digitization_points: Set from points if None
+             afterloader_channel_number: Set to index if None
+             fit_function: Generated if not provided and dwells can be created from points
+             dwells: List of DwellPosition objects representing dwell positions along the catheter
+             tip_position: Set to the position of the first dwell
+             last_dwell_coordinate: Set to the position of the last dwell
         """
-        super().__init__(**data)
         # Set digitization_points from points if digitization_points is None
-        if self.points is not None and self.digitization_points is None:
-            self.digitization_points = self.points
+        # if self.points is not None and self.digitization_points is None:
+        #     self.digitization_points = self.points
 
         # Set afterloader_channel_number to index if not provided
         if self.afterloader_channel_number is None:
@@ -238,6 +238,7 @@ class Catheter(BaseModel):
             self.last_dwell_coordinate = self.dwells[-1].position
         else:
             raise ValueError("No dwell positions found in the catheter. Please provide valid dwells.")
+        return self
 
     def to_dict(self, total_time=None) -> dict:
         r"""
@@ -432,6 +433,9 @@ class CatheterTable(BaseModel):
         5. from a CreatedSetUp object XXX clean this
     ### Attributes:
     - catheter_list : List[Catheter] := the list of catheter objects in the catheter table.
+    - from_delivered_dwellpositions: bool := whether the catheter table was created from delivered 
+    dwell positions. only applicable if the catheter table is created from a dicom file.
+    If False, the catheter table will be created from the digitization points.
     - step_size: float := the step size in mm between the dwell positions on the catheter table.
     - treatment_time: float = None := the total treatment time of the catheter table.
     this attributed is computed from the catheter list.
@@ -443,6 +447,7 @@ class CatheterTable(BaseModel):
     - load_from_json(pth_json:Path) -> list
     - load_from_dicom(pth_dicom:Path) -> list
     """
+    # TODO: unify writing to file (json, dicom, slicer markup). decide based on extension.
     ##########
     ## To enable using CatheterSetUp and CreatedSetUp as a data types, default is False.
     # This is not a parameter to be provided.
@@ -519,7 +524,8 @@ class CatheterTable(BaseModel):
             non_zero_dwell_positions[f"Needle_{catheter.index}"] = dwell_positions
         return non_zero_dwell_positions
 
-    def __init__(self, **data):
+    @model_validator(mode="after")
+    def validate_catheter_table(self):
         r"""
         ### Purpose:
         - To initialize the CatheterTable object.
@@ -532,7 +538,6 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - CatheterTable := the catheter table object.
         """
-        super().__init__(**data)
         if (isinstance(self.catheter_list, str) or
             isinstance(self.catheter_list, Path)
             ):
@@ -578,11 +583,119 @@ class CatheterTable(BaseModel):
             self.catheter_list = [
                 Catheter(**catheter_dict) for catheter_dict in self.catheter_list
             ]
+        return self
 
     def __iter__(self):
         for catheter in self.catheter_list:
             yield catheter
 
+    def __len__(self):
+        return len(self.catheter_list)
+
+    def __getitem__(self, indicies: int| slice) -> List[Catheter]:
+        r"""
+        ### Purpose:
+        - To get a subset of the catheter table.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - indicies: int | slice := the index or slice to get.
+
+        ### Outputs:
+        - List[Catheter] := the list of catheters in the catheter table.
+        """
+        if isinstance(indicies, slice):
+            return CatheterTable(
+                catheter_list=self.catheter_list[indicies],
+                step_size=self.step_size,
+            )
+        return CatheterTable(
+            catheter_list= [self.catheter_list[indicies]],
+            step_size=self.step_size,
+            )
+
+    def __add__(self, other: "CatheterTable") -> "CatheterTable":
+        r"""
+        ### Purpose:
+        - To add two catheter tables together.
+
+        ### Inputs:
+        - self := the first CatheterTable object.
+        - other := the second CatheterTable object.
+
+        ### Outputs:
+        - CatheterTable := the combined CatheterTable object.
+        """
+        if not isinstance(other, CatheterTable):
+            raise ValueError("other should be a CatheterTable object.")
+        combined_catheter_list = self.catheter_list + other.catheter_list
+        combined_step_size = max(self.step_size, other.step_size)
+        new_cat_table =  CatheterTable(
+            catheter_list=combined_catheter_list,
+            step_size=combined_step_size,
+        )
+        new_cat_table.reset_index()
+        return new_cat_table
+
+    def __iadd__(self, other: "CatheterTable") -> "CatheterTable":
+        r"""
+        ### Purpose:
+        - To add another catheter table to the current catheter table.
+
+        ### Inputs:
+        - self := the current CatheterTable object.
+        - other := the CatheterTable object to be added.
+
+        ### Outputs:
+        - CatheterTable := the updated CatheterTable object.
+        """
+        if not isinstance(other, CatheterTable):
+            raise ValueError("other should be a CatheterTable object.")
+        self.catheter_list += other.catheter_list
+        self.step_size = max(self.step_size, other.step_size)
+        self.reset_index()
+        return self
+
+    def __delitem__(self, index: int | slice):
+        r"""
+        ### Purpose:
+        - To delete a catheter from the catheter table.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - index: int | slice := the index or slice of the catheter to be deleted.
+
+        ### Outputs:
+        - None
+        """
+        del self.catheter_list[index]
+        self.reset_index()
+
+    def reset_index(self) -> None:
+        r"""
+        ### Purpose:
+        - To reset the index of the catheters in the catheter table.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+
+        ### Outputs:
+        - None
+        """
+        for i, catheter in enumerate(self.catheter_list):
+            catheter.index = i
+
+    def get_catheters_for_dose_gen(self):
+        r"""
+        ### Purpose:
+        - To get a catheter table with only the catheters that are needed for dose rate generation
+        """
+        dose_gen_list = [cat for cat in self if cat.gen_dose_rates]
+        return CatheterTable(
+            catheter_list=dose_gen_list,
+            step_size=self.step_size,
+            from_delivered_dwellpositions=self.from_delivered_dwellpositions
+        )
     def to_dict(self) -> dict:
         r"""
         ### Purpose:
