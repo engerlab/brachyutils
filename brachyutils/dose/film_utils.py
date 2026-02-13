@@ -2,8 +2,11 @@ import os
 import pickle
 
 # import sys
-import tkinter as tk
-from tkinter import filedialog as fd
+try:
+    import tkinter as tk
+    from tkinter import filedialog as fd
+except ModuleNotFoundError:
+    pass
 
 # import cv2
 import matplotlib.pyplot as plt

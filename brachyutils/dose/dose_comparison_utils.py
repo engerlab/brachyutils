@@ -2,8 +2,11 @@ import logging
 import os
 import pickle
 import sys
-import tkinter as tk
-from tkinter import filedialog as fd
+try:
+    import tkinter as tk
+    from tkinter import filedialog as fd
+except ModuleNotFoundError:
+    pass
 from pathlib import Path
 import numpy as np
 import matplotlib
