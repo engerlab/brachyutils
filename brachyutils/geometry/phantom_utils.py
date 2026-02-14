@@ -112,8 +112,6 @@ Please provide either the structure_set or the path of the structure file."
             self.pth_image: Path = Path(dir_dicom)
         elif pth_phantom_file is not None:
             self.pth_image: Path = Path(pth_phantom_file)
-        elif image_obj is not None:
-            self.image_obj = image_obj
         else:
             self.pth_image = None
         self.image_obj: Union[CTImage, MRImage] = None
@@ -140,6 +138,8 @@ Please provide either the structure_set or the path of the structure file."
                 self._load_nifti_image_file(self.pth_image)
         elif pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
+        elif image_obj is not None:
+            self.image_obj = image_obj
         else:
             warnings.warn("No geometry source file provided. Creating an empty Phantom", stacklevel=2)
 
