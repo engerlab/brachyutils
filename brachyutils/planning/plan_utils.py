@@ -721,9 +721,11 @@ class BrachyPlan:
         """
         if not any(self.dose_rate_dict):
             raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
-
-        self.combined_dose = BrachyDose.dose_with_empty_grid_like(
-            list(self.dose_rate_dict.values())[0])
+        if self.combined_dose is None:
+            self.combined_dose = BrachyDose.dose_with_empty_grid_like(
+                list(self.dose_rate_dict.values())[0])
+        else:
+            self.combined_dose.dose_image.imageArray.fill(0)
         for catheter in self.catheter_table:
             for dwell in catheter.dwells:
                 self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
