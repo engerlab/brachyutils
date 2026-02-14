@@ -73,6 +73,10 @@ class BrachyPhantom:
         pth_phantom_file: Optional[Path] = None,
         pth_structures_file: Optional[Path] = None,
         pth_egsphant_file: Optional[Path] = None,
+        image_obj: Optional[Image3D] = None,
+        structure_set: Optional[
+            RTStruct | Dict[str, Union[ROIMask, np.ndarray, ROIContour]]
+            ] = None,
     ) -> None:
         r"""
         ### Purpose:
@@ -92,15 +96,24 @@ class BrachyPhantom:
         - openTPS.core
         - BrachyEgsphant
         """
-        if dir_dicom is not None and pth_phantom_file is not None:
+        if sum(x is not None for x in [dir_dicom, pth_phantom_file, image_obj]) > 1:
             raise ValueError(
-                "Please provide either the directory of the DICOM files or the path of the phantom file."
+                "Please provide only one geometry source file. \
+Please provide either the directory of the DICOM files, \
+the path of the phantom file, or the path of the Egsphant file."
+            )
+        if sum(x is not None for x in [structure_set, pth_structures_file]) > 1:
+            raise ValueError(
+                "Please provide only one structure source file. \
+Please provide either the structure_set or the path of the structure file."
             )
         # Attributes for patient images
         if dir_dicom is not None:
             self.pth_image: Path = Path(dir_dicom)
         elif pth_phantom_file is not None:
             self.pth_image: Path = Path(pth_phantom_file)
+        elif image_obj is not None:
+            self.image_obj = image_obj
         else:
             self.pth_image = None
         self.image_obj: Union[CTImage, MRImage] = None
@@ -128,15 +141,17 @@ class BrachyPhantom:
         elif pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
         else:
-            # raise ValueError(
-            #     "No geometry source file provided. Please provide either the directory of the DICOM files or the path of the phantom file."
-            # )
             warnings.warn("No geometry source file provided. Creating an empty Phantom", stacklevel=2)
 
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)
             assert os.path.exists(pth_structures_file), "The input path does not exist."
             self._load_structure_file(pth_structures_file)
+        elif structure_set is not None:
+            if isinstance(structure_set, RTStruct):
+                self.structure_set = structure_set
+            else:
+                self.set_structure_set(structure_set)
 
         if pth_egsphant_file is not None:
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
