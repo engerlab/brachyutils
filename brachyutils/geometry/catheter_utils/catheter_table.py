@@ -592,27 +592,25 @@ class CatheterTable(BaseModel):
     def __len__(self):
         return len(self.catheter_list)
 
-    def __getitem__(self, indicies: int| slice) -> List[Catheter]:
+    def __getitem__(self, indices: int| slice) ->  Union[Catheter, "CatheterTable"] :
         r"""
         ### Purpose:
         - To get a subset of the catheter table.
 
         ### Inputs:
         - self := the CatheterTable object.
-        - indicies: int | slice := the index or slice to get.
+        - indices: int | slice := the index or slice to get.
 
         ### Outputs:
         - List[Catheter] := the list of catheters in the catheter table.
         """
-        if isinstance(indicies, slice):
+        if isinstance(indices, slice):
             return CatheterTable(
-                catheter_list=self.catheter_list[indicies],
+                catheter_list=self.catheter_list[indices],
                 step_size=self.step_size,
             )
-        return CatheterTable(
-            catheter_list= [self.catheter_list[indicies]],
-            step_size=self.step_size,
-            )
+        elif isinstance(indices, int):
+            return self.catheter_list[indices]
 
     def __add__(self, other: "CatheterTable") -> "CatheterTable":
         r"""

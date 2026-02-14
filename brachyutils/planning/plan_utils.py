@@ -616,6 +616,7 @@ class BrachyPlan:
         load_uncertainty:bool=False,
         multi_processing: bool = True,
         combined_dose_only: bool = False,
+        catheter_table: CatheterTable = None,
     ):
         r"""
         ### Purpose:
@@ -635,16 +636,29 @@ class BrachyPlan:
         - Void := will update the BrachyPlan.dose_rate_dict attribute
         """
         # make sure catheter table is loaded
-        assert self.catheter_table is not None, "catheter table is not loaded"
+        if catheter_table is None:
+            assert self.catheter_table is not None, "catheter table is not loaded"
+            catheter_table = self.catheter_table
 
         pth_dose_rate = Path(dir_dose_rate).resolve()
         if not pth_dose_rate.exists():
             raise ValueError(f"directory of dose rates does not exist: {pth_dose_rate}")
         dose_rate_files = list(pth_dose_rate.glob("run_*.seq.nrrd"))
-
         new_dose_rate_files = []
         # load file if they have not been loaded since modification
         for pth in dose_rate_files:
+            # check if pth is not needed in catheter table skip it:
+            cat_index_from_pth, dwell_index_from_pth = pth.name.split("_")[1:3]
+            cat_index_from_pth, dwell_index_from_pth = int(cat_index_from_pth)-1, int(dwell_index_from_pth)-1
+            if 0 <= cat_index_from_pth < len(catheter_table):
+                dwells = catheter_table[cat_index_from_pth].dwells
+                if 0 <= dwell_index_from_pth < len(dwells):
+                    pass
+                else:
+                    continue
+            else:
+                continue
+
             if not self.dose_rate_dict.get(pth.name, None):
                 new_dose_rate_files.append(pth)
             elif pth.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
