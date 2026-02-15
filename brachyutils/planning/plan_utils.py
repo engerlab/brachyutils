@@ -622,9 +622,7 @@ class BrachyPlan:
             ), "dwell numbers are not extracted correctly"
             self.num_dwells = len(self.dwell_numbers)
         if any(self.dose_rate_dict):
-            # only calculating combined dose when all the  
-            if len(self.dose_rate_dict) == self.num_dwells:
-                self._calculate_combined_dose(time_diffs=time_diffs)
+            self._calculate_combined_dose(time_diffs=time_diffs)
 
     def load_dose_rate_dict(
         self,
@@ -751,13 +749,22 @@ class BrachyPlan:
                             ).dose_image.imageArray * dwell.time
         else:
             for dwell_key, time_diff in time_diffs.items():
+                #print(time_diffs.items())
+                #print(self.dose_rate_dict.items())
                 if time_diff < 1e-3 : 
                     continue
-                print("################")
-                print(f"dwell key {dwell_key}")
-                print(f"time diff {time_diff}")
-                print("############")
-                self.combined_dose.dose_image.imageArray += (self.dose_rate_dict.get(dwell_key).dose_image.imageArray * time_diff)
+                #print("################")
+                #print(f"dwell key {dwell_key}")
+                #print(f"time diff {time_diff}")
+                #print("############")
+                split_dwell_key = dwell_key.split("_")
+                #print(f"split_dwell_key {split_dwell_key}")
+                catheter_number = split_dwell_key[1]
+                dwell_number = split_dwell_key[3]
+                dose_rate_key = f"run_{catheter_number}_{dwell_number}_0.seq.nrrd"
+                #print(f"dose_rate_key {dose_rate_key}")
+                #print(f"calculate_combined_dose() time_diff {time_diff}")
+                self.combined_dose.dose_image.imageArray += (self.dose_rate_dict.get(dose_rate_key).dose_image.imageArray * time_diff)
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
