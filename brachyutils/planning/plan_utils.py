@@ -558,6 +558,10 @@ class BrachyPlan:
                         mask=mask,
                         margin_mm=5.0,
                     )
+        #if 'time_diffs' in locals():
+        #    print("########################")
+        #    print(f"time diffs {time_diffs.items()}")
+        #    print("########################")
 
         self.update_plan_from_catheter_table(time_diffs=time_diffs if 'time_diffs' in locals() else None)
 
@@ -735,21 +739,23 @@ class BrachyPlan:
             raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
         if self.combined_dose is None:
             self.combined_dose = BrachyDose.dose_with_empty_grid_like(
-                list(self.dose_rate_dict.values())[0])
-        else:
+                list(self.dose_rate_dict.values())[0])        
+        if time_diffs is None:
             self.combined_dose.dose_image.imageArray.fill(0)
-        for catheter in self.catheter_table:
-            for dwell in catheter.dwells:
-                if time_diffs is None:
-                    self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
-                        f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
-                        ).dose_image.imageArray * dwell.time
-                else:
-                    time_diff = time_diffs.get(
-                        f"catheter_{catheter.index+1}_dwell_{dwell.index+1}", 0)
-                    self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
-                        f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
-                        ).dose_image.imageArray * time_diff
+            for catheter in self.catheter_table:
+                for dwell in catheter.dwells:
+                        self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
+                            f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                            ).dose_image.imageArray * dwell.time
+        else:
+            for dwell_key, time_diff in time_diffs.items():
+                if time_diff < 1e3 : 
+                    continue
+                print("################")
+                print(f"dwell key {dwell_key}")
+                print(f"time diff {time_diff}")
+                print("############")
+                self.combined_dose.dose_image.imageArray += (self.dose_rate_dict.get(dwell_key).dose_image.imageArray * time_diff)
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
