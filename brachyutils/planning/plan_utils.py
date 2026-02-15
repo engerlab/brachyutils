@@ -751,7 +751,7 @@ class BrachyPlan:
                             ).dose_image.imageArray * dwell.time
         else:
             for dwell_key, time_diff in time_diffs.items():
-                if time_diff < 1e3 : 
+                if time_diff < 1e-3 : 
                     continue
                 print("################")
                 print(f"dwell key {dwell_key}")
