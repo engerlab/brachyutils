@@ -534,7 +534,7 @@ class BrachyPlan:
             if self.catheter_table is None:
                 self.catheter_table = catheter_table
             else:
-                catheter_table_diff = self.catheter_table - catheter_table
+                catheter_table_diff = catheter_table - self.catheter_table 
                 time_diffs = {}
                 for catheter_diff in catheter_table_diff:
                     for dwell_diff in catheter_diff.dwells:
@@ -751,6 +751,8 @@ class BrachyPlan:
             for dwell_key, time_diff in time_diffs.items():
                 #print(time_diffs.items())
                 #print(self.dose_rate_dict.items())
+                print(f"dwell key {dwell_key}")
+                print(f"time_diff {time_diff}")
                 if time_diff < 1e-3 : 
                     continue
                 #print("################")
