@@ -577,48 +577,50 @@ class BrachyPlan:
         - Void := will update the self.dwell_numbers, self.dwell_times,
         and self.dwell_coordinates attributes
         """
+
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
-        (
-            self.catheter_numbers,
-            self.dwell_numbers,
-            self.dwell_times,
-            self.dwell_coordinates,
-        ) = (
-            np.array([], dtype=int),
-            np.array([], dtype=int),
-            np.array([], dtype=np.float32),
-            [],
-        )
-        self.num_catheters = None
-        self.num_dwells = None
+        if time_diffs is None: #I think this code is deprecated and is bottlenecking our hackathon project
+            (
+                self.catheter_numbers,
+                self.dwell_numbers,
+                self.dwell_times,
+                self.dwell_coordinates,
+            ) = (
+                np.array([], dtype=int),
+                np.array([], dtype=int),
+                np.array([], dtype=np.float32),
+                [],
+            )
+            self.num_catheters = None
+            self.num_dwells = None
 
-        # extract the attributes above from the catheter table
-        dwell_counter = 1
-        for catheter in self.catheter_table.catheter_list:
-            self.catheter_numbers = np.append(self.catheter_numbers, catheter.index)
-            for dwell in catheter.dwells:
-                self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
-                self.dwell_times = np.append(self.dwell_times, dwell.time)
-                self.dwell_coordinates.append(
-                    {
-                        "angle": dwell.angle,
-                        "position": dwell.position,
-                        "rotation": dwell.rotation,
-                        "relativePos": dwell.relativePos,
-                        "catheter_index": catheter.index,
-                        "dwell_index": dwell.index,
-                    }
-                )
-                dwell_counter += 1
-        assert (
-            len(self.catheter_numbers) - 1 == self.catheter_numbers[-1]
-        ), "catheter numbers are not extracted correctly"
-        self.num_catheters = len(self.catheter_numbers)
-        assert (
-            len(self.dwell_numbers) == self.dwell_numbers[-1]
-        ), "dwell numbers are not extracted correctly"
-        self.num_dwells = len(self.dwell_numbers)
+            # extract the attributes above from the catheter table
+            dwell_counter = 1
+            for catheter in self.catheter_table.catheter_list:
+                self.catheter_numbers = np.append(self.catheter_numbers, catheter.index)
+                for dwell in catheter.dwells:
+                    self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
+                    self.dwell_times = np.append(self.dwell_times, dwell.time)
+                    self.dwell_coordinates.append(
+                        {
+                            "angle": dwell.angle,
+                            "position": dwell.position,
+                            "rotation": dwell.rotation,
+                            "relativePos": dwell.relativePos,
+                            "catheter_index": catheter.index,
+                            "dwell_index": dwell.index,
+                        }
+                    )
+                    dwell_counter += 1
+            assert (
+                len(self.catheter_numbers) - 1 == self.catheter_numbers[-1]
+            ), "catheter numbers are not extracted correctly"
+            self.num_catheters = len(self.catheter_numbers)
+            assert (
+                len(self.dwell_numbers) == self.dwell_numbers[-1]
+            ), "dwell numbers are not extracted correctly"
+            self.num_dwells = len(self.dwell_numbers)
         if any(self.dose_rate_dict):
             # only calculating combined dose when all the  
             if len(self.dose_rate_dict) == self.num_dwells:
