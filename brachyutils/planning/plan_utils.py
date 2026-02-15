@@ -540,7 +540,9 @@ class BrachyPlan:
                     for dwell_diff in catheter_diff.dwells:
                         if dwell_diff.time != 0:
                             time_diffs[f"catheter_{catheter_diff.index+1}_dwell_{dwell_diff.index+1}"] = dwell_diff.time
+                            #print(f"added time diffs {time_diffs}")
                 self.catheter_table = catheter_table
+
         else:
             raise ValueError(
                 "catheter_table should be a path or a CatheterTable object"
@@ -751,10 +753,8 @@ class BrachyPlan:
             for dwell_key, time_diff in time_diffs.items():
                 #print(time_diffs.items())
                 #print(self.dose_rate_dict.items())
-                print(f"dwell key {dwell_key}")
-                print(f"time_diff {time_diff}")
-                if time_diff < 1e-3 : 
-                    continue
+                #if time_diff < 1e-3 :
+                #    continue
                 #print("################")
                 #print(f"dwell key {dwell_key}")
                 #print(f"time diff {time_diff}")
