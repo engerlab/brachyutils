@@ -695,6 +695,9 @@ class CatheterTable(BaseModel):
                         for other_dwell in other_catheter.dwells:
                             if dwell.index == other_dwell.index:
                                 dwell.time = dwell.time - other_dwell.time
+                                for i in range(3):
+                                    dwell.position[i] = dwell.position[i] - other_dwell.position[i]
+                                    dwell.rotation[i] = dwell.rotation[i] - other_dwell.rotation[i]
         return new_cat_table
     
     def reset_index(self) -> None:
