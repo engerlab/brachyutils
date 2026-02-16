@@ -34,13 +34,21 @@ class DwellPosition(BaseModel):
     ### Functions:
     - to_dict() -> dict := convert the dwell position to a dictionary.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     index: int
     angle: float = 0.0
     position: List[float] | np.array
     relativePos: float
     rotation: List[float] | np.array = None
     time: float = 0.0
-    
+
+    @model_validator(mode="after")
+    def validate_dwell_position(self):
+        self.position = np.array(self.position)
+        if self.rotation is not None:
+            self.rotation = np.array(self.rotation)
+        return self
+
     def weight(self, total_time: float) -> float:
         r"""
         ### Purpose:

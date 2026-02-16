@@ -547,7 +547,7 @@ class BrachyPlan:
                             self.catheter_table[catheter_diff.index][dwell_diff.index] = catheter_table[catheter_diff.index][dwell_diff.index]
                             continue
                         else:
-                            if dwell_diff.position != [0, 0, 0] or dwell_diff.rotation != [0, 0, 0]:
+                            if np.any(dwell_diff.position != 0) or np.any(dwell_diff.rotation != 0):
                                 # if the postion or rotation of the dwell has changed,
                                 # update it in the catheter table and set gen_dose_rates to True for that catheter.
                                 self.catheter_table[catheter_diff.index][dwell_diff.index].position = catheter_table[catheter_diff.index][dwell_diff.index].position
