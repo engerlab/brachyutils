@@ -36,9 +36,9 @@ class DwellPosition(BaseModel):
     """
     index: int
     angle: float = 0.0
-    position: List[float] | Dict[str, float]
+    position: List[float] | np.array
     relativePos: float
-    rotation: List[float] | Dict[str, float]
+    rotation: List[float] | np.array = None
     time: float = 0.0
     
     def weight(self, total_time: float) -> float:
