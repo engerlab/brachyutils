@@ -610,6 +610,8 @@ class CatheterTable(BaseModel):
                 step_size=self.step_size,
             )
         elif isinstance(indices, int):
+            if indices < 0 or indices >= len(self.catheter_list):
+                return None
             return self.catheter_list[indices]
 
     def __add__(self, other: "CatheterTable") -> "CatheterTable":
