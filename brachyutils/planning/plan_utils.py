@@ -537,19 +537,28 @@ class BrachyPlan:
                 catheter_table_diff = catheter_table - self.catheter_table 
                 time_diffs = {}
                 for catheter_diff in catheter_table_diff:
+                    # if the catheter is not in the current catheter table, add the entire catheter with all its dwells.
                     if self.catheter_table[catheter_diff.index] is None:
                         self.catheter_table.append(catheter_table[catheter_diff.index])
                         continue
                     for dwell_diff in catheter_diff.dwells:
-                        if self.catheter_table[catheter_diff.index].dwells[dwell_diff.index] is None:
-                            self.catheter_table[catheter_diff.index].dwells[dwell_diff.index] = catheter_table[catheter_diff.index].dwells[dwell_diff.index]
+                        # if that dwell is not in the current cathetr, add it.
+                        if self.catheter_table[catheter_diff.index][dwell_diff.index] is None:
+                            self.catheter_table[catheter_diff.index][dwell_diff.index] = catheter_table[catheter_diff.index][dwell_diff.index]
                             continue
-                        if dwell_diff.time != 0:
-                            time_diffs[
-                                f"catheter_{catheter_diff.index+1}_dwell_{dwell_diff.index+1}"
-                                ] = dwell_diff.time
-                            #print(f"added time diffs {time_diffs}")
-
+                        else:
+                            if dwell_diff.position != [0, 0, 0] or dwell_diff.rotation != [0, 0, 0]:
+                                # if the postion or rotation of the dwell has changed,
+                                # update it in the catheter table and set gen_dose_rates to True for that catheter.
+                                self.catheter_table[catheter_diff.index][dwell_diff.index].position = catheter_table[catheter_diff.index][dwell_diff.index].position
+                                self.catheter_table[catheter_diff.index][dwell_diff.index].rotation = catheter_table[catheter_diff.index][dwell_diff.index].rotation
+                                self.catheter_table[catheter_diff.index].gen_dose_rates = True
+                            elif dwell_diff.time != 0:
+                                time_diffs[
+                                    f"catheter_{catheter_diff.index+1}_dwell_{dwell_diff.index+1}"
+                                    ] = dwell_diff.time
+                            else:
+                                continue
         else:
             raise ValueError(
                 "catheter_table should be a path or a CatheterTable object"
