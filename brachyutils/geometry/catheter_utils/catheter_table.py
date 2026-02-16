@@ -702,6 +702,24 @@ class CatheterTable(BaseModel):
                                     dwell.rotation[i] = dwell.rotation[i] - other_dwell.rotation[i]
         return new_cat_table
     
+    def append(self, catheter: Catheter) -> None:
+        r"""
+        ### Purpose:
+        - To append a catheter to the catheter table.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - catheter: Catheter := the catheter to be appended.
+
+        ### Outputs:
+        - None
+        """
+        if not isinstance(catheter, Catheter):
+            raise ValueError("catheter should be a Catheter object.")
+        new_index = len(self.catheter_list)
+        catheter.index = new_index
+        self.catheter_list.append(catheter)
+
     def reset_index(self) -> None:
         r"""
         ### Purpose:
