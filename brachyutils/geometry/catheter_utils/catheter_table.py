@@ -240,6 +240,26 @@ class Catheter(BaseModel):
             raise ValueError("No dwell positions found in the catheter. Please provide valid dwells.")
         return self
 
+    def __getitem__(self, indices: int| slice) ->  Union[DwellPosition, List[DwellPosition]] :
+        r"""
+        ### Purpose:
+        - To get a subset of the catheter table.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - indices: int | slice := the index or slice to get.
+
+        ### Outputs:
+        - List[DwellPosition] := the list of dwell positions in the catheter table.
+        TODO: Maybe we want to return a new catheter object if a slice is provided?
+        """
+        if isinstance(indices, slice):
+            return self.dwells[indices],
+        elif isinstance(indices, int):
+            if indices < 0 or indices >= len(self.dwells):
+                return None
+            return self.dwells[indices]
+
     def to_dict(self, total_time=None) -> dict:
         r"""
         ### Purpose:

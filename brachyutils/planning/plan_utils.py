@@ -537,11 +537,18 @@ class BrachyPlan:
                 catheter_table_diff = catheter_table - self.catheter_table 
                 time_diffs = {}
                 for catheter_diff in catheter_table_diff:
+                    if self.catheter_table[catheter_diff.index] is None:
+                        self.catheter_table.append(catheter_table[catheter_diff.index])
+                        continue
                     for dwell_diff in catheter_diff.dwells:
+                        if self.catheter_table[catheter_diff.index].dwells[dwell_diff.index] is None:
+                            self.catheter_table[catheter_diff.index].dwells[dwell_diff.index] = catheter_table[catheter_diff.index].dwells[dwell_diff.index]
+                            continue
                         if dwell_diff.time != 0:
-                            time_diffs[f"catheter_{catheter_diff.index+1}_dwell_{dwell_diff.index+1}"] = dwell_diff.time
+                            time_diffs[
+                                f"catheter_{catheter_diff.index+1}_dwell_{dwell_diff.index+1}"
+                                ] = dwell_diff.time
                             #print(f"added time diffs {time_diffs}")
-                self.catheter_table = catheter_table
 
         else:
             raise ValueError(
@@ -565,7 +572,8 @@ class BrachyPlan:
         #    print(f"time diffs {time_diffs.items()}")
         #    print("########################")
 
-        self.update_plan_from_catheter_table(time_diffs=time_diffs if 'time_diffs' in locals() else None)
+        self.update_plan_from_catheter_table(
+            time_diffs=time_diffs if 'time_diffs' in locals() else None)
 
     def update_plan_from_catheter_table(self, time_diffs=None):
         r"""
