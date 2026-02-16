@@ -576,11 +576,6 @@ class BrachyPlan:
                         mask=mask,
                         margin_mm=5.0,
                     )
-        #if 'time_diffs' in locals():
-        #    print("########################")
-        #    print(f"time diffs {time_diffs.items()}")
-        #    print("########################")
-
         self.update_plan_from_catheter_table(
             time_diffs=time_diffs if 'time_diffs' in locals() else None)
 
@@ -746,7 +741,12 @@ class BrachyPlan:
         The result is stored in the combined_dose attribute.
         We require strict name matching between the dwell names and dose rate names!
         ### Inputs:
-        - time_diffs: a dictionary of time differences for each dwell in the plan. This is used to update the combined dose if the dwell times are updated without having to reload the dose rate maps. The keys of the dictionary should be in the format "catheter_{catheter_index}_dwell_{dwell_index}" and the values should be the time differences in seconds. If None, the combined dose will be calculated using the current dwell times in the plan.
+        - time_diffs: a dictionary of time differences for each dwell in the plan. 
+        This is used to update the combined dose if the dwell times are updated without
+        having to reload the dose rate maps. The keys of the dictionary should be in
+        the format "catheter_{catheter_index}_dwell_{dwell_index}" and the values
+        should be the time differences in seconds. If None, the combined dose will
+        be calculated using the current dwell times in the plan.
         ### Outputs:
         - None: but it needs the following attributes to be filled:
         - self.dose_rate_dict
