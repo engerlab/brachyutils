@@ -21,12 +21,11 @@ from brachyutils.dose.dose_utils import BrachyDose
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry.applicator_utils import BrachyApplicator 
 from brachyutils.geometry.phantom_utils import BrachyPhantom
-from brachyutils.geometry.catheter_utils.catheter_table import Catheter, CatheterTable
+from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
-# from brachyutils.types import Optimization_Config
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
-
+from brachyutils.dose.dose_generation_utils import BrachyDoseGenerator, DoseTG43
 from pydantic import BaseModel, ConfigDict, Field, model_validator, computed_field
 
 class ExportConfig_Dose(BaseModel):
@@ -297,7 +296,6 @@ class BrachyPlan:
         # declare the attributes
         # patient origin is used as a reference point for the catheter table,
         # the dwell coordinates, image origin, egsphant, and the dose objects.
-        # XXX: figure out how to sort out patient origin to match all above.
 
         # phantom and geometry attributes
         self.phantom: BrachyPhantom = None
@@ -1118,7 +1116,6 @@ class BrachyPlan:
         with open(output_pth, "w") as json_file:
             json.dump(self.dvh_metric_goals, json_file, indent=4)
 
-
     def calculate_uncertainty_per_structure(self):
         r"""
         ### Purpose:
@@ -1813,6 +1810,60 @@ config do not match for structure {struc.name}"
                 continue
             structure.optimization_config = None
 
+    def run_dose_generation(
+        self,
+        dose_generator_obj: BrachyDoseGenerator = None,
+        generate_dose_rate_maps: bool = True,
+        dir_export: str | Path = None,
+        export_config_brachyplan: ExportConfig_BrachyPlan = None,
+        ):
+        r"""
+        ### Purpose:
+        - to run the dose generation for the plan and update the combined dose.
+        ### Inputs:
+        - dose_generator_obj := the BrachyDoseGenerator object to be used for dose generation
+        - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
+        If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
+        - dir_export := the directory used for exporting the dosimetry setup and the generated dose maps.
+        if None, "temp_data/tg43/"
+        """
+        plan_name = self.phantom.pth_image.stem
+        if "." in plan_name:
+            plan_name = plan_name.split(".")[0]
+
+        if dir_export is None:
+            # XXX check the full path with resolve to be correct.
+            dir_export = Path("temp_data/tg43/")/plan_name
+
+        dir_export = Path(dir_export)
+        if dose_generator_obj is None:
+            dose_generator_obj = DoseTG43(dir_plan_export=dir_export)
+
+        if not isinstance(dose_generator_obj, BrachyDoseGenerator):
+            raise ValueError("dose_generator_obj should be an instance of BrachyDoseGenerator")
+        # export the plan for dosimetry
+        if export_config_brachyplan is None:
+            export_config_brachyplan = ExportConfig_BrachyPlan(
+                dir_export=dir_export,
+                export_config_egsphant=True,
+                export_config_planfile=True,
+                export_config_macfile=True,
+            )
+        self.export_brachy_plan(export_config_brachyplan)
+        # call the dose generator to generate the dose maps
+        dose_generator_obj.run_dose_generation(
+            output_dose_per_dwell= "dose_rate" if generate_dose_rate_maps else False,
+        )
+        # load the generated dose maps and update the plan
+        if generate_dose_rate_maps:
+            self.load_dose_rate_dict(
+                dir_dose_rate=dir_export,
+            )
+        else:
+            self.combined_dose = BrachyDose(
+                export_config_brachyplan.export_config_macfile.pth_combined.with_suffix(".seq.nrrd")
+                )            
+
     def get_dose_rate_matrices_for_catheter(
         self,
         catheter_index: int
@@ -1829,6 +1880,8 @@ config do not match for structure {struc.name}"
         TODO: get rid of +1 when moving towards catheter generation from digi points
         TODO: Consider adding angle to the name later when IMBT is involved.
         """
+        if len(self.dose_rate_dict) == 0:
+            raise ValueError("dose rate maps are not generated yet. run dose generation first")
         dose_rates_catheter = defaultdict(BrachyDose)
         
         for name, dose_rate in self.dose_rate_dict.items():
