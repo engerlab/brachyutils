@@ -2,8 +2,11 @@ import logging
 import os
 import pickle
 import sys
-import tkinter as tk
-from tkinter import filedialog as fd
+try:
+    import tkinter as tk
+    from tkinter import filedialog as fd
+except ModuleNotFoundError:
+    pass
 from pathlib import Path
 import numpy as np
 import matplotlib
@@ -347,6 +350,8 @@ class BrachyDoseComparison:
         Returns:
             None
         """
+        #make sure there's no 0s in the ref dose to prevent division by 0
+        self.dose1.dose_image.imageArray[self.dose1.dose_image.imageArray == 0] = 1e-6 
         if local:
             self.percent_difference_local = BrachyDose.dose_with_empty_grid_like(self.dose1)
             if positive_percent_difference:

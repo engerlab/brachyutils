@@ -34,13 +34,21 @@ class DwellPosition(BaseModel):
     ### Functions:
     - to_dict() -> dict := convert the dwell position to a dictionary.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     index: int
     angle: float = 0.0
-    position: List[float] | Dict[str, float]
+    position: List[float] | np.array
     relativePos: float
-    rotation: List[float] | Dict[str, float]
+    rotation: List[float] | np.array = None
     time: float = 0.0
-    
+
+    @model_validator(mode="after")
+    def validate_dwell_position(self):
+        self.position = np.array(self.position)
+        if self.rotation is not None:
+            self.rotation = np.array(self.rotation)
+        return self
+
     def weight(self, total_time: float) -> float:
         r"""
         ### Purpose:
@@ -239,6 +247,26 @@ class Catheter(BaseModel):
         else:
             raise ValueError("No dwell positions found in the catheter. Please provide valid dwells.")
         return self
+
+    def __getitem__(self, indices: int| slice) ->  Union[DwellPosition, List[DwellPosition]] :
+        r"""
+        ### Purpose:
+        - To get a subset of the catheter table.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - indices: int | slice := the index or slice to get.
+
+        ### Outputs:
+        - List[DwellPosition] := the list of dwell positions in the catheter table.
+        TODO: Maybe we want to return a new catheter object if a slice is provided?
+        """
+        if isinstance(indices, slice):
+            return self.dwells[indices],
+        elif isinstance(indices, int):
+            if indices < 0 or indices >= len(self.dwells):
+                return None
+            return self.dwells[indices]
 
     def to_dict(self, total_time=None) -> dict:
         r"""
@@ -592,27 +620,27 @@ class CatheterTable(BaseModel):
     def __len__(self):
         return len(self.catheter_list)
 
-    def __getitem__(self, indicies: int| slice) -> List[Catheter]:
+    def __getitem__(self, indices: int| slice) ->  Union[Catheter, "CatheterTable"] :
         r"""
         ### Purpose:
         - To get a subset of the catheter table.
 
         ### Inputs:
         - self := the CatheterTable object.
-        - indicies: int | slice := the index or slice to get.
+        - indices: int | slice := the index or slice to get.
 
         ### Outputs:
         - List[Catheter] := the list of catheters in the catheter table.
         """
-        if isinstance(indicies, slice):
+        if isinstance(indices, slice):
             return CatheterTable(
-                catheter_list=self.catheter_list[indicies],
+                catheter_list=self.catheter_list[indices],
                 step_size=self.step_size,
             )
-        return CatheterTable(
-            catheter_list= [self.catheter_list[indicies]],
-            step_size=self.step_size,
-            )
+        elif isinstance(indices, int):
+            if indices < 0 or indices >= len(self.catheter_list):
+                return None
+            return self.catheter_list[indices]
 
     def __add__(self, other: "CatheterTable") -> "CatheterTable":
         r"""
@@ -670,6 +698,55 @@ class CatheterTable(BaseModel):
         """
         del self.catheter_list[index]
         self.reset_index()
+
+    def __sub__(self, other: "CatheterTable") -> "CatheterTable":
+        r"""
+        ### Purpose:
+        - To subtract the dwell times, position and rotation of one catheter table from the current catheter table.
+
+        ### Inputs:
+        - self := the current CatheterTable object.
+        - other := the CatheterTable object to be subtracted.
+
+        ### Outputs:
+        - CatheterTable := the updated CatheterTable object.
+        """
+        if not isinstance(other, CatheterTable):
+            raise ValueError("other should be a CatheterTable object.")
+        new_cat_table = copy.deepcopy(self)
+        #if len(new_cat_table) != len(other):
+        #    raise ValueError("The two catheter tables should have the same number of catheters to be subtracted.")
+        for catheter in new_cat_table.catheter_list:
+            for other_catheter in other.catheter_list:
+                if catheter.index == other_catheter.index:
+                    #if len(catheter.dwells) != len(other_catheter.dwells):
+                    #    raise ValueError("The two catheters should have the same number of dwell positions to be subtracted.")
+                    for dwell in catheter.dwells:
+                        for other_dwell in other_catheter.dwells:
+                            if dwell.index == other_dwell.index:
+                                dwell.time = dwell.time - other_dwell.time
+                                for i in range(3):
+                                    dwell.position[i] = dwell.position[i] - other_dwell.position[i]
+                                    dwell.rotation[i] = dwell.rotation[i] - other_dwell.rotation[i]
+        return new_cat_table
+    
+    def append(self, catheter: Catheter) -> None:
+        r"""
+        ### Purpose:
+        - To append a catheter to the catheter table.
+
+        ### Inputs:
+        - self := the CatheterTable object.
+        - catheter: Catheter := the catheter to be appended.
+
+        ### Outputs:
+        - None
+        """
+        if not isinstance(catheter, Catheter):
+            raise ValueError("catheter should be a Catheter object.")
+        new_index = len(self.catheter_list)
+        catheter.index = new_index
+        self.catheter_list.append(catheter)
 
     def reset_index(self) -> None:
         r"""

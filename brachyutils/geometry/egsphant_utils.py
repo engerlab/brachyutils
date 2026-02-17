@@ -57,8 +57,10 @@ class BrachyEgsphant:
     # each voxel in the material matrix is encoded with a single character
     # from this array that represents a unique material recognized by RapidBrachyMC.
     _materials_encoding_array = [str(i) for i in range(1, 10)] + [
-        chr(i) for i in range(ord("A"), ord("Z") + 1)
-    ]
+        chr(i) for i in range(ord("A"), ord("Z") + 1)] + [
+        chr(i) for i in range(ord("a"), ord("z") + 1)
+        ]
+    
 
     def __init__(
         self,
@@ -588,8 +590,8 @@ class BrachyEgsphant:
             # from this array that represents a unique material recognized by RapidBrachyMC.
         #have to redefine here since nrrd egsphants start at 0
         BrachyEgsphant._materials_encoding_array = [str(i) for i in range(0, 10)] + [
-            chr(i) for i in range(ord("A"), ord("Z") + 1)
-        ]
+            chr(i) for i in range(ord("A"), ord("Z") + 1) ] + [
+            chr(i) for i in range(ord("a"), ord("z") + 1) ]
 
         header = header | {
             "material_dict": {

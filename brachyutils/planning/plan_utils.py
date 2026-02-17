@@ -531,7 +531,34 @@ class BrachyPlan:
                 from_delivered_dwellpositions=from_delivered_dwellpositions,
                 )
         elif isinstance(catheter_table, CatheterTable):
-            self.catheter_table = catheter_table
+            if self.catheter_table is None:
+                self.catheter_table = catheter_table
+            else:
+                catheter_table_diff = catheter_table - self.catheter_table 
+                time_diffs = {}
+                for catheter_diff in catheter_table_diff:
+                    # if the catheter is not in the current catheter table, add the entire catheter with all its dwells.
+                    if self.catheter_table[catheter_diff.index] is None:
+                        self.catheter_table.append(catheter_table[catheter_diff.index])
+                        continue
+                    for dwell_diff in catheter_diff.dwells:
+                        # if that dwell is not in the current cathetr, add it.
+                        if self.catheter_table[catheter_diff.index][dwell_diff.index] is None:
+                            self.catheter_table[catheter_diff.index][dwell_diff.index] = catheter_table[catheter_diff.index][dwell_diff.index]
+                            continue
+                        else:
+                            if np.any(dwell_diff.position != 0) or np.any(dwell_diff.rotation != 0):
+                                # if the postion or rotation of the dwell has changed,
+                                # update it in the catheter table and set gen_dose_rates to True for that catheter.
+                                self.catheter_table[catheter_diff.index][dwell_diff.index].position = catheter_table[catheter_diff.index][dwell_diff.index].position
+                                self.catheter_table[catheter_diff.index][dwell_diff.index].rotation = catheter_table[catheter_diff.index][dwell_diff.index].rotation
+                                self.catheter_table[catheter_diff.index].gen_dose_rates = True
+                            elif dwell_diff.time != 0:
+                                time_diffs[
+                                    f"catheter_{catheter_diff.index+1}_dwell_{dwell_diff.index+1}"
+                                    ] = dwell_diff.time
+                            else:
+                                continue
         else:
             raise ValueError(
                 "catheter_table should be a path or a CatheterTable object"
@@ -549,66 +576,72 @@ class BrachyPlan:
                         mask=mask,
                         margin_mm=5.0,
                     )
+        #if 'time_diffs' in locals():
+        #    print("########################")
+        #    print(f"time diffs {time_diffs.items()}")
+        #    print("########################")
 
-        self.update_plan_from_catheter_table()
+        self.update_plan_from_catheter_table(
+            time_diffs=time_diffs if 'time_diffs' in locals() else None)
 
-    def update_plan_from_catheter_table(self):
+    def update_plan_from_catheter_table(self, time_diffs=None):
         r"""
         ### Purpose:
         - To extract the dwell numbers, times, and coordinates from the catheter table
         and save them as class attributes.
         ### Inputs:
         - self := the BrachyPlan object
+        - time_diffs: dict := A dictionary of time differences for each dwell position. this is used for fast plan update.
         ### Outputs:
         - Void := will update the self.dwell_numbers, self.dwell_times,
         and self.dwell_coordinates attributes
         """
+
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
-        (
-            self.catheter_numbers,
-            self.dwell_numbers,
-            self.dwell_times,
-            self.dwell_coordinates,
-        ) = (
-            np.array([], dtype=int),
-            np.array([], dtype=int),
-            np.array([], dtype=np.float32),
-            [],
-        )
-        self.num_catheters = None
-        self.num_dwells = None
+        if time_diffs is None: #I think this code is deprecated and is bottlenecking our hackathon project
+            (
+                self.catheter_numbers,
+                self.dwell_numbers,
+                self.dwell_times,
+                self.dwell_coordinates,
+            ) = (
+                np.array([], dtype=int),
+                np.array([], dtype=int),
+                np.array([], dtype=np.float32),
+                [],
+            )
+            self.num_catheters = None
+            self.num_dwells = None
 
-        # extract the attributes above from the catheter table
-        dwell_counter = 1
-        for catheter in self.catheter_table.catheter_list:
-            self.catheter_numbers = np.append(self.catheter_numbers, catheter.index)
-            for dwell in catheter.dwells:
-                self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
-                self.dwell_times = np.append(self.dwell_times, dwell.time)
-                self.dwell_coordinates.append(
-                    {
-                        "angle": dwell.angle,
-                        "position": dwell.position,
-                        "rotation": dwell.rotation,
-                        "relativePos": dwell.relativePos,
-                        "catheter_index": catheter.index,
-                        "dwell_index": dwell.index,
-                    }
-                )
-                dwell_counter += 1
-        assert (
-            len(self.catheter_numbers) - 1 == self.catheter_numbers[-1]
-        ), "catheter numbers are not extracted correctly"
-        self.num_catheters = len(self.catheter_numbers)
-        assert (
-            len(self.dwell_numbers) == self.dwell_numbers[-1]
-        ), "dwell numbers are not extracted correctly"
-        self.num_dwells = len(self.dwell_numbers)
+            # extract the attributes above from the catheter table
+            dwell_counter = 1
+            for catheter in self.catheter_table.catheter_list:
+                self.catheter_numbers = np.append(self.catheter_numbers, catheter.index)
+                for dwell in catheter.dwells:
+                    self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
+                    self.dwell_times = np.append(self.dwell_times, dwell.time)
+                    self.dwell_coordinates.append(
+                        {
+                            "angle": dwell.angle,
+                            "position": dwell.position,
+                            "rotation": dwell.rotation,
+                            "relativePos": dwell.relativePos,
+                            "catheter_index": catheter.index,
+                            "dwell_index": dwell.index,
+                        }
+                    )
+                    dwell_counter += 1
+            assert (
+                len(self.catheter_numbers) - 1 == self.catheter_numbers[-1]
+            ), "catheter numbers are not extracted correctly"
+            self.num_catheters = len(self.catheter_numbers)
+            assert (
+                len(self.dwell_numbers) == self.dwell_numbers[-1]
+            ), "dwell numbers are not extracted correctly"
+            self.num_dwells = len(self.dwell_numbers)
         if any(self.dose_rate_dict):
-            # only calculating combined dose when all the  
-            if len(self.dose_rate_dict) == self.num_dwells:
-                self._calculate_combined_dose()
+            self._calculate_combined_dose(time_diffs=time_diffs)
 
     def load_dose_rate_dict(
         self,
@@ -616,6 +649,7 @@ class BrachyPlan:
         load_uncertainty:bool=False,
         multi_processing: bool = True,
         combined_dose_only: bool = False,
+        catheter_table: CatheterTable = None,
     ):
         r"""
         ### Purpose:
@@ -635,16 +669,29 @@ class BrachyPlan:
         - Void := will update the BrachyPlan.dose_rate_dict attribute
         """
         # make sure catheter table is loaded
-        assert self.catheter_table is not None, "catheter table is not loaded"
+        if catheter_table is None:
+            assert self.catheter_table is not None, "catheter table is not loaded"
+            catheter_table = self.catheter_table
 
         pth_dose_rate = Path(dir_dose_rate).resolve()
         if not pth_dose_rate.exists():
             raise ValueError(f"directory of dose rates does not exist: {pth_dose_rate}")
         dose_rate_files = list(pth_dose_rate.glob("run_*.seq.nrrd"))
-
         new_dose_rate_files = []
         # load file if they have not been loaded since modification
         for pth in dose_rate_files:
+            # check if pth is not needed in catheter table skip it:
+            cat_index_from_pth, dwell_index_from_pth = pth.name.split("_")[1:3]
+            cat_index_from_pth, dwell_index_from_pth = int(cat_index_from_pth)-1, int(dwell_index_from_pth)-1
+            if 0 <= cat_index_from_pth < len(catheter_table):
+                dwells = catheter_table[cat_index_from_pth].dwells
+                if 0 <= dwell_index_from_pth < len(dwells):
+                    pass
+                else:
+                    continue
+            else:
+                continue
+
             if not self.dose_rate_dict.get(pth.name, None):
                 new_dose_rate_files.append(pth)
             elif pth.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
@@ -692,13 +739,15 @@ class BrachyPlan:
         if combined_dose_only:
             del self.dose_rate_dict
 
-    def _calculate_combined_dose(self):
+    def _calculate_combined_dose(self, time_diffs=None):
         """
         ### Purpose:
         - To calculate the combined dose by multiplying the dose rates with the dwell times.
         The result is stored in the combined_dose attribute.
         We require strict name matching between the dwell names and dose rate names!
         ### Inputs:
+        - time_diffs: a dictionary of time differences for each dwell in the plan. This is used to update the combined dose if the dwell times are updated without having to reload the dose rate maps. The keys of the dictionary should be in the format "catheter_{catheter_index}_dwell_{dwell_index}" and the values should be the time differences in seconds. If None, the combined dose will be calculated using the current dwell times in the plan.
+        ### Outputs:
         - None: but it needs the following attributes to be filled:
         - self.dose_rate_dict
         - self.catheter_table
@@ -707,14 +756,34 @@ class BrachyPlan:
         """
         if not any(self.dose_rate_dict):
             raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
-
-        self.combined_dose = BrachyDose.dose_with_empty_grid_like(
-            list(self.dose_rate_dict.values())[0])
-        for catheter in self.catheter_table:
-            for dwell in catheter.dwells:
-                self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
-                    f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
-                    ).dose_image.imageArray * dwell.time
+        if self.combined_dose is None:
+            self.combined_dose = BrachyDose.dose_with_empty_grid_like(
+                list(self.dose_rate_dict.values())[0])        
+        if time_diffs is None:
+            self.combined_dose.dose_image.imageArray.fill(0)
+            for catheter in self.catheter_table:
+                for dwell in catheter.dwells:
+                        self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
+                            f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                            ).dose_image.imageArray * dwell.time
+        else:
+            for dwell_key, time_diff in time_diffs.items():
+                #print(time_diffs.items())
+                #print(self.dose_rate_dict.items())
+                #if time_diff < 1e-3 :
+                #    continue
+                #print("################")
+                #print(f"dwell key {dwell_key}")
+                #print(f"time diff {time_diff}")
+                #print("############")
+                split_dwell_key = dwell_key.split("_")
+                #print(f"split_dwell_key {split_dwell_key}")
+                catheter_number = split_dwell_key[1]
+                dwell_number = split_dwell_key[3]
+                dose_rate_key = f"run_{catheter_number}_{dwell_number}_0.seq.nrrd"
+                #print(f"dose_rate_key {dose_rate_key}")
+                #print(f"calculate_combined_dose() time_diff {time_diff}")
+                self.combined_dose.dose_image.imageArray += (self.dose_rate_dict.get(dose_rate_key).dose_image.imageArray * time_diff)
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""

@@ -1210,6 +1210,35 @@ class BrachyDose:
         new_dose.create_interpolation_function()
         return new_dose
 
+    def dose_nans_to_number(self, number: float = -1, inplace: Optional[bool] = True
+    ) -> Union[None, "BrachyDose"]:
+        r"""
+        Purpose:
+            - Sometimes NaNs may be found in the dose grid of a brachydose
+            object, for example in DoseComparison, where NaNs signify a masked region
+            for plotting. However, we may not want to have them in our grid for analysis. 
+            This function replaces NaNs with a specified number.
+
+        Inputs:
+            - number: the number that will replace NaNs in the dose grid. Default is -1.
+            - inplace: if True, the function will modify the current BrachyDose object, otherwise it will return a new BrachyDose object with the NaNs replaced.
+        
+        Outputs:
+            - New BrachyDose object if inplace is False
+        """
+        if inplace:
+            self.dose_image.imageArray = np.nan_to_num(self.dose_image.imageArray, nan=number)
+            if self.uncertainty_image is not None:
+                self.uncertainty_image.imageArray = np.nan_to_num(self.uncertainty_image.imageArray, nan=number)
+            return None
+        else:
+            new_dose = copy.deepcopy(self)
+            new_dose.dose_image.imageArray = np.nan_to_num(new_dose.dose_image.imageArray, nan=number)
+            if new_dose.uncertainty_image is not None:
+                new_dose.uncertainty_image.imageArray = np.nan_to_num(new_dose.uncertainty_image.imageArray, nan=number)
+            return new_dose
+
+
     @staticmethod
     def compare_two_3ddose_files(pth1_3ddose: str, pth2_3ddose: str):
         # old_file_dir = load_3ddose(pth1_3ddose)
