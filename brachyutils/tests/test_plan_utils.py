@@ -338,7 +338,6 @@ def test_run_dose_generation():
         pth_dicom=pth_dicom,
     )
     # test the case with only combined dose
-    # XXX pick up here!
     plan_obj.run_dose_generation()
     print("debug here")
 if __name__ == "__main__":
