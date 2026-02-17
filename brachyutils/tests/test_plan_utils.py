@@ -9,17 +9,17 @@ from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 def get_a_plan(
     pth_dicom:str | Path,
+    prescription_dose:float=21.0,
     **kwargs):
-    target_dose = 21.0
     dvh_metric_goals = {
-        "D90%(CTV)": target_dose,
-        "D2cc(RECTUM)": target_dose * 0.75,
-        "D10%(URETHRA)": target_dose * 1.133,
-        "D30%(URETHRA)": target_dose,
+        "D90%(CTV)": prescription_dose,
+        "D2cc(RECTUM)": prescription_dose * 0.75,
+        "D10%(URETHRA)": prescription_dose * 1.133,
+        "D30%(URETHRA)": prescription_dose,
         "CI(CTV)": 1.0,
         "HI(CTV)": 0.5,
-        "V200%(CTV)": target_dose * 0.2,
-        "V150%(CTV)": target_dose * 0.4,
+        "V200%(CTV)": prescription_dose * 0.2,
+        "V150%(CTV)": prescription_dose * 0.4,
         "V100%(CTV)": 100.0,
     }
 
@@ -28,9 +28,9 @@ def get_a_plan(
         load_dicom_dose=kwargs.get("load_dicom_dose", False),
         load_dicom_catheter_table=kwargs.get("load_dicom_catheter_table", True),
         strict_name_match=False,
-        from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", True),
+        from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", False),
         multi_processing=True,
-        prescription_dose=target_dose,
+        prescription_dose=prescription_dose,
         dvh_metric_goals=dvh_metric_goals,
         optimization_config_list=kwargs.get("optimization_config_list", None),
         dwells_near_ptv=True,
@@ -186,13 +186,6 @@ def test_BrachyPlan():
         "data_test/test_export_plan/prostate/combined.seq.nrrd"
     )
 
-
-def test__load_single_dose_or_uncertainty_to_dict():
-    pth_dose_rate = "data_test/prostate-glen-p1-dose/scaled_run_1.nrrd"
-    dose_rate_dict = _load_single_dose_or_uncertainty_to_dict(pth_dose_rate, "both")
-    print(dose_rate_dict[0].shape)  # dose
-    print(dose_rate_dict[1].shape)  # uncertainty
-
 def test_export_brachy_plan():
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
     dir_export = Path("data_test/test_export_plan/prostate").resolve()
@@ -338,7 +331,16 @@ def test_load_phantom():
     plan_obj = BrachyPlan(phantom=pth_dicom, dvh_metric_goals=dvh_metric_goals)
     plan_obj.info()
 
-
+def test_run_dose_generation():
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
+    # dir_export = Path("data_test/test_export_plan/prostate").resolve()
+    plan_obj = get_a_plan(
+        pth_dicom=pth_dicom,
+    )
+    # test the case with only combined dose
+    # XXX pick up here!
+    plan_obj.run_dose_generation()
+    print("debug here")
 if __name__ == "__main__":
     # testupdate_plan_from_catheter_table()
     # test_update_catheter_table_from_plan()
@@ -348,9 +350,10 @@ if __name__ == "__main__":
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
-    test_export_brachy_plan()
+    # test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
     # test_load_applicator_list()
     # test__export_applicator_geometry()
     # test_brachy_structure()
     # test_load_phantom()
+    test_run_dose_generation()

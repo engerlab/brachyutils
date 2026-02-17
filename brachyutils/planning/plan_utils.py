@@ -1812,9 +1812,9 @@ config do not match for structure {struc.name}"
 
     def run_dose_generation(
         self,
-        dose_generator_obj: BrachyDoseGenerator = None,
-        generate_dose_rate_maps: bool = True,
         dir_export: str | Path = None,
+        dose_generator_obj: BrachyDoseGenerator = None,
+        generate_dose_rate_maps: bool = False,
         export_config_brachyplan: ExportConfig_BrachyPlan = None,
         ):
         r"""
@@ -1851,7 +1851,7 @@ config do not match for structure {struc.name}"
             )
         self.export_brachy_plan(export_config_brachyplan)
         # call the dose generator to generate the dose maps
-        dose_generator_obj.run_dose_generation(
+        dose_generator_obj.generate_dose(
             output_dose_per_dwell= "dose_rate" if generate_dose_rate_maps else False,
         )
         # load the generated dose maps and update the plan
