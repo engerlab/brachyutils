@@ -331,15 +331,6 @@ def test_load_phantom():
     plan_obj = BrachyPlan(phantom=pth_dicom, dvh_metric_goals=dvh_metric_goals)
     plan_obj.info()
 
-def test_run_dose_generation():
-    pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
-    # dir_export = Path("data_test/test_export_plan/prostate").resolve()
-    plan_obj = get_a_plan(
-        pth_dicom=pth_dicom,
-    )
-    # test the case with only combined dose
-    plan_obj.run_dose_generation()
-    print("debug here")
 if __name__ == "__main__":
     # testupdate_plan_from_catheter_table()
     # test_update_catheter_table_from_plan()
@@ -347,7 +338,7 @@ if __name__ == "__main__":
     # test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
-    # test_BrachyPlan()
+    test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
     # test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
@@ -355,4 +346,3 @@ if __name__ == "__main__":
     # test__export_applicator_geometry()
     # test_brachy_structure()
     # test_load_phantom()
-    test_run_dose_generation()

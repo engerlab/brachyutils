@@ -25,7 +25,6 @@ from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
-from brachyutils.dose.dose_generation_utils import BrachyDoseGenerator, DoseTG43
 from pydantic import BaseModel, ConfigDict, Field, model_validator, computed_field
 
 class ExportConfig_Dose(BaseModel):

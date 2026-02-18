@@ -199,7 +199,6 @@ class DoseTG43(BrachyDoseGenerator):
 
     def run_dose_generation(
         self,
-        dir_export: str | Path = None,
         plan: BrachyPlan = None,
         generate_dose_rate_maps: bool = False,
         export_config_brachyplan: ExportConfig_BrachyPlan = None,
@@ -209,7 +208,6 @@ class DoseTG43(BrachyDoseGenerator):
         - to run the dose generation for the plan and return a plan with combined dose filled as well
         as the dose rate dictionary if desired.
         ### Inputs:
-        - dir_export := The directory used for exporting the dosimetry setup and the generated dose maps.
         - plan:= The treatment plan for which we want to generate the dose. 
         - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
         If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
@@ -217,18 +215,9 @@ class DoseTG43(BrachyDoseGenerator):
         ### Output:
         - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
         """
-        plan_name = plan.phantom.pth_image.stem
-        if "." in plan_name:
-            plan_name = plan_name.split(".")[0]
-
-        if dir_export is None:
-            dir_export = Path("temp_data/tg43/")/plan_name
-
-        dir_export = Path(dir_export)
-        # export the plan for dosimetry
         if export_config_brachyplan is None:
             export_config_brachyplan = ExportConfig_BrachyPlan(
-                dir_export=dir_export,
+                dir_export=self.dir_plan_export,
                 export_config_egsphant=True,
                 export_config_planfile=True,
                 export_config_macfile=True,
@@ -241,7 +230,7 @@ class DoseTG43(BrachyDoseGenerator):
         # load the generated dose maps and update the plan
         if generate_dose_rate_maps:
             plan.load_dose_rate_dict(
-                dir_dose_rate=dir_export,
+                dir_dose_rate=self.dir_plan_export,
             )
         else:
             plan.combined_dose = BrachyDose(
