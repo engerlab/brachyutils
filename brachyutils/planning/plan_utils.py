@@ -572,6 +572,8 @@ class BrachyPlan:
                             gridSize=self.phantom.image_obj.gridSize,
                             spacing=self.phantom.image_obj.spacing,
                         )
+                    else:
+                        mask = structure.mask
                     self.catheter_table.remove_outside_mask(
                         mask=mask,
                         margin_mm=5.0,
