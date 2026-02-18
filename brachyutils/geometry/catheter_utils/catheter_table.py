@@ -30,7 +30,7 @@ class DwellPosition(BaseModel):
     - rotation: np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
     - time: float := dwell time for this dwell position
     - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
-    
+    - parent_catheter: 
     ### Functions:
     - to_dict() -> dict := convert the dwell position to a dictionary.
     """
@@ -41,6 +41,8 @@ class DwellPosition(BaseModel):
     relativePos: float
     rotation: List[float] | np.array = None
     time: float = 0.0
+    catheter_index: int = None
+    gen_dose_rate: bool = True
 
     @model_validator(mode="after")
     def validate_dwell_position(self):
@@ -48,6 +50,10 @@ class DwellPosition(BaseModel):
         if self.rotation is not None:
             self.rotation = np.array(self.rotation)
         return self
+
+    @computed_field
+    def name_id(self) -> str:
+        return f"C_{self.catheter_index+1}_D_{self.index+1}_A_{self.angle}"
 
     def weight(self, total_time: float) -> float:
         r"""
@@ -78,6 +84,8 @@ class DwellPosition(BaseModel):
             total_time = self.time
         return {
             "index": int(self.index),
+            "name_id": self.name_id,
+            "catheter_index": self.catheter_index,
             "angle": float(self.angle),
             "position": list(self.position),
             "relativePos": float(self.relativePos),
