@@ -33,7 +33,7 @@ def get_a_plan(
         prescription_dose=prescription_dose,
         dvh_metric_goals=dvh_metric_goals,
         optimization_config_list=kwargs.get("optimization_config_list", None),
-        dwells_near_ptv=True,
+        dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
         add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
         one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
         )
