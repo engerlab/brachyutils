@@ -93,7 +93,7 @@ class DwellPosition(BaseModel):
             "time": float(self.time),
             "weight": float(self.weight(total_time)),
         }
-    
+
     def get_position(self) -> List[float]:
         r"""
         ### Purpose:
@@ -106,7 +106,7 @@ class DwellPosition(BaseModel):
         - List[float] := the position of the dwell position.
         """
         return self.position
-    
+
     def isin_mask(self, mask:Union[ROIMask, sitk.Image]) -> bool:
         r"""
         ### Purpose:
