@@ -17,6 +17,9 @@ from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_api i
     dicom_to_catheter_table, _update_catheter_table, CreatedSetUp
 )
 from brachyutils.dose.dose_utils import BrachyDose
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
+from collections import defaultdict
 
 class DwellPosition(BaseModel):
     r"""
@@ -980,6 +983,100 @@ class CatheterTable(BaseModel):
         for catheter in self.catheter_list:
             catheter.remove_outside_mask(mask)
 
+    def load_dose_rates(
+        self,
+        dir_dose_rate: str| Path,
+        load_uncertainty:bool=False,
+        multi_processing: bool = True,
+        combined_dose_only: bool = False,
+        ):
+        r"""
+        ### Purpose:
+        - To load the dose rates into the CatheterTable object given a folder with
+        patient's dose rate files and the catheter table loaded into the BrachyPlan object.
+        In addition, combined dose is calculated as a linear combination of the dose rates
+        and dwell times.
+        ### Inputs:
+        - `dir_dose_rate` :=  path to the directory containing the dose rate files. we assume
+        that the name of the dose rate files end as "run_X_X_X.seq.nrrd".
+        where the X corresponds to the catheter index+1, dwell index+1, and angle in increasing order.
+        - `load_uncertainty`:= If true, uncertainty is loaded from the dose file, else it'll be set to 1. 
+        - `multi_processing` := if True, the dose rate files will be loaded in parallel. By default,
+        we use 8 cores for parallel processing.
+        - `combined_dose_only`:bool = False := flag to keep only the combined dose in memory after loading.
+        ### Outputs:
+        - Void := will update the BrachyPlan.dose_rate_dict attribute
+        """
+        if self.num_dwell_positions == 0:
+            raise ValueError("Cannot load dose rates since there is no catheters or dwells in this catheter table.")
+
+        pth_dose_rate = Path(dir_dose_rate).resolve()
+        if not pth_dose_rate.exists():
+            raise ValueError(f"directory of dose rates does not exist: {pth_dose_rate}")
+        dose_rate_files = list(pth_dose_rate.glob("run_*.seq.nrrd"))
+        new_dose_rate_files = []
+        # load file if they have not been loaded since modification
+        for pth in dose_rate_files:
+            # check if pth is not needed in catheter table skip it:
+            cat_index_from_pth, dwell_index_from_pth = pth.name.split("_")[1:3]
+            cat_index_from_pth, dwell_index_from_pth = int(cat_index_from_pth)-1, int(dwell_index_from_pth)-1
+            if 0 <= cat_index_from_pth < len(self):
+                dwells = catheter_table[cat_index_from_pth].dwells
+                if 0 <= dwell_index_from_pth < len(dwells):
+                    pass
+                else:
+                    continue
+            else:
+                continue
+
+            if not self.dose_rate_dict.get(pth.name, None):
+                new_dose_rate_files.append(pth)
+            elif pth.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
+                new_dose_rate_files.append(pth)
+            else:
+                continue
+
+        if multi_processing:
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                futures = {
+                    executor.submit(_load_single_dose_rate, pth, load_uncertainty): pth
+                    for pth in new_dose_rate_files
+                    }
+                for action in tqdm(
+                    as_completed(futures),
+                    desc="Loading dose rate maps",
+                    total=len(new_dose_rate_files)):
+                    try:
+                        dose_rate = action.result()
+                        self.dose_rate_dict[dose_rate.path.name] = dose_rate
+                    except:
+                        failed_path = futures[action]
+                        raise ValueError(f"Failed loading f{failed_path}")
+        else:
+            for pth in tqdm(
+                new_dose_rate_files,
+                desc="Loading dose rate maps",
+                total=len(new_dose_rate_files)):
+                dose_rate = _load_single_dose_rate(
+                    pth_dose_rate=pth,
+                    load_uncertainty=load_uncertainty)
+                dwell_id = dose_rate.path.name.split(".")[0].split("run_")[1]
+                self.dose_rate_dict[dwell_id] = dose_rate
+
+        # now sort dose rates according to increasing catheter name and shield numbers
+        # Fastest and most compact version
+        sorted_items = sorted(
+            self.dose_rate_dict.items(),
+            key=lambda f: tuple(map(int, f[0].removeprefix('run_').removesuffix('.seq.nrrd').split('_')))
+        )
+        self.dose_rate_dict = defaultdict(BrachyDose, sorted_items)
+
+        self._calculate_combined_dose()
+        if load_uncertainty:
+            self._calculate_combined_uncertainty()
+        if combined_dose_only:
+            del self.dose_rate_dict
+
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""
     Purpose:
@@ -1066,6 +1163,51 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
             }
         )
 
+    def export_dose(
+        self,
+        export_config_dose: ExportConfig_Dose
+    ):
+        r"""
+        ### Purpose:
+        - to export combined dose map and if needed the dose rate maps to a given directory.
+        exporting dose rate maps is optional.
+        ### Inputs:
+        - export_config_dose: The dose export configuration. Look at ExportConfig_Dose for more info 
+        ### Outputs:
+        - None := will export the dose map into the specified export directory.
+        ### Dependencies:
+        - _write_single_dose_rate()
+        - multiprocessing
+        """
+        assert self.combined_dose is not None, "combined dose is not calculated yet"
+        dir_export = Path(export_config_dose.dir_export)
+        # write combined dose
+        self.combined_dose.write_brachydose_to_file(
+            export_config_dose.pth_combined
+        )
+
+        if export_config_dose.write_dose_rate_maps:
+            if export_config_dose.multi_processing:
+                with ThreadPoolExecutor(max_workers=16) as executor:
+                    futures = {
+                        executor.submit(_write_single_dose_rate, self.dose_rate_dict.get(dose_rate_name), dir_export, export_config_dose.file_extension):
+                            dose_rate_name for dose_rate_name in self.dose_rate_dict
+                        }
+                    for action in tqdm(as_completed(futures), desc="Writing dose rate maps"):
+                        try:
+                            action.result()
+                        except:
+                            failed_path = futures[action]
+                            raise ValueError(f"Failed writing {failed_path}")
+            else:
+                for dose_rate in tqdm(self.dose_rate_dict, desc="Writing dose rate maps"):
+                    _write_single_dose_rate(
+                        dose_rate=self.dose_rate_dict.get(dose_rate),
+                        dir_export=dir_export,
+                        dose_extension=export_config_dose.file_extension)
+        print(f"Dose exported to {dir_export}")
+
+
     # # Convert control points to dwell positions:
     # # after extracting the final cummulative time weight of the catheters,
     # # the time of the catheter, and the cummulative time weight of the control points,
@@ -1138,3 +1280,35 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
             - final_catheter_table[0]["dwells"][0]["relativePos"]
             )
     }
+    
+def _load_single_dose_rate(
+    pth_dose_rate:Path,
+    load_uncertainty=False
+    )->BrachyDose:
+        return BrachyDose(pth_dose_file=pth_dose_rate, load_uncertainty=load_uncertainty)
+
+def _write_single_dose_rate(
+    dose_rate:BrachyDose,
+    dir_export: str | Path = None,
+    dose_extension: str = None,
+    file_name: str = None,
+    ):
+    r"""
+    ### Purpose:
+    to write out a single dose rate map and uncertainty to a file.
+    ### Inputs:
+    - dose_rate:= The BrachyDose object for the dose rate data.
+    - dir_export:= the directory to which the dose rate maps will be exported
+    - file_name:= The name of the file inside dir_export. Following the RapidBrachy standard, it should be
+    "run_{catheter.index+1}_{dwell.index+1}_{angle}.seq.nrrd". if none, dose_rate.path.name is used.
+    - dose_extension := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
+    ### Output:
+    - Void := dose file is written to dir_export+f"/{file_name}.{dose_type}
+    """
+    if file_name is None:
+        file_name = dose_rate.path.name.split(".")[0]
+    if dose_extension is None:
+        dose_extension = ".seq.nrrd"
+    dir_export = Path(dir_export)
+    pth_out = dir_export/(file_name+dose_extension)
+    dose_rate.write_brachydose_to_file(pth_dose_file=pth_out)
