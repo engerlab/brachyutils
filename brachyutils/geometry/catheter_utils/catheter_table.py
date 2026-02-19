@@ -20,6 +20,7 @@ from brachyutils.dose.dose_utils import BrachyDose
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from collections import defaultdict
+from itertools import chain
 
 class DwellPosition(BaseModel):
     r"""
@@ -280,6 +281,13 @@ class Catheter(BaseModel):
             if indices < 0 or indices >= len(self.dwells):
                 return None
             return self.dwells[indices]
+    
+    def __iter__(self):
+        for dwell in self.dwells:
+            yield dwell
+
+    def __len__(self):
+        return len(self.dwells)
 
     def to_dict(self, total_time=None) -> dict:
         r"""
@@ -1013,7 +1021,15 @@ class CatheterTable(BaseModel):
         pth_dose_rate = Path(dir_dose_rate).resolve()
         if not pth_dose_rate.exists():
             raise ValueError(f"directory of dose rates does not exist: {pth_dose_rate}")
+
+        # figure out which dwells we want to load dose rates for
+        all_dwells = self.
+        
         dose_rate_files = list(pth_dose_rate.glob("run_*.seq.nrrd"))
+
+        # if len(dose_rate_files) > self.num_dwell_positions:
+        #     raise ValueError("Cannot have more dose rates than dwells for a catheter table.")
+
         new_dose_rate_files = []
         # load file if they have not been loaded since modification
         for pth in dose_rate_files:
@@ -1021,7 +1037,7 @@ class CatheterTable(BaseModel):
             cat_index_from_pth, dwell_index_from_pth = pth.name.split("_")[1:3]
             cat_index_from_pth, dwell_index_from_pth = int(cat_index_from_pth)-1, int(dwell_index_from_pth)-1
             if 0 <= cat_index_from_pth < len(self):
-                dwells = catheter_table[cat_index_from_pth].dwells
+                dwells = self[cat_index_from_pth].dwells
                 if 0 <= dwell_index_from_pth < len(dwells):
                     pass
                 else:
