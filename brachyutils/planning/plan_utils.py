@@ -21,35 +21,11 @@ from brachyutils.dose.dose_utils import BrachyDose
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry.applicator_utils import BrachyApplicator 
 from brachyutils.geometry.phantom_utils import BrachyPhantom
-from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, ExportConfig_Dose
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from pydantic import BaseModel, ConfigDict, Field, model_validator, computed_field
-
-class ExportConfig_Dose(BaseModel):
-    """
-    Configuration for exporting dose data from the plan.
-    """
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
-    )
-    dir_export: str | Path = Field(None, description="Directory where dose files are exported.")
-    name_combined: str = Field("combined", description="File name for combined dose output.")
-    file_extension: Literal[".seq.nrrd", ".3ddose"] = Field(
-        ".seq.nrrd", description="Allowed file extensions for dose files."
-    )
-    write_dose_rate_maps: bool = Field(
-        False, description="Whether to write individual dose rate maps to files."
-    )
-    multi_processing: bool = Field(
-        True, description="Enable multiprocessing for export (yes/no toggle)."
-    )
-    @computed_field
-    def pth_combined(self)->Path:
-        self.dir_export = Path(self.dir_export)
-        return self.dir_export/(self.name_combined+self.file_extension)
 
 class ExportConfig_PlanFile(BaseModel):
     """

@@ -140,12 +140,11 @@ def test_catheter_table():
     from brachyutils.geometry.catheter_utils.catheter_table import DwellPosition, Catheter, CatheterTable
     dwell_dict_0 = {
         "index": 0,
-        # "angle": 0,
         "position": np.random.rand(3), 
         "relativePos": 5,
         'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
         "time": 45.3,
-        # "weight": 0.003,
+        "catheter_index":0,
     }
     dwell_dict_1 = {
         "index": 1,
@@ -154,7 +153,7 @@ def test_catheter_table():
         "relativePos": 5,
         'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
         "time": np.random.rand(1) * 100,
-        # "weight": 0.003,
+        "catheter_index":0,
     }
     dwell_dict_2 = {
         "index": 2,
@@ -163,7 +162,7 @@ def test_catheter_table():
         "relativePos": 5,
         'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
         "time": np.random.rand(1) * 100,
-        # "weight": 0.003,
+        "catheter_index":0,
     }
     dwell_obj = DwellPosition(**dwell_dict_0)
     print(dwell_obj.to_dict())
