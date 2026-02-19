@@ -510,6 +510,14 @@ class CatheterTable(BaseModel):
     _time_diffs:Dict[str, DwellPosition] = None
 
     @computed_field
+    def all_dwells(self) -> List[DwellPosition]:
+        r"""
+        ### Purpose:
+        - returns a list of all the dwell positions in this catheter table.
+        """
+        return chain.from_iterable(self)
+
+    @computed_field
     def treatment_time(self) -> float:
         r"""
         ### Purpose:
@@ -596,7 +604,7 @@ class CatheterTable(BaseModel):
         - self._cached_combined_dose
         also resets self._time_diffs to None for future.
         """
-        all_dwells: List[DwellPosition] = chain.from_iterable(self)
+        all_dwells: List[DwellPosition] = self.all_dwells
         dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
         
         if not dwells_with_doserate:
@@ -1075,7 +1083,7 @@ class CatheterTable(BaseModel):
             raise ValueError(f"directory of dose rates does not exist: {dir_dose_rate}")
 
         # figure out which dwells we want to load dose rates for
-        all_dwells = chain.from_iterable(self)
+        all_dwells = self.all_dwells
         new_dose_rate_files = [
             dir_dose_rate/f"run_{x.name_id}.seq.nrrd" 
             for x in all_dwells if x.gen_dose_rate]
@@ -1140,7 +1148,7 @@ to False for the corresponding dwell position.")
             raise ValueError("combined dose is not calculated yet")
 
         treatment_time = self.catheter_table.treatment_time
-        all_dwells = chain.from_iterable(self)
+        all_dwells = self.all_dwells
         dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
         # sanity check the dwell times matching the treatment time
         sanity_time = 0
