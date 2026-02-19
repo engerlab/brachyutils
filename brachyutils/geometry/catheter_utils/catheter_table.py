@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from collections import defaultdict
 from itertools import chain
+from brachyutils.planning.plan_utils import ExportConfig_Dose
 
 class DwellPosition(BaseModel):
     r"""
@@ -1165,6 +1166,61 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         self.combined_dose.uncertainty_image.imageArray = np.sqrt(
         self.combined_dose.uncertainty_image.imageArray)
 
+    def export_dose(
+        self,
+        export_config_dose: ExportConfig_Dose
+    ):
+        r"""
+        ### Purpose:
+        - to export combined dose map and if needed the dose rate maps to a given directory.
+        exporting dose rate maps is optional.
+        ### Inputs:
+        - export_config_dose: The dose export configuration. Look at ExportConfig_Dose for more info 
+        ### Outputs:
+        - None := will export the dose map into the specified export directory.
+        ### Dependencies:
+        - _write_single_dose_rate()
+        - multiprocessing
+        """
+        dir_export = Path(export_config_dose.dir_export)
+        # write combined dose
+        self.combined_dose.write_brachydose_to_file(
+            export_config_dose.pth_combined
+        )
+        if export_config_dose.write_dose_rate_maps:
+            all_dwells = self.all_dwells
+            dose_rate_dict = {
+                dwell.name_id: dwell.dose_rate 
+                for dwell in all_dwells 
+                if dwell.dose_rate is not None}
+
+            if export_config_dose.multi_processing:
+                with ThreadPoolExecutor(max_workers=16) as executor:
+                    futures = {
+                        executor.submit(
+                            _write_single_dose_rate,
+                            self.dose_rate_dict.get(dose_rate_name),
+                            dir_export,
+                            export_config_dose.file_extension,
+                            f"run_{dose_rate_name}"):
+                            dose_rate_name for dose_rate_name in dose_rate_dict
+                        }
+                    for action in tqdm(as_completed(futures), desc="Writing dose rate maps"):
+                        try:
+                            action.result()
+                        except:
+                            failed_path = futures[action]
+                            raise ValueError(f"Failed writing {failed_path}")
+            else:
+                for dwell_name in tqdm(dose_rate_dict, desc="Writing dose rate maps"):
+                    _write_single_dose_rate(
+                        dose_rate=self.dose_rate_dict.get(dwell_name),
+                        dir_export=dir_export,
+                        file_name=f"run_{dwell_name}",
+                        dose_extension=export_config_dose.file_extension)
+        print(f"Dose exported to {dir_export}")
+
+
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""
     Purpose:
@@ -1250,51 +1306,6 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
                 "control_points": control_points,
             }
         )
-
-    def export_dose(
-        self,
-        export_config_dose: ExportConfig_Dose
-    ):
-        r"""
-        ### Purpose:
-        - to export combined dose map and if needed the dose rate maps to a given directory.
-        exporting dose rate maps is optional.
-        ### Inputs:
-        - export_config_dose: The dose export configuration. Look at ExportConfig_Dose for more info 
-        ### Outputs:
-        - None := will export the dose map into the specified export directory.
-        ### Dependencies:
-        - _write_single_dose_rate()
-        - multiprocessing
-        """
-        assert self.combined_dose is not None, "combined dose is not calculated yet"
-        dir_export = Path(export_config_dose.dir_export)
-        # write combined dose
-        self.combined_dose.write_brachydose_to_file(
-            export_config_dose.pth_combined
-        )
-
-        if export_config_dose.write_dose_rate_maps:
-            if export_config_dose.multi_processing:
-                with ThreadPoolExecutor(max_workers=16) as executor:
-                    futures = {
-                        executor.submit(_write_single_dose_rate, self.dose_rate_dict.get(dose_rate_name), dir_export, export_config_dose.file_extension):
-                            dose_rate_name for dose_rate_name in self.dose_rate_dict
-                        }
-                    for action in tqdm(as_completed(futures), desc="Writing dose rate maps"):
-                        try:
-                            action.result()
-                        except:
-                            failed_path = futures[action]
-                            raise ValueError(f"Failed writing {failed_path}")
-            else:
-                for dose_rate in tqdm(self.dose_rate_dict, desc="Writing dose rate maps"):
-                    _write_single_dose_rate(
-                        dose_rate=self.dose_rate_dict.get(dose_rate),
-                        dir_export=dir_export,
-                        dose_extension=export_config_dose.file_extension)
-        print(f"Dose exported to {dir_export}")
-
 
     # # Convert control points to dwell positions:
     # # after extracting the final cummulative time weight of the catheters,
