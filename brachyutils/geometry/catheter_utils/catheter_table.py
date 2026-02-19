@@ -330,9 +330,7 @@ class Catheter(BaseModel):
         """
         raise NotImplementedError("This function is not implemented yet.")
 
-    @classmethod
     def get_dwells_from_fit(
-        cls,
         fit_function:PiecewiseLinear3D | NeedleSplineCreator,
         step_size: float = 5.0,
         # kwargs: Dict[str, Any] = None,
@@ -407,8 +405,7 @@ class Catheter(BaseModel):
         """
         return [dwell.get_position() for dwell in self.dwells]
     
-    @classmethod
-    def get_fit_from_points(cls, points:List[List[float]]) -> PiecewiseLinear3D:
+    def get_fit_from_points(points:List[List[float]]) -> PiecewiseLinear3D:
         r"""
         ### Purpose:
         - To generate a spline from a list of points.
@@ -933,8 +930,7 @@ class CatheterTable(BaseModel):
             remove_text=remove_text,
         )
 
-    @classmethod
-    def load_from_json(cls, pth_json: Path) -> list:
+    def load_from_json(pth_json: Path) -> list:
         r"""
         ### Purpose:
         - Load the catheter table from a json file.
@@ -968,9 +964,7 @@ class CatheterTable(BaseModel):
                 "non_zero_dwell_positions": non_zero_dwell_positions
                 }
 
-    @classmethod
     def load_from_dicom(
-        cls,
         pth_dicom: Path,
         from_delivered_dwellpositions: bool = False,
         ) -> Tuple[Dict, Dict]:
