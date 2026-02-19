@@ -241,7 +241,6 @@ class BrachyPlan:
         #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
-        load_uncertainty:bool=False,
         multi_processing: bool = False,
         combined_dose_only: bool = False,
         #### for simulation setup:
@@ -285,7 +284,7 @@ class BrachyPlan:
         - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures
         - applicator_format:str = "RapidBrachy" := the format of the applicator list 
         (default is "RapidBrachy"). See load_applicator_list() for more info. 
-
+        - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well. 
         #### for simulation setup:
         - simulation_setup = None := dictionary containing the simulation setup,
 
@@ -364,9 +363,9 @@ class BrachyPlan:
                 )
         # load the dose rate dict if the path is provided
         if dir_dose_rate is not None and combined_dose is None:
-            self.load_dose_rate_dict(
+            self.load_dose_rates(
                 dir_dose_rate=dir_dose_rate,
-                load_uncertainty=load_uncertainty,
+                load_uncertainty=kwargs.get("load_uncertainty", False),
                 multi_processing=multi_processing,
                 combined_dose_only=combined_dose_only,
             )
@@ -552,7 +551,7 @@ class BrachyPlan:
                                 self.catheter_table[catheter_diff.index].gen_dose_rates = True
                             elif dwell_diff.time != 0:
                                 time_diffs[
-                                    f"catheter_{catheter_diff.index+1}_dwell_{dwell_diff.index+1}"
+                                    dwell_diff.name_id
                                     ] = dwell_diff.time
                             else:
                                 continue
@@ -653,7 +652,7 @@ class BrachyPlan:
         and dwell times.
         ### Inputs:
         - `dir_dose_rate` :=  path to the directory containing the dose rate files. we assume
-        that the name of the dose rate files end as "run_X_X_X.seq.nrrd", "run_X_X_X.seq.nrrd", etc.
+        that the name of the dose rate files end as "run_X_X_X.seq.nrrd".
         where the X corresponds to the catheter index+1, dwell index+1, and angle in increasing order.
         - `load_uncertainty`:= If true, uncertainty is loaded from the dose file, else it'll be set to 1. 
         - `multi_processing` := if True, the dose rate files will be loaded in parallel. By default,
@@ -717,7 +716,8 @@ class BrachyPlan:
                 dose_rate = _load_single_dose_rate(
                     pth_dose_rate=pth,
                     load_uncertainty=load_uncertainty)
-                self.dose_rate_dict[dose_rate.path.name] = dose_rate
+                dwell_id = dose_rate.path.name.split(".")[0].split("run_")[1]
+                self.dose_rate_dict[dwell_id] = dose_rate
 
         # now sort dose rates according to increasing catheter name and shield numbers
         # Fastest and most compact version
@@ -763,7 +763,8 @@ class BrachyPlan:
             for catheter in self.catheter_table:
                 for dwell in catheter.dwells:
                         self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
-                            f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                            # f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                            dwell.name_id
                             ).dose_image.imageArray * dwell.time
         else:
             for dwell_key, time_diff in time_diffs.items():
@@ -782,7 +783,8 @@ class BrachyPlan:
                 dose_rate_key = f"run_{catheter_number}_{dwell_number}_0.seq.nrrd"
                 #print(f"dose_rate_key {dose_rate_key}")
                 #print(f"calculate_combined_dose() time_diff {time_diff}")
-                self.combined_dose.dose_image.imageArray += (self.dose_rate_dict.get(dose_rate_key).dose_image.imageArray * time_diff)
+                self.combined_dose.dose_image.imageArray += (
+                    self.dose_rate_dict.get(dose_rate_key).dose_image.imageArray * time_diff)
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
@@ -1050,7 +1052,8 @@ class BrachyPlan:
         for catheter in self.catheter_table:
             for dwell in catheter.dwells:
                 self.combined_dose.uncertainty_image.imageArray += (self.dose_rate_dict.get(
-                    f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                    # f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
+                    dwell.name_id
                     ).uncertainty_image.imageArray * (dwell.time/treatment_time)**2)
         self.combined_dose.uncertainty_image.imageArray = np.sqrt(
             self.combined_dose.uncertainty_image.imageArray)
@@ -1832,10 +1835,9 @@ config do not match for structure {struc.name}"
         dose_rates_catheter = defaultdict(BrachyDose)
         
         for name, dose_rate in self.dose_rate_dict.items():
-            cath_num = name.split("_")[1]
-            if catheter_index+1 == int(cath_num):
-                dwell_num = name.split("_")[2]
-                dose_rates_catheter[f"catheter_{cath_num}_dwell_{dwell_num}"] = dose_rate
+            curr_indx = int(name.split("_")[0])-1
+            if curr_indx == catheter_index:
+                dose_rates_catheter[name] = dose_rate
         return dose_rates_catheter
 
 def _gen_hotspot_mask(

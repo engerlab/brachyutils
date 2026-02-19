@@ -16,6 +16,7 @@ from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_api import (
     dicom_to_catheter_table, _update_catheter_table, CreatedSetUp
 )
+from brachyutils.dose.dose_utils import BrachyDose
 
 class DwellPosition(BaseModel):
     r"""
@@ -43,6 +44,7 @@ class DwellPosition(BaseModel):
     time: float = 0.0
     catheter_index: int = None
     gen_dose_rate: bool = True
+    dose_rate: BrachyDose = None
 
     @model_validator(mode="after")
     def validate_dwell_position(self):
@@ -53,7 +55,7 @@ class DwellPosition(BaseModel):
 
     @computed_field
     def name_id(self) -> str:
-        return f"C_{self.catheter_index+1}_D_{self.index+1}_A_{self.angle}"
+        return f"{self.catheter_index+1}_{self.index+1}_{self.angle}"
 
     def weight(self, total_time: float) -> float:
         r"""

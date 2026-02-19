@@ -229,7 +229,7 @@ class DoseTG43(BrachyDoseGenerator):
         )
         # load the generated dose maps and update the plan
         if generate_dose_rate_maps:
-            plan.load_dose_rate_dict(
+            plan.load_dose_rates(
                 dir_dose_rate=self.dir_plan_export,
             )
         else:
