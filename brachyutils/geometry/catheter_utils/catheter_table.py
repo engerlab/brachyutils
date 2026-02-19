@@ -1116,6 +1116,7 @@ to False for the corresponding dwell position.")
 
         for dwell in all_dwells:
             dwell.dose_rate = dose_rate_dict.get(dwell.name_id, None)
+            dwell.gen_dose_rate = False
 
         # run combined dose to fill out the cached combined dose 
         self.combined_dose
