@@ -1,9 +1,9 @@
 from glob import glob
 from pathlib import Path
 import numpy as np
+from brachyutils.geometry.catheter_utils.catheter_table import DwellPosition, Catheter, CatheterTable
 
-def test_catheter_table():
-    from brachyutils.geometry.catheter_utils.catheter_table import DwellPosition, Catheter, CatheterTable
+def test_dwells_catheters():
     dwell_dict_0 = {
         "index": 0,
         "position": np.random.rand(3), 
@@ -45,7 +45,8 @@ def test_catheter_table():
     }
     catheter_obj = Catheter(**catheter_dict)
     print(catheter_obj.to_dict())
-
+    
+def test_loading_from_dicom():
     # # test loadin from dicom
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_json_delivered = "data_test/test_export_plan/prostate/cat_table_delivered.mrk.json"
@@ -122,7 +123,8 @@ def test_get_from_delivered_dwellpositions():
 
 
 if __name__ == "__main__":
-    test_catheter_table()
+    # test_dwells_catheters()
+    test_loading_from_dicom()
     # test_catheter()
     # test_catheter_to_mrk_json()
     # test_get_from_delivered_dwellpositions()

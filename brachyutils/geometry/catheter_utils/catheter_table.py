@@ -680,9 +680,9 @@ class CatheterTable(BaseModel):
                 raise NotImplementedError("this feature is not implemented yet.")
 
             if str(catheter_file).endswith(".json"):
-                cat_dict = self.load_from_json(catheter_file)
+                cat_dict = load_from_json(catheter_file)
             elif str(catheter_file).endswith(".dcm"):
-                cat_dict = self.load_from_dicom(
+                cat_dict = load_from_dicom(
                     pth_dicom=catheter_file,
                     from_delivered_dwellpositions=self.from_delivered_dwellpositions,
                 )
@@ -955,65 +955,6 @@ class CatheterTable(BaseModel):
             one_markup_per_catheter=one_markup_per_catheter,
             remove_text=remove_text,
         )
-
-    def load_from_json(pth_json: Path) -> list:
-        r"""
-        ### Purpose:
-        - Load the catheter table from a json file.
-        
-        ### Inputs:
-        - pth_json: Path := the path to the json file containing the catheter table.
-        
-        ### Outputs:
-        - Void := will update the catheter table based on the json file.
-        """
-        raw_catheter_table: list = []
-        with open(pth_json, "r") as json_file:
-            cat_table = json.load(json_file)
-            if isinstance(cat_table, list):
-                catheter_table_list = cat_table
-                step_size = catheter_table_list[0].get("step_size", None)
-            elif isinstance(cat_table, dict):
-                catheter_table_list = cat_table.get("catheter_list", None)
-                step_size = cat_table.get("step_size", None)
-                non_zero_dwell_positions = cat_table.get("non_zero_dwell_positions", None)
-            else:
-                raise ValueError(f"contents of the catheter file {pth_json} should be a list or dictionary")
-            if catheter_table_list is None:
-                raise ValueError(f"catheter list is missing from file {pth_json}")
-
-            for catheter_dict in catheter_table_list:
-                raw_catheter_table.append(Catheter(**catheter_dict))
-            return {
-                "catheter_list":raw_catheter_table,
-                "step_size":step_size,
-                "non_zero_dwell_positions": non_zero_dwell_positions
-                }
-
-    def load_from_dicom(
-        pth_dicom: Path,
-        from_delivered_dwellpositions: bool = False,
-        ) -> Tuple[Dict, Dict]:
-        r"""
-        ### Purpose:
-        - Load the catheter table from a dicom file.
-
-        ### Inputs:
-        - pth_dicom: Path := the path to the dicom file containing the catheter table.
-        - from_delivered_dwellpositions: bool := if true, the dwell positions inside the 
-        catheter_list will only be the ones with non-zero dwell times. If false, the
-        dwell positions will be created from the digitization points.
-        ### Outputs:
-        cat_dict := a dictionary containing the following keys:
-            - catheter_list
-            - step_size
-        """
-        
-        if from_delivered_dwellpositions:
-            catheter_table_dict = load_delivered_cathetertable_from_dicom(pth_dicom=pth_dicom)
-        else:
-            catheter_table_dict,  = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
-        return catheter_table_dict
 
     def get_dwell_positions_as_list(self) -> List[List[float]]:
         r"""
@@ -1440,3 +1381,62 @@ def _write_single_dose_rate(
     dir_export = Path(dir_export)
     pth_out = dir_export/(file_name+dose_extension)
     dose_rate.write_brachydose_to_file(pth_dose_file=pth_out)
+
+def load_from_dicom(
+    pth_dicom: Path,
+    from_delivered_dwellpositions: bool = False,
+    ) -> Tuple[Dict, Dict]:
+    r"""
+    ### Purpose:
+    - Load the catheter table from a dicom file.
+
+    ### Inputs:
+    - pth_dicom: Path := the path to the dicom file containing the catheter table.
+    - from_delivered_dwellpositions: bool := if true, the dwell positions inside the 
+    catheter_list will only be the ones with non-zero dwell times. If false, the
+    dwell positions will be created from the digitization points.
+    ### Outputs:
+    cat_dict := a dictionary containing the following keys:
+        - catheter_list
+        - step_size
+    """
+    
+    if from_delivered_dwellpositions:
+        catheter_table_dict = load_delivered_cathetertable_from_dicom(pth_dicom=pth_dicom)
+    else:
+        catheter_table_dict,  = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+    return catheter_table_dict
+
+def load_from_json(pth_json: Path) -> list:
+    r"""
+    ### Purpose:
+    - Load the catheter table from a json file.
+    
+    ### Inputs:
+    - pth_json: Path := the path to the json file containing the catheter table.
+    
+    ### Outputs:
+    - Void := will update the catheter table based on the json file.
+    """
+    raw_catheter_table: list = []
+    with open(pth_json, "r") as json_file:
+        cat_table = json.load(json_file)
+        if isinstance(cat_table, list):
+            catheter_table_list = cat_table
+            step_size = catheter_table_list[0].get("step_size", None)
+        elif isinstance(cat_table, dict):
+            catheter_table_list = cat_table.get("catheter_list", None)
+            step_size = cat_table.get("step_size", None)
+            non_zero_dwell_positions = cat_table.get("non_zero_dwell_positions", None)
+        else:
+            raise ValueError(f"contents of the catheter file {pth_json} should be a list or dictionary")
+        if catheter_table_list is None:
+            raise ValueError(f"catheter list is missing from file {pth_json}")
+
+        for catheter_dict in catheter_table_list:
+            raw_catheter_table.append(Catheter(**catheter_dict))
+        return {
+            "catheter_list":raw_catheter_table,
+            "step_size":step_size,
+            "non_zero_dwell_positions": non_zero_dwell_positions
+            }
