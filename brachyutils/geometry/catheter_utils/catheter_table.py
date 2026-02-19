@@ -600,7 +600,8 @@ class CatheterTable(BaseModel):
         dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
         
         if not dwells_with_doserate:
-            return self._cached_combined_dose
+            # return self._cached_combined_dose
+            raise ValueError("No dose rate found in this catheter table")
 
         # Initialize combined dose if not cached
         if self._cached_combined_dose is None:
@@ -842,6 +843,7 @@ class CatheterTable(BaseModel):
             step_size=self.step_size,
             from_delivered_dwellpositions=self.from_delivered_dwellpositions
         )
+
     def to_dict(self) -> dict:
         r"""
         ### Purpose:
@@ -860,6 +862,7 @@ class CatheterTable(BaseModel):
             "step_size": float(self.step_size),
             "treatment_time": float(treatment_t)
         }
+
     def info(self) -> None:
         r"""
         ### Purpose:
@@ -1045,6 +1048,7 @@ class CatheterTable(BaseModel):
         load_uncertainty:bool=False,
         multi_processing: bool = True,
         combined_dose_only: bool = False,
+        dose_dtype=np.float32,
         ):
         r"""
         ### Purpose:
@@ -1072,8 +1076,9 @@ class CatheterTable(BaseModel):
 
         # figure out which dwells we want to load dose rates for
         all_dwells = chain.from_iterable(self)
-        all_dwells = [f"run_{x.name_id}.seq.nrrd" for x in all_dwells if x.gen_dose_rate]
-        new_dose_rate_files = [dir_dose_rate/pth_dwell for pth_dwell in all_dwells]
+        new_dose_rate_files = [
+            dir_dose_rate/f"run_{x.name_id}.seq.nrrd" 
+            for x in all_dwells if x.gen_dose_rate]
         # check if the paths are correct
         for pth in new_dose_rate_files:
             if not pth.exists():
@@ -1083,7 +1088,7 @@ to False for the corresponding dwell position.")
         if multi_processing:
             with ThreadPoolExecutor(max_workers=16) as executor:
                 futures = {
-                    executor.submit(_load_single_dose_rate, pth, load_uncertainty): pth
+                    executor.submit(_load_single_dose_rate, pth, load_uncertainty, dose_dtype): pth
                     for pth in new_dose_rate_files
                     }
                 for action in tqdm(
@@ -1104,14 +1109,14 @@ to False for the corresponding dwell position.")
                 total=len(new_dose_rate_files)):
                 dose_rate = _load_single_dose_rate(
                     pth_dose_rate=pth,
-                    load_uncertainty=load_uncertainty)
+                    load_uncertainty=load_uncertainty,
+                    dtype=dose_dtype)
                 dwell_id = dose_rate.path.name.split(".")[0].split("run_")[1]
                 dose_rate_dict[dwell_id] = dose_rate
 
         for dwell in all_dwells:
-            dwell.dose_rate = dose_rate_dict[dwell.name_id]
+            dwell.dose_rate = dose_rate_dict.get(dwell.name_id, None)
 
-        self._calculate_combined_dose()
         if load_uncertainty:
             self._calculate_combined_uncertainty()
         if combined_dose_only:
@@ -1323,9 +1328,13 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     
 def _load_single_dose_rate(
     pth_dose_rate:Path,
-    load_uncertainty=False
+    load_uncertainty=False,
+    dtype=np.float32
     )->BrachyDose:
-        return BrachyDose(pth_dose_file=pth_dose_rate, load_uncertainty=load_uncertainty)
+        return BrachyDose(
+            pth_dose_file=pth_dose_rate,
+            load_uncertainty=load_uncertainty,
+            dtype=dtype)
 
 def _write_single_dose_rate(
     dose_rate:BrachyDose,
