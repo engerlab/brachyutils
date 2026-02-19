@@ -142,7 +142,7 @@ def test_catheter_table():
         "index": 0,
         "position": np.random.rand(3), 
         "relativePos": 5,
-        'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        'rotation': [0.0, 0.0, 0.0],
         "time": 45.3,
         "catheter_index":0,
     }
@@ -151,7 +151,7 @@ def test_catheter_table():
         # "angle": 0,
         "position": np.random.rand(3), 
         "relativePos": 5,
-        'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        'rotation': [0.0, 0.0, 0.0],
         "time": np.random.rand(1) * 100,
         "catheter_index":0,
     }
@@ -160,7 +160,7 @@ def test_catheter_table():
         "angle": 180,
         "position": np.random.rand(3), 
         "relativePos": 5,
-        'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        'rotation': [0.0, 0.0, 0.0],
         "time": np.random.rand(1) * 100,
         "catheter_index":0,
     }

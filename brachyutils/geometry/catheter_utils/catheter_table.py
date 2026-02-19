@@ -1,6 +1,6 @@
 import copy
 import numpy as np
-from typing import List, Union, Dict, Any, Optional, Tuple, Literal, TYPE_CHECKING
+from typing import List, Union, Dict, Any, Optional, Tuple, Literal
 from pathlib import Path
 from pydantic import BaseModel, computed_field, ConfigDict, model_validator, Field
 import json
@@ -21,8 +21,7 @@ from tqdm import tqdm
 from collections import defaultdict
 from itertools import chain
 
-if TYPE_CHECKING:
-    from brachyutils.dose.dose_utils import BrachyDose
+from brachyutils.dose.dose_utils import BrachyDose
 
 class ExportConfig_Dose(BaseModel):
     """
