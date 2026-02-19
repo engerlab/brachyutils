@@ -1,6 +1,6 @@
 import copy
 import numpy as np
-from typing import List, Union, Dict, Any, Optional, Tuple, Literal
+from typing import List, Union, Dict, Any, Optional, Tuple, Literal, TYPE_CHECKING
 from pathlib import Path
 from pydantic import BaseModel, computed_field, ConfigDict, model_validator, Field
 import json
@@ -16,11 +16,13 @@ from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_api import (
     dicom_to_catheter_table, _update_catheter_table, CreatedSetUp
 )
-from brachyutils.dose.dose_utils import BrachyDose
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from collections import defaultdict
 from itertools import chain
+
+if TYPE_CHECKING:
+    from brachyutils.dose.dose_utils import BrachyDose
 
 class ExportConfig_Dose(BaseModel):
     """
@@ -73,7 +75,7 @@ class DwellPosition(BaseModel):
     time: float = 0.0
     catheter_index: int = None
     gen_dose_rate: bool = True
-    dose_rate: BrachyDose = None
+    dose_rate: 'BrachyDose' = None
 
     @model_validator(mode="after")
     def validate_dwell_position(self):
@@ -528,7 +530,7 @@ class CatheterTable(BaseModel):
     catheter_list: List[Catheter] | List[dict] | str | Path | CatheterSetUp | CreatedSetUp
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
-    _cached_combined_dose: BrachyDose = None
+    _cached_combined_dose: 'BrachyDose' = None
     _time_diffs:Dict[str, DwellPosition] = None
 
     @computed_field
@@ -606,7 +608,7 @@ class CatheterTable(BaseModel):
         return non_zero_dwell_positions
 
     @computed_field
-    def combined_dose(self) -> BrachyDose:
+    def combined_dose(self) -> 'BrachyDose':
         """
         ### Purpose:
         - To calculate the combined dose by multiplying the dose rates with the dwell times.
@@ -626,6 +628,7 @@ class CatheterTable(BaseModel):
         - self._cached_combined_dose
         also resets self._time_diffs to None for future.
         """
+        from brachyutils.dose.dose_utils import BrachyDose
         all_dwells: List[DwellPosition] = self.all_dwells
         dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
         
@@ -1111,6 +1114,7 @@ class CatheterTable(BaseModel):
             if not pth.exists():
                 raise ValueError(f"Dose rate path ({pth}) does not exist. Either run export or set gen_dose_rate \
 to False for the corresponding dwell position.")
+        from brachyutils.dose.dose_utils import BrachyDose
         dose_rate_dict = defaultdict(BrachyDose)
         if multi_processing:
             with ThreadPoolExecutor(max_workers=16) as executor:
@@ -1405,14 +1409,15 @@ def _load_single_dose_rate(
     pth_dose_rate:Path,
     load_uncertainty=False,
     dtype=np.float32
-    )->BrachyDose:
+    )->'BrachyDose':
+        from brachyutils.dose.dose_utils import BrachyDose
         return BrachyDose(
             pth_dose_file=pth_dose_rate,
             load_uncertainty=load_uncertainty,
             dtype=dtype)
 
 def _write_single_dose_rate(
-    dose_rate:BrachyDose,
+    dose_rate:'BrachyDose',
     dir_export: str | Path = None,
     dose_extension: str = None,
     file_name: str = None,
