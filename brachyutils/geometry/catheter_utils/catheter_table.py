@@ -59,7 +59,7 @@ class DwellPosition(BaseModel):
 
     @computed_field
     def name_id(self) -> str:
-        return f"{self.catheter_index+1}_{self.index+1}_{self.angle}"
+        return f"{self.catheter_index+1}{self.index+1}{self.angle}"
 
     def weight(self, total_time: float) -> float:
         r"""
@@ -589,7 +589,7 @@ class CatheterTable(BaseModel):
         - self._time_diffs: a dictionary of time differences for each dwell in the plan. 
         This is used to update the combined dose if the dwell times are updated without
         having to reload the dose rate maps. The keys of the dictionary should be in
-        the format "{catheter.index+1}_{dwell.index+1}_{dwell.angle" and the values
+        the format "{catheter.index+1}{dwell.index+1}{dwell.angle" and the values
         should be the time differences in seconds. If None, the combined dose will
         be calculated using the current dwell times in the plan.
         ### Outputs:
@@ -983,7 +983,7 @@ class CatheterTable(BaseModel):
         if from_delivered_dwellpositions:
             catheter_table_dict = load_delivered_cathetertable_from_dicom(pth_dicom=pth_dicom)
         else:
-            catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+            catheter_table_dict,  = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
         return catheter_table_dict
 
     def get_dwell_positions_as_list(self) -> List[List[float]]:
@@ -1117,10 +1117,44 @@ to False for the corresponding dwell position.")
         for dwell in all_dwells:
             dwell.dose_rate = dose_rate_dict.get(dwell.name_id, None)
 
+        # run combined dose to fill out the cached combined dose 
+        self.combined_dose
         if load_uncertainty:
             self._calculate_combined_uncertainty()
         if combined_dose_only:
-            del self.dose_rate_dict
+            for dwell in all_dwells:
+                del dwell.dose_rate
+
+    def _calculate_combined_uncertainty(self):
+        r"""
+        ### Purpose:
+        - To calculate the combined uncertainty of the combined dose map based on the
+        dose rates and dwell times.
+        ### Inputs:
+        - self._cached_combined_dose := the BrachyDose
+        ### Outputs:
+        - Void := will update the self.combined_dose.uncertainty_image
+        """
+        if self._cached_combined_dose is None:
+            raise ValueError("combined dose is not calculated yet")
+
+        treatment_time = self.catheter_table.treatment_time
+        all_dwells = chain.from_iterable(self)
+        dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
+        # sanity check the dwell times matching the treatment time
+        sanity_time = 0
+        for dwell in dwells_with_doserate:
+            sanity_time += dwell.time
+        if sanity_time != treatment_time:
+            raise ValueError(f"The treatment time is {treatment_time}, which does not \
+agree with the sum of dwells times that have dose rates ({sanity_time})")
+        for dwell in dwells_with_doserate:
+            self._cached_combined_dose.uncertainty_image.imageArray.fill(0)
+            self.combined_dose.uncertainty_image.imageArray += (
+                dwell.dose_rate.uncertainty_image.imageArray * (dwell.time/treatment_time)
+                )**2
+        self.combined_dose.uncertainty_image.imageArray = np.sqrt(
+        self.combined_dose.uncertainty_image.imageArray)
 
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""
@@ -1349,7 +1383,7 @@ def _write_single_dose_rate(
     - dose_rate:= The BrachyDose object for the dose rate data.
     - dir_export:= the directory to which the dose rate maps will be exported
     - file_name:= The name of the file inside dir_export. Following the RapidBrachy standard, it should be
-    "run_{catheter.index+1}_{dwell.index+1}_{angle}.seq.nrrd". if none, dose_rate.path.name is used.
+    "run_{catheter.index+1}{dwell.index+1}{angle}.seq.nrrd". if none, dose_rate.path.name is used.
     - dose_extension := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
     ### Output:
     - Void := dose file is written to dir_export+f"/{file_name}.{dose_type}

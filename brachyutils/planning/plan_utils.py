@@ -883,31 +883,6 @@ class BrachyPlan:
         else:
             raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
 
-    def _calculate_combined_uncertainty(self):
-        r"""
-        ### Purpose:
-        - To calculate the combined uncertainty of the combined dose map based on the
-        dose rate dictionary and dwell times.
-        We require strict name matching between the dwell names and the name of dose rate files
-        ### Inputs:
-        - self := the BrachyPlan object
-        ### Outputs:
-        - Void := will update the BrachyPlan.combined_dose.uncertainty attribute
-        """
-        assert self.combined_dose is not None, "combined dose is not calculated yet"
-        if not any(self.dose_rate_dict):
-            raise ValueError("dose rate tensor is empty. Run load_dose_rates()")
-
-        treatment_time = self.catheter_table.treatment_time
-        for catheter in self.catheter_table:
-            for dwell in catheter.dwells:
-                self.combined_dose.uncertainty_image.imageArray += (self.dose_rate_dict.get(
-                    # f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
-                    dwell.name_id
-                    ).uncertainty_image.imageArray * (dwell.time/treatment_time)**2)
-        self.combined_dose.uncertainty_image.imageArray = np.sqrt(
-            self.combined_dose.uncertainty_image.imageArray)
-
     def get_dvh_metrics(
         self,
         combined_dose: BrachyDose=None,
