@@ -636,59 +636,6 @@ class BrachyPlan:
         if any(self.dose_rate_dict):
             self._calculate_combined_dose(time_diffs=time_diffs)
 
-    def _calculate_combined_dose(self, time_diffs=None):
-        """
-        ### Purpose:
-        - To calculate the combined dose by multiplying the dose rates with the dwell times.
-        The result is stored in the combined_dose attribute.
-        We require strict name matching between the dwell names and dose rate names!
-        ### Inputs:
-        - time_diffs: a dictionary of time differences for each dwell in the plan. 
-        This is used to update the combined dose if the dwell times are updated without
-        having to reload the dose rate maps. The keys of the dictionary should be in
-        the format "catheter_{catheter_index}_dwell_{dwell_index}" and the values
-        should be the time differences in seconds. If None, the combined dose will
-        be calculated using the current dwell times in the plan.
-        ### Outputs:
-        - None: but it needs the following attributes to be filled:
-        - self.dose_rate_dict
-        - self.catheter_table
-        ### Raises:
-            AssertionError: If the dose rate tensor or dwell times array is empty.
-        """
-        if not any(self.dose_rate_dict):
-            raise ValueError("dose rate tensor is empty. Run load_dose_rates()")
-        if self.combined_dose is None:
-            self.combined_dose = BrachyDose.dose_with_empty_grid_like(
-                list(self.dose_rate_dict.values())[0])        
-        if time_diffs is None:
-            self.combined_dose.dose_image.imageArray.fill(0)
-            for catheter in self.catheter_table:
-                for dwell in catheter.dwells:
-                        self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
-                            # f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
-                            dwell.name_id
-                            ).dose_image.imageArray * dwell.time
-        else:
-            for dwell_key, time_diff in time_diffs.items():
-                #print(time_diffs.items())
-                #print(self.dose_rate_dict.items())
-                #if time_diff < 1e-3 :
-                #    continue
-                #print("################")
-                #print(f"dwell key {dwell_key}")
-                #print(f"time diff {time_diff}")
-                #print("############")
-                split_dwell_key = dwell_key.split("_")
-                #print(f"split_dwell_key {split_dwell_key}")
-                catheter_number = split_dwell_key[1]
-                dwell_number = split_dwell_key[3]
-                dose_rate_key = f"run_{catheter_number}_{dwell_number}_0.seq.nrrd"
-                #print(f"dose_rate_key {dose_rate_key}")
-                #print(f"calculate_combined_dose() time_diff {time_diff}")
-                self.combined_dose.dose_image.imageArray += (
-                    self.dose_rate_dict.get(dose_rate_key).dose_image.imageArray * time_diff)
-
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
         ### Purpose:

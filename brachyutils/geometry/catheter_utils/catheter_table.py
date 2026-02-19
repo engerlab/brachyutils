@@ -506,6 +506,8 @@ class CatheterTable(BaseModel):
     catheter_list: List[Catheter] | List[dict] | str | Path | CatheterSetUp | CreatedSetUp
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
+    _cached_combined_dose: BrachyDose = None
+    _time_diffs:Dict[str, DwellPosition] = None
 
     @computed_field
     def treatment_time(self) -> float:
@@ -572,6 +574,52 @@ class CatheterTable(BaseModel):
                     dwell_positions.append(dwell.position)
             non_zero_dwell_positions[f"Needle_{catheter.index}"] = dwell_positions
         return non_zero_dwell_positions
+
+    @computed_field
+    def combined_dose(self) -> BrachyDose:
+        """
+        ### Purpose:
+        - To calculate the combined dose by multiplying the dose rates with the dwell times.
+        if this value has already been cached without change to the catheter table, then
+        the cache will be returned.
+        We require strict name matching between the _time_diffs and dwell.name_id
+        ### Inputs:
+        - self._cached_combined_dose: The combined dose caclualted previously, which will 
+        be returned if no change to the catheter table has been made.
+        - self._time_diffs: a dictionary of time differences for each dwell in the plan. 
+        This is used to update the combined dose if the dwell times are updated without
+        having to reload the dose rate maps. The keys of the dictionary should be in
+        the format "{catheter.index+1}_{dwell.index+1}_{dwell.angle" and the values
+        should be the time differences in seconds. If None, the combined dose will
+        be calculated using the current dwell times in the plan.
+        ### Outputs:
+        - self._cached_combined_dose
+        also resets self._time_diffs to None for future.
+        """
+        all_dwells: List[DwellPosition] = chain.from_iterable(self)
+        dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
+        
+        if not dwells_with_doserate:
+            return self._cached_combined_dose
+
+        # Initialize combined dose if not cached
+        if self._cached_combined_dose is None:
+            self._cached_combined_dose = BrachyDose.dose_with_empty_grid_like(
+            dwells_with_doserate[0].dose_rate
+            )
+
+        # Calculate combined dose with or without time diffs
+        for dwell in dwells_with_doserate:
+            dwell_time = (
+            self._time_diffs.get(dwell.name_id, 0) 
+            if self._time_diffs is not None 
+            else dwell.time
+            )
+            if dwell_time != 0:
+                self._cached_combined_dose.dose_image.imageArray += dwell.dose_rate * dwell_time
+        # reset the time diffs for future
+        self._time_diffs = None
+        return self._cached_combined_dose
 
     @model_validator(mode="after")
     def validate_catheter_table(self):
@@ -1018,40 +1066,20 @@ class CatheterTable(BaseModel):
         if self.num_dwell_positions == 0:
             raise ValueError("Cannot load dose rates since there is no catheters or dwells in this catheter table.")
 
-        pth_dose_rate = Path(dir_dose_rate).resolve()
-        if not pth_dose_rate.exists():
-            raise ValueError(f"directory of dose rates does not exist: {pth_dose_rate}")
+        dir_dose_rate = Path(dir_dose_rate).resolve()
+        if not dir_dose_rate.exists():
+            raise ValueError(f"directory of dose rates does not exist: {dir_dose_rate}")
 
         # figure out which dwells we want to load dose rates for
-        all_dwells = self.
-        
-        dose_rate_files = list(pth_dose_rate.glob("run_*.seq.nrrd"))
-
-        # if len(dose_rate_files) > self.num_dwell_positions:
-        #     raise ValueError("Cannot have more dose rates than dwells for a catheter table.")
-
-        new_dose_rate_files = []
-        # load file if they have not been loaded since modification
-        for pth in dose_rate_files:
-            # check if pth is not needed in catheter table skip it:
-            cat_index_from_pth, dwell_index_from_pth = pth.name.split("_")[1:3]
-            cat_index_from_pth, dwell_index_from_pth = int(cat_index_from_pth)-1, int(dwell_index_from_pth)-1
-            if 0 <= cat_index_from_pth < len(self):
-                dwells = self[cat_index_from_pth].dwells
-                if 0 <= dwell_index_from_pth < len(dwells):
-                    pass
-                else:
-                    continue
-            else:
-                continue
-
-            if not self.dose_rate_dict.get(pth.name, None):
-                new_dose_rate_files.append(pth)
-            elif pth.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
-                new_dose_rate_files.append(pth)
-            else:
-                continue
-
+        all_dwells = chain.from_iterable(self)
+        all_dwells = [f"run_{x.name_id}.seq.nrrd" for x in all_dwells if x.gen_dose_rate]
+        new_dose_rate_files = [dir_dose_rate/pth_dwell for pth_dwell in all_dwells]
+        # check if the paths are correct
+        for pth in new_dose_rate_files:
+            if not pth.exists():
+                raise ValueError(f"Dose rate path ({pth}) does not exist. Either run export or set gen_dose_rate \
+to False for the corresponding dwell position.")
+        dose_rate_dict = defaultdict(BrachyDose)
         if multi_processing:
             with ThreadPoolExecutor(max_workers=16) as executor:
                 futures = {
@@ -1064,7 +1092,8 @@ class CatheterTable(BaseModel):
                     total=len(new_dose_rate_files)):
                     try:
                         dose_rate = action.result()
-                        self.dose_rate_dict[dose_rate.path.name] = dose_rate
+                        dwell_id = dose_rate.path.name.split(".")[0].split("run_")[1]
+                        dose_rate_dict[dwell_id] = dose_rate
                     except:
                         failed_path = futures[action]
                         raise ValueError(f"Failed loading f{failed_path}")
@@ -1077,15 +1106,10 @@ class CatheterTable(BaseModel):
                     pth_dose_rate=pth,
                     load_uncertainty=load_uncertainty)
                 dwell_id = dose_rate.path.name.split(".")[0].split("run_")[1]
-                self.dose_rate_dict[dwell_id] = dose_rate
+                dose_rate_dict[dwell_id] = dose_rate
 
-        # now sort dose rates according to increasing catheter name and shield numbers
-        # Fastest and most compact version
-        sorted_items = sorted(
-            self.dose_rate_dict.items(),
-            key=lambda f: tuple(map(int, f[0].removeprefix('run_').removesuffix('.seq.nrrd').split('_')))
-        )
-        self.dose_rate_dict = defaultdict(BrachyDose, sorted_items)
+        for dwell in all_dwells:
+            dwell.dose_rate = dose_rate_dict[dwell.name_id]
 
         self._calculate_combined_dose()
         if load_uncertainty:
