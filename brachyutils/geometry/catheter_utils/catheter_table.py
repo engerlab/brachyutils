@@ -802,18 +802,18 @@ class CatheterTable(BaseModel):
     def __sub__(self, other: "CatheterTable") -> "CatheterTable":
         r"""
         ### Purpose:
-        - To subtract the dwell times, position and rotation of one catheter table from the current catheter table.
-
+        - To subtract the dwell times, position and 
+        rotation of one catheter table from the current catheter table.
         ### Inputs:
         - self := the current CatheterTable object.
         - other := the CatheterTable object to be subtracted.
-
         ### Outputs:
-        - CatheterTable := the updated CatheterTable object.
+        - CatheterTable := A catheter table with the differences.
         """
         if not isinstance(other, CatheterTable):
             raise ValueError("other should be a CatheterTable object.")
-        # new_cat_table = copy.deepcopy(self)
+        list_catheter_diffs = []
+        list_dwell_diffs = []
         #if len(new_cat_table) != len(other):
         #    raise ValueError("The two catheter tables should have the same number of catheters to be subtracted.")
         for catheter in self.catheter_list:
@@ -824,11 +824,40 @@ class CatheterTable(BaseModel):
                     for dwell in catheter.dwells:
                         for other_dwell in other_catheter.dwells:
                             if dwell.index == other_dwell.index:
-                                dwell.time = dwell.time - other_dwell.time
+                                diff_time = dwell.time - other_dwell.time
+                                diff_angle = dwell.angle - other_dwell.angle
+                                diff_relativePos = dwell.relativePos - dwell.relativePos
+                                diff_position = np.zeros(3)
+                                diff_rotation = np.zeros(3)
                                 for i in range(3):
-                                    dwell.position[i] = dwell.position[i] - other_dwell.position[i]
-                                    dwell.rotation[i] = dwell.rotation[i] - other_dwell.rotation[i]
-        return self
+                                    diff_position[i] = dwell.position[i] - other_dwell.position[i]
+                                    diff_rotation[i] = dwell.rotation[i] - other_dwell.rotation[i]
+                                # gen dose rate if any attribute other than the dwell time has changed.
+                                diff_gen_doserate = False
+                                if (np.any(diff_position !=0) or np.any(diff_rotation !=0)
+                                    or diff_angle != 0 or diff_relativePos != 0):
+                                    diff_gen_doserate = True
+                                dwell_diff = DwellPosition(
+                                    index=dwell.index,
+                                    angle=diff_angle,
+                                    position=diff_position,
+                                    relativePos=diff_relativePos,
+                                    rotation=diff_rotation,
+                                    time=diff_time,
+                                    gen_dose_rate=diff_gen_doserate,
+                                    catheter_index=catheter.index
+                                )
+                                list_dwell_diffs.append(dwell_diff)
+                                
+                    list_catheter_diffs.append(
+                        Catheter(
+                            index=catheter.index,
+                            dwells=list_dwell_diffs,
+                        ))
+        return CatheterTable(
+            catheter_list=list_catheter_diffs,
+            from_delivered_dwellpositions=self.from_delivered_dwellpositions
+        )
 
     def append(self, catheter: Catheter) -> None:
         r"""
@@ -1196,6 +1225,44 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
                         file_name=f"run_{dwell_name}",
                         dose_extension=export_config_dose.file_extension)
         print(f"Dose exported to {dir_export}")
+
+    def update(self, new_catheter_table:"CatheterTable"):
+        r"""
+        ### Purpose:
+        - Given a new catheter table, update self.
+        dose rates are kept only if dwell time is updated. otherwise the 
+        dwells inside a catheter are replaced/deleted.
+        ### Inputs:
+        - new_catheter_table:CatheterTable := The new catheter table used
+        to update self.
+        ### Output:
+        None := update self.
+        """
+        catheter_table_diff = self - new_catheter_table 
+        time_diffs = {}
+        for catheter_diff in catheter_table_diff:
+            # if the catheter is not in the current catheter table, add the entire catheter with all its dwells.
+            if self[catheter_diff.index] is None:
+                self.append(new_catheter_table[catheter_diff.index])
+                continue
+            for dwell_diff in catheter_diff.dwells:
+                # if that dwell is not in the current cathetr, add it.
+                if self[catheter_diff.index][dwell_diff.index] is None:
+                    self[catheter_diff.index][dwell_diff.index] = new_catheter_table[catheter_diff.index][dwell_diff.index]
+                    continue
+                else:
+                    if np.any(dwell_diff.position != 0) or np.any(dwell_diff.rotation != 0):
+                        # if the postion or rotation of the dwell has changed,
+                        # update it in the catheter table and set gen_dose_rates to True for that catheter.
+                        self[catheter_diff.index][dwell_diff.index].position = new_catheter_table[catheter_diff.index][dwell_diff.index].position
+                        self[catheter_diff.index][dwell_diff.index].rotation = new_catheter_table[catheter_diff.index][dwell_diff.index].rotation
+                        self[catheter_diff.index].gen_dose_rates = True
+                    elif dwell_diff.time != 0:
+                        time_diffs[
+                            dwell_diff.name_id
+                            ] = dwell_diff.time
+                    else:
+                        continue
 
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""
