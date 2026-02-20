@@ -338,6 +338,7 @@ class BrachyPlan:
                 dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
                 )
         # load the dose rate dict if the path is provided
+        # XXX Continue debugging from here
         if dir_dose_rate is not None and combined_dose is None:
             self.catheter_table.load_dose_rates(
                 dir_dose_rate=dir_dose_rate,
