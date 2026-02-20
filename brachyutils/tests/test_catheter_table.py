@@ -154,6 +154,15 @@ def test_export_dose():
     )
     cat_tab_to_export.export_dose(dose_export_config)
 
+def test_get_dwells_by_ids():
+    cat_tab_to_export = test_load_dose_rates()
+    dwell_ids = [
+        "0_3_0", "8_4_0", "1_1_0",
+    ]
+    dwells_got = cat_tab_to_export.get_dwell_by_name_ids(dwell_ids)
+    for dwell in dwells_got:
+        print(dwell.name_id)
+    
 if __name__ == "__main__":
     # test_dwells_catheters()
     # test_loading_from_dicom()
@@ -161,4 +170,5 @@ if __name__ == "__main__":
     # test_catheter_to_mrk_json()
     # test_get_from_delivered_dwellpositions()
     # test_load_dose_rates()
-    test_export_dose()
+    # test_export_dose()
+    test_get_dwells_by_ids()

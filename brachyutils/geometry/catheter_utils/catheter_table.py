@@ -848,6 +848,23 @@ class CatheterTable(BaseModel):
         catheter.index = new_index
         self.catheter_list.append(catheter)
 
+    def get_dwell_by_name_ids(self, name_ids: List[str]) -> List[DwellPosition]:
+        r"""
+        ### Purpose:
+        - To return dwell positions that have the queried name ids.
+        The name ids are in the format {catheter.index+1}_{dwell_index+1}_{angle}
+        ### Inputs:
+        - name_ids := The list of name ids to be returned.
+        ### Outputs:
+        - out_dwells : List[DwellPosition] := The dwell positions with the matching name ids
+        """
+        out_dwells = []
+        for name_id in name_ids:
+            for dwell in self.all_dwells:
+                if dwell.name_id == name_id:
+                    out_dwells.append(dwell)
+        return out_dwells
+
     def reset_index(self) -> None:
         r"""
         ### Purpose:
