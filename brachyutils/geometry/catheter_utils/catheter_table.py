@@ -760,14 +760,10 @@ class CatheterTable(BaseModel):
         """
         if not isinstance(other, CatheterTable):
             raise ValueError("other should be a CatheterTable object.")
-        combined_catheter_list = self.catheter_list + other.catheter_list
-        combined_step_size = max(self.step_size, other.step_size)
-        new_cat_table =  CatheterTable(
-            catheter_list=combined_catheter_list,
-            step_size=combined_step_size,
-        )
-        new_cat_table.reset_index()
-        return new_cat_table
+        if self.step_size != other.step_size:
+            raise ValueError("Cannot add two catheter tables with different stepsizes.")
+        self.catheter_list = self.catheter_list + other.catheter_list
+        return self
 
     def __iadd__(self, other: "CatheterTable") -> "CatheterTable":
         r"""
@@ -784,8 +780,8 @@ class CatheterTable(BaseModel):
         if not isinstance(other, CatheterTable):
             raise ValueError("other should be a CatheterTable object.")
         self.catheter_list += other.catheter_list
-        self.step_size = max(self.step_size, other.step_size)
-        self.reset_index()
+        if self.step_size != other.step_size:
+            raise ValueError("Cannot add two catheter tables with different stepsizes.")
         return self
 
     def __delitem__(self, index: int | slice):
