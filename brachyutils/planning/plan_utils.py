@@ -217,8 +217,6 @@ class BrachyPlan:
         #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
-        multi_processing: bool = False,
-        combined_dose_only: bool = False,
         #### for simulation setup:
         simulation_setup: dict | Path | str = None,
         #### for optimization setup:
@@ -246,8 +244,6 @@ class BrachyPlan:
         #### for loading dose rates or uncertainty maps per dwell position:
         - combined_dose: Path|BrachyDose := the path to the combined dose file or a BrachyDose object.
         - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
-        - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
-        - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
         #### Keywords Arguments:
         - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
@@ -263,7 +259,11 @@ class BrachyPlan:
         - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well. 
         #### for simulation setup:
         - simulation_setup = None := dictionary containing the simulation setup,
-
+        - load_uncertainty:bool := If True, the uncertainties of the dose rates are also loaded. 
+        - multi_processing:bool :=  If True, 16 threads are used to load the dose rates simulatenously.
+        - combined_dose_only:bool := If True, all the dose rates will be removed from memory after 
+        combined dose is calculated.
+        - dose_dtype:np.float32 := The floating point type to store the dose rates. 
         ### Outputs:
             - Void := will initialize the BrachyPlan object
         """
@@ -339,12 +339,15 @@ class BrachyPlan:
                 )
         # load the dose rate dict if the path is provided
         if dir_dose_rate is not None and combined_dose is None:
-            self.load_dose_rates(
+            self.catheter_table.load_dose_rates(
                 dir_dose_rate=dir_dose_rate,
                 load_uncertainty=kwargs.get("load_uncertainty", False),
-                multi_processing=multi_processing,
-                combined_dose_only=combined_dose_only,
-            )
+                multi_processing=kwargs.get("multi_processing", True),
+                combined_dose_only=kwargs.get("combined_dose_only", False),
+                dose_dtype=kwargs.get("dose_dtype", np.float32),
+                )
+            self.combined_dose = self.catheter_table.combined_dose
+
         elif dir_dose_rate is None and combined_dose is not None:
             if isinstance(combined_dose, BrachyDose):
                 self.combined_dose = combined_dose
