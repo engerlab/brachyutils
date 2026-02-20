@@ -530,7 +530,7 @@ class CatheterTable(BaseModel):
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
     _cached_combined_dose: 'BrachyDose' = None
-    _time_diffs:Dict[str, DwellPosition] = None
+    _time_diffs:Dict[str, float] = None
 
     @computed_field
     def all_dwells(self) -> List[DwellPosition]:
@@ -739,6 +739,7 @@ class CatheterTable(BaseModel):
             return CatheterTable(
                 catheter_list=self.catheter_list[indices],
                 step_size=self.step_size,
+                from_delivered_dwellpositions=self.from_delivered_dwellpositions,
             )
         elif isinstance(indices, int):
             if indices < 0 or indices >= len(self.catheter_list):
