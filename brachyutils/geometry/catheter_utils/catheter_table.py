@@ -816,10 +816,10 @@ class CatheterTable(BaseModel):
         """
         if not isinstance(other, CatheterTable):
             raise ValueError("other should be a CatheterTable object.")
-        new_cat_table = copy.deepcopy(self)
+        # new_cat_table = copy.deepcopy(self)
         #if len(new_cat_table) != len(other):
         #    raise ValueError("The two catheter tables should have the same number of catheters to be subtracted.")
-        for catheter in new_cat_table.catheter_list:
+        for catheter in self.catheter_list:
             for other_catheter in other.catheter_list:
                 if catheter.index == other_catheter.index:
                     #if len(catheter.dwells) != len(other_catheter.dwells):
@@ -831,8 +831,8 @@ class CatheterTable(BaseModel):
                                 for i in range(3):
                                     dwell.position[i] = dwell.position[i] - other_dwell.position[i]
                                     dwell.rotation[i] = dwell.rotation[i] - other_dwell.rotation[i]
-        return new_cat_table
-    
+        return self
+
     def append(self, catheter: Catheter) -> None:
         r"""
         ### Purpose:
