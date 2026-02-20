@@ -129,9 +129,21 @@ def test_load_dose_rates():
         catheter_list=list(dir_dicom.glob("RP*.dcm"))[0],
         from_delivered_dwellpositions=False
     )
+    
+    from brachyutils.geometry.phantom_utils import BrachyPhantom
+    phant = BrachyPhantom(
+        dir_dicom=dir_dicom,
+        pth_structures_file=list(dir_dicom.glob("RS*.dcm"))[0],)
+    ptv_mask = phant.get_structure_mask(["CTV"], strict_name_match=False).popitem()[-1]
+    cat_tab.remove_outside_mask(
+            mask=ptv_mask,
+            margin_mm=5
+        )
     cat_tab.load_dose_rates(
         dir_dose_rate=dir_dose_rates
     )
+    print(cat_tab.combined_dose.dose_image.imageArray.mean())
+
 if __name__ == "__main__":
     # test_dwells_catheters()
     # test_loading_from_dicom()

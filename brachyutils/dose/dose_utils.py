@@ -88,7 +88,8 @@ class BrachyDose:
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
         self.modification_time:float = self.path.stat().st_mtime if self.path else None
-        self.dose_image.imageArray = self.dose_image.imageArray.astype(dtype)
+        if self.dose_image is not None:
+            self.dose_image.imageArray = self.dose_image.imageArray.astype(dtype)
         if self.uncertainty_image is not None:
             self.uncertainty_image.imageArray = self.uncertainty_image.imageArray.astype(dtype)
 

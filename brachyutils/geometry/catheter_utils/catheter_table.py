@@ -649,7 +649,8 @@ class CatheterTable(BaseModel):
             else dwell.time
             )
             if dwell_time != 0:
-                self._cached_combined_dose.dose_image.imageArray += dwell.dose_rate * dwell_time
+                self._cached_combined_dose.dose_image.imageArray += (
+                    dwell.dose_rate.dose_image.imageArray * dwell_time)
         # reset the time diffs for future
         self._time_diffs = None
         return self._cached_combined_dose
