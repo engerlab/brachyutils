@@ -11,6 +11,13 @@ from scipy.interpolate import RegularGridInterpolator
 from pathlib import Path
 from typing import Union, Callable, Optional
 
+#unit constants
+CGY = 100.
+CM = 10.
+HR = 3600.
+U = CGY * CM * CM / HR
+CI = 3.7e10
+
 class TG43DoseCalculator(BrachyDoseGenerator):
     """
     """
@@ -49,8 +56,10 @@ class TG43DoseCalculator(BrachyDoseGenerator):
 
         #tg43 parameters
         self.active_length : float = None
-        self.air_kerma_strength : float = self.brachysource.reference_air_kerma_rate
+        self.air_kerma_strength : float = self.brachysource.reference_air_kerma_rate * U
         self.activity : float = self.brachysource.activity #can specify the (total) activity in place of the AKS
+        if self.activity is not None:
+            self.activity *= CI
         self.dose_rate_constant : float = None
         self.radial_dose_function: Callable[[float], float] = None
         self.geometry_function: Callable[[float, float], float] = None
@@ -61,6 +70,7 @@ class TG43DoseCalculator(BrachyDoseGenerator):
         self.load_and_initialize_tg43()
 
         #outputs
+
         self.combined_dose : BrachyDose = None
 
     def validate_brachyplan(self) -> None:
@@ -96,15 +106,15 @@ but source name is {self.source_name}.")
         if file_data[2] != source_core_from_plan:
             raise ValueError(f"Potential mismatch! Loaded parameters for source isotope ###{file_data[2]}### \
                 but source core is ###{source_core_from_plan}###.")
-        self.active_length = 10. * float(file_data[1])
+        self.active_length = float(file_data[1]) * CM
 
     def load_and_initialze_aks_drc(self) -> None:
         file_path = self.dir_tg43_parameters / f"{self.source_name}_AKS_DRC.csv"
         file_data = np.loadtxt(file_path, dtype=np.float32, delimiter = ',', skiprows=1, usecols = [1, 2])
         if self.air_kerma_strength is None:
-            self.air_kerma_strength = self.activity * 3.7e10 * file_data[0, 0] 
+            self.air_kerma_strength = self.activity * file_data[0, 0] * U
             logging.info("Updated air-kerma strength to %s from activity.", self.air_kerma_strength)
-        self.dose_rate_constant = file_data[0, 1]
+        self.dose_rate_constant = file_data[0, 1] / (CM * CM)
         logging.debug("AKS: %s; DRC: %s", self.air_kerma_strength, self.dose_rate_constant)
 
     def initialize_geometry_function(self) -> None:
@@ -123,26 +133,25 @@ but source name is {self.source_name}.")
     def load_and_initialize_radial_dose_function(self) -> None:
         file_path = self.dir_tg43_parameters / f"{self.source_name}_radialdosefunction.csv"
         file_data = np.loadtxt(file_path, delimiter=',', skiprows=1)
-        radii_mm = file_data[:,0] * 10.
+        radii = file_data[:,0] * CM
+        radii_meshgrid = np.meshgrid(radii)
+        
         radial_dose_function_data = file_data[:,1]
-        print(radii_mm)
+        #print(radii_mm.shape, radial_dose_function_data.shape)
         if self.is_hdr:
-            radial_dose_function_interpolator = RegularGridInterpolator(radii_mm, radial_dose_function_data, method='linear')
-            def radial_dose_function(r: float):
-                if r < radii_mm[0]: #r < rmin
-                    return radial_dose_function_data[0] #NN extrapolation
-                elif r > radii_mm[-1]: #r > rmax
-                    r1 = radii_mm[-2]
-                    r2 = radii_mm[-1]
-                    gr1 = radial_dose_function_data[-2]
-                    gr2 = radial_dose_function_data[-1]
-                    return gr1 + ((gr2 -gr1) / (r2 - r1)) * (r - r1)
-                else:
-                    return radial_dose_function_interpolator(r)
+            radial_dose_function_interpolator = RegularGridInterpolator(radii_meshgrid, radial_dose_function_data, method='linear', bounds_error=False)
+            def radial_dose_function(r: np.array) -> np.array:
+                gr = radial_dose_function_interpolator(r)
+                gr[r < radii[0]] = radial_dose_function_data[0] #r<rmin nearest neighbor extrapolation
+                gr[r > radii[-1]] = \
+                radial_dose_function_data[-2] + \
+                ((radial_dose_function_data[-1] -radial_dose_function_data[-2]) / (radii[-1] - radii[-2])) \
+                * (r[r > radii[-1]] - radii[-2]) #r>rmax linear extrapolation
+                return gr
         else:
             raise NotImplementedError("TG-43 for LDR not yet implemented.")
 
-        self.radial_dose_function = np.vectorize(radial_dose_function)
+        self.radial_dose_function = radial_dose_function#np.vectorize(radial_dose_function)
 
 
 
