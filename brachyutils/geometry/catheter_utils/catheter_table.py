@@ -1332,9 +1332,6 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
             for i in range(len(catheter["dwells"])):
                 catheter["dwells"][i]["rotation"] = get_rotation_from_position(i, catheter["dwells"])
         catheter["index"] -= empty_catheter_counter
-        # add catheter index to the dwells
-        for dwell in catheter["dwells"]:
-            dwell["catheter_index"] = catheter["index"]
         final_catheter_table.append(catheter)
     return {
         "catheter_list": final_catheter_table,
@@ -1404,7 +1401,13 @@ def load_from_dicom(
     if from_delivered_dwellpositions:
         catheter_table_dict = load_delivered_cathetertable_from_dicom(pth_dicom=pth_dicom)
     else:
-        catheter_table_dict,  = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+        catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+
+    # add catheter index to the dwells
+    for catheter in catheter_table_dict["catheter_list"]:
+        for dwell in catheter["dwells"]:
+            dwell["catheter_index"] = catheter["index"]
+    
     return catheter_table_dict
 
 def load_from_json(pth_json: Path) -> list:
