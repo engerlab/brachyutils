@@ -121,10 +121,21 @@ def test_get_from_delivered_dwellpositions():
     assert cat_table.num_catheters >= delivered_cat_table.num_catheters, "Test failed the number of catheters in the delivered table is not equal to the original table."
     assert cat_table.num_dwell_positions >= delivered_cat_table.num_dwell_positions, "Test failed the number of dwell positions in the delivered table is not equal to the original table."
 
+def test_load_dose_rates():
+    dir_dicom = Path("data_test/prostate-glen-p1-dcm")
+    dir_dose_rates = Path("data_test/prostate-glen-p1-dose")
 
+    cat_tab = CatheterTable(
+        catheter_list=list(dir_dicom.glob("RP*.dcm"))[0],
+        from_delivered_dwellpositions=False
+    )
+    cat_tab.load_dose_rates(
+        dir_dose_rate=dir_dose_rates
+    )
 if __name__ == "__main__":
     # test_dwells_catheters()
-    test_loading_from_dicom()
+    # test_loading_from_dicom()
     # test_catheter()
     # test_catheter_to_mrk_json()
     # test_get_from_delivered_dwellpositions()
+    test_load_dose_rates()

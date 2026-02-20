@@ -67,7 +67,7 @@ class DwellPosition(BaseModel):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
     index: int
-    angle: float = 0.0
+    angle: int = 0
     position: List[float] | np.array
     relativePos: float
     rotation: List[float] | np.array = None
@@ -85,7 +85,7 @@ class DwellPosition(BaseModel):
 
     @computed_field
     def name_id(self) -> str:
-        return f"{self.catheter_index+1}{self.index+1}{self.angle}"
+        return f"{self.catheter_index+1}_{self.index+1}_{self.angle}"
 
     def weight(self, total_time: float) -> float:
         r"""
@@ -538,7 +538,7 @@ class CatheterTable(BaseModel):
         ### Purpose:
         - returns a list of all the dwell positions in this catheter table.
         """
-        return chain.from_iterable(self)
+        return list(chain.from_iterable(self))
 
     @computed_field
     def treatment_time(self) -> float:
@@ -1181,7 +1181,6 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
                         file_name=f"run_{dwell_name}",
                         dose_extension=export_config_dose.file_extension)
         print(f"Dose exported to {dir_export}")
-
 
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""
