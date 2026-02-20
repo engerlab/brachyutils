@@ -1239,7 +1239,7 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         None := update self.
         """
         catheter_table_diff = self - new_catheter_table 
-        time_diffs = {}
+        self._time_diffs = {}
         for catheter_diff in catheter_table_diff:
             # if the catheter is not in the current catheter table, add the entire catheter with all its dwells.
             if self[catheter_diff.index] is None:
@@ -1258,7 +1258,7 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
                         self[catheter_diff.index][dwell_diff.index].rotation = new_catheter_table[catheter_diff.index][dwell_diff.index].rotation
                         self[catheter_diff.index].gen_dose_rates = True
                     elif dwell_diff.time != 0:
-                        time_diffs[
+                        self.time_diffs[
                             dwell_diff.name_id
                             ] = dwell_diff.time
                     else:
