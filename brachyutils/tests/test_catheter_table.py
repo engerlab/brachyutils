@@ -121,7 +121,7 @@ def test_get_from_delivered_dwellpositions():
     assert cat_table.num_catheters >= delivered_cat_table.num_catheters, "Test failed the number of catheters in the delivered table is not equal to the original table."
     assert cat_table.num_dwell_positions >= delivered_cat_table.num_dwell_positions, "Test failed the number of dwell positions in the delivered table is not equal to the original table."
 
-def test_load_dose_rates():
+def test_load_dose_rates() -> CatheterTable:
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     dir_dose_rates = Path("data_test/prostate-glen-p1-dose")
 
@@ -142,7 +142,17 @@ def test_load_dose_rates():
     cat_tab.load_dose_rates(
         dir_dose_rate=dir_dose_rates
     )
-    print(cat_tab.combined_dose.dose_image.imageArray.mean())
+    return cat_tab
+
+def test_export_dose():
+    dir_export = "data_test/test_export_plan/prostate"
+    cat_tab_to_export = test_load_dose_rates()
+    from brachyutils.geometry.catheter_utils.catheter_table import ExportConfig_Dose    
+    dose_export_config = ExportConfig_Dose(
+        dir_export=dir_export,
+        write_dose_rate_maps=True
+    )
+    cat_tab_to_export.export_dose(dose_export_config)
 
 if __name__ == "__main__":
     # test_dwells_catheters()
@@ -150,4 +160,5 @@ if __name__ == "__main__":
     # test_catheter()
     # test_catheter_to_mrk_json()
     # test_get_from_delivered_dwellpositions()
-    test_load_dose_rates()
+    # test_load_dose_rates()
+    test_export_dose()

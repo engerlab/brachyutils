@@ -1162,7 +1162,7 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
                     futures = {
                         executor.submit(
                             _write_single_dose_rate,
-                            self.dose_rate_dict.get(dose_rate_name),
+                            dose_rate_dict.get(dose_rate_name),
                             dir_export,
                             export_config_dose.file_extension,
                             f"run_{dose_rate_name}"):
