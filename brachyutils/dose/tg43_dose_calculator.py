@@ -3,12 +3,11 @@ import argparse
 import numpy as np
 
 from scipy.interpolate import RegularGridInterpolator
+from scipy.spatial.transform import Rotation
 from pathlib import Path
 from typing import Union, Callable, Optional
 from opentps.core.data.images import DoseImage
 from opentps.core.processing.imageProcessing.imageTransform3D  import transform3DMatrixFromTranslationAndRotationsVectors
-
-
 
 from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.geometry.catheter_utils import CatheterTable, DwellPosition
@@ -23,6 +22,7 @@ CM = 10. #mm
 HR = 3600. #s
 U = CGY * CM * CM / HR
 CI = 3.7e10 #Bq
+RAD = 180./np.pi
 
 class TG43DoseCalculator(BrachyDoseGenerator):
     """
@@ -31,7 +31,8 @@ class TG43DoseCalculator(BrachyDoseGenerator):
         brachyplan: BrachyPlan,
         dir_tg43_parameters: Optional[str] = "SourceParameters/microSelectron-v2",
         output_dose_per_dwell : Optional[Union[bool, str]] = False,
-        dir_output : Optional[Union[Path, str]] = Path()
+        dir_output : Optional[Union[Path, str]] = Path(),
+        **calc_parameter_kwargs
         ) -> None:
         """
         """
@@ -50,6 +51,15 @@ class TG43DoseCalculator(BrachyDoseGenerator):
         #and a BrachySimulatinos
         self.validate_brachyplan()
 
+        #store meta-parameters about the calculation in this dictionary
+        self.calc_parameters = {
+            "kernel_half_width" : 20 * CM, #half width to calculate dose rate kernel
+            "kernel_res" : 0.1 * CM, #resolution to calculate the dose rate kernel
+            "kernel_max_dose_rate": 1, #Gy/s
+            "epsilon": 1e-3 #just a little nudge to certain values :)
+        }
+        self.calc_parameters.update(calc_parameter_kwargs)
+
         #populate attributes to the validated brachyplan input
         self.brachyphantom : BrachyPhantom = self.brachyplan.phantom
         self.brachysource : BrachySource =  self.brachyplan.simulation_setup.brachy_source
@@ -62,7 +72,6 @@ class TG43DoseCalculator(BrachyDoseGenerator):
 
         #tg43 parameters
         self.active_length : float = None
-        print(self.brachysource.reference_air_kerma_rate )
         self.air_kerma_strength : float = self.brachysource.reference_air_kerma_rate * U
         self.activity : float = self.brachysource.activity #can specify the (total) activity in place of the AKS
         if self.activity is not None:
@@ -131,17 +140,34 @@ but source name is {self.source_name}.")
         logging.debug("AKS: %s Gy mm^2 s^-1; DRC: %s mm^-2", self.air_kerma_strength, self.dose_rate_constant)
 
     def initialize_geometry_function(self) -> None:
-        def geometry_function(r: np.float16, theta_deg: np.float16):
-            theta_rad = np.deg2rad(theta_deg)
+        def geometry_function(r_theta : np.ndarray) -> np.array:
+            r = r_theta[:,0]
+            theta = r_theta[:, 1]
+            branch_1 = np.logical_and(theta > 0.0, theta < 180.0)
+            r_branch_1 = r[branch_1]
+            r_branch_2 = r[np.logical_not(branch_1)]
+            theta_branch_1 = theta[branch_1]
+            theta_branch_1_rad = np.deg2rad(theta_branch_1)
             ell_over_two = 0.5 * self.active_length
-            top11 = r * np.cos(theta_rad) - ell_over_two
-            top12 = np.sqrt(r*r + ell_over_two * ell_over_two - (self.active_length * r * np.cos(theta_rad)))
-            top21 = r * np.cos(theta_rad) + ell_over_two
-            top22 = np.sqrt(r*r + ell_over_two*ell_over_two + self.active_length * r * np.cos(theta_rad))
-            bottom = self.active_length * r * np.sin(theta_rad)
-            top = np.acos(top11/top12) - np.acos(top21/top22)
-            return top/bottom
-        self.geometry_function = np.vectorize(geometry_function, otypes = [np.float16])
+
+            G = np.zeros(r_theta.shape[0])
+
+            #branch 1 - 0 < theta < 180
+            top11 = r_branch_1 * np.cos(theta_branch_1_rad) - ell_over_two
+            top12 = np.sqrt(r_branch_1 * r_branch_1 + ell_over_two * ell_over_two - (self.active_length * r_branch_1 * np.cos(theta_branch_1_rad)))
+            top21 = r_branch_1 * np.cos(theta_branch_1_rad) + ell_over_two
+            top22 = np.sqrt(r_branch_1 * r_branch_1  + ell_over_two*ell_over_two + self.active_length * r_branch_1 * np.cos(theta_branch_1_rad))
+            bottom = self.active_length * r_branch_1 * np.sin(theta_branch_1_rad)
+            #top1 = np.clip(top11/top12, a_min = -1.0, a_max = 1.0) #some rounding errors causing issues with acos
+            #top2 = np.clip(top21/top22, a_min = -1.0, a_max = 1.0)
+            top = np.arccos(top11/top12)-np.arccos(top21/top22)
+            G[branch_1] = (top/bottom)#[branch_1]
+
+            #branch 2 - theta = 0 or theta = 180
+            G[~branch_1] = 1.0 / (r_branch_2 * r_branch_2 - ell_over_two * ell_over_two)
+
+            return G
+        self.geometry_function = geometry_function
 
     def load_and_initialize_radial_dose_function(self) -> None:
         file_path = self.dir_tg43_parameters / f"{self.source_name}_radialdosefunction.csv"
@@ -195,7 +221,7 @@ but source name is {self.source_name}.")
             F = anisotropy_function_interpolator(r_theta)
             if(np.all(~np.isnan(F))):
                 return F
-            for ir_in in np.where(np.isnan(F)):
+            for ir_in in np.where(np.isnan(F))[0]:
                 itheta = np.argmin(np.abs(r_theta[ir_in,1] - thetas))
                 r_in = r_theta[ir_in, 0]
                 if r_in < radii[0]:
@@ -207,44 +233,75 @@ but source name is {self.source_name}.")
         self.anisotropy_function = anisotropy_function
 
     def compute_tg43_dose_rate_kernel(self, debug_pth_out : Path = None) -> None:
-        kernel_max_r = 40 * CM
-        kernel_res = 5 * CM
-        kernel_axis = np.arange(-kernel_max_r, kernel_max_r + 1e-8, kernel_res, dtype = np.float32)
+
+        kernel_half_width = self.calc_parameters["kernel_half_width"]
+        kernel_res = self.calc_parameters["kernel_res"]
+        epsilon = self.calc_parameters["epsilon"]
+        kernel_axis = np.arange(-kernel_half_width, kernel_half_width + epsilon, kernel_res, dtype = np.float32)
         kernel_axis_size = kernel_axis.size
         kernel_shape = (kernel_axis_size, kernel_axis_size, kernel_axis_size)
         kernel_x, kernel_y, kernel_z = np.meshgrid(kernel_axis, kernel_axis, kernel_axis)
         kernel_r = np.sqrt(kernel_x * kernel_x + kernel_y * kernel_y + kernel_z * kernel_z)
+        kernel_r[np.isclose(kernel_r, 0., epsilon)] = epsilon
         #theta is off the z_axis (0, 0, 1), angle between two vectors a,b is arccos(a*b/(|a||b|))
         #this means that theta is just arccos(z/r)
-        kernel_theta = np.arccos(kernel_z / kernel_r)
+        kernel_theta = np.arccos(kernel_z / kernel_r) * RAD
+
+        #kernel_theta[kernel_theta == 0] = epsilon
+        #kernel_theta[np.isclose(kernel_theta, 180.)] = 180. - epsilon
     
         del kernel_x
         del kernel_y
         del kernel_z
 
+        logging.debug("Initializing AKS * DRC grid.")
         kernel_array = self.air_kerma_strength * self.dose_rate_constant * np.ones(kernel_shape, dtype = np.float16)
 
         kernel_r_theta = np.column_stack((kernel_r.flatten(), kernel_theta.flatten()))
+        #del kernel_r
+        #del kernel_theta
+        logging.debug("AKS * DRC grid initialized.")
         #geometry fn
+        logging.debug("Initializing geometry function grid.")
         kernel_geometry_function = np.reshape(self.geometry_function(kernel_r_theta), kernel_shape)
-        kernel_array *= kernel_geometry_function 
+        if np.any(kernel_geometry_function == 0):
+            where_zero = kernel_geometry_function == 0
+            raise UserWarning(f"Kernel's geometry function has 0s at r={kernel_r[where_zero]}/theta={kernel_theta[where_zero]}.")
+        kernel_array *= kernel_geometry_function
         del kernel_geometry_function
+
+        logging.debug("Geometry function grid initialized.")
         #radial dose fn
+        logging.debug("Initializing radial dose function grid.")
         kernel_radial_dose_function = np.reshape(self.radial_dose_function(kernel_r_theta[:,0]), kernel_shape)
         kernel_array *= kernel_radial_dose_function
         del kernel_radial_dose_function
+        logging.debug("Radial dose functiong grid initialized.")
+
         #anistropy fn
+        logging.debug("Initializing 2D anisotropy function grid.")
         kernel_anisotropy_function = np.reshape(self.anisotropy_function(kernel_r_theta), kernel_shape)
         kernel_array *= kernel_anisotropy_function
+        logging.debug("2D anisotropy function grid initialized.")
+        if np.any(kernel_anisotropy_function == 0):
+            where_zero = kernel_anisotropy_function == 0
+            raise UserWarning(f"Kernel's anisotropy function has 0s at r={kernel_r[where_zero]}/theta={kernel_theta[where_zero]}.")
         del kernel_anisotropy_function
         #make the dose image
-        kernel_dose_image = DoseImage(imageArray=kernel_array, name='TG-43 Dose Kernel',
-            origin=(-kernel_max_r,-kernel_max_r,-kernel_max_r), spacing = (kernel_res, kernel_res, kernel_res))
-        self.tg43_dose_rate_kernel = BrachyDose()
-        dose_out.dose_image = kernel_dose_image
-        if debug_pth_out is not None:
+        if np.any(np.isnan(kernel_array)):
+            print(kernel_r[np.where(np.isnan(kernel_array))], kernel_theta[np.where(np.isnan(kernel_array))])
+            raise ValueError("NaN dose rate values in the TG-43 dose rate kernel.")
 
-            dose_out.write_brachydose_to_file(debug_pth_out)
+        np.clip(kernel_array, a_min = 0.0, a_max = self.calc_parameters["kernel_max_dose_rate"], out=kernel_array)
+        logging.debug("Generating TG-43 dose rate kernel image.")
+        kernel_dose_image = DoseImage(imageArray=kernel_array, name='TG-43 Dose Kernel',
+            origin=(-kernel_half_width,-kernel_half_width,-kernel_half_width), spacing = (kernel_res, kernel_res, kernel_res))
+        self.tg43_dose_rate_kernel = BrachyDose()
+        self.tg43_dose_rate_kernel.dose_image = kernel_dose_image
+        if debug_pth_out is not None:
+            logging.debug("Writing dose rate kernel to path %s", debug_pth_out)
+            self.tg43_dose_rate_kernel.write_brachydose_to_file(debug_pth_out)
+        logging.debug("TG-43 dose rate kernel generation complete.")
 
     def validate_inputs(self) -> None:
         if self.air_kerma_strength is None and self.activity is None:
@@ -254,10 +311,16 @@ but source name is {self.source_name}.")
             raise ValueError("Dose rate constant not set.")
 
     def generate_dose(self, pth_output: Optional[Path] = None):
-        pass
+        for catheter_table 
 
     def calculate_dwell_dose_tg43(self, dwell_position : DwellPosition):
         pass
+
+    def calculate_affine_transform_matrix(self, dwell_position : DwellPosition) -> np.ndarray:
+        #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwell
+        dwell_position
+        affine_matrix = np.zeros((4,4))
+        theta_x = np.atan
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
