@@ -1,13 +1,14 @@
 import logging
 import argparse
 import numpy as np
+import tqdm
 
 from scipy.interpolate import RegularGridInterpolator
 from scipy.spatial.transform import Rotation
 from pathlib import Path
 from typing import Union, Callable, Optional
 from opentps.core.data.images import DoseImage
-from opentps.core.processing.imageProcessing.imageTransform3D  import applyTransform3D
+from opentps.core.processing.imageProcessing.imageTransform3D  import applyTransform3D, translateDataByChangingOrigin
 
 from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.geometry.catheter_utils import CatheterTable, DwellPosition
@@ -253,7 +254,7 @@ but source name is {self.source_name}.")
         del kernel_z
 
         logging.debug("Initializing AKS * DRC grid.")
-        kernel_array = self.air_kerma_strength * self.dose_rate_constant * np.ones(kernel_shape, dtype = np.float16)
+        kernel_array = self.air_kerma_strength * self.dose_rate_constant / self.geometry_function(np.array([[10., 90.0]])) * np.ones(kernel_shape, dtype = np.float16)
 
         kernel_r_theta = np.column_stack((kernel_r.flatten(), kernel_theta.flatten()))
         #del kernel_r
@@ -313,30 +314,37 @@ but source name is {self.source_name}.")
         for catheter in self.brachyplan.catheter_table:
             for dwell in catheter.dwells:
                 logging.info("Calculating TG-43 dose for catheter %s dwell %s.", catheter.index + 1, dwell.index + 1)
-                tg43_dose_rate = self.calculate_dwell_dose_tg43(dwell)
+                tg43_dose_rate = self.calculate_dwell_dose_tg43(dwell, catheter.index)
                 
                 if self.combined_dose is None:
                     self.combined_dose = BrachyDose()
-                    self.combined_dose.dose_image = tg43_dose_rate
+                    self.combined_dose.dose_image = tg43_dose_rate.copy()
                     self.combined_dose.dose_image.imageArray *= dwell.time
                 else:
-                    self.combined_dose.dose_image.imageArray += (tg43_dose_rate.imageArray * dwell.time)
+                    self.combined_dose.dose_image.imageArray += tg43_dose_rate.imageArray * dwell.time
         logging.info("TG-43 dose calculation complete.")
         if pth_output is not None:
             logging.info("Writing combined TG-43 dose to %s.", pth_output)
             self.combined_dose.write_brachydose_to_file(pth_output)
 
-    def calculate_dwell_dose_tg43(self, dwell : DwellPosition) ->  DoseImage:
+    def calculate_dwell_dose_tg43(self, dwell : DwellPosition, catheter_index : int) ->  DoseImage:
         affine_matrix = self.calculate_affine_transform_matrix(dwell)
         dose_rate_kernel = self.tg43_dose_rate_kernel.dose_image.copy()
         applyTransform3D(dose_rate_kernel, affine_matrix, fillValue=0,
-            outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1)
-
+            outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1),# translation=dwell.position)
+        translateDataByChangingOrigin(dose_rate_kernel, dwell.position)
         dose_rate_kernel.resampleOn(self.brachyphantom.image_obj, fillValue=0)
 
         #TODO: enable once changes are made to ownership of dwell dose rate maps
-        if self.output_dose_per_dwell:
-            pass
+        if self.output_dose_per_dwell is not False:
+            if self.output_dose_per_dwell == "dose_rate":
+                dwell_time = 1
+            else:
+                dwell_time = dwell.time
+            dwell_dose = BrachyDose()
+            dwell_dose.dose_image = dose_rate_kernel
+            dwell_dose.dose_image.imageArray *= dwell_time
+            dwell_dose.write_to_nrrd(self.dir_output / f"run_{catheter_index + 1}_{dwell.index +1}_0.seq.nrrd")
 
         return dose_rate_kernel
 
@@ -347,14 +355,15 @@ but source name is {self.source_name}.")
         dwell_rot = dwell.rotation
         dwell_angle = dwell.angle #todo: perform the Z rotation first
 
-        #we're going to build an affine transform matrix
-        affine_matrix = np.zeros((4,4))
-        axes_rotation = Rotation.align_vectors([0, 0, 1], dwell_rot)[0].as_matrix() #gives rotation to allign z-axis to dwell_rot
-        affine_matrix[0:3, 0:3] = axes_rotation
-        affine_matrix[:3, 3] = dwell_position
-        affine_matrix[3, 3] = 1
-
-        return affine_matrix
+        #we're going to build an affine transform matrixtranslateDataByChangingOrigin
+        #affine_matrix = np.zeros((4,4))
+        #axes_rotation = Rotation.align_vectors([0, 0, 1], dwell_rot)[0].as_matrix() #gives rotation to allign z-axis to dwell_rot
+        #affine_matrix[0:3, 0:3] = axes_rotation
+        #affine_matrix[:3, 3] = dwell_position
+        #affine_matrix[3, 3] = 1
+        #print(affine_matrix)
+        #return affine_matrix
+        return Rotation.align_vectors(dwell_rot, [0, 0, 1])[0].as_matrix()
 
         #three extrinisic rotations around Z, then Y, then X
         #theta_z = dwell_angle #in deg
