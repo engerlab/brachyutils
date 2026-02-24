@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation
 from pathlib import Path
 from typing import Union, Callable, Optional
 from opentps.core.data.images import DoseImage
-from opentps.core.processing.imageProcessing.imageTransform3D  import transform3DMatrixFromTranslationAndRotationsVectors
+from opentps.core.processing.imageProcessing.imageTransform3D  import applyTransform3D
 
 from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.geometry.catheter_utils import CatheterTable, DwellPosition
@@ -219,8 +219,6 @@ but source name is {self.source_name}.")
         anisotropy_function_interpolator = RegularGridInterpolator((radii, thetas), anisotropy_function_data, method='linear', bounds_error=False)
         def anisotropy_function(r_theta : np.ndarray) -> np.array: #N x 2 array -> N array
             F = anisotropy_function_interpolator(r_theta)
-            if(np.all(~np.isnan(F))):
-                return F
             for ir_in in np.where(np.isnan(F))[0]:
                 itheta = np.argmin(np.abs(r_theta[ir_in,1] - thetas))
                 r_in = r_theta[ir_in, 0]
@@ -311,16 +309,61 @@ but source name is {self.source_name}.")
             raise ValueError("Dose rate constant not set.")
 
     def generate_dose(self, pth_output: Optional[Path] = None):
-        for catheter_table 
+        #TODO: parallelize this
+        for catheter in self.brachyplan.catheter_table:
+            for dwell in catheter.dwells:
+                logging.info("Calculating TG-43 dose for catheter %s dwell %s.", catheter.index + 1, dwell.index + 1)
+                tg43_dose_rate = self.calculate_dwell_dose_tg43(dwell)
+                
+                if self.combined_dose is None:
+                    self.combined_dose = BrachyDose()
+                    self.combined_dose.dose_image = tg43_dose_rate
+                    self.combined_dose.dose_image.imageArray *= dwell.time
+                else:
+                    self.combined_dose.dose_image.imageArray += (tg43_dose_rate.imageArray * dwell.time)
+        logging.info("TG-43 dose calculation complete.")
+        if pth_output is not None:
+            logging.info("Writing combined TG-43 dose to %s.", pth_output)
+            self.combined_dose.write_brachydose_to_file(pth_output)
 
-    def calculate_dwell_dose_tg43(self, dwell_position : DwellPosition):
-        pass
+    def calculate_dwell_dose_tg43(self, dwell : DwellPosition) ->  DoseImage:
+        affine_matrix = self.calculate_affine_transform_matrix(dwell)
+        dose_rate_kernel = self.tg43_dose_rate_kernel.dose_image.copy()
+        applyTransform3D(dose_rate_kernel, affine_matrix, fillValue=0,
+            outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1)
 
-    def calculate_affine_transform_matrix(self, dwell_position : DwellPosition) -> np.ndarray:
+        dose_rate_kernel.resampleOn(self.brachyphantom.image_obj, fillValue=0)
+
+        #TODO: enable once changes are made to ownership of dwell dose rate maps
+        if self.output_dose_per_dwell:
+            pass
+
+        return dose_rate_kernel
+
+
+    def calculate_affine_transform_matrix(self, dwell : DwellPosition) -> np.ndarray:
         #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwell
-        dwell_position
+        dwell_position = dwell.position
+        dwell_rot = dwell.rotation
+        dwell_angle = dwell.angle #todo: perform the Z rotation first
+
+        #we're going to build an affine transform matrix
         affine_matrix = np.zeros((4,4))
-        theta_x = np.atan
+        axes_rotation = Rotation.align_vectors([0, 0, 1], dwell_rot)[0].as_matrix() #gives rotation to allign z-axis to dwell_rot
+        affine_matrix[0:3, 0:3] = axes_rotation
+        affine_matrix[:3, 3] = dwell_position
+        affine_matrix[3, 3] = 1
+
+        return affine_matrix
+
+        #three extrinisic rotations around Z, then Y, then X
+        #theta_z = dwell_angle #in deg
+        #theta_y = np.atan2(dwell_rot[1] / dwell_rot[2]) * RAD
+        #theta_x = np.atan2(dwell_rot[0] / dwell_rot[1]) * RAD
+
+        #finally, the 
+
+        #theta_z = float(dwell_angle)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
