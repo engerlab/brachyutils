@@ -1,7 +1,8 @@
 import logging
 import argparse
 import numpy as np
-import tqdm
+from tqdm import tqdm
+from multiprocessing import Pool
 
 from scipy.interpolate import RegularGridInterpolator
 from scipy.spatial.transform import Rotation
@@ -310,71 +311,59 @@ but source name is {self.source_name}.")
             raise ValueError("Dose rate constant not set.")
 
     def generate_dose(self, pth_output: Optional[Path] = None):
-        #TODO: parallelize this
-        for catheter in self.brachyplan.catheter_table:
-            for dwell in catheter.dwells:
-                logging.info("Calculating TG-43 dose for catheter %s dwell %s.", catheter.index + 1, dwell.index + 1)
-                tg43_dose_rate = self.calculate_dwell_dose_tg43(dwell, catheter.index)
-                
+        flat_dwell_list = [dwell for dwell in catheter.dwells for catheter in self.brachyplan.catheter_table]
+        with Pool() as pool:
+            for dwell_dose_rate in tqdm(
+                pool.imap_unordered(self.calculate_dwell_dose_tg43, flat_dwell_list),
+                total = len(flat_dwell_list),
+                desc = "Calculating dwell doses: "
+            ):          
                 if self.combined_dose is None:
                     self.combined_dose = BrachyDose()
-                    self.combined_dose.dose_image = tg43_dose_rate.copy()
+                    self.combined_dose.dose_image = dwell_dose_rate.copy()
                     self.combined_dose.dose_image.imageArray *= dwell.time
                 else:
                     self.combined_dose.dose_image.imageArray += tg43_dose_rate.imageArray * dwell.time
-        logging.info("TG-43 dose calculation complete.")
+            logging.info("TG-43 dose calculation complete.")
         if pth_output is not None:
             logging.info("Writing combined TG-43 dose to %s.", pth_output)
             self.combined_dose.write_brachydose_to_file(pth_output)
 
-    def calculate_dwell_dose_tg43(self, dwell : DwellPosition, catheter_index : int) ->  DoseImage:
+    def calculate_dwell_dose_tg43(self, dwell : DwellPosition) ->  DoseImage:
         affine_matrix = self.calculate_affine_transform_matrix(dwell)
-        dose_rate_kernel = self.tg43_dose_rate_kernel.dose_image.copy()
-        applyTransform3D(dose_rate_kernel, affine_matrix, fillValue=0,
+        dose_kernel = self.tg43_dose_rate_kernel.dose_image.copy()
+        applyTransform3D(dose_kernel, affine_matrix, fillValue=0,
             outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1),# translation=dwell.position)
-        translateDataByChangingOrigin(dose_rate_kernel, dwell.position)
-        dose_rate_kernel.resampleOn(self.brachyphantom.image_obj, fillValue=0)
+        translateDataByChangingOrigin(dose_kernel, dwell.position)
+        dose_kernel.resampleOn(self.brachyphantom.image_obj, fillValue=0)
 
         #TODO: enable once changes are made to ownership of dwell dose rate maps
+        if self.output_dose_per_dwell == "dose_rate":
+            dwell_time = 1
+        else:
+            dwell_time = dwell.time
+        #dwell_dose = BrachyDose()
+        #dwell_dose.dose_image = dose_kernel
+        #dwell_dose.dose_image.imageArray *= dwell_time
+        #TODO: dwell needs to own its catheter index
+        #catheter_index = 1
         if self.output_dose_per_dwell is not False:
-            if self.output_dose_per_dwell == "dose_rate":
-                dwell_time = 1
-            else:
-                dwell_time = dwell.time
-            dwell_dose = BrachyDose()
-            dwell_dose.dose_image = dose_rate_kernel
-            dwell_dose.dose_image.imageArray *= dwell_time
-            dwell_dose.write_to_nrrd(self.dir_output / f"run_{catheter_index + 1}_{dwell.index +1}_0.seq.nrrd")
-
-        return dose_rate_kernel
+            raise NotImplementedError(f"Outputting dose per dwell not implemented while waiting on CatheterTable updates.")
+            #dwell_dose.write_to_nrrd(self.dir_output / f"run_{catheter_index + 1}_{dwell.index +1}_0.seq.nrrd")
+        #dose_kernel.dose
+        #return dose_rate_kernel
 
 
     def calculate_affine_transform_matrix(self, dwell : DwellPosition) -> np.ndarray:
         #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwell
         dwell_position = dwell.position
         dwell_rot = dwell.rotation
-        dwell_angle = dwell.angle #todo: perform the Z rotation first
+        dwell_angle = float(dwell.angle) #todo: perform the Z rotation first
 
-        #we're going to build an affine transform matrixtranslateDataByChangingOrigin
-        #affine_matrix = np.zeros((4,4))
-        #axes_rotation = Rotation.align_vectors([0, 0, 1], dwell_rot)[0].as_matrix() #gives rotation to allign z-axis to dwell_rot
-        #affine_matrix[0:3, 0:3] = axes_rotation
-        #affine_matrix[:3, 3] = dwell_position
-        #affine_matrix[3, 3] = 1
-        #print(affine_matrix)
-        #return affine_matrix
+
         return Rotation.align_vectors(dwell_rot, [0, 0, 1])[0].as_matrix()
 
-        #three extrinisic rotations around Z, then Y, then X
-        #theta_z = dwell_angle #in deg
-        #theta_y = np.atan2(dwell_rot[1] / dwell_rot[2]) * RAD
-        #theta_x = np.atan2(dwell_rot[0] / dwell_rot[1]) * RAD
-
-        #finally, the 
-
-        #theta_z = float(dwell_angle)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     #to do, parse inputs
-
