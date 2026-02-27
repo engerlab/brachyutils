@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from glob import glob
 from pathlib import Path
 from typing import Literal, Optional, Union
+from brachyutils.planning.plan_utils import BrachyPlan, ExportConfig_BrachyPlan
+from brachyutils.dose.dose_utils import BrachyDose
 
 class BrachyDoseGenerator(ABC):
     def __init__(
@@ -45,7 +47,27 @@ class BrachyDoseGenerator(ABC):
             - pth_output: Optional[Path]: If provided, the dose distribution will be saved to this path.
         """
         pass
-
+    
+    @abstractmethod
+    def run_dose_generation(
+        self,
+        dir_export: str | Path = None,
+        plan: BrachyPlan = None,
+        generate_dose_rate_maps: bool = False,
+        ) -> BrachyPlan:
+        r"""
+        ### Purpose:
+        - to run the dose generation for the plan and return a plan with combined dose filled as well
+        as the dose rate dictionary if desired.
+        ### Inputs:
+        - dir_export := The directory used for exporting the dosimetry setup and the generated dose maps.
+        - plan:= The treatment plan for which we want to generate the dose. 
+        - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
+        If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
+        ### Output:
+        - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
+        """
+        pass
 
 class DoseTG43(BrachyDoseGenerator):
     def __init__(
@@ -175,6 +197,45 @@ class DoseTG43(BrachyDoseGenerator):
         ), "The egsphant file is missing."
         assert any(".mac" in file for file in all_files), "The mac file is missing."
 
+    def run_dose_generation(
+        self,
+        plan: BrachyPlan = None,
+        generate_dose_rate_maps: bool = False,
+        export_config_brachyplan: ExportConfig_BrachyPlan = None,
+        ) -> BrachyPlan:
+        r"""
+        ### Purpose:
+        - to run the dose generation for the plan and return a plan with combined dose filled as well
+        as the dose rate dictionary if desired.
+        ### Inputs:
+        - plan:= The treatment plan for which we want to generate the dose. 
+        - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
+        If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
+        - export_config_brachyplan := The 
+        ### Output:
+        - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
+        """
+        if export_config_brachyplan is None:
+            export_config_brachyplan = ExportConfig_BrachyPlan(
+                dir_export=self.dir_plan_export,
+                export_config_egsphant=True,
+                export_config_planfile=True,
+                export_config_macfile=True,
+            )
+        plan.export_brachy_plan(export_config_brachyplan)
+        # call the dose generator to generate the dose maps
+        self.generate_dose(
+            output_dose_per_dwell= "dose_rate" if generate_dose_rate_maps else False,
+        )
+        # load the generated dose maps and update the plan
+        if generate_dose_rate_maps:
+            plan.load_dose_rates(
+                dir_dose_rate=self.dir_plan_export,
+            )
+        else:
+            plan.combined_dose = BrachyDose(
+                export_config_brachyplan.export_config_macfile.pth_combined.with_suffix(".seq.nrrd")
+                )
 
 class DoseMonteCarlo(BrachyDoseGenerator):
     def __init__(
@@ -246,3 +307,26 @@ class DoseMonteCarlo(BrachyDoseGenerator):
                     "The dose executable is not supported. It should be a URL or a python script."
                 )
             return response
+
+    def run_dose_generation(
+        self,
+        dir_export: str | Path = None,
+        plan: BrachyPlan = None,
+        generate_dose_rate_maps: bool = False,
+        export_config_brachyplan: ExportConfig_BrachyPlan = None,
+        ) -> BrachyPlan:
+        r"""
+        ### Purpose:
+        - to run the dose generation for the plan and return a plan with combined dose filled as well
+        as the dose rate dictionary if desired.
+        ### Inputs:
+        - dir_export := The directory used for exporting the dosimetry setup and the generated dose maps.
+        - plan:= The treatment plan for which we want to generate the dose. 
+        - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
+        If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
+        ### Output:
+        - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
+        TODO examples/benchmarks/eval_dose_generation.py has the code to fill this function. will do it when 
+        I need it again!
+        """
+        pass

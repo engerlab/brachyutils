@@ -90,9 +90,23 @@ def test_DoseMC():
         random_seed=1,
     )
 
+def test_run_dose_gen_tg43():
+    from brachyutils.tests.test_plan_utils import get_a_plan
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
+    dir_export = Path("temp_data/tg43")/pth_dicom.stem
+    plan_obj = get_a_plan(
+        pth_dicom=pth_dicom,
+    )
+    dose_gen = DoseTG43(
+        dir_plan_export=dir_export
+    )
+    dose_gen.run_dose_generation(
+        plan=plan_obj,
+    )
+    # test the case with only combined dose
 
 if __name__ == "__main__":
-    test_DoseTG43()
+    # test_DoseTG43()
     # test_DoseMC()
     # import requests
 
@@ -108,3 +122,5 @@ if __name__ == "__main__":
     # response = requests.post("http://192.168.1.12:8000/calculate_dose_tg43", json=json_data, timeout=None)
 
     # print(response.json())
+
+    test_run_dose_gen_tg43()

@@ -157,7 +157,7 @@ def test_dynamic_plan_generation():
         pth_plan=dir_dose_rates/"cat_p1.plan",
         output_dose_per_dwell="dose_rate")
 
-    plan.load_dose_rate_dict(
+    plan.load_dose_rates(
         dir_dose_rate=dir_dose_rates,
     )
 
@@ -182,7 +182,7 @@ def test_dynamic_plan_generation():
         pth_plan=dir_dose_rates/"cat_p2.plan",
         output_dose_per_dwell="dose_rate")
 
-    plan.load_dose_rate_dict(
+    plan.load_dose_rates(
         dir_dose_rate=dir_dose_rates,
     )
     print("debug here")
