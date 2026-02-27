@@ -317,7 +317,7 @@ but source name is {self.source_name}.")
         self.load_and_initialize_tg43()
         self.validate_inputs()
 
-        #with ProcessPoolExecutor() as executor: 
+        #with ProcessPoolExecutor() as executor:
         with ThreadPoolExecutor() as executor:
             futures = {executor.submit(calculate_dwell_dose_tg43, dwell, self.tg43_dose_rate_kernel, self.brachyphantom): dwell for dwell in self.brachyplan.catheter_table.all_dwells}
             for action in tqdm(
@@ -331,13 +331,14 @@ but source name is {self.source_name}.")
                         raise ValueError(f"TG-43DoseCalculator failed for dwell {failed_dwell.name_id}") from exc
 
         logging.info("TG-43 dose calculation complete.")
-        combined_dose = self.brachyplan.catheter_table.combined_dose()
-        if dir_output is not None:
-            if isinstance(self.dir_output, str):
-                dir_output = Path(dir_output)
-            pth_output = dir_output / "combined_TG43.seq.nrrd"
-            logging.info("Writing combined TG-43 dose to %s.", pth_output)
-            combined_dose.write_brachydose_to_file(pth_output)
+        combined_dose = self.brachyplan.catheter_table.combined_dose
+        if dir_export is not None:
+            dir_export = Path(self.dir_plan_export)
+        else:
+            dir_export = Path(dir_export)
+        pth_output = dir_export / "combined_TG43.seq.nrrd"
+        logging.info("Writing combined TG-43 dose to %s.", pth_output)
+        combined_dose.write_brachydose_to_file(pth_output)
 
     def generate_dose(self, pth_output: Optional[Path] = None):
         raise NotImplementedError("generate_dose() not implemented for TG43DoseCalculator. Call run_dose_generation() instead.")
