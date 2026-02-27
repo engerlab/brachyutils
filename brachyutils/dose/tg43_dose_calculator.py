@@ -1,22 +1,25 @@
 import logging
 import argparse
+from pathlib import Path
+from typing import Union, Callable, Optional
+
 import numpy as np
 from tqdm import tqdm
-from multiprocessing import Pool
 
 from scipy.interpolate import RegularGridInterpolator
 from scipy.spatial.transform import Rotation
-from pathlib import Path
-from typing import Union, Callable, Optional
 from opentps.core.data.images import DoseImage
 from opentps.core.processing.imageProcessing.imageTransform3D  import applyTransform3D, translateDataByChangingOrigin
 
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+
+
 from brachyutils.planning.plan_utils import BrachyPlan
-from brachyutils.geometry.catheter_utils import CatheterTable, DwellPosition
+from brachyutils.geometry.catheter_utils import DwellPosition
 from brachyutils.dose.dose_utils import BrachyDose
 from brachyutils.dose.dose_generation_utils import BrachyDoseGenerator
 from brachyutils.geometry.phantom_utils import BrachyPhantom
-from brachyutils.planning.simulation_utils import BrachySimulation, BrachySource
+from brachyutils.planning.simulation_utils import BrachySource
 
 #unit constants
 CGY = 0.01 #Gy
@@ -30,9 +33,7 @@ class TG43DoseCalculator(BrachyDoseGenerator):
     """
     """
     def __init__(self,
-        brachyplan: BrachyPlan,
         dir_tg43_parameters: Optional[str] = "SourceParameters/microSelectron-v2",
-        output_dose_per_dwell : Optional[Union[bool, str]] = False,
         dir_output : Optional[Union[Path, str]] = Path(),
         **calc_parameter_kwargs
         ) -> None:
@@ -40,67 +41,63 @@ class TG43DoseCalculator(BrachyDoseGenerator):
         """
         #input
         super().__init__(dir_output, None)
-        self.brachyplan : BrachyPlan = brachyplan
         self.dir_tg43_parameters : Path = dir_tg43_parameters
-        self.output_dose_per_dwell : Union[bool, str] = output_dose_per_dwell
-        if isinstance(dir_output, str):
-            dir_output = Path(dir_output)
-        self.dir_output = dir_output
-
-        #check that the brachyplan has the required info before proceeding
-        #it should have a BrachyPhantom (providing the dose grid for calculation),
-        #a CatheterTable (for dwell positions/times)
-        #and a BrachySimulatinos
-        self.validate_brachyplan()
 
         #store meta-parameters about the calculation in this dictionary
         self.calc_parameters = {
             "kernel_half_width" : 20 * CM, #half width to calculate dose rate kernel
             "kernel_res" : 0.1 * CM, #resolution to calculate the dose rate kernel
-            "kernel_max_dose_rate": 1, #Gy/s
+            "kernel_max_dose_rate": 10, #Gy/s
             "epsilon": 1e-3 #just a little nudge to certain values :)
         }
         self.calc_parameters.update(calc_parameter_kwargs)
 
         #populate attributes to the validated brachyplan input
-        self.brachyphantom : BrachyPhantom = self.brachyplan.phantom
-        self.brachysource : BrachySource =  self.brachyplan.simulation_setup.brachy_source
-        self.source_name : str = self.brachysource.source_geometry
-        self.is_hdr : bool = self.brachysource.treatment_type == "HDR"
-
-        #a little hard-coded fix :)
-        if self.source_name == "MicroSelectronV2":
-            self.source_name = "microSelectron-v2"
+        self.brachyplan = None
+        self.brachyphantom : BrachyPhantom = None
+        self.brachysource : BrachySource = None#
+        self.source_name : str = None#self.brachysource.source_geometry
+        self.is_hdr : bool = True#self.brachysource.treatment_type == "HDR"
 
         #tg43 parameters
         self.active_length : float = None
-        self.air_kerma_strength : float = self.brachysource.reference_air_kerma_rate * U
-        self.activity : float = self.brachysource.activity #can specify the (total) activity in place of the AKS
-        if self.activity is not None:
-            self.activity *= CI
+        self.air_kerma_strength : float = None
+        self.activity : float = None
         self.dose_rate_constant : float = None
-        self.radial_dose_function: Callable[[float], float] = None
+        self.radial_dose_function: Callable[[float], float] = None #TODO: fix function signatures
         self.geometry_function: Callable[[float, float], float] = None
         self.anisotropy_function : Callable[[float, float], float] = None
 
         self.tg43_dose_rate_kernel : BrachyDose = None #dose rate distribution in 3D with centered source
 
-        self.load_and_initialize_tg43()
-
         #outputs
 
-        self.combined_dose : BrachyDose = None
-
-    def validate_brachyplan(self) -> None:
-        if self.brachyplan is None:
+    def validate_brachyplan(self, plan : BrachyPlan) -> None:
+        if plan is None:
             raise ValueError("Input BrachyPlan is None.")
-        if self.brachyplan.phantom is None:
+        if plan.phantom is None:
             raise ValueError("Input BrachyPhantom has no BrachyPhantom.")
-        if self.brachyplan.simulation_setup is None:
+        if plan.simulation_setup is None:
             raise ValueError("Input BrachyPlan has no BrachySimulation.")
-        if self.brachyplan.simulation_setup.brachy_source is None:
+        if plan.simulation_setup.brachy_source is None:
             raise ValueError("Input BrachyPlan's BrachySimulation has no BrachySource.")
+
     
+    def load_from_brachyplan(self, plan : BrachyPlan) -> None:
+        self.validate_brachyplan(plan)
+        self.brachyplan = plan
+        self.brachyphantom : BrachyPhantom = plan.phantom
+        self.brachysource : BrachySource = plan.simulation_setup.brachy_source
+        self.source_name : str = self.brachysource.source_geometry
+        self.is_hdr : bool = self.brachysource.treatment_type == "HDR"
+        #a little hard-coded fix :)
+        if self.source_name == "MicroSelectronV2":
+            self.source_name = "microSelectron-v2"
+        self.air_kerma_strength = self.brachysource.reference_air_kerma_rate * U
+        self.activity = self.brachysource.activity #can specify the (total) activity in place of the AKS
+        if self.activity is not None:
+            self.activity *= CI
+
     def load_and_initialize_tg43(self) -> None:
         #Load and initialize all of the TG-43 parameters and functions
         #NOTE: all distance dimensions should be converted 
@@ -119,7 +116,7 @@ class TG43DoseCalculator(BrachyDoseGenerator):
 
     def load_and_initialize_source_info(self) -> None:
         file_path = self.dir_tg43_parameters / "source.csv"
-        with open(file_path) as file:
+        with open(file_path, encoding='utf-8') as file:
             file_data = file.readlines()[0].split(',')
         file_data[2] = file_data[2][:-1] #cut out newline
         if file_data[0] != self.source_name:
@@ -130,7 +127,7 @@ but source name is {self.source_name}.")
             raise ValueError(f"Potential mismatch! Loaded parameters for source isotope ###{file_data[2]}### \
                 but source core is ###{source_core_from_plan}###.")
         self.active_length = float(file_data[1]) * CM
-        logging.debug(f"Active length %s mm", self.active_length)
+        logging.debug("Active length %s mm", self.active_length)
 
     def load_and_initialze_aks_drc(self) -> None:
         file_path = self.dir_tg43_parameters / f"{self.source_name}_AKS_DRC.csv"
@@ -246,9 +243,6 @@ but source name is {self.source_name}.")
         #theta is off the z_axis (0, 0, 1), angle between two vectors a,b is arccos(a*b/(|a||b|))
         #this means that theta is just arccos(z/r)
         kernel_theta = np.arccos(kernel_z / kernel_r) * RAD
-
-        #kernel_theta[kernel_theta == 0] = epsilon
-        #kernel_theta[np.isclose(kernel_theta, 180.)] = 180. - epsilon
     
         del kernel_x
         del kernel_y
@@ -304,66 +298,67 @@ but source name is {self.source_name}.")
         logging.debug("TG-43 dose rate kernel generation complete.")
 
     def validate_inputs(self) -> None:
+        #check that the brachyplan has the required info before proceeding
+        #it should have a BrachyPhantom (providing the dose grid for calculation),
+        #a CatheterTable (for dwell positions/times)
+        #and a BrachySimulatinos
+        #TODO: Implement this
         if self.air_kerma_strength is None and self.activity is None:
             raise ValueError("Either air kerma strength or activity should be set in the source dict.")
 
         if self.dose_rate_constant is None:
             raise ValueError("Dose rate constant not set.")
 
-    def generate_dose(self, pth_output: Optional[Path] = None):
-        flat_dwell_list = [dwell for dwell in catheter.dwells for catheter in self.brachyplan.catheter_table]
-        with Pool() as pool:
-            for dwell_dose_rate in tqdm(
-                pool.imap_unordered(self.calculate_dwell_dose_tg43, flat_dwell_list),
-                total = len(flat_dwell_list),
-                desc = "Calculating dwell doses: "
-            ):          
-                if self.combined_dose is None:
-                    self.combined_dose = BrachyDose()
-                    self.combined_dose.dose_image = dwell_dose_rate.copy()
-                    self.combined_dose.dose_image.imageArray *= dwell.time
-                else:
-                    self.combined_dose.dose_image.imageArray += tg43_dose_rate.imageArray * dwell.time
-            logging.info("TG-43 dose calculation complete.")
-        if pth_output is not None:
+    def run_dose_generation(self, dir_export: str | Path = None, plan: BrachyPlan = None, generate_dose_rate_maps: bool = True) -> BrachyPlan:
+        if not generate_dose_rate_maps:
+            raise ValueError("generate_dose_rate_maps must be True in TG43DoseCalculator.")
+        
+        self.load_from_brachyplan(plan)
+        self.load_and_initialize_tg43()
+        self.validate_inputs()
+
+        #with ProcessPoolExecutor() as executor: 
+        with ThreadPoolExecutor() as executor:
+            futures = {executor.submit(calculate_dwell_dose_tg43, dwell, self.tg43_dose_rate_kernel, self.brachyphantom): dwell for dwell in self.brachyplan.catheter_table.all_dwells}
+            for action in tqdm(
+                as_completed(futures),
+                total = len( self.brachyplan.catheter_table.all_dwells),
+                desc = "Calculating dwell doses:"):
+                    try:
+                        action.result()
+                    except Exception as exc:
+                        failed_dwell = futures[action]
+                        raise ValueError(f"TG-43DoseCalculator failed for dwell {failed_dwell.name_id}") from exc
+
+        logging.info("TG-43 dose calculation complete.")
+        combined_dose = self.brachyplan.catheter_table.combined_dose()
+        if dir_output is not None:
+            if isinstance(self.dir_output, str):
+                dir_output = Path(dir_output)
+            pth_output = dir_output / "combined_TG43.seq.nrrd"
             logging.info("Writing combined TG-43 dose to %s.", pth_output)
-            self.combined_dose.write_brachydose_to_file(pth_output)
+            combined_dose.write_brachydose_to_file(pth_output)
 
-    def calculate_dwell_dose_tg43(self, dwell : DwellPosition) ->  DoseImage:
-        affine_matrix = self.calculate_affine_transform_matrix(dwell)
-        dose_kernel = self.tg43_dose_rate_kernel.dose_image.copy()
-        applyTransform3D(dose_kernel, affine_matrix, fillValue=0,
-            outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1),# translation=dwell.position)
-        translateDataByChangingOrigin(dose_kernel, dwell.position)
-        dose_kernel.resampleOn(self.brachyphantom.image_obj, fillValue=0)
+    def generate_dose(self, pth_output: Optional[Path] = None):
+        raise NotImplementedError("generate_dose() not implemented for TG43DoseCalculator. Call run_dose_generation() instead.")
 
-        #TODO: enable once changes are made to ownership of dwell dose rate maps
-        if self.output_dose_per_dwell == "dose_rate":
-            dwell_time = 1
-        else:
-            dwell_time = dwell.time
-        #dwell_dose = BrachyDose()
-        #dwell_dose.dose_image = dose_kernel
-        #dwell_dose.dose_image.imageArray *= dwell_time
-        #TODO: dwell needs to own its catheter index
-        #catheter_index = 1
-        if self.output_dose_per_dwell is not False:
-            raise NotImplementedError(f"Outputting dose per dwell not implemented while waiting on CatheterTable updates.")
-            #dwell_dose.write_to_nrrd(self.dir_output / f"run_{catheter_index + 1}_{dwell.index +1}_0.seq.nrrd")
-        #dose_kernel.dose
-        #return dose_rate_kernel
+def calculate_dwell_dose_tg43(dwell : DwellPosition, dose_rate_kernel: BrachyDose, phantom : BrachyPhantom ) ->  None:
+    rotation_matrix = calculate_dwell_rotation_matrix(dwell)
+    dose_rate_kernel = dose_rate_kernel.dose_image.copy()
+    applyTransform3D(dose_rate_kernel, rotation_matrix, fillValue=0,
+        outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1),# translation=dwell.position)
+    translateDataByChangingOrigin(dose_rate_kernel, dwell.position)
+    dose_rate_kernel.resampleOn(phantom.image_obj, fillValue=0)
+    if dwell.dose_rate is None:
+        dwell.dose_rate = BrachyDose()
+    dwell.dose_rate.dose_image = dose_rate_kernel
 
-
-    def calculate_affine_transform_matrix(self, dwell : DwellPosition) -> np.ndarray:
-        #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwell
-        dwell_position = dwell.position
-        dwell_rot = dwell.rotation
-        dwell_angle = float(dwell.angle) #todo: perform the Z rotation first
-
-
-        return Rotation.align_vectors(dwell_rot, [0, 0, 1])[0].as_matrix()
-
+def calculate_dwell_rotation_matrix( dwell : DwellPosition) -> np.ndarray:
+    #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwell
+    dwell_rot = dwell.rotation
+    dwell_angle = float(dwell.angle) #todo: perform the Z rotation first
+    return Rotation.align_vectors(dwell_rot, [0, 0, 1])[0].as_matrix()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    #to do, parse inputs
+    #TODO:, parse inputs
