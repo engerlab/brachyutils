@@ -877,7 +877,7 @@ class CatheterTable(BaseModel):
         catheter.index = new_index
         self.catheter_list.append(catheter)
 
-    def get_dwell_by_name_ids(self, name_ids: List[str]) -> List[DwellPosition]:
+    def get_dwells_by_name_ids(self, name_ids: List[str]) -> List[DwellPosition]:
         r"""
         ### Purpose:
         - To return dwell positions that have the queried name ids.

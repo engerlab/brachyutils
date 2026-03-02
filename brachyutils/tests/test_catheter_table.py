@@ -159,7 +159,7 @@ def test_get_dwells_by_ids():
     dwell_ids = [
         "0_3_0", "8_4_0", "1_1_0",
     ]
-    dwells_got = cat_tab_to_export.get_dwell_by_name_ids(dwell_ids)
+    dwells_got = cat_tab_to_export.get_dwells_by_name_ids(dwell_ids)
     for dwell in dwells_got:
         print(dwell.name_id)
     
