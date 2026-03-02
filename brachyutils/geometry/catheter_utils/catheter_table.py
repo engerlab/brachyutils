@@ -1227,7 +1227,7 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         print(f"Dose exported to {dir_export}")
 
     def update(self, new_catheter_table:"CatheterTable"):
-        r"""
+        r""" XXX: debug this with the finalized catheter update logic!
         ### Purpose:
         - Given a new catheter table, update self.
         dose rates are kept only if dwell time is updated. otherwise the 
