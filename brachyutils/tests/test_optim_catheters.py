@@ -133,58 +133,48 @@ def test_dynamic_plan_generation():
     )
     # plan.catheter_table.info()
     # # now generate dose rates for the first half of the catheters.
-    export_for_dose = {
-        "dir_export": dir_dose_rates,
-        "export_config_macfile": {
-            "name_combined": "cat_p1"
-        },
-        "export_config_planfile": {
-            "name_combined": "cat_p1"
-        }
-    }
-    # initialize the dose generator object
+    # # initialize the dose generator object
     dose_generator = DoseTG43(
         dir_plan_export=dir_dose_rates
     )
-
-    plan.export_brachy_plan(
-        content_to_export=export_for_dose
-    )
-
-    dose_generator.generate_dose(
-        pth_mac=dir_dose_rates/"cat_p1.mac",
-        pth_egsphant=dir_dose_rates/"egsphant.seq.nrrd",
-        pth_plan=dir_dose_rates/"cat_p1.plan",
-        output_dose_per_dwell="dose_rate")
-
-    plan.load_dose_rates(
-        dir_dose_rate=dir_dose_rates,
-    )
-
-    plan.set_catheter_table(
-        catheter_table=cat_table_p1+cat_table_p2,        
-    )
-    export_for_dose = {
-        "dir_export": dir_dose_rates,
-        "export_config_macfile": {
-            "name_combined": "cat_p2"
-        },
-        "export_config_planfile": {
-            "name_combined": "cat_p2"
+    plan = dose_generator.run_dose_generation(
+        plan=plan,
+        generate_dose_rate_maps=True,
+        export_config_brachyplan={
+            "dir_export": dir_dose_rates,
+            "export_config_macfile": {
+                "name_combined": "cat_p1"
+            },
+            "export_config_planfile": {
+                "name_combined": "cat_p1"
+            }
         }
-    }
-    plan.export_brachy_plan(
-        content_to_export=export_for_dose
     )
-    dose_generator.generate_dose(
-        pth_mac=dir_dose_rates/"cat_p2.mac",
-        pth_egsphant=dir_dose_rates/"egsphant.seq.nrrd",
-        pth_plan=dir_dose_rates/"cat_p2.plan",
-        output_dose_per_dwell="dose_rate")
 
-    plan.load_dose_rates(
-        dir_dose_rate=dir_dose_rates,
-    )
+    # plan.set_catheter_table(
+    #     catheter_table=cat_table_p1+cat_table_p2,        
+    # )
+    # export_for_dose = {
+    #     "dir_export": dir_dose_rates,
+    #     "export_config_macfile": {
+    #         "name_combined": "cat_p2"
+    #     },
+    #     "export_config_planfile": {
+    #         "name_combined": "cat_p2"
+    #     }
+    # }
+    # plan.export_brachy_plan(
+    #     content_to_export=export_for_dose
+    # )
+    # dose_generator.generate_dose(
+    #     pth_mac=dir_dose_rates/"cat_p2.mac",
+    #     pth_egsphant=dir_dose_rates/"egsphant.seq.nrrd",
+    #     pth_plan=dir_dose_rates/"cat_p2.plan",
+    #     output_dose_per_dwell="dose_rate")
+
+    # plan.load_dose_rates(
+    #     dir_dose_rate=dir_dose_rates,
+    # )
     print("debug here")
 
 

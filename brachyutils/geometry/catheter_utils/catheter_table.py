@@ -24,7 +24,7 @@ from itertools import chain
 from brachyutils.dose.dose_utils import BrachyDose
 
 class ExportConfig_Dose(BaseModel):
-    """
+    """XXX : move this back to where it came from!
     Configuration for exporting dose data from the plan.
     """
     model_config = ConfigDict(
