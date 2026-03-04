@@ -510,7 +510,7 @@ class BrachyPlan:
             if self.catheter_table is None:
                 self.catheter_table = catheter_table
             else:
-                self.catheter_table.update(catheter_table)
+                self.catheter_table.merge(catheter_table)
         else:
             raise ValueError(
                 "catheter_table should be a path or a CatheterTable object"

@@ -1226,7 +1226,7 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
                         dose_extension=export_config_dose.file_extension)
         print(f"Dose exported to {dir_export}")
 
-    def update(self, new_catheter_table:"CatheterTable"):
+    def merge(self, new_catheter_table:"CatheterTable"):
         r""" XXX: debug this with the finalized catheter update logic!
         ### Purpose:
         - Given a new catheter table, update self.
