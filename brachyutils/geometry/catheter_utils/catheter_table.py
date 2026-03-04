@@ -899,6 +899,23 @@ class CatheterTable(BaseModel):
                     out_dwells.append(dwell)
         return out_dwells
 
+    def get_catheters_by_ids(self, name_ids: List[str]) -> List[Catheter]:
+        r"""
+        ### Purpose:
+        - To return the catheters that have the queried name ids.
+        The name ids are in the format {catheter.index+1}
+        ### Inputs:
+        - name_ids := The list of name ids to be returned.
+        ### Outputs:
+        - out_catheters : List[Catheter] := The catheters with the matching name ids        
+        """
+        out_catheters = []
+        for name_id in name_ids:
+            for cath in self.catheter_list:
+                if cath.name_id == name_id:
+                    out_catheters.append(cath)
+        return out_catheters
+
     def reset_index(self) -> None:
         r"""
         ### Purpose:
@@ -1242,8 +1259,9 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
 
         This requires the indecies in the new catheter table to be aware of self. Idealy, we should
         be using dictionaries, but it's too late at this point.
-        Also, this function assumes that the catheter.index attribute matches the the index
-        of the catheter in cathetertable.catheter_list.
+        Also, this function assumes that the catheter.index attribute in self matches the the index
+        of the catheter in self.catheter_list, while this assumption is not required for the 
+        new_catheter_table (I know, horrible design choices!)
 
         ### Inputs:
         - new_catheter_table:CatheterTable := The new catheter table used
