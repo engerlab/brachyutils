@@ -805,8 +805,10 @@ class CatheterTable(BaseModel):
     def __sub__(self, other: "CatheterTable") -> "CatheterTable":
         r"""
         ### Purpose:
-        - To subtract the dwell times, position and 
-        rotation of one catheter table from the current catheter table.
+        - To subtract the dwell times, position and rotation of one catheter table
+        from the current catheter table. This subtraction excludes the dose rates.
+        gen_dose_rate is set to true if the position, rotation or angle has changed.
+
         ### Inputs:
         - self := the current CatheterTable object.
         - other := the CatheterTable object to be subtracted.
@@ -838,7 +840,7 @@ class CatheterTable(BaseModel):
                                 # gen dose rate if any attribute other than the dwell time has changed.
                                 diff_gen_doserate = False
                                 if (np.any(diff_position !=0) or np.any(diff_rotation !=0)
-                                    or diff_angle != 0 or diff_relativePos != 0):
+                                    or diff_angle != 0):
                                     diff_gen_doserate = True
                                 dwell_diff = DwellPosition(
                                     index=dwell.index,
@@ -1240,6 +1242,8 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
 
         This requires the indecies in the new catheter table to be aware of self. Idealy, we should
         be using dictionaries, but it's too late at this point.
+        Also, this function assumes that the catheter.index attribute matches the the index
+        of the catheter in cathetertable.catheter_list.
 
         ### Inputs:
         - new_catheter_table:CatheterTable := The new catheter table used
@@ -1247,7 +1251,7 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         ### Output:
         None := update self.
         """
-        catheter_table_diff = self - new_catheter_table 
+        catheter_table_diff = self - new_catheter_table
         self._time_diffs = {}
         for catheter_diff in catheter_table_diff:
             # if the catheter is not in the current catheter table, add the entire catheter with all its dwells.
