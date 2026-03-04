@@ -762,8 +762,11 @@ class CatheterTable(BaseModel):
             raise ValueError("other should be a CatheterTable object.")
         if self.step_size != other.step_size:
             raise ValueError("Cannot add two catheter tables with different stepsizes.")
-        self.catheter_list = self.catheter_list + other.catheter_list
-        return self
+        return CatheterTable(
+            catheterlist=self.catheterlist + other.catheterlist,
+            stepsize=self.stepsize,
+            from_delivered_dwellpositions=self.from_delivered_dwellpositions,
+        )
 
     def __iadd__(self, other: "CatheterTable") -> "CatheterTable":
         r"""
@@ -1229,9 +1232,15 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
     def merge(self, new_catheter_table:"CatheterTable"):
         r""" XXX: debug this with the finalized catheter update logic!
         ### Purpose:
-        - Given a new catheter table, update self.
-        dose rates are kept only if dwell time is updated. otherwise the 
-        dwells inside a catheter are replaced/deleted.
+        - Given a new catheter table, merge it with self.
+        If a catheter with a specific index does not exist, it'll be added as it is.
+        If a catheter with a specific index exists, then the previous catheter will be updated.
+        Same logic applies to the dwells except that dose rates are kept only if dwell time is updated. 
+        otherwise the dwells inside a catheter are replaced.
+
+        This requires the indecies in the new catheter table to be aware of self. Idealy, we should
+        be using dictionaries, but it's too late at this point.
+
         ### Inputs:
         - new_catheter_table:CatheterTable := The new catheter table used
         to update self.
