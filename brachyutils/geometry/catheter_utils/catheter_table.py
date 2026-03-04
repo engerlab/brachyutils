@@ -204,6 +204,10 @@ class Catheter(BaseModel):
     gen_dose_rates: bool = True
 
     @computed_field
+    def name_id(self) -> str:
+        return f"{self.catheter_index+1}"
+
+    @computed_field
     def channel_total_time(self) -> float:
         r"""
         ### Purpose:
@@ -1249,7 +1253,7 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         print(f"Dose exported to {dir_export}")
 
     def merge(self, new_catheter_table:"CatheterTable"):
-        r""" XXX: debug this with the finalized catheter update logic!
+        r"""
         ### Purpose:
         - Given a new catheter table, merge it with self.
         If a catheter with a specific index does not exist, it'll be added as it is.
@@ -1271,6 +1275,8 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         """
         catheter_table_diff = self - new_catheter_table
         self._time_diffs = {}
+        name_ids_diff = [cath.name_id for cath in catheter_table_diff]
+        # XXX: debug this with the finalized catheter update logic!
         for catheter_diff in catheter_table_diff:
             # if the catheter is not in the current catheter table, add the entire catheter with all its dwells.
             if self[catheter_diff.index] is None:
