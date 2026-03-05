@@ -683,10 +683,10 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - CatheterTable := the catheter table object.
         """
-        if (isinstance(self.catheters_list, str) or
-            isinstance(self.catheters_list, Path)
+        if (isinstance(self.catheters_dict, str) or
+            isinstance(self.catheters_dict, Path)
             ):
-            catheter_file = Path(self.catheters_list)
+            catheter_file = Path(self.catheters_dict)
 
             if not catheter_file.exists():
                 raise ValueError(f"catheter file {catheter_file} does not exist.")
@@ -701,12 +701,12 @@ class CatheterTable(BaseModel):
                     pth_dicom=catheter_file,
                     from_delivered_dwellpositions=self.from_delivered_dwellpositions,
                 )
-            self.catheters_list = cat_dict["catheters_list"]
+            self.catheters_dict = cat_dict["catheters_list"]
             self.step_size = cat_dict["step_size"]
 
-        elif isinstance(self.catheters_list, CatheterSetUp):
+        elif isinstance(self.catheters_dict, CatheterSetUp):
             # if the catheters_list is a CatheterSetUp object, convert it to a CatheterTable
-            cat_setup = self.catheters_list
+            cat_setup = self.catheters_dict
             updated_catheter_dict = _update_catheter_table(
                 catheter_table = cat_setup.catheter_table,
                 digitization_points=cat_setup.digitization_points,
@@ -714,20 +714,26 @@ class CatheterTable(BaseModel):
                 tips=cat_setup.get_tips_coords(),
                 step_size=cat_setup.step_size,
             )
-            self.catheters_list = updated_catheter_dict["catheters_list"]
+            self.catheters_dict = updated_catheter_dict["catheters_list"]
             self.step_size = updated_catheter_dict["step_size"]
 
-        elif isinstance(self.catheters_list, CreatedSetUp):
-            created_setup = self.catheters_list
+        elif isinstance(self.catheters_dict, CreatedSetUp):
+            created_setup = self.catheters_dict
             updated_catheter_dict = created_setup.to_brachyutils_CatheterTable_format()
-            self.catheters_list = updated_catheter_dict["catheters_list"]
+            self.catheters_dict = updated_catheter_dict["catheters_list"]
             self.step_size = updated_catheter_dict["step_size"]
             self.non_zero_dwell_positions = created_setup.get_non_zero_dwell_positions()
 
-        if isinstance(self.catheters_list[0], dict):
-            self.catheters_list = [
+        if isinstance(self.catheters_dict[0], dict):
+            self.catheters_dict = [
                 Catheter(**catheter_dict) for catheter_dict in self.catheters_list
             ]
+
+        # if catheter dict is a list, convert it to a dict
+        real_dict = defaultdict(Catheter)
+        for cat in self.catheter_dict:
+            real_dict[cat.name_id] = cat
+        self.catheter_dict = real_dict
         return self
 
     def __iter__(self):
