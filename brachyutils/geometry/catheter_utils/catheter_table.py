@@ -1543,7 +1543,7 @@ def load_from_dicom(
     for catheter in catheter_table_dict["catheters_list"]:
         for dwell in catheter["dwells"]:
             dwell["catheter_index"] = catheter["index"]
-    
+
     return catheter_table_dict
 
 def load_from_json(pth_json: Path) -> list:
@@ -1565,6 +1565,9 @@ def load_from_json(pth_json: Path) -> list:
             step_size = catheter_table_list[0].get("step_size", None)
         elif isinstance(cat_table, dict):
             catheter_table_list = cat_table.get("catheters_list", None)
+            if catheter_table_list is None:
+                catheter_table_dict = cat_table.get("catheters_dict", None)
+                catheter_table_list = list(catheter_table_dict.values())
             step_size = cat_table.get("step_size", None)
             non_zero_dwell_positions = cat_table.get("non_zero_dwell_positions", None)
         else:
@@ -1575,7 +1578,7 @@ def load_from_json(pth_json: Path) -> list:
         for catheter_dict in catheter_table_list:
             raw_catheter_table.append(Catheter(**catheter_dict))
         return {
-            "catheters_list":raw_catheter_table,
+            "catheters_dict":raw_catheter_table,
             "step_size":step_size,
             "non_zero_dwell_positions": non_zero_dwell_positions
             }
