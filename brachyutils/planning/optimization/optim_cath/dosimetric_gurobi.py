@@ -300,7 +300,7 @@ def set_catheter_variables(
         name_cath_to_keep=[]
     for catheter in tqdm(
         plan.catheter_table,
-        total=len(plan.catheter_table.catheter_list),
+        total=len(plan.catheter_table.catheters_list),
         desc="Creating optimization variables from new catheters"):
         if f"catheter_{catheter.index+1}" in name_cath_to_keep:
             continue
