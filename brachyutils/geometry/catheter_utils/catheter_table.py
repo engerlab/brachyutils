@@ -973,7 +973,7 @@ class CatheterTable(BaseModel):
         """
         treatment_t = self.treatment_time
         return {
-            "catheters_list": [
+            "catheter_list": [
                 catheter.to_dict(total_time=treatment_t) 
                 for catheter in self.catheters_list
                 ],
