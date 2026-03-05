@@ -763,9 +763,14 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - List[Catheter] := the list of catheters in the catheter table.
         """
+        if isinstance(indices, str):
+            return self.catheters_dict.get(indices, None)
+
         if isinstance(indices, slice):
+            indices = list(range(*slice.indices(len(self.catheters_dict))))
+            caths_found = [cath for cath in self.catheters_list if cath.index in indices]
             return CatheterTable(
-                catheters_dict=self.catheters_dict[indices],
+                catheters_dict=caths_found,
                 step_size=self.step_size,
                 from_delivered_dwellpositions=self.from_delivered_dwellpositions,
             )
