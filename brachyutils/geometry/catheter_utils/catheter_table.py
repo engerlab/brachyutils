@@ -764,7 +764,12 @@ class CatheterTable(BaseModel):
         - List[Catheter] := the list of catheters in the catheter table.
         """
         if isinstance(indices, str):
-            return self.catheters_dict.get(indices, None)
+            catheter_found = self.catheters_dict.get(indices, None)
+            # make sure that the catheter.index and the indicies match
+            if indices != catheter_found.name_id:
+                raise ValueError("The index of the catheter found and the name_id do not match \
+in the catheters_dict. there is a big bug somewhere in catheter table creation")
+            return catheter_found
 
         if isinstance(indices, slice):
             indices = list(range(*slice.indices(len(self.catheters_dict))))
