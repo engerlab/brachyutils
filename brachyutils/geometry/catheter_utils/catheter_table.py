@@ -205,7 +205,7 @@ class Catheter(BaseModel):
 
     @computed_field
     def name_id(self) -> str:
-        return f"{self.catheter_index+1}"
+        return f"{self.index+1}"
 
     @computed_field
     def channel_total_time(self) -> float:
@@ -913,7 +913,10 @@ class CatheterTable(BaseModel):
     def append(self, catheter: Catheter) -> None:
         r"""
         ### Purpose:
-        - To append a catheter to the catheter table.
+        - To append a catheter to the catheter table. Appending
+        will over-write the catheter.index based on the largest
+        index in self. If you would like to preserve the catheter.index
+        use __setitem__
 
         ### Inputs:
         - self := the CatheterTable object.
@@ -924,9 +927,12 @@ class CatheterTable(BaseModel):
         """
         if not isinstance(catheter, Catheter):
             raise ValueError("catheter should be a Catheter object.")
-        new_index = len(self.catheters_list)
+        new_index = len(self.catheters_dict)
         catheter.index = new_index
-        self.catheters_list.append(catheter)
+        self.catheters_list[catheter.name_id] = catheter
+
+    def __setitem__(self, name_id: str, new_catheter: dict | Catheter):
+        pass
 
     def get_dwells_by_name_ids(self, name_ids: List[str]) -> List[DwellPosition]:
         r"""
