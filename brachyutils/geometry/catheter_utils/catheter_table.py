@@ -532,7 +532,8 @@ class CatheterTable(BaseModel):
     ##########
 
     catheters_dict: Union[
-        List[Catheter], List[dict], str, Path, CatheterSetUp, CreatedSetUp,  Dict[Catheter]
+        List[Catheter], List[dict], str, Path, CatheterSetUp, CreatedSetUp,
+        Dict[Catheter], Dict[dict]
     ]
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
@@ -725,16 +726,19 @@ class CatheterTable(BaseModel):
             self.step_size = updated_catheter_dict["step_size"]
             self.non_zero_dwell_positions = created_setup.get_non_zero_dwell_positions()
 
-        if isinstance(self.catheters_dict[0], dict):
-            self.catheters_dict = [
-                Catheter(**catheter_dict) for catheter_dict in self.catheters_dict
-            ]
+        elif isinstance(self.catheter_dict, list):
+            # if catheter dict is a list, convert it to a dict
+            real_dict = defaultdict(Catheter)
+            for cat in self.catheter_dict:
+                real_dict[cat.name_id] = cat
+            self.catheter_dict = real_dict
 
-        # if catheter dict is a list, convert it to a dict
-        real_dict = defaultdict(Catheter)
-        for cat in self.catheter_dict:
-            real_dict[cat.name_id] = cat
-        self.catheter_dict = real_dict
+        # check if the values are dicts or catheter\
+        self.catheter_dict = {
+            key: Catheter(val) if isinstance(val, dict) else val
+            for key, val in self.catheter_dict.items()
+        }
+
         return self
 
     def __iter__(self):
@@ -744,21 +748,24 @@ class CatheterTable(BaseModel):
     def __len__(self):
         return len(self.catheters_list)
 
-    def __getitem__(self, indices: int| slice) ->  Union[Catheter, "CatheterTable"] :
+    def __getitem__(self, indices: int | slice | str) ->  Union[Catheter, "CatheterTable"] :
         r"""
         ### Purpose:
         - To get a subset of the catheter table.
 
         ### Inputs:
         - self := the CatheterTable object.
-        - indices: int | slice := the index or slice to get.
+        - indices: int | slice | str := the index, slice or key string to get the 
+        catheters by. index and slice finds the catheters by their catheter.index,
+        while if a string is provided, it'll get the catheters by name_id.
+        note that catheter.name_id = str(catheter.index +1) 
 
         ### Outputs:
         - List[Catheter] := the list of catheters in the catheter table.
         """
         if isinstance(indices, slice):
             return CatheterTable(
-                catheters_list=self.catheters_list[indices],
+                catheters_dict=self.catheters_dict[indices],
                 step_size=self.step_size,
                 from_delivered_dwellpositions=self.from_delivered_dwellpositions,
             )
