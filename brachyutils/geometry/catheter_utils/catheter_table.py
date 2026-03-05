@@ -976,9 +976,9 @@ match its index, be sure that the name_id == new_catheter.index +1")
         """
         out_catheters = []
         for name_id in name_ids:
-            for cath in self.catheters_list:
-                if cath.name_id == name_id:
-                    out_catheters.append(cath)
+            out_catheters.append(
+                self[name_id]
+            )
         return out_catheters
 
     def reset_index(self) -> None:
