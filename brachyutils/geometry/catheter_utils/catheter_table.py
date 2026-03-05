@@ -352,12 +352,12 @@ class Catheter(BaseModel):
         r"""
         ### Purpose:
         - Insert a dwell position to the catheter and update the necessary attributes.
-
+        XXX need to check if relativePos is correct. for now, just append the dwell 
         ### Inputs:
         - self := the Catheter object.
         - dwell:DwellPosition := the dwell position to be added.
         """
-        raise NotImplementedError("This function is not implemented yet.")
+        self.dwells.append(dwell)
 
     def get_dwells_from_fit(
         fit_function:PiecewiseLinear3D | NeedleSplineCreator,
@@ -766,7 +766,9 @@ class CatheterTable(BaseModel):
         if isinstance(indices, str):
             catheter_found = self.catheters_dict.get(indices, None)
             # make sure that the catheter.index and the indicies match
-            if indices != catheter_found.name_id:
+            if catheter_found is None:
+                return None
+            elif indices != catheter_found.name_id:
                 raise ValueError("The index of the catheter found and the name_id do not match \
 in the catheters_dict. there is a big bug somewhere in catheter table creation")
             return catheter_found
@@ -968,6 +970,16 @@ match its index, be sure that the name_id == new_catheter.index +1")
                 if dwell.name_id == name_id:
                     out_dwells.append(dwell)
         return out_dwells
+
+    def set_dwells_by_name_id(self, new_dwell: DwellPosition):
+        r"""
+        ### Purpose:
+        - To set the dwell on the right catheter by their name id.
+        If the dwell already exists, its fields should be updated accordingly.
+        If the change is only in dwell time and nothing else, the change in dwell time is recorded in
+        self._time_diff
+        """
+        pass
 
     def get_catheters_by_ids(self, name_ids: List[str]) -> List[Catheter]:
         r"""
@@ -1342,6 +1354,29 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         """
         catheter_table_diff = self - new_catheter_table
         self._time_diffs = {}
+        
+        for catheter_diff in catheter_table_diff:
+            self_catheter = self[catheter_diff.name_id]
+            if self_catheter is None:
+                # new catheter does not exist, add it to the catheter table
+                # its name_id should be that of new catheter table
+                self[catheter_diff.name_id] = catheter_diff
+                continue
+            else:
+                # new catheter already exists with that name id
+                # update its dwells if needed
+                for dwell_diff in catheter_diff.dwells:
+                    self_dwell = self.get_dwells_by_name_ids([dwell_diff.name_id])
+                    if len(self_dwell) == 0:
+                        # if this dwell position does not exist, just add it to the catheter
+                        self.set_dwells_by_name_id(
+                            new_catheter_table.get_dwells_by_name_ids([dwell_diff.name_id]).pop())
+                    elif len(self_dwell) == 1:
+                        # the dwell already exists, update it
+                        self.set_dwells_by_name_id(
+                            new_catheter_table.get_dwells_by_name_ids([dwell_diff.name_id]).pop())
+                        # XXX i do not know what's going here. need to think about it
+
         # identify common catheters
         # name_ids_diff = [cath.name_id for cath in catheter_table_diff]
         name_ids_self = [cath.name_id for cath in self]
