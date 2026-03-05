@@ -1002,7 +1002,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
 
     def get_catheters_for_dose_gen(self):
         r"""
-        ### Purpose:
+        ### Purpose: XXX: we probably do not need this if we use gen_dose_rate for dwells
         - To get a catheter table with only the catheters that are needed for dose rate generation
         """
         dose_gen_list = [cat for cat in self if cat.gen_dose_rates]
@@ -1023,7 +1023,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
         """
         treatment_t = self.treatment_time
         return {
-            "catheter_list": [
+            "catheter_list": [ # only change this after adapting seb's functions to use catheters_dict
                 catheter.to_dict(total_time=treatment_t) 
                 for catheter in self.catheters_list
                 ],
@@ -1037,10 +1037,10 @@ match its index, be sure that the name_id == new_catheter.index +1")
         - To print the information about the catheter table.
         """
         print("Catheter table info is as follows:")
-        print(f"Number of catheters: {len(self.catheters_list)}")
+        print(f"Number of catheters: {self.num_catheters}")
         print(f"Total treatment time: {self.treatment_time}")
         for catheter in self.catheters_list:
-            print(f"Catheter ID: {catheter.index}")
+            print(f"Catheter Name ID (index+1): {catheter.name_id}")
             print(f"Number of dwell positions: {len(catheter.dwells)}")
             print(f"Total channel time: {catheter.channel_total_time}")
 
@@ -1103,6 +1103,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
         ### Outputs:
         - List[List[float]] := the list of dwell positions from all catheters.
         """
+        raise DeprecationWarning("please use all_dwells() instead")
         dwell_positions = []
         for catheter in self.catheters_list:
             dwell_positions.extend(catheter.get_dwell_positions_as_list())
@@ -1127,7 +1128,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
 
         for catheter in self.catheters_list:
             catheter.remove_inside_mask(mask)
-        
+
     def remove_outside_mask(self, mask:Union[ROIMask, sitk.Image], margin_mm: float = 0.0) -> None:
         r"""
         ### Purpose:
