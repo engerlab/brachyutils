@@ -701,7 +701,7 @@ class CatheterTable(BaseModel):
                     pth_dicom=catheter_file,
                     from_delivered_dwellpositions=self.from_delivered_dwellpositions,
                 )
-            self.catheters_dict = cat_dict["catheters_list"]
+            self.catheters_dict = cat_dict["catheter_list"]
             self.step_size = cat_dict["step_size"]
 
         elif isinstance(self.catheters_dict, CatheterSetUp):
@@ -714,13 +714,13 @@ class CatheterTable(BaseModel):
                 tips=cat_setup.get_tips_coords(),
                 step_size=cat_setup.step_size,
             )
-            self.catheters_dict = updated_catheter_dict["catheters_list"]
+            self.catheters_dict = updated_catheter_dict["catheter_list"]
             self.step_size = updated_catheter_dict["step_size"]
 
         elif isinstance(self.catheters_dict, CreatedSetUp):
             created_setup = self.catheters_dict
             updated_catheter_dict = created_setup.to_brachyutils_CatheterTable_format()
-            self.catheters_dict = updated_catheter_dict["catheters_list"]
+            self.catheters_dict = updated_catheter_dict["catheter_list"]
             self.step_size = updated_catheter_dict["step_size"]
             self.non_zero_dwell_positions = created_setup.get_non_zero_dwell_positions()
 
@@ -1470,14 +1470,14 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
         catheter["index"] -= empty_catheter_counter
         final_catheter_table.append(catheter)
     return {
-        "catheters_list": final_catheter_table,
+        "catheter_list": final_catheter_table,
         "treatment_time": treatment_time,
         "step_size": float(
             final_catheter_table[0]["dwells"][1]["relativePos"] 
             - final_catheter_table[0]["dwells"][0]["relativePos"]
             )
     }
-    
+
 def _load_single_dose_rate(
     pth_dose_rate:Path,
     load_uncertainty=False,
@@ -1526,11 +1526,11 @@ def load_from_dicom(
     ### Inputs:
     - pth_dicom: Path := the path to the dicom file containing the catheter table.
     - from_delivered_dwellpositions: bool := if true, the dwell positions inside the 
-    catheters_list will only be the ones with non-zero dwell times. If false, the
+    catheters_dict will only be the ones with non-zero dwell times. If false, the
     dwell positions will be created from the digitization points.
     ### Outputs:
     cat_dict := a dictionary containing the following keys:
-        - catheters_list
+        - catheters_dict
         - step_size
     """
     
@@ -1540,7 +1540,7 @@ def load_from_dicom(
         catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
 
     # add catheter index to the dwells
-    for catheter in catheter_table_dict["catheters_list"]:
+    for catheter in catheter_table_dict["catheter_list"]:
         for dwell in catheter["dwells"]:
             dwell["catheter_index"] = catheter["index"]
 
@@ -1564,7 +1564,7 @@ def load_from_json(pth_json: Path) -> list:
             catheter_table_list = cat_table
             step_size = catheter_table_list[0].get("step_size", None)
         elif isinstance(cat_table, dict):
-            catheter_table_list = cat_table.get("catheters_list", None)
+            catheter_table_list = cat_table.get("catheter_list", None)
             if catheter_table_list is None:
                 catheter_table_dict = cat_table.get("catheters_dict", None)
                 catheter_table_list = list(catheter_table_dict.values())
@@ -1578,7 +1578,7 @@ def load_from_json(pth_json: Path) -> list:
         for catheter_dict in catheter_table_list:
             raw_catheter_table.append(Catheter(**catheter_dict))
         return {
-            "catheters_dict":raw_catheter_table,
+            "catheter_list":raw_catheter_table,
             "step_size":step_size,
             "non_zero_dwell_positions": non_zero_dwell_positions
             }
