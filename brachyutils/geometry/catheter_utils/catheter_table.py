@@ -816,25 +816,36 @@ class CatheterTable(BaseModel):
         """
         if not isinstance(other, CatheterTable):
             raise ValueError("other should be a CatheterTable object.")
-        self.catheters_list += other.catheters_list
+        self.catheters_dict = self.catheters_dict | other.catheters_dict
         if self.step_size != other.step_size:
             raise ValueError("Cannot add two catheter tables with different stepsizes.")
         return self
 
-    def __delitem__(self, index: int | slice):
+    def __delitem__(self, indicies: int | slice | str):
         r"""
         ### Purpose:
-        - To delete a catheter from the catheter table.
+        - To delete a few catheters from the catheter table.
 
         ### Inputs:
         - self := the CatheterTable object.
-        - index: int | slice := the index or slice of the catheter to be deleted.
+        - indicies: int | slice | str:= the index, slice or the specific name id
+        of the catheter to be deleted.
 
         ### Outputs:
         - None
         """
-        del self.catheters_list[index]
-        self.reset_index()
+        if isinstance(indices, str):
+            del self.catheters_dict.get(indices)
+        if isinstance(indices, slice):
+            indices = list(range(*slice.indices(len(self.catheters_dict))))
+            name_ids = [str(index+1) for index in indices]
+            for name_id in name_ids:
+                del self.catheters_dict[name_id]
+
+        elif isinstance(indices, int):
+            if indices < 0 or indices >= len(self.catheters_dict):
+                return None
+            del self.catheters_dict[f"{indices+1}"]
 
     def __sub__(self, other: "CatheterTable") -> "CatheterTable":
         r"""
