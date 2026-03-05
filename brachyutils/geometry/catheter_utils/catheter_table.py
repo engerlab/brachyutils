@@ -1275,11 +1275,13 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         """
         catheter_table_diff = self - new_catheter_table
         self._time_diffs = {}
-        name_ids_diff = [cath.name_id for cath in catheter_table_diff]
+        # identify common catheters
+        # name_ids_diff = [cath.name_id for cath in catheter_table_diff]
+        name_ids_self = [cath.name_id for cath in self]
         # XXX: debug this with the finalized catheter update logic!
         for catheter_diff in catheter_table_diff:
             # if the catheter is not in the current catheter table, add the entire catheter with all its dwells.
-            if self[catheter_diff.index] is None:
+            if catheter_diff.name_id not in name_ids_self:
                 self.append(new_catheter_table[catheter_diff.index])
                 continue
             for dwell_diff in catheter_diff.dwells:
