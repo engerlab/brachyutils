@@ -582,7 +582,7 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - int := the number of catheters in the catheter table.
         """
-        return len(self.catheter_dict)
+        return len(self.catheters_dict)
     
     @computed_field
     def num_dwell_positions(self) -> int:
@@ -726,17 +726,17 @@ class CatheterTable(BaseModel):
             self.step_size = updated_catheter_dict["step_size"]
             self.non_zero_dwell_positions = created_setup.get_non_zero_dwell_positions()
 
-        elif isinstance(self.catheter_dict, list):
+        elif isinstance(self.catheters_dict, list):
             # if catheter dict is a list, convert it to a dict
             real_dict = defaultdict(Catheter)
-            for cat in self.catheter_dict:
+            for cat in self.catheters_dict:
                 real_dict[cat.name_id] = cat
-            self.catheter_dict = real_dict
+            self.catheters_dict = real_dict
 
         # check if the values are dicts or catheter\
-        self.catheter_dict = {
+        self.catheters_dict = {
             key: Catheter(val) if isinstance(val, dict) else val
-            for key, val in self.catheter_dict.items()
+            for key, val in self.catheters_dict.items()
         }
 
         return self
@@ -769,7 +769,7 @@ class CatheterTable(BaseModel):
         if isinstance(indices, slice):
             indices = list(range(*slice.indices(len(self.catheters_dict))))
             name_ids = [str(index+1) for index in indices]
-            caths_found = {name_id: self.catheter_dict[name_id] for name_id in name_ids}
+            caths_found = {name_id: self.catheters_dict[name_id] for name_id in name_ids}
             return CatheterTable(
                 catheters_dict=caths_found,
                 step_size=self.step_size,
@@ -797,7 +797,7 @@ class CatheterTable(BaseModel):
         if self.step_size != other.step_size:
             raise ValueError("Cannot add two catheter tables with different stepsizes.")
         return CatheterTable(
-            catheters_dict=self.catheter_dict | other.catheter_dict,
+            catheters_dict=self.catheters_dict | other.catheters_dict,
             stepsize=self.stepsize,
             from_delivered_dwellpositions=self.from_delivered_dwellpositions,
         )
