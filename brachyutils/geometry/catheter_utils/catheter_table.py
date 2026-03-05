@@ -769,7 +769,7 @@ class CatheterTable(BaseModel):
         if isinstance(indices, slice):
             indices = list(range(*slice.indices(len(self.catheters_dict))))
             name_ids = [str(index+1) for index in indices]
-            caths_found = {name_id: self.catheters_dict[name_id] for name_id in name_ids}
+            caths_found = {name_id: self.catheters_dict.get(name_id, None) for name_id in name_ids}
             return CatheterTable(
                 catheters_dict=caths_found,
                 step_size=self.step_size,
@@ -778,7 +778,7 @@ class CatheterTable(BaseModel):
         elif isinstance(indices, int):
             if indices < 0 or indices >= len(self.catheters_dict):
                 return None
-            return self.catheters_dict[f"{indices+1}"]
+            return self.catheters_dict.get(f"{indices+1}", None)
 
     def __add__(self, other: "CatheterTable") -> "CatheterTable":
         r"""
@@ -850,8 +850,11 @@ class CatheterTable(BaseModel):
     def __sub__(self, other: "CatheterTable") -> "CatheterTable":
         r"""
         ### Purpose:
-        - To subtract the dwell times, position and rotation of one catheter table
-        from the current catheter table. This subtraction excludes the dose rates.
+        - To take the difference between self and other catheter table. If a catheter in the
+        other catheter table does not exist in self (name_id) not found, the entire catheter 
+        will be included in the difference. If the other catheter exists in self, the dwell times,
+        position and rotation of that catheter is subtracted from from the self catheter.
+        This subtraction excludes the dose rates.
         gen_dose_rate is set to true if the position, rotation or angle has changed.
 
         ### Inputs:
@@ -862,50 +865,48 @@ class CatheterTable(BaseModel):
         """
         if not isinstance(other, CatheterTable):
             raise ValueError("other should be a CatheterTable object.")
-        list_catheter_diffs = []
+        dict_catheter_diffs = defaultdict(Catheter)
         list_dwell_diffs = []
-        #if len(new_cat_table) != len(other):
-        #    raise ValueError("The two catheter tables should have the same number of catheters to be subtracted.")
-        for catheter in self.catheters_list:
-            for other_catheter in other.catheters_list:
-                if catheter.index == other_catheter.index:
-                    #if len(catheter.dwells) != len(other_catheter.dwells):
-                    #    raise ValueError("The two catheters should have the same number of dwell positions to be subtracted.")
-                    for dwell in catheter.dwells:
-                        for other_dwell in other_catheter.dwells:
-                            if dwell.index == other_dwell.index:
-                                diff_time = dwell.time - other_dwell.time
-                                diff_angle = dwell.angle - other_dwell.angle
-                                diff_relativePos = dwell.relativePos - dwell.relativePos
-                                diff_position = np.zeros(3)
-                                diff_rotation = np.zeros(3)
-                                for i in range(3):
-                                    diff_position[i] = dwell.position[i] - other_dwell.position[i]
-                                    diff_rotation[i] = dwell.rotation[i] - other_dwell.rotation[i]
-                                # gen dose rate if any attribute other than the dwell time has changed.
-                                diff_gen_doserate = False
-                                if (np.any(diff_position !=0) or np.any(diff_rotation !=0)
-                                    or diff_angle != 0):
-                                    diff_gen_doserate = True
-                                dwell_diff = DwellPosition(
-                                    index=dwell.index,
-                                    angle=diff_angle,
-                                    position=diff_position,
-                                    relativePos=diff_relativePos,
-                                    rotation=diff_rotation,
-                                    time=diff_time,
-                                    gen_dose_rate=diff_gen_doserate,
-                                    catheter_index=catheter.index
-                                )
-                                list_dwell_diffs.append(dwell_diff)
-                                
-                    list_catheter_diffs.append(
-                        Catheter(
-                            index=catheter.index,
-                            dwells=list_dwell_diffs,
-                        ))
+        
+        for name_id, other_catheter in other.catheters_dict.items():
+            catheter = self[name_id]
+            if catheter is None:
+                dict_catheter_diffs[name_id] = other_catheter
+            else:
+                for dwell in catheter.dwells:
+                    for other_dwell in other_catheter.dwells:
+                        if dwell.index == other_dwell.index:
+                            diff_time = dwell.time - other_dwell.time
+                            diff_angle = dwell.angle - other_dwell.angle
+                            diff_relativePos = dwell.relativePos - dwell.relativePos
+                            diff_position = np.zeros(3)
+                            diff_rotation = np.zeros(3)
+                            for i in range(3):
+                                diff_position[i] = dwell.position[i] - other_dwell.position[i]
+                                diff_rotation[i] = dwell.rotation[i] - other_dwell.rotation[i]
+                            # gen dose rate if any attribute other than the dwell time has changed.
+                            diff_gen_doserate = False
+                            if (np.any(diff_position !=0) or np.any(diff_rotation !=0)
+                                or diff_angle != 0):
+                                diff_gen_doserate = True
+                            dwell_diff = DwellPosition(
+                                index=dwell.index,
+                                angle=diff_angle,
+                                position=diff_position,
+                                relativePos=diff_relativePos,
+                                rotation=diff_rotation,
+                                time=diff_time,
+                                gen_dose_rate=diff_gen_doserate,
+                                catheter_index=catheter.index
+                            )
+                            list_dwell_diffs.append(dwell_diff)
+
+                    dict_catheter_diffs[catheter.name_id] = Catheter(
+                        index=catheter.index,
+                        dwells=list_dwell_diffs,
+                        )
         return CatheterTable(
-            catheters_list=list_catheter_diffs,
+            catheters_list=dict_catheter_diffs,
             from_delivered_dwellpositions=self.from_delivered_dwellpositions
         )
 
