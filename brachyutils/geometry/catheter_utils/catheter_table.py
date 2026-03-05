@@ -931,8 +931,21 @@ class CatheterTable(BaseModel):
         catheter.index = new_index
         self.catheters_list[catheter.name_id] = catheter
 
-    def __setitem__(self, name_id: str, new_catheter: dict | Catheter):
-        pass
+    def __setitem__(self, name_id: str, new_catheter: dict | Catheter) -> None:
+        r"""
+        ### Purpose:
+        - To add a new catheter to the catheter table based on its name_id.
+        the name_id = index+1.
+        """
+        if new_catheter.name_id != name_id:
+            raise ValueError("The name_id of the new catheter does not \
+match its index, be sure that the name_id == new_catheter.index +1")
+        if not (isinstance(new_catheter, dict) or isinstance(new_catheter, Catheter)):
+            raise ValueError("The new_catheter should of type dict or Catheter")
+
+        self.catheters_dict[name_id] = (
+            new_catheter if isinstance(new_catheter, Catheter)
+            else Catheter(new_catheter))
 
     def get_dwells_by_name_ids(self, name_ids: List[str]) -> List[DwellPosition]:
         r"""
