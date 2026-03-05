@@ -746,7 +746,7 @@ class CatheterTable(BaseModel):
             yield catheter
 
     def __len__(self):
-        return len(self.catheters_list)
+        return len(self.catheters_dict)
 
     def __getitem__(self, indices: int | slice | str) ->  Union[Catheter, "CatheterTable"] :
         r"""
