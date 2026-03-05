@@ -768,16 +768,17 @@ class CatheterTable(BaseModel):
 
         if isinstance(indices, slice):
             indices = list(range(*slice.indices(len(self.catheters_dict))))
-            caths_found = [cath for cath in self.catheters_list if cath.index in indices]
+            name_ids = [str(index+1) for index in indices]
+            caths_found = {name_id: self.catheter_dict[name_id] for name_id in name_ids}
             return CatheterTable(
                 catheters_dict=caths_found,
                 step_size=self.step_size,
                 from_delivered_dwellpositions=self.from_delivered_dwellpositions,
             )
         elif isinstance(indices, int):
-            if indices < 0 or indices >= len(self.catheters_list):
+            if indices < 0 or indices >= len(self.catheters_dict):
                 return None
-            return self.catheters_list[indices]
+            return self.catheters_dict[f"{indices+1}"]
 
     def __add__(self, other: "CatheterTable") -> "CatheterTable":
         r"""
