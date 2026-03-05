@@ -508,7 +508,8 @@ class CatheterTable(BaseModel):
         4. from a CatheterSetUp object XXX clean this
         5. from a CreatedSetUp object XXX clean this
     ### Attributes:
-    - catheters_list : List[Catheter] := the list of catheter objects in the catheter table.
+    - catheters_dict : Dict[Catheter] := the dictionary or list of catheter objects in the catheter table.
+    it could also be a string, Path, CatheterSetup, CreatedSetup. We will convert it all to a dictionary.
     - from_delivered_dwellpositions: bool := whether the catheter table was created from delivered 
     dwell positions. only applicable if the catheter table is created from a dicom file.
     If False, the catheter table will be created from the digitization points.
@@ -676,7 +677,7 @@ class CatheterTable(BaseModel):
         - To initialize the CatheterTable object.
         
         ### Inputs:
-        - catheters_list: List[Catheter] | List[dict] | str | Path | CatheterSetUp | CreatedSetUp :=
+        - catheters_dict: List[Catheter] | List[dict] | str | Path | CatheterSetUp | CreatedSetUp :=
         the list of catheter objects in the catheter table or the path to a json or dicom file.
         - step_size: float := the step size in mm between the dwell positions on the catheter table.
         - from_delivered_dwellpositions: bool := if true, the dwell positions inside the delivered dwell positions will be used.
@@ -705,7 +706,7 @@ class CatheterTable(BaseModel):
             self.step_size = cat_dict["step_size"]
 
         elif isinstance(self.catheters_dict, CatheterSetUp):
-            # if the catheters_list is a CatheterSetUp object, convert it to a CatheterTable
+            # if the catheters_dict is a CatheterSetUp object, convert it to a CatheterTable
             cat_setup = self.catheters_dict
             updated_catheter_dict = _update_catheter_table(
                 catheter_table = cat_setup.catheter_table,
@@ -726,7 +727,7 @@ class CatheterTable(BaseModel):
 
         if isinstance(self.catheters_dict[0], dict):
             self.catheters_dict = [
-                Catheter(**catheter_dict) for catheter_dict in self.catheters_list
+                Catheter(**catheter_dict) for catheter_dict in self.catheters_dict
             ]
 
         # if catheter dict is a list, convert it to a dict
@@ -783,7 +784,7 @@ class CatheterTable(BaseModel):
         if self.step_size != other.step_size:
             raise ValueError("Cannot add two catheter tables with different stepsizes.")
         return CatheterTable(
-            catheterlist=self.catheterlist + other.catheterlist,
+            catheters_dict=self.catheter_dict | other.catheter_dict,
             stepsize=self.stepsize,
             from_delivered_dwellpositions=self.from_delivered_dwellpositions,
         )
