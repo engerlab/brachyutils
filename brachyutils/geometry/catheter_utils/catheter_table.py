@@ -914,11 +914,6 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
                                 self_catheter.dwells[other_dwell.index].position[i] - other_dwell.position[i])
                             diff_rotation[i] = (
                                 self_catheter.dwells[other_dwell.index].rotation[i] - other_dwell.rotation[i])
-                        # gen dose rate if any attribute other than the dwell time has changed.
-                        diff_gen_doserate = False
-                        if (np.any(diff_position !=0) or np.any(diff_rotation !=0)
-                            or diff_angle != 0):
-                            diff_gen_doserate = True
                         dwell_diff = DwellPosition(
                             index=other_dwell.index,
                             angle=diff_angle,
@@ -926,7 +921,8 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
                             relativePos=diff_relativePos,
                             rotation=diff_rotation,
                             time=diff_time,
-                            gen_dose_rate=diff_gen_doserate,
+                            # # the decision on whetheter to gen_dose_rate or not is not related to subtraction.
+                            # gen_dose_rate=diff_gen_doserate,
                             catheter_index=other_catheter.index
                         )
                         list_dwell_diffs.append(dwell_diff)
@@ -1378,58 +1374,41 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         self._time_diffs = {}
 
         for catheter_diff in catheter_table_diff:
+            new_catheter = new_catheter_table[catheter_diff.name_id]
             self_catheter = self[catheter_diff.name_id]
             if self_catheter is None:
                 # new catheter does not exist, add it to the catheter table
                 # its name_id should be that of new catheter table
-                self[catheter_diff.name_id] = catheter_diff
+                self[catheter_diff.name_id] = new_catheter
                 continue
             else:
-                # new catheter already exists with that name id
-                # update its dwells if needed
-                for dwell_diff in catheter_diff.dwells:
-                    
-                    
-                    
-                    
-                    self_dwell = self.get_dwells_by_name_ids([dwell_diff.name_id])
-                    if len(self_dwell) == 0:
-                        # if this dwell position does not exist, just add it to the catheter
-                        self.set_dwells_by_name_id(
-                            new_catheter_table.get_dwells_by_name_ids([dwell_diff.name_id]).pop())
-                    elif len(self_dwell) == 1:
-                        # the dwell already exists, update it
-                        self.set_dwells_by_name_id(
-                            new_catheter_table.get_dwells_by_name_ids([dwell_diff.name_id]).pop())
-                        # XXX i do not know what's going here. need to think about it
-
-        # identify common catheters
-        # name_ids_diff = [cath.name_id for cath in catheter_table_diff]
-        name_ids_self = [cath.name_id for cath in self]
-        # XXX: debug this with the finalized catheter update logic!
-        for catheter_diff in catheter_table_diff:
-            # if the catheter is not in the current catheter table, add the entire catheter with all its dwells.
-            if catheter_diff.name_id not in name_ids_self:
-                self.append(new_catheter_table[catheter_diff.index])
-                continue
-            for dwell_diff in catheter_diff.dwells:
-                # if that dwell is not in the current cathetr, add it.
-                if self[catheter_diff.index][dwell_diff.index] is None:
-                    self[catheter_diff.index][dwell_diff.index] = new_catheter_table[catheter_diff.index][dwell_diff.index]
+                if self_catheter.num_dwell_positions != catheter_diff.num_dwell_positions:
+                    # if the number of dwell positions does not match self, rewrite the catheter
+                    self[catheter_diff.name_id] = new_catheter
                     continue
                 else:
-                    if np.any(dwell_diff.position != 0) or np.any(dwell_diff.rotation != 0):
-                        # if the postion or rotation of the dwell has changed,
-                        # update it in the catheter table and set gen_dose_rates to True for that catheter.
-                        self[catheter_diff.index][dwell_diff.index].position = new_catheter_table[catheter_diff.index][dwell_diff.index].position
-                        self[catheter_diff.index][dwell_diff.index].rotation = new_catheter_table[catheter_diff.index][dwell_diff.index].rotation
-                        self[catheter_diff.index].gen_dose_rates = True
-                    elif dwell_diff.time != 0:
-                        self.time_diffs[
-                            dwell_diff.name_id
-                            ] = dwell_diff.time
-                    else:
-                        continue
+                    for dwell_diff in catheter_diff.dwells:
+                        self_dwell = self_catheter.dwells[dwell_diff.index]
+                        new_dwell = new_catheter.dwells[dwell_diff.index]
+                        if (np.any(dwell_diff.position !=0) or np.any(dwell_diff.rotation !=0)
+                            or dwell_diff.angle != 0):
+                            new_gen_doserate = True
+                        else:
+                            new_gen_doserate = self_dwell.gen_dose_rate 
+                            self._time_diffs[dwell_diff.name_id] = dwell_diff.time
+                        dwell_attrs_conds = [
+                            ("angle", dwell_diff.angle!=0),
+                            ("position", np.any(dwell_diff.position!=0)),
+                            ("rotation", np.any(dwell_diff.rotation!=0)),
+                            ("relativePos", dwell_diff.relativePos!=0),
+                            ("time", dwell_diff.time!=0),
+                        ]
+                        for attr, cond in dwell_attrs_conds:
+                            if cond:
+                                self_dwell.__setattr__(
+                                    attr,
+                                    new_dwell.__getattribute__(attr))
+                        self_dwell.gen_dose_rate = new_gen_doserate
 
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""
