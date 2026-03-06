@@ -1354,16 +1354,9 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         ### Purpose:
         - Given a new catheter table, merge it with self.
         If a catheter with a specific index does not exist, it'll be added as it is.
-        If a catheter with a specific index exists, then the previous catheter will be updated.
-        Same logic applies to the dwells except that dose rates are kept only if dwell time is updated. 
-        otherwise the dwells inside a catheter are replaced.
-
-        This requires the indecies in the new catheter table to be aware of self. Idealy, we should
-        be using dictionaries, but it's too late at this point.
-        Also, this function assumes that the catheter.index attribute in self matches the the index
-        of the catheter in self.catheters_list, while this assumption is not required for the 
-        new_catheter_table (I know, horrible design choices!)
-
+        If a catheter with a specific index exists but the number of dwell positions do not match, then 
+        the entire catheter will be set from the new catheter table. If a catheter with a specific index
+        exists and the number of dwell positions match then the self catheter will be updated.
         ### Inputs:
         - new_catheter_table:CatheterTable := The new catheter table used
         to update self.
