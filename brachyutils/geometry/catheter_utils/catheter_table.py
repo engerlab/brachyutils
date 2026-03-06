@@ -891,29 +891,29 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
         list_dwell_diffs = []
         
         for name_id, other_catheter in other.catheters_dict.items():
-            catheter = self[name_id]
-            if catheter is None:
+            self_catheter = self[name_id]
+            if self_catheter is None:
                 dict_catheter_diffs[name_id] = other_catheter
             else:
-                if catheter.num_dwell_positions != other_catheter.num_dwell_positions:
+                if self_catheter.num_dwell_positions != other_catheter.num_dwell_positions:
                     # if the number of dwell positions differs, put the entire other catheter
                     # in the difference!
                     dict_catheter_diffs[name_id] = other_catheter
                 else:
                     for other_dwell in other_catheter.dwells:
                         #  take the diff between the dwells with the same index.
-                        diff_time = catheter.dwells[other_dwell.index].time - other_dwell.time
-                        diff_angle = catheter.dwells[other_dwell.index].angle - other_dwell.angle
+                        diff_time = self_catheter.dwells[other_dwell.index].time - other_dwell.time
+                        diff_angle = self_catheter.dwells[other_dwell.index].angle - other_dwell.angle
                         diff_relativePos = (
-                            catheter.dwells[other_dwell.index].relativePos
-                            - catheter.dwells[other_dwell.index].relativePos)
+                            self_catheter.dwells[other_dwell.index].relativePos
+                            - self_catheter.dwells[other_dwell.index].relativePos)
                         diff_position = np.zeros(3)
                         diff_rotation = np.zeros(3)
                         for i in range(3):
                             diff_position[i] = (
-                                catheter.dwells[other_dwell.index].position[i] - other_dwell.position[i])
+                                self_catheter.dwells[other_dwell.index].position[i] - other_dwell.position[i])
                             diff_rotation[i] = (
-                                catheter.dwells[other_dwell.index].rotation[i] - other_dwell.rotation[i])
+                                self_catheter.dwells[other_dwell.index].rotation[i] - other_dwell.rotation[i])
                         # gen dose rate if any attribute other than the dwell time has changed.
                         diff_gen_doserate = False
                         if (np.any(diff_position !=0) or np.any(diff_rotation !=0)
@@ -927,14 +927,13 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
                             rotation=diff_rotation,
                             time=diff_time,
                             gen_dose_rate=diff_gen_doserate,
-                            catheter_index=catheter.index
+                            catheter_index=other_catheter.index
                         )
                         list_dwell_diffs.append(dwell_diff)
 
-                    dict_catheter_diffs[catheter.name_id] = Catheter(
-                        index=catheter.index,
-                        dwells=list_dwell_diffs,
-                        )
+                    dict_catheter_diffs[other_catheter.name_id] = Catheter(
+                        index=other_catheter.index,
+                        dwells=list_dwell_diffs)
         return CatheterTable(
             catheters_list=dict_catheter_diffs,
             from_delivered_dwellpositions=self.from_delivered_dwellpositions
@@ -1386,7 +1385,6 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
                 self[catheter_diff.name_id] = catheter_diff
                 continue
             else:
-                    
                 # new catheter already exists with that name id
                 # update its dwells if needed
                 for dwell_diff in catheter_diff.dwells:
