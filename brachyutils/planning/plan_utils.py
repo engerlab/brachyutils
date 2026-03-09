@@ -208,7 +208,7 @@ class BrachyPlan:
         #### for geometry definition:
         phantom: Union[Path, BrachyPhantom, dict] = None,
         #### for structure creation:
-        dvh_metric_goals: Union[dict, Path] = None,
+        # dvh_metric_goals: Union[dict, Path] = None,
         prescription_dose: float = None,
         strict_name_match: bool = True,
         #### for loading catheter table and/or applicators:
@@ -233,8 +233,6 @@ class BrachyPlan:
         or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
 
         #### For Structure optimization and dosimetry
-        - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
-        The phantom should be loaded with structures for the Brachy stuctures to be created.
         - prescription_dose: float = None := The dose that is prescribed to the target volume. This is used to calculate the DVH metrics. 
 
         #### for loading catheter table and applicators:
@@ -244,6 +242,14 @@ class BrachyPlan:
         #### for loading dose rates or uncertainty maps per dwell position:
         - combined_dose: Path|BrachyDose := the path to the combined dose file or a BrachyDose object.
         - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
+
+        #### for simulation setup:
+        - simulation_setup = None := dictionary containing the simulation setup,
+        - load_uncertainty:bool := If True, the uncertainties of the dose rates are also loaded. 
+        - multi_processing:bool :=  If True, 16 threads are used to load the dose rates simulatenously.
+        - combined_dose_only:bool := If True, all the dose rates will be removed from memory after 
+        combined dose is calculated.
+        - dose_dtype:np.float32 := The floating point type to store the dose rates. 
 
         #### Keywords Arguments:
         - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
@@ -256,14 +262,10 @@ class BrachyPlan:
         - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures
         - applicator_format:str = "RapidBrachy" := the format of the applicator list 
         (default is "RapidBrachy"). See load_applicator_list() for more info. 
-        - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well. 
-        #### for simulation setup:
-        - simulation_setup = None := dictionary containing the simulation setup,
-        - load_uncertainty:bool := If True, the uncertainties of the dose rates are also loaded. 
-        - multi_processing:bool :=  If True, 16 threads are used to load the dose rates simulatenously.
-        - combined_dose_only:bool := If True, all the dose rates will be removed from memory after 
-        combined dose is calculated.
-        - dose_dtype:np.float32 := The floating point type to store the dose rates. 
+        - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well.
+        - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
+        The phantom should be loaded with structures for the Brachy stuctures to be created.
+
         ### Outputs:
             - Void := will initialize the BrachyPlan object
         """
@@ -297,8 +299,8 @@ class BrachyPlan:
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
         # dose attributes
-        self.dose_rate_dict = defaultdict(BrachyDose)
-        # self.combined_dose: BrachyDose = None
+        # self.dose_rate_dict = defaultdict(BrachyDose) XXX
+        # self.combined_dose: BrachyDose = None XXX
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
@@ -306,10 +308,10 @@ class BrachyPlan:
         ## fill the attributes depending on the inputs to the constructor
         # set the dvh metric goals if provided
         self.prescription_dose = prescription_dose
-        if dvh_metric_goals is not None:
+        if kwargs.get("dvh_metric_goals", None) is not None:
             if self.prescription_dose is None:
                 raise ValueError("prescription dose is not provided. Please provide it.")
-            self.set_dvh_metric_goals(dvh_metric_goals)
+            self.set_dvh_metric_goals(kwargs.get("dvh_metric_goals"))
 
         # load the dicom plan if the path is provided
         if phantom is not None:
@@ -324,7 +326,7 @@ class BrachyPlan:
             else:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
         # create structures based on the phantom structures and DVH metric goals
-        if self.phantom is not None and self.dvh_metric_goals is not None:
+        if self.phantom is not None:
             self.create_brachy_structure_set(
                 phantom=self.phantom,
                 dvh_metric_goals=self.dvh_metric_goals,
@@ -535,7 +537,7 @@ class BrachyPlan:
                         margin_mm=5.0,
                     )
         self.update_plan_from_catheter_table(
-            time_diffs=time_diffs if 'time_diffs' in locals() else None)
+            time_diffs=self.catheter_table._time_diffs)
 
     def update_plan_from_catheter_table(self, time_diffs=None):
         r"""
@@ -614,10 +616,10 @@ class BrachyPlan:
     def create_brachy_structure_set(
         self,
         phantom: BrachyPhantom,
-        dvh_metric_goals: dict,
+        dvh_metric_goals: dict = None,
         mask_type: Union[ROIContour, ROIMask] = ROIContour,
         strict_name_match: bool = True,
-    ):
+        ):
         r"""
         ### Purpose:
         - To create a list of BrachyStructure objects from the structures in the phantom and
@@ -632,18 +634,23 @@ class BrachyPlan:
         - BrachyDicom
         """
         self.structure_list = []
-        structure_names_in_dvh = list(set([ #list of the structure names
-            x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()
-        ]))
-        #separate dvh metric goals into separate dictionaries by structure
         dvh_metric_goals_by_structure = {}
-        for structure_name in structure_names_in_dvh:
-            dvh_metric_goals_per_struct = {
-                key: value
-                for key, value in dvh_metric_goals.items()
-                if structure_name in key
-            }
-            dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
+
+        if dvh_metric_goals is None:
+            structure_names_in_dvh = self.phantom.structure_names
+        else:
+            structure_names_in_dvh = list(set([ #list of the structure names
+                x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()
+            ]))
+        #separate dvh metric goals into separate dictionaries by structure
+            for structure_name in structure_names_in_dvh:
+                dvh_metric_goals_per_struct = {
+                    key: value
+                    for key, value in dvh_metric_goals.items()
+                    if structure_name in key
+                }
+                dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
+
         if phantom.cached_structure_masks is not None:
             structure_masks = deepcopy(phantom.cached_structure_masks)
             for k in list(structure_masks.keys()):
@@ -661,8 +668,11 @@ class BrachyPlan:
                 is_target=True if (
                     "ctv" in structure_name.lower()
                     or "ptv" in structure_name.lower())  else False,
-                in_dvh=True,
-                dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
+                # in_dvh=True,
+                dvh_metric_goals=(
+                    dvh_metric_goals_by_structure.get(structure_name, None)
+                    if any(dvh_metric_goals_by_structure)
+                    else None),
             )
             self.structure_list.append(structure_obj)
         if phantom.cached_structure_masks is not None:

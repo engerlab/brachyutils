@@ -40,7 +40,7 @@ class BrachyStructure:
         name: str = None,
         mask: ROIMask | ROIContour = None,
         is_target: bool = None,
-        in_dvh: bool = None,
+        in_dvh: bool = True,
         dvh_metric_goals: Dict[str, float] = None,
         optimization_config: Optimization_Config = None,
     ) -> None:
@@ -80,11 +80,9 @@ class BrachyStructure:
 
         # optimization attributes
         self.optimization_config: Optimization_Config = None
-        # self.optimization_dwell_coef_dict:Dict[str, np.array] = None XXX delete
         # self.optimization_mask: ROIMask = None
 
-        self.in_dvh = in_dvh
-        if self.in_dvh:
+        if self.in_dvh: # XXX figure out how to do this only optionally!
             if dvh_metric_goals is None:
                 raise ValueError(
                     """Please provide BrachyStructure with a dictionary of multiple metrics and goals"""
