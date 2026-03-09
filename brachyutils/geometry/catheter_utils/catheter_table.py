@@ -1050,7 +1050,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
         """
         dose_gen_list = [cat for cat in self if cat.gen_dose_rates]
         return CatheterTable(
-            catheters_list=dose_gen_list,
+            catheters_dict=dose_gen_list,
             step_size=self.step_size,
             from_delivered_dwellpositions=self.from_delivered_dwellpositions
         )
