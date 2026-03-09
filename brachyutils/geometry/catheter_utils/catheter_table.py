@@ -227,7 +227,7 @@ class Catheter(BaseModel):
         ### Purpose:
         - To calculate the number of dwell position in a catheter
         ### Inputs:
-        - self := the Catheter object.        
+        - self := the Catheter object.
         ### Outputs:
         - int := the number of dwell positions in the catheter.
         """
@@ -611,6 +611,18 @@ class CatheterTable(BaseModel):
         return len(self.all_dwells)
 
     @computed_field
+    def num_catheters(self) -> int:
+        r"""
+        ### Purpose:
+        - To calculate the number of catheters
+        ### Inputs:
+        - self := the Catheter object.
+        ### Outputs:
+        - int := the number of dwell positions in the catheter.
+        """
+        return len(self.catheters_dict)
+
+    @computed_field
     def non_zero_dwell_positions(
         self,
         ) -> Dict[str, List[List[float]]]:
@@ -738,18 +750,19 @@ class CatheterTable(BaseModel):
             self.step_size = updated_catheter_dict["step_size"]
             self.non_zero_dwell_positions = created_setup.get_non_zero_dwell_positions()
 
-        elif isinstance(self.catheters_dict, list):
+        if isinstance(self.catheters_dict, list):
             # if catheter dict is a list, convert it to a dict
             real_dict = defaultdict(Catheter)
             for cat in self.catheters_dict:
-                real_dict[cat.name_id] = cat
+                cat_obj = Catheter(**cat) if isinstance(cat, dict) else cat
+                real_dict[cat_obj.name_id] = cat_obj
             self.catheters_dict = real_dict
 
         # check if the values are dicts or catheter\
-        self.catheters_dict = {
-            key: Catheter(val) if isinstance(val, dict) else val
-            for key, val in self.catheters_dict.items()
-        }
+        # self.catheters_dict = {
+        #     key: Catheter(val) if isinstance(val, dict) else val
+        #     for key, val in self.catheters_dict.items()
+        # }
 
         return self
 
