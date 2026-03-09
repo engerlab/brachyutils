@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from glob import glob
 from pathlib import Path
 from typing import Literal, Optional, Union
+from brachyutils.planning.plan_utils import BrachyPlan, ExportConfig_BrachyPlan
+from brachyutils.dose.dose_utils import BrachyDose
 
 class BrachyDoseGenerator(ABC):
     def __init__(
@@ -45,7 +47,27 @@ class BrachyDoseGenerator(ABC):
             - pth_output: Optional[Path]: If provided, the dose distribution will be saved to this path.
         """
         pass
-
+    
+    @abstractmethod
+    def run_dose_generation(
+        self,
+        dir_export: str | Path = None,
+        plan: BrachyPlan = None,
+        generate_dose_rate_maps: bool = False,
+        ) -> BrachyPlan:
+        r"""
+        ### Purpose:
+        - to run the dose generation for the plan and return a plan with combined dose filled as well
+        as the dose rate dictionary if desired.
+        ### Inputs:
+        - dir_export := The directory used for exporting the dosimetry setup and the generated dose maps.
+        - plan:= The treatment plan for which we want to generate the dose. 
+        - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
+        If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
+        ### Output:
+        - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
+        """
+        pass
 
 class DoseTG43(BrachyDoseGenerator):
     def __init__(
@@ -117,6 +139,11 @@ class DoseTG43(BrachyDoseGenerator):
         else:
             raise ValueError("Invalid value for output_dose_per_dwell.")
 
+        if pth_egsphant is None:
+            pth_egsphant = list(self.dir_plan_export.glob("*egsphant.seq.nrrd")).pop()
+        if pth_mac is None:
+            pth_mac = list(self.dir_plan_export.glob("combined.mac")).pop()
+
         if "http" in self.pth_dose_executable:
             # use fast api post to request the dose calculation
             import requests
@@ -175,6 +202,55 @@ class DoseTG43(BrachyDoseGenerator):
         ), "The egsphant file is missing."
         assert any(".mac" in file for file in all_files), "The mac file is missing."
 
+    def run_dose_generation(
+        self,
+        plan: BrachyPlan = None,
+        generate_dose_rate_maps: bool = False,
+        export_config_brachyplan: ExportConfig_BrachyPlan | bool | dict = None,
+        ) -> BrachyPlan:
+        r"""
+        ### Purpose:
+        - to run the dose generation for the plan and return a plan with combined dose filled as well
+        as the dose rate dictionary if desired.
+        ### Inputs:
+        - plan:= The treatment plan for which we want to generate the dose. 
+        - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
+        If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
+        - export_config_brachyplan := If false, we assume the egsphant, mac files, and plan files have been
+        exported before. If True or None, we create a default ExportConfig_BrachyPlan to export the setup files
+        needed for DoseTG43. You can also provide your own custom export config.
+        ### Output:
+        - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
+        """
+        if export_config_brachyplan is None or export_config_brachyplan == True:
+            export_config_brachyplan = ExportConfig_BrachyPlan(
+                dir_export=self.dir_plan_export,
+                export_config_egsphant=True,
+                export_config_planfile=True,
+                export_config_macfile=True,
+            )
+        elif isinstance(export_config_brachyplan, dict):
+            export_config_brachyplan = ExportConfig_BrachyPlan(**export_config_brachyplan)
+
+        if export_config_brachyplan:
+            plan.export_brachy_plan(export_config_brachyplan)
+
+        # call the dose generator to generate the dose maps
+        self.generate_dose(
+            pth_mac=export_config_brachyplan.export_config_macfile.pth_combined,
+            pth_plan=export_config_brachyplan.export_config_planfile.pth_combined,
+            output_dose_per_dwell= "dose_rate" if generate_dose_rate_maps else False,
+        )
+        # load the generated dose maps and update the plan
+        if generate_dose_rate_maps:
+            plan.catheter_table.load_dose_rates(
+                dir_dose_rate=self.dir_plan_export,
+            )
+        else:
+            plan.combined_dose = BrachyDose(
+                export_config_brachyplan.export_config_macfile.pth_combined.with_suffix(".seq.nrrd")
+                )
+        return plan
 
 class DoseMonteCarlo(BrachyDoseGenerator):
     def __init__(
@@ -246,3 +322,26 @@ class DoseMonteCarlo(BrachyDoseGenerator):
                     "The dose executable is not supported. It should be a URL or a python script."
                 )
             return response
+
+    def run_dose_generation(
+        self,
+        dir_export: str | Path = None,
+        plan: BrachyPlan = None,
+        generate_dose_rate_maps: bool = False,
+        export_config_brachyplan: ExportConfig_BrachyPlan = None,
+        ) -> BrachyPlan:
+        r"""
+        ### Purpose:
+        - to run the dose generation for the plan and return a plan with combined dose filled as well
+        as the dose rate dictionary if desired.
+        ### Inputs:
+        - dir_export := The directory used for exporting the dosimetry setup and the generated dose maps.
+        - plan:= The treatment plan for which we want to generate the dose. 
+        - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
+        If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
+        ### Output:
+        - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
+        TODO examples/benchmarks/eval_dose_generation.py has the code to fill this function. will do it when 
+        I need it again!
+        """
+        pass

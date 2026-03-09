@@ -93,7 +93,7 @@ def fix_source_orientation_for(i, catheter_table):
     elif(i == 4):
         rotation = [0, 0, 1]
 
-    catheter_table.catheter_list[0].dwells[0].rotation = rotation
+    catheter_table.catheters_list[0].dwells[0].rotation = rotation
 ####################################
 def create_material_dict_for(i):
     material_dict = {}

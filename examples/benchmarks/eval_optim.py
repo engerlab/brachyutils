@@ -98,7 +98,7 @@ def get_a_plan_to_optimize(
             dir_dose_rates/"dose_rate_generation_timing.csv",
             index=False,
         )
-    plan_obj.load_dose_rate_dict(
+    plan_obj.load_dose_rates(
         dir_dose_rate=dir_dose_rates,
         multi_processing=True,
     )
