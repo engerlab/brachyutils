@@ -167,7 +167,8 @@ def test_dynamic_plan_generation():
             }
         }
     )
-
+    plan.catheter_table.write_to_slicer_markup(dir_dose_rates/"catheter_table.mrk.json")
+    plan.combined_dose.write_to_nrrd(dir_dose_rates/"combined_dose.seq.nrrd")
     print("debug here")
 
 

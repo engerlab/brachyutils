@@ -298,7 +298,7 @@ class BrachyPlan:
 
         # dose attributes
         self.dose_rate_dict = defaultdict(BrachyDose)
-        self.combined_dose: BrachyDose = None
+        # self.combined_dose: BrachyDose = None
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
@@ -397,6 +397,10 @@ class BrachyPlan:
                 add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
                 one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
             )
+
+    @computed_field
+    def combined_dose(self):
+        return self.catheter_table.combined_dose
 
     def load_phantom(self, pth_phantom: Union[Path, dict]):
         r"""
