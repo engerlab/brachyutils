@@ -285,8 +285,9 @@ class Catheter(BaseModel):
             )
         elif (self.tip_position is not None and self.last_dwell_coordinate is not None):
             # Create fit and dwells from tip and last dwell coordinates
+            points=[self.tip_position, self.last_dwell_coordinate]
             self.fit_function = self.get_fit_from_points(
-                points=[self.tip_position, self.last_dwell_coordinate]
+                points=points
             )
             self.dwells = self.get_dwells_from_fit(
                 fit_function=self.fit_function,
@@ -372,6 +373,7 @@ class Catheter(BaseModel):
         self.dwells.append(dwell)
 
     def get_dwells_from_fit(
+        self,
         fit_function:PiecewiseLinear3D | NeedleSplineCreator,
         step_size: float = 5.0,
         # kwargs: Dict[str, Any] = None,
@@ -446,7 +448,7 @@ class Catheter(BaseModel):
         """
         return [dwell.get_position() for dwell in self.dwells]
     
-    def get_fit_from_points(points:List[List[float]]) -> PiecewiseLinear3D:
+    def get_fit_from_points(self, points:List[List[float]]) -> PiecewiseLinear3D:
         r"""
         ### Purpose:
         - To generate a spline from a list of points.
@@ -609,18 +611,6 @@ class CatheterTable(BaseModel):
         - int := the number of dwell positions in the catheter table.
         """
         return len(self.all_dwells)
-
-    @computed_field
-    def num_catheters(self) -> int:
-        r"""
-        ### Purpose:
-        - To calculate the number of catheters
-        ### Inputs:
-        - self := the Catheter object.
-        ### Outputs:
-        - int := the number of dwell positions in the catheter.
-        """
-        return len(self.catheters_dict)
 
     @computed_field
     def non_zero_dwell_positions(

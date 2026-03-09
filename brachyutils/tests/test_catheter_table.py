@@ -88,7 +88,7 @@ def test_loading_from_dicom():
     # cat_tab_json.info()
 
 def test_catheter():
-    from brachyutils.geometry.catheter_utils.catheter_table import Catheter, DwellPosition
+    from brachyutils.geometry.catheter_utils.catheter_table import Catheter
     # # create a catheter from tip and last dwell position
     new_catheter = Catheter(
         index=0,
@@ -102,7 +102,7 @@ def test_catheter():
         coordinates_on_1_axis,
         coordinates_on_1_axis,
         coordinates_on_1_axis], axis=-1)
-    new_catheter = Catheter(index = 0, points=points)
+    new_catheter = Catheter(index=0, digitization_points=points)
     print(new_catheter)
 
 def test_catheter_to_mrk_json():
@@ -117,7 +117,7 @@ def test_get_from_delivered_dwellpositions():
     pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
     from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
     cat_table = CatheterTable(catheters_dict=pth_plan)
-    delivered_cat_table = cat_table.get_from_delivered_dwellpositions()
+    delivered_cat_table = CatheterTable(catheters_dict=pth_plan, from_delivered_dwellpositions=True)
     assert cat_table.num_catheters >= delivered_cat_table.num_catheters, "Test failed the number of catheters in the delivered table is not equal to the original table."
     assert cat_table.num_dwell_positions >= delivered_cat_table.num_dwell_positions, "Test failed the number of dwell positions in the delivered table is not equal to the original table."
 
@@ -166,9 +166,9 @@ def test_get_dwells_by_ids():
 if __name__ == "__main__":
     # test_dwells_catheters()
     # test_loading_from_dicom()
-    # test_catheter()
+    test_catheter()
     # test_catheter_to_mrk_json()
     # test_get_from_delivered_dwellpositions()
     # test_load_dose_rates()
     # test_export_dose()
-    test_get_dwells_by_ids()
+    # test_get_dwells_by_ids()
