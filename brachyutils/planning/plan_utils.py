@@ -21,35 +21,11 @@ from brachyutils.dose.dose_utils import BrachyDose
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry.applicator_utils import BrachyApplicator 
 from brachyutils.geometry.phantom_utils import BrachyPhantom
-from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, ExportConfig_Dose
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from pydantic import BaseModel, ConfigDict, Field, model_validator, computed_field
-
-class ExportConfig_Dose(BaseModel):
-    """
-    Configuration for exporting dose data from the plan.
-    """
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
-    )
-    dir_export: str | Path = Field(None, description="Directory where dose files are exported.")
-    name_combined: str = Field("combined", description="File name for combined dose output.")
-    file_extension: Literal[".seq.nrrd", ".3ddose"] = Field(
-        ".seq.nrrd", description="Allowed file extensions for dose files."
-    )
-    write_dose_rate_maps: bool = Field(
-        False, description="Whether to write individual dose rate maps to files."
-    )
-    multi_processing: bool = Field(
-        True, description="Enable multiprocessing for export (yes/no toggle)."
-    )
-    @computed_field
-    def pth_combined(self)->Path:
-        self.dir_export = Path(self.dir_export)
-        return self.dir_export/(self.name_combined+self.file_extension)
 
 class ExportConfig_PlanFile(BaseModel):
     """
@@ -241,9 +217,6 @@ class BrachyPlan:
         #### for loading dose or uncertainty:
         combined_dose: Union[Path, str, BrachyDose] = None,
         dir_dose_rate: Path = None,
-        load_uncertainty:bool=False,
-        multi_processing: bool = False,
-        combined_dose_only: bool = False,
         #### for simulation setup:
         simulation_setup: dict | Path | str = None,
         #### for optimization setup:
@@ -271,8 +244,6 @@ class BrachyPlan:
         #### for loading dose rates or uncertainty maps per dwell position:
         - combined_dose: Path|BrachyDose := the path to the combined dose file or a BrachyDose object.
         - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
-        - multi_processing:bool = False := flag to enable multi-processing for loading dose or uncertainty (default is False).
-        - combined_dose_only:bool = False := flag to keep only the combined dose in memory after loading (default is False).
 
         #### Keywords Arguments:
         - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
@@ -285,10 +256,14 @@ class BrachyPlan:
         - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures
         - applicator_format:str = "RapidBrachy" := the format of the applicator list 
         (default is "RapidBrachy"). See load_applicator_list() for more info. 
-
+        - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well. 
         #### for simulation setup:
         - simulation_setup = None := dictionary containing the simulation setup,
-
+        - load_uncertainty:bool := If True, the uncertainties of the dose rates are also loaded. 
+        - multi_processing:bool :=  If True, 16 threads are used to load the dose rates simulatenously.
+        - combined_dose_only:bool := If True, all the dose rates will be removed from memory after 
+        combined dose is calculated.
+        - dose_dtype:np.float32 := The floating point type to store the dose rates. 
         ### Outputs:
             - Void := will initialize the BrachyPlan object
         """
@@ -323,7 +298,7 @@ class BrachyPlan:
 
         # dose attributes
         self.dose_rate_dict = defaultdict(BrachyDose)
-        self.combined_dose: BrachyDose = None
+        # self.combined_dose: BrachyDose = None
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
@@ -363,13 +338,17 @@ class BrachyPlan:
                 dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
                 )
         # load the dose rate dict if the path is provided
+        # XXX Continue debugging from here
         if dir_dose_rate is not None and combined_dose is None:
-            self.load_dose_rate_dict(
+            self.catheter_table.load_dose_rates(
                 dir_dose_rate=dir_dose_rate,
-                load_uncertainty=load_uncertainty,
-                multi_processing=multi_processing,
-                combined_dose_only=combined_dose_only,
-            )
+                load_uncertainty=kwargs.get("load_uncertainty", False),
+                multi_processing=kwargs.get("multi_processing", True),
+                combined_dose_only=kwargs.get("combined_dose_only", False),
+                dose_dtype=kwargs.get("dose_dtype", np.float32),
+                )
+            self.combined_dose = self.catheter_table.combined_dose
+
         elif dir_dose_rate is None and combined_dose is not None:
             if isinstance(combined_dose, BrachyDose):
                 self.combined_dose = combined_dose
@@ -418,6 +397,10 @@ class BrachyPlan:
                 add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
                 one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
             )
+
+    @computed_field
+    def combined_dose(self):
+        return self.catheter_table.combined_dose
 
     def load_phantom(self, pth_phantom: Union[Path, dict]):
         r"""
@@ -524,38 +507,14 @@ class BrachyPlan:
         """
         if isinstance(catheter_table, (str, Path)):
             self.catheter_table = CatheterTable(
-                catheter_list=catheter_table,
+                catheters_dict=catheter_table,
                 from_delivered_dwellpositions=from_delivered_dwellpositions,
                 )
         elif isinstance(catheter_table, CatheterTable):
             if self.catheter_table is None:
                 self.catheter_table = catheter_table
             else:
-                catheter_table_diff = catheter_table - self.catheter_table 
-                time_diffs = {}
-                for catheter_diff in catheter_table_diff:
-                    # if the catheter is not in the current catheter table, add the entire catheter with all its dwells.
-                    if self.catheter_table[catheter_diff.index] is None:
-                        self.catheter_table.append(catheter_table[catheter_diff.index])
-                        continue
-                    for dwell_diff in catheter_diff.dwells:
-                        # if that dwell is not in the current cathetr, add it.
-                        if self.catheter_table[catheter_diff.index][dwell_diff.index] is None:
-                            self.catheter_table[catheter_diff.index][dwell_diff.index] = catheter_table[catheter_diff.index][dwell_diff.index]
-                            continue
-                        else:
-                            if np.any(dwell_diff.position != 0) or np.any(dwell_diff.rotation != 0):
-                                # if the postion or rotation of the dwell has changed,
-                                # update it in the catheter table and set gen_dose_rates to True for that catheter.
-                                self.catheter_table[catheter_diff.index][dwell_diff.index].position = catheter_table[catheter_diff.index][dwell_diff.index].position
-                                self.catheter_table[catheter_diff.index][dwell_diff.index].rotation = catheter_table[catheter_diff.index][dwell_diff.index].rotation
-                                self.catheter_table[catheter_diff.index].gen_dose_rates = True
-                            elif dwell_diff.time != 0:
-                                time_diffs[
-                                    f"catheter_{catheter_diff.index+1}_dwell_{dwell_diff.index+1}"
-                                    ] = dwell_diff.time
-                            else:
-                                continue
+                self.catheter_table.merge(catheter_table)
         else:
             raise ValueError(
                 "catheter_table should be a path or a CatheterTable object"
@@ -569,6 +528,8 @@ class BrachyPlan:
                             gridSize=self.phantom.image_obj.gridSize,
                             spacing=self.phantom.image_obj.spacing,
                         )
+                    else:
+                        mask = structure.mask
                     self.catheter_table.remove_outside_mask(
                         mask=mask,
                         margin_mm=5.0,
@@ -608,7 +569,7 @@ class BrachyPlan:
 
             # extract the attributes above from the catheter table
             dwell_counter = 1
-            for catheter in self.catheter_table.catheter_list:
+            for catheter in self.catheter_table.catheters_list:
                 self.catheter_numbers = np.append(self.catheter_numbers, catheter.index)
                 for dwell in catheter.dwells:
                     self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
@@ -634,153 +595,6 @@ class BrachyPlan:
             self.num_dwells = len(self.dwell_numbers)
         if any(self.dose_rate_dict):
             self._calculate_combined_dose(time_diffs=time_diffs)
-
-    def load_dose_rate_dict(
-        self,
-        dir_dose_rate: str| Path,
-        load_uncertainty:bool=False,
-        multi_processing: bool = True,
-        combined_dose_only: bool = False,
-        catheter_table: CatheterTable = None,
-    ):
-        r"""
-        ### Purpose:
-        - To load the dose rates into the BrachyPlan object given a folder with
-        patient's dose rate files and the catheter table loaded into the BrachyPlan object.
-        In addition, combined dose is calculated as a linear combination of the dose rates
-        and dwell times.
-        ### Inputs:
-        - `dir_dose_rate` :=  path to the directory containing the dose rate files. we assume
-        that the name of the dose rate files end as "run_X_X_X.seq.nrrd", "run_X_X_X.seq.nrrd", etc.
-        where the X corresponds to the catheter index+1, dwell index+1, and angle in increasing order.
-        - `load_uncertainty`:= If true, uncertainty is loaded from the dose file, else it'll be set to 1. 
-        - `multi_processing` := if True, the dose rate files will be loaded in parallel. By default,
-        we use 8 cores for parallel processing.
-        - `combined_dose_only`:bool = False := flag to keep only the combined dose in memory after loading.
-        ### Outputs:
-        - Void := will update the BrachyPlan.dose_rate_dict attribute
-        """
-        # make sure catheter table is loaded
-        if catheter_table is None:
-            assert self.catheter_table is not None, "catheter table is not loaded"
-            catheter_table = self.catheter_table
-
-        pth_dose_rate = Path(dir_dose_rate).resolve()
-        if not pth_dose_rate.exists():
-            raise ValueError(f"directory of dose rates does not exist: {pth_dose_rate}")
-        dose_rate_files = list(pth_dose_rate.glob("run_*.seq.nrrd"))
-        new_dose_rate_files = []
-        # load file if they have not been loaded since modification
-        for pth in dose_rate_files:
-            # check if pth is not needed in catheter table skip it:
-            cat_index_from_pth, dwell_index_from_pth = pth.name.split("_")[1:3]
-            cat_index_from_pth, dwell_index_from_pth = int(cat_index_from_pth)-1, int(dwell_index_from_pth)-1
-            if 0 <= cat_index_from_pth < len(catheter_table):
-                dwells = catheter_table[cat_index_from_pth].dwells
-                if 0 <= dwell_index_from_pth < len(dwells):
-                    pass
-                else:
-                    continue
-            else:
-                continue
-
-            if not self.dose_rate_dict.get(pth.name, None):
-                new_dose_rate_files.append(pth)
-            elif pth.stat().st_mtime != self.dose_rate_dict.get(pth.name).modification_time:
-                new_dose_rate_files.append(pth)
-            else:
-                continue
-
-        if multi_processing:
-            with ThreadPoolExecutor(max_workers=16) as executor:
-                futures = {
-                    executor.submit(_load_single_dose_rate, pth, load_uncertainty): pth
-                    for pth in new_dose_rate_files
-                    }
-                for action in tqdm(
-                    as_completed(futures),
-                    desc="Loading dose rate maps",
-                    total=len(new_dose_rate_files)):
-                    try:
-                        dose_rate = action.result()
-                        self.dose_rate_dict[dose_rate.path.name] = dose_rate
-                    except:
-                        failed_path = futures[action]
-                        raise ValueError(f"Failed loading f{failed_path}")
-        else:
-            for pth in tqdm(
-                new_dose_rate_files,
-                desc="Loading dose rate maps",
-                total=len(new_dose_rate_files)):
-                dose_rate = _load_single_dose_rate(
-                    pth_dose_rate=pth,
-                    load_uncertainty=load_uncertainty)
-                self.dose_rate_dict[dose_rate.path.name] = dose_rate
-
-        # now sort dose rates according to increasing catheter name and shield numbers
-        # Fastest and most compact version
-        sorted_items = sorted(
-            self.dose_rate_dict.items(),
-            key=lambda f: tuple(map(int, f[0].removeprefix('run_').removesuffix('.seq.nrrd').split('_')))
-        )
-        self.dose_rate_dict = defaultdict(BrachyDose, sorted_items)
-
-        self._calculate_combined_dose()
-        if load_uncertainty:
-            self._calculate_combined_uncertainty()
-        if combined_dose_only:
-            del self.dose_rate_dict
-
-    def _calculate_combined_dose(self, time_diffs=None):
-        """
-        ### Purpose:
-        - To calculate the combined dose by multiplying the dose rates with the dwell times.
-        The result is stored in the combined_dose attribute.
-        We require strict name matching between the dwell names and dose rate names!
-        ### Inputs:
-        - time_diffs: a dictionary of time differences for each dwell in the plan. 
-        This is used to update the combined dose if the dwell times are updated without
-        having to reload the dose rate maps. The keys of the dictionary should be in
-        the format "catheter_{catheter_index}_dwell_{dwell_index}" and the values
-        should be the time differences in seconds. If None, the combined dose will
-        be calculated using the current dwell times in the plan.
-        ### Outputs:
-        - None: but it needs the following attributes to be filled:
-        - self.dose_rate_dict
-        - self.catheter_table
-        ### Raises:
-            AssertionError: If the dose rate tensor or dwell times array is empty.
-        """
-        if not any(self.dose_rate_dict):
-            raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
-        if self.combined_dose is None:
-            self.combined_dose = BrachyDose.dose_with_empty_grid_like(
-                list(self.dose_rate_dict.values())[0])        
-        if time_diffs is None:
-            self.combined_dose.dose_image.imageArray.fill(0)
-            for catheter in self.catheter_table:
-                for dwell in catheter.dwells:
-                        self.combined_dose.dose_image.imageArray += self.dose_rate_dict.get(
-                            f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
-                            ).dose_image.imageArray * dwell.time
-        else:
-            for dwell_key, time_diff in time_diffs.items():
-                #print(time_diffs.items())
-                #print(self.dose_rate_dict.items())
-                #if time_diff < 1e-3 :
-                #    continue
-                #print("################")
-                #print(f"dwell key {dwell_key}")
-                #print(f"time diff {time_diff}")
-                #print("############")
-                split_dwell_key = dwell_key.split("_")
-                #print(f"split_dwell_key {split_dwell_key}")
-                catheter_number = split_dwell_key[1]
-                dwell_number = split_dwell_key[3]
-                dose_rate_key = f"run_{catheter_number}_{dwell_number}_0.seq.nrrd"
-                #print(f"dose_rate_key {dose_rate_key}")
-                #print(f"calculate_combined_dose() time_diff {time_diff}")
-                self.combined_dose.dose_image.imageArray += (self.dose_rate_dict.get(dose_rate_key).dose_image.imageArray * time_diff)
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
         r"""
@@ -1029,30 +843,6 @@ class BrachyPlan:
         else:
             raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
 
-    def _calculate_combined_uncertainty(self):
-        r"""
-        ### Purpose:
-        - To calculate the combined uncertainty of the combined dose map based on the
-        dose rate dictionary and dwell times.
-        We require strict name matching between the dwell names and the name of dose rate files
-        ### Inputs:
-        - self := the BrachyPlan object
-        ### Outputs:
-        - Void := will update the BrachyPlan.combined_dose.uncertainty attribute
-        """
-        assert self.combined_dose is not None, "combined dose is not calculated yet"
-        if not any(self.dose_rate_dict):
-            raise ValueError("dose rate tensor is empty. Run load_dose_rate_dict()")
-
-        treatment_time = self.catheter_table.treatment_time
-        for catheter in self.catheter_table:
-            for dwell in catheter.dwells:
-                self.combined_dose.uncertainty_image.imageArray += (self.dose_rate_dict.get(
-                    f"run_{catheter.index+1}_{dwell.index+1}_{int(dwell.angle)}.seq.nrrd"
-                    ).uncertainty_image.imageArray * (dwell.time/treatment_time)**2)
-        self.combined_dose.uncertainty_image.imageArray = np.sqrt(
-            self.combined_dose.uncertainty_image.imageArray)
-
     def get_dvh_metrics(
         self,
         combined_dose: BrachyDose=None,
@@ -1263,50 +1053,6 @@ class BrachyPlan:
             catheter_table.write_json(
                 export_config_cathetertable.dir_export
             )
-
-    def export_dose(
-        self,
-        export_config_dose: ExportConfig_Dose
-    ):
-        r"""
-        ### Purpose:
-        - to export combined dose map and if needed the dose rate maps to a given directory.
-        exporting dose rate maps is optional.
-        ### Inputs:
-        - export_config_dose: The dose export configuration. Look at ExportConfig_Dose for more info 
-        ### Outputs:
-        - None := will export the dose map into the specified export directory.
-        ### Dependencies:
-        - _write_single_dose_rate()
-        - multiprocessing
-        """
-        assert self.combined_dose is not None, "combined dose is not calculated yet"
-        dir_export = Path(export_config_dose.dir_export)
-        # write combined dose
-        self.combined_dose.write_brachydose_to_file(
-            export_config_dose.pth_combined
-        )
-
-        if export_config_dose.write_dose_rate_maps:
-            if export_config_dose.multi_processing:
-                with ThreadPoolExecutor(max_workers=16) as executor:
-                    futures = {
-                        executor.submit(_write_single_dose_rate, self.dose_rate_dict.get(dose_rate_name), dir_export, export_config_dose.file_extension):
-                            dose_rate_name for dose_rate_name in self.dose_rate_dict
-                        }
-                    for action in tqdm(as_completed(futures), desc="Writing dose rate maps"):
-                        try:
-                            action.result()
-                        except:
-                            failed_path = futures[action]
-                            raise ValueError(f"Failed writing {failed_path}")
-            else:
-                for dose_rate in tqdm(self.dose_rate_dict, desc="Writing dose rate maps"):
-                    _write_single_dose_rate(
-                        dose_rate=self.dose_rate_dict.get(dose_rate),
-                        dir_export=dir_export,
-                        dose_extension=export_config_dose.file_extension)
-        print(f"Dose exported to {dir_export}")
 
     def export_plan_files(
         self,
@@ -1830,10 +1576,9 @@ config do not match for structure {struc.name}"
         dose_rates_catheter = defaultdict(BrachyDose)
         
         for name, dose_rate in self.dose_rate_dict.items():
-            cath_num = name.split("_")[1]
-            if catheter_index+1 == int(cath_num):
-                dwell_num = name.split("_")[2]
-                dose_rates_catheter[f"catheter_{cath_num}_dwell_{dwell_num}"] = dose_rate
+            curr_indx = int(name.split("_")[0])-1
+            if curr_indx == catheter_index:
+                dose_rates_catheter[name] = dose_rate
         return dose_rates_catheter
 
 def _gen_hotspot_mask(
@@ -1873,38 +1618,6 @@ def _gen_hotspot_mask(
         is_target=False,
         in_dvh=False,
     )
-
-def _write_single_dose_rate(
-    dose_rate:BrachyDose,
-    dir_export: str | Path = None,
-    dose_extension: str = None,
-    file_name: str = None,
-    ):
-    r"""
-    ### Purpose:
-    to write out a single dose rate map and uncertainty to a directory.
-    ### Inputs:
-    - dose_rate:= The BrachyDose object for the dose rate data.
-    - dir_export:= the directory to which the dose rate maps will be exported
-    - file_name:= The name of the file inside dir_export. Following the RapidBrachy standard, it should be
-    "run_{catheter.index+1}_{dwell.index+1}_{angle}.seq.nrrd". if none, dose_rate.path.name is used.
-    - dose_extension := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
-    ### Output:
-    - Void := dose file is written to dir_export+f"/{file_name}.{dose_type}
-    """
-    if file_name is None:
-        file_name = dose_rate.path.name.split(".")[0]
-    if dose_extension is None:
-        dose_extension = ".seq.nrrd"
-    dir_export = Path(dir_export)
-    pth_out = dir_export/(file_name+dose_extension)
-    dose_rate.write_brachydose_to_file(pth_dose_file=pth_out)
-
-def _load_single_dose_rate(
-    pth_dose_rate:Path,
-    load_uncertainty=False
-    )->BrachyDose:
-        return BrachyDose(pth_dose_file=pth_dose_rate, load_uncertainty=load_uncertainty)
 
 def _type_nested_dict_list(data):
 

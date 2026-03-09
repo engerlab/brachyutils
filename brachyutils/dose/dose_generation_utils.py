@@ -139,6 +139,11 @@ class DoseTG43(BrachyDoseGenerator):
         else:
             raise ValueError("Invalid value for output_dose_per_dwell.")
 
+        if pth_egsphant is None:
+            pth_egsphant = list(self.dir_plan_export.glob("*egsphant.seq.nrrd")).pop()
+        if pth_mac is None:
+            pth_mac = list(self.dir_plan_export.glob("combined.mac")).pop()
+
         if "http" in self.pth_dose_executable:
             # use fast api post to request the dose calculation
             import requests
@@ -201,7 +206,7 @@ class DoseTG43(BrachyDoseGenerator):
         self,
         plan: BrachyPlan = None,
         generate_dose_rate_maps: bool = False,
-        export_config_brachyplan: ExportConfig_BrachyPlan = None,
+        export_config_brachyplan: ExportConfig_BrachyPlan | bool | dict = None,
         ) -> BrachyPlan:
         r"""
         ### Purpose:
@@ -211,31 +216,41 @@ class DoseTG43(BrachyDoseGenerator):
         - plan:= The treatment plan for which we want to generate the dose. 
         - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
         If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
-        - export_config_brachyplan := The 
+        - export_config_brachyplan := If false, we assume the egsphant, mac files, and plan files have been
+        exported before. If True or None, we create a default ExportConfig_BrachyPlan to export the setup files
+        needed for DoseTG43. You can also provide your own custom export config.
         ### Output:
         - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
         """
-        if export_config_brachyplan is None:
+        if export_config_brachyplan is None or export_config_brachyplan == True:
             export_config_brachyplan = ExportConfig_BrachyPlan(
                 dir_export=self.dir_plan_export,
                 export_config_egsphant=True,
                 export_config_planfile=True,
                 export_config_macfile=True,
             )
-        plan.export_brachy_plan(export_config_brachyplan)
+        elif isinstance(export_config_brachyplan, dict):
+            export_config_brachyplan = ExportConfig_BrachyPlan(**export_config_brachyplan)
+
+        if export_config_brachyplan:
+            plan.export_brachy_plan(export_config_brachyplan)
+
         # call the dose generator to generate the dose maps
         self.generate_dose(
+            pth_mac=export_config_brachyplan.export_config_macfile.pth_combined,
+            pth_plan=export_config_brachyplan.export_config_planfile.pth_combined,
             output_dose_per_dwell= "dose_rate" if generate_dose_rate_maps else False,
         )
         # load the generated dose maps and update the plan
         if generate_dose_rate_maps:
-            plan.load_dose_rate_dict(
+            plan.catheter_table.load_dose_rates(
                 dir_dose_rate=self.dir_plan_export,
             )
         else:
             plan.combined_dose = BrachyDose(
                 export_config_brachyplan.export_config_macfile.pth_combined.with_suffix(".seq.nrrd")
                 )
+        return plan
 
 class DoseMonteCarlo(BrachyDoseGenerator):
     def __init__(
