@@ -799,7 +799,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             return catheter_found
 
         if isinstance(indices, slice):
-            indices = list(range(*slice.indices(len(self.catheters_dict))))
+            indices = list(range(*indices.indices(len(self.catheters_dict))))
             name_ids = [str(index+1) for index in indices]
             caths_found = {name_id: self.catheters_dict.get(name_id, None) for name_id in name_ids}
             return CatheterTable(

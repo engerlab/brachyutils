@@ -123,7 +123,7 @@ def test_dynamic_plan_generation():
     # # now split this catheter table into two.
     cat_table_p1 = full_cat_table[:len(full_cat_table)//2]
     cat_table_p2 = full_cat_table[len(full_cat_table)//2:]
-    cat_table_p2.reset_index()
+    # cat_table_p2.reset_index()
     # cat_table_p1.info()
     # cat_table_p2.info()
 
