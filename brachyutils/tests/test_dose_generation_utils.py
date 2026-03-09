@@ -96,6 +96,8 @@ def test_run_dose_gen_tg43():
     dir_export = Path("temp_data/tg43")/pth_dicom.stem
     plan_obj = get_a_plan(
         pth_dicom=pth_dicom,
+        from_delivered_dwellpositions=False,
+        dwells_near_ptv=False
     )
     dose_gen = DoseTG43(
         dir_plan_export=dir_export

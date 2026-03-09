@@ -8,7 +8,7 @@ def export_plan_air_phantom():
     """
     dir_export = "data_test/test_export_plan/prostate"
     catheterTable = CatheterTable(
-        catheter_list=[
+        catheters_dict=[
             Catheter(
                 index=0,
                 dwells=[

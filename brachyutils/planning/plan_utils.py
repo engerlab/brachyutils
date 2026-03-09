@@ -298,7 +298,7 @@ class BrachyPlan:
 
         # dose attributes
         self.dose_rate_dict = defaultdict(BrachyDose)
-        self.combined_dose: BrachyDose = None
+        # self.combined_dose: BrachyDose = None
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
@@ -397,6 +397,10 @@ class BrachyPlan:
                 add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
                 one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
             )
+
+    @computed_field
+    def combined_dose(self):
+        return self.catheter_table.combined_dose
 
     def load_phantom(self, pth_phantom: Union[Path, dict]):
         r"""
@@ -503,14 +507,14 @@ class BrachyPlan:
         """
         if isinstance(catheter_table, (str, Path)):
             self.catheter_table = CatheterTable(
-                catheter_list=catheter_table,
+                catheters_dict=catheter_table,
                 from_delivered_dwellpositions=from_delivered_dwellpositions,
                 )
         elif isinstance(catheter_table, CatheterTable):
             if self.catheter_table is None:
                 self.catheter_table = catheter_table
             else:
-                self.catheter_table.update(catheter_table)
+                self.catheter_table.merge(catheter_table)
         else:
             raise ValueError(
                 "catheter_table should be a path or a CatheterTable object"
@@ -565,7 +569,7 @@ class BrachyPlan:
 
             # extract the attributes above from the catheter table
             dwell_counter = 1
-            for catheter in self.catheter_table.catheter_list:
+            for catheter in self.catheter_table.catheters_list:
                 self.catheter_numbers = np.append(self.catheter_numbers, catheter.index)
                 for dwell in catheter.dwells:
                     self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)

@@ -55,13 +55,13 @@ def test_loading_from_dicom():
 
     pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
     catheter_table_delivered = CatheterTable(
-        catheter_list=pth_plan,
+        catheters_dict=pth_plan,
         from_delivered_dwellpositions=True)
     catheter_table_delivered.write_to_slicer_markup(
         pth_mrk_json=pth_json_delivered
     )
     catheter_table_all = CatheterTable(
-        catheter_list=pth_plan,
+        catheters_dict=pth_plan,
         from_delivered_dwellpositions=False)
     catheter_table_all.write_to_slicer_markup(
         pth_mrk_json=pth_json_all
@@ -74,7 +74,7 @@ def test_loading_from_dicom():
         pth_structures_file=glob(pth_dicom + "/RS*.dcm")[0])
     ptv_mask = phant.get_structure_mask(["CTV"], strict_name_match=False).popitem()[-1]
     catheter_table_all_in_ptv = CatheterTable(
-        catheter_list=pth_plan,
+        catheters_dict=pth_plan,
         from_delivered_dwellpositions=True)
     catheter_table_all_in_ptv.remove_outside_mask(
             mask=ptv_mask,
@@ -84,11 +84,11 @@ def test_loading_from_dicom():
         pth_mrk_json=pth_json_all_in_ptv
     )
 
-    # cat_tab_json = CatheterTable(catheter_list=pth_json)
+    # cat_tab_json = CatheterTable(catheters_dict=pth_json)
     # cat_tab_json.info()
 
 def test_catheter():
-    from brachyutils.geometry.catheter_utils.catheter_table import Catheter, DwellPosition
+    from brachyutils.geometry.catheter_utils.catheter_table import Catheter
     # # create a catheter from tip and last dwell position
     new_catheter = Catheter(
         index=0,
@@ -102,22 +102,22 @@ def test_catheter():
         coordinates_on_1_axis,
         coordinates_on_1_axis,
         coordinates_on_1_axis], axis=-1)
-    new_catheter = Catheter(index = 0, points=points)
+    new_catheter = Catheter(index=0, digitization_points=points)
     print(new_catheter)
 
 def test_catheter_to_mrk_json():
     from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
     pth_out = "data_test/test_export_plan/prostate/test_catheter_table.mrk.json"
-    cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
+    cat_table = CatheterTable(catheters_dict=list(pth_dicom.glob("RP*.dcm"))[0])
     cat_table.write_to_slicer_markup(pth_mrk_json=pth_out)
 
 def test_get_from_delivered_dwellpositions():
     pth_dicom = "data_test/prostate-glen-p1-dcm"
     pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
     from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
-    cat_table = CatheterTable(catheter_list=pth_plan)
-    delivered_cat_table = cat_table.get_from_delivered_dwellpositions()
+    cat_table = CatheterTable(catheters_dict=pth_plan)
+    delivered_cat_table = CatheterTable(catheters_dict=pth_plan, from_delivered_dwellpositions=True)
     assert cat_table.num_catheters >= delivered_cat_table.num_catheters, "Test failed the number of catheters in the delivered table is not equal to the original table."
     assert cat_table.num_dwell_positions >= delivered_cat_table.num_dwell_positions, "Test failed the number of dwell positions in the delivered table is not equal to the original table."
 
@@ -126,7 +126,7 @@ def test_load_dose_rates() -> CatheterTable:
     dir_dose_rates = Path("data_test/prostate-glen-p1-dose")
 
     cat_tab = CatheterTable(
-        catheter_list=list(dir_dicom.glob("RP*.dcm"))[0],
+        catheters_dict=list(dir_dicom.glob("RP*.dcm"))[0],
         from_delivered_dwellpositions=False
     )
     
@@ -159,16 +159,16 @@ def test_get_dwells_by_ids():
     dwell_ids = [
         "0_3_0", "8_4_0", "1_1_0",
     ]
-    dwells_got = cat_tab_to_export.get_dwell_by_name_ids(dwell_ids)
+    dwells_got = cat_tab_to_export.get_dwells_by_name_ids(dwell_ids)
     for dwell in dwells_got:
         print(dwell.name_id)
     
 if __name__ == "__main__":
     # test_dwells_catheters()
     # test_loading_from_dicom()
-    # test_catheter()
+    test_catheter()
     # test_catheter_to_mrk_json()
     # test_get_from_delivered_dwellpositions()
     # test_load_dose_rates()
     # test_export_dose()
-    test_get_dwells_by_ids()
+    # test_get_dwells_by_ids()

@@ -33,7 +33,7 @@ def get_a_plan(
         prescription_dose=prescription_dose,
         dvh_metric_goals=dvh_metric_goals,
         optimization_config_list=kwargs.get("optimization_config_list", None),
-        dwells_near_ptv=True,
+        dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
         add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
         one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
         )
@@ -69,7 +69,7 @@ def test_load_dose_rate_dict():
     dir_dose_rate = "data_test/prostate-glen-p1-dose"
 
     catheter_table = CatheterTable(
-        catheter_list=pth_plan,
+        catheters_dict=pth_plan,
         from_delivered_dwellpositions=True,
     )
     plan_obj = BrachyPlan(
@@ -119,7 +119,7 @@ def test_calculate_combined_uncertainty():
     dir_dose_rate = "data_test/prostate-glen-p1-dose"
 
     catheter_table = CatheterTable(
-        catheter_list=pth_plan,
+        catheters_dict=pth_plan,
         from_delivered_dwellpositions=True,
     )
     plan_obj = BrachyPlan(
