@@ -415,6 +415,7 @@ class Catheter(BaseModel):
                         "position":point,
                         "relativePos":dwell_index * step_size,
                         "rotation":None,
+                        "catheter_index": self.index
                         # time:kwargs.get("time"),
                     }
                 )
