@@ -11,7 +11,7 @@ from brachyutils.dose.dose_generation_utils import DoseTG43
 def test_catheter_gurobi_initialization():
     # we need a catheter table first!
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
-    cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
+    cat_table = CatheterTable(catheters_dict=list(pth_dicom.glob("RP*.dcm"))[0])
 
     catheter_vars = []
     model = Model("test_model")
@@ -119,7 +119,7 @@ def test_dynamic_plan_generation():
         content_to_export=init_export_config
     )
     # # get the full catheter table.
-    full_cat_table = CatheterTable(catheter_list=list(pth_dicom.glob("RP*.dcm"))[0])
+    full_cat_table = CatheterTable(catheters_dict=list(pth_dicom.glob("RP*.dcm"))[0])
     # # now split this catheter table into two.
     cat_table_p1 = full_cat_table[:len(full_cat_table)//2]
     cat_table_p2 = full_cat_table[len(full_cat_table)//2:]

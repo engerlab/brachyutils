@@ -503,7 +503,7 @@ class BrachyPlan:
         """
         if isinstance(catheter_table, (str, Path)):
             self.catheter_table = CatheterTable(
-                catheter_list=catheter_table,
+                catheters_dict=catheter_table,
                 from_delivered_dwellpositions=from_delivered_dwellpositions,
                 )
         elif isinstance(catheter_table, CatheterTable):

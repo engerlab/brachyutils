@@ -545,7 +545,7 @@ class CatheterTable(BaseModel):
 
     catheters_dict: Union[
         List[Catheter], List[dict], str, Path, CatheterSetUp, CreatedSetUp,
-        Dict[Catheter], Dict[dict]
+        Dict[str, Catheter], Dict[str, dict]
     ]
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
@@ -854,7 +854,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
         - None
         """
         if isinstance(indices, str):
-            del self.catheters_dict.get(indices)
+            del self.catheters_dict[indices]
         if isinstance(indices, slice):
             indices = list(range(*slice.indices(len(self.catheters_dict))))
             name_ids = [str(index+1) for index in indices]
