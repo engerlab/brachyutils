@@ -13,3 +13,5 @@ from .planning import *
 from .planning.optimization import *  # noqa: F401, F403
 
 from .geometry.registration_utils import *  # noqa: F401, F403
+
+from .geometry.catheter_utils import * # noqa: F401, F403
