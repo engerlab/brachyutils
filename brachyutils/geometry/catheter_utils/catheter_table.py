@@ -830,7 +830,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             raise ValueError("Cannot add two catheter tables with different stepsizes.")
         return CatheterTable(
             catheters_dict=self.catheters_dict | other.catheters_dict,
-            stepsize=self.stepsize,
+            stepsize=self.step_size,
             from_delivered_dwellpositions=self.from_delivered_dwellpositions,
         )
 
@@ -944,7 +944,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
                         index=other_catheter.index,
                         dwells=list_dwell_diffs)
         return CatheterTable(
-            catheters_list=dict_catheter_diffs,
+            catheters_dict=dict_catheter_diffs,
             from_delivered_dwellpositions=self.from_delivered_dwellpositions
         )
 
