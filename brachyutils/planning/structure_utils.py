@@ -41,6 +41,7 @@ class BrachyStructure:
         name: str,
         mask: ROIMask | ROIContour,
         dvh_metric_names: List[str] = None,
+        dvh_metric_goals: Dict[str, float] = None,
         is_target: bool = False,
         in_dvh: bool = True,
         optimization_config: Optimization_Config = None,
@@ -87,6 +88,9 @@ class BrachyStructure:
         # self.optimization_mask: ROIMask = None
         if dvh_metric_names is not None:
             self.set_dvh_metric_names(dvh_metric_names)
+
+        if dvh_metric_goals is not None:
+            self.dvh_metric_goals(dvh_metric_goals)
 
         if optimization_config is not None:
             self.set_optimization_config(optimization_config)

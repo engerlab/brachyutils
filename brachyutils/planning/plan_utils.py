@@ -308,11 +308,6 @@ class BrachyPlan:
         ## fill the attributes depending on the inputs to the constructor
         # set the dvh metric goals if provided
         self.prescription_dose = prescription_dose
-        if kwargs.get("dvh_metric_goals", None) is not None:
-            if self.prescription_dose is None:
-                raise ValueError("prescription dose is not provided. Please provide it.")
-            self.set_dvh_metric_goals(kwargs.get("dvh_metric_goals"))
-
         # load the dicom plan if the path is provided
         if phantom is not None:
             if isinstance(phantom, BrachyPhantom):
@@ -327,11 +322,17 @@ class BrachyPlan:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
         # create structures based on the phantom structures and DVH metric goals
         if self.phantom is not None:
-            self.create_brachy_structure_set(
+            self.set_brachy_structure_list(
                 phantom=self.phantom,
                 dvh_metric_goals=self.dvh_metric_goals,
                 strict_name_match=strict_name_match,
             )
+
+        if kwargs.get("dvh_metric_goals", None) is not None:
+            if self.prescription_dose is None:
+                raise ValueError("prescription dose is not provided. Please provide it.")
+            self.set_dvh_metric_goals(kwargs.get("dvh_metric_goals"))
+
         # load the catheter table if the path is provided
         if catheter_table is not None:
             self.set_catheter_table(
@@ -598,44 +599,51 @@ class BrachyPlan:
         if any(self.dose_rate_dict):
             self._calculate_combined_dose(time_diffs=time_diffs)
 
-    def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
-        r"""
-        ### Purpose:
-        - To set the dvh metric list of the BrachyPlan object.
-        ### Inputs:
-        - dvh_metric_goals := a list of dictionaries. each dictionary contains the keys:
-        "structure_name", "clinical_goal", "observed_value", and "penalty_weight"
-        ### Outputs:
-            - Void := will update the BrachyPlan.dvh_metric_goals attribute
-        """
-        if isinstance(dvh_metric_goals, Path):
-            with open(dvh_metric_goals, "r") as json_file:
-                dvh_metric_goals = json.load(json_file)
-        self.dvh_metric_goals = dvh_metric_goals
-
-    def create_brachy_structure_set(
+    def set_dvh_metric_goals(
         self,
-        phantom: BrachyPhantom,
-        dvh_metric_goals: dict = None,
-        mask_type: Union[ROIContour, ROIMask] = ROIContour,
-        strict_name_match: bool = True,
-        ):
+        dvh_metric_names: List[str]=None,
+        dvh_metric_goals: Union[dict, Path]=None,
+        strict_name_match: bool = True
+        ) -> None:
         r"""
         ### Purpose:
-        - To create a list of BrachyStructure objects from the structures in the phantom and
-        the DVH metric goals. Each BrachyStructure object will have attributes for the structure
-        contour, the DVH and uncertainty volume histograms, optimization attributes, and simulation attributes.
-        ### Inputes:
-        - self.phantom := the phantom with its structures fully loaded.
-        - self.dvh_metric_goals := the dvh metric goals dictionary
+        - To set the dvh metric list of the BrachyPlan object and each of the BrachyStructures.
+        You can provide either the dvh_metric_names or the dvh_metric_goals.
+        ### Inputs:
+        - dvh_metric_names: List[str] := a list containing the DVH metrics for this structure. The names 
+        are of the format V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or.
+        For example D95%(organName).
+        - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
+        The keys should be following the same convention as for dvh_metric_names.
+        - strict_name_match: bool := If True, the name of the structure in the phantom and the DVH metric
+        goals should mask perfectly. Otherwise, the name of the structure in the DVH metric goals can be
+        a substring of the name of the structure in the phantom. For example, "CTV" vs "CTV_BRACHY".
         ### Outputs:
-        - Void := will update the BrachyPlan.structure_list attribute
-        ### Dependencies:
-        - BrachyDicom
+        - None := will update the BrachyPlan.dvh_metric_goals attribute
         """
-        self.structure_list = []
-        dvh_metric_goals_by_structure = {}
+        if dvh_metric_names is not None and dvh_metric_goals is not None:
+            raise ValueError("Please provide either dvh_metric_names or dvh_metric_goals, not both") 
 
+        if len(self.structure_list) == 0:
+            raise ValueError("The plan structure set is empty, please run set_brachy_structure_list")
+
+        if dvh_metric_goals is not None:
+            if isinstance(dvh_metric_goals, Path):
+                with open(dvh_metric_goals, "r") as json_file:
+                    dvh_metric_goals = json.load(json_file)
+            dvh_metric_names = list(dvh_metric_goals.keys())
+
+        self.dvh_metric_goals = {}
+        # let's match the structure names in the DVH with the structure names
+        # in the BrachyPlan.
+        for brachy_structure in self.structure_list:
+            XXX
+            if strict_name_match:
+                for dvh_name in dvh_metric_names:
+                    structure_name_in_dvh = dvh_name.split("(")[-1].split(")")[0]
+                    relevant_dvh_metrics = 
+
+        dvh_metric_goals_by_structure = {}
         if dvh_metric_goals is None:
             structure_names_in_dvh = self.phantom.structure_names
         else:
@@ -651,14 +659,30 @@ class BrachyPlan:
                 }
                 dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
 
+    def set_brachy_structure_list(
+        self,
+        phantom: BrachyPhantom,
+        mask_type: Union[ROIContour, ROIMask] = ROIContour,
+        )->None:
+        r"""
+        ### Purpose:
+        - To create a list of BrachyStructure objects from the structures in the phantom and
+        the DVH metric goals. Each BrachyStructure object will have attributes for the structure
+        contour, the DVH and uncertainty volume histograms, optimization attributes, and simulation attributes.
+        ### Inputes:
+        - phantom := the phantom with its structures fully loaded.
+        - dvh_metric_goals := the dvh metric goals dictionary
+        - mask_type: ROIContour | ROIMask := Phantom masks will be converted to this type when being
+        stored in BrachySturucture.
+        ### Outputs:
+        - None := will update the BrachyPlan.structure_list attribute
+        """
+        self.structure_list = []
         if phantom.cached_structure_masks is not None:
             structure_masks = deepcopy(phantom.cached_structure_masks)
-            for k in list(structure_masks.keys()):
-                if k not in structure_names_in_dvh:
-                    structure_masks.pop(k)
         else:
             structure_masks: dict = phantom.get_structure_mask(
-                structure_names_in_dvh, mask_type, strict_name_match=strict_name_match
+                phantom.structure_names, mask_type,
             )
 
         for structure_name in structure_masks.keys():
@@ -668,11 +692,6 @@ class BrachyPlan:
                 is_target=True if (
                     "ctv" in structure_name.lower()
                     or "ptv" in structure_name.lower())  else False,
-                # in_dvh=True,
-                dvh_metric_goals=(
-                    dvh_metric_goals_by_structure.get(structure_name, None)
-                    if any(dvh_metric_goals_by_structure)
-                    else None),
             )
             self.structure_list.append(structure_obj)
         if phantom.cached_structure_masks is not None:
