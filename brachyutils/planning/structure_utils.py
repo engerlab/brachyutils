@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 from opentps.core.data.images import ROIMask
 from opentps.core.data import DVH, ROIContour
 import numpy as np
@@ -18,6 +18,7 @@ class BrachyStructure:
     - mask: ROIMask
     - is_target: bool
     #### DVH Attributes:
+    - dvh_metric_names
     - in_dvh: bool
     - dvh_metric_goals: Dict[str, float]
     - dvh_metrics_observed: Dict[str, float]
@@ -37,13 +38,13 @@ class BrachyStructure:
 
     def __init__(
         self,
-        name: str = None,
-        mask: ROIMask | ROIContour = None,
-        is_target: bool = None,
+        name: str,
+        dvh_metric_names: List[str],
+        mask: ROIMask | ROIContour,
+        is_target: bool = False,
         in_dvh: bool = True,
-        dvh_metric_goals: Dict[str, float] = None,
         optimization_config: Optimization_Config = None,
-    ) -> None:
+        ) -> None:
         r"""
         ### Purpose:
         - To initialize the BrachyStructure object.
@@ -52,8 +53,10 @@ class BrachyStructure:
         - mask:ROIMask | ROIContour := the mask or contour of the structure.
         - is_target:bool := flag to indicate whether the structure is a target volume or not.
         - in_dvh:bool := flag to indicate whether the structure is included in the dose volume histogram.
+        - dvh_metric_names: List[str] := a list containing the DVH metrics for this structure. The names 
+        are of the format V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or.
+        For example D95%(organName).
         - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
-        V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or. For example D95%(organName).
         - optimization_config:Optimization_Config := the optimization config object for the structure. see optim_utils.py 
         ### Outputs:
         - Void := will initialize the BrachyStructure object
@@ -67,6 +70,7 @@ class BrachyStructure:
 
         # dose volume histogram
         self.in_dvh:bool = in_dvh
+        self.dvh_metric_names: List[str] = None
         self.dvh_metric_goals: Dict[str, float] = None
         self.dvh_metrics_observed: Dict[str, float] = None
         self.dvh_obj: DVH = None
@@ -82,16 +86,26 @@ class BrachyStructure:
         self.optimization_config: Optimization_Config = None
         # self.optimization_mask: ROIMask = None
 
-        if self.in_dvh: # XXX figure out how to do this only optionally!
-            if dvh_metric_goals is None:
-                raise ValueError(
-                    """Please provide BrachyStructure with a dictionary of multiple metrics and goals"""
-                    )
-            self.dvh_metric_goals = dvh_metric_goals
-            assert np.all([self.name.lower() in dvh_metric_name.lower() for dvh_metric_name in self.dvh_metric_goals.keys()]),\
-             "name should be in dvh metric name enclosed by paranthesis"
+        assert np.all(
+            [self.name.lower() in dvh_metric_name.lower()
+            for dvh_metric_name in dvh_metric_names]),\
+            "name should be in dvh metric name enclosed by paranthesis"
+        self.dvh_metric_names = dvh_metric_names
+
         if optimization_config is not None:
             self.set_optimization_config(optimization_config)
+
+    def set_dvh_metric_goals(self, dvh_metric_goals: List[str] | Dict[str, float]):
+        r"""
+        ### Purpose:
+        - To set the DVH metrics or their goals for this structure.
+        If a list of strings is provided, then we only set the metrics.
+        If a dictionary of the metric and their goal is provided, then
+        the goals are set.
+        """
+        self.dvh_metric_goals = defaultdict(float)
+        for dvh_name in self.dvh_metric_names:
+            self.dvh_metric_goals[dvh_name] = dvh_metric_goals.get(dvh_name, None)
 
     def get_dvh_metric(
         self,
@@ -121,7 +135,7 @@ class BrachyStructure:
         to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).
         """
         assert self.mask is not None, "mask is not loaded"
-        assert any(self.dvh_metric_goals), "dvh metric goals are not set"
+        assert any(self.dvh_metric_names), "dvh metric goals are not set"
         #assert (
         #    self.dvh_metric_clinical_goal is not None
         #), "dvh metric clinical goal is not set"
@@ -136,7 +150,7 @@ class BrachyStructure:
             )
         self.dvh_metrics_observed = {}
 
-        for dvh_metric_name in self.dvh_metric_goals.keys():
+        for dvh_metric_name in self.dvh_metric_names:
             metric_string = dvh_metric_name.split("(")[0]
 
             if metric_string.startswith("D"):
