@@ -4,7 +4,7 @@ from pathlib import Path
 
 from brachyutils.dose.dose_generation_utils import RapidBrachyMC, RapidBrachyTG43
 from brachyutils.planning.plan_utils import load_dicom_to_plan
-
+from brachyutils.tests.test_plan_utils import get_a_plan
 
 def make_plan_and_export_it(dir_export) -> Path:
     dir_dicom = "data_test/prostate-glen-p1-dcm"
@@ -91,11 +91,10 @@ def test_DoseMC():
     )
 
 def test_run_dose_gen_tg43():
-    from brachyutils.tests.test_plan_utils import get_a_plan
-    pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
-    dir_export = Path("temp_data/tg43")/pth_dicom.stem
+    dir_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
+    dir_export = Path("temp_data/tg43")/dir_dicom.stem
     plan_obj = get_a_plan(
-        pth_dicom=pth_dicom,
+        dir_dicom=dir_dicom,
         from_delivered_dwellpositions=False,
         dwells_near_ptv=False
     )
@@ -107,7 +106,24 @@ def test_run_dose_gen_tg43():
     )
     # test the case with only combined dose
 
-def test_run_
+def test_run_brachyutilstg43():
+    from brachyutils.dose.tg43_dose_calculator import BrachyUtilsTG43
+    dir_tg43_parameters = Path(
+        "admin/constants/TG43_Parameter_Data/microSelectron-v2_Consensus")
+    dir_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
+    dir_export = Path("temp_data/tg43")/"BrachyUtilsTG43"/dir_dicom.stem
+    plan_obj = get_a_plan(
+        dir_dicom=dir_dicom,
+        from_delivered_dwellpositions=False,
+        dwells_near_ptv=True
+    )
+
+    #just for testing
+    calc_parameter_kwargs = {"kernel_half_width": 100, "kernel_res": 1, "kernel_max_dose_rate" : 100.0}
+
+    tg43_calc = BrachyUtilsTG43(dir_tg43_parameters=dir_tg43_parameters, **calc_parameter_kwargs)
+    tg43_calc.run_dose_generation(dir_export=dir_export, plan = plan_obj)
+
 
 if __name__ == "__main__":
     # test_RapidBrachyTG43()
@@ -127,4 +143,5 @@ if __name__ == "__main__":
 
     # print(response.json())
 
-    test_run_dose_gen_tg43()
+    # test_run_dose_gen_tg43()
+    test_run_brachyutilstg43()
