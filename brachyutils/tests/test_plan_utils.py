@@ -8,7 +8,7 @@ import numpy as np
 from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 def get_a_plan(
-    pth_dicom:str | Path,
+    dir_dicom:str | Path,
     prescription_dose:float=21.0,
     **kwargs):
     dvh_metric_goals = {
@@ -24,7 +24,7 @@ def get_a_plan(
     }
 
     plan_obj = load_dicom_to_plan(
-        dir_dicom=pth_dicom,
+        dir_dicom=dir_dicom,
         load_dicom_dose=kwargs.get("load_dicom_dose", False),
         load_dicom_catheter_table=kwargs.get("load_dicom_catheter_table", True),
         strict_name_match=kwargs.get("strict_name_match", False),
@@ -64,8 +64,8 @@ def test_update_catheter_table_from_plan():
 
 def test_load_dose_rate_dict():
     from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
-    pth_dicom = "data_test/prostate-glen-p1-dcm"
-    pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
+    dir_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_plan = glob(dir_dicom + "/RP*.dcm")[0]
     dir_dose_rate = "data_test/prostate-glen-p1-dose"
 
     catheter_table = CatheterTable(
@@ -97,9 +97,14 @@ def test_create_structures_and_calc_dvh_metrics():
         "V150%(CTV)": prescription_dose * 0.4,
         "V100%(CTV)": 100.0,
     }
-
+    # load plan without dvh or dose
     plan = get_a_plan(
-        pth_dicom=dir_dicom,
+        dir_dicom=dir_dicom,
+        prescription_dose=prescription_dose,
+    )
+    # test with DVH names and dicom dose
+    plan = get_a_plan(
+        dir_dicom=dir_dicom,
         prescription_dose=prescription_dose,
         load_dicom_dose=True,
         dvh_metric_goals=list(dvh_metric_goals.keys()),
@@ -109,10 +114,34 @@ def test_create_structures_and_calc_dvh_metrics():
     print(plan.dvh_metric_goals)
     print(plan.get_dvh_metrics())
 
+    # test with DVH dict and dicom dose
+    plan = get_a_plan(
+        dir_dicom=dir_dicom,
+        prescription_dose=prescription_dose,
+        load_dicom_dose=True,
+        dvh_metric_goals=dvh_metric_goals,
+        strict_name_match=False,
+    )
+    print("This is the loaded DVH metric goals")
+    print(plan.dvh_metric_goals)
+    print(plan.get_dvh_metrics())
+
+    # test with DVH names and dose rates
+    plan = get_a_plan(
+        dir_dicom=dir_dicom,
+        prescription_dose=prescription_dose,
+        load_dicom_dose=False,
+        dvh_metric_goals=dvh_metric_goals,
+        strict_name_match=False,
+    )
+    print("This is the loaded DVH metric goals")
+    print(plan.dvh_metric_goals)
+    print(plan.get_dvh_metrics())
+
 def test_calculate_combined_uncertainty():
     from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
-    pth_dicom = "data_test/prostate-glen-p1-dcm"
-    pth_plan = glob(pth_dicom + "/RP*.dcm")[0]
+    dir_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_plan = glob(dir_dicom + "/RP*.dcm")[0]
     dir_dose_rate = "data_test/prostate-glen-p1-dose"
 
     catheter_table = CatheterTable(
@@ -184,7 +213,7 @@ def test_BrachyPlan():
     )
 
 def test_export_brachy_plan():
-    pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
+    dir_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
     dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
     # # for loading the delivered dose rates. 
@@ -204,7 +233,7 @@ def test_export_brachy_plan():
     }
 
     plan:BrachyPlan = get_a_plan(
-        pth_dicom=pth_dicom,
+        dir_dicom=dir_dicom,
         dir_dose_rates=dir_dose_rates,
         from_delivered_dwellpositions=from_delivered_dwellpositions,
         generate_dose_rates=gen_dose_rates,
@@ -217,7 +246,7 @@ def test_export_brachy_plan():
 def test_load_brachy_plan_from_dicom():
     from brachyutils.geometry.phantom_utils import BrachyPhantom
 
-    pth_dicom = Path("data_test/prostate-glen-p1-dcm")
+    dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     pth_dose_rates = Path("data_test/prostate-glen-p1-dose")
     dvh_metric_goals = {
         "D95%(ctv)": 21,
@@ -225,8 +254,8 @@ def test_load_brachy_plan_from_dicom():
         "D0.1cc(urethra)": 21*1.25,
     }
     brachy_phant = BrachyPhantom(
-        dir_dicom=pth_dicom,
-        pth_structures_file=list(pth_dicom.glob("RS*.dcm"))[0],
+        dir_dicom=dir_dicom,
+        pth_structures_file=list(dir_dicom.glob("RS*.dcm"))[0],
     )
     plan_obj = BrachyPlan(
         phantom=brachy_phant,
@@ -234,7 +263,7 @@ def test_load_brachy_plan_from_dicom():
         dvh_metric_goals=dvh_metric_goals,
         dir_dose_rate=pth_dose_rates,
         combined_dose_only=True,
-        catheter_table=list(pth_dicom.glob("RP*.dcm"))[0],
+        catheter_table=list(dir_dicom.glob("RP*.dcm"))[0],
         from_delivered_dwellpositions=True,
     )
     plan_obj.info()
@@ -279,9 +308,9 @@ def test_brachy_structure():
 
     from brachyutils import BrachyDose, BrachyPhantom, BrachyStructure
 
-    pth_dicom = "data_test/prostate-glen-p1-dcm/"
-    pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
-    pth_dose = glob(pth_dicom + "/RD*.dcm")[0]
+    dir_dicom = "data_test/prostate-glen-p1-dcm/"
+    pth_structure = glob(dir_dicom + "/RS*.dcm")[0]
+    pth_dose = glob(dir_dicom + "/RD*.dcm")[0]
     dvh_metric_goals = {
         "D95%(ctv)": 15.,
         "D1cc(rectum)": 11.25,
@@ -289,7 +318,7 @@ def test_brachy_structure():
         "CI(ctv)": 100
     }
     dose = BrachyDose(pth_dose)
-    phantom_obj = BrachyPhantom(dir_dicom=pth_dicom, pth_structures_file=pth_structure)
+    phantom_obj = BrachyPhantom(dir_dicom=dir_dicom, pth_structures_file=pth_structure)
     mask_dict: dict = phantom_obj.get_structure_mask(phantom_obj.structure_names, ROIContour)
     for structure_name in mask_dict:
         mask_contour = mask_dict[structure_name]
@@ -317,7 +346,7 @@ def test_brachy_structure():
 def test_load_phantom():
     from pathlib import Path
 
-    pth_dicom = Path("data_test/prostate-glen-p1-dcm/")
+    dir_dicom = Path("data_test/prostate-glen-p1-dcm/")
 
     dvh_metric_goals = {
         "D95%(ctv)": 15,
@@ -325,7 +354,7 @@ def test_load_phantom():
         "D0.1cc(urethra)": 18.75,
     }
 
-    plan_obj = BrachyPlan(phantom=pth_dicom, dvh_metric_goals=dvh_metric_goals)
+    plan_obj = BrachyPlan(phantom=dir_dicom, dvh_metric_goals=dvh_metric_goals)
     plan_obj.info()
 
 if __name__ == "__main__":
