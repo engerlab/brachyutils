@@ -921,6 +921,8 @@ class BrachyPlan:
         for structure_obj in self.structure_list:
             if "hotspot_estimator" in structure_obj.name.lower():
                 continue
+            if not any(structure_obj.dvh_metric_names):
+                continue
             observed_metrics = structure_obj.get_dvh_metric(
                 combined_dose,
                 prescription_dose,
