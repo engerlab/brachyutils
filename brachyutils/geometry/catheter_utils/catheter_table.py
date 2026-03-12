@@ -1140,23 +1140,6 @@ match its index, be sure that the name_id == new_catheter.index +1")
             remove_text=remove_text,
         )
 
-    def get_dwell_positions_as_list(self) -> List[List[float]]:
-        r"""
-        ### Purpose:
-        - To get the dwell positions as a list from all catheters in the catheter table.
-        
-        ### Inputs:
-        - self := the CatheterTable object.
-        
-        ### Outputs:
-        - List[List[float]] := the list of dwell positions from all catheters.
-        """
-        raise DeprecationWarning("please use all_dwells() instead")
-        dwell_positions = []
-        for catheter in self.catheters_list:
-            dwell_positions.extend(catheter.get_dwell_positions_as_list())
-        return dwell_positions
-
     def remove_inside_mask(self, mask:Union[ROIMask, sitk.Image], margin_mm: float = 0.0) -> None:
         r"""
         ### Purpose:

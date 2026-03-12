@@ -1623,18 +1623,13 @@ config do not match for structure {struc.name}"
         ### Outputs:
         - Dict[BrachyDose]: A dictionary containing the dose rates for the speicific catheter.
         the keys are in the format catheter_{index+1}_dwell_{index+1}
-        TODO: get rid of +1 when moving towards catheter generation from digi points
-        TODO: Consider adding angle to the name later when IMBT is involved.
         """
-        raise DeprecationWarning("This function need to be adapted to the new catheter table")
-        if len(self.dose_rate_dict) == 0:
-            raise ValueError("dose rate maps are not generated yet. run dose generation first")
+        catheter = self.catheter_table[catheter_index]
         dose_rates_catheter = defaultdict(BrachyDose)
-        
-        for name, dose_rate in self.dose_rate_dict.items():
-            curr_indx = int(name.split("_")[0])-1
-            if curr_indx == catheter_index:
-                dose_rates_catheter[name] = dose_rate
+        for dwell in catheter:
+            dose_rates_catheter[
+                f"catheter_{catheter.name_id}_dwell_{dwell.name_id}"
+                ] = dwell.dose_rate
         return dose_rates_catheter
 
 def _gen_hotspot_mask(
