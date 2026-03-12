@@ -7,7 +7,7 @@ from brachyutils.tests.test_optim_utils import get_a_plan_to_optimize
 from brachyutils.tests.test_plan_utils import get_a_plan
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from pandas import DataFrame
-from brachyutils.dose.dose_generation_utils import DoseTG43
+from brachyutils.dose.dose_generation_utils import RapidBrachyTG43
 def test_catheter_gurobi_initialization():
     # we need a catheter table first!
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
@@ -134,7 +134,7 @@ def test_dynamic_plan_generation():
     # plan.catheter_table.info()
     # # now generate dose rates for the first half of the catheters.
     # # initialize the dose generator object
-    dose_generator = DoseTG43(
+    dose_generator = RapidBrachyTG43(
         dir_plan_export=dir_dose_rates
     )
     plan = dose_generator.run_dose_generation(

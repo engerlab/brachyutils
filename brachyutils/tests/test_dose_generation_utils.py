@@ -2,7 +2,7 @@ import os
 from glob import glob
 from pathlib import Path
 
-from brachyutils.dose.dose_generation_utils import DoseMonteCarlo, DoseTG43
+from brachyutils.dose.dose_generation_utils import DoseMonteCarlo, RapidBrachyTG43
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 
 
@@ -63,12 +63,12 @@ def make_plan_and_export_it(dir_export) -> Path:
 
     return Path(dir_export)
 
-def test_DoseTG43():
+def test_RapidBrachyTG43():
     dir_export = "temp_data/tg43/p1"
     dose_setup = make_plan_and_export_it(dir_export)
     dose_setup = Path("temp_data/tg43/p1")
     pth_exectuable = "http://192.168.1.12:8000/calculate_dose_tg43"
-    dose_generator = DoseTG43(
+    dose_generator = RapidBrachyTG43(
         dir_plan_export=dose_setup,
         pth_dose_executable=pth_exectuable,
     )
@@ -99,7 +99,7 @@ def test_run_dose_gen_tg43():
         from_delivered_dwellpositions=False,
         dwells_near_ptv=False
     )
-    dose_gen = DoseTG43(
+    dose_gen = RapidBrachyTG43(
         dir_plan_export=dir_export
     )
     dose_gen.run_dose_generation(
@@ -107,8 +107,10 @@ def test_run_dose_gen_tg43():
     )
     # test the case with only combined dose
 
+def test_run_
+
 if __name__ == "__main__":
-    # test_DoseTG43()
+    # test_RapidBrachyTG43()
     # test_DoseMC()
     # import requests
 
