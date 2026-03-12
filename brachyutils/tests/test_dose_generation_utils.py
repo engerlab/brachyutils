@@ -127,8 +127,8 @@ def test_run_brachyutilstg43():
         **calc_parameter_kwargs)
     tg43_calc.run_dose_generation(
         plan=plan_obj)
-    
-    print("debug here")    
+
+    print("debug here")
 
 if __name__ == "__main__":
     # test_RapidBrachyTG43()
