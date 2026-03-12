@@ -309,10 +309,14 @@ but source name is {self.source_name}.")
         if self.dose_rate_constant is None:
             raise ValueError("Dose rate constant not set.")
 
-    def run_dose_generation(self, dir_export: str | Path = None, plan: BrachyPlan = None, generate_dose_rate_maps: bool = True) -> BrachyPlan:
+    def run_dose_generation(
+        self,
+        dir_export: str | Path = None,
+        plan: BrachyPlan = None,
+        generate_dose_rate_maps: bool = True) -> BrachyPlan:
         if not generate_dose_rate_maps:
             raise ValueError("generate_dose_rate_maps must be True in BrachyUtilsTG43.")
-        
+
         self.load_from_brachyplan(plan)
         self.load_and_initialize_tg43()
         self.validate_inputs()
@@ -331,8 +335,8 @@ but source name is {self.source_name}.")
                         raise ValueError(f"TG-43DoseCalculator failed for dwell {failed_dwell.name_id}") from exc
 
         logging.info("TG-43 dose calculation complete.")
-        combined_dose = self.brachyplan.catheter_table.combined_dose
-        if dir_export is not None:
+        combined_dose = self.brachyplan.combined_dose
+        if dir_export is None:
             dir_export = Path(self.dir_plan_export)
         else:
             dir_export = Path(dir_export)

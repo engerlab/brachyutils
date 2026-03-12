@@ -121,9 +121,14 @@ def test_run_brachyutilstg43():
     #just for testing
     calc_parameter_kwargs = {"kernel_half_width": 100, "kernel_res": 1, "kernel_max_dose_rate" : 100.0}
 
-    tg43_calc = BrachyUtilsTG43(dir_tg43_parameters=dir_tg43_parameters, **calc_parameter_kwargs)
-    tg43_calc.run_dose_generation(dir_export=dir_export, plan = plan_obj)
-
+    tg43_calc = BrachyUtilsTG43(
+        dir_tg43_parameters=dir_tg43_parameters,
+        dir_output=dir_export,
+        **calc_parameter_kwargs)
+    tg43_calc.run_dose_generation(
+        plan=plan_obj)
+    
+    print("debug here")    
 
 if __name__ == "__main__":
     # test_RapidBrachyTG43()
