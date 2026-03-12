@@ -949,7 +949,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
         ### Outputs:
         - None: will set self._cached_combined_dose
         """
-        if isinstance(self.combined_dose, Path) or isinstance(self.combined_dose, str):
+        if isinstance(combined_dose, Path) or isinstance(combined_dose, str):
             combined_dose = BrachyDose(pth_dose_file=combined_dose) 
         self._cached_combined_dose = combined_dose
 
