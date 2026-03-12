@@ -252,7 +252,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
                 )
         return plan
 
-class DoseMonteCarlo(BrachyDoseGenerator):
+class RapidBrachyMC(BrachyDoseGenerator):
     def __init__(
         self,
         dir_plan_export: Path | str,

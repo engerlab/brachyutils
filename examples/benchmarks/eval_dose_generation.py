@@ -2,7 +2,7 @@ from typing import Dict, Union, Literal
 from pathlib import Path
 from tqdm import tqdm
 from brachyutils import load_dicom_to_plan
-from brachyutils import DoseMonteCarlo, RapidBrachyTG43
+from brachyutils import RapidBrachyMC, RapidBrachyTG43
 import pandas as pd
 from time import time
 import numpy as np
@@ -154,7 +154,7 @@ def run_single_tg43_dose_generation(dir_plan):
     ).generate_dose(num_threads=46)
 
 def run_single_mc_dose_generation(dir_plan):
-    dose_gen_obj = DoseMonteCarlo(
+    dose_gen_obj = RapidBrachyMC(
         dir_plan_export=dir_plan,
         pth_dose_executable="http://192.168.1.11:8000/calculate_dose_mc"
     ).generate_dose(pth_mac=dir_plan/"combined.mac")
@@ -358,7 +358,7 @@ def test_dose_calc():
     # # for monte carlo
     # dir_plan_export = Path("temp_data/mc/prostate-glen-2023/p3")
     # pth_dose_executable = "http://192.168.1.11:8000/calculate_dose_mc"
-    # dose_gen_obj = DoseMonteCarlo(
+    # dose_gen_obj = RapidBrachyMC(
     #     dir_plan_export=dir_plan_export,
     #     pth_dose_executable=pth_dose_executable
     # )

@@ -2,7 +2,7 @@ import os
 from glob import glob
 from pathlib import Path
 
-from brachyutils.dose.dose_generation_utils import DoseMonteCarlo, RapidBrachyTG43
+from brachyutils.dose.dose_generation_utils import RapidBrachyMC, RapidBrachyTG43
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 
 
@@ -81,7 +81,7 @@ def test_DoseMC():
     dose_setup = make_plan_and_export_it(dir_export)
     dose_setup = Path("temp_data/mc/p1")
     pth_exectuable = "http://192.168.1.11:8000/calculate_dose_mc"
-    dose_generator = DoseMonteCarlo(
+    dose_generator = RapidBrachyMC(
         dir_plan_export=dose_setup,
         pth_dose_executable=pth_exectuable,
     )
