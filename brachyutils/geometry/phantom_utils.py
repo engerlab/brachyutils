@@ -1838,7 +1838,7 @@ def mask_to_stl(roi_mask: ROIMask, pth_output: Path) -> None:
     Outputs:
         - None
     """
-
+    import vtk
     # Note: Implementation is cannablized from PolySeg (https://github.com/PerkLab/PolySeg/)
     if not isinstance(roi_mask, ROIMask):
         raise ValueError("The input roi_mask should be an instance of ROIMask.")
