@@ -618,7 +618,7 @@ class BrachyPlan:
         The keys should be following the same convention as for dvh_metric_names.
         - strict_name_match: bool := If True, the name of the structure in the phantom and the DVH metric
         goals should mask perfectly. Otherwise, the name of the structure in the DVH metric goals can be
-        a substring of the name of the structure in the phantom. For example, "CTV" vs "CTV_BRACHY".
+        a substring of the name of the structure in the phantom. For example, "CTV" in "CTV_BRACHY".
         ### Outputs:
         - None := will update the BrachyPlan.dvh_metric_goals attribute as well as 
         BrachyStructure.dvh_metric_names and BrachyStructure.dvh_metric_goals.
@@ -660,7 +660,7 @@ class BrachyPlan:
                     else:
                         continue
                 else:
-                    if brachy_structure.name in structure_name_in_dvh:
+                    if structure_name_in_dvh in brachy_structure.name:
                         structure_dvh_metrics_names.append(dvh_name)
                     else:
                         continue

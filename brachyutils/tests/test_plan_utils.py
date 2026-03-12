@@ -27,7 +27,7 @@ def get_a_plan(
         dir_dicom=pth_dicom,
         load_dicom_dose=kwargs.get("load_dicom_dose", False),
         load_dicom_catheter_table=kwargs.get("load_dicom_catheter_table", True),
-        strict_name_match=False,
+        strict_name_match=kwargs.get("strict_name_match", False),
         from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", False),
         multi_processing=True,
         prescription_dose=prescription_dose,
@@ -100,8 +100,13 @@ def test_create_structures_and_calc_dvh_metrics():
 
     plan = get_a_plan(
         pth_dicom=dir_dicom,
-        prescription_dose=prescription_dose
+        prescription_dose=prescription_dose,
+        load_dicom_dose=True,
+        dvh_metric_goals=list(dvh_metric_goals.keys()),
+        strict_name_match=False,
     )
+    print("This is the loaded DVH metric goals")
+    print(plan.dvh_metric_goals)
     # pth_cathTable_dcm = list(Path(dir_dicom).glob("RP*.dcm"))[0]
     # dir_dose_rate = "data_test/prostate-glen-p1-dose"
     # # pth_dose = glob(dir_dicom + "/RD*.dcm")[0]
