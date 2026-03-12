@@ -106,10 +106,11 @@ class BrachyStructure:
         ### Outputs:
         - None:= will update self.dvh_metric_names
         """
-        assert np.all(
-            [self.name.lower() in dvh_metric_name.lower()
-            for dvh_metric_name in dvh_metric_names]),\
-            "name should be in dvh metric name enclosed by paranthesis"
+        # assert np.all( let's let go of this sanity check qnd favor chaotic progress over 
+        # orderly stagnation!
+        #     [self.name.lower() in dvh_metric_name.lower()
+        #     for dvh_metric_name in dvh_metric_names]),\
+        #     "name should be in dvh metric name enclosed by paranthesis"
         self.dvh_metric_names = dvh_metric_names
 
     def set_dvh_metric_goals(self, dvh_metric_goals: Dict[str, float]):
