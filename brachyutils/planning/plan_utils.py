@@ -208,7 +208,6 @@ class BrachyPlan:
         #### for geometry definition:
         phantom: Union[Path, BrachyPhantom, dict] = None,
         #### for structure creation:
-        # dvh_metric_goals: Union[dict, Path] = None,
         prescription_dose: float = None,
         strict_name_match: bool = True,
         #### for loading catheter table and/or applicators:
@@ -263,7 +262,9 @@ class BrachyPlan:
         - applicator_format:str = "RapidBrachy" := the format of the applicator list 
         (default is "RapidBrachy"). See load_applicator_list() for more info. 
         - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well.
-        - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
+        - dvh_metric_goals: List[str] | Dict[str, float] | Path | str := A list of all DVH metric
+        names or the dictionary containing the DVH metric names and their goals or the path to its
+        json file. Look at set_dvh_metric_goals for guideline on the names of the DVH metrics.
         The phantom should be loaded with structures for the Brachy stuctures to be created.
 
         ### Outputs:
@@ -324,14 +325,25 @@ class BrachyPlan:
         if self.phantom is not None:
             self.set_brachy_structure_list(
                 phantom=self.phantom,
-                dvh_metric_goals=self.dvh_metric_goals,
                 strict_name_match=strict_name_match,
             )
 
         if kwargs.get("dvh_metric_goals", None) is not None:
+            dvh_metric_goals = kwargs.get("dvh_metric_goals")
             if self.prescription_dose is None:
                 raise ValueError("prescription dose is not provided. Please provide it.")
-            self.set_dvh_metric_goals(kwargs.get("dvh_metric_goals"))
+            if isinstance(dvh_metric_goals, str) or isinstance(dvh_metric_goals, Path):
+                dvh_metric_goals = Path(dvh_metric_goals)
+                with open(dvh_metric_goals, "r") as json_file:
+                    dvh_metric_goals = json.load(json_file)
+            if isinstance(dvh_metric_goals, list):
+                self.set_dvh_metric_goals(
+                    dvh_metric_names=dvh_metric_goals,
+                    strict_name_match=strict_name_match)
+            elif isinstance(dvh_metric_goals, dict):
+                self.set_dvh_metric_goals(
+                    dvh_metric_goals=dvh_metric_goals,
+                    strict_name_match=strict_name_match)
 
         # load the catheter table if the path is provided
         if catheter_table is not None:
@@ -601,8 +613,8 @@ class BrachyPlan:
 
     def set_dvh_metric_goals(
         self,
-        dvh_metric_names: List[str]=None,
-        dvh_metric_goals: Union[dict, Path]=None,
+        dvh_metric_names: List[str] | Path = None,
+        dvh_metric_goals: dict | Path = None,
         strict_name_match: bool = True
         ) -> None:
         r"""
@@ -634,6 +646,10 @@ class BrachyPlan:
 
         if len(self.structure_list) == 0:
             raise ValueError("The plan structure set is empty, please run set_brachy_structure_list")
+
+        if isinstance(dvh_metric_names, Path):
+            with open(dvh_metric_names, "r") as json_file:
+                dvh_metric_names = json.load(json_file)
 
         if dvh_metric_goals is not None:
             if isinstance(dvh_metric_goals, Path):
