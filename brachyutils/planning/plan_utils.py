@@ -300,8 +300,6 @@ class BrachyPlan:
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
         # dose attributes
-        # self.dose_rate_dict = defaultdict(BrachyDose) XXX
-        # self.combined_dose: BrachyDose = None XXX
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
@@ -352,7 +350,6 @@ class BrachyPlan:
                 dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
                 )
         # load the dose rate dict if the path is provided
-        # XXX Continue debugging from here
         if dir_dose_rate is not None and combined_dose is None:
             self.catheter_table.load_dose_rates(
                 dir_dose_rate=dir_dose_rate,
@@ -361,13 +358,8 @@ class BrachyPlan:
                 combined_dose_only=kwargs.get("combined_dose_only", False),
                 dose_dtype=kwargs.get("dose_dtype", np.float32),
                 )
-            self.combined_dose = self.catheter_table.combined_dose
-
         elif dir_dose_rate is None and combined_dose is not None:
-            if isinstance(combined_dose, BrachyDose):
-                self.combined_dose = combined_dose
-            elif isinstance(combined_dose, Path) or isinstance(combined_dose, str):
-                self.combined_dose = BrachyDose(Path(combined_dose))
+            self.catheter_table.set_combined_dose(combined_dose)
         elif dir_dose_rate is not None and combined_dose is not None:
             raise ValueError(
                 "invalid input. Please provide either dir_dose_rate or combined_dose but not both"
@@ -607,8 +599,6 @@ class BrachyPlan:
                 len(self.dwell_numbers) == self.dwell_numbers[-1]
             ), "dwell numbers are not extracted correctly"
             self.num_dwells = len(self.dwell_numbers)
-        if any(self.dose_rate_dict):
-            self._calculate_combined_dose(time_diffs=time_diffs)
 
     def set_dvh_metric_goals(
         self,
@@ -1634,6 +1624,7 @@ config do not match for structure {struc.name}"
         TODO: get rid of +1 when moving towards catheter generation from digi points
         TODO: Consider adding angle to the name later when IMBT is involved.
         """
+        raise DeprecationWarning("This function need to be adapted to the new catheter table")
         if len(self.dose_rate_dict) == 0:
             raise ValueError("dose rate maps are not generated yet. run dose generation first")
         dose_rates_catheter = defaultdict(BrachyDose)
