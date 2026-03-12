@@ -28,6 +28,7 @@ def get_a_plan(
         load_dicom_dose=kwargs.get("load_dicom_dose", False),
         load_dicom_catheter_table=kwargs.get("load_dicom_catheter_table", True),
         strict_name_match=kwargs.get("strict_name_match", False),
+        dir_dose_rate=kwargs.get("dir_dose_rate", None),
         from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", False),
         multi_processing=True,
         prescription_dose=prescription_dose,
@@ -85,6 +86,7 @@ def test_load_dose_rate_dict():
 
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "data_test/prostate-glen-p1-dcm"
+    dir_dose_rates = "data_test/prostate-glen-p1-dose"
     prescription_dose=21
     dvh_metric_goals = {
         "D90%(CTV)": prescription_dose,
@@ -133,6 +135,8 @@ def test_create_structures_and_calc_dvh_metrics():
         load_dicom_dose=False,
         dvh_metric_goals=dvh_metric_goals,
         strict_name_match=False,
+        dir_dose_rate=dir_dose_rates,
+        from_delivered_dwellpositions=False,
     )
     print("This is the loaded DVH metric goals")
     print(plan.dvh_metric_goals)
