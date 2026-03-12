@@ -325,7 +325,6 @@ class BrachyPlan:
         if self.phantom is not None:
             self.set_brachy_structure_list(
                 phantom=self.phantom,
-                strict_name_match=strict_name_match,
             )
 
         if kwargs.get("dvh_metric_goals", None) is not None:

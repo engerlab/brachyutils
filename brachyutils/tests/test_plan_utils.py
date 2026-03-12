@@ -31,7 +31,7 @@ def get_a_plan(
         from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", False),
         multi_processing=True,
         prescription_dose=prescription_dose,
-        dvh_metric_goals=dvh_metric_goals,
+        dvh_metric_goals=kwargs.get("dvh_metric_goals", None),
         optimization_config_list=kwargs.get("optimization_config_list", None),
         dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
         add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
@@ -85,30 +85,47 @@ def test_load_dose_rate_dict():
 
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "data_test/prostate-glen-p1-dcm"
-    pth_cathTable_dcm = list(Path(dir_dicom).glob("RP*.dcm"))[0]
-    dir_dose_rate = "data_test/prostate-glen-p1-dose"
-    # pth_dose = glob(dir_dicom + "/RD*.dcm")[0]
+    prescription_dose=21
     dvh_metric_goals = {
-        "D95%(ctv)": 15,
-        "D1cc(rectum)": 11.25,
-        "D0.1cc(urethra)": 18.75,
-        "CI(ctv)": 100,
-        "HI(ctv)": 0.5,
+        "D90%(CTV)": prescription_dose,
+        "D2cc(RECTUM)": prescription_dose * 0.75,
+        "D10%(URETHRA)": prescription_dose * 1.133,
+        "D30%(URETHRA)": prescription_dose,
+        "CI(CTV)": 1.0,
+        "HI(CTV)": 0.5,
+        "V200%(CTV)": prescription_dose * 0.2,
+        "V150%(CTV)": prescription_dose * 0.4,
+        "V100%(CTV)": 100.0,
     }
-    from time import time
-    t0 = time()
-    plan_obj = BrachyPlan(
-        phantom=dir_dicom,
-        dvh_metric_goals=dvh_metric_goals,
-        catheter_table=pth_cathTable_dcm,
-        # combined_dose=pth_dose,
-        dir_dose_rate=dir_dose_rate,
-        multi_processing=True,
-        combined_dose_only=True,
-        prescription_dose=21.,
+
+    plan = get_a_plan(
+        pth_dicom=dir_dicom,
+        prescription_dose=prescription_dose
     )
-    print(f"Loading the plan took {time()-t0} seconds")
-    print(plan_obj.get_dvh_metrics())
+    # pth_cathTable_dcm = list(Path(dir_dicom).glob("RP*.dcm"))[0]
+    # dir_dose_rate = "data_test/prostate-glen-p1-dose"
+    # # pth_dose = glob(dir_dicom + "/RD*.dcm")[0]
+    # dvh_metric_goals = {
+    #     "D95%(ctv)": 15,
+    #     "D1cc(rectum)": 11.25,
+    #     "D0.1cc(urethra)": 18.75,
+    #     "CI(ctv)": 100,
+    #     "HI(ctv)": 0.5,
+    # }
+    # from time import time
+    # t0 = time()
+    # plan_obj = BrachyPlan(
+    #     phantom=dir_dicom,
+    #     dvh_metric_goals=dvh_metric_goals,
+    #     catheter_table=pth_cathTable_dcm,
+    #     # combined_dose=pth_dose,
+    #     dir_dose_rate=dir_dose_rate,
+    #     multi_processing=True,
+    #     combined_dose_only=True,
+    #     prescription_dose=21.,
+    # )
+    # print(f"Loading the plan took {time()-t0} seconds")
+    # print(plan_obj.get_dvh_metrics())
     
 
 
@@ -335,10 +352,10 @@ if __name__ == "__main__":
     # testupdate_plan_from_catheter_table()
     # test_update_catheter_table_from_plan()
     # test_load_dose_rate_dict()
-    # test_create_structures_and_calc_dvh_metrics()
+    test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
-    test_BrachyPlan()
+    # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
     # test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
