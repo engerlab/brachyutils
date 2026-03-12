@@ -277,7 +277,6 @@ class BrachyPlan:
         # phantom and geometry attributes
         self.phantom: BrachyPhantom = None
         self.dvh_metric_goals: dict = None
-        self.dvh_metrics_observed: dict = None
         self.structure_list: List[BrachyStructure] = []
         self.body_contour: ROIContour = None
         self.phantom_origin: list = None  # np.array([0, 0, 0])  # x,y,z
@@ -901,7 +900,7 @@ class BrachyPlan:
         combined_dose: BrachyDose=None,
         prescription_dose: float = None,
         return_percentage: bool = True,
-        ):
+        ) -> dict:
         r"""
         ### Purpose:
         - To get the observed value of the dvh metric for each structure in the BrachyPlan.
@@ -909,15 +908,16 @@ class BrachyPlan:
         ### Inputs:
         - self := the BrachyPlan object
         ### Outputs:
-        - Void := will update the BrachyStructure.dvh_metrics_observed attribute
+        - dvh_metrics_observed: a dictionary mapping every DVH metric to its observed value.
         """
         assert self.structure_list is not None, "structure list is not created yet"
         assert self.prescription_dose is not None, "prescription dose is not set"
+        assert self.dvh_metric_goals is not None, "DVH metrics are not set, please run set_dvh_metric_goals()"
         if combined_dose is None:
             combined_dose = self.combined_dose
         if prescription_dose is None:
             prescription_dose = self.prescription_dose
-        self.dvh_metrics_observed = {}
+        dvh_metrics_observed = {}
         for structure_obj in self.structure_list:
             if "hotspot_estimator" in structure_obj.name.lower():
                 continue
@@ -927,8 +927,8 @@ class BrachyPlan:
                 return_percentage,
                 self.body_contour,
                 )
-            self.dvh_metrics_observed.update(observed_metrics)
-        return self.dvh_metrics_observed
+            dvh_metrics_observed.update(observed_metrics)
+        return dvh_metrics_observed
 
     def export_dvh_metrics(self, output_pth: Union[str, Path]):
         r"""
