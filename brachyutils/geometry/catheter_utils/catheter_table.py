@@ -663,8 +663,8 @@ class CatheterTable(BaseModel):
         dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
         
         if not dwells_with_doserate:
-            # return self._cached_combined_dose
-            raise ValueError("No dose rate found in this catheter table")
+            return self._cached_combined_dose
+            # raise ValueError("No dose rate found in this catheter table")
 
         # Initialize combined dose if not cached
         if self._cached_combined_dose is None:
@@ -938,6 +938,20 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             catheters_dict=dict_catheter_diffs,
             from_delivered_dwellpositions=self.from_delivered_dwellpositions
         )
+
+    def set_combined_dose(self, combined_dose: BrachyDose | Path | str):
+        r"""
+        ### Purpose:
+        To set the combined dose without the dose rates.
+        ### Inputs:
+        - combined_dose : BrachyDose | Path | str: The combined dose corresponding to this catheter table.
+        If a string or Path is provided, we will load it from a file.
+        ### Outputs:
+        - None: will set self._cached_combined_dose
+        """
+        if isinstance(combined_dose, Path) or isinstance(combined_dose, str):
+            combined_dose = BrachyDose(pth_dose_file=combined_dose) 
+        self._cached_combined_dose = combined_dose
 
     def append(self, catheter: Catheter) -> None:
         r"""

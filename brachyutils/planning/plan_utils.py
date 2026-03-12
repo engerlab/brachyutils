@@ -208,7 +208,6 @@ class BrachyPlan:
         #### for geometry definition:
         phantom: Union[Path, BrachyPhantom, dict] = None,
         #### for structure creation:
-        dvh_metric_goals: Union[dict, Path] = None,
         prescription_dose: float = None,
         strict_name_match: bool = True,
         #### for loading catheter table and/or applicators:
@@ -233,8 +232,6 @@ class BrachyPlan:
         or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
 
         #### For Structure optimization and dosimetry
-        - dvh_metric_goals:dict|Path := Dictionary containing the DVH metric goals or the path to its json file. Look at BrachyStructure for more info.
-        The phantom should be loaded with structures for the Brachy stuctures to be created.
         - prescription_dose: float = None := The dose that is prescribed to the target volume. This is used to calculate the DVH metrics. 
 
         #### for loading catheter table and applicators:
@@ -244,6 +241,14 @@ class BrachyPlan:
         #### for loading dose rates or uncertainty maps per dwell position:
         - combined_dose: Path|BrachyDose := the path to the combined dose file or a BrachyDose object.
         - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
+
+        #### for simulation setup:
+        - simulation_setup = None := dictionary containing the simulation setup,
+        - load_uncertainty:bool := If True, the uncertainties of the dose rates are also loaded. 
+        - multi_processing:bool :=  If True, 16 threads are used to load the dose rates simulatenously.
+        - combined_dose_only:bool := If True, all the dose rates will be removed from memory after 
+        combined dose is calculated.
+        - dose_dtype:np.float32 := The floating point type to store the dose rates. 
 
         #### Keywords Arguments:
         - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
@@ -256,14 +261,12 @@ class BrachyPlan:
         - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures
         - applicator_format:str = "RapidBrachy" := the format of the applicator list 
         (default is "RapidBrachy"). See load_applicator_list() for more info. 
-        - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well. 
-        #### for simulation setup:
-        - simulation_setup = None := dictionary containing the simulation setup,
-        - load_uncertainty:bool := If True, the uncertainties of the dose rates are also loaded. 
-        - multi_processing:bool :=  If True, 16 threads are used to load the dose rates simulatenously.
-        - combined_dose_only:bool := If True, all the dose rates will be removed from memory after 
-        combined dose is calculated.
-        - dose_dtype:np.float32 := The floating point type to store the dose rates. 
+        - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well.
+        - dvh_metric_goals: List[str] | Dict[str, float] | Path | str := A list of all DVH metric
+        names or the dictionary containing the DVH metric names and their goals or the path to its
+        json file. Look at set_dvh_metric_goals for guideline on the names of the DVH metrics.
+        The phantom should be loaded with structures for the Brachy stuctures to be created.
+
         ### Outputs:
             - Void := will initialize the BrachyPlan object
         """
@@ -274,7 +277,6 @@ class BrachyPlan:
         # phantom and geometry attributes
         self.phantom: BrachyPhantom = None
         self.dvh_metric_goals: dict = None
-        self.dvh_metrics_observed: dict = None
         self.structure_list: List[BrachyStructure] = []
         self.body_contour: ROIContour = None
         self.phantom_origin: list = None  # np.array([0, 0, 0])  # x,y,z
@@ -297,8 +299,6 @@ class BrachyPlan:
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
         # dose attributes
-        self.dose_rate_dict = defaultdict(BrachyDose)
-        # self.combined_dose: BrachyDose = None
 
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
@@ -306,11 +306,6 @@ class BrachyPlan:
         ## fill the attributes depending on the inputs to the constructor
         # set the dvh metric goals if provided
         self.prescription_dose = prescription_dose
-        if dvh_metric_goals is not None:
-            if self.prescription_dose is None:
-                raise ValueError("prescription dose is not provided. Please provide it.")
-            self.set_dvh_metric_goals(dvh_metric_goals)
-
         # load the dicom plan if the path is provided
         if phantom is not None:
             if isinstance(phantom, BrachyPhantom):
@@ -324,12 +319,28 @@ class BrachyPlan:
             else:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
         # create structures based on the phantom structures and DVH metric goals
-        if self.phantom is not None and self.dvh_metric_goals is not None:
-            self.create_brachy_structure_set(
+        if self.phantom is not None:
+            self.set_brachy_structure_list(
                 phantom=self.phantom,
-                dvh_metric_goals=self.dvh_metric_goals,
-                strict_name_match=strict_name_match,
             )
+
+        if kwargs.get("dvh_metric_goals", None) is not None:
+            dvh_metric_goals = kwargs.get("dvh_metric_goals")
+            if self.prescription_dose is None:
+                raise ValueError("prescription dose is not provided. Please provide it.")
+            if isinstance(dvh_metric_goals, str) or isinstance(dvh_metric_goals, Path):
+                dvh_metric_goals = Path(dvh_metric_goals)
+                with open(dvh_metric_goals, "r") as json_file:
+                    dvh_metric_goals = json.load(json_file)
+            if isinstance(dvh_metric_goals, list):
+                self.set_dvh_metric_goals(
+                    dvh_metric_names=dvh_metric_goals,
+                    strict_name_match=strict_name_match)
+            elif isinstance(dvh_metric_goals, dict):
+                self.set_dvh_metric_goals(
+                    dvh_metric_goals=dvh_metric_goals,
+                    strict_name_match=strict_name_match)
+
         # load the catheter table if the path is provided
         if catheter_table is not None:
             self.set_catheter_table(
@@ -338,7 +349,6 @@ class BrachyPlan:
                 dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
                 )
         # load the dose rate dict if the path is provided
-        # XXX Continue debugging from here
         if dir_dose_rate is not None and combined_dose is None:
             self.catheter_table.load_dose_rates(
                 dir_dose_rate=dir_dose_rate,
@@ -347,13 +357,8 @@ class BrachyPlan:
                 combined_dose_only=kwargs.get("combined_dose_only", False),
                 dose_dtype=kwargs.get("dose_dtype", np.float32),
                 )
-            self.combined_dose = self.catheter_table.combined_dose
-
         elif dir_dose_rate is None and combined_dose is not None:
-            if isinstance(combined_dose, BrachyDose):
-                self.combined_dose = combined_dose
-            elif isinstance(combined_dose, Path) or isinstance(combined_dose, str):
-                self.combined_dose = BrachyDose(Path(combined_dose))
+            self.catheter_table.set_combined_dose(combined_dose)
         elif dir_dose_rate is not None and combined_dose is not None:
             raise ValueError(
                 "invalid input. Please provide either dir_dose_rate or combined_dose but not both"
@@ -535,7 +540,7 @@ class BrachyPlan:
                         margin_mm=5.0,
                     )
         self.update_plan_from_catheter_table(
-            time_diffs=time_diffs if 'time_diffs' in locals() else None)
+            time_diffs=self.catheter_table._time_diffs)
 
     def update_plan_from_catheter_table(self, time_diffs=None):
         r"""
@@ -593,65 +598,114 @@ class BrachyPlan:
                 len(self.dwell_numbers) == self.dwell_numbers[-1]
             ), "dwell numbers are not extracted correctly"
             self.num_dwells = len(self.dwell_numbers)
-        if any(self.dose_rate_dict):
-            self._calculate_combined_dose(time_diffs=time_diffs)
 
-    def set_dvh_metric_goals(self, dvh_metric_goals: Union[dict, Path]):
+    def set_dvh_metric_goals(
+        self,
+        dvh_metric_names: List[str] | Path = None,
+        dvh_metric_goals: dict | Path = None,
+        strict_name_match: bool = True
+        ) -> None:
         r"""
         ### Purpose:
-        - To set the dvh metric list of the BrachyPlan object.
+        - To set the dvh metric list of the BrachyPlan object and each of the BrachyStructures.
+        You can provide either the dvh_metric_names or the dvh_metric_goals.
         ### Inputs:
-        - dvh_metric_goals := a list of dictionaries. each dictionary contains the keys:
-        "structure_name", "clinical_goal", "observed_value", and "penalty_weight"
+        - dvh_metric_names: List[str] := a list containing the DVH metrics for this structure. The names 
+        are of the format V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or.
+        For example D95%(organName).
+        - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
+        The keys should be following the same convention as for dvh_metric_names.
+        - strict_name_match: bool := If True, the name of the structure in the phantom and the DVH metric
+        goals should mask perfectly. Otherwise, the name of the structure in the DVH metric goals can be
+        a substring of the name of the structure in the phantom. For example, "CTV" in "CTV_BRACHY".
         ### Outputs:
-            - Void := will update the BrachyPlan.dvh_metric_goals attribute
+        - None := will update the BrachyPlan.dvh_metric_goals attribute as well as 
+        BrachyStructure.dvh_metric_names and BrachyStructure.dvh_metric_goals.
+        The keys of the BrachyPlan.dvh_metric_goals are:
+        {
+            BrachyStructure.name: {
+                "dvh_metric_names: [list of the names for that structure],
+                "dvh_metric_goals: {if applicable}
+            }    
+        }
         """
-        if isinstance(dvh_metric_goals, Path):
-            with open(dvh_metric_goals, "r") as json_file:
-                dvh_metric_goals = json.load(json_file)
-        self.dvh_metric_goals = dvh_metric_goals
+        if dvh_metric_names is not None and dvh_metric_goals is not None:
+            raise ValueError("Please provide either dvh_metric_names or dvh_metric_goals, not both") 
 
-    def create_brachy_structure_set(
+        if len(self.structure_list) == 0:
+            raise ValueError("The plan structure set is empty, please run set_brachy_structure_list")
+
+        if isinstance(dvh_metric_names, Path):
+            with open(dvh_metric_names, "r") as json_file:
+                dvh_metric_names = json.load(json_file)
+
+        if dvh_metric_goals is not None:
+            if isinstance(dvh_metric_goals, Path):
+                with open(dvh_metric_goals, "r") as json_file:
+                    dvh_metric_goals = json.load(json_file)
+            dvh_metric_names = list(dvh_metric_goals.keys())
+
+        self.dvh_metric_goals = defaultdict(dict)
+        # let's match the structure names in the DVH with the structure names
+        # in the BrachyPlan.
+        for brachy_structure in self.structure_list:
+            # get all the dvh metrics for this structure
+            structure_dvh_metrics_names = []
+            for dvh_name in dvh_metric_names:
+                structure_name_in_dvh = dvh_name.split("(")[-1].split(")")[0]
+                if strict_name_match:
+                    if brachy_structure.name == structure_name_in_dvh:
+                        structure_dvh_metrics_names.append(dvh_name)
+                    else:
+                        continue
+                else:
+                    if structure_name_in_dvh in brachy_structure.name:
+                        structure_dvh_metrics_names.append(dvh_name)
+                    else:
+                        continue
+            self.dvh_metric_goals[brachy_structure.name] = {
+                "dvh_metric_names": structure_dvh_metrics_names
+            }
+            brachy_structure.set_dvh_metric_names(
+                self.dvh_metric_goals.get(brachy_structure.name).get("dvh_metric_names")
+            )
+            if dvh_metric_goals is not None:
+                self.dvh_metric_goals[brachy_structure.name] = {
+                        "dvh_metric_goals": {}}
+                for dvh_name in structure_dvh_metrics_names:
+                    self.dvh_metric_goals[brachy_structure.name] = {
+                        "dvh_metric_goals": {
+                            dvh_name: dvh_metric_goals[dvh_name]
+                        }
+                    }
+                brachy_structure.set_dvh_metric_goals(
+                    self.dvh_metric_goals.get(brachy_structure.name).get("dvh_metric_goals")
+                )
+
+    def set_brachy_structure_list(
         self,
         phantom: BrachyPhantom,
-        dvh_metric_goals: dict,
         mask_type: Union[ROIContour, ROIMask] = ROIContour,
-        strict_name_match: bool = True,
-    ):
+        )->None:
         r"""
         ### Purpose:
         - To create a list of BrachyStructure objects from the structures in the phantom and
         the DVH metric goals. Each BrachyStructure object will have attributes for the structure
         contour, the DVH and uncertainty volume histograms, optimization attributes, and simulation attributes.
         ### Inputes:
-        - self.phantom := the phantom with its structures fully loaded.
-        - self.dvh_metric_goals := the dvh metric goals dictionary
+        - phantom := the phantom with its structures fully loaded.
+        - dvh_metric_goals := the dvh metric goals dictionary
+        - mask_type: ROIContour | ROIMask := Phantom masks will be converted to this type when being
+        stored in BrachySturucture.
         ### Outputs:
-        - Void := will update the BrachyPlan.structure_list attribute
-        ### Dependencies:
-        - BrachyDicom
+        - None := will update the BrachyPlan.structure_list attribute
         """
         self.structure_list = []
-        structure_names_in_dvh = list(set([ #list of the structure names
-            x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()
-        ]))
-        #separate dvh metric goals into separate dictionaries by structure
-        dvh_metric_goals_by_structure = {}
-        for structure_name in structure_names_in_dvh:
-            dvh_metric_goals_per_struct = {
-                key: value
-                for key, value in dvh_metric_goals.items()
-                if structure_name in key
-            }
-            dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
         if phantom.cached_structure_masks is not None:
             structure_masks = deepcopy(phantom.cached_structure_masks)
-            for k in list(structure_masks.keys()):
-                if k not in structure_names_in_dvh:
-                    structure_masks.pop(k)
         else:
             structure_masks: dict = phantom.get_structure_mask(
-                structure_names_in_dvh, mask_type, strict_name_match=strict_name_match
+                phantom.structure_names, mask_type,
             )
 
         for structure_name in structure_masks.keys():
@@ -661,8 +715,6 @@ class BrachyPlan:
                 is_target=True if (
                     "ctv" in structure_name.lower()
                     or "ptv" in structure_name.lower())  else False,
-                in_dvh=True,
-                dvh_metric_goals=dvh_metric_goals_by_structure[structure_name],
             )
             self.structure_list.append(structure_obj)
         if phantom.cached_structure_masks is not None:
@@ -848,7 +900,7 @@ class BrachyPlan:
         combined_dose: BrachyDose=None,
         prescription_dose: float = None,
         return_percentage: bool = True,
-        ):
+        ) -> dict:
         r"""
         ### Purpose:
         - To get the observed value of the dvh metric for each structure in the BrachyPlan.
@@ -856,17 +908,20 @@ class BrachyPlan:
         ### Inputs:
         - self := the BrachyPlan object
         ### Outputs:
-        - Void := will update the BrachyStructure.dvh_metrics_observed attribute
+        - dvh_metrics_observed: a dictionary mapping every DVH metric to its observed value.
         """
         assert self.structure_list is not None, "structure list is not created yet"
         assert self.prescription_dose is not None, "prescription dose is not set"
+        assert self.dvh_metric_goals is not None, "DVH metrics are not set, please run set_dvh_metric_goals()"
         if combined_dose is None:
             combined_dose = self.combined_dose
         if prescription_dose is None:
             prescription_dose = self.prescription_dose
-        self.dvh_metrics_observed = {}
+        dvh_metrics_observed = {}
         for structure_obj in self.structure_list:
             if "hotspot_estimator" in structure_obj.name.lower():
+                continue
+            if not any(structure_obj.dvh_metric_names):
                 continue
             observed_metrics = structure_obj.get_dvh_metric(
                 combined_dose,
@@ -874,8 +929,8 @@ class BrachyPlan:
                 return_percentage,
                 self.body_contour,
                 )
-            self.dvh_metrics_observed.update(observed_metrics)
-        return self.dvh_metrics_observed
+            dvh_metrics_observed.update(observed_metrics)
+        return dvh_metrics_observed
 
     def export_dvh_metrics(self, output_pth: Union[str, Path]):
         r"""
@@ -1571,6 +1626,7 @@ config do not match for structure {struc.name}"
         TODO: get rid of +1 when moving towards catheter generation from digi points
         TODO: Consider adding angle to the name later when IMBT is involved.
         """
+        raise DeprecationWarning("This function need to be adapted to the new catheter table")
         if len(self.dose_rate_dict) == 0:
             raise ValueError("dose rate maps are not generated yet. run dose generation first")
         dose_rates_catheter = defaultdict(BrachyDose)
