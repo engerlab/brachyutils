@@ -247,9 +247,9 @@ class RapidBrachyTG43(BrachyDoseGenerator):
                 dir_dose_rate=self.dir_plan_export,
             )
         else:
-            plan.combined_dose = BrachyDose(
+            plan.catheter_table.set_combined_dose(BrachyDose(
                 export_config_brachyplan.export_config_macfile.pth_combined.with_suffix(".seq.nrrd")
-                )
+                ))
         return plan
 
 class RapidBrachyMC(BrachyDoseGenerator):
