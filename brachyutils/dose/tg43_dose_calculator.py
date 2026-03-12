@@ -29,7 +29,7 @@ U = CGY * CM * CM / HR
 CI = 3.7e10 #Bq
 RAD = 180./np.pi
 
-class TG43DoseCalculator(BrachyDoseGenerator):
+class BrachyUtilsTG43(BrachyDoseGenerator):
     """
     """
     def __init__(self,
@@ -311,7 +311,7 @@ but source name is {self.source_name}.")
 
     def run_dose_generation(self, dir_export: str | Path = None, plan: BrachyPlan = None, generate_dose_rate_maps: bool = True) -> BrachyPlan:
         if not generate_dose_rate_maps:
-            raise ValueError("generate_dose_rate_maps must be True in TG43DoseCalculator.")
+            raise ValueError("generate_dose_rate_maps must be True in BrachyUtilsTG43.")
         
         self.load_from_brachyplan(plan)
         self.load_and_initialize_tg43()
@@ -341,7 +341,7 @@ but source name is {self.source_name}.")
         combined_dose.write_brachydose_to_file(pth_output)
 
     def generate_dose(self, pth_output: Optional[Path] = None):
-        raise NotImplementedError("generate_dose() not implemented for TG43DoseCalculator. Call run_dose_generation() instead.")
+        raise NotImplementedError("generate_dose() not implemented for BrachyUtilsTG43. Call run_dose_generation() instead.")
 
 def calculate_dwell_dose_tg43(dwell : DwellPosition, dose_rate_kernel: BrachyDose, phantom : BrachyPhantom ) ->  None:
     rotation_matrix = calculate_dwell_rotation_matrix(dwell)
