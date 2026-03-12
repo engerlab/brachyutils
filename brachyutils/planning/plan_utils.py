@@ -619,7 +619,15 @@ class BrachyPlan:
         goals should mask perfectly. Otherwise, the name of the structure in the DVH metric goals can be
         a substring of the name of the structure in the phantom. For example, "CTV" vs "CTV_BRACHY".
         ### Outputs:
-        - None := will update the BrachyPlan.dvh_metric_goals attribute
+        - None := will update the BrachyPlan.dvh_metric_goals attribute as well as 
+        BrachyStructure.dvh_metric_names and BrachyStructure.dvh_metric_goals.
+        The keys of the BrachyPlan.dvh_metric_goals are:
+        {
+            BrachyStructure.name: {
+                "dvh_metric_names: [list of the names for that structure],
+                "dvh_metric_goals: {if applicable}
+            }    
+        }
         """
         if dvh_metric_names is not None and dvh_metric_goals is not None:
             raise ValueError("Please provide either dvh_metric_names or dvh_metric_goals, not both") 
@@ -633,31 +641,42 @@ class BrachyPlan:
                     dvh_metric_goals = json.load(json_file)
             dvh_metric_names = list(dvh_metric_goals.keys())
 
-        self.dvh_metric_goals = {}
+        self.dvh_metric_goals = defaultdict(dict)
         # let's match the structure names in the DVH with the structure names
         # in the BrachyPlan.
         for brachy_structure in self.structure_list:
-            XXX
-            if strict_name_match:
-                for dvh_name in dvh_metric_names:
-                    structure_name_in_dvh = dvh_name.split("(")[-1].split(")")[0]
-                    relevant_dvh_metrics = 
-
-        dvh_metric_goals_by_structure = {}
-        if dvh_metric_goals is None:
-            structure_names_in_dvh = self.phantom.structure_names
-        else:
-            structure_names_in_dvh = list(set([ #list of the structure names
-                x.split("(")[-1].split(")")[0] for x in dvh_metric_goals.keys()
-            ]))
-        #separate dvh metric goals into separate dictionaries by structure
-            for structure_name in structure_names_in_dvh:
-                dvh_metric_goals_per_struct = {
-                    key: value
-                    for key, value in dvh_metric_goals.items()
-                    if structure_name in key
-                }
-                dvh_metric_goals_by_structure[structure_name] = dvh_metric_goals_per_struct
+            # get all the dvh metrics for this structure
+            structure_dvh_metrics_names = []
+            for dvh_name in dvh_metric_names:
+                structure_name_in_dvh = dvh_name.split("(")[-1].split(")")[0]
+                if strict_name_match:
+                    if brachy_structure.name == structure_name_in_dvh:
+                        structure_dvh_metrics_names.append(dvh_name)
+                    else:
+                        continue
+                else:
+                    if brachy_structure.name in structure_name_in_dvh:
+                        structure_dvh_metrics_names.append(dvh_name)
+                    else:
+                        continue
+            self.dvh_metric_goals[brachy_structure.name] = {
+                "dvh_metric_names": structure_dvh_metrics_names
+            }
+            brachy_structure.set_dvh_metric_names(
+                self.dvh_metric_goals.get(brachy_structure.name).get("dvh_metric_names")
+            )
+            if dvh_metric_goals is not None:
+                self.dvh_metric_goals[brachy_structure.name] = {
+                        "dvh_metric_goals": {}}
+                for dvh_name in structure_dvh_metrics_names:
+                    self.dvh_metric_goals[brachy_structure.name] = {
+                        "dvh_metric_goals": {
+                            dvh_name: dvh_metric_goals[dvh_name]
+                        }
+                    }
+                brachy_structure.set_dvh_metric_goals(
+                    self.dvh_metric_goals.get(brachy_structure.name).get("dvh_metric_goals")
+                )
 
     def set_brachy_structure_list(
         self,
