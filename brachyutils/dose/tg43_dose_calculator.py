@@ -313,7 +313,8 @@ but source name is {self.source_name}.")
         self,
         dir_export: str | Path = None,
         plan: BrachyPlan = None,
-        generate_dose_rate_maps: bool = True) -> BrachyPlan:
+        generate_dose_rate_maps: bool = True,
+        export_combined_dose:bool = False) -> BrachyPlan:
         if not generate_dose_rate_maps:
             raise ValueError("generate_dose_rate_maps must be True in BrachyUtilsTG43.")
 
@@ -335,14 +336,15 @@ but source name is {self.source_name}.")
                         raise ValueError(f"TG-43DoseCalculator failed for dwell {failed_dwell.name_id}") from exc
 
         logging.info("TG-43 dose calculation complete.")
-        combined_dose = self.brachyplan.combined_dose
-        if dir_export is None:
-            dir_export = Path(self.dir_plan_export)
-        else:
-            dir_export = Path(dir_export)
-        pth_output = dir_export / "combined_TG43.seq.nrrd"
-        logging.info("Writing combined TG-43 dose to %s.", pth_output)
-        combined_dose.write_brachydose_to_file(pth_output)
+        if export_combined_dose:
+            combined_dose = self.brachyplan.combined_dose
+            if dir_export is None:
+                dir_export = Path(self.dir_plan_export)
+            else:
+                dir_export = Path(dir_export)
+            pth_output = dir_export / "combined_TG43.seq.nrrd"
+            logging.info("Writing combined TG-43 dose to %s.", pth_output)
+            combined_dose.write_brachydose_to_file(pth_output)
 
     def generate_dose(self, pth_output: Optional[Path] = None):
         raise NotImplementedError("generate_dose() not implemented for BrachyUtilsTG43. Call run_dose_generation() instead.")
