@@ -16,6 +16,7 @@ class BrachySource(BaseModel):
     - atomic_number: int
     - air_kerma_per_history: float
     - reference_air_kerma_rate: float
+    - activity : float
     - source_dict: dict | Path | str: either a dictionary containing the source information, or a path to a json or a dicom plan file.
     ### Functions:
     - validate(): checks if the fields are valid for export.
@@ -29,6 +30,7 @@ class BrachySource(BaseModel):
     atomic_number: int = 77
     air_kerma_per_history: float = 1.149000e-11
     reference_air_kerma_rate: float = None  # 4.278729e04,
+    activity: float = None
     # source_dict: Union[dict, Path, str] = None
 
     def __init__(self, pth_source:Path|str=None, **data):

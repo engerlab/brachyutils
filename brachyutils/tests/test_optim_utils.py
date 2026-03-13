@@ -47,7 +47,7 @@ def get_a_plan_to_optimize(
         )
 
     if generate_dose_rates:
-        from brachyutils import DoseTG43
+        from brachyutils import RapidBrachyTG43
         pth_material = Path("admin/constants/structure_materials_prostate.json")
         mat_from_ct = False
         crop_by_contour = "body"
@@ -72,7 +72,7 @@ def get_a_plan_to_optimize(
             dir_export=dir_dose_rates,
             content_to_export=content_to_export,
         )
-        dose_gen_obj = DoseTG43(
+        dose_gen_obj = RapidBrachyTG43(
             dir_plan_export=dir_dose_rates
             )
         dose_gen_obj.generate_dose(

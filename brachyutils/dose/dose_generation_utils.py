@@ -69,7 +69,7 @@ class BrachyDoseGenerator(ABC):
         """
         pass
 
-class DoseTG43(BrachyDoseGenerator):
+class RapidBrachyTG43(BrachyDoseGenerator):
     def __init__(
         self,
         dir_plan_export: Union[Path, str],
@@ -218,7 +218,7 @@ class DoseTG43(BrachyDoseGenerator):
         If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
         - export_config_brachyplan := If false, we assume the egsphant, mac files, and plan files have been
         exported before. If True or None, we create a default ExportConfig_BrachyPlan to export the setup files
-        needed for DoseTG43. You can also provide your own custom export config.
+        needed for RapidBrachyTG43. You can also provide your own custom export config.
         ### Output:
         - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
         """
@@ -247,12 +247,12 @@ class DoseTG43(BrachyDoseGenerator):
                 dir_dose_rate=self.dir_plan_export,
             )
         else:
-            plan.combined_dose = BrachyDose(
+            plan.catheter_table.set_combined_dose(BrachyDose(
                 export_config_brachyplan.export_config_macfile.pth_combined.with_suffix(".seq.nrrd")
-                )
+                ))
         return plan
 
-class DoseMonteCarlo(BrachyDoseGenerator):
+class RapidBrachyMC(BrachyDoseGenerator):
     def __init__(
         self,
         dir_plan_export: Path | str,
