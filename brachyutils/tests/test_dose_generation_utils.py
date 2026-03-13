@@ -5,6 +5,9 @@ from pathlib import Path
 from brachyutils.dose.dose_generation_utils import RapidBrachyMC, RapidBrachyTG43
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.tests.test_plan_utils import get_a_plan
+from time import time
+from brachyutils.dose.dose_utils import BrachyDose
+import numpy as np
 
 def make_plan_and_export_it(dir_export) -> Path:
     dir_dicom = "data_test/prostate-glen-p1-dcm"
@@ -92,19 +95,22 @@ def test_DoseMC():
 
 def test_run_dose_gen_tg43():
     dir_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
-    dir_export = Path("temp_data/tg43")/dir_dicom.stem
+    dir_export = Path("temp_data/tg43/RapidBrachyTG43")/dir_dicom.stem
     plan_obj = get_a_plan(
         dir_dicom=dir_dicom,
         from_delivered_dwellpositions=False,
-        dwells_near_ptv=False
+        dwells_near_ptv=True
     )
+    t0=time()
     dose_gen = RapidBrachyTG43(
         dir_plan_export=dir_export
     )
     dose_gen.run_dose_generation(
         plan=plan_obj,
     )
+    t1=time()
     # test the case with only combined dose
+    print(f"time for RapidBrachyTG43: {t1-t0}")
 
 def test_run_brachyutilstg43():
     from brachyutils.dose.tg43_dose_calculator import BrachyUtilsTG43
@@ -119,6 +125,7 @@ def test_run_brachyutilstg43():
     )
 
     #just for testing
+    t0 = time()
     calc_parameter_kwargs = {"kernel_half_width": 100, "kernel_res": 1, "kernel_max_dose_rate" : 100.0}
 
     tg43_calc = BrachyUtilsTG43(
@@ -126,10 +133,49 @@ def test_run_brachyutilstg43():
         dir_output=dir_export,
         **calc_parameter_kwargs)
     tg43_calc.run_dose_generation(
-        plan=plan_obj)
+        plan=plan_obj,
+        export_combined_dose=False)
+    t1 = time()
+    
+    print(f"time for BrachyUtilsTG43: {t1-t0}")
 
-    print("debug here")
+def compare_rb_bu():
+    from brachyutils.dose.dose_comparison_utils import BrachyDoseComparison
+    pth_dose_rb = Path("temp_data/tg43/RapidBrachyTG43/prostate-glen-p1-dcm/combined.seq.nrrd")
+    pth_dose_bu = Path("temp_data/tg43/BrachyUtilsTG43/prostate-glen-p1-dcm/combined_TG43.seq.nrrd")
+    dir_output = Path(pth_dose_bu.parent)
+    plan_id = "p1"
+    
+    dose_rb = BrachyDose(pth_dose_file=pth_dose_rb)
+    dose_bu = BrachyDose(pth_dose_file=pth_dose_bu)
 
+    dose_comp = BrachyDoseComparison(
+    dose1=dose_rb,
+    dose2=dose_bu,
+    compute_percent_difference=True,
+    prescription_dose=21.,
+    compute_gamma_index=False,
+    positive_percent_difference=False,
+    )
+    vox_centers = dose_rb.get_voxel_centers()
+    viz_index_limits = np.array([
+        [len(vox_centers[0])*1/4, len(vox_centers[0])*3/4],
+        [len(vox_centers[1])*1/4, len(vox_centers[1])*3/4],
+        [len(vox_centers[2])//2, 0]
+    ]).astype(int)
+    dose_comp.plot_local_and_global_differences(
+        axis_1_coords=vox_centers[0][viz_index_limits[0][0]:viz_index_limits[0][1]],
+        axis_2_coords=vox_centers[1][viz_index_limits[1][0]:viz_index_limits[1][1]],
+        plane_coord=vox_centers[2][viz_index_limits[2][0]],
+        plane="xy",
+        plot_title=(f"MC vs TG43 Percent Error Map for Plan {plan_id}"),
+        # pth_fig_save=Path(dir_output)/f"percent_error_map_{plan_id}.svg",
+        local_vmax=20.0,
+        global_vmax=10.0,
+        fig_size_mm=(200, 160)
+    )
+
+    
 if __name__ == "__main__":
     # test_RapidBrachyTG43()
     # test_DoseMC()
@@ -149,4 +195,5 @@ if __name__ == "__main__":
     # print(response.json())
 
     # test_run_dose_gen_tg43()
-    test_run_brachyutilstg43()
+    # test_run_brachyutilstg43()
+    compare_rb_bu()
