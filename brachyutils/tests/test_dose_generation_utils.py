@@ -138,6 +138,12 @@ def test_run_brachyutilstg43():
         dwells_near_ptv=True
     )
 
+    # crop the phantom
+    plan_obj.phantom.crop_by_contour(
+        ["ctv", "urethra", "rectum"],
+        strict_name_match=False,
+        )
+
     #just for testing
     t0 = time()
     calc_parameter_kwargs = {"kernel_half_width": 100, "kernel_res": 1, "kernel_max_dose_rate" : 100.0}
@@ -148,9 +154,9 @@ def test_run_brachyutilstg43():
         **calc_parameter_kwargs)
     tg43_calc.run_dose_generation(
         plan=plan_obj,
-        export_combined_dose=False)
+        export_combined_dose=True)
     t1 = time()
-    
+
     print(f"time for BrachyUtilsTG43: {t1-t0}")
 
 def compare_rb_bu():
@@ -208,6 +214,6 @@ if __name__ == "__main__":
 
     # print(response.json())
 
-    test_run_dose_gen_tg43()
-    # test_run_brachyutilstg43()
+    # test_run_dose_gen_tg43()
+    test_run_brachyutilstg43()
     # compare_rb_bu()
