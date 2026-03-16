@@ -799,7 +799,10 @@ Please provide either the structure_set or the path of the structure file."
                 )
 
     def crop_by_coordinates(
-        self, coordinate_range: List[float] | np.array, inplace: "BrachyPhantom" = True, no_margin: bool = False
+        self,
+        coordinate_range: List[float] | np.array,
+        inplace: "BrachyPhantom" = True,
+        marginInMM: float = 0.0,
     ) -> None:
         r"""
         Purpose:
@@ -823,18 +826,17 @@ Please provide either the structure_set or the path of the structure file."
             2,
         ), "coordinate_range should be a 3x2 array in x, y, z order"
         if inplace:
-            if no_margin:
-                marginInMM = [0, 0, 0]
-            else:
-                marginInMM = [1, 1, 1]
             crop3DDataAroundBox(self.image_obj, coordinate_range, marginInMM=marginInMM)
         else:
             new_phantom: BrachyPhantom = copy.deepcopy(self)
-            new_phantom.crop_by_coordinates(coordinate_range, inplace=True, no_margin=no_margin)
+            new_phantom.crop_by_coordinates(coordinate_range, inplace=True, marginInMM=marginInMM)
             return new_phantom
 
     def crop_by_index(
-        self, index_range: List[int] | np.array, inplace: Optional[bool] = True, no_margin: Optional[bool] = False
+        self,
+        index_range: List[int] | np.array,
+        inplace: Optional[bool] = True,
+        marginInMM: float = 0.0,
     ) -> Union[None, "BrachyPhantom"]:
         r"""
         Purpose:
@@ -859,10 +861,14 @@ Please provide either the structure_set or the path of the structure file."
             index_range[:, 1]
         )
         new_coords_range = np.column_stack([new_origin_coords, new_ending_coords])
-        return self.crop_by_coordinates(new_coords_range, inplace, no_margin=no_margin)
+        return self.crop_by_coordinates(new_coords_range, inplace, marginInMM=marginInMM)
 
     def crop_by_contour(
-        self, contour_name: str, inplace: Optional[bool] = True, no_margin: Optional[bool] = False
+        self,
+        contour_name: str | List[str],
+        inplace: Optional[bool] = True,
+        strict_name_match: Optional[bool] = True,
+        marginInMM: float = 0.0,
     ) -> Union[None, "BrachyPhantom"]:
         r"""
         Purpose:
@@ -877,13 +883,27 @@ Please provide either the structure_set or the path of the structure file."
             resampleImage3DOnImage3D,
         )
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
-
-        mask_dict = self.get_structure_mask([contour_name], mask_type=ROIMask)
+        if isinstance(contour_name, str):
+            contour_name = [contour_name]
+        mask_dict = self.get_structure_mask(
+            contour_name,
+            mask_type=ROIMask,
+            strict_name_match=strict_name_match)
+        combined_mask_array = np.zeros_like(
+            mask_dict[contour_name[0]].imageArray, dtype=bool
+        )
+        for name in contour_name:
+            combined_mask_array = np.logical_or(combined_mask_array, mask_dict[name].imageArray)
+        combined_mask = ROIMask(
+            imageArray=combined_mask_array,
+            origin=self.image_obj.origin,
+            spacing=self.image_obj.spacing,
+        )
         resampled_mask = resampleImage3DOnImage3D(
-            mask_dict[contour_name], self.image_obj
+            combined_mask, self.image_obj
         )
         box_around_mask = np.array(getBoxAroundROI(resampled_mask))
-        return self.crop_by_coordinates(box_around_mask, inplace, no_margin=no_margin)
+        return self.crop_by_coordinates(box_around_mask, inplace, marginInMM)
 
     def cache_structure_set_as_masks(
         self,
