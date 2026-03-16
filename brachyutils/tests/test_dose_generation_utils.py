@@ -96,6 +96,18 @@ def test_DoseMC():
 def test_run_dose_gen_tg43():
     dir_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
     dir_export = Path("temp_data/tg43/RapidBrachyTG43")/dir_dicom.stem
+    export_config = {
+        "dir_export": dir_export,
+        "export_config_egsphant": {
+            "strict_name_match": False,
+            "crop_by_contour": ["ctv", "urethra", "rectum"]},
+        "export_config_macfile": {
+            "name_combined": "cropped_combined"
+            },
+        "export_config_planfile": {
+            "name_combined": "cropped_combined"
+        }
+        }
     plan_obj = get_a_plan(
         dir_dicom=dir_dicom,
         from_delivered_dwellpositions=False,
@@ -103,14 +115,16 @@ def test_run_dose_gen_tg43():
     )
     t0=time()
     dose_gen = RapidBrachyTG43(
-        dir_plan_export=dir_export
+        dir_plan_export=dir_export,
     )
     dose_gen.run_dose_generation(
         plan=plan_obj,
+        export_config_brachyplan=export_config,
     )
     t1=time()
     # test the case with only combined dose
     print(f"time for RapidBrachyTG43: {t1-t0}")
+    BrachyDose(dir_export/"cropped_combined.seq.nrrd").write_to_nrrd(dir_export/"cropped_combined.seq.nrrd")
 
 def test_run_brachyutilstg43():
     from brachyutils.dose.tg43_dose_calculator import BrachyUtilsTG43
@@ -124,6 +138,12 @@ def test_run_brachyutilstg43():
         dwells_near_ptv=True
     )
 
+    # crop the phantom
+    plan_obj.phantom.crop_by_contour(
+        ["ctv", "urethra", "rectum"],
+        strict_name_match=False,
+        )
+
     #just for testing
     t0 = time()
     calc_parameter_kwargs = {"kernel_half_width": 100, "kernel_res": 1, "kernel_max_dose_rate" : 100.0}
@@ -134,9 +154,9 @@ def test_run_brachyutilstg43():
         **calc_parameter_kwargs)
     tg43_calc.run_dose_generation(
         plan=plan_obj,
-        export_combined_dose=False)
+        export_combined_dose=True)
     t1 = time()
-    
+
     print(f"time for BrachyUtilsTG43: {t1-t0}")
 
 def compare_rb_bu():
@@ -195,5 +215,5 @@ if __name__ == "__main__":
     # print(response.json())
 
     # test_run_dose_gen_tg43()
-    # test_run_brachyutilstg43()
-    compare_rb_bu()
+    test_run_brachyutilstg43()
+    # compare_rb_bu()
