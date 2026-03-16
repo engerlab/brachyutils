@@ -663,7 +663,7 @@ Please provide either the structure_set or the path of the structure file."
         material_dict: dict | Path = None,
         assign_material_from_ct: bool = None,
         crop_by_contour: str | List[str] = None,
-        marginInMM: float = 0,
+        marginInMM: float | List[float] = 0.0,
         resampled_spacing: List[float] = None,
         resampled_origin: List[float] = None,
         resample_phantom_base: Optional[bool] = True,
@@ -802,7 +802,7 @@ Please provide either the structure_set or the path of the structure file."
         self,
         coordinate_range: List[float] | np.array,
         inplace: "BrachyPhantom" = True,
-        marginInMM: float = 0.0,
+        marginInMM: float | List[float] = 0.0,
     ) -> None:
         r"""
         Purpose:
@@ -825,6 +825,8 @@ Please provide either the structure_set or the path of the structure file."
             3,
             2,
         ), "coordinate_range should be a 3x2 array in x, y, z order"
+        if isinstance(marginInMM, float):
+            marginInMM = [marginInMM]*3
         if inplace:
             crop3DDataAroundBox(self.image_obj, coordinate_range, marginInMM=marginInMM)
         else:
@@ -836,7 +838,7 @@ Please provide either the structure_set or the path of the structure file."
         self,
         index_range: List[int] | np.array,
         inplace: Optional[bool] = True,
-        marginInMM: float = 0.0,
+        marginInMM: float | List[float] = 0.0,
     ) -> Union[None, "BrachyPhantom"]:
         r"""
         Purpose:
@@ -866,9 +868,9 @@ Please provide either the structure_set or the path of the structure file."
     def crop_by_contour(
         self,
         contour_name: str | List[str],
-        inplace: Optional[bool] = True,
-        strict_name_match: Optional[bool] = True,
-        marginInMM: float = 0.0,
+        inplace: bool = True,
+        strict_name_match: bool = True,
+        marginInMM: float | List[float] = 0.0,
     ) -> Union[None, "BrachyPhantom"]:
         r"""
         Purpose:
