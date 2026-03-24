@@ -290,7 +290,7 @@ but source name is {self.source_name}.")
         logging.debug("Generating TG-43 dose rate kernel image.")
         kernel_dose_image = DoseImage(imageArray=kernel_array, name='TG-43 Dose Kernel',
             origin=(-kernel_half_width,-kernel_half_width,-kernel_half_width), spacing = (kernel_res, kernel_res, kernel_res))
-        self.tg43_dose_rate_kernel = BrachyDose()
+        self.tg43_dose_rate_kernel = BrachyDose(dtype=np.float16)
         self.tg43_dose_rate_kernel.dose_image = kernel_dose_image
         if debug_pth_out is not None:
             logging.debug("Writing dose rate kernel to path %s", debug_pth_out)
@@ -355,9 +355,9 @@ def calculate_dwell_dose_tg43(dwell : DwellPosition, dose_rate_kernel: BrachyDos
     applyTransform3D(dose_rate_kernel, rotation_matrix, fillValue=0,
         outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1),# translation=dwell.position)
     translateDataByChangingOrigin(dose_rate_kernel, dwell.position)
-    dose_rate_kernel.resampleOn(phantom.image_obj, fillValue=0)
+    dose_rate_kernel.resampleOn(phantom.image_obj, fillValue=0, tryGPU=False)
     if dwell.dose_rate is None:
-        dwell.dose_rate = BrachyDose()
+        dwell.dose_rate = BrachyDose(dtype=np.float16)
     dwell.dose_rate.dose_image = dose_rate_kernel
 
 def calculate_dwell_rotation_matrix( dwell : DwellPosition) -> np.ndarray:
