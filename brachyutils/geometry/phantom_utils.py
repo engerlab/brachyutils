@@ -887,6 +887,8 @@ Please provide either the structure_set or the path of the structure file."
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
         if isinstance(contour_name, str):
             contour_name = [contour_name]
+        if isinstance(marginInMM, float):
+            marginInMM = [marginInMM, marginInMM, marginInMM]
         mask_dict = self.get_structure_mask(
             contour_name,
             mask_type=ROIMask,
