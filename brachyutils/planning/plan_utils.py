@@ -147,6 +147,8 @@ class ExportConfig_BrachyPlan(BaseModel):
         for k, v in data.items():
             if k.startswith("export_config_") and isinstance(v, bool):
                 data[k] = {} if v else False
+            if k=="dir_export":
+                data[k] = Path(v)
         return data
 
     @model_validator(mode="after")
@@ -320,9 +322,10 @@ class BrachyPlan:
                 raise ValueError("phantom should be a BrachyPhantom object or a path")
         # create structures based on the phantom structures and DVH metric goals
         if self.phantom is not None:
-            self.set_brachy_structure_list(
-                phantom=self.phantom,
-            )
+            if self.phantom.structure_set is not None:
+                self.set_brachy_structure_list(
+                    phantom=self.phantom,
+                )
 
         if kwargs.get("dvh_metric_goals", None) is not None:
             dvh_metric_goals = kwargs.get("dvh_metric_goals")
@@ -1051,7 +1054,7 @@ class BrachyPlan:
         dir_export.mkdir(parents=True, exist_ok=True)
 
         if content_to_export.export_config_dose:
-            self.export_dose(content_to_export.export_config_dose)
+            self.catheter_table.export_dose(content_to_export.export_config_dose)
 
         if content_to_export.export_config_cathetertable:
             self.export_catheter_table(

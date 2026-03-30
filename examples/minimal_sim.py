@@ -40,11 +40,12 @@ def export_plan_air_phantom():
         "PrintProgress": 1000,
     }
     content_to_export = {
-        "egsphant": True,
-        "plan": True,
-        "mac": True,
-        "ApplicatorMaterials": False,
-        "applicator_geometry": False,
+        "dir_export": dir_export,
+        "export_config_egsphant": {
+            "assign_material_from_ct": True,
+            },
+        "export_config_planfile": True,
+        "export_config_macfile": True,
     }
     # Create a minimal simulation of a brachytherapy plan with an air phantom
     air_phantom = get_uniform_phantom(voxel_value=-1000)
@@ -54,7 +55,7 @@ def export_plan_air_phantom():
         simulation_setup=sim_dict,
         catheter_table=catheterTable
         )
-    plan.export_brachy_plan(dir_export=dir_export, content_to_export=content_to_export)
+    plan.export_brachy_plan(content_to_export=content_to_export)
     print("Brachytherapy plan exported to minimal_brachy_plan.json")
 
 if __name__ == "__main__":
