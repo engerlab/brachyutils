@@ -5,11 +5,24 @@
 BrachyUtils is developed to be a scripting treatment planning system for brachytherapy. The current state mostly focuses on high dose rate (HDR) brachytherapy. The main modules and submodules are described below:
 
 1. `geometry`
-   1. `phantom_utils`: Handles geometry definition (Patient, segmentations or measurement setup). IO for DICOM, NRRD, and Nifti. The main class here is `BrachyPhantom`.
+   1. `phantom_utils`: Handles geometry definition (Patient, segmentations or measurement setup). IO for DICOM, NRRD, and Nifti (read only). The main class here is `BrachyPhantom`.
    2. `egsphant_utils`: Handles manipulation of the data in the EGSPhant format from the EGSnrc. This class can create a `BrachyEgsphant` from `BrachyPhantom` or load it from `.egsphant` or `.seq.nrrd` files.
-   3. `catheter_utils`: Implements the `CatheterTable`
+   3. `catheter_utils`: Implements the `CatheterTable`, which provides DICOM and JSON IO for HDR treatment plans. The `CatheterTable` numerous functionalities for adding and removing catheters and dwells and storing the dose rates and the totoal dose of the treatment plan.
+   4. `registration_utils`: Provides the ability to perform image-based and contour-based registration using `reg_opentps`, `reg_plastimatch`, and `reg_simple_elastix`. All these modules makes use of the abstract class and the functionality provided in `reg_utils`.
+2. `dose`:
+  1. `dose_utils`: Provides IO for dose and uncertainty data from DICOM, 3ddose and NRRD into `BrachyDose`. Several functinality exists for cropping and resampling dose maps exists.
+  2. `dose_generation_utils`: Several classes exist here that allow for generating dose from a treatment plan. The main abstract class is `BrachyDoseGenerator`, and currently the concrete classes are: `RapidBrachyTG43`, `RapidBrachyMC`, and `BrachyUtilsTG43`.
+  3. `dose_comparison_utils`: Allows for comparison between two `BrachyDose` objects based on percent error maps (according to AAPM-WGDCAB Report 372) and Gamma index analysis. The main class is `BrachyDoseComparison`
+  4. `film_utils`: The class that allows for processing radiochromic film data. It has two subclasses, `CalibrationCurve` and `FilmCalibration`.
+3. `planning`:
+  1. `plan_utils`: This module implements `BrachyPlan` which makes use of all the previous modules to handle treatment planning operations in brachytherapy. We recommend getting started using the `load_dicom_to_plan` function.
+  2. `simulation_utils`: The class to store information regarding the source in brachytherapy (IO from json and dicom) as well as simulation parameters such as the number of threads to use and the number of histories to be simulated. The two main classes here are `BrachySimulation` and `BrachySource`.
+  3. `structure_utils`: This module contains `BrachyStructure`, which in additon to the structure mask, contain information regarding the associated DVH metrics for each structure and the optimization config.
+  4. `optimization`: An extensive module that handles dwell time optimization using Gurobi (`optim_gurobi`), AMPL (`optim_ampl`) and ORTools (`optim_ortools`). All of these contain concrete classes that extend the abstract class `BrachyDwellTimeOptim` and use several functionalities provided in `optim_utils`. `mobo` module handles multi objective optimization of the penalty weights and the `optim_cath` module builds towards catheter placement optimization.
 
-  implements Brachytherapy dose, egsphant dicom and film dosimetry functionalities. It also interfaces with various RapidBrachy projects. If you are a developer, please take a look at the bottom of this page.
+If you are a developer, please take a look at the bottom of this page.
+
+## Installation
 
 Start by clonning this repository to `YourDesiredLocation`:
 
@@ -17,15 +30,13 @@ Start by clonning this repository to `YourDesiredLocation`:
 git clone https://github.com/engerlab/brachyutils.git
 ```
 
-## Using Docker Image
+### Using Docker Image
 
-The docker image can be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/Elfn1nAw30xNqRhQ6xmA1cwBvxbYVmstWFjqSlJ4dptytg?e=ROqLfn).
+The docker image for brachyutils can be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/IgBX59ZwMN9MTakYUOsZgNXMAb8W2FZrLVhY6kpSeHabcrY?e=XFPqqh). In addition, docker images for plastimatch and simple-elastix are provided in the same folder. If you'd like to have access to RapidBrachyMC or RapidBrachyTG43, please let us know and we will provide access to a seperate folder.
 
 Once the image is downloaded, you can unzip it using `zstd` and load it to docker.
 
 ```bash
-# to unzip using zstd
-tar -I zstd -xvf brachyutils.tar.zst
 # to load the image to docker
 docker load -i brachyutils.tar
 ```
@@ -44,31 +55,11 @@ We recommend attaching using the [Dev Containers](https://marketplace.visualstud
 5. To debug packages using cv2 in vscode, you may need: `export QT_QPA_PLATFORM=offscreen`
 6. Happy coding/debugging
 
+### Using Apptainer Image
 
-## Using Apptainer Image
+It is possible to create an Apptainer image (.sif file) from the docker image and run it. However, we recommend using the regular virtual enviorment or the docker images.
 
-To free the users from the hassle of installing brachutils and all its requirements, we have created an Apptainer image and a Docker image that could be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/Elfn1nAw30xNqRhQ6xmA1cwBvxbYVmstWFjqSlJ4dptytg?e=ROqLfn).
-
-It is recommended to use the singularity image (`brachyutils_opentps.sif`) on Compute Canada or in general on systems where `Sudo` access is **not possible** or Docker is not available. You can bind the folder where your data is located as well.
-
-```bash
-# on compute Canada only{
-module load StdEnv/2023
-module load apptainer
-# }
-apptainer run --containall --bind <YourDesiredLocation>/brachyutils:/root/brachyutils --bind <YourDataLocation>:/root/YourLocalHome brachyutils_opentps.sif
-# Once apptainer is running interactively
-cd /root
-source .bashrc
-```
-
-The virtual enviornment called `env_brachyutils` should be activated automatically. You can make changes to the brachyutils source code by editing source files in `/root/brachyutils`. Your data can be found at `/root/YourLocalHome`.
-
-**VS Code Support**: Using vscode, you can directly code and debug inside a docker container. Simply install the extension [Dev Containers](https://code.visualstudio.com/docs/devcontainers/create-dev-container). While the docker container is running, open VS Code, press `F1`, type `Dev Containers: Attach to running container`. Then select the container running brachyutils. 
-
-## Installation
-
-### Create a Python virtual environment
+### Using Python virtual environment (No Container)
 
 We currently use python 3.13. To install it, take a look at 
 `./docker_src/repositories/install_python.sh`.
@@ -89,7 +80,7 @@ conda create -n ENV_BU python=3.13
 conda activate ENV_BU
 ```
 
-### Install BrachyUtils
+#### Install BrachyUtils
 
 To get the package run:
 
@@ -102,11 +93,17 @@ apt install -y build-essential zlib1g zlib1g-dev libncurses5-dev \
 
 git clone https://github.com/engerlab/brachyutils.git
 cd brachyutils
-python3.13 -m pip install -e .
-python3.13 -m amplpy.modules install highs gurobi xpress cplex scip gcg
+# For the basic functinality
+python3.13 -m pip install -e .[]
+# For registration
+python3.13 -m pip install -e .[reg]
+# for treatment planning
+python3.13 -m pip install -e .[plan]
+# for the complete functionality
+python3.13 -m pip install -e .[full]
 ```
 
-### Install Optimization Solvers
+#### Install Optimization Solvers
 
 Solvers are currently used to run dwell time optimization. We recommend using the Gurobi solver, which requires an academic license. Another platform that one can use is AMPL, which gives you access to many solvers out there. AMPL provide a community license, but the good solvers would only be available with an academic Email.
 
@@ -141,12 +138,6 @@ python
 Click here to see a list of [AMPL solver](https://dev.ampl.com/solvers/index.html).
 In my experience, Gurobi, XPRESS, and CPLEX are the only ones that work. Unfortunately, they all require and academic/industrial license.
 
-### Optional
-
-`python3 -m pip install --upgrade pip`
-
-Install SimpleITK independently by running `python3 -m pip install SimpleITK`. If you run into the error saying `skbuild` is [missing](https://bugs.python.org/issue30573), run `python3 -m pip install cmake`, then try installing SimpleITK again.
-
 ## brachyutils commands
 
 brachyutils comes with a linux command line interface. To learn about the commands that are available run `brachyutils --help` on the command line.
@@ -155,32 +146,27 @@ At the moment, the outputs looks like the following:
 
 ```bash
 $ brachyutils --help
-Usage: brachyutils [OPTIONS] COMMAND [ARGS]...
-
-Options:
-  --install-completion [bash|zsh|fish|powershell|pwsh]
-                                  Install completion for the specified
-                                  shell.
-  --show-completion [bash|zsh|fish|powershell|pwsh]
-                                  Show completion for the specified
-                                  shell, to copy it or customize the
-                                  installation.
-  --help                          Show this message and exit.
-
-Commands:
-  convert-dose-many-files         Will convert all files...
-  crop-dose-by-bodycontour-many-files
-                                  Purpose: to crop all the...
-  crop-dose-by-ratio-many-files   Purpose: Will crop all...
-  crop-egsphant-by-bodycontour-many-patients
-                                  Purpose: to crop the...
-  get-bodycontourrange-from-dicom-many-patients
-                                  Purpose: to exract body...
-  get-uncertainty-one-patient     Purpose: Will calculate...
-  multiply-dose-by-constant-many-files
-                                  Purpose: Will scale all...
-  padd-dose-many-files            Purpose: Will padd all...
+ Usage: brachyutils [OPTIONS] COMMAND [ARGS]...                                                                                         
+                                                                                                                                        
+╭─Options──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --install-completion          Install completion for the current shell.                                                              │
+│ --show-completion             Show completion for the current shell, to copy it or customize the installation.                       │
+│ --help                        Show this message and exit.                                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─Commands──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ convert-dose                                  Convert dose files to specified output format                                          │
+│ convert-phantom                               Convert phantom (image and segmentation) files to specified output format              │
+│ convert-egsphant                              Convert egsphant files to specified output format                                      │
+│ crop-egsphant-by-body-contour-many-patients   Purpose: to crop the egsphant file of all patients in a directory.                     │
+│ crop-dose-by-ratio-many-files                 Purpose: Will crop all files in the "input_dir" of type "type_in" and write the        │
+│                                               cropped dose to file with "type_out"                                                   │
+│ get-uncertainty-one-patient                   Purpose: Will calculate the uncertainty of all structures for all patients in a        │
+│                                               directory                                                                              │
+│ combined-dose-per-patient                     Purpose: Will combined multiple dose files for a single patient                        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
+
+For additional help with each command, run the command name with --help. For example `brachyutils convert-dose --help`
 
 ## Developer Guide
 
@@ -196,8 +182,7 @@ Please follow the steps when developing Brachy Utils.
 8. Request to merge with the source branch
 
 ### Making new a Docker Image
-
-BrachyUtils has two main requirements, [OpenTPS-brachyutils](https://github.com/engerlab/OpenTPS-brachyutils.git), and [AI_Assisted_Brachytherapy](https://github.com/engerlab/AI_Assisted_Brachytherapy.git). You may make changes to these requirements and would like to update the docker image that runs brachyutils. In that case, you can make a new image following either of the process below:
+In case you'd like to extend brachyutils with new functionality and using new libraries, you may make changes to `pyprojct.toml` requirements and update the docker image that runs brachyutils. You can make a new image following either of the process below:
 
 ### Using Dockerfile
 
