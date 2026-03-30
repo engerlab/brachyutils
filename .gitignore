@@ -24,4 +24,3 @@ temp_data/*
 .env
 !docker_src/.env
 *zip
-docs*
