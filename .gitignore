@@ -24,3 +24,12 @@ temp_data/*
 .env
 !docker_src/.env
 *zip
+*.egg-info
+*.egg
+*.log
+*.bak
+*.tmp
+*.swp
+*.swo
+*.DS_Store
+*.ipynb_checkpoints
