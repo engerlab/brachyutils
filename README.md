@@ -2,7 +2,14 @@
 
 ![BrachyUtils](admin/icon-library/logos/Brachyutils-logo-2.svg)
 
-This package implements Brachytherapy dose, egsphant dicom and film dosimetry functionalities. It also interfaces with various RapidBrachy projects. If you are a developer, please take a look at the bottom of this page.
+BrachyUtils is developed to be a scripting treatment planning system for brachytherapy. The current state mostly focuses on high dose rate (HDR) brachytherapy. The main modules and submodules are described below:
+
+1. `geometry`
+   1. `phantom_utils`: Handles geometry definition (Patient, segmentations or measurement setup). IO for DICOM, NRRD, and Nifti. The main class here is `BrachyPhantom`.
+   2. `egsphant_utils`: Handles manipulation of the data in the EGSPhant format from the EGSnrc. This class can create a `BrachyEgsphant` from `BrachyPhantom` or load it from `.egsphant` or `.seq.nrrd` files.
+   3. `catheter_utils`: Implements the `CatheterTable`
+
+  implements Brachytherapy dose, egsphant dicom and film dosimetry functionalities. It also interfaces with various RapidBrachy projects. If you are a developer, please take a look at the bottom of this page.
 
 Start by clonning this repository to `YourDesiredLocation`:
 
