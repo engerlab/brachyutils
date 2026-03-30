@@ -2,7 +2,7 @@
 
 ![BrachyUtils](admin/icon-library/logos/Brachyutils-logo-2.svg)
 
-BrachyUtils is developed to be a scripting treatment planning system for brachytherapy. The current state mostly focuses on high dose rate (HDR) brachytherapy. The main modules and submodules are described below:
+BrachyUtils is developed to be a scripting treatment planning system for brachytherapy. The current state mostly focuses on high dose rate (HDR) brachytherapy. For full documentation, take a look at our [docs webpage](https://engerlab.github.io/brachyutils/brachyutils.html). The main modules and submodules are described below:
 
 1. `geometry`
    1. `phantom_utils`: Handles geometry definition (Patient, segmentations or measurement setup). IO for DICOM, NRRD, and Nifti (read only). The main class here is `BrachyPhantom`.
