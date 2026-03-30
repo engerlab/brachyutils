@@ -1,6 +1,6 @@
 # BrachyUtils
 
-![BrachyUtils](admin/icon-library/BrachyUtils.svg)
+![BrachyUtils](admin/icon-library/logos/Brachyutils-logo-2.svg)
 
 BrachyUtils is developed to be a scripting treatment planning system for brachytherapy. The current state mostly focuses on high dose rate (HDR) brachytherapy. For full documentation, take a look at our [docs webpage](https://engerlab.github.io/brachyutils/brachyutils.html). If you are a developer, please take a look at the bottom of this page.
 
