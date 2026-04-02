@@ -870,7 +870,6 @@ class BrachyEgsphant:
                 - density: the density of the material in g/cm^3
                 - HU_limit: the upper HU limit of the material
                 - structure_name: the name of the structure in the dicom file that represents the material [optional]
-                - structure_size: the size of the structure in the dicom file that represents the material [optional]
         Outputs:
             - Void := will generate a BrachyEgsphant object from the images and structure file.
         Dependencies:
