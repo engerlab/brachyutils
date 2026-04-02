@@ -8,6 +8,9 @@ from time import time
 import numpy as np
 import matplotlib.pyplot as plt
 
+from brachyutils.dose.dose_utils import BrachyDose
+from brachyutils.dose.dose_comparison_utils import BrachyDoseComparison
+
 def run_multi_proc(function, input_list, max_workers=8):
     from multiprocessing import Pool
     
@@ -753,15 +756,49 @@ def get_uncertainty_in_ctv(
                 }
     all_uncertainties.to_csv(pth_out_csv, index=False)
 
+def get_dose_ratio_map():
+    dir_data = Path("/home/ubuntu/YourLocalHome/Data/MVM_p1")
+    pth_dose_tg43 = dir_data/"tg43/p1_tg43.seq.nrrd"
+    pth_dose_mc = dir_data/"fullphantom/p1_fullphantom.seq.nrrd"
+    dir_output = Path("/home/ubuntu/YourLocalHome/Data/MVM_p1/dose_comparison")
+    
+    dose_tg43 = BrachyDose(pth_dose_tg43)
+    dose_mc = BrachyDose(pth_dose_mc)
+    
+    dose_comparison = BrachyDoseComparison(
+        dose1=dose_mc,
+        dose2=dose_tg43,
+        compute_percent_difference=False,
+        compute_dose_ratios=True,
+        compute_gamma_index=False,
+    )
+    vox_centers = dose_mc.get_voxel_centers()
+    viz_index_limits = np.array([
+        [len(vox_centers[0])*1/4, len(vox_centers[0])*3/4],
+        [len(vox_centers[1])*1/4, len(vox_centers[1])*3/4],
+        [len(vox_centers[2])//2, 0]
+    ]).astype(int)
+    dose_comparison.plot_dose_ratios(
+        axis_1_coords=vox_centers[0][viz_index_limits[0][0]:viz_index_limits[0][1]],
+        axis_2_coords=vox_centers[1][viz_index_limits[1][0]:viz_index_limits[1][1]],
+        plane_coord=vox_centers[2][viz_index_limits[2][0]],
+        plane="xy",
+        plot_title=(f""),
+        pth_fig_save=Path(dir_output)/f"dose_ratio_p1.svg",
+        ratio_vmax=5.0,
+        fig_size_mm=(200, 160)
+    )
+
+
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
 
-    dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
-    dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
-    dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
-    dir_export_test = Path("temp_data/test/prostate-glen-2023")
+    # dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
+    # dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
+    # dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
+    # dir_export_test = Path("temp_data/test/prostate-glen-2023")
     dvh_metric_goals = {
         "V100%(ctv)": 95,
         "D90%(ctv)": 21,
@@ -787,10 +824,10 @@ if __name__ == "__main__":
     #     )
 
     # # run dose generation for all plans
-    run_dose_generation(
-        dir_plan_export=dir_export_tg43,
-        method="tg43"
-    )
+    # run_dose_generation(
+    #     dir_plan_export=dir_export_tg43,
+    #     method="tg43"
+    # )
     # run_dose_generation(
     #     dir_plan_export=dir_export_mc,
     #     method="mc"
@@ -855,3 +892,5 @@ if __name__ == "__main__":
     #         "p3": -1248,
     #     }
     # )
+
+    get_dose_ratio_map()
