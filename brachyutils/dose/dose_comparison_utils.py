@@ -757,7 +757,7 @@ class BrachyDoseComparison:
         # Create two subfigures: top for images, bottom for histograms
         fig_size_mm = np.array(fig_size_mm) * mm
         fig = plt.figure(figsize=fig_size_mm) # layout="compressed"
-        subfigs = fig.subfigures(1, 1, height_ratios=[1])
+        subfigs = fig.subfigures(1, 2, height_ratios=[1])
         
         fig.set_facecolor('lavender')
         fig.set_layout_engine('constrained')
@@ -769,7 +769,7 @@ class BrachyDoseComparison:
         # Bottom subfigure: two histograms (local/global difference)
         axs_hist = subfigs[1].subplots(1, 1, sharex=False, sharey=False)
 
-        c00 = axs_img[0].pcolormesh(
+        c00 = axs_img.pcolormesh(
             axis_1_coords,
             axis_2_coords,
             dose_ratio_profile,
@@ -779,47 +779,47 @@ class BrachyDoseComparison:
             rasterized=True,
             antialiased=True,
         )
-        axs_img[0].set_title("Dose Ratio", fontsize=12, pad=5)
-        axs_img[0].set_aspect("equal")
-        cbar00 = fig.colorbar(c00, ax=axs_img[0], fraction=0.046, shrink=0.9, pad=0.04, location='right')#, panchor=False)
+        axs_img.set_title("Dose Ratio", fontsize=12, pad=5)
+        axs_img.set_aspect("equal")
+        cbar00 = fig.colorbar(c00, ax=axs_img, fraction=0.046, shrink=0.9, pad=0.04, location='right')#, panchor=False)
         cbar00.ax.set_title(label="[%]", size=10)
         cbar00.mappable.set_clim(0, ratio_vmax)
         #axs_img[0].invert_yaxis()
-        axs_img[0].set_xlabel(f"{plane[0]} [mm]", fontsize=10, labelpad=2)
-        axs_img[0].set_ylabel(f"{plane[1]} [mm]", fontsize=10, labelpad=2)
+        axs_img.set_xlabel(f"{plane[0]} [mm]", fontsize=10, labelpad=2)
+        axs_img.set_ylabel(f"{plane[1]} [mm]", fontsize=10, labelpad=2)
         axis_1_extent = axis_1_coords[-1] - axis_1_coords[0]
         axis_2_extent = axis_2_coords[-1] - axis_2_coords[0]
-        axs_img[0].xaxis.set_major_locator(MultipleLocator(axis_1_extent//4))
-        axs_img[0].xaxis.set_minor_locator(AutoMinorLocator(5))
-        axs_img[0].yaxis.set_major_locator(MultipleLocator(axis_2_extent//4))
-        axs_img[0].yaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_img.xaxis.set_major_locator(MultipleLocator(axis_1_extent//4))
+        axs_img.xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_img.yaxis.set_major_locator(MultipleLocator(axis_2_extent//4))
+        axs_img.yaxis.set_minor_locator(AutoMinorLocator(5))
 
         ##############################################################
         fig.canvas.draw() #draw plots to get positions
 
         #get x positions of above plots
-        xpos_img0 = axs_img[0].get_position().bounds[0]
+        xpos_img0 = axs_img.get_position().bounds[0]
         # Align the histograms to be centered below the corresponding top images
         # Get the width of the top image axes
-        img0_width = axs_img[0].get_position().bounds[2]
+        img0_width = axs_img.get_position().bounds[2]
         # Get the width of the histogram axes
-        hist0_width = axs_hist[0].get_position().bounds[2]
+        hist0_width = axs_hist.get_position().bounds[2]
         # Calculate the new x positions so that the histograms are centered under the images
-        axs_hist[0].set_position([
+        axs_hist.set_position([
             xpos_img0 + (img0_width - hist0_width) / 2,
             0.18,
             hist0_width,
-            axs_hist[0].get_position().bounds[3]
+            axs_hist.get_position().bounds[3]
         ], which='both')
         #Now plot the local and global percent differences histograms
         dose_ratio_bin_width = 0.01
         self.local_hist, local_hist_bin_edges = np.histogram(
-            self.dose_ratio.dose_image.imageArray, bins=np.arange(-local_vmax, local_vmax, dose_ratio_bin_width)
+            self.dose_ratio.dose_image.imageArray, bins=np.arange(0, ratio_vmax, dose_ratio_bin_width)
         )
 
         self.dose_ratio_hist_bin_centers = local_hist_bin_edges[:-1] + 0.5 * dose_ratio_bin_width
 
-        axs_hist[0].bar(
+        axs_hist.bar(
             self.dose_ratio_hist_bin_centers,
             100 * self.local_hist / self.dose_ratio.dose_image.imageArray[np.logical_not(np.isnan(self.dose_ratio.dose_image.imageArray))].size,
             width=dose_ratio_bin_width,
@@ -827,13 +827,13 @@ class BrachyDoseComparison:
             alpha=0.5
         )
         #histogram tick adjustments
-        axs_hist[0].xaxis.set_major_locator(MultipleLocator(local_vmax/2))
-        axs_hist[0].xaxis.set_minor_locator(AutoMinorLocator(5))
-        axs_hist[0].yaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_hist.xaxis.set_major_locator(MultipleLocator(ratio_vmax/2))
+        axs_hist.xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_hist.yaxis.set_minor_locator(AutoMinorLocator(5))
 
-        axs_hist[0].set_box_aspect(aspect=1)
-        axs_hist[0].set_ylabel("Voxels [%]", fontsize=10)
-        axs_hist[0].set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
+        axs_hist.set_box_aspect(aspect=1)
+        axs_hist.set_ylabel("Voxels [%]", fontsize=10)
+        axs_hist.set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
 
         fig.suptitle(plot_title, fontsize=title_fontsize, fontweight="bold", y=0.98)
 
