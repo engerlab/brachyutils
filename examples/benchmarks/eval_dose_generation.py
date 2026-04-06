@@ -785,8 +785,7 @@ def get_dose_ratio_map():
         plane="xy",
         plot_title=(f""),
         pth_fig_save=Path(dir_output)/f"dose_ratio_p1.svg",
-        ratio_vmax=5.0,
-        fig_size_mm=(200, 160)
+        ratio_vmax=2.5,
     )
 
 

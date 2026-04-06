@@ -725,7 +725,7 @@ class BrachyDoseComparison:
         plot_title: str,
         ratio_vmax: float = 2.0,
         pth_fig_save: Path | str = None,
-        fig_size_mm: tuple = (90, 140),
+        fig_size_mm: tuple = (140,250),
         title_fontsize: int = 14,
         ):
 
@@ -754,19 +754,18 @@ class BrachyDoseComparison:
         
                 # we will plot a figure that is suitable as a double column figure for medical physics
         mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
-        # Create two subfigures: top for images, bottom for histograms
+        # Create two subfigures: top for image, bottom for histogram
         fig_size_mm = np.array(fig_size_mm) * mm
         fig = plt.figure(figsize=fig_size_mm) # layout="compressed"
-        subfigs = fig.subfigures(1, 2, height_ratios=[1])
-        
+        subfigs = fig.subfigures(2, 1, height_ratios=[1, 0.75])
         fig.set_facecolor('lavender')
         fig.set_layout_engine('constrained')
         fig.patch.set_linewidth(2)
         fig.patch.set_edgecolor('black')
 
-        # Top subfigure: two 2D images (local/global difference)
+        # Top subfigure: one 2D images (local/global difference)
         axs_img = subfigs[0].subplots(1, 1, sharex=False, sharey=False)
-        # Bottom subfigure: two histograms (local/global difference)
+        # Bottom subfigure: one histograms (local/global difference)
         axs_hist = subfigs[1].subplots(1, 1, sharex=False, sharey=False)
 
         c00 = axs_img.pcolormesh(
@@ -779,12 +778,12 @@ class BrachyDoseComparison:
             rasterized=True,
             antialiased=True,
         )
-        axs_img.set_title("Dose Ratio", fontsize=12, pad=5)
+        axs_img.set_title("Dose Ratio (TG43/MC)", fontsize=12, pad=5)
         axs_img.set_aspect("equal")
         cbar00 = fig.colorbar(c00, ax=axs_img, fraction=0.046, shrink=0.9, pad=0.04, location='right')#, panchor=False)
         cbar00.ax.set_title(label="[%]", size=10)
         cbar00.mappable.set_clim(0, ratio_vmax)
-        #axs_img[0].invert_yaxis()
+        # axs_img.invert_yaxis()
         axs_img.set_xlabel(f"{plane[0]} [mm]", fontsize=10, labelpad=2)
         axs_img.set_ylabel(f"{plane[1]} [mm]", fontsize=10, labelpad=2)
         axis_1_extent = axis_1_coords[-1] - axis_1_coords[0]
@@ -797,20 +796,32 @@ class BrachyDoseComparison:
         ##############################################################
         fig.canvas.draw() #draw plots to get positions
 
-        #get x positions of above plots
-        xpos_img0 = axs_img.get_position().bounds[0]
-        # Align the histograms to be centered below the corresponding top images
-        # Get the width of the top image axes
-        img0_width = axs_img.get_position().bounds[2]
-        # Get the width of the histogram axes
-        hist0_width = axs_hist.get_position().bounds[2]
-        # Calculate the new x positions so that the histograms are centered under the images
-        axs_hist.set_position([
-            xpos_img0 + (img0_width - hist0_width) / 2,
-            0.18,
-            hist0_width,
-            axs_hist.get_position().bounds[3]
-        ], which='both')
+        # Use the image axes as the reference and place the histogram directly below it
+        img_box = axs_img.get_position()
+        hist_box = axs_hist.get_position()
+
+        img_left   = img_box.x0
+        img_bottom = img_box.y0
+        img_width  = img_box.width
+        img_height = img_box.height
+
+        hist_width  = hist_box.width
+        hist_height = hist_box.height
+
+        # center histogram under the image and stack vertically
+        gap = 0.03  # figure-relative vertical gap
+        new_hist_left = img_left + 0.5 * (img_width - hist_width)
+        new_hist_bottom = 0.18# img_bottom - gap - hist_height
+
+        axs_hist.set_position(
+            [
+                new_hist_left,
+                new_hist_bottom,
+                hist_width,
+                hist_height
+            ],
+            which='both')   
+
         #Now plot the local and global percent differences histograms
         dose_ratio_bin_width = 0.01
         self.local_hist, local_hist_bin_edges = np.histogram(
@@ -833,7 +844,8 @@ class BrachyDoseComparison:
 
         axs_hist.set_box_aspect(aspect=1)
         axs_hist.set_ylabel("Voxels [%]", fontsize=10)
-        axs_hist.set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
+        axs_hist.set_xlabel(fr"[%]", fontsize=10)
+        axs_hist.set_xlabel(fr"Dose Ratio (TG43/MC) [%]", fontsize=10)
 
         fig.suptitle(plot_title, fontsize=title_fontsize, fontweight="bold", y=0.98)
 
