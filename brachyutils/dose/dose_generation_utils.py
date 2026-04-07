@@ -204,7 +204,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
 
     def run_dose_generation(
         self,
-        plan: BrachyPlan = None,
+        plan: BrachyPlan,
         generate_dose_rate_maps: bool = False,
         export_config_brachyplan: ExportConfig_BrachyPlan | bool | dict = None,
         ) -> BrachyPlan:
@@ -241,15 +241,19 @@ class RapidBrachyTG43(BrachyDoseGenerator):
             pth_plan=export_config_brachyplan.export_config_planfile.pth_combined,
             output_dose_per_dwell= "dose_rate" if generate_dose_rate_maps else False,
         )
+
+        pth_combined_dose = export_config_brachyplan.export_config_macfile.pth_combined.with_suffix(".seq.nrrd")
+
         # load the generated dose maps and update the plan
         if generate_dose_rate_maps:
             plan.catheter_table.load_dose_rates(
                 dir_dose_rate=self.dir_plan_export,
             )
         else:
-            plan.catheter_table.set_combined_dose(BrachyDose(
-                export_config_brachyplan.export_config_macfile.pth_combined.with_suffix(".seq.nrrd")
-                ))
+            # Export the combined dose file, overwriting the tg43 automatically generated file 
+            combined_dose = BrachyDose(pth_combined_dose)
+            combined_dose.write_to_nrrd(pth_combined_dose)
+            plan.catheter_table.set_combined_dose(combined_dose)
         return plan
 
 class RapidBrachyMC(BrachyDoseGenerator):

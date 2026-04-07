@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Union, Literal
 import pydicom
 from collections import defaultdict
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, Field
 class BrachySource(BaseModel):
     r"""
     ### Purpose:
@@ -29,31 +29,35 @@ class BrachySource(BaseModel):
     mass_number: int = 192
     atomic_number: int = 77
     air_kerma_per_history: float = 1.149000e-11
-    reference_air_kerma_rate: float = None  # 4.278729e04,
+    reference_air_kerma_rate: float = 4.278729e04,
     activity: float = None
     # source_dict: Union[dict, Path, str] = None
 
-    def __init__(self, pth_source:Path|str=None, **data):
-        r"""
-        ### Purpose:
-        - Initialize the BrachySource object.
-        - If pth_source is provided, it will be processed to extract the source information.
-        """
-        if pth_source is not None:
-            pth_source = Path(pth_source)
-            if not pth_source.exists():
-                raise ValueError(f"Path {self.source_dict} does not exist.")
-            if pth_source.suffix == ".json":
-                with open(self.source_dict, "r") as f:
-                    data = json.load(f)
-            elif pth_source.suffix == ".dcm":
-                data = self.load_from_dicom(pth_dicom=pth_source)
-            else:
-                raise ValueError(
-                    f"File {self.source_dict} is not a json nor a dicom file."
-                )
+# Exclude ensures this field doesn't show up when you export the model to a dict/json
+    pth_source: Path | str | None = Field(default=None, exclude=True)
 
-        super().__init__(**data)
+    @model_validator(mode="after")
+    def load_data_from_file(self) -> "BrachySource":
+        if self.pth_source is not None:
+            pth = Path(self.pth_source)
+            
+            if not pth.exists():
+                raise ValueError(f"Path {pth} does not exist.")
+            
+            if pth.suffix == ".json":
+                with open(pth, "r") as f:
+                    data = json.load(f)
+            elif pth.suffix == ".dcm":
+                data = self.load_from_dicom(pth_dicom=pth)
+            else:
+                raise ValueError(f"File {pth} is not a json nor a dicom file.")
+            
+            # Dynamically update the instance attributes
+            for key, value in data.items():
+                if hasattr(self, key):
+                    setattr(self, key, value)
+                    
+        return self
 
     def to_dict(self):
         r"""
@@ -185,33 +189,40 @@ class BrachySimulation(BaseModel):
     pth_body_stl: str = None
     body_material: str = "Water"
 
-    def __init__(self, pth_simulation_setup: str | Path = None, **data):
-        r"""
-        ### Purpose:
-        - Initialize the BrachySimulation object.
-        - If pth_simulation_setup is provided, it will be processed to extract the simulation information.
-        """
-        if pth_simulation_setup is not None:
-            pth_simulation_setup = Path(pth_simulation_setup)
-            if not pth_simulation_setup.exists():
-                raise ValueError(f"Path {pth_simulation_setup} does not exist.")
-            if pth_simulation_setup.suffix == ".json":
-                with open(pth_simulation_setup, "r") as f:
-                    data = json.load(f)
-            else:
-                raise ValueError(
-                    f"File {pth_simulation_setup} is not a json file."
-                )
-        super().__init__(**data)
+    # Exclude from dumps, default to None
+    pth_simulation_setup: Path | str | None = Field(default=None, exclude=True)
 
+    @model_validator(mode="after")
+    def process_setup_and_source(self) -> "BrachySimulation":
+        # 1. Load data from JSON if the path is provided
+        if self.pth_simulation_setup is not None:
+            pth = Path(self.pth_simulation_setup)
+            if not pth.exists():
+                raise ValueError(f"Path {pth} does not exist.")
+            
+            if pth.suffix == ".json":
+                with open(pth, "r") as f:
+                    data = json.load(f)
+                
+                # Dynamically set attributes from the JSON
+                for key, value in data.items():
+                    if hasattr(self, key):
+                        setattr(self, key, value)
+            else:
+                raise ValueError(f"File {pth} is not a json file.")
+
+        # 2. Coerce brachy_source into a BrachySource object
         if isinstance(self.brachy_source, (Path, str)):
+            # Uses the pth_source field from our refactored BrachySource class
             self.brachy_source = BrachySource(pth_source=self.brachy_source)
         elif isinstance(self.brachy_source, dict):
             self.brachy_source = BrachySource(**self.brachy_source)
         elif not isinstance(self.brachy_source, BrachySource):
             raise ValueError(
-                f"brachy_source should be either a dictionary, a path to a json file, or a BrachySource object. Got {self.brachy_source}"
+                f"brachy_source should be a dictionary, a path, or a BrachySource object. Got {type(self.brachy_source)}"
             )
+
+        return self
 
     def to_string(self):
         r"""
