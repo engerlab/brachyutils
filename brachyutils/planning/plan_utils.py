@@ -27,6 +27,8 @@ from brachyutils.planning.simulation_utils import BrachySimulation
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from pydantic import BaseModel, ConfigDict, Field, model_validator, computed_field
 
+pth_brachyutils = Path(__file__).parent.parent.parent.resolve()
+
 class ExportConfig_PlanFile(BaseModel):
     """
     Configuration for exporting .plan files from the plan.
@@ -85,7 +87,7 @@ class ExportConfig_Egsphant(BaseModel):
         ".seq.nrrd", 
         description="Allowed file extensions for Egsphant files.")
     material_dict: dict | Path = Field(
-        Path("admin/constants/structure_materials_prostate.json"),
+        Path(pth_brachyutils/"admin/constants/structure_materials_prostate.json"),
         description="Dictionary of material names and their properties.")
     assign_material_from_ct: bool = Field(False, description="Whether to assign materials from CT data or based on contours.")
     crop_by_contour: str | List[str] = Field(None, description="Name of the contour to crop by. \
