@@ -887,6 +887,8 @@ Please provide either the structure_set or the path of the structure file."
         from opentps.core.processing.segmentation.segmentation3D import getBoxAroundROI
         if isinstance(contour_name, str):
             contour_name = [contour_name]
+        if isinstance(marginInMM, float):
+            marginInMM = [marginInMM, marginInMM, marginInMM]
         mask_dict = self.get_structure_mask(
             contour_name,
             mask_type=ROIMask,
@@ -1012,7 +1014,7 @@ Please provide either the structure_set or the path of the structure file."
                 self.structure_set.removeContour(old_structure)
                 structure_color = old_structure.color
 
-            print(f"setting structure {structure_name}, which is a {type(mask_dict[structure_name])} type")
+            #print(f"setting structure {structure_name}, which is a {type(mask_dict[structure_name])} type")
             if mask_dict.get(structure_name) is None:
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
