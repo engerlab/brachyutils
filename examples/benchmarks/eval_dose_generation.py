@@ -757,11 +757,14 @@ def get_uncertainty_in_ctv(
     all_uncertainties.to_csv(pth_out_csv, index=False)
 
 def get_dose_ratio_map():
-    dir_data = Path("/home/ubuntu/YourLocalHome/Data/MVM_p1")
-    pth_dose_tg43 = dir_data/"tg43/p1_tg43.seq.nrrd"
-    pth_dose_mc = dir_data/"fullphantom/p1_fullphantom.seq.nrrd"
-    dir_output = Path("/home/ubuntu/YourLocalHome/Data/MVM_p1/dose_comparison")
-    
+    # dir_data = Path("/home/ubuntu/YourLocalHome/Data/MVM_p1")
+    # pth_dose_tg43 = dir_data/"tg43/p1_tg43.seq.nrrd"
+    # pth_dose_mc = dir_data/"fullphantom/p1_fullphantom.seq.nrrd"
+    # dir_output = Path("/home/ubuntu/YourLocalHome/Data/MVM_p1/dose_comparison")
+    pth_dose_tg43 = Path("temp_data/tg43/prostate-glen-2023/p1/combined.seq.nrrd")
+    pth_dose_mc = Path("temp_data/mc/prostate-glen-2023/p1/combined.seq.nrrd")
+    dir_output = Path("temp_data/tg43/prostate-glen-2023/p1")
+
     dose_tg43 = BrachyDose(pth_dose_tg43)
     dose_mc = BrachyDose(pth_dose_mc)
     
@@ -783,9 +786,10 @@ def get_dose_ratio_map():
         axis_2_coords=vox_centers[1][viz_index_limits[1][0]:viz_index_limits[1][1]],
         plane_coord=vox_centers[2][viz_index_limits[2][0]],
         plane="xy",
-        plot_title=(f""),
+        plot_title=(f"MC vs TG43 Dose Ratio Map for Plan p1"),
         pth_fig_save=Path(dir_output)/f"dose_ratio_p1.svg",
-        ratio_vmax=2.5,
+        ratio_vmax=2.0,
+        title_fontsize=17,
     )
 
 

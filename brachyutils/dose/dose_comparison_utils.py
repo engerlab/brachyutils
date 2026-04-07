@@ -725,8 +725,9 @@ class BrachyDoseComparison:
         plot_title: str,
         ratio_vmax: float = 2.0,
         pth_fig_save: Path | str = None,
-        fig_size_mm: tuple = (140,250),
+        fig_size_mm: tuple = (160,260),
         title_fontsize: int = 14,
+        text_size: int = 14,
         ):
 
         """
@@ -757,7 +758,7 @@ class BrachyDoseComparison:
         # Create two subfigures: top for image, bottom for histogram
         fig_size_mm = np.array(fig_size_mm) * mm
         fig = plt.figure(figsize=fig_size_mm) # layout="compressed"
-        subfigs = fig.subfigures(2, 1, height_ratios=[1, 0.75])
+        subfigs = fig.subfigures(2, 1, height_ratios=[1, 0.65])
         fig.set_facecolor('lavender')
         fig.set_layout_engine('constrained')
         fig.patch.set_linewidth(2)
@@ -778,14 +779,14 @@ class BrachyDoseComparison:
             rasterized=True,
             antialiased=True,
         )
-        axs_img.set_title("Dose Ratio (TG43/MC)", fontsize=12, pad=5)
+        axs_img.set_title("Dose Ratio (TG43/MC)", fontsize=text_size, pad=5)
         axs_img.set_aspect("equal")
         cbar00 = fig.colorbar(c00, ax=axs_img, fraction=0.046, shrink=0.9, pad=0.04, location='right')#, panchor=False)
         cbar00.ax.set_title(label="[%]", size=10)
         cbar00.mappable.set_clim(0, ratio_vmax)
         # axs_img.invert_yaxis()
-        axs_img.set_xlabel(f"{plane[0]} [mm]", fontsize=10, labelpad=2)
-        axs_img.set_ylabel(f"{plane[1]} [mm]", fontsize=10, labelpad=2)
+        axs_img.set_xlabel(f"{plane[0]} [mm]", fontsize=text_size, labelpad=2)
+        axs_img.set_ylabel(f"{plane[1]} [mm]", fontsize=text_size, labelpad=2)
         axis_1_extent = axis_1_coords[-1] - axis_1_coords[0]
         axis_2_extent = axis_2_coords[-1] - axis_2_coords[0]
         axs_img.xaxis.set_major_locator(MultipleLocator(axis_1_extent//4))
@@ -843,9 +844,9 @@ class BrachyDoseComparison:
         axs_hist.yaxis.set_minor_locator(AutoMinorLocator(5))
 
         axs_hist.set_box_aspect(aspect=1)
-        axs_hist.set_ylabel("Voxels [%]", fontsize=10)
-        axs_hist.set_xlabel(fr"[%]", fontsize=10)
-        axs_hist.set_xlabel(fr"Dose Ratio (TG43/MC) [%]", fontsize=10)
+        axs_hist.set_ylabel("Voxels [%]", fontsize=text_size)
+        axs_hist.set_xlabel(fr"[%]", fontsize=text_size)
+        axs_hist.set_xlabel(fr"Dose Ratio (TG43/MC) [%]", fontsize=text_size)
 
         fig.suptitle(plot_title, fontsize=title_fontsize, fontweight="bold", y=0.98)
 
