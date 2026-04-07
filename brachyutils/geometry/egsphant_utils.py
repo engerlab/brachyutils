@@ -282,9 +282,7 @@ class BrachyEgsphant:
             self.unit_length = "mm"
             # Extract material density from the density matrix and update the material dictionary
             for material in self.material_dict:
-                encoding_int = BrachyEgsphant._materials_encoding_array.index(
-                    self.material_dict[material]["encoding"]
-                )
+                encoding_int = get_material_value(self.material_dict[material]["encoding"])
                 density = np.unique(
                     self.density_image.imageArray[
                         self.material_image.imageArray == encoding_int-1
@@ -585,20 +583,12 @@ class BrachyEgsphant:
         header["encoding"] = "gzip"
         header["space origin"] = self.density_image.origin.tolist()
         header["spacing"] = [np.nan] + self.density_image.spacing.tolist()
-        
-        # each voxel in the material matrix is encoded with a single character
-            # from this array that represents a unique material recognized by RapidBrachyMC.
-        #have to redefine here since nrrd egsphants start at 0
-        BrachyEgsphant._materials_encoding_array = [str(i) for i in range(0, 10)] + [
-            chr(i) for i in range(ord("A"), ord("Z") + 1) ] + [
-            chr(i) for i in range(ord("a"), ord("z") + 1) ]
 
         header = header | {
             "material_dict": {
             material: {
-                "encoding": BrachyEgsphant._materials_encoding_array.index(
-                    str(self.material_dict[material].get("encoding"))
-                ),
+                "encoding": get_material_value(
+                    str(self.material_dict[material].get("encoding"))),
                 "density": float(self.material_dict.get(material).get("density")),
                 "HU_limit": (
                 float(self.material_dict.get(material).get("HU_limit"))
@@ -893,9 +883,8 @@ class BrachyEgsphant:
         self.material_dict = new_material_dict
         # get the phantom ct image, as well as background encoding and density
         phantom_ct_image = phantom_obj.get_image_array()
-        background_encoding = BrachyEgsphant._materials_encoding_array.index(
-            self.material_dict.get(background_material).get("encoding")
-        ) # XXX should it go from 0 or 1. in text files, it's 1.
+        background_encoding = get_material_value(
+            query=self.material_dict.get(background_material).get("encoding"))
         background_density = self.material_dict.get(background_material).get("density")
         # prepare matricies to hold material and density images. initialize them with background values
         material_matrix = (
@@ -949,9 +938,7 @@ class BrachyEgsphant:
                     )
                 material_matrix = np.where(
                     roi_mask,
-                    BrachyEgsphant._materials_encoding_array.index(
-                        self.material_dict.get(material).get("encoding")
-                    ),
+                    get_material_value(query=self.material_dict.get(material).get("encoding")),
                     material_matrix,
                 )
                 low_HU_threshold = self.material_dict.get(material).get("HU_limit")
@@ -960,9 +947,9 @@ class BrachyEgsphant:
             last_mat = list(self.material_dict.keys())[-1]
             low_HU_threshold = self.material_dict.get(last_mat).get("HU_limit")
             roi_mask = phantom_ct_image > low_HU_threshold
-            material_matrix[roi_mask] = BrachyEgsphant._materials_encoding_array.index(
-                    self.material_dict.get(last_mat).get("encoding")
-                )
+            material_matrix[roi_mask] = get_material_value(
+                query=self.material_dict.get(last_mat).get("encoding")
+            )
             density_matrix[roi_mask] = self.material_dict.get(last_mat).get("density")
 
         else:
@@ -1026,9 +1013,7 @@ class BrachyEgsphant:
                             )
                         material_matrix = np.where(
                             roi_mask,
-                            BrachyEgsphant._materials_encoding_array.index(
-                                self.material_dict.get(material).get("encoding")
-                            ),
+                            get_material_value(query=self.material_dict.get(material).get("encoding")),
                             material_matrix,
                         )
 
@@ -1116,20 +1101,43 @@ def _convert_material_matrix_to(
         int_array = np.zeros_like(flattened_array, dtype=int)
 
         for i, string in enumerate(flattened_array):
-            int_array[i] = BrachyEgsphant._materials_encoding_array.index(string)
-
+            int_array[i] = get_material_value(query=string)
         return int_array.reshape(material_matrix.shape)
 
     elif dtype is str:
         str_array = np.zeros_like(flattened_array, dtype=str)
         for i, integer_str in enumerate(flattened_array):
             integer = int(integer_str)
-            str_array[i] = BrachyEgsphant._materials_encoding_array[integer]
+            str_array[i] = get_material_value(query=integer)
 
         return str_array.reshape(material_matrix.shape)
     else:
         raise Exception("dtype is not recognized")
 
+def get_material_value(
+    query: str | int,    
+    material_encoding_array: List[str]=BrachyEgsphant._materials_encoding_array,
+):
+    r"""
+    ### Purpose:
+    - to get the appropriate material value from the material encoding array based on the query,
+    which can be either a string or an integer.
+    If the query is a string, the value will be index of that string + 1 in the material encoding array.
+    If the query is an integer, the value will be the string at index of that integer - 1 in the material encoding array.
+    ### Inputs:
+    - query: str or int, the query to get the material value. If the query is a string,
+    it should be one of the strings in the material encoding array. If the query is an integer,
+    it should be between 1 and the length of the material encoding array.
+    - material_encoding_array: List[str], the list of strings that will be used to encode the string
+    enteries. The default value is BrachyEgsphant._materials_encoding_array, which is a list
+    of strings that will be used to encode the string enteries in the material matrix.
+    """
+    if isinstance(query, str):
+        return material_encoding_array.index(query)+1
+    elif isinstance(query, int):
+        return material_encoding_array.get(query-1, None)
+    else:
+        raise Exception("query should be either a string or an integer")
 
 def _to_single_string(
     matrix: np.ndarray,

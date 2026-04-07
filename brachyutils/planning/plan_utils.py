@@ -1056,7 +1056,7 @@ class BrachyPlan:
         dir_export.mkdir(parents=True, exist_ok=True)
 
         if content_to_export.export_config_dose:
-            self.export_dose(content_to_export.export_config_dose)
+            self.catheter_table.export_dose(content_to_export.export_config_dose)
 
         if content_to_export.export_config_cathetertable:
             self.export_catheter_table(

@@ -2,14 +2,9 @@
 
 ![BrachyUtils](admin/icon-library/logos/Brachyutils-logo-2.svg)
 
-BrachyUtils is developed to be a scripting treatment planning system for brachytherapy. The current state mostly focuses on high dose rate (HDR) brachytherapy. The main modules and submodules are described below:
+BrachyUtils is developed to be a scripting treatment planning system for brachytherapy. The current state mostly focuses on high dose rate (HDR) brachytherapy. For full documentation, take a look at our [docs webpage](https://engerlab.github.io/brachyutils/brachyutils.html). If you are a developer, please take a look at the bottom of this page.
 
-1. `geometry`
-   1. `phantom_utils`: Handles geometry definition (Patient, segmentations or measurement setup). IO for DICOM, NRRD, and Nifti. The main class here is `BrachyPhantom`.
-   2. `egsphant_utils`: Handles manipulation of the data in the EGSPhant format from the EGSnrc. This class can create a `BrachyEgsphant` from `BrachyPhantom` or load it from `.egsphant` or `.seq.nrrd` files.
-   3. `catheter_utils`: Implements the `CatheterTable`
-
-  implements Brachytherapy dose, egsphant dicom and film dosimetry functionalities. It also interfaces with various RapidBrachy projects. If you are a developer, please take a look at the bottom of this page.
+## Installation
 
 Start by clonning this repository to `YourDesiredLocation`:
 
@@ -17,15 +12,13 @@ Start by clonning this repository to `YourDesiredLocation`:
 git clone https://github.com/engerlab/brachyutils.git
 ```
 
-## Using Docker Image
+### Using Docker Image
 
-The docker image can be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/Elfn1nAw30xNqRhQ6xmA1cwBvxbYVmstWFjqSlJ4dptytg?e=ROqLfn).
+The docker image for brachyutils can be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/IgBX59ZwMN9MTakYUOsZgNXMAb8W2FZrLVhY6kpSeHabcrY?e=XFPqqh). In addition, docker images for plastimatch and simple-elastix are provided in the same folder. If you'd like to have access to RapidBrachyMC or RapidBrachyTG43, please let us know and we will provide access to a seperate folder.
 
 Once the image is downloaded, you can unzip it using `zstd` and load it to docker.
 
 ```bash
-# to unzip using zstd
-tar -I zstd -xvf brachyutils.tar.zst
 # to load the image to docker
 docker load -i brachyutils.tar
 ```
@@ -44,31 +37,11 @@ We recommend attaching using the [Dev Containers](https://marketplace.visualstud
 5. To debug packages using cv2 in vscode, you may need: `export QT_QPA_PLATFORM=offscreen`
 6. Happy coding/debugging
 
+### Using Apptainer Image
 
-## Using Apptainer Image
+It is possible to create an Apptainer image (.sif file) from the docker image and run it. However, we recommend using the regular virtual enviorment or the docker images.
 
-To free the users from the hassle of installing brachutils and all its requirements, we have created an Apptainer image and a Docker image that could be downloaded from the [OneDrive Folder](https://mcgill-my.sharepoint.com/:f:/g/personal/shirin_abbasinejadenger_mcgill_ca/Elfn1nAw30xNqRhQ6xmA1cwBvxbYVmstWFjqSlJ4dptytg?e=ROqLfn).
-
-It is recommended to use the singularity image (`brachyutils_opentps.sif`) on Compute Canada or in general on systems where `Sudo` access is **not possible** or Docker is not available. You can bind the folder where your data is located as well.
-
-```bash
-# on compute Canada only{
-module load StdEnv/2023
-module load apptainer
-# }
-apptainer run --containall --bind <YourDesiredLocation>/brachyutils:/root/brachyutils --bind <YourDataLocation>:/root/YourLocalHome brachyutils_opentps.sif
-# Once apptainer is running interactively
-cd /root
-source .bashrc
-```
-
-The virtual enviornment called `env_brachyutils` should be activated automatically. You can make changes to the brachyutils source code by editing source files in `/root/brachyutils`. Your data can be found at `/root/YourLocalHome`.
-
-**VS Code Support**: Using vscode, you can directly code and debug inside a docker container. Simply install the extension [Dev Containers](https://code.visualstudio.com/docs/devcontainers/create-dev-container). While the docker container is running, open VS Code, press `F1`, type `Dev Containers: Attach to running container`. Then select the container running brachyutils. 
-
-## Installation
-
-### Create a Python virtual environment
+### Using Python virtual environment (No Container)
 
 We currently use python 3.13. To install it, take a look at 
 `./docker_src/repositories/install_python.sh`.
@@ -89,7 +62,7 @@ conda create -n ENV_BU python=3.13
 conda activate ENV_BU
 ```
 
-### Install BrachyUtils
+#### Install BrachyUtils
 
 To get the package run:
 
@@ -102,11 +75,17 @@ apt install -y build-essential zlib1g zlib1g-dev libncurses5-dev \
 
 git clone https://github.com/engerlab/brachyutils.git
 cd brachyutils
-python3.13 -m pip install -e .
-python3.13 -m amplpy.modules install highs gurobi xpress cplex scip gcg
+# For the basic functinality
+python3.13 -m pip install -e .[]
+# For registration
+python3.13 -m pip install -e .[reg]
+# for treatment planning
+python3.13 -m pip install -e .[plan]
+# for the complete functionality
+python3.13 -m pip install -e .[full]
 ```
 
-### Install Optimization Solvers
+#### Install Optimization Solvers
 
 Solvers are currently used to run dwell time optimization. We recommend using the Gurobi solver, which requires an academic license. Another platform that one can use is AMPL, which gives you access to many solvers out there. AMPL provide a community license, but the good solvers would only be available with an academic Email.
 
@@ -141,12 +120,6 @@ python
 Click here to see a list of [AMPL solver](https://dev.ampl.com/solvers/index.html).
 In my experience, Gurobi, XPRESS, and CPLEX are the only ones that work. Unfortunately, they all require and academic/industrial license.
 
-### Optional
-
-`python3 -m pip install --upgrade pip`
-
-Install SimpleITK independently by running `python3 -m pip install SimpleITK`. If you run into the error saying `skbuild` is [missing](https://bugs.python.org/issue30573), run `python3 -m pip install cmake`, then try installing SimpleITK again.
-
 ## brachyutils commands
 
 brachyutils comes with a linux command line interface. To learn about the commands that are available run `brachyutils --help` on the command line.
@@ -155,34 +128,60 @@ At the moment, the outputs looks like the following:
 
 ```bash
 $ brachyutils --help
-Usage: brachyutils [OPTIONS] COMMAND [ARGS]...
-
-Options:
-  --install-completion [bash|zsh|fish|powershell|pwsh]
-                                  Install completion for the specified
-                                  shell.
-  --show-completion [bash|zsh|fish|powershell|pwsh]
-                                  Show completion for the specified
-                                  shell, to copy it or customize the
-                                  installation.
-  --help                          Show this message and exit.
-
-Commands:
-  convert-dose-many-files         Will convert all files...
-  crop-dose-by-bodycontour-many-files
-                                  Purpose: to crop all the...
-  crop-dose-by-ratio-many-files   Purpose: Will crop all...
-  crop-egsphant-by-bodycontour-many-patients
-                                  Purpose: to crop the...
-  get-bodycontourrange-from-dicom-many-patients
-                                  Purpose: to exract body...
-  get-uncertainty-one-patient     Purpose: Will calculate...
-  multiply-dose-by-constant-many-files
-                                  Purpose: Will scale all...
-  padd-dose-many-files            Purpose: Will padd all...
+ Usage: brachyutils [OPTIONS] COMMAND [ARGS]...                                                                                         
+                                                                                                                                        
+╭─Options──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --install-completion          Install completion for the current shell.                                                              │
+│ --show-completion             Show completion for the current shell, to copy it or customize the installation.                       │
+│ --help                        Show this message and exit.                                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─Commands──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ convert-dose                                  Convert dose files to specified output format                                          │
+│ convert-phantom                               Convert phantom (image and segmentation) files to specified output format              │
+│ convert-egsphant                              Convert egsphant files to specified output format                                      │
+│ crop-egsphant-by-body-contour-many-patients   Purpose: to crop the egsphant file of all patients in a directory.                     │
+│ crop-dose-by-ratio-many-files                 Purpose: Will crop all files in the "input_dir" of type "type_in" and write the        │
+│                                               cropped dose to file with "type_out"                                                   │
+│ get-uncertainty-one-patient                   Purpose: Will calculate the uncertainty of all structures for all patients in a        │
+│                                               directory                                                                              │
+│ combined-dose-per-patient                     Purpose: Will combined multiple dose files for a single patient                        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
+For additional help with each command, run the command name with --help. For example `brachyutils convert-dose --help`
+
 ## Developer Guide
+
+### Documentation is Essential
+
+The documentation for this package is accessible on our [docs webpage](https://engerlab.github.io/brachyutils/brachyutils.html). Please update the documentation for each function or class whenever you notice changes. We use the following documetation format for the functions and classes:
+
+docs for functions:
+```markdown
+r"""
+### Purpose:
+- the purpose of the function.
+### Inputs:
+- ArgumentName: Type := Description of argument 1.
+### Output:
+- VariableReturned: Type := Description of the returned variable.
+- None:= If this is a void function, then just tell us what changes this function makes.
+"""
+```
+
+docs for classes:
+```markdown
+r"""
+### Purpose:
+- the purpose of the class.
+### Attributes:
+- PublicAttribute1: Type := Description of this object attribtue
+### Functions:
+- PublicFunctionName1: Return Type := Descrption of this function
+"""
+```
+
+To generate documetation, go to the directory where this repository is cloned and run `pdoc brachyutils -o /docs`. Then, push the repo to the github. The page should be automatically updated.   
 
 Please follow the steps when developing Brachy Utils.
 
@@ -196,8 +195,7 @@ Please follow the steps when developing Brachy Utils.
 8. Request to merge with the source branch
 
 ### Making new a Docker Image
-
-BrachyUtils has two main requirements, [OpenTPS-brachyutils](https://github.com/engerlab/OpenTPS-brachyutils.git), and [AI_Assisted_Brachytherapy](https://github.com/engerlab/AI_Assisted_Brachytherapy.git). You may make changes to these requirements and would like to update the docker image that runs brachyutils. In that case, you can make a new image following either of the process below:
+In case you'd like to extend brachyutils with new functionality and using new libraries, you may make changes to `pyprojct.toml` requirements and update the docker image that runs brachyutils. You can make a new image following either of the process below:
 
 ### Using Dockerfile
 
