@@ -725,7 +725,7 @@ class BrachyDoseComparison:
         plot_title: str,
         ratio_vmax: float = 2.0,
         pth_fig_save: Path | str = None,
-        fig_size_mm: tuple = (160,260),
+        fig_size_mm: tuple = (160,280),
         title_fontsize: int = 14,
         text_size: int = 14,
         ):
@@ -758,7 +758,7 @@ class BrachyDoseComparison:
         # Create two subfigures: top for image, bottom for histogram
         fig_size_mm = np.array(fig_size_mm) * mm
         fig = plt.figure(figsize=fig_size_mm) # layout="compressed"
-        subfigs = fig.subfigures(2, 1, height_ratios=[1, 0.65])
+        subfigs = fig.subfigures(2, 1, height_ratios=[1, 0.75])
         fig.set_facecolor('lavender')
         fig.set_layout_engine('constrained')
         fig.patch.set_linewidth(2)
@@ -812,7 +812,7 @@ class BrachyDoseComparison:
         # center histogram under the image and stack vertically
         gap = 0.03  # figure-relative vertical gap
         new_hist_left = img_left + 0.5 * (img_width - hist_width)
-        new_hist_bottom = 0.18# img_bottom - gap - hist_height
+        new_hist_bottom = 0.18 - gap# img_bottom - gap - hist_height
 
         axs_hist.set_position(
             [
