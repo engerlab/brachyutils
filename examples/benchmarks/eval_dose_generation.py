@@ -1,3 +1,5 @@
+from collections import defaultdict
+import json
 from typing import Dict, Union, Literal
 from pathlib import Path
 from tqdm import tqdm
@@ -792,6 +794,64 @@ def get_dose_ratio_map():
         title_fontsize=17,
     )
 
+def compare_dvh_oncentra_vs_brachyutils_breast():
+    # this path has the dvh metrics from oncentra as well as other mesh to 
+    # mask converters.
+    pth_data = Path("/home/ubuntu/YourLocalHome/Data/dose-check-oncentra/45474/test_contours")
+    pth_dvh_1mm = pth_data / "dvh_comparison_isotropic_1mm_roiMasks_used_Oncentra.json"
+    pth_dvh_ct_resolution = pth_data / "dvh_comparison_nativeRes_roiMasks_used_nearestNeighbour_contour_resampling.json"
+
+    structured_json_keys = {
+        "metric_types": ["percentage_metrics", "volumes_cm3"],
+        "packages": ["opentps", "dicomrttool", "dcmrtstruct2nii", "OncentraBrachy"],
+        "structures": ["Heart", "Lungs", "PTV", "Skin", "CTV", "Chestwall", "Body"],
+        "dvh_metrics": [
+            "D2cc(Heart)", "D1cc(Heart)", "D0.1cc(Heart)",
+            "V100%(PTV)", "V150%(PTV)", "V200%(PTV)",
+            "D2cc(Skin)", "D1cc(Skin)", "D0.1cc(Skin)",
+            "D90%(CTV)", "D2cc(Chestwall)", "D1cc(Chestwall)",
+            "D0.1cc(Chestwall)", "D2cc(Lungs)", "D1cc(Lungs)",
+            "D0.1cc(Lungs)"]
+    }
+
+    data_pth_dict = {
+        "1 x 1 x 1": pth_dvh_1mm,
+        "0.7 x 0.7 x 3.0": pth_dvh_ct_resolution
+    }
+
+    all_data = defaultdict(dict)
+    for spacing, pth in data_pth_dict.items():
+        with open(pth, "r") as f:
+            data = json.load(f)
+        all_data[spacing] = data
+
+    # extract the oncentra values for dvh metrics and the volumes
+    oncentra_data = defaultdict(dict)
+    oncentra_data["percentage_metrics"] = all_data["1 x 1 x 1"]["percentage_metrics"]["OncentraBrachy"]
+    oncentra_data["volumes_cm3"] = all_data["1 x 1 x 1"]["volumes_cm3"]["OncentraBrachy"]
+    dvh_diff_df = pd.DataFrame(columns=[
+        "package", "metric", "structure", "spacing", "difference"
+    ])
+    spacing = "1 x 1 x 1"
+    for package in structured_json_keys["packages"]:
+        if package == "OncentraBrachy":
+            continue
+        for dvh_metric in oncentra_data["percentage_metrics"]:
+            structure = dvh_metric.split("(")[-1].split(")")[0]
+            metric = dvh_metric.split("(")[0]
+            dvh_diff = {
+                "package": package,
+                "metric": metric,
+                "structure": structure,
+                "spacing": spacing,
+                "difference": round(
+                    all_data[spacing]["percentage_metrics"][package][dvh_metric]
+                    - oncentra_data["percentage_metrics"][dvh_metric], 2),
+            }
+            dvh_diff_df.loc[len(dvh_diff_df)] = dvh_diff
+
+    volume_df = defaultdict(dict)
+    
 
 if __name__ == "__main__":
     # test_export()
@@ -896,4 +956,5 @@ if __name__ == "__main__":
     #     }
     # )
 
-    get_dose_ratio_map()
+    # get_dose_ratio_map()
+    compare_dvh_oncentra_vs_brachyutils_breast()
