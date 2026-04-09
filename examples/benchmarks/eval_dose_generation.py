@@ -915,7 +915,7 @@ def plot_comparison_with_oncentra(
     )
     ax.set_ylabel(fr"$\Delta({metric.split('(')[0].replace("%", "\%")})$ [{unit}]")
     ax.set_xlabel("Package")
-    ax.tick_params(axis='x', rotation=45)
+    ax.tick_params(axis='x', rotation=0)
     ax.set_title(f"Difference in {metric}")
     ax.grid(True, axis='y', linestyle='--', alpha=0.7)  # Horizontal lines only
     if pth_fig_save is not None:
