@@ -794,12 +794,12 @@ def get_dose_ratio_map():
         title_fontsize=17,
     )
 
-def compare_dvh_oncentra_vs_brachyutils_breast():
+def compare_oncentra_vs_brachyutils_breast():
     # this path has the dvh metrics from oncentra as well as other mesh to 
     # mask converters.
-    pth_data = Path("/home/ubuntu/YourLocalHome/Data/dose-check-oncentra/45474/test_contours")
+    pth_data = Path("temp_data/compare-oncentra-breast")
     pth_dvh_1mm = pth_data / "dvh_comparison_isotropic_1mm_roiMasks_used_Oncentra.json"
-    pth_dvh_ct_resolution = pth_data / "dvh_comparison_nativeRes_roiMasks_used_nearestNeighbour_contour_resampling.json"
+    # pth_dvh_ct_resolution = pth_data / "dvh_comparison_nativeRes_roiMasks_used_nearestNeighbour_contour_resampling.json"
 
     structured_json_keys = {
         "metric_types": ["percentage_metrics", "volumes_cm3"],
@@ -816,7 +816,7 @@ def compare_dvh_oncentra_vs_brachyutils_breast():
 
     data_pth_dict = {
         "1 x 1 x 1": pth_dvh_1mm,
-        "0.7 x 0.7 x 3.0": pth_dvh_ct_resolution
+        # "0.7 x 0.7 x 3.0": pth_dvh_ct_resolution
     }
 
     all_data = defaultdict(dict)
@@ -832,16 +832,18 @@ def compare_dvh_oncentra_vs_brachyutils_breast():
     dvh_diff_df = pd.DataFrame(columns=[
         "package", "metric", "structure", "spacing", "difference"
     ])
+    volume_diff_df = pd.DataFrame(columns=[
+        "package", "metric", "structure", "spacing", "difference"
+    ])
     spacing = "1 x 1 x 1"
     for package in structured_json_keys["packages"]:
         if package == "OncentraBrachy":
             continue
         for dvh_metric in oncentra_data["percentage_metrics"]:
             structure = dvh_metric.split("(")[-1].split(")")[0]
-            metric = dvh_metric.split("(")[0]
             dvh_diff = {
                 "package": package,
-                "metric": metric,
+                "metric": dvh_metric,
                 "structure": structure,
                 "spacing": spacing,
                 "difference": round(
@@ -849,10 +851,73 @@ def compare_dvh_oncentra_vs_brachyutils_breast():
                     - oncentra_data["percentage_metrics"][dvh_metric], 2),
             }
             dvh_diff_df.loc[len(dvh_diff_df)] = dvh_diff
-
-    volume_df = defaultdict(dict)
+        for structure in oncentra_data["volumes_cm3"]:
+            vol_diff = {
+                "package": package,
+                "metric": "Volume",
+                "structure": structure,
+                "spacing": spacing,
+                "difference": round(
+                    all_data[spacing]["volumes_cm3"][package][structure]
+                    - oncentra_data["volumes_cm3"][structure], 2),
+            }
+            volume_diff_df.loc[len(volume_diff_df)] = vol_diff
     
+    # now plot the dvh and volume differences for each structure and metri
+    for structure in structured_json_keys["structures"]:
+        dir_fig_save = pth_data / "figures" / structure
+        for dvh_metric in structured_json_keys["dvh_metrics"]:
+            plot_comparison_with_oncentra(
+                diff_df=dvh_diff_df,
+                metric=dvh_metric,
+                structure=structure,
+                unit="%",
+                pth_fig_save=dir_fig_save/f"dvh_diff_{dvh_metric}.svg"
+            )
+        plot_comparison_with_oncentra(
+            diff_df=volume_diff_df,
+            metric="Volume",
+            structure=structure,
+            unit="cm3",
+            pth_fig_save=dir_fig_save/f"volume_diff_{structure}.svg"
+        )
 
+def plot_comparison_with_oncentra(
+    diff_df: pd.DataFrame,
+    metric:str,
+    structure:str,
+    unit: str,
+    pth_fig_save: Path | str,
+    ):
+    r"""
+    ### Purpose:
+    - Generates a bar plot per metric 
+    """
+    package_color_dict = {
+        "opentps": "blue",
+        "dicomrttool": "yellow",
+        "dcmrtstruct2nii": "darkgray",
+    }
+
+    data_to_plot = diff_df.loc[
+        (diff_df["metric"] == metric)
+        & (diff_df["structure"] == structure)
+    ]
+    if data_to_plot.empty:
+        return
+    ax = data_to_plot.plot.bar(
+        x="package",
+        y="difference",
+        color=[package_color_dict.get(pkg, "black") for pkg in data_to_plot["package"]]
+    )
+    ax.set_ylabel(fr"$\Delta({metric.split('(')[0].replace("%", "\%")})$ [{unit}]")
+    ax.set_xlabel("Package")
+    ax.tick_params(axis='x', rotation=45)
+    if pth_fig_save is not None:
+        pth_fig_save = Path(pth_fig_save)
+        pth_fig_save.parent.mkdir(parents=True, exist_ok=True)
+        ax.figure.savefig(fname=pth_fig_save, dpi=300, transparent=False, bbox_inches="tight")    
+    
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
@@ -957,4 +1022,4 @@ if __name__ == "__main__":
     # )
 
     # get_dose_ratio_map()
-    compare_dvh_oncentra_vs_brachyutils_breast()
+    compare_oncentra_vs_brachyutils_breast()
