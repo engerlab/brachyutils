@@ -858,12 +858,13 @@ def compare_oncentra_vs_brachyutils_breast():
                 "structure": structure,
                 "spacing": spacing,
                 "difference": round(
-                    all_data[spacing]["volumes_cm3"][package][structure]
-                    - oncentra_data["volumes_cm3"][structure], 2),
+                    (all_data[spacing]["volumes_cm3"][package][structure]
+                    - oncentra_data["volumes_cm3"][structure])
+                    / oncentra_data["volumes_cm3"][structure] * 100, 2),
             }
             volume_diff_df.loc[len(volume_diff_df)] = vol_diff
     
-    # now plot the dvh and volume differences for each structure and metri
+    # now plot the dvh and volume differences for each structure and metric
     for structure in structured_json_keys["structures"]:
         dir_fig_save = pth_data / "figures" / structure
         for dvh_metric in structured_json_keys["dvh_metrics"]:
@@ -878,7 +879,8 @@ def compare_oncentra_vs_brachyutils_breast():
             diff_df=volume_diff_df,
             metric="Volume",
             structure=structure,
-            unit="cm3",
+            # unit=r"$cm^3$",
+            unit="% Error",
             pth_fig_save=dir_fig_save/f"volume_diff_{structure}.svg"
         )
 
@@ -908,11 +910,14 @@ def plot_comparison_with_oncentra(
     ax = data_to_plot.plot.bar(
         x="package",
         y="difference",
-        color=[package_color_dict.get(pkg, "black") for pkg in data_to_plot["package"]]
+        color=[package_color_dict.get(pkg, "black") for pkg in data_to_plot["package"]],
+        legend=False,
     )
     ax.set_ylabel(fr"$\Delta({metric.split('(')[0].replace("%", "\%")})$ [{unit}]")
     ax.set_xlabel("Package")
     ax.tick_params(axis='x', rotation=45)
+    ax.set_title(f"Difference in {metric}")
+    ax.grid(True, axis='y', linestyle='--', alpha=0.7)  # Horizontal lines only
     if pth_fig_save is not None:
         pth_fig_save = Path(pth_fig_save)
         pth_fig_save.parent.mkdir(parents=True, exist_ok=True)
