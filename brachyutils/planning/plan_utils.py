@@ -1276,6 +1276,7 @@ class BrachyPlan:
         ### Dependencies:
         - BrachyEgsphant
         """
+        from brachyutils.geometry.phantom_utils import mask_to_stl
         self.phantom.write_to_egsphant(
             pth_output=export_config_egsphant.pth_egsphant,
             material_dict=export_config_egsphant.material_dict,
@@ -1289,13 +1290,12 @@ class BrachyPlan:
         )
         if export_config_egsphant.body_name_stl is not None:
             body_mask = self.body_contour.getBinaryMask(
-                origin=self.phantom.origin,
-                spacing=self.phantom.spacing,
-                gridSize=self.phantom.gridSize
+                origin=self.phantom.image_obj.origin,
+                spacing=self.phantom.image_obj.spacing,
+                gridSize=self.phantom.image_obj.gridSize
             )
-            self.phantom.mask_to_stl(
-                roi_mask=self.body_contour,
-                mask=body_mask,
+            mask_to_stl(
+                roi_mask=body_mask,
                 pth_output=export_config_egsphant.pth_body_stl
             )
 
