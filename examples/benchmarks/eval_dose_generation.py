@@ -890,6 +890,8 @@ def plot_comparison_with_oncentra(
     structure:str,
     unit: str,
     pth_fig_save: Path | str,
+    title_fontsize: int = 20,
+    text_fontsize: int = 18,
     ):
     r"""
     ### Purpose:
@@ -913,16 +915,16 @@ def plot_comparison_with_oncentra(
         color=[package_color_dict.get(pkg, "black") for pkg in data_to_plot["package"]],
         legend=False,
     )
-    ax.set_ylabel(fr"$\Delta({metric.split('(')[0].replace("%", "\%")})$ [{unit}]")
-    ax.set_xlabel("Package")
-    ax.tick_params(axis='x', rotation=0)
-    ax.set_title(f"Difference in {metric}")
+    ax.set_ylabel(fr"$\Delta({metric.split('(')[0].replace("%", "\%")})$ [{unit}]", fontsize=text_fontsize)
+    ax.set_xlabel("Package", fontsize=text_fontsize)
+    ax.tick_params(axis='x', rotation=0, labelsize=text_fontsize-2)
+    ax.set_title(f"Difference in {metric}", fontsize=title_fontsize)
     ax.grid(True, axis='y', linestyle='--', alpha=0.7)  # Horizontal lines only
     if pth_fig_save is not None:
         pth_fig_save = Path(pth_fig_save)
         pth_fig_save.parent.mkdir(parents=True, exist_ok=True)
         ax.figure.savefig(fname=pth_fig_save, dpi=300, transparent=False, bbox_inches="tight")    
-    
+
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
