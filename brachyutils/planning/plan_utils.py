@@ -98,6 +98,7 @@ If a list of strings is provided, the union of the contours will be used to crop
     background_material: str = Field("Air", description="Material name for background.")
     strict_name_match: bool = Field(True, description="Whether to enforce strict name matching for materials.")
     body_name_stl: str = Field(None, description="Name of the body structure to be saved as a separate STL.")
+    # pth_body_stl: str | Path = Field(None, description="Directory to where the BODY.stl file is exported.")
     @computed_field
     def pth_egsphant(self)->Path:
         return self.dir_export/(self.name+self.file_extension)
@@ -1242,6 +1243,12 @@ class BrachyPlan:
         sim_obj.pth_plan = export_config_macfile.pth_plan
         sim_obj.pth_phantom = export_config_macfile.pth_phantom
 
+        potential_stl = export_config_macfile.dir_export / "BODY.stl"
+        if potential_stl.exists():
+            # If RapidBrachyMC expects just the filename:
+            sim_obj.pth_body_stl = "BODY.stl" 
+            sim_obj.body_material = "Water"
+        
         with open(export_config_macfile.pth_combined, "w") as file:
             file.write(sim_obj.to_string())
 

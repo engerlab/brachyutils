@@ -244,7 +244,15 @@ class BrachySimulation(BaseModel):
             + f"/source/core/Z {self.brachy_source.atomic_number}\n"
             + f"/sim/plan {self.pth_plan}\n"
             + f"/world/phantom {self.pth_phantom}\n"
-            + f"/world/material {self.world_material}\n"
+        )
+        if self.pth_body_stl is not None:
+            outstring = (
+                outstring
+                + f"/world/body_mask {self.pth_body_stl}\n"
+                + f"/world/body_mask_material {self.body_material}\n"
+            )
+        outstring = (
+            outstring
             + f"/parallel_world/ak_per_history {self.brachy_source.air_kerma_per_history}\n"
             + f"/parallel_world/AKS {self.brachy_source.reference_air_kerma_rate}\n"
             + f"/parallel_world/total_time {self.total_time}\n"
@@ -257,12 +265,7 @@ class BrachySimulation(BaseModel):
             + f"/run/printProgress {int(self.print_progress)}\n"
             + f"/sim/beamOn {int(self.number_histories)}"
         )
-        if self.pth_body_stl is not None:
-            outstring = (
-                outstring
-                + f"/world/body_mask {self.pth_body_stl}\n"
-                + f"/world/body_material {self.body_material}\n"
-                )
+        
         return outstring
 
     def to_dict(self):
