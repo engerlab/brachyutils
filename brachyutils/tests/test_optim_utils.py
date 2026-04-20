@@ -1,6 +1,6 @@
 from pandas import DataFrame
 from brachyutils.planning.plan_utils import load_dicom_to_plan
-from brachyutils.planning.optimization.optim_utils import Optimization_Config
+from brachyutils.planning.optimization.optim_configs import Optimization_Config
 from brachyutils.types import BrachyPlan
 from pathlib import Path
 from time import time
