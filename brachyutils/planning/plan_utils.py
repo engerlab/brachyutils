@@ -26,6 +26,8 @@ from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 from pydantic import BaseModel, ConfigDict, Field, model_validator, computed_field
+import pydicom
+from glob import glob
 
 pth_brachyutils = Path(__file__).parent.parent.parent.resolve()
 
@@ -369,9 +371,7 @@ class BrachyPlan:
             raise ValueError(
                 "invalid input. Please provide either dir_dose_rate or combined_dose but not both"
             )
-        else:
-            warnings.warn("no dose rate is loaded", stacklevel=2)
-
+        
         # # load the simulation setup if the dictionary is provided
         if simulation_setup is not None:
             if isinstance(simulation_setup, dict):
@@ -1700,6 +1700,7 @@ def load_dicom_to_plan(
     load_dicom_dose: bool = False,
     load_dicom_source: bool = True,
     load_dicom_catheter_table: bool = True,
+    prescription_dose: float | Path = None,
     **kwargs) -> BrachyPlan:
     r"""
     ### Purpose:
@@ -1709,6 +1710,7 @@ def load_dicom_to_plan(
     - load_dicom_dose := if True, the dose dicom file will be loaded
     - load_dicom_source := if True, the source dicom file will be loaded
     - load_dicom_catheter_table := if True, the catheter table dicom file will be loaded
+    - prescription_dose := the prescription dose in Gray or the path to the dicom directory
     - **kwargs := additional arguments to be passed to the BrachyPlan constructor
     ### Outputs:
     - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
@@ -1730,6 +1732,22 @@ def load_dicom_to_plan(
             )
         ]
 
+    if prescription_dose is not None:
+        if isinstance(prescription_dose, Path) or isinstance(prescription_dose, str):
+            prescription_dose = Path(prescription_dose)
+            rp_file = next(prescription_dose.glob("RP*.dcm"), None)
+
+            if rp_file is None:
+                raise FileNotFoundError("No RP*.dcm file found, please manually set a prescription dose")
+            
+            dicom_dose = pydicom.dcmread(rp_file)
+
+            try:
+                prescription_dose = float(dicom_dose[0x3007, 0x1000].value)
+            except KeyError:
+                raise KeyError(f"No prescription dose found at {prescription_dose}, please set it manually.")
+                
+
     # structure_dcm = structure_dcm[0] if len(structure_dcm) > 0 else None
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
@@ -1747,5 +1765,6 @@ def load_dicom_to_plan(
         catheter_table=plan_dcm if load_dicom_catheter_table else None,
         combined_dose=combined_dose,
         simulation_setup=new_sim_setup,
+        prescription_dose=prescription_dose,
         **kwargs
     )
