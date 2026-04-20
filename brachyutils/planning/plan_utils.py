@@ -1744,7 +1744,6 @@ def load_dicom_to_plan(
 
             try:
                 prescription_dose = float(dicom_dose[0x3007, 0x1000].value)
-                print(prescription_dose)
             except KeyError:
                 raise KeyError(f"No prescription dose found at {prescription_dose}, please set it manually.")
                 
