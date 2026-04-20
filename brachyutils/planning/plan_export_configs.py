@@ -44,64 +44,6 @@ class ExportConfig_PlanAndMac(BaseModel):
         return self.dir_export / f"{self.body_name_stl}.stl"
 
 
-# class ExportConfig_PlanFile(BaseModel):
-#     """
-#     ### Purpose:
-#     - Configuration for exporting .plan files from the plan.
-#     ### Attributes:
-#     - dir_export: Directory where the plan files are exported.
-#     - combined_only: If True, only combined plan is written. Per dwell position plan is generated.
-#     - name_combined: The name of the file for the combined plan.
-#     - file_extension: File extension for plan files.
-#     """
-#     model_config = ConfigDict(
-#         arbitrary_types_allowed=True,
-#         use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
-#     )
-#     dir_export: str | Path = Field(None, description="Directory where the plan files are exported.")
-#     combined_only:bool = Field(True, description="If True, only combined plan is written. \
-# Per dwell position plan is generated.")
-#     name_combined:str = Field("combined", description="The name of the file for combined plan")
-#     file_extension: Literal[".plan"] = Field(".plan", description="File extension for plan files.")
-#     @computed_field
-#     def pth_combined(self)->Path:
-#         self.dir_export = Path(self.dir_export)
-#         return self.dir_export/(self.name_combined+self.file_extension)
-
-# class ExportConfig_MacFile(BaseModel):
-#     """
-#     ### Purpose:
-#     - Configuration for exporting .mac files from the plan.
-#     ### Attributes:
-#     - dir_export: Directory where Mac files are exported.
-#     - combined_only: If true, only combined mac is written. Per dwell position plan is generated.
-#     - name_combined: The name of the file for combined mac.
-#     - file_extension: File extension for mac files.
-#     - body_name_stl: Name of the body structure to be saved as a separate STL.
-#     - pth_plan: Relative path to the .plan file used to link RapidBrachyMC/TG43.
-#     - pth_phantom: The relative path to the egsphant file.
-#     """
-#     model_config = ConfigDict(
-#         arbitrary_types_allowed=True,
-#         use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
-#     )
-#     dir_export: str | Path = Field(None, description="Directory where Mac files are exported.")
-#     combined_only:bool = Field(True, description="If true, only combined mac is written. \
-# Per dwell position plan is generated.")
-#     name_combined:str = Field("combined", description="The name of the file for combined mac")
-#     file_extension: Literal[".mac"] = Field(".mac", description="File extension for mac files.")
-#     body_name_stl: str = Field("BODY", description="Name of the body structure to be saved as a separate STL.")
-#     pth_plan: str = Field("combined.plan", description="The relative path to the .plan file that corresponds to this .mac file. \
-# This is used to link the .mac file to the correct .plan file in RapidBrachyMC/TG43.")
-#     pth_phantom: Path | str = Field("egsphant.seq.nrrd", description="The relative path to the egsphant file.")
-#     @computed_field
-#     def pth_combined(self)->Path:
-#         return self.dir_export/(self.name_combined+self.file_extension)
-#     @computed_field    
-#     def pth_body_stl(self)->Path:
-#         self.dir_export = Path(self.dir_export)
-#         return self.dir_export/(self.body_name_stl+".stl")
-
 class ExportConfig_Egsphant(BaseModel):
     r"""
     ### Purpose:
@@ -229,8 +171,6 @@ class ExportConfig_BrachyPlan(BaseModel):
     export_config_dose: ExportConfig_Dose | bool = Field(False, description="Configuration for exporting dose data.")
     export_config_cathetertable: ExportConfig_CatheterTable | bool = Field(False, description="Configuration for exporting catheter table.")
     export_config_egsphant: ExportConfig_Egsphant | bool = Field(False, description="Configuration for exporting egsphant file.")
-    # export_config_planfile: ExportConfig_PlanFile | bool = Field(False, description="Configuration for exporting plan file.")
-    # export_config_macfile: ExportConfig_MacFile | bool = Field(False, description="Configuration for exporting mac file.")
     export_config_plan_and_mac: ExportConfig_PlanAndMac | bool = Field(False, description="Configuration for exporting .plan and .mac files.")
     # TODO: in future, add these export configs if neeeded
 
@@ -257,8 +197,4 @@ class ExportConfig_BrachyPlan(BaseModel):
             if isinstance(value, BaseModel):
                 if value.dir_export is None:
                     value.dir_export = self.dir_export
-        # if self.export_config_macfile:
-        #     if not self.export_config_planfile:
-        #         raise ValueError("export_config_planfile must be provided if export_config_macfile is provided.")
-        #     self.export_config_macfile.pth_plan = self.export_config_planfile.pth_combined.name
         return self
