@@ -62,6 +62,7 @@ class BrachyDoseComparison:
         gamma_distance_threshold_mm: float = 3.0,
         compute_percent_difference=True,
         prescription_dose: float = None,
+        compute_dose_ratios: bool = False,
         compute_gamma_index=True,
         path=None,
         gamma_kwargs: dict = default_gamma_kwargs,
@@ -70,44 +71,44 @@ class BrachyDoseComparison:
         dose_mask: BrachyDose = None
     ):
         r"""
-        Purpose:
-            - to compare two BrachyDose objects. The comparison is done by computing the percent difference and gamma index.
-            The gamma index is computed using the pymedphys gamma function. The result of the comparison is stored in the object and
-            can be viewed using the plot_2d_dose_comparison function.
-        Inputs:
-            - dose1: BrachyDose object
-            - dose2: BrachyDose object
-            - gamma_dose_percent_threshold: float := the gamma dose percent threshold
-            - gamma_distance_threshold_mm: float := the gamma distance threshold in mm
-            - compute_percent_difference: bool := if True, the percent difference will be computed
-            - compute_gamma_index: bool := if True, the gamma index will be computed
-            - prescription_dose: float := the prescription dose of the dose grid
-            - max_gamma: float := the maximum gamma index value
-            - path: str := the path to the comparison object
-            - gamma_kwargs: dict := the kwargs for the gamma index function
-            - positive_percent_difference: bool := if True, the percent difference will be computed with or without absolute value
-            - percent_difference_range: tuple := the range of the percent difference used in plotting
-            - dose_mask: BrachyDose := a mask to apply to the dose comparison, excluding any voxels where the mask is valued <0
-        Outputs:
-            Object containing the following attributes:
-                - dose1: BrachyDose object
-                - dose2: BrachyDose object, resampled on the grid of dose1 with extrapolated
-                    points set to 0
-                - voxel_centers: numpy array := the voxel centers of the dose grid
-                - dose_2_grid_resampled: numpy array := the dose grid of dose2 resampled to the grid of dose1
-                - percent_difference: BrachyDose object := the percent difference between dose1 and dose2
-                - gamma_index: BrachyDose object := the gamma index between dose1 and dose2
-                - gamma_dose_percent_threshold: float := the gamma dose percent threshold
-                - gamma_distance_threshold: float := the gamma distance threshold in mm
-                - gamma_kwargs: dict := the kwargs for the gamma index function
-                - plot_max_dose_percent_of_prescription : int = default 300%, can be tuned to get a good dynamic range for plots
+        ### Purpose:
+        - to compare two BrachyDose objects. The comparison is done by computing the percent difference and gamma index.
+        The gamma index is computed using the pymedphys gamma function. The result of the comparison is stored in the object and
+        can be viewed using the plot_2d_dose_comparison function.
+        ### Inputs:
+        - dose1: BrachyDose object
+        - dose2: BrachyDose object
+        - gamma_dose_percent_threshold: float := the gamma dose percent threshold
+        - gamma_distance_threshold_mm: float := the gamma distance threshold in mm
+        - compute_percent_difference: bool := if True, the percent difference will be computed
+        - compute_gamma_index: bool := if True, the gamma index will be computed
+        - prescription_dose: float := the prescription dose of the dose grid
+        - max_gamma: float := the maximum gamma index value
+        - path: str := the path to the comparison object
+        - gamma_kwargs: dict := the kwargs for the gamma index function
+        - positive_percent_difference: bool := if True, the percent difference will be computed with or without absolute value
+        - percent_difference_range: tuple := the range of the percent difference used in plotting
+        - dose_mask: BrachyDose := a mask to apply to the dose comparison, excluding any voxels where the mask is valued <0
+        ### Outputs:
+        Object containing the following attributes:
+        - dose1: BrachyDose object
+        - dose2: BrachyDose object, resampled on the grid of dose1 with extrapolated
+            points set to 0
+        - voxel_centers: numpy array := the voxel centers of the dose grid
+        - dose_2_grid_resampled: numpy array := the dose grid of dose2 resampled to the grid of dose1
+        - percent_difference: BrachyDose object := the percent difference between dose1 and dose2
+        - gamma_index: BrachyDose object := the gamma index between dose1 and dose2
+        - gamma_dose_percent_threshold: float := the gamma dose percent threshold
+        - gamma_distance_threshold: float := the gamma distance threshold in mm
+        - gamma_kwargs: dict := the kwargs for the gamma index function
+        - plot_max_dose_percent_of_prescription : int = default 300%, can be tuned to get a good dynamic range for plots
 
-            and The following functions
-                - compute_percent_difference: void := to compute the percent difference between dose1 and dose2
-                - compute_gamma_index: void := to compute the gamma index between dose1 and dose2
-                - plot_2d_dose_comparison: void := to plot the 2d dose comparison
-                - save_comparison_object
-                - load_comparison_object
+        and The following functions
+        - compute_percent_difference: void := to compute the percent difference between dose1 and dose2
+        - compute_gamma_index: void := to compute the gamma index between dose1 and dose2
+        - plot_2d_dose_comparison: void := to plot the 2d dose comparison
+        - save_comparison_object
+        - load_comparison_object
         """
         # note: we will not use DoseComparisonImageProvider from OpenTPS
         # since the gamma index capabilities are not yet implemented
@@ -125,6 +126,7 @@ class BrachyDoseComparison:
         # print("After resample", self.dose2.dose_image is None)
         self.percent_difference_local: BrachyDose = None
         self.percent_difference_global: BrachyDose = None
+        self.dose_ratio: BrachyDose = None
         # self.dose_comparision_image_provider = DoseComparisonImageProvider()
         self.gamma_index: BrachyDose = None
         self.gamma_dose_percent_threshold = gamma_dose_percent_threshold
@@ -150,6 +152,8 @@ class BrachyDoseComparison:
             self.compute_percent_difference(positive_percent_difference, local = False)
         if compute_gamma_index:
             self.compute_gamma_index()
+        if compute_dose_ratios:
+            self.compute_dose_ratios()
 
     def plot_2d_dose_comparison(
         self,
@@ -677,6 +681,172 @@ class BrachyDoseComparison:
         axs_hist[1].set_ylabel("Voxels [%]", fontsize=10)
         axs_hist[0].set_xlabel(fr"$\Delta D_{{\mathrm{{LOCAL}}}} [\%]$", fontsize=10)
         axs_hist[1].set_xlabel(fr"$\Delta D_{{\mathrm{{GLOBAL}}}} [\%]$", fontsize=10)
+
+        fig.suptitle(plot_title, fontsize=title_fontsize, fontweight="bold", y=0.98)
+
+        if pth_fig_save is not None:
+            pth_fig_save = Path(pth_fig_save)
+            pth_fig_save.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(pth_fig_save, dpi=300)
+        else:
+            root = tk.Tk()
+            root.withdraw()
+            f = fd.asksaveasfile(
+                mode="wb",
+                defaultextension=".eps",
+                initialdir=os.getcwd(),
+                title="Save dose difference plots",
+                confirmoverwrite=True,
+            )
+            if f is not None:
+                ext = os.path.splitext(f.name)[1][1:]  # get extension without dot
+                fig.savefig(f, dpi=300, format=ext)
+                f.close()
+            else:
+                plt.show()
+            root.destroy()
+
+    def compute_dose_ratios(self):
+        """
+        Compute the ratio between two dose distributions.
+        self.dose1 is the reference and self.dose2 is the test dose.
+        Returns:
+            None
+        """
+        self.dose_ratio = BrachyDose.dose_with_empty_grid_like(self.dose1)
+        self.dose_ratio.dose_image.imageArray = self.dose2.dose_image.imageArray / self.dose1.dose_image.imageArray
+
+    def plot_dose_ratios(
+        self,
+        axis_1_coords: np.ndarray,
+        axis_2_coords: np.ndarray,
+        plane_coord: float,
+        plane: str,
+        plot_title: str,
+        ratio_vmax: float = 2.0,
+        pth_fig_save: Path | str = None,
+        fig_size_mm: tuple = (160,280),
+        title_fontsize: int = 14,
+        text_size: int = 14,
+        ):
+
+        """
+        Plot dose ratio map in 2D in the specified slice
+        With the histograms below. Note, a lot of plotting parameters were tuned
+        to hardcoded values to make a good looking figure during Figure Bootcamp 2025.
+        Please avoid changing them. 
+        """
+        matplotlib.rcParams.update({"font.size": 8})
+        plt.rcParams.update({"figure.dpi": 300})
+
+        image_cmap = plt.get_cmap('turbo')
+        image_cmap.set_bad(color='black', alpha=1.0)  # set bad values to black
+
+        dose_ratio_profile = self.dose_ratio.extract_profile_2d(
+            axis_1_coords, axis_2_coords, plane_coord, plane
+        )
+        mask_profile = self.dose_mask.extract_profile_2d(
+            axis_1_coords, axis_2_coords, plane_coord, plane
+        )
+        dose_ratio_profile[mask_profile < 0] = np.nan
+        #flip the profiles
+        if plane == 'xy':
+            dose_ratio_profile = np.flip(dose_ratio_profile, axis=0)
+        
+                # we will plot a figure that is suitable as a double column figure for medical physics
+        mm = 1.0 / 25.4  # define millimeters (relative to inches=1)
+        # Create two subfigures: top for image, bottom for histogram
+        fig_size_mm = np.array(fig_size_mm) * mm
+        fig = plt.figure(figsize=fig_size_mm) # layout="compressed"
+        subfigs = fig.subfigures(2, 1, height_ratios=[1, 0.75])
+        fig.set_facecolor('lavender')
+        fig.set_layout_engine('constrained')
+        fig.patch.set_linewidth(2)
+        fig.patch.set_edgecolor('black')
+
+        # Top subfigure: one 2D images (local/global difference)
+        axs_img = subfigs[0].subplots(1, 1, sharex=False, sharey=False)
+        # Bottom subfigure: one histograms (local/global difference)
+        axs_hist = subfigs[1].subplots(1, 1, sharex=False, sharey=False)
+
+        c00 = axs_img.pcolormesh(
+            axis_1_coords,
+            axis_2_coords,
+            dose_ratio_profile,
+            vmin=0,
+            vmax=ratio_vmax,
+            cmap=image_cmap,
+            rasterized=True,
+            antialiased=True,
+        )
+        axs_img.set_title("Dose Ratio (TG43/MC)", fontsize=text_size, pad=5)
+        axs_img.set_aspect("equal")
+        cbar00 = fig.colorbar(c00, ax=axs_img, fraction=0.046, shrink=0.9, pad=0.04, location='right')#, panchor=False)
+        cbar00.ax.set_title(label="[%]", size=10)
+        cbar00.mappable.set_clim(0, ratio_vmax)
+        # axs_img.invert_yaxis()
+        axs_img.set_xlabel(f"{plane[0]} [mm]", fontsize=text_size, labelpad=2)
+        axs_img.set_ylabel(f"{plane[1]} [mm]", fontsize=text_size, labelpad=2)
+        axis_1_extent = axis_1_coords[-1] - axis_1_coords[0]
+        axis_2_extent = axis_2_coords[-1] - axis_2_coords[0]
+        axs_img.xaxis.set_major_locator(MultipleLocator(axis_1_extent//4))
+        axs_img.xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_img.yaxis.set_major_locator(MultipleLocator(axis_2_extent//4))
+        axs_img.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+        ##############################################################
+        fig.canvas.draw() #draw plots to get positions
+
+        # Use the image axes as the reference and place the histogram directly below it
+        img_box = axs_img.get_position()
+        hist_box = axs_hist.get_position()
+
+        img_left   = img_box.x0
+        img_bottom = img_box.y0
+        img_width  = img_box.width
+        img_height = img_box.height
+
+        hist_width  = hist_box.width
+        hist_height = hist_box.height
+
+        # center histogram under the image and stack vertically
+        gap = 0.03  # figure-relative vertical gap
+        new_hist_left = img_left + 0.5 * (img_width - hist_width)
+        new_hist_bottom = 0.18 - gap# img_bottom - gap - hist_height
+
+        axs_hist.set_position(
+            [
+                new_hist_left,
+                new_hist_bottom,
+                hist_width,
+                hist_height
+            ],
+            which='both')   
+
+        #Now plot the local and global percent differences histograms
+        dose_ratio_bin_width = 0.01
+        self.local_hist, local_hist_bin_edges = np.histogram(
+            self.dose_ratio.dose_image.imageArray, bins=np.arange(0, ratio_vmax, dose_ratio_bin_width)
+        )
+
+        self.dose_ratio_hist_bin_centers = local_hist_bin_edges[:-1] + 0.5 * dose_ratio_bin_width
+
+        axs_hist.bar(
+            self.dose_ratio_hist_bin_centers,
+            100 * self.local_hist / self.dose_ratio.dose_image.imageArray[np.logical_not(np.isnan(self.dose_ratio.dose_image.imageArray))].size,
+            width=dose_ratio_bin_width,
+            color="blue",
+            alpha=0.5
+        )
+        #histogram tick adjustments
+        axs_hist.xaxis.set_major_locator(MultipleLocator(ratio_vmax/2))
+        axs_hist.xaxis.set_minor_locator(AutoMinorLocator(5))
+        axs_hist.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+        axs_hist.set_box_aspect(aspect=1)
+        axs_hist.set_ylabel("Voxels [%]", fontsize=text_size)
+        axs_hist.set_xlabel(fr"[%]", fontsize=text_size)
+        axs_hist.set_xlabel(fr"Dose Ratio (TG43/MC) [%]", fontsize=text_size)
 
         fig.suptitle(plot_title, fontsize=title_fontsize, fontweight="bold", y=0.98)
 

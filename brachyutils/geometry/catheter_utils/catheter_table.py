@@ -1395,6 +1395,21 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
                                     new_dwell.__getattribute__(attr))
                         self_dwell.gen_dose_rate = new_gen_doserate
 
+    def reset_dwelltimes_to(self, reset_value:float = 1.0):
+        r"""
+        ### Purpose:
+        - To reset the dwell times of all the dwell positions in the catheter table to a specific value.
+        This is useful when we want to generate dose rates for all the dwell positions without changing
+        the position, rotation or angle of the dwell positions.
+        ### Inputs:
+        - reset_value:float = 1.0 := The value to which the dwell times will be reset. By default, it is 1.0 second.
+        ### Outputs:
+        - None := will update the dwell times of all the dwell positions in the catheter table.
+        """
+        for dwell in self.all_dwells:
+            dwell.time = reset_value
+            dwell.gen_dose_rate = True
+
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""
     Purpose:

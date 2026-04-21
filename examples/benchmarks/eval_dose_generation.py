@@ -1,3 +1,5 @@
+from collections import defaultdict
+import json
 from typing import Dict, Union, Literal
 from pathlib import Path
 from tqdm import tqdm
@@ -7,6 +9,9 @@ import pandas as pd
 from time import time
 import numpy as np
 import matplotlib.pyplot as plt
+
+from brachyutils.dose.dose_utils import BrachyDose
+from brachyutils.dose.dose_comparison_utils import BrachyDoseComparison
 
 def run_multi_proc(function, input_list, max_workers=8):
     from multiprocessing import Pool
@@ -753,15 +758,182 @@ def get_uncertainty_in_ctv(
                 }
     all_uncertainties.to_csv(pth_out_csv, index=False)
 
+def get_dose_ratio_map():
+    # dir_data = Path("/home/ubuntu/YourLocalHome/Data/MVM_p1")
+    # pth_dose_tg43 = dir_data/"tg43/p1_tg43.seq.nrrd"
+    # pth_dose_mc = dir_data/"fullphantom/p1_fullphantom.seq.nrrd"
+    # dir_output = Path("/home/ubuntu/YourLocalHome/Data/MVM_p1/dose_comparison")
+    pth_dose_tg43 = Path("temp_data/tg43/prostate-glen-2023/p1/combined.seq.nrrd")
+    pth_dose_mc = Path("temp_data/mc/prostate-glen-2023/p1/combined.seq.nrrd")
+    dir_output = Path("temp_data/tg43/prostate-glen-2023/p1")
+
+    dose_tg43 = BrachyDose(pth_dose_tg43)
+    dose_mc = BrachyDose(pth_dose_mc)
+    
+    dose_comparison = BrachyDoseComparison(
+        dose1=dose_mc,
+        dose2=dose_tg43,
+        compute_percent_difference=False,
+        compute_dose_ratios=True,
+        compute_gamma_index=False,
+    )
+    vox_centers = dose_mc.get_voxel_centers()
+    viz_index_limits = np.array([
+        [len(vox_centers[0])*1/4, len(vox_centers[0])*3/4],
+        [len(vox_centers[1])*1/4, len(vox_centers[1])*3/4],
+        [len(vox_centers[2])//2, 0]
+    ]).astype(int)
+    dose_comparison.plot_dose_ratios(
+        axis_1_coords=vox_centers[0][viz_index_limits[0][0]:viz_index_limits[0][1]],
+        axis_2_coords=vox_centers[1][viz_index_limits[1][0]:viz_index_limits[1][1]],
+        plane_coord=vox_centers[2][viz_index_limits[2][0]],
+        plane="xy",
+        plot_title=(f"MC vs TG43 Dose Ratio Map for Plan p1"),
+        pth_fig_save=Path(dir_output)/f"dose_ratio_p1.svg",
+        ratio_vmax=2.0,
+        title_fontsize=17,
+    )
+
+def compare_oncentra_vs_brachyutils_breast():
+    # this path has the dvh metrics from oncentra as well as other mesh to 
+    # mask converters.
+    pth_data = Path("temp_data/compare-oncentra-breast")
+    pth_dvh_1mm = pth_data / "dvh_comparison_isotropic_1mm_roiMasks_used_Oncentra.json"
+    # pth_dvh_ct_resolution = pth_data / "dvh_comparison_nativeRes_roiMasks_used_nearestNeighbour_contour_resampling.json"
+
+    structured_json_keys = {
+        "metric_types": ["percentage_metrics", "volumes_cm3"],
+        "packages": ["opentps", "dicomrttool", "dcmrtstruct2nii", "OncentraBrachy"],
+        "structures": ["Heart", "Lungs", "PTV", "Skin", "CTV", "Chestwall", "Body"],
+        "dvh_metrics": [
+            "D2cc(Heart)", "D1cc(Heart)", "D0.1cc(Heart)",
+            "V100%(PTV)", "V150%(PTV)", "V200%(PTV)",
+            "D2cc(Skin)", "D1cc(Skin)", "D0.1cc(Skin)",
+            "D90%(CTV)", "D2cc(Chestwall)", "D1cc(Chestwall)",
+            "D0.1cc(Chestwall)", "D2cc(Lungs)", "D1cc(Lungs)",
+            "D0.1cc(Lungs)"]
+    }
+
+    data_pth_dict = {
+        "1 x 1 x 1": pth_dvh_1mm,
+        # "0.7 x 0.7 x 3.0": pth_dvh_ct_resolution
+    }
+
+    all_data = defaultdict(dict)
+    for spacing, pth in data_pth_dict.items():
+        with open(pth, "r") as f:
+            data = json.load(f)
+        all_data[spacing] = data
+
+    # extract the oncentra values for dvh metrics and the volumes
+    oncentra_data = defaultdict(dict)
+    oncentra_data["percentage_metrics"] = all_data["1 x 1 x 1"]["percentage_metrics"]["OncentraBrachy"]
+    oncentra_data["volumes_cm3"] = all_data["1 x 1 x 1"]["volumes_cm3"]["OncentraBrachy"]
+    dvh_diff_df = pd.DataFrame(columns=[
+        "package", "metric", "structure", "spacing", "difference"
+    ])
+    volume_diff_df = pd.DataFrame(columns=[
+        "package", "metric", "structure", "spacing", "difference"
+    ])
+    spacing = "1 x 1 x 1"
+    for package in structured_json_keys["packages"]:
+        if package == "OncentraBrachy":
+            continue
+        for dvh_metric in oncentra_data["percentage_metrics"]:
+            structure = dvh_metric.split("(")[-1].split(")")[0]
+            dvh_diff = {
+                "package": package,
+                "metric": dvh_metric,
+                "structure": structure,
+                "spacing": spacing,
+                "difference": round(
+                    all_data[spacing]["percentage_metrics"][package][dvh_metric]
+                    - oncentra_data["percentage_metrics"][dvh_metric], 2),
+            }
+            dvh_diff_df.loc[len(dvh_diff_df)] = dvh_diff
+        for structure in oncentra_data["volumes_cm3"]:
+            vol_diff = {
+                "package": package,
+                "metric": "Volume",
+                "structure": structure,
+                "spacing": spacing,
+                "difference": round(
+                    (all_data[spacing]["volumes_cm3"][package][structure]
+                    - oncentra_data["volumes_cm3"][structure])
+                    / oncentra_data["volumes_cm3"][structure] * 100, 2),
+            }
+            volume_diff_df.loc[len(volume_diff_df)] = vol_diff
+    
+    # now plot the dvh and volume differences for each structure and metric
+    for structure in structured_json_keys["structures"]:
+        dir_fig_save = pth_data / "figures" / structure
+        for dvh_metric in structured_json_keys["dvh_metrics"]:
+            plot_comparison_with_oncentra(
+                diff_df=dvh_diff_df,
+                metric=dvh_metric,
+                structure=structure,
+                unit="%",
+                pth_fig_save=dir_fig_save/f"dvh_diff_{dvh_metric}.svg"
+            )
+        plot_comparison_with_oncentra(
+            diff_df=volume_diff_df,
+            metric="Volume",
+            structure=structure,
+            # unit=r"$cm^3$",
+            unit="% Error",
+            pth_fig_save=dir_fig_save/f"volume_diff_{structure}.svg"
+        )
+
+def plot_comparison_with_oncentra(
+    diff_df: pd.DataFrame,
+    metric:str,
+    structure:str,
+    unit: str,
+    pth_fig_save: Path | str,
+    title_fontsize: int = 20,
+    text_fontsize: int = 18,
+    ):
+    r"""
+    ### Purpose:
+    - Generates a bar plot per metric 
+    """
+    package_color_dict = {
+        "opentps": "blue",
+        "dicomrttool": "yellow",
+        "dcmrtstruct2nii": "darkgray",
+    }
+
+    data_to_plot = diff_df.loc[
+        (diff_df["metric"] == metric)
+        & (diff_df["structure"] == structure)
+    ]
+    if data_to_plot.empty:
+        return
+    ax = data_to_plot.plot.bar(
+        x="package",
+        y="difference",
+        color=[package_color_dict.get(pkg, "black") for pkg in data_to_plot["package"]],
+        legend=False,
+    )
+    ax.set_ylabel(fr"$\Delta({metric.split('(')[0].replace("%", "\%")})$ [{unit}]", fontsize=text_fontsize)
+    ax.set_xlabel("Package", fontsize=text_fontsize)
+    ax.tick_params(axis='x', rotation=0, labelsize=text_fontsize-2)
+    ax.set_title(f"Difference in {metric}", fontsize=title_fontsize)
+    ax.grid(True, axis='y', linestyle='--', alpha=0.7)  # Horizontal lines only
+    if pth_fig_save is not None:
+        pth_fig_save = Path(pth_fig_save)
+        pth_fig_save.parent.mkdir(parents=True, exist_ok=True)
+        ax.figure.savefig(fname=pth_fig_save, dpi=300, transparent=False, bbox_inches="tight")    
+
 if __name__ == "__main__":
     # test_export()
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
 
-    dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
-    dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
-    dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
-    dir_export_test = Path("temp_data/test/prostate-glen-2023")
+    # dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
+    # dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
+    # dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
+    # dir_export_test = Path("temp_data/test/prostate-glen-2023")
     dvh_metric_goals = {
         "V100%(ctv)": 95,
         "D90%(ctv)": 21,
@@ -787,10 +959,10 @@ if __name__ == "__main__":
     #     )
 
     # # run dose generation for all plans
-    run_dose_generation(
-        dir_plan_export=dir_export_tg43,
-        method="tg43"
-    )
+    # run_dose_generation(
+    #     dir_plan_export=dir_export_tg43,
+    #     method="tg43"
+    # )
     # run_dose_generation(
     #     dir_plan_export=dir_export_mc,
     #     method="mc"
@@ -855,3 +1027,6 @@ if __name__ == "__main__":
     #         "p3": -1248,
     #     }
     # )
+
+    # get_dose_ratio_map()
+    compare_oncentra_vs_brachyutils_breast()
