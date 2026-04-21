@@ -147,7 +147,7 @@ def test_load_dose_rates() -> CatheterTable:
 def test_export_dose():
     dir_export = "data_test/test_export_plan/prostate"
     cat_tab_to_export = test_load_dose_rates()
-    from brachyutils.geometry.catheter_utils.catheter_table import ExportConfig_Dose    
+    from brachyutils.planning.plan_export_configs import ExportConfig_Dose    
     dose_export_config = ExportConfig_Dose(
         dir_export=dir_export,
         write_dose_rate_maps=True

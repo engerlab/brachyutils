@@ -26,7 +26,8 @@ from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 
-from brachyutils.planning.optimization.optim_utils import BrachyDwellTimeOptim, Optimization_Config
+from brachyutils.planning.optimization.optim_utils import BrachyDwellTimeOptim
+from brachyutils.planning.optimization.optim_configs import Optimization_Config
 
 class MOBOOptimizer:
     """

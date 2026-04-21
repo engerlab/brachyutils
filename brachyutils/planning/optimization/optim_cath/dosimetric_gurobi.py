@@ -8,8 +8,9 @@ import numpy as np
 from brachyutils.types import BrachyPlan, BrachyDose
 from brachyutils.planning.optimization.optim_utils import (
     get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
-    compute_dose_rate_matrices, Optimization_Config, Constraint_Config
+    compute_dose_rate_matrices
 )
+from brachyutils.planning.optimization.optim_configs import Optimization_Config, Constraint_Config
 from brachyutils.planning.optimization.optim_gurobi import (
     DwellTime_Gurobi, _run, _get_optimized_plan_from_model)
 

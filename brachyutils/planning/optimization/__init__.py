@@ -12,10 +12,10 @@ __all__ = [
 
 # trunk-ignore(ruff/F401)
 from .optim_utils import (
-    Optimization_Config,
     BrachyDwellTime,
-    BrachyDwellTimeOptim,
+    BrachyDwellTimeOptim
 )
+from .optim_configs import Optimization_Config
 
 # trunk-ignore(ruff/F401)
 from .optim_gurobi import DwellTime_Gurobi, BrachyOptim_Gurobi

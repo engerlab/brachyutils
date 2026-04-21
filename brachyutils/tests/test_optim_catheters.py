@@ -5,7 +5,7 @@ from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from gurobipy import Model
 from brachyutils.tests.test_optim_utils import get_a_plan_to_optimize
 from brachyutils.tests.test_plan_utils import get_a_plan
-from brachyutils.planning.optimization.optim_utils import Optimization_Config
+from brachyutils.planning.optimization.optim_configs import Optimization_Config
 from pandas import DataFrame
 from brachyutils.dose.dose_generation_utils import RapidBrachyTG43
 def test_catheter_gurobi_initialization():

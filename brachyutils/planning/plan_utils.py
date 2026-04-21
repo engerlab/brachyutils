@@ -21,151 +21,18 @@ from brachyutils.dose.dose_utils import BrachyDose
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry.applicator_utils import BrachyApplicator 
 from brachyutils.geometry.phantom_utils import BrachyPhantom
-from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, ExportConfig_Dose
+from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
-from brachyutils.planning.optimization.optim_utils import Optimization_Config
+from brachyutils.planning.optimization.optim_configs import Optimization_Config
 from pydantic import BaseModel, ConfigDict, Field, model_validator, computed_field
+from brachyutils.planning.plan_export_configs import (ExportConfig_BrachyPlan, ExportConfig_CatheterTable,
+    ExportConfig_Egsphant, ExportConfig_PlanAndMac)
+import pydicom
+from glob import glob
 
 pth_brachyutils = Path(__file__).parent.parent.parent.resolve()
 
-class ExportConfig_PlanFile(BaseModel):
-    """
-    Configuration for exporting .plan files from the plan.
-    """
-
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
-    )
-    dir_export: str | Path = Field(None, description="Directory where the plan files are exported.")
-    combined_only:bool = Field(True, description="If true, only combined plan is written. \
-Per dwell position plan is generated.")
-    name_combined:str = Field("combined", description="The name of the file for combined plan")
-    file_extension: Literal[".plan"] = Field(".plan", description="File extension for plan files.")
-    @computed_field
-    def pth_combined(self)->Path:
-        self.dir_export = Path(self.dir_export)
-        return self.dir_export/(self.name_combined+self.file_extension)
-
-class ExportConfig_MacFile(BaseModel):
-    """
-    Configuration for exporting .mac files from the plan.
-    """
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        use_attribute_docstrings=True  # Enables auto-docs from Field desc [web:48]
-    )
-    dir_export: str | Path = Field(None, description="Directory where Mac files are exported.")
-    combined_only:bool = Field(True, description="If true, only combined mac is written. \
-Per dwell position plan is generated.")
-    name_combined:str = Field("combined", description="The name of the file for combined mac")
-    file_extension: Literal[".mac"] = Field(".mac", description="File extension for mac files.")
-    body_name_stl: str = Field("BODY", description="Name of the body structure to be saved as a separate STL.")
-    pth_plan: str = Field("combined.plan", description="The relative path to the .plan file that corresponds to this .mac file. \
-This is used to link the .mac file to the correct .plan file in RapidBrachyMC/TG43.")
-    pth_phantom: Path | str = Field("egsphant.seq.nrrd", description="The relative path to the egsphant file.")
-    @computed_field
-    def pth_combined(self)->Path:
-        return self.dir_export/(self.name_combined+self.file_extension)
-    @computed_field    
-    def pth_body_stl(self)->Path:
-        self.dir_export = Path(self.dir_export)
-        return self.dir_export/(self.body_name_stl+".stl")
-
-class ExportConfig_Egsphant(BaseModel):
-    r"""
-    The Export info needed for exporting Egsphant files.
-    If using Monte Carlo simulations from RapidBrachyMC, It is recommended that
-    the user crop the egsphant to a small region around the relevant anatomy and
-    use provide the body_name_stl to save the body structure as a separate STL file. 
-    """
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dir_export: str | Path = Field(None, description="Directory where Egsphant file is exported.")
-    name: str = Field("egsphant", description="File name for Egsphant output.")
-    file_extension: Literal[".seq.nrrd", ".egsphant"] = Field(
-        ".seq.nrrd", 
-        description="Allowed file extensions for Egsphant files.")
-    material_dict: dict | Path = Field(
-        Path(pth_brachyutils/"admin/constants/structure_materials_prostate.json"),
-        description="Dictionary of material names and their properties.")
-    assign_material_from_ct: bool = Field(False, description="Whether to assign materials from CT data or based on contours.")
-    crop_by_contour: str | List[str] = Field(None, description="Name of the contour to crop by. \
-If a list of strings is provided, the union of the contours will be used to crop the phantom.")
-    marginInMM: float = Field(10.0, description="Margin in mm to add around the contour when cropping the phantom.")
-    resampled_spacing: List[float] = Field(None, description="Spacing for resampling the phantom.")
-    resampled_origin: List[float] = Field(None, description="Origin for resampling the phantom.")
-    background_material: str = Field("Air", description="Material name for background.")
-    strict_name_match: bool = Field(True, description="Whether to enforce strict name matching for materials.")
-    body_name_stl: str = Field(None, description="Name of the body structure to be saved as a separate STL.")
-    @computed_field
-    def pth_egsphant(self)->Path:
-        return self.dir_export/(self.name+self.file_extension)
-    @computed_field
-    def pth_body_stl(self)->Path:
-        self.dir_export = Path(self.dir_export)
-        return self.dir_export/(self.body_name_stl+".stl")
-
-class ExportConfig_CatheterTable(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dir_export: str | Path = Field(None, description="Directory where catheter table is exported.")
-    name: str = Field("catheter_table", description="File name for catheter table output.")
-    file_extension: Literal[".json", ".mrk.json"] = Field(
-        ".mrk.json", description="File extension for catheter table export.)")
-    remove_text: bool = Field(True, description="Text to remove from dwell names.")
-    one_markup_per_catheter: bool = Field(False, description="Whether to create one markup per catheter.")
-    @computed_field
-    def pth_catheter_table(self)->Path:
-        self.dir_export = Path(self.dir_export)
-        return self.dir_export/(self.name+self.file_extension)
-
-# TODO: in future, add these export configs if neeeded
-# class ExportConfig_Applicator(BaseModel):
-#     model_config = ConfigDict(arbitrary_types_allowed=True)
-# class ExportConfig_BrachyStructure(BaseModel):
-#     model_config = ConfigDict(arbitrary_types_allowed=True)
-
-class ExportConfig_BrachyPlan(BaseModel):
-    r"""
-    ### Purpose:
-    - Configuration for exporting various components of a brachytherapy treatment plan.
-    The components are catheter table, dose, egsphant, plan file, and mac file.
-    """
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dir_export:str | Path = Field(..., description="Base directory where all plan components are exported.")
-    export_config_dose: ExportConfig_Dose | bool = Field(False, description="Configuration for exporting dose data.")
-    export_config_cathetertable: ExportConfig_CatheterTable | bool = Field(False, description="Configuration for exporting catheter table.")
-    export_config_egsphant: ExportConfig_Egsphant | bool = Field(False, description="Configuration for exporting egsphant file.")
-    export_config_planfile: ExportConfig_PlanFile | bool = Field(False, description="Configuration for exporting plan file.")
-    export_config_macfile: ExportConfig_MacFile | bool = Field(False, description="Configuration for exporting mac file.")
-    # TODO: in future, add these export configs if neeeded
-    # export_config_applicator: ExportConfig_Applicator = None
-    # export_config_phantom: ExportConfig_BrachyStructure = None
-    applicator_geometry: bool = Field(False, description="Whether to export applicator geometry into a stl file.")
-    structure_set: bool = Field(False, description="Whether to export structure set info into a json file.")
-
-    @model_validator(mode="before")
-    def validate_inputs(data):
-        for k, v in data.items():
-            if k.startswith("export_config_") and isinstance(v, bool):
-                data[k] = {} if v else False
-            if k=="dir_export":
-                data[k] = Path(v)
-        return data
-
-    @model_validator(mode="after")
-    def validate_config(self):
-        # make sure that the paths of dir exports are 
-        # set correctly for all the inner attributes
-        for _, value in self:                
-            if isinstance(value, BaseModel):
-                if value.dir_export is None:
-                    value.dir_export = self.dir_export
-        if self.export_config_macfile:
-            if not self.export_config_planfile:
-                raise ValueError("export_config_planfile must be provided if export_config_macfile is provided.")
-            self.export_config_macfile.pth_plan = self.export_config_planfile.pth_combined.name
-        return self
 
 class BrachyPlan:
     r"""
@@ -368,9 +235,7 @@ class BrachyPlan:
             raise ValueError(
                 "invalid input. Please provide either dir_dose_rate or combined_dose but not both"
             )
-        else:
-            warnings.warn("no dose rate is loaded", stacklevel=2)
-
+        
         # # load the simulation setup if the dictionary is provided
         if simulation_setup is not None:
             if isinstance(simulation_setup, dict):
@@ -1023,8 +888,7 @@ class BrachyPlan:
             - dir_export (Path): Directory where exported files will be written.
             - export_config_dose (ExportConfig_Dose|None): Dose export configuration.
             - export_config_cathetertable (ExportConfig_CatheterTable|None): Catheter table export configuration.
-            - export_config_planfile (ExportConfig_PlanFile|None): Plan file export configuration.
-            - export_config_macfile (ExportConfig_MacFile|None): Macro file export configuration.
+            - export_config_plan_and_mac (ExportConfig_PlanAndMac|None): Plan and Mac file export configuration.
             - export_config_egsphant (ExportConfig_Egsphant|None): Egsphant file export configuration.
             - applicator_geometry (bool): Whether to export applicator geometry.
             - structure_set (bool): Whether to export structure set.
@@ -1049,6 +913,35 @@ class BrachyPlan:
         - _export_egsphant()
         - _export_applicator_geometry()
         - _export_structure_set()
+
+        ### Example of content_to_export dict:
+        ```python
+        EXPORT_CONFIG = {
+            "dir_export": "/path/to/export/directory",
+            "export_config_dose": {
+                "name_combined": "combined",
+                "write_dose_rate_maps": False,
+                "multi_processing": True
+            },
+            "export_config_cathetertable": {
+                "name": "catheter_table",
+                "remove_text": True,
+                "one_markup_per_catheter": False
+            },
+            "export_config_egsphant": {
+                "name": "egsphant",
+                "assign_material_from_ct": False,
+                "strict_name_match": False
+            },
+            "export_config_plan_and_mac": {
+                "combined_only": True,
+                "name_combined": "combined",
+                "body_name_stl": "BODY"
+            },
+            "applicator_geometry": False,
+            "structure_set": False
+        }
+        ```
         """
         if isinstance(content_to_export, dict):
             content_to_export = ExportConfig_BrachyPlan(**content_to_export)
@@ -1062,17 +955,15 @@ class BrachyPlan:
             self.export_catheter_table(
                 export_config_cathetertable=content_to_export.export_config_cathetertable,
                 catheter_table=self.catheter_table,
-            )
+            )            
 
-        if content_to_export.export_config_planfile:
+        if content_to_export.export_config_plan_and_mac:
             self.export_plan_files(
-                export_config_planfile=content_to_export.export_config_planfile,
+                export_config_plan_and_mac=content_to_export.export_config_plan_and_mac,
                 catheter_table=self.catheter_table,
                 )
-
-        if content_to_export.export_config_macfile:
             self.export_mac_files(
-                export_config_macfile=content_to_export.export_config_macfile,
+                export_config_plan_and_mac=content_to_export.export_config_plan_and_mac,
                 catheter_table=self.catheter_table
                 )
 
@@ -1116,7 +1007,7 @@ class BrachyPlan:
 
     def export_plan_files(
         self,
-        export_config_planfile:ExportConfig_PlanFile,
+        export_config_plan_and_mac:ExportConfig_PlanAndMac,
         catheter_table:CatheterTable,
         ):
         r"""
@@ -1124,7 +1015,7 @@ class BrachyPlan:
         - To export dwell positions and their normalized times into ".plan" text files in the
         format required by RapidBrachy.
         ### Inputs:
-        - export_config_planfile:= The export configuration for the plan files. see ExportConfig_PlanFile
+        - export_config_plan_and_mac = The export configuration for the plan files. see ExportConfig_PlanAndMac
         - catheter_table:= The catheter table with the dwells.
         ### Outputs:
         - void := Two types of .plan files are written, one named combined.plan and the other
@@ -1186,19 +1077,19 @@ class BrachyPlan:
                 # Not dealing with shield angle for now but the new convention for filename is
                 # xxx_catheter#_dwell#_shieldangle.plan
                 shield_angle = 0
-                if not export_config_planfile.combined_only:
+                if not export_config_plan_and_mac.combined_only:
                     order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
-                    with open(export_config_planfile.dir_export / f"dwell_{order}.plan", "w") as file:
+                    with open(export_config_plan_and_mac.dir_export / f"dwell_{order}.plan", "w") as file:
                         file.write(run_i_plan)
             # set to false so that we don't export the same catheter again for dose rate calculation
             cat.gen_dose_rates = False
-        with open(export_config_planfile.pth_combined, "w") as file:
+        with open(export_config_plan_and_mac.pth_plan_combined, "w") as file:
             file.write(combined_plan)
         print(".plan files were exported successfully")
 
     def export_mac_files(
         self,
-        export_config_macfile: ExportConfig_MacFile,
+        export_config_plan_and_mac: ExportConfig_PlanAndMac,
         catheter_table:CatheterTable,
         ):
         r"""
@@ -1206,7 +1097,7 @@ class BrachyPlan:
         - To export the simulation parameters of the plan into a macro files
         and run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac
         ### Inputs:
-        - export_config_macfile:= The export configuration for macro files.
+        - export_config_plan_and_mac:= The export configuration for macro files.
         - catheter_table:= The catheter table with the dwells.
         ### Outputs:
         - None := Two types of .mac files are written, one named combined.mac and the other
@@ -1239,13 +1130,19 @@ class BrachyPlan:
         """
         sim_obj = deepcopy(self.simulation_setup)
         sim_obj.total_time = catheter_table.treatment_time
-        sim_obj.pth_plan = export_config_macfile.pth_plan
-        sim_obj.pth_phantom = export_config_macfile.pth_phantom
+        sim_obj.pth_plan = export_config_plan_and_mac.pth_plan_combined
+        sim_obj.pth_phantom = export_config_plan_and_mac.pth_phantom
 
-        with open(export_config_macfile.pth_combined, "w") as file:
+        potential_stl = export_config_plan_and_mac.dir_export / "BODY.stl"
+        if potential_stl.exists():
+            # If RapidBrachyMC expects just the filename:
+            sim_obj.pth_body_stl = "BODY.stl" 
+            sim_obj.body_material = "Water"
+        
+        with open(export_config_plan_and_mac.pth_mac_combined, "w") as file:
             file.write(sim_obj.to_string())
 
-        if not export_config_macfile.combined_only:
+        if not export_config_plan_and_mac.combined_only:
             for cat in catheter_table:
                 for dwell in cat.dwells:
                     catheter_idx = cat.index
@@ -1258,7 +1155,7 @@ class BrachyPlan:
                     sim_obj.pth_plan = f"dwell_{order}.plan"
                     sim_obj.total_time = 1
 
-                    with open(export_config_macfile.dir_export / f"run_{order}.mac", "w") as file:
+                    with open(export_config_plan_and_mac.dir_export / f"run_{order}.mac", "w") as file:
                         file.write(sim_obj.to_string())
         print(".mac files were exported successfully")
 
@@ -1276,6 +1173,7 @@ class BrachyPlan:
         ### Dependencies:
         - BrachyEgsphant
         """
+        from brachyutils.geometry.phantom_utils import mask_to_stl
         self.phantom.write_to_egsphant(
             pth_output=export_config_egsphant.pth_egsphant,
             material_dict=export_config_egsphant.material_dict,
@@ -1289,13 +1187,12 @@ class BrachyPlan:
         )
         if export_config_egsphant.body_name_stl is not None:
             body_mask = self.body_contour.getBinaryMask(
-                origin=self.phantom.origin,
-                spacing=self.phantom.spacing,
-                gridSize=self.phantom.gridSize
+                origin=self.phantom.image_obj.origin,
+                spacing=self.phantom.image_obj.spacing,
+                gridSize=self.phantom.image_obj.gridSize
             )
-            self.phantom.mask_to_stl(
-                roi_mask=self.body_contour,
-                mask=body_mask,
+            mask_to_stl(
+                roi_mask=body_mask,
                 pth_output=export_config_egsphant.pth_body_stl
             )
 
@@ -1693,6 +1590,7 @@ def load_dicom_to_plan(
     load_dicom_dose: bool = False,
     load_dicom_source: bool = True,
     load_dicom_catheter_table: bool = True,
+    prescription_dose: float | Path = None,
     **kwargs) -> BrachyPlan:
     r"""
     ### Purpose:
@@ -1702,6 +1600,7 @@ def load_dicom_to_plan(
     - load_dicom_dose := if True, the dose dicom file will be loaded
     - load_dicom_source := if True, the source dicom file will be loaded
     - load_dicom_catheter_table := if True, the catheter table dicom file will be loaded
+    - prescription_dose := the prescription dose in Gray or the path to the dicom directory
     - **kwargs := additional arguments to be passed to the BrachyPlan constructor
     ### Outputs:
     - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
@@ -1723,6 +1622,22 @@ def load_dicom_to_plan(
             )
         ]
 
+    if prescription_dose is not None:
+        if isinstance(prescription_dose, Path) or isinstance(prescription_dose, str):
+            prescription_dose = Path(prescription_dose)
+            rp_file = next(prescription_dose.glob("RP*.dcm"), None)
+
+            if rp_file is None:
+                raise FileNotFoundError("No RP*.dcm file found, please manually set a prescription dose")
+            
+            dicom_dose = pydicom.dcmread(rp_file)
+
+            try:
+                prescription_dose = float(dicom_dose[0x3007, 0x1000].value)
+            except KeyError:
+                raise KeyError(f"No prescription dose found at {prescription_dose}, please set it manually.")
+                
+
     # structure_dcm = structure_dcm[0] if len(structure_dcm) > 0 else None
     dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
     plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
@@ -1740,5 +1655,6 @@ def load_dicom_to_plan(
         catheter_table=plan_dcm if load_dicom_catheter_table else None,
         combined_dose=combined_dose,
         simulation_setup=new_sim_setup,
+        prescription_dose=prescription_dose,
         **kwargs
     )

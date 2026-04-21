@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from glob import glob
 from pathlib import Path
 from typing import Literal, Optional, Union
-from brachyutils.planning.plan_utils import BrachyPlan, ExportConfig_BrachyPlan
+from brachyutils.planning.plan_utils import BrachyPlan
+from brachyutils.planning.plan_export_configs import ExportConfig_BrachyPlan
 from brachyutils.dose.dose_utils import BrachyDose
 
 class BrachyDoseGenerator(ABC):
@@ -226,8 +227,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
             export_config_brachyplan = ExportConfig_BrachyPlan(
                 dir_export=self.dir_plan_export,
                 export_config_egsphant=True,
-                export_config_planfile=True,
-                export_config_macfile=True,
+                export_config_plan_and_mac=True,
             )
         elif isinstance(export_config_brachyplan, dict):
             export_config_brachyplan = ExportConfig_BrachyPlan(**export_config_brachyplan)
@@ -237,12 +237,12 @@ class RapidBrachyTG43(BrachyDoseGenerator):
 
         # call the dose generator to generate the dose maps
         self.generate_dose(
-            pth_mac=export_config_brachyplan.export_config_macfile.pth_combined,
-            pth_plan=export_config_brachyplan.export_config_planfile.pth_combined,
+            pth_mac=export_config_brachyplan.export_config_plan_and_mac.pth_mac_combined,
+            pth_plan=export_config_brachyplan.export_config_plan_and_mac.pth_plan_combined,
             output_dose_per_dwell= "dose_rate" if generate_dose_rate_maps else False,
         )
 
-        pth_combined_dose = export_config_brachyplan.export_config_macfile.pth_combined.with_suffix(".seq.nrrd")
+        pth_combined_dose = export_config_brachyplan.export_config_plan_and_mac.pth_mac_combined.with_suffix(".seq.nrrd")
 
         # load the generated dose maps and update the plan
         if generate_dose_rate_maps:
