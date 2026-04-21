@@ -286,7 +286,7 @@ class BrachyStructure:
         - Void := will update the BrachyStructure object with the optimization id and
         will set the penalty weights to 1.0.
         """
-        from brachyutils.planning.optimization.optim_utils import Optimization_Config
+        from brachyutils.planning.optimization.optim_configs import Optimization_Config
         if optimzation_config is not None:
             self.optimization_config = optimzation_config
         else:

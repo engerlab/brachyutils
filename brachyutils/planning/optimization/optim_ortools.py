@@ -7,8 +7,9 @@ from pathlib import Path
 from brachyutils.types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
-    compute_dose_rate_matrices, Optimization_Config
+    compute_dose_rate_matrices
 )
+from brachyutils.planning.optimization.optim_configs import Optimization_Config
 from ortools.math_opt.python.mathopt import (
     Model,
     solve,
