@@ -1,10 +1,11 @@
 import copy
 import numpy as np
-from typing import List, Union, Dict, Any, Optional, Tuple, Literal
+from typing import List, Union, Dict, Any, Optional, Tuple, Literal, ClassVar
 from pathlib import Path
-from pydantic import BaseModel, computed_field, ConfigDict, model_validator, Field
+from pydantic import BaseModel, computed_field, ConfigDict, model_validator, Field, field_validator
 import json
 import SimpleITK as sitk
+import warnings
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.data.images import ROIMask
 
@@ -41,7 +42,8 @@ class DwellPosition(BaseModel):
     ### Functions:
     - to_dict() -> dict := convert the dwell position to a dictionary.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, 
+                              validate_assignment=True) # Catches in-place mutations
     index: int
     angle: int = 0
     position: List[float] | np.array
@@ -51,13 +53,23 @@ class DwellPosition(BaseModel):
     catheter_index: int = None
     gen_dose_rate: bool = True
     dose_rate: 'BrachyDose' = None
+    _max_dwell_time: ClassVar[float] = 1e8
 
-    @model_validator(mode="after")
-    def validate_dwell_position(self):
-        self.position = np.array(self.position)
-        if self.rotation is not None:
-            self.rotation = np.array(self.rotation)
-        return self
+    @field_validator('time')
+    @classmethod
+    def validate_dwell_time(cls, value: float) -> float:
+        if value < 0.0:
+            raise ValueError(f"Dwell time cannot be negative. Got {value}")
+        if value > cls._max_dwell_time:
+            warnings.warn(f"Dwell time might be too high. Got {value}")
+        return value
+
+    @field_validator('position', 'rotation')
+    @classmethod
+    def convert_to_numpy(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        return np.array(value)
 
     @computed_field
     def name_id(self) -> str:
@@ -894,7 +906,10 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
                                 self_catheter.dwells[other_dwell.index].position[i] - other_dwell.position[i])
                             diff_rotation[i] = (
                                 self_catheter.dwells[other_dwell.index].rotation[i] - other_dwell.rotation[i])
-                        dwell_diff = DwellPosition(
+                        
+                        # model_construct bypasses validation checks, this is so that DwellPosition's validator
+                        # accepts the (possible) negative time field from diff_time.  
+                        dwell_diff = DwellPosition.model_construct(
                             index=other_dwell.index,
                             angle=diff_angle,
                             position=diff_position,
