@@ -66,7 +66,7 @@ class BrachyApplicator:
             - catheter_trajectory: (list, optional): The list of start dwell poisition and end dwell position of the catheter inside
             the applicator [[x,y,z,x,y,z]]. Defaults to None.
         Outputs:
-            - Void: an applicator object is created dependeing on the inputs.
+            - None: an applicator object is created dependeing on the inputs.
         """
         assert os.path.exists(
             pth_input_file
@@ -114,7 +114,7 @@ class BrachyApplicator:
         Inputs:
             - pth_input:str := path to the stl file containing the applicator geometry.
         Outputs:
-            - Void := will update the BrachyApplicator object based on the stl file.
+            - None := will update the BrachyApplicator object based on the stl file.
         """
         reader = vtkSTLReader()
         reader.SetFileName(pth_input)
@@ -129,7 +129,7 @@ class BrachyApplicator:
         Inputs:
             - pth_input:str := path to the stl file containing the applicator geometry.
         Outputs:
-            - Void := will update the BrachyApplicator object based on the json file.
+            - None := will update the BrachyApplicator object based on the json file.
         """
         with open(pth_input, "r") as json_file:
             applicator_dict = json.load(json_file)
@@ -149,7 +149,7 @@ class BrachyApplicator:
         Inputs:
             - pth_input:str := path to the mac file containing the applicator geometry.
         Outputs:
-            - Void := will update the BrachyApplicator object based on the mac file.
+            - None := will update the BrachyApplicator object based on the mac file.
         """
         raise NotImplementedError("to be implemented soon")
 
@@ -160,7 +160,7 @@ class BrachyApplicator:
         Inputs:
             - self := the BrachyApplicator object.
         Outputs:
-            - Void := will print the information about the applicator.
+            - None := will print the information about the applicator.
         """
         print("Applicator info is as follows:")
         print(self.to_dict())
@@ -199,7 +199,7 @@ class BrachyApplicator:
         Inputs:
             - self := the BrachyApplicator object.
         Outputs:
-            - Void := will update the applicator mesh from the verticies and faces.
+            - None := will update the applicator mesh from the verticies and faces.
         """
         points = vtkPoints()
         for vertex in self.verticies:
@@ -222,7 +222,7 @@ class BrachyApplicator:
         Inputs:
             - self := the BrachyApplicator object.
         Outputs:
-            - Void := will update the brachy applicator from the applicator mesh.
+            - None := will update the brachy applicator from the applicator mesh.
         """
         self.verticies = numpy_support.vtk_to_numpy(
             self.applicator_mesh.GetPoints().GetData()
@@ -239,7 +239,7 @@ class BrachyApplicator:
         Inputs:
             - origin:np.array := the origin of the applicator.
         Outputs:
-            - Void := will update the applicator verticies based on the new origin.
+            - None := will update the applicator verticies based on the new origin.
         """
         old_origin = self.origin
         change_in_origin = np.ones_like(self.verticies) * (origin - old_origin)
@@ -263,7 +263,7 @@ class BrachyApplicator:
             - rotation_origin:np.array := the origin of the rotation. if not provided, the
             origin of the applicator will be used.
         Outputs:
-            - Void := will update the applicator verticies based on the new rotation.
+            - None := will update the applicator verticies based on the new rotation.
         """
         # set the rotation attribute
         self.rotation = rotation
@@ -316,7 +316,7 @@ class BrachyApplicator:
         Inputs:
             - coordinates:np.array := the coordinates of the applicator.
         Outputs:
-            - Void := will update the applicator verticies based on the new coordinates.
+            - None := will update the applicator verticies based on the new coordinates.
         """
         # set the coordinate attributes
         self.coordinates = coordinates
@@ -345,7 +345,7 @@ class BrachyApplicator:
         Inputs:
             - self := the BrachyApplicator object.
         Outputs:
-            - Void := will update the catheter trajectory.
+            - None := will update the catheter trajectory.
         """
 
         raise NotImplementedError("to be implemented soon")
@@ -379,7 +379,7 @@ class BrachyApplicator:
         Inputs:
             - pth_output:str := path to the output json file.
         Outputs:
-            - Void := will save the applicator geometry to a json file.
+            - None := will save the applicator geometry to a json file.
         """
         applicator_dict = self.to_dict()
 
@@ -393,7 +393,7 @@ class BrachyApplicator:
         Inputs:
             - pth_output:str := path to the output mac file.
         Outputs:
-            - Void := will save the applicator geometry to a mac file.
+            - None := will save the applicator geometry to a mac file.
         """
         macfile_string = ""
 
@@ -430,7 +430,7 @@ class BrachyApplicator:
         Inputs:
             - pth_output:str := path to the output stl file.
         Outputs:
-            - Void := will save the applicator geometry to an stl file.
+            - None := will save the applicator geometry to an stl file.
         """
         self._update_applicator_mesh_from_brachy_applicator()
         # write the polydata to an stl file

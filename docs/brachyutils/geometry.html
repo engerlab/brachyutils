@@ -481,7 +481,7 @@
 </span><span id="BrachyApplicator-67"><a href="#BrachyApplicator-67"><span class="linenos"> 67</span></a><span class="sd">            - catheter_trajectory: (list, optional): The list of start dwell poisition and end dwell position of the catheter inside</span>
 </span><span id="BrachyApplicator-68"><a href="#BrachyApplicator-68"><span class="linenos"> 68</span></a><span class="sd">            the applicator [[x,y,z,x,y,z]]. Defaults to None.</span>
 </span><span id="BrachyApplicator-69"><a href="#BrachyApplicator-69"><span class="linenos"> 69</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-70"><a href="#BrachyApplicator-70"><span class="linenos"> 70</span></a><span class="sd">            - Void: an applicator object is created dependeing on the inputs.</span>
+</span><span id="BrachyApplicator-70"><a href="#BrachyApplicator-70"><span class="linenos"> 70</span></a><span class="sd">            - None: an applicator object is created dependeing on the inputs.</span>
 </span><span id="BrachyApplicator-71"><a href="#BrachyApplicator-71"><span class="linenos"> 71</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-72"><a href="#BrachyApplicator-72"><span class="linenos"> 72</span></a>        <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span>
 </span><span id="BrachyApplicator-73"><a href="#BrachyApplicator-73"><span class="linenos"> 73</span></a>            <span class="n">pth_input_file</span>
@@ -529,7 +529,7 @@
 </span><span id="BrachyApplicator-115"><a href="#BrachyApplicator-115"><span class="linenos">115</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-116"><a href="#BrachyApplicator-116"><span class="linenos">116</span></a><span class="sd">            - pth_input:str := path to the stl file containing the applicator geometry.</span>
 </span><span id="BrachyApplicator-117"><a href="#BrachyApplicator-117"><span class="linenos">117</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-118"><a href="#BrachyApplicator-118"><span class="linenos">118</span></a><span class="sd">            - Void := will update the BrachyApplicator object based on the stl file.</span>
+</span><span id="BrachyApplicator-118"><a href="#BrachyApplicator-118"><span class="linenos">118</span></a><span class="sd">            - None := will update the BrachyApplicator object based on the stl file.</span>
 </span><span id="BrachyApplicator-119"><a href="#BrachyApplicator-119"><span class="linenos">119</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-120"><a href="#BrachyApplicator-120"><span class="linenos">120</span></a>        <span class="n">reader</span> <span class="o">=</span> <span class="n">vtkSTLReader</span><span class="p">()</span>
 </span><span id="BrachyApplicator-121"><a href="#BrachyApplicator-121"><span class="linenos">121</span></a>        <span class="n">reader</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="n">pth_input</span><span class="p">)</span>
@@ -544,7 +544,7 @@
 </span><span id="BrachyApplicator-130"><a href="#BrachyApplicator-130"><span class="linenos">130</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-131"><a href="#BrachyApplicator-131"><span class="linenos">131</span></a><span class="sd">            - pth_input:str := path to the stl file containing the applicator geometry.</span>
 </span><span id="BrachyApplicator-132"><a href="#BrachyApplicator-132"><span class="linenos">132</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-133"><a href="#BrachyApplicator-133"><span class="linenos">133</span></a><span class="sd">            - Void := will update the BrachyApplicator object based on the json file.</span>
+</span><span id="BrachyApplicator-133"><a href="#BrachyApplicator-133"><span class="linenos">133</span></a><span class="sd">            - None := will update the BrachyApplicator object based on the json file.</span>
 </span><span id="BrachyApplicator-134"><a href="#BrachyApplicator-134"><span class="linenos">134</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-135"><a href="#BrachyApplicator-135"><span class="linenos">135</span></a>        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pth_input</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">json_file</span><span class="p">:</span>
 </span><span id="BrachyApplicator-136"><a href="#BrachyApplicator-136"><span class="linenos">136</span></a>            <span class="n">applicator_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">json_file</span><span class="p">)</span>
@@ -564,7 +564,7 @@
 </span><span id="BrachyApplicator-150"><a href="#BrachyApplicator-150"><span class="linenos">150</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-151"><a href="#BrachyApplicator-151"><span class="linenos">151</span></a><span class="sd">            - pth_input:str := path to the mac file containing the applicator geometry.</span>
 </span><span id="BrachyApplicator-152"><a href="#BrachyApplicator-152"><span class="linenos">152</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-153"><a href="#BrachyApplicator-153"><span class="linenos">153</span></a><span class="sd">            - Void := will update the BrachyApplicator object based on the mac file.</span>
+</span><span id="BrachyApplicator-153"><a href="#BrachyApplicator-153"><span class="linenos">153</span></a><span class="sd">            - None := will update the BrachyApplicator object based on the mac file.</span>
 </span><span id="BrachyApplicator-154"><a href="#BrachyApplicator-154"><span class="linenos">154</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-155"><a href="#BrachyApplicator-155"><span class="linenos">155</span></a>        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;to be implemented soon&quot;</span><span class="p">)</span>
 </span><span id="BrachyApplicator-156"><a href="#BrachyApplicator-156"><span class="linenos">156</span></a>
@@ -575,7 +575,7 @@
 </span><span id="BrachyApplicator-161"><a href="#BrachyApplicator-161"><span class="linenos">161</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-162"><a href="#BrachyApplicator-162"><span class="linenos">162</span></a><span class="sd">            - self := the BrachyApplicator object.</span>
 </span><span id="BrachyApplicator-163"><a href="#BrachyApplicator-163"><span class="linenos">163</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-164"><a href="#BrachyApplicator-164"><span class="linenos">164</span></a><span class="sd">            - Void := will print the information about the applicator.</span>
+</span><span id="BrachyApplicator-164"><a href="#BrachyApplicator-164"><span class="linenos">164</span></a><span class="sd">            - None := will print the information about the applicator.</span>
 </span><span id="BrachyApplicator-165"><a href="#BrachyApplicator-165"><span class="linenos">165</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-166"><a href="#BrachyApplicator-166"><span class="linenos">166</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Applicator info is as follows:&quot;</span><span class="p">)</span>
 </span><span id="BrachyApplicator-167"><a href="#BrachyApplicator-167"><span class="linenos">167</span></a>        <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
@@ -614,7 +614,7 @@
 </span><span id="BrachyApplicator-200"><a href="#BrachyApplicator-200"><span class="linenos">200</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-201"><a href="#BrachyApplicator-201"><span class="linenos">201</span></a><span class="sd">            - self := the BrachyApplicator object.</span>
 </span><span id="BrachyApplicator-202"><a href="#BrachyApplicator-202"><span class="linenos">202</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-203"><a href="#BrachyApplicator-203"><span class="linenos">203</span></a><span class="sd">            - Void := will update the applicator mesh from the verticies and faces.</span>
+</span><span id="BrachyApplicator-203"><a href="#BrachyApplicator-203"><span class="linenos">203</span></a><span class="sd">            - None := will update the applicator mesh from the verticies and faces.</span>
 </span><span id="BrachyApplicator-204"><a href="#BrachyApplicator-204"><span class="linenos">204</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-205"><a href="#BrachyApplicator-205"><span class="linenos">205</span></a>        <span class="n">points</span> <span class="o">=</span> <span class="n">vtkPoints</span><span class="p">()</span>
 </span><span id="BrachyApplicator-206"><a href="#BrachyApplicator-206"><span class="linenos">206</span></a>        <span class="k">for</span> <span class="n">vertex</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">verticies</span><span class="p">:</span>
@@ -637,7 +637,7 @@
 </span><span id="BrachyApplicator-223"><a href="#BrachyApplicator-223"><span class="linenos">223</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-224"><a href="#BrachyApplicator-224"><span class="linenos">224</span></a><span class="sd">            - self := the BrachyApplicator object.</span>
 </span><span id="BrachyApplicator-225"><a href="#BrachyApplicator-225"><span class="linenos">225</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-226"><a href="#BrachyApplicator-226"><span class="linenos">226</span></a><span class="sd">            - Void := will update the brachy applicator from the applicator mesh.</span>
+</span><span id="BrachyApplicator-226"><a href="#BrachyApplicator-226"><span class="linenos">226</span></a><span class="sd">            - None := will update the brachy applicator from the applicator mesh.</span>
 </span><span id="BrachyApplicator-227"><a href="#BrachyApplicator-227"><span class="linenos">227</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-228"><a href="#BrachyApplicator-228"><span class="linenos">228</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">verticies</span> <span class="o">=</span> <span class="n">numpy_support</span><span class="o">.</span><span class="n">vtk_to_numpy</span><span class="p">(</span>
 </span><span id="BrachyApplicator-229"><a href="#BrachyApplicator-229"><span class="linenos">229</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">applicator_mesh</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetData</span><span class="p">()</span>
@@ -654,7 +654,7 @@
 </span><span id="BrachyApplicator-240"><a href="#BrachyApplicator-240"><span class="linenos">240</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-241"><a href="#BrachyApplicator-241"><span class="linenos">241</span></a><span class="sd">            - origin:np.array := the origin of the applicator.</span>
 </span><span id="BrachyApplicator-242"><a href="#BrachyApplicator-242"><span class="linenos">242</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-243"><a href="#BrachyApplicator-243"><span class="linenos">243</span></a><span class="sd">            - Void := will update the applicator verticies based on the new origin.</span>
+</span><span id="BrachyApplicator-243"><a href="#BrachyApplicator-243"><span class="linenos">243</span></a><span class="sd">            - None := will update the applicator verticies based on the new origin.</span>
 </span><span id="BrachyApplicator-244"><a href="#BrachyApplicator-244"><span class="linenos">244</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-245"><a href="#BrachyApplicator-245"><span class="linenos">245</span></a>        <span class="n">old_origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin</span>
 </span><span id="BrachyApplicator-246"><a href="#BrachyApplicator-246"><span class="linenos">246</span></a>        <span class="n">change_in_origin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">verticies</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">origin</span> <span class="o">-</span> <span class="n">old_origin</span><span class="p">)</span>
@@ -678,7 +678,7 @@
 </span><span id="BrachyApplicator-264"><a href="#BrachyApplicator-264"><span class="linenos">264</span></a><span class="sd">            - rotation_origin:np.array := the origin of the rotation. if not provided, the</span>
 </span><span id="BrachyApplicator-265"><a href="#BrachyApplicator-265"><span class="linenos">265</span></a><span class="sd">            origin of the applicator will be used.</span>
 </span><span id="BrachyApplicator-266"><a href="#BrachyApplicator-266"><span class="linenos">266</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-267"><a href="#BrachyApplicator-267"><span class="linenos">267</span></a><span class="sd">            - Void := will update the applicator verticies based on the new rotation.</span>
+</span><span id="BrachyApplicator-267"><a href="#BrachyApplicator-267"><span class="linenos">267</span></a><span class="sd">            - None := will update the applicator verticies based on the new rotation.</span>
 </span><span id="BrachyApplicator-268"><a href="#BrachyApplicator-268"><span class="linenos">268</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-269"><a href="#BrachyApplicator-269"><span class="linenos">269</span></a>        <span class="c1"># set the rotation attribute</span>
 </span><span id="BrachyApplicator-270"><a href="#BrachyApplicator-270"><span class="linenos">270</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">rotation</span> <span class="o">=</span> <span class="n">rotation</span>
@@ -731,7 +731,7 @@
 </span><span id="BrachyApplicator-317"><a href="#BrachyApplicator-317"><span class="linenos">317</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-318"><a href="#BrachyApplicator-318"><span class="linenos">318</span></a><span class="sd">            - coordinates:np.array := the coordinates of the applicator.</span>
 </span><span id="BrachyApplicator-319"><a href="#BrachyApplicator-319"><span class="linenos">319</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-320"><a href="#BrachyApplicator-320"><span class="linenos">320</span></a><span class="sd">            - Void := will update the applicator verticies based on the new coordinates.</span>
+</span><span id="BrachyApplicator-320"><a href="#BrachyApplicator-320"><span class="linenos">320</span></a><span class="sd">            - None := will update the applicator verticies based on the new coordinates.</span>
 </span><span id="BrachyApplicator-321"><a href="#BrachyApplicator-321"><span class="linenos">321</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-322"><a href="#BrachyApplicator-322"><span class="linenos">322</span></a>        <span class="c1"># set the coordinate attributes</span>
 </span><span id="BrachyApplicator-323"><a href="#BrachyApplicator-323"><span class="linenos">323</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span> <span class="o">=</span> <span class="n">coordinates</span>
@@ -760,7 +760,7 @@
 </span><span id="BrachyApplicator-346"><a href="#BrachyApplicator-346"><span class="linenos">346</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-347"><a href="#BrachyApplicator-347"><span class="linenos">347</span></a><span class="sd">            - self := the BrachyApplicator object.</span>
 </span><span id="BrachyApplicator-348"><a href="#BrachyApplicator-348"><span class="linenos">348</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-349"><a href="#BrachyApplicator-349"><span class="linenos">349</span></a><span class="sd">            - Void := will update the catheter trajectory.</span>
+</span><span id="BrachyApplicator-349"><a href="#BrachyApplicator-349"><span class="linenos">349</span></a><span class="sd">            - None := will update the catheter trajectory.</span>
 </span><span id="BrachyApplicator-350"><a href="#BrachyApplicator-350"><span class="linenos">350</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-351"><a href="#BrachyApplicator-351"><span class="linenos">351</span></a>
 </span><span id="BrachyApplicator-352"><a href="#BrachyApplicator-352"><span class="linenos">352</span></a>        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;to be implemented soon&quot;</span><span class="p">)</span>
@@ -794,7 +794,7 @@
 </span><span id="BrachyApplicator-380"><a href="#BrachyApplicator-380"><span class="linenos">380</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-381"><a href="#BrachyApplicator-381"><span class="linenos">381</span></a><span class="sd">            - pth_output:str := path to the output json file.</span>
 </span><span id="BrachyApplicator-382"><a href="#BrachyApplicator-382"><span class="linenos">382</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-383"><a href="#BrachyApplicator-383"><span class="linenos">383</span></a><span class="sd">            - Void := will save the applicator geometry to a json file.</span>
+</span><span id="BrachyApplicator-383"><a href="#BrachyApplicator-383"><span class="linenos">383</span></a><span class="sd">            - None := will save the applicator geometry to a json file.</span>
 </span><span id="BrachyApplicator-384"><a href="#BrachyApplicator-384"><span class="linenos">384</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-385"><a href="#BrachyApplicator-385"><span class="linenos">385</span></a>        <span class="n">applicator_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
 </span><span id="BrachyApplicator-386"><a href="#BrachyApplicator-386"><span class="linenos">386</span></a>
@@ -808,7 +808,7 @@
 </span><span id="BrachyApplicator-394"><a href="#BrachyApplicator-394"><span class="linenos">394</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-395"><a href="#BrachyApplicator-395"><span class="linenos">395</span></a><span class="sd">            - pth_output:str := path to the output mac file.</span>
 </span><span id="BrachyApplicator-396"><a href="#BrachyApplicator-396"><span class="linenos">396</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-397"><a href="#BrachyApplicator-397"><span class="linenos">397</span></a><span class="sd">            - Void := will save the applicator geometry to a mac file.</span>
+</span><span id="BrachyApplicator-397"><a href="#BrachyApplicator-397"><span class="linenos">397</span></a><span class="sd">            - None := will save the applicator geometry to a mac file.</span>
 </span><span id="BrachyApplicator-398"><a href="#BrachyApplicator-398"><span class="linenos">398</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-399"><a href="#BrachyApplicator-399"><span class="linenos">399</span></a>        <span class="n">macfile_string</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 </span><span id="BrachyApplicator-400"><a href="#BrachyApplicator-400"><span class="linenos">400</span></a>
@@ -845,7 +845,7 @@
 </span><span id="BrachyApplicator-431"><a href="#BrachyApplicator-431"><span class="linenos">431</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator-432"><a href="#BrachyApplicator-432"><span class="linenos">432</span></a><span class="sd">            - pth_output:str := path to the output stl file.</span>
 </span><span id="BrachyApplicator-433"><a href="#BrachyApplicator-433"><span class="linenos">433</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator-434"><a href="#BrachyApplicator-434"><span class="linenos">434</span></a><span class="sd">            - Void := will save the applicator geometry to an stl file.</span>
+</span><span id="BrachyApplicator-434"><a href="#BrachyApplicator-434"><span class="linenos">434</span></a><span class="sd">            - None := will save the applicator geometry to an stl file.</span>
 </span><span id="BrachyApplicator-435"><a href="#BrachyApplicator-435"><span class="linenos">435</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator-436"><a href="#BrachyApplicator-436"><span class="linenos">436</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_update_applicator_mesh_from_brachy_applicator</span><span class="p">()</span>
 </span><span id="BrachyApplicator-437"><a href="#BrachyApplicator-437"><span class="linenos">437</span></a>        <span class="c1"># write the polydata to an stl file</span>
@@ -917,7 +917,7 @@
 </span><span id="BrachyApplicator.__init__-67"><a href="#BrachyApplicator.__init__-67"><span class="linenos"> 67</span></a><span class="sd">            - catheter_trajectory: (list, optional): The list of start dwell poisition and end dwell position of the catheter inside</span>
 </span><span id="BrachyApplicator.__init__-68"><a href="#BrachyApplicator.__init__-68"><span class="linenos"> 68</span></a><span class="sd">            the applicator [[x,y,z,x,y,z]]. Defaults to None.</span>
 </span><span id="BrachyApplicator.__init__-69"><a href="#BrachyApplicator.__init__-69"><span class="linenos"> 69</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.__init__-70"><a href="#BrachyApplicator.__init__-70"><span class="linenos"> 70</span></a><span class="sd">            - Void: an applicator object is created dependeing on the inputs.</span>
+</span><span id="BrachyApplicator.__init__-70"><a href="#BrachyApplicator.__init__-70"><span class="linenos"> 70</span></a><span class="sd">            - None: an applicator object is created dependeing on the inputs.</span>
 </span><span id="BrachyApplicator.__init__-71"><a href="#BrachyApplicator.__init__-71"><span class="linenos"> 71</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.__init__-72"><a href="#BrachyApplicator.__init__-72"><span class="linenos"> 72</span></a>        <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span>
 </span><span id="BrachyApplicator.__init__-73"><a href="#BrachyApplicator.__init__-73"><span class="linenos"> 73</span></a>            <span class="n">pth_input_file</span>
@@ -974,7 +974,7 @@ Inputs:
     - catheter_trajectory: (list, optional): The list of start dwell poisition and end dwell position of the catheter inside
     the applicator [[x,y,z,x,y,z]]. Defaults to None.
 Outputs:
-    - Void: an applicator object is created dependeing on the inputs.</p>
+    - None: an applicator object is created dependeing on the inputs.</p>
 </div>
 
 
@@ -1129,7 +1129,7 @@ Outputs:
 </span><span id="BrachyApplicator.load_stl-115"><a href="#BrachyApplicator.load_stl-115"><span class="linenos">115</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator.load_stl-116"><a href="#BrachyApplicator.load_stl-116"><span class="linenos">116</span></a><span class="sd">            - pth_input:str := path to the stl file containing the applicator geometry.</span>
 </span><span id="BrachyApplicator.load_stl-117"><a href="#BrachyApplicator.load_stl-117"><span class="linenos">117</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.load_stl-118"><a href="#BrachyApplicator.load_stl-118"><span class="linenos">118</span></a><span class="sd">            - Void := will update the BrachyApplicator object based on the stl file.</span>
+</span><span id="BrachyApplicator.load_stl-118"><a href="#BrachyApplicator.load_stl-118"><span class="linenos">118</span></a><span class="sd">            - None := will update the BrachyApplicator object based on the stl file.</span>
 </span><span id="BrachyApplicator.load_stl-119"><a href="#BrachyApplicator.load_stl-119"><span class="linenos">119</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.load_stl-120"><a href="#BrachyApplicator.load_stl-120"><span class="linenos">120</span></a>        <span class="n">reader</span> <span class="o">=</span> <span class="n">vtkSTLReader</span><span class="p">()</span>
 </span><span id="BrachyApplicator.load_stl-121"><a href="#BrachyApplicator.load_stl-121"><span class="linenos">121</span></a>        <span class="n">reader</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="n">pth_input</span><span class="p">)</span>
@@ -1144,7 +1144,7 @@ Outputs:
 Inputs:
     - pth_input:str := path to the stl file containing the applicator geometry.
 Outputs:
-    - Void := will update the BrachyApplicator object based on the stl file.</p>
+    - None := will update the BrachyApplicator object based on the stl file.</p>
 </div>
 
 
@@ -1167,7 +1167,7 @@ Outputs:
 </span><span id="BrachyApplicator.load_json-130"><a href="#BrachyApplicator.load_json-130"><span class="linenos">130</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator.load_json-131"><a href="#BrachyApplicator.load_json-131"><span class="linenos">131</span></a><span class="sd">            - pth_input:str := path to the stl file containing the applicator geometry.</span>
 </span><span id="BrachyApplicator.load_json-132"><a href="#BrachyApplicator.load_json-132"><span class="linenos">132</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.load_json-133"><a href="#BrachyApplicator.load_json-133"><span class="linenos">133</span></a><span class="sd">            - Void := will update the BrachyApplicator object based on the json file.</span>
+</span><span id="BrachyApplicator.load_json-133"><a href="#BrachyApplicator.load_json-133"><span class="linenos">133</span></a><span class="sd">            - None := will update the BrachyApplicator object based on the json file.</span>
 </span><span id="BrachyApplicator.load_json-134"><a href="#BrachyApplicator.load_json-134"><span class="linenos">134</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.load_json-135"><a href="#BrachyApplicator.load_json-135"><span class="linenos">135</span></a>        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pth_input</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">json_file</span><span class="p">:</span>
 </span><span id="BrachyApplicator.load_json-136"><a href="#BrachyApplicator.load_json-136"><span class="linenos">136</span></a>            <span class="n">applicator_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">json_file</span><span class="p">)</span>
@@ -1187,7 +1187,7 @@ Outputs:
 Inputs:
     - pth_input:str := path to the stl file containing the applicator geometry.
 Outputs:
-    - Void := will update the BrachyApplicator object based on the json file.</p>
+    - None := will update the BrachyApplicator object based on the json file.</p>
 </div>
 
 
@@ -1210,7 +1210,7 @@ Outputs:
 </span><span id="BrachyApplicator.load_mac-150"><a href="#BrachyApplicator.load_mac-150"><span class="linenos">150</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator.load_mac-151"><a href="#BrachyApplicator.load_mac-151"><span class="linenos">151</span></a><span class="sd">            - pth_input:str := path to the mac file containing the applicator geometry.</span>
 </span><span id="BrachyApplicator.load_mac-152"><a href="#BrachyApplicator.load_mac-152"><span class="linenos">152</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.load_mac-153"><a href="#BrachyApplicator.load_mac-153"><span class="linenos">153</span></a><span class="sd">            - Void := will update the BrachyApplicator object based on the mac file.</span>
+</span><span id="BrachyApplicator.load_mac-153"><a href="#BrachyApplicator.load_mac-153"><span class="linenos">153</span></a><span class="sd">            - None := will update the BrachyApplicator object based on the mac file.</span>
 </span><span id="BrachyApplicator.load_mac-154"><a href="#BrachyApplicator.load_mac-154"><span class="linenos">154</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.load_mac-155"><a href="#BrachyApplicator.load_mac-155"><span class="linenos">155</span></a>        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;to be implemented soon&quot;</span><span class="p">)</span>
 </span></pre></div>
@@ -1221,7 +1221,7 @@ Outputs:
 Inputs:
     - pth_input:str := path to the mac file containing the applicator geometry.
 Outputs:
-    - Void := will update the BrachyApplicator object based on the mac file.</p>
+    - None := will update the BrachyApplicator object based on the mac file.</p>
 </div>
 
 
@@ -1244,7 +1244,7 @@ Outputs:
 </span><span id="BrachyApplicator.info-161"><a href="#BrachyApplicator.info-161"><span class="linenos">161</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator.info-162"><a href="#BrachyApplicator.info-162"><span class="linenos">162</span></a><span class="sd">            - self := the BrachyApplicator object.</span>
 </span><span id="BrachyApplicator.info-163"><a href="#BrachyApplicator.info-163"><span class="linenos">163</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.info-164"><a href="#BrachyApplicator.info-164"><span class="linenos">164</span></a><span class="sd">            - Void := will print the information about the applicator.</span>
+</span><span id="BrachyApplicator.info-164"><a href="#BrachyApplicator.info-164"><span class="linenos">164</span></a><span class="sd">            - None := will print the information about the applicator.</span>
 </span><span id="BrachyApplicator.info-165"><a href="#BrachyApplicator.info-165"><span class="linenos">165</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.info-166"><a href="#BrachyApplicator.info-166"><span class="linenos">166</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Applicator info is as follows:&quot;</span><span class="p">)</span>
 </span><span id="BrachyApplicator.info-167"><a href="#BrachyApplicator.info-167"><span class="linenos">167</span></a>        <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
@@ -1256,7 +1256,7 @@ Outputs:
 Inputs:
     - self := the BrachyApplicator object.
 Outputs:
-    - Void := will print the information about the applicator.</p>
+    - None := will print the information about the applicator.</p>
 </div>
 
 
@@ -1329,7 +1329,7 @@ Outputs:
 </span><span id="BrachyApplicator.set_origin-240"><a href="#BrachyApplicator.set_origin-240"><span class="linenos">240</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator.set_origin-241"><a href="#BrachyApplicator.set_origin-241"><span class="linenos">241</span></a><span class="sd">            - origin:np.array := the origin of the applicator.</span>
 </span><span id="BrachyApplicator.set_origin-242"><a href="#BrachyApplicator.set_origin-242"><span class="linenos">242</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.set_origin-243"><a href="#BrachyApplicator.set_origin-243"><span class="linenos">243</span></a><span class="sd">            - Void := will update the applicator verticies based on the new origin.</span>
+</span><span id="BrachyApplicator.set_origin-243"><a href="#BrachyApplicator.set_origin-243"><span class="linenos">243</span></a><span class="sd">            - None := will update the applicator verticies based on the new origin.</span>
 </span><span id="BrachyApplicator.set_origin-244"><a href="#BrachyApplicator.set_origin-244"><span class="linenos">244</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.set_origin-245"><a href="#BrachyApplicator.set_origin-245"><span class="linenos">245</span></a>        <span class="n">old_origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin</span>
 </span><span id="BrachyApplicator.set_origin-246"><a href="#BrachyApplicator.set_origin-246"><span class="linenos">246</span></a>        <span class="n">change_in_origin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">verticies</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">origin</span> <span class="o">-</span> <span class="n">old_origin</span><span class="p">)</span>
@@ -1344,7 +1344,7 @@ Outputs:
 Inputs:
     - origin:np.array := the origin of the applicator.
 Outputs:
-    - Void := will update the applicator verticies based on the new origin.</p>
+    - None := will update the applicator verticies based on the new origin.</p>
 </div>
 
 
@@ -1376,7 +1376,7 @@ Outputs:
 </span><span id="BrachyApplicator.set_rotation-264"><a href="#BrachyApplicator.set_rotation-264"><span class="linenos">264</span></a><span class="sd">            - rotation_origin:np.array := the origin of the rotation. if not provided, the</span>
 </span><span id="BrachyApplicator.set_rotation-265"><a href="#BrachyApplicator.set_rotation-265"><span class="linenos">265</span></a><span class="sd">            origin of the applicator will be used.</span>
 </span><span id="BrachyApplicator.set_rotation-266"><a href="#BrachyApplicator.set_rotation-266"><span class="linenos">266</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.set_rotation-267"><a href="#BrachyApplicator.set_rotation-267"><span class="linenos">267</span></a><span class="sd">            - Void := will update the applicator verticies based on the new rotation.</span>
+</span><span id="BrachyApplicator.set_rotation-267"><a href="#BrachyApplicator.set_rotation-267"><span class="linenos">267</span></a><span class="sd">            - None := will update the applicator verticies based on the new rotation.</span>
 </span><span id="BrachyApplicator.set_rotation-268"><a href="#BrachyApplicator.set_rotation-268"><span class="linenos">268</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.set_rotation-269"><a href="#BrachyApplicator.set_rotation-269"><span class="linenos">269</span></a>        <span class="c1"># set the rotation attribute</span>
 </span><span id="BrachyApplicator.set_rotation-270"><a href="#BrachyApplicator.set_rotation-270"><span class="linenos">270</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">rotation</span> <span class="o">=</span> <span class="n">rotation</span>
@@ -1435,7 +1435,7 @@ Inputs:
     - rotation_origin:np.array := the origin of the rotation. if not provided, the
     origin of the applicator will be used.
 Outputs:
-    - Void := will update the applicator verticies based on the new rotation.</p>
+    - None := will update the applicator verticies based on the new rotation.</p>
 </div>
 
 
@@ -1459,7 +1459,7 @@ Outputs:
 </span><span id="BrachyApplicator.set_coordinates-317"><a href="#BrachyApplicator.set_coordinates-317"><span class="linenos">317</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator.set_coordinates-318"><a href="#BrachyApplicator.set_coordinates-318"><span class="linenos">318</span></a><span class="sd">            - coordinates:np.array := the coordinates of the applicator.</span>
 </span><span id="BrachyApplicator.set_coordinates-319"><a href="#BrachyApplicator.set_coordinates-319"><span class="linenos">319</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.set_coordinates-320"><a href="#BrachyApplicator.set_coordinates-320"><span class="linenos">320</span></a><span class="sd">            - Void := will update the applicator verticies based on the new coordinates.</span>
+</span><span id="BrachyApplicator.set_coordinates-320"><a href="#BrachyApplicator.set_coordinates-320"><span class="linenos">320</span></a><span class="sd">            - None := will update the applicator verticies based on the new coordinates.</span>
 </span><span id="BrachyApplicator.set_coordinates-321"><a href="#BrachyApplicator.set_coordinates-321"><span class="linenos">321</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.set_coordinates-322"><a href="#BrachyApplicator.set_coordinates-322"><span class="linenos">322</span></a>        <span class="c1"># set the coordinate attributes</span>
 </span><span id="BrachyApplicator.set_coordinates-323"><a href="#BrachyApplicator.set_coordinates-323"><span class="linenos">323</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span> <span class="o">=</span> <span class="n">coordinates</span>
@@ -1486,7 +1486,7 @@ Outputs:
 Inputs:
     - coordinates:np.array := the coordinates of the applicator.
 Outputs:
-    - Void := will update the applicator verticies based on the new coordinates.</p>
+    - None := will update the applicator verticies based on the new coordinates.</p>
 </div>
 
 
@@ -1554,7 +1554,7 @@ Outputs:
 </span><span id="BrachyApplicator.to_json-380"><a href="#BrachyApplicator.to_json-380"><span class="linenos">380</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator.to_json-381"><a href="#BrachyApplicator.to_json-381"><span class="linenos">381</span></a><span class="sd">            - pth_output:str := path to the output json file.</span>
 </span><span id="BrachyApplicator.to_json-382"><a href="#BrachyApplicator.to_json-382"><span class="linenos">382</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.to_json-383"><a href="#BrachyApplicator.to_json-383"><span class="linenos">383</span></a><span class="sd">            - Void := will save the applicator geometry to a json file.</span>
+</span><span id="BrachyApplicator.to_json-383"><a href="#BrachyApplicator.to_json-383"><span class="linenos">383</span></a><span class="sd">            - None := will save the applicator geometry to a json file.</span>
 </span><span id="BrachyApplicator.to_json-384"><a href="#BrachyApplicator.to_json-384"><span class="linenos">384</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.to_json-385"><a href="#BrachyApplicator.to_json-385"><span class="linenos">385</span></a>        <span class="n">applicator_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
 </span><span id="BrachyApplicator.to_json-386"><a href="#BrachyApplicator.to_json-386"><span class="linenos">386</span></a>
@@ -1568,7 +1568,7 @@ Outputs:
 Inputs:
     - pth_output:str := path to the output json file.
 Outputs:
-    - Void := will save the applicator geometry to a json file.</p>
+    - None := will save the applicator geometry to a json file.</p>
 </div>
 
 
@@ -1591,7 +1591,7 @@ Outputs:
 </span><span id="BrachyApplicator.to_mac-394"><a href="#BrachyApplicator.to_mac-394"><span class="linenos">394</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator.to_mac-395"><a href="#BrachyApplicator.to_mac-395"><span class="linenos">395</span></a><span class="sd">            - pth_output:str := path to the output mac file.</span>
 </span><span id="BrachyApplicator.to_mac-396"><a href="#BrachyApplicator.to_mac-396"><span class="linenos">396</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.to_mac-397"><a href="#BrachyApplicator.to_mac-397"><span class="linenos">397</span></a><span class="sd">            - Void := will save the applicator geometry to a mac file.</span>
+</span><span id="BrachyApplicator.to_mac-397"><a href="#BrachyApplicator.to_mac-397"><span class="linenos">397</span></a><span class="sd">            - None := will save the applicator geometry to a mac file.</span>
 </span><span id="BrachyApplicator.to_mac-398"><a href="#BrachyApplicator.to_mac-398"><span class="linenos">398</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.to_mac-399"><a href="#BrachyApplicator.to_mac-399"><span class="linenos">399</span></a>        <span class="n">macfile_string</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 </span><span id="BrachyApplicator.to_mac-400"><a href="#BrachyApplicator.to_mac-400"><span class="linenos">400</span></a>
@@ -1628,7 +1628,7 @@ Outputs:
 Inputs:
     - pth_output:str := path to the output mac file.
 Outputs:
-    - Void := will save the applicator geometry to a mac file.</p>
+    - None := will save the applicator geometry to a mac file.</p>
 </div>
 
 
@@ -1651,7 +1651,7 @@ Outputs:
 </span><span id="BrachyApplicator.to_stl-431"><a href="#BrachyApplicator.to_stl-431"><span class="linenos">431</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyApplicator.to_stl-432"><a href="#BrachyApplicator.to_stl-432"><span class="linenos">432</span></a><span class="sd">            - pth_output:str := path to the output stl file.</span>
 </span><span id="BrachyApplicator.to_stl-433"><a href="#BrachyApplicator.to_stl-433"><span class="linenos">433</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyApplicator.to_stl-434"><a href="#BrachyApplicator.to_stl-434"><span class="linenos">434</span></a><span class="sd">            - Void := will save the applicator geometry to an stl file.</span>
+</span><span id="BrachyApplicator.to_stl-434"><a href="#BrachyApplicator.to_stl-434"><span class="linenos">434</span></a><span class="sd">            - None := will save the applicator geometry to an stl file.</span>
 </span><span id="BrachyApplicator.to_stl-435"><a href="#BrachyApplicator.to_stl-435"><span class="linenos">435</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyApplicator.to_stl-436"><a href="#BrachyApplicator.to_stl-436"><span class="linenos">436</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_update_applicator_mesh_from_brachy_applicator</span><span class="p">()</span>
 </span><span id="BrachyApplicator.to_stl-437"><a href="#BrachyApplicator.to_stl-437"><span class="linenos">437</span></a>        <span class="c1"># write the polydata to an stl file</span>
@@ -1667,7 +1667,7 @@ Outputs:
 Inputs:
     - pth_output:str := path to the output stl file.
 Outputs:
-    - Void := will save the applicator geometry to an stl file.</p>
+    - None := will save the applicator geometry to an stl file.</p>
 </div>
 
 
@@ -5536,7 +5536,7 @@ Output:
 </span><span id="BrachyEgsphant-86"><a href="#BrachyEgsphant-86"><span class="linenos">  86</span></a><span class="sd">                ]</span>
 </span><span id="BrachyEgsphant-87"><a href="#BrachyEgsphant-87"><span class="linenos">  87</span></a><span class="sd">            - assign_material_from_ct:bool := if True, the function will assign the material based on the HU values in the CT image.</span>
 </span><span id="BrachyEgsphant-88"><a href="#BrachyEgsphant-88"><span class="linenos">  88</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyEgsphant-89"><a href="#BrachyEgsphant-89"><span class="linenos">  89</span></a><span class="sd">            - Void := will initialize a BrachyEgsphant object</span>
+</span><span id="BrachyEgsphant-89"><a href="#BrachyEgsphant-89"><span class="linenos">  89</span></a><span class="sd">            - None := will initialize a BrachyEgsphant object</span>
 </span><span id="BrachyEgsphant-90"><a href="#BrachyEgsphant-90"><span class="linenos">  90</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyEgsphant-91"><a href="#BrachyEgsphant-91"><span class="linenos">  91</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">unit_length</span> <span class="o">=</span> <span class="s2">&quot;mm&quot;</span>
 </span><span id="BrachyEgsphant-92"><a href="#BrachyEgsphant-92"><span class="linenos">  92</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">material_image</span><span class="p">:</span> <span class="n">Image3D</span> <span class="o">=</span> <span class="kc">None</span>
@@ -5763,7 +5763,7 @@ Output:
 </span><span id="BrachyEgsphant-313"><a href="#BrachyEgsphant-313"><span class="linenos"> 313</span></a><span class="sd">            - self: BrachyEgsphant object with material_dict attribute. The material_dict</span>
 </span><span id="BrachyEgsphant-314"><a href="#BrachyEgsphant-314"><span class="linenos"> 314</span></a><span class="sd">            has to have at least the encoding key for each material.</span>
 </span><span id="BrachyEgsphant-315"><a href="#BrachyEgsphant-315"><span class="linenos"> 315</span></a><span class="sd">        Output:</span>
-</span><span id="BrachyEgsphant-316"><a href="#BrachyEgsphant-316"><span class="linenos"> 316</span></a><span class="sd">            - Void: will sort the material_dict based on the encoding</span>
+</span><span id="BrachyEgsphant-316"><a href="#BrachyEgsphant-316"><span class="linenos"> 316</span></a><span class="sd">            - None: will sort the material_dict based on the encoding</span>
 </span><span id="BrachyEgsphant-317"><a href="#BrachyEgsphant-317"><span class="linenos"> 317</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyEgsphant-318"><a href="#BrachyEgsphant-318"><span class="linenos"> 318</span></a>        <span class="k">assert</span> <span class="n">material_key</span> <span class="ow">in</span> <span class="p">[</span>
 </span><span id="BrachyEgsphant-319"><a href="#BrachyEgsphant-319"><span class="linenos"> 319</span></a>            <span class="s2">&quot;encoding&quot;</span><span class="p">,</span>
@@ -6164,7 +6164,7 @@ Output:
 </span><span id="BrachyEgsphant-714"><a href="#BrachyEgsphant-714"><span class="linenos"> 714</span></a><span class="sd">            - index_range := a 3 x 2 array holding the min and max index on x, y and z axis</span>
 </span><span id="BrachyEgsphant-715"><a href="#BrachyEgsphant-715"><span class="linenos"> 715</span></a><span class="sd">                [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]</span>
 </span><span id="BrachyEgsphant-716"><a href="#BrachyEgsphant-716"><span class="linenos"> 716</span></a><span class="sd">        Output:</span>
-</span><span id="BrachyEgsphant-717"><a href="#BrachyEgsphant-717"><span class="linenos"> 717</span></a><span class="sd">            - Void := will crop out the material and density maps of self to have the range of the index range.</span>
+</span><span id="BrachyEgsphant-717"><a href="#BrachyEgsphant-717"><span class="linenos"> 717</span></a><span class="sd">            - None := will crop out the material and density maps of self to have the range of the index range.</span>
 </span><span id="BrachyEgsphant-718"><a href="#BrachyEgsphant-718"><span class="linenos"> 718</span></a><span class="sd">                it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change</span>
 </span><span id="BrachyEgsphant-719"><a href="#BrachyEgsphant-719"><span class="linenos"> 719</span></a><span class="sd">        Dependencies:</span>
 </span><span id="BrachyEgsphant-720"><a href="#BrachyEgsphant-720"><span class="linenos"> 720</span></a><span class="sd">            - self.crop_by_coordinates()</span>
@@ -6312,7 +6312,7 @@ Output:
 </span><span id="BrachyEgsphant-862"><a href="#BrachyEgsphant-862"><span class="linenos"> 862</span></a><span class="sd">                - HU_limit: the upper HU limit of the material</span>
 </span><span id="BrachyEgsphant-863"><a href="#BrachyEgsphant-863"><span class="linenos"> 863</span></a><span class="sd">                - structure_name: the name of the structure in the dicom file that represents the material [optional]</span>
 </span><span id="BrachyEgsphant-864"><a href="#BrachyEgsphant-864"><span class="linenos"> 864</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyEgsphant-865"><a href="#BrachyEgsphant-865"><span class="linenos"> 865</span></a><span class="sd">            - Void := will generate a BrachyEgsphant object from the images and structure file.</span>
+</span><span id="BrachyEgsphant-865"><a href="#BrachyEgsphant-865"><span class="linenos"> 865</span></a><span class="sd">            - None := will generate a BrachyEgsphant object from the images and structure file.</span>
 </span><span id="BrachyEgsphant-866"><a href="#BrachyEgsphant-866"><span class="linenos"> 866</span></a><span class="sd">        Dependencies:</span>
 </span><span id="BrachyEgsphant-867"><a href="#BrachyEgsphant-867"><span class="linenos"> 867</span></a><span class="sd">            - BrachyPhantom</span>
 </span><span id="BrachyEgsphant-868"><a href="#BrachyEgsphant-868"><span class="linenos"> 868</span></a><span class="sd">        &quot;&quot;&quot;</span>
@@ -6489,7 +6489,7 @@ Output:
 </span><span id="BrachyEgsphant-1039"><a href="#BrachyEgsphant-1039"><span class="linenos">1039</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyEgsphant-1040"><a href="#BrachyEgsphant-1040"><span class="linenos">1040</span></a><span class="sd">            - pth_file:Path := the directory path where the json file will be written.</span>
 </span><span id="BrachyEgsphant-1041"><a href="#BrachyEgsphant-1041"><span class="linenos">1041</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyEgsphant-1042"><a href="#BrachyEgsphant-1042"><span class="linenos">1042</span></a><span class="sd">            - Void := will write the material dictionary to a json file.</span>
+</span><span id="BrachyEgsphant-1042"><a href="#BrachyEgsphant-1042"><span class="linenos">1042</span></a><span class="sd">            - None := will write the material dictionary to a json file.</span>
 </span><span id="BrachyEgsphant-1043"><a href="#BrachyEgsphant-1043"><span class="linenos">1043</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyEgsphant-1044"><a href="#BrachyEgsphant-1044"><span class="linenos">1044</span></a>        <span class="n">extension</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">pth_file</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 </span><span id="BrachyEgsphant-1045"><a href="#BrachyEgsphant-1045"><span class="linenos">1045</span></a>        <span class="k">if</span> <span class="n">extension</span> <span class="o">==</span> <span class="s2">&quot;.json&quot;</span><span class="p">:</span>
@@ -6507,7 +6507,7 @@ Output:
 </span><span id="BrachyEgsphant-1057"><a href="#BrachyEgsphant-1057"><span class="linenos">1057</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyEgsphant-1058"><a href="#BrachyEgsphant-1058"><span class="linenos">1058</span></a><span class="sd">            - self:BrachyEgsphant := a BrachyEgsphant object with a material dictionary</span>
 </span><span id="BrachyEgsphant-1059"><a href="#BrachyEgsphant-1059"><span class="linenos">1059</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyEgsphant-1060"><a href="#BrachyEgsphant-1060"><span class="linenos">1060</span></a><span class="sd">            - Void := will remove duplicate materials from the material dictionary.</span>
+</span><span id="BrachyEgsphant-1060"><a href="#BrachyEgsphant-1060"><span class="linenos">1060</span></a><span class="sd">            - None := will remove duplicate materials from the material dictionary.</span>
 </span><span id="BrachyEgsphant-1061"><a href="#BrachyEgsphant-1061"><span class="linenos">1061</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyEgsphant-1062"><a href="#BrachyEgsphant-1062"><span class="linenos">1062</span></a>        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">material_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;material dictionary is not available&quot;</span>
 </span><span id="BrachyEgsphant-1063"><a href="#BrachyEgsphant-1063"><span class="linenos">1063</span></a>
@@ -6602,7 +6602,7 @@ Dependencies:
 </span><span id="BrachyEgsphant.__init__-86"><a href="#BrachyEgsphant.__init__-86"><span class="linenos"> 86</span></a><span class="sd">                ]</span>
 </span><span id="BrachyEgsphant.__init__-87"><a href="#BrachyEgsphant.__init__-87"><span class="linenos"> 87</span></a><span class="sd">            - assign_material_from_ct:bool := if True, the function will assign the material based on the HU values in the CT image.</span>
 </span><span id="BrachyEgsphant.__init__-88"><a href="#BrachyEgsphant.__init__-88"><span class="linenos"> 88</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyEgsphant.__init__-89"><a href="#BrachyEgsphant.__init__-89"><span class="linenos"> 89</span></a><span class="sd">            - Void := will initialize a BrachyEgsphant object</span>
+</span><span id="BrachyEgsphant.__init__-89"><a href="#BrachyEgsphant.__init__-89"><span class="linenos"> 89</span></a><span class="sd">            - None := will initialize a BrachyEgsphant object</span>
 </span><span id="BrachyEgsphant.__init__-90"><a href="#BrachyEgsphant.__init__-90"><span class="linenos"> 90</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyEgsphant.__init__-91"><a href="#BrachyEgsphant.__init__-91"><span class="linenos"> 91</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">unit_length</span> <span class="o">=</span> <span class="s2">&quot;mm&quot;</span>
 </span><span id="BrachyEgsphant.__init__-92"><a href="#BrachyEgsphant.__init__-92"><span class="linenos"> 92</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">material_image</span><span class="p">:</span> <span class="n">Image3D</span> <span class="o">=</span> <span class="kc">None</span>
@@ -6688,7 +6688,7 @@ Inputs:
         ]
     - assign_material_from_ct:bool := if True, the function will assign the material based on the HU values in the CT image.
 Outputs:
-    - Void := will initialize a BrachyEgsphant object</p>
+    - None := will initialize a BrachyEgsphant object</p>
 </div>
 
 
@@ -7577,7 +7577,7 @@ inputs:
 </span><span id="BrachyEgsphant.crop_by_index-714"><a href="#BrachyEgsphant.crop_by_index-714"><span class="linenos">714</span></a><span class="sd">            - index_range := a 3 x 2 array holding the min and max index on x, y and z axis</span>
 </span><span id="BrachyEgsphant.crop_by_index-715"><a href="#BrachyEgsphant.crop_by_index-715"><span class="linenos">715</span></a><span class="sd">                [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]</span>
 </span><span id="BrachyEgsphant.crop_by_index-716"><a href="#BrachyEgsphant.crop_by_index-716"><span class="linenos">716</span></a><span class="sd">        Output:</span>
-</span><span id="BrachyEgsphant.crop_by_index-717"><a href="#BrachyEgsphant.crop_by_index-717"><span class="linenos">717</span></a><span class="sd">            - Void := will crop out the material and density maps of self to have the range of the index range.</span>
+</span><span id="BrachyEgsphant.crop_by_index-717"><a href="#BrachyEgsphant.crop_by_index-717"><span class="linenos">717</span></a><span class="sd">            - None := will crop out the material and density maps of self to have the range of the index range.</span>
 </span><span id="BrachyEgsphant.crop_by_index-718"><a href="#BrachyEgsphant.crop_by_index-718"><span class="linenos">718</span></a><span class="sd">                it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change</span>
 </span><span id="BrachyEgsphant.crop_by_index-719"><a href="#BrachyEgsphant.crop_by_index-719"><span class="linenos">719</span></a><span class="sd">        Dependencies:</span>
 </span><span id="BrachyEgsphant.crop_by_index-720"><a href="#BrachyEgsphant.crop_by_index-720"><span class="linenos">720</span></a><span class="sd">            - self.crop_by_coordinates()</span>
@@ -7608,7 +7608,7 @@ Inputs:
     - index_range := a 3 x 2 array holding the min and max index on x, y and z axis
         [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
 Output:
-    - Void := will crop out the material and density maps of self to have the range of the index range.
+    - None := will crop out the material and density maps of self to have the range of the index range.
         it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
 Dependencies:
     - self.crop_by_coordinates()</p>
@@ -7857,7 +7857,7 @@ Output:
 </span><span id="BrachyEgsphant.create_egsphant_from_phantom-862"><a href="#BrachyEgsphant.create_egsphant_from_phantom-862"><span class="linenos"> 862</span></a><span class="sd">                - HU_limit: the upper HU limit of the material</span>
 </span><span id="BrachyEgsphant.create_egsphant_from_phantom-863"><a href="#BrachyEgsphant.create_egsphant_from_phantom-863"><span class="linenos"> 863</span></a><span class="sd">                - structure_name: the name of the structure in the dicom file that represents the material [optional]</span>
 </span><span id="BrachyEgsphant.create_egsphant_from_phantom-864"><a href="#BrachyEgsphant.create_egsphant_from_phantom-864"><span class="linenos"> 864</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyEgsphant.create_egsphant_from_phantom-865"><a href="#BrachyEgsphant.create_egsphant_from_phantom-865"><span class="linenos"> 865</span></a><span class="sd">            - Void := will generate a BrachyEgsphant object from the images and structure file.</span>
+</span><span id="BrachyEgsphant.create_egsphant_from_phantom-865"><a href="#BrachyEgsphant.create_egsphant_from_phantom-865"><span class="linenos"> 865</span></a><span class="sd">            - None := will generate a BrachyEgsphant object from the images and structure file.</span>
 </span><span id="BrachyEgsphant.create_egsphant_from_phantom-866"><a href="#BrachyEgsphant.create_egsphant_from_phantom-866"><span class="linenos"> 866</span></a><span class="sd">        Dependencies:</span>
 </span><span id="BrachyEgsphant.create_egsphant_from_phantom-867"><a href="#BrachyEgsphant.create_egsphant_from_phantom-867"><span class="linenos"> 867</span></a><span class="sd">            - BrachyPhantom</span>
 </span><span id="BrachyEgsphant.create_egsphant_from_phantom-868"><a href="#BrachyEgsphant.create_egsphant_from_phantom-868"><span class="linenos"> 868</span></a><span class="sd">        &quot;&quot;&quot;</span>
@@ -8042,7 +8042,7 @@ Inputs:
         - HU_limit: the upper HU limit of the material
         - structure_name: the name of the structure in the dicom file that represents the material [optional]
 Outputs:
-    - Void := will generate a BrachyEgsphant object from the images and structure file.
+    - None := will generate a BrachyEgsphant object from the images and structure file.
 Dependencies:
     - BrachyPhantom</p>
 </div>
@@ -8067,7 +8067,7 @@ Dependencies:
 </span><span id="BrachyEgsphant.export_material_dict-1039"><a href="#BrachyEgsphant.export_material_dict-1039"><span class="linenos">1039</span></a><span class="sd">        Inputs:</span>
 </span><span id="BrachyEgsphant.export_material_dict-1040"><a href="#BrachyEgsphant.export_material_dict-1040"><span class="linenos">1040</span></a><span class="sd">            - pth_file:Path := the directory path where the json file will be written.</span>
 </span><span id="BrachyEgsphant.export_material_dict-1041"><a href="#BrachyEgsphant.export_material_dict-1041"><span class="linenos">1041</span></a><span class="sd">        Outputs:</span>
-</span><span id="BrachyEgsphant.export_material_dict-1042"><a href="#BrachyEgsphant.export_material_dict-1042"><span class="linenos">1042</span></a><span class="sd">            - Void := will write the material dictionary to a json file.</span>
+</span><span id="BrachyEgsphant.export_material_dict-1042"><a href="#BrachyEgsphant.export_material_dict-1042"><span class="linenos">1042</span></a><span class="sd">            - None := will write the material dictionary to a json file.</span>
 </span><span id="BrachyEgsphant.export_material_dict-1043"><a href="#BrachyEgsphant.export_material_dict-1043"><span class="linenos">1043</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyEgsphant.export_material_dict-1044"><a href="#BrachyEgsphant.export_material_dict-1044"><span class="linenos">1044</span></a>        <span class="n">extension</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">pth_file</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 </span><span id="BrachyEgsphant.export_material_dict-1045"><a href="#BrachyEgsphant.export_material_dict-1045"><span class="linenos">1045</span></a>        <span class="k">if</span> <span class="n">extension</span> <span class="o">==</span> <span class="s2">&quot;.json&quot;</span><span class="p">:</span>
@@ -8085,7 +8085,7 @@ Dependencies:
 Inputs:
     - pth_file:Path := the directory path where the json file will be written.
 Outputs:
-    - Void := will write the material dictionary to a json file.</p>
+    - None := will write the material dictionary to a json file.</p>
 </div>
 
 

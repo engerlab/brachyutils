@@ -488,7 +488,7 @@
 </span><span id="BrachyPlan-141"><a href="#BrachyPlan-141"><span class="linenos"> 141</span></a><span class="sd">        The phantom should be loaded with structures for the Brachy stuctures to be created.</span>
 </span><span id="BrachyPlan-142"><a href="#BrachyPlan-142"><span class="linenos"> 142</span></a>
 </span><span id="BrachyPlan-143"><a href="#BrachyPlan-143"><span class="linenos"> 143</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-144"><a href="#BrachyPlan-144"><span class="linenos"> 144</span></a><span class="sd">            - Void := will initialize the BrachyPlan object</span>
+</span><span id="BrachyPlan-144"><a href="#BrachyPlan-144"><span class="linenos"> 144</span></a><span class="sd">            - None := will initialize the BrachyPlan object</span>
 </span><span id="BrachyPlan-145"><a href="#BrachyPlan-145"><span class="linenos"> 145</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan-146"><a href="#BrachyPlan-146"><span class="linenos"> 146</span></a>        <span class="c1"># declare the attributes</span>
 </span><span id="BrachyPlan-147"><a href="#BrachyPlan-147"><span class="linenos"> 147</span></a>        <span class="c1"># patient origin is used as a reference point for the catheter table,</span>
@@ -637,7 +637,7 @@
 </span><span id="BrachyPlan-290"><a href="#BrachyPlan-290"><span class="linenos"> 290</span></a><span class="sd">        file containing paths to specific phantom files. Look at the inputs of BrachPhantom</span>
 </span><span id="BrachyPlan-291"><a href="#BrachyPlan-291"><span class="linenos"> 291</span></a><span class="sd">        for more information on the expected keys of the json file.</span>
 </span><span id="BrachyPlan-292"><a href="#BrachyPlan-292"><span class="linenos"> 292</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-293"><a href="#BrachyPlan-293"><span class="linenos"> 293</span></a><span class="sd">        - Void := will update the BrachyPlan.phantom attribute</span>
+</span><span id="BrachyPlan-293"><a href="#BrachyPlan-293"><span class="linenos"> 293</span></a><span class="sd">        - None := will update the BrachyPlan.phantom attribute</span>
 </span><span id="BrachyPlan-294"><a href="#BrachyPlan-294"><span class="linenos"> 294</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan-295"><a href="#BrachyPlan-295"><span class="linenos"> 295</span></a>        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">pth_phantom</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;phantom path does not exist: </span><span class="si">{</span><span class="n">pth_phantom</span><span class="si">}</span><span class="s2">&quot;</span>
 </span><span id="BrachyPlan-296"><a href="#BrachyPlan-296"><span class="linenos"> 296</span></a>        <span class="c1"># initialize the inputs to the BrachyPhantom object</span>
@@ -726,7 +726,7 @@
 </span><span id="BrachyPlan-379"><a href="#BrachyPlan-379"><span class="linenos"> 379</span></a><span class="sd">        If False, all the dwell positions from the digitization points will be loaded.</span>
 </span><span id="BrachyPlan-380"><a href="#BrachyPlan-380"><span class="linenos"> 380</span></a><span class="sd">        - dwells_near_ptv: bool := Whether to remove dwells that are far from the PTV.</span>
 </span><span id="BrachyPlan-381"><a href="#BrachyPlan-381"><span class="linenos"> 381</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-382"><a href="#BrachyPlan-382"><span class="linenos"> 382</span></a><span class="sd">        - Void := will update the BrachyPlan.catheter_table attribute and all the related attributes</span>
+</span><span id="BrachyPlan-382"><a href="#BrachyPlan-382"><span class="linenos"> 382</span></a><span class="sd">        - None := will update the BrachyPlan.catheter_table attribute and all the related attributes</span>
 </span><span id="BrachyPlan-383"><a href="#BrachyPlan-383"><span class="linenos"> 383</span></a><span class="sd">        such as dwell times, coordinates, etc.</span>
 </span><span id="BrachyPlan-384"><a href="#BrachyPlan-384"><span class="linenos"> 384</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan-385"><a href="#BrachyPlan-385"><span class="linenos"> 385</span></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">catheter_table</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
@@ -770,7 +770,7 @@
 </span><span id="BrachyPlan-423"><a href="#BrachyPlan-423"><span class="linenos"> 423</span></a><span class="sd">        - self := the BrachyPlan object</span>
 </span><span id="BrachyPlan-424"><a href="#BrachyPlan-424"><span class="linenos"> 424</span></a><span class="sd">        - time_diffs: dict := A dictionary of time differences for each dwell position. this is used for fast plan update.</span>
 </span><span id="BrachyPlan-425"><a href="#BrachyPlan-425"><span class="linenos"> 425</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-426"><a href="#BrachyPlan-426"><span class="linenos"> 426</span></a><span class="sd">        - Void := will update the self.dwell_numbers, self.dwell_times,</span>
+</span><span id="BrachyPlan-426"><a href="#BrachyPlan-426"><span class="linenos"> 426</span></a><span class="sd">        - None := will update the self.dwell_numbers, self.dwell_times,</span>
 </span><span id="BrachyPlan-427"><a href="#BrachyPlan-427"><span class="linenos"> 427</span></a><span class="sd">        and self.dwell_coordinates attributes</span>
 </span><span id="BrachyPlan-428"><a href="#BrachyPlan-428"><span class="linenos"> 428</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan-429"><a href="#BrachyPlan-429"><span class="linenos"> 429</span></a>
@@ -988,7 +988,7 @@
 </span><span id="BrachyPlan-641"><a href="#BrachyPlan-641"><span class="linenos"> 641</span></a>
 </span><span id="BrachyPlan-642"><a href="#BrachyPlan-642"><span class="linenos"> 642</span></a><span class="sd">        - format:str := the format of the applicator geometry file. options are &quot;RapidBrachy&quot; or &quot;WebApp&quot;</span>
 </span><span id="BrachyPlan-643"><a href="#BrachyPlan-643"><span class="linenos"> 643</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-644"><a href="#BrachyPlan-644"><span class="linenos"> 644</span></a><span class="sd">            - Void := will update the BrachyPlan.applicator_list attribute</span>
+</span><span id="BrachyPlan-644"><a href="#BrachyPlan-644"><span class="linenos"> 644</span></a><span class="sd">            - None := will update the BrachyPlan.applicator_list attribute</span>
 </span><span id="BrachyPlan-645"><a href="#BrachyPlan-645"><span class="linenos"> 645</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan-646"><a href="#BrachyPlan-646"><span class="linenos"> 646</span></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">applicator_list_pth</span><span class="p">,</span> <span class="n">Path</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
 </span><span id="BrachyPlan-647"><a href="#BrachyPlan-647"><span class="linenos"> 647</span></a>            <span class="n">applicator_list_pth</span><span class="p">,</span> <span class="nb">str</span>
@@ -1158,7 +1158,7 @@
 </span><span id="BrachyPlan-811"><a href="#BrachyPlan-811"><span class="linenos"> 811</span></a><span class="sd">        ### Inputs:</span>
 </span><span id="BrachyPlan-812"><a href="#BrachyPlan-812"><span class="linenos"> 812</span></a><span class="sd">        - output_pth := path to the output json file</span>
 </span><span id="BrachyPlan-813"><a href="#BrachyPlan-813"><span class="linenos"> 813</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-814"><a href="#BrachyPlan-814"><span class="linenos"> 814</span></a><span class="sd">        - Void := will export the dvh metrics to a json file</span>
+</span><span id="BrachyPlan-814"><a href="#BrachyPlan-814"><span class="linenos"> 814</span></a><span class="sd">        - None := will export the dvh metrics to a json file</span>
 </span><span id="BrachyPlan-815"><a href="#BrachyPlan-815"><span class="linenos"> 815</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan-816"><a href="#BrachyPlan-816"><span class="linenos"> 816</span></a>        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">dvh_metrics_observed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;dvh metrics are not calculated yet&quot;</span>
 </span><span id="BrachyPlan-817"><a href="#BrachyPlan-817"><span class="linenos"> 817</span></a>        <span class="k">assert</span> <span class="n">output_pth</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.json&quot;</span><span class="p">),</span> <span class="s2">&quot;output path should be a json file&quot;</span>
@@ -1172,7 +1172,7 @@
 </span><span id="BrachyPlan-825"><a href="#BrachyPlan-825"><span class="linenos"> 825</span></a><span class="sd">        ### Inputs:</span>
 </span><span id="BrachyPlan-826"><a href="#BrachyPlan-826"><span class="linenos"> 826</span></a><span class="sd">        - output_pth := path to the output json file</span>
 </span><span id="BrachyPlan-827"><a href="#BrachyPlan-827"><span class="linenos"> 827</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-828"><a href="#BrachyPlan-828"><span class="linenos"> 828</span></a><span class="sd">        - Void := will export the dvh metric goals to a json file</span>
+</span><span id="BrachyPlan-828"><a href="#BrachyPlan-828"><span class="linenos"> 828</span></a><span class="sd">        - None := will export the dvh metric goals to a json file</span>
 </span><span id="BrachyPlan-829"><a href="#BrachyPlan-829"><span class="linenos"> 829</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan-830"><a href="#BrachyPlan-830"><span class="linenos"> 830</span></a>        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">dvh_metric_goals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;dvh_metric_goals object is not created yet&quot;</span>
 </span><span id="BrachyPlan-831"><a href="#BrachyPlan-831"><span class="linenos"> 831</span></a>        <span class="k">assert</span> <span class="n">output_pth</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.json&quot;</span><span class="p">),</span> <span class="s2">&quot;output path should be a json file&quot;</span>
@@ -1186,7 +1186,7 @@
 </span><span id="BrachyPlan-839"><a href="#BrachyPlan-839"><span class="linenos"> 839</span></a><span class="sd">        ### Inputs:</span>
 </span><span id="BrachyPlan-840"><a href="#BrachyPlan-840"><span class="linenos"> 840</span></a><span class="sd">        - self := the BrachyPlan object</span>
 </span><span id="BrachyPlan-841"><a href="#BrachyPlan-841"><span class="linenos"> 841</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-842"><a href="#BrachyPlan-842"><span class="linenos"> 842</span></a><span class="sd">        - Void := will update the BrachyStructure.uncertainty attribute</span>
+</span><span id="BrachyPlan-842"><a href="#BrachyPlan-842"><span class="linenos"> 842</span></a><span class="sd">        - None := will update the BrachyStructure.uncertainty attribute</span>
 </span><span id="BrachyPlan-843"><a href="#BrachyPlan-843"><span class="linenos"> 843</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan-844"><a href="#BrachyPlan-844"><span class="linenos"> 844</span></a>        <span class="k">assert</span> <span class="p">(</span>
 </span><span id="BrachyPlan-845"><a href="#BrachyPlan-845"><span class="linenos"> 845</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">combined_dose</span><span class="o">.</span><span class="n">uncertainty_image</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -1367,7 +1367,7 @@
 </span><span id="BrachyPlan-1020"><a href="#BrachyPlan-1020"><span class="linenos">1020</span></a><span class="sd">        - export_config_plan_and_mac = The export configuration for the plan files. see ExportConfig_PlanAndMac</span>
 </span><span id="BrachyPlan-1021"><a href="#BrachyPlan-1021"><span class="linenos">1021</span></a><span class="sd">        - catheter_table:= The catheter table with the dwells.</span>
 </span><span id="BrachyPlan-1022"><a href="#BrachyPlan-1022"><span class="linenos">1022</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-1023"><a href="#BrachyPlan-1023"><span class="linenos">1023</span></a><span class="sd">        - void := Two types of .plan files are written, one named combined.plan and the other</span>
+</span><span id="BrachyPlan-1023"><a href="#BrachyPlan-1023"><span class="linenos">1023</span></a><span class="sd">        - None := Two types of .plan files are written, one named combined.plan and the other</span>
 </span><span id="BrachyPlan-1024"><a href="#BrachyPlan-1024"><span class="linenos">1024</span></a><span class="sd">        named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and</span>
 </span><span id="BrachyPlan-1025"><a href="#BrachyPlan-1025"><span class="linenos">1025</span></a><span class="sd">        their normalized dwell time, and the run_{dwellNumber}.plan contains info of a single</span>
 </span><span id="BrachyPlan-1026"><a href="#BrachyPlan-1026"><span class="linenos">1026</span></a><span class="sd">        dwell position. The format of each .plan file is given in this example:</span>
@@ -1558,7 +1558,7 @@
 </span><span id="BrachyPlan-1211"><a href="#BrachyPlan-1211"><span class="linenos">1211</span></a><span class="sd">        - dir_export := path to the directory where the export happens</span>
 </span><span id="BrachyPlan-1212"><a href="#BrachyPlan-1212"><span class="linenos">1212</span></a><span class="sd">        - format := the format of the applicator geometry file. options are &quot;RapidBrachy&quot; or &quot;WebApp&quot;</span>
 </span><span id="BrachyPlan-1213"><a href="#BrachyPlan-1213"><span class="linenos">1213</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-1214"><a href="#BrachyPlan-1214"><span class="linenos">1214</span></a><span class="sd">        - Void := will export the applicator geometries into the specified export directory.</span>
+</span><span id="BrachyPlan-1214"><a href="#BrachyPlan-1214"><span class="linenos">1214</span></a><span class="sd">        - None := will export the applicator geometries into the specified export directory.</span>
 </span><span id="BrachyPlan-1215"><a href="#BrachyPlan-1215"><span class="linenos">1215</span></a><span class="sd">        ### Dependencies:</span>
 </span><span id="BrachyPlan-1216"><a href="#BrachyPlan-1216"><span class="linenos">1216</span></a><span class="sd">        - None</span>
 </span><span id="BrachyPlan-1217"><a href="#BrachyPlan-1217"><span class="linenos">1217</span></a><span class="sd">        &quot;&quot;&quot;</span>
@@ -1641,7 +1641,7 @@
 </span><span id="BrachyPlan-1294"><a href="#BrachyPlan-1294"><span class="linenos">1294</span></a><span class="sd">            &quot;structure_name := {optional} the name of the structure in the dicom file that represents the material,&quot;</span>
 </span><span id="BrachyPlan-1295"><a href="#BrachyPlan-1295"><span class="linenos">1295</span></a><span class="sd">        ]</span>
 </span><span id="BrachyPlan-1296"><a href="#BrachyPlan-1296"><span class="linenos">1296</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-1297"><a href="#BrachyPlan-1297"><span class="linenos">1297</span></a><span class="sd">        - void := self.structure_list is exported as a dictionary and</span>
+</span><span id="BrachyPlan-1297"><a href="#BrachyPlan-1297"><span class="linenos">1297</span></a><span class="sd">        - None := self.structure_list is exported as a dictionary and</span>
 </span><span id="BrachyPlan-1298"><a href="#BrachyPlan-1298"><span class="linenos">1298</span></a><span class="sd">        written to structure_set.json</span>
 </span><span id="BrachyPlan-1299"><a href="#BrachyPlan-1299"><span class="linenos">1299</span></a><span class="sd">        ### Dependencies:</span>
 </span><span id="BrachyPlan-1300"><a href="#BrachyPlan-1300"><span class="linenos">1300</span></a><span class="sd">        &quot;&quot;&quot;</span>
@@ -1675,7 +1675,7 @@
 </span><span id="BrachyPlan-1328"><a href="#BrachyPlan-1328"><span class="linenos">1328</span></a><span class="sd">        ### Inputs:</span>
 </span><span id="BrachyPlan-1329"><a href="#BrachyPlan-1329"><span class="linenos">1329</span></a><span class="sd">        - self := the BrachyPlan object</span>
 </span><span id="BrachyPlan-1330"><a href="#BrachyPlan-1330"><span class="linenos">1330</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan-1331"><a href="#BrachyPlan-1331"><span class="linenos">1331</span></a><span class="sd">        - Void := will print the information of the plan</span>
+</span><span id="BrachyPlan-1331"><a href="#BrachyPlan-1331"><span class="linenos">1331</span></a><span class="sd">        - None := will print the information of the plan</span>
 </span><span id="BrachyPlan-1332"><a href="#BrachyPlan-1332"><span class="linenos">1332</span></a><span class="sd">        ### Dependencies:</span>
 </span><span id="BrachyPlan-1333"><a href="#BrachyPlan-1333"><span class="linenos">1333</span></a><span class="sd">        - None</span>
 </span><span id="BrachyPlan-1334"><a href="#BrachyPlan-1334"><span class="linenos">1334</span></a><span class="sd">        &quot;&quot;&quot;</span>
@@ -2018,7 +2018,7 @@ as well as all the functions to support the necessary plan operations.</li>
 </span><span id="BrachyPlan.__init__-141"><a href="#BrachyPlan.__init__-141"><span class="linenos">141</span></a><span class="sd">        The phantom should be loaded with structures for the Brachy stuctures to be created.</span>
 </span><span id="BrachyPlan.__init__-142"><a href="#BrachyPlan.__init__-142"><span class="linenos">142</span></a>
 </span><span id="BrachyPlan.__init__-143"><a href="#BrachyPlan.__init__-143"><span class="linenos">143</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan.__init__-144"><a href="#BrachyPlan.__init__-144"><span class="linenos">144</span></a><span class="sd">            - Void := will initialize the BrachyPlan object</span>
+</span><span id="BrachyPlan.__init__-144"><a href="#BrachyPlan.__init__-144"><span class="linenos">144</span></a><span class="sd">            - None := will initialize the BrachyPlan object</span>
 </span><span id="BrachyPlan.__init__-145"><a href="#BrachyPlan.__init__-145"><span class="linenos">145</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan.__init__-146"><a href="#BrachyPlan.__init__-146"><span class="linenos">146</span></a>        <span class="c1"># declare the attributes</span>
 </span><span id="BrachyPlan.__init__-147"><a href="#BrachyPlan.__init__-147"><span class="linenos">147</span></a>        <span class="c1"># patient origin is used as a reference point for the catheter table,</span>
@@ -2222,7 +2222,7 @@ The phantom should be loaded with structures for the Brachy stuctures to be crea
 
 <h3 id="outputs">Outputs:</h3>
 
-<pre><code>- Void := will initialize the BrachyPlan object
+<pre><code>- None := will initialize the BrachyPlan object
 </code></pre>
 </div>
 
@@ -2473,7 +2473,7 @@ which makes it transparent for classmethods and staticmethods.</p>
 </span><span id="BrachyPlan.load_phantom-290"><a href="#BrachyPlan.load_phantom-290"><span class="linenos">290</span></a><span class="sd">        file containing paths to specific phantom files. Look at the inputs of BrachPhantom</span>
 </span><span id="BrachyPlan.load_phantom-291"><a href="#BrachyPlan.load_phantom-291"><span class="linenos">291</span></a><span class="sd">        for more information on the expected keys of the json file.</span>
 </span><span id="BrachyPlan.load_phantom-292"><a href="#BrachyPlan.load_phantom-292"><span class="linenos">292</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan.load_phantom-293"><a href="#BrachyPlan.load_phantom-293"><span class="linenos">293</span></a><span class="sd">        - Void := will update the BrachyPlan.phantom attribute</span>
+</span><span id="BrachyPlan.load_phantom-293"><a href="#BrachyPlan.load_phantom-293"><span class="linenos">293</span></a><span class="sd">        - None := will update the BrachyPlan.phantom attribute</span>
 </span><span id="BrachyPlan.load_phantom-294"><a href="#BrachyPlan.load_phantom-294"><span class="linenos">294</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan.load_phantom-295"><a href="#BrachyPlan.load_phantom-295"><span class="linenos">295</span></a>        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">pth_phantom</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;phantom path does not exist: </span><span class="si">{</span><span class="n">pth_phantom</span><span class="si">}</span><span class="s2">&quot;</span>
 </span><span id="BrachyPlan.load_phantom-296"><a href="#BrachyPlan.load_phantom-296"><span class="linenos">296</span></a>        <span class="c1"># initialize the inputs to the BrachyPhantom object</span>
@@ -2561,7 +2561,7 @@ file containing paths to specific phantom files. Look at the inputs of BrachPhan
 for more information on the expected keys of the json file.</p>
 
 <h3 id="outputs">Outputs:</h3></li>
-<li><p>Void := will update the <a href="#BrachyPlan.phantom">BrachyPlan.phantom</a> attribute</p></li>
+<li><p>None := will update the <a href="#BrachyPlan.phantom">BrachyPlan.phantom</a> attribute</p></li>
 </ul>
 </div>
 
@@ -2594,7 +2594,7 @@ for more information on the expected keys of the json file.</p>
 </span><span id="BrachyPlan.set_catheter_table-379"><a href="#BrachyPlan.set_catheter_table-379"><span class="linenos">379</span></a><span class="sd">        If False, all the dwell positions from the digitization points will be loaded.</span>
 </span><span id="BrachyPlan.set_catheter_table-380"><a href="#BrachyPlan.set_catheter_table-380"><span class="linenos">380</span></a><span class="sd">        - dwells_near_ptv: bool := Whether to remove dwells that are far from the PTV.</span>
 </span><span id="BrachyPlan.set_catheter_table-381"><a href="#BrachyPlan.set_catheter_table-381"><span class="linenos">381</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan.set_catheter_table-382"><a href="#BrachyPlan.set_catheter_table-382"><span class="linenos">382</span></a><span class="sd">        - Void := will update the BrachyPlan.catheter_table attribute and all the related attributes</span>
+</span><span id="BrachyPlan.set_catheter_table-382"><a href="#BrachyPlan.set_catheter_table-382"><span class="linenos">382</span></a><span class="sd">        - None := will update the BrachyPlan.catheter_table attribute and all the related attributes</span>
 </span><span id="BrachyPlan.set_catheter_table-383"><a href="#BrachyPlan.set_catheter_table-383"><span class="linenos">383</span></a><span class="sd">        such as dwell times, coordinates, etc.</span>
 </span><span id="BrachyPlan.set_catheter_table-384"><a href="#BrachyPlan.set_catheter_table-384"><span class="linenos">384</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan.set_catheter_table-385"><a href="#BrachyPlan.set_catheter_table-385"><span class="linenos">385</span></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">catheter_table</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
@@ -2645,7 +2645,7 @@ If False, all the dwell positions from the digitization points will be loaded.</
 <li><p>dwells_near_ptv: bool := Whether to remove dwells that are far from the PTV.</p>
 
 <h3 id="outputs">Outputs:</h3></li>
-<li><p>Void := will update the <a href="#BrachyPlan.catheter_table">BrachyPlan.catheter_table</a> attribute and all the related attributes
+<li><p>None := will update the <a href="#BrachyPlan.catheter_table">BrachyPlan.catheter_table</a> attribute and all the related attributes
 such as dwell times, coordinates, etc.</p></li>
 </ul>
 </div>
@@ -2672,7 +2672,7 @@ such as dwell times, coordinates, etc.</p></li>
 </span><span id="BrachyPlan.update_plan_from_catheter_table-423"><a href="#BrachyPlan.update_plan_from_catheter_table-423"><span class="linenos">423</span></a><span class="sd">        - self := the BrachyPlan object</span>
 </span><span id="BrachyPlan.update_plan_from_catheter_table-424"><a href="#BrachyPlan.update_plan_from_catheter_table-424"><span class="linenos">424</span></a><span class="sd">        - time_diffs: dict := A dictionary of time differences for each dwell position. this is used for fast plan update.</span>
 </span><span id="BrachyPlan.update_plan_from_catheter_table-425"><a href="#BrachyPlan.update_plan_from_catheter_table-425"><span class="linenos">425</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan.update_plan_from_catheter_table-426"><a href="#BrachyPlan.update_plan_from_catheter_table-426"><span class="linenos">426</span></a><span class="sd">        - Void := will update the self.dwell_numbers, self.dwell_times,</span>
+</span><span id="BrachyPlan.update_plan_from_catheter_table-426"><a href="#BrachyPlan.update_plan_from_catheter_table-426"><span class="linenos">426</span></a><span class="sd">        - None := will update the self.dwell_numbers, self.dwell_times,</span>
 </span><span id="BrachyPlan.update_plan_from_catheter_table-427"><a href="#BrachyPlan.update_plan_from_catheter_table-427"><span class="linenos">427</span></a><span class="sd">        and self.dwell_coordinates attributes</span>
 </span><span id="BrachyPlan.update_plan_from_catheter_table-428"><a href="#BrachyPlan.update_plan_from_catheter_table-428"><span class="linenos">428</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan.update_plan_from_catheter_table-429"><a href="#BrachyPlan.update_plan_from_catheter_table-429"><span class="linenos">429</span></a>
@@ -2733,7 +2733,7 @@ and save them as class attributes.</p>
 <li><p>time_diffs: dict := A dictionary of time differences for each dwell position. this is used for fast plan update.</p>
 
 <h3 id="outputs">Outputs:</h3></li>
-<li><p>Void := will update the self.dwell_numbers, self.dwell_times,
+<li><p>None := will update the self.dwell_numbers, self.dwell_times,
 and self.dwell_coordinates attributes</p></li>
 </ul>
 </div>
@@ -2998,7 +2998,7 @@ stored in BrachySturucture.</p>
 </span><span id="BrachyPlan.load_applicator_list-641"><a href="#BrachyPlan.load_applicator_list-641"><span class="linenos">641</span></a>
 </span><span id="BrachyPlan.load_applicator_list-642"><a href="#BrachyPlan.load_applicator_list-642"><span class="linenos">642</span></a><span class="sd">        - format:str := the format of the applicator geometry file. options are &quot;RapidBrachy&quot; or &quot;WebApp&quot;</span>
 </span><span id="BrachyPlan.load_applicator_list-643"><a href="#BrachyPlan.load_applicator_list-643"><span class="linenos">643</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan.load_applicator_list-644"><a href="#BrachyPlan.load_applicator_list-644"><span class="linenos">644</span></a><span class="sd">            - Void := will update the BrachyPlan.applicator_list attribute</span>
+</span><span id="BrachyPlan.load_applicator_list-644"><a href="#BrachyPlan.load_applicator_list-644"><span class="linenos">644</span></a><span class="sd">            - None := will update the BrachyPlan.applicator_list attribute</span>
 </span><span id="BrachyPlan.load_applicator_list-645"><a href="#BrachyPlan.load_applicator_list-645"><span class="linenos">645</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan.load_applicator_list-646"><a href="#BrachyPlan.load_applicator_list-646"><span class="linenos">646</span></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">applicator_list_pth</span><span class="p">,</span> <span class="n">Path</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
 </span><span id="BrachyPlan.load_applicator_list-647"><a href="#BrachyPlan.load_applicator_list-647"><span class="linenos">647</span></a>            <span class="n">applicator_list_pth</span><span class="p">,</span> <span class="nb">str</span>
@@ -3169,7 +3169,7 @@ these attributes could be changed later using the setter functions.</p></li>
 <h3 id="outputs">Outputs:</h3>
 
 <ul>
-<li>Void := will update the <a href="#BrachyPlan.applicator_list">BrachyPlan.applicator_list</a> attribute</li>
+<li>None := will update the <a href="#BrachyPlan.applicator_list">BrachyPlan.applicator_list</a> attribute</li>
 </ul></li>
 </ul>
 </div>
@@ -3260,7 +3260,7 @@ the observed value is calculated from the combined dose map.</p>
 </span><span id="BrachyPlan.export_dvh_metrics-811"><a href="#BrachyPlan.export_dvh_metrics-811"><span class="linenos">811</span></a><span class="sd">        ### Inputs:</span>
 </span><span id="BrachyPlan.export_dvh_metrics-812"><a href="#BrachyPlan.export_dvh_metrics-812"><span class="linenos">812</span></a><span class="sd">        - output_pth := path to the output json file</span>
 </span><span id="BrachyPlan.export_dvh_metrics-813"><a href="#BrachyPlan.export_dvh_metrics-813"><span class="linenos">813</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan.export_dvh_metrics-814"><a href="#BrachyPlan.export_dvh_metrics-814"><span class="linenos">814</span></a><span class="sd">        - Void := will export the dvh metrics to a json file</span>
+</span><span id="BrachyPlan.export_dvh_metrics-814"><a href="#BrachyPlan.export_dvh_metrics-814"><span class="linenos">814</span></a><span class="sd">        - None := will export the dvh metrics to a json file</span>
 </span><span id="BrachyPlan.export_dvh_metrics-815"><a href="#BrachyPlan.export_dvh_metrics-815"><span class="linenos">815</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan.export_dvh_metrics-816"><a href="#BrachyPlan.export_dvh_metrics-816"><span class="linenos">816</span></a>        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">dvh_metrics_observed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;dvh metrics are not calculated yet&quot;</span>
 </span><span id="BrachyPlan.export_dvh_metrics-817"><a href="#BrachyPlan.export_dvh_metrics-817"><span class="linenos">817</span></a>        <span class="k">assert</span> <span class="n">output_pth</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.json&quot;</span><span class="p">),</span> <span class="s2">&quot;output path should be a json file&quot;</span>
@@ -3278,7 +3278,7 @@ the observed value is calculated from the combined dose map.</p>
 <li><p>output_pth := path to the output json file</p>
 
 <h3 id="outputs">Outputs:</h3></li>
-<li><p>Void := will export the dvh metrics to a json file</p></li>
+<li><p>None := will export the dvh metrics to a json file</p></li>
 </ul>
 </div>
 
@@ -3302,7 +3302,7 @@ the observed value is calculated from the combined dose map.</p>
 </span><span id="BrachyPlan.export_dvh_metric_goals-825"><a href="#BrachyPlan.export_dvh_metric_goals-825"><span class="linenos">825</span></a><span class="sd">        ### Inputs:</span>
 </span><span id="BrachyPlan.export_dvh_metric_goals-826"><a href="#BrachyPlan.export_dvh_metric_goals-826"><span class="linenos">826</span></a><span class="sd">        - output_pth := path to the output json file</span>
 </span><span id="BrachyPlan.export_dvh_metric_goals-827"><a href="#BrachyPlan.export_dvh_metric_goals-827"><span class="linenos">827</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan.export_dvh_metric_goals-828"><a href="#BrachyPlan.export_dvh_metric_goals-828"><span class="linenos">828</span></a><span class="sd">        - Void := will export the dvh metric goals to a json file</span>
+</span><span id="BrachyPlan.export_dvh_metric_goals-828"><a href="#BrachyPlan.export_dvh_metric_goals-828"><span class="linenos">828</span></a><span class="sd">        - None := will export the dvh metric goals to a json file</span>
 </span><span id="BrachyPlan.export_dvh_metric_goals-829"><a href="#BrachyPlan.export_dvh_metric_goals-829"><span class="linenos">829</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan.export_dvh_metric_goals-830"><a href="#BrachyPlan.export_dvh_metric_goals-830"><span class="linenos">830</span></a>        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">dvh_metric_goals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;dvh_metric_goals object is not created yet&quot;</span>
 </span><span id="BrachyPlan.export_dvh_metric_goals-831"><a href="#BrachyPlan.export_dvh_metric_goals-831"><span class="linenos">831</span></a>        <span class="k">assert</span> <span class="n">output_pth</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.json&quot;</span><span class="p">),</span> <span class="s2">&quot;output path should be a json file&quot;</span>
@@ -3320,7 +3320,7 @@ the observed value is calculated from the combined dose map.</p>
 <li><p>output_pth := path to the output json file</p>
 
 <h3 id="outputs">Outputs:</h3></li>
-<li><p>Void := will export the dvh metric goals to a json file</p></li>
+<li><p>None := will export the dvh metric goals to a json file</p></li>
 </ul>
 </div>
 
@@ -3344,7 +3344,7 @@ the observed value is calculated from the combined dose map.</p>
 </span><span id="BrachyPlan.calculate_uncertainty_per_structure-839"><a href="#BrachyPlan.calculate_uncertainty_per_structure-839"><span class="linenos">839</span></a><span class="sd">        ### Inputs:</span>
 </span><span id="BrachyPlan.calculate_uncertainty_per_structure-840"><a href="#BrachyPlan.calculate_uncertainty_per_structure-840"><span class="linenos">840</span></a><span class="sd">        - self := the BrachyPlan object</span>
 </span><span id="BrachyPlan.calculate_uncertainty_per_structure-841"><a href="#BrachyPlan.calculate_uncertainty_per_structure-841"><span class="linenos">841</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan.calculate_uncertainty_per_structure-842"><a href="#BrachyPlan.calculate_uncertainty_per_structure-842"><span class="linenos">842</span></a><span class="sd">        - Void := will update the BrachyStructure.uncertainty attribute</span>
+</span><span id="BrachyPlan.calculate_uncertainty_per_structure-842"><a href="#BrachyPlan.calculate_uncertainty_per_structure-842"><span class="linenos">842</span></a><span class="sd">        - None := will update the BrachyStructure.uncertainty attribute</span>
 </span><span id="BrachyPlan.calculate_uncertainty_per_structure-843"><a href="#BrachyPlan.calculate_uncertainty_per_structure-843"><span class="linenos">843</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyPlan.calculate_uncertainty_per_structure-844"><a href="#BrachyPlan.calculate_uncertainty_per_structure-844"><span class="linenos">844</span></a>        <span class="k">assert</span> <span class="p">(</span>
 </span><span id="BrachyPlan.calculate_uncertainty_per_structure-845"><a href="#BrachyPlan.calculate_uncertainty_per_structure-845"><span class="linenos">845</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">combined_dose</span><span class="o">.</span><span class="n">uncertainty_image</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -3388,7 +3388,7 @@ the observed value is calculated from the combined dose map.</p>
 <li><p>self := the BrachyPlan object</p>
 
 <h3 id="outputs">Outputs:</h3></li>
-<li><p>Void := will update the BrachyStructure.uncertainty attribute</p></li>
+<li><p>None := will update the BrachyStructure.uncertainty attribute</p></li>
 </ul>
 </div>
 
@@ -3682,7 +3682,7 @@ The function conditionally exports the following file types based on configurati
 </span><span id="BrachyPlan.export_plan_files-1020"><a href="#BrachyPlan.export_plan_files-1020"><span class="linenos">1020</span></a><span class="sd">        - export_config_plan_and_mac = The export configuration for the plan files. see ExportConfig_PlanAndMac</span>
 </span><span id="BrachyPlan.export_plan_files-1021"><a href="#BrachyPlan.export_plan_files-1021"><span class="linenos">1021</span></a><span class="sd">        - catheter_table:= The catheter table with the dwells.</span>
 </span><span id="BrachyPlan.export_plan_files-1022"><a href="#BrachyPlan.export_plan_files-1022"><span class="linenos">1022</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan.export_plan_files-1023"><a href="#BrachyPlan.export_plan_files-1023"><span class="linenos">1023</span></a><span class="sd">        - void := Two types of .plan files are written, one named combined.plan and the other</span>
+</span><span id="BrachyPlan.export_plan_files-1023"><a href="#BrachyPlan.export_plan_files-1023"><span class="linenos">1023</span></a><span class="sd">        - None := Two types of .plan files are written, one named combined.plan and the other</span>
 </span><span id="BrachyPlan.export_plan_files-1024"><a href="#BrachyPlan.export_plan_files-1024"><span class="linenos">1024</span></a><span class="sd">        named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and</span>
 </span><span id="BrachyPlan.export_plan_files-1025"><a href="#BrachyPlan.export_plan_files-1025"><span class="linenos">1025</span></a><span class="sd">        their normalized dwell time, and the run_{dwellNumber}.plan contains info of a single</span>
 </span><span id="BrachyPlan.export_plan_files-1026"><a href="#BrachyPlan.export_plan_files-1026"><span class="linenos">1026</span></a><span class="sd">        dwell position. The format of each .plan file is given in this example:</span>
@@ -3764,7 +3764,7 @@ format required by RapidBrachy.</p>
 <li><p>catheter_table:= The catheter table with the dwells.</p>
 
 <h3 id="outputs">Outputs:</h3></li>
-<li><p>void := Two types of .plan files are written, one named combined.plan and the other
+<li><p>None := Two types of .plan files are written, one named combined.plan and the other
 named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and
 their normalized dwell time, and the run_{dwellNumber}.plan contains info of a single
 dwell position. The format of each .plan file is given in this example:
@@ -3936,7 +3936,7 @@ named run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac. combined.plan contai
 </span><span id="BrachyPlan.info-1328"><a href="#BrachyPlan.info-1328"><span class="linenos">1328</span></a><span class="sd">        ### Inputs:</span>
 </span><span id="BrachyPlan.info-1329"><a href="#BrachyPlan.info-1329"><span class="linenos">1329</span></a><span class="sd">        - self := the BrachyPlan object</span>
 </span><span id="BrachyPlan.info-1330"><a href="#BrachyPlan.info-1330"><span class="linenos">1330</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyPlan.info-1331"><a href="#BrachyPlan.info-1331"><span class="linenos">1331</span></a><span class="sd">        - Void := will print the information of the plan</span>
+</span><span id="BrachyPlan.info-1331"><a href="#BrachyPlan.info-1331"><span class="linenos">1331</span></a><span class="sd">        - None := will print the information of the plan</span>
 </span><span id="BrachyPlan.info-1332"><a href="#BrachyPlan.info-1332"><span class="linenos">1332</span></a><span class="sd">        ### Dependencies:</span>
 </span><span id="BrachyPlan.info-1333"><a href="#BrachyPlan.info-1333"><span class="linenos">1333</span></a><span class="sd">        - None</span>
 </span><span id="BrachyPlan.info-1334"><a href="#BrachyPlan.info-1334"><span class="linenos">1334</span></a><span class="sd">        &quot;&quot;&quot;</span>
@@ -3960,7 +3960,7 @@ named run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac. combined.plan contai
 <li><p>self := the BrachyPlan object</p>
 
 <h3 id="outputs">Outputs:</h3></li>
-<li><p>Void := will print the information of the plan</p>
+<li><p>None := will print the information of the plan</p>
 
 <h3 id="dependencies">Dependencies:</h3></li>
 <li><p>None</p></li>
@@ -4152,7 +4152,7 @@ the keys are in the format catheter_{index+1}_dwell_{index+1}</p></li>
 </span><span id="BrachyStructure-61"><a href="#BrachyStructure-61"><span class="linenos"> 61</span></a><span class="sd">        - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.</span>
 </span><span id="BrachyStructure-62"><a href="#BrachyStructure-62"><span class="linenos"> 62</span></a><span class="sd">        - optimization_config:Optimization_Config := the optimization config object for the structure. see optim_utils.py </span>
 </span><span id="BrachyStructure-63"><a href="#BrachyStructure-63"><span class="linenos"> 63</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyStructure-64"><a href="#BrachyStructure-64"><span class="linenos"> 64</span></a><span class="sd">        - Void := will initialize the BrachyStructure object</span>
+</span><span id="BrachyStructure-64"><a href="#BrachyStructure-64"><span class="linenos"> 64</span></a><span class="sd">        - None := will initialize the BrachyStructure object</span>
 </span><span id="BrachyStructure-65"><a href="#BrachyStructure-65"><span class="linenos"> 65</span></a><span class="sd">        ### Dependencies:</span>
 </span><span id="BrachyStructure-66"><a href="#BrachyStructure-66"><span class="linenos"> 66</span></a><span class="sd">        - opentps.core.data.ROIMask</span>
 </span><span id="BrachyStructure-67"><a href="#BrachyStructure-67"><span class="linenos"> 67</span></a><span class="sd">        - opentps.core.data.DVH</span>
@@ -4246,7 +4246,7 @@ the keys are in the format catheter_{index+1}_dwell_{index+1}</p></li>
 </span><span id="BrachyStructure-155"><a href="#BrachyStructure-155"><span class="linenos">155</span></a><span class="sd">        - body_contour := the body contour is needed for conformity index calculation.</span>
 </span><span id="BrachyStructure-156"><a href="#BrachyStructure-156"><span class="linenos">156</span></a><span class="sd">        If the body contour is not provided, the conformity index will not be calculated.</span>
 </span><span id="BrachyStructure-157"><a href="#BrachyStructure-157"><span class="linenos">157</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyStructure-158"><a href="#BrachyStructure-158"><span class="linenos">158</span></a><span class="sd">        - Void := will update the BrachyStructure.dvh_metrics_observed dictionary and</span>
+</span><span id="BrachyStructure-158"><a href="#BrachyStructure-158"><span class="linenos">158</span></a><span class="sd">        - None := will update the BrachyStructure.dvh_metrics_observed dictionary and</span>
 </span><span id="BrachyStructure-159"><a href="#BrachyStructure-159"><span class="linenos">159</span></a><span class="sd">        BrachyStructure.dvh_obj attributes. Will also update the last calculated value</span>
 </span><span id="BrachyStructure-160"><a href="#BrachyStructure-160"><span class="linenos">160</span></a><span class="sd">        to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).</span>
 </span><span id="BrachyStructure-161"><a href="#BrachyStructure-161"><span class="linenos">161</span></a><span class="sd">        &quot;&quot;&quot;</span>
@@ -4375,7 +4375,7 @@ the keys are in the format catheter_{index+1}_dwell_{index+1}</p></li>
 </span><span id="BrachyStructure-284"><a href="#BrachyStructure-284"><span class="linenos">284</span></a><span class="sd">        - To prepare the BrachyStructure object for optimization.</span>
 </span><span id="BrachyStructure-285"><a href="#BrachyStructure-285"><span class="linenos">285</span></a><span class="sd">        ### Inputs:</span>
 </span><span id="BrachyStructure-286"><a href="#BrachyStructure-286"><span class="linenos">286</span></a>
-</span><span id="BrachyStructure-287"><a href="#BrachyStructure-287"><span class="linenos">287</span></a><span class="sd">        - Void := will update the BrachyStructure object with the optimization id and</span>
+</span><span id="BrachyStructure-287"><a href="#BrachyStructure-287"><span class="linenos">287</span></a><span class="sd">        - None := will update the BrachyStructure object with the optimization id and</span>
 </span><span id="BrachyStructure-288"><a href="#BrachyStructure-288"><span class="linenos">288</span></a><span class="sd">        will set the penalty weights to 1.0.</span>
 </span><span id="BrachyStructure-289"><a href="#BrachyStructure-289"><span class="linenos">289</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyStructure-290"><a href="#BrachyStructure-290"><span class="linenos">290</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">brachyutils.planning.optimization.optim_configs</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimization_Config</span>
@@ -4465,7 +4465,7 @@ treatment plan.
 </span><span id="BrachyStructure.__init__-61"><a href="#BrachyStructure.__init__-61"><span class="linenos">61</span></a><span class="sd">        - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.</span>
 </span><span id="BrachyStructure.__init__-62"><a href="#BrachyStructure.__init__-62"><span class="linenos">62</span></a><span class="sd">        - optimization_config:Optimization_Config := the optimization config object for the structure. see optim_utils.py </span>
 </span><span id="BrachyStructure.__init__-63"><a href="#BrachyStructure.__init__-63"><span class="linenos">63</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyStructure.__init__-64"><a href="#BrachyStructure.__init__-64"><span class="linenos">64</span></a><span class="sd">        - Void := will initialize the BrachyStructure object</span>
+</span><span id="BrachyStructure.__init__-64"><a href="#BrachyStructure.__init__-64"><span class="linenos">64</span></a><span class="sd">        - None := will initialize the BrachyStructure object</span>
 </span><span id="BrachyStructure.__init__-65"><a href="#BrachyStructure.__init__-65"><span class="linenos">65</span></a><span class="sd">        ### Dependencies:</span>
 </span><span id="BrachyStructure.__init__-66"><a href="#BrachyStructure.__init__-66"><span class="linenos">66</span></a><span class="sd">        - opentps.core.data.ROIMask</span>
 </span><span id="BrachyStructure.__init__-67"><a href="#BrachyStructure.__init__-67"><span class="linenos">67</span></a><span class="sd">        - opentps.core.data.DVH</span>
@@ -4519,7 +4519,7 @@ For example D95%(organName).</li>
 <li><p>optimization_config:Optimization_Config := the optimization config object for the structure. see optim_utils.py </p>
 
 <h3 id="outputs">Outputs:</h3></li>
-<li><p>Void := will initialize the BrachyStructure object</p>
+<li><p>None := will initialize the BrachyStructure object</p>
 
 <h3 id="dependencies">Dependencies:</h3></li>
 <li><p>opentps.core.data.ROIMask</p></li>
@@ -4812,7 +4812,7 @@ the naming convention of the keys.</p></li>
 </span><span id="BrachyStructure.get_dvh_metric-155"><a href="#BrachyStructure.get_dvh_metric-155"><span class="linenos">155</span></a><span class="sd">        - body_contour := the body contour is needed for conformity index calculation.</span>
 </span><span id="BrachyStructure.get_dvh_metric-156"><a href="#BrachyStructure.get_dvh_metric-156"><span class="linenos">156</span></a><span class="sd">        If the body contour is not provided, the conformity index will not be calculated.</span>
 </span><span id="BrachyStructure.get_dvh_metric-157"><a href="#BrachyStructure.get_dvh_metric-157"><span class="linenos">157</span></a><span class="sd">        ### Outputs:</span>
-</span><span id="BrachyStructure.get_dvh_metric-158"><a href="#BrachyStructure.get_dvh_metric-158"><span class="linenos">158</span></a><span class="sd">        - Void := will update the BrachyStructure.dvh_metrics_observed dictionary and</span>
+</span><span id="BrachyStructure.get_dvh_metric-158"><a href="#BrachyStructure.get_dvh_metric-158"><span class="linenos">158</span></a><span class="sd">        - None := will update the BrachyStructure.dvh_metrics_observed dictionary and</span>
 </span><span id="BrachyStructure.get_dvh_metric-159"><a href="#BrachyStructure.get_dvh_metric-159"><span class="linenos">159</span></a><span class="sd">        BrachyStructure.dvh_obj attributes. Will also update the last calculated value</span>
 </span><span id="BrachyStructure.get_dvh_metric-160"><a href="#BrachyStructure.get_dvh_metric-160"><span class="linenos">160</span></a><span class="sd">        to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).</span>
 </span><span id="BrachyStructure.get_dvh_metric-161"><a href="#BrachyStructure.get_dvh_metric-161"><span class="linenos">161</span></a><span class="sd">        &quot;&quot;&quot;</span>
@@ -4907,7 +4907,7 @@ the prescription dose for Dcc or D% and to the volume of the organName for VGy o
 If the body contour is not provided, the conformity index will not be calculated.</p>
 
 <h3 id="outputs">Outputs:</h3></li>
-<li><p>Void := will update the <a href="#BrachyStructure.dvh_metrics_observed">BrachyStructure.dvh_metrics_observed</a> dictionary and
+<li><p>None := will update the <a href="#BrachyStructure.dvh_metrics_observed">BrachyStructure.dvh_metrics_observed</a> dictionary and
 <a href="#BrachyStructure.dvh_obj">BrachyStructure.dvh_obj</a> attributes. Will also update the last calculated value
 to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).</p></li>
 </ul>
@@ -5040,7 +5040,7 @@ to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).<
 </span><span id="BrachyStructure.set_optimization_config-284"><a href="#BrachyStructure.set_optimization_config-284"><span class="linenos">284</span></a><span class="sd">        - To prepare the BrachyStructure object for optimization.</span>
 </span><span id="BrachyStructure.set_optimization_config-285"><a href="#BrachyStructure.set_optimization_config-285"><span class="linenos">285</span></a><span class="sd">        ### Inputs:</span>
 </span><span id="BrachyStructure.set_optimization_config-286"><a href="#BrachyStructure.set_optimization_config-286"><span class="linenos">286</span></a>
-</span><span id="BrachyStructure.set_optimization_config-287"><a href="#BrachyStructure.set_optimization_config-287"><span class="linenos">287</span></a><span class="sd">        - Void := will update the BrachyStructure object with the optimization id and</span>
+</span><span id="BrachyStructure.set_optimization_config-287"><a href="#BrachyStructure.set_optimization_config-287"><span class="linenos">287</span></a><span class="sd">        - None := will update the BrachyStructure object with the optimization id and</span>
 </span><span id="BrachyStructure.set_optimization_config-288"><a href="#BrachyStructure.set_optimization_config-288"><span class="linenos">288</span></a><span class="sd">        will set the penalty weights to 1.0.</span>
 </span><span id="BrachyStructure.set_optimization_config-289"><a href="#BrachyStructure.set_optimization_config-289"><span class="linenos">289</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="BrachyStructure.set_optimization_config-290"><a href="#BrachyStructure.set_optimization_config-290"><span class="linenos">290</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">brachyutils.planning.optimization.optim_configs</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimization_Config</span>
@@ -5060,7 +5060,7 @@ to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).<
 <li><p>To prepare the BrachyStructure object for optimization.</p>
 
 <h3 id="inputs">Inputs:</h3></li>
-<li><p>Void := will update the BrachyStructure object with the optimization id and
+<li><p>None := will update the BrachyStructure object with the optimization id and
 will set the penalty weights to 1.0.</p></li>
 </ul>
 </div>
