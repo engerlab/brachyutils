@@ -31,6 +31,7 @@ class DwellPosition(BaseModel):
     relativePos: float
     rotation: List[float] | np.array = None
     time: float = 0.0
+    _time_diff: float = 0.0
     catheter_index: int = None
     gen_dose_rate: bool = True
     dose_rate: 'BrachyDose' = None
@@ -51,12 +52,10 @@ class DwellPosition(BaseModel):
         ### Purpose:
         - To calculate the weight of the dwell position relative to a total time.
         The total time could come from the catheter or the treatment plan.
-            
         ### Inputs:
         - self := the DwellPosition object.
         - total_time:float=None := the total time of the catheter or the treatment plan.
         if this is not provided, the weight of the dwell position will be returned.
-        
         ### Outputs:
         - float := the weight of the dwell position.
         """
@@ -89,10 +88,8 @@ class DwellPosition(BaseModel):
         r"""
         ### Purpose:
         - To get the position of the dwell position.
-        
         ### Inputs:
         - self := the DwellPosition object.
-        
         ### Outputs:
         - List[float] := the position of the dwell position.
         """
@@ -102,11 +99,9 @@ class DwellPosition(BaseModel):
         r"""
         ### Purpose:
         - To check if the dwell position is inside a given mask.
-        
         ### Inputs:
         - self := the DwellPosition object.
         - mask:Union[ROIMask, sitk.Image] := the mask to check if the dwell position is inside.
-
         ### Outputs:
         - bool := True if the dwell position is inside the mask, False otherwise.
         """
@@ -115,3 +110,16 @@ class DwellPosition(BaseModel):
         index = mask.TransformPhysicalPointToIndex(self.position)
         in_mask = mask.GetPixel(index) > 0
         return in_mask
+    
+    def set_time(self, time:float) -> None:
+        r"""
+        ### Purpose:
+        - To set the time of the dwell position and calculate the time difference from the previous time.
+        ### Inputs:
+        - self := the DwellPosition object.
+        - time:float := the new time to set for the dwell position.
+        ### Outputs:
+        - None
+        """
+        self._time_diff = time - self.time
+        self.time = time
