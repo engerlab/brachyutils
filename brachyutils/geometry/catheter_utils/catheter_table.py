@@ -4,6 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, computed_field, ConfigDict, model_validator
 import json
 import SimpleITK as sitk
+import warnings
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.data.images import ROIMask
 
@@ -431,7 +432,10 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
                                 self_catheter.dwells[other_dwell.index].position[i] - other_dwell.position[i])
                             diff_rotation[i] = (
                                 self_catheter.dwells[other_dwell.index].rotation[i] - other_dwell.rotation[i])
-                        dwell_diff = DwellPosition(
+                        
+                        # model_construct bypasses validation checks, this is so that DwellPosition's validator
+                        # accepts the (possible) negative time field from diff_time.  
+                        dwell_diff = DwellPosition.model_construct(
                             index=other_dwell.index,
                             angle=diff_angle,
                             position=diff_position,
