@@ -445,8 +445,10 @@ class BrachyDoseComparison:
         """
         ### Purpose:
         - Write the local and global percent difference to an NRRD file.
+
         ### Inputs:
         - path (str): The path where the NRRD file will be saved.
+
         ### Outputs:
         - None
         """
