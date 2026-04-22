@@ -20,7 +20,7 @@ from .structure_utils import BrachyStructure
 # trunk-ignore(ruff/F401)
 from .simulation_utils import BrachySimulation, BrachySource
 
-from plan_export_configs import (
+from .plan_export_configs import (
     ExportConfig_PlanAndMac,
     ExportConfig_Egsphant,
     ExportConfig_CatheterTable,
