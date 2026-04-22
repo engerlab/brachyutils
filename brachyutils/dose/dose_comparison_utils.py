@@ -19,23 +19,26 @@ from brachyutils.dose.dose_utils import BrachyDose
 
 class BrachyDoseComparison:
     r"""
-    A class to compare two BrachyDose objects by computing the percent difference and gamma index.
-    Attributes:
-        gamma_kwargs (dict): Keuword arguments for the pymedphys gamma index function. Please
+    ### Purpose:
+    - A class to compare two BrachyDose objects by computing the percent difference and gamma index.
+    
+    ### Attributes:
+        - gamma_kwargs (dict): Keyword arguments for the pymedphys gamma index function. Please
             see pymedphys.gamma for more details
-        dose1 (BrachyDose): The first BrachyDose object (reference).
-        dose2 (BrachyDose): The second BrachyDose object (test), to resampled on the grid of dose1 with extrapolated points set to 0.
-        voxel_centers (np.ndarray): The voxel centers of the dose grid.
-        dose_2_grid_resampled (np.ndarray): The dose grid of dose2 resampled to the grid of dose1.
-        percent_difference (BrachyDose): The percent difference between dose1 and dose2.
-        gamma_index (BrachyDose): The gamma index between dose1 and dose2.
-        gamma_dose_percent_threshold (float): The gamma dose percent threshold.
-        gamma_distance_threshold (float): The gamma distance threshold in mm.
-        gamma_kwargs (dict): The kwargs for the gamma index function.
-        prescription_dose (float): The prescription dose of the dose grid.
-        max_gamma (float): The maximum gamma index value.
-        gamma_pass_ratio (float): The ratio of gamma index values passing the threshold.
-    Methods:
+        - dose1 (BrachyDose): The first BrachyDose object (reference).
+        - dose2 (BrachyDose): The second BrachyDose object (test), to resampled on the grid of dose1 with extrapolated points set to 0.
+        - voxel_centers (np.ndarray): The voxel centers of the dose grid.
+        - dose_2_grid_resampled (np.ndarray): The dose grid of dose2 resampled to the grid of dose1.
+        - percent_difference (BrachyDose): The percent difference between dose1 and dose2.
+        - gamma_index (BrachyDose): The gamma index between dose1 and dose2.
+        - gamma_dose_percent_threshold (float): The gamma dose percent threshold.
+        - gamma_distance_threshold (float): The gamma distance threshold in mm.
+        - gamma_kwargs (dict): The kwargs for the gamma index function.
+        - prescription_dose (float): The prescription dose of the dose grid.
+        - max_gamma (float): The maximum gamma index value.
+        - gamma_pass_ratio (float): The ratio of gamma index values passing the threshold.
+    
+    ### Methods:
         __init__(dose1, dose2, gamma_dose_percent_threshold, gamma_distance_threshold_mm, compute_percent_difference=True, compute_gamma_index=True, prescription_dose=None, max_gamma=None, path=None, gamma_kwargs=gamma_kwargs)
         plot_2d_dose_comparison(axis_1_coords, axis_2_coords, plane_coord, plane, plot_titles)
         compute_percent_difference()
