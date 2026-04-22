@@ -41,6 +41,7 @@ class BrachyPlan:
     as well as all the functions to support the necessary plan operations.
 
     ### Attributes:
+
     #### Geometry and Structure Attributes:
     - phantom (BrachyPhantom): A BrachyPhantom object containing the patient geometry and structures.
     - structure_list (List[BrachyStructure]): A list of BrachyStructure objects containing the patient structures.
@@ -50,6 +51,7 @@ class BrachyPlan:
     - dvh_metric_goals (dict): Dictionary containing the DVH metric goals for the plan.
     - dvh_metrics_observed (dict): Dictionary containing the observed DVH metrics for the plan.
     - prescription_dose (float): The dose prescribed to the target volume.
+
     #### Catheter and Dwell Position Attributes:
     - catheter_table (CatheterTable): A catheter table object containing the catheter information.
     - num_catheters (int): The number of catheters in the plan.
@@ -58,13 +60,16 @@ class BrachyPlan:
     - dwell_numbers (list): The dwell number ID of each dwell position in the plan.
     - dwell_times (List[float]): The dwell time for each dwell position in the plan.
     - dwell_coordinates (List[list]): The coordinates of each dwell position in patient coordinates.
+
     #### Applicator Attributes:
     - applicator_list (List[BrachyApplicator]): The list of all applicators in the plan.
     - applicator_rotation_axis (np.array): The rotation axis of applicators (default: [0, 0, 1]).
     - applicator_rotation_origin (np.array): The rotation origin of applicators (default: [0, 0, 0]).
+
     #### Dose Attributes:
     - dose_rate_dict (defaultdict[BrachyDose]): Dictionary holding 3D dose rate maps for each dwell position.
     - combined_dose (BrachyDose): Sum of the dose rate maps weighted by the dwell times.
+
     #### Simulation and Optimization Attributes:
     - simulation_setup (BrachySimulation): A simulation setup object containing source info and simulation parameters.
     - optimization_config_list (List[Optimization_Config]): List of optimization configurations for the plan.
@@ -97,14 +102,18 @@ class BrachyPlan:
         #### For geometry definition:
         - phantom: Path|BrachyPhantom|dict := the phantom object, the path to the phantom directory,
         or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
+
         #### For Structure optimization and dosimetry
         - prescription_dose: float = None := The dose that is prescribed to the target volume. This is used to calculate the DVH metrics. 
+
         #### for loading catheter table and applicators:
         - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
         - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
+
         #### for loading dose rates or uncertainty maps per dwell position:
         - combined_dose: Path|BrachyDose := the path to the combined dose file or a BrachyDose object.
         - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
+
         #### for simulation setup:
         - simulation_setup = None := dictionary containing the simulation setup,
         - load_uncertainty:bool := If True, the uncertainties of the dose rates are also loaded. 
@@ -112,6 +121,7 @@ class BrachyPlan:
         - combined_dose_only:bool := If True, all the dose rates will be removed from memory after 
         combined dose is calculated.
         - dose_dtype:np.float32 := The floating point type to store the dose rates. 
+
         #### Keywords Arguments:
         - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
         had non-zero dwell times in the DICOM plan file. If False, will load all the dwell positions
@@ -128,6 +138,7 @@ class BrachyPlan:
         names or the dictionary containing the DVH metric names and their goals or the path to its
         json file. Look at set_dvh_metric_goals for guideline on the names of the DVH metrics.
         The phantom should be loaded with structures for the Brachy stuctures to be created.
+
         ### Outputs:
             - Void := will initialize the BrachyPlan object
         """
