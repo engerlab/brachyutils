@@ -16,12 +16,9 @@ def gen_combined_doserates():
         "export_config_egsphant": {
             "strict_name_match": False,
             "crop_by_contour": ["ctv", "urethra", "rectum"]},
-        "export_config_macfile": {
+        "export_config_plan_and_mac": {
             "name_combined": name_dosefile
             },
-        "export_config_planfile": {
-            "name_combined": name_dosefile
-        }
         }
     plan_obj = load_dicom_to_plan(
         dir_dicom=dir_dicom,

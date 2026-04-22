@@ -85,7 +85,7 @@ class BrachyEgsphant:
                 ]
             - assign_material_from_ct:bool := if True, the function will assign the material based on the HU values in the CT image.
         Outputs:
-            - Void := will initialize a BrachyEgsphant object
+            - None := will initialize a BrachyEgsphant object
         """
         self.unit_length = "mm"
         self.material_image: Image3D = None
@@ -312,7 +312,7 @@ class BrachyEgsphant:
             - self: BrachyEgsphant object with material_dict attribute. The material_dict
             has to have at least the encoding key for each material.
         Output:
-            - Void: will sort the material_dict based on the encoding
+            - None: will sort the material_dict based on the encoding
         """
         assert material_key in [
             "encoding",
@@ -713,7 +713,7 @@ class BrachyEgsphant:
             - index_range := a 3 x 2 array holding the min and max index on x, y and z axis
                 [[ix_min, ix_max], [iy_min, iy_max], [iz_min, iz_max]]
         Output:
-            - Void := will crop out the material and density maps of self to have the range of the index range.
+            - None := will crop out the material and density maps of self to have the range of the index range.
                 it will also update the num_voxels, origin_coordinates and axis. only voxel_size will not change
         Dependencies:
             - self.crop_by_coordinates()
@@ -861,7 +861,7 @@ class BrachyEgsphant:
                 - HU_limit: the upper HU limit of the material
                 - structure_name: the name of the structure in the dicom file that represents the material [optional]
         Outputs:
-            - Void := will generate a BrachyEgsphant object from the images and structure file.
+            - None := will generate a BrachyEgsphant object from the images and structure file.
         Dependencies:
             - BrachyPhantom
         """
@@ -1038,7 +1038,7 @@ class BrachyEgsphant:
         Inputs:
             - pth_file:Path := the directory path where the json file will be written.
         Outputs:
-            - Void := will write the material dictionary to a json file.
+            - None := will write the material dictionary to a json file.
         """
         extension = os.path.splitext(pth_file)[-1]
         if extension == ".json":
@@ -1056,7 +1056,7 @@ class BrachyEgsphant:
         Inputs:
             - self:BrachyEgsphant := a BrachyEgsphant object with a material dictionary
         Outputs:
-            - Void := will remove duplicate materials from the material dictionary.
+            - None := will remove duplicate materials from the material dictionary.
         """
         assert self.material_dict is not None, "material dictionary is not available"
 

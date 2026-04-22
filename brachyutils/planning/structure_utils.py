@@ -4,7 +4,7 @@ from opentps.core.data import DVH, ROIContour
 import numpy as np
 import warnings
 from brachyutils.dose.dose_utils import BrachyDose
-from brachyutils.types import Optimization_Config
+from brachyutils.brachy_types import Optimization_Config
 from collections import defaultdict
 
 class BrachyStructure:
@@ -60,7 +60,7 @@ class BrachyStructure:
         - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
         - optimization_config:Optimization_Config := the optimization config object for the structure. see optim_utils.py 
         ### Outputs:
-        - Void := will initialize the BrachyStructure object
+        - None := will initialize the BrachyStructure object
         ### Dependencies:
         - opentps.core.data.ROIMask
         - opentps.core.data.DVH
@@ -154,7 +154,7 @@ class BrachyStructure:
         - body_contour := the body contour is needed for conformity index calculation.
         If the body contour is not provided, the conformity index will not be calculated.
         ### Outputs:
-        - Void := will update the BrachyStructure.dvh_metrics_observed dictionary and
+        - None := will update the BrachyStructure.dvh_metrics_observed dictionary and
         BrachyStructure.dvh_obj attributes. Will also update the last calculated value
         to BrachyStructure.dvh_metric_observed for backward compatibility (deprecated).
         """
@@ -283,7 +283,7 @@ class BrachyStructure:
         - To prepare the BrachyStructure object for optimization.
         ### Inputs:
 
-        - Void := will update the BrachyStructure object with the optimization id and
+        - None := will update the BrachyStructure object with the optimization id and
         will set the penalty weights to 1.0.
         """
         from brachyutils.planning.optimization.optim_configs import Optimization_Config

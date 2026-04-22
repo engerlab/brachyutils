@@ -16,7 +16,7 @@ from opentps.core.data.images import ROIMask
 
 from tqdm import tqdm
 
-from brachyutils.dose.dose_utils import BrachyDose
+from brachyutils.brachy_types import BrachyDose
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry.applicator_utils import BrachyApplicator 
@@ -140,7 +140,7 @@ class BrachyPlan:
         The phantom should be loaded with structures for the Brachy stuctures to be created.
 
         ### Outputs:
-            - Void := will initialize the BrachyPlan object
+            - None := will initialize the BrachyPlan object
         """
         # declare the attributes
         # patient origin is used as a reference point for the catheter table,
@@ -289,7 +289,7 @@ class BrachyPlan:
         file containing paths to specific phantom files. Look at the inputs of BrachPhantom
         for more information on the expected keys of the json file.
         ### Outputs:
-        - Void := will update the BrachyPlan.phantom attribute
+        - None := will update the BrachyPlan.phantom attribute
         """
         os.path.exists(pth_phantom), f"phantom path does not exist: {pth_phantom}"
         # initialize the inputs to the BrachyPhantom object
@@ -378,7 +378,7 @@ class BrachyPlan:
         If False, all the dwell positions from the digitization points will be loaded.
         - dwells_near_ptv: bool := Whether to remove dwells that are far from the PTV.
         ### Outputs:
-        - Void := will update the BrachyPlan.catheter_table attribute and all the related attributes
+        - None := will update the BrachyPlan.catheter_table attribute and all the related attributes
         such as dwell times, coordinates, etc.
         """
         if isinstance(catheter_table, (str, Path)):
@@ -422,7 +422,7 @@ class BrachyPlan:
         - self := the BrachyPlan object
         - time_diffs: dict := A dictionary of time differences for each dwell position. this is used for fast plan update.
         ### Outputs:
-        - Void := will update the self.dwell_numbers, self.dwell_times,
+        - None := will update the self.dwell_numbers, self.dwell_times,
         and self.dwell_coordinates attributes
         """
 
@@ -640,7 +640,7 @@ class BrachyPlan:
 
         - format:str := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
         ### Outputs:
-            - Void := will update the BrachyPlan.applicator_list attribute
+            - None := will update the BrachyPlan.applicator_list attribute
         """
         if isinstance(applicator_list_pth, Path) or isinstance(
             applicator_list_pth, str
@@ -810,7 +810,7 @@ class BrachyPlan:
         ### Inputs:
         - output_pth := path to the output json file
         ### Outputs:
-        - Void := will export the dvh metrics to a json file
+        - None := will export the dvh metrics to a json file
         """
         assert self.dvh_metrics_observed is not None, "dvh metrics are not calculated yet"
         assert output_pth.endswith(".json"), "output path should be a json file"
@@ -824,7 +824,7 @@ class BrachyPlan:
         ### Inputs:
         - output_pth := path to the output json file
         ### Outputs:
-        - Void := will export the dvh metric goals to a json file
+        - None := will export the dvh metric goals to a json file
         """
         assert self.dvh_metric_goals is not None, "dvh_metric_goals object is not created yet"
         assert output_pth.endswith(".json"), "output path should be a json file"
@@ -838,7 +838,7 @@ class BrachyPlan:
         ### Inputs:
         - self := the BrachyPlan object
         ### Outputs:
-        - Void := will update the BrachyStructure.uncertainty attribute
+        - None := will update the BrachyStructure.uncertainty attribute
         """
         assert (
             self.combined_dose.uncertainty_image is not None
@@ -1019,7 +1019,7 @@ class BrachyPlan:
         - export_config_plan_and_mac = The export configuration for the plan files. see ExportConfig_PlanAndMac
         - catheter_table:= The catheter table with the dwells.
         ### Outputs:
-        - void := Two types of .plan files are written, one named combined.plan and the other
+        - None := Two types of .plan files are written, one named combined.plan and the other
         named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and
         their normalized dwell time, and the run_{dwellNumber}.plan contains info of a single
         dwell position. The format of each .plan file is given in this example:
@@ -1210,7 +1210,7 @@ class BrachyPlan:
         - dir_export := path to the directory where the export happens
         - format := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
         ### Outputs:
-        - Void := will export the applicator geometries into the specified export directory.
+        - None := will export the applicator geometries into the specified export directory.
         ### Dependencies:
         - None
         """
@@ -1293,7 +1293,7 @@ class BrachyPlan:
             "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
         ]
         ### Outputs:
-        - void := self.structure_list is exported as a dictionary and
+        - None := self.structure_list is exported as a dictionary and
         written to structure_set.json
         ### Dependencies:
         """
@@ -1327,7 +1327,7 @@ class BrachyPlan:
         ### Inputs:
         - self := the BrachyPlan object
         ### Outputs:
-        - Void := will print the information of the plan
+        - None := will print the information of the plan
         ### Dependencies:
         - None
         """

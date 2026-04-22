@@ -51,6 +51,7 @@ class ExportConfig_Egsphant(BaseModel):
     - If using Monte Carlo simulations from RapidBrachyMC, It is recommended that
     the user crop the egsphant to a small region around the relevant anatomy and
     use provide the body_name_stl to save the body structure as a separate STL file.
+
     ### Attributes:
     - dir_export: Directory where Egsphant file is exported.
     - name: File name for Egsphant output.
@@ -96,6 +97,7 @@ class ExportConfig_CatheterTable(BaseModel):
     r"""
     ### Purpose:
     - Configuration for exporting catheter tables.
+
     ### Attributes:
     - dir_export: Directory where catheter table is exported.
     - name: File name for catheter table output.
@@ -125,6 +127,7 @@ class ExportConfig_Dose(BaseModel):
     r"""
     ### Purpose:
     - Configuration for exporting dose data from the plan.
+
     ### Attributes:
     - dir_export: Directory where dose files are exported.
     - name_combined: File name for combined dose output.
@@ -157,6 +160,7 @@ class ExportConfig_BrachyPlan(BaseModel):
     ### Purpose:
     - Configuration for exporting various components of a brachytherapy treatment plan.
     The components are catheter table, dose, egsphant, plan file, and mac file.
+
     ### Attributes:
     - dir_export: **[required]** Base directory where all plan components are exported.
     - export_config_dose: Configuration for exporting dose data.

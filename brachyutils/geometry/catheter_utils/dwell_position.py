@@ -1,8 +1,9 @@
 from typing import List, Union
 import numpy as np
-from pydantic import BaseModel, ConfigDict, computed_field, model_validator
+from pydantic import (BaseModel, ConfigDict, computed_field, model_validator,
+                      SkipValidation)
 import SimpleITK as sitk
-from brachyutils.dose.dose_utils import BrachyDose
+from brachyutils.brachy_types import BrachyDose
 from opentps.core.data.images import ROIMask
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 
@@ -33,7 +34,7 @@ class DwellPosition(BaseModel):
     time: float = 0.0
     catheter_index: int = None
     gen_dose_rate: bool = True
-    dose_rate: 'BrachyDose' = None
+    dose_rate: SkipValidation[BrachyDose] = None
 
     @model_validator(mode="after")
     def validate_dwell_position(self):

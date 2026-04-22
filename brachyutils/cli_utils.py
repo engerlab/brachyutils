@@ -166,7 +166,7 @@ def crop_egsphant_by_body_contour_many_patients(
         }
     ]
     Output:
-    - Void: the cropped .egsphant file for each patient will be written to patient_dir/cropped_basename.egsphant
+    - None: the cropped .egsphant file for each patient will be written to patient_dir/cropped_basename.egsphant
     """
     pth_egsphant_set = set(glob(patient_egsphant_dir + "/*/*.egsphant"))
 
@@ -315,7 +315,7 @@ def get_uncertainty_one_patient(
         - pth_uncertainty_json := path to the json file where the uncertainty of all structures will be saved.
         - multi_proc := If set to true, multiprocessing will be used to load the dose files in parallel.
     Output:
-        - Void := Path of the json file where the uncertainty of all structures will be saved.
+        - None := Path of the json file where the uncertainty of all structures will be saved.
     Dependencies:
     """
     assert os.path.exists(dir_dicom)
