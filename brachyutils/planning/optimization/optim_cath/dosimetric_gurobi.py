@@ -5,7 +5,7 @@ from pathlib import Path
 from gurobipy import Model, Var, GRB, MVar
 import numpy as np
 
-from brachyutils.types import BrachyPlan, BrachyDose
+from brachyutils.brachy_types import BrachyPlan, BrachyDose
 from brachyutils.planning.optimization.optim_utils import (
     get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices

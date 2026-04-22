@@ -15,7 +15,7 @@ import pandas as pd
 from scipy.sparse import csr_matrix
 
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
-from brachyutils.types import BrachyPlan
+from brachyutils.brachy_types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices

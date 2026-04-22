@@ -19,8 +19,7 @@ from tqdm import tqdm
 from collections import defaultdict
 from itertools import chain
 
-from brachyutils.brachy_types import BrachyDose
-from brachyutils.planning.plan_export_configs import ExportConfig_Dose
+from brachyutils.brachy_types import BrachyDose, ExportConfig_Dose
 from brachyutils.geometry.catheter_utils.dwell_position import DwellPosition
 from brachyutils.geometry.catheter_utils.catheter import Catheter
 

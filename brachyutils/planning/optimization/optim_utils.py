@@ -9,7 +9,7 @@ import SimpleITK as sitk
 # import gurobipy as gb
 from opentps.core.data.images import ROIMask, DoseImage
 from opentps.core.data import ROIContour
-from brachyutils.types import BrachyPlan
+from brachyutils.brachy_types import BrachyPlan
 from abc import ABC, abstractmethod
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from opentps.core.processing.imageProcessing.resampler3D import (

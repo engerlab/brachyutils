@@ -4,7 +4,7 @@ from opentps.core.data import DVH, ROIContour
 import numpy as np
 import warnings
 from brachyutils.dose.dose_utils import BrachyDose
-from brachyutils.types import Optimization_Config
+from brachyutils.brachy_types import Optimization_Config
 from collections import defaultdict
 
 class BrachyStructure:

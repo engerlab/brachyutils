@@ -157,6 +157,9 @@ class DwellTimeOptimizer(Protocol):
         model: Any
     ) -> Callable: ...
 
+class ExportConfig_Dose(Protocol):
+    """Protocol for ExportConfig_Dose class"""
+    def export_dose(self, dose: BrachyDose, pth_export: Path) -> None: ...
 # Export all types to make them accessible when importing from this module
 __all__ = [
     'BrachyPlan', 'DwellTimeOptimizer', 'BrachyStructure', 'BrachyDose',

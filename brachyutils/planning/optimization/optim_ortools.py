@@ -4,7 +4,7 @@ import warnings
 import time
 import numpy as np
 from pathlib import Path
-from brachyutils.types import BrachyPlan
+from brachyutils.brachy_types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices
