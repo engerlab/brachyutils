@@ -1,0 +1,117 @@
+from typing import List, Union
+import numpy as np
+from pydantic import BaseModel, ConfigDict, computed_field, model_validator
+import SimpleITK as sitk
+from brachyutils.dose.dose_utils import BrachyDose
+from opentps.core.data.images import ROIMask
+from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
+
+
+class DwellPosition(BaseModel):
+    r"""
+    ### Purpose:
+    - This class holds the information regarding a dwell position.
+
+    ### Attributes:
+    - index: int := the index of the dwell position along the catheter
+    - angle := angle of the IMBT shield
+    - position:dict: np.array := dwell position in the patient coordinate system [x, y, z]
+    - relativePos: float := distance along the catheter from the reference point. increments of x mm
+    - rotation: np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
+    - time: float := dwell time for this dwell position
+    - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
+    - parent_catheter: 
+    ### Functions:
+    - to_dict() -> dict := convert the dwell position to a dictionary.
+    """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    index: int
+    angle: int = 0
+    position: List[float] | np.array
+    relativePos: float
+    rotation: List[float] | np.array = None
+    time: float = 0.0
+    catheter_index: int = None
+    gen_dose_rate: bool = True
+    dose_rate: 'BrachyDose' = None
+
+    @model_validator(mode="after")
+    def validate_dwell_position(self):
+        self.position = np.array(self.position)
+        if self.rotation is not None:
+            self.rotation = np.array(self.rotation)
+        return self
+
+    @computed_field
+    def name_id(self) -> str:
+        return f"{self.catheter_index+1}_{self.index+1}_{self.angle}"
+
+    def weight(self, total_time: float) -> float:
+        r"""
+        ### Purpose:
+        - To calculate the weight of the dwell position relative to a total time.
+        The total time could come from the catheter or the treatment plan.
+            
+        ### Inputs:
+        - self := the DwellPosition object.
+        - total_time:float=None := the total time of the catheter or the treatment plan.
+        if this is not provided, the weight of the dwell position will be returned.
+        
+        ### Outputs:
+        - float := the weight of the dwell position.
+        """
+        return self.time / total_time
+
+    def to_dict(self, total_time:float=None) -> dict:
+        r"""
+        ### Purpose:
+        - To convert the dwell position to a dictionary.
+        ### Inputs:
+        - self := the DwellPosition object.
+        ### Outputs:
+        - dict := the dictionary containing the dwell position.
+        """
+        if total_time is None:
+            total_time = self.time
+        return {
+            "index": int(self.index),
+            "name_id": self.name_id,
+            "catheter_index": self.catheter_index,
+            "angle": float(self.angle),
+            "position": list(self.position),
+            "relativePos": float(self.relativePos),
+            "rotation": list(self.rotation),
+            "time": float(self.time),
+            "weight": float(self.weight(total_time)),
+        }
+
+    def get_position(self) -> List[float]:
+        r"""
+        ### Purpose:
+        - To get the position of the dwell position.
+        
+        ### Inputs:
+        - self := the DwellPosition object.
+        
+        ### Outputs:
+        - List[float] := the position of the dwell position.
+        """
+        return self.position
+
+    def isin_mask(self, mask:Union[ROIMask, sitk.Image]) -> bool:
+        r"""
+        ### Purpose:
+        - To check if the dwell position is inside a given mask.
+        
+        ### Inputs:
+        - self := the DwellPosition object.
+        - mask:Union[ROIMask, sitk.Image] := the mask to check if the dwell position is inside.
+
+        ### Outputs:
+        - bool := True if the dwell position is inside the mask, False otherwise.
+        """
+        if isinstance(mask, ROIMask):
+            mask = imageToSITK(mask)
+        index = mask.TransformPhysicalPointToIndex(self.position)
+        in_mask = mask.GetPixel(index) > 0
+        return in_mask
