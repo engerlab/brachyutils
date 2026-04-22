@@ -27,9 +27,10 @@ from scipy.optimize import curve_fit
 
 class CalibrationCurve:
     """
-    A class used to represent a calibration curve for film dosimetry.
+    ### Purpose:
+    - A class used to represent a calibration curve for film dosimetry.
 
-    Attributes:
+    ### Attributes:
     - doses (numpy.ndarray): doses used to create calibration curve
     - r_pv (numpy.ndarray): red channel pixel values on calibration films
     - g_pv (numpy.ndarray): green channel pixel values
@@ -50,7 +51,7 @@ class CalibrationCurve:
     - g_pv_fit (numpy.ndarray): green channel pixel values normalized to the zero dose pixel value
     - b_pv_fit (numpy.ndarray): blue channel pixel values normalized to the zero dose pixel value (for Lewis) or net pixel value (for Devic)
 
-    Methods:
+    ### Methods:
     - perform_fit(): performs the fit for the calibration curve
     - define_fit_parameters_for_calibration_type(): defines the fit parameters for the calibration type based on the calibration curve type
     - plot_calibration_and_response_curve(): plots the calibration and response curves for the film dosimetry system
@@ -100,21 +101,16 @@ class CalibrationCurve:
 
     def perform_fit(self):
         """
-        Perform curve fitting to obtain optimal parameters and covariance matrices for red, green, and blue channels.
+        ### Purpose:
+        - Perform curve fitting to obtain optimal parameters and covariance matrices for red, green, and blue channels.
 
-        Returns:
-        - r_opt: array_like
-        Optimal parameters for red channel.
-        - rp_cov: 2-D array
-        Covariance matrix for the estimated parameters for red channel.
-        - g_opt: array_like
-        Optimal parameters for green channel.
-        - gp_cov: 2-D array
-        Covariance matrix for the estimated parameters for green channel.
-        - b_opt: array_like
-        Optimal parameters for blue channel.
-        - bp_cov: 2-D array
-        Covariance matrix for the estimated parameters for blue channel.
+        ### Outputs:
+        - r_opt: array_like := Optimal parameters for red channel.
+        - rp_cov: 2-D array := Covariance matrix for the estimated parameters for red channel.
+        - g_opt: array_like := Optimal parameters for green channel.
+        - gp_cov: 2-D array := Covariance matrix for the estimated parameters for green channel.
+        - b_opt: array_like := Optimal parameters for blue channel.
+        - bp_cov: 2-D array := Covariance matrix for the estimated parameters for blue channel.
         """
         self.r_opt, self.rp_cov = curve_fit(
             self.dose_to_pv, self.doses, self.r_pv_fit, sigma=self.r_std
@@ -128,15 +124,16 @@ class CalibrationCurve:
 
     def define_fit_parameters_for_calibration_type(self):
         """
-        Defines the fit parameters for the calibration type based on the calibration curve type.
+        ### Purpose:
+        - Defines the fit parameters for the calibration type based on the calibration curve type.
 
-        Args:
+        ### Inputs:
         - doses (numpy.ndarray): Array of doses
         - r_pv (numpy.ndarray): Array of red channel pixel values
         - g_pv (numpy.ndarray): Array of green channel pixel values
         - b_pv (numpy.ndarray): Array of blue channel pixel values
 
-        Returns:
+        ### Outputs:
         - Tuple containing:
         - dose_to_pv (function): Function to convert dose to pixel value
         - pv_to_dose (function): Function to convert pixel value to dose
@@ -163,7 +160,8 @@ class CalibrationCurve:
 
     def plot_calibration_and_response_curve(self):
         """
-        Plots the calibration and response curves for the film dosimetry system.
+        ### Purpose:
+        - Plots the calibration and response curves for the film dosimetry system.
         The calibration curve relates the measured pixel values (PV) to the actual
         radiation dose delivered to the film. The response curve relates the
         normalized PV to the actual radiation dose delivered to the film.
@@ -293,22 +291,23 @@ class CalibrationCurve:
 
 class FilmCalibration:
     r"""
-    A utility class for processing film images in the context of brachytherapy.
+    ### Purpose:
+    - A utility class for processing film images in the context of brachytherapy.
 
     This class provides methods for loading and processing calibration images, as well as for applying
     calibration curves to film images. It also stores various parameters related to the calibration process,
     such as the pixel range, the calibration file directory, and the ROI bounds.
 
-    Attributes:
-    pixel_range (int): The maximum pixel value for the film images.
-    calibration_file_dict (dict): A dictionary mapping dose values to calibration file paths and calibration
-    coefficients.
-    calibration_images (dict): A dictionary mapping dose values to calibration images.
-    calibration_curve_type (str): The type of calibration curve used to fit the calibration data.
-    calibration_curve_params (dict): A dictionary of parameters for the calibration curve.
-    film_to_mc_offset (tuple): The offset between the film and the Monte Carlo (MC) simulation.
-    roi_bounds (tuple): The bounds of the region of interest (ROI) for the film images.
-    calibration_file_directory (str): The directory where the calibration files are stored.
+    ### Attributes:
+    - pixel_range (int): The maximum pixel value for the film images.
+    - calibration_file_dict (dict): A dictionary mapping dose values to calibration 
+    file paths and calibration coefficients.
+    - calibration_images (dict): A dictionary mapping dose values to calibration images.
+    - calibration_curve_type (str): The type of calibration curve used to fit the calibration data.
+    - calibration_curve_params (dict): A dictionary of parameters for the calibration curve.
+    - film_to_mc_offset (tuple): The offset between the film and the Monte Carlo (MC) simulation.
+    - roi_bounds (tuple): The bounds of the region of interest (ROI) for the film images.
+    - calibration_file_directory (str): The directory where the calibration files are stored.
     """
 
     possible_calibrations = ["Lewis", "Devic"]
@@ -325,7 +324,8 @@ class FilmCalibration:
 
     def configure_calibration(self):
         r"""
-        Configures the calibration settings for the film.
+        ### Purpose:
+        - Configures the calibration settings for the film.
 
         Prompts the user to choose the calibration curve type,
         enter the number of possible pixel values,
@@ -359,15 +359,17 @@ class FilmCalibration:
         self.load_calibration()
 
     def add_calibration_files_for_dose(self, dose: float):
-        r"""Opens a file dialog to select calibration film files corresponding to a given dose.
+        r"""
+        ### Purpose:
+        - Opens a file dialog to select calibration film files corresponding to a given dose.
 
-        Args:
-        dose (float): The dose in Gy for which to select calibration files.
+        ### Inputs:
+        - dose (float): The dose in Gy for which to select calibration files.
 
-        Returns:
-        None
+        ### Outputs:
+        - None
 
-        Side effects:
+        ### Side effects:
         - Modifies the `calibration_file_dict` attribute of the object to include the selected files.
         - Modifies the `calibration_file_directory` attribute of the object to the directory of the last selected file.
         """
@@ -388,13 +390,14 @@ class FilmCalibration:
 
     def load_calibration(self):
         r"""
-        Loads calibration images from a dictionary of file paths and calculates the mean pixel value for each image.
+        ### Purpose:
+        - Loads calibration images from a dictionary of file paths and calculates the mean pixel value for each image.
 
-        Raises:
-        ValueError: If the calibration file dictionary is not set.
+        ### Raises:
+        - ValueError: If the calibration file dictionary is not set.
 
-        Returns:
-        None
+        ### Outputs:
+        - None
         """
         if self.calibration_file_dict is None:
             raise ValueError("calibration file dictionary not set")
@@ -409,7 +412,8 @@ class FilmCalibration:
 
     def display_calibration_films(self):
         r"""
-        Plots the calibration images with the region of interest bounds.
+        ### Purpose:
+        - Plots the calibration images with the region of interest bounds.
         """
         if self.calibration_images is None:
             raise ValueError("calibration images not loaded")
@@ -446,14 +450,15 @@ class FilmCalibration:
 
     def set_roi_bounds(self, new_bounds: tuple):
         r"""
-        Set the region of interest (ROI) bounds for the film.
+        ### Purpose:
+        - Set the region of interest (ROI) bounds for the film.
 
-        Args:
-        new_bounds (tuple): A tuple of length 4 containing the x and y coordinates of the top-left corner of the ROI,
+        ### Inputs:
+        - new_bounds (tuple): A tuple of length 4 containing the x and y coordinates of the top-left corner of the ROI,
         followed by the width and height of the ROI.
 
-        Raises:
-        ValueError: If the length of new_bounds is not 4 or if any element in new_bounds is not an integer.
+        ### Raises:
+        - ValueError: If the length of new_bounds is not 4 or if any element in new_bounds is not an integer.
         """
         if len(new_bounds) != 4:
             raise ValueError("ROI bounds must be a tuple of length 4")
@@ -464,7 +469,8 @@ class FilmCalibration:
 
     def create_calibration_curve(self):
         r"""
-        Create a calibration curve for a film dosimetry image.
+        ### Purpose:
+        - Create a calibration curve for a film dosimetry image.
 
         The calibration curve is created by analyzing a set of calibration images
         with known doses and calculating the mean pixel value in a region of
@@ -472,8 +478,8 @@ class FilmCalibration:
         dose. The calibration curve is then fitted to a response curve and a
         calibration curve, which are plotted along with a dose residual plot.
 
-        Returns:
-        None
+        ### Outputs:
+        - None
         """
         doses = np.array(list(self.calibration_images.keys()))
         r_pv = np.array([])
@@ -569,16 +575,17 @@ class FilmCalibration:
 
     def normalize_image_by_calibration_type(self, image: np.array):
         """
-        Normalizes the given image based on the calibration curve type.
+        ### Purpose:
+        - Normalizes the given image based on the calibration curve type.
 
-        Args:
+        ### Inputs:
         - image: A numpy array representing the image to be normalized, with shape (height, width, 3).
 
-        Returns:
+        ### Outputs:
         A tuple containing the pv_to_dose conversion function and the normalized image.
 
-        Throws:
-        ValueError: If the image does not have 3 channels.
+        ### Throws:
+        - ValueError: If the image does not have 3 channels.
         """
         if image.shape[2] != 3:
             raise ValueError("Image must have 3 channels")
@@ -604,77 +611,82 @@ class FilmCalibration:
     @staticmethod
     def lewis_dose_to_pv(d, a, b, c):
         r"""
-        Calculates the PV value for a given dose using the Lewis model.
+        ### Purpose:
+        - Calculates the PV value for a given dose using the Lewis model.
 
-        Args:
-        d (float): The dose value.
-        a (float): The a parameter of the Lewis model.
-        b (float): The b parameter of the Lewis model.
-        c (float): The c parameter of the Lewis model.
+        ### Inputs:
+        - d (float): The dose value.
+        - a (float): The a parameter of the Lewis model.
+        - b (float): The b parameter of the Lewis model.
+        - c (float): The c parameter of the Lewis model.
 
-        Returns:
-        float: The PV value calculated using the Lewis model.
+        ### Outputs:
+        - float: The PV value calculated using the Lewis model.
         """
         return a + b / (d + c)
 
     @staticmethod
     def lewis_pv_to_dose(pv, a, b, c):
         r"""
-        Converts a given PV value to a dose value using the Lewis formula.
+        ### Purpose:
+        - Converts a given PV value to a dose value using the Lewis formula.
 
-        Args:
-        pv (float): The PV value to convert to dose.
-        a (float): The 'a' parameter of the Lewis formula.
-        b (float): The 'b' parameter of the Lewis formula.
-        c (float): The 'c' parameter of the Lewis formula.
+        ### Inputs:
+        - pv (float): The PV value to convert to dose.
+        - a (float): The 'a' parameter of the Lewis formula.
+        - b (float): The 'b' parameter of the Lewis formula.
+        - c (float): The 'c' parameter of the Lewis formula.
 
-        Returns:
-        float: The dose value corresponding to the given PV value.
+        ### Outputs:
+        - float: The dose value corresponding to the given PV value.
         """
         return -c + b / (pv - a)
 
     @staticmethod
     def devic_pv_to_dose(pv, a, b):
         r"""
-        Converts a pixel value (PV) to a dose value using the Devic formula.
+        ### Purpose:
+        - Converts a pixel value (PV) to a dose value using the Devic formula.
 
-        Args:
-        pv (float): Pixel value
-        a (float): Calibration coefficient
-        b (float): Calibration coefficient
+        ### Inputs:
+        - pv (float): Pixel value
+        - a (float): Calibration coefficient
+        - b (float): Calibration coefficient
 
-        Returns:
-        float: Dose value
+        ### Outputs:
+        - float: Dose value
         """
         return (a * pv) / (1 - b * pv)
 
     @staticmethod
     def devic_dose_to_pv(d, a, b):
         r"""
-        Converts a measured dose value to a pixel value using the Devic formula.
+        ### Purpose:
+        - Converts a measured dose value to a pixel value using the Devic formula.
 
-        Args:
-        d (float): The measured dose value.
-        a (float): The a parameter of the Devic formula.
-        b (float): The b parameter of the Devic formula.
+        ### Inputs:
+        - d (float): The measured dose value.
+        - a (float): The a parameter of the Devic formula.
+        - b (float): The b parameter of the Devic formula.
 
-        Returns:
-        float: The pixel value corresponding to the measured dose value.
+        ### Outputs:
+        - float: The pixel value corresponding to the measured dose value.
         """
         return d / (a + b * d)
 
     def convert_image_to_dose(self, image: np.array):
         r"""
-        Converts an image to a dose map using the calibration curve parameters.
+        ### Purpose:
+        - Converts an image to a dose map using the calibration curve parameters.
 
-        Args:
-        image (np.array): The input image to convert, with shape (height, width, 3).
+        ### Inputs:
+        - image (np.ndarray): The input image to convert, with shape (height, width, 3).
 
-        Returns:
-        np.array: The dose map generated from the input image.
+        ### Outputs:
+        - np.ndarray: The dose map generated from the input image.
 
-        Throws:
-        ValueError: If the image does not have 3 channels.
+        ### Throws:
+        - ValueError: If the image does not have 3 channels.
         """
         if image.shape[2] != 3:
             raise ValueError("Image must have 3 channels")
@@ -693,10 +705,15 @@ class FilmCalibration:
 
     def save_calibration_object(self, path: str = None):
         r"""
-        Saves the calibration object to a file using the pickle module.
+        ### Purpose:
+        - Saves the calibration object to a file using the pickle module.
 
-        Returns:
-        None
+        ### Inputs:
+        - path (str, optional): The file path to save the calibration object. If not
+        provided, a file dialog will be opened to select the save location.
+
+        ### Outputs:
+        - None
         """
         if not isinstance(path, str):
             root = tk.Tk()
@@ -719,10 +736,11 @@ class FilmCalibration:
 
     def load_calibration_object(self, path: str = None):
         r"""
-        Opens the calibration object file and updates the current object's attributes with the loaded object's attributes.
+        ### Purpose:
+        - Opens the calibration object file and updates the current object's attributes with the loaded object's attributes.
 
-        Returns:
-        None
+        ### Outputs:
+        - None
         """
         if not isinstance(path, str):
             root = tk.Tk()
@@ -743,13 +761,16 @@ class FilmCalibration:
     @staticmethod
     def create_or_load_calibration_object():
         r"""
-        Prompts the user to create a new calibration or load an existing calibration.
+        ### Purpose:
+        - Prompts the user to create a new calibration or load an existing calibration.
         If the user chooses to create a new calibration, a new FilmCalibration object is created,
         configured, and saved. The calibration curve is also plotted.
         If the user chooses to load an existing calibration, the user is prompted to select a saved
         calibration file. The selected file is then loaded into a new FilmCalibration object, and
         the calibration curve is plotted.
-        Raises a ValueError if the user enters an invalid input.
+
+        ### Throws:
+        - ValueError: If the user enters an invalid input.
         """
         print(
             "Please enter N to create a new calibration or L to load an existing calibration:"
