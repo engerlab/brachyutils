@@ -24,7 +24,7 @@ class BrachyDoseComparison:
     
     ### Attributes:
     - gamma_kwargs (dict): Keyword arguments for the pymedphys gamma index function. Please
-        see pymedphys.gamma for more details
+    see pymedphys.gamma for more details
     - dose1 (BrachyDose): The first BrachyDose object (reference).
     - dose2 (BrachyDose): The second BrachyDose object (test), to resampled on the grid of dose1 with extrapolated points set to 0.
     - voxel_centers (np.ndarray): The voxel centers of the dose grid.
