@@ -92,6 +92,7 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - To initialize the BrachyPlan object.
+
         ### Inputs:
         #### For geometry definition:
         - phantom: Path|BrachyPhantom|dict := the phantom object, the path to the phantom directory,
