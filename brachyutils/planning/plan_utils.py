@@ -16,7 +16,7 @@ from opentps.core.data.images import ROIMask
 
 from tqdm import tqdm
 
-from brachyutils.dose.dose_utils import BrachyDose
+from brachyutils.brachy_types import BrachyDose
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry.applicator_utils import BrachyApplicator 
