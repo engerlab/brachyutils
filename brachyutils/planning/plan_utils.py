@@ -41,6 +41,7 @@ class BrachyPlan:
     as well as all the functions to support the necessary plan operations.
 
     ### Attributes:
+
     #### Geometry and Structure Attributes:
     - phantom (BrachyPhantom): A BrachyPhantom object containing the patient geometry and structures.
     - structure_list (List[BrachyStructure]): A list of BrachyStructure objects containing the patient structures.
