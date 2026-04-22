@@ -4206,20 +4206,20 @@ Outputs:
 </span><span id="BrachyDoseComparison-24"><a href="#BrachyDoseComparison-24"><span class="linenos"> 24</span></a><span class="sd">    - A class to compare two BrachyDose objects by computing the percent difference and gamma index.</span>
 </span><span id="BrachyDoseComparison-25"><a href="#BrachyDoseComparison-25"><span class="linenos"> 25</span></a><span class="sd">    </span>
 </span><span id="BrachyDoseComparison-26"><a href="#BrachyDoseComparison-26"><span class="linenos"> 26</span></a><span class="sd">    ### Attributes:</span>
-</span><span id="BrachyDoseComparison-27"><a href="#BrachyDoseComparison-27"><span class="linenos"> 27</span></a><span class="sd">        - gamma_kwargs (dict): Keyword arguments for the pymedphys gamma index function. Please</span>
-</span><span id="BrachyDoseComparison-28"><a href="#BrachyDoseComparison-28"><span class="linenos"> 28</span></a><span class="sd">            see pymedphys.gamma for more details</span>
-</span><span id="BrachyDoseComparison-29"><a href="#BrachyDoseComparison-29"><span class="linenos"> 29</span></a><span class="sd">        - dose1 (BrachyDose): The first BrachyDose object (reference).</span>
-</span><span id="BrachyDoseComparison-30"><a href="#BrachyDoseComparison-30"><span class="linenos"> 30</span></a><span class="sd">        - dose2 (BrachyDose): The second BrachyDose object (test), to resampled on the grid of dose1 with extrapolated points set to 0.</span>
-</span><span id="BrachyDoseComparison-31"><a href="#BrachyDoseComparison-31"><span class="linenos"> 31</span></a><span class="sd">        - voxel_centers (np.ndarray): The voxel centers of the dose grid.</span>
-</span><span id="BrachyDoseComparison-32"><a href="#BrachyDoseComparison-32"><span class="linenos"> 32</span></a><span class="sd">        - dose_2_grid_resampled (np.ndarray): The dose grid of dose2 resampled to the grid of dose1.</span>
-</span><span id="BrachyDoseComparison-33"><a href="#BrachyDoseComparison-33"><span class="linenos"> 33</span></a><span class="sd">        - percent_difference (BrachyDose): The percent difference between dose1 and dose2.</span>
-</span><span id="BrachyDoseComparison-34"><a href="#BrachyDoseComparison-34"><span class="linenos"> 34</span></a><span class="sd">        - gamma_index (BrachyDose): The gamma index between dose1 and dose2.</span>
-</span><span id="BrachyDoseComparison-35"><a href="#BrachyDoseComparison-35"><span class="linenos"> 35</span></a><span class="sd">        - gamma_dose_percent_threshold (float): The gamma dose percent threshold.</span>
-</span><span id="BrachyDoseComparison-36"><a href="#BrachyDoseComparison-36"><span class="linenos"> 36</span></a><span class="sd">        - gamma_distance_threshold (float): The gamma distance threshold in mm.</span>
-</span><span id="BrachyDoseComparison-37"><a href="#BrachyDoseComparison-37"><span class="linenos"> 37</span></a><span class="sd">        - gamma_kwargs (dict): The kwargs for the gamma index function.</span>
-</span><span id="BrachyDoseComparison-38"><a href="#BrachyDoseComparison-38"><span class="linenos"> 38</span></a><span class="sd">        - prescription_dose (float): The prescription dose of the dose grid.</span>
-</span><span id="BrachyDoseComparison-39"><a href="#BrachyDoseComparison-39"><span class="linenos"> 39</span></a><span class="sd">        - max_gamma (float): The maximum gamma index value.</span>
-</span><span id="BrachyDoseComparison-40"><a href="#BrachyDoseComparison-40"><span class="linenos"> 40</span></a><span class="sd">        - gamma_pass_ratio (float): The ratio of gamma index values passing the threshold.</span>
+</span><span id="BrachyDoseComparison-27"><a href="#BrachyDoseComparison-27"><span class="linenos"> 27</span></a><span class="sd">    - gamma_kwargs (dict): Keyword arguments for the pymedphys gamma index function. Please</span>
+</span><span id="BrachyDoseComparison-28"><a href="#BrachyDoseComparison-28"><span class="linenos"> 28</span></a><span class="sd">        see pymedphys.gamma for more details</span>
+</span><span id="BrachyDoseComparison-29"><a href="#BrachyDoseComparison-29"><span class="linenos"> 29</span></a><span class="sd">    - dose1 (BrachyDose): The first BrachyDose object (reference).</span>
+</span><span id="BrachyDoseComparison-30"><a href="#BrachyDoseComparison-30"><span class="linenos"> 30</span></a><span class="sd">    - dose2 (BrachyDose): The second BrachyDose object (test), to resampled on the grid of dose1 with extrapolated points set to 0.</span>
+</span><span id="BrachyDoseComparison-31"><a href="#BrachyDoseComparison-31"><span class="linenos"> 31</span></a><span class="sd">    - voxel_centers (np.ndarray): The voxel centers of the dose grid.</span>
+</span><span id="BrachyDoseComparison-32"><a href="#BrachyDoseComparison-32"><span class="linenos"> 32</span></a><span class="sd">    - dose_2_grid_resampled (np.ndarray): The dose grid of dose2 resampled to the grid of dose1.</span>
+</span><span id="BrachyDoseComparison-33"><a href="#BrachyDoseComparison-33"><span class="linenos"> 33</span></a><span class="sd">    - percent_difference (BrachyDose): The percent difference between dose1 and dose2.</span>
+</span><span id="BrachyDoseComparison-34"><a href="#BrachyDoseComparison-34"><span class="linenos"> 34</span></a><span class="sd">    - gamma_index (BrachyDose): The gamma index between dose1 and dose2.</span>
+</span><span id="BrachyDoseComparison-35"><a href="#BrachyDoseComparison-35"><span class="linenos"> 35</span></a><span class="sd">    - gamma_dose_percent_threshold (float): The gamma dose percent threshold.</span>
+</span><span id="BrachyDoseComparison-36"><a href="#BrachyDoseComparison-36"><span class="linenos"> 36</span></a><span class="sd">    - gamma_distance_threshold (float): The gamma distance threshold in mm.</span>
+</span><span id="BrachyDoseComparison-37"><a href="#BrachyDoseComparison-37"><span class="linenos"> 37</span></a><span class="sd">    - gamma_kwargs (dict): The kwargs for the gamma index function.</span>
+</span><span id="BrachyDoseComparison-38"><a href="#BrachyDoseComparison-38"><span class="linenos"> 38</span></a><span class="sd">    - prescription_dose (float): The prescription dose of the dose grid.</span>
+</span><span id="BrachyDoseComparison-39"><a href="#BrachyDoseComparison-39"><span class="linenos"> 39</span></a><span class="sd">    - max_gamma (float): The maximum gamma index value.</span>
+</span><span id="BrachyDoseComparison-40"><a href="#BrachyDoseComparison-40"><span class="linenos"> 40</span></a><span class="sd">    - gamma_pass_ratio (float): The ratio of gamma index values passing the threshold.</span>
 </span><span id="BrachyDoseComparison-41"><a href="#BrachyDoseComparison-41"><span class="linenos"> 41</span></a><span class="sd">    </span>
 </span><span id="BrachyDoseComparison-42"><a href="#BrachyDoseComparison-42"><span class="linenos"> 42</span></a><span class="sd">    ### Methods:</span>
 </span><span id="BrachyDoseComparison-43"><a href="#BrachyDoseComparison-43"><span class="linenos"> 43</span></a><span class="sd">        __init__(dose1, dose2, gamma_dose_percent_threshold, gamma_distance_threshold_mm, compute_percent_difference=True, compute_gamma_index=True, prescription_dose=None, max_gamma=None, path=None, gamma_kwargs=gamma_kwargs)</span>
@@ -5068,21 +5068,22 @@ Outputs:
 
 <h3 id="attributes">Attributes:</h3>
 
-<pre><code>- gamma_kwargs (dict): Keyword arguments for the pymedphys gamma index function. Please
-    see pymedphys.gamma for more details
-- dose1 (BrachyDose): The first BrachyDose object (reference).
-- dose2 (BrachyDose): The second BrachyDose object (test), to resampled on the grid of dose1 with extrapolated points set to 0.
-- voxel_centers (np.ndarray): The voxel centers of the dose grid.
-- dose_2_grid_resampled (np.ndarray): The dose grid of dose2 resampled to the grid of dose1.
-- percent_difference (BrachyDose): The percent difference between dose1 and dose2.
-- gamma_index (BrachyDose): The gamma index between dose1 and dose2.
-- gamma_dose_percent_threshold (float): The gamma dose percent threshold.
-- gamma_distance_threshold (float): The gamma distance threshold in mm.
-- gamma_kwargs (dict): The kwargs for the gamma index function.
-- prescription_dose (float): The prescription dose of the dose grid.
-- max_gamma (float): The maximum gamma index value.
-- gamma_pass_ratio (float): The ratio of gamma index values passing the threshold.
-</code></pre>
+<ul>
+<li>gamma_kwargs (dict): Keyword arguments for the pymedphys gamma index function. Please
+see pymedphys.gamma for more details</li>
+<li>dose1 (BrachyDose): The first BrachyDose object (reference).</li>
+<li>dose2 (BrachyDose): The second BrachyDose object (test), to resampled on the grid of dose1 with extrapolated points set to 0.</li>
+<li>voxel_centers (np.ndarray): The voxel centers of the dose grid.</li>
+<li>dose_2_grid_resampled (np.ndarray): The dose grid of dose2 resampled to the grid of dose1.</li>
+<li>percent_difference (BrachyDose): The percent difference between dose1 and dose2.</li>
+<li>gamma_index (BrachyDose): The gamma index between dose1 and dose2.</li>
+<li>gamma_dose_percent_threshold (float): The gamma dose percent threshold.</li>
+<li>gamma_distance_threshold (float): The gamma distance threshold in mm.</li>
+<li>gamma_kwargs (dict): The kwargs for the gamma index function.</li>
+<li>prescription_dose (float): The prescription dose of the dose grid.</li>
+<li>max_gamma (float): The maximum gamma index value.</li>
+<li>gamma_pass_ratio (float): The ratio of gamma index values passing the threshold.</li>
+</ul>
 
 <h3 id="methods">Methods:</h3>
 
