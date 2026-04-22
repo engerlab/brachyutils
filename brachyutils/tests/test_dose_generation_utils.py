@@ -101,12 +101,9 @@ def test_run_dose_gen_tg43():
         "export_config_egsphant": {
             "strict_name_match": False,
             "crop_by_contour": ["ctv", "urethra", "rectum"]},
-        "export_config_macfile": {
+        "export_config_plan_and_mac": {
             "name_combined": "cropped_combined"
             },
-        "export_config_planfile": {
-            "name_combined": "cropped_combined"
-        }
         }
     plan_obj = get_a_plan(
         dir_dicom=dir_dicom,
@@ -214,6 +211,6 @@ if __name__ == "__main__":
 
     # print(response.json())
 
-    # test_run_dose_gen_tg43()
-    test_run_brachyutilstg43()
+    test_run_dose_gen_tg43()
+    # test_run_brachyutilstg43()
     # compare_rb_bu()
