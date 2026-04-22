@@ -566,7 +566,7 @@ class BrachyDoseComparison:
             rasterized=True,
             antialiased=True,
         )
-        axs_img[0].set_title("$\Delta D_{{\mathrm{{LOCAL}}}}$", fontsize=12, pad=5)
+        axs_img[0].set_title(r"$\Delta D_{{\mathrm{{LOCAL}}}}$", fontsize=12, pad=5)
         axs_img[0].set_aspect("equal")
         cbar00 = fig.colorbar(c00, ax=axs_img[0], fraction=0.046, shrink=0.9, pad=0.04, location='right')#, panchor=False)
         cbar00.ax.set_title(label="[%]", size=10)
@@ -585,7 +585,7 @@ class BrachyDoseComparison:
             rasterized=True,
             antialiased=True,
         )
-        axs_img[1].set_title("$\Delta D_{{\mathrm{{GLOBAL}}}}$", fontsize=12, pad=5)
+        axs_img[1].set_title(r"$\Delta D_{{\mathrm{{GLOBAL}}}}$", fontsize=12, pad=5)
         axs_img[1].set_aspect("equal")
         cbar01 = fig.colorbar(c01, ax=axs_img[1], fraction=0.046, shrink=0.9, pad=0.04, location='right')
         cbar01.ax.set_title(label="[%]", size=10)#, labelpad=5)

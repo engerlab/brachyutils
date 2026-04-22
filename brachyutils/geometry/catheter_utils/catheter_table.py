@@ -46,9 +46,9 @@ class DwellPosition(BaseModel):
                               validate_assignment=True) # Catches in-place mutations
     index: int
     angle: int = 0
-    position: List[float] | np.array
+    position: List[float] | np.ndarray
     relativePos: float
-    rotation: List[float] | np.array = None
+    rotation: List[float] | np.ndarray | None = None
     time: float = 0.0
     catheter_index: int = None
     gen_dose_rate: bool = True
