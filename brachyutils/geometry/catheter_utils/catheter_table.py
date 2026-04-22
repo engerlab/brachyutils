@@ -4,7 +4,6 @@ from pathlib import Path
 from pydantic import BaseModel, computed_field, ConfigDict, model_validator
 import json
 import SimpleITK as sitk
-import warnings
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.data.images import ROIMask
 
