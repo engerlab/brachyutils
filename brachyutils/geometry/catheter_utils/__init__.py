@@ -4,6 +4,7 @@ __all__ = [
     "CatheterTable",
     "CatheterSetUp"
 ]
-
-from .catheter_table import DwellPosition, Catheter, CatheterTable
+from .dwell_position import DwellPosition
+from .catheter import Catheter
+from .catheter_table import CatheterTable
 from .patch_ai_assisted_brachy.catheter_setup import CatheterSetUp
