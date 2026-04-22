@@ -168,27 +168,22 @@ class BrachyDoseComparison:
         plot_titles: tuple,
     ):
         """
-        Plots a 2D dose comparison between two dose profiles, along with their percent difference and gamma index.
-        Parameters:
-        -----------
-        axis_1_coords : np.ndarray
-            Coordinates along the first axis (e.g., x-axis).
-        axis_2_coords : np.ndarray
-            Coordinates along the second axis (e.g., y-axis).
-        plane_coord : float
-            Coordinate of the plane in which the profiles are extracted.
-        plane : str
-            The plane in which the profiles are extracted (e.g., 'axial', 'sagittal', 'coronal').
-        plot_titles : tuple
-            Titles for the dose plots (dose 1 and dose 2).
-        Raises:
-        -------
-        NotImplementedError
-            If neither percent difference nor gamma index is computed.
-        Notes:
-        ------
-        The function generates a figure suitable for a double column figure in medical physics publications.
-        The figure is saved as an EPS file (user is prompted for the filename) and displayed.
+        ### Purpose:
+        - Plots a 2D dose comparison between two dose profiles, along with their percent difference and gamma index.
+
+        ### Inputs:
+        - axis_1_coords : np.ndarray := Coordinates along the first axis (e.g., x-axis).
+        - axis_2_coords : np.ndarray := Coordinates along the second axis (e.g., y-axis).
+        - plane_coord : float := Coordinate of the plane in which the profiles are extracted.
+        - plane : str := The plane in which the profiles are extracted (e.g., 'axial', 'sagittal', 'coronal').
+        - plot_titles : tuple := Titles for the dose plots (dose 1 and dose 2).
+
+        ### Raises:
+        - NotImplementedError := If neither percent difference nor gamma index is computed.
+
+        ### Notes:
+        - The function generates a figure suitable for a double column figure in medical physics publications.
+        - The figure is saved as an EPS file (user is prompted for the filename) and displayed.
         """
 
         # import itertools
@@ -352,11 +347,20 @@ class BrachyDoseComparison:
 
     def compute_percent_difference(self, positive_percent_difference: bool = True, local: bool = True):
         """
-        Compute the local or global percent difference between two dose distributions.
+        ### Purpose:
+        - Compute the local or global percent difference between two dose distributions.
         self.dose1 is the reference and self.dose2 is the test dose.
         See TG-372 for exact definitions
-        Returns:
-            None
+        
+        ### Inputs:
+        - positive_percent_difference: bool := if True, the percent difference will be computed with or without
+        absolute value
+        - local: bool := if True, the percent difference will be computed locally; otherwise globally
+
+        ### Outputs:
+        - None. but updates the following attributes of the object:
+        - percent_difference_local: BrachyDose object := the local percent difference between dose1 and dose2
+        - percent_difference_global: BrachyDose object := the global percent difference between dose1 and dose2
         """
         #make sure there's no 0s in the ref dose to prevent division by 0
         self.dose1.dose_image.imageArray[self.dose1.dose_image.imageArray == 0] = 1e-6 
@@ -393,7 +397,8 @@ class BrachyDoseComparison:
 
     def compute_gamma_index(self):
         """
-        Compute the gamma index between two dose distributions.
+        ### Purpose:
+        - Compute the gamma index between two dose distributions.
         This method calculates the gamma index, which is a quantitative measure
         of the agreement between two dose distributions. The gamma index is
         computed using the dose images from `self.dose1` and `self.dose2`,
@@ -401,14 +406,17 @@ class BrachyDoseComparison:
         The resulting gamma index is stored in `self.gamma_index`, and the
         pass ratio (the fraction of points with a gamma index less than or
         equal to 1) is stored in `self.gamma_pass_ratio`.
-        Note:
+
+        ### Note:
             Computing the gamma index may take some time.
-        Attributes:
+
+        ### Attributes:
             self.gamma_index (BrachyDose): A BrachyDose object with the computed
                 gamma index.
             self.gamma_pass_ratio (float): The ratio of points with a gamma index
                 less than or equal to 1.
-        Raises:
+
+        ### Raises:
             Any exceptions raised by the `gammaIndex` function or numpy operations
             will propagate up to the caller.
         """
@@ -435,11 +443,12 @@ class BrachyDoseComparison:
     
     def write_percent_difference_to_nrrd(self, dir: str = "./"):
         """
-        Write the local and global percent difference to an NRRD file.
-        Parameters:
-            path (str): The path where the NRRD file will be saved.
-        Returns:
-            None
+        ### Purpose:
+        - Write the local and global percent difference to an NRRD file.
+        ### Inputs:
+        - path (str): The path where the NRRD file will be saved.
+        ### Outputs:
+        - None
         """
         if self.percent_difference_local is not None and self.percent_difference_global is not None:
             self.percent_difference_local.write_to_nrrd(Path(f"{dir}/local_percent_difference.seq.nrrd"))
@@ -449,10 +458,14 @@ class BrachyDoseComparison:
     
     def save_comparison_object(self, path: str = None):
         r"""
-        Saves the dose comparison object to a file using the pickle module.
+        ### Purpose:
+        - Saves the dose comparison object to a file using the pickle module.
 
-        Returns:
-        None
+        ### Inputs:
+        - path (str): The path where the comparison object will be saved.
+
+        ### Returns:
+        - None
         """
         if not isinstance(path, str):
             root = tk.Tk()
@@ -473,10 +486,14 @@ class BrachyDoseComparison:
 
     def load_comparison_object(self, path: str = None):
         r"""
-        Opens the dose comparison object file and updates the current object's attributes with the loaded object's attributes.
+        ### Purpose:
+        - Opens the dose comparison object file and updates the current object's attributes with the loaded object's attributes.
 
-        Returns:
-        None
+        ### Inputs:
+        - path (str): The path to the saved dose comparison object file.
+
+        ### Returns:
+        - None
         """
         if not isinstance(path, str):
             root = tk.Tk()
@@ -510,10 +527,26 @@ class BrachyDoseComparison:
         ):
 
         """
-        Plot local and dose differences maps in 2D in the specified slice
+        ### Purpose:
+        - Plot local and dose differences maps in 2D in the specified slice
         With the histograms below. Note, a lot of plotting parameters were tuned
         to hardcoded values to make a good looking figure during Figure Bootcamp 2025.
         Please avoid changing them. 
+
+        ### Inputs:
+        - axis_1_coords : np.ndarray := Coordinates along the first axis (e.g., x-axis).
+        - axis_2_coords : np.ndarray := Coordinates along the second axis (e.g., y-axis).
+        - plane_coord : float := Coordinate of the plane in which the profiles are extracted.
+        - plane : str := The plane in which the profiles are extracted (e.g., 'axial', 'sagittal', 'coronal').
+        - plot_title : str := Title for the dose comparison plot.
+        - local_vmax : float := The maximum value for the local percent difference color scale (in %).
+        - global_vmax : float := The maximum value for the global percent difference color scale (in %).
+        - pth_fig_save : Path | str := The path where the figure will be saved. If None, the figure will not be saved.
+        - fig_size_mm : tuple := The size of the figure in millimeters (width, height).
+        - title_fontsize : int := The font size of the plot title.
+
+        ### Outputs:
+        - None. The function will display the plot and save it if a path is provided.        
         """
 
         matplotlib.rcParams.update({"font.size": 8})
@@ -712,10 +745,12 @@ class BrachyDoseComparison:
 
     def compute_dose_ratios(self):
         """
-        Compute the ratio between two dose distributions.
+        ### Purpose:
+        - Compute the ratio between two dose distributions.
         self.dose1 is the reference and self.dose2 is the test dose.
-        Returns:
-            None
+
+        ### Outputs:
+        - None
         """
         self.dose_ratio = BrachyDose.dose_with_empty_grid_like(self.dose1)
         self.dose_ratio.dose_image.imageArray = self.dose2.dose_image.imageArray / self.dose1.dose_image.imageArray
@@ -735,10 +770,23 @@ class BrachyDoseComparison:
         ):
 
         """
-        Plot dose ratio map in 2D in the specified slice
+        ### Purpose:
+        - Plot dose ratio map in 2D in the specified slice
         With the histograms below. Note, a lot of plotting parameters were tuned
         to hardcoded values to make a good looking figure during Figure Bootcamp 2025.
         Please avoid changing them. 
+
+        ### Inputs:
+        - axis_1_coords : np.ndarray := Coordinates along the first axis (e.g., x-axis).
+        - axis_2_coords : np.ndarray := Coordinates along the second axis (e.g., y-axis).
+        - plane_coord : float := Coordinate of the plane in which the profiles are extracted.
+        - plane : str := The plane in which the profiles are extracted (e.g., 'axial', 'sagittal', 'coronal').
+        - plot_title : str := Title for the dose ratio plot.
+        - ratio_vmax : float := The maximum value for the dose ratio color scale.
+        - pth_fig_save : Path | str := The path
+
+        ### Outputs:
+        - None. The function will display the plot and save it if a path is provided.
         """
         matplotlib.rcParams.update({"font.size": 8})
         plt.rcParams.update({"figure.dpi": 300})
