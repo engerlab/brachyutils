@@ -39,12 +39,12 @@ class BrachyDoseComparison:
     - gamma_pass_ratio (float): The ratio of gamma index values passing the threshold.
     
     ### Methods:
-        __init__(dose1, dose2, gamma_dose_percent_threshold, gamma_distance_threshold_mm, compute_percent_difference=True, compute_gamma_index=True, prescription_dose=None, max_gamma=None, path=None, gamma_kwargs=gamma_kwargs)
-        plot_2d_dose_comparison(axis_1_coords, axis_2_coords, plane_coord, plane, plot_titles)
-        compute_percent_difference()
-        compute_gamma_index()
-        save_comparison_object(path=None)
-        load_comparison_object(path=None)
+    - __init__(dose1, dose2, gamma_dose_percent_threshold, gamma_distance_threshold_mm, compute_percent_difference=True, compute_gamma_index=True, prescription_dose=None, max_gamma=None, path=None, gamma_kwargs=gamma_kwargs)
+    - plot_2d_dose_comparison(axis_1_coords, axis_2_coords, plane_coord, plane, plot_titles)
+    - compute_percent_difference()
+    - compute_gamma_index()
+    - save_comparison_object(path=None)
+    - load_comparison_object(path=None)
 
     """
 
@@ -78,6 +78,7 @@ class BrachyDoseComparison:
         - to compare two BrachyDose objects. The comparison is done by computing the percent difference and gamma index.
         The gamma index is computed using the pymedphys gamma function. The result of the comparison is stored in the object and
         can be viewed using the plot_2d_dose_comparison function.
+
         ### Inputs:
         - dose1: BrachyDose object
         - dose2: BrachyDose object
@@ -92,6 +93,7 @@ class BrachyDoseComparison:
         - positive_percent_difference: bool := if True, the percent difference will be computed with or without absolute value
         - percent_difference_range: tuple := the range of the percent difference used in plotting
         - dose_mask: BrachyDose := a mask to apply to the dose comparison, excluding any voxels where the mask is valued <0
+
         ### Outputs:
         Object containing the following attributes:
         - dose1: BrachyDose object
@@ -105,13 +107,12 @@ class BrachyDoseComparison:
         - gamma_distance_threshold: float := the gamma distance threshold in mm
         - gamma_kwargs: dict := the kwargs for the gamma index function
         - plot_max_dose_percent_of_prescription : int = default 300%, can be tuned to get a good dynamic range for plots
-
-        and The following functions
-        - compute_percent_difference: void := to compute the percent difference between dose1 and dose2
-        - compute_gamma_index: void := to compute the gamma index between dose1 and dose2
-        - plot_2d_dose_comparison: void := to plot the 2d dose comparison
-        - save_comparison_object
-        - load_comparison_object
+        and The following functions:
+            - compute_percent_difference: void := to compute the percent difference between dose1 and dose2
+            - compute_gamma_index: void := to compute the gamma index between dose1 and dose2
+            - plot_2d_dose_comparison: void := to plot the 2d dose comparison
+            - save_comparison_object
+            - load_comparison_object
         """
         # note: we will not use DoseComparisonImageProvider from OpenTPS
         # since the gamma index capabilities are not yet implemented
