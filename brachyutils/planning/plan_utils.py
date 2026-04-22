@@ -39,6 +39,7 @@ class BrachyPlan:
     ### Purpose:
     - This class holds the information regarding the brachytherapy treatment plan
     as well as all the functions to support the necessary plan operations.
+
     ### Attributes:
     #### Geometry and Structure Attributes:
     - phantom (BrachyPhantom): A BrachyPhantom object containing the patient geometry and structures.
@@ -91,23 +92,18 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - To initialize the BrachyPlan object.
-
         ### Inputs:
         #### For geometry definition:
         - phantom: Path|BrachyPhantom|dict := the phantom object, the path to the phantom directory,
         or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
-
         #### For Structure optimization and dosimetry
         - prescription_dose: float = None := The dose that is prescribed to the target volume. This is used to calculate the DVH metrics. 
-
         #### for loading catheter table and applicators:
         - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
         - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
-
         #### for loading dose rates or uncertainty maps per dwell position:
         - combined_dose: Path|BrachyDose := the path to the combined dose file or a BrachyDose object.
         - dir_dose_rate:str := path to the directory containing the dose rate files for a patient.
-
         #### for simulation setup:
         - simulation_setup = None := dictionary containing the simulation setup,
         - load_uncertainty:bool := If True, the uncertainties of the dose rates are also loaded. 
@@ -115,7 +111,6 @@ class BrachyPlan:
         - combined_dose_only:bool := If True, all the dose rates will be removed from memory after 
         combined dose is calculated.
         - dose_dtype:np.float32 := The floating point type to store the dose rates. 
-
         #### Keywords Arguments:
         - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
         had non-zero dwell times in the DICOM plan file. If False, will load all the dwell positions
@@ -132,7 +127,6 @@ class BrachyPlan:
         names or the dictionary containing the DVH metric names and their goals or the path to its
         json file. Look at set_dvh_metric_goals for guideline on the names of the DVH metrics.
         The phantom should be loaded with structures for the Brachy stuctures to be created.
-
         ### Outputs:
             - Void := will initialize the BrachyPlan object
         """
