@@ -27,9 +27,9 @@ class DwellPosition(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     index: int
     angle: int = 0
-    position: List[float] | np.array
+    position: List[float] | np.ndarray
     relativePos: float
-    rotation: List[float] | np.array = None
+    rotation: List[float] | np.ndarray = None
     time: float = 0.0
     catheter_index: int = None
     gen_dose_rate: bool = True

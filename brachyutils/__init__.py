@@ -23,6 +23,9 @@ BrachyUtils is developed to be a scripting treatment planning system for brachyt
 
 """
 
+import logging
+logging.getLogger("opentps").setLevel(logging.ERROR)
+
 __all__ = [
     "dose",
     "geometry",
