@@ -92,7 +92,7 @@ class Optimization_Config(BaseModel):
     max_dose:float = 500
     catheter_recommendaion: bool = False
     constraint_num_catheters: Constraint_Config = None
-    dwell_coef_dict:Dict[str, np.array] = None
+    dwell_coef_dict:Dict[str, np.ndarray] = None
     mask:ROIMask = None
     # may be needed later
     # self.index_range_constraints: List[int] = None

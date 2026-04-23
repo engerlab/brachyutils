@@ -118,7 +118,7 @@ class MOBOOptimizer:
             - num_fmio_runs := number of fmio calls to be run in parallel
 
         outputs:
-            - VOID := this method returns nothing, but it updates the axClient with the result of penalty weight evaluations
+            - None := this method returns nothing, but it updates the axClient with the result of penalty weight evaluations
 
         dependencies:
             - AxClient

@@ -13,18 +13,21 @@ class BrachyDoseGenerator(ABC):
         pth_dose_executable: Union[Path, str],
     ) -> None:
         r"""
-        Purpose:
-            - A generic class to wrap around all sorts of dose generators. Each generator should
-            support the attributes of this class and implements its abstract methods.
-        Attributes:
-            - dir_plan_export: Union[Path, str]: The path to the dose setup directory.
-            - pth_dose_executable: Union[Path, str]: The path to the dose executable.
-        Inputs:
-            - dir_plan_export: Union[Path, str]: The path to the dose setup directory.
-            - pth_dose_executable: Union[Path, str]: The path to the dose executable.
-        Functions:
-            - generate_dose(): generates the dose distribution as well as its uncertaity per voxel.
-            - validate_inputs(): validates the dose setup directory.
+        ### Purpose:
+        - A generic class to wrap around all sorts of dose generators. Each generator should
+        support the attributes of this class and implements its abstract methods.
+
+        ### Attributes:
+        - dir_plan_export: Union[Path, str]: The path to the dose setup directory.
+        - pth_dose_executable: Union[Path, str]: The path to the dose executable.
+
+        ### Inputs:
+        - dir_plan_export: Union[Path, str]: The path to the dose setup directory.
+        - pth_dose_executable: Union[Path, str]: The path to the dose executable.
+
+        ### Functions:
+        - generate_dose(): generates the dose distribution as well as its uncertaity per voxel.
+        - validate_inputs(): validates the dose setup directory.
         """
         self.dir_plan_export: Path = Path(dir_plan_export)
         self.pth_dose_executable: Path = pth_dose_executable
@@ -32,19 +35,20 @@ class BrachyDoseGenerator(ABC):
     @abstractmethod
     def validate_inputs(self):
         r"""
-        Purpose:
-            - Abstract method to validate the inputs of the dose generator.
-            Each dose generator should implement this method.
+        ### Purpose:
+        - Abstract method to validate the inputs of the dose generator.
+        Each dose generator should implement this method.
         """
         pass
 
     @abstractmethod
     def generate_dose(self, pth_output: Optional[Path] = None):
         r"""
-        Purpose:
-            - Abstract method to generate the dose distribution.
-            Each dose generator should implement this method.
-        Inputs:
+        ### Purpose:
+        - Abstract method to generate the dose distribution.
+        Each dose generator should implement this method.
+
+        ### Inputs:
             - pth_output: Optional[Path]: If provided, the dose distribution will be saved to this path.
         """
         pass
@@ -60,11 +64,13 @@ class BrachyDoseGenerator(ABC):
         ### Purpose:
         - to run the dose generation for the plan and return a plan with combined dose filled as well
         as the dose rate dictionary if desired.
+
         ### Inputs:
         - dir_export := The directory used for exporting the dosimetry setup and the generated dose maps.
         - plan:= The treatment plan for which we want to generate the dose. 
         - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
         If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
+
         ### Output:
         - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
         """
@@ -77,9 +83,9 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         pth_dose_executable: Union[Path, str]="http://192.168.1.12:8000/calculate_dose_tg43",
     ) -> None:
         r"""
-        Purpose:
-            - A class to generate dose distribution using the TG43 formalism.
-            This class uses RapidBrachyTG43 to calculate the dose distribution.
+        ### Purpose:
+        - A class to generate dose distribution using the TG43 formalism.
+        This class uses RapidBrachyTG43 to calculate the dose distribution.
         """
         super().__init__(dir_plan_export, pth_dose_executable)
 
@@ -102,7 +108,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         r"""
         ### Purpose:
         - To define the input parameters for the calculate_dose function.
-        
+
         ### Inputs:
         - dir_dose_setup: str := The directory where the dose setup files are stored. This directory
             should containe the egsphant file, plan files, and mac files. it can also contain the
@@ -127,7 +133,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         - rotation_angle_config- [optional] either a nine-character string representing the start, end, and increment
         angles (e.g. 000220015 for IMBT delievered from 0-220 degree increments) or a path to the
         catheter_table.json file where this information can be extracted.
-        
+
         ### Outputs:
             - response: The response from the dose executable. God know what it is.
         """
@@ -188,8 +194,8 @@ class RapidBrachyTG43(BrachyDoseGenerator):
 
     def validate_inputs(self):
         r"""
-        Purpose:
-            - Validate the inputs o f the TG43 dose generator.
+        ### Purpose:
+        - Validate the inputs o f the TG43 dose generator.
         """
         assert self.dir_plan_export.exists(), "The dose setup directory does not exist."
         # assert self.pth_dose_executable.exists(), "The dose executable does not exist."
@@ -213,6 +219,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         ### Purpose:
         - to run the dose generation for the plan and return a plan with combined dose filled as well
         as the dose rate dictionary if desired.
+
         ### Inputs:
         - plan:= The treatment plan for which we want to generate the dose. 
         - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
@@ -220,6 +227,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         - export_config_brachyplan := If false, we assume the egsphant, mac files, and plan files have been
         exported before. If True or None, we create a default ExportConfig_BrachyPlan to export the setup files
         needed for RapidBrachyTG43. You can also provide your own custom export config.
+
         ### Output:
         - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
         """
@@ -263,24 +271,24 @@ class RapidBrachyMC(BrachyDoseGenerator):
         pth_dose_executable: Path | str="http://192.168.1.11:8000/calculate_dose_mc",
     ) -> None:
         r"""
-        Purpose:
-            - A class to generate dose distribution using Monte Carlo simulations.
-            This class uses RapidBrachyMC to calculate the dose distribution.
+        ### Purpose:
+        - A class to generate dose distribution using Monte Carlo simulations.
+        This class uses RapidBrachyMC to calculate the dose distribution.
         """
         super().__init__(dir_plan_export, pth_dose_executable)
 
     def validate_inputs(self):
         r"""
-        Purpose:
-            - Validate the inputs of the Monte Carlo dose generator.
+        ### Purpose:
+        - Validate the inputs of the Monte Carlo dose generator.
         """
         pass
     
     def generate_batch_plans():
         r"""
-        Purpose:
-            - Generate the batch plans for the Monte Carlo simulation to achieve the 
-            desired uncertainty with much less time.
+        ### Purpose:
+        - Generate the batch plans for the Monte Carlo simulation to achieve the 
+        desired uncertainty with much less time.
         """
         raise NotImplementedError("This feature is not implemented yet.")
     
@@ -289,7 +297,15 @@ class RapidBrachyMC(BrachyDoseGenerator):
         pth_mac: Path = None,
         random_seed: int = 1,
     ):
-        r""""""
+        r"""
+        ### Purpose:
+        - Generate the dose distribution for a given mac file.
+        
+        ### Inputs:
+        - pth_mac: Path := The path to the mac file for which the dose distribution
+        will be generated. If None, the function will search for all mac files in the dir_plan_export directory and generate dose for each of them.
+        - random_seed: int := The random seed for the Monte Carlo simulation. The default is 1
+        """
 
         if pth_mac is None:
             print("No mac file is provided. Will use all mac files in the directory. except the combined.mac")
@@ -338,11 +354,13 @@ class RapidBrachyMC(BrachyDoseGenerator):
         ### Purpose:
         - to run the dose generation for the plan and return a plan with combined dose filled as well
         as the dose rate dictionary if desired.
+
         ### Inputs:
         - dir_export := The directory used for exporting the dosimetry setup and the generated dose maps.
         - plan:= The treatment plan for which we want to generate the dose. 
         - generate_dose_rate_maps := whether to generate dose rate maps for each dwell position.
         If True, the dose_rate_dict will be populated with the dose rate maps for each dwell position.
+
         ### Output:
         - plan: BrachyPlan := The brachy plan with the combined dose and optionally the dose rate dict filled.
         TODO examples/benchmarks/eval_dose_generation.py has the code to fill this function. will do it when 

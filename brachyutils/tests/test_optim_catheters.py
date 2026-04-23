@@ -142,12 +142,9 @@ def test_dynamic_plan_generation():
         generate_dose_rate_maps=True,
         export_config_brachyplan={
             "dir_export": dir_dose_rates,
-            "export_config_macfile": {
+            "export_config_plan_and_mac": {
                 "name_combined": "cat_p1"
             },
-            "export_config_planfile": {
-                "name_combined": "cat_p1"
-            }
         }
     )
 
@@ -159,12 +156,9 @@ def test_dynamic_plan_generation():
         generate_dose_rate_maps=True,
         export_config_brachyplan={
             "dir_export": dir_dose_rates,
-            "export_config_macfile": {
+            "export_config_plan_and_mac": {
                 "name_combined": "cat_p2"
             },
-            "export_config_planfile": {
-                "name_combined": "cat_p2"
-            }
         }
     )
     plan.catheter_table.write_to_slicer_markup(dir_dose_rates/"catheter_table.mrk.json")

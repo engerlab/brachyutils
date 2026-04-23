@@ -4,7 +4,6 @@ from pathlib import Path
 from pydantic import BaseModel, computed_field, ConfigDict, model_validator
 import json
 import SimpleITK as sitk
-import warnings
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.data.images import ROIMask
 
@@ -19,8 +18,7 @@ from tqdm import tqdm
 from collections import defaultdict
 from itertools import chain
 
-from brachyutils.dose.dose_utils import BrachyDose
-from brachyutils.planning.plan_export_configs import ExportConfig_Dose
+from brachyutils.brachy_types import BrachyDose, ExportConfig_Dose
 from brachyutils.geometry.catheter_utils.dwell_position import DwellPosition
 from brachyutils.geometry.catheter_utils.catheter import Catheter
 
@@ -618,7 +616,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
         - pth_json: Path := the path to the json file where the catheter table will be written.
         
         ### Outputs:
-        - Void := will write the catheter table to a json file.
+        - None := will write the catheter table to a json file.
         """
         pth_json = Path(pth_json)
         pth_json.parent.mkdir(parents=True, exist_ok=True)
@@ -640,7 +638,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
         - pth_json: Path := the path to the json file where the catheter table will be written.
         
         ### Outputs:
-        - Void := will write the catheter table to a json file in the slicer markup format.
+        - None := will write the catheter table to a json file in the slicer markup format.
         """
         from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import create_marker_pts_from_catheter_table
         pth_mrk_json = Path(pth_mrk_json)
@@ -720,7 +718,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
         we use 8 cores for parallel processing.
         - `combined_dose_only`:bool = False := flag to keep only the combined dose in memory after loading.
         ### Outputs:
-        - Void := will update the BrachyPlan.dose_rate_dict attribute
+        - None := will update the BrachyPlan.dose_rate_dict attribute
         """
         if self.num_dwell_positions == 0:
             raise ValueError("Cannot load dose rates since there is no catheters or dwells in this catheter table.")
@@ -790,7 +788,7 @@ to False for the corresponding dwell position.")
         ### Inputs:
         - self._cached_combined_dose := the BrachyDose
         ### Outputs:
-        - Void := will update the self.combined_dose.uncertainty_image
+        - None := will update the self.combined_dose.uncertainty_image
         """
         if self._cached_combined_dose is None:
             raise ValueError("combined dose is not calculated yet")
@@ -943,7 +941,7 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     Inputs:
         - pth_dicom: Path := the path to the dicom file containing the catheter table.
     Outputs:
-        - Void := will update the catheter table based on the dicom file.
+        - None := will update the catheter table based on the dicom file.
     """
     import pydicom
 
@@ -1122,7 +1120,7 @@ def _write_single_dose_rate(
     "run_{catheter.index+1}{dwell.index+1}{angle}.seq.nrrd". if none, dose_rate.path.name is used.
     - dose_extension := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
     ### Output:
-    - Void := dose file is written to dir_export+f"/{file_name}.{dose_type}
+    - None := dose file is written to dir_export+f"/{file_name}.{dose_type}
     """
     if file_name is None:
         file_name = dose_rate.path.name.split(".")[0]
@@ -1172,7 +1170,7 @@ def load_from_json(pth_json: Path) -> list:
     - pth_json: Path := the path to the json file containing the catheter table.
     
     ### Outputs:
-    - Void := will update the catheter table based on the json file.
+    - None := will update the catheter table based on the json file.
     """
     raw_catheter_table: list = []
     with open(pth_json, "r") as json_file:
