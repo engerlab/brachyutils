@@ -21,9 +21,16 @@ class DwellPosition(BaseModel):
     - rotation: np.array := rotation of the dwell position in the patient coordinate system [x, y, z]
     - time: float := dwell time for this dwell position
     - weight: float := ratio of this dwell time over the sum of all dwell times in all catheters.
-    - parent_catheter: 
-    ### Functions:
-    - to_dict() -> dict := convert the dwell position to a dictionary.
+    - catheter_index: int := the index of the catheter this dwell position belongs to.
+
+    ### Methods:
+    - validate_dwell_position()
+    - name_id
+    - weight()
+    - to_dict()
+    - get_position()
+    - isin_mask()
+    - set_time()
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
     index: int
@@ -42,6 +49,10 @@ class DwellPosition(BaseModel):
         self.position = np.array(self.position)
         if self.rotation is not None:
             self.rotation = np.array(self.rotation)
+        # when we instantiate a dwell position, we set the time difference to be the same as the time,
+        # so that during combined dose calculation, we calculate dose difference based on 
+        # the time diff only. Time diff is only set to zero after every dose calculation.
+        self._time_diff = self.time
         return self
 
     @computed_field
@@ -53,10 +64,12 @@ class DwellPosition(BaseModel):
         ### Purpose:
         - To calculate the weight of the dwell position relative to a total time.
         The total time could come from the catheter or the treatment plan.
+
         ### Inputs:
         - self := the DwellPosition object.
         - total_time:float=None := the total time of the catheter or the treatment plan.
         if this is not provided, the weight of the dwell position will be returned.
+
         ### Outputs:
         - float := the weight of the dwell position.
         """
@@ -66,8 +79,10 @@ class DwellPosition(BaseModel):
         r"""
         ### Purpose:
         - To convert the dwell position to a dictionary.
+
         ### Inputs:
         - self := the DwellPosition object.
+
         ### Outputs:
         - dict := the dictionary containing the dwell position.
         """
@@ -89,8 +104,10 @@ class DwellPosition(BaseModel):
         r"""
         ### Purpose:
         - To get the position of the dwell position.
+
         ### Inputs:
         - self := the DwellPosition object.
+
         ### Outputs:
         - List[float] := the position of the dwell position.
         """
@@ -100,9 +117,11 @@ class DwellPosition(BaseModel):
         r"""
         ### Purpose:
         - To check if the dwell position is inside a given mask.
+
         ### Inputs:
         - self := the DwellPosition object.
         - mask:Union[ROIMask, sitk.Image] := the mask to check if the dwell position is inside.
+
         ### Outputs:
         - bool := True if the dwell position is inside the mask, False otherwise.
         """
@@ -116,9 +135,11 @@ class DwellPosition(BaseModel):
         r"""
         ### Purpose:
         - To set the time of the dwell position and calculate the time difference from the previous time.
+
         ### Inputs:
         - self := the DwellPosition object.
         - time:float := the new time to set for the dwell position.
+
         ### Outputs:
         - None
         """
