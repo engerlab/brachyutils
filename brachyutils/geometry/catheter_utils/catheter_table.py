@@ -496,6 +496,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
         - None: will set self._cached_combined_dose
         """
         if isinstance(combined_dose, Path) or isinstance(combined_dose, str):
+            from brachyutils.dose.dose_utils import BrachyDose
             combined_dose = BrachyDose(pth_dose_file=combined_dose) 
         self._cached_combined_dose = combined_dose
 
