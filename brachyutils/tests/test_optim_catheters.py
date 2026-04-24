@@ -67,8 +67,8 @@ def test_catheter_table_optim():
             spacing_mm=3,
             )
     ]
-    plan = get_a_plan_to_optimize(
-        pth_dicom=pth_dicom,
+    plan = get_a_plan(
+        dir_dicom=pth_dicom,
         dir_dose_rates=dir_dose_rates,
         from_delivered_dwellpositions=from_delivered_dwellpositions,
         optimization_config_list=optimization_config_list,
@@ -168,5 +168,5 @@ def test_dynamic_plan_generation():
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
-    # test_catheter_table_optim()
-    test_dynamic_plan_generation()
+    test_catheter_table_optim()
+    # test_dynamic_plan_generation()

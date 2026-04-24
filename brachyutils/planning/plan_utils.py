@@ -410,7 +410,7 @@ class BrachyPlan:
                         mask=mask,
                         margin_mm=5.0,
                     )
-        self.update_plan_from_catheter_table(time_diffs=None)
+        # XXX cleanup: self.update_plan_from_catheter_table(time_diffs=None)
             # time_diffs=self.catheter_table._time_diffs)
 
     def update_plan_from_catheter_table(self, time_diffs=None):
@@ -425,6 +425,7 @@ class BrachyPlan:
         - None := will update the self.dwell_numbers, self.dwell_times,
         and self.dwell_coordinates attributes
         """
+        raise ValueError("Depricated af!")
         # XXX nuke this
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
@@ -1376,6 +1377,7 @@ class BrachyPlan:
                     add_hotspots_to_phantom=add_hotspots_to_phantom,
                     one_hotspot_structure=one_hotspot_structure)
             for struc in structure_list:
+                # TODO debug here
                 if config.structure_name.lower() == struc.name.lower():
                     assert config.is_target == struc.is_target, f"The target structure in plan and optimization \
 config do not match for structure {struc.name}"
@@ -1400,7 +1402,7 @@ config do not match for structure {struc.name}"
         ### Outputs:
         - None := hot spot structures are appended to the self.structure_list
         """
-        self.update_plan_from_catheter_table()
+        # XXX cleanup self.update_plan_from_catheter_table()
         step_size = self.catheter_table.step_size
         # identify unique dwell pairs that are withi n the step size distance
         dwell_pairs = []
