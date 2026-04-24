@@ -145,3 +145,10 @@ class DwellPosition(BaseModel):
         """
         self._time_diff = time - self.time
         self.time = time
+
+    def __setattr__(self, name, value):
+        # override the __setattr__ method to update the time difference when the time attribute is updated.
+        if name == "time":
+            self.set_time(value)
+        else:
+            super().__setattr__(name, value)

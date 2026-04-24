@@ -103,7 +103,7 @@ def test_dynamic_plan_generation():
 
     # # get a plan without catheter table.
     plan = get_a_plan(
-        pth_dicom=pth_dicom,
+        dir_dicom=pth_dicom,
         load_dicom_catheter_table=False,
         )
     # ensure that the plan does not have a catheter table.
@@ -163,7 +163,7 @@ def test_dynamic_plan_generation():
     )
     plan.catheter_table.write_to_slicer_markup(dir_dose_rates/"catheter_table.mrk.json")
     plan.combined_dose.write_to_nrrd(dir_dose_rates/"combined_dose.seq.nrrd")
-    print("debug here")
+    print("dynamic plan generation test completed successfully.")
 
 
 if __name__ == "__main__":

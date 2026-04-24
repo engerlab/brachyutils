@@ -410,8 +410,8 @@ class BrachyPlan:
                         mask=mask,
                         margin_mm=5.0,
                     )
-        self.update_plan_from_catheter_table(
-            time_diffs=self.catheter_table._time_diffs)
+        self.update_plan_from_catheter_table(time_diffs=None)
+            # time_diffs=self.catheter_table._time_diffs)
 
     def update_plan_from_catheter_table(self, time_diffs=None):
         r"""
@@ -425,7 +425,7 @@ class BrachyPlan:
         - None := will update the self.dwell_numbers, self.dwell_times,
         and self.dwell_coordinates attributes
         """
-
+        # XXX nuke this
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
         if time_diffs is None: #I think this code is deprecated and is bottlenecking our hackathon project
