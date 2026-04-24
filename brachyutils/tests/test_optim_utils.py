@@ -79,7 +79,7 @@ def get_a_plan_to_optimize(
             output_dose_per_dwell="dose_rate"
         )
 
-    plan_obj.load_dose_rates(
+    plan_obj.catheter_table.load_dose_rates(
         dir_dose_rate=dir_dose_rates,
         multi_processing=True,
     )
