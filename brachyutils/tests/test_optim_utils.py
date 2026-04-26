@@ -7,17 +7,17 @@ from time import time
 
 def get_a_plan_to_optimize(
     pth_dicom: str | Path,
-    dir_dose_rates: str | Path,
+    dir_dose_rate: str | Path,
     optimization_config_list,
     generate_dose_rates: bool = False,
     **kwargs
     )->BrachyPlan:
     pth_dicom = Path(pth_dicom)
-    dir_dose_rates = Path(dir_dose_rates)
+    dir_dose_rate = Path(dir_dose_rate)
     # check if the dose rate files exist
-    dose_rate_files = list(dir_dose_rates.glob("*.seq.nrrd"))
+    dose_rate_files = list(dir_dose_rate.glob("*.seq.nrrd"))
     if len(dose_rate_files) < 1 and not generate_dose_rates:
-        raise FileNotFoundError(f"No dose rate files found in {dir_dose_rates}. Set generate_dose_rates=True to create them.")
+        raise FileNotFoundError(f"No dose rate files found in {dir_dose_rate}. Set generate_dose_rates=True to create them.")
 
     target_dose = 21
     dvh_metric_goals = {
@@ -69,18 +69,18 @@ def get_a_plan_to_optimize(
             "applicator_geometry": False,
         }
         plan_obj.export_brachy_plan(
-            dir_export=dir_dose_rates,
+            dir_export=dir_dose_rate,
             content_to_export=content_to_export,
         )
         dose_gen_obj = RapidBrachyTG43(
-            dir_plan_export=dir_dose_rates
+            dir_plan_export=dir_dose_rate
             )
         dose_gen_obj.generate_dose(
             output_dose_per_dwell="dose_rate"
         )
 
     plan_obj.catheter_table.load_dose_rates(
-        dir_dose_rate=dir_dose_rates,
+        dir_dose_rate=dir_dose_rate,
         multi_processing=True,
     )
 
@@ -88,10 +88,10 @@ def get_a_plan_to_optimize(
 
 def test_get_a_plan_to_optimize():
     pth_dicom = "data_test/prostate-glen-p1-dcm"
-    dir_dose_rates = "temp_data/tg43/optim_test"
+    dir_dose_rate = "temp_data/tg43/optim_test"
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
-        dir_dose_rates=dir_dose_rates,
+        dir_dose_rate=dir_dose_rate,
         generate_dose_rates=True,
     )
     plan_obj.get_dvh_metrics()
@@ -124,11 +124,11 @@ def test_get_optimization_roi_bounds():
 def test_run_gurobi_optim():
     from brachyutils.planning.optimization.optim_gurobi import BrachyOptim_Gurobi
     pth_dicom = "data_test/prostate-glen-p1-dcm"
-    dir_dose_rates = "data_test/prostate-glen-p1-dose"
+    dir_dose_rate = "data_test/prostate-glen-p1-dose"
     dir_result_out = Path("data_test/test_export_plan/prostate")
     # for debugging on server
     # pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
-    # dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
+    # dir_dose_rate = Path("temp_data/tg43/optimization/p1") # for tg43
     target_dose = 21
     optimization_config_list=[
         Optimization_Config(
@@ -161,7 +161,7 @@ def test_run_gurobi_optim():
     solver = "gurobi"
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
-        dir_dose_rates=dir_dose_rates,
+        dir_dose_rate=dir_dose_rate,
         generate_dose_rates=False,
         optimization_config_list=optimization_config_list,
     )
@@ -251,11 +251,11 @@ def test_run_ampl_optim():
     from brachyutils.planning.optimization.optim_ampl import BrachyOptim_AMPL
     from pandas import DataFrame
     # pth_dicom = "data_test/prostate-glen-p1-dcm"
-    # dir_dose_rates = "data_test/prostate-glen-p1-dose"
+    # dir_dose_rate = "data_test/prostate-glen-p1-dose"
     dir_result_out = Path("data_test/test_export_plan/prostate")
     # for debugging on server
     pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p7")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p7") # for tg43
+    dir_dose_rate = Path("temp_data/tg43/optimization/p7") # for tg43
     target_dose = 21
     optimization_config_list=[
         Optimization_Config(
@@ -285,7 +285,7 @@ def test_run_ampl_optim():
     ]
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
-        dir_dose_rates=dir_dose_rates,
+        dir_dose_rate=dir_dose_rate,
         generate_dose_rates=False,
         optimization_config_list=optimization_config_list,
     )
@@ -338,11 +338,11 @@ def test_dwelltime_orTools():
 def test_run_ortool_optim():
     from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
     # pth_dicom = "data_test/prostate-glen-p1-dcm"
-    # dir_dose_rates = "data_test/prostate-glen-p1-dose"
+    # dir_dose_rate = "data_test/prostate-glen-p1-dose"
     dir_result_out = Path("data_test/test_export_plan/prostate")
     # for debugging on server
     pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p7")
-    dir_dose_rates = Path("temp_data/tg43/optimization/p7") # for tg43
+    dir_dose_rate = Path("temp_data/tg43/optimization/p7") # for tg43
     target_dose = 21
     optimization_config_list=[
         Optimization_Config(
@@ -372,7 +372,7 @@ def test_run_ortool_optim():
     ]
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
-        dir_dose_rates=dir_dose_rates,
+        dir_dose_rate=dir_dose_rate,
         generate_dose_rates=False,
         optimization_config_list=optimization_config_list,
     )
@@ -413,10 +413,10 @@ def test_run_ortool_optim():
 
 def test_hotspot_estimators_generation():
     pth_dicom = "data_test/prostate-glen-p1-dcm"
-    dir_dose_rates = "data_test/prostate-glen-p1-dose"
+    dir_dose_rate = "data_test/prostate-glen-p1-dose"
     # for debugging on server
     # pth_dicom = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023/p1")
-    # dir_dose_rates = Path("temp_data/tg43/optimization/p1") # for tg43
+    # dir_dose_rate = Path("temp_data/tg43/optimization/p1") # for tg43
     target_dose = 21
     optimization_config_list=[
         Optimization_Config(
@@ -448,7 +448,7 @@ def test_hotspot_estimators_generation():
 
     plan_obj = get_a_plan_to_optimize(
         pth_dicom=pth_dicom,
-        dir_dose_rates=dir_dose_rates,
+        dir_dose_rate=dir_dose_rate,
         generate_dose_rates=False,
         optimization_config_list=optimization_config_list,
         add_hotspots_to_phantom=True,

@@ -67,7 +67,6 @@ class BrachyPlan:
     - applicator_rotation_origin (np.array): The rotation origin of applicators (default: [0, 0, 0]).
 
     #### Dose Attributes:
-    - dose_rate_dict (defaultdict[BrachyDose]): Dictionary holding 3D dose rate maps for each dwell position.
     - combined_dose (BrachyDose): Sum of the dose rate maps weighted by the dwell times.
 
     #### Simulation and Optimization Attributes:
@@ -1551,7 +1550,7 @@ config do not match for structure {struc.name}"
         """
         catheter = self.catheter_table[catheter_index]
         dose_rates_catheter = defaultdict(BrachyDose)
-        for dwell in catheter:
+        for dwell in catheter.dwells:
             dose_rates_catheter[
                 f"catheter_{catheter.name_id}_dwell_{dwell.name_id}"
                 ] = dwell.dose_rate

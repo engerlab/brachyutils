@@ -123,7 +123,7 @@ def test_get_from_delivered_dwellpositions():
 
 def test_load_dose_rates() -> CatheterTable:
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
-    dir_dose_rates = Path("data_test/prostate-glen-p1-dose")
+    dir_dose_rate = Path("data_test/prostate-glen-p1-dose")
 
     cat_tab = CatheterTable(
         catheters_dict=list(dir_dicom.glob("RP*.dcm"))[0],
@@ -140,7 +140,7 @@ def test_load_dose_rates() -> CatheterTable:
             margin_mm=5
         )
     cat_tab.load_dose_rates(
-        dir_dose_rate=dir_dose_rates
+        dir_dose_rate=dir_dose_rate
     )
     return cat_tab
 

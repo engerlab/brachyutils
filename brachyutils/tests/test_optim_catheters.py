@@ -31,9 +31,9 @@ def test_catheter_table_optim():
     target_dose = 21
 
     # # for loading the delivered dose rates. 
-    dir_dose_rates = Path("data_test/prostate-glen-p1-dose").resolve()
+    dir_dose_rate = Path("data_test/prostate-glen-p1-dose").resolve()
     gen_dose_rates = False
-    from_delivered_dwellpositions=True
+    from_delivered_dwellpositions=False
 
     optimization_config_list=[
         Optimization_Config(
@@ -69,7 +69,7 @@ def test_catheter_table_optim():
     ]
     plan = get_a_plan(
         dir_dicom=pth_dicom,
-        dir_dose_rates=dir_dose_rates,
+        dir_dose_rate=dir_dose_rate,
         from_delivered_dwellpositions=from_delivered_dwellpositions,
         optimization_config_list=optimization_config_list,
         generate_dose_rates=gen_dose_rates,
@@ -100,7 +100,7 @@ def test_dynamic_plan_generation():
     dir_export = Path("temp_data/tg43/optimization")
     target_dose = 21    
     # # for generating the dose rates on the fly
-    dir_dose_rates=dir_export/"test"
+    dir_dose_rate=dir_export/"test"
 
     # # get a plan without catheter table.
     plan = get_a_plan(
@@ -111,7 +111,7 @@ def test_dynamic_plan_generation():
     assert plan.catheter_table is None, "The plan should not have a catheter table."
     # export the egsphant with cropping for dose generation
     init_export_config = {
-        "dir_export": dir_dose_rates,
+        "dir_export": dir_dose_rate,
         "export_config_egsphant": {
             "strict_name_match": False,
             "crop_by_contour": ["ctv", "urethra", "rectum"]}
@@ -136,13 +136,13 @@ def test_dynamic_plan_generation():
     # # now generate dose rates for the first half of the catheters.
     # # initialize the dose generator object
     dose_generator = RapidBrachyTG43(
-        dir_plan_export=dir_dose_rates
+        dir_plan_export=dir_dose_rate
     )
     plan = dose_generator.run_dose_generation(
         plan=plan,
         generate_dose_rate_maps=True,
         export_config_brachyplan={
-            "dir_export": dir_dose_rates,
+            "dir_export": dir_dose_rate,
             "export_config_plan_and_mac": {
                 "name_combined": "cat_p1"
             },
@@ -156,14 +156,14 @@ def test_dynamic_plan_generation():
         plan=plan,
         generate_dose_rate_maps=True,
         export_config_brachyplan={
-            "dir_export": dir_dose_rates,
+            "dir_export": dir_dose_rate,
             "export_config_plan_and_mac": {
                 "name_combined": "cat_p2"
             },
         }
     )
-    plan.catheter_table.write_to_slicer_markup(dir_dose_rates/"catheter_table.mrk.json")
-    plan.combined_dose.write_to_nrrd(dir_dose_rates/"combined_dose.seq.nrrd")
+    plan.catheter_table.write_to_slicer_markup(dir_dose_rate/"catheter_table.mrk.json")
+    plan.combined_dose.write_to_nrrd(dir_dose_rate/"combined_dose.seq.nrrd")
     print("dynamic plan generation test completed successfully.")
 
 
