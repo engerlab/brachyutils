@@ -130,25 +130,11 @@ class DwellPosition(BaseModel):
         index = mask.TransformPhysicalPointToIndex(self.position)
         in_mask = mask.GetPixel(index) > 0
         return in_mask
-    
-    def set_time(self, time:float) -> None:
-        r"""
-        ### Purpose:
-        - To set the time of the dwell position and calculate the time difference from the previous time.
-
-        ### Inputs:
-        - self := the DwellPosition object.
-        - time:float := the new time to set for the dwell position.
-
-        ### Outputs:
-        - None
-        """
-        self._time_diff = time - self.time
-        self.time = time
 
     def __setattr__(self, name, value):
         # override the __setattr__ method to update the time difference when the time attribute is updated.
         if name == "time":
-            self.set_time(value)
+            super().__setattr__("_time_diff", value - self.__getattribute__("time"))
+            super().__setattr__(name, value)
         else:
             super().__setattr__(name, value)
