@@ -73,6 +73,7 @@ def test_catheter_table_optim():
         from_delivered_dwellpositions=from_delivered_dwellpositions,
         optimization_config_list=optimization_config_list,
         generate_dose_rates=gen_dose_rates,
+        strict_name_match=False,
         )
     catheter_optim_obj = CatheterTableOptim_Gurobi(
         plan=plan,

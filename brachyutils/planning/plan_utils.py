@@ -81,7 +81,6 @@ class BrachyPlan:
         phantom: Union[Path, BrachyPhantom, dict] = None,
         #### for structure creation:
         prescription_dose: float = None,
-        strict_name_match: bool = True,
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
         applicator_pth_list: Union[Path, str, list] = None,
@@ -138,7 +137,10 @@ class BrachyPlan:
         names or the dictionary containing the DVH metric names and their goals or the path to its
         json file. Look at set_dvh_metric_goals for guideline on the names of the DVH metrics.
         The phantom should be loaded with structures for the Brachy stuctures to be created.
-
+        - strict_name_match: bool = True := If True, the name of the structure in the phantom and the DVH metric
+        as well as the structure name in the optimization config should mask perfectly. Otherwise, the name 
+        of the structure in the DVH metric goals and optimization config can be a substring of the name of
+        the structure in the phantom. For example, "CTV" in "CTV_BRACHY".
         ### Outputs:
             - None := will initialize the BrachyPlan object
         """
@@ -208,12 +210,11 @@ class BrachyPlan:
             if isinstance(dvh_metric_goals, list):
                 self.set_dvh_metric_goals(
                     dvh_metric_names=dvh_metric_goals,
-                    strict_name_match=strict_name_match)
+                    strict_name_match=kwargs.get("strict_name_match", True))
             elif isinstance(dvh_metric_goals, dict):
                 self.set_dvh_metric_goals(
                     dvh_metric_goals=dvh_metric_goals,
-                    strict_name_match=strict_name_match)
-
+                    strict_name_match=kwargs.get("strict_name_match", True))
         # load the catheter table if the path is provided
         if catheter_table is not None:
             self.set_catheter_table(
@@ -272,6 +273,7 @@ class BrachyPlan:
                 self.structure_list,
                 add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
                 one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
+                strict_name_match=kwargs.get("strict_name_match", True)
             )
 
     @computed_field
@@ -1346,13 +1348,28 @@ class BrachyPlan:
         optimization_config_list:List[Optimization_Config] | Path | str,
         structure_list:List[BrachyStructure],
         add_hotspots_to_phantom:bool=False,
-        one_hotspot_structure:bool=True
+        one_hotspot_structure:bool=True,
+        strict_name_match:bool = True,
         ):
         r"""
         ### Purpose:
         - Given the optimization config list either as a list or in a json file, put each
         optimization config inside the BrachyStructures. Also, create the hotspot estimator
         structure if needed.
+
+        ### Inputs:
+        - self := the BrachyPlan object
+        - optimization_config_list := a list of Optimization_Config objects or a path to a json file
+        that contains the list of optimization config objects. Look at Optimization_Config 
+        for more info on the fields of the optimization config object.
+        - structure_list := a list of BrachyStructure objects that represent the structures in the plan.
+        - add_hotspots_to_phantom := whether to add the hotspot estimator structures to the phantom.
+        - strict_name_match := whether to match the structure names exactly or as substrings.
+
+        ### Outputs:
+        - None := The structure objects in self.structure_list will be updated
+        with the optimization config objects, and the hotspot estimator 
+        structures will be created and added to self.structure_list if needed.
         """
         self._reset_optimization()
         if isinstance(optimization_config_list, (Path, str)):
@@ -1377,8 +1394,11 @@ class BrachyPlan:
                     add_hotspots_to_phantom=add_hotspots_to_phantom,
                     one_hotspot_structure=one_hotspot_structure)
             for struc in structure_list:
-                # TODO debug here
-                if config.structure_name.lower() == struc.name.lower():
+                if strict_name_match:
+                    structure_matched = config.structure_name.lower() == struc.name.lower()
+                else:
+                    structure_matched = config.structure_name.lower() in struc.name.lower()
+                if structure_matched:
                     assert config.is_target == struc.is_target, f"The target structure in plan and optimization \
 config do not match for structure {struc.name}"
                     struc.set_optimization_config(config)
