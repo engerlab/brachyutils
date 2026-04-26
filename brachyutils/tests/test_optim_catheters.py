@@ -30,10 +30,11 @@ def test_catheter_table_optim():
     dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
 
-    # # for loading the delivered dose rates. 
+    # # for loading the dose rates. 
     dir_dose_rate = Path("data_test/prostate-glen-p1-dose").resolve()
     gen_dose_rates = False
     from_delivered_dwellpositions=False
+    multi_processing = False
 
     optimization_config_list=[
         Optimization_Config(
@@ -77,7 +78,7 @@ def test_catheter_table_optim():
         )
     catheter_optim_obj = CatheterTableOptim_Gurobi(
         plan=plan,
-        multi_processing=True,
+        multi_processing=multi_processing,
         )
     optimized_plan = catheter_optim_obj.get_optimized_plan_from_model()
     optimized_plan.export_brachy_plan(

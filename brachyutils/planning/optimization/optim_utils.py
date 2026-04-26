@@ -148,7 +148,6 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
 
 def process_variable(
     variable,
-    # structure_name,
     structure_mask,
     optim_spacing,
     roi_bounds,
@@ -161,7 +160,6 @@ def process_variable(
     This function is used in multi-threaded processing of dwell time variables.
     ### Inputs:
     - variable: BrachyDwellTime := The dwell time variable to process.
-    - structure_name: str := The name of the structure to process.
     - structure_mask: ROIMask := The structure mask to use for processing. it has to be
     in the same grid as the plan.combined_dose.
     - plan: BrachyPlan := The brachytherapy plan to use for processing.
