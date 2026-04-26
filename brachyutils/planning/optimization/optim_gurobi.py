@@ -112,6 +112,7 @@ def _get_optimized_plan_from_model(
     ) -> BrachyPlan | None:
     r"""
     See `BrachyDwellTime.get_optimized_plan_from_model` for details.
+    # TODO debug from here!
     """
     if plan is None:
         raise ValueError("Plan is not set. Please set the plan first.")
@@ -151,7 +152,7 @@ def _get_optimized_plan_from_model(
                 ):
                     dwell_position.time = dwell_time
     # update the plan with the new dwell times
-    outplan.update_plan_from_catheter_table()
+    # outplan.update_plan_from_catheter_table()
     return model, outplan, solution_found, solve_time
 
 class BrachyOptim_Gurobi(BrachyDwellTimeOptim):

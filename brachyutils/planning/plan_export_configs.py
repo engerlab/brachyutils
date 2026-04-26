@@ -117,12 +117,6 @@ class ExportConfig_CatheterTable(BaseModel):
         self.dir_export = Path(self.dir_export)
         return self.dir_export/(self.name+self.file_extension)
 
-# TODO: in future, add these export configs if neeeded
-# class ExportConfig_Applicator(BaseModel):
-#     model_config = ConfigDict(arbitrary_types_allowed=True)
-# class ExportConfig_BrachyStructure(BaseModel):
-#     model_config = ConfigDict(arbitrary_types_allowed=True)
-
 class ExportConfig_Dose(BaseModel):
     r"""
     ### Purpose:

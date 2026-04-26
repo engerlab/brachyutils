@@ -85,8 +85,6 @@ class CatheterTable(BaseModel):
     - reset_dwelltimes_to()
 
     """
-    # TODO: unify writing to file (json, dicom, slicer markup). decide based on extension.
-    ##########
     ## To enable using CatheterSetUp and CreatedSetUp as a data types, default is False.
     # This is not a parameter to be provided.
     model_config = ConfigDict(arbitrary_types_allowed=True)
