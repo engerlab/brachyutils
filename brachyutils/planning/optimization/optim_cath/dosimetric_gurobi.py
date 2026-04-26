@@ -155,7 +155,8 @@ class CatheterTableOptim_Gurobi():
         self.set_penalty_function_and_constraints(
             optimization_configs=[
                 struc.optimization_config
-                for struc in self.plan.structure_list],
+                for struc in self.plan.structure_list 
+                if struc.optimization_config is not None],
             dwellTimeVariables=self.dwellTimeVariables,
             catheter_vars=self.catheter_vars,
             model=self.model,
