@@ -112,7 +112,6 @@ def _get_optimized_plan_from_model(
     ) -> BrachyPlan | None:
     r"""
     See `BrachyDwellTime.get_optimized_plan_from_model` for details.
-    # TODO debug from here!
     """
     if plan is None:
         raise ValueError("Plan is not set. Please set the plan first.")
@@ -123,9 +122,7 @@ def _get_optimized_plan_from_model(
 
     dwelltime_and_name = []
     for x in model.getVars():
-        if (("catheter" in x.VarName)
-            and ("dwell" in x.VarName)
-            and not("hotspot" in x.VarName)):
+        if ("dwell" in x.VarName):
             dwelltime_and_name.append((x.X, x.VarName))
     
     if not solution_found:
