@@ -48,12 +48,12 @@ class CatheterVar_Gurobi():
         - `dose_rates`: Optional[List[np.ndarray]] := the dose rate matrices for all the dwell positions in this catheter.
         """
         self._model_variable: Var = None
-        self.name: str = f"catheter_{catheter.index+1}"
+        self.name: str = f"catheter_{catheter.name_id}"
         self.dwelltime_variables: List[DwellTime_Gurobi] = []
         self.dose_rates = dose_rates
         self.build_backend_variable(model=model)
         for dwell in catheter.dwells:
-            dwell_var_name=f"{self.name}_dwell_{dwell.index+1}"
+            dwell_var_name=f"dwell_{dwell.name_id}"
             self.dwelltime_variables.append(
                 DwellTime_Gurobi(
                     model = model,

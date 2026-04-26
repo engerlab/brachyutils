@@ -1552,7 +1552,7 @@ config do not match for structure {struc.name}"
         dose_rates_catheter = defaultdict(BrachyDose)
         for dwell in catheter.dwells:
             dose_rates_catheter[
-                f"catheter_{catheter.name_id}_dwell_{dwell.name_id}"
+                f"dwell_{dwell.name_id}"
                 ] = dwell.dose_rate
         return dose_rates_catheter
 

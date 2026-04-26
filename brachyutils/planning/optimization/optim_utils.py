@@ -256,6 +256,9 @@ def compute_dose_rate_matrices(
                     dwell_vars.append(var_mat[0])  # as they have different name attributes for their model variables
                     dose_rate_matrices.append(var_mat[1])
     else:
+        dwell_vars = []
+        dose_rate_matrices = []
+
         for var in dwellTimeVariables:
             dwell_var, valid_dose_points = process_variable(
                 variable=var,
@@ -281,8 +284,8 @@ class BrachyDwellTime(BaseModel, ABC):
     """
     
     name: str = Field(
-        pattern=r"catheter_\d+_dwell_\d+",
-        description="Name of the DwellTimeVariable in the format catheter_{catheter_number+1}_dwell_{dwell_position_number+1}")
+        pattern=r"dwell_\d+",
+        description="Name of the DwellTimeVariable in the format dwell_{dwell_position_number+1}")
     dwell_time: float = Field(ge=0, description="Initial dwell time of the DwellTimeVariable in seconds.")
     lower_bound: float = Field(ge=0, description="Lower bound of the DwellTimeVariable in seconds.")
     upper_bound: float = Field(ge=0, description="Upper bound of the DwellTimeVariable in seconds.")
