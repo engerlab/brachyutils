@@ -146,7 +146,7 @@ def _get_optimized_plan_from_model(
         for catheter in outplan.catheter_table:
             for dwell_position in catheter.dwells:
                 if (
-                    f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
+                    f"dwell_{dwell_position.name_id}"
                     == name
                 ):
                     dwell_position.time = dwell_time
@@ -249,7 +249,7 @@ class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
                     "Dwell position does not match max dose rate position. Check dose rate tensor and dwell positions."
                 )
 
-                dt_var_name = f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
+                dt_var_name = f"dwell_{dwell_position.name_id}"
                 dwellTimeVariable_list.append(
                     DwellTime_Gurobi(
                         model=self.model,
