@@ -1425,7 +1425,6 @@ config do not match for structure {struc.name}"
         ### Outputs:
         - None := hot spot structures are appended to the self.structure_list
         """
-        # XXX cleanup self.update_plan_from_catheter_table()
         step_size = self.catheter_table.step_size
         # identify unique dwell pairs that are withi n the step size distance
         dwell_pairs = []
@@ -1465,14 +1464,20 @@ config do not match for structure {struc.name}"
                     )
         # create hotspot structures masks for each dwell pair
         hotspot_mask_list = []
+        
+        if all_dwells[0].dose_rate is None:
+            reference_image = self.phantom.image_obj
+        else:
+            reference_image = all_dwells[0].dose_rate.dose_image
+
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {
                 executor.submit(
                     _gen_hotspot_mask,
                     dwell_pair,
-                    self.phantom.image_obj.gridSize,
-                    self.phantom.image_obj.origin,
-                    self.phantom.image_obj.spacing,
+                    reference_image.gridSize,
+                    reference_image.origin,
+                    reference_image.spacing,
                 ): dwell_pair for dwell_pair in dwell_pairs
             }
             for action in tqdm(
