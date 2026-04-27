@@ -163,12 +163,26 @@ def test_get_dwells_by_ids():
     for dwell in dwells_got:
         print(dwell.name_id)
     
+def test_time_diff():
+    dp = DwellPosition(
+        index=0,
+        relativePos=0,
+        position=[0, 0, 0],
+        time=7
+    )
+    print("on creation: ", dp.time, dp._time_diff)
+    dp.time = 0
+    print("on resetting: ", dp.time, dp._time_diff)
+    dp.time = 7
+    print("on setting back: ", dp.time, dp._time_diff)
+    
 if __name__ == "__main__":
     # test_dwells_catheters()
     # test_loading_from_dicom()
-    test_catheter()
+    # test_catheter()
     # test_catheter_to_mrk_json()
     # test_get_from_delivered_dwellpositions()
     # test_load_dose_rates()
     # test_export_dose()
     # test_get_dwells_by_ids()
+    test_time_diff()

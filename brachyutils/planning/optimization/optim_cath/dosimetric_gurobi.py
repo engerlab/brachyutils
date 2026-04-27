@@ -305,7 +305,7 @@ def set_catheter_variables(
         plan.catheter_table,
         total=len(plan.catheter_table.catheters_list),
         desc="Creating optimization variables from new catheters"):
-        if f"catheter_{catheter.index+1}" in name_cath_to_keep:
+        if f"catheter_{catheter.name_id}" in name_cath_to_keep:
             continue
         dose_rates = plan.get_dose_rate_matrices_for_catheter(catheter.index)
 

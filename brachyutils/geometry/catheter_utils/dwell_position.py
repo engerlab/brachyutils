@@ -34,9 +34,9 @@ class DwellPosition(BaseModel):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
     index: int
-    angle: int = 0
     position: List[float] | np.ndarray
     relativePos: float
+    angle: int = 0
     rotation: List[float] | np.ndarray = None
     time: float = 0.0
     _time_diff: float = 0.0
