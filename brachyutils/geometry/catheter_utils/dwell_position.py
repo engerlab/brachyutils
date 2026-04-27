@@ -33,7 +33,9 @@ class DwellPosition(BaseModel):
     - isin_mask()
     - set_time()
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,)
     index: int
     position: List[float] | np.ndarray
     relativePos: float
@@ -64,9 +66,6 @@ class DwellPosition(BaseModel):
 
     @model_validator(mode="after")
     def validate_dwell_position(self):
-        self.position = np.array(self.position)
-        if self.rotation is not None:
-            self.rotation = np.array(self.rotation)
         # when we instantiate a dwell position, we set the time difference to be the same as the time,
         # so that during combined dose calculation, we calculate dose difference based on 
         # the time diff only. Time diff is only set to zero after every dose calculation.
@@ -150,9 +149,9 @@ class DwellPosition(BaseModel):
         return in_mask
 
     def __setattr__(self, name, value):
-        # override the __setattr__ method to update the time difference when the time attribute is updated.
         if name == "time":
-            super().__setattr__("_time_diff", value - self.__getattribute__("time"))
+            old_value = self.__dict__.get("time", 0.0)
+            object.__setattr__(self, "_time_diff", value - old_value)
             super().__setattr__(name, value)
         else:
             super().__setattr__(name, value)

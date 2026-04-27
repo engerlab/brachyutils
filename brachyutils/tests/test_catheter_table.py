@@ -171,7 +171,7 @@ def test_time_diff():
         time=7
     )
     print("on creation: ", dp.time, dp._time_diff)
-    dp.time = 0
+    dp.time = 9
     print("on resetting: ", dp.time, dp._time_diff)
     dp.time = 7
     print("on setting back: ", dp.time, dp._time_diff)
