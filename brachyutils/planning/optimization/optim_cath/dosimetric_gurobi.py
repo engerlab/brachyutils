@@ -108,7 +108,7 @@ class CatheterTableOptim_Gurobi():
     def __init__(
         self,
         plan: BrachyPlan,
-        roi_margin_mm: float = 5.0,
+        roi_margin_mm: float = None,
         multi_processing: bool = False,
         ):
         r"""
@@ -126,8 +126,11 @@ class CatheterTableOptim_Gurobi():
         self.model = None
         self.catheter_vars: List[CatheterVar_Gurobi] = []
         self.dwellTimeVariables: List[DwellTime_Gurobi] = []
+        self.roi_margin_mm: List[float] = None
         self.roi_bounds: List[List[float]] = None
-        self.roi_margin_mm: float = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
+
+        if roi_margin_mm is not None:
+            self.roi_margin_mm: float = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solution_found: bool = False
         self.solve_time: float = 0.0
         self.multi_processing = multi_processing
@@ -140,7 +143,7 @@ class CatheterTableOptim_Gurobi():
             )
         self.dwellTimeVariables = list(chain.from_iterable(self.catheter_vars))
 
-        if self.roi_margin_mm[0] is not None:
+        if self.roi_margin_mm is not None:
             self.roi_bounds = get_optimization_roi_bounds(
                 plan=self.plan,
                 dwellTimeVariables=self.dwellTimeVariables,

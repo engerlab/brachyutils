@@ -63,7 +63,7 @@ def test_catheter_table_optim():
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=3),
+            spacing_mm=1),
         Optimization_Config(
             structure_name="RECTUM",
             is_target=False,
