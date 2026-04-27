@@ -33,7 +33,7 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
     """
     """
     def __init__(self,
-        dir_tg43_parameters: Optional[str] = "SourceParameters/microSelectron-v2",
+        dir_tg43_parameters: Optional[str] = "microSelectron-v2_Consensus",
         dir_output : Optional[Union[Path, str]] = Path(),
         **calc_parameter_kwargs
         ) -> None:
@@ -41,7 +41,12 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
         """
         #input
         super().__init__(dir_output, None)
-        self.dir_tg43_parameters : Path = dir_tg43_parameters
+        
+        self.dir_tg43_parameters : Path = (
+            Path(__file__).parent.parent.parent
+            / "admin/constants/TG43_Parameter_Data"
+            / dir_tg43_parameters
+            )
 
         #store meta-parameters about the calculation in this dictionary
         self.calc_parameters = {
