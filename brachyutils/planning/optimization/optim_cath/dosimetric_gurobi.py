@@ -248,7 +248,6 @@ class CatheterTableOptim_Gurobi():
         r"""
         See `BrachyDwellTime.get_optimized_plan_from_model` for details.
         """
-        self.plan.catheter_table.reset_dwelltimes_to(0.0)
         self.model, outplan, self.solution_found, self.solve_time = _get_optimized_plan_from_model(
             plan=self.plan,
             model=self.model,
