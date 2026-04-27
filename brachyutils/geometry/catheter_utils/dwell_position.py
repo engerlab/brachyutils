@@ -1,6 +1,7 @@
-from typing import List, Union
+from typing import ClassVar, List, Union, Any
 import numpy as np
-from pydantic import (BaseModel, ConfigDict, computed_field, model_validator,
+import warnings
+from pydantic import (BaseModel, ConfigDict, computed_field, field_validator, model_validator,
                       SkipValidation)
 import SimpleITK as sitk
 from brachyutils.brachy_types import BrachyDose
@@ -43,6 +44,23 @@ class DwellPosition(BaseModel):
     catheter_index: int = None
     gen_dose_rate: bool = True
     dose_rate: SkipValidation[BrachyDose] = None
+    _max_dwell_time: ClassVar[float] = 1e8
+
+    @field_validator('time')
+    @classmethod
+    def validate_dwell_time(cls, value: float) -> float:
+        if value < 0.0:
+            raise ValueError(f"Dwell time cannot be negative. Got {value}")
+        if value > cls._max_dwell_time:
+            warnings.warn(f"Dwell time might be too high. Got {value}")
+        return value
+
+    @field_validator('position', 'rotation')
+    @classmethod
+    def convert_to_numpy(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        return np.array(value)
 
     @model_validator(mode="after")
     def validate_dwell_position(self):
