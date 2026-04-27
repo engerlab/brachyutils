@@ -16,7 +16,7 @@ from opentps.core.data.images import ROIMask
 
 from tqdm import tqdm
 
-from brachyutils.brachy_types import BrachyDose
+from brachyutils.brachy_types import BrachyDose, DwellPosition
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry.applicator_utils import BrachyApplicator 
@@ -1433,33 +1433,33 @@ config do not match for structure {struc.name}"
             return np.linalg.norm(pos1 - pos2)
         def center(pos1, pos2):
             return (pos1 + pos2) / 2
+        
+        all_dwells:List[DwellPosition] = self.catheter_table.all_dwells
 
-        for i in range(len(self.dwell_coordinates)):
-            for j in range(i + 1, len(self.dwell_coordinates)):
+        for i in range(len(all_dwells)):
+            for j in range(i + 1, len(all_dwells)):
                 current_distance = distance(
-                    np.array(self.dwell_coordinates[i]["position"]),
-                    np.array(self.dwell_coordinates[j]["position"])) 
+                    all_dwells[i].position,
+                    all_dwells[j].position) 
                 if current_distance <= step_size:
                     dwell_pairs.append(
                         {
                             "dwell_pair": (
                                 {
-                                    "catheter":self.dwell_coordinates[i]["catheter_index"]+1,
-                                    "dwell": self.dwell_coordinates[i]["dwell_index"]+1
+                                    "dwell": all_dwells[i].name_id,
                                 },
                                 {
-                                    "catheter":self.dwell_coordinates[j]["catheter_index"]+1,
-                                    "dwell": self.dwell_coordinates[j]["dwell_index"]+1
+                                    "dwell": all_dwells[j].name_id,
                                 }),
                             "center": center(
-                                np.array(self.dwell_coordinates[i]["position"]),
-                                np.array(self.dwell_coordinates[j]["position"])
+                                all_dwells[i].position,
+                                all_dwells[j].position
                             ),
                             "radius": step_size,
                             "distance": current_distance,
                             "inter-catheter": True if (
-                                self.dwell_coordinates[i]["catheter_index"] 
-                                != self.dwell_coordinates[j]["catheter_index"]
+                                all_dwells[i].catheter_index
+                                != all_dwells[j].catheter_index
                                 ) else False
                         }
                     )
@@ -1587,8 +1587,8 @@ def _gen_hotspot_mask(
         origin=origin,
         spacing=spacing,
         name=(
-            f"hotspot_estimator_catheter_{(dwellpair['dwell_pair'])[0]['catheter']}_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
-            + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
+            f"hotspot_estimator_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
+            + f"/dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
             ),
     )
     return BrachyStructure(
