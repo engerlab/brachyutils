@@ -36,6 +36,12 @@ def test_catheter_table_optim():
     from_delivered_dwellpositions=False
     multi_processing = False
 
+    dvh_metric_names = [
+        "D90%(CTV)", "D2cc(RECTUM)", "D10%(URETHRA)",
+        "D30%(URETHRA)", "CI(CTV)", "HI(CTV)",
+        "V200%(CTV)", "V150%(CTV)", "V100%(CTV)"
+    ]
+
     optimization_config_list=[
         Optimization_Config(
             structure_name="CTV",
@@ -44,8 +50,8 @@ def test_catheter_table_optim():
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
             penalty_weight_uniformity=1,
-            # penalty_weight_hotspot=1,
-            # hotspot_threshold=1.5,
+            penalty_weight_hotspot=1,
+            hotspot_threshold=1.5,
             # penalty_weight_variance_time=1,
             mask_margin_mm=0,
             spacing_mm=3,
@@ -75,6 +81,7 @@ def test_catheter_table_optim():
         optimization_config_list=optimization_config_list,
         generate_dose_rates=gen_dose_rates,
         strict_name_match=False,
+        dvh_metric_goals=dvh_metric_names,
         )
     catheter_optim_obj = CatheterTableOptim_Gurobi(
         plan=plan,
