@@ -48,12 +48,12 @@ class CatheterVar_Gurobi():
         - `dose_rates`: Optional[List[np.ndarray]] := the dose rate matrices for all the dwell positions in this catheter.
         """
         self._model_variable: Var = None
-        self.name: str = f"catheter_{catheter.index+1}"
+        self.name: str = f"catheter_{catheter.name_id}"
         self.dwelltime_variables: List[DwellTime_Gurobi] = []
         self.dose_rates = dose_rates
         self.build_backend_variable(model=model)
         for dwell in catheter.dwells:
-            dwell_var_name=f"{self.name}_dwell_{dwell.index+1}"
+            dwell_var_name=f"dwell_{dwell.name_id}"
             self.dwelltime_variables.append(
                 DwellTime_Gurobi(
                     model = model,
@@ -108,7 +108,7 @@ class CatheterTableOptim_Gurobi():
     def __init__(
         self,
         plan: BrachyPlan,
-        roi_margin_mm: float = 5.0,
+        roi_margin_mm: float = None,
         multi_processing: bool = False,
         ):
         r"""
@@ -126,8 +126,11 @@ class CatheterTableOptim_Gurobi():
         self.model = None
         self.catheter_vars: List[CatheterVar_Gurobi] = []
         self.dwellTimeVariables: List[DwellTime_Gurobi] = []
+        self.roi_margin_mm: List[float] = None
         self.roi_bounds: List[List[float]] = None
-        self.roi_margin_mm: float = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
+
+        if roi_margin_mm is not None:
+            self.roi_margin_mm: float = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
         self.solution_found: bool = False
         self.solve_time: float = 0.0
         self.multi_processing = multi_processing
@@ -140,7 +143,7 @@ class CatheterTableOptim_Gurobi():
             )
         self.dwellTimeVariables = list(chain.from_iterable(self.catheter_vars))
 
-        if self.roi_margin_mm[0] is not None:
+        if self.roi_margin_mm is not None:
             self.roi_bounds = get_optimization_roi_bounds(
                 plan=self.plan,
                 dwellTimeVariables=self.dwellTimeVariables,
@@ -155,7 +158,8 @@ class CatheterTableOptim_Gurobi():
         self.set_penalty_function_and_constraints(
             optimization_configs=[
                 struc.optimization_config
-                for struc in self.plan.structure_list],
+                for struc in self.plan.structure_list 
+                if struc.optimization_config is not None],
             dwellTimeVariables=self.dwellTimeVariables,
             catheter_vars=self.catheter_vars,
             model=self.model,
@@ -244,6 +248,7 @@ class CatheterTableOptim_Gurobi():
         r"""
         See `BrachyDwellTime.get_optimized_plan_from_model` for details.
         """
+        self.plan.catheter_table.reset_dwelltimes_to(0.0)
         self.model, outplan, self.solution_found, self.solve_time = _get_optimized_plan_from_model(
             plan=self.plan,
             model=self.model,
@@ -303,7 +308,7 @@ def set_catheter_variables(
         plan.catheter_table,
         total=len(plan.catheter_table.catheters_list),
         desc="Creating optimization variables from new catheters"):
-        if f"catheter_{catheter.index+1}" in name_cath_to_keep:
+        if f"catheter_{catheter.name_id}" in name_cath_to_keep:
             continue
         dose_rates = plan.get_dose_rate_matrices_for_catheter(catheter.index)
 

@@ -16,7 +16,7 @@ from opentps.core.data.images import ROIMask
 
 from tqdm import tqdm
 
-from brachyutils.brachy_types import BrachyDose
+from brachyutils.brachy_types import BrachyDose, DwellPosition
 
 # from brachyutils.egsphant_utils import BrachyEgsphant
 from brachyutils.geometry.applicator_utils import BrachyApplicator 
@@ -67,7 +67,6 @@ class BrachyPlan:
     - applicator_rotation_origin (np.array): The rotation origin of applicators (default: [0, 0, 0]).
 
     #### Dose Attributes:
-    - dose_rate_dict (defaultdict[BrachyDose]): Dictionary holding 3D dose rate maps for each dwell position.
     - combined_dose (BrachyDose): Sum of the dose rate maps weighted by the dwell times.
 
     #### Simulation and Optimization Attributes:
@@ -81,7 +80,6 @@ class BrachyPlan:
         phantom: Union[Path, BrachyPhantom, dict] = None,
         #### for structure creation:
         prescription_dose: float = None,
-        strict_name_match: bool = True,
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
         applicator_pth_list: Union[Path, str, list] = None,
@@ -138,7 +136,10 @@ class BrachyPlan:
         names or the dictionary containing the DVH metric names and their goals or the path to its
         json file. Look at set_dvh_metric_goals for guideline on the names of the DVH metrics.
         The phantom should be loaded with structures for the Brachy stuctures to be created.
-
+        - strict_name_match: bool = True := If True, the name of the structure in the phantom and the DVH metric
+        as well as the structure name in the optimization config should mask perfectly. Otherwise, the name 
+        of the structure in the DVH metric goals and optimization config can be a substring of the name of
+        the structure in the phantom. For example, "CTV" in "CTV_BRACHY".
         ### Outputs:
             - None := will initialize the BrachyPlan object
         """
@@ -208,12 +209,11 @@ class BrachyPlan:
             if isinstance(dvh_metric_goals, list):
                 self.set_dvh_metric_goals(
                     dvh_metric_names=dvh_metric_goals,
-                    strict_name_match=strict_name_match)
+                    strict_name_match=kwargs.get("strict_name_match", True))
             elif isinstance(dvh_metric_goals, dict):
                 self.set_dvh_metric_goals(
                     dvh_metric_goals=dvh_metric_goals,
-                    strict_name_match=strict_name_match)
-
+                    strict_name_match=kwargs.get("strict_name_match", True))
         # load the catheter table if the path is provided
         if catheter_table is not None:
             self.set_catheter_table(
@@ -272,6 +272,7 @@ class BrachyPlan:
                 self.structure_list,
                 add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
                 one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
+                strict_name_match=kwargs.get("strict_name_match", True)
             )
 
     @computed_field
@@ -410,8 +411,8 @@ class BrachyPlan:
                         mask=mask,
                         margin_mm=5.0,
                     )
-        self.update_plan_from_catheter_table(
-            time_diffs=self.catheter_table._time_diffs)
+        # XXX cleanup: self.update_plan_from_catheter_table(time_diffs=None)
+            # time_diffs=self.catheter_table._time_diffs)
 
     def update_plan_from_catheter_table(self, time_diffs=None):
         r"""
@@ -425,7 +426,8 @@ class BrachyPlan:
         - None := will update the self.dwell_numbers, self.dwell_times,
         and self.dwell_coordinates attributes
         """
-
+        raise ValueError("Depricated af!")
+        # XXX nuke this
         assert self.catheter_table is not None, "catheter table is not loaded"
         # reset the dwell_numbers, dwell times, coordinates, and num dwells
         if time_diffs is None: #I think this code is deprecated and is bottlenecking our hackathon project
@@ -1345,13 +1347,28 @@ class BrachyPlan:
         optimization_config_list:List[Optimization_Config] | Path | str,
         structure_list:List[BrachyStructure],
         add_hotspots_to_phantom:bool=False,
-        one_hotspot_structure:bool=True
+        one_hotspot_structure:bool=True,
+        strict_name_match:bool = True,
         ):
         r"""
         ### Purpose:
         - Given the optimization config list either as a list or in a json file, put each
         optimization config inside the BrachyStructures. Also, create the hotspot estimator
         structure if needed.
+
+        ### Inputs:
+        - self := the BrachyPlan object
+        - optimization_config_list := a list of Optimization_Config objects or a path to a json file
+        that contains the list of optimization config objects. Look at Optimization_Config 
+        for more info on the fields of the optimization config object.
+        - structure_list := a list of BrachyStructure objects that represent the structures in the plan.
+        - add_hotspots_to_phantom := whether to add the hotspot estimator structures to the phantom.
+        - strict_name_match := whether to match the structure names exactly or as substrings.
+
+        ### Outputs:
+        - None := The structure objects in self.structure_list will be updated
+        with the optimization config objects, and the hotspot estimator 
+        structures will be created and added to self.structure_list if needed.
         """
         self._reset_optimization()
         if isinstance(optimization_config_list, (Path, str)):
@@ -1367,7 +1384,11 @@ class BrachyPlan:
             ]
         for config in optimization_config_list:
             if config.penalty_weight_hotspot != 0:
-                if config.structure_name.lower() not in target_structure_names:
+                hotspot_structure_name = config.structure_name.lower()
+                structure_matched = any(
+                    hotspot_structure_name
+                    in name.lower() for name in target_structure_names)
+                if not structure_matched:
                     raise ValueError(
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
@@ -1376,7 +1397,11 @@ class BrachyPlan:
                     add_hotspots_to_phantom=add_hotspots_to_phantom,
                     one_hotspot_structure=one_hotspot_structure)
             for struc in structure_list:
-                if config.structure_name.lower() == struc.name.lower():
+                if strict_name_match:
+                    structure_matched = config.structure_name.lower() == struc.name.lower()
+                else:
+                    structure_matched = config.structure_name.lower() in struc.name.lower()
+                if structure_matched:
                     assert config.is_target == struc.is_target, f"The target structure in plan and optimization \
 config do not match for structure {struc.name}"
                     struc.set_optimization_config(config)
@@ -1400,7 +1425,6 @@ config do not match for structure {struc.name}"
         ### Outputs:
         - None := hot spot structures are appended to the self.structure_list
         """
-        self.update_plan_from_catheter_table()
         step_size = self.catheter_table.step_size
         # identify unique dwell pairs that are withi n the step size distance
         dwell_pairs = []
@@ -1408,46 +1432,52 @@ config do not match for structure {struc.name}"
             return np.linalg.norm(pos1 - pos2)
         def center(pos1, pos2):
             return (pos1 + pos2) / 2
+        
+        all_dwells:List[DwellPosition] = self.catheter_table.all_dwells
 
-        for i in range(len(self.dwell_coordinates)):
-            for j in range(i + 1, len(self.dwell_coordinates)):
+        for i in range(len(all_dwells)):
+            for j in range(i + 1, len(all_dwells)):
                 current_distance = distance(
-                    np.array(self.dwell_coordinates[i]["position"]),
-                    np.array(self.dwell_coordinates[j]["position"])) 
+                    all_dwells[i].position,
+                    all_dwells[j].position) 
                 if current_distance <= step_size:
                     dwell_pairs.append(
                         {
                             "dwell_pair": (
                                 {
-                                    "catheter":self.dwell_coordinates[i]["catheter_index"]+1,
-                                    "dwell": self.dwell_coordinates[i]["dwell_index"]+1
+                                    "dwell": all_dwells[i].name_id,
                                 },
                                 {
-                                    "catheter":self.dwell_coordinates[j]["catheter_index"]+1,
-                                    "dwell": self.dwell_coordinates[j]["dwell_index"]+1
+                                    "dwell": all_dwells[j].name_id,
                                 }),
                             "center": center(
-                                np.array(self.dwell_coordinates[i]["position"]),
-                                np.array(self.dwell_coordinates[j]["position"])
+                                all_dwells[i].position,
+                                all_dwells[j].position
                             ),
                             "radius": step_size,
                             "distance": current_distance,
                             "inter-catheter": True if (
-                                self.dwell_coordinates[i]["catheter_index"] 
-                                != self.dwell_coordinates[j]["catheter_index"]
+                                all_dwells[i].catheter_index
+                                != all_dwells[j].catheter_index
                                 ) else False
                         }
                     )
         # create hotspot structures masks for each dwell pair
         hotspot_mask_list = []
+        
+        if all_dwells[0].dose_rate is None:
+            reference_image = self.phantom.image_obj
+        else:
+            reference_image = all_dwells[0].dose_rate.dose_image
+
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {
                 executor.submit(
                     _gen_hotspot_mask,
                     dwell_pair,
-                    self.phantom.image_obj.gridSize,
-                    self.phantom.image_obj.origin,
-                    self.phantom.image_obj.spacing,
+                    reference_image.gridSize,
+                    reference_image.origin,
+                    reference_image.spacing,
                 ): dwell_pair for dwell_pair in dwell_pairs
             }
             for action in tqdm(
@@ -1529,9 +1559,9 @@ config do not match for structure {struc.name}"
         """
         catheter = self.catheter_table[catheter_index]
         dose_rates_catheter = defaultdict(BrachyDose)
-        for dwell in catheter:
+        for dwell in catheter.dwells:
             dose_rates_catheter[
-                f"catheter_{catheter.name_id}_dwell_{dwell.name_id}"
+                f"dwell_{dwell.name_id}"
                 ] = dwell.dose_rate
         return dose_rates_catheter
 
@@ -1562,8 +1592,8 @@ def _gen_hotspot_mask(
         origin=origin,
         spacing=spacing,
         name=(
-            f"hotspot_estimator_catheter_{(dwellpair['dwell_pair'])[0]['catheter']}_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
-            + f"/catheter_{(dwellpair['dwell_pair'])[1]['catheter']}_dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
+            f"hotspot_estimator_dwell_{(dwellpair['dwell_pair'])[0]['dwell']}"
+            + f"/dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
             ),
     )
     return BrachyStructure(

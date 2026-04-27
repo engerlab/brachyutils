@@ -173,7 +173,6 @@ class Catheter(BaseModel):
 
         ### Outputs:
         - List[DwellPosition] := the list of dwell positions in the catheter table.
-        TODO: Maybe we want to return a new catheter object if a slice is provided?
         """
         if isinstance(indices, slice):
             return self.dwells[indices],

@@ -14,11 +14,16 @@ BrachyDoseType = TypeVar('BrachyDoseType', bound='BrachyDose')
 class DwellPosition(Protocol):
     """Protocol for DwellPosition class"""
     index: int
-    angle: float
-    position: List[float] | Dict[str, float]
+    position: List[float] | np.ndarray
     relativePos: float
-    rotation: List[float] | Dict[str, float]
-    time: float
+    angle: int = 0
+    rotation: List[float] | np.ndarray = None
+    time: float = 0.0
+    _time_diff: float = 0.0
+    catheter_index: int = None
+    gen_dose_rate: bool = True
+    dose_rate: BrachyDose = None
+    _max_dwell_time: float = 1e8
 
 class Catheter(Protocol):
     """Protocol for Catheter class"""

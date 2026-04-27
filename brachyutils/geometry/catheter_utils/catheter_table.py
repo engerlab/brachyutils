@@ -34,6 +34,7 @@ class CatheterTable(BaseModel):
         3. from a json file
         4. from a CatheterSetUp object XXX clean this
         5. from a CreatedSetUp object XXX clean this
+
     ### Attributes:
     - catheters_dict : Dict[Catheter] := the dictionary or list of catheter objects in the catheter table.
     it could also be a string, Path, CatheterSetup, CreatedSetup. We will convert it all to a dictionary.
@@ -47,12 +48,43 @@ class CatheterTable(BaseModel):
     dwell positions that were actually used for plan delivery.
     - num_catheters: int = None := the number of catheters in the catheter table.
     - num_dwell_positions: int = None := the number of dwell positions in the catheter table.
-    ### Functions:
-    - load_from_json(pth_json:Path) -> list
-    - load_from_dicom(pth_dicom:Path) -> list
+
+    ### Methods:
+    - all_dwells
+    - catheters_list
+    - treatment_time
+    - num_catheters
+    - num_dwell_positions
+    - non_zero_dwell_positions
+    - combined_dose
+    - __iter__()
+    - __len__()
+    - __getitem__()
+    - __add__()
+    - __iadd__()
+    - __delitem__()
+    - __sub__()
+    - set_combined_dose()
+    - append()
+    - __setitem__()
+    - get_dwells_by_name_ids()
+    - set_dwells_by_name_id()
+    - get_catheters_by_ids()
+    - reset_index()
+    - get_catheters_for_dose_gen()
+    - to_dict()
+    - info()
+    - write_to_json()
+    - write_to_slicer_markup()
+    - remove_inside_mask()
+    - remove_outside_mask()
+    - load_dose_rates()
+    - _calculate_combined_uncertainty()
+    - export_dose()
+    - merge()
+    - reset_dwelltimes_to()
+
     """
-    # TODO: unify writing to file (json, dicom, slicer markup). decide based on extension.
-    ##########
     ## To enable using CatheterSetUp and CreatedSetUp as a data types, default is False.
     # This is not a parameter to be provided.
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -65,7 +97,7 @@ class CatheterTable(BaseModel):
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
     _cached_combined_dose: 'BrachyDose' = None
-    _time_diffs:Dict[str, float] = None
+    # _time_diffs:Dict[str, float] = None
 
     @computed_field
     def all_dwells(self) -> List[DwellPosition]:
@@ -110,7 +142,7 @@ class CatheterTable(BaseModel):
         - int := the number of catheters in the catheter table.
         """
         return len(self.catheters_dict)
-    
+
     @computed_field
     def num_dwell_positions(self) -> int:
         r"""
@@ -155,20 +187,23 @@ class CatheterTable(BaseModel):
         ### Purpose:
         - To calculate the combined dose by multiplying the dose rates with the dwell times.
         if this value has already been cached without change to the catheter table, then
-        the cache will be returned.
-        We require strict name matching between the _time_diffs and dwell.name_id
+        the cache will be returned. If there are no dose rates, cached combined dose will be returned.
+        if cached combined dose is not set and there are no dose rates, use set_combined_dose to load
+        it from a file or a BrachyDose object.
+        - In the past we used CatheterTable._time_diffs (type: Dict[str, float]) to record the change
+        in dwell times. but now we use the DwellPosition._time_diff (type: flaot) instead.
+
         ### Inputs:
         - self._cached_combined_dose: The combined dose caclualted previously, which will 
         be returned if no change to the catheter table has been made.
-        - self._time_diffs: a dictionary of time differences for each dwell in the plan. 
-        This is used to update the combined dose if the dwell times are updated without
-        having to reload the dose rate maps. The keys of the dictionary should be in
-        the format "{catheter.index+1}{dwell.index+1}{dwell.angle" and the values
-        should be the time differences in seconds. If None, the combined dose will
-        be calculated using the current dwell times in the plan.
+        - dose_rate for each dwell position
+        - dwell._time_diff for each dwell position, which is the change in dwell time since the last
+        time combined dose was calculated.
+
         ### Outputs:
-        - self._cached_combined_dose
-        also resets self._time_diffs to None for future.
+        - self._cached_combined_dose: BrachyDose := The dose object containing the linear combination
+        of changes in dwell times and dose rates. 
+        - will reset dwell._time_diff to 0 after calculating the combined dose.
         """
         from brachyutils.dose.dose_utils import BrachyDose
         all_dwells: List[DwellPosition] = self.all_dwells
@@ -185,17 +220,11 @@ class CatheterTable(BaseModel):
             )
 
         # Calculate combined dose with or without time diffs
-        for dwell in dwells_with_doserate:
-            dwell_time = (
-            self._time_diffs.get(dwell.name_id, 0) 
-            if self._time_diffs is not None 
-            else dwell.time
-            )
-            if dwell_time != 0:
+        for dwell in dwells_with_doserate:            
+            if dwell._time_diff != 0:
                 self._cached_combined_dose.dose_image.imageArray += (
-                    dwell.dose_rate.dose_image.imageArray * dwell_time)
-        # reset the time diffs for future
-        self._time_diffs = None
+                    dwell.dose_rate.dose_image.imageArray * dwell._time_diff)
+                dwell._time_diff = 0
         return self._cached_combined_dose
 
     @model_validator(mode="after")
@@ -465,6 +494,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
         - None: will set self._cached_combined_dose
         """
         if isinstance(combined_dose, Path) or isinstance(combined_dose, str):
+            from brachyutils.dose.dose_utils import BrachyDose
             combined_dose = BrachyDose(pth_dose_file=combined_dose) 
         self._cached_combined_dose = combined_dose
 
@@ -880,7 +910,6 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         None := update self.
         """
         catheter_table_diff = self - new_catheter_table
-        self._time_diffs = {}
 
         for catheter_diff in catheter_table_diff:
             new_catheter = new_catheter_table[catheter_diff.name_id]
@@ -904,7 +933,7 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
                             new_gen_doserate = True
                         else:
                             new_gen_doserate = self_dwell.gen_dose_rate 
-                            self._time_diffs[dwell_diff.name_id] = dwell_diff.time
+
                         dwell_attrs_conds = [
                             ("angle", dwell_diff.angle!=0),
                             ("position", np.any(dwell_diff.position!=0)),
