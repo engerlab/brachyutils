@@ -52,7 +52,7 @@ def test_catheter_table_optim():
             penalty_weight_uniformity=1,
             penalty_weight_hotspot=1,
             hotspot_threshold=1.5,
-            # penalty_weight_variance_time=1,
+            penalty_weight_variance_time=1,
             mask_margin_mm=0,
             spacing_mm=3,
             catheter_recommendaion=True),

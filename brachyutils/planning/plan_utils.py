@@ -1384,7 +1384,11 @@ class BrachyPlan:
             ]
         for config in optimization_config_list:
             if config.penalty_weight_hotspot != 0:
-                if config.structure_name.lower() not in target_structure_names:
+                hotspot_structure_name = config.structure_name.lower()
+                structure_matched = any(
+                    hotspot_structure_name
+                    in name.lower() for name in target_structure_names)
+                if not structure_matched:
                     raise ValueError(
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
