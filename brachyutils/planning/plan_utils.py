@@ -1004,8 +1004,8 @@ class BrachyPlan:
                 one_markup_per_catheter=export_config_cathetertable.one_markup_per_catheter,
             )
         elif export_config_cathetertable.file_extension == ".json":
-            catheter_table.write_json(
-                export_config_cathetertable.dir_export
+            catheter_table.write_to_json(
+                pth_json=export_config_cathetertable.pth_catheter_table
             )
 
     def export_plan_files(

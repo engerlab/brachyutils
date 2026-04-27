@@ -91,7 +91,10 @@ def test_catheter_table_optim():
     optimized_plan.export_brachy_plan(
         content_to_export={
             "dir_export": dir_export,
-            "export_config_dose": True
+            "export_config_dose": True,
+            "export_config_cathetertable": {
+                    "file_extension": ".json",
+                },
         }
     )
     dvh_metrics_dict = optimized_plan.get_dvh_metrics(return_percentage=True)
