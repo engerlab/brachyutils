@@ -563,7 +563,7 @@ def bound_variables(
             vars_needed = []
             # gatheter all catheter or dwell variables
             for this_var in all_vars:
-                if var_target == "catheters":
+                if var_target == "catheter":
                     # we are looking for catheter variables only
                     if (this_var.name.startswith("catheter") and 
                         not "dwell" in this_var.name):

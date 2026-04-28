@@ -25,8 +25,9 @@ from brachyutils.geometry.phantom_utils import BrachyPhantom
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from brachyutils.planning.structure_utils import BrachyStructure
 from brachyutils.planning.simulation_utils import BrachySimulation
-from brachyutils.planning.optimization.optim_configs import Optimization_Config
-from pydantic import BaseModel, ConfigDict, Field, model_validator, computed_field
+from brachyutils.planning.optimization.optim_configs import (
+    Optimization_Config, Constraint_Config)
+from pydantic import computed_field
 from brachyutils.planning.plan_export_configs import (ExportConfig_BrachyPlan, ExportConfig_CatheterTable,
     ExportConfig_Egsphant, ExportConfig_PlanAndMac)
 import pydicom
@@ -46,21 +47,21 @@ class BrachyPlan:
     #### Geometry and Structure Attributes:
     - phantom (BrachyPhantom): A BrachyPhantom object containing the patient geometry and structures.
     - structure_list (List[BrachyStructure]): A list of BrachyStructure objects containing the patient structures.
+    - structure_dict (Dict[str, BrachyStructure]): A dictionary of the BrachyStructure objects with the
+    phantom structure names as keys. This is automatically computed from the structure_list.
     - body_contour (ROIContour): The body contour of the patient.
     - phantom_origin (list): The origin of the phantom in the patient coordinate system.
     - organ_bounds (list): Min and max coordinates of the patient organs on each axis.
-    - dvh_metric_goals (dict): Dictionary containing the DVH metric goals for the plan.
+    - dvh_metric_goals (dict): Dictionary containing the DVH metric goals for the plan. The keys are
+    the structure names from phantom. The names are of the format V_{#Gy|%}(organName),
+    where # represents the numerical threshold and "|" is or. For example D95%(organName).
+    
     - dvh_metrics_observed (dict): Dictionary containing the observed DVH metrics for the plan.
     - prescription_dose (float): The dose prescribed to the target volume.
 
     #### Catheter and Dwell Position Attributes:
     - catheter_table (CatheterTable): A catheter table object containing the catheter information.
     - num_catheters (int): The number of catheters in the plan.
-    - catheter_numbers (list): The catheter ID numbers for each catheter in the catheter table.
-    - num_dwells (int): The total number of dwell positions along all catheters in the plan.
-    - dwell_numbers (list): The dwell number ID of each dwell position in the plan.
-    - dwell_times (List[float]): The dwell time for each dwell position in the plan.
-    - dwell_coordinates (List[list]): The coordinates of each dwell position in patient coordinates.
 
     #### Applicator Attributes:
     - applicator_list (List[BrachyApplicator]): The list of all applicators in the plan.
@@ -72,7 +73,11 @@ class BrachyPlan:
 
     #### Simulation and Optimization Attributes:
     - simulation_setup (BrachySimulation): A simulation setup object containing source info and simulation parameters.
-    - optimization_config_list (List[Optimization_Config]): List of optimization configurations for the plan.
+    - optimization_config_dict (Dict[str, Optimization_Config]): Dictionary of optimization configurations for the plan.
+    The keys are the structure names from phantom (usually loaded from DICOM RS). The structure name attribute
+    could be a substring of the structure name in the phantom. For example, "CTV" in "CTV_BRACHY".
+    - optimization_constraints_dict (Dict[str, Constraint_Config]): Dictionary of optimization constraints for the plan.
+    see Constraint_Config for more details.
     """
 
     def __init__(
@@ -106,7 +111,7 @@ class BrachyPlan:
         - prescription_dose: float | str | Path = None := The dose that is prescribed to the target volume.
         This is used to calculate the DVH metrics. It can be a float or the path to a dicom file with prescription dose.
 
-        #### for loading catheter table and applicators:
+        #### For loading catheter table and applicators:
         - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
         - applicator_pth_list := The list of applicator paths or the path to the json file containing the list. see load_applicator_list() for more info.
 
@@ -121,6 +126,9 @@ class BrachyPlan:
         - combined_dose_only:bool := If True, all the dose rates will be removed from memory after 
         combined dose is calculated.
         - dose_dtype:np.float32 := The floating point type to store the dose rates. 
+
+        #### for optimization setup:
+        - optimization_config_list: List[Optimization_Config] | Path | str := A list of Optimization_Config objects or the path to a json file containing the list.
 
         #### Keywords Arguments:
         - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
@@ -137,11 +145,14 @@ class BrachyPlan:
         - dvh_metric_goals: List[str] | Dict[str, float] | Path | str := A list of all DVH metric
         names or the dictionary containing the DVH metric names and their goals or the path to its
         json file. Look at set_dvh_metric_goals for guideline on the names of the DVH metrics.
-        The phantom should be loaded with structures for the Brachy stuctures to be created.
+        The phantom should be loaded with structures for the Brachy stuctures to be created. The names 
+        are of the format V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or.
+        For example D95%(organName).
         - strict_name_match: bool = True := If True, the name of the structure in the phantom and the DVH metric
-        as well as the structure name in the optimization config should mask perfectly. Otherwise, the name 
+        as well as the structure name in the optimization config should match perfectly. Otherwise, the name 
         of the structure in the DVH metric goals and optimization config can be a substring of the name of
         the structure in the phantom. For example, "CTV" in "CTV_BRACHY".
+
         ### Outputs:
             - None := will initialize the BrachyPlan object
         """
@@ -160,13 +171,6 @@ class BrachyPlan:
 
         # catheter table attributes
         self.catheter_table: CatheterTable = None
-        self.num_catheters: int = None
-        self.catheter_numbers:list = np.array([], dtype=int)  # shape: (num_catheters, 1)
-        self.num_dwells: int = None
-        self.dwell_numbers: list = np.array([], dtype=int)  # shape: (num_dwells, 1)
-        self.dwell_times: List[float] = np.array([], dtype=np.float32)  # shape: (num_dwells, 1)
-        self.dwell_coordinates: List[list] = []  # shape: (num_dwells, 3)
-
         # applicator attributes
         self.applicator_list: List[BrachyApplicator] = []
         # XXX: figure out if the two below are dwell or applicator attributes?
@@ -177,6 +181,10 @@ class BrachyPlan:
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
 
+        # optimization attributes
+        self.optimization_config_dict: Dict[str, Optimization_Config] = None
+        self.optimization_constraints_dict: Dict[str, Constraint_Config] = None
+ 
         ## fill the attributes depending on the inputs to the constructor
         # load the prescription dose if the path is provided.
         if prescription_dose is not None:
@@ -267,7 +275,8 @@ class BrachyPlan:
                 elif str(simulation_setup).endswith(".dcm"):
                     self.simulation_setup = BrachySimulation(
                         brachy_source=simulation_setup,
-                        total_time=np.sum(self.dwell_times))
+                        total_time=self.catheter_table.treatment_time,
+                        )
 
         # load the applicator list if the path is provided
         if applicator_pth_list is not None and applicator_format is not None:
@@ -276,7 +285,6 @@ class BrachyPlan:
 
         # # setup optimization
         if optimization_config_list is not None:
-            self.optimization_config_list = optimization_config_list
             self.setup_optimization(
                 self.optimization_config_list,
                 self.structure_list,
@@ -1012,7 +1020,6 @@ class BrachyPlan:
         ### Dependencies:
             - None
         """
-        # total_dwell_time = np.sum(self.dwell_times)
         cath_table_dose_gen = catheter_table.get_catheters_for_dose_gen()
         total_dwell_time = cath_table_dose_gen.treatment_time
         num_dwells = cath_table_dose_gen.num_dwell_positions
