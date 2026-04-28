@@ -130,7 +130,10 @@ class CatheterTableOptim_Gurobi():
         self.roi_bounds: List[List[float]] = None
 
         if roi_margin_mm is not None:
-            self.roi_margin_mm: float = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
+            self.roi_margin_mm: float = (
+                roi_margin_mm if isinstance(roi_margin_mm, list)
+                else [roi_margin_mm] * 3
+            )
         self.solution_found: bool = False
         self.solve_time: float = 0.0
         self.multi_processing = multi_processing
@@ -164,6 +167,10 @@ class CatheterTableOptim_Gurobi():
             catheter_vars=self.catheter_vars,
             model=self.model,
         )
+        # TODO: continue on setting the constraints.
+        # self.bound_variables(
+        #     # constraint_configs=
+        # )
 
     def initialize_model(self, solver: str, pth_logfile:str=None) -> Model:
         r"""
