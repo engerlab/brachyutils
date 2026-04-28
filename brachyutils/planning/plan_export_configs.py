@@ -43,7 +43,6 @@ class ExportConfig_PlanAndMac(BaseModel):
             return None
         return self.dir_export / f"{self.body_name_stl}.stl"
 
-
 class ExportConfig_Egsphant(BaseModel):
     r"""
     ### Purpose:

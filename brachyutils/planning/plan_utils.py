@@ -284,11 +284,13 @@ class BrachyPlan:
         ### Purpose:
         - To load phantom from file path into Brachy Plan. Not that if a directory is provided,
         it should have only one phantom file.
+
         ### Inputs:
         - pth_phantom:str := The phantom path could be a directory of DICOM files
         or a directory of NRRD files. In addition, it could be the path to a json
         file containing paths to specific phantom files. Look at the inputs of BrachPhantom
         for more information on the expected keys of the json file.
+
         ### Outputs:
         - None := will update the BrachyPlan.phantom attribute
         """
@@ -371,6 +373,7 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - To set the catheter table of the plan and update the plan attributes accordingly.
+
         ### Inputs:
         - catheter_table: Path | CatheterTable := A catheter table object or the path to a
         json file containing the information of the catheter table.
@@ -378,6 +381,7 @@ class BrachyPlan:
         from the catheter table. Only applicable if the catheter table is loaded from a DICOM plan file. 
         If False, all the dwell positions from the digitization points will be loaded.
         - dwells_near_ptv: bool := Whether to remove dwells that are far from the PTV.
+
         ### Outputs:
         - None := will update the BrachyPlan.catheter_table attribute and all the related attributes
         such as dwell times, coordinates, etc.
@@ -411,66 +415,6 @@ class BrachyPlan:
                         mask=mask,
                         margin_mm=5.0,
                     )
-        # XXX cleanup: self.update_plan_from_catheter_table(time_diffs=None)
-            # time_diffs=self.catheter_table._time_diffs)
-
-    def update_plan_from_catheter_table(self, time_diffs=None):
-        r"""
-        ### Purpose:
-        - To extract the dwell numbers, times, and coordinates from the catheter table
-        and save them as class attributes.
-        ### Inputs:
-        - self := the BrachyPlan object
-        - time_diffs: dict := A dictionary of time differences for each dwell position. this is used for fast plan update.
-        ### Outputs:
-        - None := will update the self.dwell_numbers, self.dwell_times,
-        and self.dwell_coordinates attributes
-        """
-        raise ValueError("Depricated af!")
-        # XXX nuke this
-        assert self.catheter_table is not None, "catheter table is not loaded"
-        # reset the dwell_numbers, dwell times, coordinates, and num dwells
-        if time_diffs is None: #I think this code is deprecated and is bottlenecking our hackathon project
-            (
-                self.catheter_numbers,
-                self.dwell_numbers,
-                self.dwell_times,
-                self.dwell_coordinates,
-            ) = (
-                np.array([], dtype=int),
-                np.array([], dtype=int),
-                np.array([], dtype=np.float32),
-                [],
-            )
-            self.num_catheters = None
-            self.num_dwells = None
-
-            # extract the attributes above from the catheter table
-            dwell_counter = 1
-            for catheter in self.catheter_table.catheters_list:
-                self.catheter_numbers = np.append(self.catheter_numbers, catheter.index)
-                for dwell in catheter.dwells:
-                    self.dwell_numbers = np.append(self.dwell_numbers, dwell_counter)
-                    self.dwell_times = np.append(self.dwell_times, dwell.time)
-                    self.dwell_coordinates.append(
-                        {
-                            "angle": dwell.angle,
-                            "position": dwell.position,
-                            "rotation": dwell.rotation,
-                            "relativePos": dwell.relativePos,
-                            "catheter_index": catheter.index,
-                            "dwell_index": dwell.index,
-                        }
-                    )
-                    dwell_counter += 1
-            assert (
-                len(self.catheter_numbers) - 1 == self.catheter_numbers[-1]
-            ), "catheter numbers are not extracted correctly"
-            self.num_catheters = len(self.catheter_numbers)
-            assert (
-                len(self.dwell_numbers) == self.dwell_numbers[-1]
-            ), "dwell numbers are not extracted correctly"
-            self.num_dwells = len(self.dwell_numbers)
 
     def set_dvh_metric_goals(
         self,
@@ -482,6 +426,7 @@ class BrachyPlan:
         ### Purpose:
         - To set the dvh metric list of the BrachyPlan object and each of the BrachyStructures.
         You can provide either the dvh_metric_names or the dvh_metric_goals.
+
         ### Inputs:
         - dvh_metric_names: List[str] := a list containing the DVH metrics for this structure. The names 
         are of the format V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or.
@@ -491,6 +436,7 @@ class BrachyPlan:
         - strict_name_match: bool := If True, the name of the structure in the phantom and the DVH metric
         goals should mask perfectly. Otherwise, the name of the structure in the DVH metric goals can be
         a substring of the name of the structure in the phantom. For example, "CTV" in "CTV_BRACHY".
+
         ### Outputs:
         - None := will update the BrachyPlan.dvh_metric_goals attribute as well as 
         BrachyStructure.dvh_metric_names and BrachyStructure.dvh_metric_goals.
@@ -565,6 +511,7 @@ class BrachyPlan:
         - To create a list of BrachyStructure objects from the structures in the phantom and
         the DVH metric goals. Each BrachyStructure object will have attributes for the structure
         contour, the DVH and uncertainty volume histograms, optimization attributes, and simulation attributes.
+
         ### Inputes:
         - phantom := the phantom with its structures fully loaded.
         - dvh_metric_goals := the dvh metric goals dictionary
@@ -609,6 +556,7 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - To load the applicator list from a json file containing the applicator geometry.
+
         ### Inputs:
         - applicator_list_pth:str := path to the json file containing the applicator list with N applicators.
         The items inside this list have the attributes bellow. If any left empty, the default value will be used.
@@ -639,8 +587,8 @@ class BrachyPlan:
             - "yRoti": list of yRot of the applicator i in [1, N].
             - "z": list of z of the applicator.
             - "zRoti": list of zRot of the applicator i in [1, N].
-
         - format:str := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
+
         ### Outputs:
             - None := will update the BrachyPlan.applicator_list attribute
         """
@@ -778,8 +726,10 @@ class BrachyPlan:
         ### Purpose:
         - To get the observed value of the dvh metric for each structure in the BrachyPlan.
         the observed value is calculated from the combined dose map.
+
         ### Inputs:
         - self := the BrachyPlan object
+
         ### Outputs:
         - dvh_metrics_observed: a dictionary mapping every DVH metric to its observed value.
         """
@@ -809,8 +759,10 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - To export the dvh metrics of the BrachyPlan to a json file.
+
         ### Inputs:
         - output_pth := path to the output json file
+
         ### Outputs:
         - None := will export the dvh metrics to a json file
         """
@@ -823,8 +775,10 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - To export the dvh metric goals of the BrachyPlan to a json file.
+
         ### Inputs:
         - output_pth := path to the output json file
+
         ### Outputs:
         - None := will export the dvh metric goals to a json file
         """
@@ -837,8 +791,10 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - To calculate the uncertainty of each structure in the BrachyPlan.
+
         ### Inputs:
         - self := the BrachyPlan object
+
         ### Outputs:
         - None := will update the BrachyStructure.uncertainty attribute
         """
@@ -991,9 +947,11 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - to export the catheter table to a given directory in mrk.json or .json format.
+
         ### Inputs:
         - export_config_cathetertable: The catheter table export configuration. Look at ExportConfig_CatheterTable for more info
         - catheter_table: The catheter table to export.
+
         ### Outputs:
         - None := will export the catheter table into the specified export directory.
         """
@@ -1017,9 +975,11 @@ class BrachyPlan:
         ### Purpose:
         - To export dwell positions and their normalized times into ".plan" text files in the
         format required by RapidBrachy.
+
         ### Inputs:
         - export_config_plan_and_mac = The export configuration for the plan files. see ExportConfig_PlanAndMac
         - catheter_table:= The catheter table with the dwells.
+
         ### Outputs:
         - None := Two types of .plan files are written, one named combined.plan and the other
         named run_{dwellNumber}.plan. combined.plan contains info of all dwell positions and
@@ -1032,6 +992,7 @@ class BrachyPlan:
             1 Dwell Position
             -10.2819,82.598,-1224.98,-0.0291444,-0.017922,0.999415,0,0,0,1,0,0,0
             Control Point ..."
+
         ### Dependencies:
             - None
         """
@@ -1099,9 +1060,11 @@ class BrachyPlan:
         ### Purpose:
         - To export the simulation parameters of the plan into a macro files
         and run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac
+
         ### Inputs:
         - export_config_plan_and_mac:= The export configuration for macro files.
         - catheter_table:= The catheter table with the dwells.
+
         ### Outputs:
         - None := Two types of .mac files are written, one named combined.mac and the other
         named run_{catheterNumber}_{dwellNumber}_{shieldAngle}.mac. combined.plan contains
@@ -1169,10 +1132,13 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - to export the egsphant file of the plan into dir_export
+
         ### Inputs:
         - export_config_egsphant:= The export configuration for egsphant file. see ExportConfig_Egsphant
+
         ### Outputs:
         - None := egsphant file is generated from phantom and is written to ct.egsphant
+
         ### Dependencies:
         - BrachyEgsphant
         """
@@ -1208,11 +1174,14 @@ class BrachyPlan:
         ### Purpose:
         - To export the applicator geometries either in the RapidBrachy Format (mac files and single json file)
         or in webapp format (json file).
+
         ### Inputs:
         - dir_export := path to the directory where the export happens
         - format := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
+
         ### Outputs:
         - None := will export the applicator geometries into the specified export directory.
+
         ### Dependencies:
         - None
         """
@@ -1285,6 +1254,7 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - to export the structure set of the plan into dir_export
+
         ### Inputs:
         - dir_export := path to the directory where the export happens
         - material_table: dict | Path := the dictionary of the materials. if Path, the path to the material file.
@@ -1294,9 +1264,11 @@ class BrachyPlan:
             "HU_limit" := the lower HU limit threshold of the material,
             "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
         ]
+
         ### Outputs:
         - None := self.structure_list is exported as a dictionary and
         written to structure_set.json
+
         ### Dependencies:
         """
         raise NotImplementedError("now that you are here, finish this function thank you!")
@@ -1326,10 +1298,13 @@ class BrachyPlan:
         r"""
         ### Purpose:
         - to print the information of the plan
+
         ### Inputs:
         - self := the BrachyPlan object
+
         ### Outputs:
         - None := will print the information of the plan
+
         ### Dependencies:
         - None
         """
@@ -1419,9 +1394,11 @@ config do not match for structure {struc.name}"
         These structures are created as spheres with radius of dwell step size centered in 
         between two dwell positions that are within a step size distance from each other.
         There could be only one hotspot structure per each dwell pair.
+
         ### Inputs:
         - self := the BrachyPlan object
         - config := the optimization config object that contains the parameters for the hotspot structure
+
         ### Outputs:
         - None := hot spot structures are appended to the self.structure_list
         """
@@ -1531,8 +1508,10 @@ config do not match for structure {struc.name}"
         r"""
         ### Purpose:
         - to reset the optimization configurations of all structures in the plan.
+
         ### Inputs:
         - self := the BrachyPlan object
+
         ### Outputs:
         - None := optimization_config attribute of all structures in the plan is set to None
         """
@@ -1551,8 +1530,10 @@ config do not match for structure {struc.name}"
         ### Purpose:
         - to get the dose rate matrices for all dwell positions in a given catheter.
         this function assumes that dose rate dictionary matches the index+1 convension.
+
         ### Inputs:
         - catheter_index := the index of the catheter in the catheter table
+
         ### Outputs:
         - Dict[BrachyDose]: A dictionary containing the dose rates for the speicific catheter.
         the keys are in the format catheter_{index+1}_dwell_{index+1}
@@ -1577,9 +1558,18 @@ def _gen_hotspot_mask(
     These structures are created as spheres with radius of dwell step size centered in 
     between two dwell positions that are within a step size distance from each other.
     There could be only one hotspot structure per each dwell pair.
+
     ### Inputs:
     - dwellpair := dictionary containing the dwell pair information
-        {}
+        The information includes:
+            - dwell_pair := a tuple of two dictionaries, each containing the dwell name_id and other
+            information of the dwell position such as its position and dose rate if available.
+            - center := the center of the hotspot structure as a tuple of three floats (x, y, z)
+            - radius := the radius of the hotspot structure as a float
+    - gridSize := the size of the grid as a tuple of three integers (x, y, z)
+    - origin := the origin of the grid as a tuple of three floats (x, y, z)
+    - spacing := the spacing of the grid as a tuple of three floats (x, y, z)
+
     ### Outputs:
     - None := hot spot structures are appended to the self.structure_list
     """
@@ -1621,18 +1611,23 @@ def load_dicom_to_plan(
     load_dicom_dose: bool = False,
     load_dicom_source: bool = True,
     load_dicom_catheter_table: bool = True,
+    load_dicom_prescription_dose: bool = True,
     prescription_dose: float | Path = None,
     **kwargs) -> BrachyPlan:
     r"""
     ### Purpose:
     - To load all the contents of a dicom directory into a BrachyPlan object.
+
     ### Inputs:
-    - dir_dicom := the path to the dicom directory
-    - load_dicom_dose := if True, the dose dicom file will be loaded
-    - load_dicom_source := if True, the source dicom file will be loaded
-    - load_dicom_catheter_table := if True, the catheter table dicom file will be loaded
+    - dir_dicom := the path to the dicom directory.
+    - load_dicom_dose := if True, the dose dicom file will be loaded.
+    - load_dicom_source := if True, the source dicom file will be loaded.
+    - load_dicom_catheter_table := if True, the catheter table dicom file will be loaded.
+    - load_dicom_prescription_dose := if True, the prescription dose will be loaded from the dicom file.
+    If False, the prescription dose will be set to None.
     - prescription_dose := the prescription dose in Gray or the path to the dicom directory
     - **kwargs := additional arguments to be passed to the BrachyPlan constructor
+
     ### Outputs:
     - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
     """
