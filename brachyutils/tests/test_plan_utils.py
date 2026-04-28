@@ -143,6 +143,9 @@ def test_create_structures_and_calc_dvh_metrics():
     print(plan.dvh_metric_goals)
     print(plan.get_dvh_metrics())
 
+    print("This is a test for structure dict")
+    print(plan.structure_dict.keys())
+
 def test_calculate_combined_uncertainty():
     from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
     dir_dicom = "data_test/prostate-glen-p1-dcm"

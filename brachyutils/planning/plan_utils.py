@@ -152,6 +152,7 @@ class BrachyPlan:
         # phantom and geometry attributes
         self.phantom: BrachyPhantom = None
         self.dvh_metric_goals: dict = None
+        self._structure_dict: Dict[BrachyStructure] = None
         self.structure_list: List[BrachyStructure] = []
         self.body_contour: ROIContour = None
         self.phantom_origin: list = None  # np.array([0, 0, 0])  # x,y,z
@@ -287,6 +288,12 @@ class BrachyPlan:
     @computed_field
     def combined_dose(self):
         return self.catheter_table.combined_dose
+
+    @computed_field
+    def structure_dict(self):
+        if self._structure_dict is None:
+            self._structure_dict = {structure.name: structure for structure in self.structure_list}
+        return self._structure_dict
 
     def load_phantom(self, pth_phantom: Union[Path, dict]):
         r"""
