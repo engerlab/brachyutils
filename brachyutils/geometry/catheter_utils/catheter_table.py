@@ -224,7 +224,7 @@ class CatheterTable(BaseModel):
             if dwell._time_diff != 0:
                 self._cached_combined_dose.dose_image.imageArray += (
                     dwell.dose_rate.dose_image.imageArray * dwell._time_diff)
-                dwell._time_diff = 0
+                dwell.reset_time_diff()
         return self._cached_combined_dose
 
     @model_validator(mode="after")
