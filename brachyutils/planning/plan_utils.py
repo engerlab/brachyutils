@@ -1,3 +1,4 @@
+from itertools import chain
 import re
 import json
 import os
@@ -79,7 +80,7 @@ class BrachyPlan:
         #### for geometry definition:
         phantom: Union[Path, BrachyPhantom, dict] = None,
         #### for structure creation:
-        prescription_dose: float = None,
+        prescription_dose: float | str | Path = None,
         #### for loading catheter table and/or applicators:
         catheter_table: Union[Path, CatheterTable, str] = None,
         applicator_pth_list: Union[Path, str, list] = None,
@@ -102,7 +103,8 @@ class BrachyPlan:
         or a dictionary containing the paths. A phantom object can include structures as well. See load_phantom() for more info.
 
         #### For Structure optimization and dosimetry
-        - prescription_dose: float = None := The dose that is prescribed to the target volume. This is used to calculate the DVH metrics. 
+        - prescription_dose: float | str | Path = None := The dose that is prescribed to the target volume.
+        This is used to calculate the DVH metrics. It can be a float or the path to a dicom file with prescription dose.
 
         #### for loading catheter table and applicators:
         - catheter_table: Path | CatheterTable := A catheter table object or the path to a json file containing the information of the catheter table.
@@ -171,14 +173,21 @@ class BrachyPlan:
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
-        # dose attributes
-
         # simulation attributes
         self.simulation_setup: BrachySimulation = None
 
         ## fill the attributes depending on the inputs to the constructor
-        # set the dvh metric goals if provided
+        # load the prescription dose if the path is provided.
+        if prescription_dose is not None:
+            if isinstance(prescription_dose, Path) or isinstance(prescription_dose, str):
+                prescription_dose = Path(prescription_dose)
+                dicom_dose = pydicom.dcmread(prescription_dose)
+                try:
+                    prescription_dose = float(dicom_dose[0x3007, 0x1000].value)
+                except KeyError:
+                    raise KeyError(f"No prescription dose found at {prescription_dose}, please set it manually.")
         self.prescription_dose = prescription_dose
+
         # load the dicom plan if the path is provided
         if phantom is not None:
             if isinstance(phantom, BrachyPhantom):
@@ -1612,7 +1621,6 @@ def load_dicom_to_plan(
     load_dicom_source: bool = True,
     load_dicom_catheter_table: bool = True,
     load_dicom_prescription_dose: bool = True,
-    prescription_dose: float | Path = None,
     **kwargs) -> BrachyPlan:
     r"""
     ### Purpose:
@@ -1625,62 +1633,59 @@ def load_dicom_to_plan(
     - load_dicom_catheter_table := if True, the catheter table dicom file will be loaded.
     - load_dicom_prescription_dose := if True, the prescription dose will be loaded from the dicom file.
     If False, the prescription dose will be set to None.
-    - prescription_dose := the prescription dose in Gray or the path to the dicom directory
     - **kwargs := additional arguments to be passed to the BrachyPlan constructor
 
     ### Outputs:
     - BrachyPlan := the BrachyPlan object with all the contents of the dicom directory
     """
-    all_dicom_files = list(Path(dir_dicom).glob("*.dcm"))
-    if len(all_dicom_files) == 0:
-        raise FileNotFoundError("No dicom files found in the directory")
-    # structure_dcm = [dcm for dcm in all_dicom_files if "RS" in dcm.name or "rs" in dcm.name]
-    dose_dcm = []
-    plan_dcm = []
+    dir_dicom = Path(dir_dicom)
+    dose_dcm = list(dir_dicom.glob("[Rr][Dd]*.dcm"))
+    plan_dcm = list(chain(
+        dir_dicom.glob("[Rr][Pp]*.dcm"),
+        dir_dicom.glob("[Pp][Ll]*.dcm"),
+        ))
+
     if load_dicom_dose:
-        dose_dcm = [dcm for dcm in all_dicom_files if str(dcm.name).lower().startswith("rd")]
+        if len(dose_dcm) != 1:
+            raise FileNotFoundError("There should be exactly one dose dicom file that starts with RD or rd in the directory")
+        combined_dose = kwargs.get("combined_dose", dose_dcm[0])
+    else:
+        combined_dose = None
+
     if load_dicom_source:
-        plan_dcm = [
-            dcm for dcm in all_dicom_files if
-            (
-                "rp" in str(dcm.name).lower()
-                or "pl" in str(dcm.name).lower()
-            )
-        ]
+        if len(plan_dcm) != 1:
+            raise FileNotFoundError("There should be exactly one source dicom file that starts with RP or PL in the directory")
+        brachy_source = plan_dcm[0]
+    else:
+        brachy_source = None
 
-    if prescription_dose is not None:
-        if isinstance(prescription_dose, Path) or isinstance(prescription_dose, str):
-            prescription_dose = Path(prescription_dose)
-            rp_file = next(prescription_dose.glob("RP*.dcm"), None)
+    if load_dicom_catheter_table:
+        if len(plan_dcm) != 1:
+            raise FileNotFoundError("There should be exactly one catheter table dicom file that starts with RP or PL in the directory")
+        catheter_table = kwargs.get("catheter_table", plan_dcm[0])
+    else:
+        catheter_table = None
 
-            if rp_file is None:
-                raise FileNotFoundError("No RP*.dcm file found, please manually set a prescription dose")
-            
-            dicom_dose = pydicom.dcmread(rp_file)
+    if load_dicom_prescription_dose:
+        if len(plan_dcm) != 1:
+            raise FileNotFoundError("There should be exactly one prescription dose dicom file that starts with RP or PL in the directory")
+        prescription_dose = kwargs.pop("prescription_dose", plan_dcm[0])
+    else:
+        prescription_dose = None
 
-            try:
-                prescription_dose = float(dicom_dose[0x3007, 0x1000].value)
-            except KeyError:
-                raise KeyError(f"No prescription dose found at {prescription_dose}, please set it manually.")
-                
-
-    # structure_dcm = structure_dcm[0] if len(structure_dcm) > 0 else None
-    dose_dcm = dose_dcm[0] if len(dose_dcm) > 0 else None
-    plan_dcm = plan_dcm[0] if len(plan_dcm) > 0 else None
     simulation_setup = kwargs.pop("simulation_setup", None)
-
     new_sim_setup = deepcopy(simulation_setup) # this is to avoid memory reference issues during forloops
     if new_sim_setup is None:
-        new_sim_setup = plan_dcm
+        new_sim_setup = plan_dcm[0]
     if isinstance(new_sim_setup, dict):
         if new_sim_setup.get("brachy_source") is None:
-            new_sim_setup["brachy_source"] = plan_dcm
-    combined_dose = kwargs.pop("combined_dose", dose_dcm)
+            new_sim_setup["brachy_source"] = brachy_source
+
     return BrachyPlan(
         phantom=dir_dicom,
-        catheter_table=plan_dcm if load_dicom_catheter_table else None,
+        catheter_table=catheter_table,
         combined_dose=combined_dose,
         simulation_setup=new_sim_setup,
         prescription_dose=prescription_dose,
         **kwargs
-    )
+        )
