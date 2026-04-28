@@ -191,7 +191,9 @@ class CatheterTable(BaseModel):
         if cached combined dose is not set and there are no dose rates, use set_combined_dose to load
         it from a file or a BrachyDose object.
         - In the past we used CatheterTable._time_diffs (type: Dict[str, float]) to record the change
-        in dwell times. but now we use the DwellPosition._time_diff (type: flaot) instead.
+        in dwell times. That was fast but clucky (you had to manually make the time diff)
+        but now we use the DwellPosition._time_diff (type: flaot) instead. It is slower, but automatic.
+        If this method is slow to you, feel free to bring back _time_diffs dictionary!
 
         ### Inputs:
         - self._cached_combined_dose: The combined dose caclualted previously, which will 
@@ -224,7 +226,7 @@ class CatheterTable(BaseModel):
             if dwell._time_diff != 0:
                 self._cached_combined_dose.dose_image.imageArray += (
                     dwell.dose_rate.dose_image.imageArray * dwell._time_diff)
-                dwell._time_diff = 0
+                dwell.reset_time_diff()
         return self._cached_combined_dose
 
     @model_validator(mode="after")
@@ -238,6 +240,7 @@ class CatheterTable(BaseModel):
         the list of catheter objects in the catheter table or the path to a json or dicom file.
         - step_size: float := the step size in mm between the dwell positions on the catheter table.
         - from_delivered_dwellpositions: bool := if true, the dwell positions inside the delivered dwell positions will be used.
+
         ### Outputs:
         - CatheterTable := the catheter table object.
         """

@@ -27,20 +27,59 @@ def test_catheter_gurobi_initialization():
 
 def test_catheter_table_optim():
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
-    dir_export = Path("data_test/test_export_plan/prostate").resolve()
+    # dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
-
-    # # for loading the dose rates. 
-    dir_dose_rate = Path("data_test/prostate-glen-p1-dose").resolve()
-    gen_dose_rates = False
-    from_delivered_dwellpositions=False
+    from_delivered_dwellpositions=True
     multi_processing = False
+
+    # # For generating the dose rates
+    dir_dose_rate = Path("temp_data/tg43/cat-optim/test").resolve()
+    dir_export = dir_dose_rate
+    gen_dose_rates = True
 
     dvh_metric_names = [
         "D90%(CTV)", "D2cc(RECTUM)", "D10%(URETHRA)",
         "D30%(URETHRA)", "CI(CTV)", "HI(CTV)",
         "V200%(CTV)", "V150%(CTV)", "V100%(CTV)"
     ]
+
+    plan = get_a_plan(
+        dir_dicom=pth_dicom,
+        from_delivered_dwellpositions=from_delivered_dwellpositions,
+        dvh_metric_goals=dvh_metric_names,
+        )
+
+    if gen_dose_rates:
+        from brachyutils.dose.dose_generation_utils import RapidBrachyTG43
+        init_export_config = {
+            "dir_export": dir_dose_rate,
+            "export_config_egsphant": {
+                "strict_name_match": False,
+                "crop_by_contour": ["ctv", "urethra", "rectum"]}
+            }
+        plan.export_brachy_plan(
+            content_to_export=init_export_config
+        )
+        dose_generator = RapidBrachyTG43(
+            dir_plan_export=dir_dose_rate
+        )
+        plan = dose_generator.run_dose_generation(
+            plan=plan,
+            generate_dose_rate_maps=True,
+            export_config_brachyplan={
+                "dir_export": dir_dose_rate,
+                "export_config_plan_and_mac": True,
+            }
+        )
+        # plan.export_brachy_plan(
+        # content_to_export={
+        #     "dir_export": dir_export,
+        #     "export_config_dose": True,
+        #     "export_config_cathetertable": {
+        #             "file_extension": ".json",
+        #         },
+        #     }
+        # )
 
     optimization_config_list=[
         Optimization_Config(
@@ -74,15 +113,12 @@ def test_catheter_table_optim():
             spacing_mm=3,
             )
     ]
-    plan = get_a_plan(
-        dir_dicom=pth_dicom,
-        dir_dose_rate=dir_dose_rate,
-        from_delivered_dwellpositions=from_delivered_dwellpositions,
+    plan.setup_optimization(
         optimization_config_list=optimization_config_list,
-        generate_dose_rates=gen_dose_rates,
+        structure_list=plan.structure_list,
         strict_name_match=False,
-        dvh_metric_goals=dvh_metric_names,
-        )
+    )
+
     catheter_optim_obj = CatheterTableOptim_Gurobi(
         plan=plan,
         multi_processing=multi_processing,
@@ -91,7 +127,10 @@ def test_catheter_table_optim():
     optimized_plan.export_brachy_plan(
         content_to_export={
             "dir_export": dir_export,
-            "export_config_dose": True
+            "export_config_dose": True,
+            "export_config_cathetertable": {
+                    "file_extension": ".json",
+                },
         }
     )
     dvh_metrics_dict = optimized_plan.get_dvh_metrics(return_percentage=True)

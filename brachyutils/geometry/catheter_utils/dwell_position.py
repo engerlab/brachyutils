@@ -155,3 +155,6 @@ class DwellPosition(BaseModel):
             super().__setattr__(name, value)
         else:
             super().__setattr__(name, value)
+    
+    def reset_time_diff(self):
+        object.__setattr__(self, "_time_diff", 0.0)

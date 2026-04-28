@@ -175,6 +175,12 @@ def test_time_diff():
     print("on resetting: ", dp.time, dp._time_diff)
     dp.time = 7
     print("on setting back: ", dp.time, dp._time_diff)
+    dp.time = 0
+    print("on setting back: ", dp.time, dp._time_diff)
+    dp.reset_time_diff()
+    print("on resetting time diff: ", dp.time, dp._time_diff)
+    dp.time = 5
+    print("on setting back: ", dp.time, dp._time_diff)
     
 if __name__ == "__main__":
     # test_dwells_catheters()
