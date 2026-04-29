@@ -286,7 +286,7 @@ class BrachyPlan:
         # # setup optimization
         if optimization_config_list is not None:
             self.setup_optimization(
-                self.optimization_config_list,
+                optimization_config_list,
                 self.structure_list,
                 add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
                 one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
@@ -1413,7 +1413,7 @@ config do not match for structure {struc.name}"
                         # set constraints on the catheters
                         for catheter in self.catheter_table:
                             self.optimization_constraint_dict[catheter.name_id] = Constraint_Config(
-                                name=catheter.name_id,
+                                name=f"catheter_{catheter.name_id}",
                                 equal=1
                             )
                     break
