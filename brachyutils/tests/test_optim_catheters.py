@@ -29,13 +29,14 @@ def test_catheter_table_optim():
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
     # dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
-    from_delivered_dwellpositions=True
+    from_delivered_dwellpositions=False
     multi_processing = True
+    gen_dose_rates = True
+    catheter_recommendaion=False
 
     # # For generating the dose rates
     dir_dose_rate = Path("temp_data/tg43/cat-optim/test").resolve()
     dir_export = dir_dose_rate
-    gen_dose_rates = False
 
     dvh_metric_names = [
         "D90%(CTV)", "D2cc(RECTUM)", "D10%(URETHRA)",
@@ -99,7 +100,7 @@ def test_catheter_table_optim():
             penalty_weight_variance_time=1,
             mask_margin_mm=0,
             spacing_mm=3,
-            catheter_recommendaion=True),
+            catheter_recommendaion=catheter_recommendaion),
         Optimization_Config(
             structure_name="URETHRA",
             is_target=False,
@@ -217,6 +218,9 @@ def test_dynamic_plan_generation():
     plan.catheter_table.write_to_slicer_markup(dir_dose_rate/"catheter_table.mrk.json")
     plan.combined_dose.write_to_nrrd(dir_dose_rate/"combined_dose.seq.nrrd")
     print("dynamic plan generation test completed successfully.")
+
+
+# def test_bound_variables():
 
 
 if __name__ == "__main__":
