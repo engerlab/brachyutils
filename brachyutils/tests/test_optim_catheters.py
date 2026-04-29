@@ -30,12 +30,12 @@ def test_catheter_table_optim():
     # dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
     from_delivered_dwellpositions=True
-    multi_processing = False
+    multi_processing = True
 
     # # For generating the dose rates
     dir_dose_rate = Path("temp_data/tg43/cat-optim/test").resolve()
     dir_export = dir_dose_rate
-    gen_dose_rates = True
+    gen_dose_rates = False
 
     dvh_metric_names = [
         "D90%(CTV)", "D2cc(RECTUM)", "D10%(URETHRA)",
@@ -80,7 +80,12 @@ def test_catheter_table_optim():
         #         },
         #     }
         # )
-
+    else:
+        plan.catheter_table.load_dose_rates(
+            dir_dose_rate=dir_dose_rate,
+            multi_processing=multi_processing
+        )
+        
     optimization_config_list=[
         Optimization_Config(
             structure_name="CTV",
@@ -94,7 +99,7 @@ def test_catheter_table_optim():
             penalty_weight_variance_time=1,
             mask_margin_mm=0,
             spacing_mm=3,
-            catheter_recommendaion=True),
+            catheter_recommendaion=False),
         Optimization_Config(
             structure_name="URETHRA",
             is_target=False,
