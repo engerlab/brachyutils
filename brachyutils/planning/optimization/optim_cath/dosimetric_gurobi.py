@@ -517,7 +517,6 @@ def set_dwell_coef_dict_per_structure(
         # Build dose rate matrix and dwell time vector for this structure
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
             dwellTimeVariables,
-            # plan,
             structure_name=structure.name,
             structure_mask=structure_mask,
             optim_spacing=structure.optimization_config.spacing_mm,
@@ -563,14 +562,12 @@ def bound_variables(
             vars_needed = []
             # gatheter all catheter or dwell variables
             for this_var in all_vars:
-                if var_target == "catheter":
+                if var_target == "catheters":
                     # we are looking for catheter variables only
-                    if (this_var.name.startswith("catheter") and 
-                        not "dwell" in this_var.name):
+                    if this_var.name.startswith("catheter"):
                         vars_needed.append(this_var)
                 elif var_target == "dwelltimes":
-                    if (this_var.name.startswith("catheter") and 
-                        "dwell" in this_var.name):
+                    if this_var.name.startswith("dwell"):
                         vars_needed.append(this_var)
             # apply the constraint
             vars_needed = MVar(vars_needed)

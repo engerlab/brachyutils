@@ -27,13 +27,18 @@ class Constraint_Config(BaseModel):
     ### Purpose:
     - A class to represent the constraint information on other dwell time or catheter
     variables. The name of the config should match the name of the variable in the optimization model.
-    - Each variable can have min, max or equality constraints.
+    - Each variable can have min, max or equality constraints. Set exactly the constraint you want and
+    leave the others as None.
     - The name of the constraints on the number of catheters or the total dwell times should being with
-    "sum_catheters" and "sum_dwelltimes"
+    "sum_catheters" and "sum_dwelltimes".
 
     ### Attributes:
-    - name:= The name of the model variable 
-    - minimum: int | float = 0
+    - name:= The name of the model variable, which is a string in one of the following patterns:
+        - dwell_#_#_#
+        - catheter_#
+        - sum_catheters
+        - sum_dwelltime
+    - minimum: int | float = None
     - maximum: int | float = None
     - equal: int | float = None
     """

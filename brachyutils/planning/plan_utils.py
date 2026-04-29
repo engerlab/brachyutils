@@ -76,7 +76,7 @@ class BrachyPlan:
     - optimization_config_dict (Dict[str, Optimization_Config]): Dictionary of optimization configurations for the plan.
     The keys are the structure names from phantom (usually loaded from DICOM RS). The structure name attribute
     could be a substring of the structure name in the phantom. For example, "CTV" in "CTV_BRACHY".
-    - optimization_constraints_dict (Dict[str, Constraint_Config]): Dictionary of optimization constraints for the plan.
+    - optimization_constraint_dict (Dict[str, Constraint_Config]): Dictionary of optimization constraints for the plan.
     see Constraint_Config for more details.
     """
 
@@ -183,7 +183,7 @@ class BrachyPlan:
 
         # optimization attributes
         self.optimization_config_dict: Dict[str, Optimization_Config] = None
-        self.optimization_constraints_dict: Dict[str, Constraint_Config] = None
+        self.optimization_constraint_dict: Dict[str, Constraint_Config] = None
  
         ## fill the attributes depending on the inputs to the constructor
         # load the prescription dose if the path is provided.
@@ -1369,6 +1369,9 @@ class BrachyPlan:
         structures will be created and added to self.structure_list if needed.
         """
         self._reset_optimization()
+        self.optimization_config_dict = defaultdict(Optimization_Config)
+        self.optimization_constraint_dict = defaultdict(Constraint_Config)
+
         if isinstance(optimization_config_list, (Path, str)):
             optimization_config_list = Path(optimization_config_list).resolve()
             if str(optimization_config_list).endswith(".json"):
@@ -1403,6 +1406,16 @@ class BrachyPlan:
                     assert config.is_target == struc.is_target, f"The target structure in plan and optimization \
 config do not match for structure {struc.name}"
                     struc.set_optimization_config(config)
+                    self.optimization_config_dict[struc] = config
+                    # check if the structure is a target and catheter
+                    # recommendation is not needed
+                    if config.is_target and not (config.catheter_recommendaion):
+                        # set constraints on the catheters
+                        for catheter in self.catheter_table:
+                            self.optimization_constraint_dict[catheter.name_id] = Constraint_Config(
+                                name=catheter.name_id,
+                                equal=1
+                            )
                     break
 
     def _create_hotspot_structures(
