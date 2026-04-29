@@ -99,7 +99,7 @@ def test_catheter_table_optim():
             penalty_weight_variance_time=1,
             mask_margin_mm=0,
             spacing_mm=3,
-            catheter_recommendaion=False),
+            catheter_recommendaion=True),
         Optimization_Config(
             structure_name="URETHRA",
             is_target=False,

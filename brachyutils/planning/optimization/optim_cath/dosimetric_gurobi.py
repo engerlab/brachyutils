@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 from tqdm import tqdm
 from pathlib import Path
 
-from gurobipy import Model, Var, GRB, MVar
+from gurobipy import Model, Var, GRB, MVar, GurobiError
 import numpy as np
 
 from brachyutils.brachy_types import BrachyPlan, BrachyDose
@@ -90,6 +90,7 @@ class CatheterTableOptim_Gurobi():
     r"""
     ### Purpose:
     - a class to optimize the catheter table using Gurobi.
+
     ### Attributes:
     - `plan`: BrachyPlan := the brachytherapy plan to be optimized.
     - `solver`: str := the solver used for optimization. default is "gurobi
@@ -167,9 +168,9 @@ class CatheterTableOptim_Gurobi():
             catheter_vars=self.catheter_vars,
             model=self.model,
         )
-        self.bound_variables(
-            constraint_config_dict=plan.optimization_constraint_dict
-        )
+        if plan.optimization_constraint_dict is not None:
+            self.bound_variables(
+                constraint_config_dict=plan.optimization_constraint_dict)
 
     def initialize_model(self, solver: str, pth_logfile:str=None) -> Model:
         r"""
@@ -550,7 +551,10 @@ def bound_variables(
     """
     for constraint in list(constraint_config_dict.values()):
         # check if the constraint already exists, if yes remove it
-        old_constraint = model.getConstrByName(f"c_{constraint.name}")
+        try:
+            old_constraint = model.getConstrByName(f"c_{constraint.name}")
+        except GurobiError:
+            old_constraint = None
         if old_constraint:
             model.remove(old_constraint)
             model.update()
