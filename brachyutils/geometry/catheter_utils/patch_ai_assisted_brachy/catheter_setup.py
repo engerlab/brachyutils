@@ -1605,7 +1605,7 @@ number {tt}, itself inserted in the afterloader channel number {ac}. \n""".forma
             mask = dilate_mask_in_mm(mask, margin_mm, voxel_based=False)
         self.keep_dwell_positions(mask, condition="inside")
 
-    ### TODO: Think about merging the catheter setup into brachyutils. Here we have to 
+    ### Here we have to 
     # update multiple objects. In brachyutils CatheterTable objects are better organized.
     # We would only need to update one object. 
     def keep_dwell_positions(self, mask:sitk.Image, condition:str="inside") -> None:
