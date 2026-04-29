@@ -25,13 +25,15 @@ def test_catheter_gurobi_initialization():
     model.update()
     model.printStats()
 
-def test_catheter_table_optim():
+def test_catheter_table_optim(
+    retrun_optim_obj:bool = False
+    ):
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
     # dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
     from_delivered_dwellpositions=False
     multi_processing = True
-    gen_dose_rates = True
+    gen_dose_rates = False
     catheter_recommendaion=False
 
     # # For generating the dose rates
@@ -129,6 +131,10 @@ def test_catheter_table_optim():
         plan=plan,
         multi_processing=multi_processing,
         )
+
+    if retrun_optim_obj:
+        return catheter_optim_obj
+
     optimized_plan = catheter_optim_obj.get_optimized_plan_from_model()
     optimized_plan.export_brachy_plan(
         content_to_export={
@@ -220,10 +226,40 @@ def test_dynamic_plan_generation():
     print("dynamic plan generation test completed successfully.")
 
 
-# def test_bound_variables():
+def test_bound_variables():
+    dir_dose_rate = Path("temp_data/tg43/cat-optim/test").resolve()
+    dir_export = dir_dose_rate
 
+    from brachyutils.planning.optimization.optim_configs import Constraint_Config
+    
+    constraint_dict = {
+        "dwell_1_1_0": Constraint_Config(
+            name="dwell_1_1_0",
+            equal=100
+        )
+    }
+    
+    catheter_optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
+    catheter_optim_obj.bound_variables(
+        constraint_config_dict=constraint_dict
+    )
+    optimized_plan = catheter_optim_obj.get_optimized_plan_from_model()
+
+    optimized_plan.export_brachy_plan(
+        content_to_export={
+            "dir_export": dir_export,
+            "export_config_dose": True,
+            "export_config_cathetertable": {
+                    "file_extension": ".json",
+                },
+        }
+    )
+    dvh_metrics_dict = optimized_plan.get_dvh_metrics(return_percentage=True)
+    DataFrame([dvh_metrics_dict]).to_csv(
+        dir_export / "dvh_metrics.csv", index=False)
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
-    test_catheter_table_optim()
+    # test_catheter_table_optim()
     # test_dynamic_plan_generation()
+    test_bound_variables()
