@@ -9,7 +9,7 @@ from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 def get_a_plan(
     dir_dicom:str | Path,
-    **kwargs):
+    **kwargs)->BrachyPlan:
     prescription_dose = kwargs.get("prescription_dose", 21)
     dvh_metric_goals = {
         "D90%(CTV)": prescription_dose,
