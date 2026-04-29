@@ -1,5 +1,7 @@
 from typing import List, Dict, Union, Annotated
-from pydantic import BaseModel, ConfigDict, model_validator, Field
+from pydantic import (
+    BaseModel, ConfigDict, model_validator,
+    Field, TypeAdapter, ValidationError)
 import numpy as np
 from opentps.core.data.images import ROIMask
 
@@ -19,8 +21,16 @@ PatternSumDwellTimes = Annotated[str, Field(pattern=r'^sum_dwelltimes$')]
 # Create a Union type that accepts any of the above
 ValidName = Union[PatternDwell, PatternCatheter, PatternSumCatheters, PatternSumDwellTimes]
 
-def _is_binary(value):
-    return value in [0, 1]
+def _validate_pattern(query: str, pattern: ValidName) -> bool:
+    adapter = TypeAdapter(pattern)
+    try:
+        adapter.validate_python(query)
+        return True
+    except ValidationError:
+        return False
+
+def _is_binary_or_None(value):
+    return value in [0, 1, None]
 
 class Constraint_Config(BaseModel):
     """
@@ -54,18 +64,18 @@ class Constraint_Config(BaseModel):
 
     @model_validator(mode="after")
     def sanity_check(self):
-        if isinstance(self.name, PatternCatheter):
+        if _validate_pattern(self.name, PatternCatheter):
             if (
-                (not _is_binary(self.minimum))
-                or (not _is_binary(self.maximum))
-                or (not _is_binary(self.equal))):
+                (not _is_binary_or_None(self.minimum))
+                or (not _is_binary_or_None(self.maximum))
+                or (not _is_binary_or_None(self.equal))):
                 raise ValueError(f"minimum, maximum and equality constraints for {self.name} \
 must be binary values (0 or 1)")
-        elif isinstance(self.name, PatternSumCatheters):
+        elif _validate_pattern(self.name, PatternSumCatheters):
             if (
-                (not isinstance(self.minimum, int))
-                or (not isinstance(self.maximum, int))
-                or (not isinstance(self.equal, int))):
+                (not (isinstance(self.minimum, int) or self.minimum is None))
+                or (not isinstance(self.maximum, int) or self.maximum is None)
+                or (not isinstance(self.equal, int) or self.equal is None)):
                 raise ValueError(f"minimum, maximum and equality constraints for {self.name} \
 must be integer values")
 

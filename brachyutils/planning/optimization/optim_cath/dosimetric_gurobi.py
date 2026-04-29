@@ -167,10 +167,9 @@ class CatheterTableOptim_Gurobi():
             catheter_vars=self.catheter_vars,
             model=self.model,
         )
-        # TODO: continue on setting the constraints.
-        # self.bound_variables(
-        #     # constraint_configs=
-        # )
+        self.bound_variables(
+            constraint_config_dict=plan.optimization_constraint_dict
+        )
 
     def initialize_model(self, solver: str, pth_logfile:str=None) -> Model:
         r"""
@@ -264,7 +263,7 @@ class CatheterTableOptim_Gurobi():
 
     def bound_variables(
         self,
-        constraint_configs:List[Constraint_Config],
+        constraint_config_dict:Dict[str, Constraint_Config],
         ):
         """
         ### Purpose:
@@ -274,15 +273,16 @@ class CatheterTableOptim_Gurobi():
         dwell times should being with "sum_catheters" and "sum_dwelltimes".
 
         ### Inputs:
-        - constraint_configs (List[Constraint_Config]): Each item in this list contains the name of the
-        variable as well as minimum, maximum and equality constraints on that variable.
+        - constraint_config_dict (Dict[Constraint_Config]): Each item in this dictionary contains the name of the
+        variable as well as minimum, maximum and equality constraints on that variable. The naming convention
+        for the items and the keys are described in bound_variables()
         - model (Model): The model containing the variables. The name of the variables in the constraint list 
         should match the name of the variable. Otherwies, Error will be thrown.
         ### Outputs:
         - None: model is updated with the new constraints
         """
         bound_variables(
-            constraint_configs=constraint_configs,
+            constraint_configs=constraint_config_dict,
             model=self.model
         )
 
@@ -530,14 +530,14 @@ def set_dwell_coef_dict_per_structure(
             structure.optimization_config.dwell_coef_dict[var.VarName] = coeff
 
 def bound_variables(
-    constraint_configs:List[Constraint_Config],
+    constraint_config_dict:Dict[str, Constraint_Config],
     model:Model,
     ):
     """
     ### Purpose:
-    - To bound the model variables according the list of constraint config. The bound could be on the 
+    - To bound the model variables according the dictionary of constraint config. The bound could be on the 
     lower bound, upper bound or equality value of the variable.
-    - The name of the constraints on the number of catheters (sum of binary variable) or the total
+    - The name of the constraints (and the keys) on the number of catheters (sum of binary variable) or the total
     dwell times should being with "sum_catheters" and "sum_dwelltimes".
 
     ### Inputs:
@@ -548,7 +548,7 @@ def bound_variables(
     ### Outputs:
     - None: model is updated with the new constraints
     """
-    for constraint in constraint_configs:
+    for constraint in list(constraint_config_dict.values()):
         # check if the constraint already exists, if yes remove it
         old_constraint = model.getConstrByName(f"c_{constraint.name}")
         if old_constraint:
