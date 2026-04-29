@@ -282,7 +282,7 @@ class CatheterTableOptim_Gurobi():
         - None: model is updated with the new constraints
         """
         bound_variables(
-            constraint_configs=constraint_config_dict,
+            constraint_config_dict=constraint_config_dict,
             model=self.model
         )
 
