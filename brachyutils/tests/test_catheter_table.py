@@ -182,6 +182,28 @@ def test_time_diff():
     dp.time = 5
     print("on setting back: ", dp.time, dp._time_diff)
     
+
+def test_build_line_connectors():
+    from brachyutils.geometry.catheter_utils.geometric_catheter_generation import build_line_connectors
+    import trimesh
+    dir_out = "data_test/test_export_plan/prostate/line_connectors"
+    np.random.seed(42)
+    centers = [[12, 0, 15], [-12, 0, 18], [0, 12, 20], [0, -12, 12], [0, 0, 26]]
+    demo_meshes = []
+    for c in centers:
+        pts  = np.random.randn(50, 3) * 2 + c
+        hull = trimesh.convex.convex_hull(pts)
+        demo_meshes.append(hull)
+
+    build_line_connectors(
+        meshes        = demo_meshes,
+        grid_n        = 5,
+        danger_dist   = 5.0,
+        tube_radius   = 0.5,
+        perpendicular = False,
+        out_dir       = dir_out,
+    )
+
 if __name__ == "__main__":
     # test_dwells_catheters()
     # test_loading_from_dicom()
@@ -191,4 +213,5 @@ if __name__ == "__main__":
     # test_load_dose_rates()
     # test_export_dose()
     # test_get_dwells_by_ids()
-    test_time_diff()
+    # test_time_diff()
+    test_build_line_connectors()

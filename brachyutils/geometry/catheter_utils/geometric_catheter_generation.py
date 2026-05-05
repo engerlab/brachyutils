@@ -12,7 +12,7 @@ Pipeline:
 Dependencies:
     pip install trimesh[easy] scipy
 """
-
+from typing import List
 import os
 import numpy as np
 import trimesh
@@ -25,12 +25,12 @@ from scipy.spatial import cKDTree
 # ══════════════════════════════════════════════════════
 #  PARAMETERS  — tune these
 # ══════════════════════════════════════════════════════
-GRID_N         = 5      # NxN candidate lines  (5 → 25 candidates)
-DANGER_DIST    = 5.0    # mm: lines closer than this to any mesh are discarded
-TUBE_RADIUS    = 0.5    # visual radius of exported line tubes
-PROX_SAMPLES   = 40     # samples along each line for proximity check
-PERP_LINES     = False  # True → lines perpendicular to planes (parallel to OBB Z)
-STL_OUT_DIR    = "stl_output"
+# GRID_N         = 5      # NxN candidate lines  (5 → 25 candidates)
+# DANGER_DIST    = 5.0    # mm: lines closer than this to any mesh are discarded
+# TUBE_RADIUS    = 0.5    # visual radius of exported line tubes
+# PROX_SAMPLES   = 40     # samples along each line for proximity check
+# PERP_LINES     = False  # True → lines perpendicular to planes (parallel to OBB Z)
+# STL_OUT_DIR    = "stl_output"
 
 
 # ══════════════════════════════════════════════════════
@@ -188,29 +188,32 @@ def segment_to_tube(p0: np.ndarray,
 # ══════════════════════════════════════════════════════
 
 def build_line_connectors(
-    meshes:        list,
-    grid_n:        int   = GRID_N,
-    danger_dist:   float = DANGER_DIST,
-    tube_radius:   float = TUBE_RADIUS,
-    perpendicular: bool  = PERP_LINES,
-    out_dir:       str   = STL_OUT_DIR,
+    meshes:List[trimesh.Trimesh],
+    grid_n:int ,
+    danger_dist:float,
+    tube_radius:float,
+    perpendicular:bool,
+    out_dir:str ,
 ) -> tuple[dict, list]:
     """
+    ### Purpose:
+    - Given a set of 3D meshes, automatically generate a set of
+    straight line connectors between two bounding planes,
+    while avoiding collisions and close proximity to the meshes.
+    Export everything as STL files for visualization.
     Full pipeline: OBB planes → grid → filter → export STL.
 
-    Parameters
-    ----------
-    meshes        : list of trimesh.Trimesh
-    grid_n        : N for NxN grid of candidate lines
-    danger_dist   : discard lines within this distance of any mesh
-    tube_radius   : radius of exported tube geometry
-    perpendicular : if True, lines run parallel to OBB Z axis (perpendicular to planes)
-    out_dir       : directory for STL output
+    ### Inputs:
+    - meshes: List[trimesh.Trimesh] := list of trimesh.Trimesh
+    - grid_n: int :=  N for NxN grid of candidate lines
+    - danger_dist: float := discard lines within this distance of any mesh
+    - tube_radius: float := radius of exported tube geometry
+    - perpendicular: bool := if True, lines run parallel to OBB Z axis (perpendicular to planes)
+    - out_dir: str := directory for STL output
 
-    Returns
-    -------
-    exported    : dict  {label: filepath}
-    valid_lines : list  of (p0, p1) tuples
+    ### Outputs:
+    exported: Dict[str, str]:= dictionary of {label: filepath} for all exported STL files
+    valid_lines: List[Tuple[np.ndarray, np.ndarray]] := list of (p0, p1) tuples
     """
     os.makedirs(out_dir, exist_ok=True)
 
@@ -318,24 +321,3 @@ def build_line_connectors(
 # for path in exported.values():
 #     combined += pv.read(path)
 # combined.save("all_in_one.vtp")
-
-
-if __name__ == "__main__":
-    # ── Demo with synthetic convex hull meshes ───────────────────────────────
-    # Replace this block with your actual mesh loading (see above).
-    np.random.seed(42)
-    centers = [[12, 0, 15], [-12, 0, 18], [0, 12, 20], [0, -12, 12], [0, 0, 26]]
-    demo_meshes = []
-    for c in centers:
-        pts  = np.random.randn(50, 3) * 2 + c
-        hull = trimesh.convex.convex_hull(pts)
-        demo_meshes.append(hull)
-
-    build_line_connectors(
-        meshes        = demo_meshes,
-        grid_n        = 5,
-        danger_dist   = 5.0,
-        tube_radius   = 0.5,
-        perpendicular = False,
-        out_dir       = "temp_data/stl_output",
-    )
