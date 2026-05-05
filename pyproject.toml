@@ -50,7 +50,9 @@ dependencies = [
     "scikit-learn",
     "amplpy",
     "gurobipy",
-    "ortools"
+    "ortools",
+    "rtree",
+    "trimesh[easy]",
 ]
 
 [project.optional-dependencies]
