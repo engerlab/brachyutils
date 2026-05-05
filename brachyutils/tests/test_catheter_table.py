@@ -204,6 +204,23 @@ def test_build_line_connectors():
         out_dir       = dir_out,
     )
 
+def test_gen_catheter_table_from_contours():
+    from brachyutils.geometry.catheter_utils.geometric_catheter_generation import gen_catheter_table_from_contours
+    from brachyutils.geometry.phantom_utils import BrachyPhantom
+    from opentps.core.data._rtStruct import ROIContour
+    dir_dicom = Path("data_test/prostate-glen-p1-dcm")
+    pth_struct = list(dir_dicom.glob("RS*.dcm"))[0]
+    phant:BrachyPhantom = BrachyPhantom(
+        dir_dicom=dir_dicom,
+        pth_structures_file=pth_struct)
+    contour_dict = phant.get_structure_mask(
+        query_structure_list=["urethra", "rectum"], mask_type=ROIContour, strict_name_match=False)
+    cat_table = gen_catheter_table_from_contours(
+        contour_dict=contour_dict,
+        grid_n=5,
+        out_stl_dir="data_test/test_export_plan/prostate/line_connectors_from_contours"
+    )
+
 if __name__ == "__main__":
     # test_dwells_catheters()
     # test_loading_from_dicom()
@@ -214,4 +231,5 @@ if __name__ == "__main__":
     # test_export_dose()
     # test_get_dwells_by_ids()
     # test_time_diff()
-    test_build_line_connectors()
+    # test_build_line_connectors()
+    test_gen_catheter_table_from_contours()

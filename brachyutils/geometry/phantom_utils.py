@@ -657,6 +657,19 @@ Please provide either the structure_set or the path of the structure file."
                 f"Format {representation} not recognized. Please use 'mask' or 'contour'."
             )
 
+    def write_structures_to_stl() -> None:
+        r"""
+        Purpose:
+            - To write the structures to stl files. Each structure is written to a separate stl file.
+        Inputs:
+            - None
+        Outputs:
+            - None
+        Dependencies:
+            - vtk
+        """
+        raise NotImplementedError("Writing structures to stl files is not implemented yet.")
+
     def write_to_egsphant(
         self,
         pth_output: Path,

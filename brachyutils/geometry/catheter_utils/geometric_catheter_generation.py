@@ -12,7 +12,7 @@ Pipeline:
 Dependencies:
     pip install trimesh[easy] scipy
 """
-from typing import List
+from typing import List, Dict
 import os
 import numpy as np
 import trimesh
@@ -20,7 +20,9 @@ import trimesh.creation
 import trimesh.transformations as tf
 from trimesh.ray.ray_triangle import RayMeshIntersector
 from scipy.spatial import cKDTree
-
+from pathlib import Path
+from opentps.core.data._roiContour import ROIContour
+from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 
 # ══════════════════════════════════════════════════════
 #  PARAMETERS  — tune these
@@ -28,7 +30,7 @@ from scipy.spatial import cKDTree
 # GRID_N         = 5      # NxN candidate lines  (5 → 25 candidates)
 # DANGER_DIST    = 5.0    # mm: lines closer than this to any mesh are discarded
 # TUBE_RADIUS    = 0.5    # visual radius of exported line tubes
-# PROX_SAMPLES   = 40     # samples along each line for proximity check
+PROX_SAMPLES   = 40     # samples along each line for proximity check
 # PERP_LINES     = False  # True → lines perpendicular to planes (parallel to OBB Z)
 # STL_OUT_DIR    = "stl_output"
 
@@ -157,7 +159,7 @@ def line_is_invalid(p0: np.ndarray,
 #  STEP 4 — Line → tube geometry
 # ══════════════════════════════════════════════════════
 
-def segment_to_tube(p0: np.ndarray,
+def line_to_tube(p0: np.ndarray,
                     p1: np.ndarray,
                     radius: float,
                     sections: int = 12) -> trimesh.Trimesh | None:
@@ -191,10 +193,10 @@ def build_line_connectors(
     meshes:List[trimesh.Trimesh],
     grid_n:int ,
     danger_dist:float,
-    tube_radius:float,
     perpendicular:bool,
-    out_dir:str ,
-) -> tuple[dict, list]:
+    out_dir:str | Path = None,
+    tube_radius:float = 3.0,
+    ) -> tuple[dict, list]:
     """
     ### Purpose:
     - Given a set of 3D meshes, automatically generate a set of
@@ -215,7 +217,7 @@ def build_line_connectors(
     exported: Dict[str, str]:= dictionary of {label: filepath} for all exported STL files
     valid_lines: List[Tuple[np.ndarray, np.ndarray]] := list of (p0, p1) tuples
     """
-    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True) if out_dir is not None else None
 
     # ── 1. OBB planes ───────────────────────────────────────────────────────
     o_top, o_bot, normal, obb_T, extents = obb_planes(meshes)
@@ -243,42 +245,95 @@ def build_line_connectors(
     n_total = len(pairs)
     n_valid = len(valid_lines)
     print(f"Candidates: {n_total}  |  Valid (kept): {n_valid}  |  Discarded: {n_total - n_valid}")
+    return valid_lines
 
     # ── 4. Export STL files ──────────────────────────────────────────────────
-    exported = {}
+    # exported = {}
 
-    # Input meshes
-    for i, m in enumerate(meshes):
-        path = os.path.join(out_dir, f"mesh_{i:02d}.stl")
-        m.export(path)
-        exported[f"mesh_{i:02d}"] = path
+    # # Input meshes
+    # for i, m in enumerate(meshes):
+    #     path = os.path.join(out_dir, f"mesh_{i:02d}.stl")
+    #     m.export(path)
+    #     exported[f"mesh_{i:02d}"] = path
 
-    # Bounding planes as thin flat boxes
-    for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
-        ex, ey, _ = extents
-        box = trimesh.creation.box(extents=[ex, ey, 0.2])
-        Tbox          = obb_T.copy()
-        Tbox[:3, 3]   = centre
-        box.apply_transform(Tbox)
-        path = os.path.join(out_dir, f"{label}.stl")
-        box.export(path)
-        exported[label] = path
+    # # Bounding planes as thin flat boxes
+    # for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
+    #     ex, ey, _ = extents
+    #     box = trimesh.creation.box(extents=[ex, ey, 0.2])
+    #     Tbox          = obb_T.copy()
+    #     Tbox[:3, 3]   = centre
+    #     box.apply_transform(Tbox)
+    #     path = os.path.join(out_dir, f"{label}.stl")
+    #     box.export(path)
+    #     exported[label] = path
 
-    # Line tubes
-    for idx, (p0, p1) in enumerate(valid_lines):
-        tube = segment_to_tube(p0, p1, tube_radius)
-        if tube is not None:
-            path = os.path.join(out_dir, f"line_{idx:03d}.stl")
-            tube.export(path)
-            exported[f"line_{idx:03d}"] = path
+    # # Line tubes
+    # for idx, (p0, p1) in enumerate(valid_lines):
+    #     tube = line_to_tube(p0, p1, tube_radius)
+    #     if tube is not None:
+    #         path = os.path.join(out_dir, f"line_{idx:03d}.stl")
+    #         tube.export(path)
+    #         exported[f"line_{idx:03d}"] = path
 
-    print(f"\nSTL files written to: {out_dir}/")
-    for k, v in exported.items():
-        print(f"  {v}")
+    # print(f"\nSTL files written to: {out_dir}/")
+    # for k, v in exported.items():
+    #     print(f"  {v}")
 
-    return exported, valid_lines
+    # return valid_lines, exported
 
+def gen_catheter_table_from_contours(
+    contour_dict: Dict[str, ROIContour],
+    grid_n:int,
+    danger_dist_mm:float = 3.0,
+    perpendicular:bool = True,
+    out_stl_dir:str = None,
+    catheter_radius:float = 2.0,
+    ) -> CatheterTable:
+    r"""
+    ### Purpose
+    - Given a dictionary of ROIContours, generate a CatheterTable by:
+      1. Extracting the contour vertices as meshes.
+      2. Running the `build_line_connectors` pipeline to get valid line segments.
+      3. Converting valid line segments into Catheter and DwellPosition objects.
+    
+    ### Inputs
+    - contour_dict: Dict[str, ROIContour] := dictionary of ROIContours (e.g. from TPS)
+    - grid_n: int := number of candidate lines per plane axis (total candidates = grid_n^2)
+    - danger_dist_mm: float := minimum allowed distance (mm) from any contour vertex
+    - perpendicular: bool := if True, lines run parallel to OBB Z axis (perpendicular to planes)
+    - out_stl_dir: str := if provided, directory to export STL files of meshes + lines
+    - catheter_radius: float := visual radius of exported line tubes (mm)
+    """
+    
+    mesh_list = []
+    for name, contour in contour_dict.items():
+        vertices = get_vertices_from_polygon_mesh(contour.polygonMesh)
+        mesh = trimesh.Trimesh(
+            vertices=vertices,
+            face_colors=contour.color)
+        mesh_list.append(mesh)
+    valid_lines = build_line_connectors(
+        meshes=mesh_list,
+        grid_n=grid_n,
+        danger_dist=danger_dist_mm,
+        tube_radius=catheter_radius,
+        perpendicular=perpendicular,
+        out_dir=out_stl_dir
+    )
+    
+    if out_stl_dir is not None:
+        for i, line in enumerate(valid_lines):
+            tube = line_to_tube(line[0], line[1], catheter_radius)
+            if tube is not None:
+                path = os.path.join(out_stl_dir, f"line_{i:03d}.stl")
+                tube.export(path)
+        for i, mesh in enumerate(mesh_list):
+            path = os.path.join(out_stl_dir, f"mesh_{i:02d}.stl")
+            mesh.export(path)
+            
 
+def get_vertices_from_polygon_mesh(polygon_mesh) -> np.ndarray:
+    raise NotImplementedError("This function should convert a TPS polygonMesh to a numpy array of vertices. Implementation depends on the structure of polygonMesh in your TPS data.")
 # ══════════════════════════════════════════════════════
 #  HOW TO USE WITH YOUR OWN MESHES
 # ══════════════════════════════════════════════════════
