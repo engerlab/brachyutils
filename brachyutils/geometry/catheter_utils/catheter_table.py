@@ -388,7 +388,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             raise ValueError("Cannot add two catheter tables with different stepsizes.")
         return self
 
-    def __delitem__(self, indicies: int | slice | str):
+    def __delitem__(self, indices: int | slice | str):
         r"""
         ### Purpose:
         - To delete a few catheters from the catheter table.
@@ -520,7 +520,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             raise ValueError("catheter should be a Catheter object.")
         new_index = len(self.catheters_dict)
         catheter.index = new_index
-        self.catheters_list[catheter.name_id] = catheter
+        self.catheters_dict[catheter.name_id] = catheter
 
     def __setitem__(self, name_id: str, new_catheter: dict | Catheter) -> None:
         r"""
