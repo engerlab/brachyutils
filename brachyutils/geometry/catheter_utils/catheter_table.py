@@ -388,7 +388,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             raise ValueError("Cannot add two catheter tables with different stepsizes.")
         return self
 
-    def __delitem__(self, indicies: int | slice | str):
+    def __delitem__(self, indices: int | slice | str):
         r"""
         ### Purpose:
         - To delete a few catheters from the catheter table.
@@ -520,7 +520,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             raise ValueError("catheter should be a Catheter object.")
         new_index = len(self.catheters_dict)
         catheter.index = new_index
-        self.catheters_list[catheter.name_id] = catheter
+        self.catheters_dict[catheter.name_id] = catheter
 
     def __setitem__(self, name_id: str, new_catheter: dict | Catheter) -> None:
         r"""
@@ -617,14 +617,14 @@ match its index, be sure that the name_id == new_catheter.index +1")
         ### Outputs:
         - dict := the dictionary containing the catheter table.
         """
-        treatment_t = self.treatment_time
+        treatment_t = self.treatment_time            
         return {
-            "catheter_list": [ # only change this after adapting seb's functions to use catheters_dict
-                catheter.to_dict(total_time=treatment_t) 
-                for catheter in self.catheters_list
-                ],
-            "step_size": float(self.step_size),
-            "treatment_time": float(treatment_t)
+            "catheters_dict": {
+                cath.name_id: cath.to_dict(total_time=treatment_t)
+                for cath in self.catheters_list
+            },
+            "step_size": round(float(self.step_size), 3),
+            "treatment_time": round(float(treatment_t), 3),
         }
 
     def info(self) -> None:

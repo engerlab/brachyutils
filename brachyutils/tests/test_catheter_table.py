@@ -220,6 +220,12 @@ def test_gen_catheter_table_from_contours():
         grid_n=5,
         out_stl_dir="data_test/test_export_plan/prostate/line_connectors_from_contours"
     )
+def test_json_io():
+    cat_tab_to_export = test_load_dose_rates()
+    pth_json = "data_test/test_export_plan/prostate/test_catheter_table_with_dose.json"
+    cat_tab_to_export.write_to_json(pth_json=pth_json)
+    cat_tab_loaded = CatheterTable(catheters_dict=pth_json)
+    cat_tab_loaded.info()
 
 if __name__ == "__main__":
     # test_dwells_catheters()
@@ -233,3 +239,4 @@ if __name__ == "__main__":
     # test_time_diff()
     # test_build_line_connectors()
     test_gen_catheter_table_from_contours()
+    # test_json_io()
