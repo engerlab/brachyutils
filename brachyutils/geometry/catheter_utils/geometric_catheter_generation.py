@@ -196,8 +196,6 @@ def build_line_connectors(
     grid_n:int ,
     danger_dist:float,
     perpendicular:bool,
-    out_dir:str | Path = None,
-    tube_radius:float = 3.0,
     ) -> tuple[dict, list]:
     """
     ### Purpose:
@@ -211,16 +209,11 @@ def build_line_connectors(
     - meshes: List[trimesh.Trimesh] := list of trimesh.Trimesh
     - grid_n: int :=  N for NxN grid of candidate lines
     - danger_dist: float := discard lines within this distance of any mesh
-    - tube_radius: float := radius of exported tube geometry
     - perpendicular: bool := if True, lines run parallel to OBB Z axis (perpendicular to planes)
-    - out_dir: str := directory for STL output
 
     ### Outputs:
-    exported: Dict[str, str]:= dictionary of {label: filepath} for all exported STL files
     valid_lines: List[Tuple[np.ndarray, np.ndarray]] := list of (p0, p1) tuples
     """
-    os.makedirs(out_dir, exist_ok=True) if out_dir is not None else None
-
     # ── 1. OBB planes ───────────────────────────────────────────────────────
     o_top, o_bot, normal, obb_T, extents = obb_planes(meshes)
 
@@ -289,7 +282,7 @@ def gen_catheter_table_from_contours(
     danger_dist_mm:float = 3.0,
     perpendicular:bool = True,
     out_stl_dir:str = None,
-    catheter_radius:float = 2.0,
+    catheter_radius:float = 1.0,
     ) -> CatheterTable:
     r"""
     ### Purpose
@@ -310,23 +303,21 @@ def gen_catheter_table_from_contours(
     mesh_list = []
     for name, mesh in mesh_dict.items():
         mesh_list.append(mesh)
-    # valid_lines = build_line_connectors(
-    #     meshes=mesh_list,
-    #     grid_n=grid_n,
-    #     danger_dist=danger_dist_mm,
-    #     tube_radius=catheter_radius,
-    #     perpendicular=perpendicular,
-    #     out_dir=out_stl_dir
-    # )
-    
+    valid_lines = build_line_connectors(
+        meshes=mesh_list,
+        grid_n=grid_n,
+        danger_dist=danger_dist_mm,
+        perpendicular=perpendicular,
+    )
+
     if out_stl_dir is not None:
-        # for i, line in enumerate(valid_lines):
-        #     tube = line_to_tube(line[0], line[1], catheter_radius)
-        #     if tube is not None:
-        #         path = os.path.join(out_stl_dir, f"line_{i:03d}.stl")
-        #         tube.export(path)
+        for i, line in enumerate(valid_lines):
+            tube = line_to_tube(line[0], line[1], catheter_radius)
+            if tube is not None:
+                path = os.path.join(out_stl_dir, f"line_{i:03d}.ply")
+                tube.export(path)
         for i, mesh in enumerate(mesh_list):
-            path = os.path.join(out_stl_dir, f"mesh_{i:02d}.stl")
+            path = os.path.join(out_stl_dir, f"mesh_{i:02d}.ply")
             mesh.export(path)
             
 

@@ -436,7 +436,9 @@ Please provide either the structure_set or the path of the structure file."
                             mask.imageArray, spacing=mask.spacing
                         )
                         verts += mask.origin
-                        mesh = Trimesh(vertices=verts, faces=faces, process=False)
+                        mesh = Trimesh(
+                            vertices=verts, faces=faces,
+                            process=False, face_colors=mask.color)
                         mesh.fix_normals()
                         original_centroid = mesh.centroid
                         trimesh.smoothing.filter_laplacian(mesh, iterations=5)
