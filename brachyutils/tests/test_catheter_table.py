@@ -182,6 +182,13 @@ def test_time_diff():
     dp.time = 5
     print("on setting back: ", dp.time, dp._time_diff)
     
+def test_json_io():
+    cat_tab_to_export = test_load_dose_rates()
+    pth_json = "data_test/test_export_plan/prostate/test_catheter_table_with_dose.json"
+    cat_tab_to_export.write_to_json(pth_json=pth_json)
+    cat_tab_loaded = CatheterTable(catheters_dict=pth_json)
+    cat_tab_loaded.info()
+
 if __name__ == "__main__":
     # test_dwells_catheters()
     # test_loading_from_dicom()
@@ -191,4 +198,5 @@ if __name__ == "__main__":
     # test_load_dose_rates()
     # test_export_dose()
     # test_get_dwells_by_ids()
-    test_time_diff()
+    # test_time_diff()
+    test_json_io()
