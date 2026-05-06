@@ -214,9 +214,10 @@ def test_gen_catheter_table_from_contours():
         dir_dicom=dir_dicom,
         pth_structures_file=pth_struct)
     mesh_dict = phant.get_structure_mask(
-        query_structure_list=["urethra", "rectum"], mask_type=Trimesh, strict_name_match=False)
+        query_structure_list=["CTV", "urethra", "rectum"], mask_type=Trimesh, strict_name_match=False)
     cat_table = gen_catheter_table_from_contours(
         mesh_dict=mesh_dict,
+        target_structures=["CTV"],
         grid_n=5,
         out_stl_dir="data_test/test_export_plan/prostate/line_connectors_from_contours"
     )

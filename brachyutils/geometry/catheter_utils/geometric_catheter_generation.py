@@ -59,12 +59,12 @@ def obb_planes(meshes: list) -> tuple:
 
     R         = T[:3, :3]
     centre    = T[:3,  3]
-    z_axis    = R[:, 2]
-    half_z    = extents[2] / 2.0
+    superior_axis    = R[:, 1]
+    half_superior    = extents[1] / 2.0
 
-    origin_top = centre + z_axis * half_z
-    origin_bot = centre - z_axis * half_z
-    normal     = z_axis / np.linalg.norm(z_axis)
+    origin_top = centre + superior_axis * half_superior
+    origin_bot = centre - superior_axis * half_superior
+    normal     = superior_axis / np.linalg.norm(superior_axis)
 
     return origin_top, origin_bot, normal, T, extents
 
@@ -192,10 +192,11 @@ def line_to_tube(
 # ══════════════════════════════════════════════════════
 
 def build_line_connectors(
-    meshes:List[trimesh.Trimesh],
+    mesh_dict:Dict[str, trimesh.Trimesh],
     grid_n:int ,
     danger_dist:float,
     perpendicular:bool,
+    target_structures:List[str],
     ) -> tuple[dict, list]:
     """
     ### Purpose:
@@ -215,7 +216,7 @@ def build_line_connectors(
     valid_lines: List[Tuple[np.ndarray, np.ndarray]] := list of (p0, p1) tuples
     """
     # ── 1. OBB planes ───────────────────────────────────────────────────────
-    o_top, o_bot, normal, obb_T, extents = obb_planes(meshes)
+    o_top, o_bot, normal, obb_T, extents = obb_planes(list(mesh_dict.values()))
 
     # ── 2. Grid points on each plane ────────────────────────────────────────
     top_pts = grid_on_plane(o_top, obb_T, extents, grid_n)
@@ -233,9 +234,10 @@ def build_line_connectors(
         pairs = list(zip(top_pts, bot_pts))
 
     # ── 3. Filter colliding / too-close lines ───────────────────────────────
+    oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structures]
     valid_lines = [
         (p0, p1) for p0, p1 in pairs
-        if not line_is_invalid(p0, p1, meshes, danger_dist)
+        if not line_is_invalid(p0, p1, oar_meshes, danger_dist)
     ]
     n_total = len(pairs)
     n_valid = len(valid_lines)
@@ -278,6 +280,7 @@ def build_line_connectors(
 
 def gen_catheter_table_from_contours(
     mesh_dict: Dict[str, trimesh.Trimesh],
+    target_structures: List[str],
     grid_n:int,
     danger_dist_mm:float = 3.0,
     perpendicular:bool = True,
@@ -293,6 +296,7 @@ def gen_catheter_table_from_contours(
     
     ### Inputs
     - mesh_dict: Dict[str, trimesh.Trimesh] := dictionary of Trimesh objects (e.g. from TPS)
+    - target_structures: List[str] := list of structure names to be irradiated
     - grid_n: int := number of candidate lines per plane axis (total candidates = grid_n^2)
     - danger_dist_mm: float := minimum allowed distance (mm) from any contour vertex
     - perpendicular: bool := if True, lines run parallel to OBB Z axis (perpendicular to planes)
@@ -300,14 +304,12 @@ def gen_catheter_table_from_contours(
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
     
-    mesh_list = []
-    for name, mesh in mesh_dict.items():
-        mesh_list.append(mesh)
     valid_lines = build_line_connectors(
-        meshes=mesh_list,
+        mesh_dict=mesh_dict,
         grid_n=grid_n,
         danger_dist=danger_dist_mm,
         perpendicular=perpendicular,
+        target_structures=target_structures
     )
 
     if out_stl_dir is not None:
@@ -317,8 +319,8 @@ def gen_catheter_table_from_contours(
             if tube is not None:
                 path = out_stl_dir / f"line_{i:03d}.ply"
                 tube.export(path)
-        for i, mesh in enumerate(mesh_list):
-            path = out_stl_dir / f"{mesh.metadata.get('name', f'mesh_{i:02d}')}.ply"
+        for name, mesh in mesh_dict.items():
+            path = out_stl_dir / f"{name}.ply"
             mesh.export(path)
 
 def get_vertices_faces_from_polygon_mesh(polygon_mesh:ArrayLike) -> np.ndarray:
