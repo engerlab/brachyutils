@@ -23,6 +23,8 @@ from scipy.spatial import cKDTree
 from pathlib import Path
 from opentps.core.data._roiContour import ROIContour
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+from numpy.typing import ArrayLike
+from scipy.spatial import Delaunay
 
 # ══════════════════════════════════════════════════════
 #  PARAMETERS  — tune these
@@ -307,33 +309,45 @@ def gen_catheter_table_from_contours(
     
     mesh_list = []
     for name, contour in contour_dict.items():
-        vertices = get_vertices_from_polygon_mesh(contour.polygonMesh)
+        vertices, faces = get_vertices_faces_from_polygon_mesh(contour.polygonMesh)
         mesh = trimesh.Trimesh(
             vertices=vertices,
-            face_colors=contour.color)
+            faces=faces,
+            face_colors=contour.color,
+            )
         mesh_list.append(mesh)
-    valid_lines = build_line_connectors(
-        meshes=mesh_list,
-        grid_n=grid_n,
-        danger_dist=danger_dist_mm,
-        tube_radius=catheter_radius,
-        perpendicular=perpendicular,
-        out_dir=out_stl_dir
-    )
+    # valid_lines = build_line_connectors(
+    #     meshes=mesh_list,
+    #     grid_n=grid_n,
+    #     danger_dist=danger_dist_mm,
+    #     tube_radius=catheter_radius,
+    #     perpendicular=perpendicular,
+    #     out_dir=out_stl_dir
+    # )
     
     if out_stl_dir is not None:
-        for i, line in enumerate(valid_lines):
-            tube = line_to_tube(line[0], line[1], catheter_radius)
-            if tube is not None:
-                path = os.path.join(out_stl_dir, f"line_{i:03d}.stl")
-                tube.export(path)
+        # for i, line in enumerate(valid_lines):
+        #     tube = line_to_tube(line[0], line[1], catheter_radius)
+        #     if tube is not None:
+        #         path = os.path.join(out_stl_dir, f"line_{i:03d}.stl")
+        #         tube.export(path)
         for i, mesh in enumerate(mesh_list):
             path = os.path.join(out_stl_dir, f"mesh_{i:02d}.stl")
             mesh.export(path)
             
 
-def get_vertices_from_polygon_mesh(polygon_mesh) -> np.ndarray:
-    raise NotImplementedError("This function should convert a TPS polygonMesh to a numpy array of vertices. Implementation depends on the structure of polygonMesh in your TPS data.")
+def get_vertices_faces_from_polygon_mesh(polygon_mesh:ArrayLike) -> np.ndarray:
+    vertices=[]
+    for polygon_2d in polygon_mesh:
+        Xs = polygon_2d[0::3]
+        Ys = polygon_2d[1::3]
+        Zs = polygon_2d[2::3]
+        vertices_2d = np.column_stack((Xs, Ys, Zs))
+        vertices.append(vertices_2d)
+    vertices = np.vstack(vertices)
+    faces = Delaunay(vertices[:, :2]).simplices
+    return vertices, faces
+
 # ══════════════════════════════════════════════════════
 #  HOW TO USE WITH YOUR OWN MESHES
 # ══════════════════════════════════════════════════════
