@@ -48,17 +48,17 @@ def obb_planes(meshes: list) -> tuple:
     -------
     origin_top : (3,)  point on superior plane
     origin_bot : (3,)  point on inferior plane
-    normal     : (3,)  unit normal shared by both planes (top → bottom direction)
+    normal     : (3,)  unit normal shared by both planes (superior → inferior direction)
     obb_T      : (4,4) OBB transform (world ← OBB local frame)
     extents    : (3,)  OBB full extents [ex, ey, ez]
     """
     combined  = trimesh.util.concatenate(meshes)
     obb       = combined.bounding_box_oriented
-    T         = obb.primitive.transform
+    obb_T         = obb.primitive.transform
     extents   = obb.primitive.extents
 
-    R         = T[:3, :3]
-    centre    = T[:3,  3]
+    R         = obb_T[:3, :3]
+    centre    = obb_T[:3,  3]
     superior_axis    = R[:, 1]
     half_superior    = extents[1] / 2.0
 
@@ -66,7 +66,7 @@ def obb_planes(meshes: list) -> tuple:
     origin_bot = centre - superior_axis * half_superior
     normal     = superior_axis / np.linalg.norm(superior_axis)
 
-    return origin_top, origin_bot, normal, T, extents
+    return origin_top, origin_bot, normal, obb_T, extents
 
 
 # ══════════════════════════════════════════════════════
@@ -82,7 +82,7 @@ def grid_on_plane(plane_origin: np.ndarray,
 
     Parameters
     ----------
-    plane_origin : (3,)  point on the plane (e.g. OBB top/bottom face centre)
+    plane_origin : (3,)  point on the plane (e.g. OBB superior/inferior face centre)
     obb_T        : (4,4) OBB transform (provides X/Y in-plane axes)
     extents      : (3,)  OBB extents [ex, ey, ez]
     n            : int   number of grid points per axis
@@ -236,7 +236,7 @@ def build_line_connectors(
     oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structures]
     valid_lines = [
         (p0, p1) for p0, p1 in pairs
-        # if not line_is_invalid(p0, p1, oar_meshes, danger_dist)
+        if not line_is_invalid(p0, p1, oar_meshes, danger_dist)
     ]
     n_total = len(pairs)
     n_valid = len(valid_lines)
