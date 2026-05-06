@@ -46,8 +46,8 @@ def obb_planes(meshes: list) -> tuple:
 
     Returns
     -------
-    origin_top : (3,)  point on top plane
-    origin_bot : (3,)  point on bottom plane
+    origin_top : (3,)  point on superior plane
+    origin_bot : (3,)  point on inferior plane
     normal     : (3,)  unit normal shared by both planes (top → bottom direction)
     obb_T      : (4,4) OBB transform (world ← OBB local frame)
     extents    : (3,)  OBB full extents [ex, ey, ez]
@@ -93,16 +93,16 @@ def grid_on_plane(plane_origin: np.ndarray,
     """
     R    = obb_T[:3, :3]
     x_ax = R[:, 0]
-    y_ax = R[:, 1]
-    ex, ey = extents[0], extents[1]
+    z_ax = R[:, 2]
+    ex, ez = extents[0], extents[2]
 
     # Inset slightly from edges
     us = np.linspace(-ex/2 + ex/(2*n), ex/2 - ex/(2*n), n)
-    vs = np.linspace(-ey/2 + ey/(2*n), ey/2 - ey/(2*n), n)
+    vs = np.linspace(-ez/2 + ez/(2*n), ez/2 - ez/(2*n), n)
     UU, VV = np.meshgrid(us, vs)
     pts = (plane_origin
            + UU.ravel()[:, None] * x_ax
-           + VV.ravel()[:, None] * y_ax)
+           + VV.ravel()[:, None] * z_ax)
     return pts  # (n*n, 3)
 
 
@@ -209,7 +209,6 @@ def build_line_connectors(
     ### Inputs:
     - meshes: List[trimesh.Trimesh] := list of trimesh.Trimesh
     - grid_n: int :=  N for NxN grid of candidate lines
-    - danger_dist: float := discard lines within this distance of any mesh
     - perpendicular: bool := if True, lines run parallel to OBB Z axis (perpendicular to planes)
 
     ### Outputs:
@@ -237,12 +236,12 @@ def build_line_connectors(
     oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structures]
     valid_lines = [
         (p0, p1) for p0, p1 in pairs
-        if not line_is_invalid(p0, p1, oar_meshes, danger_dist)
+        # if not line_is_invalid(p0, p1, oar_meshes, danger_dist)
     ]
     n_total = len(pairs)
     n_valid = len(valid_lines)
     print(f"Candidates: {n_total}  |  Valid (kept): {n_valid}  |  Discarded: {n_total - n_valid}")
-    return valid_lines
+    return valid_lines, o_top, o_bot, extents, obb_T
 
     # ── 4. Export STL files ──────────────────────────────────────────────────
     # exported = {}
@@ -304,7 +303,7 @@ def gen_catheter_table_from_contours(
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
     
-    valid_lines = build_line_connectors(
+    valid_lines, o_top, o_bot, extents, obb_T = build_line_connectors(
         mesh_dict=mesh_dict,
         grid_n=grid_n,
         danger_dist=danger_dist_mm,
@@ -322,18 +321,15 @@ def gen_catheter_table_from_contours(
         for name, mesh in mesh_dict.items():
             path = out_stl_dir / f"{name}.ply"
             mesh.export(path)
-
-def get_vertices_faces_from_polygon_mesh(polygon_mesh:ArrayLike) -> np.ndarray:
-    vertices=[]
-    for polygon_2d in polygon_mesh:
-        Xs = polygon_2d[0::3]
-        Ys = polygon_2d[1::3]
-        Zs = polygon_2d[2::3]
-        vertices_2d = np.column_stack((Xs, Ys, Zs))
-        vertices.append(vertices_2d)
-    vertices = np.vstack(vertices)
-    faces = Delaunay(vertices[:, :2]).simplices
-    return vertices, faces
+        # Bounding planes as thin flat boxes
+        for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
+            ex, ey, _ = extents
+            box = trimesh.creation.box(extents=[ex, ey, 0.2])
+            Tbox          = obb_T.copy()
+            Tbox[:3, 3]   = centre
+            box.apply_transform(Tbox)
+            path = os.path.join(out_stl_dir, f"{label}.ply")
+            box.export(path)
 
 # ══════════════════════════════════════════════════════
 #  HOW TO USE WITH YOUR OWN MESHES
