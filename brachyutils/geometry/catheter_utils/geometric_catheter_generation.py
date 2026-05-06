@@ -323,8 +323,8 @@ def gen_catheter_table_from_contours(
             mesh.export(path)
         # Bounding planes as thin flat boxes
         for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
-            ex, ey, _ = extents
-            box = trimesh.creation.box(extents=[ex, ey, 0.2])
+            ex, _, ez = extents
+            box = trimesh.creation.box(extents=[ex, 0.2, ez])
             Tbox          = obb_T.copy()
             Tbox[:3, 3]   = centre
             box.apply_transform(Tbox)
