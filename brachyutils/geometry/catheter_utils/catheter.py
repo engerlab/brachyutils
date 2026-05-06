@@ -53,7 +53,7 @@ class Catheter(BaseModel):
     step_size: float = 5.0
     # in case dwells and fit is missing and digitization points are provided.
     # we assume tip is the first digitization point and last dwell is the last digitization point.
-    digitization_points: List[List[float]] = None
+    digitization_points: Optional[List[List[float]]] = None
     # auxiliary attributes
     afterloader_channel_number: Optional[int] = None # if none, will be set to index
     insert_position: Optional[List[float]] = None
@@ -207,14 +207,14 @@ class Catheter(BaseModel):
             "index": int(self.index),
             "dwells": [dwell.to_dict(total_time) for dwell in self.dwells],
             # "fit_function": self.fit_function,
-            "tip_position": [float(x) for x in self.tip_position],
-            "last_dwell_coordinate": [float(x) for x in self.last_dwell_coordinate],
-            "step_size": float(self.step_size),
-            "digitization_points": [[float(x) for x in point] for point in self.digitization_points] if self.digitization_points else None,
+            "tip_position": [round(float(x), 3) for x in self.tip_position],
+            "last_dwell_coordinate": [round(float(x), 3) for x in self.last_dwell_coordinate],
+            "step_size": round(float(self.step_size), 3),
+            "digitization_points": [[round(float(x), 3) for x in point] for point in self.digitization_points] if self.digitization_points else None,
             "afterloader_channel_number": int(self.afterloader_channel_number) if self.afterloader_channel_number is not None else None,
-            "insert_position": [float(x) for x in self.insert_position] if self.insert_position else None,
-            "channel_total_time": float(self.channel_total_time),
-            "channel_length": float(self.channel_length) if self.channel_length is not None else None
+            "insert_position": [round(float(x), 3) for x in self.insert_position] if self.insert_position else None,
+            "channel_total_time": round(float(self.channel_total_time), 3),
+            "channel_length": round(float(self.channel_length), 3) if self.channel_length is not None else None
         }
 
     def add_dwell(self, dwell:DwellPosition) -> None:

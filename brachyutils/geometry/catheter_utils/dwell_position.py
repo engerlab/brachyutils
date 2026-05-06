@@ -109,12 +109,12 @@ class DwellPosition(BaseModel):
             "index": int(self.index),
             "name_id": self.name_id,
             "catheter_index": self.catheter_index,
-            "angle": float(self.angle),
+            "angle": round(float(self.angle), 3),
             "position": list(self.position),
-            "relativePos": float(self.relativePos),
+            "relativePos": round(float(self.relativePos), 3),
             "rotation": list(self.rotation),
-            "time": float(self.time),
-            "weight": float(self.weight(total_time)),
+            "time": round(float(self.time), 3),
+            "weight": round(float(self.weight(total_time)), 3),
         }
 
     def get_position(self) -> List[float]:
