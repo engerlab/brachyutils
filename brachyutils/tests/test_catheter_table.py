@@ -1,6 +1,7 @@
 from glob import glob
 from pathlib import Path
 import numpy as np
+from trimesh import Trimesh
 from brachyutils.geometry.catheter_utils.catheter_table import DwellPosition, Catheter, CatheterTable
 
 def test_dwells_catheters():
@@ -207,16 +208,15 @@ def test_build_line_connectors():
 def test_gen_catheter_table_from_contours():
     from brachyutils.geometry.catheter_utils.geometric_catheter_generation import gen_catheter_table_from_contours
     from brachyutils.geometry.phantom_utils import BrachyPhantom
-    from opentps.core.data._rtStruct import ROIContour
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     pth_struct = list(dir_dicom.glob("RS*.dcm"))[0]
     phant:BrachyPhantom = BrachyPhantom(
         dir_dicom=dir_dicom,
         pth_structures_file=pth_struct)
-    contour_dict = phant.get_structure_mask(
-        query_structure_list=["urethra", "rectum"], mask_type=ROIContour, strict_name_match=False)
+    mesh_dict = phant.get_structure_mask(
+        query_structure_list=["urethra", "rectum"], mask_type=Trimesh, strict_name_match=False)
     cat_table = gen_catheter_table_from_contours(
-        contour_dict=contour_dict,
+        mesh_dict=mesh_dict,
         grid_n=5,
         out_stl_dir="data_test/test_export_plan/prostate/line_connectors_from_contours"
     )

@@ -11,8 +11,9 @@ from pathlib import Path
 from copy import deepcopy
 from collections import defaultdict
 
-from vtk import vtkPolyData, vtkDelaunay2D, vtkPoints, vtkDecimatePro, vtkPolygon
-from vtkmodules.vtkIOGeometry import vtkSTLWriter
+import trimesh
+from trimesh import Trimesh
+from skimage import measure
 
 import nrrd
 import pydicom
@@ -20,7 +21,6 @@ import pydicom
 from opentps.core.data.images import CTImage, MRImage, ROIMask, Image3D
 from opentps.core.data import ROIContour, RTStruct
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D, resampleImage3DOnImage3D
-from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.io.dicomIO import (  # writeRTDose,
     readDicomCT,
     readDicomMRI,
@@ -366,7 +366,9 @@ Please provide either the structure_set or the path of the structure file."
     def get_structure_mask(
         self,
         query_structure_list: List[str],
-        mask_type: Union[np.ndarray, ROIContour, ROIMask, str] = ROIMask,
+        mask_type: Union[
+            np.ndarray, ROIContour, ROIMask, Trimesh,
+            Literal["array", "contour", "mask", "mesh"]] = ROIMask,
         strict_name_match: bool = True,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
@@ -397,6 +399,8 @@ Please provide either the structure_set or the path of the structure file."
                 flattened_query_structure_list.append(query_structure)
 
         for query_structure in flattened_query_structure_list:
+            # TODO: ROIContour to Mask conversion is expensive. consider using masks only and
+            # generate ROIContour when needed on the fly. we already have cached_structure_masks.
             for mask_name in self.structure_names:
                 if strict_name_match:
                     pick_structure = query_structure.lower() == mask_name.lower()
@@ -427,6 +431,19 @@ Please provide either the structure_set or the path of the structure file."
                         )
                     elif mask_type == ROIMask or mask_type == "mask":
                         mask_dict[query_structure] = mask
+                    elif mask_type == Trimesh or mask_type == "mesh":
+                        verts, faces, _, _ = measure.marching_cubes(
+                            mask.imageArray, spacing=mask.spacing
+                        )
+                        verts += mask.origin
+                        mesh = Trimesh(vertices=verts, faces=faces, process=False)
+                        mesh.fix_normals()
+                        original_centroid = mesh.centroid
+                        trimesh.smoothing.filter_laplacian(mesh, iterations=5)
+                        new_centroid = mesh.centroid
+                        drift = new_centroid - original_centroid
+                        mesh.apply_translation(-drift)
+                        mask_dict[query_structure] = mesh
                     else:
                         raise ValueError(f"mask_type {mask_type} not recognized")
         return mask_dict

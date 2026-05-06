@@ -284,7 +284,7 @@ def build_line_connectors(
     # return valid_lines, exported
 
 def gen_catheter_table_from_contours(
-    contour_dict: Dict[str, ROIContour],
+    mesh_dict: Dict[str, trimesh.Trimesh],
     grid_n:int,
     danger_dist_mm:float = 3.0,
     perpendicular:bool = True,
@@ -299,7 +299,7 @@ def gen_catheter_table_from_contours(
       3. Converting valid line segments into Catheter and DwellPosition objects.
     
     ### Inputs
-    - contour_dict: Dict[str, ROIContour] := dictionary of ROIContours (e.g. from TPS)
+    - mesh_dict: Dict[str, trimesh.Trimesh] := dictionary of Trimesh objects (e.g. from TPS)
     - grid_n: int := number of candidate lines per plane axis (total candidates = grid_n^2)
     - danger_dist_mm: float := minimum allowed distance (mm) from any contour vertex
     - perpendicular: bool := if True, lines run parallel to OBB Z axis (perpendicular to planes)
@@ -308,13 +308,7 @@ def gen_catheter_table_from_contours(
     """
     
     mesh_list = []
-    for name, contour in contour_dict.items():
-        vertices, faces = get_vertices_faces_from_polygon_mesh(contour.polygonMesh)
-        mesh = trimesh.Trimesh(
-            vertices=vertices,
-            faces=faces,
-            face_colors=contour.color,
-            )
+    for name, mesh in mesh_dict.items():
         mesh_list.append(mesh)
     # valid_lines = build_line_connectors(
     #     meshes=mesh_list,
