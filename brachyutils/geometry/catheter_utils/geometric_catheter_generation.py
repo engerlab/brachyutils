@@ -1,17 +1,3 @@
-"""
-line_connectors.py
-==================
-Pipeline:
-  1. Accept a list of polygon meshes (trimesh.Trimesh objects or loaded from STL/OBJ).
-  2. Fit an Oriented Bounding Box (OBB) around all meshes → derive top + bottom planes.
-  3. Sample a regular GRID_N x GRID_N grid of candidate line endpoints on each plane.
-  4. Optionally enforce lines perpendicular to the planes (parallel to OBB Z-axis).
-  5. Discard any line that intersects a mesh OR passes within DANGER_DIST of any mesh.
-  6. Export everything as STL files ready for Blender / 3D Slicer.
-
-Dependencies:
-    pip install trimesh[easy] scipy
-"""
 from typing import List, Dict
 import os
 import numpy as np
@@ -22,8 +8,6 @@ from trimesh.ray.ray_triangle import RayMeshIntersector
 from scipy.spatial import cKDTree
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
-from numpy.typing import ArrayLike
-from scipy.spatial import Delaunay
 
 # ══════════════════════════════════════════════════════
 #  PARAMETERS  — tune these
@@ -34,11 +18,6 @@ from scipy.spatial import Delaunay
 PROX_SAMPLES   = 40     # samples along each line for proximity check
 # PERP_LINES     = False  # True → lines perpendicular to planes (parallel to OBB Z)
 # STL_OUT_DIR    = "stl_output"
-
-
-# ══════════════════════════════════════════════════════
-#  STEP 1 — OBB → two bounding planes
-# ══════════════════════════════════════════════════════
 
 def obb_planes(meshes: list) -> tuple:
     """
@@ -67,11 +46,6 @@ def obb_planes(meshes: list) -> tuple:
     normal     = superior_axis / np.linalg.norm(superior_axis)
 
     return origin_top, origin_bot, normal, obb_T, extents
-
-
-# ══════════════════════════════════════════════════════
-#  STEP 2 — Grid sampling on a plane
-# ══════════════════════════════════════════════════════
 
 def grid_on_plane(plane_origin: np.ndarray,
                   obb_T: np.ndarray,
@@ -186,11 +160,6 @@ def line_to_tube(
     cyl.apply_transform(T @ R)
     return cyl
 
-
-# ══════════════════════════════════════════════════════
-#  MAIN PIPELINE
-# ══════════════════════════════════════════════════════
-
 def build_line_connectors(
     mesh_dict:Dict[str, trimesh.Trimesh],
     grid_n:int ,
@@ -214,6 +183,19 @@ def build_line_connectors(
     ### Outputs:
     valid_lines: List[Tuple[np.ndarray, np.ndarray]] := list of (p0, p1) tuples
     """
+    # find the meshes that collide with or are close to the target structures. Only they are relevant
+    # for defining the bounding planes.
+    meshes_4_planes = []
+    target_meshes = [mesh_dict[name] for name in target_structures if name in mesh_dict]
+    for name, mesh in mesh_dict.items():
+        if name not in target_structures:
+            # TODO: Debug this!
+            dists = trimesh.proximity.signed_distance(mesh, target_meshes)
+            if np.any(dists < danger_dist):
+                print(f"Mesh '{name}' is within {danger_dist}mm of target structures and will be included in plane fitting.")
+                meshes_4_planes.append(mesh)
+    meshes_4_planes += target_meshes
+
     # ── 1. OBB planes ───────────────────────────────────────────────────────
     o_top, o_bot, normal, obb_T, extents = obb_planes(list(mesh_dict.values()))
 
@@ -242,40 +224,6 @@ def build_line_connectors(
     n_valid = len(valid_lines)
     print(f"Candidates: {n_total}  |  Valid (kept): {n_valid}  |  Discarded: {n_total - n_valid}")
     return valid_lines, o_top, o_bot, extents, obb_T
-
-    # ── 4. Export STL files ──────────────────────────────────────────────────
-    # exported = {}
-
-    # # Input meshes
-    # for i, m in enumerate(meshes):
-    #     path = os.path.join(out_dir, f"mesh_{i:02d}.stl")
-    #     m.export(path)
-    #     exported[f"mesh_{i:02d}"] = path
-
-    # # Bounding planes as thin flat boxes
-    # for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
-    #     ex, ey, _ = extents
-    #     box = trimesh.creation.box(extents=[ex, ey, 0.2])
-    #     Tbox          = obb_T.copy()
-    #     Tbox[:3, 3]   = centre
-    #     box.apply_transform(Tbox)
-    #     path = os.path.join(out_dir, f"{label}.stl")
-    #     box.export(path)
-    #     exported[label] = path
-
-    # # Line tubes
-    # for idx, (p0, p1) in enumerate(valid_lines):
-    #     tube = line_to_tube(p0, p1, tube_radius)
-    #     if tube is not None:
-    #         path = os.path.join(out_dir, f"line_{idx:03d}.stl")
-    #         tube.export(path)
-    #         exported[f"line_{idx:03d}"] = path
-
-    # print(f"\nSTL files written to: {out_dir}/")
-    # for k, v in exported.items():
-    #     print(f"  {v}")
-
-    # return valid_lines, exported
 
 def gen_catheter_table_from_contours(
     mesh_dict: Dict[str, trimesh.Trimesh],
