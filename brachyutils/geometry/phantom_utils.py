@@ -432,20 +432,7 @@ Please provide either the structure_set or the path of the structure file."
                     elif mask_type == ROIMask or mask_type == "mask":
                         mask_dict[query_structure] = mask
                     elif mask_type == Trimesh or mask_type == "mesh":
-                        verts, faces, _, _ = measure.marching_cubes(
-                            mask.imageArray, spacing=mask.spacing
-                        )
-                        verts += mask.origin
-                        mesh = Trimesh(
-                            vertices=verts, faces=faces,
-                            process=False, face_colors=mask.color)
-                        mesh.fix_normals()
-                        original_centroid = mesh.centroid
-                        trimesh.smoothing.filter_laplacian(mesh, iterations=5)
-                        new_centroid = mesh.centroid
-                        drift = new_centroid - original_centroid
-                        mesh.apply_translation(-drift)
-                        mask_dict[query_structure] = mesh
+                        mask_dict[query_structure] = mask_to_trimesh(mask)
                     else:
                         raise ValueError(f"mask_type {mask_type} not recognized")
         return mask_dict
@@ -1867,20 +1854,53 @@ def masksToNrrd(
         # # Write the image
         nrrd.write(str(pth_output), all_masks, header, index_order="C", compression_level=1)
 
-def contour_to_stl(roi_contour: ROIContour, pth_output: Path) -> None:
-    r"""
-    Purpose:
-        - Export the contour to an STL file via vtkPolyData
-    Inputs:
-        - roi_contour: ROIContour := the contour to export.
-        - pth_output: Path := the path to save the STL file.
-    Outputs:
-        - None
-    :
+def mask_to_trimesh(roi_mask: ROIMask) -> trimesh.Trimesh:
+    r""""
+    ### Purpose:
+        - Convert an ROI mask to a Trimesh object. The Trimesh object contains the mesh as well as the color information.
+
+    ### Inputs:
+        - roi_mask: ROIMask := The ROI mask object containing the 3D binary mask data to be converted.
+
+    ### Outputs:
+        - mesh: trimesh.Trimesh := the generated mesh object.
     """
-    raise NotImplementedError("The implementation of this conversion from " \
-        "slicewise polygons of the contours to a 3D structured mesh is highly non-trivial." \
-        "Please use mask_to_stl instead.")
+    verts, faces, _, _ = measure.marching_cubes(
+    roi_mask.imageArray, spacing=roi_mask.spacing
+    )
+    verts += roi_mask.origin
+    mesh = Trimesh(
+        vertices=verts, faces=faces,
+        process=False, face_colors=roi_mask.color,
+        vertex_colors=roi_mask.color,
+        metadata={"name": roi_mask.name})
+    mesh.fix_normals()
+    original_centroid = mesh.centroid
+    trimesh.smoothing.filter_laplacian(mesh, iterations=5)
+    new_centroid = mesh.centroid
+    drift = new_centroid - original_centroid
+    mesh.apply_translation(-drift)
+    return mesh
+
+def mask_to_ply(roi_mask: ROIMask, pth_output: Path) -> None:
+    r""""
+    ### Purpose:
+        - Convert an ROI mask to a PLY file. The PlY files contain the mesh as well as the color information.
+
+    ### Inputs:
+        - roi_mask: ROIMask := The ROI mask object containing the 3D binary mask data to be converted.
+        - pth_output: Path := The output file path where the PLY file will be saved. It should
+        have a .ply extension.
+
+    ### Outputs:
+        - None
+    """
+    if not isinstance(roi_mask, ROIMask):
+        raise ValueError("The input roi_mask should be an instance of ROIMask.")
+    if not str(pth_output).endswith(".ply"):
+        raise ValueError("The output file must have a .ply extension.")    
+    mesh = mask_to_trimesh(roi_mask)
+    mesh.export(pth_output)
 
 def mask_to_stl(roi_mask: ROIMask, pth_output: Path) -> None:
     r"""

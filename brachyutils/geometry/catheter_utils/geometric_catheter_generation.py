@@ -21,7 +21,6 @@ import trimesh.transformations as tf
 from trimesh.ray.ray_triangle import RayMeshIntersector
 from scipy.spatial import cKDTree
 from pathlib import Path
-from opentps.core.data._roiContour import ROIContour
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from numpy.typing import ArrayLike
 from scipy.spatial import Delaunay
@@ -161,10 +160,11 @@ def line_is_invalid(p0: np.ndarray,
 #  STEP 4 — Line → tube geometry
 # ══════════════════════════════════════════════════════
 
-def line_to_tube(p0: np.ndarray,
-                    p1: np.ndarray,
-                    radius: float,
-                    sections: int = 12) -> trimesh.Trimesh | None:
+def line_to_tube(
+    p0: np.ndarray,
+    p1: np.ndarray,
+    radius: float,
+    sections: int = 12) -> trimesh.Trimesh | None:
     """Create a cylindrical tube mesh from p0 to p1."""
     direction = p1 - p0
     length    = np.linalg.norm(direction)
@@ -281,7 +281,7 @@ def gen_catheter_table_from_contours(
     grid_n:int,
     danger_dist_mm:float = 3.0,
     perpendicular:bool = True,
-    out_stl_dir:str = None,
+    out_stl_dir:str | Path = None,
     catheter_radius:float = 1.0,
     ) -> CatheterTable:
     r"""
@@ -311,15 +311,15 @@ def gen_catheter_table_from_contours(
     )
 
     if out_stl_dir is not None:
+        out_stl_dir = Path(out_stl_dir)
         for i, line in enumerate(valid_lines):
             tube = line_to_tube(line[0], line[1], catheter_radius)
             if tube is not None:
-                path = os.path.join(out_stl_dir, f"line_{i:03d}.ply")
+                path = out_stl_dir / f"line_{i:03d}.ply"
                 tube.export(path)
         for i, mesh in enumerate(mesh_list):
-            path = os.path.join(out_stl_dir, f"mesh_{i:02d}.ply")
+            path = out_stl_dir / f"{mesh.metadata.get('name', f'mesh_{i:02d}')}.ply"
             mesh.export(path)
-            
 
 def get_vertices_faces_from_polygon_mesh(polygon_mesh:ArrayLike) -> np.ndarray:
     vertices=[]
