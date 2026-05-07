@@ -235,7 +235,7 @@ def angled_catheter_pairs(
             u_axis = np.cross(normal, arbitrary)
             u_axis /= np.linalg.norm(u_axis)
         else:
-            u_axis = radial / norm_r
+            u_axis = -radial / norm_r # for pointing inwards towards the center of the bottom plane.
 
         v_axis = np.cross(normal, u_axis)
         v_axis /= np.linalg.norm(v_axis)
@@ -339,8 +339,8 @@ def build_line_connectors(
             grid_n=grid_n,
             alt_max=15.0,   # max tilt away from normal (degrees)
             alt_step=5.0,  # altitude angle increment (degrees)
-            az_max=360.0,   # max azimuthal angle (degrees)
-            az_step=30.0,   # azimuthal angle increment (degrees)
+            az_max=10.0,   # max azimuthal angle (degrees)
+            az_step=5.0,   # azimuthal angle increment (degrees)
         )        
 
     # ── 3. Filter colliding / too-close lines ───────────────────────────────
