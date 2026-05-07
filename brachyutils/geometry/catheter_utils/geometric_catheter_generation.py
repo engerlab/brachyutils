@@ -32,14 +32,14 @@ def obb_planes(meshes: list) -> tuple:
     extents    : (3,)  OBB full extents [ex, ey, ez]
     """
     combined  = trimesh.util.concatenate(meshes)
-    obb       = combined.bounding_box_oriented
-    obb_T         = obb.primitive.transform
+    obb       = combined.bounding_box
+    obb_T     = obb.primitive.transform
     extents   = obb.primitive.extents
 
     R         = obb_T[:3, :3]
     centre    = obb_T[:3,  3]
-    superior_axis    = R[:, 1]
-    half_superior    = extents[1] / 2.0
+    superior_axis    = R[:, 2]
+    half_superior    = extents[2] / 2.0
 
     origin_top = centre + superior_axis * half_superior
     origin_bot = centre - superior_axis * half_superior
@@ -67,16 +67,16 @@ def grid_on_plane(plane_origin: np.ndarray,
     """
     R    = obb_T[:3, :3]
     x_ax = R[:, 0]
-    z_ax = R[:, 2]
-    ex, ez = extents[0], extents[2]
+    y_ax = R[:, 1]
+    ex, ey = extents[0], extents[1]
 
     # Inset slightly from edges
     us = np.linspace(-ex/2 + ex/(2*n), ex/2 - ex/(2*n), n)
-    vs = np.linspace(-ez/2 + ez/(2*n), ez/2 - ez/(2*n), n)
+    vs = np.linspace(-ey/2 + ey/(2*n), ey/2 - ey/(2*n), n)
     UU, VV = np.meshgrid(us, vs)
     pts = (plane_origin
            + UU.ravel()[:, None] * x_ax
-           + VV.ravel()[:, None] * z_ax)
+           + VV.ravel()[:, None] * y_ax)
     return pts  # (n*n, 3)
 
 
@@ -183,8 +183,8 @@ def build_line_connectors(
     ### Outputs:
     valid_lines: List[Tuple[np.ndarray, np.ndarray]] := list of (p0, p1) tuples
     """
-    # find the meshes that collide with or are close to the target structures. Only they are relevant
-    # for defining the bounding planes.
+    # # find the meshes that collide with or are close to the target structures. Only they are relevant
+    # # for defining the bounding planes.
     meshes_4_planes = []
     target_meshes = [mesh_dict[name] for name in target_structures if name in mesh_dict]
     from trimesh.collision import CollisionManager
@@ -200,8 +200,8 @@ def build_line_connectors(
             meshes_4_planes += [mesh_dict[name] for name in names_colliding[1]]
     meshes_4_planes += target_meshes
 
-    # ── 1. OBB planes ───────────────────────────────────────────────────────
     o_top, o_bot, normal, obb_T, extents = obb_planes(meshes_4_planes)
+    # o_top, o_bot, normal, obb_T, extents = obb_planes(list(mesh_dict.values()))
 
     # ── 2. Grid points on each plane ────────────────────────────────────────
     top_pts = grid_on_plane(o_top, obb_T, extents, grid_n)
@@ -275,8 +275,8 @@ def gen_catheter_table_from_contours(
             mesh.export(path)
         # Bounding planes as thin flat boxes
         for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
-            ex, _, ez = extents
-            box = trimesh.creation.box(extents=[ex, 0.2, ez])
+            ex, ey, ez = extents
+            box = trimesh.creation.box(extents=[ex, ey, 0.2])
             Tbox          = obb_T.copy()
             Tbox[:3, 3]   = centre
             box.apply_transform(Tbox)
