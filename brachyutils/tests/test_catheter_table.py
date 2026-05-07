@@ -219,7 +219,8 @@ def test_gen_catheter_table_from_contours():
         mesh_dict=mesh_dict,
         target_structures=["CTV"],
         grid_n=5,
-        out_stl_dir="data_test/test_export_plan/prostate/line_connectors_from_contours"
+        out_stl_dir="data_test/test_export_plan/prostate/line_connectors_from_contours",
+        perpendicular=False,
     )
 def test_json_io():
     cat_tab_to_export = test_load_dose_rates()

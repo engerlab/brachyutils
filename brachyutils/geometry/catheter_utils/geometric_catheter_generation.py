@@ -27,7 +27,7 @@ def obb_planes(meshes: list) -> tuple:
     -------
     origin_top : (3,)  point on superior plane
     origin_bot : (3,)  point on inferior plane
-    normal     : (3,)  unit normal shared by both planes (superior → inferior direction)
+    normal     : (3,)  unit normal shared by both planes (inferior → superior direction)
     obb_T      : (4,4) OBB transform (world ← OBB local frame)
     extents    : (3,)  OBB full extents [ex, ey, ez]
     """
@@ -47,10 +47,11 @@ def obb_planes(meshes: list) -> tuple:
 
     return origin_top, origin_bot, normal, obb_T, extents
 
-def grid_on_plane(plane_origin: np.ndarray,
-                  obb_T: np.ndarray,
-                  extents: np.ndarray,
-                  n: int) -> np.ndarray:
+def grid_on_plane(
+    plane_origin: np.ndarray,
+    obb_T: np.ndarray,
+    extents: np.ndarray,
+    n: int) -> np.ndarray:
     """
     Sample an NxN grid of 3-D points on a plane, staying inside the OBB face.
 
@@ -160,6 +161,119 @@ def line_to_tube(
     cyl.apply_transform(T @ R)
     return cyl
 
+def angled_catheter_pairs(
+    o_top: np.ndarray,
+    o_bot: np.ndarray,
+    normal: np.ndarray,
+    obb_T: np.ndarray,
+    extents: np.ndarray,
+    grid_n: int,
+    alt_max: float,
+    alt_step: float,
+    az_max: float,
+    az_step: float,
+) -> list:
+    """
+    Generate angled catheter point pairs for a range of altitude and azimuthal angles.
+
+    Each bottom grid point is paired with one or more top plane intersection points,
+    produced by sweeping a ray from the bottom point across a discrete grid of
+    (altitude, azimuth) angles. Pairs where the top intersection falls outside the
+    OBB extents are discarded.
+
+    Azimuth=0 is defined as the direction from the bottom plane centre toward the
+    bottom point (i.e. radially outward), and sweeps symmetrically from -az_max
+    to +az_max. Altitude=0 is parallel to the normal.
+
+    Parameters
+    ----------
+    o_top    : (3,) point on the top (superior) plane
+    o_bot    : (3,) point on the bottom (inferior) plane
+    normal   : (3,) unit normal pointing inferior → superior
+    obb_T    : (4,4) OBB transform (world ← OBB local frame)
+    extents  : (3,) OBB full extents [ex, ey, ez]
+    grid_n   : number of grid points per axis on each plane
+    alt_max  : maximum altitude angle away from normal (degrees)
+    alt_step : altitude angle increment (degrees)
+    az_max   : half-width of azimuthal sweep (degrees); sweeps -az_max to +az_max
+    az_step  : azimuthal angle increment (degrees)
+
+    Returns
+    -------
+    pairs : list of (top_pt, bot_pt) tuples, each a (3,) np.ndarray
+    """
+    # ── OBB axes and half-extents for bounds check ───────────────────────────
+    obb_x  = obb_T[:3, 0]
+    obb_y  = obb_T[:3, 1]
+    half_x = extents[0] / 2.0
+    half_y = extents[1] / 2.0
+
+    # ── Angle grids ──────────────────────────────────────────────────────────
+    alt_steps = np.arange(0.0,    alt_max + 1e-9, alt_step)
+    az_steps  = np.arange(-az_max, az_max + 1e-9, az_step)
+
+    # ── Bottom grid points ───────────────────────────────────────────────────
+    bot_pts = grid_on_plane(o_bot, obb_T, extents, grid_n)
+
+    # ── Build pairs ──────────────────────────────────────────────────────────
+    pairs = []
+
+    for bot_pt in bot_pts:
+
+        # ── Per-point local azimuth basis ────────────────────────────────────
+        # u_axis: azimuth=0, pointing radially outward from bottom plane centre
+        # v_axis: azimuth=+90°, completing the right-handed transverse frame
+        radial  = bot_pt - o_bot
+        radial -= np.dot(radial, normal) * normal   # project onto transverse plane
+        norm_r  = np.linalg.norm(radial)
+
+        if norm_r < 1e-9:
+            # Centre point — fall back to a fixed reference direction
+            arbitrary = np.array([1.0, 0.0, 0.0])
+            if abs(np.dot(arbitrary, normal)) > 0.9:
+                arbitrary = np.array([0.0, 1.0, 0.0])
+            u_axis = np.cross(normal, arbitrary)
+            u_axis /= np.linalg.norm(u_axis)
+        else:
+            u_axis = radial / norm_r
+
+        v_axis = np.cross(normal, u_axis)
+        v_axis /= np.linalg.norm(v_axis)
+
+        for alt_deg in alt_steps:
+            for az_deg in az_steps:
+
+                # Collapse redundant azimuth samples at zero altitude
+                if alt_deg == 0.0 and az_deg != 0.0:
+                    continue
+
+                alt_rad = np.radians(alt_deg)
+                az_rad  = np.radians(az_deg)
+
+                # Ray direction: normal tilted by alt toward the az direction
+                az_dir  = np.cos(az_rad) * u_axis + np.sin(az_rad) * v_axis
+                ray_dir = np.cos(alt_rad) * normal + np.sin(alt_rad) * az_dir
+                ray_dir /= np.linalg.norm(ray_dir)
+
+                # Intersect with top plane: dot(p - o_top, normal) = 0
+                denom = np.dot(ray_dir, normal)
+                if abs(denom) < 1e-12:    # ray parallel to plane
+                    continue
+                t = np.dot(o_top - bot_pt, normal) / denom
+                if t <= 0:                # intersection behind bottom point
+                    continue
+
+                top_pt = bot_pt + t * ray_dir
+
+                # Discard if top_pt is outside OBB extents on the top plane
+                delta  = top_pt - o_top
+                proj_x = abs(np.dot(delta, obb_x))
+                proj_y = abs(np.dot(delta, obb_y))
+                if proj_x <= half_x and proj_y <= half_y:
+                    pairs.append((top_pt, bot_pt))
+
+    return pairs
+
 def build_line_connectors(
     mesh_dict:Dict[str, trimesh.Trimesh],
     grid_n:int ,
@@ -201,7 +315,6 @@ def build_line_connectors(
     meshes_4_planes += target_meshes
 
     o_top, o_bot, normal, obb_T, extents = obb_planes(meshes_4_planes)
-    # o_top, o_bot, normal, obb_T, extents = obb_planes(list(mesh_dict.values()))
 
     # ── 2. Grid points on each plane ────────────────────────────────────────
     top_pts = grid_on_plane(o_top, obb_T, extents, grid_n)
@@ -215,8 +328,20 @@ def build_line_connectors(
         ])
         pairs = list(zip(bot_pts_proj, bot_pts))
     else:
-        # Free straight lines: connect matching grid indices
-        pairs = list(zip(top_pts, bot_pts))
+        # Generate angled pairs by sweeping rays from each bottom point
+        # across a grid of altitude and azimuth angles.
+        pairs = angled_catheter_pairs(
+            o_top=o_top,
+            o_bot=o_bot,
+            normal=normal,
+            obb_T=obb_T,
+            extents=extents,
+            grid_n=grid_n,
+            alt_max=15.0,   # max tilt away from normal (degrees)
+            alt_step=5.0,  # altitude angle increment (degrees)
+            az_max=360.0,   # max azimuthal angle (degrees)
+            az_step=30.0,   # azimuthal angle increment (degrees)
+        )        
 
     # ── 3. Filter colliding / too-close lines ───────────────────────────────
     oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structures]
@@ -282,46 +407,3 @@ def gen_catheter_table_from_contours(
             box.apply_transform(Tbox)
             path = os.path.join(out_stl_dir, f"{label}.ply")
             box.export(path)
-
-# ══════════════════════════════════════════════════════
-#  HOW TO USE WITH YOUR OWN MESHES
-# ══════════════════════════════════════════════════════
-# 
-# Option A – load from STL files:
-#   meshes = [trimesh.load("mesh_a.stl"), trimesh.load("mesh_b.stl"), ...]
-#
-# Option B – build from numpy vertex arrays (e.g. your existing coords):
-#   import trimesh.convex
-#   meshes = [trimesh.convex.convex_hull(vertices_array) for vertices_array in your_arrays]
-#
-# Option C – already have faces:
-#   meshes = [trimesh.Trimesh(vertices=verts, faces=faces) for verts, faces in your_data]
-#
-# Then call:
-#   exported, valid_lines = build_line_connectors(
-#       meshes        = meshes,
-#       grid_n        = 5,         # 5x5 = 25 candidate lines
-#       danger_dist   = 5.0,       # mm
-#       tube_radius   = 0.5,
-#       perpendicular = False,     # True = lines perpendicular to planes
-#       out_dir       = "stl_output",
-#   )
-#
-# ── BLENDER import ──────────────────────────────────────────────────────────
-# File → Import → STL → select all files in stl_output/
-# To assign colors per object: select object → Material Properties → New → Base Color
-# Suggested colors:
-#   mesh_*    → grey   (0.5, 0.5, 0.5)
-#   plane_*   → blue   (0.2, 0.4, 0.8, alpha=0.4)
-#   line_*    → orange (1.0, 0.5, 0.1)
-#
-# ── 3D Slicer import ────────────────────────────────────────────────────────
-# File → Add Data → choose STL files → OK
-# In "Models" module, assign color + opacity per model.
-#
-# ── Optional: convert to single VTP for 3D Slicer ───────────────────────────
-# import pyvista as pv
-# combined = pv.PolyData()
-# for path in exported.values():
-#     combined += pv.read(path)
-# combined.save("all_in_one.vtp")
