@@ -187,17 +187,21 @@ def build_line_connectors(
     # for defining the bounding planes.
     meshes_4_planes = []
     target_meshes = [mesh_dict[name] for name in target_structures if name in mesh_dict]
+    from trimesh.collision import CollisionManager
+    collision_manager = CollisionManager()
     for name, mesh in mesh_dict.items():
         if name not in target_structures:
-            # TODO: Debug this!
-            dists = trimesh.proximity.signed_distance(mesh, target_meshes)
-            if np.any(dists < danger_dist):
-                print(f"Mesh '{name}' is within {danger_dist}mm of target structures and will be included in plane fitting.")
-                meshes_4_planes.append(mesh)
+            collision_manager.add_object(name, mesh)    
+    for target_mesh in target_meshes:
+        names_colliding = collision_manager.in_collision_single(
+            target_mesh,
+            return_names=True)
+        if names_colliding[0]:  # if there are any collisions, add the colliding meshes to the plane calculation
+            meshes_4_planes += [mesh_dict[name] for name in names_colliding[1]]
     meshes_4_planes += target_meshes
 
     # ── 1. OBB planes ───────────────────────────────────────────────────────
-    o_top, o_bot, normal, obb_T, extents = obb_planes(list(mesh_dict.values()))
+    o_top, o_bot, normal, obb_T, extents = obb_planes(meshes_4_planes)
 
     # ── 2. Grid points on each plane ────────────────────────────────────────
     top_pts = grid_on_plane(o_top, obb_T, extents, grid_n)

@@ -53,6 +53,7 @@ dependencies = [
     "ortools",
     "rtree",
     "trimesh[easy]",
+    "python-fcl",
 ]
 
 [project.optional-dependencies]
