@@ -7,7 +7,7 @@ import trimesh.transformations as tf
 from trimesh.ray.ray_triangle import RayMeshIntersector
 from scipy.spatial import cKDTree
 from pathlib import Path
-from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, Catheter
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
 
 # ══════════════════════════════════════════════════════
@@ -355,7 +355,7 @@ def build_line_connectors(
     n_total = len(pairs)
     n_valid = len(valid_lines)
     print(f"Candidates: {n_total}  |  Valid (kept): {n_valid}  |  Discarded: {n_total - n_valid}")
-    return valid_lines, o_top, o_bot, extents, obb_T
+    return valid_lines #, o_top, o_bot, extents, obb_T
 
 def gen_catheter_table_from_contours(
     mesh_dict: Dict[str, trimesh.Trimesh],
@@ -383,7 +383,13 @@ def gen_catheter_table_from_contours(
     - out_stl_dir: str := if provided, directory to export STL files of meshes + lines
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
-    valid_lines, o_top, o_bot, extents, obb_T = build_line_connectors(
+    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import (
+        # create_segments_by_slice,
+        PiecewiseLinear3D,
+        # Segment,
+    )
+
+    valid_lines = build_line_connectors(
         mesh_dict=mesh_dict,
         grid_n=grid_n,
         danger_dist=danger_dist_mm,
@@ -392,22 +398,35 @@ def gen_catheter_table_from_contours(
         config_angled_cathgen=config_angled_cathgen
     )
 
-    if out_stl_dir is not None:
-        out_stl_dir = Path(out_stl_dir)
-        for i, line in enumerate(valid_lines):
-            tube = line_to_tube(line[0], line[1], catheter_radius)
-            if tube is not None:
-                path = out_stl_dir / f"line_{i:03d}.ply"
-                tube.export(path)
-        for name, mesh in mesh_dict.items():
-            path = out_stl_dir / f"{name}.ply"
-            mesh.export(path)
-        # Bounding planes as thin flat boxes
-        for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
-            ex, ey, ez = extents
-            box = trimesh.creation.box(extents=[ex, ey, 0.2])
-            Tbox          = obb_T.copy()
-            Tbox[:3, 3]   = centre
-            box.apply_transform(Tbox)
-            path = os.path.join(out_stl_dir, f"{label}.ply")
-            box.export(path)
+    # convert the valid lines into catheters in the dwell position.
+    # Consider making the Candidate CatheterTable, which would have a cluster 
+    # of trajectories for each insertion point (bottom point)
+    valid_catheters = [
+        Catheter(
+            index=idx,
+            fit_function=PiecewiseLinear3D(line))
+        for idx, line in enumerate(valid_lines)]
+    catheter_table = CatheterTable(
+        catheters_dict=valid_catheters,
+    )
+    return catheter_table
+
+    # if out_stl_dir is not None:
+    #     out_stl_dir = Path(out_stl_dir)
+    #     for i, line in enumerate(valid_lines):
+    #         tube = line_to_tube(line[0], line[1], catheter_radius)
+    #         if tube is not None:
+    #             path = out_stl_dir / f"line_{i:03d}.ply"
+    #             tube.export(path)
+    #     for name, mesh in mesh_dict.items():
+    #         path = out_stl_dir / f"{name}.ply"
+    #         mesh.export(path)
+    #     # Bounding planes as thin flat boxes
+    #     for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
+    #         ex, ey, ez = extents
+    #         box = trimesh.creation.box(extents=[ex, ey, 0.2])
+    #         Tbox          = obb_T.copy()
+    #         Tbox[:3, 3]   = centre
+    #         box.apply_transform(Tbox)
+    #         path = os.path.join(out_stl_dir, f"{label}.ply")
+    #         box.export(path)
