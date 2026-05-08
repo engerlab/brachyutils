@@ -8,6 +8,7 @@ from trimesh.ray.ray_triangle import RayMeshIntersector
 from scipy.spatial import cKDTree
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
 
 # ══════════════════════════════════════════════════════
 #  PARAMETERS  — tune these
@@ -174,33 +175,32 @@ def angled_catheter_pairs(
     az_step: float,
 ) -> list:
     """
-    Generate angled catheter point pairs for a range of altitude and azimuthal angles.
+    ### Purpose
+    - Generate angled catheter point pairs for a range of altitude and azimuthal angles.
 
     Each bottom grid point is paired with one or more top plane intersection points,
     produced by sweeping a ray from the bottom point across a discrete grid of
     (altitude, azimuth) angles. Pairs where the top intersection falls outside the
     OBB extents are discarded.
 
-    Azimuth=0 is defined as the direction from the bottom plane centre toward the
-    bottom point (i.e. radially outward), and sweeps symmetrically from -az_max
+    Azimuth=0 is defined as the direction from the bottom point towards the
+    bottom plane centre (radially inwards) and sweeps symmetrically from -az_max
     to +az_max. Altitude=0 is parallel to the normal.
 
-    Parameters
-    ----------
-    o_top    : (3,) point on the top (superior) plane
-    o_bot    : (3,) point on the bottom (inferior) plane
-    normal   : (3,) unit normal pointing inferior → superior
-    obb_T    : (4,4) OBB transform (world ← OBB local frame)
-    extents  : (3,) OBB full extents [ex, ey, ez]
-    grid_n   : number of grid points per axis on each plane
-    alt_max  : maximum altitude angle away from normal (degrees)
-    alt_step : altitude angle increment (degrees)
-    az_max   : half-width of azimuthal sweep (degrees); sweeps -az_max to +az_max
-    az_step  : azimuthal angle increment (degrees)
+    ### Inputs
+    - o_top    : (3,) point on the top (superior) plane
+    - o_bot    : (3,) point on the bottom (inferior) plane
+    - normal   : (3,) unit normal pointing inferior → superior
+    - obb_T    : (4,4) OBB transform (world ← OBB local frame)
+    - extents  : (3,) OBB full extents [ex, ey, ez]
+    - grid_n   : number of grid points per axis on each plane
+    - alt_max  : maximum altitude angle away from normal (degrees)
+    - alt_step : altitude angle increment (degrees)
+    - az_max   : half-width of azimuthal sweep (degrees); sweeps -az_max to +az_max
+    - az_step  : azimuthal angle increment (degrees)
 
-    Returns
-    -------
-    pairs : list of (top_pt, bot_pt) tuples, each a (3,) np.ndarray
+    ### Outputs
+    - pairs : list of (top_pt, bot_pt) tuples, each a (3,) np.ndarray
     """
     # ── OBB axes and half-extents for bounds check ───────────────────────────
     obb_x  = obb_T[:3, 0]
@@ -280,6 +280,7 @@ def build_line_connectors(
     danger_dist:float,
     perpendicular:bool,
     target_structures:List[str],
+    config_angled_cathgen:Config_Angled_CathGen = None,
     ) -> tuple[dict, list]:
     """
     ### Purpose:
@@ -328,6 +329,8 @@ def build_line_connectors(
         ])
         pairs = list(zip(bot_pts_proj, bot_pts))
     else:
+        if config_angled_cathgen is None:
+            raise ValueError("config_angled_cathgen must be provided when perpendicular=False")
         # Generate angled pairs by sweeping rays from each bottom point
         # across a grid of altitude and azimuth angles.
         pairs = angled_catheter_pairs(
@@ -337,10 +340,10 @@ def build_line_connectors(
             obb_T=obb_T,
             extents=extents,
             grid_n=grid_n,
-            alt_max=15.0,   # max tilt away from normal (degrees)
-            alt_step=5.0,  # altitude angle increment (degrees)
-            az_max=10.0,   # max azimuthal angle (degrees)
-            az_step=5.0,   # azimuthal angle increment (degrees)
+            alt_max=config_angled_cathgen.alt_max,
+            alt_step=config_angled_cathgen.alt_step,
+            az_max=config_angled_cathgen.az_max,
+            az_step=config_angled_cathgen.az_step,
         )        
 
     # ── 3. Filter colliding / too-close lines ───────────────────────────────
@@ -360,6 +363,7 @@ def gen_catheter_table_from_contours(
     grid_n:int,
     danger_dist_mm:float = 3.0,
     perpendicular:bool = True,
+    config_angled_cathgen:Config_Angled_CathGen = None,
     out_stl_dir:str | Path = None,
     catheter_radius:float = 1.0,
     ) -> CatheterTable:
@@ -379,13 +383,13 @@ def gen_catheter_table_from_contours(
     - out_stl_dir: str := if provided, directory to export STL files of meshes + lines
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
-    
     valid_lines, o_top, o_bot, extents, obb_T = build_line_connectors(
         mesh_dict=mesh_dict,
         grid_n=grid_n,
         danger_dist=danger_dist_mm,
         perpendicular=perpendicular,
-        target_structures=target_structures
+        target_structures=target_structures,
+        config_angled_cathgen=config_angled_cathgen
     )
 
     if out_stl_dir is not None:

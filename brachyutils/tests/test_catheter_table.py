@@ -208,6 +208,8 @@ def test_build_line_connectors():
 def test_gen_catheter_table_from_contours():
     from brachyutils.geometry.catheter_utils.geometric_catheter_generation import gen_catheter_table_from_contours
     from brachyutils.geometry.phantom_utils import BrachyPhantom
+    from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
+
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     pth_struct = list(dir_dicom.glob("RS*.dcm"))[0]
     phant:BrachyPhantom = BrachyPhantom(
@@ -221,7 +223,9 @@ def test_gen_catheter_table_from_contours():
         grid_n=5,
         out_stl_dir="data_test/test_export_plan/prostate/line_connectors_from_contours",
         perpendicular=False,
+        config_angled_cathgen=Config_Angled_CathGen()
     )
+
 def test_json_io():
     cat_tab_to_export = test_load_dose_rates()
     pth_json = "data_test/test_export_plan/prostate/test_catheter_table_with_dose.json"
