@@ -522,15 +522,18 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
         catheter.index = new_index
         self.catheters_dict[catheter.name_id] = catheter
 
-    def __setitem__(self, name_id: str, new_catheter: dict | Catheter) -> None:
+    def __setitem__(self, name_id: str | int, new_catheter: dict | Catheter) -> None:
         r"""
         ### Purpose:
         - To add a new catheter to the catheter table based on its name_id.
         the name_id = index+1.
         """
+        if isinstance(name_id, int):
+            name_id = str(name_id)
+        
         if new_catheter.name_id != name_id:
-            raise ValueError("The name_id of the new catheter does not \
-match its index, be sure that the name_id == new_catheter.index +1")
+            raise ValueError(f"The name_id of the new catheter ({name_id}) does not \
+match its index ({new_catheter.name_id}), be sure that the name_id == new_catheter.index +1")
         if not (isinstance(new_catheter, dict) or isinstance(new_catheter, Catheter)):
             raise ValueError("The new_catheter should of type dict or Catheter")
 
