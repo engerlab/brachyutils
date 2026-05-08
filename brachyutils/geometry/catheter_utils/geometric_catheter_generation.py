@@ -355,7 +355,7 @@ def build_line_connectors(
     n_total = len(pairs)
     n_valid = len(valid_lines)
     print(f"Candidates: {n_total}  |  Valid (kept): {n_valid}  |  Discarded: {n_total - n_valid}")
-    return valid_lines #, o_top, o_bot, extents, obb_T
+    return valid_lines , o_top, o_bot, extents, obb_T
 
 def gen_catheter_table_from_contours(
     mesh_dict: Dict[str, trimesh.Trimesh],
@@ -383,13 +383,12 @@ def gen_catheter_table_from_contours(
     - out_stl_dir: str := if provided, directory to export STL files of meshes + lines
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
-    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator import (
-        # create_segments_by_slice,
+    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator \
+        import (
         PiecewiseLinear3D,
-        # Segment,
     )
 
-    valid_lines = build_line_connectors(
+    valid_lines , o_top, o_bot, extents, obb_T = build_line_connectors(
         mesh_dict=mesh_dict,
         grid_n=grid_n,
         danger_dist=danger_dist_mm,
