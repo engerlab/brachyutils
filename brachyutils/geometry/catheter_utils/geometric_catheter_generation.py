@@ -383,11 +383,6 @@ def gen_catheter_table_from_contours(
     - out_stl_dir: str := if provided, directory to export STL files of meshes + lines
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
-    from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.digitization.pw_linear_interpolator \
-        import (
-        PiecewiseLinear3D,
-    )
-
     valid_lines , o_top, o_bot, extents, obb_T = build_line_connectors(
         mesh_dict=mesh_dict,
         grid_n=grid_n,
@@ -403,13 +398,14 @@ def gen_catheter_table_from_contours(
     valid_catheters = [
         Catheter(
             index=idx,
-            fit_function=PiecewiseLinear3D(line))
+            digitization_points=line)
         for idx, line in enumerate(valid_lines)]
     catheter_table = CatheterTable(
         catheters_dict=valid_catheters,
     )
     return catheter_table
 
+    # # this code for visualization
     # if out_stl_dir is not None:
     #     out_stl_dir = Path(out_stl_dir)
     #     for i, line in enumerate(valid_lines):

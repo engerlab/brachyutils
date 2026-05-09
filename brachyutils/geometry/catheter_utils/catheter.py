@@ -318,6 +318,21 @@ class Catheter(BaseModel):
         """
         return PiecewiseLinear3D(points=points)
 
+    def get_points_from_fit(self) -> List[List[float]]:
+        r"""
+        ### Purpose:
+        - To get a list of points from a fit function.
+
+        ### Inputs:
+        - fit_function:PiecewiseLinear3D := the fit function to get the points from.
+
+        ### Outputs:
+        - List[List[float]] := the list of points on the fit function.
+        """
+        if self.fit_function is None:
+            raise ValueError("fit_function is not defined for this catheter.")
+        return self.fit_function.point_pairs
+
     def remove_outside_mask(self, mask:Union[ROIMask, sitk.Image]) -> None:
         r"""
         ### Purpose:

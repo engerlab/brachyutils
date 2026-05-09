@@ -225,6 +225,11 @@ def test_gen_catheter_table_from_contours():
         perpendicular=False,
         config_angled_cathgen=Config_Angled_CathGen()
     )
+    
+    # let's export the catheter table to json and to .ply for visualization
+    cat_0 = cat_table[0]
+    point_pairs = cat_0.get_points_from_fit()
+    print("debug here")
 
 def test_json_io():
     cat_tab_to_export = test_load_dose_rates()
