@@ -364,7 +364,7 @@ def gen_catheter_table_from_contours(
     danger_dist_mm:float = 3.0,
     perpendicular:bool = True,
     config_angled_cathgen:Config_Angled_CathGen = None,
-    out_stl_dir:str | Path = None,
+    out_ply_dir:str | Path = None,
     catheter_radius:float = 1.0,
     ) -> CatheterTable:
     r"""
@@ -380,7 +380,7 @@ def gen_catheter_table_from_contours(
     - grid_n: int := number of candidate lines per plane axis (total candidates = grid_n^2)
     - danger_dist_mm: float := minimum allowed distance (mm) from any contour vertex
     - perpendicular: bool := if True, lines run parallel to OBB Z axis (perpendicular to planes)
-    - out_stl_dir: str := if provided, directory to export STL files of meshes + lines
+    - out_ply_dir: str := if provided, directory to export STL files of meshes + lines
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
     valid_lines , o_top, o_bot, extents, obb_T = build_line_connectors(
@@ -406,15 +406,15 @@ def gen_catheter_table_from_contours(
     return catheter_table
 
     # # this code for visualization
-    # if out_stl_dir is not None:
-    #     out_stl_dir = Path(out_stl_dir)
+    # if out_ply_dir is not None:
+    #     out_ply_dir = Path(out_ply_dir)
     #     for i, line in enumerate(valid_lines):
     #         tube = line_to_tube(line[0], line[1], catheter_radius)
     #         if tube is not None:
-    #             path = out_stl_dir / f"line_{i:03d}.ply"
+    #             path = out_ply_dir / f"line_{i:03d}.ply"
     #             tube.export(path)
     #     for name, mesh in mesh_dict.items():
-    #         path = out_stl_dir / f"{name}.ply"
+    #         path = out_ply_dir / f"{name}.ply"
     #         mesh.export(path)
     #     # Bounding planes as thin flat boxes
     #     for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
@@ -423,5 +423,5 @@ def gen_catheter_table_from_contours(
     #         Tbox          = obb_T.copy()
     #         Tbox[:3, 3]   = centre
     #         box.apply_transform(Tbox)
-    #         path = os.path.join(out_stl_dir, f"{label}.ply")
+    #         path = os.path.join(out_ply_dir, f"{label}.ply")
     #         box.export(path)

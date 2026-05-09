@@ -211,6 +211,7 @@ def test_gen_catheter_table_from_contours():
     from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
 
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
+    outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
     pth_struct = list(dir_dicom.glob("RS*.dcm"))[0]
     phant:BrachyPhantom = BrachyPhantom(
         dir_dicom=dir_dicom,
@@ -221,14 +222,15 @@ def test_gen_catheter_table_from_contours():
         mesh_dict=mesh_dict,
         target_structures=["CTV"],
         grid_n=5,
-        out_stl_dir="data_test/test_export_plan/prostate/line_connectors_from_contours",
+        out_ply_dir=outdir,
         perpendicular=False,
         config_angled_cathgen=Config_Angled_CathGen()
     )
     
     # let's export the catheter table to json and to .ply for visualization
-    cat_0 = cat_table[0]
-    point_pairs = cat_0.get_points_from_fit()
+    cat_table[0].write_to_ply(
+        dir_ply=Path(outdir)
+    )
     print("debug here")
 
 def test_json_io():
