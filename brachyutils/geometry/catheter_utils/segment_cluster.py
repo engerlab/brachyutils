@@ -49,4 +49,4 @@ class SegmentCluster(BaseModel):
     @computed_field
     @property
     def name_id(self) -> str:
-        return f"{self.depth}_{self.index+1}"
+        return f"({self.depth},{self.index+1})"
