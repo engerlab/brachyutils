@@ -194,7 +194,7 @@ def angled_catheter_pairs(
     - obb_T    : (4,4) OBB transform (world ← OBB local frame)
     - extents  : (3,) OBB full extents [ex, ey, ez]
     - grid_n   : number of grid points per axis on each plane
-    - alt_max  : maximum altitude angle away from normal (degrees)
+    - alt_max  : maximum altitude angle away from normal (degrees); sweeps -alt_max to +alt_max
     - alt_step : altitude angle increment (degrees)
     - az_max   : half-width of azimuthal sweep (degrees); sweeps -az_max to +az_max
     - az_step  : azimuthal angle increment (degrees)
@@ -209,7 +209,7 @@ def angled_catheter_pairs(
     half_y = extents[1] / 2.0
 
     # ── Angle grids ──────────────────────────────────────────────────────────
-    alt_steps = np.arange(0.0,    alt_max + 1e-9, alt_step)
+    alt_steps = np.arange(-alt_max, alt_max + 1e-9, alt_step)
     az_steps  = np.arange(-az_max, az_max + 1e-9, az_step)
 
     # ── Bottom grid points ───────────────────────────────────────────────────
