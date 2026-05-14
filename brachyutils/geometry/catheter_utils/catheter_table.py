@@ -221,6 +221,20 @@ class CatheterTable(BaseModel):
             dwells_with_doserate[0].dose_rate
             )
 
+        # Can trigger if recalculated the doses with a different crop
+        # Needs to be explicity summed
+        if self._cached_combined_dose.dose_image.imageArray.shape != \
+            dwells_with_doserate[0].dose_rate.dose_image.imageArray.shape:
+            self._cached_combined_dose = BrachyDose.dose_with_empty_grid_like(
+                dwells_with_doserate[0].dose_rate
+            )
+            for dwell in dwells_with_doserate:
+                self._cached_combined_dose.dose_image.imageArray += (
+                    dwell.dose_rate.dose_image.imageArray * dwell.time
+                )
+                dwell.reset_time_diff()
+            return self._cached_combined_dose
+
         # Calculate combined dose with or without time diffs
         for dwell in dwells_with_doserate:            
             if dwell._time_diff != 0:
