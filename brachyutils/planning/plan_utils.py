@@ -919,7 +919,7 @@ class BrachyPlan:
             "export_config_plan_and_mac": {
                 "combined_only": True,
                 "name_combined": "combined",
-                "body_name_stl": "BODY"
+                "body_mesh_name": "BODY"
             },
             "applicator_geometry": False,
             "structure_set": False
@@ -1128,13 +1128,14 @@ class BrachyPlan:
             if any(self.phantom.egsphant_obj.material_image.gridSizeInWorldUnit < 400): #if our phantom is smaller than 40 cm in any direction
                 for structure in self.phantom.structure_names:
                     if structure.lower() == "body" or structure.lower() == "external":
-                        export_config_plan_and_mac.body_name_stl = structure
+                        export_config_plan_and_mac.body_mesh_name = structure
                     #material already defaults to soft tissue
 
-        if export_config_plan_and_mac.body_name_stl is not None:
+        if export_config_plan_and_mac.body_mesh_name is not None:
             sim_obj.pth_body_stl = export_config_plan_and_mac.pth_body_stl.name
             sim_obj.body_material = export_config_plan_and_mac.body_mesh_material
-            body_mask = self.phantom.get_structure_mask([export_config_plan_and_mac.body_name_stl], ROIMask, strict_name_match=False)
+            body_mask = self.phantom.get_structure_mask([export_config_plan_and_mac.body_mesh_name], mask_type = ROIMask, strict_name_match=False)[export_config_plan_and_mac.body_mesh_name]
+
             from brachyutils.geometry.phantom_utils import mask_to_stl
 
             mask_to_stl(
@@ -1297,7 +1298,7 @@ class BrachyPlan:
 
         ### Dependencies:
         """
-        raise NotImplementedError("now that you are here, finish this function thank you!")
+        raise NotImplementedError("now that you are here, finish this function thank you!") #no thanks, Jonathan.
         structure_set = []
         for structure in self.structure_list:
             structure_set.append(structure.to_dict(export_format))
