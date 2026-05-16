@@ -1,4 +1,7 @@
 from abc import ABC, abstractmethod
+import subprocess
+import sys
+import os
 from glob import glob
 from pathlib import Path
 from typing import Literal, Optional, Union
@@ -186,9 +189,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
             # use subprocess to run the python script
             raise NotImplementedError("This feature is not implemented yet.")
         else:
-            raise ValueError(
-                "The dose executable is not supported. It should be a URL or a python script."
-            )
+            raise ValueError("RapidBrachyTG43 dose calculation must be launched from an http endpoint.")
 
         return response
 
@@ -295,7 +296,7 @@ class RapidBrachyMC(BrachyDoseGenerator):
     def generate_dose(
         self,
         pth_mac: Path = None,
-        random_seed: int = 1,
+        random_seed: int = 556677,
     ):
         r"""
         ### Purpose:
@@ -304,7 +305,7 @@ class RapidBrachyMC(BrachyDoseGenerator):
         ### Inputs:
         - pth_mac: Path := The path to the mac file for which the dose distribution
         will be generated. If None, the function will search for all mac files in the dir_plan_export directory and generate dose for each of them.
-        - random_seed: int := The random seed for the Monte Carlo simulation. The default is 1
+        - random_seed: int := The random seed for the Monte Carlo simulation. The default is 556677
         """
 
         if pth_mac is None:
@@ -322,7 +323,7 @@ class RapidBrachyMC(BrachyDoseGenerator):
                     random_seed=random_seed,
                 )
         else:
-            if "http" in self.pth_dose_executable:
+            if "http" in str(self.pth_dose_executable):
                 pth_mac = str(pth_mac.resolve())
                 # use fast api post to request the dose calculation
                 import requests
@@ -334,14 +335,29 @@ class RapidBrachyMC(BrachyDoseGenerator):
                     },
                     timeout=None,
                 )
-            elif ".py" in self.pth_dose_executable:
+            elif ".py" in str(self.pth_dose_executable):
                 # use subprocess to run the python script
                 raise NotImplementedError("This feature is not implemented yet.")
             else:
-                raise ValueError(
-                    "The dose executable is not supported. It should be a URL or a python script."
+                cmd = [str(self.pth_dose_executable), str(pth_mac), str(random_seed)]
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    cwd=self.dir_plan_export,
                 )
+                # iterate over stdout lines as they become available
+                if proc.stdout is not None:
+                    for line in proc.stdout:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                proc.wait()
+                response = subprocess.CompletedProcess(args=cmd, returncode=proc.returncode)
+                if proc.returncode != 0:
+                    raise RuntimeError(f"MC dose calculation calculation process exited with code {proc.returncode}")
             return response
+        
 
     def run_dose_generation(
         self,
