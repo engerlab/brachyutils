@@ -223,7 +223,7 @@ class CatheterTable(BaseModel):
 
         # Can trigger if recalculated the doses with a different crop
         # Needs to be explicity summed
-        if self._cached_combined_dose.dose_image.hasSameGrid(
+        if not self._cached_combined_dose.dose_image.hasSameGrid(
             dwells_with_doserate[0].dose_rate.dose_image
         ):
             self._cached_combined_dose = BrachyDose.dose_with_empty_grid_like(
