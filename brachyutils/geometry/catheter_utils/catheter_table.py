@@ -213,7 +213,7 @@ class CatheterTable(BaseModel):
         of changes in dwell times and dose rates. 
         - will reset dwell._time_diff to 0 after calculating the combined dose.
         """
-
+        from brachyutils.dose.dose_utils import BrachyDose
         all_dwells: List[DwellPosition] = self.all_dwells
         dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
         
@@ -257,6 +257,7 @@ class CatheterTable(BaseModel):
         of dwell times and dose rates.
 
         """
+        from brachyutils.dose.dose_utils import BrachyDose
         all_dwells: List[DwellPosition] = self.all_dwells
         dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
         
@@ -272,6 +273,7 @@ class CatheterTable(BaseModel):
                 dwell.dose_rate.dose_image.imageArray * dwell.time
             )
             dwell.reset_time_diff()
+        return self._cached_combined_dose
 
 
     @model_validator(mode="after")
