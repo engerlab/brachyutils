@@ -154,7 +154,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         if pth_mac is None:
             pth_mac = list(self.dir_plan_export.glob("combined.mac")).pop()
 
-        if "http" in self.pth_dose_executable:
+        if "http" in str(self.pth_dose_executable):
             # use fast api post to request the dose calculation
             import requests
 
@@ -185,11 +185,41 @@ class RapidBrachyTG43(BrachyDoseGenerator):
                 raise RuntimeError(
                     f"Dose calculation failed with status code {response.status_code}: {response.text}"
                 )
-        elif ".py" in self.pth_dose_executable:
+        elif ".py" in str(self.pth_dose_executable):
             # use subprocess to run the python script
             raise NotImplementedError("This feature is not implemented yet.")
         else:
-            raise ValueError("RapidBrachyTG43 dose calculation must be launched from an http endpoint.")
+            cmd = [
+                str(self.pth_dose_executable),
+                str(pth_egsphant),
+                str(pth_plan),
+                str(pth_mac),
+                str(dir_source_parameters),
+                str(dir_output),
+                str(num_threads),
+                str(output_dose_per_dwell),
+                str(using_imbt_plan) if using_imbt_plan else "",
+                str(shield_model) if shield_model is not None else "",
+                str(critical_angle) if critical_angle is not None else "",
+                str(correction_angle) if correction_angle is not None else "",
+                str(rotation_angle_config) if rotation_angle_config is not None else "",
+            ]
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                cwd=self.dir_plan_export,
+            )
+            # iterate over stdout lines as they become available
+            if proc.stdout is not None:
+                for line in proc.stdout:
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+            proc.wait()
+            response = subprocess.CompletedProcess(args=cmd, returncode=proc.returncode)
+            if proc.returncode != 0:
+                raise RuntimeError(f"Dose calculation process exited with code {proc.returncode}")
 
         return response
 
@@ -215,6 +245,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         plan: BrachyPlan,
         generate_dose_rate_maps: bool = False,
         export_config_brachyplan: ExportConfig_BrachyPlan | bool | dict = None,
+        dir_source_parameters: Path = "SourceParameters/microSelectron-v2"
         ) -> BrachyPlan:
         r"""
         ### Purpose:
@@ -246,9 +277,13 @@ class RapidBrachyTG43(BrachyDoseGenerator):
 
         # call the dose generator to generate the dose maps
         self.generate_dose(
+            dir_output=self.dir_plan_export,
             pth_mac=export_config_brachyplan.export_config_plan_and_mac.pth_mac_combined,
             pth_plan=export_config_brachyplan.export_config_plan_and_mac.pth_plan_combined,
+            pth_egsphant=export_config_brachyplan.export_config_egsphant.pth_egsphant,
             output_dose_per_dwell= "dose_rate" if generate_dose_rate_maps else False,
+            num_threads=plan.simulation_setup.number_of_threads,
+            dir_source_parameters=dir_source_parameters,
         )
 
         pth_combined_dose = export_config_brachyplan.export_config_plan_and_mac.pth_mac_combined.with_suffix(".seq.nrrd")
@@ -261,7 +296,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         else:
             # Export the combined dose file, overwriting the tg43 automatically generated file 
             combined_dose = BrachyDose(pth_combined_dose)
-            combined_dose.write_to_nrrd(pth_combined_dose)
+            #combined_dose.write_to_nrrd(pth_combined_dose)
             plan.catheter_table.set_combined_dose(combined_dose)
         return plan
 

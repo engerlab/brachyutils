@@ -57,6 +57,7 @@ class CatheterTable(BaseModel):
     - num_dwell_positions
     - non_zero_dwell_positions
     - combined_dose
+    - combined_dose_explicit
     - __iter__()
     - __len__()
     - __getitem__()
@@ -96,7 +97,7 @@ class CatheterTable(BaseModel):
     ]
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
-    _cached_combined_dose: 'BrachyDose' = None
+    _cached_combined_dose: BrachyDose = None
     # _time_diffs:Dict[str, float] = None
 
     @computed_field
@@ -182,7 +183,7 @@ class CatheterTable(BaseModel):
         return non_zero_dwell_positions
 
     @computed_field
-    def combined_dose(self) -> 'BrachyDose':
+    def combined_dose(self) -> BrachyDose:
         """
         ### Purpose:
         - To calculate the combined dose by multiplying the dose rates with the dwell times.
@@ -194,6 +195,11 @@ class CatheterTable(BaseModel):
         in dwell times. That was fast but clucky (you had to manually make the time diff)
         but now we use the DwellPosition._time_diff (type: flaot) instead. It is slower, but automatic.
         If this method is slow to you, feel free to bring back _time_diffs dictionary!
+        - If you wish to skip the optimizations with time_diffs to re-evaluate the dose e.g.
+        when dose rates are updated, use combined_dose_explicit. combined_dose will try to 
+        do so if the cached and updated dose rate grids are different, but the user needs to do this
+        themselves if they've changed the dose_rate values but not the grid (i.e. doing an MC and TG43 
+        calc on the same phantom)
 
         ### Inputs:
         - self._cached_combined_dose: The combined dose caclualted previously, which will 
@@ -207,7 +213,7 @@ class CatheterTable(BaseModel):
         of changes in dwell times and dose rates. 
         - will reset dwell._time_diff to 0 after calculating the combined dose.
         """
-        from brachyutils.dose.dose_utils import BrachyDose
+
         all_dwells: List[DwellPosition] = self.all_dwells
         dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
         
@@ -226,15 +232,7 @@ class CatheterTable(BaseModel):
         if not self._cached_combined_dose.dose_image.hasSameGrid(
             dwells_with_doserate[0].dose_rate.dose_image
         ):
-            self._cached_combined_dose = BrachyDose.dose_with_empty_grid_like(
-                dwells_with_doserate[0].dose_rate
-            )
-            for dwell in dwells_with_doserate:
-                self._cached_combined_dose.dose_image.imageArray += (
-                    dwell.dose_rate.dose_image.imageArray * dwell.time
-                )
-                dwell.reset_time_diff()
-            return self._cached_combined_dose
+            return self.combined_dose_explicit
 
         # Calculate combined dose with or without time diffs
         for dwell in dwells_with_doserate:            
@@ -243,6 +241,38 @@ class CatheterTable(BaseModel):
                     dwell.dose_rate.dose_image.imageArray * dwell._time_diff)
                 dwell.reset_time_diff()
         return self._cached_combined_dose
+
+    @computed_field
+    def combined_dose_explicit(self) -> BrachyDose:
+        r"""
+        ### Purpose:
+        # - To calculate the combined dose explicity with no optimizations of dwell time differences.
+
+        ### Inputs:
+        - dose_rate for each dwell position
+        - dwell time for each dwell position
+
+        ### Outputs:
+        - self._cached_combined_dose: BrachyDose := The dose object containing the linear combination
+        of dwell times and dose rates.
+
+        """
+        all_dwells: List[DwellPosition] = self.all_dwells
+        dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
+        
+        if not dwells_with_doserate:
+            return self._cached_combined_dose
+            # raise ValueError("No dose rate found in this catheter table")
+
+        self._cached_combined_dose = BrachyDose.dose_with_empty_grid_like(
+                dwells_with_doserate[0].dose_rate
+            )
+        for dwell in dwells_with_doserate:
+            self._cached_combined_dose.dose_image.imageArray += (
+                dwell.dose_rate.dose_image.imageArray * dwell.time
+            )
+            dwell.reset_time_diff()
+
 
     @model_validator(mode="after")
     def validate_catheter_table(self):
@@ -1147,7 +1177,7 @@ def _load_single_dose_rate(
     pth_dose_rate:Path,
     load_uncertainty=False,
     dtype=np.float32
-    )->'BrachyDose':
+    )->BrachyDose:
         from brachyutils.dose.dose_utils import BrachyDose
         return BrachyDose(
             pth_dose_file=pth_dose_rate,
@@ -1155,7 +1185,7 @@ def _load_single_dose_rate(
             dtype=dtype)
 
 def _write_single_dose_rate(
-    dose_rate:'BrachyDose',
+    dose_rate:BrachyDose,
     dir_export: str | Path = None,
     dose_extension: str = None,
     file_name: str = None,
