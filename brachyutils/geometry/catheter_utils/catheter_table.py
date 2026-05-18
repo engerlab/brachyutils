@@ -533,12 +533,13 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             from_delivered_dwellpositions=self.from_delivered_dwellpositions
         )
 
-    def set_combined_dose(self, combined_dose: BrachyDose | Path | str):
+    def set_combined_dose(self, combined_dose: BrachyDose | Path | str, clear_dose_rates: bool=True):
         r"""
         ### Purpose:
         To set the combined dose without the dose rates.
         ### Inputs:
         - combined_dose : BrachyDose | Path | str: The combined dose corresponding to this catheter table.
+        - clear_dose_rates : bool: Whether to clear the dose rates, such that combined_dose will return the set dose
         If a string or Path is provided, we will load it from a file.
         ### Outputs:
         - None: will set self._cached_combined_dose
@@ -547,6 +548,9 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             from brachyutils.dose.dose_utils import BrachyDose
             combined_dose = BrachyDose(pth_dose_file=combined_dose) 
         self._cached_combined_dose = combined_dose
+        if clear_dose_rates:
+            for dwell in self.all_dwells:
+                dwell.dose_rate = None
 
     def append(self, catheter: Catheter) -> None:
         r"""
