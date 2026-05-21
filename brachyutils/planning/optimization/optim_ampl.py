@@ -4,7 +4,7 @@ import warnings
 import time
 import numpy as np
 from pathlib import Path
-from brachyutils.types import BrachyPlan
+from brachyutils.brachy_types import BrachyPlan
 from brachyutils.planning.optimization.optim_utils import (
     BrachyDwellTimeOptim, BrachyDwellTime, get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices
@@ -168,7 +168,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
                 dwellTimeVariable_list.append(
                     DwellTime_AMPL(
                         model=self.model,
-                        name=f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}",
+                        name=f"dwell_{dwell_position.name_id}",
                         dwell_time=initial_dwell_time,
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
@@ -506,7 +506,7 @@ class BrachyOptim_AMPL(BrachyDwellTimeOptim):
             for catheter in outplan.catheter_table:
                 for dwell_position in catheter.dwells:
                     if (
-                        f"catheter_{catheter.index+1}_dwell_{dwell_position.index+1}"
+                        f"dwell_{dwell_position.name_id}"
                         == variable.name
                     ):
                         dwell_position.time = variable.dwell_time

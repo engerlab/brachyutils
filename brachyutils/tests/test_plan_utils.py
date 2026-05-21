@@ -9,8 +9,8 @@ from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 def get_a_plan(
     dir_dicom:str | Path,
-    prescription_dose:float=21.0,
-    **kwargs):
+    **kwargs)->BrachyPlan:
+    prescription_dose = kwargs.get("prescription_dose", 21)
     dvh_metric_goals = {
         "D90%(CTV)": prescription_dose,
         "D2cc(RECTUM)": prescription_dose * 0.75,
@@ -27,11 +27,12 @@ def get_a_plan(
         dir_dicom=dir_dicom,
         load_dicom_dose=kwargs.get("load_dicom_dose", False),
         load_dicom_catheter_table=kwargs.get("load_dicom_catheter_table", True),
+        load_dicom_prescription_dose=kwargs.get("load_dicom_prescription_dose", True),
         strict_name_match=kwargs.get("strict_name_match", False),
         dir_dose_rate=kwargs.get("dir_dose_rate", None),
         from_delivered_dwellpositions=kwargs.get("from_delivered_dwellpositions", False),
         multi_processing=True,
-        prescription_dose=prescription_dose,
+        # prescription_dose=prescription_dose,
         dvh_metric_goals=kwargs.get("dvh_metric_goals", None),
         optimization_config_list=kwargs.get("optimization_config_list", None),
         dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
@@ -86,7 +87,7 @@ def test_load_dose_rate_dict():
 
 def test_create_structures_and_calc_dvh_metrics():
     dir_dicom = "data_test/prostate-glen-p1-dcm"
-    dir_dose_rates = "data_test/prostate-glen-p1-dose"
+    dir_dose_rate = "data_test/prostate-glen-p1-dose"
     prescription_dose=21
     dvh_metric_goals = {
         "D90%(CTV)": prescription_dose,
@@ -135,12 +136,15 @@ def test_create_structures_and_calc_dvh_metrics():
         load_dicom_dose=False,
         dvh_metric_goals=dvh_metric_goals,
         strict_name_match=False,
-        dir_dose_rate=dir_dose_rates,
+        dir_dose_rate=dir_dose_rate,
         from_delivered_dwellpositions=False,
     )
     print("This is the loaded DVH metric goals")
     print(plan.dvh_metric_goals)
     print(plan.get_dvh_metrics())
+
+    print("This is a test for structure dict")
+    print(plan.structure_dict.keys())
 
 def test_calculate_combined_uncertainty():
     from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
@@ -221,7 +225,7 @@ def test_export_brachy_plan():
     dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
     # # for loading the delivered dose rates. 
-    dir_dose_rates = Path("data_test/prostate-glen-p1-dose").resolve()
+    dir_dose_rate = Path("data_test/prostate-glen-p1-dose").resolve()
     gen_dose_rates = False
     from_delivered_dwellpositions=True
 
@@ -237,7 +241,7 @@ def test_export_brachy_plan():
 
     plan:BrachyPlan = get_a_plan(
         dir_dicom=dir_dicom,
-        dir_dose_rates=dir_dose_rates,
+        dir_dose_rate=dir_dose_rate,
         from_delivered_dwellpositions=from_delivered_dwellpositions,
         generate_dose_rates=gen_dose_rates,
         load_dicom_dose=True,
@@ -364,12 +368,12 @@ if __name__ == "__main__":
     # testupdate_plan_from_catheter_table()
     # test_update_catheter_table_from_plan()
     # test_load_dose_rate_dict()
-    # test_create_structures_and_calc_dvh_metrics()
+    test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
     # test__load_single_dose_or_uncertainty_to_dict()
-    test_export_brachy_plan()
+    # test_export_brachy_plan()
     # test_load_brachy_plan_from_dicom()
     # test_load_applicator_list()
     # test__export_applicator_geometry()

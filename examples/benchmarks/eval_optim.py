@@ -4,7 +4,7 @@ from brachyutils.planning.optimization.optim_ortools import BrachyOptim_ORTools
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from brachyutils.planning.optimization.optim_utils import Optimization_Config
 
-from brachyutils.types import BrachyPlan
+from brachyutils.brachy_types import BrachyPlan
 from pathlib import Path
 from pandas import DataFrame
 from time import time
@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 def get_a_plan_to_optimize(
     pth_dicom: str | Path,
-    dir_dose_rates: str | Path,
+    dir_dose_rate: str | Path,
     generate_dose_rates: bool = False,
     dvh_metric_goals: dict[str, float] | None = None,
     target_dose: float = 21,
@@ -25,7 +25,7 @@ def get_a_plan_to_optimize(
     Optinally generate dose rate files if they do not exist.
     ### Inputs:
     - `pth_dicom`: Path to the DICOM directory containing the brachytherapy plan.
-    - `dir_dose_rates`: Directory where dose rate files are stored or will be generated.
+    - `dir_dose_rate`: Directory where dose rate files are stored or will be generated.
     - `generate_dose_rates`: Boolean flag to indicate whether to generate dose rate files if they do not exist.
     - `dvh_metric_goals`: Dictionary specifying dose-volume histogram (DVH) metric goals for optimization.
     - `target_dose`: Target dose for the plan.
@@ -35,11 +35,11 @@ def get_a_plan_to_optimize(
     - `plan_obj`: A `BrachyPlan` object ready for optimization.
     """
     pth_dicom = Path(pth_dicom)
-    dir_dose_rates = Path(dir_dose_rates)
+    dir_dose_rate = Path(dir_dose_rate)
     # check if the dose rate files exist
-    dose_rate_files = list(dir_dose_rates.glob("*.seq.nrrd"))
+    dose_rate_files = list(dir_dose_rate.glob("*.seq.nrrd"))
     if len(dose_rate_files) < 1 and not generate_dose_rates:
-        raise FileNotFoundError(f"No dose rate files found in {dir_dose_rates}. Set generate_dose_rates=True to create them.")
+        raise FileNotFoundError(f"No dose rate files found in {dir_dose_rate}. Set generate_dose_rates=True to create them.")
 
     plan_obj = load_dicom_to_plan(
         dir_dicom=pth_dicom,
@@ -77,11 +77,11 @@ def get_a_plan_to_optimize(
         }
         t0_dose_gen = time()
         plan_obj.export_brachy_plan(
-            dir_export=dir_dose_rates,
+            dir_export=dir_dose_rate,
             content_to_export=content_to_export,
         )
         dose_gen_obj = RapidBrachyTG43(
-            dir_plan_export=dir_dose_rates,
+            dir_plan_export=dir_dose_rate,
             )
         dose_gen_obj.generate_dose(
             output_dose_per_dwell="dose_rate",
@@ -95,11 +95,11 @@ def get_a_plan_to_optimize(
             "num_dwells": num_dwells,
         }
         timing_df.to_csv(
-            dir_dose_rates/"dose_rate_generation_timing.csv",
+            dir_dose_rate/"dose_rate_generation_timing.csv",
             index=False,
         )
     plan_obj.load_dose_rates(
-        dir_dose_rate=dir_dose_rates,
+        dir_dose_rate=dir_dose_rate,
         multi_processing=True,
     )
 
@@ -116,7 +116,7 @@ def generate_all_dose_rates(
         #     continue
         get_a_plan_to_optimize(
             pth_dicom=dicom_dir,
-            dir_dose_rates=dir_all_dose_rates/dicom_dir.name,
+            dir_dose_rate=dir_all_dose_rates/dicom_dir.name,
             generate_dose_rates=True,
         )
         # break # for debugging only
@@ -380,7 +380,7 @@ def eval_optim(
         t0_loading = time()
         brachy_plan = get_a_plan_to_optimize(
             pth_dicom=pth_dicom,
-            dir_dose_rates=dir_all_dose_rates/pth_dicom.name,
+            dir_dose_rate=dir_all_dose_rates/pth_dicom.name,
             generate_dose_rates=False,
             dvh_metric_goals=dvh_metric_goals,
             target_dose=target_dose,

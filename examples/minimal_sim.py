@@ -44,8 +44,7 @@ def export_plan_air_phantom():
         "export_config_egsphant": {
             "assign_material_from_ct": True,
             },
-        "export_config_planfile": True,
-        "export_config_macfile": True,
+        "export_config_plan_and_mac": True,
     }
     # Create a minimal simulation of a brachytherapy plan with an air phantom
     air_phantom = get_uniform_phantom(voxel_value=-1000)

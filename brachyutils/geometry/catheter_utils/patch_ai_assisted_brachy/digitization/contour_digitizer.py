@@ -839,7 +839,7 @@ class CatheterTableTimesFiller:
             if self.oneset:
                 zerosec_catheter_table.append({
                     "channel_number": int(needle_idx.split("_")[-1]),
-                    # Why is "points" useful in brachyutils? TODO: ask Hossein
+                    # Why is "points" useful in brachyutils?
                     "points": [],
                     # Channel total time updated below
                     "channel_total_time": 0.,

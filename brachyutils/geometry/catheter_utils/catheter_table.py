@@ -4,7 +4,6 @@ from pathlib import Path
 from pydantic import BaseModel, computed_field, ConfigDict, model_validator
 import json
 import SimpleITK as sitk
-import warnings
 from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.data.images import ROIMask
 
@@ -19,10 +18,9 @@ from tqdm import tqdm
 from collections import defaultdict
 from itertools import chain
 
-from brachyutils.dose.dose_utils import BrachyDose
-from brachyutils.planning.plan_export_configs import ExportConfig_Dose
-from brachyutils.geometry.catheter_utils import Catheter, DwellPosition
-
+from brachyutils.brachy_types import BrachyDose, ExportConfig_Dose
+from brachyutils.geometry.catheter_utils.dwell_position import DwellPosition
+from brachyutils.geometry.catheter_utils.catheter import Catheter
 
 class CatheterTable(BaseModel):
     r"""
@@ -36,6 +34,7 @@ class CatheterTable(BaseModel):
         3. from a json file
         4. from a CatheterSetUp object XXX clean this
         5. from a CreatedSetUp object XXX clean this
+
     ### Attributes:
     - catheters_dict : Dict[Catheter] := the dictionary or list of catheter objects in the catheter table.
     it could also be a string, Path, CatheterSetup, CreatedSetup. We will convert it all to a dictionary.
@@ -49,12 +48,43 @@ class CatheterTable(BaseModel):
     dwell positions that were actually used for plan delivery.
     - num_catheters: int = None := the number of catheters in the catheter table.
     - num_dwell_positions: int = None := the number of dwell positions in the catheter table.
-    ### Functions:
-    - load_from_json(pth_json:Path) -> list
-    - load_from_dicom(pth_dicom:Path) -> list
+
+    ### Methods:
+    - all_dwells
+    - catheters_list
+    - treatment_time
+    - num_catheters
+    - num_dwell_positions
+    - non_zero_dwell_positions
+    - combined_dose
+    - __iter__()
+    - __len__()
+    - __getitem__()
+    - __add__()
+    - __iadd__()
+    - __delitem__()
+    - __sub__()
+    - set_combined_dose()
+    - append()
+    - __setitem__()
+    - get_dwells_by_name_ids()
+    - set_dwells_by_name_id()
+    - get_catheters_by_ids()
+    - reset_index()
+    - get_catheters_for_dose_gen()
+    - to_dict()
+    - info()
+    - write_to_json()
+    - write_to_slicer_markup()
+    - remove_inside_mask()
+    - remove_outside_mask()
+    - load_dose_rates()
+    - _calculate_combined_uncertainty()
+    - export_dose()
+    - merge()
+    - reset_dwelltimes_to()
+
     """
-    # TODO: unify writing to file (json, dicom, slicer markup). decide based on extension.
-    ##########
     ## To enable using CatheterSetUp and CreatedSetUp as a data types, default is False.
     # This is not a parameter to be provided.
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -67,7 +97,7 @@ class CatheterTable(BaseModel):
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
     _cached_combined_dose: 'BrachyDose' = None
-    _time_diffs:Dict[str, float] = None
+    # _time_diffs:Dict[str, float] = None
 
     @computed_field
     def all_dwells(self) -> List[DwellPosition]:
@@ -112,7 +142,7 @@ class CatheterTable(BaseModel):
         - int := the number of catheters in the catheter table.
         """
         return len(self.catheters_dict)
-    
+
     @computed_field
     def num_dwell_positions(self) -> int:
         r"""
@@ -157,20 +187,25 @@ class CatheterTable(BaseModel):
         ### Purpose:
         - To calculate the combined dose by multiplying the dose rates with the dwell times.
         if this value has already been cached without change to the catheter table, then
-        the cache will be returned.
-        We require strict name matching between the _time_diffs and dwell.name_id
+        the cache will be returned. If there are no dose rates, cached combined dose will be returned.
+        if cached combined dose is not set and there are no dose rates, use set_combined_dose to load
+        it from a file or a BrachyDose object.
+        - In the past we used CatheterTable._time_diffs (type: Dict[str, float]) to record the change
+        in dwell times. That was fast but clucky (you had to manually make the time diff)
+        but now we use the DwellPosition._time_diff (type: flaot) instead. It is slower, but automatic.
+        If this method is slow to you, feel free to bring back _time_diffs dictionary!
+
         ### Inputs:
         - self._cached_combined_dose: The combined dose caclualted previously, which will 
         be returned if no change to the catheter table has been made.
-        - self._time_diffs: a dictionary of time differences for each dwell in the plan. 
-        This is used to update the combined dose if the dwell times are updated without
-        having to reload the dose rate maps. The keys of the dictionary should be in
-        the format "{catheter.index+1}{dwell.index+1}{dwell.angle" and the values
-        should be the time differences in seconds. If None, the combined dose will
-        be calculated using the current dwell times in the plan.
+        - dose_rate for each dwell position
+        - dwell._time_diff for each dwell position, which is the change in dwell time since the last
+        time combined dose was calculated.
+
         ### Outputs:
-        - self._cached_combined_dose
-        also resets self._time_diffs to None for future.
+        - self._cached_combined_dose: BrachyDose := The dose object containing the linear combination
+        of changes in dwell times and dose rates. 
+        - will reset dwell._time_diff to 0 after calculating the combined dose.
         """
         from brachyutils.dose.dose_utils import BrachyDose
         all_dwells: List[DwellPosition] = self.all_dwells
@@ -187,17 +222,11 @@ class CatheterTable(BaseModel):
             )
 
         # Calculate combined dose with or without time diffs
-        for dwell in dwells_with_doserate:
-            dwell_time = (
-            self._time_diffs.get(dwell.name_id, 0) 
-            if self._time_diffs is not None 
-            else dwell.time
-            )
-            if dwell_time != 0:
+        for dwell in dwells_with_doserate:            
+            if dwell._time_diff != 0:
                 self._cached_combined_dose.dose_image.imageArray += (
-                    dwell.dose_rate.dose_image.imageArray * dwell_time)
-        # reset the time diffs for future
-        self._time_diffs = None
+                    dwell.dose_rate.dose_image.imageArray * dwell._time_diff)
+                dwell.reset_time_diff()
         return self._cached_combined_dose
 
     @model_validator(mode="after")
@@ -211,6 +240,7 @@ class CatheterTable(BaseModel):
         the list of catheter objects in the catheter table or the path to a json or dicom file.
         - step_size: float := the step size in mm between the dwell positions on the catheter table.
         - from_delivered_dwellpositions: bool := if true, the dwell positions inside the delivered dwell positions will be used.
+
         ### Outputs:
         - CatheterTable := the catheter table object.
         """
@@ -358,7 +388,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             raise ValueError("Cannot add two catheter tables with different stepsizes.")
         return self
 
-    def __delitem__(self, indicies: int | slice | str):
+    def __delitem__(self, indices: int | slice | str):
         r"""
         ### Purpose:
         - To delete a few catheters from the catheter table.
@@ -467,6 +497,7 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
         - None: will set self._cached_combined_dose
         """
         if isinstance(combined_dose, Path) or isinstance(combined_dose, str):
+            from brachyutils.dose.dose_utils import BrachyDose
             combined_dose = BrachyDose(pth_dose_file=combined_dose) 
         self._cached_combined_dose = combined_dose
 
@@ -489,17 +520,20 @@ in the catheters_dict. there is a big bug somewhere in catheter table creation")
             raise ValueError("catheter should be a Catheter object.")
         new_index = len(self.catheters_dict)
         catheter.index = new_index
-        self.catheters_list[catheter.name_id] = catheter
+        self.catheters_dict[catheter.name_id] = catheter
 
-    def __setitem__(self, name_id: str, new_catheter: dict | Catheter) -> None:
+    def __setitem__(self, name_id: str | int, new_catheter: dict | Catheter) -> None:
         r"""
         ### Purpose:
         - To add a new catheter to the catheter table based on its name_id.
         the name_id = index+1.
         """
+        if isinstance(name_id, int):
+            name_id = str(name_id)
+        
         if new_catheter.name_id != name_id:
-            raise ValueError("The name_id of the new catheter does not \
-match its index, be sure that the name_id == new_catheter.index +1")
+            raise ValueError(f"The name_id of the new catheter ({name_id}) does not \
+match its index ({new_catheter.name_id}), be sure that the name_id == new_catheter.index +1")
         if not (isinstance(new_catheter, dict) or isinstance(new_catheter, Catheter)):
             raise ValueError("The new_catheter should of type dict or Catheter")
 
@@ -586,14 +620,14 @@ match its index, be sure that the name_id == new_catheter.index +1")
         ### Outputs:
         - dict := the dictionary containing the catheter table.
         """
-        treatment_t = self.treatment_time
+        treatment_t = self.treatment_time            
         return {
-            "catheter_list": [ # only change this after adapting seb's functions to use catheters_dict
-                catheter.to_dict(total_time=treatment_t) 
-                for catheter in self.catheters_list
-                ],
-            "step_size": float(self.step_size),
-            "treatment_time": float(treatment_t)
+            "catheters_dict": {
+                cath.name_id: cath.to_dict(total_time=treatment_t)
+                for cath in self.catheters_list
+            },
+            "step_size": round(float(self.step_size), 3),
+            "treatment_time": round(float(treatment_t), 3),
         }
 
     def info(self) -> None:
@@ -618,7 +652,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
         - pth_json: Path := the path to the json file where the catheter table will be written.
         
         ### Outputs:
-        - Void := will write the catheter table to a json file.
+        - None := will write the catheter table to a json file.
         """
         pth_json = Path(pth_json)
         pth_json.parent.mkdir(parents=True, exist_ok=True)
@@ -640,7 +674,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
         - pth_json: Path := the path to the json file where the catheter table will be written.
         
         ### Outputs:
-        - Void := will write the catheter table to a json file in the slicer markup format.
+        - None := will write the catheter table to a json file in the slicer markup format.
         """
         from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.utils import create_marker_pts_from_catheter_table
         pth_mrk_json = Path(pth_mrk_json)
@@ -720,7 +754,7 @@ match its index, be sure that the name_id == new_catheter.index +1")
         we use 8 cores for parallel processing.
         - `combined_dose_only`:bool = False := flag to keep only the combined dose in memory after loading.
         ### Outputs:
-        - Void := will update the BrachyPlan.dose_rate_dict attribute
+        - None := will update the BrachyPlan.dose_rate_dict attribute
         """
         if self.num_dwell_positions == 0:
             raise ValueError("Cannot load dose rates since there is no catheters or dwells in this catheter table.")
@@ -790,7 +824,7 @@ to False for the corresponding dwell position.")
         ### Inputs:
         - self._cached_combined_dose := the BrachyDose
         ### Outputs:
-        - Void := will update the self.combined_dose.uncertainty_image
+        - None := will update the self.combined_dose.uncertainty_image
         """
         if self._cached_combined_dose is None:
             raise ValueError("combined dose is not calculated yet")
@@ -882,7 +916,6 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         None := update self.
         """
         catheter_table_diff = self - new_catheter_table
-        self._time_diffs = {}
 
         for catheter_diff in catheter_table_diff:
             new_catheter = new_catheter_table[catheter_diff.name_id]
@@ -906,7 +939,7 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
                             new_gen_doserate = True
                         else:
                             new_gen_doserate = self_dwell.gen_dose_rate 
-                            self._time_diffs[dwell_diff.name_id] = dwell_diff.time
+
                         dwell_attrs_conds = [
                             ("angle", dwell_diff.angle!=0),
                             ("position", np.any(dwell_diff.position!=0)),
@@ -943,7 +976,7 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     Inputs:
         - pth_dicom: Path := the path to the dicom file containing the catheter table.
     Outputs:
-        - Void := will update the catheter table based on the dicom file.
+        - None := will update the catheter table based on the dicom file.
     """
     import pydicom
 
@@ -1122,7 +1155,7 @@ def _write_single_dose_rate(
     "run_{catheter.index+1}{dwell.index+1}{angle}.seq.nrrd". if none, dose_rate.path.name is used.
     - dose_extension := the type of dose rate map to be exported. options are ".3ddose", ".minidos", or ".nrrd"
     ### Output:
-    - Void := dose file is written to dir_export+f"/{file_name}.{dose_type}
+    - None := dose file is written to dir_export+f"/{file_name}.{dose_type}
     """
     if file_name is None:
         file_name = dose_rate.path.name.split(".")[0]
@@ -1172,7 +1205,7 @@ def load_from_json(pth_json: Path) -> list:
     - pth_json: Path := the path to the json file containing the catheter table.
     
     ### Outputs:
-    - Void := will update the catheter table based on the json file.
+    - None := will update the catheter table based on the json file.
     """
     raw_catheter_table: list = []
     with open(pth_json, "r") as json_file:

@@ -2,10 +2,10 @@ from typing import Dict, List, Optional
 from tqdm import tqdm
 from pathlib import Path
 
-from gurobipy import Model, Var, GRB, MVar
+from gurobipy import Model, Var, GRB, MVar, GurobiError
 import numpy as np
 
-from brachyutils.types import BrachyPlan, BrachyDose
+from brachyutils.brachy_types import BrachyPlan, BrachyDose
 from brachyutils.planning.optimization.optim_utils import (
     get_optimization_roi_bounds, resample_crop_the_mask_or_contour_to_optimGrid,
     compute_dose_rate_matrices
@@ -48,12 +48,12 @@ class CatheterVar_Gurobi():
         - `dose_rates`: Optional[List[np.ndarray]] := the dose rate matrices for all the dwell positions in this catheter.
         """
         self._model_variable: Var = None
-        self.name: str = f"catheter_{catheter.index+1}"
+        self.name: str = f"catheter_{catheter.name_id}"
         self.dwelltime_variables: List[DwellTime_Gurobi] = []
         self.dose_rates = dose_rates
         self.build_backend_variable(model=model)
         for dwell in catheter.dwells:
-            dwell_var_name=f"{self.name}_dwell_{dwell.index+1}"
+            dwell_var_name=f"dwell_{dwell.name_id}"
             self.dwelltime_variables.append(
                 DwellTime_Gurobi(
                     model = model,
@@ -90,6 +90,7 @@ class CatheterTableOptim_Gurobi():
     r"""
     ### Purpose:
     - a class to optimize the catheter table using Gurobi.
+
     ### Attributes:
     - `plan`: BrachyPlan := the brachytherapy plan to be optimized.
     - `solver`: str := the solver used for optimization. default is "gurobi
@@ -108,7 +109,7 @@ class CatheterTableOptim_Gurobi():
     def __init__(
         self,
         plan: BrachyPlan,
-        roi_margin_mm: float = 5.0,
+        roi_margin_mm: float = None,
         multi_processing: bool = False,
         ):
         r"""
@@ -126,8 +127,14 @@ class CatheterTableOptim_Gurobi():
         self.model = None
         self.catheter_vars: List[CatheterVar_Gurobi] = []
         self.dwellTimeVariables: List[DwellTime_Gurobi] = []
+        self.roi_margin_mm: List[float] = None
         self.roi_bounds: List[List[float]] = None
-        self.roi_margin_mm: float = roi_margin_mm if isinstance(roi_margin_mm, list) else [roi_margin_mm] * 3
+
+        if roi_margin_mm is not None:
+            self.roi_margin_mm: float = (
+                roi_margin_mm if isinstance(roi_margin_mm, list)
+                else [roi_margin_mm] * 3
+            )
         self.solution_found: bool = False
         self.solve_time: float = 0.0
         self.multi_processing = multi_processing
@@ -140,7 +147,7 @@ class CatheterTableOptim_Gurobi():
             )
         self.dwellTimeVariables = list(chain.from_iterable(self.catheter_vars))
 
-        if self.roi_margin_mm[0] is not None:
+        if self.roi_margin_mm is not None:
             self.roi_bounds = get_optimization_roi_bounds(
                 plan=self.plan,
                 dwellTimeVariables=self.dwellTimeVariables,
@@ -155,11 +162,15 @@ class CatheterTableOptim_Gurobi():
         self.set_penalty_function_and_constraints(
             optimization_configs=[
                 struc.optimization_config
-                for struc in self.plan.structure_list],
+                for struc in self.plan.structure_list 
+                if struc.optimization_config is not None],
             dwellTimeVariables=self.dwellTimeVariables,
             catheter_vars=self.catheter_vars,
             model=self.model,
         )
+        if plan.optimization_constraint_dict is not None:
+            self.bound_variables(
+                constraint_config_dict=plan.optimization_constraint_dict)
 
     def initialize_model(self, solver: str, pth_logfile:str=None) -> Model:
         r"""
@@ -253,7 +264,7 @@ class CatheterTableOptim_Gurobi():
 
     def bound_variables(
         self,
-        constraint_configs:List[Constraint_Config],
+        constraint_config_dict:Dict[str, Constraint_Config],
         ):
         """
         ### Purpose:
@@ -263,15 +274,16 @@ class CatheterTableOptim_Gurobi():
         dwell times should being with "sum_catheters" and "sum_dwelltimes".
 
         ### Inputs:
-        - constraint_configs (List[Constraint_Config]): Each item in this list contains the name of the
-        variable as well as minimum, maximum and equality constraints on that variable.
+        - constraint_config_dict (Dict[Constraint_Config]): Each item in this dictionary contains the name of the
+        variable as well as minimum, maximum and equality constraints on that variable. The naming convention
+        for the items and the keys are described in bound_variables()
         - model (Model): The model containing the variables. The name of the variables in the constraint list 
         should match the name of the variable. Otherwies, Error will be thrown.
         ### Outputs:
         - None: model is updated with the new constraints
         """
         bound_variables(
-            constraint_configs=constraint_configs,
+            constraint_config_dict=constraint_config_dict,
             model=self.model
         )
 
@@ -303,7 +315,7 @@ def set_catheter_variables(
         plan.catheter_table,
         total=len(plan.catheter_table.catheters_list),
         desc="Creating optimization variables from new catheters"):
-        if f"catheter_{catheter.index+1}" in name_cath_to_keep:
+        if f"catheter_{catheter.name_id}" in name_cath_to_keep:
             continue
         dose_rates = plan.get_dose_rate_matrices_for_catheter(catheter.index)
 
@@ -506,7 +518,6 @@ def set_dwell_coef_dict_per_structure(
         # Build dose rate matrix and dwell time vector for this structure
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
             dwellTimeVariables,
-            # plan,
             structure_name=structure.name,
             structure_mask=structure_mask,
             optim_spacing=structure.optimization_config.spacing_mm,
@@ -520,14 +531,14 @@ def set_dwell_coef_dict_per_structure(
             structure.optimization_config.dwell_coef_dict[var.VarName] = coeff
 
 def bound_variables(
-    constraint_configs:List[Constraint_Config],
+    constraint_config_dict:Dict[str, Constraint_Config],
     model:Model,
     ):
     """
     ### Purpose:
-    - To bound the model variables according the list of constraint config. The bound could be on the 
+    - To bound the model variables according the dictionary of constraint config. The bound could be on the 
     lower bound, upper bound or equality value of the variable.
-    - The name of the constraints on the number of catheters (sum of binary variable) or the total
+    - The name of the constraints (and the keys) on the number of catheters (sum of binary variable) or the total
     dwell times should being with "sum_catheters" and "sum_dwelltimes".
 
     ### Inputs:
@@ -538,9 +549,12 @@ def bound_variables(
     ### Outputs:
     - None: model is updated with the new constraints
     """
-    for constraint in constraint_configs:
+    for constraint in list(constraint_config_dict.values()):
         # check if the constraint already exists, if yes remove it
-        old_constraint = model.getConstrByName(f"c_{constraint.name}")
+        try:
+            old_constraint = model.getConstrByName(f"c_{constraint.name}")
+        except GurobiError:
+            old_constraint = None
         if old_constraint:
             model.remove(old_constraint)
             model.update()
@@ -554,12 +568,10 @@ def bound_variables(
             for this_var in all_vars:
                 if var_target == "catheters":
                     # we are looking for catheter variables only
-                    if (this_var.name.startswith("catheter") and 
-                        not "dwell" in this_var.name):
+                    if this_var.name.startswith("catheter"):
                         vars_needed.append(this_var)
                 elif var_target == "dwelltimes":
-                    if (this_var.name.startswith("catheter") and 
-                        "dwell" in this_var.name):
+                    if this_var.name.startswith("dwell"):
                         vars_needed.append(this_var)
             # apply the constraint
             vars_needed = MVar(vars_needed)

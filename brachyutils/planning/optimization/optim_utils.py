@@ -9,7 +9,7 @@ import SimpleITK as sitk
 # import gurobipy as gb
 from opentps.core.data.images import ROIMask, DoseImage
 from opentps.core.data import ROIContour
-from brachyutils.types import BrachyPlan
+from brachyutils.brachy_types import BrachyPlan
 from abc import ABC, abstractmethod
 from opentps.core.processing.imageProcessing.sitkImageProcessing import image3DToSITK
 from opentps.core.processing.imageProcessing.resampler3D import (
@@ -148,7 +148,6 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
 
 def process_variable(
     variable,
-    # structure_name,
     structure_mask,
     optim_spacing,
     roi_bounds,
@@ -161,7 +160,6 @@ def process_variable(
     This function is used in multi-threaded processing of dwell time variables.
     ### Inputs:
     - variable: BrachyDwellTime := The dwell time variable to process.
-    - structure_name: str := The name of the structure to process.
     - structure_mask: ROIMask := The structure mask to use for processing. it has to be
     in the same grid as the plan.combined_dose.
     - plan: BrachyPlan := The brachytherapy plan to use for processing.
@@ -258,6 +256,9 @@ def compute_dose_rate_matrices(
                     dwell_vars.append(var_mat[0])  # as they have different name attributes for their model variables
                     dose_rate_matrices.append(var_mat[1])
     else:
+        dwell_vars = []
+        dose_rate_matrices = []
+
         for var in dwellTimeVariables:
             dwell_var, valid_dose_points = process_variable(
                 variable=var,
@@ -283,8 +284,8 @@ class BrachyDwellTime(BaseModel, ABC):
     """
     
     name: str = Field(
-        pattern=r"catheter_\d+_dwell_\d+",
-        description="Name of the DwellTimeVariable in the format catheter_{catheter_number+1}_dwell_{dwell_position_number+1}")
+        pattern=r"dwell_\d+",
+        description="Name of the DwellTimeVariable in the format dwell_{dwell_position_number+1}")
     dwell_time: float = Field(ge=0, description="Initial dwell time of the DwellTimeVariable in seconds.")
     lower_bound: float = Field(ge=0, description="Lower bound of the DwellTimeVariable in seconds.")
     upper_bound: float = Field(ge=0, description="Upper bound of the DwellTimeVariable in seconds.")

@@ -1,30 +1,84 @@
-from typing import List, Dict
-from pydantic import BaseModel, ConfigDict, model_validator
+from typing import List, Dict, Union, Annotated
+from pydantic import (
+    BaseModel, ConfigDict, model_validator,
+    Field, TypeAdapter, ValidationError)
 import numpy as np
 from opentps.core.data.images import ROIMask
+
+# Define the specific patterns
+# 1. dwell_#_#_# (e.g., dwell_1_2_3)
+PatternDwell = Annotated[str, Field(pattern=r'^dwell_\d+_\d+_\d+$')]
+
+# 2. catheter_# (e.g., catheter_5)
+PatternCatheter = Annotated[str, Field(pattern=r'^catheter_\d+$')]
+
+# 3. sum_catheters (static string)
+PatternSumCatheters = Annotated[str, Field(pattern=r'^sum_catheters$')]
+
+# 4. sum_dwelltimes (static string)
+PatternSumDwellTimes = Annotated[str, Field(pattern=r'^sum_dwelltimes$')]
+
+# Create a Union type that accepts any of the above
+ValidName = Union[PatternDwell, PatternCatheter, PatternSumCatheters, PatternSumDwellTimes]
+
+def _validate_pattern(query: str, pattern: ValidName) -> bool:
+    adapter = TypeAdapter(pattern)
+    try:
+        adapter.validate_python(query)
+        return True
+    except ValidationError:
+        return False
+
+def _is_binary_or_None(value):
+    return value in [0, 1, None]
 
 class Constraint_Config(BaseModel):
     """
     ### Purpose:
     - A class to represent the constraint information on other dwell time or catheter
     variables. The name of the config should match the name of the variable in the optimization model.
-    - Each variable can have min, max or equality constraints.
+    - Each variable can have min, max or equality constraints. Set exactly the constraint you want and
+    leave the others as None.
     - The name of the constraints on the number of catheters or the total dwell times should being with
-    "sum_catheters" and "sum_dwelltimes"
+    "sum_catheters" and "sum_dwelltimes".
 
     ### Attributes:
-    - name:= The name of the model variable 
-    - minimum: int | float = 0
+    - name:= The name of the model variable, which is a string in one of the following patterns:
+        - dwell_#_#_#
+        - catheter_#
+        - sum_catheters
+        - sum_dwelltime
+    - minimum: int | float = None
     - maximum: int | float = None
     - equal: int | float = None
     """
-    name: str
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,
+        )
+
+    name: ValidName
     minimum: int | float = None
     maximum: int | float = None
     equal: int | float = None
 
     @model_validator(mode="after")
     def sanity_check(self):
+        if _validate_pattern(self.name, PatternCatheter):
+            if (
+                (not _is_binary_or_None(self.minimum))
+                or (not _is_binary_or_None(self.maximum))
+                or (not _is_binary_or_None(self.equal))):
+                raise ValueError(f"minimum, maximum and equality constraints for {self.name} \
+must be binary values (0 or 1)")
+        elif _validate_pattern(self.name, PatternSumCatheters):
+            if (
+                (not (isinstance(self.minimum, int) or self.minimum is None))
+                or (not isinstance(self.maximum, int) or self.maximum is None)
+                or (not isinstance(self.equal, int) or self.equal is None)):
+                raise ValueError(f"minimum, maximum and equality constraints for {self.name} \
+must be integer values")
+
         if self.maximum is not None:
             if self.minimum:
                 if self.minimum > self.maximum:
