@@ -88,7 +88,12 @@ class Catheter(BaseModel):
         ### Outputs:
         - int := the number of dwell positions in the catheter.
         """
-        return len(self.dwells)
+        # return len(self.dwells)
+        if not self.dwells:
+            return 0
+            
+        unique_indices = set(dwell.index for dwell in self.dwells)
+        return len(unique_indices)
 
     @model_validator(mode="after")
     def validate_catheter(self):
@@ -366,3 +371,44 @@ class Catheter(BaseModel):
                 filtered_dwells.append(new_dwell)
                 dwell_idx += 1
         self.dwells = filtered_dwells
+
+    def apply_imbt_shielding(
+            self, 
+            start_angle: float, 
+            stop_angle: float, 
+            angle_increment: float
+            ):
+        """
+        ### Purpose:
+        - Transforms a standard catheter into an IMBT shielded catheter by generating 
+        independent DwellPosition instances for each angle at every physical index.
+        ### Inputs:
+        - self := the Catheter object.
+        - start_angle:float := the starting angle
+        - stop_angle:float := the stopping angle
+        - angle_increment:float := the angle increment
+        ### Outputs:
+        - None
+        """
+        # Generate the safe array of angles (adding a tiny buffer to stop_angle for float safety)
+        angles = np.arange(start_angle, stop_angle + (angle_increment / 2.0), angle_increment)
+        
+        new_dwells: List[DwellPosition] = []
+        
+        # Extract only the unique physical positions to act as our base templates
+        # (Using a dictionary ensures we only grab one template per physical index)
+        base_dwells = {dwell.index: dwell for dwell in self.dwells}
+        
+        # Generate the new matrix of shielded dwells
+        for index, base_dwell in base_dwells.items():
+            for angle in angles:
+                # Deep copy the dwell and override the angle
+                shielded_dwell = base_dwell.model_copy(deep=True, update={'angle': float(angle)})
+                
+                # If dwell times should be reset to 0 for a new optimization, do it here:
+                # shielded_dwell.time = 0.0 
+                
+                new_dwells.append(shielded_dwell)
+                
+        # Replace the old 1D list with the new IMBT list
+        self.dwells = new_dwells

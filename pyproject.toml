@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brachyutils"
-version = "0.8"
+version = "0.8.1"
 description = "Python utility packages for handling dose files and egsphant files."
 authors = [{name = "EngerLab"}]
 readme = "README.md"
@@ -60,7 +60,10 @@ plan = ["gurobipy", "amplpy", "ortools"]
 full = ["monai", "gurobipy", "amplpy", "ortools"]
 
 [tool.setuptools.packages.find]
-include = ["brachyutils.*", "brachyutils"]
+include = ["brachyutils.*", "brachyutils", "admin", "admin.*"]
 
 [project.scripts]
 brachyutils = "brachyutils.cli_utils:main"
+
+[tool.setuptools.package-data]
+"admin" = ["constants/*.json"]
