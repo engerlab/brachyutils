@@ -50,10 +50,12 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
 
         #store meta-parameters about the calculation in this dictionary
         self.calc_parameters = {
-            "kernel_half_width" : 20 * CM, #half width to calculate dose rate kernel
-            "kernel_res" : 0.1 * CM, #resolution to calculate the dose rate kernel
             "kernel_max_dose_rate": 10, #Gy/s
-            "epsilon": 1e-3 #just a little nudge to certain values :)
+            "epsilon": 1e-3, #just a little nudge to certain values :)
+            "auto_kernel": True, #if not True, you must set the next two values 
+            #"kernel_half_width" : 10 * CM, #half width to calculate dose rate kernel
+            #"kernel_res" : 0.1 * CM, #resolution to calculate the dose rate kernel
+            "auto_phantom" : True, #crop phantom to all non-body structures
         }
         self.calc_parameters.update(calc_parameter_kwargs)
 
@@ -91,7 +93,9 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
     def load_from_brachyplan(self, plan : BrachyPlan) -> None:
         self.validate_brachyplan(plan)
         self.brachyplan = plan
-        self.brachyphantom : BrachyPhantom = plan.phantom
+        self.brachyphantom : BrachyPhantom = self.auto_calculate_phantom() if self.calc_parameters["auto_phantom"] else plan.phantom
+        if self.calc_parameters["auto_kernel"]:
+            self.auto_calculate_kernel()
         self.brachysource : BrachySource = plan.simulation_setup.brachy_source
         self.source_name : str = self.brachysource.source_geometry
         self.is_hdr : bool = self.brachysource.treatment_type == "HDR"
@@ -102,6 +106,29 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
         self.activity = self.brachysource.activity #can specify the (total) activity in place of the AKS
         if self.activity is not None:
             self.activity *= CI
+
+    AUTO_KERNEL_RES = 1.0 #mm
+    def auto_calculate_kernel(self) -> BrachyPhantom:
+        #automatically calculate the kernel size based on the phantom size and spacing
+        #and will create a phantom of the appropriate size containing all OARs at 1 mm spacing
+        logging.info("Automatically calculating kernel for TG-43 calculation.")
+
+        phantom_dimensions = self.brachyplan.phantom.image_obj.gridSize * self.brachyplan.phantom.image_obj.spacing
+        new_kernel_half_width = max(phantom_dimensions) * 1.2 * 0.5 #make the kernel big enough to cover the whole phantom (+20% padding)
+        self.calc_parameters["kernel_half_width"] = new_kernel_half_width if new_kernel_half_width <  150.0 else 150.0 #cap the kernel size at 150 mm to prevent excessive memory usage
+        self.calc_parameters["kernel_res"] = self.AUTO_KERNEL_RES
+        logging.info(f"Automatically calculated kernel half width {self.calc_parameters["kernel_half_width"]} mm.")
+
+    def auto_calculate_phantom(self) -> BrachyPhantom:
+        logging.info("Automatically calculating phantom for TG-43 calculation.")
+        structures_to_crop_by = [structure.name for structure in self.brachyplan.structure_list if structure.name.lower() not in "body" or structure.name.lower() in "external"]
+        logging.debug(f"Cropping phantom to {structures_to_crop_by}.")
+        new_phantom = self.brachyplan.phantom.crop_by_contour(contour_name = structures_to_crop_by, inplace = False, marginInMM = 20.0)
+        new_phantom.cached_structure_masks = None #a little hack to prevent resampling of structure masks (useless)
+        new_phantom.resample_to(spacing=np.array([1.0, 1.0, 1.0]), inplace=True)
+        new_phantom_dimensions = new_phantom.image_obj.gridSize * new_phantom.image_obj.spacing
+        logging.debug(f"New phantom dimensions: {new_phantom_dimensions}")
+        return new_phantom
 
     def load_and_initialize_tg43(self) -> None:
         #Load and initialize all of the TG-43 parameters and functions
@@ -125,7 +152,7 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
             file_data = file.readlines()[0].split(',')
         file_data[2] = file_data[2][:-1] #cut out newline
         if file_data[0] != self.source_name:
-            raise ValueError(f"Potential mismatch! Loaded parameters for source {file_data[0, 0]} \
+            raise ValueError(f"Potential mismatch! Loaded parameters for source {file_data[0]} \
 but source name is {self.source_name}.")
         source_core_from_plan = self.brachysource.core_material.split('_')[1] + "-" + str(self.brachysource.mass_number)
         if file_data[2] != source_core_from_plan:
@@ -265,7 +292,7 @@ but source name is {self.source_name}.")
         kernel_geometry_function = np.reshape(self.geometry_function(kernel_r_theta), kernel_shape)
         if np.any(kernel_geometry_function == 0):
             where_zero = kernel_geometry_function == 0
-            raise UserWarning(f"Kernel's geometry function has 0s at r={kernel_r[where_zero]}/theta={kernel_theta[where_zero]}.")
+            logging.warn(f"Kernel's geometry function has 0s at r={kernel_r[where_zero]}/theta={kernel_theta[where_zero]}.")
         kernel_array *= kernel_geometry_function
         del kernel_geometry_function
 
@@ -284,7 +311,7 @@ but source name is {self.source_name}.")
         logging.debug("2D anisotropy function grid initialized.")
         if np.any(kernel_anisotropy_function == 0):
             where_zero = kernel_anisotropy_function == 0
-            raise UserWarning(f"Kernel's anisotropy function has 0s at r={kernel_r[where_zero]}/theta={kernel_theta[where_zero]}.")
+            logging.warn(f"Kernel's anisotropy function has 0s at r={kernel_r[where_zero]}/theta={kernel_theta[where_zero]}.")
         del kernel_anisotropy_function
         #make the dose image
         if np.any(np.isnan(kernel_array)):

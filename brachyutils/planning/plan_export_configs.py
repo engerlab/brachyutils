@@ -14,7 +14,7 @@ class ExportConfig_PlanAndMac(BaseModel):
     - dir_export: Directory where the plan and mac files are exported.
     - combined_only: If true, only combined files are written.
     - name_combined: The base name for the combined files (used for both .plan and .mac).
-    - body_name_stl: Name of the body structure to be saved as a separate STL.
+    - body_mesh_name: Name of the body structure to be saved as a separate STL.
     - pth_phantom: The relative path to the egsphant file.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -22,7 +22,9 @@ class ExportConfig_PlanAndMac(BaseModel):
     dir_export: Path | None = Field(default=None, description="Directory where the plan and mac files are exported.")
     combined_only: bool = Field(default=True, description="If true, only combined files are written.")
     name_combined: str = Field(default="combined", description="The base name for the combined files (used for both .plan and .mac).")
-    body_name_stl: str = Field(default="BODY", description="Name of the body structure to be saved as a separate STL.")
+    auto_mvm: bool = Field(default=True, description="Whether to automatically determine if MVM at export time based on phantom size.")
+    body_mesh_name: str | None = Field(default=None, description="Name of the body structure for MVM phantom.")
+    body_mesh_material: str = Field(default="SoftTissue", description="Material name for the body structure in MVM phantom.")
     pth_phantom: Path = Field(default=Path("egsphant.seq.nrrd"), description="The relative path to the egsphant file.")
     
     @computed_field
@@ -41,7 +43,7 @@ class ExportConfig_PlanAndMac(BaseModel):
     def pth_body_stl(self) -> Path | None:
         if self.dir_export is None:
             return None
-        return self.dir_export / f"{self.body_name_stl}.stl"
+        return self.dir_export / f"{self.body_mesh_name}.stl"
 
 class ExportConfig_Egsphant(BaseModel):
     r"""
@@ -49,7 +51,7 @@ class ExportConfig_Egsphant(BaseModel):
     - The Export info needed for exporting Egsphant files.
     - If using Monte Carlo simulations from RapidBrachyMC, It is recommended that
     the user crop the egsphant to a small region around the relevant anatomy and
-    use provide the body_name_stl to save the body structure as a separate STL file.
+    use provide the body_mesh_name to save the body structure as a separate STL file.
 
     ### Attributes:
     - dir_export: Directory where Egsphant file is exported.
@@ -63,7 +65,7 @@ class ExportConfig_Egsphant(BaseModel):
     - resampled_origin: Origin for resampling the phantom.
     - background_material: Material name for background.
     - strict_name_match: Enforce strict name matching for materials.
-    - body_name_stl: Name of the body structure to be saved as a separate STL.
+    - body_mesh_name: Name of the body structure to be saved as a separate STL.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
     dir_export: str | Path = Field(None, description="Directory where Egsphant file is exported.")
@@ -82,16 +84,9 @@ If a list of strings is provided, the union of the contours will be used to crop
     resampled_origin: List[float] = Field(None, description="Origin for resampling the phantom.")
     background_material: str = Field("Air", description="Material name for background.")
     strict_name_match: bool = Field(True, description="Whether to enforce strict name matching for materials.")
-    body_name_stl: str = Field(None, description="Name of the body structure to be saved as a separate STL.")
-    # pth_body_stl: str | Path = Field(None, description="Directory to where the BODY.stl file is exported.")
     @computed_field
     def pth_egsphant(self)->Path:
         return self.dir_export/(self.name+self.file_extension)
-    @computed_field
-    def pth_body_stl(self)->Path:
-        self.dir_export = Path(self.dir_export)
-        return self.dir_export/(self.body_name_stl+".stl")
-
 class ExportConfig_CatheterTable(BaseModel):
     r"""
     ### Purpose:

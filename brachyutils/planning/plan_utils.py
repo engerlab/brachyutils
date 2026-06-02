@@ -919,7 +919,7 @@ class BrachyPlan:
             "export_config_plan_and_mac": {
                 "combined_only": True,
                 "name_combined": "combined",
-                "body_name_stl": "BODY"
+                "body_mesh_name": "BODY"
             },
             "applicator_geometry": False,
             "structure_set": False
@@ -938,7 +938,12 @@ class BrachyPlan:
             self.export_catheter_table(
                 export_config_cathetertable=content_to_export.export_config_cathetertable,
                 catheter_table=self.catheter_table,
-            )            
+            )
+
+        if content_to_export.export_config_egsphant:
+            self._export_egsphant(
+                export_config_egsphant=content_to_export.export_config_egsphant
+            )
 
         if content_to_export.export_config_plan_and_mac:
             self.export_plan_files(
@@ -950,10 +955,6 @@ class BrachyPlan:
                 catheter_table=self.catheter_table
                 )
 
-        if content_to_export.export_config_egsphant:
-            self._export_egsphant(
-                export_config_egsphant=content_to_export.export_config_egsphant
-            )
 
         if content_to_export.applicator_geometry:
             self._export_applicator_geometry(str(content_to_export.dir_export))
@@ -1122,12 +1123,26 @@ class BrachyPlan:
         sim_obj.pth_plan = export_config_plan_and_mac.pth_plan_combined
         sim_obj.pth_phantom = export_config_plan_and_mac.pth_phantom
 
-        potential_stl = export_config_plan_and_mac.dir_export / "BODY.stl"
-        if potential_stl.exists():
-            # If RapidBrachyMC expects just the filename:
-            sim_obj.pth_body_stl = "BODY.stl" 
-            sim_obj.body_material = "Water"
-        
+        if export_config_plan_and_mac.auto_mvm:
+            #check if we need it - if the dimensions of the image are sufficiently small
+            if any(self.phantom.egsphant_obj.material_image.gridSizeInWorldUnit < 400): #if our phantom is smaller than 40 cm in any direction
+                for structure in self.phantom.structure_names:
+                    if structure.lower() == "body" or structure.lower() == "external":
+                        export_config_plan_and_mac.body_mesh_name = structure
+                    #material already defaults to soft tissue
+
+        if export_config_plan_and_mac.body_mesh_name is not None:
+            sim_obj.pth_body_stl = export_config_plan_and_mac.pth_body_stl.name
+            sim_obj.body_material = export_config_plan_and_mac.body_mesh_material
+            body_mask = self.phantom.get_structure_mask([export_config_plan_and_mac.body_mesh_name], mask_type = ROIMask, strict_name_match=False)[export_config_plan_and_mac.body_mesh_name]
+
+            from brachyutils.geometry.phantom_utils import mask_to_stl
+
+            mask_to_stl(
+                roi_mask=body_mask,
+                pth_output=export_config_plan_and_mac.pth_body_stl
+            )
+
         with open(export_config_plan_and_mac.pth_mac_combined, "w") as file:
             file.write(sim_obj.to_string())
 
@@ -1165,7 +1180,6 @@ class BrachyPlan:
         ### Dependencies:
         - BrachyEgsphant
         """
-        from brachyutils.geometry.phantom_utils import mask_to_stl
         self.phantom.write_to_egsphant(
             pth_output=export_config_egsphant.pth_egsphant,
             material_dict=export_config_egsphant.material_dict,
@@ -1177,16 +1191,6 @@ class BrachyPlan:
             background_material=export_config_egsphant.background_material,
             strict_name_match=export_config_egsphant.strict_name_match
         )
-        if export_config_egsphant.body_name_stl is not None:
-            body_mask = self.body_contour.getBinaryMask(
-                origin=self.phantom.image_obj.origin,
-                spacing=self.phantom.image_obj.spacing,
-                gridSize=self.phantom.image_obj.gridSize
-            )
-            mask_to_stl(
-                roi_mask=body_mask,
-                pth_output=export_config_egsphant.pth_body_stl
-            )
 
         print("Egsphant file was exported successfully")
 
@@ -1294,7 +1298,7 @@ class BrachyPlan:
 
         ### Dependencies:
         """
-        raise NotImplementedError("now that you are here, finish this function thank you!")
+        raise NotImplementedError("now that you are here, finish this function thank you!") #no thanks, Jonathan.
         structure_set = []
         for structure in self.structure_list:
             structure_set.append(structure.to_dict(export_format))

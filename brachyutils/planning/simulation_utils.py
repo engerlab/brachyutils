@@ -178,14 +178,14 @@ class BrachySimulation(BaseModel):
     """
     brachy_source: BrachySource | Path | str = BrachySource()
     world_material: str = "Air"
-    number_histories: int = 1e6
+    number_histories: int = int(1e6)
     total_time: float = None
     dose_format: str = "nrrd"
     number_of_threads: int = 12
     control_verbose: int = 0
     run_verbose: int = 0
     tracking_verbose: int = 0
-    print_progress: int = 1e4
+    print_progress: int = int(1e4)
     pth_plan: str = "combined.plan"
     pth_phantom: str = "ct.egsphant"
     pth_body_stl: str = None
