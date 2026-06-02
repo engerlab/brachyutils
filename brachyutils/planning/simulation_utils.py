@@ -262,7 +262,7 @@ class BrachySimulation(BaseModel):
             for applicator in self.applicator_list:
                 outstring = (
                     outstring
-                    + f"/applicator/path {applicator.name}\n"
+                    + f"/applicator/path {applicator.name}.stl\n"
                     + f"/applicator/material {applicator.material}\n"
                     + f"/applicator/density {applicator.density}\n"
                     + f"/applicator/done\n"

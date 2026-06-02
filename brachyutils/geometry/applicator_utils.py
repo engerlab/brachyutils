@@ -25,7 +25,7 @@ class BrachyApplicator:
         - path:str := path to the applicator geometry file.
         - name:str := name of the applicator, which is taken as the basename of the path.
         - applicator_mesh := the vtk mesh of the applicator.
-        - verticies:np.array := the verticies of the applicator mesh.
+        - vertices:np.array := the vertices of the applicator mesh.
         - faces:np.array := the faces of the applicator mesh.
         - origin:np.array := the origin of the applicator.
         - rotation:np.array := the rotation of the applicator.
@@ -72,7 +72,7 @@ class BrachyApplicator:
         self.path = pth_input_file
         self.name = os.path.splitext(os.path.basename(self.path))[0] 
         self.applicator_mesh: vtkPolyData = None
-        self.verticies: np.array = None
+        self.vertices: np.array = None
         self.faces: np.array = None
         self.origin: np.array = np.array([0, 0, 0])  # [x, y, z]
         self.rotation: np.array = np.array([0, 0, 0, 0])  # [w, x, y, z]
@@ -129,7 +129,7 @@ class BrachyApplicator:
         with open(pth_input, "r") as json_file:
             applicator_dict = json.load(json_file)
 
-        self.verticies = np.array(applicator_dict["verticies"], dtype=np.float32)
+        self.vertices = np.array(applicator_dict["vertices"], dtype=np.float32)
         self.faces = np.array(applicator_dict["faces"], dtype=np.int32)
         self.set_origin(np.array(applicator_dict["origin"]))
         self.set_rotation(np.array(applicator_dict["rotation"]))
@@ -162,7 +162,7 @@ class BrachyApplicator:
             return False
         if self.name != other.name:
             return False
-        if not np.isclose(self.verticies, other.verticies, atol=1e-6).all():
+        if not np.isclose(self.vertices, other.vertices, atol=1e-6).all():
             return False
         if not np.isclose(self.faces, other.faces, atol=1e-6).all():
             return False
@@ -179,14 +179,14 @@ class BrachyApplicator:
     def _update_applicator_mesh_from_brachy_applicator(self) -> None:
         r"""
         Purpose:
-            - To update the applicator mesh from the verticies and faces.
+            - To update the applicator mesh from the vertices and faces.
         Inputs:
             - self := the BrachyApplicator object.
         Outputs:
-            - None := will update the applicator mesh from the verticies and faces.
+            - None := will update the applicator mesh from the vertices and faces.
         """
         points = vtkPoints()
-        for vertex in self.verticies:
+        for vertex in self.vertices:
             points.InsertNextPoint(vertex)
         self.applicator_mesh.SetPoints(points)
 
@@ -208,7 +208,7 @@ class BrachyApplicator:
         Outputs:
             - None := will update the brachy applicator from the applicator mesh.
         """
-        self.verticies = numpy_support.vtk_to_numpy(
+        self.vertices = numpy_support.vtk_to_numpy(
             self.applicator_mesh.GetPoints().GetData()
         )
         self.faces = numpy_support.vtk_to_numpy(
@@ -223,12 +223,12 @@ class BrachyApplicator:
         Inputs:
             - origin:np.array := the origin of the applicator.
         Outputs:
-            - None := will update the applicator verticies based on the new origin.
+            - None := will update the applicator vertices based on the new origin.
         """
         old_origin = self.origin
-        change_in_origin = np.ones_like(self.verticies) * (origin - old_origin)
+        change_in_origin = np.ones_like(self.vertices) * (origin - old_origin)
         self.origin = origin
-        self.verticies += change_in_origin
+        self.vertices += change_in_origin
         self._update_applicator_mesh_from_brachy_applicator()
 
     def set_rotation(
@@ -247,7 +247,7 @@ class BrachyApplicator:
             - rotation_origin:np.array := the origin of the rotation. if not provided, the
             origin of the applicator will be used.
         Outputs:
-            - None := will update the applicator verticies based on the new rotation.
+            - None := will update the applicator vertices based on the new rotation.
         """
         # set the rotation attribute
         self.rotation = rotation
@@ -300,7 +300,7 @@ class BrachyApplicator:
         Inputs:
             - coordinates:np.array := the coordinates of the applicator.
         Outputs:
-            - None := will update the applicator verticies based on the new coordinates.
+            - None := will update the applicator vertices based on the new coordinates.
         """
         # set the coordinate attributes
         self.coordinates = coordinates
@@ -346,7 +346,7 @@ class BrachyApplicator:
         return {
             "name": self.name,
             "path": self.path,
-            # "verticies": self.verticies.tolist(),
+            # "vertices": self.vertices.tolist(),
             # "faces": self.faces.tolist(),
             "origin": self.origin,
             "rotation": self.rotation,

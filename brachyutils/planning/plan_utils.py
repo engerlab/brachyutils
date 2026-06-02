@@ -953,7 +953,7 @@ class BrachyPlan:
         """
         sim_obj = deepcopy(self.simulation_setup)
         sim_obj.total_time = catheter_table.treatment_time
-        sim_obj.pth_plan = export_config_plan_and_mac.pth_plan_combined
+        sim_obj.pth_plan = export_config_plan_and_mac.pth_plan_combined.name
         sim_obj.pth_phantom = export_config_plan_and_mac.pth_phantom
         sim_obj.applicator_list = self.applicator_list
 
