@@ -143,6 +143,8 @@ class BrachySource(BaseModel):
         source_dict["source_geometry"] = plan_dcm.TreatmentMachineSequence[0].ManufacturerModelName
         if "microselectron-hdr v2" in source_dict["source_geometry"].lower():
             source_dict["source_geometry"] = "MicroSelectronV2"
+        elif "microselectron v3" in source_dict["source_geometry"].lower():
+            source_dict["source_geometry"] = "MicroSelectronV3"
         # source_dict["source_geometry"] = plan_dcm.get("SourceModelName", "MicroSelectronV2")
         source_dict["core_material"] = plan_dcm.SourceSequence[0].SourceIsotopeName
         if source_dict["core_material"] == "Ir-192":
