@@ -31,7 +31,6 @@ class BrachyApplicator:
         - rotation:np.array := the rotation of the applicator.
         - material:str := the material of the applicator.
         - density:float := the density of the applicator.
-        - normal:np.array := the normal of the applicator in the patient coordinate system. this is used for RapidBrachy only.
 
     Functions:
         - load_stl(pth_input:str)
@@ -49,7 +48,6 @@ class BrachyApplicator:
         rotation: np.array = None,
         rotation_origin: np.array = None,
         coordinates: np.array = None,
-        normal: np.array = None,
         catheter_trajectory: list = None,
     ) -> None:
         """
@@ -58,12 +56,11 @@ class BrachyApplicator:
         Inputs:
             - pth_input_file (str): The path to the input file.
             - material (str, optional): The material of the applicator. Defaults to None.
-            - density (float, optional): The density of the applicator. Defaults to None.
+            - density (float, optional): The density of the applicator. Defaults to None. 
             - origin (np.array, optional): The origin of the applicator in [x,y,z] . Defaults to None.
             - rotation (np.array, optional): The rotation vector of the applicator in [w,x,y,z]. Defaults to None.
             - rotation_origin (np.array, optional): The origin point with respect to which the rotaion vector is created.
             - coordinates (np.array, optional): The coordinates of the applicator in patient frame. Defaults to None.
-            - normal (np.array, optional): The normal of the applicator in the patient frame. Defaults to None.
             - catheter_trajectory: (list, optional): The list of start dwell poisition and end dwell position of the catheter inside
             the applicator [[x,y,z,x,y,z]]. Defaults to None.
         Outputs:
@@ -73,7 +70,7 @@ class BrachyApplicator:
             pth_input_file
         ), f"input file {pth_input_file} does not exist"
         self.path = pth_input_file
-        self.name = os.path.splitext(os.path.basename(self.path))[0]
+        self.name = os.path.splitext(os.path.basename(self.path))[0] 
         self.applicator_mesh: vtkPolyData = None
         self.verticies: np.array = None
         self.faces: np.array = None
@@ -82,7 +79,6 @@ class BrachyApplicator:
         self.coordinates: np.array = np.array([0, 0, 0])  # [x, y, z]
         self.material: str = None
         self.density: float = None
-        self.normal: np.array = None
         self.catheter_trajectory: np.array = None
 
         input_extension = os.path.splitext(self.path)[1]
@@ -103,8 +99,6 @@ class BrachyApplicator:
             self.set_rotation(rotation, rotation_origin)
         if coordinates is not None:
             self.set_coordinates(coordinates)
-        if normal is not None:
-            self.normal = normal
         if catheter_trajectory is not None:
             self.catheter_trajectory = catheter_trajectory
 
@@ -142,17 +136,6 @@ class BrachyApplicator:
         self.set_coordinates(np.array(applicator_dict["coordinates"]))
         self.material = applicator_dict["material"]
         self.density = applicator_dict["density"]
-
-    def load_mac(self, pth_input: str) -> None:
-        r"""
-        Purpose:
-            - To load the applicator geometry from a mac file.
-        Inputs:
-            - pth_input:str := path to the mac file containing the applicator geometry.
-        Outputs:
-            - None := will update the BrachyApplicator object based on the mac file.
-        """
-        raise NotImplementedError("to be implemented soon")
 
     def info(self) -> None:
         r"""
@@ -369,7 +352,6 @@ class BrachyApplicator:
             "rotation": self.rotation,
             "material": self.material,
             "density": self.density,
-            "normal": self.normal,
             "catheter_trajectory": self.catheter_trajectory,
         }
 
@@ -387,43 +369,6 @@ class BrachyApplicator:
         with open(pth_output, "w") as json_file:
             json.dump(applicator_dict, json_file, indent=4)
 
-    def to_mac(self, pth_output: str) -> None:
-        r"""
-        Purpose:
-            - To save the applicator geometry to a mac file.
-        Inputs:
-            - pth_output:str := path to the output mac file.
-        Outputs:
-            - None := will save the applicator geometry to a mac file.
-        """
-        macfile_string = ""
-
-        # add in the vertex info
-        float_formatter = "{:.3f}".format
-        for vertex in self.verticies:
-            macfile_string += f"/applicator/vertex {float_formatter(vertex[0])} {float_formatter(vertex[1])} {float_formatter(vertex[2])} mm\n"
-
-        # add in the face info
-        for face in self.faces:
-            macfile_string += f"/applicator/face {face[0]} {face[1]} {face[2]}\n"
-        # add in the material info
-        macfile_string += f"/applicator/material {self.material}\n"
-        # add in the density info
-        macfile_string += f"/applicator/density {self.density}\n"
-        # add in the origin info
-        macfile_string += "/applicator/xPosition 0 mm\n"
-        macfile_string += "/applicator/yPosition 0 mm\n"
-        macfile_string += "/applicator/zPosition 0 mm\n"
-        # add in rotation nfo
-        macfile_string += "/applicator/xRotation 0 deg\n"
-        macfile_string += "/applicator/yRotation 0 deg\n"
-        macfile_string += "/applicator/zRotation 0 deg\n"
-        # add in the done flag
-        macfile_string += "/applicator/done\n"
-
-        with open(pth_output, "w") as mac_file:
-            mac_file.write(macfile_string)
-
     def to_stl(self, pth_output: str) -> None:
         r"""
         Purpose:
@@ -440,7 +385,7 @@ class BrachyApplicator:
         stl_writer.SetInputData(self.applicator_mesh)
         stl_writer.Write()
 
-    
+
 def load_applicator_materials(pth_applicator_materials : Path | None = None ) -> dict:
     r"""
     Purpose:

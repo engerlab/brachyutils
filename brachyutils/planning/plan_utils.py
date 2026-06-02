@@ -601,9 +601,6 @@ class BrachyPlan:
             - "materials": list of materials of the applicator.
             - "points": list of points (x,y,z,x,y,z) describing the first and last dwell positions
             on the applicator in the frame of the applicator.
-            - "shieldNormalx": normal of applicator in the x direction in the frame of CT.
-            - "shieldNormaly": normal of applicator in the y direction in the frame of CT.
-            - "shieldNormalz": normal of applicator in the z direction in the frame of CT.
             - "wRot": list of wRot of the applicator.
             - "x": list of x of the applicator.
             - "xRoti": list of xRot of the applicator i in [1, N].
@@ -627,25 +624,6 @@ class BrachyPlan:
             for i in range(num_applicators):
 
                 j = i + 1 if i >= 1 else ""
-                shieldNormal = np.array(
-                    [
-                        (
-                            applicator_list["shieldNormalx"]
-                            if "shieldNormalx" in applicator_list
-                            else 0
-                        ),
-                        (
-                            applicator_list["shieldNormaly"]
-                            if "shieldNormaly" in applicator_list
-                            else 0
-                        ),
-                        (
-                            applicator_list["shieldNormalz"]
-                            if "shieldNormalz" in applicator_list
-                            else 0
-                        ),
-                    ]
-                )
 
                 rotation = np.array(
                     [
@@ -692,7 +670,6 @@ class BrachyPlan:
                             applicator_list["z"],
                         ]
                     ),
-                    normal=shieldNormal,
                     # for now RapidBrachy exports only one catheter trajectory.
                     # in future, more catheter trajectories may be possible.
                     # use i instead of 0 to get the ith catheter trajectory.
@@ -729,7 +706,6 @@ class BrachyPlan:
                         if "coordinates" in applicator
                         else None
                     ),
-                    normal=applicator["normal"] if "normal" in applicator else None,
                     catheter_trajectory=(
                         applicator["catheter_trajectory"]
                         if "catheter_trajectory" in applicator
@@ -1122,6 +1098,7 @@ class BrachyPlan:
         sim_obj.total_time = catheter_table.treatment_time
         sim_obj.pth_plan = export_config_plan_and_mac.pth_plan_combined
         sim_obj.pth_phantom = export_config_plan_and_mac.pth_phantom
+        sim_obj.applicator_list = self.applicator_list
 
         if export_config_plan_and_mac.auto_mvm:
             #check if we need it - if the dimensions of the image are sufficiently small
@@ -1220,9 +1197,6 @@ class BrachyPlan:
                 "filenames": [],
                 "materials": [],
                 "points": [],
-                "shieldNormalx": 0,
-                "shieldNormaly": 0,
-                "shieldNormalz": 0,
                 "wRot": 0,
                 "x": 0,
                 "xRot": 0,
@@ -1240,9 +1214,6 @@ class BrachyPlan:
                 out_json["points"].append(
                     applicator.catheter_trajectory.flatten().tolist()
                 )
-                out_json["shieldNormalx"] = float(applicator.normal[0])
-                out_json["shieldNormaly"] = float(applicator.normal[1])
-                out_json["shieldNormalz"] = float(applicator.normal[2])
 
                 subscript = counter + 1 if counter >= 1 else ""
                 out_json[f"wRot{subscript}"] = float(applicator.rotation[0])
@@ -1268,9 +1239,9 @@ class BrachyPlan:
         else:
             raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
 
-        # export the mac files for each applicator
+        # export the transformed stl files for each applicator
         for applicator in self.applicator_list:
-            applicator.to_mac(os.path.join(dir_export, f"{applicator.name}.mac"))
+            applicator.to_stl(os.path.join(dir_export, f"{applicator.name}.stl"))
         print("applicator geometry file was exported successfully")
 
     def _export_structure_set(

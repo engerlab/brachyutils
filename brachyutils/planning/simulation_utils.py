@@ -1,9 +1,10 @@
 import json
 from pathlib import Path
-from typing import Union, Literal
+from typing import Union, Literal, List
 import pydicom
 from collections import defaultdict
-from pydantic import BaseModel, model_validator, Field
+from pydantic import BaseModel, ConfigDict, model_validator, Field
+from brachyutils.geometry.applicator_utils import BrachyApplicator
 class BrachySource(BaseModel):
     r"""
     ### Purpose:
@@ -24,12 +25,12 @@ class BrachySource(BaseModel):
     """
 
     treatment_type: Literal["HDR", "PLDR", "TLDR"] = "HDR"
-    source_geometry: str = "MicroSelectronV2"
+    source_geometry: str = "GenericHDR"
     core_material: str = "G4_Ir"
     mass_number: int = 192
     atomic_number: int = 77
-    air_kerma_per_history: float = 1.149000e-11
-    reference_air_kerma_rate: float = 4.278729e04,
+    air_kerma_per_history: float = 1.158e-11
+    reference_air_kerma_rate: float = 36260.0,
     activity: float = None
     # source_dict: Union[dict, Path, str] = None
 
@@ -176,20 +177,23 @@ class BrachySimulation(BaseModel):
     - validate(): checks if the fields are valid for export.
     - to_string(): converts the object to a string.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     brachy_source: BrachySource | Path | str = BrachySource()
     world_material: str = "Air"
-    number_histories: int = int(1e6)
+    number_histories: int = int(1e7)
     total_time: float = None
     dose_format: str = "nrrd"
-    number_of_threads: int = 12
+    number_of_threads: int = 8
     control_verbose: int = 0
     run_verbose: int = 0
     tracking_verbose: int = 0
-    print_progress: int = int(1e4)
+    print_progress: int = int(1e5)
     pth_plan: str = "combined.plan"
-    pth_phantom: str = "ct.egsphant"
+    pth_phantom: str = "phantom.seq.nrrd"
     pth_body_stl: str = None
     body_material: str = "Water"
+    applicator_list : List[BrachyApplicator] = []
 
     # Exclude from dumps, default to None
     pth_simulation_setup: Path | str | None = Field(default=None, exclude=True)
@@ -253,6 +257,16 @@ class BrachySimulation(BaseModel):
                 + f"/world/body_mask {self.pth_body_stl}\n"
                 + f"/world/body_mask_material {self.body_material}\n"
             )
+
+        if self.applicator_list:
+            for applicator in self.applicator_list:
+                outstring = (
+                    outstring
+                    + f"/applicator/path {applicator.name}\n"
+                    + f"/applicator/material {applicator.material}\n"
+                    + f"/applicator/density {applicator.density}\n"
+                    + f"/applicator/done\n"
+                )
         outstring = (
             outstring
             + f"/parallel_world/ak_per_history {self.brachy_source.air_kerma_per_history}\n"
