@@ -378,10 +378,11 @@ class BrachyApplicator:
         Outputs:
             - None := will save the applicator geometry to an stl file.
         """
-        self._update_applicator_mesh_from_brachy_applicator()
+        #self._update_applicator_mesh_from_brachy_applicator()
         # write the polydata to an stl file
         stl_writer = vtkSTLWriter()
         stl_writer.SetFileName(pth_output)
+        stl_writer.SetHeader(self.name + " SPACE=LPS") #a little tag for slicer
         stl_writer.SetInputData(self.applicator_mesh)
         stl_writer.Write()
 
