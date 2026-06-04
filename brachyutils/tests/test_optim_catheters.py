@@ -1,4 +1,5 @@
 from pathlib import Path
+from time import time
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
     CatheterVar_Gurobi, CatheterTableOptim_Gurobi)
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
@@ -238,13 +239,14 @@ def test_bound_variables():
             equal=100
         )
     }
-    
+    ti_build = time()
     catheter_optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
     catheter_optim_obj.bound_variables(
         constraint_config_dict=constraint_dict
     )
+    tf_build = time()
     optimized_plan = catheter_optim_obj.get_optimized_plan_from_model()
-
+    t_solve = time()
     optimized_plan.export_brachy_plan(
         content_to_export={
             "dir_export": dir_export,
@@ -257,9 +259,17 @@ def test_bound_variables():
     dvh_metrics_dict = optimized_plan.get_dvh_metrics(return_percentage=True)
     DataFrame([dvh_metrics_dict]).to_csv(
         dir_export / "dvh_metrics.csv", index=False)
+    print("time to build model with bound variables: ", tf_build - ti_build)
+    print("time to solve model with bound variables: ", t_solve - tf_build)
 
 if __name__ == "__main__":
+    from viztracer import VizTracer
+    tracer = VizTracer()
+    tracer.start()
     # test_catheter_gurobi_initialization()
     # test_catheter_table_optim()
     # test_dynamic_plan_generation()
+    
     test_bound_variables()
+    tracer.stop()
+    tracer.save()
