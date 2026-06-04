@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import json
+from pathlib import Path
 
 # Imports for brachy applicator
 from vtk import (
@@ -438,3 +439,19 @@ class BrachyApplicator:
         stl_writer.SetFileName(pth_output)
         stl_writer.SetInputData(self.applicator_mesh)
         stl_writer.Write()
+
+    
+def load_applicator_materials(pth_applicator_materials : Path | None = None ) -> dict:
+    r"""
+    Purpose:
+        - To load the applicator material candidates from the constants json file.
+    Inputs:
+        - pth_applicator_materials:Path := the path to the applicator materials
+    Outputs:
+        - dict := the dictionary containing the applicator materials.
+    """
+    if pth_applicator_materials is None:
+        pth_applicator_materials = Path(__file__).parent.parent.parent / "admin/constants/applicator_materials.json"
+    with open(pth_applicator_materials, "r") as json_file:
+        applicator_materials_dict = json.load(json_file)
+    return applicator_materials_dict

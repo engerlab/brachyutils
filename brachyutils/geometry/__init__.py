@@ -11,6 +11,7 @@ __all__ = [
     "mask_to_trimesh",
     "mask_to_stl",
     "mask_to_ply",
+    "load_applicator_materials",
 ]
 # trunk-ignore(ruff/F401)
 from .phantom_utils import BrachyPhantom
@@ -23,6 +24,7 @@ from .egsphant_utils import _load_json
 
 # trunk-ignore(ruff/F401)
 from .applicator_utils import BrachyApplicator
+from .applicator_utils import load_applicator_materials
 
 # trunk-ignore(ruff/F401)
 from .catheter_utils import DwellPosition, Catheter, CatheterTable
