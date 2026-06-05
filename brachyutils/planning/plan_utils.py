@@ -897,16 +897,17 @@ class BrachyPlan:
                 run_i_plan += dwell_coordinates_str
                 # Not dealing with shield angle for now but the new convention for filename is
                 # xxx_catheter#_dwell#_shieldangle.plan
-                shield_angle = 0
+                shield_angle = dwell.angle
                 if not export_config_plan_and_mac.combined_only:
                     order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
                     with open(export_config_plan_and_mac.dir_export / f"dwell_{order}.plan", "w") as file:
                         file.write(run_i_plan)
             # set to false so that we don't export the same catheter again for dose rate calculation
             cat.gen_dose_rates = False
-        with open(export_config_plan_and_mac.pth_plan_combined, "w") as file:
-            file.write(combined_plan)
-        print(".plan files were exported successfully")
+    
+        if export_config_plan_and_mac.combined_only:
+            with open(export_config_plan_and_mac.pth_plan_combined, "w") as file:
+                file.write(combined_plan)
 
     def export_mac_files(
         self,
@@ -977,18 +978,19 @@ class BrachyPlan:
                 pth_output=export_config_plan_and_mac.pth_body_stl
             )
 
-        with open(export_config_plan_and_mac.pth_mac_combined, "w") as file:
-            file.write(sim_obj.to_string())
 
-        if not export_config_plan_and_mac.combined_only:
+        if export_config_plan_and_mac.combined_only:
+            with open(export_config_plan_and_mac.pth_mac_combined, "w") as file:
+                file.write(sim_obj.to_string())
+
+        else:
             for cat in catheter_table:
                 for dwell in cat.dwells:
                     catheter_idx = cat.index
                     dwell_idx = dwell.index
                     # Not dealing with shield angle for now but the new convention for filename is
                     # xxx_catheter#_dwell#_shieldangle.plan
-                    shield_angle = 0
-                    sim_obj = deepcopy(self.simulation_setup)
+                    shield_angle = dwell.angle
                     order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
                     sim_obj.pth_plan = f"dwell_{order}.plan"
                     sim_obj.total_time = 1
