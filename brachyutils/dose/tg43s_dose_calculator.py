@@ -19,7 +19,7 @@ class BrachyUtilsTG43S(BrachyUtilsTG43):
     """
     """
     def __init__(self,
-        dir_shielding_kernels: Union[Path, str],
+        dir_shielding_kernels : Union[Path, str],
         dir_tg43_parameters: Optional[Union[Path, str]] = "microSelectron-v2_Consensus",
         dir_output : Optional[Union[Path, str]] = Path(),
         **calc_parameter_kwargs
@@ -28,8 +28,8 @@ class BrachyUtilsTG43S(BrachyUtilsTG43):
         """
         #initialize the BrachyUtilsTG43 paremt class
         super().__init__(dir_tg43_parameters=dir_tg43_parameters, dir_output=dir_output, calc_parameter_kwargs=calc_parameter_kwargs)
+        self.dir_shielding_kernels = Path(dir_shielding_kernels)
 
-        self.initialize_shielding_kernels(dir_shielding_kernels)
 
     def run_dose_generation(
         self,
@@ -43,6 +43,8 @@ class BrachyUtilsTG43S(BrachyUtilsTG43):
         self.load_from_brachyplan(plan)
         self.load_and_initialize_tg43()
         self.validate_inputs()
+        self.initialize_shielding_kernels()
+
 
 
         #with ProcessPoolExecutor() as executor:
@@ -72,15 +74,17 @@ class BrachyUtilsTG43S(BrachyUtilsTG43):
     def generate_dose(self, pth_output: Optional[Path] = None):
         raise NotImplementedError("generate_dose() not implemented for BrachyUtilsTG43. Call run_dose_generation() instead.")
 
-    def initialize_shielding_kernels(self, dir_shielding_kernels : Union[Path, str]):
-        #shielding kernel pattern: S_{zsource}.seq.nrrd
+    def initialize_shielding_kernels(self):
+        #shielding kernel pattern: S_{zsource}mm.seq.nrrd
         #we want to populate a dict of z_source : path to the kernel
-        logging.info("Initializing shielding kernels from directory %s.", dir_shielding_kernels)
-        pth_kernels = dir_shielding_kernels.glob("*seq.nrrd")
+        logging.info("Initializing shielding kernels from directory %s.", self.dir_shielding_kernels)
+        pth_kernels = list(self.dir_shielding_kernels.glob("*seq.nrrd"))
+        if len(pth_kernels) == 0:
+            raise ValueError(f"No shielding kernels found in directory {self.dir_shielding_kernels}.")
         self.shielding_kernels = {}
         for pth_kernel in pth_kernels:
-            kernel_name = pth_kernel.stem
-            z_source = int(kernel_name.split("_")[1])
+            kernel_name = pth_kernel.stem[-4] #remove .seq and .nrrd
+            z_source = int(kernel_name.split("_")[1])[:-2] #remove S_ and then mm
             self.shielding_kernels[z_source] = BrachyDose(pth_dose_file = pth_kernel, load_uncertainty=False, dtype=np.float16).dose_image
 
         #sort the dict by z_source
