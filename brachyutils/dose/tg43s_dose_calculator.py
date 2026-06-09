@@ -60,15 +60,15 @@ class BrachyUtilsTG43S(BrachyUtilsTG43):
                         failed_dwell = futures[action]
                         raise ValueError(f"TG-43S dose calculation failed for dwell {failed_dwell.name_id}") from exc
 
-        logging.info("TG-43 dose calculation complete.")
+        logging.info("TG-43S dose calculation complete.")
         if export_combined_dose:
             combined_dose = self.brachyplan.combined_dose
             if dir_export is None:
                 dir_export = Path(self.dir_plan_export)
             else:
                 dir_export = Path(dir_export)
-            pth_output = dir_export / "combined_TG43.seq.nrrd"
-            logging.info("Writing combined TG-43 dose to %s.", pth_output)
+            pth_output = dir_export / "combined_TG43S.seq.nrrd"
+            logging.info("Writing combined TG-43S dose to %s.", pth_output)
             combined_dose.write_brachydose_to_file(pth_output)
 
     def generate_dose(self, pth_output: Optional[Path] = None):
@@ -83,8 +83,12 @@ class BrachyUtilsTG43S(BrachyUtilsTG43):
             raise ValueError(f"No shielding kernels found in directory {self.dir_shielding_kernels}.")
         self.shielding_kernels = {}
         for pth_kernel in pth_kernels:
-            kernel_name = pth_kernel.stem[-4] #remove .seq and .nrrd
-            z_source = int(kernel_name.split("_")[1])[:-2] #remove S_ and then mm
+            #print(f"DEBUG pth_kernel: {pth_kernel}")
+            #print(f"DEBUG pth_kernel.stem: {pth_kernel.stem}")
+            kernel_name = pth_kernel.stem[:-6] #remove mm.seq and .nrrd
+            #print(f"DEBUG kernel_name: {kernel_name}")
+            #print(f"DEBUG kernel_name.split('_'): {kernel_name.split('_')}")
+            z_source = int(kernel_name.split("_")[1]) #remove S_ and then mm
             self.shielding_kernels[z_source] = BrachyDose(pth_dose_file = pth_kernel, load_uncertainty=False, dtype=np.float16).dose_image
 
         #sort the dict by z_source
@@ -114,7 +118,7 @@ def calculate_dwell_rotation_matrix( dwell : DwellPosition) -> np.ndarray:
     return (applicator_spin * dwell_rot_rotation).as_matrix()
 
 def calculate_shielding_kernel(dwell, shielding_kernels) -> DoseImage:
-    z_source = dwell.relativePos
+    z_source = int(dwell.relativePos)
     if z_source > max(shielding_kernels.keys()) or z_source < min(shielding_kernels.keys()):
         raise ValueError(f"Dwell relative position {z_source} is out of bounds for available shielding kernels.")
     if z_source in shielding_kernels.keys():
