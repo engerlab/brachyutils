@@ -1,6 +1,7 @@
 from brachyutils.dose import BrachyUtilsTG43
 from brachyutils.planning import BrachyPlan
 from brachyutils.geometry import BrachyPhantom
+from brachyutils.geometry import BrachyApplicator
 from brachyutils.geometry.catheter_utils import DwellPosition
 from brachyutils.dose import BrachyDose
 from opentps.core.processing.imageProcessing.imageTransform3D  import applyTransform3D, translateDataByChangingOrigin
@@ -9,7 +10,7 @@ from opentps.core.data.images import DoseImage
 import numpy as np
 from scipy.spatial.transform import Rotation
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, List
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import logging
@@ -44,12 +45,12 @@ class BrachyUtilsTG43S(BrachyUtilsTG43):
         self.load_and_initialize_tg43()
         self.validate_inputs()
         self.initialize_shielding_kernels()
-
-
+        if len(plan.applicator_list) == 0:
+            raise ValueError("TG-43S requires a BrachyApplicator.")
 
         #with ProcessPoolExecutor() as executor:
         with ThreadPoolExecutor() as executor:
-            futures = {executor.submit(calculate_dwell_dose_tg43s, dwell, self.tg43_dose_rate_kernel, self.brachyphantom, self.shielding_kernels): dwell for dwell in self.brachyplan.catheter_table.all_dwells}
+            futures = {executor.submit(calculate_dwell_dose_tg43s, dwell, self.tg43_dose_rate_kernel, self.brachyphantom, self.shielding_kernels, plan.applicator_list): dwell for dwell in self.brachyplan.catheter_table.all_dwells}
             for action in tqdm(
                 as_completed(futures),
                 total = len( self.brachyplan.catheter_table.all_dwells),
@@ -95,10 +96,10 @@ class BrachyUtilsTG43S(BrachyUtilsTG43):
         self.shielding_kernels = dict(sorted(self.shielding_kernels.items()))
         logging.info("Loaded %d shielding kernels.", len(self.shielding_kernels))
 
-def calculate_dwell_dose_tg43s(dwell : DwellPosition, dose_rate_kernel: BrachyDose, phantom : BrachyPhantom, shielding_kernels : dict ) ->  None:
-    rotation_matrix = calculate_dwell_rotation_matrix(dwell)
+def calculate_dwell_dose_tg43s(dwell : DwellPosition, dose_rate_kernel: BrachyDose, phantom : BrachyPhantom, shielding_kernels : dict, applicator_list : List[BrachyApplicator] ) ->  None:
+    rotation_matrix = calculate_dwell_rotation_matrix(dwell, applicator_list)
     dose_rate_kernel_image = dose_rate_kernel.dose_image.copy()
-    shielding_kernel = calculate_shielding_kernel(dwell, shielding_kernels)
+    shielding_kernel = calculate_shielding_kernel(dwell, shielding_kernels, applicator_list)
     shielding_kernel.resampleOn(dose_rate_kernel_image, fillValue=0, tryGPU=False)
     dose_rate_kernel_image.imageArray *= shielding_kernel.imageArray
     applyTransform3D(dose_rate_kernel_image, rotation_matrix, fillValue=0,
@@ -109,15 +110,18 @@ def calculate_dwell_dose_tg43s(dwell : DwellPosition, dose_rate_kernel: BrachyDo
         dwell.dose_rate = BrachyDose(dtype=np.float16)
     dwell.dose_rate.dose_image = dose_rate_kernel_image
 
-def calculate_dwell_rotation_matrix( dwell : DwellPosition) -> np.ndarray:
-    #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwell
+def calculate_dwell_rotation_matrix( dwell : DwellPosition, applicator_list) -> np.ndarray:
+    #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwellcc
     dwell_rot = dwell.rotation
-    dwell_angle = float(dwell.angle) #todo: perform the Z rotation first
-    applicator_spin = Rotation.from_euler('z', dwell_angle, degrees=True)
+    dwell_angle = float(dwell.angle) #the spin of the applicator around its central axis after placement
+    applicator_spin_angle = applicator_list[0].rotation[0] #the spin of the applicator STL around its central axis for initial placement
+    total_angle =  applicator_spin_angle - dwell_angle #don't ask why minus please :D the answer is because it works
+    #print(f"DEBUG angles: dwell_angle={dwell_angle}, applicator_spin_angle={applicator_spin_angle}, total_angle={total_angle}")
+    applicator_spin = Rotation.from_euler('z', total_angle, degrees=True) #don't ask me why -ve :D
     dwell_rot_rotation = Rotation.align_vectors(dwell_rot, [0, 0, 1])[0]
     return (applicator_spin * dwell_rot_rotation).as_matrix()
 
-def calculate_shielding_kernel(dwell, shielding_kernels) -> DoseImage:
+def calculate_shielding_kernel(dwell, shielding_kernels, applicator_list) -> DoseImage:
     z_source = int(dwell.relativePos)
     if z_source > max(shielding_kernels.keys()) or z_source < min(shielding_kernels.keys()):
         raise ValueError(f"Dwell relative position {z_source} is out of bounds for available shielding kernels.")
