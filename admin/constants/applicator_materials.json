@@ -1,0 +1,156 @@
+{
+    "Steel": {
+        "density": 8.0,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "Fe": 0.6792,
+            "Cr": 0.19,
+            "Ni": 0.1,
+            "Mn": 0.02,
+            "Si": 0.01,
+            "C": 0.0008
+        }
+    },
+    "Plexiglass": {
+        "density": 1.19,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "H": 0.08,
+            "C": 0.6,
+            "O": 0.32
+        }
+    },
+    "Tungsten": {
+        "density": 19.3,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "W": 1.0
+        }
+    },
+    "PEEK": {
+        "density": 1.32,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "H": 0.042,
+            "C": 0.791,
+            "O": 0.167
+        }
+    },
+    "Silicone": {
+        "density": 1.14,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "H": 0.082,
+            "C": 0.324,
+            "O": 0.216,
+            "Si": 0.378
+        }
+    },
+    "Gold": {
+        "density": 19.32,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "Au": 1.0
+        }
+    },
+    "Iridium": {
+        "density": 22.56,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "Ir": 1.0
+        }
+    },
+    "Water": {
+        "density": 1.0,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "H": 0.1111,
+            "O": 0.8889
+        }
+    },
+    "Cerrobend": {
+        "density": 8.58077,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "Bi": 0.525,
+            "Sn": 0.155,
+            "Pb": 0.32
+        }
+    },
+    "PPSU": {
+        "density": 1.29,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "H": 0.0402,
+            "C": 0.7199,
+            "O": 0.1599,
+            "S": 0.08
+        }
+    },
+    "GlassFiber": {
+        "density": 2.1,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "H": 0.0258,
+            "C": 0.2733,
+            "N": 0.0022,
+            "O": 0.3658,
+            "B": 0.0204,
+            "Mg": 0.0366,
+            "Al": 0.0489,
+            "Si": 0.1666,
+            "Ca": 0.0604
+        }
+    },
+    "Air": {
+        "density": 0.001225,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "C": 0.000124,
+            "N": 0.755268,
+            "O": 0.231781,
+            "Ar": 0.012827
+        }
+    },
+    "SoftTissue": {
+        "density": 1.02,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "H": 0.106,
+            "C": 0.315,
+            "N": 0.024,
+            "O": 0.547,
+            "Na": 0.001,
+            "P": 0.002,
+            "S": 0.002,
+            "Cl": 0.001,
+            "K": 0.002
+        }
+    }
+}
