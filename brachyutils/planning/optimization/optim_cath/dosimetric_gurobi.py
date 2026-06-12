@@ -1,3 +1,4 @@
+import time
 from typing import Dict, List, Optional
 from tqdm import tqdm
 from pathlib import Path
@@ -368,7 +369,9 @@ def set_penalty_function_and_constraints(
     t_MVar = MVar([dt._model_variable for dt in dwellTimeVariables])
     c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
 
-    for optimization_config in optimization_configs:
+    for optimization_config in tqdm(
+        optimization_configs):
+        print(f"Setting constraints and penalty terms for structure {optimization_config.structure_name}")
         if not optimization_config.dwell_coef_dict:
             raise ValueError("The coefficint dictionary is empty. \
 please run set_dwell_coef_dict_per_structure")
@@ -428,7 +431,7 @@ of the corresponding dose rate coefficients.")
                     A_sparse @ (c_MVar * t_MVar) + y_uniform == voxel_goal_vec,
                     name=f"c_U_{optimization_config.structure_name}"
                 )
-                uniformity_weight_vec = np.ones_like(voxel_goal_vec)*uniformity_weight/num_dose_points
+                uniformity_weight_vec = np.ones_like(voxel_goal_vec)*uniformity_weight/num_dose_points * 1e-3
                 penalty_terms["uniformity"] += sum((uniformity_weight_vec) * (y_uniform * y_uniform))
 
             if penalty_weight_variance_time > 0:
