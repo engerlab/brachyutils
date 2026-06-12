@@ -428,7 +428,7 @@ of the corresponding dose rate coefficients.")
                     A_sparse @ (c_MVar * t_MVar) + y_uniform == voxel_goal_vec,
                     name=f"c_U_{optimization_config.structure_name}"
                 )
-                uniformity_weight_vec = np.ones_like(voxel_goal_vec)*uniformity_weight/num_dose_points
+                uniformity_weight_vec = np.ones_like(voxel_goal_vec)*uniformity_weight/num_dose_points * 1e-3
                 penalty_terms["uniformity"] += sum((uniformity_weight_vec) * (y_uniform * y_uniform))
 
             if penalty_weight_variance_time > 0:
