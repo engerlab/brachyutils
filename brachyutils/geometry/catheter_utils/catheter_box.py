@@ -103,7 +103,7 @@ class CatheterBox(BaseModel):
             return self._cached_catheter_table
         else:
             pass
-    
+
     def get_colliding_segments(self) -> Dict[str, List[str]]:
         r"""
         ### Purpose:
@@ -119,7 +119,7 @@ class CatheterBox(BaseModel):
         The depth of the root cluster is 0, the depth of its children is 1, and so on.
         """
         pass
-    
+
     def get_parent_segments(self, segment_name_id: str) -> Dict[str, CatheterSegment]:
         r"""
         ### Purpose:
@@ -128,7 +128,7 @@ class CatheterBox(BaseModel):
         leading to the root cluster.
         """
         pass
-    
+
     def get_geometric_constraints(self) -> Dict:
         r"""
         ### Purpose:
