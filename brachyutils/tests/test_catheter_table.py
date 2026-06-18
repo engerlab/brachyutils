@@ -185,7 +185,7 @@ def test_time_diff():
     
 
 def test_build_line_connectors():
-    from brachyutils.geometry.catheter_utils.geometric_catheter_generation import build_line_connectors
+    from brachyutils.geometry.catheter_utils.catheter_box_utils import build_line_connectors
     import trimesh
     dir_out = "data_test/test_export_plan/prostate/line_connectors"
     np.random.seed(42)
@@ -206,7 +206,7 @@ def test_build_line_connectors():
     )
 
 def test_gen_catheter_table_from_contours():
-    from brachyutils.geometry.catheter_utils.geometric_catheter_generation import gen_catheter_table_from_contours
+    from brachyutils.geometry.catheter_utils.catheter_box_utils import gen_catheter_table_from_contours
     from brachyutils.geometry.phantom_utils import BrachyPhantom
     from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
 
