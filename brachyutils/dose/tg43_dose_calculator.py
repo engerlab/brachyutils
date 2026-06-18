@@ -33,7 +33,7 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
     """
     """
     def __init__(self,
-        dir_tg43_parameters: Optional[str] = "microSelectron-v2_Consensus",
+        dir_tg43_parameters: Optional[Union[Path, str]] = "microSelectron-v2_Consensus",
         dir_output : Optional[Union[Path, str]] = Path(),
         **calc_parameter_kwargs
         ) -> None:
@@ -365,7 +365,7 @@ but source name is {self.source_name}.")
                         action.result()
                     except Exception as exc:
                         failed_dwell = futures[action]
-                        raise ValueError(f"TG-43DoseCalculator failed for dwell {failed_dwell.name_id}") from exc
+                        raise ValueError(f"TG-43 dose calculation failed for dwell {failed_dwell.name_id}") from exc
 
         logging.info("TG-43 dose calculation complete.")
         if export_combined_dose:
@@ -383,14 +383,14 @@ but source name is {self.source_name}.")
 
 def calculate_dwell_dose_tg43(dwell : DwellPosition, dose_rate_kernel: BrachyDose, phantom : BrachyPhantom ) ->  None:
     rotation_matrix = calculate_dwell_rotation_matrix(dwell)
-    dose_rate_kernel = dose_rate_kernel.dose_image.copy()
-    applyTransform3D(dose_rate_kernel, rotation_matrix, fillValue=0,
+    dose_rate_kernel_image = dose_rate_kernel.dose_image.copy()
+    applyTransform3D(dose_rate_kernel_image, rotation_matrix, fillValue=0,
         outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1),# translation=dwell.position)
-    translateDataByChangingOrigin(dose_rate_kernel, dwell.position)
-    dose_rate_kernel.resampleOn(phantom.image_obj, fillValue=0, tryGPU=False)
+    translateDataByChangingOrigin(dose_rate_kernel_image, dwell.position)
+    dose_rate_kernel_image.resampleOn(phantom.image_obj, fillValue=0, tryGPU=False)
     if dwell.dose_rate is None:
         dwell.dose_rate = BrachyDose(dtype=np.float16)
-    dwell.dose_rate.dose_image = dose_rate_kernel
+    dwell.dose_rate.dose_image = dose_rate_kernel_image
 
 def calculate_dwell_rotation_matrix( dwell : DwellPosition) -> np.ndarray:
     #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwell
