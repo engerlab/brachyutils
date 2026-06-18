@@ -77,11 +77,18 @@ class CatheterClusterBox(BaseModel):
     for each insertion point. If a single Config_Angled_CathGen is provided, it will be 
     applied to all insertion points. If None, the default Config_Angled_CathGen() 
     will be applied to all insertion points.
+    - oar_collision_margin_mm: float := the collision margin between catheter segments and
+    organs at risk (OARs) (mm).
+    - segment_collision_margin_mm: float := the collision margin between catheter segments (mm).
     """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,)
     # TODO: For future consider the following concepts
     # - insertion_point_margin_mm: float := the margin from the edge of the bottom plane to the first 
     # insertion point (mm).
 
+    # # user defined attributes
     num_physical_catheters: int = Field(default=1, description="the number of physical catheters to be inserted.")
     structure_dict: Dict[str, trimesh.Trimesh] = Field(default_factory=dict, description="a dictionary of \
 structures to be considered for catheter trajectory optimization.")
@@ -96,8 +103,12 @@ defined in the catheter box.")
         description="The angle configuartion for each insertion point. \
 If a single Config_Angled_CathGen is provided, it will be applied to all \
 insertion points. If None, the default Config_Angled_CathGen() will be applied \
-to all insertion points.") 
+to all insertion points.")
+    oar_collision_margin_mm: float = Field(default=0, description="the collision margin between catheter segments and \
+organs at risk (OARs) (mm).")
+    segment_collision_margin_mm: float = Field(default=0, description="the collision margin between catheter segments (mm).")
 
+    # # internal attributes
     _segment_cluster_dict: Dict[str, SegmentCluster] = None
     _cached_catheter_table: CatheterTable = None
 
