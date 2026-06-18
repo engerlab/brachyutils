@@ -1,5 +1,4 @@
 from typing import List, Dict
-import os
 import numpy as np
 import trimesh
 import trimesh.creation
