@@ -56,7 +56,7 @@ class SegmentCluster(BaseModel):
     def name_id(self) -> str:
         return f"({self.depth},{self.index+1})"
 
-class CatheterBox(BaseModel):
+class CatheterClusterBox(BaseModel):
     r"""
     ### Purpose:
     - A class to represent the bounding box where candidate catheter trajectories
@@ -83,11 +83,21 @@ class CatheterBox(BaseModel):
     # insertion point (mm).
 
     num_physical_catheters: int = Field(default=1, description="the number of physical catheters to be inserted.")
-    structure_dict: Dict[str, trimesh.Trimesh] = Field(default_factory=dict, description="a dictionary of structures to be considered for catheter trajectory optimization.")
-    rotation_angle_deg: float = Field(default=0, description="the rotation angle of the catheter box around the right left (X) axis (degrees).")
-    insertion_point_spacing_mm: float = Field(default=10, description="the spacing between adjacent catheter insertion points on the bottom plane (mm).")
-    num_decision_planes: int = Field(default=2, description="the number of decision planes to be defined in the catheter box.")
-    config_angle: Dict[str, Config_Angled_CathGen] | Config_Angled_CathGen | None = None
+    structure_dict: Dict[str, trimesh.Trimesh] = Field(default_factory=dict, description="a dictionary of \
+structures to be considered for catheter trajectory optimization.")
+    rotation_angle_deg: float = Field(default=0, description="the rotation angle of the catheter box \
+around the right left (X) axis (degrees).")
+    insertion_point_spacing_mm: float = Field(default=10, description="the spacing between adjacent \
+catheter insertion points on the bottom plane (mm).")
+    num_decision_planes: int = Field(default=2, description="the number of decision planes to be \
+defined in the catheter box.")
+    config_angle: Dict[str, Config_Angled_CathGen] | Config_Angled_CathGen | None = Field(
+        default=None,
+        description="The angle configuartion for each insertion point. \
+If a single Config_Angled_CathGen is provided, it will be applied to all \
+insertion points. If None, the default Config_Angled_CathGen() will be applied \
+to all insertion points.") 
+
     _segment_cluster_dict: Dict[str, SegmentCluster] = None
     _cached_catheter_table: CatheterTable = None
 

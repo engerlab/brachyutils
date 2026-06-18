@@ -398,7 +398,7 @@ class Catheter(BaseModel):
         ### Outputs:
         - None
         """
-        from brachyutils.geometry.catheter_utils.catheter_box_utils import line_to_tube
+        from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import line_to_tube
         import trimesh
         point_pairs = self.get_points_from_fit()
         cylinder_meshes = [
