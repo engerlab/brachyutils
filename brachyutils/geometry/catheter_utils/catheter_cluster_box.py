@@ -1,5 +1,5 @@
 from brachyutils.geometry.catheter_utils import Catheter
-from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator
+from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator, model_validator
 from typing import Dict, List
 import numpy as np
 import trimesh
@@ -111,6 +111,24 @@ organs at risk (OARs) (mm).")
     # # internal attributes
     _segment_cluster_dict: Dict[str, SegmentCluster] = None
     _cached_catheter_table: CatheterTable = None
+
+    @model_validator(mode="after")
+    def validate_cluster_box(self):
+        r"""
+        ### Purpose:
+        - To validate and generate the segment clusters for the catheter box 
+        after the object is initialized.
+        
+        ### Steps:
+        1. Validate the rotation angle to be less than 15 degrees.
+        2. Generate the segment clusters for the catheter box based on the user defined attributes.
+        3. Ensure the number of physical catheters is less than the number of insertion points.
+        """
+        # TODO priority 2: complete this
+        if abs(self.rotation_angle_deg) >= 15:
+            raise ValueError("Rotation angle must be less than 15 degrees.")
+        
+        
 
     @computed_field
     @property

@@ -19,6 +19,7 @@ PROX_SAMPLES   = 40     # samples along each line for proximity check
 # PERP_LINES     = False  # True → lines perpendicular to planes (parallel to OBB Z)
 # STL_OUT_DIR    = "stl_output"
 
+# TODO priority 1: test this function
 def obb_planes(
     meshes: list,
     margin_mm: float = 10.0,
