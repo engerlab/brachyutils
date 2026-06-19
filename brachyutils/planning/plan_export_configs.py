@@ -66,7 +66,6 @@ class ExportConfig_Egsphant(BaseModel):
     - background_material: Material name for background.
     - strict_name_match: Enforce strict name matching for materials.
     - body_mesh_name: Name of the body structure to be saved as a separate STL.
-    - try_direct_export: Try to export the brachyplan's phantom's egsphant directly without recreating it, if possible
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
     dir_export: str | Path = Field(None, description="Directory where Egsphant file is exported.")
