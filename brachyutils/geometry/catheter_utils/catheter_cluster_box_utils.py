@@ -368,7 +368,7 @@ def gen_catheter_table_from_contours(
     ) -> CatheterTable:
     r"""
     ### Purpose
-    - Given a dictionary of ROIContours, generate a CatheterTable by:
+    - Given a dictionary of Trimesh objects, generate a CatheterTable by:
       1. Extracting the contour vertices as meshes.
       2. Running the `build_line_connectors` pipeline to get valid line segments.
       3. Converting valid line segments into Catheter and DwellPosition objects.
