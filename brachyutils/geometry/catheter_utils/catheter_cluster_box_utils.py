@@ -19,31 +19,92 @@ PROX_SAMPLES   = 40     # samples along each line for proximity check
 # PERP_LINES     = False  # True → lines perpendicular to planes (parallel to OBB Z)
 # STL_OUT_DIR    = "stl_output"
 
-def obb_planes(meshes: list) -> tuple:
+def obb_planes(
+    meshes: list,
+    margin_mm: float = 10.0,
+    rotation_angle_deg: float = 0
+) -> tuple:
     """
-    Fit an OBB around the union of all meshes.
+    ### Purpose:
+    - Build a rotated box that contains the original unrotated meshes.
+    - The method computes an AABB after negatively rotating the vertices, then
+      rotates that box back into the regular coordinate system.
 
-    Returns
-    -------
-    origin_top : (3,)  point on superior plane
-    origin_bot : (3,)  point on inferior plane
-    normal     : (3,)  unit normal shared by both planes (inferior → superior direction)
-    obb_T      : (4,4) OBB transform (world ← OBB local frame)
-    extents    : (3,)  OBB full extents [ex, ey, ez]
+    ### Inputs:
+    - meshes: list of trimesh.Trimesh objects to fit the box around.
+    - margin_mm: float = 10.0 := margin around the meshes (mm).
+    - rotation_angle_deg: float = 0 := rotation angle around the world X axis (degrees).
+      This value should be less than 15 degrees.
+
+    ### Outputs:
+    - origin_top : (3,)  point on superior plane
+    - origin_bot : (3,)  point on inferior plane
+    - normal     : (3,)  unit normal shared by both planes (inferior → superior direction)
+    - obb_T      : (4,4) box transform (world ← box local frame)
+    - extents    : (3,)  box full extents [ex, ey, ez]
     """
-    combined  = trimesh.util.concatenate(meshes)
-    obb       = combined.bounding_box
-    obb_T     = obb.primitive.transform
-    extents   = obb.primitive.extents
+    if np.abs(rotation_angle_deg) >= 15:
+        raise ValueError(
+            "rotation_angle_deg should be less than 15 degrees to avoid excessive distortion of the catheter box."
+        )
+    if margin_mm < 0:
+        raise ValueError("margin_mm must be non-negative.")
+    if len(meshes) == 0:
+        raise ValueError("meshes must contain at least one mesh.")
 
-    R         = obb_T[:3, :3]
-    centre    = obb_T[:3,  3]
-    superior_axis    = R[:, 2]
-    half_superior    = extents[2] / 2.0
+    # Stack all vertices once: fastest path, no mesh copies
+    vertices = np.vstack([np.asarray(mesh.vertices) for mesh in meshes])
+    if vertices.shape[0] == 0:
+        raise ValueError("Input meshes contain no vertices.")
 
-    origin_top = centre + superior_axis * half_superior
-    origin_bot = centre - superior_axis * half_superior
-    normal     = superior_axis / np.linalg.norm(superior_axis)
+    # 1. Axis-aligned bounding box in regular coordinates
+    bounds = np.array([vertices.min(axis=0), vertices.max(axis=0)], dtype=float)
+    centre = bounds.mean(axis=0)
+
+    # 2. Rotation axis: world x-axis through AABB center
+    rotation_axis = np.array([1.0, 0.0, 0.0], dtype=float)
+
+    # 3-4. Negated rotation about that axis through the center
+    angle_rad = np.deg2rad(rotation_angle_deg)
+    T_neg = trimesh.transformations.rotation_matrix(
+        angle=-angle_rad,
+        direction=rotation_axis,
+        point=centre
+    )
+
+    # 5-6. Copy only vertices and apply negated transform
+    vertices_h = np.column_stack([vertices, np.ones(len(vertices))])
+    vertices_neg = (vertices_h @ T_neg.T)[:, :3]
+
+    # 7. AABB of negatively rotated vertices, then add margin
+    bounds_neg = np.array(
+        [vertices_neg.min(axis=0) - margin_mm,
+         vertices_neg.max(axis=0) + margin_mm],
+        dtype=float
+    )
+
+    # Convert bounds to extents + transform in the negated frame
+    extents, obb_T_neg = trimesh.bounds.to_extents(bounds_neg)
+
+    # 8. Apply original rotation to the box
+    T_pos = trimesh.transformations.rotation_matrix(
+        angle=angle_rad,
+        direction=rotation_axis,
+        point=centre
+    )
+    obb_T = T_pos @ obb_T_neg
+
+    # Extract top/bottom planes from final rotated box
+    R = obb_T[:3, :3]
+    centre_rot = obb_T[:3, 3]
+
+    superior_axis = R[:, 2]
+    superior_axis = superior_axis / np.linalg.norm(superior_axis)
+
+    half_superior = extents[2] / 2.0
+    origin_top = centre_rot + superior_axis * half_superior
+    origin_bot = centre_rot - superior_axis * half_superior
+    normal = superior_axis
 
     return origin_top, origin_bot, normal, obb_T, extents
 
