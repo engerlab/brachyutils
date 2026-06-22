@@ -18,7 +18,7 @@ def get_test_structure_meshes():
         mask_type=Trimesh, strict_name_match=False)
     return mesh_dict
 
-def test_obb_planes():
+def test_obb_planes(return_planes=False):
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import obb_planes
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import decision_planes_to_ply
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
@@ -34,7 +34,29 @@ def test_obb_planes():
     out_ply_dir = outdir, 
     decision_plane_dict = decision_plane_dict,
     )
+    if return_planes:
+        return decision_plane_dict
 
+def test_get_digitization_pairs():
+    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import get_digitization_pairs
+    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import grid_on_plane
+    from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
+    insertion_grid_spacing_mm = 5.0
+    decision_planes = test_obb_planes(return_planes=True)
+    outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
+    inferior_plane_grid = grid_on_plane(
+        plane_origin = decision_planes[0]["origin"],
+        obb_T = decision_planes[0]["transform"],
+        extents = decision_planes[0]["extents"],
+        insertion_grid_spacing_mm = insertion_grid_spacing_mm,
+    )
+    point_pairs = get_digitization_pairs(
+        inferior_plane = decision_planes[0],
+        inferior_plane_grid = inferior_plane_grid,
+        superior_plane = decision_planes[1],
+        config_angled_cathgen = Config_Angled_CathGen()
+        )
+    print("breaking point")
 
 def test_build_line_connectors():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import build_line_connectors
@@ -87,6 +109,7 @@ def test_gen_catheter_table_from_contours():
     print("debug here")
 
 if __name__ == "__main__":
-    test_obb_planes()
+    # test_obb_planes()
+    test_get_digitization_pairs()
     # test_build_line_connectors()
     # test_gen_catheter_table_from_contours()

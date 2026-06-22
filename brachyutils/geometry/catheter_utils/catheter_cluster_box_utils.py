@@ -233,118 +233,6 @@ def line_to_tube(
     cyl.apply_transform(T @ R)
     return cyl
 
-def angled_catheter_pairs(
-    o_top: np.ndarray,
-    o_bot: np.ndarray,
-    normal: np.ndarray,
-    obb_T: np.ndarray,
-    extents: np.ndarray,
-    grid_n: int,
-    rl_max: float,
-    rl_step: float,
-    ap_max: float,
-    ap_step: float,
-) -> list:
-    """
-    ### Purpose
-    - Generate angled catheter point pairs for a range of altitude and azimuthal angles.
-
-    Each bottom grid point is paired with one or more top plane intersection points,
-    produced by sweeping a ray from the bottom point across a discrete grid of
-    (altitude, azimuth) angles. Pairs where the top intersection falls outside the
-    OBB extents are discarded.
-
-    Azimuth=0 is defined as the direction from the bottom point towards the
-    bottom plane centre (radially inwards) and sweeps symmetrically from -ap_max
-    to +ap_max. Altitude=0 is parallel to the normal.
-
-    ### Inputs
-    - o_top    : (3,) point on the top (superior) plane
-    - o_bot    : (3,) point on the bottom (inferior) plane
-    - normal   : (3,) unit normal pointing inferior → superior
-    - obb_T    : (4,4) OBB transform (world ← OBB local frame)
-    - extents  : (3,) OBB full extents [ex, ey, ez]
-    - grid_n   : number of grid points per axis on each plane
-    - rl_max  : maximum altitude angle away from normal (degrees); sweeps -rl_max to +rl_max
-    - rl_step : altitude angle increment (degrees)
-    - ap_max   : half-width of azimuthal sweep (degrees); sweeps -ap_max to +ap_max
-    - ap_step  : azimuthal angle increment (degrees)
-
-    ### Outputs
-    - pairs : list of (top_pt, bot_pt) tuples, each a (3,) np.ndarray
-    """
-    # ── OBB axes and half-extents for bounds check ───────────────────────────
-    obb_x  = obb_T[:3, 0]
-    obb_y  = obb_T[:3, 1]
-    half_x = extents[0] / 2.0
-    half_y = extents[1] / 2.0
-
-    # ── Angle grids ──────────────────────────────────────────────────────────
-    rl_steps = np.arange(-rl_max, rl_max + 1e-9, rl_step)
-    ap_steps  = np.arange(-ap_max, ap_max + 1e-9, ap_step)
-
-    # ── Bottom grid points ───────────────────────────────────────────────────
-    bot_pts = grid_on_plane(o_bot, obb_T, extents, grid_n)
-
-    # ── Build pairs ──────────────────────────────────────────────────────────
-    pairs = []
-
-    for bot_pt in bot_pts:
-
-        # ── Per-point local azimuth basis ────────────────────────────────────
-        # u_axis: azimuth=0, pointing radially outward from bottom plane centre
-        # v_axis: azimuth=+90°, completing the right-handed transverse frame
-        radial  = bot_pt - o_bot
-        radial -= np.dot(radial, normal) * normal   # project onto transverse plane
-        norm_r  = np.linalg.norm(radial)
-
-        if norm_r < 1e-9:
-            # Centre point — fall back to a fixed reference direction
-            arbitrary = np.array([1.0, 0.0, 0.0])
-            if abs(np.dot(arbitrary, normal)) > 0.9:
-                arbitrary = np.array([0.0, 1.0, 0.0])
-            u_axis = np.cross(normal, arbitrary)
-            u_axis /= np.linalg.norm(u_axis)
-        else:
-            u_axis = -radial / norm_r # for pointing inwards towards the center of the bottom plane.
-
-        v_axis = np.cross(normal, u_axis)
-        v_axis /= np.linalg.norm(v_axis)
-
-        for alt_deg in rl_steps:
-            for az_deg in ap_steps:
-
-                # Collapse redundant azimuth samples at zero altitude
-                if alt_deg == 0.0 and az_deg != 0.0:
-                    continue
-
-                alt_rad = np.radians(alt_deg)
-                az_rad  = np.radians(az_deg)
-
-                # Ray direction: normal tilted by alt toward the az direction
-                az_dir  = np.cos(az_rad) * u_axis + np.sin(az_rad) * v_axis
-                ray_dir = np.cos(alt_rad) * normal + np.sin(alt_rad) * az_dir
-                ray_dir /= np.linalg.norm(ray_dir)
-
-                # Intersect with top plane: dot(p - o_top, normal) = 0
-                denom = np.dot(ray_dir, normal)
-                if abs(denom) < 1e-12:    # ray parallel to plane
-                    continue
-                t = np.dot(o_top - bot_pt, normal) / denom
-                if t <= 0:                # intersection behind bottom point
-                    continue
-
-                top_pt = bot_pt + t * ray_dir
-
-                # Discard if top_pt is outside OBB extents on the top plane
-                delta  = top_pt - o_top
-                proj_x = abs(np.dot(delta, obb_x))
-                proj_y = abs(np.dot(delta, obb_y))
-                if proj_x <= half_x and proj_y <= half_y:
-                    pairs.append((top_pt, bot_pt))
-
-    return pairs
-
 def build_line_connectors(
     mesh_dict:Dict[str, trimesh.Trimesh],
     insertion_grid_spacing_mm:float,
@@ -406,7 +294,7 @@ def build_line_connectors(
     for i, plane in enumerate(decision_plane_dict.values()):
         if i == len(decision_plane_dict)-1:
             break
-        plane_digi_points = get_digitzation_pairs(
+        plane_digi_points = get_digitization_pairs(
             inferior_plane = plane,
             inferior_plane_grid = inferior_plane_grid,
             superior_plane = decision_plane_dict[i+1],
@@ -415,21 +303,6 @@ def build_line_connectors(
         digitization_pairs += plane_digi_points
         # the superior plane points become the inferior plane points for the next iteration
         inferior_plane_grid = [pf for pi, pf in plane_digi_points]
-
-    # # Generate angled pairs by sweeping rays from each bottom point
-    # # across a grid of altitude and azimuth angles.
-    # pairs = angled_catheter_pairs(
-    #     o_top=o_top,
-    #     o_bot=o_bot,
-    #     normal=normal,
-    #     obb_T=obb_T,
-    #     extents=extents,
-    #     grid_n=grid_n,
-    #     rl_max=config_angled_cathgen.rl_max,
-    #     rl_step=config_angled_cathgen.rl_step,
-    #     ap_max=config_angled_cathgen.ap_max,
-    #     ap_step=config_angled_cathgen.ap_step,
-    # )        
 
     # ── 3. Filter colliding / too-close lines ───────────────────────────────
     oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structures]
@@ -442,18 +315,18 @@ def build_line_connectors(
     print(f"Candidates: {n_total}  |  Valid (kept): {n_valid}  |  Discarded: {n_total - n_valid}")
     return valid_lines
 
-def get_digitzation_pairs(
+def get_digitization_pairs(
     inferior_plane: dict,
     inferior_plane_grid: List[np.ndarray],
     superior_plane: dict,
-    config_angled_cathgen: Config_Angled_CathGen
+    config_angled_cathgen
     ) -> List[tuple[np.ndarray, np.ndarray]]:
     r"""
     ### Purpose:
     - Given an inferior plane and a superior plane, generate the digitization pairs
     connecting the two planes. The inferior plane points are given by the grid, 
     and the superior plane points are generated by sweeping rays from each inferior
-    point across a grid of altitude and azimuth angles.
+    point across a grid of right-left angle (x-axis) and anterior-posterior (y-axis) angle.
 
     ### Inputs:
     - inferior_plane: dict := dictionary containing the inferior plane information
@@ -465,8 +338,106 @@ def get_digitzation_pairs(
     - digitization_pairs: List[tuple[np.ndarray, np.ndarray]] := list of
     (superior_point, inferior_point) tuples 
     """
-    # TODO: priority 1: complete this function
-    
+    rl_max = config_angled_cathgen.rl_max
+    rl_step = config_angled_cathgen.rl_step
+    ap_max = config_angled_cathgen.ap_max
+    ap_step = config_angled_cathgen.ap_step
+
+    rl_steps = np.arange(-rl_max, rl_max + 1e-9, rl_step)
+    ap_steps = np.arange(-ap_max, ap_max + 1e-9, ap_step)
+
+    inf_T = inferior_plane["transform"]
+    sup_T = superior_plane["transform"]
+
+    o_top = np.asarray(superior_plane["origin"], dtype=float)
+    n_top = np.asarray(superior_plane["normal"], dtype=float)
+    sup_extents = np.asarray(superior_plane["extents"], dtype=float)
+
+    inf_x = np.asarray(inf_T[:3, 0], dtype=float)
+    inf_y = np.asarray(inf_T[:3, 1], dtype=float)
+
+    sup_x = np.asarray(sup_T[:3, 0], dtype=float)
+    sup_y = np.asarray(sup_T[:3, 1], dtype=float)
+
+    inf_x = inf_x / np.linalg.norm(inf_x)
+    inf_y = inf_y / np.linalg.norm(inf_y)
+    sup_x = sup_x / np.linalg.norm(sup_x)
+    sup_y = sup_y / np.linalg.norm(sup_y)
+    n_top = n_top / np.linalg.norm(n_top)
+
+    half_x = sup_extents[0] / 2.0
+    half_y = sup_extents[1] / 2.0
+    eps = 1e-9
+
+    pairs: List[tuple[np.ndarray, np.ndarray]] = []
+
+    for bot_pt in inferior_plane_grid:
+        bot_pt = np.asarray(bot_pt, dtype=float)
+
+        # Local basis at this inferior point
+        u_axis = inf_x
+        v_axis = inf_y
+
+        # Unswept direction aims toward superior-plane origin
+        w_axis = o_top - bot_pt
+        w_norm = np.linalg.norm(w_axis)
+        if w_norm < eps:
+            continue
+        w_axis = w_axis / w_norm
+
+        # Re-orthogonalize basis around the swept forward direction
+        u_axis = u_axis - np.dot(u_axis, w_axis) * w_axis
+        u_norm = np.linalg.norm(u_axis)
+        if u_norm < eps:
+            u_axis = np.cross(v_axis, w_axis)
+            u_norm = np.linalg.norm(u_axis)
+            if u_norm < eps:
+                continue
+        u_axis = u_axis / u_norm
+
+        v_axis = np.cross(w_axis, u_axis)
+        v_norm = np.linalg.norm(v_axis)
+        if v_norm < eps:
+            continue
+        v_axis = v_axis / v_norm
+
+        for rl_deg in rl_steps:
+            rl_rad = np.deg2rad(rl_deg)
+
+            for ap_deg in ap_steps:
+                ap_rad = np.deg2rad(ap_deg)
+
+                ray_dir = (
+                    np.cos(rl_rad) * np.cos(ap_rad) * w_axis
+                    + np.sin(rl_rad) * u_axis
+                    + np.cos(rl_rad) * np.sin(ap_rad) * v_axis
+                )
+
+                ray_norm = np.linalg.norm(ray_dir)
+                if ray_norm < eps:
+                    continue
+                ray_dir = ray_dir / ray_norm
+
+                denom = np.dot(ray_dir, n_top)
+                if abs(denom) < eps:
+                    continue
+
+                t = np.dot(o_top - bot_pt, n_top) / denom
+                if t <= 0:
+                    continue
+
+                top_pt = bot_pt + t * ray_dir
+
+                # In-bounds test in superior plane local coordinates
+                rel = top_pt - o_top
+                local_x = np.dot(rel, sup_x)
+                local_y = np.dot(rel, sup_y)
+
+                if (-half_x - eps <= local_x <= half_x + eps and
+                    -half_y - eps <= local_y <= half_y + eps):
+                    pairs.append((top_pt, bot_pt))
+
+    return pairs    
 
 def gen_catheter_table_from_contours(
     mesh_dict: Dict[str, trimesh.Trimesh],
