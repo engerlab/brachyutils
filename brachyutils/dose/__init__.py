@@ -7,7 +7,8 @@ __all__ = [
     'RapidBrachyMC',
     'RapidBrachyTG43',
     "convert_dose_files",
-    'BrachyUtilsTG43'
+    'BrachyUtilsTG43',
+    'BrachyUtilsTG43S'
 ]
 # trunk-ignore(ruff/F401)
 from .dose_utils import BrachyDose, convert_dose_files
@@ -22,3 +23,5 @@ from .film_utils import CalibrationCurve, FilmCalibration
 from .dose_generation_utils import BrachyDoseGenerator, RapidBrachyMC, RapidBrachyTG43
 
 from .tg43_dose_calculator import BrachyUtilsTG43
+
+from .tg43s_dose_calculator import BrachyUtilsTG43S

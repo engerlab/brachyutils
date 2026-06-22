@@ -33,7 +33,7 @@ class BrachyStructure:
     - optimization_config:Optimization_Config := the optimization config object for the structure. see optim_utils.py  
     ### Functions:
         - get_dvh_metric(combined_dose:BrachyDose)
-        - to_dict(export_format:str)
+        - to_dict()
     """
 
     def __init__(
@@ -228,50 +228,45 @@ class BrachyStructure:
 
         return self.dvh_metrics_observed
 
-    def to_dict(self, export_format: str):
+    def to_dict(self):
         r"""
         ### Purpose:
         - To export the BrachyStructure object into a dictionary of a certain format.
-        ### Inputs:
-        - export_format := the export_format of the exported plan. an example is:
-            - "RapidBrachy":{
-                "density": 0,
-                "density_mode": "",
-                "dose_voxel_goal": 0,
-                "dvhConstraints": "",
-                "in_dvh": true,
-                "linear_weight": 1,
-                "material": "CT Material",
-                "max_dose": 500,
-                "min_dose": 0,
-                "name": "BODY",
-                "quadratic_weight": 1,
-                "type": "" or "Target volume" or "Organ at risk",
-                "uniformity_weight": 1}
+        ### Outputs:
+        - {
+            "density": 0,
+            "density_mode": "",
+            "dose_voxel_goal": 0,
+            "dvhConstraints": "",
+            "in_dvh": true,
+            "linear_weight": 1,
+            "material": "CT Material",
+            "max_dose": 500,
+            "min_dose": 0,
+            "name": "BODY",
+            "quadratic_weight": 1,
+            "type": "" or "Target volume" or "Organ at risk",
+            "uniformity_weight": 1}
 
-            - "WebApp": Not implemented yet
         """
-        if export_format == "WebApp":
-            raise NotImplementedError("export to WebApp is not implemented yet")
-        elif export_format == "RapidBrachy":
-            return {
-                "density": self.density,
-                "density_mode": self.density_mode,
-                "dose_voxel_goal": self.dose_voxel_goal,
-                "dvhConstraints": "",
-                "in_dvh": self.in_dvh,
-                "linear_weight": self.penalty_weight_linear,
-                "material": self.material,
-                "max_dose": self.max_dose,
-                "min_dose": self.min_dose,
-                "name": self.name,
-                "quadratic_weight": self.penalty_weight_quadratic,
-                "type": "Target volume" if self.is_target else "Organ at risk",
-                "uniformity_weight": self.penalty_weight_uniformity,
-            }
+        return {
+            "density": self.density,
+            "density_mode": self.density_mode,
+            "dose_voxel_goal": self.dose_voxel_goal,
+            "dvhConstraints": "",
+            "in_dvh": self.in_dvh,
+            "linear_weight": self.penalty_weight_linear,
+            "material": self.material,
+            "max_dose": self.max_dose,
+            "min_dose": self.min_dose,
+            "name": self.name,
+            "quadratic_weight": self.penalty_weight_quadratic,
+            "type": "Target volume" if self.is_target else "Organ at risk",
+            "uniformity_weight": self.penalty_weight_uniformity,
+        }
 
     def info(self):
-        print(self.to_dict("RapidBrachy"))
+        print(self.to_dict())
 
     def set_optimization_config(
         self,

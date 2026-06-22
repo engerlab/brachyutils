@@ -572,174 +572,7 @@ class BrachyPlan:
                 ["body"], ROIContour, strict_name_match=False
             ).get("body", None)
 
-    def load_applicator_list(
-        self,
-        applicator_list_pth: Union[list, Path, str],
-        format: Literal["WebApp", "RapidBrachy"] = "WebApp",
-    ):
-        r"""
-        ### Purpose:
-        - To load the applicator list from a json file containing the applicator geometry.
-
-        ### Inputs:
-        - applicator_list_pth:str := path to the json file containing the applicator list with N applicators.
-        The items inside this list have the attributes bellow. If any left empty, the default value will be used.
-        these attributes could be changed later using the setter functions.
-
-        if the format is WebApp, the attributes are:
-            - "path": path to the applicator geometry file (.stl or .json).
-            - "material": material of the applicator (str).
-            - "density": density of the applicator (str).
-            - "origin": origin of the applicator ([x,y,z]).
-            - "rotation": rotation of the applicator ([w,x,y,z]).
-            - "rotation_origin": origin of the rotation ([x,y,z]).
-            - "coordinates": coordinates of the applicator ([x,y,z]).
-
-        if the format is RapidBrachy, the attributes are:
-            - "densities": list of densities of the applicator.
-            - "filenames": list of filenames of the applicator.
-            - "materials": list of materials of the applicator.
-            - "points": list of points (x,y,z,x,y,z) describing the first and last dwell positions
-            on the applicator in the frame of the applicator.
-            - "shieldNormalx": normal of applicator in the x direction in the frame of CT.
-            - "shieldNormaly": normal of applicator in the y direction in the frame of CT.
-            - "shieldNormalz": normal of applicator in the z direction in the frame of CT.
-            - "wRot": list of wRot of the applicator.
-            - "x": list of x of the applicator.
-            - "xRoti": list of xRot of the applicator i in [1, N].
-            - "y": list of y of the applicator.
-            - "yRoti": list of yRot of the applicator i in [1, N].
-            - "z": list of z of the applicator.
-            - "zRoti": list of zRot of the applicator i in [1, N].
-        - format:str := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
-
-        ### Outputs:
-            - None := will update the BrachyPlan.applicator_list attribute
-        """
-        if isinstance(applicator_list_pth, Path) or isinstance(
-            applicator_list_pth, str
-        ):
-            with open(applicator_list_pth, "r") as json_file:
-                applicator_list = json.load(json_file)
-        if format == "RapidBrachy":
-            num_applicators = len(applicator_list["densities"])
-
-            for i in range(num_applicators):
-
-                j = i + 1 if i >= 1 else ""
-                shieldNormal = np.array(
-                    [
-                        (
-                            applicator_list["shieldNormalx"]
-                            if "shieldNormalx" in applicator_list
-                            else 0
-                        ),
-                        (
-                            applicator_list["shieldNormaly"]
-                            if "shieldNormaly" in applicator_list
-                            else 0
-                        ),
-                        (
-                            applicator_list["shieldNormalz"]
-                            if "shieldNormalz" in applicator_list
-                            else 0
-                        ),
-                    ]
-                )
-
-                rotation = np.array(
-                    [
-                        (
-                            applicator_list[f"wRot{j}"]
-                            if f"wRot{j}" in applicator_list
-                            else 0
-                        ),
-                        (
-                            applicator_list[f"xRot{j}"]
-                            if f"xRot{j}" in applicator_list
-                            else 0
-                        ),
-                        (
-                            applicator_list[f"yRot{j}"]
-                            if f"yRot{j}" in applicator_list
-                            else 0
-                        ),
-                        (
-                            applicator_list[f"zRot{j}"]
-                            if f"zRot{j}" in applicator_list
-                            else 0
-                        ),
-                    ]
-                )
-
-                applicator_obj = BrachyApplicator(
-                    pth_input_file=applicator_list["filenames"][i],
-                    material=applicator_list["materials"][i],
-                    density=applicator_list["densities"][i],
-                    origin=self.patient_origin,
-                    rotation=rotation,
-                    rotation_origin=np.array(
-                        [
-                            applicator_list["x"],
-                            applicator_list["y"],
-                            applicator_list["z"],
-                        ]
-                    ),
-                    coordinates=np.array(
-                        [
-                            applicator_list["x"],
-                            applicator_list["y"],
-                            applicator_list["z"],
-                        ]
-                    ),
-                    normal=shieldNormal,
-                    # for now RapidBrachy exports only one catheter trajectory.
-                    # in future, more catheter trajectories may be possible.
-                    # use i instead of 0 to get the ith catheter trajectory.
-                    catheter_trajectory=np.array(
-                        [
-                            applicator_list["points"][0][0:3],
-                            applicator_list["points"][0][3:6],
-                        ]
-                    ),
-                )
-
-                self.applicator_list.append(applicator_obj)
-
-        elif format == "WebApp":
-            for applicator in applicator_list:
-
-                applicator_obj = BrachyApplicator(
-                    pth_input_file=applicator["path"] if "path" in applicator else None,
-                    material=(
-                        applicator["material"] if "material" in applicator else None
-                    ),
-                    density=applicator["density"] if "density" in applicator else None,
-                    origin=applicator["origin"] if "origin" in applicator else None,
-                    rotation=(
-                        applicator["rotation"] if "rotation" in applicator else None
-                    ),
-                    rotation_origin=(
-                        applicator["rotation_origin"]
-                        if "rotation_origin" in applicator
-                        else None
-                    ),
-                    coordinates=(
-                        applicator["coordinates"]
-                        if "coordinates" in applicator
-                        else None
-                    ),
-                    normal=applicator["normal"] if "normal" in applicator else None,
-                    catheter_trajectory=(
-                        applicator["catheter_trajectory"]
-                        if "catheter_trajectory" in applicator
-                        else None
-                    ),
-                )
-                self.applicator_list.append(applicator_obj)
-        else:
-            raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
-
+   
     def get_dvh_metrics(
         self,
         combined_dose: BrachyDose=None,
@@ -884,7 +717,7 @@ class BrachyPlan:
             - Plan files (.plan files for each dwell position)
             - Macro files (.mac simulation files)
             - Egsphant phantom file (ct.egsphant)
-            - Applicator geometry files (applicator_geometry.json and .mac files)
+            - Applicator stl files
             - Structure set file (structure_set.json)
 
         ### Dependencies:
@@ -894,7 +727,6 @@ class BrachyPlan:
         - export_plan_files()
         - export_mac_files()
         - _export_egsphant()
-        - _export_applicator_geometry()
         - _export_structure_set()
 
         ### Example of content_to_export dict:
@@ -957,7 +789,8 @@ class BrachyPlan:
 
 
         if content_to_export.applicator_geometry:
-            self._export_applicator_geometry(str(content_to_export.dir_export))
+            for applicator in self.applicator_list:
+                applicator.to_stl(dir_export / f"{applicator.name}.stl")
 
         if content_to_export.structure_set:
             self._export_structure_set(
@@ -1064,16 +897,17 @@ class BrachyPlan:
                 run_i_plan += dwell_coordinates_str
                 # Not dealing with shield angle for now but the new convention for filename is
                 # xxx_catheter#_dwell#_shieldangle.plan
-                shield_angle = 0
+                shield_angle = dwell.angle
                 if not export_config_plan_and_mac.combined_only:
                     order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
                     with open(export_config_plan_and_mac.dir_export / f"dwell_{order}.plan", "w") as file:
                         file.write(run_i_plan)
             # set to false so that we don't export the same catheter again for dose rate calculation
             cat.gen_dose_rates = False
-        with open(export_config_plan_and_mac.pth_plan_combined, "w") as file:
-            file.write(combined_plan)
-        print(".plan files were exported successfully")
+    
+        if export_config_plan_and_mac.combined_only:
+            with open(export_config_plan_and_mac.pth_plan_combined, "w") as file:
+                file.write(combined_plan)
 
     def export_mac_files(
         self,
@@ -1120,8 +954,9 @@ class BrachyPlan:
         """
         sim_obj = deepcopy(self.simulation_setup)
         sim_obj.total_time = catheter_table.treatment_time
-        sim_obj.pth_plan = export_config_plan_and_mac.pth_plan_combined
+        sim_obj.pth_plan = export_config_plan_and_mac.pth_plan_combined.name
         sim_obj.pth_phantom = export_config_plan_and_mac.pth_phantom
+        sim_obj.applicator_list = self.applicator_list
 
         if export_config_plan_and_mac.auto_mvm:
             #check if we need it - if the dimensions of the image are sufficiently small
@@ -1143,18 +978,19 @@ class BrachyPlan:
                 pth_output=export_config_plan_and_mac.pth_body_stl
             )
 
-        with open(export_config_plan_and_mac.pth_mac_combined, "w") as file:
-            file.write(sim_obj.to_string())
 
-        if not export_config_plan_and_mac.combined_only:
+        if export_config_plan_and_mac.combined_only:
+            with open(export_config_plan_and_mac.pth_mac_combined, "w") as file:
+                file.write(sim_obj.to_string())
+
+        else:
             for cat in catheter_table:
                 for dwell in cat.dwells:
                     catheter_idx = cat.index
                     dwell_idx = dwell.index
                     # Not dealing with shield angle for now but the new convention for filename is
                     # xxx_catheter#_dwell#_shieldangle.plan
-                    shield_angle = 0
-                    sim_obj = deepcopy(self.simulation_setup)
+                    shield_angle = dwell.angle
                     order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
                     sim_obj.pth_plan = f"dwell_{order}.plan"
                     sim_obj.total_time = 1
@@ -1194,85 +1030,6 @@ class BrachyPlan:
 
         print("Egsphant file was exported successfully")
 
-    def _export_applicator_geometry(
-        self, dir_export: str, export_format: str = "RapidBrachy"
-    ):
-        r"""
-        ### Purpose:
-        - To export the applicator geometries either in the RapidBrachy Format (mac files and single json file)
-        or in webapp format (json file).
-
-        ### Inputs:
-        - dir_export := path to the directory where the export happens
-        - format := the format of the applicator geometry file. options are "RapidBrachy" or "WebApp"
-
-        ### Outputs:
-        - None := will export the applicator geometries into the specified export directory.
-
-        ### Dependencies:
-        - None
-        """
-        if export_format == "RapidBrachy":
-
-            # initialize the fields of the json file:
-            out_json = {
-                "densities": [],
-                "filenames": [],
-                "materials": [],
-                "points": [],
-                "shieldNormalx": 0,
-                "shieldNormaly": 0,
-                "shieldNormalz": 0,
-                "wRot": 0,
-                "x": 0,
-                "xRot": 0,
-                "y": 0,
-                "yRot": 0,
-                "z": 0,
-                "zRot": 0,
-            }
-            counter = 0
-            for applicator in self.applicator_list:
-
-                out_json["densities"].append(applicator.density)
-                out_json["filenames"].append(applicator.path)
-                out_json["materials"].append(applicator.material)
-                out_json["points"].append(
-                    applicator.catheter_trajectory.flatten().tolist()
-                )
-                out_json["shieldNormalx"] = float(applicator.normal[0])
-                out_json["shieldNormaly"] = float(applicator.normal[1])
-                out_json["shieldNormalz"] = float(applicator.normal[2])
-
-                subscript = counter + 1 if counter >= 1 else ""
-                out_json[f"wRot{subscript}"] = float(applicator.rotation[0])
-                out_json[f"xRot{subscript}"] = float(applicator.rotation[1])
-                out_json[f"yRot{subscript}"] = float(applicator.rotation[2])
-                out_json[f"zRot{subscript}"] = float(applicator.rotation[3])
-
-                out_json["x"] = float(applicator.coordinates[0])
-                out_json["y"] = float(applicator.coordinates[1])
-                out_json["z"] = float(applicator.coordinates[2])
-                counter += 1
-
-            with open(dir_export + "/applicator_geometry.json", "w") as file:
-                json.dump(out_json, file, indent=4)
-
-        elif export_format == "WebApp":
-            out_json = [
-                applicator.to_dict(format) for applicator in self.applicator_list
-            ]
-            with open(dir_export + "/applicator_geometry.json", "w") as file:
-                json.dump(out_json, file, indent=4)
-
-        else:
-            raise ValueError("format should be either 'RapidBrachy' or 'WebApp'")
-
-        # export the mac files for each applicator
-        for applicator in self.applicator_list:
-            applicator.to_mac(os.path.join(dir_export, f"{applicator.name}.mac"))
-        print("applicator geometry file was exported successfully")
-
     def _export_structure_set(
         self,
         dir_export: str,
@@ -1301,7 +1058,7 @@ class BrachyPlan:
         raise NotImplementedError("now that you are here, finish this function thank you!") #no thanks, Jonathan.
         structure_set = []
         for structure in self.structure_list:
-            structure_set.append(structure.to_dict(export_format))
+            structure_set.append(structure.to_dict())
 
             if materials_table is not None:
                 from brachyutils.geometry.egsphant_utils import _load_material_dict
