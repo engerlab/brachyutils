@@ -111,6 +111,7 @@ def obb_planes(
             centre_rot + superior_axis * superior_plane_spacing * (i - (num_planes-1)/2)
         )
         decision_plane_dict[i] = {
+            "depth": i,
             "origin": origin_decision_plane,
             "normal": superior_axis,
             "transform": obb_T,
@@ -122,29 +123,29 @@ def grid_on_plane(
     plane_origin: np.ndarray,
     obb_T: np.ndarray,
     extents: np.ndarray,
-    n: int) -> np.ndarray:
+    insertion_grid_spacing_mm: float) -> np.ndarray:
     """
-    Sample an NxN grid of 3-D points on a plane, staying inside the OBB face.
+    ### Purpose:
+    - Sample an NxN grid of 3-D points on a plane, staying inside the OBB face.
 
-    Parameters
-    ----------
-    plane_origin : (3,)  point on the plane (e.g. OBB superior/inferior face centre)
-    obb_T        : (4,4) OBB transform (provides X/Y in-plane axes)
-    extents      : (3,)  OBB extents [ex, ey, ez]
-    n            : int   number of grid points per axis
+    ### Inputs
+    - plane_origin : (3,)  point on the plane (e.g. OBB superior/inferior face centre)
+    - obb_T        : (4,4) OBB transform (provides X/Y in-plane axes)
+    - extents      : (3,)  OBB extents [ex, ey, ez]
+    - insertion_grid_spacing_mm : float := spacing between adjacent grid points (mm)
 
-    Returns
-    -------
-    pts : (N*N, 3)
+    ### Returns
+    - pts : (N*N, 3)
     """
     R    = obb_T[:3, :3]
     x_ax = R[:, 0]
     y_ax = R[:, 1]
     ex, ey = extents[0], extents[1]
-
+    n_x = max(2, int(np.floor(ex / insertion_grid_spacing_mm)))
+    n_y = max(2, int(np.floor(ey / insertion_grid_spacing_mm)))
     # Inset slightly from edges
-    us = np.linspace(-ex/2 + ex/(2*n), ex/2 - ex/(2*n), n)
-    vs = np.linspace(-ey/2 + ey/(2*n), ey/2 - ey/(2*n), n)
+    us = np.linspace(-ex/2 + ex/(2*n_x), ex/2 - ex/(2*n_x), n_x)
+    vs = np.linspace(-ey/2 + ey/(2*n_y), ey/2 - ey/(2*n_y), n_y)
     UU, VV = np.meshgrid(us, vs)
     pts = (plane_origin
            + UU.ravel()[:, None] * x_ax
@@ -346,9 +347,8 @@ def angled_catheter_pairs(
 
 def build_line_connectors(
     mesh_dict:Dict[str, trimesh.Trimesh],
-    grid_n:int ,
-    danger_dist:float,
-    perpendicular:bool,
+    insertion_grid_spacing_mm:float,
+    oar_danger_dist:float,
     target_structures:List[str],
     config_angled_cathgen:Config_Angled_CathGen = None,
     **kwargs
@@ -363,8 +363,9 @@ def build_line_connectors(
 
     ### Inputs:
     - meshes: List[trimesh.Trimesh] := list of trimesh.Trimesh
-    - grid_n: int :=  N for NxN grid of candidate lines
-    - perpendicular: bool := if True, lines run parallel to OBB Z axis (perpendicular to planes)
+    - insertion_grid_spacing_mm: float := spacing for the insertion grid
+    - danger_dist: float := distance threshold for danger zones
+    - target_structures: List[str] := list of target structure names
 
     ### Outputs:
     valid_lines: List[Tuple[np.ndarray, np.ndarray]] := list of (p0, p1) tuples
@@ -386,59 +387,92 @@ def build_line_connectors(
             meshes_4_planes += [mesh_dict[name] for name in names_colliding[1]]
     meshes_4_planes += target_meshes
 
-    decision_plane_dict, normal, obb_T, extents = obb_planes(
+    decision_plane_dict = obb_planes(
         meshes_4_planes,
         margin_mm = kwargs.get("margin_mm", 10.0),
         rotation_angle_deg = kwargs.get("rotation_angle_deg", 0),
         num_planes = kwargs.get("num_planes", 2),
         )
 
-    # ── 2. Grid points on each plane ────────────────────────────────────────
-    top_pts = grid_on_plane(o_top, obb_T, extents, grid_n)
-    bot_pts = grid_on_plane(o_bot, obb_T, extents, grid_n)
+    # # between two deicion planes, define the pairs of points
+    # # that form digitization points for the catheter segments. 
+    inferior_plane_grid = grid_on_plane(
+        plane_origin = decision_plane_dict[0]["origin"],
+        obb_T = decision_plane_dict[0]["transform"],
+        extents = decision_plane_dict[0]["extents"],
+        insertion_grid_spacing_mm = insertion_grid_spacing_mm,
+    )
+    digitization_pairs = []
+    for i, plane in enumerate(decision_plane_dict.values()):
+        if i == len(decision_plane_dict)-1:
+            break
+        plane_digi_points = get_digitzation_pairs(
+            inferior_plane = plane,
+            inferior_plane_grid = inferior_plane_grid,
+            superior_plane = decision_plane_dict[i+1],
+            config_angled_cathgen = config_angled_cathgen,
+        )
+        digitization_pairs += plane_digi_points
+        # the superior plane points become the inferior plane points for the next iteration
+        inferior_plane_grid = [pf for pi, pf in plane_digi_points]
 
-    if perpendicular:
-        # Project bottom points onto the top plane along normal,
-        # forcing all lines to be parallel to the OBB Z axis.
-        bot_pts_proj = np.array([
-            p - np.dot(p - o_top, normal) * normal for p in bot_pts
-        ])
-        pairs = list(zip(bot_pts_proj, bot_pts))
-    else:
-        if config_angled_cathgen is None:
-            raise ValueError("config_angled_cathgen must be provided when perpendicular=False")
-        # Generate angled pairs by sweeping rays from each bottom point
-        # across a grid of altitude and azimuth angles.
-        pairs = angled_catheter_pairs(
-            o_top=o_top,
-            o_bot=o_bot,
-            normal=normal,
-            obb_T=obb_T,
-            extents=extents,
-            grid_n=grid_n,
-            alt_max=config_angled_cathgen.alt_max,
-            alt_step=config_angled_cathgen.alt_step,
-            az_max=config_angled_cathgen.az_max,
-            az_step=config_angled_cathgen.az_step,
-        )        
+    # # Generate angled pairs by sweeping rays from each bottom point
+    # # across a grid of altitude and azimuth angles.
+    # pairs = angled_catheter_pairs(
+    #     o_top=o_top,
+    #     o_bot=o_bot,
+    #     normal=normal,
+    #     obb_T=obb_T,
+    #     extents=extents,
+    #     grid_n=grid_n,
+    #     alt_max=config_angled_cathgen.alt_max,
+    #     alt_step=config_angled_cathgen.alt_step,
+    #     az_max=config_angled_cathgen.az_max,
+    #     az_step=config_angled_cathgen.az_step,
+    # )        
 
     # ── 3. Filter colliding / too-close lines ───────────────────────────────
     oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structures]
     valid_lines = [
-        (p0, p1) for p0, p1 in pairs
-        if not line_is_invalid(p0, p1, oar_meshes, danger_dist)
+        (p0, p1) for p0, p1 in digitization_pairs
+        if not line_is_invalid(p0, p1, oar_meshes, oar_danger_dist)
     ]
-    n_total = len(pairs)
+    n_total = len(digitization_pairs)
     n_valid = len(valid_lines)
     print(f"Candidates: {n_total}  |  Valid (kept): {n_valid}  |  Discarded: {n_total - n_valid}")
-    return valid_lines , o_top, o_bot, extents, obb_T
+    return valid_lines
+
+def get_digitzation_pairs(
+    inferior_plane: dict,
+    inferior_plane_grid: List[np.ndarray],
+    superior_plane: dict,
+    config_angled_cathgen: Config_Angled_CathGen
+    ) -> List[tuple[np.ndarray, np.ndarray]]:
+    r"""
+    ### Purpose:
+    - Given an inferior plane and a superior plane, generate the digitization pairs
+    connecting the two planes. The inferior plane points are given by the grid, 
+    and the superior plane points are generated by sweeping rays from each inferior
+    point across a grid of altitude and azimuth angles.
+
+    ### Inputs:
+    - inferior_plane: dict := dictionary containing the inferior plane information
+    - inferior_plane_grid: List[np.ndarray] := list of points on the inferior plane
+    - superior_plane: dict := dictionary containing the superior plane information
+    - config_angled_cathgen: Config_Angled_CathGen := configuration for the angled catheter generation
+    
+    ### Outputs:
+    - digitization_pairs: List[tuple[np.ndarray, np.ndarray]] := list of
+    (superior_point, inferior_point) tuples 
+    """
+    # TODO: priority 1: complete this function
+    pass
 
 def gen_catheter_table_from_contours(
     mesh_dict: Dict[str, trimesh.Trimesh],
     target_structures: List[str],
-    grid_n:int,
-    danger_dist_mm:float = 3.0,
-    perpendicular:bool = True,
+    oar_danger_dist_mm:float = 3.0,
+    insertion_grid_spacing_mm:float = 5.0,
     config_angled_cathgen:Config_Angled_CathGen = None,
     out_ply_dir:str | Path = None,
     catheter_radius:float = 1.0,
@@ -453,17 +487,15 @@ def gen_catheter_table_from_contours(
     ### Inputs
     - mesh_dict: Dict[str, trimesh.Trimesh] := dictionary of Trimesh objects (e.g. from TPS)
     - target_structures: List[str] := list of structure names to be irradiated
-    - grid_n: int := number of candidate lines per plane axis (total candidates = grid_n^2)
-    - danger_dist_mm: float := minimum allowed distance (mm) from any contour vertex
-    - perpendicular: bool := if True, lines run parallel to OBB Z axis (perpendicular to planes)
+    - insertion_grid_spacing_mm: float := spacing for the insertion grid
+    - oar_danger_dist_mm: float := minimum allowed distance (mm) from any OAR vertex
     - out_ply_dir: str := if provided, directory to export STL files of meshes + lines
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
     valid_lines , o_top, o_bot, extents, obb_T = build_line_connectors(
         mesh_dict=mesh_dict,
-        grid_n=grid_n,
-        danger_dist=danger_dist_mm,
-        perpendicular=perpendicular,
+        insertion_grid_spacing_mm=insertion_grid_spacing_mm,
+        oar_danger_dist_mm=oar_danger_dist_mm,
         target_structures=target_structures,
         config_angled_cathgen=config_angled_cathgen
     )
@@ -495,7 +527,7 @@ def decision_planes_to_ply(
         Tbox = data["transform"].copy()
         Tbox[:3, 3] = data["origin"]
         box.apply_transform(Tbox)
-        path = out_ply_dir / f"plane_{depth}.ply"
+        path = out_ply_dir / f"plane_{data["depth"]}.ply"
         box.export(path)
 
     # # this code for visualization
