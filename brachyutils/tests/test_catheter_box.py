@@ -1,8 +1,41 @@
 from glob import glob
 from pathlib import Path
 import numpy as np
-from brachyutils.geometry.catheter_utils.catheter_table import DwellPosition, Catheter, CatheterTable
 from trimesh import Trimesh
+
+from brachyutils.geometry.phantom_utils import BrachyPhantom
+
+def get_test_structure_meshes():
+    dir_dicom = Path("data_test/prostate-glen-p1-dcm")
+    outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
+    pth_struct = list(dir_dicom.glob("RS*.dcm"))[0]
+    phant:BrachyPhantom = BrachyPhantom(
+        dir_dicom=dir_dicom,
+        pth_structures_file=pth_struct)
+    mesh_dict = phant.get_structure_mask(
+        query_structure_list=["CTV", "urethra", "rectum"],
+        mask_type=Trimesh, strict_name_match=False)
+    return mesh_dict
+
+def test_obb_planes():
+    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import obb_planes
+    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import bounding_planes_to_ply
+    outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
+
+    mesh_dict = get_test_structure_meshes()
+    origin_top, origin_bot, normal, obb_T, extents = obb_planes(
+    meshes = mesh_dict,
+    margin_mm = 10.0,
+    rotation_angle_deg = -15
+    )
+    bounding_planes_to_ply(
+    out_ply_dir =outdir, 
+    o_top = origin_top,
+    o_bot = origin_bot,
+    extents = extents,
+    obb_T = obb_T
+    )
+
 
 def test_build_line_connectors():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import build_line_connectors
@@ -55,5 +88,6 @@ def test_gen_catheter_table_from_contours():
     print("debug here")
 
 if __name__ == "__main__":
-    test_build_line_connectors()
-    test_gen_catheter_table_from_contours()
+    test_obb_planes()
+    # test_build_line_connectors()
+    # test_gen_catheter_table_from_contours()

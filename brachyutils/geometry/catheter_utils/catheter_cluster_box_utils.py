@@ -44,7 +44,7 @@ def obb_planes(
     - obb_T      : (4,4) box transform (world ← box local frame)
     - extents    : (3,)  box full extents [ex, ey, ez]
     """
-    if np.abs(rotation_angle_deg) >= 15:
+    if np.abs(rotation_angle_deg) > 15:
         raise ValueError(
             "rotation_angle_deg should be less than 15 degrees to avoid excessive distortion of the catheter box."
         )
@@ -54,7 +54,7 @@ def obb_planes(
         raise ValueError("meshes must contain at least one mesh.")
 
     # Stack all vertices once: fastest path, no mesh copies
-    vertices = np.vstack([np.asarray(mesh.vertices) for mesh in meshes])
+    vertices = np.vstack([np.asarray(mesh.vertices) for mesh in meshes.values()])
     if vertices.shape[0] == 0:
         raise ValueError("Input meshes contain no vertices.")
 
@@ -465,6 +465,26 @@ def gen_catheter_table_from_contours(
         catheters_dict=valid_catheters,
     )
     return catheter_table
+
+def bounding_planes_to_ply(
+    out_ply_dir: str | Path,
+    o_top: np.ndarray,
+    o_bot: np.ndarray,
+    extents: np.ndarray,
+    obb_T: np.ndarray,
+) -> None:
+    out_ply_dir = Path(out_ply_dir)
+    out_ply_dir.mkdir(parents=True, exist_ok=True)
+
+    # Bounding planes as thin flat boxes
+    for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
+        ex, ey, ez = extents
+        box = trimesh.creation.box(extents=[ex, ey, 0.2])
+        Tbox = obb_T.copy()
+        Tbox[:3, 3] = centre
+        box.apply_transform(Tbox)
+        path = out_ply_dir / f"{label}.ply"
+        box.export(path)
 
     # # this code for visualization
     # if out_ply_dir is not None:
