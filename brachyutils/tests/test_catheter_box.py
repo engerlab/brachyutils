@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 from trimesh import Trimesh
 
+from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import decision_planes_to_ply
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 
 def get_test_structure_meshes():
@@ -19,19 +20,19 @@ def get_test_structure_meshes():
 
 def test_obb_planes():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import obb_planes
-    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import bounding_planes_to_ply
+    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import decision_planes_to_ply
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
 
     mesh_dict = get_test_structure_meshes()
-    origin_top, origin_bot, normal, obb_T, extents = obb_planes(
+    decision_plane_dict, normal, obb_T, extents = obb_planes(
     meshes = mesh_dict,
     margin_mm = 10.0,
-    rotation_angle_deg = -15
+    rotation_angle_deg = -15,
+    num_planes = 4,
     )
-    bounding_planes_to_ply(
-    out_ply_dir =outdir, 
-    o_top = origin_top,
-    o_bot = origin_bot,
+    decision_planes_to_ply(
+    out_ply_dir = outdir, 
+    decision_plane_dict = decision_plane_dict,
     extents = extents,
     obb_T = obb_T
     )

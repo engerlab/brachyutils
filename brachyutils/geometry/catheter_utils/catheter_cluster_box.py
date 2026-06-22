@@ -127,8 +127,6 @@ organs at risk (OARs) (mm).")
         # TODO priority 2: complete this
         if abs(self.rotation_angle_deg) >= 15:
             raise ValueError("Rotation angle must be less than 15 degrees.")
-        
-        
 
     @computed_field
     @property

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import List, Dict
 import numpy as np
 import trimesh
@@ -19,27 +20,29 @@ PROX_SAMPLES   = 40     # samples along each line for proximity check
 # PERP_LINES     = False  # True → lines perpendicular to planes (parallel to OBB Z)
 # STL_OUT_DIR    = "stl_output"
 
-# TODO priority 1: test this function
 def obb_planes(
     meshes: list,
     margin_mm: float = 10.0,
-    rotation_angle_deg: float = 0
+    rotation_angle_deg: float = 0,
+    num_planes: int = 2,
 ) -> tuple:
     """
     ### Purpose:
     - Build a rotated box that contains the original unrotated meshes.
-    - The method computes an AABB after negatively rotating the vertices, then
-      rotates that box back into the regular coordinate system.
+    - The method ensures that the rotated box still contains the original meshes by applying
+    the inverse of the rotation to the meshes before computing the bounding box, 
+    and then applying the original rotation to the resulting box.
 
     ### Inputs:
     - meshes: list of trimesh.Trimesh objects to fit the box around.
     - margin_mm: float = 10.0 := margin around the meshes (mm).
     - rotation_angle_deg: float = 0 := rotation angle around the world X axis (degrees).
       This value should be less than 15 degrees.
+    - num_planes: int = 2 := number of decision planes to define in the catheter box.
+      At least there are 2 planes: inferior plane and superior plane.
 
     ### Outputs:
-    - origin_top : (3,)  point on superior plane
-    - origin_bot : (3,)  point on inferior plane
+    - decision_plane_dict : dict mapping plane indices to their origins (3,) np.ndarray
     - normal     : (3,)  unit normal shared by both planes (inferior → superior direction)
     - obb_T      : (4,4) box transform (world ← box local frame)
     - extents    : (3,)  box full extents [ex, ey, ez]
@@ -102,12 +105,19 @@ def obb_planes(
     superior_axis = R[:, 2]
     superior_axis = superior_axis / np.linalg.norm(superior_axis)
 
-    half_superior = extents[2] / 2.0
-    origin_top = centre_rot + superior_axis * half_superior
-    origin_bot = centre_rot - superior_axis * half_superior
+    decision_plane_dict = defaultdict(list)
+    if num_planes < 2:
+        raise ValueError("num_planes must be at least 2.")
+    superior_plane_spacing = extents[2] / (num_planes-1)
+    for i in range(num_planes):
+        origin_decision_plane = (
+            centre_rot + superior_axis * superior_plane_spacing * (i - (num_planes-1)/2)
+        )
+        decision_plane_dict[i] = origin_decision_plane
+        
     normal = superior_axis
 
-    return origin_top, origin_bot, normal, obb_T, extents
+    return decision_plane_dict, normal, obb_T, extents
 
 def grid_on_plane(
     plane_origin: np.ndarray,
@@ -466,10 +476,9 @@ def gen_catheter_table_from_contours(
     )
     return catheter_table
 
-def bounding_planes_to_ply(
+def decision_planes_to_ply(
     out_ply_dir: str | Path,
-    o_top: np.ndarray,
-    o_bot: np.ndarray,
+    decision_plane_dict: dict,
     extents: np.ndarray,
     obb_T: np.ndarray,
 ) -> None:
@@ -477,13 +486,13 @@ def bounding_planes_to_ply(
     out_ply_dir.mkdir(parents=True, exist_ok=True)
 
     # Bounding planes as thin flat boxes
-    for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
+    for depth, centre in decision_plane_dict.items():
         ex, ey, ez = extents
         box = trimesh.creation.box(extents=[ex, ey, 0.2])
         Tbox = obb_T.copy()
         Tbox[:3, 3] = centre
         box.apply_transform(Tbox)
-        path = out_ply_dir / f"{label}.ply"
+        path = out_ply_dir / f"plane_{depth}.ply"
         box.export(path)
 
     # # this code for visualization
