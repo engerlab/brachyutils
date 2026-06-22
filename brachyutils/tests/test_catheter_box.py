@@ -51,6 +51,10 @@ def test_get_digitization_pairs():
         extents = decision_planes[0]["extents"],
         insertion_grid_spacing_mm = insertion_grid_spacing_mm,
     )[8]
+    print("inf normal:      ", decision_planes[0]["normal"])
+    print("sup normal:      ", decision_planes[1]["normal"])
+    print("inf transform Z: ",  decision_planes[0]["transform"][:3, 2])
+    print("sup extents:     ", decision_planes[1]["extents"])
     point_pairs = get_digitization_pairs(
         inferior_plane = decision_planes[0],
         inferior_plane_grid = inferior_plane_grid,
