@@ -10,7 +10,15 @@ add_custom_target(InstallBrachyUtils ALL
   COMMAND ${PYTHON_EXECUTABLE} -m pip install --disable-pip-version-check --no-warn-script-location ${CMAKE_CURRENT_SOURCE_DIR}
   
   # Copy the non-python 'admin' data folder into the site-packages directory
-  COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/admin" "${CMAKE_BINARY_DIR}/../python-install/Lib/site-packages/admin"
+  
+  # ----------------------- ONLY FOR WINDOWS -----------------------
+  # COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/admin" "${CMAKE_BINARY_DIR}/../python-install/Lib/site-packages/admin"
+  # ---------------------------------------------------------------- 
+
+  # ----------------------- ONLY FOR LINUX -----------------------
+  COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/admin" "${CMAKE_BINARY_DIR}/../python-install/lib/python3.12/site-packages/admin"
+  # ---------------------------------------------------------------- 
+
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMENT "Installing local brachyutils and its dependencies into Slicer's Python environment..."
 )
