@@ -14,7 +14,8 @@ def get_test_structure_meshes():
         dir_dicom=dir_dicom,
         pth_structures_file=pth_struct)
     mesh_dict = phant.get_structure_mask(
-        query_structure_list=["CTV", "urethra", "rectum"],
+        # query_structure_list=["CTV", "urethra", "rectum"],
+        query_structure_list=["CTV", "urethra"],
         mask_type=Trimesh, strict_name_match=False)
     return mesh_dict
 
@@ -26,9 +27,9 @@ def test_obb_planes(return_planes=False):
     mesh_dict = get_test_structure_meshes()
     decision_plane_dict = obb_planes(
     meshes = mesh_dict,
-    margin_mm = 10.0,
-    rotation_angle_deg = -15,
-    num_planes = 4,
+    margin_mm = 5,
+    rotation_angle_deg = 0,
+    num_planes = 2,
     )
     decision_planes_to_ply(
     out_ply_dir = outdir, 
@@ -38,10 +39,10 @@ def test_obb_planes(return_planes=False):
         return decision_plane_dict
 
 def test_get_digitization_pairs():
-    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import get_digitization_pairs
-    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import grid_on_plane
+    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
+        get_digitization_pairs, grid_on_plane, digitization_points_to_ply)
     from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
-    insertion_grid_spacing_mm = 5.0
+    insertion_grid_spacing_mm = 10.
     decision_planes = test_obb_planes(return_planes=True)
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
     inferior_plane_grid = grid_on_plane(
@@ -49,14 +50,17 @@ def test_get_digitization_pairs():
         obb_T = decision_planes[0]["transform"],
         extents = decision_planes[0]["extents"],
         insertion_grid_spacing_mm = insertion_grid_spacing_mm,
-    )
+    )[8]
     point_pairs = get_digitization_pairs(
         inferior_plane = decision_planes[0],
         inferior_plane_grid = inferior_plane_grid,
         superior_plane = decision_planes[1],
         config_angled_cathgen = Config_Angled_CathGen()
         )
-    print("breaking point")
+    digitization_points_to_ply(
+        out_ply_dir=outdir,
+        point_pairs=point_pairs,
+        )
 
 def test_build_line_connectors():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import build_line_connectors
