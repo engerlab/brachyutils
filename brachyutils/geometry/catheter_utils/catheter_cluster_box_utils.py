@@ -240,10 +240,10 @@ def angled_catheter_pairs(
     obb_T: np.ndarray,
     extents: np.ndarray,
     grid_n: int,
-    alt_max: float,
-    alt_step: float,
-    az_max: float,
-    az_step: float,
+    rl_max: float,
+    rl_step: float,
+    ap_max: float,
+    ap_step: float,
 ) -> list:
     """
     ### Purpose
@@ -255,8 +255,8 @@ def angled_catheter_pairs(
     OBB extents are discarded.
 
     Azimuth=0 is defined as the direction from the bottom point towards the
-    bottom plane centre (radially inwards) and sweeps symmetrically from -az_max
-    to +az_max. Altitude=0 is parallel to the normal.
+    bottom plane centre (radially inwards) and sweeps symmetrically from -ap_max
+    to +ap_max. Altitude=0 is parallel to the normal.
 
     ### Inputs
     - o_top    : (3,) point on the top (superior) plane
@@ -265,10 +265,10 @@ def angled_catheter_pairs(
     - obb_T    : (4,4) OBB transform (world ← OBB local frame)
     - extents  : (3,) OBB full extents [ex, ey, ez]
     - grid_n   : number of grid points per axis on each plane
-    - alt_max  : maximum altitude angle away from normal (degrees); sweeps -alt_max to +alt_max
-    - alt_step : altitude angle increment (degrees)
-    - az_max   : half-width of azimuthal sweep (degrees); sweeps -az_max to +az_max
-    - az_step  : azimuthal angle increment (degrees)
+    - rl_max  : maximum altitude angle away from normal (degrees); sweeps -rl_max to +rl_max
+    - rl_step : altitude angle increment (degrees)
+    - ap_max   : half-width of azimuthal sweep (degrees); sweeps -ap_max to +ap_max
+    - ap_step  : azimuthal angle increment (degrees)
 
     ### Outputs
     - pairs : list of (top_pt, bot_pt) tuples, each a (3,) np.ndarray
@@ -280,8 +280,8 @@ def angled_catheter_pairs(
     half_y = extents[1] / 2.0
 
     # ── Angle grids ──────────────────────────────────────────────────────────
-    alt_steps = np.arange(-alt_max, alt_max + 1e-9, alt_step)
-    az_steps  = np.arange(-az_max, az_max + 1e-9, az_step)
+    rl_steps = np.arange(-rl_max, rl_max + 1e-9, rl_step)
+    ap_steps  = np.arange(-ap_max, ap_max + 1e-9, ap_step)
 
     # ── Bottom grid points ───────────────────────────────────────────────────
     bot_pts = grid_on_plane(o_bot, obb_T, extents, grid_n)
@@ -311,8 +311,8 @@ def angled_catheter_pairs(
         v_axis = np.cross(normal, u_axis)
         v_axis /= np.linalg.norm(v_axis)
 
-        for alt_deg in alt_steps:
-            for az_deg in az_steps:
+        for alt_deg in rl_steps:
+            for az_deg in ap_steps:
 
                 # Collapse redundant azimuth samples at zero altitude
                 if alt_deg == 0.0 and az_deg != 0.0:
@@ -425,10 +425,10 @@ def build_line_connectors(
     #     obb_T=obb_T,
     #     extents=extents,
     #     grid_n=grid_n,
-    #     alt_max=config_angled_cathgen.alt_max,
-    #     alt_step=config_angled_cathgen.alt_step,
-    #     az_max=config_angled_cathgen.az_max,
-    #     az_step=config_angled_cathgen.az_step,
+    #     rl_max=config_angled_cathgen.rl_max,
+    #     rl_step=config_angled_cathgen.rl_step,
+    #     ap_max=config_angled_cathgen.ap_max,
+    #     ap_step=config_angled_cathgen.ap_step,
     # )        
 
     # ── 3. Filter colliding / too-close lines ───────────────────────────────
@@ -466,7 +466,7 @@ def get_digitzation_pairs(
     (superior_point, inferior_point) tuples 
     """
     # TODO: priority 1: complete this function
-    pass
+    
 
 def gen_catheter_table_from_contours(
     mesh_dict: Dict[str, trimesh.Trimesh],
