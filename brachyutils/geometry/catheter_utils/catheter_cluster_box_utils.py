@@ -25,7 +25,7 @@ def obb_planes(
     margin_mm: float = 10.0,
     rotation_angle_deg: float = 0,
     num_planes: int = 2,
-) -> tuple:
+) -> dict:
     """
     ### Purpose:
     - Build a rotated box that contains the original unrotated meshes.
@@ -42,10 +42,7 @@ def obb_planes(
       At least there are 2 planes: inferior plane and superior plane.
 
     ### Outputs:
-    - decision_plane_dict : dict mapping plane indices to their origins (3,) np.ndarray
-    - normal     : (3,)  unit normal shared by both planes (inferior → superior direction)
-    - obb_T      : (4,4) box transform (world ← box local frame)
-    - extents    : (3,)  box full extents [ex, ey, ez]
+    - decision_plane_dict : dict mapping plane indices to their origin, normal, and box transform
     """
     if np.abs(rotation_angle_deg) > 15:
         raise ValueError(
@@ -105,7 +102,7 @@ def obb_planes(
     superior_axis = R[:, 2]
     superior_axis = superior_axis / np.linalg.norm(superior_axis)
 
-    decision_plane_dict = defaultdict(list)
+    decision_plane_dict = defaultdict(dict)
     if num_planes < 2:
         raise ValueError("num_planes must be at least 2.")
     superior_plane_spacing = extents[2] / (num_planes-1)
@@ -113,11 +110,13 @@ def obb_planes(
         origin_decision_plane = (
             centre_rot + superior_axis * superior_plane_spacing * (i - (num_planes-1)/2)
         )
-        decision_plane_dict[i] = origin_decision_plane
-        
-    normal = superior_axis
+        decision_plane_dict[i] = {
+            "origin": origin_decision_plane,
+            "normal": superior_axis,
+            "transform": obb_T,
+            "extents": extents,}
 
-    return decision_plane_dict, normal, obb_T, extents
+    return decision_plane_dict
 
 def grid_on_plane(
     plane_origin: np.ndarray,
@@ -352,6 +351,7 @@ def build_line_connectors(
     perpendicular:bool,
     target_structures:List[str],
     config_angled_cathgen:Config_Angled_CathGen = None,
+    **kwargs
     ) -> tuple[dict, list]:
     """
     ### Purpose:
@@ -386,7 +386,12 @@ def build_line_connectors(
             meshes_4_planes += [mesh_dict[name] for name in names_colliding[1]]
     meshes_4_planes += target_meshes
 
-    o_top, o_bot, normal, obb_T, extents = obb_planes(meshes_4_planes)
+    decision_plane_dict, normal, obb_T, extents = obb_planes(
+        meshes_4_planes,
+        margin_mm = kwargs.get("margin_mm", 10.0),
+        rotation_angle_deg = kwargs.get("rotation_angle_deg", 0),
+        num_planes = kwargs.get("num_planes", 2),
+        )
 
     # ── 2. Grid points on each plane ────────────────────────────────────────
     top_pts = grid_on_plane(o_top, obb_T, extents, grid_n)
@@ -479,18 +484,16 @@ def gen_catheter_table_from_contours(
 def decision_planes_to_ply(
     out_ply_dir: str | Path,
     decision_plane_dict: dict,
-    extents: np.ndarray,
-    obb_T: np.ndarray,
-) -> None:
+    ) -> None:
     out_ply_dir = Path(out_ply_dir)
     out_ply_dir.mkdir(parents=True, exist_ok=True)
 
     # Bounding planes as thin flat boxes
-    for depth, centre in decision_plane_dict.items():
-        ex, ey, ez = extents
+    for depth, data in decision_plane_dict.items():
+        ex, ey, ez = data["extents"]
         box = trimesh.creation.box(extents=[ex, ey, 0.2])
-        Tbox = obb_T.copy()
-        Tbox[:3, 3] = centre
+        Tbox = data["transform"].copy()
+        Tbox[:3, 3] = data["origin"]
         box.apply_transform(Tbox)
         path = out_ply_dir / f"plane_{depth}.ply"
         box.export(path)

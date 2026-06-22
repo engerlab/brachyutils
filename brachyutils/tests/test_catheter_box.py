@@ -24,7 +24,7 @@ def test_obb_planes():
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
 
     mesh_dict = get_test_structure_meshes()
-    decision_plane_dict, normal, obb_T, extents = obb_planes(
+    decision_plane_dict = obb_planes(
     meshes = mesh_dict,
     margin_mm = 10.0,
     rotation_angle_deg = -15,
@@ -33,8 +33,6 @@ def test_obb_planes():
     decision_planes_to_ply(
     out_ply_dir = outdir, 
     decision_plane_dict = decision_plane_dict,
-    extents = extents,
-    obb_T = obb_T
     )
 
 
