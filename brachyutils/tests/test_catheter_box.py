@@ -5,7 +5,9 @@ from trimesh import Trimesh
 
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
-from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import segment_lines_to_ply
+from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
+    segment_lines_to_ply, decision_planes_to_ply)
+
 def get_test_structure_meshes():
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
@@ -21,7 +23,6 @@ def get_test_structure_meshes():
 
 def test_obb_planes(return_planes=False):
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import obb_planes
-    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import decision_planes_to_ply
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
 
     mesh_dict = get_test_structure_meshes()
@@ -69,7 +70,7 @@ def test_build_line_connectors():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import build_line_connectors
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
     mesh_dict = get_test_structure_meshes()
-    valid_lines = build_line_connectors(
+    valid_lines, plane_dict = build_line_connectors(
         mesh_dict=mesh_dict,
         insertion_grid_spacing_mm=15,
         oar_danger_dist_mm=5,
@@ -78,6 +79,10 @@ def test_build_line_connectors():
         bb_margin_mm = 5,
         bb_rotation_angle_deg = 12,
         bb_num_planes = 3,
+    )
+    decision_planes_to_ply(
+        out_ply_dir=outdir,
+        decision_plane_dict=plane_dict
     )
     segment_lines_to_ply(
         out_ply_dir=outdir,

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import numpy as np
 import trimesh
 import trimesh.creation
@@ -256,7 +256,7 @@ def build_line_connectors(
     target_structures:List[str],
     config_angled_cathgen:Config_Angled_CathGen = None,
     **kwargs
-    ) -> List[tuple]:
+    ) -> Tuple[List, Dict]:
     """
     ### Purpose:
     - Given a set of 3D meshes, automatically generate a set of
@@ -334,7 +334,7 @@ def build_line_connectors(
 
     n_valid = len(digitization_pairs)
     print(f"Candidates: {n_total}  |  Valid (kept): {n_valid}  |  Discarded: {n_total - n_valid}")
-    return digitization_pairs
+    return digitization_pairs, decision_plane_dict
 
 def normalize(v: np.ndarray) -> np.ndarray:
     v = np.asarray(v, dtype=float)
