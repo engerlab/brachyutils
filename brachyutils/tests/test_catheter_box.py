@@ -3,9 +3,9 @@ from pathlib import Path
 import numpy as np
 from trimesh import Trimesh
 
-from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import decision_planes_to_ply
 from brachyutils.geometry.phantom_utils import BrachyPhantom
-
+from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
+from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import segment_lines_to_ply
 def get_test_structure_meshes():
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
@@ -41,7 +41,6 @@ def test_obb_planes(return_planes=False):
 def test_get_segment_lines():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
         get_segment_lines, grid_on_plane, segment_lines_to_ply)
-    from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
     insertion_grid_spacing_mm = 10.
     decision_planes = test_obb_planes(return_planes=True)
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
@@ -68,24 +67,22 @@ def test_get_segment_lines():
 
 def test_build_line_connectors():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import build_line_connectors
-    import trimesh
-    dir_out = "data_test/test_export_plan/prostate/line_connectors"
-    np.random.seed(42)
-    centers = [[12, 0, 15], [-12, 0, 18], [0, 12, 20], [0, -12, 12], [0, 0, 26]]
-    demo_meshes = []
-    for c in centers:
-        pts  = np.random.randn(50, 3) * 2 + c
-        hull = trimesh.convex.convex_hull(pts)
-        demo_meshes.append(hull)
-
-    build_line_connectors(
-        meshes        = demo_meshes,
-        grid_n        = 5,
-        danger_dist   = 5.0,
-        tube_radius   = 0.5,
-        perpendicular = False,
-        out_dir       = dir_out,
+    outdir = "data_test/test_export_plan/prostate/line_connectors"
+    mesh_dict = get_test_structure_meshes()
+    valid_lines = build_line_connectors(
+        mesh_dict=mesh_dict,
+        insertion_grid_spacing_mm=5,
+        oar_danger_dist_mm=3,
+        target_structures=["CTV"],
+        config_angled_cathgen=Config_Angled_CathGen(),
+        bb_margin_mm = 10,
+        bb_rotation_angle_deg = 12,
+        bb_num_planes = 3,
     )
+    segment_lines_to_ply(
+        out_ply_dir=outdir,
+        point_pairs=valid_lines,
+        )
 
 def test_gen_catheter_table_from_contours():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import gen_catheter_table_from_contours
@@ -118,6 +115,6 @@ def test_gen_catheter_table_from_contours():
 
 if __name__ == "__main__":
     # test_obb_planes()
-    test_get_segment_lines()
-    # test_build_line_connectors()
+    # test_get_segment_lines()
+    test_build_line_connectors()
     # test_gen_catheter_table_from_contours()

@@ -22,7 +22,7 @@ PROX_SAMPLES   = 40     # samples along each line for proximity check
 # STL_OUT_DIR    = "stl_output"
 
 def obb_planes(
-    meshes: list,
+    meshes: list | dict,
     margin_mm: float = 10.0,
     rotation_angle_deg: float = 0,
     num_planes: int = 2,
@@ -55,7 +55,9 @@ def obb_planes(
         raise ValueError("meshes must contain at least one mesh.")
 
     # Stack all vertices once: fastest path, no mesh copies
-    vertices = np.vstack([np.asarray(mesh.vertices) for mesh in meshes.values()])
+    if isinstance(meshes, dict):
+        meshes = list(meshes.values)
+    vertices = np.vstack([np.asarray(mesh.vertices) for mesh in meshes])
     if vertices.shape[0] == 0:
         raise ValueError("Input meshes contain no vertices.")
 
@@ -237,11 +239,11 @@ def line_to_tube(
 def build_line_connectors(
     mesh_dict:Dict[str, trimesh.Trimesh],
     insertion_grid_spacing_mm:float,
-    oar_danger_dist:float,
+    oar_danger_dist_mm:float,
     target_structures:List[str],
     config_angled_cathgen:Config_Angled_CathGen = None,
     **kwargs
-    ) -> tuple[dict, list]:
+    ) -> List[tuple]:
     """
     ### Purpose:
     - Given a set of 3D meshes, automatically generate a set of
@@ -276,11 +278,12 @@ def build_line_connectors(
             meshes_4_planes += [mesh_dict[name] for name in names_colliding[1]]
     meshes_4_planes += target_meshes
 
+    # convert the meshes into a dictionary    
     decision_plane_dict = obb_planes(
         meshes_4_planes,
-        margin_mm = kwargs.get("margin_mm", 10.0),
-        rotation_angle_deg = kwargs.get("rotation_angle_deg", 0),
-        num_planes = kwargs.get("num_planes", 2),
+        margin_mm = kwargs.get("bb_margin_mm", 10.0),
+        rotation_angle_deg = kwargs.get("bb_rotation_angle_deg", 0),
+        num_planes = kwargs.get("bb_num_planes", 2),
         )
 
     # # between two deicion planes, define the pairs of points
@@ -296,9 +299,9 @@ def build_line_connectors(
         if i == len(decision_plane_dict)-1:
             break
         plane_digi_points = get_segment_lines(
-            inferior_plane = plane,
-            inferior_plane_grid = inferior_plane_grid,
-            superior_plane = decision_plane_dict[i+1],
+            departure_plane = plane,
+            departure_plane_grid = inferior_plane_grid,
+            landing_plane = decision_plane_dict[i+1],
             config_angled_cathgen = config_angled_cathgen,
         )
         digitization_pairs += plane_digi_points
@@ -309,7 +312,7 @@ def build_line_connectors(
     oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structures]
     valid_lines = [
         (p0, p1) for p0, p1 in digitization_pairs
-        if not line_is_invalid(p0, p1, oar_meshes, oar_danger_dist)
+        if not line_is_invalid(p0, p1, oar_meshes, oar_danger_dist_mm)
     ]
     n_total = len(digitization_pairs)
     n_valid = len(valid_lines)
@@ -483,7 +486,7 @@ def get_segment_lines(
 def gen_catheter_table_from_contours(
     mesh_dict: Dict[str, trimesh.Trimesh],
     target_structures: List[str],
-    oar_danger_dist_mm:float = 3.0,
+    oar_danger_dist_mm_mm:float = 3.0,
     insertion_grid_spacing_mm:float = 5.0,
     config_angled_cathgen:Config_Angled_CathGen = None,
     out_ply_dir:str | Path = None,
@@ -500,14 +503,14 @@ def gen_catheter_table_from_contours(
     - mesh_dict: Dict[str, trimesh.Trimesh] := dictionary of Trimesh objects (e.g. from TPS)
     - target_structures: List[str] := list of structure names to be irradiated
     - insertion_grid_spacing_mm: float := spacing for the insertion grid
-    - oar_danger_dist_mm: float := minimum allowed distance (mm) from any OAR vertex
+    - oar_danger_dist_mm_mm: float := minimum allowed distance (mm) from any OAR vertex
     - out_ply_dir: str := if provided, directory to export STL files of meshes + lines
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
     valid_lines , o_top, o_bot, extents, obb_T = build_line_connectors(
         mesh_dict=mesh_dict,
         insertion_grid_spacing_mm=insertion_grid_spacing_mm,
-        oar_danger_dist_mm=oar_danger_dist_mm,
+        oar_danger_dist_mm_mm=oar_danger_dist_mm_mm,
         target_structures=target_structures,
         config_angled_cathgen=config_angled_cathgen
     )
