@@ -28,7 +28,7 @@ def test_obb_planes(return_planes=False):
     decision_plane_dict = obb_planes(
     meshes = mesh_dict,
     margin_mm = 5,
-    rotation_angle_deg = 0,
+    rotation_angle_deg = 14,
     num_planes = 2,
     )
     decision_planes_to_ply(
@@ -50,15 +50,15 @@ def test_get_segment_lines():
         obb_T = decision_planes[0]["transform"],
         extents = decision_planes[0]["extents"],
         insertion_grid_spacing_mm = insertion_grid_spacing_mm,
-    )[8]
+    )
     print("inf normal:      ", decision_planes[0]["normal"])
     print("sup normal:      ", decision_planes[1]["normal"])
     print("inf transform Z: ",  decision_planes[0]["transform"][:3, 2])
     print("sup extents:     ", decision_planes[1]["extents"])
     point_pairs = get_segment_lines(
-        inferior_plane = decision_planes[0],
-        inferior_plane_grid = inferior_plane_grid,
-        superior_plane = decision_planes[1],
+        departure_plane = decision_planes[0],
+        departure_plane_grid = inferior_plane_grid,
+        landing_plane = decision_planes[1],
         config_angled_cathgen = Config_Angled_CathGen()
         )
     segment_lines_to_ply(

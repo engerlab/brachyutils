@@ -9,6 +9,7 @@ from scipy.spatial import cKDTree
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, Catheter
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
+from math import radians
 
 # ══════════════════════════════════════════════════════
 #  PARAMETERS  — tune these
@@ -315,14 +316,98 @@ def build_line_connectors(
     print(f"Candidates: {n_total}  |  Valid (kept): {n_valid}  |  Discarded: {n_total - n_valid}")
     return valid_lines
 
-from typing import List
-import numpy as np
+def normalize(v: np.ndarray) -> np.ndarray:
+    v = np.asarray(v, dtype=float)
+    n = np.linalg.norm(v)
+    if n == 0:
+        raise ValueError("Cannot normalize zero-length vector")
+    return v / n
 
+def rotate_vector(v: np.ndarray, axis: np.ndarray, angle_rad: float) -> np.ndarray:
+    """
+    Rotate vector v around given axis (unit or non-unit) by angle_rad (radians)
+    using Rodrigues' rotation formula.
+    """
+    v = np.asarray(v, dtype=float)
+    k = normalize(axis)  # ensure unit axis
+    cos_theta = np.cos(angle_rad)
+    sin_theta = np.sin(angle_rad)
+
+    term1 = v * cos_theta
+    term2 = np.cross(k, v) * sin_theta
+    term3 = k * np.dot(k, v) * (1.0 - cos_theta)
+    return term1 + term2 + term3
+
+def intersect_ray_with_plane(ray_origin: np.ndarray,
+                             ray_dir: np.ndarray,
+                             plane_origin: np.ndarray,
+                             plane_normal: np.ndarray,
+                             eps: float = 1e-6):
+    """
+    Return intersection point of ray and plane, or None if no valid intersection.
+    Ray:  R(t) = ray_origin + t * ray_dir, t >= 0
+    Plane: (p - plane_origin) · plane_normal = 0
+    """
+    ray_origin = np.asarray(ray_origin, dtype=float)
+    ray_dir = normalize(ray_dir)
+    plane_origin = np.asarray(plane_origin, dtype=float)
+    plane_normal = normalize(plane_normal)
+
+    denom = np.dot(ray_dir, plane_normal)
+    if abs(denom) < eps:
+        # Ray is parallel (or almost parallel) to plane
+        return None
+
+    t = -np.dot(ray_origin - plane_origin, plane_normal) / denom
+    if t < 0:
+        # Intersection behind origin along ray_dir; discard
+        return None
+
+    return ray_origin + t * ray_dir
+
+def point_world_to_local(point_world: np.ndarray,
+                         plane_origin: np.ndarray,
+                         basis_x: np.ndarray,
+                         basis_y: np.ndarray,
+                         basis_z: np.ndarray) -> np.ndarray:
+    """
+    Convert world-space point to plane-local coordinates given origin and basis vectors.
+    Assumes basis_x, basis_y, basis_z are orthonormal.
+    """
+    point_world = np.asarray(point_world, dtype=float)
+    plane_origin = np.asarray(plane_origin, dtype=float)
+
+    # Vector from origin to point
+    v = point_world - plane_origin
+
+    # Project onto basis vectors to get local coords
+    local_x = np.dot(v, basis_x)
+    local_y = np.dot(v, basis_y)
+    local_z = np.dot(v, basis_z)
+
+    return np.array([local_x, local_y, local_z], dtype=float)
+
+def point_inside_extents(local_point: np.ndarray,
+                         extents: np.ndarray,
+                         use_xy_only: bool = True) -> bool:
+    """
+    Check if local_point lies inside extents.
+    If use_xy_only is True, ignore z and only check x,y.
+    extents is assumed to be [extent_x, extent_y, extent_z].
+    """
+    local_point = np.asarray(local_point, dtype=float)
+    extents = np.asarray(extents, dtype=float)
+
+    if use_xy_only:
+        return (abs(local_point[0]) <= extents[0] and
+                abs(local_point[1]) <= extents[1])
+    else:
+        return np.all(np.abs(local_point) <= extents)
 
 def get_segment_lines(
-    inferior_plane: dict,
-    inferior_plane_grid: List[np.ndarray],
-    superior_plane: dict,
+    departure_plane: dict,
+    departure_plane_grid: List[np.ndarray],
+    landing_plane: dict,
     config_angled_cathgen
     ) -> List[tuple[np.ndarray, np.ndarray]]:
     r"""
@@ -342,109 +427,165 @@ def get_segment_lines(
     - digitization_pairs: List[tuple[np.ndarray, np.ndarray]] := list of
       (superior_point, inferior_point) tuples
     """
-    x_angle_max = config_angled_cathgen.x_angle_max
-    x_angle_step = config_angled_cathgen.x_angle_step
-    y_angle_max = config_angled_cathgen.y_angle_max
-    y_angle_step = config_angled_cathgen.y_angle_step
+    n = normalize(departure_plane['normal'])
+    origin0 = np.asarray(departure_plane['origin'], dtype=float)
+    origin1 = np.asarray(landing_plane['origin'], dtype=float)
 
-    x_angle_steps = np.arange(-x_angle_max, x_angle_max + 1e-9, x_angle_step)
-    y_angle_steps = np.arange(-y_angle_max, y_angle_max + 1e-9, y_angle_step)
+    transform0 = np.asarray(departure_plane['transform'], dtype=float)
+    transform1 = np.asarray(landing_plane['transform'], dtype=float)
 
-    inf_T = np.asarray(inferior_plane["transform"], dtype=float)
-    sup_T = np.asarray(superior_plane["transform"], dtype=float)
+    # Basis vectors from transform (assuming same for both planes here)
+    basis_x = normalize(transform0[0, :3])  # plane x-axis in world
+    basis_y = normalize(transform0[1, :3])  # plane y-axis in world
+    basis_z = normalize(transform0[2, :3])  # plane z-axis; could be normal-ish
 
-    sup_origin = np.asarray(superior_plane["origin"], dtype=float)
-    sup_normal = np.asarray(superior_plane["normal"], dtype=float)
-    sup_extents = np.asarray(superior_plane["extents"], dtype=float)
+    # For ray directions, use the provided normal n as "central" direction
+    central_dir = n
 
-    # Inferior plane in-plane axes define the RL/AP sweep directions
-    inf_x = np.asarray(inf_T[:3, 0], dtype=float)
-    inf_y = np.asarray(inf_T[:3, 1], dtype=float)
+    extent_landing = np.asarray(landing_plane['extents'], dtype=float)
 
-    # Superior plane OBB basis for in-bounds testing
-    sup_x = np.asarray(sup_T[:3, 0], dtype=float)
-    sup_y = np.asarray(sup_T[:3, 1], dtype=float)
+    landing_points = []  # list of (theta_x, theta_y, landing_point_world)
+    # Build angle ranges
+    x_angles = np.arange(-config_angled_cathgen.x_angle_max,
+                         config_angled_cathgen.x_angle_max + 1e-6,
+                         config_angled_cathgen.x_angle_step)
+    y_angles = np.arange(-config_angled_cathgen.y_angle_max,
+                         config_angled_cathgen.y_angle_max + 1e-6,
+                         config_angled_cathgen.y_angle_step)
+    for departure_point in departure_plane_grid:
+        for ax_deg in x_angles:
+            for ay_deg in y_angles:
+                ax_rad = radians(ax_deg)
+                ay_rad = radians(ay_deg)
 
-    eps = 1e-9
+                # 1) rotate central_dir around plane x-axis by ax_rad
+                dir_after_x = rotate_vector(central_dir, basis_x, ax_rad)
 
-    inf_x = inf_x / np.linalg.norm(inf_x)
-    inf_y = inf_y / np.linalg.norm(inf_y)
-    sup_x = sup_x / np.linalg.norm(sup_x)
-    sup_y = sup_y / np.linalg.norm(sup_y)
-    sup_normal = sup_normal / np.linalg.norm(sup_normal)
+                # 2) rotate result around plane y-axis by ay_rad
+                final_dir = rotate_vector(dir_after_x, basis_y, ay_rad)
 
-    # Sweep is centered on the plane normal, not on a patient axis target vector
-    n_axis = sup_normal.copy()
-
-    # Re-orthogonalize inferior in-plane axes against the normal so they span
-    # the tangent directions used for angular deviation from the normal
-    u_axis = inf_x - np.dot(inf_x, n_axis) * n_axis
-    u_norm = np.linalg.norm(u_axis)
-    if u_norm < eps:
-        u_axis = np.cross(inf_y, n_axis)
-        u_norm = np.linalg.norm(u_axis)
-        if u_norm < eps:
-            raise ValueError("Could not construct RL sweep axis orthogonal to plane normal.")
-    u_axis = u_axis / u_norm
-
-    v_axis = inf_y - np.dot(inf_y, n_axis) * n_axis
-    v_axis = v_axis - np.dot(v_axis, u_axis) * u_axis
-    v_norm = np.linalg.norm(v_axis)
-    if v_norm < eps:
-        v_axis = np.cross(n_axis, u_axis)
-        v_norm = np.linalg.norm(v_axis)
-        if v_norm < eps:
-            raise ValueError("Could not construct AP sweep axis orthogonal to plane normal.")
-    v_axis = v_axis / v_norm
-
-    half_x = sup_extents[0] / 2.0
-    half_y = sup_extents[1] / 2.0
-
-    pairs: List[tuple[np.ndarray, np.ndarray]] = []
-
-    for bot_pt in inferior_plane_grid:
-        bot_pt = np.asarray(bot_pt, dtype=float)
-
-        for rl_deg in x_angle_steps:
-            rl_rad = np.deg2rad(rl_deg)
-
-            for ap_deg in y_angle_steps:
-                ap_rad = np.deg2rad(ap_deg)
-
-                # Angular deviation away from the normal:
-                # - rl tilts along u_axis
-                # - ap tilts along v_axis
-                # - when rl=0 and ap=0, ray_dir == normal
-                ray_dir = (
-                    np.cos(rl_rad) * np.cos(ap_rad) * n_axis
-                    + np.sin(rl_rad) * u_axis
-                    + np.cos(rl_rad) * np.sin(ap_rad) * v_axis
+                # Intersect this ray with landing plane
+                intersection = intersect_ray_with_plane(
+                    ray_origin=departure_point,
+                    ray_dir=final_dir,
+                    plane_origin=origin1,
+                    plane_normal=n
                 )
 
-                ray_norm = np.linalg.norm(ray_dir)
-                if ray_norm < eps:
-                    continue
-                ray_dir = ray_dir / ray_norm
+                if intersection is None:
+                    continue  # no valid intersection
 
-                denom = np.dot(ray_dir, sup_normal)
-                if abs(denom) < eps:
-                    continue
+    # At this point, intersection is valid. Convert to Python tuples.
+                dep_tuple = tuple(np.asarray(departure_point, dtype=float))
+                land_tuple = tuple(np.asarray(intersection, dtype=float))
 
-                t = np.dot(sup_origin - bot_pt, sup_normal) / denom
-                if t <= 0:
-                    continue
+                landing_points.append((departure_point, intersection))
 
-                top_pt = bot_pt + t * ray_dir
+    return landing_points
+    
+    # x_angle_max = config_angled_cathgen.x_angle_max
+    # x_angle_step = config_angled_cathgen.x_angle_step
+    # y_angle_max = config_angled_cathgen.y_angle_max
+    # y_angle_step = config_angled_cathgen.y_angle_step
 
-                rel = top_pt - sup_origin
-                local_x = np.dot(rel, sup_x)
-                local_y = np.dot(rel, sup_y)
+    # x_angle_steps = np.arange(-x_angle_max, x_angle_max + 1e-9, x_angle_step)
+    # y_angle_steps = np.arange(-y_angle_max, y_angle_max + 1e-9, y_angle_step)
 
-                if (-half_x - eps <= local_x <= half_x + eps and
-                    -half_y - eps <= local_y <= half_y + eps):
-                    pairs.append((top_pt, bot_pt))
+    # inf_T = np.asarray(inferior_plane["transform"], dtype=float)
+    # sup_T = np.asarray(superior_plane["transform"], dtype=float)
 
-    return pairs
+    # sup_origin = np.asarray(superior_plane["origin"], dtype=float)
+    # sup_normal = np.asarray(superior_plane["normal"], dtype=float)
+    # sup_extents = np.asarray(superior_plane["extents"], dtype=float)
+
+    # # Inferior plane in-plane axes define the RL/AP sweep directions
+    # inf_x = np.asarray(inf_T[:3, 0], dtype=float)
+    # inf_y = np.asarray(inf_T[:3, 1], dtype=float)
+
+    # # Superior plane OBB basis for in-bounds testing
+    # sup_x = np.asarray(sup_T[:3, 0], dtype=float)
+    # sup_y = np.asarray(sup_T[:3, 1], dtype=float)
+
+    # eps = 1e-9
+
+    # inf_x = inf_x / np.linalg.norm(inf_x)
+    # inf_y = inf_y / np.linalg.norm(inf_y)
+    # sup_x = sup_x / np.linalg.norm(sup_x)
+    # sup_y = sup_y / np.linalg.norm(sup_y)
+    # sup_normal = sup_normal / np.linalg.norm(sup_normal)
+
+    # # Sweep is centered on the plane normal, not on a patient axis target vector
+    # n_axis = sup_normal.copy()
+
+    # # Re-orthogonalize inferior in-plane axes against the normal so they span
+    # # the tangent directions used for angular deviation from the normal
+    # u_axis = inf_x - np.dot(inf_x, n_axis) * n_axis
+    # u_norm = np.linalg.norm(u_axis)
+    # if u_norm < eps:
+    #     u_axis = np.cross(inf_y, n_axis)
+    #     u_norm = np.linalg.norm(u_axis)
+    #     if u_norm < eps:
+    #         raise ValueError("Could not construct RL sweep axis orthogonal to plane normal.")
+    # u_axis = u_axis / u_norm
+
+    # v_axis = inf_y - np.dot(inf_y, n_axis) * n_axis
+    # v_axis = v_axis - np.dot(v_axis, u_axis) * u_axis
+    # v_norm = np.linalg.norm(v_axis)
+    # if v_norm < eps:
+    #     v_axis = np.cross(n_axis, u_axis)
+    #     v_norm = np.linalg.norm(v_axis)
+    #     if v_norm < eps:
+    #         raise ValueError("Could not construct AP sweep axis orthogonal to plane normal.")
+    # v_axis = v_axis / v_norm
+
+    # half_x = sup_extents[0] / 2.0
+    # half_y = sup_extents[1] / 2.0
+
+    # pairs: List[tuple[np.ndarray, np.ndarray]] = []
+
+    # for bot_pt in inferior_plane_grid:
+    #     bot_pt = np.asarray(bot_pt, dtype=float)
+
+    #     for rl_deg in x_angle_steps:
+    #         rl_rad = np.deg2rad(rl_deg)
+
+    #         for ap_deg in y_angle_steps:
+    #             ap_rad = np.deg2rad(ap_deg)
+
+    #             # Angular deviation away from the normal:
+    #             # - rl tilts along u_axis
+    #             # - ap tilts along v_axis
+    #             # - when rl=0 and ap=0, ray_dir == normal
+    #             ray_dir = (
+    #                 np.cos(rl_rad) * np.cos(ap_rad) * n_axis
+    #                 + np.sin(rl_rad) * u_axis
+    #                 + np.cos(rl_rad) * np.sin(ap_rad) * v_axis
+    #             )
+
+    #             ray_norm = np.linalg.norm(ray_dir)
+    #             if ray_norm < eps:
+    #                 continue
+    #             ray_dir = ray_dir / ray_norm
+
+    #             denom = np.dot(ray_dir, sup_normal)
+    #             if abs(denom) < eps:
+    #                 continue
+
+    #             t = np.dot(sup_origin - bot_pt, sup_normal) / denom
+    #             if t <= 0:
+    #                 continue
+
+    #             top_pt = bot_pt + t * ray_dir
+
+    #             rel = top_pt - sup_origin
+    #             local_x = np.dot(rel, sup_x)
+    #             local_y = np.dot(rel, sup_y)
+
+    #             if (-half_x - eps <= local_x <= half_x + eps and
+    #                 -half_y - eps <= local_y <= half_y + eps):
+    #                 pairs.append((top_pt, bot_pt))
+
+    # return pairs
 
 def gen_catheter_table_from_contours(
     mesh_dict: Dict[str, trimesh.Trimesh],
