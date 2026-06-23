@@ -494,7 +494,17 @@ def get_segment_lines(
 
                 if intersection is None:
                     continue  # no valid intersection
-
+                
+                # # If intersection falls out of the landing plane also continue
+                in_landing_plane = np.array([False, False, False])
+                for ax, pos in enumerate(intersection):
+                    if (origin1[ax] - extent_landing[ax]/2
+                        <= pos
+                        <= origin1[ax] + extent_landing[ax]/2):
+                        in_landing_plane[ax] = True
+                        
+                if not in_landing_plane.all():
+                    continue
                 # At this point, intersection is valid. Convert to Python tuples.
                 landing_points.append((departure_point, intersection))
 

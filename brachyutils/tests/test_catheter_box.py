@@ -16,8 +16,8 @@ def get_test_structure_meshes():
         dir_dicom=dir_dicom,
         pth_structures_file=pth_struct)
     mesh_dict = phant.get_structure_mask(
-        # query_structure_list=["CTV", "urethra", "rectum"],
-        query_structure_list=["CTV", "urethra"],
+        query_structure_list=["CTV", "urethra", "rectum"],
+        # query_structure_list=["CTV", "urethra"],
         mask_type=Trimesh, strict_name_match=False)
     return mesh_dict
 
