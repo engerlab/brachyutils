@@ -67,15 +67,15 @@ def test_get_segment_lines():
 
 def test_build_line_connectors():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import build_line_connectors
-    outdir = "data_test/test_export_plan/prostate/line_connectors"
+    outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
     mesh_dict = get_test_structure_meshes()
     valid_lines = build_line_connectors(
         mesh_dict=mesh_dict,
-        insertion_grid_spacing_mm=5,
-        oar_danger_dist_mm=3,
+        insertion_grid_spacing_mm=15,
+        oar_danger_dist_mm=5,
         target_structures=["CTV"],
         config_angled_cathgen=Config_Angled_CathGen(),
-        bb_margin_mm = 10,
+        bb_margin_mm = 5,
         bb_rotation_angle_deg = 12,
         bb_num_planes = 3,
     )

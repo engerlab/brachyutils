@@ -13,9 +13,9 @@ class Config_Angled_CathGen(BaseModel):
     sweeps -y_angle_max to +y_angle_max.
     - y_angle_step  : ap angle increment (degrees)
     """
-    x_angle_max: float = Field(default=4, description="  half-wdith angle away from normal rotating around x axis (degrees);\
+    x_angle_max: float = Field(default=10, description="  half-wdith angle away from normal rotating around x axis (degrees);\
 sweeps -x_angle_max to +x_angle_max. 0 means parallel to normal, 90 means perpendicular to normal.")
-    x_angle_step: float = Field(default=2, description="right-left angle increment (degrees)")
-    y_angle_max: float = Field(default=4, description="half-width angle away from normal rotating around y axis (degrees); \
+    x_angle_step: float = Field(default=10, description="right-left angle increment (degrees)")
+    y_angle_max: float = Field(default=10, description="half-width angle away from normal rotating around y axis (degrees); \
 sweeps -y_angle_max to +y_angle_max.")
-    y_angle_step: float = Field(default=2, description="anterior-posterior (ap) angle increment (degrees)")
+    y_angle_step: float = Field(default=10, description="anterior-posterior (ap) angle increment (degrees)")
