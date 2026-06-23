@@ -38,9 +38,9 @@ def test_obb_planes(return_planes=False):
     if return_planes:
         return decision_plane_dict
 
-def test_get_digitization_pairs():
+def test_get_segment_lines():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
-        get_digitization_pairs, grid_on_plane, digitization_points_to_ply)
+        get_segment_lines, grid_on_plane, segment_lines_to_ply)
     from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
     insertion_grid_spacing_mm = 10.
     decision_planes = test_obb_planes(return_planes=True)
@@ -55,13 +55,13 @@ def test_get_digitization_pairs():
     print("sup normal:      ", decision_planes[1]["normal"])
     print("inf transform Z: ",  decision_planes[0]["transform"][:3, 2])
     print("sup extents:     ", decision_planes[1]["extents"])
-    point_pairs = get_digitization_pairs(
+    point_pairs = get_segment_lines(
         inferior_plane = decision_planes[0],
         inferior_plane_grid = inferior_plane_grid,
         superior_plane = decision_planes[1],
         config_angled_cathgen = Config_Angled_CathGen()
         )
-    digitization_points_to_ply(
+    segment_lines_to_ply(
         out_ply_dir=outdir,
         point_pairs=point_pairs,
         )
@@ -118,6 +118,6 @@ def test_gen_catheter_table_from_contours():
 
 if __name__ == "__main__":
     # test_obb_planes()
-    test_get_digitization_pairs()
+    test_get_segment_lines()
     # test_build_line_connectors()
     # test_gen_catheter_table_from_contours()

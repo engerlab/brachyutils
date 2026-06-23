@@ -294,7 +294,7 @@ def build_line_connectors(
     for i, plane in enumerate(decision_plane_dict.values()):
         if i == len(decision_plane_dict)-1:
             break
-        plane_digi_points = get_digitization_pairs(
+        plane_digi_points = get_segment_lines(
             inferior_plane = plane,
             inferior_plane_grid = inferior_plane_grid,
             superior_plane = decision_plane_dict[i+1],
@@ -319,7 +319,7 @@ from typing import List
 import numpy as np
 
 
-def get_digitization_pairs(
+def get_segment_lines(
     inferior_plane: dict,
     inferior_plane_grid: List[np.ndarray],
     superior_plane: dict,
@@ -508,7 +508,7 @@ def decision_planes_to_ply(
         path = out_ply_dir / f"plane_{data["depth"]}.ply"
         box.export(path)
 
-def digitization_points_to_ply(
+def segment_lines_to_ply(
     out_ply_dir:str | Path,
     point_pairs: List[tuple],
     catheter_radius:float=1,
