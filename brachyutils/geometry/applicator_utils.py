@@ -386,7 +386,7 @@ class BrachyApplicator:
         stl_writer.SetInputData(self.applicator_mesh)
         stl_writer.Write()
 
-def write_applicator_geometry(self, pth_output: str | Path = Path("./applicator_geometry.json")) -> None:
+def write_applicator_list(applicator_list : List[BrachyApplicator], pth_output: str | Path = Path("./applicators.json")) -> None:
     r"""
     ### Purpose:
     - To export the applicator geometries.
@@ -401,40 +401,26 @@ def write_applicator_geometry(self, pth_output: str | Path = Path("./applicator_
     - None
     """
 
-        # initialize the fields of the json file:
-    out_json = {
-    "densities": [],
-    "filenames": [],
-    "materials": [],
-    "points": [],
-    "wRot": 0,
-    "x": 0,
-    "xRot": 0,
-    "y": 0,
-    "yRot": 0,
-    "z": 0,
-    "zRot": 0,
-}
-    counter = 0
-    for applicator in self.applicator_list:
+    # initialize the fields of the json file:
+    out_json = {}
+    
+    for applicator in applicator_list:
+        applicator_json = {}
 
-        out_json["densities"].append(applicator.density)
-        out_json["filenames"].append(applicator.path)
-        out_json["materials"].append(applicator.material)
-        out_json["points"].append(
-            applicator.catheter_trajectory.flatten().tolist()
-        )
+        applicator_json["density"] = applicator.density
+        applicator_json["base_path"] = applicator.path
+        applicator_json["material"] = applicator.material
 
-        subscript = counter + 1 if counter >= 1 else ""
-        out_json[f"wRot{subscript}"] = float(applicator.rotation[0])
-        out_json[f"xRot{subscript}"] = float(applicator.rotation[1])
-        out_json[f"yRot{subscript}"] = float(applicator.rotation[2])
-        out_json[f"zRot{subscript}"] = float(applicator.rotation[3])
+        applicator_json["wRot"] = float(applicator.rotation[0])
+        applicator_json["xRot"] = float(applicator.rotation[1])
+        applicator_json["yRot"] = float(applicator.rotation[2])
+        applicator_json["zRot"] = float(applicator.rotation[3])
 
-        out_json["x"] = float(applicator.coordinates[0])
-        out_json["y"] = float(applicator.coordinates[1])
-        out_json["z"] = float(applicator.coordinates[2])
-        counter += 1
+        applicator_json["x"] = float(applicator.coordinates[0])
+        applicator_json["y"] = float(applicator.coordinates[1])
+        applicator_json["z"] = float(applicator.coordinates[2])
+
+        out_json[applicator.name] = applicator_json
 
     with open(pth_output, "w") as file:
         json.dump(out_json, file, indent=4)
@@ -443,103 +429,61 @@ def write_applicator_geometry(self, pth_output: str | Path = Path("./applicator_
 
 
 def load_applicator_list(
-        self,
         applicator_list_pth: Union[Path, str],
     ) -> List[BrachyApplicator]:
-        r"""
-        ### Purpose:
-        - To load the applicator list from a json file containing the applicator geometry.
+    r"""
+    ### Purpose:
+    - To load applicators from a json file containing the new keyed applicator geometry format.
 
-        ### Inputs:
-        - applicator_list_pth:str := path to the json file containing the applicator list with N applicators.
-        The items inside this list have the attributes bellow. If any left empty, the default value will be used.
-        these attributes could be changed later using the setter functions.
+    ### Inputs:
+    - applicator_list_pth:str := path to the json file containing the applicator list.
 
-        if the format is RapidBrachy, the attributes are:
-            - "densities": list of densities of the applicator.
-            - "filenames": list of filenames of the applicator.
-            - "materials": list of materials of the applicator.
-            - "points": list of points (x,y,z,x,y,z) describing the first and last dwell positions
-            on the applicator in the frame of the applicator.
-            - "wRot": list of wRot of the applicator.
-            - "x": list of x of the applicator.
-            - "xRoti": list of xRot of the applicator i in [1, N].
-            - "y": list of y of the applicator.
-            - "yRoti": list of yRot of the applicator i in [1, N].
-            - "z": list of z of the applicator.
-            - "zRoti": list of zRot of the applicator i in [1, N].
+    ### Outputs:
+        - list[BrachyApplicator] := loaded applicators.
+    """
+    applicator_list_path = Path(applicator_list_pth)
+    with open(applicator_list_path, "r", encoding="utf-8") as json_file:
+        applicator_list_data = json.load(json_file)
 
-        ### Outputs:
-            - None := will update the BrachyPlan.applicator_list attribute
-        """
-        if isinstance(applicator_list_pth, Path) or isinstance(
-            applicator_list_pth, str
-        ):
-            with open(applicator_list_pth, "r") as json_file:
-                applicator_list = json.load(json_file)
-            num_applicators = len(applicator_list["densities"])
+    applicator_list = []
 
-            for i in range(num_applicators):
+    for applicator_name, applicator_entry in applicator_list_data.items():
+        if not isinstance(applicator_entry, dict):
+            raise TypeError(f"Applicator entry '{applicator_name}' must be a dictionary")
 
-                j = i + 1 if i >= 1 else ""
+        pth_input_file = Path(applicator_entry["base_path"])
+        if not pth_input_file.is_absolute():
+            pth_input_file = (applicator_list_path.parent / pth_input_file).resolve()
 
-                rotation = np.array(
-                    [
-                        (
-                            applicator_list[f"wRot{j}"]
-                            if f"wRot{j}" in applicator_list
-                            else 0
-                        ),
-                        (
-                            applicator_list[f"xRot{j}"]
-                            if f"xRot{j}" in applicator_list
-                            else 0
-                        ),
-                        (
-                            applicator_list[f"yRot{j}"]
-                            if f"yRot{j}" in applicator_list
-                            else 0
-                        ),
-                        (
-                            applicator_list[f"zRot{j}"]
-                            if f"zRot{j}" in applicator_list
-                            else 0
-                        ),
-                    ]
-                )
+        rotation = np.array(
+            [
+                applicator_entry.get("wRot", 0),
+                applicator_entry.get("xRot", 0),
+                applicator_entry.get("yRot", 0),
+                applicator_entry.get("zRot", 0),
+            ]
+        )
+        coordinates = np.array(
+            [
+                applicator_entry.get("x", 0),
+                applicator_entry.get("y", 0),
+                applicator_entry.get("z", 0),
+            ]
+        )
 
-                applicator_obj = BrachyApplicator(
-                    pth_input_file=applicator_list["filenames"][i],
-                    material=applicator_list["materials"][i],
-                    density=applicator_list["densities"][i],
-                    origin=self.patient_origin,
-                    rotation=rotation,
-                    rotation_origin=np.array(
-                        [
-                            applicator_list["x"],
-                            applicator_list["y"],
-                            applicator_list["z"],
-                        ]
-                    ),
-                    coordinates=np.array(
-                        [
-                            applicator_list["x"],
-                            applicator_list["y"],
-                            applicator_list["z"],
-                        ]
-                    ),
-                    # for now RapidBrachy exports only one catheter trajectory.
-                    # in future, more catheter trajectories may be possible.
-                    # use i instead of 0 to get the ith catheter trajectory.
-                    catheter_trajectory=np.array(
-                        [
-                            applicator_list["points"][0][0:3],
-                            applicator_list["points"][0][3:6],
-                        ]
-                    ),
-                )
+        applicator_list.append(
+            BrachyApplicator(
+                pth_input_file=str(pth_input_file),
+                material=applicator_entry.get("material"),
+                density=applicator_entry.get("density"),
+                origin=[0, 0, 0],
+                rotation=rotation,
+                rotation_origin=coordinates,
+                coordinates=coordinates,
+            )
+        )
 
-                self.applicator_list.append(applicator_obj)
+    return applicator_list
 
 def load_applicator_materials(pth_applicator_materials : Path | None = None ) -> dict:
     r"""

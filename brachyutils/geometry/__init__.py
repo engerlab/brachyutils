@@ -11,6 +11,8 @@ __all__ = [
     "contour_to_stl",
     "mask_to_stl",
     "load_applicator_materials",
+    "write_applicator_list",
+    "load_applicator_list",
 ]
 # trunk-ignore(ruff/F401)
 from .phantom_utils import BrachyPhantom
@@ -23,7 +25,7 @@ from .egsphant_utils import _load_json
 
 # trunk-ignore(ruff/F401)
 from .applicator_utils import BrachyApplicator
-from .applicator_utils import load_applicator_materials
+from .applicator_utils import load_applicator_materials, write_applicator_list, load_applicator_list
 
 # trunk-ignore(ruff/F401)
 from .catheter_utils import DwellPosition, Catheter, CatheterTable
