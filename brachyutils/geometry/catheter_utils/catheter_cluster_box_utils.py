@@ -165,11 +165,14 @@ def _sample_segment(p0: np.ndarray, p1: np.ndarray, n: int) -> np.ndarray:
     return p0 + t[:, None] * (p1 - p0)
 
 
-def line_is_invalid(p0: np.ndarray,
-                    p1: np.ndarray,
-                    meshes: list,
-                    danger_dist: float,
-                    n_samples: int = PROX_SAMPLES) -> bool:
+def line_is_invalid(
+    p0: np.ndarray,
+    p1: np.ndarray,
+    meshes: list,
+    danger_dist: float,
+    plane_depth: int,
+    old_valid_lines:List[tuple],
+    n_samples: int = PROX_SAMPLES,) -> bool:
     """
     Return True if line p0→p1:
       - intersects any mesh face, OR
@@ -177,6 +180,16 @@ def line_is_invalid(p0: np.ndarray,
 
     Uses BVH-accelerated ray casting (trimesh) + KD-tree proximity (scipy).
     """
+    # plane of depth >=1 must have lines with a parent segment
+    if plane_depth >=1 :
+        parent_found = False
+        for old_line in old_valid_lines:
+            if np.all(p0 == old_line[1]):
+                parent_found = True
+                break
+        if not parent_found:
+            return True
+
     direction = p1 - p0
     length    = np.linalg.norm(direction)
     if length < 1e-9:
@@ -295,6 +308,8 @@ def build_line_connectors(
         insertion_grid_spacing_mm = insertion_grid_spacing_mm,
     )
     digitization_pairs = []
+    n_total = 0
+    oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structures]
     for i, plane in enumerate(decision_plane_dict.values()):
         if i == len(decision_plane_dict)-1:
             break
@@ -304,20 +319,22 @@ def build_line_connectors(
             landing_plane = decision_plane_dict[i+1],
             config_angled_cathgen = config_angled_cathgen,
         )
-        digitization_pairs += plane_digi_points
+        # digitization_pairs += plane_digi_points
         # the superior plane points become the inferior plane points for the next iteration
         inferior_plane_grid = [pf for pi, pf in plane_digi_points]
+        n_total += len(plane_digi_points)
+        # 3. Filter colliding / too-close lines 
+        new_valid_lines = [
+            (p0, p1) for p0, p1 in plane_digi_points
+            if not line_is_invalid(
+                p0, p1, oar_meshes, oar_danger_dist_mm, plane["depth"], digitization_pairs
+                )
+        ]
+        digitization_pairs += new_valid_lines
 
-    # ── 3. Filter colliding / too-close lines ───────────────────────────────
-    oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structures]
-    valid_lines = [
-        (p0, p1) for p0, p1 in digitization_pairs
-        if not line_is_invalid(p0, p1, oar_meshes, oar_danger_dist_mm)
-    ]
-    n_total = len(digitization_pairs)
-    n_valid = len(valid_lines)
+    n_valid = len(digitization_pairs)
     print(f"Candidates: {n_total}  |  Valid (kept): {n_valid}  |  Discarded: {n_total - n_valid}")
-    return valid_lines
+    return digitization_pairs
 
 def normalize(v: np.ndarray) -> np.ndarray:
     v = np.asarray(v, dtype=float)
