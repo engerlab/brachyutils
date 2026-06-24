@@ -211,35 +211,33 @@ structures; Usually CTV or PTV.")
         """
         pass
 
-    def get_segment_cluster_from_planes(
-        self,
-        plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
-        r"""
-        ### Purpose:
-        - This function creates segment clusters from plane dictionaries that have been filled
-        with segments.
-        """
-        cluster_dict = defaultdict(SegmentCluster) 
-        for plane in plane_dict.values():
-            if plane.depth == len(plane_dict) - 1:
-                break 
-            all_insert_points = [p0 for p0, _ in plane.segment_lines]
-            _, idx = np.unique(all_insert_points, axis=0, return_index=True)
-            for i, j in enumerate(idx):
-                if j == idx[-1]:
-                    break
-                cluster = SegmentCluster(
-                    index=i,
-                    depth=plane.depth,
-                )
-                segment_dict = defaultdict()
-                for k, digi_points in enumerate(plane.segment_lines[j:idx[i+1]]):
-                    segment_dict[k] = CatheterSegment(
-                        cluster_name_id=cluster.name_id,
-                        index=k,
-                        digitization_points=digi_points
-                        )
-                    cluster.segment_dict = segment_dict
-                cluster_dict[cluster.name_id] = cluster
-        return cluster_dict
-        
+def get_segment_cluster_from_planes(
+    plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
+    r"""
+    ### Purpose:
+    - This function creates segment clusters from plane dictionaries that have been filled
+    with segments.
+    """
+    cluster_dict = defaultdict(SegmentCluster) 
+    for plane in plane_dict.values():
+        if plane.depth == len(plane_dict) - 1:
+            break 
+        all_insert_points = [p0 for p0, _ in plane.segment_lines]
+        _, idx = np.unique(all_insert_points, axis=0, return_index=True)
+        for i, j in enumerate(idx):
+            if j == idx[-1]:
+                break
+            cluster = SegmentCluster(
+                index=i,
+                depth=plane.depth,
+            )
+            segment_dict = defaultdict()
+            for k, digi_points in enumerate(plane.segment_lines[j:idx[i+1]]):
+                segment_dict[k] = CatheterSegment(
+                    cluster_name_id=cluster.name_id,
+                    index=k,
+                    digitization_points=digi_points
+                    )
+                cluster.segment_dict = segment_dict
+            cluster_dict[cluster.name_id] = cluster
+    return cluster_dict
