@@ -1,12 +1,13 @@
 from brachyutils.geometry.catheter_utils import Catheter
 from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator, model_validator
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import numpy as np
 import trimesh
 
 
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
-from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
+from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen, Decision_Plane
+from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import generate_candidate_segments
 
 class CatheterSegment(Catheter):
     cluster_name_id: str
@@ -48,8 +49,8 @@ class SegmentCluster(BaseModel):
 
     @computed_field
     @property
-    def insertion_position(self) -> np.ndarray:
-        return self.segment_dict[0].insertion_position
+    def insert_position(self) -> np.ndarray:
+        return self.segment_dict[0].insert_position
 
     @computed_field
     @property
@@ -80,6 +81,8 @@ class CatheterClusterBox(BaseModel):
     - oar_collision_margin_mm: float := the collision margin between catheter segments and
     organs at risk (OARs) (mm).
     - segment_collision_margin_mm: float := the collision margin between catheter segments (mm).
+    - target_structure_names:  List[str] := "The list of the names of the target structures;
+    Usually CTV or PTV.")  
     """
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -104,13 +107,18 @@ defined in the catheter box.")
 If a single Config_Angled_CathGen is provided, it will be applied to all \
 insertion points. If None, the default Config_Angled_CathGen() will be applied \
 to all insertion points.")
-    oar_collision_margin_mm: float = Field(default=0, description="the collision margin between catheter segments and \
-organs at risk (OARs) (mm).")
-    segment_collision_margin_mm: float = Field(default=0, description="the collision margin between catheter segments (mm).")
+    oar_collision_margin_mm: float = Field(default=0, description="the collision margin between \
+catheter segments and organs at risk (OARs) (mm).")
+    segment_collision_margin_mm: float = Field(default=0, description="the collision margin between \
+catheter segments (mm).")
+    target_structure_names: List[str] = Field(..., description="The list of the names of the target \
+structures; Usually CTV or PTV.")
 
     # # internal attributes
     _segment_cluster_dict: Dict[str, SegmentCluster] = None
     _cached_catheter_table: CatheterTable = None
+
+    _plane_dict: Dict[str, Decision_Plane]
 
     @model_validator(mode="after")
     def validate_cluster_box(self):
@@ -120,14 +128,29 @@ organs at risk (OARs) (mm).")
         after the object is initialized.
         
         ### Steps:
-        1. Validate the rotation angle to be less than 15 degrees.
-        2. Generate the segment clusters for the catheter box based on the user defined attributes.
-        3. Ensure the number of physical catheters is less than the number of insertion points.
+        1. Generate the segment clusters for the catheter box based on the user defined attributes.
+        2. Ensure the number of physical catheters is less than the number of insertion points.
         """
-        # TODO priority 2: complete this
-        if abs(self.rotation_angle_deg) >= 15:
-            raise ValueError("Rotation angle must be less than 15 degrees.")
+        # # Initialize the catheter box 
+        # # based on the structure dict, box rotation angle, insertion point spacing 
+        _, self._plane_dict = generate_candidate_segments(
+            mesh_dict=self.structure_dict,
+            insertion_grid_spacing_mm=self.insertion_point_spacing_mm,
+            oar_danger_dist_mm=self.oar_collision_margin_mm,
+            target_structures=self.target_structure_names,
+            config_angled_cathgen=self.config_angle
+        )
+        
+        # # get the segment clusters and segments from plane dict.
+        
 
+    def _get_segment_cluster_from_planes(self, plane_dict):
+        r"""
+        ### Purpose:
+        - This helper function creates segment clusters from plane dictionaries.
+        """
+        
+    
     @computed_field
     @property
     def catheter_table(self) -> CatheterTable:

@@ -66,11 +66,11 @@ def test_get_segment_lines():
         point_pairs=point_pairs,
         )
 
-def test_build_line_connectors():
-    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import build_line_connectors
+def test_generate_candidate_segments():
+    from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import generate_candidate_segments
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
     mesh_dict = get_test_structure_meshes()
-    valid_lines, plane_dict = build_line_connectors(
+    valid_lines, plane_dict = generate_candidate_segments(
         mesh_dict=mesh_dict,
         insertion_grid_spacing_mm=15,
         oar_danger_dist_mm=5,
@@ -121,5 +121,5 @@ def test_gen_catheter_table_from_contours():
 if __name__ == "__main__":
     # test_obb_planes()
     # test_get_segment_lines()
-    test_build_line_connectors()
+    test_generate_candidate_segments()
     # test_gen_catheter_table_from_contours()

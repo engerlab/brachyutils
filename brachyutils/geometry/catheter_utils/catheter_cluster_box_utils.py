@@ -8,7 +8,7 @@ from trimesh.ray.ray_triangle import RayMeshIntersector
 from scipy.spatial import cKDTree
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, Catheter
-from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
+from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen, Decision_Plane
 from math import radians
 
 # ══════════════════════════════════════════════════════
@@ -113,12 +113,13 @@ def obb_planes(
         origin_decision_plane = (
             centre_rot + superior_axis * superior_plane_spacing * (i - (num_planes-1)/2)
         )
-        decision_plane_dict[i] = {
-            "depth": i,
-            "origin": origin_decision_plane,
-            "normal": superior_axis,
-            "transform": obb_T,
-            "extents": extents,}
+        decision_plane_dict[i] = Decision_Plane(
+            depth= i,
+            origin= origin_decision_plane,
+            normal= superior_axis,
+            transform= obb_T,
+            extents= extents
+            )
 
     return decision_plane_dict
 
@@ -249,7 +250,7 @@ def line_to_tube(
     cyl.apply_transform(T @ R)
     return cyl
 
-def build_line_connectors(
+def generate_candidate_segments(
     mesh_dict:Dict[str, trimesh.Trimesh],
     insertion_grid_spacing_mm:float,
     oar_danger_dist_mm:float,
@@ -302,9 +303,9 @@ def build_line_connectors(
     # # between two deicion planes, define the pairs of points
     # # that form digitization points for the catheter segments. 
     inferior_plane_grid = grid_on_plane(
-        plane_origin = decision_plane_dict[0]["origin"],
-        obb_T = decision_plane_dict[0]["transform"],
-        extents = decision_plane_dict[0]["extents"],
+        plane_origin = decision_plane_dict[0].origin,
+        obb_T = decision_plane_dict[0].transform,
+        extents = decision_plane_dict[0].extents,
         insertion_grid_spacing_mm = insertion_grid_spacing_mm,
     )
     digitization_pairs = []
@@ -327,9 +328,10 @@ def build_line_connectors(
         new_valid_lines = [
             (p0, p1) for p0, p1 in plane_digi_points
             if not line_is_invalid(
-                p0, p1, oar_meshes, oar_danger_dist_mm, plane["depth"], digitization_pairs
+                p0, p1, oar_meshes, oar_danger_dist_mm, plane.depth, digitization_pairs
                 )
         ]
+        plane.segment_lines = new_valid_lines
         digitization_pairs += new_valid_lines
 
     n_valid = len(digitization_pairs)
@@ -523,7 +525,7 @@ def gen_catheter_table_from_contours(
     ### Purpose
     - Given a dictionary of Trimesh objects, generate a CatheterTable by:
       1. Extracting the contour vertices as meshes.
-      2. Running the `build_line_connectors` pipeline to get valid line segments.
+      2. Running the `generate_candidate_segments` pipeline to get valid line segments.
       3. Converting valid line segments into Catheter and DwellPosition objects.
     
     ### Inputs
@@ -534,7 +536,7 @@ def gen_catheter_table_from_contours(
     - out_ply_dir: str := if provided, directory to export STL files of meshes + lines
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
-    valid_lines , o_top, o_bot, extents, obb_T = build_line_connectors(
+    valid_lines , o_top, o_bot, extents, obb_T = generate_candidate_segments(
         mesh_dict=mesh_dict,
         insertion_grid_spacing_mm=insertion_grid_spacing_mm,
         oar_danger_dist_mm_mm=oar_danger_dist_mm_mm,
@@ -563,13 +565,13 @@ def decision_planes_to_ply(
     out_ply_dir.mkdir(parents=True, exist_ok=True)
 
     # Bounding planes as thin flat boxes
-    for depth, data in decision_plane_dict.items():
-        ex, ey, ez = data["extents"]
+    for depth, plane in decision_plane_dict.items():
+        ex, ey, ez = plane.extents
         box = trimesh.creation.box(extents=[ex, ey, 0.2])
-        Tbox = data["transform"].copy()
-        Tbox[:3, 3] = data["origin"]
+        Tbox = plane.transform.copy()
+        Tbox[:3, 3] = plane.origin
         box.apply_transform(Tbox)
-        path = out_ply_dir / f"plane_{data["depth"]}.ply"
+        path = out_ply_dir / f"plane_{plane.depth}.ply"
         box.export(path)
 
 def segment_lines_to_ply(
