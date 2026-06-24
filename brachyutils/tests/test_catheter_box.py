@@ -120,7 +120,7 @@ def test_gen_catheter_table_from_contours():
     print("debug here")
 
 def test_catheter_cluster_box():
-    outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
+    outdir = "data_test/test_export_plan/prostate/clusterbox"
     structure_dict = get_test_structure_meshes()
     insertion_point_spacing_mm = 15
     oar_collision_margin_mm = 5
@@ -130,7 +130,7 @@ def test_catheter_cluster_box():
     rotation_angle_deg=12
     box_margin = 5
 
-    CatheterClusterBox(
+    cc_box = CatheterClusterBox(
         structure_dict = structure_dict,
         insertion_point_spacing_mm = insertion_point_spacing_mm,
         oar_collision_margin_mm = oar_collision_margin_mm,
@@ -140,6 +140,7 @@ def test_catheter_cluster_box():
         rotation_angle_deg=rotation_angle_deg,
         box_margin_mm=box_margin,
     )
+    cc_box.to_ply(out_ply_dir=outdir)
 
 if __name__ == "__main__":
     # test_obb_planes()

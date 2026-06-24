@@ -1,13 +1,18 @@
+from pathlib import Path
 from brachyutils.geometry.catheter_utils import Catheter
 from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator, model_validator
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import numpy as np
 import trimesh
 from collections import defaultdict
 
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen, Decision_Plane
-from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import generate_candidate_segments
+from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
+    generate_candidate_segments,
+    decision_planes_to_ply,
+    segment_lines_to_ply,
+    )
 
 class CatheterSegment(Catheter):
     cluster_name_id: str
@@ -140,7 +145,7 @@ structures; Usually CTV or PTV.")
         )
         # # get the segment clusters and segments from plane dict.
         self._segment_cluster_dict = get_segment_cluster_from_planes(plane_dict=self._plane_dict)
-        print("debug here")
+        return self
 
     @computed_field
     @property
@@ -154,6 +159,17 @@ structures; Usually CTV or PTV.")
             return self._cached_catheter_table
         else:
             pass
+
+    @computed_field
+    def all_segments(self) -> List[CatheterSegment]:
+        r"""
+        ###  Purpose:
+        - To return a list with all the catheter segments gathered from all the clusters.
+        """
+        all_point_pairs = []
+        for cluster in self._segment_cluster_dict.values():
+            for segment in cluster.segment_dict.values():
+                all_point_pairs.append(segment)
 
     def get_colliding_segments(self) -> Dict[str, List[str]]:
         r"""
@@ -213,6 +229,21 @@ structures; Usually CTV or PTV.")
         """
         pass
 
+    def to_ply(self, out_ply_dir:str | Path):
+        r"""
+        Write the planes and the segment to .PLY files for visualization
+        """
+        # write the planes to ply
+        decision_planes_to_ply(
+            out_ply_dir=out_ply_dir,
+            decision_plane_dict=self._plane_dict
+        )
+        segment_lines_to_ply(
+            out_ply_dir=out_ply_dir,
+            point_pairs=self.all_segments
+        )
+        
+    
 def get_segment_cluster_from_planes(
     plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
     r"""
