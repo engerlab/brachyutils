@@ -84,9 +84,6 @@ class CatheterClusterBox(BaseModel):
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         validate_assignment=True,)
-    # TODO: For future consider the following concepts
-    # - insertion_point_margin_mm: float := the margin from the edge of the bottom plane to the first 
-    # insertion point (mm).
 
     # # user defined attributes
     num_physical_catheters: int = Field(default=1, description="the number of physical catheters to be inserted.")
@@ -132,12 +129,13 @@ structures; Usually CTV or PTV.")
         # # based on the structure dict, box rotation angle, insertion point spacing 
         _, self._plane_dict = generate_candidate_segments(
             mesh_dict=self.structure_dict,
-            insertion_grid_spacing_mm=self.insertion_point_spacing_mm,
+            insertion_point_spacing_mm=self.insertion_point_spacing_mm,
             oar_danger_dist_mm=self.oar_collision_margin_mm,
             target_structures=self.target_structure_names,
             config_angled_cathgen=self.config_angle,
+            bb_rotation_angle=self.rotation_angle_deg,
+            bb_num_planes=self.num_decision_planes,
         )
-        
         # # get the segment clusters and segments from plane dict.
         self._segment_cluster_dict = get_segment_cluster_from_planes(plane_dict=self._plane_dict)
         print("debug here")
@@ -213,30 +211,35 @@ structures; Usually CTV or PTV.")
         """
         pass
 
-def get_segment_cluster_from_planes(plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
-    r"""
-    ### Purpose:
-    - This helper function creates segment clusters from plane dictionaries.
-    """
-    cluster_dict = defaultdict(SegmentCluster) 
-    for plane in plane_dict.values():
-        all_insert_points = [p0 for p0, _ in plane.segment_lines]
-        _, idx = np.unique(all_insert_points, axis=0, return_index=True)
-        for i, j in enumerate(idx):
-            if j == idx[-1]:
-                break
-            cluster = SegmentCluster(
-                index=i,
-                depth=plane.depth,
-            )
-            segment_dict = defaultdict()
-            for k, digi_points in enumerate(plane.segment_lines[j:idx[i+1]]):
-                segment_dict[k] = CatheterSegment(
-                    cluster_name_id=cluster.name_id,
-                    index=k,
-                    digitization_points=digi_points
-                    )
-                cluster.segment_dict = segment_dict
-            cluster_dict[cluster.name_id] = cluster
-        
+    def get_segment_cluster_from_planes(
+        self,
+        plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
+        r"""
+        ### Purpose:
+        - This function creates segment clusters from plane dictionaries that have been filled
+        with segments.
+        """
+        cluster_dict = defaultdict(SegmentCluster) 
+        for plane in plane_dict.values():
+            if plane.depth == len(plane_dict) - 1:
+                break 
+            all_insert_points = [p0 for p0, _ in plane.segment_lines]
+            _, idx = np.unique(all_insert_points, axis=0, return_index=True)
+            for i, j in enumerate(idx):
+                if j == idx[-1]:
+                    break
+                cluster = SegmentCluster(
+                    index=i,
+                    depth=plane.depth,
+                )
+                segment_dict = defaultdict()
+                for k, digi_points in enumerate(plane.segment_lines[j:idx[i+1]]):
+                    segment_dict[k] = CatheterSegment(
+                        cluster_name_id=cluster.name_id,
+                        index=k,
+                        digitization_points=digi_points
+                        )
+                    cluster.segment_dict = segment_dict
+                cluster_dict[cluster.name_id] = cluster
+        return cluster_dict
         

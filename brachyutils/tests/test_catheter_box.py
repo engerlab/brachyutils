@@ -43,14 +43,14 @@ def test_obb_planes(return_planes=False):
 def test_get_segment_lines():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
         get_segment_lines, grid_on_plane, segment_lines_to_ply)
-    insertion_grid_spacing_mm = 10.
+    insertion_point_spacing_mm = 10.
     decision_planes = test_obb_planes(return_planes=True)
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
     inferior_plane_grid = grid_on_plane(
         plane_origin = decision_planes[0]["origin"],
         obb_T = decision_planes[0]["transform"],
         extents = decision_planes[0]["extents"],
-        insertion_grid_spacing_mm = insertion_grid_spacing_mm,
+        insertion_point_spacing_mm = insertion_point_spacing_mm,
     )
     print("inf normal:      ", decision_planes[0]["normal"])
     print("sup normal:      ", decision_planes[1]["normal"])
@@ -73,7 +73,7 @@ def test_generate_candidate_segments():
     mesh_dict = get_test_structure_meshes()
     valid_lines, plane_dict = generate_candidate_segments(
         mesh_dict=mesh_dict,
-        insertion_grid_spacing_mm=15,
+        insertion_point_spacing_mm=15,
         oar_danger_dist_mm=5,
         target_structures=["CTV"],
         config_angled_cathgen=Config_Angled_CathGen(),
@@ -122,17 +122,21 @@ def test_gen_catheter_table_from_contours():
 def test_catheter_cluster_box():
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
     structure_dict = get_test_structure_meshes()
-    insertion_point_spacing_mm = 10
-    oar_collision_margin_mm = 3
+    insertion_point_spacing_mm = 15
+    oar_collision_margin_mm = 5
     target_structure_names = ["CTV"]
     config_angle = Config_Angled_CathGen()
-    
+    num_decision_planes=3
+    rotation_angle_deg=12
+
     CatheterClusterBox(
         structure_dict = structure_dict,
         insertion_point_spacing_mm = insertion_point_spacing_mm,
         oar_collision_margin_mm = oar_collision_margin_mm,
         target_structure_names = target_structure_names,
         config_angle = config_angle,
+        num_decision_planes=num_decision_planes,
+        rotation_angle_deg=rotation_angle_deg,
     )
 
 if __name__ == "__main__":

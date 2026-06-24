@@ -127,7 +127,7 @@ def grid_on_plane(
     plane_origin: np.ndarray,
     obb_T: np.ndarray,
     extents: np.ndarray,
-    insertion_grid_spacing_mm: float) -> np.ndarray:
+    insertion_point_spacing_mm: float) -> np.ndarray:
     """
     ### Purpose:
     - Sample an NxN grid of 3-D points on a plane, staying inside the OBB face.
@@ -136,7 +136,7 @@ def grid_on_plane(
     - plane_origin : (3,)  point on the plane (e.g. OBB superior/inferior face centre)
     - obb_T        : (4,4) OBB transform (provides X/Y in-plane axes)
     - extents      : (3,)  OBB extents [ex, ey, ez]
-    - insertion_grid_spacing_mm : float := spacing between adjacent grid points (mm)
+    - insertion_point_spacing_mm : float := spacing between adjacent grid points (mm)
 
     ### Returns
     - pts : (N*N, 3)
@@ -145,8 +145,8 @@ def grid_on_plane(
     x_ax = R[:, 0]
     y_ax = R[:, 1]
     ex, ey = extents[0], extents[1]
-    n_x = max(2, int(np.floor(ex / insertion_grid_spacing_mm)))
-    n_y = max(2, int(np.floor(ey / insertion_grid_spacing_mm)))
+    n_x = max(2, int(np.floor(ex / insertion_point_spacing_mm)))
+    n_y = max(2, int(np.floor(ey / insertion_point_spacing_mm)))
     # Inset slightly from edges
     us = np.linspace(-ex/2 + ex/(2*n_x), ex/2 - ex/(2*n_x), n_x)
     vs = np.linspace(-ey/2 + ey/(2*n_y), ey/2 - ey/(2*n_y), n_y)
@@ -252,7 +252,7 @@ def line_to_tube(
 
 def generate_candidate_segments(
     mesh_dict:Dict[str, trimesh.Trimesh],
-    insertion_grid_spacing_mm:float,
+    insertion_point_spacing_mm:float,
     oar_danger_dist_mm:float,
     target_structures:List[str],
     config_angled_cathgen:Config_Angled_CathGen = None,
@@ -268,7 +268,7 @@ def generate_candidate_segments(
 
     ### Inputs:
     - meshes: List[trimesh.Trimesh] := list of trimesh.Trimesh
-    - insertion_grid_spacing_mm: float := spacing for the insertion grid
+    - insertion_point_spacing_mm: float := spacing for the insertion grid
     - danger_dist: float := distance threshold for danger zones
     - target_structures: List[str] := list of target structure names
 
@@ -306,7 +306,7 @@ def generate_candidate_segments(
         plane_origin = decision_plane_dict[0].origin,
         obb_T = decision_plane_dict[0].transform,
         extents = decision_plane_dict[0].extents,
-        insertion_grid_spacing_mm = insertion_grid_spacing_mm,
+        insertion_point_spacing_mm = insertion_point_spacing_mm,
     )
     digitization_pairs = []
     n_total = 0
@@ -516,7 +516,7 @@ def gen_catheter_table_from_contours(
     mesh_dict: Dict[str, trimesh.Trimesh],
     target_structures: List[str],
     oar_danger_dist_mm_mm:float = 3.0,
-    insertion_grid_spacing_mm:float = 5.0,
+    insertion_point_spacing_mm:float = 5.0,
     config_angled_cathgen:Config_Angled_CathGen = None,
     out_ply_dir:str | Path = None,
     catheter_radius:float = 1.0,
@@ -531,14 +531,14 @@ def gen_catheter_table_from_contours(
     ### Inputs
     - mesh_dict: Dict[str, trimesh.Trimesh] := dictionary of Trimesh objects (e.g. from TPS)
     - target_structures: List[str] := list of structure names to be irradiated
-    - insertion_grid_spacing_mm: float := spacing for the insertion grid
+    - insertion_point_spacing_mm: float := spacing for the insertion grid
     - oar_danger_dist_mm_mm: float := minimum allowed distance (mm) from any OAR vertex
     - out_ply_dir: str := if provided, directory to export STL files of meshes + lines
     - catheter_radius: float := visual radius of exported line tubes (mm)
     """
     valid_lines , o_top, o_bot, extents, obb_T = generate_candidate_segments(
         mesh_dict=mesh_dict,
-        insertion_grid_spacing_mm=insertion_grid_spacing_mm,
+        insertion_point_spacing_mm=insertion_point_spacing_mm,
         oar_danger_dist_mm_mm=oar_danger_dist_mm_mm,
         target_structures=target_structures,
         config_angled_cathgen=config_angled_cathgen
