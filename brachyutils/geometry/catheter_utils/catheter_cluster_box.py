@@ -3,7 +3,7 @@ from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validat
 from typing import Dict, List, Tuple
 import numpy as np
 import trimesh
-
+from collections import defaultdict
 
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen, Decision_Plane
@@ -29,16 +29,13 @@ class SegmentCluster(BaseModel):
     The depth of the root cluster is 0, the depth of its children is 1, and so on.
     - segment_dict: Dict[int, Catheter] := a dictionary of segments inside the cluster.
     The key is the catheter index, and the value is the Catheter object.
-    - cluster_dict: Dict[int, SegmentCluster] := a dictionary of child clusters inside the cluster.
-    The key is the cluster index, and the value is the SegmentCluster object.
     """
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         validate_assignment=True,)
     index: int
     depth: int = Field(default=0)
-    segment_dict: Dict[int, Catheter] = Field(default_factory=dict)
-    cluster_dict: Dict[int, "SegmentCluster"] = Field(default_factory=None)
+    segment_dict: Dict[int, CatheterSegment] = Field(default=None)
 
     @field_validator('depth')
     @classmethod
@@ -138,19 +135,13 @@ structures; Usually CTV or PTV.")
             insertion_grid_spacing_mm=self.insertion_point_spacing_mm,
             oar_danger_dist_mm=self.oar_collision_margin_mm,
             target_structures=self.target_structure_names,
-            config_angled_cathgen=self.config_angle
+            config_angled_cathgen=self.config_angle,
         )
         
         # # get the segment clusters and segments from plane dict.
-        
+        self._segment_cluster_dict = get_segment_cluster_from_planes(plane_dict=self._plane_dict)
+        print("debug here")
 
-    def _get_segment_cluster_from_planes(self, plane_dict):
-        r"""
-        ### Purpose:
-        - This helper function creates segment clusters from plane dictionaries.
-        """
-        
-    
     @computed_field
     @property
     def catheter_table(self) -> CatheterTable:
@@ -221,3 +212,31 @@ structures; Usually CTV or PTV.")
         $$
         """
         pass
+
+def get_segment_cluster_from_planes(plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
+    r"""
+    ### Purpose:
+    - This helper function creates segment clusters from plane dictionaries.
+    """
+    cluster_dict = defaultdict(SegmentCluster) 
+    for plane in plane_dict.values():
+        all_insert_points = [p0 for p0, _ in plane.segment_lines]
+        _, idx = np.unique(all_insert_points, axis=0, return_index=True)
+        for i, j in enumerate(idx):
+            if j == idx[-1]:
+                break
+            cluster = SegmentCluster(
+                index=i,
+                depth=plane.depth,
+            )
+            segment_dict = defaultdict()
+            for k, digi_points in enumerate(plane.segment_lines[j:idx[i+1]]):
+                segment_dict[k] = CatheterSegment(
+                    cluster_name_id=cluster.name_id,
+                    index=k,
+                    digitization_points=digi_points
+                    )
+                cluster.segment_dict = segment_dict
+            cluster_dict[cluster.name_id] = cluster
+        
+        
