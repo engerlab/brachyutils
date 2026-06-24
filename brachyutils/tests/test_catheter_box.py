@@ -128,6 +128,7 @@ def test_catheter_cluster_box():
     config_angle = Config_Angled_CathGen()
     num_decision_planes=3
     rotation_angle_deg=12
+    box_margin = 5
 
     CatheterClusterBox(
         structure_dict = structure_dict,
@@ -137,6 +138,7 @@ def test_catheter_cluster_box():
         config_angle = config_angle,
         num_decision_planes=num_decision_planes,
         rotation_angle_deg=rotation_angle_deg,
+        box_margin_mm=box_margin,
     )
 
 if __name__ == "__main__":

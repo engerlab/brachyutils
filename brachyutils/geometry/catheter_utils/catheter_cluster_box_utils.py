@@ -254,7 +254,7 @@ def generate_candidate_segments(
     mesh_dict:Dict[str, trimesh.Trimesh],
     insertion_point_spacing_mm:float,
     oar_danger_dist_mm:float,
-    target_structures:List[str],
+    target_structure_names:List[str],
     config_angled_cathgen:Config_Angled_CathGen = None,
     **kwargs
     ) -> Tuple[List, Dict]:
@@ -270,7 +270,7 @@ def generate_candidate_segments(
     - meshes: List[trimesh.Trimesh] := list of trimesh.Trimesh
     - insertion_point_spacing_mm: float := spacing for the insertion grid
     - danger_dist: float := distance threshold for danger zones
-    - target_structures: List[str] := list of target structure names
+    - target_structure_names: List[str] := list of target structure names
 
     ### Outputs:
     valid_lines: List[Tuple[np.ndarray, np.ndarray]] := list of (p0, p1) tuples
@@ -278,11 +278,11 @@ def generate_candidate_segments(
     # # find the meshes that collide with or are close to the target structures. Only they are relevant
     # # for defining the bounding planes.
     meshes_4_planes = []
-    target_meshes = [mesh_dict[name] for name in target_structures if name in mesh_dict]
+    target_meshes = [mesh_dict[name] for name in target_structure_names if name in mesh_dict]
     from trimesh.collision import CollisionManager
     collision_manager = CollisionManager()
     for name, mesh in mesh_dict.items():
-        if name not in target_structures:
+        if name not in target_structure_names:
             collision_manager.add_object(name, mesh)    
     for target_mesh in target_meshes:
         names_colliding = collision_manager.in_collision_single(
@@ -310,7 +310,7 @@ def generate_candidate_segments(
     )
     digitization_pairs = []
     n_total = 0
-    oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structures]
+    oar_meshes = [mesh_dict[name] for name in mesh_dict if name not in target_structure_names]
     for i, plane in enumerate(decision_plane_dict.values()):
         if i == len(decision_plane_dict)-1:
             break

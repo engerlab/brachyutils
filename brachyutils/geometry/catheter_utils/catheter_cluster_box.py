@@ -107,7 +107,8 @@ catheter segments and organs at risk (OARs) (mm).")
 catheter segments (mm).")
     target_structure_names: List[str] = Field(..., description="The list of the names of the target \
 structures; Usually CTV or PTV.")
-
+    box_margin_mm: float = Field(default=0, description="The margin between the box boundaries and the OARs")
+    
     # # internal attributes
     _segment_cluster_dict: Dict[str, SegmentCluster] = None
     _cached_catheter_table: CatheterTable = None
@@ -131,10 +132,11 @@ structures; Usually CTV or PTV.")
             mesh_dict=self.structure_dict,
             insertion_point_spacing_mm=self.insertion_point_spacing_mm,
             oar_danger_dist_mm=self.oar_collision_margin_mm,
-            target_structures=self.target_structure_names,
+            target_structure_names=self.target_structure_names,
             config_angled_cathgen=self.config_angle,
             bb_rotation_angle=self.rotation_angle_deg,
             bb_num_planes=self.num_decision_planes,
+            bb_margin_mm = self.box_margin_mm,
         )
         # # get the segment clusters and segments from plane dict.
         self._segment_cluster_dict = get_segment_cluster_from_planes(plane_dict=self._plane_dict)
