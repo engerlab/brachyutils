@@ -34,6 +34,7 @@ class Decision_Plane(BaseModel):
     size 4 x 4
     extents: ArrayLike:= The full length of the sides of the plane.
     """
+    model_config={"arbitrary_types_allowed":True}
     depth: int = Field(..., description="The order of this decision plane. starts from zero.")
     origin: ArrayLike = Field(..., description="The center of the decision plane in \
 world coordinates. len = 3.")

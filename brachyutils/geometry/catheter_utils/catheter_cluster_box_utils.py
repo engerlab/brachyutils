@@ -449,12 +449,12 @@ def get_segment_lines(
     - digitization_pairs: List[tuple[np.ndarray, np.ndarray]] := list of
       (superior_point, inferior_point) tuples
     """
-    n = normalize(departure_plane['normal'])
-    origin0 = np.asarray(departure_plane['origin'], dtype=float)
-    origin1 = np.asarray(landing_plane['origin'], dtype=float)
+    n = normalize(departure_plane.normal)
+    origin0 = np.asarray(departure_plane.origin, dtype=float)
+    origin1 = np.asarray(landing_plane.origin, dtype=float)
 
-    transform0 = np.asarray(departure_plane['transform'], dtype=float)
-    transform1 = np.asarray(landing_plane['transform'], dtype=float)
+    transform0 = np.asarray(departure_plane.transform, dtype=float)
+    transform1 = np.asarray(landing_plane.transform, dtype=float)
 
     # Basis vectors from transform (assuming same for both planes here)
     basis_x = normalize(transform0[0, :3])  # plane x-axis in world
@@ -464,7 +464,7 @@ def get_segment_lines(
     # For ray directions, use the provided normal n as "central" direction
     central_dir = n
 
-    extent_landing = np.asarray(landing_plane['extents'], dtype=float)
+    extent_landing = np.asarray(landing_plane.extents, dtype=float)
 
     landing_points = []  # list of (theta_x, theta_y, landing_point_world)
     # Build angle ranges
