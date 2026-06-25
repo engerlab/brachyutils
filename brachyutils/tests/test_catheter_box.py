@@ -7,7 +7,7 @@ from brachyutils.geometry.phantom_utils import BrachyPhantom
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
 from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
     segment_lines_to_ply, decision_planes_to_ply)
-from brachyutils.geometry.catheter_utils.catheter_cluster_box import CatheterClusterBox
+from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
 
 def get_test_structure_meshes():
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
@@ -112,7 +112,7 @@ def test_gen_catheter_table_from_contours():
         perpendicular=False,
         config_angled_cathgen=Config_Angled_CathGen()
     )
-    
+
     # let's export the catheter table to json and to .ply for visualization
     cat_table[0].write_to_ply(
         dir_ply=Path(outdir)
@@ -130,7 +130,7 @@ def test_catheter_cluster_box():
     rotation_angle_deg=12
     box_margin = 5
 
-    cc_box = CatheterClusterBox(
+    cc_box = ClusterBox(
         structure_dict = structure_dict,
         insertion_point_spacing_mm = insertion_point_spacing_mm,
         oar_collision_margin_mm = oar_collision_margin_mm,

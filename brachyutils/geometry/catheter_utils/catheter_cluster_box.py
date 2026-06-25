@@ -1,5 +1,4 @@
 from pathlib import Path
-from brachyutils.geometry.catheter_utils import Catheter
 from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator, model_validator
 from typing import Dict, List
 import numpy as np
@@ -14,13 +13,28 @@ from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
     segment_lines_to_ply,
     )
 
-class CatheterSegment(Catheter):
-    cluster_name_id: str
+class Segment(BaseModel):
+    r"""
+    ### Purpose:
+    - Represents a single catheter trajectory segment between a departure point and a landing point.
+    - Used to group candidate catheter paths within a shared insertion point cluster.
+
+    ### Attributes:
+    - index: int := the index of the segment within its cluster.
+    - cluster_name_id: str := identifier for the cluster that this segment belongs to.
+    - line: List[List[float]] := the departure and landing points of the segment in patient coordinates.
+      The value is expected to be a list containing two 3D points.
+    """
+    
+    index:int = Field(..., description="The index of the segment in its cluster")
+    cluster_name_id: str = Field(..., description="The cluster that this segment stems from")
+    line:List[List[float]] = Field(..., description="The departure and landing point of the \
+segment in patients coordinates.")
 
     @computed_field
     @property
     def name_id(self) -> str:
-        return f"{self.cluster_name_id}_{super().name_id}"
+        return f"{self.cluster_name_id}_{self.name_id+1}"
 
 class SegmentCluster(BaseModel):
     r"""
@@ -32,15 +46,15 @@ class SegmentCluster(BaseModel):
     ### Attributes:
     - depth: int := the depth of the segment cluster. Clusters can be lead to other clusters like a tree structure.
     The depth of the root cluster is 0, the depth of its children is 1, and so on.
-    - segment_dict: Dict[int, Catheter] := a dictionary of segments inside the cluster.
-    The key is the catheter index, and the value is the Catheter object.
+    - segment_dict: Dict[int, Segment] := a dictionary of segments inside the cluster.
+    The key is the catheter index, and the value is the Segment object.
     """
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         validate_assignment=True,)
     index: int
     depth: int = Field(default=0)
-    segment_dict: Dict[int, CatheterSegment] = Field(default=None)
+    segment_dict: Dict[int, Segment] = Field(default=None)
 
     @field_validator('depth')
     @classmethod
@@ -52,14 +66,14 @@ class SegmentCluster(BaseModel):
     @computed_field
     @property
     def insert_position(self) -> np.ndarray:
-        return self.segment_dict[0].insert_position
+        return self.segment_dict[0].line[0]
 
     @computed_field
     @property
     def name_id(self) -> str:
         return f"({self.depth},{self.index+1})"
 
-class CatheterClusterBox(BaseModel):
+class ClusterBox(BaseModel):
     r"""
     ### Purpose:
     - A class to represent the bounding box where candidate catheter trajectories
@@ -161,7 +175,7 @@ structures; Usually CTV or PTV.")
             pass
 
     @computed_field
-    def all_segments(self) -> List[CatheterSegment]:
+    def all_segments(self) -> List[Segment]:
         r"""
         ###  Purpose:
         - To return a list with all the catheter segments gathered from all the clusters.
@@ -180,7 +194,7 @@ structures; Usually CTV or PTV.")
         """
         pass
 
-    def get_segments_at_depth(self, depth: int) -> Dict[str, CatheterSegment]:
+    def get_segments_at_depth(self, depth: int) -> Dict[str, Segment]:
         r"""
         ### Purpose:
         - To get all the segments at a specific depth in the catheter box.
@@ -188,7 +202,7 @@ structures; Usually CTV or PTV.")
         """
         pass
 
-    def get_parent_segments(self, segment_name_id: str) -> Dict[str, CatheterSegment]:
+    def get_parent_segments(self, segment_name_id: str) -> Dict[str, Segment]:
         r"""
         ### Purpose:
         - To get all the parent segments of a specific segment in the catheter box.
@@ -240,7 +254,7 @@ structures; Usually CTV or PTV.")
             decision_plane_dict=self._plane_dict
         )
         all_segments_lines = np.array(
-            [seg.digitization_points for seg in self.all_segments]
+            [seg.line for seg in self.all_segments]
         )
         segment_lines_to_ply(
             out_ply_dir=out_ply_dir,
@@ -275,11 +289,11 @@ def get_segment_cluster_from_planes(
             segments_in_a_cluster = plane.segment_lines[j:idx[i+1]]
             if len(segments_in_a_cluster) == 0:
                 continue
-            for k, digi_points in enumerate(segments_in_a_cluster):
-                segment_dict[k] = CatheterSegment(
+            for k, line in enumerate(segments_in_a_cluster):
+                segment_dict[k] = Segment(
                     cluster_name_id=cluster.name_id,
                     index=k,
-                    digitization_points=digi_points
+                    line=line
                     )
             cluster.segment_dict = segment_dict
             cluster_dict[cluster.name_id] = cluster
