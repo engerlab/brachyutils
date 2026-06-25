@@ -148,7 +148,7 @@ def test_cluster_box(return_box=False):
 def test_catheter_table_from_clusterbox():
     cc_box = test_cluster_box(True)
     cath_table = cc_box.catheter_table
-    print(cath_table.info())    
+    print(cath_table.info())
 
 if __name__ == "__main__":
     # test_obb_planes()
