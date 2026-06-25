@@ -30,6 +30,9 @@ class Segment(BaseModel):
     cluster_name_id: str = Field(..., description="The cluster that this segment stems from")
     line:List[List[float]] = Field(..., description="The departure and landing point of the \
 segment in patients coordinates.")
+    # these attributes will be set and used later when interacting with the optimization model.
+    catheter_index:int = None
+    dwell_index_list:List[int] = None
 
     @computed_field
     @property
@@ -129,13 +132,12 @@ structures; Usually CTV or PTV.")
     box_margin_mm: float = Field(default=0, description="The margin between the box boundaries and the OARs")
     
     # # internal attributes
-    _segment_cluster_dict: Dict[str, SegmentCluster] = None
+    segment_cluster_dict: Dict[str, SegmentCluster] = Field(default=None)
     _cached_catheter_table: CatheterTable = None
 
     _plane_dict: Dict[str, Decision_Plane]
 
-    @model_validator(mode="after")
-    def validate_cluster_box(self):
+    def model_post_init(self, __context):
         r"""
         ### Purpose:
         - To validate and generate the segment clusters for the catheter box 
@@ -158,7 +160,7 @@ structures; Usually CTV or PTV.")
             bb_margin_mm = self.box_margin_mm,
         )
         # # get the segment clusters and segments from plane dict.
-        self._segment_cluster_dict = get_segment_cluster_from_planes(plane_dict=self._plane_dict)
+        self.segment_cluster_dict = get_segment_cluster_from_planes(plane_dict=self._plane_dict)
         return self
 
     @computed_field
@@ -181,7 +183,7 @@ structures; Usually CTV or PTV.")
         - To return a list with all the catheter segments gathered from all the clusters.
         """
         all_point_pairs = []
-        for cluster in self._segment_cluster_dict.values():
+        for cluster in self.segment_cluster_dict.values():
             for segment in cluster.segment_dict.values():
                 all_point_pairs.append(segment)
         return all_point_pairs
