@@ -265,6 +265,11 @@ def get_segment_cluster_from_planes(
                 depth=plane.depth,
             )
             segment_dict = defaultdict()
+            # Avoid clusters that have no valid segments
+            # segments can be removed due to collision with 
+            # oars or falling out of a landing plane.
+            if len(plane.segment_lines[j:idx[i+1]]) == 0:
+                continue
             for k, digi_points in enumerate(plane.segment_lines[j:idx[i+1]]):
                 segment_dict[k] = CatheterSegment(
                     cluster_name_id=cluster.name_id,
