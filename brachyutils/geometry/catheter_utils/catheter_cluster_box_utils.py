@@ -518,8 +518,6 @@ def gen_catheter_table_from_contours(
     oar_danger_dist_mm_mm:float = 3.0,
     insertion_point_spacing_mm:float = 5.0,
     config_angled_cathgen:Config_Angled_CathGen = None,
-    out_ply_dir:str | Path = None,
-    catheter_radius:float = 1.0,
     ) -> CatheterTable:
     r"""
     ### Purpose
@@ -533,8 +531,7 @@ def gen_catheter_table_from_contours(
     - target_structures: List[str] := list of structure names to be irradiated
     - insertion_point_spacing_mm: float := spacing for the insertion grid
     - oar_danger_dist_mm_mm: float := minimum allowed distance (mm) from any OAR vertex
-    - out_ply_dir: str := if provided, directory to export STL files of meshes + lines
-    - catheter_radius: float := visual radius of exported line tubes (mm)
+    - config_angled_cathgen: Config_Angled_CathGen: The config for angled catheter insertion.
     """
     valid_lines , o_top, o_bot, extents, obb_T = generate_candidate_segments(
         mesh_dict=mesh_dict,
@@ -586,24 +583,3 @@ def segment_lines_to_ply(
         if tube is not None:
             path = out_ply_dir / f"line_{i:03d}.ply"
             tube.export(path)
-
-    # # this code for visualization
-    # if out_ply_dir is not None:
-    #     out_ply_dir = Path(out_ply_dir)
-    #     for i, line in enumerate(valid_lines):
-    #         tube = line_to_tube(line[0], line[1], catheter_radius)
-    #         if tube is not None:
-    #             path = out_ply_dir / f"line_{i:03d}.ply"
-    #             tube.export(path)
-    #     for name, mesh in mesh_dict.items():
-    #         path = out_ply_dir / f"{name}.ply"
-    #         mesh.export(path)
-    #     # Bounding planes as thin flat boxes
-    #     for label, centre in [("plane_top", o_top), ("plane_bot", o_bot)]:
-    #         ex, ey, ez = extents
-    #         box = trimesh.creation.box(extents=[ex, ey, 0.2])
-    #         Tbox          = obb_T.copy()
-    #         Tbox[:3, 3]   = centre
-    #         box.apply_transform(Tbox)
-    #         path = os.path.join(out_ply_dir, f"{label}.ply")
-    #         box.export(path)

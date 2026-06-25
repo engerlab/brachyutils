@@ -1,11 +1,11 @@
 from pathlib import Path
-from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator
 from typing import Dict, List
 import numpy as np
 import trimesh
 from collections import defaultdict
 
-from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, Catheter
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen, Decision_Plane
 from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
     generate_candidate_segments,
@@ -31,8 +31,8 @@ class Segment(BaseModel):
     line:List[List[float]] = Field(..., description="The departure and landing point of the \
 segment in patients coordinates.")
     # these attributes will be set and used later when interacting with the optimization model.
-    catheter_index:int = None
-    dwell_index_list:List[int] = None
+    catheter_name_id:int = None
+    # dwell_index_list:List[int] = None
 
     @computed_field
     @property
@@ -174,7 +174,19 @@ structures; Usually CTV or PTV.")
         if self._cached_catheter_table is not None:
             return self._cached_catheter_table
         else:
-            pass
+            all_catheters = []
+            for idx, segment in enumerate(self.all_segments):
+                catheter = Catheter(
+                    index=idx,
+                    digitization_points=segment.line
+                )
+                segment.catheter_name_id = catheter.name_id
+                all_catheters.append(catheter)
+
+            self._cached_catheter_table = CatheterTable(
+                catheters_dict=all_catheters
+            )
+            return self._cached_catheter_table
 
     @computed_field
     def all_segments(self) -> List[Segment]:
