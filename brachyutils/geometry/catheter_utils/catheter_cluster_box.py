@@ -254,12 +254,13 @@ def get_segment_cluster_from_planes(
     - This function creates segment clusters from plane dictionaries that have been filled
     with segments.
     """
-    cluster_dict = defaultdict(SegmentCluster) 
+    cluster_dict = defaultdict(SegmentCluster)
     for plane in plane_dict.values():
         if plane.depth == len(plane_dict) - 1:
             break 
         all_insert_points = [p0 for p0, _ in plane.segment_lines]
-        _, idx = np.unique(all_insert_points, axis=0, return_index=True)
+        idx = sorted(np.unique(all_insert_points, axis=0, return_index=True)[1])
+        idx = idx + [len(all_insert_points)]
         for i, j in enumerate(idx):
             if j == idx[-1]:
                 break
@@ -271,14 +272,15 @@ def get_segment_cluster_from_planes(
             # Avoid clusters that have no valid segments
             # segments can be removed due to collision with 
             # oars or falling out of a landing plane.
-            if len(plane.segment_lines[j:idx[i+1]]) == 0:
+            segments_in_a_cluster = plane.segment_lines[j:idx[i+1]]
+            if len(segments_in_a_cluster) == 0:
                 continue
-            for k, digi_points in enumerate(plane.segment_lines[j:idx[i+1]]):
+            for k, digi_points in enumerate(segments_in_a_cluster):
                 segment_dict[k] = CatheterSegment(
                     cluster_name_id=cluster.name_id,
                     index=k,
                     digitization_points=digi_points
                     )
-                cluster.segment_dict = segment_dict
+            cluster.segment_dict = segment_dict
             cluster_dict[cluster.name_id] = cluster
     return cluster_dict
