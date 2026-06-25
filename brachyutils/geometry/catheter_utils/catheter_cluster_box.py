@@ -139,7 +139,7 @@ structures; Usually CTV or PTV.")
             oar_danger_dist_mm=self.oar_collision_margin_mm,
             target_structure_names=self.target_structure_names,
             config_angled_cathgen=self.config_angle,
-            bb_rotation_angle=self.rotation_angle_deg,
+            bb_rotation_angle_deg=self.rotation_angle_deg,
             bb_num_planes=self.num_decision_planes,
             bb_margin_mm = self.box_margin_mm,
         )
