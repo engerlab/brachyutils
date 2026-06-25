@@ -902,8 +902,6 @@ class BrachyPlan:
                     order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
                     with open(export_config_plan_and_mac.dir_export / f"dwell_{order}.plan", "w") as file:
                         file.write(run_i_plan)
-            # set to false so that we don't export the same catheter again for dose rate calculation
-            cat.gen_dose_rates = False
     
         if export_config_plan_and_mac.combined_only:
             with open(export_config_plan_and_mac.pth_plan_combined, "w") as file:
