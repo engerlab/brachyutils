@@ -170,6 +170,7 @@ structures; Usually CTV or PTV.")
         for cluster in self._segment_cluster_dict.values():
             for segment in cluster.segment_dict.values():
                 all_point_pairs.append(segment)
+        return all_point_pairs
 
     def get_colliding_segments(self) -> Dict[str, List[str]]:
         r"""
@@ -238,12 +239,14 @@ structures; Usually CTV or PTV.")
             out_ply_dir=out_ply_dir,
             decision_plane_dict=self._plane_dict
         )
+        all_segments_lines = np.array(
+            [seg.digitization_points for seg in self.all_segments]
+        )
         segment_lines_to_ply(
             out_ply_dir=out_ply_dir,
-            point_pairs=self.all_segments
+            point_pairs=all_segments_lines
         )
-        
-    
+
 def get_segment_cluster_from_planes(
     plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
     r"""
