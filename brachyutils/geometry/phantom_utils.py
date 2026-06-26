@@ -1011,17 +1011,24 @@ Please provide either the structure_set or the path of the structure file."
                 k: mask_colors for k in mask_dict.keys()
             }
 
+        new_cached_mask = defaultdict(ROIMask)
         for structure_name in mask_dict:
             structure_color = mask_colors.get(structure_name)
-            # check if the structure already exists in structure set
+            # check if the structure already exists in structure set, remove it if yes.
+            # but inherit the color!
             old_structure = self.structure_set.getContourByName(structure_name)
             if old_structure is None:
                 old_structure = self.structure_set.getContourByName(structure_name.upper())
             if old_structure is not None:
                 self.structure_set.removeContour(old_structure)
                 structure_color = old_structure.color
+            # check if the old structure was also cached, remove it if yes.
+            old_cached_structure = self.cached_structure_masks.get(structure_name, None)
+            if old_cached_structure is not None:
+                del self.cached_structure_masks[structure_name]
 
             if mask_dict.get(structure_name) is None:
+                # skip planning/optimization structures, i.e. hot spot volumes.
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
                 mask = ROIMask(
@@ -1086,15 +1093,15 @@ Please provide either the structure_set or the path of the structure file."
                         # mask.imageArray[:, :, -1] = 0
 
             mask._displayColor = structure_color
+            new_cached_mask[mask.name] = mask
             self.structure_set.appendContour(mask.getROIContour())
-            del mask
 
         self.structure_set.setPatient(
                 self.image_obj.patient if self.image_obj is not None else None
             )
 
         self._update_structure_names()
-        self.cache_structure_set_as_masks(mask_colors=mask_colors)
+        self.cached_structure_masks = new_cached_mask
 
     def _update_structure_names(self) -> None:
         r"""
