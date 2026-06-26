@@ -146,6 +146,7 @@ Please provide either the structure_set or the path of the structure file."
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)
             assert os.path.exists(pth_structures_file), "The input path does not exist."
+            self.cached_structure_masks = defaultdict()
             self._load_structure_file(pth_structures_file)
         elif structure_set is not None:
             if isinstance(structure_set, RTStruct):
@@ -336,14 +337,12 @@ Please provide either the structure_set or the path of the structure file."
         """
         # structure_file_type = "".join(pth_structure.suffixes)
         if str(pth_structure).endswith(".dcm"):
-            self.structure_set = readDicomStruct(pth_structure)
+            structure_set = readDicomStruct(pth_structure)
+            structure_mask_dict = {contour.name:contour for contour in structure_set}
             header = pydicom.dcmread(pth_structure)
             structure_orientation = header.get((0x0010, 0x2210), "LPS")
             if structure_orientation == "BIPED":
                 structure_orientation = "LPS"
-            self._update_structure_names()
-            return
-            # self.anatomical_coordinate_system = orientation
         elif str(pth_structure).endswith(".nrrd"):
             structure_mask_dict, structure_orientation = readNrrdStruct(pth_structure)
         elif str(pth_structure).endswith(".nii.gz"):
