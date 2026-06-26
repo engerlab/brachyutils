@@ -1167,6 +1167,9 @@ Please provide either the structure_set or the path of the structure file."
             self._update_structure_names()
         else:
             warnings.warn(f"The structure {structure_name} does not exist.")
+        cached_structure = self.cached_structure_masks.get(structure_name, None)
+        if cached_structure is not None:
+            del self.cached_structure_masks[structure_name]
 
     def resample_to(
         self,
