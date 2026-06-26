@@ -1015,10 +1015,10 @@ Please provide either the structure_set or the path of the structure file."
             structure_color = mask_colors.get(structure_name)
             # check if the structure already exists in structure set, remove it if yes.
             # but inherit the color!
-            old_structure = self.structure_set.getContourByName(structure_name)
-            if old_structure is None:
-                old_structure = self.structure_set.getContourByName(structure_name.upper())
-            if old_structure is not None:
+            old_structure = list(filter(lambda x: x == structure_name, self.structure_names))
+            if len(old_structure) == 0:
+                pass
+            else:
                 self.structure_set.removeContour(old_structure)
                 structure_color = old_structure.color
             # check if the old structure was also cached, remove it if yes.
