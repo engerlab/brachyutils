@@ -294,6 +294,10 @@ def test_load_pet_dicom():
     phantom_obj = BrachyPhantom(dir_dicom=dir_pet_dicom)
     phantom_obj.info()
 
+def test_dcm2niix():
+    # TODO: Priority 1
+    pass
+
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
     test_phantom_from_dicom()
