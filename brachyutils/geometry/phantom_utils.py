@@ -985,12 +985,14 @@ Please provide either the structure_set or the path of the structure file."
         If the name of a structure is in the structure set, the mask will be replaced.
         If the name of a structure is not in the structure set, a new structure will be added.
         The mask will be resampled to the image object if it exists.
+
         ### Inputs:
         - mask_dict: dict := the dictionary of the masks.
         - mask_colors: dict | tuple := the dictionary of the colors for each structure. If a tuple is provided,
         the same color will be used for all structures. If None is provided, the default colors will be used based
         on the slicer color table https://www.slicer.org/wiki/Slicer3:2010_GenericAnatomyColors.
         The values could be numpy arrays, ROIContour or ROIMask objects.
+
         ### Outputs:
         - None
         """
@@ -1019,7 +1021,6 @@ Please provide either the structure_set or the path of the structure file."
                 self.structure_set.removeContour(old_structure)
                 structure_color = old_structure.color
 
-            #print(f"setting structure {structure_name}, which is a {type(mask_dict[structure_name])} type")
             if mask_dict.get(structure_name) is None:
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
@@ -1092,9 +1093,8 @@ Please provide either the structure_set or the path of the structure file."
                 self.image_obj.patient if self.image_obj is not None else None
             )
 
-        # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
-        # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         self._update_structure_names()
+        self.cache_structure_set_as_masks(mask_colors=mask_colors)
 
     def _update_structure_names(self) -> None:
         r"""
