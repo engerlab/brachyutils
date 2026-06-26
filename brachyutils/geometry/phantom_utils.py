@@ -358,11 +358,7 @@ Please provide either the structure_set or the path of the structure file."
                 "The orientation of the structure file is not the same as the image file."
 
         self.set_structure_set(structure_mask_dict)
-
-        # self.structure_names = []
-        # for structure in self.structure_set.contours:
-        #     self.structure_names.append(structure.name)
-
+    
     def get_structure_mask(
         self,
         query_structure_list: List[str],
@@ -371,25 +367,29 @@ Please provide either the structure_set or the path of the structure file."
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         ### Purpose:
-        - To return a dictionary with the requested structure masks from BrachyPhantom object. The queried
-        structure string should be a subset of the structure string in the dicom file. For example,
-        if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
-        The keys in the dictionary match the query_structure_list and the values are the masks.
+        - To return a dictionary with the requested structure masks from BrachyPhantom object.
+        When looking for a structure, self.cached_structure_mask is prioretized over self.structure_set
+        to avoid unnecessary contour to mask conversion.
+
         ### Inputs:
         - query_structure_list := list of structure names to find the mask of.
         - mask_type: Union[np.ndarray, ROIContour, ROIMask] := the type of the mask to return.
             if np.ndarray (or str "array"), the mask will be returned as a numpy array in [z, y, x] format.
             if ROIContour (or str "contour"), the mask will be returned as a ROIContour object in [x, y, z] format.
             if ROIMask (or str "mask"), the mask will be returned as a ROIMask object in [x, y, z] format.
+        - strict_name_match: if True, the queried structure names must match exactly the structure_names.
+        if False, The queried structure string should be a subset of the structure string in the dicom file. For example,
+        if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
+
         ### Outputs:
         - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
         assert (
-            self.structure_set is not None
+            self.structure_set is not None or self.cached_structure_masks is not None
         ), "structure masks have not been loaded yet. please run load_structure_file() first"
         mask_dict: dict = {}
         flattened_query_structure_list = []
-      
+
         for query_structure in query_structure_list:
             if isinstance(query_structure, list):
                 flattened_query_structure_list.extend(query_structure)
@@ -402,12 +402,17 @@ Please provide either the structure_set or the path of the structure file."
                     pick_structure = query_structure.lower() == mask_name.lower()
                 else:
                     pick_structure = query_structure.lower() in mask_name.lower()
+
                 if pick_structure:
-                    mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
-                        origin=self.image_obj.origin,
-                        gridSize=self.image_obj.gridSize,
-                        spacing=self.image_obj.spacing,
-                    )
+                    if self.cached_structure_masks is not None:
+                        mask = self.cached_structure_masks.get(mask_name, None)
+                    else:
+                        mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
+                            origin=self.image_obj.origin,
+                            gridSize=self.image_obj.gridSize,
+                            spacing=self.image_obj.spacing,
+                        )
+
                     if not np.any(mask.imageArray):
                         warnings.warn(
                             f"mask for {query_structure} is all zeros",
