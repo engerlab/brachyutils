@@ -276,7 +276,7 @@ structures; Usually CTV or PTV.")
         # # Uniqueness constraints
         uniqness_constraints = defaultdict()
         for cluster in self.segment_cluster_dict.values():
-            # TODO: priority 2: build the uniqueness constraints.
+            # TODO: priority 2: build the uniqueness constraints.   
             pass            
         # # Catheter Number Constraints
         

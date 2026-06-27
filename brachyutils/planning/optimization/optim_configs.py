@@ -29,25 +29,38 @@ def _is_binary_or_None(value):
 class Constraint_Config(BaseModel):
     """
     ### Purpose:
-    - A class to represent the constraint information on other dwell time or catheter
-    variables. The name of the config should match the name of the variable in the optimization model.
-    - Each variable can have min, max or equality constraints. Set exactly the constraint you want and
-    leave the others as None.
-    - The name of the constraints on the number of catheters or the total dwell times should being with
-    "sum_catheters" and "sum_dwelltimes". These constraints should come with the list of the variables ids
-    of the specific variables to be summed. Remember that each variable ID is a string.
-    If variable ids list is empty, the constraint will be applied to all variables of that type.
+    - A class to define optimization constraints applied to dwell-time or catheter variables.
+    - Each constraint is described by its `constraint_type`, the `variable_type` it applies to,
+      optional bound values (`minimum`, `maximum`, `equal`), and the relevant variable identifiers.
+    - Depending on the constraint type, the configuration may apply to a single variable, a group
+      of variables, a catheter cluster, or a pair of catheter variables.
+    - Validation ensures that the selected constraint type is compatible with the variable type and
+      that the required supporting fields are provided.
 
     ### Attributes:
-    - name:= The name of the model variable, which is a string in one of the following patterns:
-        - dwell_#_#_#
-        - catheter_#
-        - sum_catheters
-        - sum_dwelltime
-    - minimum: int | float = None
-    - maximum: int | float = None
-    - equal: int | float = None
-    - variable_ids: List[int] = None
+    - constraint_type: The type of constraint to apply. Must be one of:
+        - `bound`: applies a min, max, or equality constraint to a single variable.
+        - `sum`: applies a min, max, or equality constraint to the sum of multiple variables.
+        - `uniqueness`: catheter-only constraint requiring a `segment_cluster_id`.
+        - `continuity`: catheter-only constraint requiring a `segment_cluster_id`.
+        - `num_catheters`: catheter-only constraint on the total number of catheters.
+        - `collision`: catheter-only constraint between exactly two catheter variables.
+    - variable_type: The type of optimization variable constrained, either:
+        - `dwell`
+        - `catheter`
+    - minimum: Optional lower bound for the constraint.
+    - maximum: Optional upper bound for the constraint.
+    - equal: Optional equality target for the constraint.
+    - variable_name_ids: Optional list of variable name identifiers associated with the constraint.
+        - For `bound`, exactly 1 variable name id must be provided.
+        - For `sum`, at least 1 variable name id must be provided.
+        - For `collision`, exactly 2 catheter variable name ids must be provided.
+        - For catheter constraints, all ids must match the catheter naming pattern, which is
+            f"catheter.index+1".
+        - For dwell constraints, all ids must match the dwell naming pattern, which is
+            f"{catheter.index+1}_{dwell.index+1}_{dwell.angle}".
+    - segment_cluster_id: Optional cluster identifier required for `uniqueness` and `continuity`
+      constraints. The name pattern is f"({cluster.depth}, {cluster.index+1})"
     """
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -129,9 +142,17 @@ minimum value for constrant {self.name_id}")
     def name_id(self):
         r"""
         ### Purpose:
-        - To construct the constraint name in the optimization model
-        based on the type of the constraint, variable, and the
-        list of variable name ids or segment cluster id
+        - The computed `name_id` is built automatically from the constraint
+        configuration. 
+
+        ### Output:
+        - name_id := Its format depends on the constraint type:
+            - `uniqueness`: `uniqueness_<segment_cluster_id>`
+            - `continuity`: `continuity_<segment_cluster_id>`
+            - `num_catheters`: `num_catheters`
+            - `collision`: `collision_(<id1>, <id2>)`
+            - `sum`: `sum_<variable_type>_[<variable_name_ids>]`
+            - `bound`: `bound_<variable_type>_<variable_name_id>`
         """
         if self.constraint_type in ["uniqueness", "continuity"]:
             name_id = f"{self.constraint_type}_{self.segment_cluster_id}"
@@ -140,7 +161,7 @@ minimum value for constrant {self.name_id}")
         elif self.constraint_type == "collision":
             name_id = f"{self.constraint_type}_({self.variable_name_ids[0]}, {self.variable_name_ids[1]})"
         elif self.constraint_type == "sum":
-            name_id = f"{self.constraint_type}_{self.variable_type}_[{self.variable_name_ids}]"
+            name_id = f"{self.constraint_type}_{self.variable_type}_{self.variable_name_ids}"
         elif self.constraint_type == "bound":
             name_id = f"{self.constraint_type}_{self.variable_type}_{self.variable_name_ids[0]}"
         return name_id

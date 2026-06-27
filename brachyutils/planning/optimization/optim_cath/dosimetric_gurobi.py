@@ -552,6 +552,7 @@ def bound_variables(
     ### Outputs:
     - None: model is updated with the new constraints
     """
+    raise DeprecationWarning("EYO this needs to be adapted to the new constraint")
     for constraint in list(constraint_config_dict.values()):
         # check if the constraint already exists, if yes remove it
         try:
