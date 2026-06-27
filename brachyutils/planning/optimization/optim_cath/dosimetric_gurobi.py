@@ -570,12 +570,23 @@ def bound_variables(
             # gatheter all catheter or dwell variables
             for this_var in all_vars:
                 if var_target == "catheters":
-                    # we are looking for catheter variables only
+                    # we are looking for specific catheter variables only
                     if this_var.name.startswith("catheter"):
-                        vars_needed.append(this_var)
+                        if constraint.variable_ids is not None:
+                            var_id = this_var.name.split("_")[-1]
+                            if var_id in constraint.variable_ids:
+                                vars_needed.append(this_var)
+                        else:
+                            vars_needed.append(this_var)
                 elif var_target == "dwelltimes":
                     if this_var.name.startswith("dwell"):
-                        vars_needed.append(this_var)
+                        if constraint.variable_ids is not None:
+                            var_id = this_var.name.split("_")[1:]
+                            if var_id in constraint.variable_ids:
+                                vars_needed.append(this_var)
+                        else:
+                            vars_needed.append(this_var)
+
             # apply the constraint
             vars_needed = MVar(vars_needed)
             if constraint.minimum:

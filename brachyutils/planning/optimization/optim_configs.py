@@ -40,7 +40,9 @@ class Constraint_Config(BaseModel):
     - Each variable can have min, max or equality constraints. Set exactly the constraint you want and
     leave the others as None.
     - The name of the constraints on the number of catheters or the total dwell times should being with
-    "sum_catheters" and "sum_dwelltimes".
+    "sum_catheters" and "sum_dwelltimes". These constraints should come with the list of the variables ids
+    of the specific variables to be summed. Remember that each variable ID is a string.
+    If variable ids list is empty, the constraint will be applied to all variables of that type.
 
     ### Attributes:
     - name:= The name of the model variable, which is a string in one of the following patterns:
@@ -51,6 +53,7 @@ class Constraint_Config(BaseModel):
     - minimum: int | float = None
     - maximum: int | float = None
     - equal: int | float = None
+    - variable_ids: List[int] = None
     """
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -61,6 +64,7 @@ class Constraint_Config(BaseModel):
     minimum: int | float = None
     maximum: int | float = None
     equal: int | float = None
+    variable_ids: List[str] = None
 
     @model_validator(mode="after")
     def sanity_check(self):
