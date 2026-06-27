@@ -120,7 +120,7 @@ Please provide either the structure_set or the path of the structure file."
         self.structure_names: List[str] = []
         # Used to avoid creating masks from contour multiple times, optional.
         # User needs to manually create the cache if they want to reuse it as a class attribute.
-        self.cached_structure_masks: Dict[str, ROIMask] = None
+        self.cached_structure_masks: Dict[str, ROIMask] = defaultdict(ROIMask)
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
         self.anatomical_coordinate_system: Literal["LAS", "RAS", "LPS"] = "LPS"
@@ -146,7 +146,6 @@ Please provide either the structure_set or the path of the structure file."
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)
             assert os.path.exists(pth_structures_file), "The input path does not exist."
-            self.cached_structure_masks = defaultdict()
             self._load_structure_file(pth_structures_file)
         elif structure_set is not None:
             if isinstance(structure_set, RTStruct):

@@ -294,13 +294,37 @@ def test_load_pet_dicom():
     phantom_obj = BrachyPhantom(dir_dicom=dir_pet_dicom)
     phantom_obj.info()
 
-def test_dcm2niix():
-    # TODO: Priority 1
-    pass
+def test_rt_utils():
+    from rt_utils import RTStructBuilder
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
+    pth_out = Path("data_test/test_export_plan/prostate")
+    
+    rtstruct = RTStructBuilder.create_from(
+        dicom_series_path=pth_dicom,
+        rt_struct_path=pth_structures)
+
+    names = rtstruct.get_roi_names()
+    structure_dict = {}
+    for name in names:
+        structure_dict[name] = rtstruct.get_roi_mask_by_name(name=name).swapaxes(0,2).swapaxes(1,2)
+
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        structure_set=structure_dict)
+    phantom_obj.export_to(dir_nrrd_out=pth_out/"rt_utils")
+
+    phantom_obj2 = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structures
+    )
+    phantom_obj2.export_to(dir_nrrd_out=pth_out/"opentps")
+
+    # print("debug here")
 
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
-    test_phantom_from_dicom()
+    # test_phantom_from_dicom()
     # test_get_structure_mask()
     # test_write_image_to_dicom()
     # test_write_image_to_nrrd()
@@ -322,3 +346,4 @@ if __name__ == "__main__":
     # test_dicom_rt_tools()
     # test_generate_sphere_mask()
     # test_load_pet_dicom()
+    test_rt_utils()
