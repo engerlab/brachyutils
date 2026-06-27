@@ -1,34 +1,18 @@
-from typing import List, Dict, Union, Annotated
+from typing import List, Dict, Annotated, Literal
 from pydantic import (
-    BaseModel, ConfigDict, model_validator,
+    BaseModel, ConfigDict, model_validator, computed_field,
     Field, TypeAdapter, ValidationError)
 import numpy as np
 from opentps.core.data.images import ROIMask
 
 # Define the specific patterns
 # 1. dwell_#_#_# (e.g., dwell_1_2_3)
-PatternDwell = Annotated[str, Field(pattern=r'^dwell_\d+_\d+_\d+$')]
+PatternDwell = Annotated[str, Field(pattern=r"^[1-9]\d*_[1-9]\d*_(?:0|[1-9]\d*)$")]
 
 # 2. catheter_# (e.g., catheter_5)
-PatternCatheter = Annotated[str, Field(pattern=r'^catheter_\d+$')]
+PatternCatheter = Annotated[str, Field(pattern=r'^\d+$')]
 
-# 3. sum_catheters (static string)
-PatternSumCatheters = Annotated[str, Field(pattern=r'^sum_catheters$')]
-
-# 4. sum_dwelltimes (static string)
-PatternSumDwellTimes = Annotated[str, Field(pattern=r'^sum_dwelltimes$')]
-
-# TODO: priority 1: figureout names for each type of these constraints.
-PatternUniqueness = Annotated[str, Field(pattern=r'TODO')]
-
-PatternContinuity = Annotated[str, Field(pattern=r'TODO')]
-
-PatternConflict = Annotated[str, Field(pattern=r'TODO')]
-
-# Create a Union type that accepts any of the above
-ValidName = Union[PatternDwell, PatternCatheter, PatternSumCatheters, PatternSumDwellTimes]
-
-def _validate_pattern(query: str, pattern: ValidName) -> bool:
+def _validate_pattern(query: str, pattern: PatternDwell | PatternCatheter) -> bool:
     adapter = TypeAdapter(pattern)
     try:
         adapter.validate_python(query)
@@ -67,28 +51,43 @@ class Constraint_Config(BaseModel):
         validate_assignment=True,
         )
 
-    name: ValidName
+    contraint_type: Literal[
+        "sum", "uniqueness", "continuity", "num_catheters", "collision"
+        ]
+    variable_type: Literal["dwell", "catheter"]
     minimum: int | float = None
     maximum: int | float = None
     equal: int | float = None
-    variable_ids: List[str] = None
+    variable_name_ids: List[PatternDwell | PatternCatheter] = None
 
     @model_validator(mode="after")
     def sanity_check(self):
-        if _validate_pattern(self.name, PatternCatheter):
+        if self.variable_type == "catheter":
             if (
                 (not _is_binary_or_None(self.minimum))
                 or (not _is_binary_or_None(self.maximum))
                 or (not _is_binary_or_None(self.equal))):
                 raise ValueError(f"minimum, maximum and equality constraints for {self.name} \
 must be binary values (0 or 1)")
-        elif _validate_pattern(self.name, PatternSumCatheters):
-            if (
-                (not (isinstance(self.minimum, int) or self.minimum is None))
-                or (not isinstance(self.maximum, int) or self.maximum is None)
-                or (not isinstance(self.equal, int) or self.equal is None)):
-                raise ValueError(f"minimum, maximum and equality constraints for {self.name} \
-must be integer values")
+            if (self.contraint_type == "num_catheters"
+                or self.contraint_type == "sum"):
+                if (
+                    (not (isinstance(self.minimum, int) or self.minimum is None))
+                    or (not isinstance(self.maximum, int) or self.maximum is None)
+                    or (not isinstance(self.equal, int) or self.equal is None)):
+                    raise ValueError(f"minimum, maximum and equality constraints for {self.name} \
+    must be integer values")
+            for name_id in self.variable_name_ids:
+                if not _validate_pattern(name_id, PatternCatheter):
+                    raise ValueError(f"The name Id {name_id} is invalid for the constraint {self.name}")
+
+        elif self.variable_type == "dwell":
+            for name_id in self.variable_name_ids:
+                if not _validate_pattern(name_id, PatternDwell):
+                    raise ValueError(f"The name Id {name_id} is invalid for the constraint {self.name}")
+        else:
+            raise ValueError(f"""Variable type can only be 'dwell' or 'cathter', \
+but was given {self.variable_type} """)
 
         if self.maximum is not None:
             if self.minimum:
@@ -103,6 +102,17 @@ maximum value for constraint {self.name}")
                 if self.equal < self.minimum:
                     raise ValueError(f"equality value cannot be less than \
 minimum value for constrant {self.name}")
+
+    @computed_field
+    @property
+    def name(self):
+        r"""
+        ### Purpose:
+        - To construct the constraint name in the optimization model
+        based on the type of variable, type of the constraint and the
+        list of variable name ids.
+        """
+        
 
 
 class Optimization_Config(BaseModel):
