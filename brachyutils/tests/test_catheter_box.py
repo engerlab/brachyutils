@@ -150,10 +150,23 @@ def test_catheter_table_from_clusterbox():
     cath_table = cc_box.catheter_table
     print(cath_table.info())
 
+def test_all_segment_dict():
+    cc_box = test_cluster_box(True)
+    seg_dict = cc_box.all_segments_dict
+    depth_keys = list(seg_dict.keys())
+    cluster_indicies = [list(cl_dict.keys()) for cl_dict in seg_dict.values()]
+    print("depth keys are:")
+    print(depth_keys)
+    print("cluster indicies are:")
+    print(cluster_indicies)
+
+    print(seg_dict[1][30][2])
+
 if __name__ == "__main__":
     # test_obb_planes()
     # test_get_segment_lines()
     # test_generate_candidate_segments()
     # test_gen_catheter_table_from_contours()
     # test_cluster_box()
-    test_catheter_table_from_clusterbox()
+    # test_catheter_table_from_clusterbox()
+    test_all_segment_dict()

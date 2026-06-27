@@ -1,6 +1,6 @@
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import numpy as np
 import trimesh
 from collections import defaultdict
@@ -37,7 +37,7 @@ segment in patients coordinates.")
     @computed_field
     @property
     def name_id(self) -> str:
-        return f"{self.cluster_name_id}_{self.name_id+1}"
+        return f"{self.cluster_name_id}_{self.index+1}"
 
 class SegmentCluster(BaseModel):
     r"""
@@ -133,6 +133,9 @@ structures; Usually CTV or PTV.")
     
     # # internal attributes
     segment_cluster_dict: Dict[str, SegmentCluster] = Field(default=None)
+    # index of a segment in the box, when we get all segments
+    # the keys are the depth, cluster index, segment index
+    _cached_segment_dict: List[Segment] = None
     _cached_catheter_table: CatheterTable = None
 
     _plane_dict: Dict[str, Decision_Plane]
@@ -175,7 +178,7 @@ structures; Usually CTV or PTV.")
             return self._cached_catheter_table
         else:
             all_catheters = []
-            for idx, segment in enumerate(self.all_segments):
+            for idx, segment in enumerate(self.all_segments_dict.values()):
                 catheter = Catheter(
                     index=idx,
                     digitization_points=segment.line
@@ -189,16 +192,30 @@ structures; Usually CTV or PTV.")
             return self._cached_catheter_table
 
     @computed_field
-    def all_segments(self) -> List[Segment]:
+    def all_segments_dict(self) -> Dict[int, Segment]:
         r"""
         ###  Purpose:
-        - To return a list with all the catheter segments gathered from all the clusters.
+        - To return a dictionary with all the catheter segments gathered from all the clusters.
+        The keys are [depth][cluster index][segment index]
         """
-        all_point_pairs = []
-        for cluster in self.segment_cluster_dict.values():
-            for segment in cluster.segment_dict.values():
-                all_point_pairs.append(segment)
-        return all_point_pairs
+        if self._cached_segment_dict is not None:
+            return self._cached_segment_dict
+        else:
+            self._cached_segment_dict = defaultdict(dict)
+            for cluster in self.segment_cluster_dict.values():
+                # for segment in cluster.segment_dict.values():
+                self._cached_segment_dict[cluster.depth][cluster.index] = cluster.segment_dict 
+            return self._cached_segment_dict
+
+    @ computed_field
+    def all_segment_list(self) -> List[Segment]:
+        outer = self.all_segments_dict
+        flat = []
+        for level1 in outer.values():
+            for level2 in level1.values():
+                for val in level2.values():
+                    flat.append(val)
+        return flat
 
     def get_colliding_segments(self) -> Dict[str, List[str]]:
         r"""
@@ -214,8 +231,7 @@ structures; Usually CTV or PTV.")
         - To get all the segments at a specific depth in the catheter box.
         The depth of the root cluster is 0, the depth of its children is 1, and so on.
         """
-        pass
-
+        
     def get_parent_segments(self, segment_name_id: str) -> Dict[str, Segment]:
         r"""
         ### Purpose:
@@ -230,33 +246,35 @@ structures; Usually CTV or PTV.")
         ### Purpose:
         - To generate the geometric constraints for catheter trajectory optimization.
         The geometric constraints include the following:
-        - Uniqueness constraint: only one segment from each insertion point can be selected.
+        1. Uniqueness constraint: only one segment from each insertion point can be selected.
         $$
             \sum_k c_k = 1\\
             \forall c_k \textrm{ with the same insertion point }
         $$
-        
-        - Continuity Constraint: If a segment from an inner decision plane is selected, all its
+        2. Catheter Number Constraint: The total number of selected segments with depth of 0 must 
+        be less than equal to the number of physical catheters to be inserted.
+        $$
+            \sum_k c_k \leq num_physical_catheters\\
+            \forall c_k \textrm{ with depth of 0}
+        $$
+
+        3. Continuity Constraint: If a segment from an inner decision plane is selected, all its
         parents on the segment chain must be selected.
         $$
             e_F (\sum_k^{F-1} c_k) = (F-1) c_{F} \\
             \forall c_k \textrm{ on the same chain of segments with length of F}, \quad e_F \in \{0,1\}
         $$
         
-        - Collision Constraint: If a segment is selected, all segments that collide with it must not be selected.
+        4. Collision Constraint: If a segment is selected, all segments that collide with it must not be selected.
         $$
             \sum_k c_k = 1\\
             \forall c_k \textrm{ in a collision cluster}\\
-        $$
-        
-        - Catheter Number Constraint: The total number of selected segments with depth of 0 must 
-        be less than equal to the number of physical catheters to be inserted.
-        $$
-            \sum_k c_k \leq num_physical_catheters\\
-            \forall c_k \textrm{ with depth of 0}
-        $$
+        $$        
         """
-        pass
+        # # Uniqueness constraints
+        
+        # # Catheter Number Constraints
+        
 
     def to_ply(self, out_ply_dir:str | Path):
         r"""
@@ -268,7 +286,7 @@ structures; Usually CTV or PTV.")
             decision_plane_dict=self._plane_dict
         )
         all_segments_lines = np.array(
-            [seg.line for seg in self.all_segments]
+            [seg.line for seg in self.all_segment_list]
         )
         segment_lines_to_ply(
             out_ply_dir=out_ply_dir,
