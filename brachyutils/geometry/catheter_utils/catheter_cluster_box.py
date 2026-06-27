@@ -208,7 +208,7 @@ structures; Usually CTV or PTV.")
             return self._cached_segment_dict
 
     @ computed_field
-    def all_segment_list(self) -> List[Segment]:
+    def all_segments_list(self) -> List[Segment]:
         outer = self.all_segments_dict
         flat = []
         for level1 in outer.values():
@@ -286,7 +286,7 @@ structures; Usually CTV or PTV.")
             decision_plane_dict=self._plane_dict
         )
         all_segments_lines = np.array(
-            [seg.line for seg in self.all_segment_list]
+            [seg.line for seg in self.all_segments_list]
         )
         segment_lines_to_ply(
             out_ply_dir=out_ply_dir,
