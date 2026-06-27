@@ -6,11 +6,14 @@ import numpy as np
 from opentps.core.data.images import ROIMask
 
 # Define the specific patterns
-# 1. dwell_#_#_# (e.g., dwell_1_2_3)
+# 1. dwell_#_#_# (e.g., 1_2_3)
 PatternDwell = Annotated[str, Field(pattern=r"^[1-9]\d*_[1-9]\d*_(?:0|[1-9]\d*)$")]
 
-# 2. catheter_# (e.g., catheter_5)
+# 2. catheter_# (e.g., 5)
 PatternCatheter = Annotated[str, Field(pattern=r'^\d+$')]
+
+# 3. cluster name id: (depth, cluster.index+1)
+PatterCluster = Annotated[str, Field(pattern=r"^\(\d+,\s*[1-9]\d*\)$")]
 
 def _validate_pattern(query: str, pattern: PatternDwell | PatternCatheter) -> bool:
     adapter = TypeAdapter(pattern)
@@ -50,16 +53,16 @@ class Constraint_Config(BaseModel):
         arbitrary_types_allowed=True,
         validate_assignment=True,
         )
-
-    contraint_type: Literal[
-        "sum", "uniqueness", "continuity", "num_catheters", "collision"
+    constraint_type: Literal[
+        "bound", "sum", "uniqueness", "continuity", "num_catheters", "collision"
         ]
     variable_type: Literal["dwell", "catheter"]
     minimum: int | float = None
     maximum: int | float = None
     equal: int | float = None
     variable_name_ids: List[PatternDwell | PatternCatheter] = None
-
+    segment_cluster_id: PatterCluster
+    
     @model_validator(mode="after")
     def sanity_check(self):
         if self.variable_type == "catheter":
@@ -67,24 +70,24 @@ class Constraint_Config(BaseModel):
                 (not _is_binary_or_None(self.minimum))
                 or (not _is_binary_or_None(self.maximum))
                 or (not _is_binary_or_None(self.equal))):
-                raise ValueError(f"minimum, maximum and equality constraints for {self.name} \
+                raise ValueError(f"minimum, maximum and equality constraints for {self.name_id} \
 must be binary values (0 or 1)")
-            if (self.contraint_type == "num_catheters"
-                or self.contraint_type == "sum"):
+            if (self.constraint_type == "num_catheters"
+                or self.constraint_type == "sum"):
                 if (
                     (not (isinstance(self.minimum, int) or self.minimum is None))
                     or (not isinstance(self.maximum, int) or self.maximum is None)
                     or (not isinstance(self.equal, int) or self.equal is None)):
-                    raise ValueError(f"minimum, maximum and equality constraints for {self.name} \
+                    raise ValueError(f"minimum, maximum and equality constraints for {self.name_id} \
     must be integer values")
             for name_id in self.variable_name_ids:
                 if not _validate_pattern(name_id, PatternCatheter):
-                    raise ValueError(f"The name Id {name_id} is invalid for the constraint {self.name}")
+                    raise ValueError(f"The name Id {name_id} is invalid for the constraint {self.name_id}")
 
         elif self.variable_type == "dwell":
             for name_id in self.variable_name_ids:
                 if not _validate_pattern(name_id, PatternDwell):
-                    raise ValueError(f"The name Id {name_id} is invalid for the constraint {self.name}")
+                    raise ValueError(f"The name Id {name_id} is invalid for the constraint {self.name_id}")
         else:
             raise ValueError(f"""Variable type can only be 'dwell' or 'cathter', \
 but was given {self.variable_type} """)
@@ -93,27 +96,38 @@ but was given {self.variable_type} """)
             if self.minimum:
                 if self.minimum > self.maximum:
                     raise ValueError(f"maximum value cannot be less than \
-minimum value for constraint {self.name}")
+minimum value for constraint {self.name_id}")
                 if self.equal is not None and self.equal > self.maximum:
                     raise ValueError(f"equality value cannot be larger than \
-maximum value for constraint {self.name}")
+maximum value for constraint {self.name_id}")
         if self.equal is not None:
             if self.minimum:
                 if self.equal < self.minimum:
                     raise ValueError(f"equality value cannot be less than \
-minimum value for constrant {self.name}")
+minimum value for constrant {self.name_id}")
 
     @computed_field
     @property
-    def name(self):
+    def name_id(self):
         r"""
         ### Purpose:
         - To construct the constraint name in the optimization model
-        based on the type of variable, type of the constraint and the
-        list of variable name ids.
+        based on the type of the constraint, variable, and the
+        list of variable name ids or segment cluster id
         """
-        
-
+        if self.constraint_type in ["uniqueness", "continuity"]:
+            name_id = f"{self.constraint_type}_{self.segment_cluster_id}"
+        elif self.constraint_type == "num_catheters":
+            name_id = self.constraint_type
+        elif self.constraint_type == "collision":
+            name_id = f"{self.constraint_type}_({self.variable_name_ids[0]}, {self.variable_name_ids[1]})"
+            # TODO: remeber to do sanity check for this constraint type: len variable_name_ids = 2
+            # also collision only applies to catheters
+        elif self.constraint_type == "sum":
+            name_id = f"{self.constraint_type}_{self.variable_type}_[{self.variable_name_ids}]"
+        elif self.constraint_type == "bound":
+            name_id = f"{self.constraint_type}_{self.variable_type}_{self.variable_name_ids[0]}"
+        return name_id
 
 class Optimization_Config(BaseModel):
     """
