@@ -322,6 +322,28 @@ def test_rt_utils():
 
     # print("debug here")
 
+def test_export_to_nrrd():
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm")
+    pth_structures = glob(str(pth_dicom) + "/RS*.dcm")[0]
+    pth_out = Path("data_test/test_export_plan/prostate")
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structures
+    )
+    phantom_obj.export_to(dir_nrrd_out=pth_out)
+    
+    phantom_obj2 = BrachyPhantom(
+        pth_phantom_file=str(pth_out/pth_dicom.name)+".nrrd",
+        pth_structures_file=str(pth_out/pth_dicom.name)+".seg.nrrd"
+    )
+    structure_dict = phantom_obj.get_structure_mask(phantom_obj.structure_names, "array")
+    structure_dict_2 = phantom_obj2.get_structure_mask(phantom_obj2.structure_names, "array")
+    
+    for name in structure_dict:
+        mask = structure_dict[name]
+        mask2 = structure_dict_2[name]
+        assert np.all(mask==mask2), f"the mask of {name} was not the same!"
+
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
     # test_phantom_from_dicom()
@@ -346,4 +368,5 @@ if __name__ == "__main__":
     # test_dicom_rt_tools()
     # test_generate_sphere_mask()
     # test_load_pet_dicom()
-    test_rt_utils()
+    # test_rt_utils()
+    test_export_to_nrrd()

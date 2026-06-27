@@ -360,7 +360,9 @@ Please provide either the structure_set or the path of the structure file."
     def get_structure_mask(
         self,
         query_structure_list: List[str],
-        mask_type: Union[np.ndarray, ROIContour, ROIMask, str] = ROIMask,
+        mask_type: Union[
+            np.ndarray, ROIContour, ROIMask,
+            Literal["array", "contour", "mask"]] = ROIMask,
         strict_name_match: bool = True,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
@@ -1199,7 +1201,7 @@ Please provide either the structure_set or the path of the structure file."
             gridSize=gridSize,
             sitk_interpolator=interpolator_img
             )
-        
+
         if self.cached_structure_masks is not None and len(self.cached_structure_masks) > 0:
             new_cached_structure_masks = {}
             for structure_name, mask in self.cached_structure_masks.items():
