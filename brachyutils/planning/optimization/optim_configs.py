@@ -18,6 +18,13 @@ PatternSumCatheters = Annotated[str, Field(pattern=r'^sum_catheters$')]
 # 4. sum_dwelltimes (static string)
 PatternSumDwellTimes = Annotated[str, Field(pattern=r'^sum_dwelltimes$')]
 
+# TODO: priority 1: figureout names for each type of these constraints.
+PatternUniqueness = Annotated[str, Field(pattern=r'TODO')]
+
+PatternContinuity = Annotated[str, Field(pattern=r'TODO')]
+
+PatternConflict = Annotated[str, Field(pattern=r'TODO')]
+
 # Create a Union type that accepts any of the above
 ValidName = Union[PatternDwell, PatternCatheter, PatternSumCatheters, PatternSumDwellTimes]
 

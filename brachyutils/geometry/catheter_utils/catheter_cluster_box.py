@@ -251,6 +251,7 @@ structures; Usually CTV or PTV.")
             \sum_k c_k = 1\\
             \forall c_k \textrm{ with the same insertion point }
         $$
+
         2. Catheter Number Constraint: The total number of selected segments with depth of 0 must 
         be less than equal to the number of physical catheters to be inserted.
         $$
@@ -264,15 +265,19 @@ structures; Usually CTV or PTV.")
             e_F (\sum_k^{F-1} c_k) = (F-1) c_{F} \\
             \forall c_k \textrm{ on the same chain of segments with length of F}, \quad e_F \in \{0,1\}
         $$
-        
+
         4. Collision Constraint: If a segment is selected, all segments that collide with it must not be selected.
         $$
             \sum_k c_k = 1\\
             \forall c_k \textrm{ in a collision cluster}\\
-        $$        
+        $$
         """
+        from brachyutils.planning.optimization.optim_configs import Constraint_Config
         # # Uniqueness constraints
-        
+        uniqness_constraints = defaultdict()
+        for cluster in self.segment_cluster_dict.values():
+            # TODO: priority 2: build the uniqueness constraints.
+            pass            
         # # Catheter Number Constraints
         
 

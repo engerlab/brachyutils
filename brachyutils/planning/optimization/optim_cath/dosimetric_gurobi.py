@@ -562,7 +562,7 @@ def bound_variables(
             model.remove(old_constraint)
             model.update()
 
-        # if the constraint is on the sum of catheters or dwell times
+        # if the constraint is on the sum of some catheters or dwell times
         if constraint.name.startswith("sum_"):
             all_vars = model.getVars()
             var_target = constraint.name.split("_")[-1]
