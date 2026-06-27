@@ -61,10 +61,28 @@ class Constraint_Config(BaseModel):
     maximum: int | float = None
     equal: int | float = None
     variable_name_ids: List[PatternDwell | PatternCatheter] = None
-    segment_cluster_id: PatterCluster
-    
+    segment_cluster_id: PatterCluster = None
+
     @model_validator(mode="after")
     def sanity_check(self):
+        # assert that the type of the contraint and the variables match
+        if self.constraint_type in ["uniqueness", "continuity", "num_catheters", "collision"]:
+            if self.variable_type != "catheter":
+                raise ValueError("This type of constraint is only comparible with variable type catheter")
+            if self.constraint_type in ["uniqueness", "continuity"]:
+                if self.segment_cluster_id is None:
+                    raise ValueError(f"{self.constraint_type} constraint needs segment_cluster_id")
+            if self.constraint_type == "collision":
+                if len(self.variable_name_ids) != 2:
+                    raise ValueError(f"Collision is only possible between two catheter variables, \
+but {len(self.variable_name_ids)} was provided.")
+        if self.constraint_type == "bound":
+            if len(self.variable_name_ids) != 1:
+                raise ValueError(f"Only provide one variable name id when binding a variable's value.")
+        if self.constraint_type == "sum":
+            if len(self.variable_name_ids) < 1:
+                raise ValueError("Provide at lease 1 variable name id for the sum constraint.")
+
         if self.variable_type == "catheter":
             if (
                 (not _is_binary_or_None(self.minimum))
@@ -121,8 +139,6 @@ minimum value for constrant {self.name_id}")
             name_id = self.constraint_type
         elif self.constraint_type == "collision":
             name_id = f"{self.constraint_type}_({self.variable_name_ids[0]}, {self.variable_name_ids[1]})"
-            # TODO: remeber to do sanity check for this constraint type: len variable_name_ids = 2
-            # also collision only applies to catheters
         elif self.constraint_type == "sum":
             name_id = f"{self.constraint_type}_{self.variable_type}_[{self.variable_name_ids}]"
         elif self.constraint_type == "bound":
