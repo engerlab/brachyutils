@@ -183,7 +183,7 @@ structures; Usually CTV or PTV.")
     cluster_dict: Dict[str, SegmentCluster] = Field(default=None)
     # index of a segment in the box, when we get all segments
     # the keys are the depth, cluster index, segment index
-    _cached_segment_dict: List[Segment] = None
+    _cached_segment_dict: Dict[int, Segment] = None
     _cached_catheter_table: CatheterTable = None
 
     _plane_dict: Dict[str, Decision_Plane]
