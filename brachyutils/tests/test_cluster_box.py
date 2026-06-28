@@ -119,7 +119,9 @@ def test_gen_catheter_table_from_contours():
     )
     print("debug here")
 
-def test_cluster_box(return_box=False):
+def test_cluster_box(
+    return_box:bool=False,
+    export_to_ply:bool=False):
     outdir = "data_test/test_export_plan/prostate/clusterbox"
     structure_dict = get_test_structure_meshes()
     insertion_point_spacing_mm = 15
@@ -140,7 +142,8 @@ def test_cluster_box(return_box=False):
         rotation_angle_deg=rotation_angle_deg,
         box_margin_mm=box_margin,
     )
-    cc_box.to_ply(out_ply_dir=outdir)
+    if export_to_ply:
+        cc_box.to_ply(out_ply_dir=outdir)
 
     if return_box:
         return cc_box
