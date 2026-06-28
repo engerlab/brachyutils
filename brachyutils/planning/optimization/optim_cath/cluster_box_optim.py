@@ -68,3 +68,7 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
         maximum=cluster_box.num_physical_catheters,
         variable_name_ids=segments_at_depth_0
     )
+    catheter_num_constraint[constr.name_id] = constr
+    
+    # # Continuity Constraint
+    # TODO: priority 1 fill it in
