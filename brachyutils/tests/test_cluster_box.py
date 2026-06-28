@@ -167,6 +167,18 @@ def test_all_segment_dict():
 
     print(seg_dict[1][30][2])
 
+
+def test_cluster_getitem():
+    cluster_box = test_cluster_box(return_box=True)
+    cluster = cluster_box.cluster_dict["(0,2)"]
+    
+    print("test get segment by index")
+    print(cluster[2])
+    print("test get segment by name_id")
+    print(cluster["(0,2)_3"])
+    print("test get segment by slice")
+    print(cluster[1:])
+
 if __name__ == "__main__":
     # test_obb_planes()
     # test_get_segment_lines()
@@ -174,4 +186,6 @@ if __name__ == "__main__":
     # test_gen_catheter_table_from_contours()
     # test_cluster_box()
     # test_catheter_table_from_clusterbox()
-    test_all_segment_dict()
+    # test_all_segment_dict()
+    test_cluster_getitem()
+    
