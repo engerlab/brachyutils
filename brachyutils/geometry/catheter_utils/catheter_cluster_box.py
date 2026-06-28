@@ -171,7 +171,7 @@ structures; Usually CTV or PTV.")
             bb_margin_mm = self.box_margin_mm,
         )
         # # get the segment clusters and segments from plane dict.
-        self.cluster_dict = get_segment_cluster_from_planes(plane_dict=self._plane_dict)
+        self.cluster_dict = get_clusters_from_planes(plane_dict=self._plane_dict)
         return self
 
     @computed_field
@@ -275,7 +275,7 @@ structures; Usually CTV or PTV.")
             point_pairs=all_segments_lines
         )
 
-def get_segment_cluster_from_planes(
+def get_clusters_from_planes(
     plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
     r"""
     ### Purpose:
