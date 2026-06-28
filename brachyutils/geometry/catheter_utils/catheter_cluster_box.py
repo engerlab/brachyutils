@@ -21,7 +21,8 @@ class Segment(BaseModel):
 
     ### Attributes:
     - index: int := the index of the segment within its cluster.
-    - cluster_name_id: str := identifier for the cluster that this segment belongs to.
+    - cluster_name_id: str := identifier for the cluster that this segment belongs to. 
+    The format is (SegmentCluster.depth, SegmentCluster.index+1)
     - line: List[List[float]] := the departure and landing points of the segment in patient coordinates.
       The value is expected to be a list containing two 3D points.
     """
@@ -37,6 +38,11 @@ segment in patients coordinates.")
     @computed_field
     @property
     def name_id(self) -> str:
+        r"""
+        The unique identifier for this Segment. The format is
+        ({SegmentCluster.depth}, {SegmentCluster.index+1})_{Segment.index+1}
+        """
+        
         return f"{self.cluster_name_id}_{self.index+1}"
 
 class SegmentCluster(BaseModel):
@@ -83,6 +89,40 @@ class SegmentCluster(BaseModel):
         for segment in self.segment_dict.values():
             cath_name_ids.append(segment.catheter_name_id)
         return cath_name_ids
+
+    def __iter__(self):
+        for segment in self.segment_dict.values():
+            yield segment
+
+    def __len__(self):
+        return len(self.segment_dict)
+
+    def __getitem__(self, indices: int | slice | str) -> Dict[int, Segment]:
+        r"""
+        ### Purpose:
+        - To get a subset of the segments in this cluster.
+        
+        ### Inputs:
+        - `indicies`: int | slice | str := Depending on the input type, return the following. 
+            - `int`: Get a single segment by its index in this cluster.
+            - `slice`: Get a set of segments by their range of indicies.
+            - `str`: Get a single segment by its name_id. The segment name_id is of the format:
+            ({SegmentCluster.depth}, {SegmentCluster.index+1})_{Segment.index+1}
+        """
+        if isinstance(indices, int):
+            return self.segment_dict[indices]
+        elif isinstance(indices, str):
+            cluster_name_id, segment_index_plus_1 = indices.split("_")
+            if cluster_name_id != self.name_id:
+                raise ValueError(f"Wrong cluster is being queried. This is cluster {self.name_id}\
+but {cluster_name_id} was requested.")
+            return self.segment_dict[int(segment_index_plus_1)-1]
+        elif isinstance(indices, slice):
+            segments_sub_dict = defaultdict(Segment)
+            indices = list(range(*indices.indices(len(self.segment_dict))))
+            for i in indices:
+                segments_sub_dict[i] = list(self.segment_dict.values())[i]
+            return segments_sub_dict
 
 class ClusterBox(BaseModel):
     r"""
@@ -231,7 +271,7 @@ structures; Usually CTV or PTV.")
     def __len__(self):
         return len(self.cluster_dict)
 
-    def __getitem__(self, key):
+    def __getitem__(self, indices: int | slice | str):
         pass
 
     def get_colliding_segments(self) -> Dict[str, List[str]]:
