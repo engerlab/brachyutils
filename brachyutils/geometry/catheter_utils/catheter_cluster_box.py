@@ -82,6 +82,7 @@ class SegmentCluster(BaseModel):
         cath_name_ids = []
         for segment in self.segment_dict.values():
             cath_name_ids.append(segment.catheter_name_id)
+        return cath_name_ids
 
 class ClusterBox(BaseModel):
     r"""
@@ -185,7 +186,7 @@ structures; Usually CTV or PTV.")
             return self._cached_catheter_table
         else:
             all_catheters = []
-            for idx, segment in enumerate(self.all_segments_dict.values()):
+            for idx, segment in enumerate(self.all_segments_list):
                 catheter = Catheter(
                     index=idx,
                     digitization_points=segment.line

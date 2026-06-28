@@ -44,15 +44,16 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     """
     # # Uniqueness constraints
     uniqness_constraints = defaultdict()
+    catheter_table = cluster_box.catheter_table
     for cluster in cluster_box.segment_cluster_dict.values():
         constr = Constraint_Config(
             constraint_type="uniqueness",
             variable_type="catheter",
             maximum=1,
             segment_cluster_id=cluster.name_id,
-            variable_name_ids=[cluster.catheter]
+            variable_name_ids=cluster.catheter_name_ids
         )
-        uniqness_constraints[constr.name] = constr
+        uniqness_constraints[constr.name_id] = constr
 
     # # Catheter Num Constraints
     for segment in cluster_box.all_segments_dict[0][:]:

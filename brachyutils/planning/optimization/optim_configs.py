@@ -139,7 +139,7 @@ minimum value for constrant {self.name_id}")
 
     @computed_field
     @property
-    def name_id(self):
+    def name_id(self) -> str:
         r"""
         ### Purpose:
         - The computed `name_id` is built automatically from the constraint
