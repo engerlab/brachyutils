@@ -46,7 +46,7 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
 
     # # Uniqueness constraints
     uniqness_constraints = defaultdict()
-    for cluster in cluster_box.segment_cluster_dict.values():
+    for cluster in cluster_box.cluster_dict.values():
         constr = Constraint_Config(
             constraint_type="uniqueness",
             variable_type="catheter",
@@ -71,4 +71,6 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     catheter_num_constraint[constr.name_id] = constr
     
     # # Continuity Constraint
-    # TODO: priority 1 fill it in
+    # relevant_depths = range(cluster_box.num_decision_planes)[1:]
+    # for d in relevant_depths:
+    #     # for cluster in cluster_box.cluster_dict

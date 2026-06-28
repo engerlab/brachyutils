@@ -140,7 +140,7 @@ structures; Usually CTV or PTV.")
     box_margin_mm: float = Field(default=0, description="The margin between the box boundaries and the OARs")
     
     # # internal attributes
-    segment_cluster_dict: Dict[str, SegmentCluster] = Field(default=None)
+    cluster_dict: Dict[str, SegmentCluster] = Field(default=None)
     # index of a segment in the box, when we get all segments
     # the keys are the depth, cluster index, segment index
     _cached_segment_dict: List[Segment] = None
@@ -171,7 +171,7 @@ structures; Usually CTV or PTV.")
             bb_margin_mm = self.box_margin_mm,
         )
         # # get the segment clusters and segments from plane dict.
-        self.segment_cluster_dict = get_segment_cluster_from_planes(plane_dict=self._plane_dict)
+        self.cluster_dict = get_segment_cluster_from_planes(plane_dict=self._plane_dict)
         return self
 
     @computed_field
@@ -210,8 +210,7 @@ structures; Usually CTV or PTV.")
             return self._cached_segment_dict
         else:
             self._cached_segment_dict = defaultdict(dict)
-            for cluster in self.segment_cluster_dict.values():
-                # for segment in cluster.segment_dict.values():
+            for cluster in self.cluster_dict.values():
                 self._cached_segment_dict[cluster.depth][cluster.index] = cluster.segment_dict 
             return self._cached_segment_dict
 
@@ -224,6 +223,16 @@ structures; Usually CTV or PTV.")
                 for val in level2.values():
                     flat.append(val)
         return flat
+
+    def __iter__(self):
+        for cluster in self.cluster_dict.values():
+            yield cluster
+
+    def __len__(self):
+        return len(self.cluster_dict)
+
+    def __getitem__(self, key):
+        pass
 
     def get_colliding_segments(self) -> Dict[str, List[str]]:
         r"""
