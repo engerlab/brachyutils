@@ -131,6 +131,7 @@ def test_cluster_box(
     num_decision_planes=3
     rotation_angle_deg=12
     box_margin = 5
+    num_physical_catheters = 5
 
     cc_box = ClusterBox(
         structure_dict = structure_dict,
@@ -141,6 +142,7 @@ def test_cluster_box(
         num_decision_planes=num_decision_planes,
         rotation_angle_deg=rotation_angle_deg,
         box_margin_mm=box_margin,
+        num_physical_catheters=num_physical_catheters,
     )
     if export_to_ply:
         cc_box.to_ply(out_ply_dir=outdir)

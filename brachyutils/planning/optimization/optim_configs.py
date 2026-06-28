@@ -96,19 +96,20 @@ but {len(self.variable_name_ids)} was provided.")
             if len(self.variable_name_ids) < 1:
                 raise ValueError("Provide at lease 1 variable name id for the sum constraint.")
 
-        if self.variable_type == "catheter":
-            if (
-                (not _is_binary_or_None(self.minimum))
-                or (not _is_binary_or_None(self.maximum))
-                or (not _is_binary_or_None(self.equal))):
-                raise ValueError(f"minimum, maximum and equality constraints for {self.name_id} \
-must be binary values (0 or 1)")
+        if (self.variable_type == "catheter"):
+            if  self.constraint_type == "bound":
+                if (
+                    (not _is_binary_or_None(self.minimum))
+                    or (not _is_binary_or_None(self.maximum))
+                    or (not _is_binary_or_None(self.equal))):
+                    raise ValueError(f"minimum, maximum and equality constraints for {self.name_id} \
+    must be binary values (0 or 1)")
             if (self.constraint_type == "num_catheters"
                 or self.constraint_type == "sum"):
                 if (
                     (not (isinstance(self.minimum, int) or self.minimum is None))
                     or (not isinstance(self.maximum, int) or self.maximum is None)
-                    or (not isinstance(self.equal, int) or self.equal is None)):
+                    or (not (isinstance(self.equal, int) or self.equal is None))):
                     raise ValueError(f"minimum, maximum and equality constraints for {self.name_id} \
     must be integer values")
             for name_id in self.variable_name_ids:
