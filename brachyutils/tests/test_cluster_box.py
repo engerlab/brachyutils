@@ -179,6 +179,7 @@ def test_cluster_box_getitem():
     found_segs =  cluster_box[1][1:3][0:1]
     print(f"length of foun segs: {len(found_segs)}")
     print(f"type of found segs: {type(found_segs)}")
+    print(cluster_box[0][:][:])
 
 if __name__ == "__main__":
     # test_obb_planes()
