@@ -1,5 +1,5 @@
 import os 
-from typing import List, Dict, Sequence, Union
+from typing import List, Dict, Sequence, Union, Tuple
 from itertools import combinations
 import json
 import numpy as np
@@ -1204,13 +1204,13 @@ def create_marker_pts_from_catheter_table(
     out_dir = os.path.dirname(output_path)
     out_name = os.path.basename(output_path)[:-9]
     os.makedirs(out_dir, exist_ok=True)
-    for catheter_idx, catheter in enumerate(catheter_table.get("catheter_list")):
+    for catheter_idx, catheter in catheter_table.get("catheters_dict").items():
         point_list = [dp["position"] for dp in catheter["dwells"]]
         if one_markup_per_catheter:
             outpath = os.path.join(out_dir,f"{out_name}_{catheter_idx}.mrk.json")
         else:
             outpath = os.path.join(out_dir,f"{out_name}.mrk.json")
-        if catheter_idx==0 or one_markup_per_catheter:
+        if catheter_idx=='1' or one_markup_per_catheter:
             slicer_dict = create_slicer_markup_points(
                 outpath, point_list, color=color, remove_text=remove_text)
         else:
@@ -1458,7 +1458,7 @@ def get_non_zeros_bounds(volume:sitk.Image, margin_mm:float=0.0):
 def compute_new_origin_for_resampling(
     image: sitk.Image,
     new_spacing: Sequence[float] = [1.0, 1.0, 1.0],
-) -> sitk.Image:
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Resize an image to an arbitrary size while retaining the original image's spatial location.
 
@@ -1493,4 +1493,4 @@ def compute_new_origin_for_resampling(
             new_spacing[i] / image.GetSpacing()[i]
         )
     new_origin = image.TransformContinuousIndexToPhysicalPoint(new_origin_cidx)
-    return new_origin
+    return new_origin, image.GetSize()
