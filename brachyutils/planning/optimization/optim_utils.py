@@ -51,11 +51,13 @@ def resample_crop_the_mask_or_contour_to_optimGrid(
     if not(structure_mask.hasSameGrid(template_dose_obj.dose_image)):
         origin_for_resampling = template_dose_obj.dose_image.origin
         spacing_for_resampling = template_dose_obj.dose_image.spacing
+        gridSize_for_resampling = template_dose_obj.dose_image.gridSize
         need_resampling = True
+
     if optim_spacing is not None:
         spacing_for_resampling = [optim_spacing]*3 if isinstance(optim_spacing, float) else optim_spacing
         if shift_origin:
-            origin_for_resampling = compute_new_origin_for_resampling(
+            origin_for_resampling, gridSize_for_resampling = compute_new_origin_for_resampling(
                 image3DToSITK(template_dose_obj.dose_image), 
                 new_spacing=spacing_for_resampling
             )
@@ -67,7 +69,8 @@ def resample_crop_the_mask_or_contour_to_optimGrid(
             inPlace=False,
             fillValue=0,
             origin=origin_for_resampling,
-            sitk_interpolator=sitk_interpolator_contour
+            sitk_interpolator=sitk_interpolator_contour,
+            gridSize=gridSize_for_resampling,
         )
     # crop the structure mask to the roi bounds
     if roi_bounds is not None:
@@ -120,7 +123,7 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
         if isinstance(optim_spacing, float):
             optim_spacing = [optim_spacing] * 3
         if shift_origin:
-            origin_for_resampling = compute_new_origin_for_resampling(
+            origin_for_resampling, gridSize_for_resampling = compute_new_origin_for_resampling(
                 image3DToSITK(dose_rate_img), 
                 new_spacing=optim_spacing
             )
@@ -131,6 +134,7 @@ def resample_mask_crop_the_doseRateMap_to_optimGrid(
             spacing=optim_spacing,
             inPlace=True,
             origin=origin_for_resampling,
+            gridSize=gridSize_for_resampling,
             sitk_interpolator=sitk_interpolator_dose
             )
     # crop the dose rate map to the roi bounds
