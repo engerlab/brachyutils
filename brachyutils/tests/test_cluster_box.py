@@ -181,10 +181,10 @@ def test_cluster_getitem():
 
 def test_cluster_box_getitem():
     cluster_box = test_cluster_box(return_box=True)
-    type(cluster_box[1][4][3])
-    print(cluster_box["(1,4)_4"])
-    print(cluster_box[0][:])
+    # print(cluster_box["(1,43)_3"])
+    print(cluster_box[1])
     
+
     
 if __name__ == "__main__":
     # test_obb_planes()

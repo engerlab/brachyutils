@@ -253,18 +253,13 @@ structures; Usually CTV or PTV.")
         else:
             self._cached_segment_dict = defaultdict(dict)
             for cluster in self.cluster_dict.values():
-                self._cached_segment_dict[cluster.depth][cluster.index] = cluster.segment_dict 
+                for segment in cluster.segment_dict:
+                    self._cached_segment_dict[(cluster.depth, cluster.index, segment.index)] = segment 
             return self._cached_segment_dict
 
     @ computed_field
     def all_segments_list(self) -> List[Segment]:
-        outer = self.all_segments_dict
-        flat = []
-        for level1 in outer.values():
-            for level2 in level1.values():
-                for val in level2.values():
-                    flat.append(val)
-        return flat
+        return list(self.all_segments_list.values())
 
     @computed_field
     def num_segments(self) -> int:
@@ -280,74 +275,40 @@ structures; Usually CTV or PTV.")
     def __getitem__(
         self,
         indices: int | slice | str) -> Union[
-            Segment, SegmentCluster, Dict[str, Segment], Dict[int, SegmentCluster]
+            Segment, Dict[str, Segment]
         ]:
         r"""
         ### Purpose:
-        - To get the right clusters or segments based on the indices provided.
+        - To get the right segments based on the indices provided.
+        If you want a specific cluster, use cluster_dict
 
         ### Inputs:
         - indices: int | slice | str := The indices could be in many forms:
-            1. [str] : Will return the cluster if the string matches "({cluster.depth},{cluster.index+1})".
-            If the format matches "({cluster.depth},{cluster.index+1})_{segment.index+1}", it will return
-            the corresponding segment.
-            2. [int]: This will get you all the clusters with cluster.depth == indices
+            1. [str] : Will return the segment if the string matches
+            "({cluster.depth},{cluster.index+1})_{segment.index+1}".
+            2. [int]: This will get you all the segments with cluster.depth == indices
             3. [int][int]: This will get you all the segments at cluster.depth, cluster.index == indices
             4. [int][int][int]: This will get you a single segment at
             cluster.depth, cluster.index, segment.index == indices
-            5. [slice]: This will get you all the clusters with cluster.depth in indices
-            6. [slice][slice]: This will get you all the clusters with cluster.depth, cluster.index in indices
+            5. [slice]: This will get you all the segments with cluster.depth in indices
+            6. [slice][slice]: This will get you all the segments with cluster.depth, cluster.index in indices
             7. [slice][slice][slice]: This will get you all the segments with
             cluster.depth, cluster.index, segment.index in indices
         """
+        return_dict = defaultdict(Segment)
 
-        # ------------------------------------------------------------------ #
-        # 1. String → SegmentCluster or Segment                               #
-        # ------------------------------------------------------------------ #
         if isinstance(indices, str):
-            # "(depth,index+1)_segment+1"  →  Segment
-            if "_" in indices:
-                cluster_key, seg_part = indices.rsplit("_", 1)
-                cluster_key = cluster_key.strip()
-                if cluster_key not in self.cluster_dict:
-                    raise KeyError(
-                        f"No cluster with key '{cluster_key}' in ClusterBox."
-                    )
-                seg_idx = int(seg_part) - 1   # 1-based → 0-based
-                return self.cluster_dict[cluster_key].segment_dict[seg_idx]
-
-            # "(depth,index+1)"  →  SegmentCluster
-            key = indices.strip()
-            if key not in self.cluster_dict:
-                raise KeyError(f"No cluster with key '{key}' in ClusterBox.")
-            return self.cluster_dict[key]
-
-        # ------------------------------------------------------------------ #
-        # 2. Integer → depth level                                            #
-        # ------------------------------------------------------------------ #
+            # Return the segment described by the string.
+            depth_cluster, segment = indices.split("_")
+            depth, cluster = depth_cluster.split("(")[-1].split(")")[0].split(",")
+            depth, cluster, segment = int(depth), int(cluster)-1, int(segment)-1
+            segment_found = self.all_segments_dict[depth][cluster][segment]
+            return segment_found
         if isinstance(indices, int):
-            depth = indices
-            # Returns a _DepthView proxy so [int][int] and [int][int][int] chain works
-            return _DepthView(
-                segments_dict=self.all_segments_dict,
-                depth=depth
-            )
-
-        # ------------------------------------------------------------------ #
-        # 3. Slice → across depths                                            #
-        # ------------------------------------------------------------------ #
-        if isinstance(indices, slice):
-            all_depths = sorted(self.all_segments_dict.keys())
-            selected_depths = all_depths[indices]
-            return _SliceView(
-                segments_dict=self.all_segments_dict,
-                selected_depths=selected_depths
-            )
-
-        raise TypeError(
-            f"Unsupported index type '{type(indices).__name__}'. "
-            f"Expected int, slice, or str."
-        )
+            cluster_dict = self.all_segments_dict[indices]
+            print("debug here")
+            for cluster in cluster_dict.values():
+                
 
     def get_colliding_segments(self) -> Dict[str, List[str]]:
         r"""
@@ -428,190 +389,3 @@ def get_clusters_from_planes(
             cluster_dict[cluster.name_id] = cluster
     return cluster_dict
 
-
-class _DepthView(dict):
-    r"""
-    Returned by ClusterBox[int_depth].
-    Wraps all_segments_dict[depth] and supports:
-        [int]   → Dict[int, Segment]   (all segments of that cluster)
-        [int][int] → Segment
-        [slice] → Dict[int, Dict[int, Segment]]
-        [slice][slice] → Dict[int, Segment]  (flat)
-    """
-
-    def __init__(self, segments_dict: dict, depth: int):
-        if depth not in segments_dict:
-            raise KeyError(f"No clusters found at depth {depth}.")
-        self._data = segments_dict[depth]   # {cluster_idx: {seg_idx: Segment}}
-
-    # Make it behave like a dict when the caller doesn't chain further
-    def __repr__(self):
-        return repr(self._data)
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def items(self):
-        return self._data.items()
-
-    def values(self):
-        return self._data.values()
-
-    def keys(self):
-        return self._data.keys()
-
-    def __getitem__(self, indices: int | slice) -> Union[
-        Segment, Dict[int, Segment], "_ClusterIndexView"
-    ]:
-        # [int]   → Dict[int, Segment]  i.e. all segments of cluster `indices`
-        if isinstance(indices, int):
-            cluster_idx = indices
-            if cluster_idx not in self._data:
-                raise KeyError(
-                    f"No cluster at index {cluster_idx} for this depth."
-                )
-            return _ClusterIndexView(self._data[cluster_idx])
-
-        # [slice] → filtered {cluster_idx: {seg_idx: Segment}}
-        if isinstance(indices, slice):
-            all_cluster_keys = sorted(self._data.keys())
-            selected_keys = all_cluster_keys[indices]
-            subset = {k: self._data[k] for k in selected_keys}
-            return _ClusterSliceView(subset)
-
-        raise TypeError(
-            f"Unsupported index type '{type(indices).__name__}' "
-            f"at cluster level. Expected int or slice."
-        )
-
-
-class _ClusterIndexView(dict):
-    r"""
-    Returned by ClusterBox[depth][cluster_idx].
-    Wraps {seg_idx: Segment} and supports a further [int] or [slice].
-    """
-
-    def __init__(self, seg_dict: dict):
-        self._data = seg_dict   # {seg_idx: Segment}
-
-    def __repr__(self):
-        return repr(self._data)
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def items(self):
-        return self._data.items()
-
-    def values(self):
-        return self._data.values()
-
-    def keys(self):
-        return self._data.keys()
-
-    def __getitem__(self, indices: int | slice) -> Union[Segment, Dict[int, Segment]]:
-        # [int]   → single Segment
-        if isinstance(indices, int):
-            if indices not in self._data:
-                raise KeyError(f"No segment at index {indices}.")
-            return self._data[indices]
-
-        # [slice] → {seg_idx: Segment}
-        if isinstance(indices, slice):
-            all_seg_keys = sorted(self._data.keys())
-            selected_keys = all_seg_keys[indices]
-            return {k: self._data[k] for k in selected_keys}
-
-        raise TypeError(
-            f"Unsupported index type '{type(indices).__name__}' "
-            f"at segment level. Expected int or slice."
-        )
-
-
-class _ClusterSliceView(dict):
-    r"""
-    Returned by ClusterBox[depth][cluster_slice].
-    Wraps a subset of {cluster_idx: {seg_idx: Segment}} and supports
-    a further [slice] to filter segments.
-    """
-
-    def __init__(self, data: dict):
-        self._data = data   # {cluster_idx: {seg_idx: Segment}}
-
-    def __repr__(self):
-        return repr(self._data)
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def items(self):
-        return self._data.items()
-
-    def values(self):
-        return self._data.values()
-
-    def keys(self):
-        return self._data.keys()
-
-    def __getitem__(self, indices: slice) -> Dict[int, Segment]:
-        # [slice] → flat {seg_idx: Segment} across all selected clusters
-        if isinstance(indices, slice):
-            flat = {}
-            for seg_dict in self._data.values():
-                all_seg_keys = sorted(seg_dict.keys())
-                selected_keys = all_seg_keys[indices]
-                flat.update({k: seg_dict[k] for k in selected_keys})
-            return flat
-
-        raise TypeError(
-            f"Unsupported index type '{type(indices).__name__}' "
-            f"at segment level. Expected slice."
-        )
-
-
-class _SliceView(dict):
-    r"""
-    Returned by ClusterBox[depth_slice].
-    Wraps a subset of depths and supports:
-        [slice]        → _ClusterSliceView across all selected clusters
-        [slice][slice] → flat {seg_idx: Segment}
-    """
-
-    def __init__(self, segments_dict: dict, selected_depths: list):
-        self._data = {
-            d: segments_dict[d]
-            for d in selected_depths
-            if d in segments_dict
-        }   # {depth: {cluster_idx: {seg_idx: Segment}}}
-
-    def __repr__(self):
-        return repr(self._data)
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def items(self):
-        return self._data.items()
-
-    def values(self):
-        return self._data.values()
-
-    def keys(self):
-        return self._data.keys()
-
-    def __getitem__(self, indices: slice) -> "_ClusterSliceView":
-        if isinstance(indices, slice):
-            # Merge all cluster dicts from all selected depths
-            merged_clusters = {}
-            for cluster_dict in self._data.values():
-                all_keys = sorted(cluster_dict.keys())
-                selected_keys = all_keys[indices]
-                merged_clusters.update(
-                    {k: cluster_dict[k] for k in selected_keys}
-                )
-            return _ClusterSliceView(merged_clusters)
-
-        raise TypeError(
-            f"Unsupported index type '{type(indices).__name__}' "
-            f"at cluster level. Expected slice."
-        )

@@ -59,8 +59,8 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     # # Catheter Num Constraints
     catheter_num_constraint = {}
     segments_at_depth_0 = []
-    for i, segment in cluster_box.all_segments_dict[0][0].items():
-        segments_at_depth_0.append(segment.catheter_name_id)
+    for cluster in cluster_box[0].values():
+        segments_at_depth_0.append(cluster.catheter_name_id)
 
     constr = Constraint_Config(
         constraint_type="num_catheters",
