@@ -260,7 +260,7 @@ structures; Usually CTV or PTV.")
 
     @ computed_field
     def all_segments_list(self) -> List[Segment]:
-        return list(self.all_segments_list.values())
+        return list(self.all_segments_dict.values())
 
     @computed_field
     def num_segments(self) -> int:
