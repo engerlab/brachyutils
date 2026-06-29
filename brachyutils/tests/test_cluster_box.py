@@ -158,15 +158,7 @@ def test_catheter_table_from_clusterbox():
 def test_all_segment_dict():
     cc_box = test_cluster_box(True)
     seg_dict = cc_box.all_segments_dict
-    depth_keys = list(seg_dict.keys())
-    cluster_indicies = [list(cl_dict.keys()) for cl_dict in seg_dict.values()]
-    print("depth keys are:")
-    print(depth_keys)
-    print("cluster indicies are:")
-    print(cluster_indicies)
-
-    print(seg_dict[1][30][2])
-
+    print(seg_dict[(1,30,2)])
 
 def test_cluster_getitem():
     cluster_box = test_cluster_box(return_box=True)
@@ -181,8 +173,8 @@ def test_cluster_getitem():
 
 def test_cluster_box_getitem():
     cluster_box = test_cluster_box(return_box=True)
-    # print(cluster_box["(1,43)_3"])
-    print(cluster_box[1])
+    print(cluster_box["(1,43)_3"])
+    # print(cluster_box[1])
     
 
     
@@ -193,6 +185,6 @@ if __name__ == "__main__":
     # test_gen_catheter_table_from_contours()
     # test_cluster_box()
     # test_catheter_table_from_clusterbox()
-    # test_all_segment_dict()
+    test_all_segment_dict()
     # test_cluster_getitem()
-    test_cluster_box_getitem()
+    # test_cluster_box_getitem()

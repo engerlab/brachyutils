@@ -1,6 +1,6 @@
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Tuple
 import numpy as np
 import trimesh
 from collections import defaultdict
@@ -242,7 +242,7 @@ structures; Usually CTV or PTV.")
             return self._cached_catheter_table
 
     @computed_field
-    def all_segments_dict(self) -> Dict[int, Segment]:
+    def all_segments_dict(self) -> Dict[Tuple[int, int, int], Segment]:
         r"""
         ###  Purpose:
         - To return a dictionary with all the catheter segments gathered from all the clusters.
@@ -251,9 +251,9 @@ structures; Usually CTV or PTV.")
         if self._cached_segment_dict is not None:
             return self._cached_segment_dict
         else:
-            self._cached_segment_dict = defaultdict(dict)
+            self._cached_segment_dict = defaultdict(Segment)
             for cluster in self.cluster_dict.values():
-                for segment in cluster.segment_dict:
+                for segment in cluster.segment_dict.values():
                     self._cached_segment_dict[(cluster.depth, cluster.index, segment.index)] = segment 
             return self._cached_segment_dict
 
@@ -302,12 +302,13 @@ structures; Usually CTV or PTV.")
             depth_cluster, segment = indices.split("_")
             depth, cluster = depth_cluster.split("(")[-1].split(")")[0].split(",")
             depth, cluster, segment = int(depth), int(cluster)-1, int(segment)-1
-            segment_found = self.all_segments_dict[depth][cluster][segment]
-            return segment_found
+            found_segment =  self.all_segments_dict[(depth,cluster,segment)]
+            return found_segment
+
         if isinstance(indices, int):
             cluster_dict = self.all_segments_dict[indices]
             print("debug here")
-            for cluster in cluster_dict.values():
+            # for cluster in cluster_dict.values():
                 
 
     def get_colliding_segments(self) -> Dict[str, List[str]]:
