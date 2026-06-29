@@ -429,7 +429,7 @@ def get_clusters_from_planes(
     return cluster_dict
 
 
-class _DepthView:
+class _DepthView(dict):
     r"""
     Returned by ClusterBox[int_depth].
     Wraps all_segments_dict[depth] and supports:
@@ -485,7 +485,7 @@ class _DepthView:
         )
 
 
-class _ClusterIndexView:
+class _ClusterIndexView(dict):
     r"""
     Returned by ClusterBox[depth][cluster_idx].
     Wraps {seg_idx: Segment} and supports a further [int] or [slice].
@@ -528,7 +528,7 @@ class _ClusterIndexView:
         )
 
 
-class _ClusterSliceView:
+class _ClusterSliceView(dict):
     r"""
     Returned by ClusterBox[depth][cluster_slice].
     Wraps a subset of {cluster_idx: {seg_idx: Segment}} and supports
@@ -569,7 +569,7 @@ class _ClusterSliceView:
         )
 
 
-class _SliceView:
+class _SliceView(dict):
     r"""
     Returned by ClusterBox[depth_slice].
     Wraps a subset of depths and supports:
