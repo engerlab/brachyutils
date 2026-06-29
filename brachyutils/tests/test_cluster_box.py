@@ -179,6 +179,13 @@ def test_cluster_getitem():
     print("test get segment by slice")
     print(cluster[1:])
 
+def test_cluster_box_getitem():
+    cluster_box = test_cluster_box(return_box=True)
+    type(cluster_box[1][4][3])
+    print(cluster_box["(1,4)_4"])
+    print(cluster_box[0][:])
+    
+    
 if __name__ == "__main__":
     # test_obb_planes()
     # test_get_segment_lines()
@@ -187,5 +194,5 @@ if __name__ == "__main__":
     # test_cluster_box()
     # test_catheter_table_from_clusterbox()
     # test_all_segment_dict()
-    test_cluster_getitem()
-    
+    # test_cluster_getitem()
+    test_cluster_box_getitem()
