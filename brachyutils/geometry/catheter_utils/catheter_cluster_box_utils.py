@@ -583,3 +583,33 @@ def segment_lines_to_ply(
         if tube is not None:
             path = out_ply_dir / f"line_{i:03d}.ply"
             tube.export(path)
+
+class TupleKeyDict(dict):
+    def __init__(self, data, _dim=0):
+        # data is a dict with tuple(int,int,int) keys
+        self.data = data
+        self._dim = _dim  # which dimension the next [...] applies to
+
+    def __getitem__(self, item):
+        # Filter keys where key[self._dim] matches item (slice or int)
+        all_keys = sorted(self.data.keys())  # sort for consistent slicing
+        dim_values = sorted(set(k[self._dim] for k in all_keys))
+
+        # Apply the slice/index to the unique values of this dimension
+        if isinstance(item, slice):
+            matching_values = set(dim_values[item])
+            filtered = {k: v for k, v in self.data.items()
+                        if k[self._dim] in matching_values}
+            return TupleKeyDict(filtered, self._dim + 1)
+
+        elif isinstance(item, int):
+            target = dim_values[item]  # support negative indexing too
+            filtered = {k: v for k, v in self.data.items()
+                        if k[self._dim] == target}
+            # Last dimension — return values directly if only one result
+            if self._dim == 2:
+                return list(filtered.values())[0] if len(filtered) == 1 else filtered
+            return TupleKeyDict(filtered, self._dim + 1)
+
+    def __repr__(self):
+        return f"TupleKeyDict({self.data})"

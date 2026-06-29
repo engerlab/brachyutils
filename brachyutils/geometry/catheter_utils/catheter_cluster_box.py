@@ -11,6 +11,7 @@ from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
     generate_candidate_segments,
     decision_planes_to_ply,
     segment_lines_to_ply,
+    TupleKeyDict
     )
 
 class Segment(BaseModel):
@@ -254,8 +255,8 @@ structures; Usually CTV or PTV.")
             self._cached_segment_dict = defaultdict(Segment)
             for cluster in self.cluster_dict.values():
                 for segment in cluster.segment_dict.values():
-                    self._cached_segment_dict[(cluster.depth, cluster.index, segment.index)] = segment 
-            return self._cached_segment_dict
+                    self._cached_segment_dict[(cluster.depth, cluster.index, segment.index)] = segment
+            return TupleKeyDict(self._cached_segment_dict)
 
     @ computed_field
     def all_segments_list(self) -> List[Segment]:
@@ -306,8 +307,7 @@ structures; Usually CTV or PTV.")
             return found_segment
 
         if isinstance(indices, int):
-            cluster_dict = self.all_segments_dict[indices]
-            print("debug here")
+            num_clusters = len(self.cluster_dict)
             # for cluster in cluster_dict.values():
                 
 
@@ -389,4 +389,3 @@ def get_clusters_from_planes(
             cluster.segment_dict = segment_dict
             cluster_dict[cluster.name_id] = cluster
     return cluster_dict
-
