@@ -174,7 +174,11 @@ def test_cluster_getitem():
 def test_cluster_box_getitem():
     cluster_box = test_cluster_box(return_box=True)
     print(cluster_box["(1,43)_3"])
+    print(cluster_box["(1,43)_2"])
     # print(cluster_box[1])
+    found_segs =  cluster_box[1][1:3][0:1]
+    print(f"length of foun segs: {len(found_segs)}")
+    print(f"type of found segs: {type(found_segs)}")
 
 if __name__ == "__main__":
     # test_obb_planes()
@@ -183,6 +187,6 @@ if __name__ == "__main__":
     # test_gen_catheter_table_from_contours()
     # test_cluster_box()
     # test_catheter_table_from_clusterbox()
-    test_all_segment_dict()
+    # test_all_segment_dict()
     # test_cluster_getitem()
-    # test_cluster_box_getitem()
+    test_cluster_box_getitem()

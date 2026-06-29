@@ -613,3 +613,12 @@ class TupleKeyDict(dict):
 
     def __repr__(self):
         return f"TupleKeyDict({self.data})"
+    
+    def __len__(self):
+        return len(self.data)
+
+    def keys(self):
+        return self.data.keys()
+
+    def values(self):
+        return self.data.values()

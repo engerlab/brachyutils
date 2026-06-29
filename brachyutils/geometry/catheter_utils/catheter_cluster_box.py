@@ -186,7 +186,7 @@ structures; Usually CTV or PTV.")
     cluster_dict: Dict[str, SegmentCluster] = Field(default=None)
     # index of a segment in the box, when we get all segments
     # the keys are the depth, cluster index, segment index
-    _cached_segment_dict: Dict[int, Segment] = None
+    _cached_segment_dict: TupleKeyDict = None
     _cached_catheter_table: CatheterTable = None
 
     _plane_dict: Dict[str, Decision_Plane]
@@ -243,16 +243,16 @@ structures; Usually CTV or PTV.")
             return self._cached_catheter_table
 
     @computed_field
-    def all_segments_dict(self) -> Dict[Tuple[int, int, int], Segment]:
+    def all_segments_dict(self) -> TupleKeyDict:
         r"""
         ###  Purpose:
         - To return a dictionary with all the catheter segments gathered from all the clusters.
         The keys are [depth][cluster index][segment index]
         """
         if self._cached_segment_dict is not None:
-            return self._cached_segment_dict
+            return TupleKeyDict(self._cached_segment_dict)
         else:
-            self._cached_segment_dict = defaultdict(Segment)
+            self._cached_segment_dict = {} #defaultdict(Segment)
             for cluster in self.cluster_dict.values():
                 for segment in cluster.segment_dict.values():
                     self._cached_segment_dict[(cluster.depth, cluster.index, segment.index)] = segment
@@ -276,7 +276,7 @@ structures; Usually CTV or PTV.")
     def __getitem__(
         self,
         indices: int | slice | str) -> Union[
-            Segment, Dict[str, Segment]
+            Segment, Dict[str, Segment], TupleKeyDict
         ]:
         r"""
         ### Purpose:
@@ -295,9 +295,11 @@ structures; Usually CTV or PTV.")
             6. [slice][slice]: This will get you all the segments with cluster.depth, cluster.index in indices
             7. [slice][slice][slice]: This will get you all the segments with
             cluster.depth, cluster.index, segment.index in indices
+        
+        ### Outputs:
+        - Either a single Segment or a dictionary of Segments where keys are:
+            ({cluster.depth}, {cluster.index}, {segment.index+})
         """
-        return_dict = defaultdict(Segment)
-
         if isinstance(indices, str):
             # Return the segment described by the string.
             depth_cluster, segment = indices.split("_")
@@ -305,12 +307,9 @@ structures; Usually CTV or PTV.")
             depth, cluster, segment = int(depth), int(cluster)-1, int(segment)-1
             found_segment =  self.all_segments_dict[(depth,cluster,segment)]
             return found_segment
-
-        if isinstance(indices, int):
-            num_clusters = len(self.cluster_dict)
-            # for cluster in cluster_dict.values():
-                
-
+        else:
+            return self.all_segments_dict[indices]
+                        
     def get_colliding_segments(self) -> Dict[str, List[str]]:
         r"""
         ### Purpose:
