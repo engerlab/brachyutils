@@ -71,6 +71,8 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     catheter_num_constraint[constr.name_id] = constr
 
     # # Continuity Constraint
-    relevant_depths = range(cluster_box.num_decision_planes)[1:]
-    for d in relevant_depths:
-        # for cluster in cluster_box.cluster_dict
+    
+    for cluster in cluster_box:
+        if cluster.depth == 0:
+            continue
+        

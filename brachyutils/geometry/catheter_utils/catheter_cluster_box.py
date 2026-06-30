@@ -317,22 +317,34 @@ structures; Usually CTV or PTV.")
         The key is the segment name_id, and the value is a list of name_ids of segments that collide with it.
         """
         pass
-
-    def get_segments_at_depth(self, depth: int) -> Dict[str, Segment]:
-        r"""
-        ### Purpose:
-        - To get all the segments at a specific depth in the catheter box.
-        The depth of the root cluster is 0, the depth of its children is 1, and so on.
-        """
         
-    def get_parent_segments(self, segment_name_id: str) -> Dict[str, Segment]:
+    def get_parent_segments(
+        self,
+        cluster_name_id: str,
+        parents_found:list[Segment]=None,
+        ) -> List[Segment]:
         r"""
         ### Purpose:
-        - To get all the parent segments of a specific segment in the catheter box.
+        - To get all the parent segments of a specific cluster in the catheter box.
         The parent segments are the segments that are on the same chain of segments
         leading to the root cluster.
         """
-        pass
+        # depth, cluster_name = cluster_name_id.split("(")[-1].split(")")[0].split(",")
+        # depth, cluster_index = int(depth), int(cluster_name)-1
+        this_cluster = self.cluster_dict[cluster_name_id]
+        if this_cluster.depth == 0:
+            return parents_found
+        if parents_found is None:
+            parents_found = []
+        shallower_segments = list(self[this_cluster.depth-1].values())
+        for possible_parent_segment in shallower_segments:
+            if this_cluster.insert_position == possible_parent_segment.line[1]:
+                parents_found.append(possible_parent_segment)
+                return self.get_parent_segments(
+                    possible_parent_segment.cluster_name_id,
+                    parents_found=parents_found
+                )
+
 
     def to_ply(self, out_ply_dir:str | Path):
         r"""

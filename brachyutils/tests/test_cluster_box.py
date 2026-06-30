@@ -181,6 +181,13 @@ def test_cluster_box_getitem():
     print(f"type of found segs: {type(found_segs)}")
     print(cluster_box[0][:][:])
 
+def test_get_parent_segments():
+    c_box = test_cluster_box(return_box=True)
+    child_cluster_name = "(1,23)"
+    parents = c_box.get_parent_segments(child_cluster_name)
+    print(len(parents))
+    print(parents)
+
 if __name__ == "__main__":
     # test_obb_planes()
     # test_get_segment_lines()
@@ -190,4 +197,5 @@ if __name__ == "__main__":
     # test_catheter_table_from_clusterbox()
     # test_all_segment_dict()
     # test_cluster_getitem()
-    test_cluster_box_getitem()
+    # test_cluster_box_getitem()
+    test_get_parent_segments()
