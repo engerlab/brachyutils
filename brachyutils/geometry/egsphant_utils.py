@@ -22,8 +22,10 @@ class BrachyEgsphant:
         - material_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding material per voxel
         - density_image: opentps.core.data.images.Image3D [x, y, z] := a 3D image object holding density per voxel
         - num_materials: int := the number of different material composition options a voxel has
-        - material_dict: dict := a dictionary containing the name of the elements for each voxel,
+        - material_dict: dict := a dictionary containing the name of each material, with the value as another dictionary
         and the following keys: [
+            "index" := the integer index of the material in the material matrix,
+            "encoding" := the encoding of the material in the material matrix,
             "density" := the density of the material in g/cm^3,
             "HU_limit" := the upper HU limit threshold of the material,
             "structure_name := {optional} the name of the structure in the dicom file that represents the material,"
@@ -56,10 +58,12 @@ class BrachyEgsphant:
 
     # each voxel in the material matrix is encoded with a single character
     # from this array that represents a unique material recognized by RapidBrachyMC.
-    _materials_encoding_array = [str(i) for i in range(1, 10)] + [
+    _MATERIALS_ENCODING_CHAR = [chr(i) for i in range(ord("1"), ord("9") + 1)] + [
         chr(i) for i in range(ord("A"), ord("Z") + 1)] + [
         chr(i) for i in range(ord("a"), ord("z") + 1)
         ]
+    
+    _MATERIALS_ENCODING_INT = [i for i in range(100)] #is this redundant? a bit... just leaving this like this in case we want nrrd egsphants to start at 1
     
 
     def __init__(
@@ -95,7 +99,8 @@ class BrachyEgsphant:
         self.num_materials: int = None
         self.material_dict: defaultdict = defaultdict(dict)
         self.material_dict["Air"] = {
-            "encoding": BrachyEgsphant._materials_encoding_array[0],
+            "index" : BrachyEgsphant._MATERIALS_ENCODING_INT[0],
+            "encoding": BrachyEgsphant._MATERIALS_ENCODING_CHAR[0],
             "density": 0.001225,
             "HU_limit": -1000.0,
         }
@@ -191,7 +196,8 @@ class BrachyEgsphant:
             # load each material line by line
             for i in range(self.num_materials):
                 self.material_dict[egsphant.readline().strip()] = {
-                    "encoding": BrachyEgsphant._materials_encoding_array[i]
+                    "index" : BrachyEgsphant._MATERIALS_ENCODING_INT[i],
+                    "encoding": BrachyEgsphant._MATERIALS_ENCODING_CHAR[i]
                 }
 
             self._sort_materials_by("encoding")
@@ -462,7 +468,7 @@ class BrachyEgsphant:
             )
 
     def write_to_ctegsphant(self, fileName: Path):
-        r"""
+        r"""g
         Purpose:
             This function will write the contents of a BrachyEgsphant onto a text
             file with .egsphant extension.
@@ -587,8 +593,8 @@ class BrachyEgsphant:
         header = header | {
             "material_dict": {
             material: {
-                "encoding": get_material_value(
-                    str(self.material_dict[material].get("encoding"))),
+                "index" : self.material_dict[material].get("index"),
+                "encoding": self.material_dict[material].get("encoding"),
                 "density": float(self.material_dict.get(material).get("density")),
                 "HU_limit": (
                 float(self.material_dict.get(material).get("HU_limit"))
@@ -1074,8 +1080,9 @@ class BrachyEgsphant:
         # reset the encoding of the materials in the material dictionary
         for i, material in enumerate(self.material_dict):
             self.material_dict.get(material)["encoding"] = (
-                BrachyEgsphant._materials_encoding_array[i]
+                BrachyEgsphant._MATERIALS_ENCODING_CHAR[i]
             )
+            self.material_dict.get(material)["index"] = BrachyEgsphant._MATERIALS_ENCODING_CHAR[i]
 
 def _convert_material_matrix_to(
     material_matrix: np.ndarray, dtype: Union[int, str]
@@ -1096,9 +1103,7 @@ def _convert_material_matrix_to(
     flattened_array = material_matrix.flatten()
 
     if dtype is int:
-
         int_array = np.zeros_like(flattened_array, dtype=int)
-
         for i, string in enumerate(flattened_array):
             int_array[i] = get_material_value(query=string)
         return int_array.reshape(material_matrix.shape)
@@ -1115,26 +1120,30 @@ def _convert_material_matrix_to(
 
 def get_material_value(
     query: str | int,    
-    material_encoding_array: List[str]=BrachyEgsphant._materials_encoding_array,
+    material_encoding_array: List[str]=BrachyEgsphant._MATERIALS_ENCODING_CHAR,
 ):
     r"""
     ### Purpose:
-    - to get the appropriate material value from the material encoding array based on the query,
-    which can be either a string or an integer.
-    If the query is a string, the value will be index of that string + 1 in the material encoding array.
-    If the query is an integer, the value will be the string at index of that integer - 1 in the material encoding array.
+    - to get the appropriate material value from the material encoding
+    array based on the query, which can be either a string or an
+    integer.
+    If the query is a string, return the corresponding integer from
+    _MATERIALS_ENCODING_INT.
+    If the query is an integer, return the corresponding string from
+    _MATERIALS_ENCODING_CHAR.
     ### Inputs:
-    - query: str or int, the query to get the material value. If the query is a string,
-    it should be one of the strings in the material encoding array. If the query is an integer,
-    it should be between 1 and the length of the material encoding array.
-    - material_encoding_array: List[str], the list of strings that will be used to encode the string
-    enteries. The default value is BrachyEgsphant._materials_encoding_array, which is a list
-    of strings that will be used to encode the string enteries in the material matrix.
+    - query: str or int, the query to get the material value. If the
+    query is a string, it should be one of the strings in the material
+    encoding array. If the query is an integer, it should be one of the
+    integers in the material encoding int array.
+    - material_encoding_array: List[str], the list of strings that will
+    be used to encode the string entries. The default value is
+    BrachyEgsphant._MATERIALS_ENCODING_CHAR.
     """
     if isinstance(query, str):
-        return material_encoding_array.index(query)+1
+        return BrachyEgsphant._MATERIALS_ENCODING_INT[BrachyEgsphant._MATERIALS_ENCODING_CHAR.index(query)]
     elif isinstance(query, int):
-        return material_encoding_array.get(query-1, None)
+        return BrachyEgsphant._MATERIALS_ENCODING_CHAR[BrachyEgsphant._MATERIALS_ENCODING_INT.index(query)]
     else:
         raise Exception("query should be either a string or an integer")
 
@@ -1206,9 +1215,10 @@ def _load_material_dict(material_source: Union[Path, dict]):
             for i, line in enumerate(lines):
                 material, density, HU_limit = line.strip().split()
                 material_dict[material] = {
+                    "index" : BrachyEgsphant._MATERIALS_ENCODING_INT[i],
                     "density": float(density),
                     "HU_limit": float(HU_limit),
-                    "encoding": BrachyEgsphant._materials_encoding_array[i],
+                    "encoding": BrachyEgsphant._MATERIALS_ENCODING_CHAR[i],
                 }
         elif extension == ".json":
             material_dict = _load_json(pth_file)
@@ -1242,9 +1252,8 @@ def _load_material_dict(material_source: Union[Path, dict]):
                 f"no encoding was found for {material}, encoding will be set by the order of the material in the json file",
                 stacklevel=2,
             )
-            material_dict.get(material)["encoding"] = int(
-                BrachyEgsphant._materials_encoding_array[i]
-            )
+            material_dict.get(material)["encoding"] = BrachyEgsphant._MATERIALS_ENCODING_CHAR[i]
+            
 
     return material_dict
 
