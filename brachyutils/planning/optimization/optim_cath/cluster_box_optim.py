@@ -100,3 +100,10 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
                 variable_name_ids=[segment.catheter_name_id, col_seg.catheter_name_id]
             )
             collision_constraints[constr.name_id] = constr
+
+    return {
+        "uniqueness": uniqness_constraints,
+        "num_catheters": catheter_num_constraint,
+        "continuity": continuity_constraints,
+        "collision": collision_constraints
+    }
