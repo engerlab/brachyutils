@@ -33,7 +33,7 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
     """
     """
     def __init__(self,
-        dir_tg43_parameters: Optional[Union[Path, str]] = "microSelectron-v2_Consensus",
+        dir_tg43_parameters: Optional[Union[Path, str]] = "GenericHDR",
         dir_output : Optional[Union[Path, str]] = Path(),
         **calc_parameter_kwargs
         ) -> None:
