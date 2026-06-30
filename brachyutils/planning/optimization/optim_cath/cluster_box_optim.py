@@ -28,13 +28,15 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
         e_F (\sum_k^{F-1} c_k) = (F-1) c_{F} \\
         \forall c_k \textrm{ on the same chain of segments with length of F}, \quad e_F \in \{0,1\}
     $$
+    All segments sharing the same insertion point would have an identical continuity constraint.
 
     4. Collision Constraint: If a segment is selected, all segments that collide with it must not be selected.
     $$
         \sum_k c_k = 1\\
         \forall c_k \textrm{ in a collision cluster}\\
     $$
-    
+    The collision constraint is on a pair of colliding segments.
+
     ### Inputs:
     - cluster_box: ClusterBox := This object contains all the candidate catheter segments, organized
     by their cluster where they stem from.
@@ -85,3 +87,16 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
             parent_catheter_name_ids=[parent.catheter_name_id for parent in parents],
         )
         continuity_constraints[constr.name_id] = constr
+
+    # # Collision Constraint
+    collision_constraints = defaultdict(Constraint_Config)
+    for segment in cluster_box.all_segments_list:
+        colliding_segments = cluster_box.get_colliding_segments(segment=segment)
+        for col_seg in colliding_segments:
+            constr = Constraint_Config(
+                constraint_type="collision",
+                variable_type="catheter",
+                equal=1,
+                variable_name_ids=[segment.catheter_name_id, col_seg.catheter_name_id]
+            )
+            collision_constraints[constr.name_id] = constr

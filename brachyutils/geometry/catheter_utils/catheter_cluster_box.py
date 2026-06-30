@@ -310,27 +310,30 @@ structures; Usually CTV or PTV.")
         else:
             return self.all_segments_dict[indices]
                         
-    def get_colliding_segments(self) -> Dict[str, List[str]]:
+    def get_colliding_segments(self, segment:Segment) -> Dict[str, List[str]]:
         r"""
         ### Purpose:
         - To generate a dictionary of colliding segments for each segment in the catheter box.
         The key is the segment name_id, and the value is a list of name_ids of segments that collide with it.
         """
+        # TODO priority 1: figure this out
         pass
         
     def get_parent_segments(
         self,
         cluster_name_id: str,
-        parents_found:list[Segment]=None,
+        parents_found:List[Segment]=None,
         ) -> List[Segment]:
         r"""
         ### Purpose:
         - To get all the parent segments of a specific cluster in the catheter box.
         The parent segments are the segments that are on the same chain of segments
-        leading to the root cluster.
+        leading to the root cluster. This function looks for parents recursively.
+
+        ### Inputs:
+        - cluster_name_id: str := The string in the format (cluster.depth, cluster_index+1)
+        - parents_found: List[Segment] := The list of parents founds at an earlier iteration.
         """
-        # depth, cluster_name = cluster_name_id.split("(")[-1].split(")")[0].split(",")
-        # depth, cluster_index = int(depth), int(cluster_name)-1
         this_cluster = self.cluster_dict[cluster_name_id]
         if this_cluster.depth == 0:
             return parents_found
