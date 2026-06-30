@@ -75,6 +75,7 @@ class Constraint_Config(BaseModel):
     equal: int | float = None
     variable_name_ids: List[PatternDwell | PatternCatheter] = None
     segment_cluster_id: PatterCluster = None
+    parent_catheter_name_ids: List[PatternCatheter] = None
 
     @model_validator(mode="after")
     def sanity_check(self):
@@ -85,6 +86,8 @@ class Constraint_Config(BaseModel):
             if self.constraint_type in ["uniqueness", "continuity"]:
                 if self.segment_cluster_id is None:
                     raise ValueError(f"{self.constraint_type} constraint needs segment_cluster_id")
+                if self.constraint_type == "continuity" and self.parent_catheter_name_ids is None:
+                    raise ValueError(f"{self.constraint_type} needs parent catheter name ids")
             if self.constraint_type == "collision":
                 if len(self.variable_name_ids) != 2:
                     raise ValueError(f"Collision is only possible between two catheter variables, \
