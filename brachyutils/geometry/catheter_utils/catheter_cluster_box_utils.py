@@ -10,6 +10,7 @@ from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, Catheter
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen, Decision_Plane
 from math import radians
+from scipy.spatial import cKDTree
 
 # ══════════════════════════════════════════════════════
 #  PARAMETERS  — tune these
@@ -579,7 +580,7 @@ def segment_lines_to_ply(
     out_ply_dir = Path(out_ply_dir)
     out_ply_dir.mkdir(parents=True, exist_ok=True)
     for i, line in enumerate(point_pairs):
-        tube = line_to_tube(line[0], line[1], catheter_radius)
+        tube = line_to_tube(np.array(line[0]), np.array(line[1]), catheter_radius)
         if tube is not None:
             path = out_ply_dir / f"line_{i:03d}.ply"
             tube.export(path)
@@ -622,3 +623,119 @@ class TupleKeyDict(dict):
 
     def values(self):
         return self.data.values()
+
+
+def point_seg_distance(p, a, b):
+    """Distance from point(s) p to segment(s) a-b. All (M,3) or (3,)."""
+    p, a, b = map(np.atleast_2d, (p, a, b))
+    ab = b - a
+    t = np.clip(np.einsum('ij,ij->i', p - a, ab) / np.einsum('ij,ij->i', ab, ab), 0, 1)
+    return np.linalg.norm(p - (a + t[:, None] * ab), axis=1)
+
+def seg_seg_distance_vec(a0, a1, b0, b1):
+    """Vectorized segment-segment distance. Inputs (N,3). Returns dist, ptA, ptB."""
+    a0, a1, b0, b1 = map(np.atleast_2d, (a0, a1, b0, b1))
+    N = max(map(len, (a0, a1, b0, b1)))
+    a0, a1, b0, b1 = [np.broadcast_to(x, (N, 3)) for x in (a0, a1, b0, b1)]
+
+    A, B = a1 - a0, b1 - b0
+    magA, magB = np.linalg.norm(A, axis=1), np.linalg.norm(B, axis=1)
+    _A, _B = A / magA[:, None], B / magB[:, None]
+    cross = np.cross(_A, _B)
+    denom = np.einsum('ij,ij->i', cross, cross)
+
+    parallel = denom < 1e-12
+    dist = np.zeros(N)
+    ptA = np.zeros((N, 3))
+    ptB = np.zeros((N, 3))
+
+    # Non-parallel
+    mask = ~parallel
+    if mask.any():
+        t = b0[mask] - a0[mask]
+        detA = np.linalg.det(np.stack([t, _B[mask], cross[mask]], axis=1))
+        detB = np.linalg.det(np.stack([t, _A[mask], cross[mask]], axis=1))
+        t0 = np.clip(detA / denom[mask], 0, magA[mask])
+        t1 = np.clip(detB / denom[mask], 0, magB[mask])
+        ptA[mask] = a0[mask] + _A[mask] * t0[:, None]
+        ptB[mask] = b0[mask] + _B[mask] * t1[:, None]
+        dist[mask] = np.linalg.norm(ptA[mask] - ptB[mask], axis=1)
+
+    # Parallel: min of 4 endpoint-segment distances
+    if parallel.any():
+        idx = np.where(parallel)[0]
+        d = np.column_stack([
+            point_seg_distance(a0[idx], b0[idx], b1[idx]),
+            point_seg_distance(a1[idx], b0[idx], b1[idx]),
+            point_seg_distance(b0[idx], a0[idx], a1[idx]),
+            point_seg_distance(b1[idx], a0[idx], a1[idx]),
+        ])
+        mi = np.argmin(d, axis=1)
+        dist[idx] = d[np.arange(len(idx)), mi]
+        for k, i in enumerate(idx):
+            if mi[k] == 0: ptA[i], ptB[i] = _closest(a0[i], b0[i], b1[i]), b0[i]
+            elif mi[k] == 1: ptA[i], ptB[i] = _closest(a1[i], b0[i], b1[i]), b0[i]
+            elif mi[k] == 2: ptB[i], ptA[i] = _closest(b0[i], a0[i], a1[i]), a0[i]
+            else: ptB[i], ptA[i] = _closest(b1[i], a0[i], a1[i]), a0[i]
+
+    return dist, ptA, ptB
+
+def _closest(p, a, b):
+    ab = b - a
+    t = np.clip(np.dot(p - a, ab) / np.dot(ab, ab), 0, 1)
+    return a + t * ab
+
+def find_colliding_pairs(starts, ends, danger_mm, chunk_size=5000):
+    """
+    Find segment pairs closer than danger_mm, excluding:
+    - pairs with same start point (starts[i] == starts[j])
+    - pairs where start of one == end of other (starts[i] == ends[j] or starts[j] == ends[i])
+    
+    Returns: pairs (K,2), dists (K,), pts_a (K,3), pts_b (K,3)
+    """
+    N = len(starts)
+    mids = (starts + ends) * 0.5
+    half_lens = np.linalg.norm(ends - starts, axis=1) * 0.5
+
+    tree = cKDTree(mids)
+    radius = danger_mm + half_lens.max()
+    cand = tree.query_pairs(r=radius, output_type='ndarray')
+    if len(cand) == 0:
+        return np.empty((0,2), int), np.empty(0), np.empty((0,3)), np.empty((0,3))
+
+    i, j = cand[:, 0], cand[:, 1]
+
+    # ---- Exclusion filters (vectorized, exact float match) ----
+    same_start       = np.all(starts[i] == starts[j], axis=1)
+    start_i_eq_end_j = np.all(starts[i] == ends[j], axis=1)
+    start_j_eq_end_i = np.all(starts[j] == ends[i], axis=1)
+
+    exclude = same_start | start_i_eq_end_j | start_j_eq_end_i
+    i, j = i[~exclude], j[~exclude]
+    
+    if len(i) == 0:
+        return np.empty((0,2), int), np.empty(0), np.empty((0,3)), np.empty((0,3))
+
+    # AABB filter
+    mi, ma = np.minimum(starts[i], ends[i]), np.maximum(starts[i], ends[i])
+    mj, mj2 = np.minimum(starts[j], ends[j]), np.maximum(starts[j], ends[j])
+    keep = (mi <= mj2 + danger_mm).all(1) & (mj <= ma + danger_mm).all(1)
+    i, j = i[keep], j[keep]
+    if len(i) == 0:
+        return np.empty((0,2), int), np.empty(0), np.empty((0,3)), np.empty((0,3))
+
+    # Chunked exact evaluation
+    out_i, out_j, out_d, out_pa, out_pb = [], [], [], [], []
+    for s in range(0, len(i), chunk_size):
+        sl = slice(s, s + chunk_size)
+        d, pa, pb = seg_seg_distance_vec(starts[i[sl]], ends[i[sl]], starts[j[sl]], ends[j[sl]])
+        m = d < danger_mm
+        if m.any():
+            out_i.append(i[sl][m]); out_j.append(j[sl][m])
+            out_d.append(d[m]); out_pa.append(pa[m]); out_pb.append(pb[m])
+    
+    if not out_i:
+        return np.empty((0,2), int), np.empty(0), np.empty((0,3)), np.empty((0,3))
+    
+    return (np.column_stack([np.concatenate(out_i), np.concatenate(out_j)]),
+            np.concatenate(out_d), np.concatenate(out_pa), np.concatenate(out_pb))

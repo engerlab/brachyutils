@@ -11,7 +11,7 @@ from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
     generate_candidate_segments,
     decision_planes_to_ply,
     segment_lines_to_ply,
-    TupleKeyDict
+    TupleKeyDict, find_colliding_pairs
     )
 
 class Segment(BaseModel):
@@ -151,6 +151,7 @@ class ClusterBox(BaseModel):
     - oar_collision_margin_mm: float := the collision margin between catheter segments and
     organs at risk (OARs) (mm).
     - segment_collision_margin_mm: float := the collision margin between catheter segments (mm).
+    Measured at the center of the line segments. Note that the catheters have a radius of 1 mm.
     - target_structure_names:  List[str] := "The list of the names of the target structures;
     Usually CTV or PTV.")  
     """
@@ -176,8 +177,8 @@ insertion points. If None, the default Config_Angled_CathGen() will be applied \
 to all insertion points.")
     oar_collision_margin_mm: float = Field(default=0, description="the collision margin between \
 catheter segments and organs at risk (OARs) (mm).")
-    segment_collision_margin_mm: float = Field(default=0, description="the collision margin between \
-catheter segments (mm).")
+    segment_collision_margin_mm: float = Field(default=5, description="the collision margin between \
+catheter segments (mm). Measured as center of the catheter segments.")
     target_structure_names: List[str] = Field(..., description="The list of the names of the target \
 structures; Usually CTV or PTV.")
     box_margin_mm: float = Field(default=0, description="The margin between the box boundaries and the OARs")
@@ -310,15 +311,40 @@ structures; Usually CTV or PTV.")
         else:
             return self.all_segments_dict[indices]
                         
-    def get_colliding_segments(self, segment:Segment) -> Dict[str, List[str]]:
+    def get_colliding_segments(self) -> List[Tuple[Segment]]:
         r"""
         ### Purpose:
-        - To generate a dictionary of colliding segments for each segment in the catheter box.
-        The key is the segment name_id, and the value is a list of name_ids of segments that collide with it.
-        """
-        # TODO priority 1: figure this out
-        pass
+        - To find colliding segments. The segments that are eligible for collision check satisfy
+        the following requirements:
+        1. They do not share the same insert point.
+        2. They are not on the same change of segments (No parent-child collisions).
         
+        ### Inputs:
+        - self.all_segments_list
+        - self.segment_collision_margin_mm
+        
+        ### Outputs:
+        - colliding_segments: List[Tuple[Segment]]: List of colliding segment pairs.
+        """
+        all_departure_points, all_landing_points = [], []
+        for segment in self.all_segments_list:
+            all_departure_points.append(segment.line[0])
+            all_landing_points.append(segment.line[1])
+        all_departure_points = np.array(all_departure_points, dtype=np.float32)
+        all_landing_points = np.array(all_landing_points, dtype=np.float32)
+
+        colliding_pair_indicies, dists, pa, pb = find_colliding_pairs(
+            starts=all_departure_points,
+            ends=all_landing_points,
+            danger_mm=self.segment_collision_margin_mm,)
+        colliding_segments = []
+        for colliding_pair in colliding_pair_indicies:
+            colliding_segments.append(
+                (self.all_segments_list[colliding_pair[0]],
+                self.all_segments_list[colliding_pair[1]],)
+            )
+        return colliding_segments
+
     def get_parent_segments(
         self,
         cluster_name_id: str,
