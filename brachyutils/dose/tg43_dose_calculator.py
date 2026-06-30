@@ -33,7 +33,7 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
     """
     """
     def __init__(self,
-        dir_tg43_parameters: Optional[Union[Path, str]] = "microSelectron-v2_Consensus",
+        dir_tg43_parameters: Optional[Union[Path, str]] = "GenericHDR",
         dir_output : Optional[Union[Path, str]] = Path(),
         **calc_parameter_kwargs
         ) -> None:
@@ -115,7 +115,7 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
 
         phantom_dimensions = self.brachyplan.phantom.image_obj.gridSize * self.brachyplan.phantom.image_obj.spacing
         new_kernel_half_width = max(phantom_dimensions) * 1.2 * 0.5 #make the kernel big enough to cover the whole phantom (+20% padding)
-        self.calc_parameters["kernel_half_width"] = new_kernel_half_width if new_kernel_half_width <  150.0 else 150.0 #cap the kernel size at 150 mm to prevent excessive memory usage
+        self.calc_parameters["kernel_half_width"] = new_kernel_half_width if new_kernel_half_width <  100.0 else 100.0 #cap the kernel size at 100 mm to prevent excessive memory usage
         self.calc_parameters["kernel_res"] = self.AUTO_KERNEL_RES
         logging.info(f"Automatically calculated kernel half width {self.calc_parameters["kernel_half_width"]} mm.")
 

@@ -528,7 +528,7 @@ class BrachyPlan:
     def set_brachy_structure_list(
         self,
         phantom: BrachyPhantom,
-        mask_type: Union[ROIContour, ROIMask] = ROIContour,
+        mask_type: Union[ROIContour, ROIMask] = ROIMask,
         )->None:
         r"""
         ### Purpose:
@@ -561,16 +561,22 @@ class BrachyPlan:
                     or "ptv" in structure_name.lower())  else False,
             )
             self.structure_list.append(structure_obj)
-        if phantom.cached_structure_masks is not None:
-            body_key = None
-            for k in phantom.cached_structure_masks.keys():
-                if k.lower() == "body":
-                    body_key = k
-            self.body_contour = phantom.cached_structure_masks.get(body_key, None)
-        else:
-            self.body_contour = phantom.get_structure_mask(
-                ["body"], ROIContour, strict_name_match=False
-            ).get("body", None)
+        self.body_contour = phantom.get_structure_mask(
+            ["body"],
+            mask_type=ROIContour,
+            strict_name_match=False,).get("body", None)
+
+        # XXX: Delete this!
+        # if phantom.cached_structure_masks is not None:
+        #     body_key = None
+        #     for k in phantom.cached_structure_masks.keys():
+        #         if k.lower() == "body":
+        #             body_key = k
+        #     self.body_contour = phantom.cached_structure_masks.get(body_key, None)
+        # else:
+        #     self.body_contour = phantom.get_structure_mask(
+        #         ["body"], ROIContour, strict_name_match=False
+        #     ).get("body", None)
 
    
     def get_dvh_metrics(
@@ -902,8 +908,6 @@ class BrachyPlan:
                     order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
                     with open(export_config_plan_and_mac.dir_export / f"dwell_{order}.plan", "w") as file:
                         file.write(run_i_plan)
-            # set to false so that we don't export the same catheter again for dose rate calculation
-            cat.gen_dose_rates = False
     
         if export_config_plan_and_mac.combined_only:
             with open(export_config_plan_and_mac.pth_plan_combined, "w") as file:
