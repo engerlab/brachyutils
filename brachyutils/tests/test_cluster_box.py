@@ -189,19 +189,17 @@ def test_get_parent_segments():
     print(parents)
 
 def test_get_colliding_segments():
-    outdir = "data_test/test_export_plan/prostate/colliding_lines"
+    outdir = Path("data_test/test_export_plan/prostate/colliding_lines")
 
     c_box = test_cluster_box(return_box=True)
     colliding_segments = c_box.get_colliding_segments()
-    all_lines = []
-    for seg1_seg2 in colliding_segments:
-        all_lines.append(np.array(seg1_seg2[0].line))
-        all_lines.append(np.array(seg1_seg2[1].line))
-
-    segment_lines_to_ply(
-        out_ply_dir=outdir,
-        point_pairs=all_lines
-    )
+    for seg_pair in colliding_segments:
+        pair_name = f"{seg_pair[0].name_id}_{seg_pair[1].name_id}"
+        segment_lines_to_ply(
+            out_ply_dir=outdir/pair_name,
+            point_pairs=[seg.line for seg in seg_pair]
+        )
+        # break
 
 if __name__ == "__main__":
     # test_obb_planes()
