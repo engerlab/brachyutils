@@ -571,6 +571,8 @@ def set_constraints(
             _set_uniqueness_constraint(constraint, model)
         elif constraint.constraint_type == "num_catheters":
             _set_num_catheters_constraint(constraint, model)
+        elif constraint.constraint_type == "continuity":
+            _set_continuity_constraint(constraint, model)
 
 def _set_bound_constraint(
     constraint: Constraint_Config,
@@ -668,5 +670,43 @@ Ensure the constraint name is correct.")
     model.addConstr(
         sum(variables) <= constraint.maximum,
         name=constraint.name_id
+    )
+    model.update()
+
+def _set_continuity_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a continuity constraint on a list of variables in the model.
+    The variables can be either catheter or dwell time variables.
+    """
+    var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    parent_var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.parent_variable_name_ids]
+    variables = [model.getVarByName(var_name) for var_name in var_names]
+    if not all(variables):
+        missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
+        raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
+Ensure the constraint name is correct.")
+    parent_variables = [model.getVarByName(var_name) for var_name in parent_var_names]
+    if not all(parent_variables):
+        missing_parent_vars = [var_name for var_name, var in zip(parent_var_names, parent_variables) if not var]
+        raise ValueError(f"No parent variable(s) with name(s) {missing_parent_vars} were found for constraint {constraint.name_id}. \
+Ensure the constraint name is correct.")
+
+    # All variables have the same parent.
+    e_vec = model.addMVar(
+        shape=len(variables),
+        lb=0,
+        ub=1,
+        name=f"e_{constraint.name_id}",
+        vtype=GRB.BINARY,)
+    var_vec = MVar(variables)
+    sum_parents = sum(parent_variables)
+    num_variables = len(variables)
+    model.addConstr(
+        e_vec @ sum_parents == num_variables * var_vec,
+        name=constraint.name_id,
     )
     model.update()
