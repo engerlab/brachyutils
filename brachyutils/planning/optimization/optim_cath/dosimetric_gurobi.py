@@ -170,7 +170,7 @@ class CatheterTableOptim_Gurobi():
             model=self.model,
         )
         if plan.optimization_constraint_dict is not None:
-            self.bound_variables(
+            self.set_constraints(
                 constraint_config_dict=plan.optimization_constraint_dict)
 
     def initialize_model(self, solver: str, pth_logfile:str=None) -> Model:
@@ -263,7 +263,7 @@ class CatheterTableOptim_Gurobi():
             )
         return outplan
 
-    def bound_variables(
+    def set_constraints(
         self,
         constraint_config_dict:Dict[str, Constraint_Config],
         ):
@@ -277,13 +277,13 @@ class CatheterTableOptim_Gurobi():
         ### Inputs:
         - constraint_config_dict (Dict[Constraint_Config]): Each item in this dictionary contains the name of the
         variable as well as minimum, maximum and equality constraints on that variable. The naming convention
-        for the items and the keys are described in bound_variables()
+        for the items and the keys are described in set_constraints()
         - model (Model): The model containing the variables. The name of the variables in the constraint list 
         should match the name of the variable. Otherwies, Error will be thrown.
         ### Outputs:
         - None: model is updated with the new constraints
         """
-        bound_variables(
+        set_constraints(
             constraint_config_dict=constraint_config_dict,
             model=self.model
         )
@@ -533,7 +533,7 @@ def set_dwell_coef_dict_per_structure(
         for var, coeff in zip(dwell_vars, dose_rate_matrices):
             structure.optimization_config.dwell_coef_dict[var.VarName] = coeff
 
-def bound_variables(
+def set_constraints(
     constraint_config_dict:Dict[str, Constraint_Config],
     model:Model,
     ):
@@ -552,7 +552,6 @@ def bound_variables(
     ### Outputs:
     - None: model is updated with the new constraints
     """
-    raise DeprecationWarning("EYO this needs to be adapted to the new constraint")
     for constraint in list(constraint_config_dict.values()):
         # check if the constraint already exists, if yes remove it
         try:

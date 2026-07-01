@@ -227,7 +227,7 @@ def test_dynamic_plan_generation():
     print("dynamic plan generation test completed successfully.")
 
 
-def test_bound_variables():
+def test_set_constraints():
     dir_dose_rate = Path("temp_data/tg43/cat-optim/test").resolve()
     dir_export = dir_dose_rate
 
@@ -241,7 +241,7 @@ def test_bound_variables():
     }
     ti_build = time()
     catheter_optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
-    catheter_optim_obj.bound_variables(
+    catheter_optim_obj.set_constraints(
         constraint_config_dict=constraint_dict
     )
     tf_build = time()
@@ -269,4 +269,4 @@ if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
     test_catheter_table_optim()
     # test_dynamic_plan_generation()
-    # test_bound_variables()
+    # test_set_constraints()
