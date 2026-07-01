@@ -86,7 +86,7 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
             variable_name_ids=[f"catheter_{name_id}" for name_id in cluster.catheter_name_ids],
             parent_catheter_name_ids=[f"catheter_{parent.catheter_name_id}" for parent in parents],
         )
-        continuity_constraints[constr.name_id] = constr
+        continuity_constraints[f"{constr.constraint_type}_{constr.segment_cluster_id}"] = constr
 
     # # Collision Constraint
     collision_constraints = defaultdict(Constraint_Config)

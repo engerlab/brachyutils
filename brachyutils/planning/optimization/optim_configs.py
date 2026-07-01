@@ -140,6 +140,7 @@ maximum value for constraint {self.name_id}")
                 if self.equal < self.minimum:
                     raise ValueError(f"equality value cannot be less than \
 minimum value for constrant {self.name_id}")
+        return self
 
     @computed_field
     @property
