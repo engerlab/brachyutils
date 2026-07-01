@@ -90,16 +90,15 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
 
     # # Collision Constraint
     collision_constraints = defaultdict(Constraint_Config)
-    for segment in cluster_box.all_segments_list:
-        colliding_segments = cluster_box.get_colliding_segments(segment=segment)
-        for col_seg in colliding_segments:
-            constr = Constraint_Config(
-                constraint_type="collision",
-                variable_type="catheter",
-                equal=1,
-                variable_name_ids=[segment.catheter_name_id, col_seg.catheter_name_id]
-            )
-            collision_constraints[constr.name_id] = constr
+    colliding_segments = cluster_box.get_colliding_segments()
+    for col_seg in colliding_segments:
+        constr = Constraint_Config(
+            constraint_type="collision",
+            variable_type="catheter",
+            equal=1,
+            variable_name_ids=[col_seg[0].catheter_name_id, col_seg[1].catheter_name_id]
+        )
+        collision_constraints[constr.name_id] = constr
 
     return {
         "uniqueness": uniqness_constraints,
