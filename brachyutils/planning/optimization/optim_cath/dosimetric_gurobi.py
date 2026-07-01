@@ -569,6 +569,8 @@ def set_constraints(
             _set_sum_constraint(constraint, model)
         elif constraint.constraint_type == "uniqueness":
             _set_uniqueness_constraint(constraint, model)
+        elif constraint.constraint_type == "num_catheters":
+            _set_num_catheters_constraint(constraint, model)
 
 def _set_bound_constraint(
     constraint: Constraint_Config,
@@ -634,6 +636,27 @@ def _set_uniqueness_constraint(
     r"""
     ### Purpose:
     - To set a uniqueness constraint on a list of variables in the model.
+    The variables can be either catheter or dwell time variables.
+    """
+    var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    variables = [model.getVarByName(var_name) for var_name in var_names]
+    if not all(variables):
+        missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
+        raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
+Ensure the constraint name is correct.")
+    model.addConstr(
+        sum(variables) <= constraint.maximum,
+        name=constraint.name_id
+    )
+    model.update()
+
+def _set_num_catheters_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a constraint on the number of catheters in the model.
     The variables can be either catheter or dwell time variables.
     """
     var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
