@@ -269,17 +269,17 @@ class CatheterTableOptim_Gurobi():
         ):
         """
         ### Purpose:
-        - To bound the model variables according the list of constraint config. The bound could be on the 
-        lower bound, upper bound or equality value of the variable.
-        - The name of the constraints on the number of catheters (sum of binary variable) or the total
-        dwell times should being with "sum_catheters" and "sum_dwelltimes".
+        - To update the model with the new constraints. The type of the constraints can be 
+        "bound", "sum", "uniqueness", "continuity", "num_catheters", "collision", each is explained in 
+        Constraint_Config class. The target variables for the constraints can be "catheter" or "dwell".
+        - Each constraint should have a unique name generated automatically by the Constraint_Config class. 
 
         ### Inputs:
-        - constraint_config_dict (Dict[Constraint_Config]): Each item in this dictionary contains the name of the
-        variable as well as minimum, maximum and equality constraints on that variable. The naming convention
-        for the items and the keys are described in set_constraints()
+        - constraint_configs Dict[str, Constraint_Config]: See Constraint_Config for details.
+        The key of this dictionary is the name of the constraint, which should be unique. 
         - model (Model): The model containing the variables. The name of the variables in the constraint list 
         should match the name of the variable. Otherwies, Error will be thrown.
+
         ### Outputs:
         - None: model is updated with the new constraints
         """
@@ -539,28 +539,35 @@ def set_constraints(
     ):
     """
     ### Purpose:
-    - To bound the model variables according the dictionary of constraint config. The bound could be on the 
-    lower bound, upper bound or equality value of the variable.
-    - The name of the constraints (and the keys) on the number of catheters (sum of binary variable) or the total
-    dwell times should being with "sum_catheters" and "sum_dwelltimes".
+    - To update the model with the new constraints. The type of the constraints can be 
+    "bound", "sum", "uniqueness", "continuity", "num_catheters", "collision", each is explained in 
+    Constraint_Config class. The target variables for the constraints can be "catheter" or "dwell".
+    - Each constraint should have a unique name generated automatically by the Constraint_Config class. 
 
     ### Inputs:
-    - constraint_configs (List[Constraint_Config]): Each item in this list contains the name of the
-    variable as well as minimum, maximum and equality constraints on that variable.
+    - constraint_configs Dict[str, Constraint_Config]: See Constraint_Config for details.
+    The key of this dictionary is the name of the constraint, which should be unique. 
     - model (Model): The model containing the variables. The name of the variables in the constraint list 
     should match the name of the variable. Otherwies, Error will be thrown.
+
     ### Outputs:
     - None: model is updated with the new constraints
     """
-    for constraint in list(constraint_config_dict.values()):
+    for name, constraint in constraint_config_dict.items():
         # check if the constraint already exists, if yes remove it
         try:
-            old_constraint = model.getConstrByName(f"c_{constraint.name}")
+            old_constraint = model.getConstrByName(name=name)
         except GurobiError:
             old_constraint = None
         if old_constraint:
             model.remove(old_constraint)
             model.update()
+
+        if constraint.constraint_type == "bound":
+            variable = model.getVarByName(constraint.name)
+            if not variable:
+                raise ValueError(f"No variable with name {constraint.name} was found. \
+Ensure the constraint name is correct.")
 
         # if the constraint is on the sum of some catheters or dwell times
         if constraint.name.startswith("sum_"):
