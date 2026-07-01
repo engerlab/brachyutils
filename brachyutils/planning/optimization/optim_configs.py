@@ -168,6 +168,11 @@ minimum value for constrant {self.name_id}")
             name_id = f"{self.constraint_type}_{self.variable_type}_{self.variable_name_ids}"
         elif self.constraint_type == "bound":
             name_id = f"{self.constraint_type}_{self.variable_type}_{self.variable_name_ids[0]}"
+            name_id = name_id+f"_min" if self.minimum is not None else name_id
+            name_id = name_id+f"_max" if self.maximum is not None else name_id
+            name_id = name_id+f"_eq" if self.equal is not None else name_id
+        else:
+            raise ValueError(f"Constraint type {self.constraint_type} is not valid for name_id generation.")
         return name_id
 
 class Optimization_Config(BaseModel):

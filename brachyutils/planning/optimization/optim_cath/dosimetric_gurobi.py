@@ -553,10 +553,10 @@ def set_constraints(
     ### Outputs:
     - None: model is updated with the new constraints
     """
-    for name, constraint in constraint_config_dict.items():
+    for name_id, constraint in constraint_config_dict.items():
         # check if the constraint already exists, if yes remove it
         try:
-            old_constraint = model.getConstrByName(name=name)
+            old_constraint = model.getConstrByName(name=name_id)
         except GurobiError:
             old_constraint = None
         if old_constraint:
@@ -564,66 +564,63 @@ def set_constraints(
             model.update()
 
         if constraint.constraint_type == "bound":
-            variable = model.getVarByName(constraint.name)
-            if not variable:
-                raise ValueError(f"No variable with name {constraint.name} was found. \
-Ensure the constraint name is correct.")
+            _set_bound_constraint(constraint, model)
+        if constraint.constraint_type == "sum":
+            _set_sum_constraint(constraint, model)
 
-        # if the constraint is on the sum of some catheters or dwell times
-        if constraint.name.startswith("sum_"):
-            all_vars = model.getVars()
-            var_target = constraint.name.split("_")[-1]
-            vars_needed = []
-            # gatheter all catheter or dwell variables
-            for this_var in all_vars:
-                if var_target == "catheters":
-                    # we are looking for specific catheter variables only
-                    if this_var.name.startswith("catheter"):
-                        if constraint.variable_ids is not None:
-                            var_id = this_var.name.split("_")[-1]
-                            if var_id in constraint.variable_ids:
-                                vars_needed.append(this_var)
-                        else:
-                            vars_needed.append(this_var)
-                elif var_target == "dwelltimes":
-                    if this_var.name.startswith("dwell"):
-                        if constraint.variable_ids is not None:
-                            var_id = this_var.name.split("_")[1:]
-                            if var_id in constraint.variable_ids:
-                                vars_needed.append(this_var)
-                        else:
-                            vars_needed.append(this_var)
+def _set_bound_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a bound constraint on a variable in the model.
+    The variable can be either a catheter or dwell time variable.
+    """
+    var_name = f"{model.variable_type}_{constraint.variable_name_ids.pop()}"
+    variable =  model.getVarByName(var_name)
+    if not variable:
+        raise ValueError(f"No variable with name {var_name} was found for constraint \
+{constraint.name_id}. Ensure the constraint name is correct.")
+    if constraint.minimum:
+        variable.LB = constraint.minimum
+    if constraint.maximum:
+        variable.UB = constraint.maximum
+    if constraint.equal:
+        model.addConstr(
+            variable == constraint.equal,
+            name=constraint.name_id
+        )
+    model.update()
 
-            # apply the constraint
-            vars_needed = MVar(vars_needed)
-            if constraint.minimum:
-                model.addConstr(
-                    sum(vars_needed) >= constraint.minimum,
-                    name=f"c_{constraint.name}"
-                )
-            if constraint.maximum:
-                model.addConstr(
-                    sum(vars_needed) <= constraint.maximum,
-                    name=f"c_{constraint.name}"
-                )
-            if constraint.equal:
-                model.addConstr(
-                    sum(vars_needed) == constraint.equal,
-                    name=f"c_{constraint.name}"
-                )
-        # other
-        else:
-            variable = model.getVarByName(constraint.name)
-            if not variable:
-                raise ValueError(f"No variable with name {constraint.name} was found. \
+def _set_sum_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a sum constraint on a list of variables in the model.
+    The variables can be either catheter or dwell time variables.
+    """
+    var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    variables = [model.getVarByName(var_name) for var_name in var_names]
+    if not all(variables):
+        missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
+        raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
 Ensure the constraint name is correct.")
-            if constraint.minimum:
-                variable.LB = constraint.minimum
-            if constraint.maximum:
-                variable.UB = constraint.maximum
-            if constraint.equal:
-                model.addConstr(
-                    variable == constraint.equal, 
-                    name=f"c_{constraint.name}"
-                )
+    if constraint.minimum:
+        model.addConstr(
+            sum(variables) >= constraint.minimum,
+            name=f"{constraint.name_id}"
+        )
+    if constraint.maximum:
+        model.addConstr(
+            sum(variables) <= constraint.maximum,
+            name=f"{constraint.name_id}"
+        )
+    if constraint.equal:
+        model.addConstr(
+            sum(variables) == constraint.equal,
+            name=constraint.name_id
+        )
     model.update()
