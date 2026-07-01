@@ -162,7 +162,7 @@ minimum value for constrant {self.name_id}")
         if self.constraint_type == "uniqueness":
             name_id = f"{self.constraint_type}_{self.segment_cluster_id}"
         elif self.constraint_type == "continuity":
-            name_id = [f"{self.constraint_type}_{self.variable_type}_{catheter_name_id}"
+            name_id = [f"{self.constraint_type}_{catheter_name_id}"
                        for catheter_name_id in self.variable_name_ids]
         elif self.constraint_type == "num_catheters":
             name_id = self.constraint_type
