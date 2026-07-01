@@ -573,6 +573,8 @@ def set_constraints(
             _set_num_catheters_constraint(constraint, model)
         elif constraint.constraint_type == "continuity":
             _set_continuity_constraint(constraint, model)
+        elif constraint.constraint_type == "collision":
+            _set_collision_constraint(constraint, model)
 
 def _set_bound_constraint(
     constraint: Constraint_Config,
@@ -583,7 +585,7 @@ def _set_bound_constraint(
     - To set a bound constraint on a variable in the model.
     The variable can be either a catheter or dwell time variable.
     """
-    var_name = f"{model.variable_type}_{constraint.variable_name_ids.pop()}"
+    var_name = constraint.variable_name_ids[0]
     variable =  model.getVarByName(var_name)
     if not variable:
         raise ValueError(f"No variable with name {var_name} was found for constraint \
@@ -608,7 +610,7 @@ def _set_sum_constraint(
     - To set a sum constraint on a list of variables in the model.
     The variables can be either catheter or dwell time variables.
     """
-    var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    var_names = constraint.variable_name_ids
     variables = [model.getVarByName(var_name) for var_name in var_names]
     if not all(variables):
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
@@ -640,7 +642,7 @@ def _set_uniqueness_constraint(
     - To set a uniqueness constraint on a list of variables in the model.
     The variables can be either catheter or dwell time variables.
     """
-    var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    var_names = constraint.variable_name_ids
     variables = [model.getVarByName(var_name) for var_name in var_names]
     if not all(variables):
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
@@ -661,7 +663,7 @@ def _set_num_catheters_constraint(
     - To set a constraint on the number of catheters in the model.
     The variables can be either catheter or dwell time variables.
     """
-    var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    var_names = constraint.variable_name_ids
     variables = [model.getVarByName(var_name) for var_name in var_names]
     if not all(variables):
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
@@ -682,7 +684,7 @@ def _set_continuity_constraint(
     - To set a continuity constraint on a list of variables in the model.
     The variables can be either catheter or dwell time variables.
     """
-    var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    var_names = constraint.variable_name_ids
     parent_var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.parent_variable_name_ids]
     variables = [model.getVarByName(var_name) for var_name in var_names]
     if not all(variables):
@@ -702,11 +704,32 @@ Ensure the constraint name is correct.")
         ub=1,
         name=f"e_{constraint.name_id}",
         vtype=GRB.BINARY,)
-    var_vec = MVar(variables)
+    var_vec = MVar.fromlist(variables)
     sum_parents = sum(parent_variables)
-    num_variables = len(variables)
+    for i in range(len(variables)):
+        model.addConstr(
+            e_vec[i] * sum_parents == constraint.equal * var_vec[i],
+            name=constraint.name_id[i],
+        )
+    model.update()
+
+def _set_collision_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a collision constraint on a list of variables in the model.
+    The variables can be either catheter or dwell time variables.
+    """
+    var_names = constraint.variable_name_ids
+    variables = [model.getVarByName(var_name) for var_name in var_names]
+    if not all(variables):
+        missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
+        raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
+Ensure the constraint name is correct.")
     model.addConstr(
-        e_vec @ sum_parents == num_variables * var_vec,
-        name=constraint.name_id,
+        sum(variables) <= constraint.equal,
+        name=constraint.name_id
     )
     model.update()

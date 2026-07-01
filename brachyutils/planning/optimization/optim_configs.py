@@ -7,10 +7,10 @@ from opentps.core.data.images import ROIMask
 
 # Define the specific patterns
 # 1. dwell_#_#_# (e.g., 1_2_3)
-PatternDwell = Annotated[str, Field(pattern=r"^[1-9]\d*_[1-9]\d*_(?:0|[1-9]\d*)$")]
+PatternDwell = Annotated[str, Field(pattern=r"^dwell_[1-9]\d*_[1-9]\d*_(?:0|[1-9]\d*)$")]
 
 # 2. catheter_# (e.g., 5)
-PatternCatheter = Annotated[str, Field(pattern=r'^\d+$')]
+PatternCatheter = Annotated[str, Field(pattern=r'^catheter_[1-9]\d*$')]
 
 # 3. cluster name id: (depth, cluster.index+1)
 PatterCluster = Annotated[str, Field(pattern=r"^\(\d+,\s*[1-9]\d*\)$")]
@@ -56,9 +56,9 @@ class Constraint_Config(BaseModel):
         - For `sum`, at least 1 variable name id must be provided.
         - For `collision`, exactly 2 catheter variable name ids must be provided.
         - For catheter constraints, all ids must match the catheter naming pattern, which is
-            f"catheter.index+1".
+            f"catheter_{catheter.index+1}".
         - For dwell constraints, all ids must match the dwell naming pattern, which is
-            f"{catheter.index+1}_{dwell.index+1}_{dwell.angle}".
+            f"dwell_{catheter.index+1}_{dwell.index+1}_{dwell.angle}".
     - segment_cluster_id: Optional cluster identifier required for `uniqueness` and `continuity`
       constraints. The name pattern is f"({cluster.depth}, {cluster.index+1})"
     """
@@ -143,7 +143,7 @@ minimum value for constrant {self.name_id}")
 
     @computed_field
     @property
-    def name_id(self) -> str:
+    def name_id(self) -> str | List[str]:
         r"""
         ### Purpose:
         - The computed `name_id` is built automatically from the constraint
@@ -158,8 +158,11 @@ minimum value for constrant {self.name_id}")
             - `sum`: `sum_<variable_type>_[<variable_name_ids>]`
             - `bound`: `bound_<variable_type>_<variable_name_id>`
         """
-        if self.constraint_type in ["uniqueness", "continuity"]:
+        if self.constraint_type == "uniqueness":
             name_id = f"{self.constraint_type}_{self.segment_cluster_id}"
+        elif self.constraint_type == "continuity":
+            name_id = [f"{self.constraint_type}_{self.variable_type}_{catheter_name_id}"
+                       for catheter_name_id in self.variable_name_ids]
         elif self.constraint_type == "num_catheters":
             name_id = self.constraint_type
         elif self.constraint_type == "collision":
