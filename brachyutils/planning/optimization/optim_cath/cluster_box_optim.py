@@ -124,20 +124,13 @@ class ClusterBoxOptim:
     def __init__(
         self,
         plan:BrachyPlan,
-        optimization_config_list: list[Optimization_Config],
         cluster_box_config: Config_ClusterBox,
-        dose_generator: RapidBrachyTG43 | BrachyUtilsTG43,
         ):
         self.plan: BrachyPlan = None
         self.cluster_box: ClusterBox = None
         self.dose_generator: RapidBrachyTG43 | BrachyUtilsTG43 = None
         self.catheter_table_optimizer: CatheterTableOptim_Gurobi = None
 
-        self.structure_names_list = [config.structure_name for config in optimization_config_list]
-        self.target_structure_names = [
-            config.structure_name for config in optimization_config_list
-            if config.is_target
-            ]
         self.plan = self.validate_plan_initialization(plan=plan)
         self.cluster_box = self.get_cluster_box_from_plan(
             plan= self.plan,
@@ -150,31 +143,43 @@ class ClusterBoxOptim:
             raise ValueError("The plan.phantom is None. Please load a phantom into the plan before proceeding.")
         if plan.catheter_table is not None:
             raise ValueError("The plan.catheter_table is not None. Please set it to None before proceeding.")
+        if plan.prescription_dose is None:
+            raise ValueError("The plan.prescription_dose is None. Please set it to a value before proceeding.")
+        if plan.structure_list is None or len(plan.structure_list) == 0:
+            raise ValueError("The plan.structure_list is None or empty. Please load structures into the plan before proceeding.")
+        if plan.optimization_config_dict is None or len(plan.optimization_config_dict) == 0:
+            raise ValueError("The plan.optimization_config_dict is None or empty. Please load optimization configurations into the plan before proceeding.")
+
         return plan
 
     def get_cluster_box_from_plan(
         self,
         plan:BrachyPlan,
-        structure_names_list:list[str],
-        target_structure_names:list[str],
         cluster_box_config: Config_ClusterBox
         ) -> ClusterBox:
         r"""
         ### Purpose:
         - To generate a cluster box from a BrachyPlan object. The cluster box will be used to generate
-        the geometric constraints for catheter trajectory optimization. It also provides a catheter table.
-        
+        the geometric constraints for catheter trajectory optimization. It also provides a catheter table,
+        and the plan phantom will be cropped to the bounding box of the cluster box.
+
         ### Inputs:
         - plan: BrachyPlan := The initial brachytherapy plan without a catheter table
-        - structure_names_list: list[str] := The list of structure names to be used for
-        generating the cluster box. These structures will be used to generate the OARs and target structures.
-        - target_structure_names: list[str] := The list of target structure names to be used for generating the cluster box. These structures will be used to generate the target structures.
         - cluster_box_config: Config_ClusterBox := The configuration for the cluster box generation.
         
         ### Outputs:
         - cluster_box: ClusterBox := The generated cluster box object.
         """
-        
+        structure_names_list = list(plan.optimization_config_dict.keys())
+        target_structure_names = [
+            config.structure_name for config in plan.optimization_config_dict.values()
+            if config.is_target
+            ]
+        plan.phantom.crop_by_contour(
+            contour_name=structure_names_list,
+            strict_name_match=False,
+            margin_mm=cluster_box_config.box_margin_mm
+        )
         mesh_dict = plan.phantom.get_structure_mask(
             query_structure_names=structure_names_list,
             mask_type="mesh",
@@ -194,3 +199,29 @@ class ClusterBoxOptim:
             cluster_dict=cluster_box_config.cluster_dict,
             )
         return cluster_box
+
+    def generate_dose_rate_for_cluster(
+        self,
+        plan: BrachyPlan,
+        cluster_box: ClusterBox,
+        ) -> BrachyPlan:
+        r"""
+        ### Purpose:
+        - To generate the dose rate maps for the dwell positions in catheter segments in the cluster box.
+        - By default we use BrachyUtilsTG43 for dose generation. Note that the phantom in the plan has already
+        been cropped to the bounding box of the cluster box, so the dose generation will be faster.
+        - The catheter table of the plan will be updated with the dose rates.
+
+        ### Inputs:
+        - plan: BrachyPlan := The initial brachytherapy plan without a catheter table
+        - cluster_box: ClusterBox := The cluster box containing the catheter segments for which dose rates
+        will be generated. 
+        """
+        plan.set_catheter_table(
+            catheter_table=cluster_box.catheter_table,
+        )
+        dose_generator = BrachyUtilsTG43(auto_phantom=False)
+        dose_generator.run_dose_generation(
+            plan=plan,
+            generate_dose_rate_maps=True,
+        )

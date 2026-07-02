@@ -34,7 +34,7 @@ def test_cluster_box_optim():
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=2),
+            spacing_mm=3),
         Optimization_Config(
             structure_name="RECTUM",
             is_target=False,
