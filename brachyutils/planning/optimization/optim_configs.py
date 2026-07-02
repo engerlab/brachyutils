@@ -191,6 +191,7 @@ class Optimization_Config(BaseModel):
         - catheter_recommendaion
         - penalty_weight_variance_time
         - penalty_weight_uniformity
+
     ### Attributes:
     - structure_name: str := The name of the structure to which this optimization config applies.
     - is_target: bool := If true, we're looking at a target structure.
@@ -207,7 +208,8 @@ class Optimization_Config(BaseModel):
     - max_dose: float := Maximum allowed dose in Gy. Default 500.
     - constraint_num_catheters: int := The constraint on the number of catheters. Could specify the 
     minimum, maximum and the exact number of catheters desired in the plan.
-    - catheter_recommendaion: bool := If True, catheter positions will be optimized as well. Default False.
+    - catheter_recommendaion: bool := If True, catheter positions will be optimized as well, otherwise
+    all the catheter variables will be constraint to one.
     - dwell_coef_dict: Dict[str, np.array] := A dictionary mapping the name of the dwell position to the cropped, masked
     and flattend dose rate map corresponding to that dwell positition.
     """
