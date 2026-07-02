@@ -159,10 +159,13 @@ class ClusterBox(BaseModel):
         arbitrary_types_allowed=True,
         validate_assignment=True,)
 
-    # # user defined attributes
-    num_physical_catheters: int = Field(default=1, description="the number of physical catheters to be inserted.")
-    structure_dict: Dict[str, trimesh.Trimesh] = Field(default_factory=dict, description="a dictionary of \
+    # # Mandatory attributes
+    structure_dict: Dict[str, trimesh.Trimesh] = Field(..., description="a dictionary of \
 structures to be considered for catheter trajectory optimization.")
+    target_structure_names: List[str] = Field(..., description="The list of the names of the target \
+structures; Usually CTV or PTV.")
+    # # Attributes with defaults.
+    num_physical_catheters: int = Field(default=1, description="the number of physical catheters to be inserted.")
     rotation_angle_deg: float = Field(default=0, description="the rotation angle of the catheter box \
 around the right left (X) axis (degrees).")
     insertion_point_spacing_mm: float = Field(default=10, description="the spacing between adjacent \
@@ -179,10 +182,8 @@ to all insertion points.")
 catheter segments and organs at risk (OARs) (mm).")
     segment_collision_margin_mm: float = Field(default=5, description="the collision margin between \
 catheter segments (mm). Measured as center of the catheter segments.")
-    target_structure_names: List[str] = Field(..., description="The list of the names of the target \
-structures; Usually CTV or PTV.")
     box_margin_mm: float = Field(default=0, description="The margin between the box boundaries and the OARs")
-    
+
     # # internal attributes
     cluster_dict: Dict[str, SegmentCluster] = Field(default=None)
     # index of a segment in the box, when we get all segments
