@@ -128,7 +128,8 @@ class BrachyPlan:
         - dose_dtype:np.float32 := The floating point type to store the dose rates. 
 
         #### for optimization setup:
-        - optimization_config_list: List[Optimization_Config] | Path | str := A list of Optimization_Config objects or the path to a json file containing the list.
+        - optimization_config_list: List[Optimization_Config] | Path | str := A list of
+        Optimization_Config objects or the path to a json file containing the list.
 
         #### Keywords Arguments:
         - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
@@ -173,8 +174,6 @@ class BrachyPlan:
         self.catheter_table: CatheterTable = None
         # applicator attributes
         self.applicator_list: List[BrachyApplicator] = []
-        # XXX: figure out if the two below are dwell or applicator attributes?
-        # they are dwell attributes that are impacted by applicator rotation. for now, leave them be.
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
@@ -565,18 +564,6 @@ class BrachyPlan:
             ["body"],
             mask_type=ROIContour,
             strict_name_match=False,).get("body", None)
-
-        # XXX: Delete this!
-        # if phantom.cached_structure_masks is not None:
-        #     body_key = None
-        #     for k in phantom.cached_structure_masks.keys():
-        #         if k.lower() == "body":
-        #             body_key = k
-        #     self.body_contour = phantom.cached_structure_masks.get(body_key, None)
-        # else:
-        #     self.body_contour = phantom.get_structure_mask(
-        #         ["body"], ROIContour, strict_name_match=False
-        #     ).get("body", None)
 
     def load_applicator_list(
         self,

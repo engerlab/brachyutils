@@ -158,7 +158,6 @@ class ClusterBox(BaseModel):
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         validate_assignment=True,)
-
     # # Mandatory attributes
     structure_dict: Dict[str, trimesh.Trimesh] = Field(..., description="a dictionary of \
 structures to be considered for catheter trajectory optimization.")
