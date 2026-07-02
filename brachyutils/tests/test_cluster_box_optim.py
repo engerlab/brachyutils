@@ -53,6 +53,9 @@ def test_cluster_box_optim():
         load_dicom_prescription_dose=False,
         
         )
+    
+    # TODO priority 1: complete the tester here. before passing to plan to the optimization, make sure to make a 
+    # backup phantom that is not modified. 
 
 if __name__ == "__main__":
     print("Testing cluster box optimization")

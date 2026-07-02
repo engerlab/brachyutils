@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Dict
 from collections import defaultdict
 
@@ -132,6 +133,8 @@ class ClusterBoxOptim:
         self.catheter_table_optimizer: CatheterTableOptim_Gurobi = None
 
         self.plan = self.validate_plan_initialization(plan=plan)
+        self.original_phantom = deepcopy(self.plan.phantom)
+
         self.cluster_box = self.get_cluster_box_from_plan(
             plan= self.plan,
             structure_names_list= self.structure_names_list,
