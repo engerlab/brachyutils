@@ -175,16 +175,22 @@ class ClusterBoxOptim:
             config.structure_name for config in plan.optimization_config_dict.values()
             if config.is_target
             ]
-        plan.phantom.crop_by_contour(
-            contour_name=structure_names_list,
-            strict_name_match=False,
-            margin_mm=cluster_box_config.box_margin_mm
-        )
         mesh_dict = plan.phantom.get_structure_mask(
             query_structure_names=structure_names_list,
             mask_type="mesh",
             strict_name_match=False,
         )
+
+        # # crop and resample the phantom to the bounding box of the target structures.
+        plan.phantom.crop_by_contour(
+            contour_name=structure_names_list,
+            strict_name_match=False,
+            margin_mm=cluster_box_config.box_margin_mm
+        )
+        plan.phantom.resample_to(
+            spacing=plan.optimization_config_dict.get(target_structure_names[0]).spacing_mm,
+        )
+
         cluster_box = ClusterBox(
             structure_dict=mesh_dict,
             target_structure_names=target_structure_names,
