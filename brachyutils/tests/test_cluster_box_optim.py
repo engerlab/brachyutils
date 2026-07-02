@@ -54,8 +54,7 @@ def test_cluster_box_optim():
         
         )
     
-    # TODO priority 1: complete the tester here. before passing to plan to the optimization, make sure to make a 
-    # backup phantom that is not modified. 
+    # TODO priority 1: complete the tester here.
 
 if __name__ == "__main__":
     print("Testing cluster box optimization")
