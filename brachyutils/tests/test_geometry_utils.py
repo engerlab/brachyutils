@@ -6,14 +6,14 @@ import numpy as np
 from brachyutils.geometry.phantom_utils import BrachyPhantom
 from brachyutils.geometry.applicator_utils import BrachyApplicator
 
-def test_brachy_phantom():
-    # pth_dicom = "data_test/prostate-glen-p1-dcm"
-    pth_nrrd = "data_test/prostate_glen_p1_ct.nrrd"
-    # pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
+def test_phantom_from_dicom(return_phantom=True):
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    # pth_nrrd = "data_test/prostate_glen_p1_ct.nrrd"
+    pth_structure = glob(pth_dicom + "/RS*.dcm")[0]
     phantom_obj = BrachyPhantom(
-        # dir_dicom=pth_dicom,
-        pth_phantom_file=pth_nrrd,
-        # pth_structures_file=pth_structure 
+        dir_dicom=pth_dicom,
+        # pth_phantom_file=pth_nrrd,
+        pth_structures_file=pth_structure 
     )
     phantom_obj.info()
 
@@ -294,9 +294,59 @@ def test_load_pet_dicom():
     phantom_obj = BrachyPhantom(dir_dicom=dir_pet_dicom)
     phantom_obj.info()
 
+def test_rt_utils():
+    from rt_utils import RTStructBuilder
+    pth_dicom = "data_test/prostate-glen-p1-dcm"
+    pth_structures = glob(pth_dicom + "/RS*.dcm")[0]
+    pth_out = Path("data_test/test_export_plan/prostate")
+    
+    rtstruct = RTStructBuilder.create_from(
+        dicom_series_path=pth_dicom,
+        rt_struct_path=pth_structures)
+
+    names = rtstruct.get_roi_names()
+    structure_dict = {}
+    for name in names:
+        structure_dict[name] = rtstruct.get_roi_mask_by_name(name=name).swapaxes(0,2).swapaxes(1,2)
+
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        structure_set=structure_dict)
+    phantom_obj.export_to(dir_nrrd_out=pth_out/"rt_utils")
+
+    phantom_obj2 = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structures
+    )
+    phantom_obj2.export_to(dir_nrrd_out=pth_out/"opentps")
+
+    # print("debug here")
+
+def test_export_to_nrrd():
+    pth_dicom = Path("data_test/prostate-glen-p1-dcm")
+    pth_structures = glob(str(pth_dicom) + "/RS*.dcm")[0]
+    pth_out = Path("data_test/test_export_plan/prostate")
+    phantom_obj = BrachyPhantom(
+        dir_dicom=pth_dicom,
+        pth_structures_file=pth_structures
+    )
+    phantom_obj.export_to(dir_nrrd_out=pth_out)
+    
+    phantom_obj2 = BrachyPhantom(
+        pth_phantom_file=str(pth_out/pth_dicom.name)+".nrrd",
+        pth_structures_file=str(pth_out/pth_dicom.name)+".seg.nrrd"
+    )
+    structure_dict = phantom_obj.get_structure_mask(phantom_obj.structure_names, "array")
+    structure_dict_2 = phantom_obj2.get_structure_mask(phantom_obj2.structure_names, "array")
+    
+    for name in structure_dict:
+        mask = structure_dict[name]
+        mask2 = structure_dict_2[name]
+        assert np.all(mask==mask2), f"the mask of {name} was not the same!"
+
 if __name__ == "__main__":
     # print("testing BrachyPhantom")
-    test_brachy_phantom()
+    # test_phantom_from_dicom()
     # test_get_structure_mask()
     # test_write_image_to_dicom()
     # test_write_image_to_nrrd()
@@ -318,3 +368,5 @@ if __name__ == "__main__":
     # test_dicom_rt_tools()
     # test_generate_sphere_mask()
     # test_load_pet_dicom()
+    # test_rt_utils()
+    test_export_to_nrrd()

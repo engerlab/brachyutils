@@ -120,7 +120,7 @@ Please provide either the structure_set or the path of the structure file."
         self.structure_names: List[str] = []
         # Used to avoid creating masks from contour multiple times, optional.
         # User needs to manually create the cache if they want to reuse it as a class attribute.
-        self.cached_structure_masks: Dict[str, ROIMask] = None
+        self.cached_structure_masks: Dict[str, ROIMask] = defaultdict(ROIMask)
         self.unit_length: Literal["mm"] = "mm"
         self.xyz_format: bool = True
         self.anatomical_coordinate_system: Literal["LAS", "RAS", "LPS"] = "LPS"
@@ -336,14 +336,12 @@ Please provide either the structure_set or the path of the structure file."
         """
         # structure_file_type = "".join(pth_structure.suffixes)
         if str(pth_structure).endswith(".dcm"):
-            self.structure_set = readDicomStruct(pth_structure)
+            structure_set = readDicomStruct(pth_structure)
+            structure_mask_dict = {contour.name:contour for contour in structure_set}
             header = pydicom.dcmread(pth_structure)
             structure_orientation = header.get((0x0010, 0x2210), "LPS")
             if structure_orientation == "BIPED":
                 structure_orientation = "LPS"
-            self._update_structure_names()
-            return
-            # self.anatomical_coordinate_system = orientation
         elif str(pth_structure).endswith(".nrrd"):
             structure_mask_dict, structure_orientation = readNrrdStruct(pth_structure)
         elif str(pth_structure).endswith(".nii.gz"):
@@ -358,38 +356,40 @@ Please provide either the structure_set or the path of the structure file."
                 "The orientation of the structure file is not the same as the image file."
 
         self.set_structure_set(structure_mask_dict)
-
-        # self.structure_names = []
-        # for structure in self.structure_set.contours:
-        #     self.structure_names.append(structure.name)
-
+    
     def get_structure_mask(
         self,
         query_structure_list: List[str],
-        mask_type: Union[np.ndarray, ROIContour, ROIMask, str] = ROIMask,
+        mask_type: Union[
+            np.ndarray, ROIContour, ROIMask,
+            Literal["array", "contour", "mask"]] = ROIMask,
         strict_name_match: bool = True,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
         ### Purpose:
-        - To return a dictionary with the requested structure masks from BrachyPhantom object. The queried
-        structure string should be a subset of the structure string in the dicom file. For example,
-        if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
-        The keys in the dictionary match the query_structure_list and the values are the masks.
+        - To return a dictionary with the requested structure masks from BrachyPhantom object.
+        When looking for a structure, self.cached_structure_mask is prioretized over self.structure_set
+        to avoid unnecessary contour to mask conversion.
+
         ### Inputs:
         - query_structure_list := list of structure names to find the mask of.
         - mask_type: Union[np.ndarray, ROIContour, ROIMask] := the type of the mask to return.
             if np.ndarray (or str "array"), the mask will be returned as a numpy array in [z, y, x] format.
             if ROIContour (or str "contour"), the mask will be returned as a ROIContour object in [x, y, z] format.
             if ROIMask (or str "mask"), the mask will be returned as a ROIMask object in [x, y, z] format.
+        - strict_name_match: if True, the queried structure names must match exactly the structure_names.
+        if False, The queried structure string should be a subset of the structure string in the dicom file. For example,
+        if the structure string in dicom file is CTV_BRACHY, then the query string can be CTV or ctv.
+
         ### Outputs:
         - mask_dict:dict :=  a dictionary with the queried structure name as key and the mask as value.
         """
         assert (
-            self.structure_set is not None
+            self.structure_set is not None or self.cached_structure_masks is not None
         ), "structure masks have not been loaded yet. please run load_structure_file() first"
         mask_dict: dict = {}
         flattened_query_structure_list = []
-      
+
         for query_structure in query_structure_list:
             if isinstance(query_structure, list):
                 flattened_query_structure_list.extend(query_structure)
@@ -402,12 +402,17 @@ Please provide either the structure_set or the path of the structure file."
                     pick_structure = query_structure.lower() == mask_name.lower()
                 else:
                     pick_structure = query_structure.lower() in mask_name.lower()
+
                 if pick_structure:
-                    mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
-                        origin=self.image_obj.origin,
-                        gridSize=self.image_obj.gridSize,
-                        spacing=self.image_obj.spacing,
-                    )
+                    if self.cached_structure_masks is not None:
+                        mask = self.cached_structure_masks.get(mask_name, None)
+                    else:
+                        mask = self.structure_set.getContourByName(mask_name).getBinaryMask(
+                            origin=self.image_obj.origin,
+                            gridSize=self.image_obj.gridSize,
+                            spacing=self.image_obj.spacing,
+                        )
+
                     if not np.any(mask.imageArray):
                         warnings.warn(
                             f"mask for {query_structure} is all zeros",
@@ -980,12 +985,14 @@ Please provide either the structure_set or the path of the structure file."
         If the name of a structure is in the structure set, the mask will be replaced.
         If the name of a structure is not in the structure set, a new structure will be added.
         The mask will be resampled to the image object if it exists.
+
         ### Inputs:
         - mask_dict: dict := the dictionary of the masks.
         - mask_colors: dict | tuple := the dictionary of the colors for each structure. If a tuple is provided,
         the same color will be used for all structures. If None is provided, the default colors will be used based
         on the slicer color table https://www.slicer.org/wiki/Slicer3:2010_GenericAnatomyColors.
         The values could be numpy arrays, ROIContour or ROIMask objects.
+
         ### Outputs:
         - None
         """
@@ -1004,18 +1011,24 @@ Please provide either the structure_set or the path of the structure file."
                 k: mask_colors for k in mask_dict.keys()
             }
 
+        new_cached_mask = defaultdict(ROIMask)
         for structure_name in mask_dict:
             structure_color = mask_colors.get(structure_name)
-            # check if the structure already exists in structure set
-            old_structure = self.structure_set.getContourByName(structure_name)
-            if old_structure is None:
-                old_structure = self.structure_set.getContourByName(structure_name.upper())
-            if old_structure is not None:
+            # check if the structure already exists in structure set, remove it if yes.
+            # but inherit the color!
+            old_structure = list(filter(lambda x: x == structure_name, self.structure_names))
+            if len(old_structure) == 0:
+                pass
+            else:
                 self.structure_set.removeContour(old_structure)
                 structure_color = old_structure.color
+            # check if the old structure was also cached, remove it if yes.
+            old_cached_structure = self.cached_structure_masks.get(structure_name, None)
+            if old_cached_structure is not None:
+                del self.cached_structure_masks[structure_name]
 
-            #print(f"setting structure {structure_name}, which is a {type(mask_dict[structure_name])} type")
             if mask_dict.get(structure_name) is None:
+                # skip planning/optimization structures, i.e. hot spot volumes.
                 continue
             if isinstance(mask_dict.get(structure_name), np.ndarray):
                 mask = ROIMask(
@@ -1080,16 +1093,15 @@ Please provide either the structure_set or the path of the structure file."
                         # mask.imageArray[:, :, -1] = 0
 
             mask._displayColor = structure_color
+            new_cached_mask[mask.name] = mask
             self.structure_set.appendContour(mask.getROIContour())
-            del mask
 
         self.structure_set.setPatient(
                 self.image_obj.patient if self.image_obj is not None else None
             )
 
-        # self.structure_set.seriesInstanceUID = self.image_obj.seriesInstanceUID if self.structure_set is not None else ""
-        # self.structure_set.sopInstanceUID = self.image_obj.sopInstanceUID if self.structure_set is None else ""
         self._update_structure_names()
+        self.cached_structure_masks = new_cached_mask
 
     def _update_structure_names(self) -> None:
         r"""
@@ -1156,6 +1168,9 @@ Please provide either the structure_set or the path of the structure file."
             self._update_structure_names()
         else:
             warnings.warn(f"The structure {structure_name} does not exist.")
+        cached_structure = self.cached_structure_masks.get(structure_name, None)
+        if cached_structure is not None:
+            del self.cached_structure_masks[structure_name]
 
     def resample_to(
         self,
@@ -1186,7 +1201,7 @@ Please provide either the structure_set or the path of the structure file."
             gridSize=gridSize,
             sitk_interpolator=interpolator_img
             )
-        
+
         if self.cached_structure_masks is not None and len(self.cached_structure_masks) > 0:
             new_cached_structure_masks = {}
             for structure_name, mask in self.cached_structure_masks.items():
