@@ -645,6 +645,12 @@ Please provide either the structure_set or the path of the structure file."
             structure_mask_dict: Dict[str, ROIMask] = self.get_structure_mask(
                 self.structure_names, mask_type=ROIMask
             )
+            #copy over the colors from the structure set
+            for structure_name in structure_mask_dict.keys():
+                contour = self.structure_set.getContourByName(structure_name)
+                if contour is not None:
+                    structure_mask_dict[structure_name]._displayColor = contour._displayColor
+
             masksToNrrd(
                 structure_mask_dict=structure_mask_dict,
                 pth_output=pth_output,
