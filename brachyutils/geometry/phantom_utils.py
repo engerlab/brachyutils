@@ -140,8 +140,6 @@ Please provide either the structure_set or the path of the structure file."
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
         elif image_obj is not None:
             self.image_obj = image_obj
-        else:
-            warnings.warn("No geometry source file provided. Creating an empty Phantom", stacklevel=2)
 
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)

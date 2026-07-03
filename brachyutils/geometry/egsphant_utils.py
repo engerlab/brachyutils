@@ -997,9 +997,9 @@ class BrachyEgsphant:
             self._sort_materials_by("structure_size") #JK, this may cause problems in edge cases where 
             #two substructures with the same material surpass a larger material in size
 
-            warnings.warn("""Sorting structures to ensure proper masking for egsphant material/density
-                        may now be broken due to multiple structures being assigned to the same material.
-                        Please verify the generated egsphant.""", RuntimeWarning)
+            #warnings.warn("""Sorting structures to ensure proper masking for egsphant material/density
+            #            may now be broken due to multiple structures being assigned to the same material.
+            #            Please verify the generated egsphant.""", RuntimeWarning)
 
 
             for i, material in enumerate(self.material_dict.keys()):
