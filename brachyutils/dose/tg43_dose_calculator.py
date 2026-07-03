@@ -99,7 +99,6 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
         self.brachysource : BrachySource = plan.simulation_setup.brachy_source
         self.source_name : str = self.brachysource.source_geometry
         self.is_hdr : bool = self.brachysource.treatment_type == "HDR"
-        #a little hard-coded fix :)
         self.air_kerma_strength = self.brachysource.reference_air_kerma_rate * U
         self.activity = self.brachysource.activity #can specify the (total) activity in place of the AKS
         if self.activity is not None:

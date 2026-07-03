@@ -84,11 +84,7 @@ class BrachyUtilsTG43S(BrachyUtilsTG43):
             raise ValueError(f"No shielding kernels found in directory {self.dir_shielding_kernels}.")
         self.shielding_kernels = {}
         for pth_kernel in pth_kernels:
-            #print(f"DEBUG pth_kernel: {pth_kernel}")
-            #print(f"DEBUG pth_kernel.stem: {pth_kernel.stem}")
             kernel_name = pth_kernel.stem[:-6] #remove mm.seq and .nrrd
-            #print(f"DEBUG kernel_name: {kernel_name}")
-            #print(f"DEBUG kernel_name.split('_'): {kernel_name.split('_')}")
             z_source = int(kernel_name.split("_")[1]) #remove S_ and then mm
             self.shielding_kernels[z_source] = BrachyDose(pth_dose_file = pth_kernel, load_uncertainty=False, dtype=np.float16).dose_image
 
@@ -115,9 +111,8 @@ def calculate_dwell_rotation_matrix( dwell : DwellPosition, applicator_list) -> 
     dwell_rot = dwell.rotation
     dwell_angle = float(dwell.angle) #the spin of the applicator around its central axis after placement
     applicator_spin_angle = applicator_list[0].rotation[0] #the spin of the applicator STL around its central axis for initial placement
-    total_angle =  applicator_spin_angle - dwell_angle #don't ask why minus please :D the answer is because it works
-    #print(f"DEBUG angles: dwell_angle={dwell_angle}, applicator_spin_angle={applicator_spin_angle}, total_angle={total_angle}")
-    applicator_spin = Rotation.from_euler('z', total_angle, degrees=True) #don't ask me why -ve :D
+    total_angle = applicator_spin_angle - dwell_angle #don't ask
+    applicator_spin = Rotation.from_euler('z', total_angle, degrees=True)
     dwell_rot_rotation = Rotation.align_vectors(dwell_rot, [0, 0, 1])[0]
     return (applicator_spin * dwell_rot_rotation).as_matrix()
 
