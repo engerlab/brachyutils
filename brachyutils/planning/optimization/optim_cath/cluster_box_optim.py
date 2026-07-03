@@ -133,17 +133,15 @@ class ClusterBoxOptim:
         self.catheter_table_optimizer: CatheterTableOptim_Gurobi = None
 
         self.plan = self.validate_plan_initialization(plan=plan)
-        # self.original_phantom = deepcopy(self.plan.phantom)
+        self.original_phantom = deepcopy(self.plan.phantom)
 
-        # self.cluster_box = self.get_cluster_box_from_plan(
-        #     plan= self.plan,
-        #     structure_names_list= self.structure_names_list,
-        #     target_structure_names= self.target_structure_names,
-        #     config_cluster_box= config_cluster_box)
-        # self.generate_dose_rate_for_cluster(
-        #     plan=self.plan,
-        #     cluster_box=self.cluster_box
-        # )
+        self.cluster_box = self.get_cluster_box_from_plan(
+            plan= self.plan,
+            config_cluster_box= config_cluster_box)
+        self.generate_dose_rate_for_cluster(
+            plan=self.plan,
+            cluster_box=self.cluster_box
+        )
 
     def validate_plan_initialization(self, plan:BrachyPlan) -> BrachyPlan:
         if plan.phantom is None:
@@ -179,11 +177,11 @@ class ClusterBoxOptim:
         """
         structure_names_list = list(plan.optimization_config_dict.keys())
         target_structure_names = [
-            config.structure_name for config in plan.optimization_config_dict.values()
+            name for name, config in plan.optimization_config_dict.items()
             if config.is_target
             ]
         mesh_dict = plan.phantom.get_structure_mask(
-            query_structure_names=structure_names_list,
+            query_structure_list=structure_names_list,
             mask_type="mesh",
             strict_name_match=False,
         )
@@ -192,7 +190,7 @@ class ClusterBoxOptim:
         plan.phantom.crop_by_contour(
             contour_name=structure_names_list,
             strict_name_match=False,
-            margin_mm=config_cluster_box.box_margin_mm
+            marginInMM=config_cluster_box.box_margin_mm
         )
         plan.phantom.resample_to(
             spacing=plan.optimization_config_dict.get(target_structure_names[0]).spacing_mm,
@@ -209,7 +207,6 @@ class ClusterBoxOptim:
             oar_collision_margin_mm=config_cluster_box.oar_collision_margin_mm, 
             segment_collision_margin_mm=config_cluster_box.segment_collision_margin_mm, 
             box_margin_mm=config_cluster_box.box_margin_mm, 
-            cluster_dict=config_cluster_box.cluster_dict,
             )
         return cluster_box
 

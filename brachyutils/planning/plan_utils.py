@@ -1403,7 +1403,7 @@ class BrachyPlan:
                     assert config.is_target == struc.is_target, f"The target structure in plan and optimization \
 config do not match for structure {struc.name}"
                     struc.set_optimization_config(config)
-                    self.optimization_config_dict[struc] = config
+                    self.optimization_config_dict[struc.name] = config
                     # check if the structure is a target and catheter
                     # recommendation is not needed
                     if config.is_target and not (config.catheter_recommendaion):
