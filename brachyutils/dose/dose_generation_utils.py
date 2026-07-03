@@ -277,7 +277,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
 
         # call the dose generator to generate the dose maps
         self.generate_dose(
-            dir_output=self.dir_plan_export,
+            # dir_output=self.dir_plan_export,
             pth_mac=export_config_brachyplan.export_config_plan_and_mac.pth_mac_combined,
             pth_plan=export_config_brachyplan.export_config_plan_and_mac.pth_plan_combined,
             pth_egsphant=export_config_brachyplan.export_config_egsphant.pth_egsphant,
