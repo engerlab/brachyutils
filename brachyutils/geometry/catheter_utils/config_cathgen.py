@@ -74,7 +74,7 @@ defined in the catheter box.")
 If a single Config_Angled_CathGen is provided, it will be applied to all \
 insertion points. If None, the default Config_Angled_CathGen() will be applied \
 to all insertion points.")
-    oar_collision_margin_mm: float = Field(default=0, description="the collision margin between \
+    oar_collision_margin_mm: float = Field(default=5, description="the collision margin between \
 catheter segments and organs at risk (OARs) (mm).")
     segment_collision_margin_mm: float = Field(default=5, description="the collision margin between \
 catheter segments (mm). Measured as center of the catheter segments.")

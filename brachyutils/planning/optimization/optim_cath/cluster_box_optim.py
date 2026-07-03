@@ -125,7 +125,7 @@ class ClusterBoxOptim:
     def __init__(
         self,
         plan:BrachyPlan,
-        cluster_box_config: Config_ClusterBox,
+        config_cluster_box: Config_ClusterBox,
         ):
         self.plan: BrachyPlan = None
         self.cluster_box: ClusterBox = None
@@ -133,13 +133,17 @@ class ClusterBoxOptim:
         self.catheter_table_optimizer: CatheterTableOptim_Gurobi = None
 
         self.plan = self.validate_plan_initialization(plan=plan)
-        self.original_phantom = deepcopy(self.plan.phantom)
+        # self.original_phantom = deepcopy(self.plan.phantom)
 
-        self.cluster_box = self.get_cluster_box_from_plan(
-            plan= self.plan,
-            structure_names_list= self.structure_names_list,
-            target_structure_names= self.target_structure_names,
-            cluster_box_config= cluster_box_config)
+        # self.cluster_box = self.get_cluster_box_from_plan(
+        #     plan= self.plan,
+        #     structure_names_list= self.structure_names_list,
+        #     target_structure_names= self.target_structure_names,
+        #     config_cluster_box= config_cluster_box)
+        # self.generate_dose_rate_for_cluster(
+        #     plan=self.plan,
+        #     cluster_box=self.cluster_box
+        # )
 
     def validate_plan_initialization(self, plan:BrachyPlan) -> BrachyPlan:
         if plan.phantom is None:
@@ -158,7 +162,7 @@ class ClusterBoxOptim:
     def get_cluster_box_from_plan(
         self,
         plan:BrachyPlan,
-        cluster_box_config: Config_ClusterBox
+        config_cluster_box: Config_ClusterBox
         ) -> ClusterBox:
         r"""
         ### Purpose:
@@ -168,7 +172,7 @@ class ClusterBoxOptim:
 
         ### Inputs:
         - plan: BrachyPlan := The initial brachytherapy plan without a catheter table
-        - cluster_box_config: Config_ClusterBox := The configuration for the cluster box generation.
+        - config_cluster_box: Config_ClusterBox := The configuration for the cluster box generation.
         
         ### Outputs:
         - cluster_box: ClusterBox := The generated cluster box object.
@@ -188,7 +192,7 @@ class ClusterBoxOptim:
         plan.phantom.crop_by_contour(
             contour_name=structure_names_list,
             strict_name_match=False,
-            margin_mm=cluster_box_config.box_margin_mm
+            margin_mm=config_cluster_box.box_margin_mm
         )
         plan.phantom.resample_to(
             spacing=plan.optimization_config_dict.get(target_structure_names[0]).spacing_mm,
@@ -197,15 +201,15 @@ class ClusterBoxOptim:
         cluster_box = ClusterBox(
             structure_dict=mesh_dict,
             target_structure_names=target_structure_names,
-            num_physical_catheters=cluster_box_config.num_physical_catheters, 
-            rotation_angle_deg=cluster_box_config.rotation_angle_deg, 
-            insertion_point_spacing_mm=cluster_box_config.insertion_point_spacing_mm, 
-            num_decision_planes=cluster_box_config.num_decision_planes, 
-            config_angle=cluster_box_config.config_angle,
-            oar_collision_margin_mm=cluster_box_config.oar_collision_margin_mm, 
-            segment_collision_margin_mm=cluster_box_config.segment_collision_margin_mm, 
-            box_margin_mm=cluster_box_config.box_margin_mm, 
-            cluster_dict=cluster_box_config.cluster_dict,
+            num_physical_catheters=config_cluster_box.num_physical_catheters, 
+            rotation_angle_deg=config_cluster_box.rotation_angle_deg, 
+            insertion_point_spacing_mm=config_cluster_box.insertion_point_spacing_mm, 
+            num_decision_planes=config_cluster_box.num_decision_planes, 
+            config_angle=config_cluster_box.config_angle,
+            oar_collision_margin_mm=config_cluster_box.oar_collision_margin_mm, 
+            segment_collision_margin_mm=config_cluster_box.segment_collision_margin_mm, 
+            box_margin_mm=config_cluster_box.box_margin_mm, 
+            cluster_dict=config_cluster_box.cluster_dict,
             )
         return cluster_box
 

@@ -3,6 +3,8 @@ from brachyutils.planning.optimization.optim_configs import Optimization_Config
 from brachyutils.tests.test_cluster_box import test_cluster_box
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from pathlib import Path
+from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen, Config_ClusterBox
+from brachyutils.planning.optimization.optim_cath.cluster_box_optim import ClusterBoxOptim
     
 def test_get_geometric_constraints():
     cbox = test_cluster_box(return_box=True)
@@ -46,15 +48,36 @@ def test_cluster_box_optim():
             )
         ]
 
+    config_angle = Config_Angled_CathGen(
+        x_angle_max=4,
+        x_angle_step=4,
+        y_angle_max=4,
+        y_angle_step=4
+    )
+
+    config_cluster_box = Config_ClusterBox(
+        num_physical_catheters=12,
+        insertion_point_spacing_mm=10,
+        num_decision_planes=2,
+        config_angle=config_angle,
+        box_margin_mm=10,
+    )
+    
     # # build a plan without catheter table but have optimizatio constraints.
     plan = load_dicom_to_plan(
         dir_dicom=dir_dicom,
         load_dicom_catheter_table=False,
         load_dicom_prescription_dose=False,
-        
+        optimization_config_list=optimization_config_list,
+        strict_name_match=False,
         )
-    
+
     # TODO priority 1: complete the tester here.
+    cbox_optim = ClusterBoxOptim(
+        plan=plan,
+        config_cluster_box=config_cluster_box
+    )
+    print("debug here")
 
 if __name__ == "__main__":
     print("Testing cluster box optimization")
