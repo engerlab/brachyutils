@@ -70,6 +70,7 @@ def test_cluster_box_optim():
         load_dicom_prescription_dose=False,
         optimization_config_list=optimization_config_list,
         strict_name_match=False,
+        prescription_dose=target_dose,
         )
 
     # TODO priority 1: complete the tester here.

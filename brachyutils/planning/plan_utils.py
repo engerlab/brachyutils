@@ -1693,9 +1693,9 @@ def load_dicom_to_plan(
     if load_dicom_prescription_dose:
         if len(plan_dcm) != 1:
             raise FileNotFoundError("There should be exactly one prescription dose dicom file that starts with RP or PL in the directory")
-        prescription_dose = kwargs.pop("prescription_dose", plan_dcm[0])
+        prescription_dose = plan_dcm[0]
     else:
-        prescription_dose = None
+        prescription_dose = kwargs.pop("prescription_dose", None)
 
     simulation_setup = kwargs.pop("simulation_setup", None)
     new_sim_setup = deepcopy(simulation_setup) # this is to avoid memory reference issues during forloops
