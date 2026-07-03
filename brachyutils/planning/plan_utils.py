@@ -274,7 +274,7 @@ class BrachyPlan:
                 elif str(simulation_setup).endswith(".dcm"):
                     self.simulation_setup = BrachySimulation(
                         brachy_source=simulation_setup,
-                        total_time=self.catheter_table.treatment_time,
+                        total_time=self.catheter_table.treatment_time if self.catheter_table else 0,
                         )
 
         # load the applicator list if the path is provided
