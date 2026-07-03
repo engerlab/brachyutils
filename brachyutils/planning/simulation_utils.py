@@ -30,7 +30,7 @@ class BrachySource(BaseModel):
     mass_number: int = 192
     atomic_number: int = 77
     air_kerma_per_history: float = 1.158e-11
-    reference_air_kerma_rate: float = 36260.0,
+    reference_air_kerma_rate: float = 36422.8
     activity: float = 10.0
     # source_dict: Union[dict, Path, str] = None
 
