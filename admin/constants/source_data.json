@@ -1,33 +1,33 @@
 {
   "AGX100": {
     "isotope" : "I-125",
-    "AKSA" : 2.124,
-    "AKHS" : 0.3671
+    "AKSA" : 2.124e-8,
+    "AKHS" : 0.3671e-11
   },
   "GenericHDR": {
     "isotope": "Ir-192",
-    "AKSA": 9.844,
-    "AKHS": 1.158
+    "AKSA": 9.844e-8,
+    "AKHS": 1.158e-11
   },
   "FlexiSource": {
     "isotope": "Ir-192",
-    "AKSA": 9.884,
-    "AKHS": 1.159
+    "AKSA": 9.884e-8,
+    "AKHS": 1.159e-11
   },
   "microSelectron-v2": {
     "isotope": "Ir-192",
-    "AKSA": 9.683,
-    "AKHS": 9.683
+    "AKSA": 9.683e-8,
+    "AKHS": 1.161e-11
   },
   "SeCure": {
     "isotope": "Se-75",
-    "AKSA": 4.760,
-    "AKHS": 0.561
+    "AKSA": 4.760e-8,
+    "AKHS": 0.561e-11
   },
   "BebigHDRCo": {
     "isotope": "Co-60",
-    "AKSA": 30.40,
-    "AKHS": 4.226
+    "AKSA": 30.40e-8,
+    "AKHS": 4.226e-11
   },
   "BebigHDRIr_A852": {
     "isotope": "Ir-192",
@@ -41,7 +41,7 @@
   },
   "SelectSeed": {
     "isotope": "I-125",
-    "AKSA": 2.072,
+    "AKSA": 2.072e-8,
     "AKHS": null
   },
   "BetaPatch": {
@@ -74,28 +74,13 @@
     "AKSA": null,
     "AKHS": null
   },
-  "PrimaryGeneratorAction": {
-    "isotope": null,
-    "AKSA": null,
-    "AKHS": null
-  },
-  "SourceMessenger": {
-    "isotope": null,
-    "AKSA": null,
-    "AKHS": null
-  },
-  "SourceModel": {
-    "isotope": null,
-    "AKSA": null,
-    "AKHS": null
-  },
   "TheraSeed": {
     "isotope": "Pd-103",
     "AKSA": null,
     "AKHS": null
   },
   "Xoft": {
-    "isotope": "Ir-192",
+    "isotope": null,
     "AKSA": null,
     "AKHS": null
   }
