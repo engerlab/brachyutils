@@ -242,3 +242,52 @@ class ClusterBoxOptim:
             generate_dose_rate_maps=True,)
         t1=time()
         print("Time for RapidBRachyTG43 was: ", t1-t0)
+
+    def build_optimization_object(
+        self,
+        plan: BrachyPlan
+        ):
+        r"""
+        ### Purpose:
+        - To build the initial optimization model. 
+        """
+        print("Building optimization model for the cluster")
+        optim_obj = CatheterTableOptim_Gurobi(
+            plan=plan,
+            multi_processing=True
+        )
+        return optim_obj
+
+    def set_geometric_constraints(
+        self,
+        cluster_box:ClusterBox,
+        optim_obj:CatheterTableOptim_Gurobi,
+        ):
+        r"""
+        ### Purpose:
+        - To set the geometric catheter constraints to the model.
+        These constraints are generated using get_geometric_constraints() 
+        """
+        
+        geometric_constraint_dict = get_geometric_constraints(cluster_box=cluster_box)
+        for constraint_type, constraint_dict in geometric_constraint_dict.items():
+            print(f"setting {constraint_type} constraints")
+            optim_obj.set_constraints(constraint_config_dict=constraint_dict)
+
+    def solve(self):
+        r"""
+        ### Puropse:
+        - To solve the optimization and get the final catheter table.
+        The solve could have two strategy, simultaneous catheter-dwell-time optimization
+        or cascaded catheter-dwell-time optimization
+        """
+        pass
+
+def run_catheter_recommendation():
+    r"""
+    ### Purpose:
+    - To recommend catheters based on two strategies: bulk or bulk-then-sequential
+    This could be a stand alone method controlling the ClusterBoxOptim.
+    """
+    pass
+        
