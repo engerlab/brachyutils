@@ -650,18 +650,6 @@ match its index ({new_catheter.name_id}), be sure that the name_id == new_cathet
         for i, catheter in enumerate(self.catheters_list):
             catheter.index = i
 
-    def get_catheters_for_dose_gen(self):
-        r"""
-        ### Purpose: XXX: we probably do not need this if we use gen_dose_rate for dwells
-        - To get a catheter table with only the catheters that are needed for dose rate generation
-        """
-        dose_gen_list = [cat for cat in self if cat.gen_dose_rates]
-        return CatheterTable(
-            catheters_dict=dose_gen_list,
-            step_size=self.step_size,
-            from_delivered_dwellpositions=self.from_delivered_dwellpositions
-        )
-
     def to_dict(self) -> dict:
         r"""
         ### Purpose:

@@ -1014,17 +1014,15 @@ class BrachyPlan:
         ### Dependencies:
             - None
         """
-        cath_table_dose_gen = catheter_table.get_catheters_for_dose_gen()
-        total_dwell_time = cath_table_dose_gen.treatment_time
-        num_dwells = cath_table_dose_gen.num_dwell_positions
+        total_dwell_time = catheter_table.treatment_time
+        num_dwells = catheter_table.num_dwell_positions
         combined_plan = "Treatment Plan\n"
         combined_plan += f"{num_dwells} Control Points\n"
 
         for cat in catheter_table:
-            # skip if no need to export for dose rate calculation
-            if not cat.gen_dose_rates:
-                continue
             for dwell in cat.dwells:
+                if not dwell.gen_dose_rate:
+                    continue
                 dwell_coordinates_str = np.array(
                     list(dwell.position)
                     + list(dwell.rotation)

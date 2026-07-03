@@ -129,8 +129,6 @@ class ClusterBoxOptim:
         ):
         self.plan: BrachyPlan = None
         self.cluster_box: ClusterBox = None
-        self.dose_generator: RapidBrachyTG43 | BrachyUtilsTG43 = None
-        self.catheter_table_optimizer: CatheterTableOptim_Gurobi = None
 
         self.plan = self.validate_plan_initialization(plan=plan)
         self.original_phantom = deepcopy(self.plan.phantom)
@@ -227,11 +225,20 @@ class ClusterBoxOptim:
         - cluster_box: ClusterBox := The cluster box containing the catheter segments for which dose rates
         will be generated. 
         """
+        from time import time
         plan.set_catheter_table(
             catheter_table=cluster_box.catheter_table,
         )
-        dose_generator = BrachyUtilsTG43(auto_phantom=False)
+        # dose_generator = BrachyUtilsTG43(auto_phantom=False)
+        # dose_generator.run_dose_generation(
+        #     plan=plan,
+        #     generate_dose_rate_maps=True,
+        # )
+        t0 = time()
+        dose_generator = RapidBrachyTG43(dir_plan_export="temp_data/tg43/test_clusterbox")
         dose_generator.run_dose_generation(
             plan=plan,
             generate_dose_rate_maps=True,
         )
+        t1=time()
+        print("Time for RapidBRachyTG43 was: ", t1-t0)
