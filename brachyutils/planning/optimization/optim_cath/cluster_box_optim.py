@@ -235,10 +235,10 @@ class ClusterBoxOptim:
         #     generate_dose_rate_maps=True,
         # )
         t0 = time()
-        dose_generator = RapidBrachyTG43(dir_plan_export="temp_data/tg43/test_clusterbox")
+        dose_generator = RapidBrachyTG43(
+            dir_plan_export="temp_data/tg43/cluster_box"+plan.phantom.pth_image.name)
         dose_generator.run_dose_generation(
             plan=plan,
-            generate_dose_rate_maps=True,
-        )
+            generate_dose_rate_maps=True,)
         t1=time()
         print("Time for RapidBRachyTG43 was: ", t1-t0)
