@@ -1,0 +1,103 @@
+{
+  "AGX100": {
+    "isotope" : "I-125",
+    "AKSA" : 2.124,
+    "AKHS" : 0.3671
+  },
+  "GenericHDR": {
+    "isotope": "Ir-192",
+    "AKSA": 9.844,
+    "AKHS": 1.158
+  },
+  "FlexiSource": {
+    "isotope": "Ir-192",
+    "AKSA": 9.884,
+    "AKHS": 1.159
+  },
+  "microSelectron-v2": {
+    "isotope": "Ir-192",
+    "AKSA": 9.683,
+    "AKHS": 9.683
+  },
+  "SeCure": {
+    "isotope": "Se-75",
+    "AKSA": 4.760,
+    "AKHS": 0.561
+  },
+  "BebigHDRCo": {
+    "isotope": "Co-60",
+    "AKSA": 30.40,
+    "AKHS": 4.226
+  },
+  "BebigHDRIr_A852": {
+    "isotope": "Ir-192",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "BebigHDRIr_GI192M11": {
+    "isotope": "Ir-192",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "SelectSeed": {
+    "isotope": "I-125",
+    "AKSA": 2.072,
+    "AKHS": null
+  },
+  "BetaPatch": {
+    "isotope": "Y-90",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "CustomSource": {
+    "isotope": "Yb-169",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "GammaMedPlus": {
+    "isotope": "Ir-192",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "Intrabeam": {
+    "isotope": null,
+    "AKSA": null,
+    "AKHS": null
+  },
+  "IsoAid_Advantage": {
+    "isotope": "Pd-103",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "OncoSeed6711_I125": {
+    "isotope": "I-125",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "PrimaryGeneratorAction": {
+    "isotope": null,
+    "AKSA": null,
+    "AKHS": null
+  },
+  "SourceMessenger": {
+    "isotope": null,
+    "AKSA": null,
+    "AKHS": null
+  },
+  "SourceModel": {
+    "isotope": null,
+    "AKSA": null,
+    "AKHS": null
+  },
+  "TheraSeed": {
+    "isotope": "Pd-103",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "Xoft": {
+    "isotope": "Ir-192",
+    "AKSA": null,
+    "AKHS": null
+  }
+  
+}
