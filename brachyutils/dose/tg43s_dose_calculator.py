@@ -121,7 +121,7 @@ def calculate_shielding_kernel(dwell, shielding_kernels, applicator_list) -> Dos
     if z_source > max(shielding_kernels.keys()) or z_source < min(shielding_kernels.keys()):
         raise ValueError(f"Dwell relative position {z_source} is out of bounds for available shielding kernels.")
     if z_source in shielding_kernels.keys():
-        return shielding_kernels[dwell.relativePos]
+        return shielding_kernels[dwell.relativePos].copy()
 
     #otherwise, linearly interpolate between the two nearest kernels
     shielding_kernel = shielding_kernels.values()[0].copy() #just to get the metadata, we'll overwrite the data with the interpolation
