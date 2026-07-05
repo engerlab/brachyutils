@@ -55,7 +55,7 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
             "auto_kernel": True, #if not True, you must set the next two values 
             #"kernel_half_width" : 10 * CM, #half width to calculate dose rate kernel
             #"kernel_res" : 0.1 * CM, #resolution to calculate the dose rate kernel
-            "auto_phantom" : True, #crop phantom to all non-body structures
+            "auto_phantom" : False, #crop phantom to all non-body structures
         }
         self.calc_parameters.update(calc_parameter_kwargs)
 
