@@ -146,6 +146,8 @@ class BrachySource(BaseModel):
             source_dict["source_geometry"] = "MicroSelectronV2"
         elif "microselectron v3" in source_dict["source_geometry"].lower():
             source_dict["source_geometry"] = "MicroSelectronV3"
+        elif "flexitron hdr 192-ir" in source_dict["source_geometry"].lower():
+            source_dict["source_geometry"] = "FlexiSource"
         # source_dict["source_geometry"] = plan_dcm.get("SourceModelName", "MicroSelectronV2")
         source_dict["core_material"] = plan_dcm.SourceSequence[0].SourceIsotopeName
         if source_dict["core_material"] == "Ir-192":
