@@ -110,11 +110,25 @@ def calculate_dwell_rotation_matrix( dwell : DwellPosition, applicator_list) -> 
     #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwellcc
     dwell_rot = dwell.rotation
     dwell_angle = float(dwell.angle) #the spin of the applicator around its central axis after placement
-    applicator_spin_angle = applicator_list[0].rotation[0] #the spin of the applicator STL around its central axis for initial placement
-    total_angle = applicator_spin_angle - dwell_angle #don't ask
+    applicator_spin_angle = extract_z_spin_degrees(np.array(applicator_list[0].rotation))
+    print(f"DEBUG calculate_dwell_rotation_matrix: dwell_angle={dwell_angle}, applicator_spin_angle={applicator_spin_angle}")
+    total_angle = 90.0 + applicator_spin_angle - dwell_angle #don't ask
     applicator_spin = Rotation.from_euler('z', total_angle, degrees=True)
     dwell_rot_rotation = Rotation.align_vectors(dwell_rot, [0, 0, 1])[0]
     return (applicator_spin * dwell_rot_rotation).as_matrix()
+
+def extract_z_spin_degrees(vtk_orientation_wxyz) -> float:
+    """Recover the spin angle about the z-axis of the applicator's orientation
+    given in vtk wxyz format
+    """
+    angle = vtk_orientation_wxyz[0]
+    axis = vtk_orientation_wxyz[1:4]
+    print(f"DEBUG extract_z_spin_degrees: angle={angle}, axis={axis}")
+    rotation = Rotation.from_rotvec(angle * axis, degrees=True)
+    transformed_z_axis = rotation.apply([0.0, 0.0, 1.0])
+    tilt = Rotation.align_vectors([transformed_z_axis], [[0.0, 0.0, 1.0]])[0] #see the tilt of applicator
+    spin = rotation * tilt.inv() #recover the non-tilt transformation, just the applicator spinning
+    return spin.as_euler('zyx', degrees=True)[0] #return the spin angle about z-axis in degrees    
 
 def calculate_shielding_kernel(dwell, shielding_kernels, applicator_list) -> DoseImage:
     z_source = int(dwell.relativePos)
