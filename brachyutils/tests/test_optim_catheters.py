@@ -32,7 +32,7 @@ def test_catheter_table_optim(
     # dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
     from_delivered_dwellpositions=False
-    multi_processing = True
+    multi_processing = False
     gen_dose_rates = False
     catheter_recommendaion=False
 
@@ -260,6 +260,6 @@ def test_bound_variables():
 
 if __name__ == "__main__":
     # test_catheter_gurobi_initialization()
-    # test_catheter_table_optim()
+    test_catheter_table_optim()
     # test_dynamic_plan_generation()
-    test_bound_variables()
+    # test_bound_variables()

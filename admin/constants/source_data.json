@@ -1,0 +1,117 @@
+{
+  "AGX100": {
+    "isotope" : "I-125",
+    "core" : "SilverIodide",
+    "AKSA" : 2.124e-8,
+    "AKHS" : 0.3671e-11
+  },
+  "GenericHDR": {
+    "isotope": "Ir-192",
+    "core" : "G4_Ir",
+    "AKSA": 9.844e-8,
+    "AKHS": 1.158e-11
+  },
+  "FlexiSource": {
+    "isotope": "Ir-192",
+    "core": "G4_Ir",
+    "AKSA": 9.884e-8,
+    "AKHS": 1.159e-11
+  },
+  "MicroSelectronV2": {
+    "isotope": "Ir-192",
+    "core" : "G4_Ir",
+    "AKSA": 9.683e-8,
+    "AKHS": 1.161e-11
+  },
+  "MicroSelectronV3": {
+    "isotope": "Ir-192",
+    "core" : "G4_Ir",
+    "AKSA": 9.683e-8,
+    "AKHS": 1.161e-11
+  },
+  "SeCure": {
+    "isotope": "Se-75",
+    "core" : "VSe2",
+    "AKSA": 4.760e-8,
+    "AKHS": 0.561e-11
+  },
+  "BebigHDRCo": {
+    "isotope": "Co-60",
+    "core" : "G4_Co",
+    "AKSA": 30.40e-8,
+    "AKHS": 4.226e-11
+  },
+  "BebigHDRIr_A852": {
+    "isotope": "Ir-192",
+    "core" : "G4_Ir",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "BebigHDRIr_GI192M11": {
+    "isotope": "Ir-192",
+    "core" : "G4_Ir",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "SelectSeed": {
+    "isotope": "I-125",
+    "core" : "G4_I",
+    "AKSA": 2.072e-8,
+    "AKHS": null
+  },
+  "BetaPatch": {
+    "isotope": "Y-90",
+    "core" : "G4_Y",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "CustomSource": {
+    "isotope": "Yb-169",
+    "core" : "G4_Yb",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "GammaMedPlus": {
+    "isotope": "Ir-192",
+    "core" : "G4_Ir",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "Intrabeam": {
+    "isotope": null,
+    "core" : null,
+    "AKSA": null,
+    "AKHS": null
+  },
+  "IsoAid_Advantage": {
+    "isotope": "Pd-103",
+    "core" : "G4_Pd",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "OncoSeed6711_I125": {
+    "isotope": "I-125",
+    "core" : "G4_I",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "TheraSeed": {
+    "isotope": "Pd-103",
+    "core" : "G4_Pd",
+    "AKSA": null,
+    "AKHS": null
+  },
+  "Xoft": {
+    "isotope": null,
+    "core" : null,
+    "AKSA": null,
+    "AKHS": null
+  },
+  "Vektra" : {
+    "isotope" : null,
+    "core" : null,
+    "AKSA" : null,
+    "AKHS" : null
+
+  }
+}
