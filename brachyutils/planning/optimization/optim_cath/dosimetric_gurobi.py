@@ -112,6 +112,7 @@ class CatheterTableOptim_Gurobi():
         plan: BrachyPlan,
         roi_margin_mm: float = None,
         multi_processing: bool = False,
+        pth_logfile: Path = "temp_data/gurobi_model.log"
         ):
         r"""
         ### Purpose:
@@ -141,7 +142,7 @@ class CatheterTableOptim_Gurobi():
         self.multi_processing = multi_processing
 
         # start buliding this optimization object
-        self.model = self.initialize_model(self.solver)
+        self.model = self.initialize_model(self.solver, pth_logfile=pth_logfile)
         self.catheter_vars = self.set_catheter_variables(
             plan=self.plan,
             model=self.model,

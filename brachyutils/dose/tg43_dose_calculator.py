@@ -392,7 +392,6 @@ def calculate_dwell_dose_tg43(dwell : DwellPosition, dose_rate_kernel: BrachyDos
 def calculate_dwell_rotation_matrix( dwell : DwellPosition) -> np.ndarray:
     #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwell
     dwell_rot = dwell.rotation
-    dwell_angle = float(dwell.angle) #todo: perform the Z rotation first
     return Rotation.align_vectors(dwell_rot, [0, 0, 1])[0].as_matrix()
 
 if __name__ == "__main__":

@@ -63,7 +63,7 @@ class BrachyEgsphant:
         chr(i) for i in range(ord("a"), ord("z") + 1)
         ]
     
-    _MATERIALS_ENCODING_INT = [i for i in range(100)] #is this redundant? a bit... just leaving this like this in case we want nrrd egsphants to start at 1
+    _MATERIALS_ENCODING_INT = [i for i in range(1, 100)] #materials start at 1
     
 
     def __init__(
