@@ -126,7 +126,7 @@ def test_run_dose_gen_tg43():
 def test_run_brachyutilstg43():
     from brachyutils.dose.tg43_dose_calculator import BrachyUtilsTG43
     dir_tg43_parameters = Path(
-        "admin/constants/TG43_Parameter_Data/microSelectron-v2_Consensus")
+        "admin/constants/TG43_Parameter_Data/MicroSelectronV2")
     dir_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
     dir_export = Path("temp_data/tg43")/"BrachyUtilsTG43"/dir_dicom.stem
     plan_obj = get_a_plan(
