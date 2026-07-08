@@ -4,7 +4,6 @@ from brachyutils.geometry import BrachyPhantom
 from brachyutils.geometry import BrachyApplicator
 from brachyutils.geometry.catheter_utils import DwellPosition
 from brachyutils.dose import BrachyDose
-from brachyutils.dose.tg43_dose_calculator import calculate_dwell_rotation_matrix
 from opentps.core.processing.imageProcessing.imageTransform3D  import applyTransform3D, translateDataByChangingOrigin
 from opentps.core.data.images import DoseImage
 
@@ -94,30 +93,44 @@ class BrachyUtilsTG43S(BrachyUtilsTG43):
         logging.info("Loaded %d shielding kernels.", len(self.shielding_kernels))
 
 def calculate_dwell_dose_tg43s(dwell : DwellPosition, dose_rate_kernel: BrachyDose, phantom : BrachyPhantom, shielding_kernels : dict, applicator_list : List[BrachyApplicator] ) ->  None:
-    dwell_rotation_matrix = calculate_dwell_rotation_matrix(dwell)
-    shielding_kernel_rotation_matrix = calculate_shielding_kernel_rotation_matrix(dwell, applicator_list)
+    rotation_matrix = calculate_dwell_rotation_matrix(dwell, applicator_list)
     dose_rate_kernel_image = dose_rate_kernel.dose_image.copy()
-    applyTransform3D(dose_rate_kernel_image, dwell_rotation_matrix, fillValue=0,
-        outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1, tryGPU=False),# translation=dwell.position)
-    shielding_kernel = calculate_shielding_kernel(dwell, shielding_kernels)
-    applyTransform3D(shielding_kernel, shielding_kernel_rotation_matrix, fillValue=0,
-        outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1, tryGPU=False),# translation=dwell.position)
+    shielding_kernel = calculate_shielding_kernel(dwell, shielding_kernels, applicator_list)
     shielding_kernel.resampleOn(dose_rate_kernel_image, fillValue=0, tryGPU=False)
     dose_rate_kernel_image.imageArray *= shielding_kernel.imageArray
+    applyTransform3D(dose_rate_kernel_image, rotation_matrix, fillValue=0,
+        outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1),# translation=dwell.position)
     translateDataByChangingOrigin(dose_rate_kernel_image, dwell.position)
     dose_rate_kernel_image.resampleOn(phantom.image_obj, fillValue=0, tryGPU=False)
     if dwell.dose_rate is None:
         dwell.dose_rate = BrachyDose(dtype=np.float16)
     dwell.dose_rate.dose_image = dose_rate_kernel_image
 
-def calculate_shielding_kernel_rotation_matrix(dwell: DwellPosition, applicator_list : List[BrachyApplicator]):
-    shield_angle = float(dwell.angle) #the spin of the applicator around its central axis after placement
-    applicator_rotvec = (-applicator_list[0].rotation[0]) * applicator_list[0].rotation[1:4] #the rotation vector of the applicator's orientation (axis of rotation * angle of rotation)
-    applicator_trans  = Rotation.from_rotvec(applicator_rotvec, degrees=True)
-    applicator_spin = Rotation.from_euler('z', -shield_angle, degrees=True)
-    return (applicator_spin * applicator_trans).as_matrix()
+def calculate_dwell_rotation_matrix( dwell : DwellPosition, applicator_list) -> np.ndarray:
+    #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwellcc
+    dwell_rot = dwell.rotation
+    dwell_angle = float(dwell.angle) #the spin of the applicator around its central axis after placement
+    applicator_spin_angle = extract_z_spin_degrees(np.array(applicator_list[0].rotation))
+    print(f"DEBUG calculate_dwell_rotation_matrix: dwell_angle={dwell_angle}, applicator_spin_angle={applicator_spin_angle}")
+    total_angle = 90.0 + applicator_spin_angle - dwell_angle #don't ask
+    applicator_spin = Rotation.from_euler('z', total_angle, degrees=True)
+    dwell_rot_rotation = Rotation.align_vectors(dwell_rot, [0, 0, 1])[0]
+    return (applicator_spin * dwell_rot_rotation).as_matrix()
 
-def calculate_shielding_kernel(dwell, shielding_kernels) -> DoseImage:
+def extract_z_spin_degrees(vtk_orientation_wxyz) -> float:
+    """Recover the spin angle about the z-axis of the applicator's orientation
+    given in vtk wxyz format
+    """
+    angle = vtk_orientation_wxyz[0]
+    axis = vtk_orientation_wxyz[1:4]
+    print(f"DEBUG extract_z_spin_degrees: angle={angle}, axis={axis}")
+    rotation = Rotation.from_rotvec(angle * axis, degrees=True)
+    transformed_z_axis = rotation.apply([0.0, 0.0, 1.0])
+    tilt = Rotation.align_vectors([transformed_z_axis], [[0.0, 0.0, 1.0]])[0] #see the tilt of applicator
+    spin = rotation * tilt.inv() #recover the non-tilt transformation, just the applicator spinning
+    return spin.as_euler('zyx', degrees=True)[0] #return the spin angle about z-axis in degrees    
+
+def calculate_shielding_kernel(dwell, shielding_kernels, applicator_list) -> DoseImage:
     z_source = int(dwell.relativePos)
     if z_source > max(shielding_kernels.keys()) or z_source < min(shielding_kernels.keys()):
         raise ValueError(f"Dwell relative position {z_source} is out of bounds for available shielding kernels.")
