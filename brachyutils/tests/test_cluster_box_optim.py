@@ -78,6 +78,18 @@ def test_cluster_box_optim():
         plan=plan,
         config_cluster_box=config_cluster_box
     )
+    # # export the cluster 
+    cbox_optim.cluster_box.to_ply(
+        out_ply_dir=outdir)
+    # # export the normalized combined dose rate
+    cbox_optim.plan.catheter_table.reset_dwelltimes_to(reset_value=1)
+    combined_dose_rate = cbox_optim.plan.combined_dose
+    combined_dose_rate.dose_image.imageArray = combined_dose_rate.dose_image.imageArray / target_dose
+    combined_dose_rate.write_brachydose_to_file(
+        pth_dose_file=outdir/"combined_dose.seq.nrrd"
+    )
+    # cbox_optim.solve()
+    
     print("debug here")
 
 if __name__ == "__main__":
