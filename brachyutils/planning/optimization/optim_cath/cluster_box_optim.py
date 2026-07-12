@@ -129,6 +129,7 @@ class ClusterBoxOptim:
         ):
         self.plan: BrachyPlan = None
         self.cluster_box: ClusterBox = None
+        self.optimization_object: CatheterTableOptim_Gurobi = None
 
         self.plan = self.validate_plan_initialization(plan=plan)
         self.original_phantom = deepcopy(self.plan.phantom)
@@ -138,8 +139,11 @@ class ClusterBoxOptim:
             config_cluster_box= config_cluster_box)
         self.generate_dose_rate_for_cluster(
             plan=self.plan,
-            cluster_box=self.cluster_box
-        )
+            cluster_box=self.cluster_box,)
+        self.optimization_object = self.build_optimization_object(plan=self.plan)
+        self.set_geometric_constraints(
+            cluster_box=self.cluster_box,
+            optim_obj=self.optimization_object)
 
     def validate_plan_initialization(self, plan:BrachyPlan) -> BrachyPlan:
         if plan.phantom is None:
@@ -224,16 +228,14 @@ class ClusterBoxOptim:
         - plan: BrachyPlan := The initial brachytherapy plan without a catheter table
         - cluster_box: ClusterBox := The cluster box containing the catheter segments for which dose rates
         will be generated. 
+        
+        ### Outputs:
+        - None:= The catheter table in the plan will be updated with the new dose rates.
         """
         from time import time
         plan.set_catheter_table(
             catheter_table=cluster_box.catheter_table,
         )
-        # dose_generator = BrachyUtilsTG43(auto_phantom=False)
-        # dose_generator.run_dose_generation(
-        #     plan=plan,
-        #     generate_dose_rate_maps=True,
-        # )
         t0 = time()
         dose_generator = RapidBrachyTG43(
             dir_plan_export="temp_data/tg43/cluster_box"+plan.phantom.pth_image.name)
@@ -249,7 +251,7 @@ class ClusterBoxOptim:
         ):
         r"""
         ### Purpose:
-        - To build the initial optimization model. 
+        - To build the initial optimization model.
         """
         print("Building optimization model for the cluster")
         optim_obj = CatheterTableOptim_Gurobi(
