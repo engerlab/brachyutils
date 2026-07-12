@@ -532,15 +532,19 @@ class BrachyPlan:
         )->None:
         r"""
         ### Purpose:
-        - To create a list of BrachyStructure objects from the structures in the phantom and
-        the DVH metric goals. Each BrachyStructure object will have attributes for the structure
-        contour, the DVH and uncertainty volume histograms, optimization attributes, and simulation attributes.
+        - To create a list of BrachyStructure objects from the structures in the phantom.
+        Each BrachyStructure object will have attributes for the structure
+        contour, the DVH and uncertainty volume histograms, optimization attributes,
+        and simulation attributes. Here, we only set the mask. We also ensure that there is
+        no overlap between the mask of the target structure and the OARs, priority is given
+        to OAR.
 
         ### Inputes:
         - phantom := the phantom with its structures fully loaded.
         - dvh_metric_goals := the dvh metric goals dictionary
         - mask_type: ROIContour | ROIMask := Phantom masks will be converted to this type when being
         stored in BrachySturucture.
+
         ### Outputs:
         - None := will update the BrachyPlan.structure_list attribute
         """
@@ -566,17 +570,24 @@ class BrachyPlan:
             mask_type=ROIContour,
             strict_name_match=False,).get("body", None)
 
-        # XXX: Delete this!
-        # if phantom.cached_structure_masks is not None:
-        #     body_key = None
-        #     for k in phantom.cached_structure_masks.keys():
-        #         if k.lower() == "body":
-        #             body_key = k
-        #     self.body_contour = phantom.cached_structure_masks.get(body_key, None)
-        # else:
-        #     self.body_contour = phantom.get_structure_mask(
-        #         ["body"], ROIContour, strict_name_match=False
-        #     ).get("body", None)
+        # If there is an OAR that goes through the PTV, cut it out of PTV.
+        # this is because each voxel can have planning role only.
+        # in prostate, the urethra goes through the PTV.
+        target_structure = next(filter(lambda x: x.is_target, self.structure_list))
+        for structure in self.structure_list:
+            if structure.is_target:
+                continue
+            if "body" in structure.name.lower():
+                continue 
+            # find intersection between this structure and target_structure
+            overlap = (
+                target_structure.mask.imageArray 
+                &  structure.mask.imageArray)
+            if np.any(overlap):
+                target_structure.mask.imageArray = (
+                    target_structure.mask.imageArray 
+                    & (np.ma.ones_like(overlap)^overlap))
+
 
     def load_applicator_list(
         self,
