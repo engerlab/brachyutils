@@ -130,6 +130,7 @@ class ClusterBoxOptim:
         self.plan: BrachyPlan = None
         self.cluster_box: ClusterBox = None
         self.optimization_object: CatheterTableOptim_Gurobi = None
+        self.geometric_constraint_dict = None
 
         self.plan = self.validate_plan_initialization(plan=plan)
         self.original_phantom = deepcopy(self.plan.phantom)
@@ -271,8 +272,8 @@ class ClusterBoxOptim:
         These constraints are generated using get_geometric_constraints() 
         """
         
-        geometric_constraint_dict = get_geometric_constraints(cluster_box=cluster_box)
-        for constraint_type, constraint_dict in geometric_constraint_dict.items():
+        self.geometric_constraint_dict = get_geometric_constraints(cluster_box=cluster_box)
+        for constraint_type, constraint_dict in self.geometric_constraint_dict.items():
             print(f"setting {constraint_type} constraints")
             optim_obj.set_constraints(constraint_config_dict=constraint_dict)
 
