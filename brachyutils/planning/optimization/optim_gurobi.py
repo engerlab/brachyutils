@@ -135,7 +135,7 @@ def _get_optimized_plan_from_model(
     if inplace:
         outplan:BrachyPlan = plan
     else:
-        outplan:BrachyPlan = deepcopy(plan)     
+        outplan:BrachyPlan = deepcopy(plan)
 
     for dwell_time, name in dwelltime_and_name:
         # set the dwell time to the optimized value
