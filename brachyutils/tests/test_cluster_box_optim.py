@@ -51,15 +51,15 @@ def test_cluster_box_optim(
         ]
 
     config_angle = Config_Angled_CathGen(
-        x_angle_max=0, #4,
-        x_angle_step=0, #4,
-        y_angle_max=0, #4,
-        y_angle_step=0, #4
+        x_angle_max=4,
+        x_angle_step=4,
+        y_angle_max=4,
+        y_angle_step=4,
     )
 
     config_cluster_box = Config_ClusterBox(
-        num_physical_catheters=12,
-        insertion_point_spacing_mm=10,
+        num_physical_catheters=10,
+        insertion_point_spacing_mm=15,
         num_decision_planes=2,
         config_angle=config_angle,
         box_margin_mm=5,
@@ -109,7 +109,6 @@ def test_cluster_box_optim(
     
 def test_constraint_catheter_number():
     cbox_optim, optimized_plan = test_cluster_box_optim(return_output=True)
-    print("debug here")
     num_non_zero_catheters = 0
     for catheter in optimized_plan.catheter_table:
         if catheter.channel_total_time == 0:
@@ -117,9 +116,28 @@ def test_constraint_catheter_number():
         num_non_zero_catheters += 1
     if num_non_zero_catheters != cbox_optim.cluster_box.num_physical_catheters:
         raise AssertionError("The constraint on the number of catheters was not respected!")
+    print("constarining the number of catheters works!")
+
+def test_constraint_uniqueness():
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        return_output=True,
+        export_cluster_box=True,)
+    for uniquness in cbox_optim.geometric_constraint_dict["uniqueness"].values():
+        num_non_zero_segments = 0
+        catheters = optimized_plan.catheter_table.get_catheters_by_ids(
+            uniquness.variable_name_ids
+        )
+        for cath in catheters:
+            channel_time = cath.channel_total_time
+            if channel_time == 0:
+                continue
+            num_non_zero_segments += 1
+        if num_non_zero_segments > 1:
+            raise AssertionError(f"The uniqueness constraint is not respected for {uniquness.name_id}")
 
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
     # test_cluster_box_optim()
-    test_constraint_catheter_number()
+    # test_constraint_catheter_number()
+    test_constraint_uniqueness()
