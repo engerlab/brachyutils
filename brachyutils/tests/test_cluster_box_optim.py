@@ -11,7 +11,9 @@ def test_get_geometric_constraints():
     constraint_dict = get_geometric_constraints(cluster_box=cbox)
     print("debug here")
 
-def test_cluster_box_optim():
+def test_cluster_box_optim(
+    return_output:bool = False,
+    export_cluster_box:bool = False):
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     outdir = Path("data_test/test_export_plan/prostate/clusterbox_optim")
     target_dose = 15
@@ -78,10 +80,11 @@ def test_cluster_box_optim():
         config_cluster_box=config_cluster_box
     )
     # # export the cluster
-    cbox_optim.export_to(
-        out_dir=outdir,
-        normalize_dose_value=target_dose
-    )
+    if export_cluster_box:
+        cbox_optim.export_to(
+            out_dir=outdir,
+            dose_normalization_constant=target_dose
+        )
     dvh_metric_goals = {
         "D90%(CTV)": target_dose,
         "D2cc(RECTUM)": target_dose * 0.75,
@@ -101,8 +104,22 @@ def test_cluster_box_optim():
     observed_dvh_metrics = optimized_plan.get_dvh_metrics()
     print("DVH Metrics are:")
     print(observed_dvh_metrics)
+    if return_output:
+        return cbox_optim, optimized_plan
+    
+def test_constraint_catheter_number():
+    cbox_optim, optimized_plan = test_cluster_box_optim(return_output=True)
+    print("debug here")
+    num_non_zero_catheters = 0
+    for catheter in optimized_plan.catheter_table:
+        if catheter.channel_total_time == 0:
+            continue
+        num_non_zero_catheters += 1
+    if num_non_zero_catheters != cbox_optim.cluster_box.num_physical_catheters:
+        raise AssertionError("The constraint on the number of catheters was not respected!")
 
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
-    test_cluster_box_optim()
+    # test_cluster_box_optim()
+    test_constraint_catheter_number()

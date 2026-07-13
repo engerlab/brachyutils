@@ -323,4 +323,3 @@ def run_catheter_recommendation():
     This could be a stand alone method controlling the ClusterBoxOptim.
     """
     pass
-        
