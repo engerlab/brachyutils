@@ -469,10 +469,16 @@ def get_segment_lines(
 
     landing_points = []  # list of (theta_x, theta_y, landing_point_world)
     # Build angle ranges
-    x_angles = np.arange(-config_angled_cathgen.x_angle_max,
-                         config_angled_cathgen.x_angle_max + 1e-6,
-                         config_angled_cathgen.x_angle_step)
-    y_angles = np.arange(-config_angled_cathgen.y_angle_max,
+    if config_angled_cathgen.x_angle_step == 0:
+        x_angles = np.array([config_angled_cathgen.x_angle_max])
+    else:
+        x_angles = np.arange(-config_angled_cathgen.x_angle_max,
+                            config_angled_cathgen.x_angle_max + 1e-6,
+                            config_angled_cathgen.x_angle_step)
+    if config_angled_cathgen.y_angle_step == 0:
+        y_angles = np.array([config_angled_cathgen.y_angle_max])
+    else:
+        y_angles = np.arange(-config_angled_cathgen.y_angle_max,
                          config_angled_cathgen.y_angle_max + 1e-6,
                          config_angled_cathgen.y_angle_step)
     for departure_point in departure_plane_grid:
