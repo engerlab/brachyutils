@@ -190,6 +190,7 @@ class CatheterTableOptim_Gurobi():
             pth_logfile = Path("temp_data/gurobi_model.log").resolve()
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         model = Model("CatheterTable_Optimization")
+        model.Params.TimeLimit = 600 # set a 10 minute time limit.
         model.setParam("LogFile", str(pth_logfile))
         return model
 
