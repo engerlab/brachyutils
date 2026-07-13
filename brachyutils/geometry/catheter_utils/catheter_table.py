@@ -631,8 +631,10 @@ match its index ({new_catheter.name_id}), be sure that the name_id == new_cathet
         """
         out_catheters = []
         for name_id in name_ids:
+            if "_" in name_id:
+                name_id = name_id.split("_")[1]
             out_catheters.append(
-                self[name_id]
+                self[int(name_id)-1]
             )
         return out_catheters
 
