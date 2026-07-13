@@ -73,24 +73,15 @@ def test_cluster_box_optim():
         prescription_dose=target_dose,
         )
 
-    # TODO priority 1: complete the tester here.
     cbox_optim = ClusterBoxOptim(
         plan=plan,
         config_cluster_box=config_cluster_box
     )
-    # # export the cluster 
-    cbox_optim.cluster_box.to_ply(
-        out_ply_dir=outdir)
-    # # export the normalized combined dose rate
-    cbox_optim.plan.catheter_table.reset_dwelltimes_to(reset_value=1)
-    combined_dose_rate = cbox_optim.plan.combined_dose
-    combined_dose_rate.dose_image.imageArray = combined_dose_rate.dose_image.imageArray / target_dose
-    combined_dose_rate.write_brachydose_to_file(
-        pth_dose_file=outdir/"combined_dose_rate.seq.nrrd")
-    
-    optimized_plan = cbox_optim.get_optimized_plan_from_model()
-    optimized_plan.combined_dose.write_brachydose_to_file(
-        pth_dose_file=outdir/"combined_dose.seq.nrrd")
+    # # export the cluster
+    cbox_optim.export_to(
+        out_dir=outdir,
+        normalize_dose_value=target_dose
+    )
     dvh_metric_goals = {
         "D90%(CTV)": target_dose,
         "D2cc(RECTUM)": target_dose * 0.75,
@@ -102,6 +93,7 @@ def test_cluster_box_optim():
         "V150%(CTV)": target_dose * 0.4,
         "V100%(CTV)": 100.0,
     }
+    optimized_plan = cbox_optim.get_optimized_plan_from_model()
     optimized_plan.set_dvh_metric_goals(
         dvh_metric_goals=dvh_metric_goals,
         strict_name_match=False

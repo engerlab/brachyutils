@@ -1,7 +1,7 @@
 from copy import deepcopy
 from typing import Dict
 from collections import defaultdict
-
+from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
 from brachyutils.planning.optimization.optim_configs import Constraint_Config, Optimization_Config
 from brachyutils.planning.plan_utils import BrachyPlan
@@ -285,6 +285,36 @@ class ClusterBoxOptim:
         """
         outplan = self.optimization_object.get_optimized_plan_from_model()
         return outplan
+
+    def export_to(
+        self,
+        out_dir: str | Path,
+        dose_normalization_constant:float = 1):
+        r"""
+        ### Purpose:
+        - Writes the contents of self to a directory. The contents are the cluster box that is 
+        written to many .ply files, as well as the combined dose rate map normalized to a user
+        specified value.
+
+        ### Inputs:
+        - out_dir:= directory where self will be exported.
+        - dose_normalization_constant:= the combined dose rate map is normalized by this value.
+        """
+        out_dir = Path(out_dir)
+        self.cluster_box.to_ply(
+            out_ply_dir=out_dir)
+        saved_dwelltimes = [deepcopy(dwell.time) for dwell in self.plan.catheter_table.all_dwells]
+        # # export the normalized combined dose rate
+        self.plan.catheter_table.reset_dwelltimes_to(reset_value=1)
+        combined_dose_rate = self.plan.combined_dose
+        combined_dose_rate.dose_image.imageArray = (
+            combined_dose_rate.dose_image.imageArray / dose_normalization_constant)
+        combined_dose_rate.write_brachydose_to_file(
+            pth_dose_file=out_dir/"combined_dose_rate.seq.nrrd")
+        for dwell, time in zip(
+            self.plan.catheter_table.all_dwells,
+            saved_dwelltimes):
+            dwell.time = time        
 
 def run_catheter_recommendation():
     r"""
