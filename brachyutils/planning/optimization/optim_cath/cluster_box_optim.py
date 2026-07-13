@@ -316,6 +316,8 @@ class ClusterBoxOptim:
             self.plan.catheter_table.all_dwells,
             saved_dwelltimes):
             dwell.time = time        
+        self.cluster_box.catheter_table.write_to_slicer_markup(
+            pth_mrk_json=out_dir/"catheter_table.mrk.json")
 
 def run_catheter_recommendation():
     r"""

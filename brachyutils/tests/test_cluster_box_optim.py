@@ -125,8 +125,8 @@ def test_constraint_uniqueness():
     for uniquness in cbox_optim.geometric_constraint_dict["uniqueness"].values():
         num_non_zero_segments = 0
         catheters = optimized_plan.catheter_table.get_catheters_by_ids(
-            uniquness.variable_name_ids
-        )
+            uniquness.variable_name_ids)
+
         for cath in catheters:
             channel_time = cath.channel_total_time
             if channel_time == 0:
