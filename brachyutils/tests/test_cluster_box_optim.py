@@ -13,7 +13,8 @@ def test_get_geometric_constraints():
 
 def test_cluster_box_optim(
     return_output:bool = False,
-    export_cluster_box:bool = False):
+    export_cluster_box:bool = False,
+    run_optimization:bool = False,):
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     outdir = Path("data_test/test_export_plan/prostate/clusterbox_optim")
     target_dose = 15
@@ -85,25 +86,28 @@ def test_cluster_box_optim(
             out_dir=outdir,
             dose_normalization_constant=target_dose
         )
-    dvh_metric_goals = {
-        "D90%(CTV)": target_dose,
-        "D2cc(RECTUM)": target_dose * 0.75,
-        "D10%(URETHRA)": target_dose * 1.133,
-        "D30%(URETHRA)": target_dose,
-        "CI(CTV)": 1.0,
-        "HI(CTV)": 0.5,
-        "V200%(CTV)": target_dose * 0.2,
-        "V150%(CTV)": target_dose * 0.4,
-        "V100%(CTV)": 100.0,
-    }
-    optimized_plan = cbox_optim.get_optimized_plan_from_model()
-    optimized_plan.set_dvh_metric_goals(
-        dvh_metric_goals=dvh_metric_goals,
-        strict_name_match=False
-    )
-    observed_dvh_metrics = optimized_plan.get_dvh_metrics()
-    print("DVH Metrics are:")
-    print(observed_dvh_metrics)
+    optimized_plan = None
+    if run_optimization:
+        dvh_metric_goals = {
+            "D90%(CTV)": target_dose,
+            "D2cc(RECTUM)": target_dose * 0.75,
+            "D10%(URETHRA)": target_dose * 1.133,
+            "D30%(URETHRA)": target_dose,
+            "CI(CTV)": 1.0,
+            "HI(CTV)": 0.5,
+            "V200%(CTV)": target_dose * 0.2,
+            "V150%(CTV)": target_dose * 0.4,
+            "V100%(CTV)": 100.0,
+        }
+        optimized_plan = cbox_optim.get_optimized_plan_from_model()
+        optimized_plan.set_dvh_metric_goals(
+            dvh_metric_goals=dvh_metric_goals,
+            strict_name_match=False
+        )
+        observed_dvh_metrics = optimized_plan.get_dvh_metrics()
+        print("DVH Metrics are:")
+        print(observed_dvh_metrics)
+
     if return_output:
         return cbox_optim, optimized_plan
     
@@ -121,7 +125,8 @@ def test_constraint_catheter_number():
 def test_constraint_uniqueness():
     cbox_optim, optimized_plan = test_cluster_box_optim(
         return_output=True,
-        export_cluster_box=True,)
+        export_cluster_box=True,
+        run_optimization=False,)
     for uniquness in cbox_optim.geometric_constraint_dict["uniqueness"].values():
         num_non_zero_segments = 0
         catheters = optimized_plan.catheter_table.get_catheters_by_ids(
