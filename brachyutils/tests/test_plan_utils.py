@@ -122,7 +122,6 @@ def test_create_structures_and_calc_dvh_metrics():
         structure_mask_dict={structure.name:structure.mask for structure in plan.structure_list},
         pth_output=dir_out/"non-overlapping-structures.seg.nrrd"
     )
-    return
     # test with DVH dict and dicom dose
     plan = get_a_plan(
         dir_dicom=dir_dicom,

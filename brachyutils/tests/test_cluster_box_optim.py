@@ -86,10 +86,29 @@ def test_cluster_box_optim():
     combined_dose_rate = cbox_optim.plan.combined_dose
     combined_dose_rate.dose_image.imageArray = combined_dose_rate.dose_image.imageArray / target_dose
     combined_dose_rate.write_brachydose_to_file(
-        pth_dose_file=outdir/"combined_dose.seq.nrrd")
+        pth_dose_file=outdir/"combined_dose_rate.seq.nrrd")
     
     optimized_plan = cbox_optim.get_optimized_plan_from_model()
-    print("debug here")
+    optimized_plan.combined_dose.write_brachydose_to_file(
+        pth_dose_file=outdir/"combined_dose.seq.nrrd")
+    dvh_metric_goals = {
+        "D90%(CTV)": target_dose,
+        "D2cc(RECTUM)": target_dose * 0.75,
+        "D10%(URETHRA)": target_dose * 1.133,
+        "D30%(URETHRA)": target_dose,
+        "CI(CTV)": 1.0,
+        "HI(CTV)": 0.5,
+        "V200%(CTV)": target_dose * 0.2,
+        "V150%(CTV)": target_dose * 0.4,
+        "V100%(CTV)": 100.0,
+    }
+    optimized_plan.set_dvh_metric_goals(
+        dvh_metric_goals=dvh_metric_goals,
+        strict_name_match=False
+    )
+    observed_dvh_metrics = optimized_plan.get_dvh_metrics()
+    print("DVH Metrics are:")
+    print(observed_dvh_metrics)
 
 if __name__ == "__main__":
     print("Testing cluster box optimization")
