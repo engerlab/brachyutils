@@ -236,7 +236,8 @@ class ClusterBoxOptim:
         from time import time
         plan.set_catheter_table(
             catheter_table=cluster_box.catheter_table,
-        )
+            dwells_near_ptv=True,
+            )
         t0 = time()
         dose_generator = RapidBrachyTG43(
             dir_plan_export="temp_data/tg43/cluster_box"+plan.phantom.pth_image.name)

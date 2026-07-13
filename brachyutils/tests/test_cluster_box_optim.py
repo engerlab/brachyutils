@@ -59,7 +59,7 @@ def test_cluster_box_optim(
     )
 
     config_cluster_box = Config_ClusterBox(
-        num_physical_catheters=10,
+        num_physical_catheters=4,
         insertion_point_spacing_mm=15,
         num_decision_planes=2,
         config_angle=config_angle,
@@ -126,7 +126,7 @@ def test_constraint_uniqueness():
     cbox_optim, optimized_plan = test_cluster_box_optim(
         return_output=True,
         export_cluster_box=True,
-        run_optimization=False,)
+        run_optimization=True,)
     for uniquness in cbox_optim.geometric_constraint_dict["uniqueness"].values():
         num_non_zero_segments = 0
         catheters = optimized_plan.catheter_table.get_catheters_by_ids(

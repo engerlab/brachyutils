@@ -145,8 +145,7 @@ def _get_optimized_plan_from_model(
             for dwell_position in catheter.dwells:
                 if (
                     f"dwell_{dwell_position.name_id}"
-                    == name
-                ):
+                    == name):
                     dwell_position.time = dwell_time
     # update the plan with the new dwell times
     # outplan.update_plan_from_catheter_table()
