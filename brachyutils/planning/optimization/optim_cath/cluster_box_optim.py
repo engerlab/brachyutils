@@ -276,14 +276,15 @@ class ClusterBoxOptim:
             print(f"setting {constraint_type} constraints")
             optim_obj.set_constraints(constraint_config_dict=constraint_dict)
 
-    def solve(self):
+    def get_optimized_plan_from_model(self) -> BrachyPlan:
         r"""
         ### Puropse:
         - To solve the optimization and get the final catheter table.
         The solve could have two strategy, simultaneous catheter-dwell-time optimization
         or cascaded catheter-dwell-time optimization
         """
-        pass
+        outplan = self.optimization_object.get_optimized_plan_from_model()
+        return outplan
 
 def run_catheter_recommendation():
     r"""

@@ -49,10 +49,10 @@ def test_cluster_box_optim():
         ]
 
     config_angle = Config_Angled_CathGen(
-        x_angle_max=4,
-        x_angle_step=4,
-        y_angle_max=4,
-        y_angle_step=4
+        x_angle_max=0, #4,
+        x_angle_step=0, #4,
+        y_angle_max=0, #4,
+        y_angle_step=0, #4
     )
 
     config_cluster_box = Config_ClusterBox(
@@ -60,9 +60,9 @@ def test_cluster_box_optim():
         insertion_point_spacing_mm=10,
         num_decision_planes=2,
         config_angle=config_angle,
-        box_margin_mm=10,
+        box_margin_mm=5,
     )
-    
+
     # # build a plan without catheter table but have optimizatio constraints.
     plan = load_dicom_to_plan(
         dir_dicom=dir_dicom,
@@ -86,10 +86,9 @@ def test_cluster_box_optim():
     combined_dose_rate = cbox_optim.plan.combined_dose
     combined_dose_rate.dose_image.imageArray = combined_dose_rate.dose_image.imageArray / target_dose
     combined_dose_rate.write_brachydose_to_file(
-        pth_dose_file=outdir/"combined_dose.seq.nrrd"
-    )
-    # cbox_optim.solve()
+        pth_dose_file=outdir/"combined_dose.seq.nrrd")
     
+    optimized_plan = cbox_optim.get_optimized_plan_from_model()
     print("debug here")
 
 if __name__ == "__main__":
