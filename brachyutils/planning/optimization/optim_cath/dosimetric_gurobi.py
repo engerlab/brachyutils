@@ -709,7 +709,7 @@ def _set_continuity_constraint(
     The variables can be either catheter or dwell time variables.
     """
     var_names = constraint.variable_name_ids
-    parent_var_names = [f"{model.variable_type}_{name_id}" for name_id in constraint.parent_variable_name_ids]
+    parent_var_names = constraint.parent_catheter_name_ids
     variables = [model.getVarByName(var_name) for var_name in var_names]
     if not all(variables):
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]

@@ -52,16 +52,16 @@ def test_cluster_box_optim(
         ]
 
     config_angle = Config_Angled_CathGen(
-        x_angle_max=10,
-        x_angle_step=10,
+        x_angle_max=0,
+        x_angle_step=0,
         y_angle_max=10,
-        y_angle_step=10,
+        y_angle_step=20,
     )
 
     config_cluster_box = Config_ClusterBox(
         num_physical_catheters=5,
         insertion_point_spacing_mm=15,
-        num_decision_planes=2,
+        num_decision_planes=4,
         config_angle=config_angle,
         box_margin_mm=5,
     )
@@ -139,16 +139,17 @@ def test_constraint_uniqueness():
             num_non_zero_segments += 1
         if num_non_zero_segments > 1:
             raise AssertionError(f"The uniqueness constraint is not respected for {uniquness.name_id}")
+    print("uniqueness constraints passed")
 
 def test_constraint_collision():
     cbox_optim, optimized_plan = test_cluster_box_optim(
         return_output=True,
         export_cluster_box=True,
         run_optimization=True,)
-    for uniquness in cbox_optim.geometric_constraint_dict["collision"].values():
+    for collision in cbox_optim.geometric_constraint_dict["collision"].values():
         num_non_zero_segments = 0
         catheters = optimized_plan.catheter_table.get_catheters_by_ids(
-            uniquness.variable_name_ids)
+            collision.variable_name_ids)
 
         for cath in catheters:
             channel_time = cath.channel_total_time
@@ -156,11 +157,44 @@ def test_constraint_collision():
                 continue
             num_non_zero_segments += 1
         if num_non_zero_segments > 1:
-            raise AssertionError(f"The collision constraint is not respected for {uniquness.name_id}")
+            raise AssertionError(f"The collision constraint is not respected for {collision.name_id}")
+    print("collision constraints passed")
 
 def test_constraint_continuity():
-    # TODO priority 1
-    pass
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        return_output=True,
+        export_cluster_box=True,
+        run_optimization=True,)
+    for continuity in cbox_optim.geometric_constraint_dict["continuity"].values():
+        num_non_zero_segments = 0
+        candidate_catheters = optimized_plan.catheter_table.get_catheters_by_ids(
+            continuity.variable_name_ids
+        )
+        for cath in candidate_catheters:
+            channel_time = cath.channel_total_time
+            if channel_time == 0:
+                continue
+            num_non_zero_segments +=1
+
+        if num_non_zero_segments == 0:
+            continue
+        elif num_non_zero_segments > 1:
+            raise AssertionError(f"The uniqueness constraint has failed for cluster {continuity.name_id}")
+        elif num_non_zero_segments == 1:
+            num_non_zero_parents = 0            
+            parent_catheters = optimized_plan.catheter_table.get_catheters_by_ids(
+                continuity.parent_catheter_name_ids
+            )
+            for cath in parent_catheters:
+                channel_time = cath.channel_total_time
+                if channel_time == 0:
+                    continue
+                num_non_zero_parents += 1
+            if num_non_zero_parents != len(parent_catheters):
+                raise AssertionError(f"The continuity constraint is not respected for {continuity.name_id}")
+        else:
+            raise ValueError("SOMETHING IS VERY WRONG")
+    print("continuity constraints passed")
 
 if __name__ == "__main__":
     print("Testing cluster box optimization")
@@ -168,4 +202,5 @@ if __name__ == "__main__":
     # test_cluster_box_optim()
     # test_constraint_catheter_number()
     # test_constraint_uniqueness()
-    test_constraint_collision()
+    # test_constraint_collision()
+    test_constraint_continuity()
