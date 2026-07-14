@@ -6,7 +6,7 @@ import trimesh
 from collections import defaultdict
 
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, Catheter
-from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen, Decision_Plane
+from brachyutils.geometry.catheter_utils.config_cathgen import Config_Catheter_Rotation, Decision_Plane
 from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
     generate_candidate_segments,
     decision_planes_to_ply,
@@ -144,9 +144,9 @@ class ClusterBox(BaseModel):
     - num_decision_planes: int := the number of decision planes to be defined in the 
     catheter box. All insertion points and landing points must be on the decision planes.
     At least there are 2 planes: inferior plane and superior plane.
-    - config_angle: Dict[str, Config_Angled_CathGen] | Config_Angled_CathGen | None: The angle configuartion
-    for each insertion point. If a single Config_Angled_CathGen is provided, it will be 
-    applied to all insertion points. If None, the default Config_Angled_CathGen() 
+    - config_angle: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None: The angle configuartion
+    for each insertion point. If a single Config_Catheter_Rotation is provided, it will be 
+    applied to all insertion points. If None, the default Config_Catheter_Rotation() 
     will be applied to all insertion points.
     - oar_collision_margin_mm: float := the collision margin between catheter segments and
     organs at risk (OARs) (mm).
@@ -171,11 +171,11 @@ around the right left (X) axis (degrees).")
 catheter insertion points on the bottom plane (mm).")
     num_decision_planes: int = Field(default=2, description="the number of decision planes to be \
 defined in the catheter box.")
-    config_angle: Dict[str, Config_Angled_CathGen] | Config_Angled_CathGen | None = Field(
+    config_angle: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None = Field(
         default=None,
         description="The angle configuartion for each insertion point. \
-If a single Config_Angled_CathGen is provided, it will be applied to all \
-insertion points. If None, the default Config_Angled_CathGen() will be applied \
+If a single Config_Catheter_Rotation is provided, it will be applied to all \
+insertion points. If None, the default Config_Catheter_Rotation() will be applied \
 to all insertion points.")
     oar_collision_margin_mm: float = Field(default=0, description="the collision margin between \
 catheter segments and organs at risk (OARs) (mm).")
@@ -209,7 +209,7 @@ catheter segments (mm). Measured as center of the catheter segments.")
             insertion_point_spacing_mm=self.insertion_point_spacing_mm,
             oar_danger_dist_mm=self.oar_collision_margin_mm,
             target_structure_names=self.target_structure_names,
-            config_angled_cathgen=self.config_angle,
+            Config_Catheter_Rotation=self.config_angle,
             bb_rotation_angle_deg=self.rotation_angle_deg,
             bb_num_planes=self.num_decision_planes,
             bb_margin_mm = self.box_margin_mm,

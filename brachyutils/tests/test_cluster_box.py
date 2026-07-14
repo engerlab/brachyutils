@@ -4,7 +4,7 @@ import numpy as np
 from trimesh import Trimesh
 
 from brachyutils.geometry.phantom_utils import BrachyPhantom
-from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
+from brachyutils.geometry.catheter_utils.config_cathgen import Config_Catheter_Rotation
 from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
     segment_lines_to_ply, decision_planes_to_ply)
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
@@ -60,7 +60,7 @@ def test_get_segment_lines():
         departure_plane = decision_planes[0],
         departure_plane_grid = inferior_plane_grid,
         landing_plane = decision_planes[1],
-        config_angled_cathgen = Config_Angled_CathGen()
+        Config_Catheter_Rotation = Config_Catheter_Rotation()
         )
     segment_lines_to_ply(
         out_ply_dir=outdir,
@@ -76,7 +76,7 @@ def test_generate_candidate_segments():
         insertion_point_spacing_mm=15,
         oar_danger_dist_mm=5,
         target_structures=["CTV"],
-        config_angled_cathgen=Config_Angled_CathGen(),
+        Config_Catheter_Rotation=Config_Catheter_Rotation(),
         bb_margin_mm = 5,
         bb_rotation_angle_deg = 12,
         bb_num_planes = 3,
@@ -93,7 +93,7 @@ def test_generate_candidate_segments():
 def test_gen_catheter_table_from_contours():
     from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import gen_catheter_table_from_contours
     from brachyutils.geometry.phantom_utils import BrachyPhantom
-    from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen
+    from brachyutils.geometry.catheter_utils.config_cathgen import Config_Catheter_Rotation
 
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     outdir = "data_test/test_export_plan/prostate/line_connectors_from_contours"
@@ -110,7 +110,7 @@ def test_gen_catheter_table_from_contours():
         grid_n=5,
         out_ply_dir=outdir,
         perpendicular=False,
-        config_angled_cathgen=Config_Angled_CathGen()
+        Config_Catheter_Rotation=Config_Catheter_Rotation()
     )
 
     # let's export the catheter table to json and to .ply for visualization
@@ -127,7 +127,7 @@ def test_cluster_box(
     insertion_point_spacing_mm = 15
     oar_collision_margin_mm = 5
     target_structure_names = ["CTV"]
-    config_angle = Config_Angled_CathGen()
+    config_angle = Config_Catheter_Rotation()
     num_decision_planes=3
     rotation_angle_deg=12
     box_margin = 5

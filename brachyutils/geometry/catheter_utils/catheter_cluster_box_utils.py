@@ -8,7 +8,7 @@ from trimesh.ray.ray_triangle import RayMeshIntersector
 from scipy.spatial import cKDTree
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, Catheter
-from brachyutils.geometry.catheter_utils.config_cathgen import Config_Angled_CathGen, Decision_Plane
+from brachyutils.geometry.catheter_utils.config_cathgen import Config_Catheter_Rotation, Decision_Plane
 from math import radians
 from scipy.spatial import cKDTree
 
@@ -256,7 +256,7 @@ def generate_candidate_segments(
     insertion_point_spacing_mm:float,
     oar_danger_dist_mm:float,
     target_structure_names:List[str],
-    config_angled_cathgen:Config_Angled_CathGen = None,
+    Config_Catheter_Rotation:Config_Catheter_Rotation = None,
     **kwargs
     ) -> Tuple[List, Dict]:
     """
@@ -319,7 +319,7 @@ def generate_candidate_segments(
             departure_plane = plane,
             departure_plane_grid = inferior_plane_grid,
             landing_plane = decision_plane_dict[i+1],
-            config_angled_cathgen = config_angled_cathgen,
+            Config_Catheter_Rotation = Config_Catheter_Rotation,
         )
         # digitization_pairs += plane_digi_points
         # the superior plane points become the inferior plane points for the next iteration
@@ -431,7 +431,7 @@ def get_segment_lines(
     departure_plane: dict,
     departure_plane_grid: List[np.ndarray],
     landing_plane: dict,
-    config_angled_cathgen
+    Config_Catheter_Rotation
     ) -> List[tuple[np.ndarray, np.ndarray]]:
     r"""
     ### Purpose:
@@ -444,7 +444,7 @@ def get_segment_lines(
     - inferior_plane: dict := dictionary containing the inferior plane information
     - inferior_plane_grid: List[np.ndarray] := list of points on the inferior plane
     - superior_plane: dict := dictionary containing the superior plane information
-    - config_angled_cathgen: Config_Angled_CathGen := configuration for the angled catheter generation
+    - Config_Catheter_Rotation: Config_Catheter_Rotation := configuration for the angled catheter generation
 
     ### Outputs:
     - digitization_pairs: List[tuple[np.ndarray, np.ndarray]] := list of
@@ -469,18 +469,18 @@ def get_segment_lines(
 
     landing_points = []  # list of (theta_x, theta_y, landing_point_world)
     # Build angle ranges
-    if config_angled_cathgen.x_angle_step == 0:
-        x_angles = np.array([config_angled_cathgen.x_angle_max])
+    if Config_Catheter_Rotation.x_angle_step == 0:
+        x_angles = np.array([Config_Catheter_Rotation.x_angle_max])
     else:
-        x_angles = np.arange(-config_angled_cathgen.x_angle_max,
-                            config_angled_cathgen.x_angle_max + 1e-6,
-                            config_angled_cathgen.x_angle_step)
-    if config_angled_cathgen.y_angle_step == 0:
-        y_angles = np.array([config_angled_cathgen.y_angle_max])
+        x_angles = np.arange(-Config_Catheter_Rotation.x_angle_max,
+                            Config_Catheter_Rotation.x_angle_max + 1e-6,
+                            Config_Catheter_Rotation.x_angle_step)
+    if Config_Catheter_Rotation.y_angle_step == 0:
+        y_angles = np.array([Config_Catheter_Rotation.y_angle_max])
     else:
-        y_angles = np.arange(-config_angled_cathgen.y_angle_max,
-                         config_angled_cathgen.y_angle_max + 1e-6,
-                         config_angled_cathgen.y_angle_step)
+        y_angles = np.arange(-Config_Catheter_Rotation.y_angle_max,
+                         Config_Catheter_Rotation.y_angle_max + 1e-6,
+                         Config_Catheter_Rotation.y_angle_step)
     for departure_point in departure_plane_grid:
         for ax_deg in x_angles:
             for ay_deg in y_angles:
@@ -524,7 +524,7 @@ def gen_catheter_table_from_contours(
     target_structures: List[str],
     oar_danger_dist_mm_mm:float = 3.0,
     insertion_point_spacing_mm:float = 5.0,
-    config_angled_cathgen:Config_Angled_CathGen = None,
+    Config_Catheter_Rotation:Config_Catheter_Rotation = None,
     ) -> CatheterTable:
     r"""
     ### Purpose
@@ -538,14 +538,14 @@ def gen_catheter_table_from_contours(
     - target_structures: List[str] := list of structure names to be irradiated
     - insertion_point_spacing_mm: float := spacing for the insertion grid
     - oar_danger_dist_mm_mm: float := minimum allowed distance (mm) from any OAR vertex
-    - config_angled_cathgen: Config_Angled_CathGen: The config for angled catheter insertion.
+    - Config_Catheter_Rotation: Config_Catheter_Rotation: The config for angled catheter insertion.
     """
     valid_lines , o_top, o_bot, extents, obb_T = generate_candidate_segments(
         mesh_dict=mesh_dict,
         insertion_point_spacing_mm=insertion_point_spacing_mm,
         oar_danger_dist_mm_mm=oar_danger_dist_mm_mm,
         target_structures=target_structures,
-        config_angled_cathgen=config_angled_cathgen
+        Config_Catheter_Rotation=Config_Catheter_Rotation
     )
 
     # convert the valid lines into catheters in the dwell position.

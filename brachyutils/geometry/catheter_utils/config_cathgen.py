@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from numpy.typing import ArrayLike
 from typing import List, Tuple, Dict
 
-class Config_Angled_CathGen(BaseModel):
+class Config_Catheter_Rotation(BaseModel):
     """
     ### Purpose:
     - Configuration for angled catheter generation. This will be used in angled_catheter_pairs().
@@ -56,7 +56,7 @@ class Config_ClusterBox(BaseModel):
     - `rotation_angle_deg`: float := the rotation angle of the catheter box around the right left (X) axis (degrees).
     - `insertion_point_spacing_mm`: float := the spacing between adjacent catheter insertion points on the bottom plane (mm).
     - `num_decision_planes`: int := the number of decision planes to be defined in the catheter box.
-    - `config_angle`: Dict[str, Config_Angled_CathGen] | Config_Angled_CathGen | None := The angle configuartion for each insertion point. If a single Config_Angled_CathGen is provided, it will be applied to all insertion points. If None, the default Config_Angled_CathGen() will be applied to all insertion points.
+    - `config_angle`: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None := The angle configuartion for each insertion point. If a single Config_Catheter_Rotation is provided, it will be applied to all insertion points. If None, the default Config_Catheter_Rotation() will be applied to all insertion points.
     - `oar_collision_margin_mm`: float := the collision margin between catheter segments and organs at risk (OARs) (mm).
     - `segment_collision_margin_mm`: float := the collision margin between catheter segments (mm). Measured as center of the catheter segments.
     - `box_margin_mm`: float := The margin between the box boundaries and the OARs
@@ -68,11 +68,11 @@ around the right left (X) axis (degrees).")
 catheter insertion points on the bottom plane (mm).")
     num_decision_planes: int = Field(default=2, description="the number of decision planes to be \
 defined in the catheter box.")
-    config_angle: Dict[str, Config_Angled_CathGen] | Config_Angled_CathGen | None = Field(
+    config_angle: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None = Field(
         default=None,
         description="The angle configuartion for each insertion point. \
-If a single Config_Angled_CathGen is provided, it will be applied to all \
-insertion points. If None, the default Config_Angled_CathGen() will be applied \
+If a single Config_Catheter_Rotation is provided, it will be applied to all \
+insertion points. If None, the default Config_Catheter_Rotation() will be applied \
 to all insertion points.")
     oar_collision_margin_mm: float = Field(default=5, description="the collision margin between \
 catheter segments and organs at risk (OARs) (mm).")

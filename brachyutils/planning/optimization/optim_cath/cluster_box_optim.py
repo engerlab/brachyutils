@@ -9,7 +9,7 @@ from brachyutils.dose.tg43_dose_calculator import BrachyUtilsTG43
 from brachyutils.dose.dose_generation_utils import RapidBrachyTG43 
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import CatheterTableOptim_Gurobi 
 from brachyutils.geometry.catheter_utils.config_cathgen import (
-    Config_Angled_CathGen, Config_ClusterBox
+    Config_Catheter_Rotation, Config_ClusterBox
 )
 
 def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
