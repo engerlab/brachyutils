@@ -3,14 +3,11 @@ from typing import Dict
 from collections import defaultdict
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
-from brachyutils.planning.optimization.optim_configs import Constraint_Config, Optimization_Config
+from brachyutils.planning.optimization.optim_configs import Constraint_Config
 from brachyutils.planning.plan_utils import BrachyPlan
-from brachyutils.dose.tg43_dose_calculator import BrachyUtilsTG43 
 from brachyutils.dose.dose_generation_utils import RapidBrachyTG43 
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import CatheterTableOptim_Gurobi 
-from brachyutils.geometry.catheter_utils.config_cathgen import (
-    Config_Catheter_Rotation, Config_ClusterBox
-)
+from brachyutils.geometry.catheter_utils.config_cathgen import Config_ClusterBox
 
 def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     r"""
