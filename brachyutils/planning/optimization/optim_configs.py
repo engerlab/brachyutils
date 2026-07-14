@@ -197,16 +197,21 @@ class Optimization_Config(BaseModel):
     - is_target: bool := If true, we're looking at a target structure.
     - spacing_mm: List[float] | float := The spacing of the optimization grid in mm. 
     - dose_voxel_goal: float := The dose goal for every voxel in the structure in Gy.
-    - penalty_weight_linear: float := Weight for linear penalty term in objective function. Default 1.
-    - penalty_weight_quadratic: float := Weight for quadratic penalty term. Default 1.
+    - penalty_weight_linear: float := Weight for linear penalty term in objective function. Linear 
+    penalty means for each voxel we get the difference between the target dose for that voxel and
+    the value that is already being delivered ($x$). Default 1.
+    - penalty_weight_quadratic: float := Weight for quadratic penalty term. This is obtained by squaring
+    the linear penalty per voxel ($x^2$). Default 1.
     - penalty_weight_hotspot: float := Weight for hotspot penalty term. Default 0.
-    - hotspot_threshold: float := If the average dose to the hot spot estimator volume goes above (target_dose * hotspot_threshold),
-    penalty will be calculated for that hot spot estimator volume. Default 0.
-    - penalty_weight_uniformity: float := Weight for dose uniformity penalty. Default 1.
+    - hotspot_threshold: float := If the average dose to the hot spot estimator volume (defined as a sphere centered around
+    two dwell positions with radius of 5 mm) goes above (target_dose * hotspot_threshold), penalty 
+    will be calculated for that hot spot estimator volume. Default 0.
+    - penalty_weight_uniformity: float := weight for the quadratic dose uniformity penalty ($x^2$).
+    Uniformity penalty here focuses on sharpenning the fall of PTV's DVH curve. Default 1.
+    - penalty_weight_variance_time: float := linear weight to reduce the variance of the dwell times.
     - mask_margin_mm: List[float] | float := Margin around structure for optimization in mm. Default 0.
     - min_dose: float := Minimum allowed dose in Gy. Default 0.
     - max_dose: float := Maximum allowed dose in Gy. Default 500.
-    - constraint_num_catheters: int := The constraint on the number of catheters. Could specify the 
     minimum, maximum and the exact number of catheters desired in the plan.
     - catheter_recommendaion: bool := If True, catheter positions will be optimized as well, otherwise
     all the catheter variables will be constraint to one.
@@ -232,7 +237,6 @@ class Optimization_Config(BaseModel):
     min_dose:float = 0
     max_dose:float = 500
     catheter_recommendaion: bool = False
-    constraint_num_catheters: Constraint_Config = None
     dwell_coef_dict:Dict[str, np.ndarray] = None
     mask:ROIMask = None
     # may be needed later
