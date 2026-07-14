@@ -52,14 +52,14 @@ def test_cluster_box_optim(
         ]
 
     config_angle = Config_Angled_CathGen(
-        x_angle_max=4,
-        x_angle_step=4,
-        y_angle_max=4,
-        y_angle_step=4,
+        x_angle_max=10,
+        x_angle_step=10,
+        y_angle_max=10,
+        y_angle_step=10,
     )
 
     config_cluster_box = Config_ClusterBox(
-        num_physical_catheters=4,
+        num_physical_catheters=5,
         insertion_point_spacing_mm=15,
         num_decision_planes=2,
         config_angle=config_angle,
@@ -141,8 +141,22 @@ def test_constraint_uniqueness():
             raise AssertionError(f"The uniqueness constraint is not respected for {uniquness.name_id}")
 
 def test_constraint_collision():
-    # TODO priority 1
-    pass
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        return_output=True,
+        export_cluster_box=True,
+        run_optimization=True,)
+    for uniquness in cbox_optim.geometric_constraint_dict["collision"].values():
+        num_non_zero_segments = 0
+        catheters = optimized_plan.catheter_table.get_catheters_by_ids(
+            uniquness.variable_name_ids)
+
+        for cath in catheters:
+            channel_time = cath.channel_total_time
+            if channel_time == 0:
+                continue
+            num_non_zero_segments += 1
+        if num_non_zero_segments > 1:
+            raise AssertionError(f"The collision constraint is not respected for {uniquness.name_id}")
 
 def test_constraint_continuity():
     # TODO priority 1
@@ -153,4 +167,5 @@ if __name__ == "__main__":
     # test_get_geometric_constraints()
     # test_cluster_box_optim()
     # test_constraint_catheter_number()
-    test_constraint_uniqueness()
+    # test_constraint_uniqueness()
+    test_constraint_collision()
