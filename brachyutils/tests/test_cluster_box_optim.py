@@ -140,6 +140,14 @@ def test_constraint_uniqueness():
         if num_non_zero_segments > 1:
             raise AssertionError(f"The uniqueness constraint is not respected for {uniquness.name_id}")
 
+def test_constraint_collision():
+    # TODO priority 1
+    pass
+
+def test_constraint_continuity():
+    # TODO priority 1
+    pass
+
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
