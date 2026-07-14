@@ -160,6 +160,11 @@ class CatheterTableOptim_Gurobi():
             optim_roi_bounds=self.roi_bounds,
             multi_processing=multi_processing
         )
+        self._bound_dwell_times_to_catheters(
+            dwellTimeVariables=self.dwellTimeVariables,
+            catheter_vars=self.catheter_vars,
+            model=self.model,
+        )
         self.set_penalty_function_and_constraints(
             optimization_configs=[
                 struc.optimization_config
@@ -288,6 +293,24 @@ class CatheterTableOptim_Gurobi():
             constraint_config_dict=constraint_config_dict,
             model=self.model
         )
+
+    def _bound_dwell_times_to_catheters(
+        self,
+        dwellTimeVariables:List[DwellTime_Gurobi],
+        catheter_vars:List[CatheterVar_Gurobi],
+        model:Model):
+        r"""
+        We bound each dwell time variable to be equal to that variable multiplied by its corresponding 
+        catheter variable. t = ct. This ensures that if a catheter variable is zeor, the dwell time is
+        also zero.
+        """
+        t_MVar = MVar([dt._model_variable for dt in dwellTimeVariables])
+        c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
+        model.addConstr(
+            t_MVar == c_MVar * t_MVar,
+            name="cohesion"
+        )
+        model.update()
 
 def set_catheter_variables(
     plan: BrachyPlan,
