@@ -52,10 +52,10 @@ def test_cluster_box_optim(
         ]
 
     config_angle = Config_Catheter_Rotation(
-        x_angle_max=10,
-        x_angle_step=10,
-        y_angle_max=0,
-        y_angle_step=0,
+        x_angle_max=0,
+        x_angle_step=0,
+        y_angle_max=10,
+        y_angle_step=10,
     )
 
     config_cluster_box = Config_ClusterBox(
