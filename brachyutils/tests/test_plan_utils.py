@@ -311,7 +311,6 @@ def test__export_applicator_geometry():
 
     plan_obj._export_applicator_geometry(
         dir_export=dir_export,
-        export_format="RapidBrachy",
     )
 
 

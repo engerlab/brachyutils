@@ -2,7 +2,7 @@ import numpy as np
 import os
 import json
 from pathlib import Path
-
+from typing import Union, List
 # Imports for brachy applicator
 from vtk import (
     vtkCellArray,
@@ -25,13 +25,12 @@ class BrachyApplicator:
         - path:str := path to the applicator geometry file.
         - name:str := name of the applicator, which is taken as the basename of the path.
         - applicator_mesh := the vtk mesh of the applicator.
-        - verticies:np.array := the verticies of the applicator mesh.
+        - vertices:np.array := the vertices of the applicator mesh.
         - faces:np.array := the faces of the applicator mesh.
         - origin:np.array := the origin of the applicator.
         - rotation:np.array := the rotation of the applicator.
         - material:str := the material of the applicator.
         - density:float := the density of the applicator.
-        - normal:np.array := the normal of the applicator in the patient coordinate system. this is used for RapidBrachy only.
 
     Functions:
         - load_stl(pth_input:str)
@@ -49,7 +48,6 @@ class BrachyApplicator:
         rotation: np.array = None,
         rotation_origin: np.array = None,
         coordinates: np.array = None,
-        normal: np.array = None,
         catheter_trajectory: list = None,
     ) -> None:
         """
@@ -58,12 +56,11 @@ class BrachyApplicator:
         Inputs:
             - pth_input_file (str): The path to the input file.
             - material (str, optional): The material of the applicator. Defaults to None.
-            - density (float, optional): The density of the applicator. Defaults to None.
+            - density (float, optional): The density of the applicator. Defaults to None. 
             - origin (np.array, optional): The origin of the applicator in [x,y,z] . Defaults to None.
             - rotation (np.array, optional): The rotation vector of the applicator in [w,x,y,z]. Defaults to None.
             - rotation_origin (np.array, optional): The origin point with respect to which the rotaion vector is created.
             - coordinates (np.array, optional): The coordinates of the applicator in patient frame. Defaults to None.
-            - normal (np.array, optional): The normal of the applicator in the patient frame. Defaults to None.
             - catheter_trajectory: (list, optional): The list of start dwell poisition and end dwell position of the catheter inside
             the applicator [[x,y,z,x,y,z]]. Defaults to None.
         Outputs:
@@ -73,16 +70,15 @@ class BrachyApplicator:
             pth_input_file
         ), f"input file {pth_input_file} does not exist"
         self.path = pth_input_file
-        self.name = os.path.splitext(os.path.basename(self.path))[0]
+        self.name = os.path.splitext(os.path.basename(self.path))[0] 
         self.applicator_mesh: vtkPolyData = None
-        self.verticies: np.array = None
+        self.vertices: np.array = None
         self.faces: np.array = None
         self.origin: np.array = np.array([0, 0, 0])  # [x, y, z]
         self.rotation: np.array = np.array([0, 0, 0, 0])  # [w, x, y, z]
         self.coordinates: np.array = np.array([0, 0, 0])  # [x, y, z]
         self.material: str = None
         self.density: float = None
-        self.normal: np.array = None
         self.catheter_trajectory: np.array = None
 
         input_extension = os.path.splitext(self.path)[1]
@@ -103,8 +99,6 @@ class BrachyApplicator:
             self.set_rotation(rotation, rotation_origin)
         if coordinates is not None:
             self.set_coordinates(coordinates)
-        if normal is not None:
-            self.normal = normal
         if catheter_trajectory is not None:
             self.catheter_trajectory = catheter_trajectory
 
@@ -135,24 +129,13 @@ class BrachyApplicator:
         with open(pth_input, "r") as json_file:
             applicator_dict = json.load(json_file)
 
-        self.verticies = np.array(applicator_dict["verticies"], dtype=np.float32)
+        self.vertices = np.array(applicator_dict["vertices"], dtype=np.float32)
         self.faces = np.array(applicator_dict["faces"], dtype=np.int32)
         self.set_origin(np.array(applicator_dict["origin"]))
         self.set_rotation(np.array(applicator_dict["rotation"]))
         self.set_coordinates(np.array(applicator_dict["coordinates"]))
         self.material = applicator_dict["material"]
         self.density = applicator_dict["density"]
-
-    def load_mac(self, pth_input: str) -> None:
-        r"""
-        Purpose:
-            - To load the applicator geometry from a mac file.
-        Inputs:
-            - pth_input:str := path to the mac file containing the applicator geometry.
-        Outputs:
-            - None := will update the BrachyApplicator object based on the mac file.
-        """
-        raise NotImplementedError("to be implemented soon")
 
     def info(self) -> None:
         r"""
@@ -179,7 +162,7 @@ class BrachyApplicator:
             return False
         if self.name != other.name:
             return False
-        if not np.isclose(self.verticies, other.verticies, atol=1e-6).all():
+        if not np.isclose(self.vertices, other.vertices, atol=1e-6).all():
             return False
         if not np.isclose(self.faces, other.faces, atol=1e-6).all():
             return False
@@ -196,14 +179,14 @@ class BrachyApplicator:
     def _update_applicator_mesh_from_brachy_applicator(self) -> None:
         r"""
         Purpose:
-            - To update the applicator mesh from the verticies and faces.
+            - To update the applicator mesh from the vertices and faces.
         Inputs:
             - self := the BrachyApplicator object.
         Outputs:
-            - None := will update the applicator mesh from the verticies and faces.
+            - None := will update the applicator mesh from the vertices and faces.
         """
         points = vtkPoints()
-        for vertex in self.verticies:
+        for vertex in self.vertices:
             points.InsertNextPoint(vertex)
         self.applicator_mesh.SetPoints(points)
 
@@ -225,7 +208,7 @@ class BrachyApplicator:
         Outputs:
             - None := will update the brachy applicator from the applicator mesh.
         """
-        self.verticies = numpy_support.vtk_to_numpy(
+        self.vertices = numpy_support.vtk_to_numpy(
             self.applicator_mesh.GetPoints().GetData()
         )
         self.faces = numpy_support.vtk_to_numpy(
@@ -240,12 +223,12 @@ class BrachyApplicator:
         Inputs:
             - origin:np.array := the origin of the applicator.
         Outputs:
-            - None := will update the applicator verticies based on the new origin.
+            - None := will update the applicator vertices based on the new origin.
         """
         old_origin = self.origin
-        change_in_origin = np.ones_like(self.verticies) * (origin - old_origin)
+        change_in_origin = np.ones_like(self.vertices) * (origin - old_origin)
         self.origin = origin
-        self.verticies += change_in_origin
+        self.vertices += change_in_origin
         self._update_applicator_mesh_from_brachy_applicator()
 
     def set_rotation(
@@ -264,7 +247,7 @@ class BrachyApplicator:
             - rotation_origin:np.array := the origin of the rotation. if not provided, the
             origin of the applicator will be used.
         Outputs:
-            - None := will update the applicator verticies based on the new rotation.
+            - None := will update the applicator vertices based on the new rotation.
         """
         # set the rotation attribute
         self.rotation = rotation
@@ -317,7 +300,7 @@ class BrachyApplicator:
         Inputs:
             - coordinates:np.array := the coordinates of the applicator.
         Outputs:
-            - None := will update the applicator verticies based on the new coordinates.
+            - None := will update the applicator vertices based on the new coordinates.
         """
         # set the coordinate attributes
         self.coordinates = coordinates
@@ -363,13 +346,12 @@ class BrachyApplicator:
         return {
             "name": self.name,
             "path": self.path,
-            # "verticies": self.verticies.tolist(),
+            # "vertices": self.vertices.tolist(),
             # "faces": self.faces.tolist(),
             "origin": self.origin,
             "rotation": self.rotation,
             "material": self.material,
             "density": self.density,
-            "normal": self.normal,
             "catheter_trajectory": self.catheter_trajectory,
         }
 
@@ -387,43 +369,6 @@ class BrachyApplicator:
         with open(pth_output, "w") as json_file:
             json.dump(applicator_dict, json_file, indent=4)
 
-    def to_mac(self, pth_output: str) -> None:
-        r"""
-        Purpose:
-            - To save the applicator geometry to a mac file.
-        Inputs:
-            - pth_output:str := path to the output mac file.
-        Outputs:
-            - None := will save the applicator geometry to a mac file.
-        """
-        macfile_string = ""
-
-        # add in the vertex info
-        float_formatter = "{:.3f}".format
-        for vertex in self.verticies:
-            macfile_string += f"/applicator/vertex {float_formatter(vertex[0])} {float_formatter(vertex[1])} {float_formatter(vertex[2])} mm\n"
-
-        # add in the face info
-        for face in self.faces:
-            macfile_string += f"/applicator/face {face[0]} {face[1]} {face[2]}\n"
-        # add in the material info
-        macfile_string += f"/applicator/material {self.material}\n"
-        # add in the density info
-        macfile_string += f"/applicator/density {self.density}\n"
-        # add in the origin info
-        macfile_string += "/applicator/xPosition 0 mm\n"
-        macfile_string += "/applicator/yPosition 0 mm\n"
-        macfile_string += "/applicator/zPosition 0 mm\n"
-        # add in rotation nfo
-        macfile_string += "/applicator/xRotation 0 deg\n"
-        macfile_string += "/applicator/yRotation 0 deg\n"
-        macfile_string += "/applicator/zRotation 0 deg\n"
-        # add in the done flag
-        macfile_string += "/applicator/done\n"
-
-        with open(pth_output, "w") as mac_file:
-            mac_file.write(macfile_string)
-
     def to_stl(self, pth_output: str) -> None:
         r"""
         Purpose:
@@ -433,14 +378,113 @@ class BrachyApplicator:
         Outputs:
             - None := will save the applicator geometry to an stl file.
         """
-        self._update_applicator_mesh_from_brachy_applicator()
+        #self._update_applicator_mesh_from_brachy_applicator()
         # write the polydata to an stl file
         stl_writer = vtkSTLWriter()
         stl_writer.SetFileName(pth_output)
+        stl_writer.SetHeader(self.name + " SPACE=LPS") #a little tag for slicer
         stl_writer.SetInputData(self.applicator_mesh)
         stl_writer.Write()
 
+def write_applicator_list(applicator_list : List[BrachyApplicator], pth_output: str | Path = Path("./applicators.json")) -> None:
+    r"""
+    ### Purpose:
+    - To export the applicator geometries.
+
+    ### Inputs:
+    - dir_export := path to the directory where the export happens
+
+    ### Outputs:
+    - None := will export the applicator geometries into the specified export directory.
+
+    ### Dependencies:
+    - None
+    """
+
+    # initialize the fields of the json file:
+    out_json = {}
     
+    for applicator in applicator_list:
+        applicator_json = {}
+
+        applicator_json["density"] = applicator.density
+        applicator_json["base_path"] = applicator.path
+        applicator_json["material"] = applicator.material
+
+        applicator_json["wRot"] = float(applicator.rotation[0])
+        applicator_json["xRot"] = float(applicator.rotation[1])
+        applicator_json["yRot"] = float(applicator.rotation[2])
+        applicator_json["zRot"] = float(applicator.rotation[3])
+
+        applicator_json["x"] = float(applicator.coordinates[0])
+        applicator_json["y"] = float(applicator.coordinates[1])
+        applicator_json["z"] = float(applicator.coordinates[2])
+
+        out_json[applicator.name] = applicator_json
+
+    with open(pth_output, "w") as file:
+        json.dump(out_json, file, indent=4)
+
+    print("applicator geometry file was exported successfully")
+
+
+def load_applicator_list(
+        applicator_list_pth: Union[Path, str],
+    ) -> List[BrachyApplicator]:
+    r"""
+    ### Purpose:
+    - To load applicators from a json file containing the new keyed applicator geometry format.
+
+    ### Inputs:
+    - applicator_list_pth:str := path to the json file containing the applicator list.
+
+    ### Outputs:
+        - list[BrachyApplicator] := loaded applicators.
+    """
+    applicator_list_path = Path(applicator_list_pth)
+    with open(applicator_list_path, "r", encoding="utf-8") as json_file:
+        applicator_list_data = json.load(json_file)
+
+    applicator_list = []
+
+    for applicator_name, applicator_entry in applicator_list_data.items():
+        if not isinstance(applicator_entry, dict):
+            raise TypeError(f"Applicator entry '{applicator_name}' must be a dictionary")
+
+        pth_input_file = Path(applicator_entry["base_path"])
+        if not pth_input_file.is_absolute():
+            pth_input_file = (applicator_list_path.parent / pth_input_file).resolve()
+
+        rotation = np.array(
+            [
+                applicator_entry.get("wRot", 0),
+                applicator_entry.get("xRot", 0),
+                applicator_entry.get("yRot", 0),
+                applicator_entry.get("zRot", 0),
+            ]
+        )
+        coordinates = np.array(
+            [
+                applicator_entry.get("x", 0),
+                applicator_entry.get("y", 0),
+                applicator_entry.get("z", 0),
+            ]
+        )
+
+        applicator_list.append(
+            BrachyApplicator(
+                pth_input_file=str(pth_input_file),
+                material=applicator_entry.get("material"),
+                density=applicator_entry.get("density"),
+                origin=[0, 0, 0],
+                rotation=rotation,
+                rotation_origin=coordinates,
+                coordinates=coordinates,
+            )
+        )
+
+    return applicator_list
+
 def load_applicator_materials(pth_applicator_materials : Path | None = None ) -> dict:
     r"""
     Purpose:

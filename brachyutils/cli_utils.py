@@ -385,7 +385,7 @@ def get_dose_map(dose_file):
         dose_obj = BrachyDose(dose_file, load_uncertainty=False)
         # print("\n End Processing", dose_file)
         return dose_obj.get_dose_array()
-    except (TypeError, ValueError, IndexError, IOError) as e:
+    except (TypeError, ValueError, IndexError, IOError, StopIteration) as e:
         print("Error loading dose file ", dose_file, e)
         return None
 
@@ -419,6 +419,13 @@ def combined_dose_per_patient(
             help="""Name of the output file (without the extension). If not provided, the default name will be combined"""
         ),
     ] = "combined",
+    phantom_file: Annotated[
+        str,
+        typer.Option(
+            help="""Path to the phantom file, which will be ignored in the combined if found."""
+        ),
+    ] = "phantom.seq.nrrd"
+
 ):
     r"""
     Purpose:
@@ -447,7 +454,7 @@ def combined_dose_per_patient(
     dose_files = [
         dir_dose_maps + file
         for file in os.listdir(dir_dose_maps)
-        if file.endswith(type_in)
+        if file.endswith(type_in) and file != phantom_file
     ]
 
     n_batches = len(dose_files)
@@ -473,7 +480,7 @@ def combined_dose_per_patient(
     # chunksize =
     # multiprocessing loop
     if multi_proc:
-        with Pool() as pool:
+        with Pool(processes=16) as pool:
             for dose in tqdm(
                 pool.imap_unordered(get_dose_map, dose_files[1:]),
                 total=progress_bar_length - 1,
@@ -495,16 +502,16 @@ def combined_dose_per_patient(
     # if no multiprocessing, a simple loop over files
     else:
         for dose_file in tqdm(dose_files[1:]):
-            dose_obj = BrachyDose(dose_file)
-            if dose_obj.get_dose_array() is not None:
-                sum_dose += dose_obj.get_dose_array()
+            dose_map = get_dose_map(dose_file)
+            if dose_map is not None:
+                sum_dose += dose_map
             else:
                 n_batches -= 1
         mean_dose = sum_dose / n_batches
         uncertainty = np.zeros(mean_dose.shape)
         for dose_file in tqdm(dose_files):
-            dose_obj = BrachyDose(dose_file)
-            if dose_obj.get_dose_array() is not None:
+            dose_map = get_dose_map(dose_file)
+            if dose_map is not None:
                 uncertainty += (dose_obj.get_dose_array() - mean_dose) ** 2
 
     # finish uncertainty calculation

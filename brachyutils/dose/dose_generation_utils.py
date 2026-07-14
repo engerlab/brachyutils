@@ -101,7 +101,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         pth_mac: Optional[Path] = None,
         num_threads: Optional[int] = 12,
         output_dose_per_dwell: Optional[Literal[True, False, "dose_rate"]] = False,
-        dir_source_parameters: Optional[str] = "SourceParameters/microSelectron-v2",
+        dir_source_parameters: Optional[str] = "SourceParameters/GenericHDR",
         using_imbt_plan: Optional[bool] = False,
         shield_model: Optional[Literal["step", "tanh"]] = None,
         critical_angle: Optional[float] = None,
@@ -128,7 +128,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         - output_dose_per_dwell: Literal[bool, str] := A flag to indicate if the dose per dwell position should be output.
             The default is False. Other options are True and "dose_rate". for optimization, select "dose_rate".
         - dir_source_parameters: Optional[str] := The directory where the source parameters are stored.
-            The default is "./SourceParameters/microSelectron-v2".
+            The default is "./SourceParameters/GenericHDR".
         - using_imbt_plan: Optional[bool] := a binary flag to indicate if the plan is an IMBT plan.
         - shield_model: Optional[Literal["step", "tanh"]] := The model to use for the shield. The default is None.
         - critical_angle: Optional[float] := The critical angle for the phi dependence function, if necessary.
@@ -245,7 +245,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         plan: BrachyPlan,
         generate_dose_rate_maps: bool = False,
         export_config_brachyplan: ExportConfig_BrachyPlan | bool | dict = None,
-        dir_source_parameters: Path = "SourceParameters/microSelectron-v2"
+        dir_source_parameters: Path = "SourceParameters/GenericHDR"
         ) -> BrachyPlan:
         r"""
         ### Purpose:
