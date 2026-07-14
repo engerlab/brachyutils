@@ -107,6 +107,9 @@ def test_cluster_box_optim(
         observed_dvh_metrics = optimized_plan.get_dvh_metrics()
         print("DVH Metrics are:")
         print(observed_dvh_metrics)
+        optimized_plan.catheter_table.combined_dose.write_brachydose_to_file(
+            outdir/"combined_dose.seq.nrrd"
+        )
 
     if return_output:
         return cbox_optim, optimized_plan
