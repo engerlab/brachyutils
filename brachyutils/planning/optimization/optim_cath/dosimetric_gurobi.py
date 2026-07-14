@@ -194,6 +194,7 @@ class CatheterTableOptim_Gurobi():
             raise ValueError("Only Gurobi solver is supported in this class.")
         if pth_logfile is None:
             pth_logfile = Path("temp_data/gurobi_model.log").resolve()
+        pth_logfile = Path(pth_logfile)
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         model = Model("CatheterTable_Optimization")
         model.Params.TimeLimit = 600 # set a 10 minute time limit.
