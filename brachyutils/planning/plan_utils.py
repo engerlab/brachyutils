@@ -153,6 +153,8 @@ class BrachyPlan:
         as well as the structure name in the optimization config should match perfectly. Otherwise, the name 
         of the structure in the DVH metric goals and optimization config can be a substring of the name of
         the structure in the phantom. For example, "CTV" in "CTV_BRACHY".
+        - non_overlapping_structures := If true, all the structures that overlap with the target volume
+        will be carved out of it. Use it wisely my friend!
 
         ### Outputs:
             - None := will initialize the BrachyPlan object
@@ -214,6 +216,7 @@ class BrachyPlan:
             if self.phantom.structure_set is not None:
                 self.set_brachy_structure_list(
                     phantom=self.phantom,
+                    non_overlapping_structures=kwargs.get("non_overlapping_structures", False)
                 )
 
         if kwargs.get("dvh_metric_goals", None) is not None:
@@ -529,6 +532,7 @@ class BrachyPlan:
         self,
         phantom: BrachyPhantom,
         mask_type: Union[ROIContour, ROIMask] = ROIMask,
+        non_overlapping_structures:bool = False
         )->None:
         r"""
         ### Purpose:
@@ -544,7 +548,8 @@ class BrachyPlan:
         - dvh_metric_goals := the dvh metric goals dictionary
         - mask_type: ROIContour | ROIMask := Phantom masks will be converted to this type when being
         stored in BrachySturucture.
-
+        - non_overlapping_structures := If true, all the structures that overlap with the target volume
+        will be carved out of it. Use it wisely my friend!
         ### Outputs:
         - None := will update the BrachyPlan.structure_list attribute
         """
@@ -570,26 +575,27 @@ class BrachyPlan:
             mask_type=ROIContour,
             strict_name_match=False,).get("body", None)
 
-        # If there is an OAR that goes through the PTV, cut it out of PTV.
-        # this is because each voxel can have planning role only.
-        # in prostate, the urethra goes through the PTV.
-        self.target_structure_names = [
-            structure.name for structure 
-            in self.structure_list if structure.is_target]
-        for target_structure in self.target_structure_names:
-            for structure in self.structure_list:
-                if structure.is_target:
-                    continue
-                if "body" in structure.name.lower():
-                    continue 
-                # find intersection between this structure and target_structure
-                overlap = (
-                    self.structure_dict.get(target_structure).mask.imageArray 
-                    &  structure.mask.imageArray)
-                if np.any(overlap):
-                    self.structure_dict.get(target_structure).mask.imageArray = (
+        if non_overlapping_structures:
+            # If there is an OAR that goes through the PTV, cut it out of PTV.
+            # this is because each voxel can have planning role only.
+            # in prostate, the urethra goes through the PTV.
+            self.target_structure_names = [
+                structure.name for structure 
+                in self.structure_list if structure.is_target]
+            for target_structure in self.target_structure_names:
+                for structure in self.structure_list:
+                    if structure.is_target:
+                        continue
+                    if "body" in structure.name.lower():
+                        continue 
+                    # find intersection between this structure and target_structure
+                    overlap = (
                         self.structure_dict.get(target_structure).mask.imageArray 
-                        & (np.ma.ones_like(overlap)^overlap))
+                        &  structure.mask.imageArray)
+                    if np.any(overlap):
+                        self.structure_dict.get(target_structure).mask.imageArray = (
+                            self.structure_dict.get(target_structure).mask.imageArray 
+                            & (np.ma.ones_like(overlap)^overlap))
    
     def get_dvh_metrics(
         self,

@@ -233,7 +233,7 @@ def test_get_optimized_plan_from_model():
     cbox_optim, _ = test_cluster_box_optim(
         num_decision_planes=2,
         return_output=True,
-        export_cluster_box=False,
+        export_cluster_box=True,
         run_optimization=False,
         solve_strategy="cascaded",
         dwell_reach_mm=20)
