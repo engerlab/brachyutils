@@ -930,10 +930,10 @@ if __name__ == "__main__":
     # test_dose_calc()
     # test_get_dvh_metrics_single_plan()
 
-    # dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
-    # dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
-    # dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
-    # dir_export_test = Path("temp_data/test/prostate-glen-2023")
+    dir_all_dicoms = Path("/home/ubuntu").joinpath("YourLocalHome/Data/prostate/prostate-glen-2023")
+    dir_export_tg43 = Path("temp_data/tg43/prostate-glen-2023") # for tg43
+    dir_export_mc = Path("temp_data/mc/prostate-glen-2023") # for Monte Carlo
+    dir_export_test = Path("temp_data/test/prostate-glen-2023")
     dvh_metric_goals = {
         "V100%(ctv)": 95,
         "D90%(ctv)": 21,
@@ -946,27 +946,27 @@ if __name__ == "__main__":
     }
     prescription_dose = 21 # in Gy
 
-    # export all dicoms to plans
-    # for dir_export in [
-    #     dir_export_tg43,
-    #     # dir_export_mc
-    #     # # dir_export_test
-    #     ]:
-    #     run_export(
-    #         dir_all_dicoms=dir_all_dicoms,
-    #         dir_export=dir_export,
-    #         multi_proc=False,
-    #     )
+    # # export all dicoms to plans
+    for dir_export in [
+        dir_export_tg43,
+        dir_export_mc
+        # dir_export_test
+        ]:
+        run_export(
+            dir_all_dicoms=dir_all_dicoms,
+            dir_export=dir_export,
+            multi_proc=False,
+        )
 
     # # run dose generation for all plans
-    # run_dose_generation(
-    #     dir_plan_export=dir_export_tg43,
-    #     method="tg43"
-    # )
-    # run_dose_generation(
-    #     dir_plan_export=dir_export_mc,
-    #     method="mc"
-    # )
+    run_dose_generation(
+        dir_plan_export=dir_export_tg43,
+        method="tg43"
+    )
+    run_dose_generation(
+        dir_plan_export=dir_export_mc,
+        method="mc"
+    )
     # # this may be needed if the air kerma used in MC dose generation was incorrect
     # scale_by_airkerma(
     #     # dir_all_plans=dir_export_tg43,        
@@ -974,29 +974,29 @@ if __name__ == "__main__":
     #     dir_all_dcms=dir_all_dicoms
     # )
 
-    # for dir_export in [
-    #     dir_export_tg43,
-    #     # dir_export_mc,
-    #     # dir_all_dicoms
-    #     ]:
-    #     dosimetry_inputs = gen_dosimetry_inputs(
-    #         dir_phnatoms=dir_all_dicoms,
-    #         dir_doses=dir_export,
-    #         dose_format="nrrd" if dir_export != dir_all_dicoms else "dicom"
-    #     )
-    #     get_dvh_metrics_all_plans(
-    #         dosimetry_inputs=dosimetry_inputs,
-    #         dvh_metric_goals=dvh_metric_goals,
-    #         pth_out_csv=dir_export/"dose_generation_dvh.csv",
-    #         prescription_dose=prescription_dose
-    #     )
-    #     if dir_export == dir_export_mc:
-    #         # get the mean and max uncertanity inside ctv
-    #         get_uncertainty_in_ctv(
-    #             dosimetry_inputs=dosimetry_inputs,
-    #             pth_out_csv=dir_export/"dose_uncertainty_ctv.csv",
-    #             dvh_metric_goals=dvh_metric_goals,
-    #         )
+    for dir_export in [
+        dir_export_tg43,
+        dir_export_mc,
+        dir_all_dicoms
+        ]:
+        dosimetry_inputs = gen_dosimetry_inputs(
+            dir_phnatoms=dir_all_dicoms,
+            dir_doses=dir_export,
+            dose_format="nrrd" if dir_export != dir_all_dicoms else "dicom"
+        )
+        get_dvh_metrics_all_plans(
+            dosimetry_inputs=dosimetry_inputs,
+            dvh_metric_goals=dvh_metric_goals,
+            pth_out_csv=dir_export/"dose_generation_dvh.csv",
+            prescription_dose=prescription_dose
+        )
+        if dir_export == dir_export_mc:
+            # get the mean and max uncertanity inside ctv
+            get_uncertainty_in_ctv(
+                dosimetry_inputs=dosimetry_inputs,
+                pth_out_csv=dir_export/"dose_uncertainty_ctv.csv",
+                dvh_metric_goals=dvh_metric_goals,
+            )
 
     # gen_box_plots_dvh_timing(
     #     pth_dvh_csv_tg43=dir_export_tg43/"dose_generation_dvh.csv",

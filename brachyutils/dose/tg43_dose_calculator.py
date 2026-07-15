@@ -33,7 +33,7 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
     """
     """
     def __init__(self,
-        dir_tg43_parameters: Optional[str] = "microSelectron-v2_Consensus",
+        dir_tg43_parameters: Optional[Union[Path, str]] = "GenericHDR",
         dir_output : Optional[Union[Path, str]] = Path(),
         **calc_parameter_kwargs
         ) -> None:
@@ -55,7 +55,7 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
             "auto_kernel": True, #if not True, you must set the next two values 
             #"kernel_half_width" : 10 * CM, #half width to calculate dose rate kernel
             #"kernel_res" : 0.1 * CM, #resolution to calculate the dose rate kernel
-            "auto_phantom" : True, #crop phantom to all non-body structures
+            "auto_phantom" : False, #crop phantom to all non-body structures
         }
         self.calc_parameters.update(calc_parameter_kwargs)
 
@@ -99,9 +99,6 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
         self.brachysource : BrachySource = plan.simulation_setup.brachy_source
         self.source_name : str = self.brachysource.source_geometry
         self.is_hdr : bool = self.brachysource.treatment_type == "HDR"
-        #a little hard-coded fix :)
-        if self.source_name == "MicroSelectronV2":
-            self.source_name = "microSelectron-v2"
         self.air_kerma_strength = self.brachysource.reference_air_kerma_rate * U
         self.activity = self.brachysource.activity #can specify the (total) activity in place of the AKS
         if self.activity is not None:
@@ -115,7 +112,7 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
 
         phantom_dimensions = self.brachyplan.phantom.image_obj.gridSize * self.brachyplan.phantom.image_obj.spacing
         new_kernel_half_width = max(phantom_dimensions) * 1.2 * 0.5 #make the kernel big enough to cover the whole phantom (+20% padding)
-        self.calc_parameters["kernel_half_width"] = new_kernel_half_width if new_kernel_half_width <  150.0 else 150.0 #cap the kernel size at 150 mm to prevent excessive memory usage
+        self.calc_parameters["kernel_half_width"] = new_kernel_half_width if new_kernel_half_width <  100.0 else 100.0 #cap the kernel size at 100 mm to prevent excessive memory usage
         self.calc_parameters["kernel_res"] = self.AUTO_KERNEL_RES
         logging.info(f"Automatically calculated kernel half width {self.calc_parameters["kernel_half_width"]} mm.")
 
@@ -154,10 +151,14 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
         if file_data[0] != self.source_name:
             raise ValueError(f"Potential mismatch! Loaded parameters for source {file_data[0]} \
 but source name is {self.source_name}.")
-        source_core_from_plan = self.brachysource.core_material.split('_')[1] + "-" + str(self.brachysource.mass_number)
-        if file_data[2] != source_core_from_plan:
-            raise ValueError(f"Potential mismatch! Loaded parameters for source isotope ###{file_data[2]}### \
-                but source core is ###{source_core_from_plan}###.")
+        try:
+            source_core_from_plan = self.brachysource.core_material.split('_')[1] + "-" + str(self.brachysource.mass_number)
+            if file_data[2] != source_core_from_plan:
+                raise ValueError(f"Potential mismatch! Loaded parameters for source isotope ###{file_data[2]}### \
+                            but source core is ###{source_core_from_plan}###.")
+        except IndexError: #if the source core isn't a G4_<element> there's not much we can do help the user check
+            source_core_from_plan = self.brachysource.core_material #other cores like VSe2
+            logging.warning(f"Verify that the selected source parameters with core {file_data[2]} matches the plan's source core {source_core_from_plan}.")
         self.active_length = float(file_data[1]) * CM
         logging.debug("Active length %s mm", self.active_length)
 
@@ -365,7 +366,7 @@ but source name is {self.source_name}.")
                         action.result()
                     except Exception as exc:
                         failed_dwell = futures[action]
-                        raise ValueError(f"TG-43DoseCalculator failed for dwell {failed_dwell.name_id}") from exc
+                        raise ValueError(f"TG-43 dose calculation failed for dwell {failed_dwell.name_id}") from exc
 
         logging.info("TG-43 dose calculation complete.")
         if export_combined_dose:
@@ -383,19 +384,18 @@ but source name is {self.source_name}.")
 
 def calculate_dwell_dose_tg43(dwell : DwellPosition, dose_rate_kernel: BrachyDose, phantom : BrachyPhantom ) ->  None:
     rotation_matrix = calculate_dwell_rotation_matrix(dwell)
-    dose_rate_kernel = dose_rate_kernel.dose_image.copy()
-    applyTransform3D(dose_rate_kernel, rotation_matrix, fillValue=0,
+    dose_rate_kernel_image = dose_rate_kernel.dose_image.copy()
+    applyTransform3D(dose_rate_kernel_image, rotation_matrix, fillValue=0,
         outputBox = 'keepAll', rotCenter = [0.0, 0.0, 0.0], interpOrder = 1),# translation=dwell.position)
-    translateDataByChangingOrigin(dose_rate_kernel, dwell.position)
-    dose_rate_kernel.resampleOn(phantom.image_obj, fillValue=0, tryGPU=False)
+    translateDataByChangingOrigin(dose_rate_kernel_image, dwell.position)
+    dose_rate_kernel_image.resampleOn(phantom.image_obj, fillValue=0, tryGPU=False)
     if dwell.dose_rate is None:
         dwell.dose_rate = BrachyDose(dtype=np.float16)
-    dwell.dose_rate.dose_image = dose_rate_kernel
+    dwell.dose_rate.dose_image = dose_rate_kernel_image
 
 def calculate_dwell_rotation_matrix( dwell : DwellPosition) -> np.ndarray:
     #build an affine matrix with an extrinsic rotation around Z->Y->X then the translation to the dwell
     dwell_rot = dwell.rotation
-    dwell_angle = float(dwell.angle) #todo: perform the Z rotation first
     return Rotation.align_vectors(dwell_rot, [0, 0, 1])[0].as_matrix()
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ class ExportConfig_PlanAndMac(BaseModel):
     auto_mvm: bool = Field(default=True, description="Whether to automatically determine if MVM at export time based on phantom size.")
     body_mesh_name: str | None = Field(default=None, description="Name of the body structure for MVM phantom.")
     body_mesh_material: str = Field(default="SoftTissue", description="Material name for the body structure in MVM phantom.")
-    pth_phantom: Path = Field(default=Path("egsphant.seq.nrrd"), description="The relative path to the egsphant file.")
+    pth_phantom: Path = Field(default=Path("phantom.seq.nrrd"), description="The relative path to the egsphant file.")
     
     @computed_field
     def pth_plan_combined(self) -> Path | None:
@@ -69,7 +69,7 @@ class ExportConfig_Egsphant(BaseModel):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
     dir_export: str | Path = Field(None, description="Directory where Egsphant file is exported.")
-    name: str = Field("egsphant", description="File name for Egsphant output.")
+    name: str = Field("phantom", description="File name for Egsphant output.")
     file_extension: Literal[".seq.nrrd", ".egsphant"] = Field(
         ".seq.nrrd", 
         description="Allowed file extensions for Egsphant files.")

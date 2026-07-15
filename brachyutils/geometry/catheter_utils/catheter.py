@@ -12,7 +12,7 @@ from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToS
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup import (
     get_rotation_from_position
 )
-
+from pathlib import Path
 
 class Catheter(BaseModel):
     r"""
@@ -318,6 +318,21 @@ class Catheter(BaseModel):
         """
         return PiecewiseLinear3D(points=points)
 
+    def get_points_from_fit(self) -> List[List[float]]:
+        r"""
+        ### Purpose:
+        - To get a list of points from a fit function.
+
+        ### Inputs:
+        - fit_function:PiecewiseLinear3D := the fit function to get the points from.
+
+        ### Outputs:
+        - List[List[float]] := the list of points on the fit function.
+        """
+        if self.fit_function is None:
+            raise ValueError("fit_function is not defined for this catheter.")
+        return np.array(self.fit_function.point_pairs)
+
     def remove_outside_mask(self, mask:Union[ROIMask, sitk.Image]) -> None:
         r"""
         ### Purpose:
@@ -365,3 +380,35 @@ class Catheter(BaseModel):
                 filtered_dwells.append(new_dwell)
                 dwell_idx += 1
         self.dwells = filtered_dwells
+
+    def write_to_ply(
+        self,
+        dir_ply:str | Path,
+        radius:float=1.0) -> None:
+        r"""
+        ### Purpose:
+        - To write the catheter to a ply file for visualization.
+
+        ### Inputs:
+        - self := the Catheter object.
+        - dir_ply:str | Path := the directory path to the ply file.
+        `catheter {self.name_id}.ply` will be used as the ply file name.
+        - radius:float := the radius of the cylinder.
+
+        ### Outputs:
+        - None
+        """
+        from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import line_to_tube
+        import trimesh
+        point_pairs = self.get_points_from_fit()
+        cylinder_meshes = [
+            line_to_tube(
+                point_pair[0], point_pair[1],
+                radius=radius)
+            for point_pair in point_pairs]
+        combined_mesh: trimesh.Trimesh = trimesh.util.concatenate(cylinder_meshes)
+        combined_mesh.merge_vertices()
+        combined_mesh.process()
+        dir_ply = Path(dir_ply)
+        dir_ply.mkdir(parents=True, exist_ok=True)
+        combined_mesh.export(dir_ply/f"catheter_{self.name_id}.ply")

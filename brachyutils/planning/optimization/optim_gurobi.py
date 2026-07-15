@@ -100,6 +100,9 @@ def _run(model: Model):
     if model.status == GRB.OPTIMAL:
         print("Optimal solution found.")
         solution_found = True
+    elif model.SolCount > 0:
+        print("Time out, but here's the best solution")
+        solution_found = "TimeOut"
     else:
         print("No optimal solution found.")
         solution_found = False
@@ -120,22 +123,22 @@ def _get_optimized_plan_from_model(
     
     model, solution_found, solve_time = _run(model)
 
-    dwelltime_and_name = []
-    for x in model.getVars():
-        if ("dwell" in x.VarName):
-            dwelltime_and_name.append((x.X, x.VarName))
-    
     if not solution_found:
         warnings.warn(
             "No optimal solution found. Return None.",
             stacklevel=2)
         return None
 
+    dwelltime_and_name = []
+    for x in model.getVars():
+        if ("dwell" in x.VarName):
+            dwelltime_and_name.append((x.X, x.VarName))
+
     # set the dwell time to the plan
     if inplace:
         outplan:BrachyPlan = plan
     else:
-        outplan:BrachyPlan = deepcopy(plan)     
+        outplan:BrachyPlan = deepcopy(plan)
 
     for dwell_time, name in dwelltime_and_name:
         # set the dwell time to the optimized value
@@ -145,8 +148,7 @@ def _get_optimized_plan_from_model(
             for dwell_position in catheter.dwells:
                 if (
                     f"dwell_{dwell_position.name_id}"
-                    == name
-                ):
+                    == name):
                     dwell_position.time = dwell_time
     # update the plan with the new dwell times
     # outplan.update_plan_from_catheter_table()

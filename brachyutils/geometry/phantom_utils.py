@@ -11,8 +11,9 @@ from pathlib import Path
 from copy import deepcopy
 from collections import defaultdict
 
-from vtk import vtkPolyData, vtkDelaunay2D, vtkPoints, vtkDecimatePro, vtkPolygon
-from vtkmodules.vtkIOGeometry import vtkSTLWriter
+import trimesh
+from trimesh import Trimesh
+from skimage import measure
 
 import nrrd
 import pydicom
@@ -20,7 +21,6 @@ import pydicom
 from opentps.core.data.images import CTImage, MRImage, ROIMask, Image3D
 from opentps.core.data import ROIContour, RTStruct
 from opentps.core.processing.imageProcessing.resampler3D import resampleImage3D, resampleImage3DOnImage3D
-from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToSITK
 from opentps.core.io.dicomIO import (  # writeRTDose,
     readDicomCT,
     readDicomMRI,
@@ -140,8 +140,6 @@ Please provide either the structure_set or the path of the structure file."
             self.egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant_file)
         elif image_obj is not None:
             self.image_obj = image_obj
-        else:
-            warnings.warn("No geometry source file provided. Creating an empty Phantom", stacklevel=2)
 
         if pth_structures_file is not None:
             pth_structures_file = Path(pth_structures_file)
@@ -361,8 +359,8 @@ Please provide either the structure_set or the path of the structure file."
         self,
         query_structure_list: List[str],
         mask_type: Union[
-            np.ndarray, ROIContour, ROIMask,
-            Literal["array", "contour", "mask"]] = ROIMask,
+            np.ndarray, ROIContour, ROIMask, Trimesh,
+            Literal["array", "contour", "mask", "mesh"]] = ROIMask,
         strict_name_match: bool = True,
     ) -> Dict[str, Union[np.ndarray, ROIContour, ROIMask]]:
         r"""
@@ -397,6 +395,8 @@ Please provide either the structure_set or the path of the structure file."
                 flattened_query_structure_list.append(query_structure)
 
         for query_structure in flattened_query_structure_list:
+            # TODO: ROIContour to Mask conversion is expensive. consider using masks only and
+            # generate ROIContour when needed on the fly. we already have cached_structure_masks.
             for mask_name in self.structure_names:
                 if strict_name_match:
                     pick_structure = query_structure.lower() == mask_name.lower()
@@ -432,6 +432,8 @@ Please provide either the structure_set or the path of the structure file."
                         )
                     elif mask_type == ROIMask or mask_type == "mask":
                         mask_dict[query_structure] = mask
+                    elif mask_type == Trimesh or mask_type == "mesh":
+                        mask_dict[query_structure] = mask_to_trimesh(mask)
                     else:
                         raise ValueError(f"mask_type {mask_type} not recognized")
         return mask_dict
@@ -647,6 +649,12 @@ Please provide either the structure_set or the path of the structure file."
             structure_mask_dict: Dict[str, ROIMask] = self.get_structure_mask(
                 self.structure_names, mask_type=ROIMask
             )
+            #copy over the colors from the structure set
+            for structure_name in structure_mask_dict.keys():
+                contour = self.structure_set.getContourByName(structure_name)
+                if contour is not None:
+                    structure_mask_dict[structure_name]._displayColor = contour._displayColor
+
             masksToNrrd(
                 structure_mask_dict=structure_mask_dict,
                 pth_output=pth_output,
@@ -661,6 +669,19 @@ Please provide either the structure_set or the path of the structure file."
             raise ValueError(
                 f"Format {representation} not recognized. Please use 'mask' or 'contour'."
             )
+
+    def write_structures_to_stl() -> None:
+        r"""
+        Purpose:
+            - To write the structures to stl files. Each structure is written to a separate stl file.
+        Inputs:
+            - None
+        Outputs:
+            - None
+        Dependencies:
+            - vtk
+        """
+        raise NotImplementedError("Writing structures to stl files is not implemented yet.")
 
     def write_to_egsphant(
         self,
@@ -1850,20 +1871,53 @@ def masksToNrrd(
         # # Write the image
         nrrd.write(str(pth_output), all_masks, header, index_order="C", compression_level=1)
 
-def contour_to_stl(roi_contour: ROIContour, pth_output: Path) -> None:
-    r"""
-    Purpose:
-        - Export the contour to an STL file via vtkPolyData
-    Inputs:
-        - roi_contour: ROIContour := the contour to export.
-        - pth_output: Path := the path to save the STL file.
-    Outputs:
-        - None
-    :
+def mask_to_trimesh(roi_mask: ROIMask) -> trimesh.Trimesh:
+    r""""
+    ### Purpose:
+        - Convert an ROI mask to a Trimesh object. The Trimesh object contains the mesh as well as the color information.
+
+    ### Inputs:
+        - roi_mask: ROIMask := The ROI mask object containing the 3D binary mask data to be converted.
+
+    ### Outputs:
+        - mesh: trimesh.Trimesh := the generated mesh object.
     """
-    raise NotImplementedError("The implementation of this conversion from " \
-        "slicewise polygons of the contours to a 3D structured mesh is highly non-trivial." \
-        "Please use mask_to_stl instead.")
+    verts, faces, _, _ = measure.marching_cubes(
+    roi_mask.imageArray, spacing=roi_mask.spacing
+    )
+    verts += roi_mask.origin
+    mesh = Trimesh(
+        vertices=verts, faces=faces,
+        process=False, face_colors=roi_mask.color,
+        vertex_colors=roi_mask.color,
+        metadata={"name": roi_mask.name})
+    mesh.fix_normals()
+    original_centroid = mesh.centroid
+    trimesh.smoothing.filter_laplacian(mesh, iterations=5)
+    new_centroid = mesh.centroid
+    drift = new_centroid - original_centroid
+    mesh.apply_translation(-drift)
+    return mesh
+
+def mask_to_ply(roi_mask: ROIMask, pth_output: Path) -> None:
+    r""""
+    ### Purpose:
+        - Convert an ROI mask to a PLY file. The PlY files contain the mesh as well as the color information.
+
+    ### Inputs:
+        - roi_mask: ROIMask := The ROI mask object containing the 3D binary mask data to be converted.
+        - pth_output: Path := The output file path where the PLY file will be saved. It should
+        have a .ply extension.
+
+    ### Outputs:
+        - None
+    """
+    if not isinstance(roi_mask, ROIMask):
+        raise ValueError("The input roi_mask should be an instance of ROIMask.")
+    if not str(pth_output).endswith(".ply"):
+        raise ValueError("The output file must have a .ply extension.")    
+    mesh = mask_to_trimesh(roi_mask)
+    mesh.export(pth_output)
 
 def mask_to_stl(roi_mask: ROIMask, pth_output: Path) -> None:
     r"""
