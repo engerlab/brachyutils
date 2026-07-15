@@ -33,7 +33,7 @@ def test_catheter_table_optim(
     # dir_export = Path("data_test/test_export_plan/prostate").resolve()
     target_dose = 21
     from_delivered_dwellpositions=False
-    multi_processing = False
+    multi_processing = True
     gen_dose_rates = True
     catheter_recommendaion=False
 
@@ -265,9 +265,9 @@ def test_set_constraints():
     print("time to solve model with bound variables: ", t_solve - tf_build)
 
 if __name__ == "__main__":
-    from viztracer import VizTracer
-    tracer = VizTracer()
-    tracer.start()
+    # from viztracer import VizTracer
+    # tracer = VizTracer()
+    # tracer.start()
     # test_catheter_gurobi_initialization()
     # test_catheter_table_optim()
     # test_dynamic_plan_generation()
