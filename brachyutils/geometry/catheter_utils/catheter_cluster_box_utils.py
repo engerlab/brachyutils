@@ -257,6 +257,7 @@ def generate_candidate_segments(
     oar_danger_dist_mm:float,
     target_structure_names:List[str],
     Config_Catheter_Rotation:Config_Catheter_Rotation = None,
+    catheter_radius_mm:float=1,
     **kwargs
     ) -> Tuple[List, Dict]:
     """
@@ -271,7 +272,8 @@ def generate_candidate_segments(
     - meshes: List[trimesh.Trimesh] := list of trimesh.Trimesh
     - insertion_point_spacing_mm: float := spacing for the insertion grid
     - oar_danger_dist_mm: float := distance threshold for danger zones. It is from the center
-    of the catheter to the surface of the OAR mesh.
+    of the catheter to the surface of the OAR mesh. Therefore, the distance from surface of catheter
+    to the surface of the OAR is oar_danger_dist_mm - catheter_radius_mm.
     - target_structure_names: List[str] := list of target structure names
 
     ### Outputs:
@@ -330,7 +332,8 @@ def generate_candidate_segments(
         new_valid_lines = [
             (p0, p1) for p0, p1 in plane_digi_points
             if not line_is_invalid(
-                p0, p1, oar_meshes, oar_danger_dist_mm, plane.depth, digitization_pairs
+                p0, p1, oar_meshes, (oar_danger_dist_mm-catheter_radius_mm),
+                plane.depth, digitization_pairs
                 )
         ]
         plane.segment_lines = new_valid_lines
