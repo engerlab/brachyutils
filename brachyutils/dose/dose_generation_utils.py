@@ -6,7 +6,7 @@ from glob import glob
 from pathlib import Path
 from typing import Literal, Optional, Union
 from brachyutils.planning.plan_utils import BrachyPlan
-from brachyutils.planning.plan_export_configs import ExportConfig_BrachyPlan
+from brachyutils.planning.plan_export_configs import ExportConfig_BrachyPlan, ExportConfig_Egsphant
 from brachyutils.dose.dose_utils import BrachyDose
 
 class BrachyDoseGenerator(ABC):
@@ -275,6 +275,12 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         if export_config_brachyplan:
             plan.export_brachy_plan(export_config_brachyplan)
 
+        if not export_config_brachyplan.export_config_egsphant:
+            export_config_brachyplan.export_config_egsphant = ExportConfig_Egsphant(
+                dir_export=export_config_brachyplan.export_config_plan_and_mac.dir_export,
+                name=export_config_brachyplan.export_config_plan_and_mac.pth_phantom.stem.split(".")[0],
+                file_extension="".join(export_config_brachyplan.export_config_plan_and_mac.pth_phantom.suffixes)
+            )
         # call the dose generator to generate the dose maps
         self.generate_dose(
             # dir_output=self.dir_plan_export,
