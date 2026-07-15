@@ -575,13 +575,14 @@ class BrachyPlan:
             mask_type=ROIContour,
             strict_name_match=False,).get("body", None)
 
+        self.target_structure_names = [
+            structure.name for structure 
+            in self.structure_list if structure.is_target]
+
         if non_overlapping_structures:
             # If there is an OAR that goes through the PTV, cut it out of PTV.
             # this is because each voxel can have planning role only.
             # in prostate, the urethra goes through the PTV.
-            self.target_structure_names = [
-                structure.name for structure 
-                in self.structure_list if structure.is_target]
             for target_structure in self.target_structure_names:
                 for structure in self.structure_list:
                     if structure.is_target:
