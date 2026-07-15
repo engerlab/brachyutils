@@ -7,7 +7,7 @@ import trimesh.transformations as tf
 from trimesh.ray.ray_triangle import RayMeshIntersector
 from scipy.spatial import cKDTree
 from pathlib import Path
-from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, Catheter
+from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, Catheter, DwellPosition
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Catheter_Rotation, Decision_Plane
 from math import radians
 from scipy.spatial import cKDTree
@@ -749,3 +749,104 @@ def find_colliding_pairs(starts, ends, danger_mm, chunk_size=5000):
     
     return (np.column_stack([np.concatenate(out_i), np.concatenate(out_j)]),
             np.concatenate(out_d), np.concatenate(out_pa), np.concatenate(out_pb))
+
+def get_dose_rate_at_dwell_reach(
+    dwell_reach_mm:float,
+    dwell_position:DwellPosition,):
+    r"""
+    ### Purpose:
+    - To obtain the dose rate value at dwell_reach_mm away from the dwell position on the transverse
+    plane cutting through the center of the source.
+
+    ### Inputs:
+    - `dwell_reach_mm` := The larger this is, the lower will be the voxel goal for dose rate per voxel.
+    - `dwell_position` := A dwell position with the its dose rate map loaded.
+    """
+    if dwell_position.dose_rate is None:
+        raise ValueError("Cannot get voxel dose rate goal.\
+The dose rate map is NONE for this dwell position.")
+
+    # based on the rotation and position of the source, figure out the 
+    # coordinates of the voxel of interest.
+    plane_origin = dwell_position.position
+    plane_normal = dwell_position.rotation
+    grid_origin = dwell_position.dose_rate.dose_image.origin
+    spacing = dwell_position.dose_rate.dose_image.spacing
+    grid_shape = dwell_position.dose_rate.dose_image.gridSize
+    # 1) build 3D box corners in world coordinates
+    nx, ny, nz = grid_shape
+    # voxel index corners
+    idx_corners = np.array([
+        [0, 0, 0],
+        [nx-1, 0, 0],
+        [0, ny-1, 0],
+        [0, 0, nz-1],
+        [nx-1, ny-1, 0],
+        [nx-1, 0, nz-1],
+        [0, ny-1, nz-1],
+        [nx-1, ny-1, nz-1]
+    ], dtype=float)
+
+    # convert indices to world coords: x = origin + idx * spacing
+    box_corners = grid_origin + idx_corners * spacing  # shape (8,3)
+
+    # 2) plane equation: n·(x - p0) = 0  => n·x + d = 0
+    n = plane_normal / np.linalg.norm(plane_normal)
+    d = -np.dot(n, plane_origin)
+
+    # 3) intersect plane with box edges to get intersection segment
+    # edges as pairs of corner indices
+    edge_indices = np.array([
+        [0, 1], [0, 2], [0, 3],
+        [4, 5], [4, 6], [1, 5],
+        [2, 4], [3, 5], [3, 6],
+        [1, 4], [2, 6], [5, 7],
+        [6, 7], [4, 7], [2, 3],
+        [1, 3], [0, 4], [0, 6]
+    ], dtype=int)
+
+    pts = []
+    for e0, e1 in edge_indices:
+        p0 = box_corners[e0]
+        p1 = box_corners[e1]
+        # parametric edge: p(t) = p0 + t*(p1-p0), t in [0,1]
+        denom = np.dot(n, p1 - p0)
+        num = - (np.dot(n, p0) + d)
+        if np.abs(denom) < 1e-12:
+            continue  # edge parallel to plane
+        t = num / denom
+        if 0.0 <= t <= 1.0:
+            pts.append(p0 + t * (p1 - p0))
+
+    pts = np.array(pts)  # shape (m,3), m >= 2 if plane cuts box
+
+    # 4) project intersection points onto plane, find farthest from plane_origin
+    if pts.shape[0] < 2:
+        raise RuntimeError("Plane does not intersect grid.")
+
+    # direction vectors from origin to intersection points, projected onto plane
+    v = pts - plane_origin  # shape (m,3)
+    # remove normal component: v_plane = v - (v·n) n
+    v_plane = v - np.dot(v, n)[:, None] * n[None, :]
+    # norms
+    dist = np.linalg.norm(v_plane, axis=1)
+    imax = np.argmax(dist)
+
+    # longest direction from origin within grid
+    dir_long = v_plane[imax]
+    norm_dir_long = np.linalg.norm(dir_long)
+    if norm_dir_long < 1e-12:
+        raise RuntimeError("Origin is at intersection; no in-grid extent along plane.")
+
+    u = dir_long / norm_dir_long  # unit direction in plane
+
+    # 5) choose point at distance r along this direction, but clipped to max length
+    max_r = norm_dir_long
+    r_clipped = np.clip(dwell_reach_mm, 0.0, max_r)
+
+    point_on_plane = plane_origin + r_clipped * u  # world coords
+
+    # 6) query dose
+    x, y, z = point_on_plane
+    return dwell_position.dose_rate.extract_dose_values_from_coordinates(x, y, z)
+    

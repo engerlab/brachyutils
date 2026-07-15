@@ -4,7 +4,7 @@ from brachyutils.tests.test_cluster_box import test_cluster_box
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Catheter_Rotation, Config_ClusterBox
-from brachyutils.planning.optimization.optim_cath.cluster_box_optim import ClusterBoxOptim
+from brachyutils.planning.optimization.optim_cath.cluster_box_optim import ClusterBoxOptim, get_voxel_dose_rate_goal
     
 def test_get_geometric_constraints():
     cbox = test_cluster_box(return_box=True)
@@ -198,6 +198,21 @@ def test_constraint_continuity():
         else:
             raise ValueError("SOMETHING IS VERY WRONG")
     print("continuity constraints passed")
+
+def test_get_voxel_dose_rate_goal():
+    dir_dicom = Path("data_test/prostate-glen-p1-dcm")
+    plan = load_dicom_to_plan(
+        dir_dicom=dir_dicom,
+        load_dicom_catheter_table=True,
+        load_dicom_prescription_dose=True,
+        strict_name_match=False,)
+
+    voxel_dose_rate_goal = get_voxel_dose_rate_goal(
+        dwell_reach_mm=10,
+        dose_voxel_goal=plan.prescription_dose,
+        dwell_position=plan.catheter_table.all_dwells[0]
+    )
+
 
 if __name__ == "__main__":
     print("Testing cluster box optimization")

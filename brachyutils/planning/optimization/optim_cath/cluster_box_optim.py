@@ -3,6 +3,8 @@ from typing import Dict, Literal
 from collections import defaultdict
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
+from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import get_dose_rate_at_dwell_reach
+
 from brachyutils.geometry.catheter_utils.dwell_position import DwellPosition
 from brachyutils.planning.optimization.optim_configs import Constraint_Config
 from brachyutils.planning.plan_utils import BrachyPlan
@@ -363,9 +365,11 @@ def get_voxel_dose_rate_goal(
     the voxel dose goal.
 
     ### Inputs:
-    - `dwell_reach_mm` := 
-    - `dose_voxel_goal` := 
-    - `dwell_position` := 
+    - `dwell_reach_mm` := The larger this is, the lower will be the voxel goal for dose rate per voxel.
+    - `dose_voxel_goal` := The prescription dose for the target.
+    - `dwell_position` := A dwell position with the its dose rate map loaded.
     """
-    # TODO Priority 1: complete this!
-    pass
+    dose_rate_at_reach = get_dose_rate_at_dwell_reach(
+        dwell_reach_mm=dwell_reach_mm, dwell_position=dwell_position)
+    return dose_rate_at_reach/dose_voxel_goal
+    
