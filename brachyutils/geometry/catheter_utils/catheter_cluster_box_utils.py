@@ -270,7 +270,8 @@ def generate_candidate_segments(
     ### Inputs:
     - meshes: List[trimesh.Trimesh] := list of trimesh.Trimesh
     - insertion_point_spacing_mm: float := spacing for the insertion grid
-    - danger_dist: float := distance threshold for danger zones
+    - oar_danger_dist_mm: float := distance threshold for danger zones. It is from the center
+    of the catheter to the surface of the OAR mesh.
     - target_structure_names: List[str] := list of target structure names
 
     ### Outputs:
