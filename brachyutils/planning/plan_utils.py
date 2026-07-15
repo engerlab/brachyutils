@@ -1191,7 +1191,7 @@ config do not match for structure {struc.name}"
                                 constraint_type="bound",
                                 variable_type="catheter",
                                 equal=1,
-                                variable_name_ids=[f"catheter_{catheter.name_id}"]
+                                variable_name_ids=[catheter.name_id]
                             )
                     break
 

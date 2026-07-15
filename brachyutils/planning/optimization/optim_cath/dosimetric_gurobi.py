@@ -611,7 +611,7 @@ def _set_bound_constraint(
     - To set a bound constraint on a variable in the model.
     The variable can be either a catheter or dwell time variable.
     """
-    var_name = constraint.variable_name_ids[0]
+    var_name = f"{constraint.variable_type}_{constraint.variable_name_ids[0]}"
     variable =  model.getVarByName(var_name)
     if not variable:
         raise ValueError(f"No variable with name {var_name} was found for constraint \
@@ -636,7 +636,7 @@ def _set_sum_constraint(
     - To set a sum constraint on a list of variables in the model.
     The variables can be either catheter or dwell time variables.
     """
-    var_names = constraint.variable_name_ids
+    var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
     variables = [model.getVarByName(var_name) for var_name in var_names]
     if not all(variables):
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
@@ -668,7 +668,9 @@ def _set_uniqueness_constraint(
     - To set a uniqueness constraint on a list of variables in the model.
     The variables can be either catheter or dwell time variables.
     """
-    var_names = constraint.variable_name_ids
+    if constraint.constraint_type != "uniqueness":
+        raise ValueError(f"Wrong constraint type, the current type for {constraint.name_id}")
+    var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
     variables = [model.getVarByName(var_name) for var_name in var_names]
     if not all(variables):
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
@@ -689,7 +691,7 @@ def _set_num_catheters_constraint(
     - To set a constraint on the number of catheters in the model.
     The variables can be either catheter or dwell time variables.
     """
-    var_names = constraint.variable_name_ids
+    var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
     variables = [model.getVarByName(var_name) for var_name in var_names]
     if not all(variables):
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
@@ -710,7 +712,7 @@ def _set_continuity_constraint(
     - To set a continuity constraint on a list of variables in the model.
     The variables can be either catheter or dwell time variables.
     """
-    var_names = constraint.variable_name_ids
+    var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
     parent_var_names = constraint.parent_catheter_name_ids
     variables = [model.getVarByName(var_name) for var_name in var_names]
     if not all(variables):
@@ -748,7 +750,7 @@ def _set_collision_constraint(
     - To set a collision constraint on a list of variables in the model.
     The variables can be either catheter or dwell time variables.
     """
-    var_names = constraint.variable_name_ids
+    var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
     variables = [model.getVarByName(var_name) for var_name in var_names]
     if not all(variables):
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]

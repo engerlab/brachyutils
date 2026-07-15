@@ -235,7 +235,7 @@ def test_set_constraints():
     constraint_obj = Constraint_Config(
             constraint_type="bound",
             variable_type="dwell",
-            variable_name_ids="dwell_1_1_0",
+            variable_name_ids="1_1_0",
             equal=100,
         )
     constraint_dict = {
