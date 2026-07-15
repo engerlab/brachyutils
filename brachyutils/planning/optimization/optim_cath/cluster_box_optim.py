@@ -9,7 +9,8 @@ from brachyutils.geometry.catheter_utils.dwell_position import DwellPosition
 from brachyutils.planning.optimization.optim_configs import Constraint_Config
 from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.dose.dose_generation_utils import RapidBrachyTG43 
-from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import CatheterTableOptim_Gurobi 
+from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import CatheterTableOptim_Gurobi
+from brachyutils.planning.optimization.optim_gurobi import _run
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_ClusterBox
 
 def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
@@ -306,13 +307,54 @@ class ClusterBoxOptim:
         if solve_strategy == "cascaded":
             if dwell_reach_mm is None:
                 raise ValueError("please provide the `dwell_responsibility_mm` value.")
-            voxel_goal_combined_dose = self.plan.structure_dict.get(
+            dose_voxel_goal = self.plan.structure_dict.get(
                 self.plan.target_structure_names[0]).optimization_config.dose_voxel_goal 
-            dose_voxel_goal = get_voxel_dose_rate_goal(
+            
+            # # Update the optimization config with the dose rate goal
+            #  TODO Test this!
+            dose_rate_voxel_goal = get_voxel_dose_rate_goal(
                     dwell_reach_mm = dwell_reach_mm,
                     dose_voxel_goal = dose_voxel_goal,
-                    dwell_position = self.plan.catheter_table.all_dwells[0],
+                    dwell_position = self.plan.catheter_table.all_dwells[0],)
+            self.plan.structure_dict.get(
+                self.plan.target_structure_names[0]
+                ).optimization_config.dose_voxel_goal = dose_rate_voxel_goal
+            
+            # # Bound all the dwell time variables to 1
+            # TODO test this!
+            bounding_dwelltimes = defaultdict(Constraint_Config)
+            for dwell in self.plan.catheter_table.all_dwells:
+                bound = Constraint_Config(
+                    constraint_type="bound",
+                    variable_type="dwell",
+                    variable_name_ids=[dwell.name_id],
+                    equal=1,
                 )
+                bounding_dwelltimes[bound.name_id] = bound
+            self.optimization_object.set_constraints(bounding_dwelltimes)
+            optimized_plan = self.optimization_object.get_optimized_plan_from_model()
+            
+            # # now bound catheters
+            # TODO test this
+            self.plan.structure_dict.get(
+                self.plan.target_structure_names[0]
+                ).optimization_config.dose_voxel_goal = dose_voxel_goal            
+            bounding_catheters = defaultdict(Constraint_Config)
+            for catheter in optimized_plan.catheter_table:
+                equal = 0
+                if catheter.channel_total_time != 0:
+                    equal = 1
+                bound = Constraint_Config(
+                    constraint_type="bound",
+                    variable_type="catheter",
+                    variable_name_ids=[catheter.name_id],
+                    equal=equal,)
+                bounding_catheters[bound.name_id] = bound
+            self.optimization_object.remove_constraints(
+                list(bounding_dwelltimes.keys())
+            )
+            self.optimization_object.set_constraints(bounding_catheters)
+            outplan = self.optimization_object.get_optimized_plan_from_model()
         return outplan
 
     def export_to(
