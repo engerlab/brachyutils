@@ -1188,8 +1188,10 @@ config do not match for structure {struc.name}"
                         # set constraints on the catheters
                         for catheter in self.catheter_table:
                             self.optimization_constraint_dict[catheter.name_id] = Constraint_Config(
-                                name=f"catheter_{catheter.name_id}",
-                                equal=1
+                                constraint_type="bound",
+                                variable_type="catheter",
+                                equal=1,
+                                variable_name_ids=[f"catheter_{catheter.name_id}"]
                             )
                     break
 
