@@ -207,18 +207,21 @@ def test_constraint_continuity():
     print("continuity constraints passed")
 
 def test_get_voxel_dose_rate_goal():
-    dir_dicom = Path("data_test/prostate-glen-p1-dcm")
-    plan = load_dicom_to_plan(
-        dir_dicom=dir_dicom,
-        load_dicom_catheter_table=True,
-        load_dicom_prescription_dose=True,
-        strict_name_match=False,)
-
-    voxel_dose_rate_goal = get_voxel_dose_rate_goal(
-        dwell_reach_mm=10,
-        dose_voxel_goal=plan.prescription_dose,
-        dwell_position=plan.catheter_table.all_dwells[0]
-    )
+    cbox_optim, _ = test_cluster_box_optim(
+        num_decision_planes=2,
+        return_output=True,
+        export_cluster_box=False,
+        run_optimization=False,)
+    plan = cbox_optim.plan
+    dwell_reaches = range(5, 30, 5)
+    dwell_reaches = [1]+list(dwell_reaches)
+    for reach in dwell_reaches:
+        voxel_dose_rate_goal = get_voxel_dose_rate_goal(
+            dwell_reach_mm=reach,
+            dose_voxel_goal=1,
+            dwell_position=plan.catheter_table.all_dwells[0]
+        )
+        print(voxel_dose_rate_goal)
 
 
 if __name__ == "__main__":
@@ -228,4 +231,5 @@ if __name__ == "__main__":
     # test_constraint_catheter_number()
     # test_constraint_uniqueness()
     # test_constraint_collision()
-    test_constraint_continuity()
+    # test_constraint_continuity()
+    test_get_voxel_dose_rate_goal()
