@@ -313,6 +313,19 @@ class CatheterTableOptim_Gurobi():
             name="cohesion"
         )
         model.update()
+    
+    def remove_constraints(
+        self,
+        constraint_names:List[str]):
+        r"""
+        ### Purpose:
+        - To remove constraints from the model by their constraint name.
+        The constraint name should follow the format of Constraint_Config.name
+        """
+        for name in constraint_names:
+            constraint = self.model.getConstrByName(name)
+            self.model.remove(constraint)
+        self.model.update()
 
 def set_catheter_variables(
     plan: BrachyPlan,
