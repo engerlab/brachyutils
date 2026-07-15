@@ -3,6 +3,7 @@ from typing import Dict, Literal
 from collections import defaultdict
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
+from brachyutils.geometry.catheter_utils.dwell_position import DwellPosition
 from brachyutils.planning.optimization.optim_configs import Constraint_Config
 from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.dose.dose_generation_utils import RapidBrachyTG43 
@@ -275,7 +276,7 @@ class ClusterBoxOptim:
     def get_optimized_plan_from_model(
         self,
         solve_strategy:Literal["simultaneous", "cascaded"] = "simultaneous",
-        dwell_responsibility_radius_mm: float = None
+        dwell_reach_mm: float = None
         ) -> BrachyPlan:
         r"""
         ### Puropse:
@@ -288,26 +289,28 @@ class ClusterBoxOptim:
         optmized simultaneiously. If cascaded, the catheter variables are first optimized with respect
         to the normalized combined dose rate map with dwell times constrained to 1 second, then the
         catheter variables are bound to their optimal solution and dwell times are optimized.
-        - `dwell_responsibility_radius_mm` := The target combined dose rate is set to the dose rate value at
+        - `dwell_reach_mm` := The voxel goal for the combined dose rate is set to the dose rate value at
         this distance on the transverse plane cutting through the center of the source normalized by the 
-        target combined dose.  
+        target combined dose.
         ### Outputs:
         `outplan`: BrachyPlan := The plan with the optimized catheter positions and dwell times.
         """
         if solve_strategy == "simultaneous":
-            if dwell_responsibility_radius_mm is not None:
-                raise ValueError("`dwell_responsibility_radius_mm` is only applicable to cascaded solving")
+            if dwell_reach_mm is not None:
+                raise ValueError("`dwell_reach_mm` is only applicable to cascaded solving")
             # probably should assert that dwell times are not bound to 1 and the 
             # voxel dose goal is not normalized.
             outplan = self.optimization_object.get_optimized_plan_from_model()
         if solve_strategy == "cascaded":
-            if dwell_responsibility_radius_mm is None:
+            if dwell_reach_mm is None:
                 raise ValueError("please provide the `dwell_responsibility_mm` value.")
-            # target_dose_rate_goal = get_target_dose_rate_goal(
-            #     dwell_responsibility_radius_mm,
-            #     voxel_dose_goal = self.plan.stru,
-            #     dwell_position = self.plan.catheter_table.all_dwells[0],
-            # )
+            voxel_goal_combined_dose = self.plan.structure_dict.get(
+                self.plan.target_structure_names[0]).optimization_config.dose_voxel_goal 
+            dose_voxel_goal = get_voxel_dose_rate_goal(
+                    dwell_reach_mm = dwell_reach_mm,
+                    dose_voxel_goal = dose_voxel_goal,
+                    dwell_position = self.plan.catheter_table.all_dwells[0],
+                )
         return outplan
 
     def export_to(
@@ -348,4 +351,21 @@ def run_catheter_recommendation():
     - To recommend catheters based on two strategies: bulk or bulk-then-sequential
     This could be a stand alone method controlling the ClusterBoxOptim.
     """
+    pass
+
+def get_voxel_dose_rate_goal(
+    dwell_reach_mm:float,
+    dose_voxel_goal:float,
+    dwell_position:DwellPosition,):
+    r"""
+    ### Purpose:
+    - To obtain the voxel goal for the combined dose rate map based on the dwell reach and
+    the voxel dose goal.
+
+    ### Inputs:
+    - `dwell_reach_mm` := 
+    - `dose_voxel_goal` := 
+    - `dwell_position` := 
+    """
+    # TODO Priority 1: complete this!
     pass
