@@ -1,3 +1,4 @@
+from time import time
 from brachyutils.planning.optimization.optim_cath.cluster_box_optim import get_geometric_constraints
 from brachyutils.planning.optimization.optim_configs import Optimization_Config
 from brachyutils.tests.test_cluster_box import test_cluster_box
@@ -16,7 +17,10 @@ def test_cluster_box_optim(
     config_angle = None,
     return_output:bool = False,
     export_cluster_box:bool = False,
-    run_optimization:bool = False,):
+    run_optimization:bool = False,
+    solve_strategy="simultaneous",
+    dwell_reach_mm=None,):
+    
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     outdir = Path("data_test/test_export_plan/prostate/clusterbox_optim")
     target_dose = 15
@@ -57,14 +61,14 @@ def test_cluster_box_optim(
         config_angle = Config_Catheter_Rotation(
             x_angle_max=0,
             x_angle_step=0,
-            y_angle_max=10,
-            y_angle_step=10,
+            y_angle_max=0,
+            y_angle_step=0,
         )
     if num_decision_planes is None:
         num_decision_planes = 2
     config_cluster_box = Config_ClusterBox(
         num_physical_catheters=5,
-        insertion_point_spacing_mm=15,
+        insertion_point_spacing_mm=5,
         num_decision_planes=num_decision_planes,
         config_angle=config_angle,
         box_margin_mm=5,
@@ -82,7 +86,9 @@ def test_cluster_box_optim(
 
     cbox_optim = ClusterBoxOptim(
         plan=plan,
-        config_cluster_box=config_cluster_box
+        config_cluster_box=config_cluster_box,
+        solve_strategy = solve_strategy,
+        dwell_reach_mm = dwell_reach_mm,
     )
     # # export the cluster
     if export_cluster_box:
@@ -223,7 +229,28 @@ def test_get_voxel_dose_rate_goal():
         )
         print(voxel_dose_rate_goal)
 
-
+def test_get_optimized_plan_from_model():
+    cbox_optim, _ = test_cluster_box_optim(
+        num_decision_planes=2,
+        return_output=True,
+        export_cluster_box=False,
+        run_optimization=False,
+        solve_strategy="cascaded",
+        dwell_reach_mm=20)
+    t0_sim = time()
+    # optimized_plan = cbox_optim.get_optimized_plan_from_model(
+    #     solve_strategy='simultaneous')
+    t1_sim = time()
+    
+    t0_cas = time()
+    optimized_plan = cbox_optim.get_optimized_plan_from_model()
+    t1_cas = time()
+    print("---------------------------")    
+    print("time for simultaenous was:")
+    print(t1_sim - t0_sim)
+    print("time for cascaded was:")
+    print(t1_cas - t0_cas)
+    
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
@@ -232,4 +259,5 @@ if __name__ == "__main__":
     # test_constraint_uniqueness()
     # test_constraint_collision()
     # test_constraint_continuity()
-    test_get_voxel_dose_rate_goal()
+    # test_get_voxel_dose_rate_goal()
+    test_get_optimized_plan_from_model()
