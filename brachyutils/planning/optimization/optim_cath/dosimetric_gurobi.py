@@ -449,7 +449,7 @@ of the corresponding dose rate coefficients.")
                 y_uniform = model.addMVar(
                     shape=num_dose_points,
                     lb=-GRB.INFINITY,
-                    ub=max_dose - min_dose,
+                    ub=voxel_goal - min_dose,
                     name=f"p_U_{optimization_config.structure_name}"
                 )
                 # Uniformity constraints: A @ dwell_times + y_uniform == voxel_goal
