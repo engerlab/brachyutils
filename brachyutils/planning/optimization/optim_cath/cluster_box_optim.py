@@ -62,7 +62,7 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
             variable_type="catheter",
             maximum=1,
             segment_cluster_id=cluster.name_id,
-            variable_name_ids=[f"catheter_{name_id}" for name_id in cluster.catheter_name_ids]
+            variable_name_ids=[f"{name_id}" for name_id in cluster.catheter_name_ids]
         )
         uniqness_constraints[constr.name_id] = constr
 
@@ -70,7 +70,7 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     catheter_num_constraint = {}
     segments_at_depth_0 = []
     for segment in cluster_box[0].values():
-        segments_at_depth_0.append(f"catheter_{segment.catheter_name_id}")
+        segments_at_depth_0.append(f"{segment.catheter_name_id}")
 
     constr = Constraint_Config(
         constraint_type="num_catheters",
@@ -91,8 +91,8 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
             variable_type="catheter",
             segment_cluster_id=cluster.name_id,
             equal=len(parents),
-            variable_name_ids=[f"catheter_{name_id}" for name_id in cluster.catheter_name_ids],
-            parent_catheter_name_ids=[f"catheter_{parent.catheter_name_id}" for parent in parents],
+            variable_name_ids=cluster.catheter_name_ids,
+            parent_catheter_name_ids=[parent.catheter_name_id for parent in parents],
         )
         continuity_constraints[f"{constr.constraint_type}_{constr.segment_cluster_id}"] = constr
 
@@ -105,7 +105,7 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
             variable_type="catheter",
             equal=1,
             variable_name_ids=[
-                f"catheter_{col_seg[0].catheter_name_id}", f"catheter_{col_seg[1].catheter_name_id}"]
+                f"{col_seg[0].catheter_name_id}", f"{col_seg[1].catheter_name_id}"]
         )
         collision_constraints[constr.name_id] = constr
 

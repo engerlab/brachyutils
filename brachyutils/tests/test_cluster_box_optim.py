@@ -12,6 +12,8 @@ def test_get_geometric_constraints():
     print("debug here")
 
 def test_cluster_box_optim(
+    num_decision_planes = None,
+    config_angle = None,
     return_output:bool = False,
     export_cluster_box:bool = False,
     run_optimization:bool = False,):
@@ -51,17 +53,19 @@ def test_cluster_box_optim(
             )
         ]
 
-    config_angle = Config_Catheter_Rotation(
-        x_angle_max=0,
-        x_angle_step=0,
-        y_angle_max=10,
-        y_angle_step=10,
-    )
-
+    if config_angle is None:
+        config_angle = Config_Catheter_Rotation(
+            x_angle_max=0,
+            x_angle_step=0,
+            y_angle_max=10,
+            y_angle_step=10,
+        )
+    if num_decision_planes is None:
+        num_decision_planes = 2
     config_cluster_box = Config_ClusterBox(
         num_physical_catheters=5,
         insertion_point_spacing_mm=15,
-        num_decision_planes=4,
+        num_decision_planes=num_decision_planes,
         config_angle=config_angle,
         box_margin_mm=5,
     )
@@ -115,7 +119,9 @@ def test_cluster_box_optim(
         return cbox_optim, optimized_plan
     
 def test_constraint_catheter_number():
-    cbox_optim, optimized_plan = test_cluster_box_optim(return_output=True)
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        num_decision_planes=2,
+        return_output=True, run_optimization=True)
     num_non_zero_catheters = 0
     for catheter in optimized_plan.catheter_table:
         if catheter.channel_total_time == 0:
@@ -165,6 +171,7 @@ def test_constraint_collision():
 
 def test_constraint_continuity():
     cbox_optim, optimized_plan = test_cluster_box_optim(
+        num_decision_planes=4,
         return_output=True,
         export_cluster_box=True,
         run_optimization=True,)

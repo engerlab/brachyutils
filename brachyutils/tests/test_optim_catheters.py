@@ -232,12 +232,14 @@ def test_set_constraints():
     dir_export = dir_dose_rate
 
     from brachyutils.planning.optimization.optim_configs import Constraint_Config
-    
-    constraint_dict = {
-        "dwell_1_1_0": Constraint_Config(
-            name="dwell_1_1_0",
-            equal=100
+    constraint_obj = Constraint_Config(
+            constraint_type="bound",
+            variable_type="dwell",
+            variable_name_ids="1_1_0",
+            equal=100,
         )
+    constraint_dict = {
+        constraint_obj.name: constraint_obj 
     }
     ti_build = time()
     catheter_optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
