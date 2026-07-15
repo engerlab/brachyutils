@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Dict
+from typing import Dict, Literal
 from collections import defaultdict
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
@@ -176,10 +176,7 @@ class ClusterBoxOptim:
         - cluster_box: ClusterBox := The generated cluster box object.
         """
         structure_names_list = list(plan.optimization_config_dict.keys())
-        target_structure_names = [
-            name for name, config in plan.optimization_config_dict.items()
-            if config.is_target
-            ]
+        target_structure_names = plan.target_structure_names
         mesh_dict = plan.phantom.get_structure_mask(
             query_structure_list=structure_names_list,
             mask_type="mesh",
@@ -275,14 +272,42 @@ class ClusterBoxOptim:
             print(f"setting {constraint_type} constraints")
             optim_obj.set_constraints(constraint_config_dict=constraint_dict)
 
-    def get_optimized_plan_from_model(self) -> BrachyPlan:
+    def get_optimized_plan_from_model(
+        self,
+        solve_strategy:Literal["simultaneous", "cascaded"] = "simultaneous",
+        dwell_responsibility_radius_mm: float = None
+        ) -> BrachyPlan:
         r"""
         ### Puropse:
         - To solve the optimization and get the final catheter table.
         The solve could have two strategy, simultaneous catheter-dwell-time optimization
         or cascaded catheter-dwell-time optimization
+
+        ### Inputs:
+        - `solve_strategy` := If simultaenous, both the catheter variables and the dwell times are
+        optmized simultaneiously. If cascaded, the catheter variables are first optimized with respect
+        to the normalized combined dose rate map with dwell times constrained to 1 second, then the
+        catheter variables are bound to their optimal solution and dwell times are optimized.
+        - `dwell_responsibility_radius_mm` := The target combined dose rate is set to the dose rate value at
+        this distance on the transverse plane cutting through the center of the source normalized by the 
+        target combined dose.  
+        ### Outputs:
+        `outplan`: BrachyPlan := The plan with the optimized catheter positions and dwell times.
         """
-        outplan = self.optimization_object.get_optimized_plan_from_model()
+        if solve_strategy == "simultaneous":
+            if dwell_responsibility_radius_mm is not None:
+                raise ValueError("`dwell_responsibility_radius_mm` is only applicable to cascaded solving")
+            # probably should assert that dwell times are not bound to 1 and the 
+            # voxel dose goal is not normalized.
+            outplan = self.optimization_object.get_optimized_plan_from_model()
+        if solve_strategy == "cascaded":
+            if dwell_responsibility_radius_mm is None:
+                raise ValueError("please provide the `dwell_responsibility_mm` value.")
+            # target_dose_rate_goal = get_target_dose_rate_goal(
+            #     dwell_responsibility_radius_mm,
+            #     voxel_dose_goal = self.plan.stru,
+            #     dwell_position = self.plan.catheter_table.all_dwells[0],
+            # )
         return outplan
 
     def export_to(

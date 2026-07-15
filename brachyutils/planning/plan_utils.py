@@ -166,6 +166,7 @@ class BrachyPlan:
         self.dvh_metric_goals: dict = None
         self._structure_dict: Dict[BrachyStructure] = None
         self.structure_list: List[BrachyStructure] = []
+        self.target_structure_names:List[str] = None
         self.body_contour: ROIContour = None
         self.phantom_origin: list = None  # np.array([0, 0, 0])  # x,y,z
         self.organ_bounds: list = None
@@ -572,22 +573,23 @@ class BrachyPlan:
         # If there is an OAR that goes through the PTV, cut it out of PTV.
         # this is because each voxel can have planning role only.
         # in prostate, the urethra goes through the PTV.
-        target_structure = next(filter(lambda x: x.is_target, self.structure_list))
-        for structure in self.structure_list:
-            if structure.is_target:
-                continue
-            if "body" in structure.name.lower():
-                continue 
-            # find intersection between this structure and target_structure
-            overlap = (
-                target_structure.mask.imageArray 
-                &  structure.mask.imageArray)
-            if np.any(overlap):
-                target_structure.mask.imageArray = (
-                    target_structure.mask.imageArray 
-                    & (np.ma.ones_like(overlap)^overlap))
-
-
+        self.target_structure_names = [
+            structure.name for structure 
+            in self.structure_list if structure.is_target]
+        for target_structure in self.target_structure_names:
+            for structure in self.structure_list:
+                if structure.is_target:
+                    continue
+                if "body" in structure.name.lower():
+                    continue 
+                # find intersection between this structure and target_structure
+                overlap = (
+                    self.structure_dict.get(target_structure).mask.imageArray 
+                    &  structure.mask.imageArray)
+                if np.any(overlap):
+                    self.structure_dict.get(target_structure).mask.imageArray = (
+                        self.structure_dict.get(target_structure).mask.imageArray 
+                        & (np.ma.ones_like(overlap)^overlap))
    
     def get_dvh_metrics(
         self,
