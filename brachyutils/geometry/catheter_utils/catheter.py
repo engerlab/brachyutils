@@ -12,7 +12,7 @@ from opentps.core.processing.imageProcessing.sitkImageProcessing import imageToS
 from brachyutils.geometry.catheter_utils.patch_ai_assisted_brachy.catheter_setup import (
     get_rotation_from_position
 )
-
+from pathlib import Path
 
 class Catheter(BaseModel):
     r"""
@@ -323,6 +323,21 @@ class Catheter(BaseModel):
         """
         return PiecewiseLinear3D(points=points)
 
+    def get_points_from_fit(self) -> List[List[float]]:
+        r"""
+        ### Purpose:
+        - To get a list of points from a fit function.
+
+        ### Inputs:
+        - fit_function:PiecewiseLinear3D := the fit function to get the points from.
+
+        ### Outputs:
+        - List[List[float]] := the list of points on the fit function.
+        """
+        if self.fit_function is None:
+            raise ValueError("fit_function is not defined for this catheter.")
+        return np.array(self.fit_function.point_pairs)
+
     def remove_outside_mask(self, mask:Union[ROIMask, sitk.Image]) -> None:
         r"""
         ### Purpose:
@@ -371,43 +386,34 @@ class Catheter(BaseModel):
                 dwell_idx += 1
         self.dwells = filtered_dwells
 
-    def apply_imbt_shielding(
-            self, 
-            start_angle: float, 
-            stop_angle: float, 
-            angle_increment: float
-            ):
-        """
+    def write_to_ply(
+        self,
+        dir_ply:str | Path,
+        radius:float=1.0) -> None:
+        r"""
         ### Purpose:
-        - Transforms a standard catheter into an IMBT shielded catheter by generating 
-        independent DwellPosition instances for each angle at every physical index.
+        - To write the catheter to a ply file for visualization.
+
         ### Inputs:
         - self := the Catheter object.
-        - start_angle:float := the starting angle
-        - stop_angle:float := the stopping angle
-        - angle_increment:float := the angle increment
+        - dir_ply:str | Path := the directory path to the ply file.
+        `catheter {self.name_id}.ply` will be used as the ply file name.
+        - radius:float := the radius of the cylinder.
+
         ### Outputs:
         - None
         """
-        # Generate the safe array of angles (adding a tiny buffer to stop_angle for float safety)
-        angles = np.arange(start_angle, stop_angle + (angle_increment / 2.0), angle_increment)
-        
-        new_dwells: List[DwellPosition] = []
-        
-        # Extract only the unique physical positions to act as our base templates
-        # (Using a dictionary ensures we only grab one template per physical index)
-        base_dwells = {dwell.index: dwell for dwell in self.dwells}
-        
-        # Generate the new matrix of shielded dwells
-        for index, base_dwell in base_dwells.items():
-            for angle in angles:
-                # Deep copy the dwell and override the angle
-                shielded_dwell = base_dwell.model_copy(deep=True, update={'angle': float(angle)})
-                
-                # If dwell times should be reset to 0 for a new optimization, do it here:
-                # shielded_dwell.time = 0.0 
-                
-                new_dwells.append(shielded_dwell)
-                
-        # Replace the old 1D list with the new IMBT list
-        self.dwells = new_dwells
+        from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import line_to_tube
+        import trimesh
+        point_pairs = self.get_points_from_fit()
+        cylinder_meshes = [
+            line_to_tube(
+                point_pair[0], point_pair[1],
+                radius=radius)
+            for point_pair in point_pairs]
+        combined_mesh: trimesh.Trimesh = trimesh.util.concatenate(cylinder_meshes)
+        combined_mesh.merge_vertices()
+        combined_mesh.process()
+        dir_ply = Path(dir_ply)
+        dir_ply.mkdir(parents=True, exist_ok=True)
+        combined_mesh.export(dir_ply/f"catheter_{self.name_id}.ply")

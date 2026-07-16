@@ -715,7 +715,7 @@ class BrachyDose:
 
     def write_to_nrrd(
         self,
-        pth_output: Path,
+        pth_output: Path | str,
         metadata: Optional[dict] = None,
         anatomical_coordinate_system: Literal[
             "LPS", "RAS"
@@ -741,6 +741,8 @@ class BrachyDose:
         and metadata to the file_name_dose.nrrd
         """
         # check if the directory exists, if not create it. make sure the file extension is write.
+        if isinstance(pth_output, str):
+            pth_output = Path(pth_output)
         Path.mkdir(pth_output.parent, exist_ok=True)
         assert (
             str(pth_output).endswith(".nrrd")

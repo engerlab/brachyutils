@@ -1,0 +1,431 @@
+from pathlib import Path
+from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator
+from typing import Dict, List, Union, Tuple
+import numpy as np
+import trimesh
+from collections import defaultdict
+
+from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable, Catheter
+from brachyutils.geometry.catheter_utils.config_cathgen import Config_Catheter_Rotation, Decision_Plane
+from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
+    generate_candidate_segments,
+    decision_planes_to_ply,
+    segment_lines_to_ply,
+    TupleKeyDict, find_colliding_pairs
+    )
+
+class Segment(BaseModel):
+    r"""
+    ### Purpose:
+    - Represents a single catheter trajectory segment between a departure point and a landing point.
+    - Used to group candidate catheter paths within a shared insertion point cluster.
+
+    ### Attributes:
+    - index: int := the index of the segment within its cluster.
+    - cluster_name_id: str := identifier for the cluster that this segment belongs to. 
+    The format is (SegmentCluster.depth, SegmentCluster.index+1)
+    - line: List[List[float]] := the departure and landing points of the segment in patient coordinates.
+      The value is expected to be a list containing two 3D points.
+    """
+    
+    index:int = Field(..., description="The index of the segment in its cluster")
+    cluster_name_id: str = Field(..., description="The cluster that this segment stems from")
+    line:List[List[float]] = Field(..., description="The departure and landing point of the \
+segment in patients coordinates.")
+    # these attributes will be set and used later when interacting with the optimization model.
+    catheter_name_id:int = None
+    # dwell_index_list:List[int] = None
+
+    @computed_field
+    @property
+    def name_id(self) -> str:
+        r"""
+        The unique identifier for this Segment. The format is
+        ({SegmentCluster.depth}, {SegmentCluster.index+1})_{Segment.index+1}
+        """
+        
+        return f"{self.cluster_name_id}_{self.index+1}"
+
+class SegmentCluster(BaseModel):
+    r"""
+    ### Purpose:
+    - A class to represent a cluster of segments for each catheter insertion position.
+    This is useful for case where we are optimizing multiple catheter trajectories
+    for the same insertion point.
+    
+    ### Attributes:
+    - depth: int := the depth of the segment cluster. Clusters can be lead to other clusters like a tree structure.
+    The depth of the root cluster is 0, the depth of its children is 1, and so on.
+    - segment_dict: Dict[int, Segment] := a dictionary of segments inside the cluster.
+    The key is the catheter index, and the value is the Segment object.
+    """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,)
+    index: int
+    depth: int = Field(default=0)
+    segment_dict: Dict[int, Segment] = Field(default=None)
+
+    @field_validator('depth')
+    @classmethod
+    def validate_depth(cls, v):
+        if v < 0:
+            raise ValueError("Depth must be a non-negative integer")
+        return v
+
+    @computed_field
+    @property
+    def insert_position(self) -> np.ndarray:
+        return self.segment_dict[0].line[0]
+
+    @computed_field
+    @property
+    def name_id(self) -> str:
+        return f"({self.depth},{self.index+1})"
+
+    @computed_field
+    @property
+    def catheter_name_ids(self) -> List[str]:
+        cath_name_ids = []
+        for segment in self.segment_dict.values():
+            cath_name_ids.append(segment.catheter_name_id)
+        return cath_name_ids
+
+    def __iter__(self):
+        for segment in self.segment_dict.values():
+            yield segment
+
+    def __len__(self):
+        return len(self.segment_dict)
+
+    def __getitem__(self, indices: int | slice | str) -> Segment | Dict[int, Segment]:
+        r"""
+        ### Purpose:
+        - To get a subset of the segments in this cluster.
+        
+        ### Inputs:
+        - `indicies`: int | slice | str := Depending on the input type, return the following. 
+            - `int`: Get a single segment by its index in this cluster.
+            - `slice`: Get a set of segments by their range of indicies.
+            - `str`: Get a single segment by its name_id. The segment name_id is of the format:
+            ({SegmentCluster.depth}, {SegmentCluster.index+1})_{Segment.index+1}
+        """
+        if isinstance(indices, int):
+            return self.segment_dict[indices]
+        elif isinstance(indices, str):
+            cluster_name_id, segment_index_plus_1 = indices.split("_")
+            if cluster_name_id != self.name_id:
+                raise ValueError(f"Wrong cluster is being queried. This is cluster {self.name_id}\
+but {cluster_name_id} was requested.")
+            return self.segment_dict[int(segment_index_plus_1)-1]
+        elif isinstance(indices, slice):
+            segments_sub_dict = defaultdict(Segment)
+            indices = list(range(*indices.indices(len(self.segment_dict))))
+            for i in indices:
+                segments_sub_dict[i] = list(self.segment_dict.values())[i]
+            return segments_sub_dict
+        else:
+            raise ValueError("indicies format is not correct.")
+
+class ClusterBox(BaseModel):
+    r"""
+    ### Purpose:
+    - A class to represent the bounding box where candidate catheter trajectories
+    are defined.
+
+    ### Attributes:
+    - num_physical_catheters: int := the number of physical catheters to be inserted.
+    - structure_dict: Dict[str, Trimesh] := a dictionary of structures to be considered
+    for catheter trajectory optimization.
+    - rotation_angle_deg: float := the rotation angle of the catheter box around the right left (X) axis (degrees).
+    This value should be less than 15 degrees.
+    - insertion_point_spacing_mm: float := the spacing between adjacent catheter insertion
+    points on the bottom plane (mm).
+    - num_decision_planes: int := the number of decision planes to be defined in the 
+    catheter box. All insertion points and landing points must be on the decision planes.
+    At least there are 2 planes: inferior plane and superior plane.
+    - config_angle: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None: The angle configuartion
+    for each insertion point. If a single Config_Catheter_Rotation is provided, it will be 
+    applied to all insertion points. If None, the default Config_Catheter_Rotation() 
+    will be applied to all insertion points.
+    - oar_collision_margin_mm: float := the collision margin between catheter segments and
+    organs at risk (OARs) (mm).
+    - segment_collision_margin_mm: float := the collision margin between catheter segments (mm).
+    Measured at the center of the line segments. Note that the catheters have a radius of 1 mm.
+    - target_structure_names:  List[str] := "The list of the names of the target structures;
+    Usually CTV or PTV.")  
+    """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,)
+    # # Mandatory attributes
+    structure_dict: Dict[str, trimesh.Trimesh] = Field(..., description="a dictionary of \
+structures to be considered for catheter trajectory optimization.")
+    target_structure_names: List[str] = Field(..., description="The list of the names of the target \
+structures; Usually CTV or PTV.")
+    # # Attributes with defaults.
+    num_physical_catheters: int = Field(default=1, description="the number of physical catheters to be inserted.")
+    rotation_angle_deg: float = Field(default=0, description="the rotation angle of the catheter box \
+around the right left (X) axis (degrees).")
+    insertion_point_spacing_mm: float = Field(default=10, description="the spacing between adjacent \
+catheter insertion points on the bottom plane (mm).")
+    num_decision_planes: int = Field(default=2, description="the number of decision planes to be \
+defined in the catheter box.")
+    config_angle: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None = Field(
+        default=None,
+        description="The angle configuartion for each insertion point. \
+If a single Config_Catheter_Rotation is provided, it will be applied to all \
+insertion points. If None, the default Config_Catheter_Rotation() will be applied \
+to all insertion points.")
+    oar_collision_margin_mm: float = Field(default=0, description="the collision margin between \
+catheter segments and organs at risk (OARs) (mm).")
+    segment_collision_margin_mm: float = Field(default=5, description="the collision margin between \
+catheter segments (mm). Measured as center of the catheter segments.")
+    box_margin_mm: float = Field(default=0, description="The margin between the box boundaries and the OARs")
+
+    # # internal attributes
+    cluster_dict: Dict[str, SegmentCluster] = Field(default=None)
+    # index of a segment in the box, when we get all segments
+    # the keys are the depth, cluster index, segment index
+    _cached_segment_dict: TupleKeyDict = None
+    _cached_catheter_table: CatheterTable = None
+
+    _plane_dict: Dict[str, Decision_Plane]
+
+    def model_post_init(self, __context):
+        r"""
+        ### Purpose:
+        - To validate and generate the segment clusters for the catheter box 
+        after the object is initialized.
+        
+        ### Steps:
+        1. Generate the segment clusters for the catheter box based on the user defined attributes.
+        2. Ensure the number of physical catheters is less than the number of insertion points.
+        """
+        # # Initialize the catheter box 
+        # # based on the structure dict, box rotation angle, insertion point spacing 
+        _, self._plane_dict = generate_candidate_segments(
+            mesh_dict=self.structure_dict,
+            insertion_point_spacing_mm=self.insertion_point_spacing_mm,
+            oar_danger_dist_mm=self.oar_collision_margin_mm,
+            target_structure_names=self.target_structure_names,
+            Config_Catheter_Rotation=self.config_angle,
+            bb_rotation_angle_deg=self.rotation_angle_deg,
+            bb_num_planes=self.num_decision_planes,
+            bb_margin_mm = self.box_margin_mm,
+        )
+        # # get the segment clusters and segments from plane dict.
+        self.cluster_dict = get_clusters_from_planes(plane_dict=self._plane_dict)
+        return self
+
+    @computed_field
+    @property
+    def catheter_table(self) -> CatheterTable:
+        r"""
+        ### Purpose:
+        - To generate a catheter table object from all the segments in the catheter box.
+        This will be used for dose rate generation and dose optimization.
+        """
+        if self._cached_catheter_table is not None:
+            return self._cached_catheter_table
+        else:
+            all_catheters = []
+            for idx, segment in enumerate(self.all_segments_list):
+                catheter = Catheter(
+                    index=idx,
+                    digitization_points=segment.line
+                )
+                segment.catheter_name_id = catheter.name_id
+                all_catheters.append(catheter)
+
+            self._cached_catheter_table = CatheterTable(
+                catheters_dict=all_catheters
+            )
+            return self._cached_catheter_table
+
+    @computed_field
+    def all_segments_dict(self) -> TupleKeyDict:
+        r"""
+        ###  Purpose:
+        - To return a dictionary with all the catheter segments gathered from all the clusters.
+        The keys are [depth][cluster index][segment index]
+        """
+        if self._cached_segment_dict is not None:
+            return TupleKeyDict(self._cached_segment_dict)
+        else:
+            self._cached_segment_dict = {} #defaultdict(Segment)
+            for cluster in self.cluster_dict.values():
+                for segment in cluster.segment_dict.values():
+                    self._cached_segment_dict[(cluster.depth, cluster.index, segment.index)] = segment
+            return TupleKeyDict(self._cached_segment_dict)
+
+    @ computed_field
+    def all_segments_list(self) -> List[Segment]:
+        return list(self.all_segments_dict.values())
+
+    @computed_field
+    def num_segments(self) -> int:
+        return len(self.all_segments_list)
+
+    def __iter__(self):
+        for cluster in self.cluster_dict.values():
+            yield cluster
+
+    def __len__(self):
+        return len(self.cluster_dict)
+
+    def __getitem__(
+        self,
+        indices: int | slice | str) -> Union[
+            Segment, Dict[str, Segment], TupleKeyDict
+        ]:
+        r"""
+        ### Purpose:
+        - To get the right segments based on the indices provided.
+        If you want a specific cluster, use cluster_dict
+
+        ### Inputs:
+        - indices: int | slice | str := The indices could be in many forms:
+            1. [str] : Will return the segment if the string matches
+            "({cluster.depth},{cluster.index+1})_{segment.index+1}".
+            2. [int]: This will get you all the segments with cluster.depth == indices
+            3. [int][int]: This will get you all the segments at cluster.depth, cluster.index == indices
+            4. [int][int][int]: This will get you a single segment at
+            cluster.depth, cluster.index, segment.index == indices
+            5. [slice]: This will get you all the segments with cluster.depth in indices
+            6. [slice][slice]: This will get you all the segments with cluster.depth, cluster.index in indices
+            7. [slice][slice][slice]: This will get you all the segments with
+            cluster.depth, cluster.index, segment.index in indices
+        
+        ### Outputs:
+        - Either a single Segment or a dictionary of Segments where keys are:
+            ({cluster.depth}, {cluster.index}, {segment.index+})
+        """
+        if isinstance(indices, str):
+            # Return the segment described by the string.
+            depth_cluster, segment = indices.split("_")
+            depth, cluster = depth_cluster.split("(")[-1].split(")")[0].split(",")
+            depth, cluster, segment = int(depth), int(cluster)-1, int(segment)-1
+            found_segment =  self.all_segments_dict[(depth,cluster,segment)]
+            return found_segment
+        else:
+            return self.all_segments_dict[indices]
+                        
+    def get_colliding_segments(self) -> List[Tuple[Segment]]:
+        r"""
+        ### Purpose:
+        - To find colliding segments. The segments that are eligible for collision check satisfy
+        the following requirements:
+        1. They do not share the same insert point.
+        2. They are not on the same change of segments (No parent-child collisions).
+        
+        ### Inputs:
+        - self.all_segments_list
+        - self.segment_collision_margin_mm
+        
+        ### Outputs:
+        - colliding_segments: List[Tuple[Segment]]: List of colliding segment pairs.
+        """
+        all_departure_points, all_landing_points = [], []
+        for segment in self.all_segments_list:
+            all_departure_points.append(segment.line[0])
+            all_landing_points.append(segment.line[1])
+        all_departure_points = np.array(all_departure_points, dtype=np.float32)
+        all_landing_points = np.array(all_landing_points, dtype=np.float32)
+
+        colliding_pair_indicies, dists, pa, pb = find_colliding_pairs(
+            starts=all_departure_points,
+            ends=all_landing_points,
+            danger_mm=self.segment_collision_margin_mm,)
+        colliding_segments = []
+        for colliding_pair in colliding_pair_indicies:
+            colliding_segments.append(
+                (self.all_segments_list[colliding_pair[0]],
+                self.all_segments_list[colliding_pair[1]],)
+            )
+        return colliding_segments
+
+    def get_parent_segments(
+        self,
+        cluster_name_id: str,
+        parents_found:List[Segment]=None,
+        ) -> List[Segment]:
+        r"""
+        ### Purpose:
+        - To get all the parent segments of a specific cluster in the catheter box.
+        The parent segments are the segments that are on the same chain of segments
+        leading to the root cluster. This function looks for parents recursively.
+
+        ### Inputs:
+        - cluster_name_id: str := The string in the format (cluster.depth, cluster_index+1)
+        - parents_found: List[Segment] := The list of parents founds at an earlier iteration.
+        """
+        this_cluster = self.cluster_dict[cluster_name_id]
+        if this_cluster.depth == 0:
+            return parents_found
+        if parents_found is None:
+            parents_found = []
+        shallower_segments = list(self[this_cluster.depth-1].values())
+        for possible_parent_segment in shallower_segments:
+            if this_cluster.insert_position == possible_parent_segment.line[1]:
+                parents_found.append(possible_parent_segment)
+                return self.get_parent_segments(
+                    possible_parent_segment.cluster_name_id,
+                    parents_found=parents_found
+                )
+
+
+    def to_ply(self, out_ply_dir:str | Path):
+        r"""
+        Write the planes and the segment to .PLY files for visualization
+        """
+        # write the planes to ply
+        decision_planes_to_ply(
+            out_ply_dir=out_ply_dir,
+            decision_plane_dict=self._plane_dict
+        )
+        all_segments_lines = np.array(
+            [seg.line for seg in self.all_segments_list]
+        )
+        segment_lines_to_ply(
+            out_ply_dir=out_ply_dir,
+            point_pairs=all_segments_lines
+        )
+
+def get_clusters_from_planes(
+    plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
+    r"""
+    ### Purpose:
+    - This function creates segment clusters from plane dictionaries that have been filled
+    with segments.
+    """
+    cluster_dict = defaultdict(SegmentCluster)
+    for plane in plane_dict.values():
+        if plane.depth == len(plane_dict) - 1:
+            break 
+        all_insert_points = [p0 for p0, _ in plane.segment_lines]
+        idx = sorted(np.unique(all_insert_points, axis=0, return_index=True)[1])
+        idx = idx + [len(all_insert_points)]
+        for i, j in enumerate(idx):
+            if j == idx[-1]:
+                break
+            cluster = SegmentCluster(
+                index=i,
+                depth=plane.depth,
+            )
+            segment_dict = defaultdict()
+            # Avoid clusters that have no valid segments
+            # segments can be removed due to collision with 
+            # oars or falling out of a landing plane.
+            segments_in_a_cluster = plane.segment_lines[j:idx[i+1]]
+            if len(segments_in_a_cluster) == 0:
+                continue
+            for k, line in enumerate(segments_in_a_cluster):
+                segment_dict[k] = Segment(
+                    cluster_name_id=cluster.name_id,
+                    index=k,
+                    line=line
+                    )
+            cluster.segment_dict = segment_dict
+            cluster_dict[cluster.name_id] = cluster
+    return cluster_dict

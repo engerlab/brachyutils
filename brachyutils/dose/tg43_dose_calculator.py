@@ -151,10 +151,14 @@ class BrachyUtilsTG43(BrachyDoseGenerator):
         if file_data[0] != self.source_name:
             raise ValueError(f"Potential mismatch! Loaded parameters for source {file_data[0]} \
 but source name is {self.source_name}.")
-        source_core_from_plan = self.brachysource.core_material.split('_')[1] + "-" + str(self.brachysource.mass_number)
-        if file_data[2] != source_core_from_plan:
-            raise ValueError(f"Potential mismatch! Loaded parameters for source isotope ###{file_data[2]}### \
-                but source core is ###{source_core_from_plan}###.")
+        try:
+            source_core_from_plan = self.brachysource.core_material.split('_')[1] + "-" + str(self.brachysource.mass_number)
+            if file_data[2] != source_core_from_plan:
+                raise ValueError(f"Potential mismatch! Loaded parameters for source isotope ###{file_data[2]}### \
+                            but source core is ###{source_core_from_plan}###.")
+        except IndexError: #if the source core isn't a G4_<element> there's not much we can do help the user check
+            source_core_from_plan = self.brachysource.core_material #other cores like VSe2
+            logging.warning(f"Verify that the selected source parameters with core {file_data[2]} matches the plan's source core {source_core_from_plan}.")
         self.active_length = float(file_data[1]) * CM
         logging.debug("Active length %s mm", self.active_length)
 

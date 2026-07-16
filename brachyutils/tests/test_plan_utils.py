@@ -7,6 +7,7 @@ import numpy as np
 
 from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.planning.plan_utils import load_dicom_to_plan
+from brachyutils.geometry.phantom_utils import masksToNrrd
 def get_a_plan(
     dir_dicom:str | Path,
     **kwargs)->BrachyPlan:
@@ -86,6 +87,7 @@ def test_load_dose_rate_dict():
         "data_test/test_export_plan/prostate/new_cathtabel.json")
 
 def test_create_structures_and_calc_dvh_metrics():
+    dir_out = Path("data_test/test_export_plan/prostate")
     dir_dicom = "data_test/prostate-glen-p1-dcm"
     dir_dose_rate = "data_test/prostate-glen-p1-dose"
     prescription_dose=21
@@ -116,7 +118,10 @@ def test_create_structures_and_calc_dvh_metrics():
     print("This is the loaded DVH metric goals")
     print(plan.dvh_metric_goals)
     print(plan.get_dvh_metrics())
-
+    masksToNrrd(
+        structure_mask_dict={structure.name:structure.mask for structure in plan.structure_list},
+        pth_output=dir_out/"non-overlapping-structures.seg.nrrd"
+    )
     # test with DVH dict and dicom dose
     plan = get_a_plan(
         dir_dicom=dir_dicom,

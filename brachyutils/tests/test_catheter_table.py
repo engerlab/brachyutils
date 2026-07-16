@@ -181,7 +181,7 @@ def test_time_diff():
     print("on resetting time diff: ", dp.time, dp._time_diff)
     dp.time = 5
     print("on setting back: ", dp.time, dp._time_diff)
-    
+
 def test_json_io():
     cat_tab_to_export = test_load_dose_rates()
     pth_json = "data_test/test_export_plan/prostate/test_catheter_table_with_dose.json"

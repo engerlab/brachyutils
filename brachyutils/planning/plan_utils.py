@@ -128,7 +128,8 @@ class BrachyPlan:
         - dose_dtype:np.float32 := The floating point type to store the dose rates. 
 
         #### for optimization setup:
-        - optimization_config_list: List[Optimization_Config] | Path | str := A list of Optimization_Config objects or the path to a json file containing the list.
+        - optimization_config_list: List[Optimization_Config] | Path | str := A list of
+        Optimization_Config objects or the path to a json file containing the list.
 
         #### Keywords Arguments:
         - from_delivered_dwellpositions: bool = True := if True, will only load the dwell positions that
@@ -152,6 +153,8 @@ class BrachyPlan:
         as well as the structure name in the optimization config should match perfectly. Otherwise, the name 
         of the structure in the DVH metric goals and optimization config can be a substring of the name of
         the structure in the phantom. For example, "CTV" in "CTV_BRACHY".
+        - non_overlapping_structures := If true, all the structures that overlap with the target volume
+        will be carved out of it. Use it wisely my friend!
 
         ### Outputs:
             - None := will initialize the BrachyPlan object
@@ -165,6 +168,7 @@ class BrachyPlan:
         self.dvh_metric_goals: dict = None
         self._structure_dict: Dict[BrachyStructure] = None
         self.structure_list: List[BrachyStructure] = []
+        self.target_structure_names:List[str] = None
         self.body_contour: ROIContour = None
         self.phantom_origin: list = None  # np.array([0, 0, 0])  # x,y,z
         self.organ_bounds: list = None
@@ -173,8 +177,6 @@ class BrachyPlan:
         self.catheter_table: CatheterTable = None
         # applicator attributes
         self.applicator_list: List[BrachyApplicator] = []
-        # XXX: figure out if the two below are dwell or applicator attributes?
-        # they are dwell attributes that are impacted by applicator rotation. for now, leave them be.
         self.applicator_rotation_axis: np.array = np.array([0, 0, 1])  # x,y,z
         self.applicator_rotation_origin: float = np.array([0, 0, 0])  # x,y,z
 
@@ -214,6 +216,7 @@ class BrachyPlan:
             if self.phantom.structure_set is not None:
                 self.set_brachy_structure_list(
                     phantom=self.phantom,
+                    non_overlapping_structures=kwargs.get("non_overlapping_structures", False)
                 )
 
         if kwargs.get("dvh_metric_goals", None) is not None:
@@ -275,7 +278,7 @@ class BrachyPlan:
                 elif str(simulation_setup).endswith(".dcm"):
                     self.simulation_setup = BrachySimulation(
                         brachy_source=simulation_setup,
-                        total_time=self.catheter_table.treatment_time,
+                        total_time=self.catheter_table.treatment_time if self.catheter_table else 0,
                         )
 
         # load the applicator list if the path is provided
@@ -529,18 +532,24 @@ class BrachyPlan:
         self,
         phantom: BrachyPhantom,
         mask_type: Union[ROIContour, ROIMask] = ROIMask,
+        non_overlapping_structures:bool = False
         )->None:
         r"""
         ### Purpose:
-        - To create a list of BrachyStructure objects from the structures in the phantom and
-        the DVH metric goals. Each BrachyStructure object will have attributes for the structure
-        contour, the DVH and uncertainty volume histograms, optimization attributes, and simulation attributes.
+        - To create a list of BrachyStructure objects from the structures in the phantom.
+        Each BrachyStructure object will have attributes for the structure
+        contour, the DVH and uncertainty volume histograms, optimization attributes,
+        and simulation attributes. Here, we only set the mask. We also ensure that there is
+        no overlap between the mask of the target structure and the OARs, priority is given
+        to OAR.
 
         ### Inputes:
         - phantom := the phantom with its structures fully loaded.
         - dvh_metric_goals := the dvh metric goals dictionary
         - mask_type: ROIContour | ROIMask := Phantom masks will be converted to this type when being
         stored in BrachySturucture.
+        - non_overlapping_structures := If true, all the structures that overlap with the target volume
+        will be carved out of it. Use it wisely my friend!
         ### Outputs:
         - None := will update the BrachyPlan.structure_list attribute
         """
@@ -566,18 +575,28 @@ class BrachyPlan:
             mask_type=ROIContour,
             strict_name_match=False,).get("body", None)
 
-        # XXX: Delete this!
-        # if phantom.cached_structure_masks is not None:
-        #     body_key = None
-        #     for k in phantom.cached_structure_masks.keys():
-        #         if k.lower() == "body":
-        #             body_key = k
-        #     self.body_contour = phantom.cached_structure_masks.get(body_key, None)
-        # else:
-        #     self.body_contour = phantom.get_structure_mask(
-        #         ["body"], ROIContour, strict_name_match=False
-        #     ).get("body", None)
+        self.target_structure_names = [
+            structure.name for structure 
+            in self.structure_list if structure.is_target]
 
+        if non_overlapping_structures:
+            # If there is an OAR that goes through the PTV, cut it out of PTV.
+            # this is because each voxel can have planning role only.
+            # in prostate, the urethra goes through the PTV.
+            for target_structure in self.target_structure_names:
+                for structure in self.structure_list:
+                    if structure.is_target:
+                        continue
+                    if "body" in structure.name.lower():
+                        continue 
+                    # find intersection between this structure and target_structure
+                    overlap = (
+                        self.structure_dict.get(target_structure).mask.imageArray 
+                        &  structure.mask.imageArray)
+                    if np.any(overlap):
+                        self.structure_dict.get(target_structure).mask.imageArray = (
+                            self.structure_dict.get(target_structure).mask.imageArray 
+                            & (np.ma.ones_like(overlap)^overlap))
    
     def get_dvh_metrics(
         self,
@@ -860,17 +879,15 @@ class BrachyPlan:
         ### Dependencies:
             - None
         """
-        cath_table_dose_gen = catheter_table.get_catheters_for_dose_gen()
-        total_dwell_time = cath_table_dose_gen.treatment_time
-        num_dwells = cath_table_dose_gen.num_dwell_positions
+        total_dwell_time = catheter_table.treatment_time
+        num_dwells = catheter_table.num_dwell_positions
         combined_plan = "Treatment Plan\n"
         combined_plan += f"{num_dwells} Control Points\n"
 
         for cat in catheter_table:
-            # skip if no need to export for dose rate calculation
-            if not cat.gen_dose_rates:
-                continue
             for dwell in cat.dwells:
+                if not dwell.gen_dose_rate:
+                    continue
                 dwell_coordinates_str = np.array(
                     list(dwell.position)
                     + list(dwell.rotation)
@@ -1171,15 +1188,17 @@ class BrachyPlan:
                     assert config.is_target == struc.is_target, f"The target structure in plan and optimization \
 config do not match for structure {struc.name}"
                     struc.set_optimization_config(config)
-                    self.optimization_config_dict[struc] = config
+                    self.optimization_config_dict[struc.name] = config
                     # check if the structure is a target and catheter
                     # recommendation is not needed
                     if config.is_target and not (config.catheter_recommendaion):
                         # set constraints on the catheters
                         for catheter in self.catheter_table:
                             self.optimization_constraint_dict[catheter.name_id] = Constraint_Config(
-                                name=f"catheter_{catheter.name_id}",
-                                equal=1
+                                constraint_type="bound",
+                                variable_type="catheter",
+                                equal=1,
+                                variable_name_ids=[catheter.name_id]
                             )
                     break
 
@@ -1461,9 +1480,9 @@ def load_dicom_to_plan(
     if load_dicom_prescription_dose:
         if len(plan_dcm) != 1:
             raise FileNotFoundError("There should be exactly one prescription dose dicom file that starts with RP or PL in the directory")
-        prescription_dose = kwargs.pop("prescription_dose", plan_dcm[0])
+        prescription_dose = plan_dcm[0]
     else:
-        prescription_dose = None
+        prescription_dose = kwargs.pop("prescription_dose", None)
 
     simulation_setup = kwargs.pop("simulation_setup", None)
     new_sim_setup = deepcopy(simulation_setup) # this is to avoid memory reference issues during forloops

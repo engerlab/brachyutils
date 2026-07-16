@@ -34,7 +34,7 @@ class CatheterVar_Gurobi():
         catheter: Catheter,
         model: Model,
         lower_dwelltime: Optional[float] | Dict[str, float] = 0.0,
-        upper_dwelltime: Optional[float] | Dict[str, float] = 1000.0,
+        upper_dwelltime: Optional[float] | Dict[str, float] = 5000.0,
         dose_rates: Optional[List[np.ndarray] | Dict[str, BrachyDose]] = None,
         ):
         r"""
@@ -161,6 +161,11 @@ class CatheterTableOptim_Gurobi():
             optim_roi_bounds=self.roi_bounds,
             multi_processing=multi_processing
         )
+        self._bound_dwell_times_to_catheters(
+            dwellTimeVariables=self.dwellTimeVariables,
+            catheter_vars=self.catheter_vars,
+            model=self.model,
+        )
         self.set_penalty_function_and_constraints(
             optimization_configs=[
                 struc.optimization_config
@@ -171,7 +176,7 @@ class CatheterTableOptim_Gurobi():
             model=self.model,
         )
         if plan.optimization_constraint_dict is not None:
-            self.bound_variables(
+            self.set_constraints(
                 constraint_config_dict=plan.optimization_constraint_dict)
 
     def initialize_model(self, solver: str, pth_logfile:str=None) -> Model:
@@ -189,8 +194,10 @@ class CatheterTableOptim_Gurobi():
             raise ValueError("Only Gurobi solver is supported in this class.")
         if pth_logfile is None:
             pth_logfile = Path("temp_data/gurobi_model.log").resolve()
+        pth_logfile = Path(pth_logfile)
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         model = Model("CatheterTable_Optimization")
+        model.Params.TimeLimit = 600 # set a 10 minute time limit.
         model.setParam("LogFile", str(pth_logfile))
         return model
 
@@ -264,30 +271,48 @@ class CatheterTableOptim_Gurobi():
             )
         return outplan
 
-    def bound_variables(
+    def set_constraints(
         self,
         constraint_config_dict:Dict[str, Constraint_Config],
         ):
         """
         ### Purpose:
-        - To bound the model variables according the list of constraint config. The bound could be on the 
-        lower bound, upper bound or equality value of the variable.
-        - The name of the constraints on the number of catheters (sum of binary variable) or the total
-        dwell times should being with "sum_catheters" and "sum_dwelltimes".
+        - To update the model with the new constraints. The type of the constraints can be 
+        "bound", "sum", "uniqueness", "continuity", "num_catheters", "collision", each is explained in 
+        Constraint_Config class. The target variables for the constraints can be "catheter" or "dwell".
+        - Each constraint should have a unique name generated automatically by the Constraint_Config class. 
 
         ### Inputs:
-        - constraint_config_dict (Dict[Constraint_Config]): Each item in this dictionary contains the name of the
-        variable as well as minimum, maximum and equality constraints on that variable. The naming convention
-        for the items and the keys are described in bound_variables()
+        - constraint_configs Dict[str, Constraint_Config]: See Constraint_Config for details.
+        The key of this dictionary is the name of the constraint, which should be unique. 
         - model (Model): The model containing the variables. The name of the variables in the constraint list 
         should match the name of the variable. Otherwies, Error will be thrown.
+
         ### Outputs:
         - None: model is updated with the new constraints
         """
-        bound_variables(
+        set_constraints(
             constraint_config_dict=constraint_config_dict,
             model=self.model
         )
+
+    def _bound_dwell_times_to_catheters(
+        self,
+        dwellTimeVariables:List[DwellTime_Gurobi],
+        catheter_vars:List[CatheterVar_Gurobi],
+        model:Model):
+        r"""
+        We bound each dwell time variable to be equal to that variable multiplied by its corresponding 
+        catheter variable. t = ct. This ensures that if a catheter variable is zeor, the dwell time is
+        also zero.
+        """
+        t_MVar = MVar([dt._model_variable for dt in dwellTimeVariables])
+        c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
+        model.addConstr(
+            t_MVar == c_MVar * t_MVar,
+            name="cohesion"
+        )
+        model.update()
 
 def set_catheter_variables(
     plan: BrachyPlan,
@@ -534,79 +559,205 @@ def set_dwell_coef_dict_per_structure(
         for var, coeff in zip(dwell_vars, dose_rate_matrices):
             structure.optimization_config.dwell_coef_dict[var.VarName] = coeff
 
-def bound_variables(
+def set_constraints(
     constraint_config_dict:Dict[str, Constraint_Config],
     model:Model,
     ):
     """
     ### Purpose:
-    - To bound the model variables according the dictionary of constraint config. The bound could be on the 
-    lower bound, upper bound or equality value of the variable.
-    - The name of the constraints (and the keys) on the number of catheters (sum of binary variable) or the total
-    dwell times should being with "sum_catheters" and "sum_dwelltimes".
+    - To update the model with the new constraints. The type of the constraints can be 
+    "bound", "sum", "uniqueness", "continuity", "num_catheters", "collision", each is explained in 
+    Constraint_Config class. The target variables for the constraints can be "catheter" or "dwell".
+    - Each constraint should have a unique name generated automatically by the Constraint_Config class. 
 
     ### Inputs:
-    - constraint_configs (List[Constraint_Config]): Each item in this list contains the name of the
-    variable as well as minimum, maximum and equality constraints on that variable.
+    - constraint_configs Dict[str, Constraint_Config]: See Constraint_Config for details.
+    The key of this dictionary is the name of the constraint, which should be unique. 
     - model (Model): The model containing the variables. The name of the variables in the constraint list 
     should match the name of the variable. Otherwies, Error will be thrown.
+
     ### Outputs:
     - None: model is updated with the new constraints
     """
-    for constraint in list(constraint_config_dict.values()):
+    for name_id, constraint in constraint_config_dict.items():
         # check if the constraint already exists, if yes remove it
         try:
-            old_constraint = model.getConstrByName(f"c_{constraint.name}")
+            old_constraint = model.getConstrByName(name=name_id)
         except GurobiError:
             old_constraint = None
         if old_constraint:
             model.remove(old_constraint)
             model.update()
 
-        # if the constraint is on the sum of catheters or dwell times
-        if constraint.name.startswith("sum_"):
-            all_vars = model.getVars()
-            var_target = constraint.name.split("_")[-1]
-            vars_needed = []
-            # gatheter all catheter or dwell variables
-            for this_var in all_vars:
-                if var_target == "catheters":
-                    # we are looking for catheter variables only
-                    if this_var.name.startswith("catheter"):
-                        vars_needed.append(this_var)
-                elif var_target == "dwelltimes":
-                    if this_var.name.startswith("dwell"):
-                        vars_needed.append(this_var)
-            # apply the constraint
-            vars_needed = MVar(vars_needed)
-            if constraint.minimum:
-                model.addConstr(
-                    sum(vars_needed) >= constraint.minimum,
-                    name=f"c_{constraint.name}"
-                )
-            if constraint.maximum:
-                model.addConstr(
-                    sum(vars_needed) <= constraint.maximum,
-                    name=f"c_{constraint.name}"
-                )
-            if constraint.equal:
-                model.addConstr(
-                    sum(vars_needed) == constraint.equal,
-                    name=f"c_{constraint.name}"
-                )
-        # other
-        else:
-            variable = model.getVarByName(constraint.name)
-            if not variable:
-                raise ValueError(f"No variable with name {constraint.name} was found. \
+        if constraint.constraint_type == "bound":
+            _set_bound_constraint(constraint, model)
+        elif constraint.constraint_type == "sum":
+            _set_sum_constraint(constraint, model)
+        elif constraint.constraint_type == "uniqueness":
+            _set_uniqueness_constraint(constraint, model)
+        elif constraint.constraint_type == "num_catheters":
+            _set_num_catheters_constraint(constraint, model)
+        elif constraint.constraint_type == "continuity":
+            _set_continuity_constraint(constraint, model)
+        elif constraint.constraint_type == "collision":
+            _set_collision_constraint(constraint, model)
+
+def _set_bound_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a bound constraint on a variable in the model.
+    The variable can be either a catheter or dwell time variable.
+    """
+    var_name = f"{constraint.variable_type}_{constraint.variable_name_ids[0]}"
+    variable =  model.getVarByName(var_name)
+    if not variable:
+        raise ValueError(f"No variable with name {var_name} was found for constraint \
+{constraint.name_id}. Ensure the constraint name is correct.")
+    if constraint.minimum:
+        variable.LB = constraint.minimum
+    if constraint.maximum:
+        variable.UB = constraint.maximum
+    if constraint.equal:
+        model.addConstr(
+            variable == constraint.equal,
+            name=constraint.name_id
+        )
+    model.update()
+
+def _set_sum_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a sum constraint on a list of variables in the model.
+    The variables can be either catheter or dwell time variables.
+    """
+    var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    variables = [model.getVarByName(var_name) for var_name in var_names]
+    if not all(variables):
+        missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
+        raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
 Ensure the constraint name is correct.")
-            if constraint.minimum:
-                variable.LB = constraint.minimum
-            if constraint.maximum:
-                variable.UB = constraint.maximum
-            if constraint.equal:
-                model.addConstr(
-                    variable == constraint.equal, 
-                    name=f"c_{constraint.name}"
-                )
+    if constraint.minimum:
+        model.addConstr(
+            sum(variables) >= constraint.minimum,
+            name=f"{constraint.name_id}"
+        )
+    if constraint.maximum:
+        model.addConstr(
+            sum(variables) <= constraint.maximum,
+            name=f"{constraint.name_id}"
+        )
+    if constraint.equal:
+        model.addConstr(
+            sum(variables) == constraint.equal,
+            name=constraint.name_id
+        )
+    model.update()
+
+def _set_uniqueness_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a uniqueness constraint on a list of variables in the model.
+    The variables can be either catheter or dwell time variables.
+    """
+    if constraint.constraint_type != "uniqueness":
+        raise ValueError(f"Wrong constraint type, the current type for {constraint.name_id}")
+    var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    variables = [model.getVarByName(var_name) for var_name in var_names]
+    if not all(variables):
+        missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
+        raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
+Ensure the constraint name is correct.")
+    model.addConstr(
+        sum(variables) <= constraint.maximum,
+        name=constraint.name_id
+    )
+    model.update()
+
+def _set_num_catheters_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a constraint on the number of catheters in the model.
+    The variables can be either catheter or dwell time variables.
+    """
+    var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    variables = [model.getVarByName(var_name) for var_name in var_names]
+    if not all(variables):
+        missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
+        raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
+Ensure the constraint name is correct.")
+    model.addConstr(
+        sum(variables) <= constraint.maximum,
+        name=constraint.name_id
+    )
+    model.update()
+
+def _set_continuity_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a continuity constraint on a list of variables in the model.
+    The variables can be either catheter or dwell time variables.
+    """
+    var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    parent_var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.parent_catheter_name_ids]
+    variables = [model.getVarByName(var_name) for var_name in var_names]
+    if not all(variables):
+        missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
+        raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
+Ensure the constraint name is correct.")
+    parent_variables = [model.getVarByName(var_name) for var_name in parent_var_names]
+    if not all(parent_variables):
+        missing_parent_vars = [var_name for var_name, var in zip(parent_var_names, parent_variables) if not var]
+        raise ValueError(f"No parent variable(s) with name(s) {missing_parent_vars} were found for constraint {constraint.name_id}. \
+Ensure the constraint name is correct.")
+
+    # All variables have the same parent.
+    e_vec = model.addMVar(
+        shape=len(variables),
+        lb=0,
+        ub=1,
+        name=f"e_{constraint.name_id}",
+        vtype=GRB.BINARY,)
+    var_vec = MVar.fromlist(variables)
+    sum_parents = sum(parent_variables)
+    for i in range(len(variables)):
+        model.addConstr(
+            e_vec[i] * sum_parents == constraint.equal * var_vec[i],
+            name=constraint.name_id[i],
+        )
+    model.update()
+
+def _set_collision_constraint(
+    constraint: Constraint_Config,
+    model: Model,
+    ):
+    r"""
+    ### Purpose:
+    - To set a collision constraint on a list of variables in the model.
+    The variables can be either catheter or dwell time variables.
+    """
+    var_names = [f"{constraint.variable_type}_{name_id}" for name_id in constraint.variable_name_ids]
+    variables = [model.getVarByName(var_name) for var_name in var_names]
+    if not all(variables):
+        missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
+        raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
+Ensure the constraint name is correct.")
+    model.addConstr(
+        sum(variables) <= constraint.equal,
+        name=constraint.name_id
+    )
     model.update()
