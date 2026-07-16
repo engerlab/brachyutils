@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brachyutils"
-version = "0.8"
+version = "0.9.0"
 description = "Python utility packages for handling dose files and egsphant files."
 authors = [{name = "EngerLab"}]
 readme = "README.md"
