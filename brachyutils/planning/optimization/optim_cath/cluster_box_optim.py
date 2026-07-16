@@ -328,7 +328,7 @@ class ClusterBoxOptim:
         self.cluster_box.to_ply(
             out_ply_dir=out_dir)
         self.cluster_box.catheter_table.write_to_json(
-            pth_mrk_json=out_dir/"catheter_table.json")
+            pth_json=out_dir/"catheter_table.json")
         self.plan.catheter_table.combined_dose.write_brachydose_to_file(
             pth_dose_file=out_dir/"combined.seq.nrrd"
         )

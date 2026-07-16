@@ -63,8 +63,8 @@ def test_cluster_box_optim(
     if num_decision_planes is None:
         num_decision_planes = 2
     config_cluster_box = Config_ClusterBox(
-        num_physical_catheters=15,
-        insertion_point_spacing_mm=5,
+        num_physical_catheters=5,
+        insertion_point_spacing_mm=15,
         num_decision_planes=num_decision_planes,
         config_catheter_rotation=config_catheter_rotation,
         box_margin_mm=5,
@@ -173,7 +173,7 @@ def test_constraint_continuity():
     cbox_optim, optimized_plan = test_cluster_box_optim(
         num_decision_planes=4,
         return_output=True,
-        export_cluster_box=True,
+        export_cluster_box=False,
         run_optimization=True,)
     for continuity in cbox_optim.geometric_constraint_dict["continuity"].values():
         num_non_zero_segments = 0
@@ -210,8 +210,8 @@ if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
     config_catheter_rotation = Config_Catheter_Rotation(
-        x_angle_max=8,
-        x_angle_step=8,
+        x_angle_max=0,
+        x_angle_step=0,
         y_angle_max=8,
         y_angle_step=8,
     )
@@ -224,4 +224,4 @@ if __name__ == "__main__":
     # test_constraint_catheter_number()
     # test_constraint_uniqueness()
     # test_constraint_collision()
-    # test_constraint_continuity()
+    test_constraint_continuity()
