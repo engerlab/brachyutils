@@ -327,6 +327,13 @@ class ClusterBoxOptim:
         out_dir = Path(out_dir)
         self.cluster_box.to_ply(
             out_ply_dir=out_dir)
+        self.cluster_box.catheter_table.write_to_json(
+            pth_mrk_json=out_dir/"catheter_table.json")
+        self.plan.catheter_table.combined_dose.write_brachydose_to_file(
+            pth_dose_file=out_dir/"combined.seq.nrrd"
+        )
+        self.original_phantom.export_to(dir_nrrd_out=out_dir)
+
         saved_dwelltimes = [deepcopy(dwell.time) for dwell in self.plan.catheter_table.all_dwells]
         # # export the normalized combined dose rate
         self.plan.catheter_table.reset_dwelltimes_to(reset_value=1)
@@ -339,8 +346,7 @@ class ClusterBoxOptim:
             self.plan.catheter_table.all_dwells,
             saved_dwelltimes):
             dwell.time = time        
-        self.cluster_box.catheter_table.write_to_slicer_markup(
-            pth_mrk_json=out_dir/"catheter_table.mrk.json")
+        
 
 def run_catheter_recommendation():
     r"""
