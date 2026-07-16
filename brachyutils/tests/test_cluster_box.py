@@ -127,7 +127,7 @@ def test_cluster_box(
     insertion_point_spacing_mm = 15
     oar_collision_margin_mm = 5
     target_structure_names = ["CTV"]
-    config_angle = Config_Catheter_Rotation()
+    config_catheter_rotation = Config_Catheter_Rotation()
     num_decision_planes=3
     rotation_angle_deg=12
     box_margin = 5
@@ -138,7 +138,7 @@ def test_cluster_box(
         insertion_point_spacing_mm = insertion_point_spacing_mm,
         oar_collision_margin_mm = oar_collision_margin_mm,
         target_structure_names = target_structure_names,
-        config_angle = config_angle,
+        config_catheter_rotation = config_catheter_rotation,
         num_decision_planes=num_decision_planes,
         rotation_angle_deg=rotation_angle_deg,
         box_margin_mm=box_margin,
