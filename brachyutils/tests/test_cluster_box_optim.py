@@ -67,7 +67,7 @@ def test_cluster_box_optim(
     if num_decision_planes is None:
         num_decision_planes = 2
     config_cluster_box = Config_ClusterBox(
-        num_physical_catheters=5,
+        num_physical_catheters=15,
         insertion_point_spacing_mm=5,
         num_decision_planes=num_decision_planes,
         config_angle=config_angle,
@@ -236,7 +236,7 @@ def test_get_optimized_plan_from_model():
         export_cluster_box=True,
         run_optimization=False,
         solve_strategy="cascaded",
-        dwell_reach_mm=20)
+        dwell_reach_mm=5)
     t0_sim = time()
     # optimized_plan = cbox_optim.get_optimized_plan_from_model(
     #     solve_strategy='simultaneous')
