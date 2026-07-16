@@ -161,11 +161,11 @@ class CatheterTableOptim_Gurobi():
             optim_roi_bounds=self.roi_bounds,
             multi_processing=multi_processing
         )
-        # self._bound_dwell_times_to_catheters(
-        #     dwellTimeVariables=self.dwellTimeVariables,
-        #     catheter_vars=self.catheter_vars,
-        #     model=self.model,
-        # )
+        self._bound_dwell_times_to_catheters(
+            dwellTimeVariables=self.dwellTimeVariables,
+            catheter_vars=self.catheter_vars,
+            model=self.model,
+        )
         self.set_penalty_function_and_constraints(
             optimization_configs=[
                 struc.optimization_config
