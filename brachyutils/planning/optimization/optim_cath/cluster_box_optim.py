@@ -200,7 +200,7 @@ class ClusterBoxOptim:
             rotation_angle_deg=config_cluster_box.rotation_angle_deg, 
             insertion_point_spacing_mm=config_cluster_box.insertion_point_spacing_mm, 
             num_decision_planes=config_cluster_box.num_decision_planes, 
-            config_angle=config_cluster_box.config_angle,
+            config_catheter_rotation=config_cluster_box.config_catheter_rotation,
             oar_collision_margin_mm=config_cluster_box.oar_collision_margin_mm, 
             segment_collision_margin_mm=config_cluster_box.segment_collision_margin_mm, 
             box_margin_mm=config_cluster_box.box_margin_mm, 

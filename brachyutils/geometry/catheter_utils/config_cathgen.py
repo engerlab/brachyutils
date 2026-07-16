@@ -56,7 +56,7 @@ class Config_ClusterBox(BaseModel):
     - `rotation_angle_deg`: float := the rotation angle of the catheter box around the right left (X) axis (degrees).
     - `insertion_point_spacing_mm`: float := the spacing between adjacent catheter insertion points on the bottom plane (mm).
     - `num_decision_planes`: int := the number of decision planes to be defined in the catheter box.
-    - `config_angle`: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None := The angle configuartion for each insertion point. If a single Config_Catheter_Rotation is provided, it will be applied to all insertion points. If None, the default Config_Catheter_Rotation() will be applied to all insertion points.
+    - `config_catheter_rotation`: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None := The angle configuartion for each insertion point. If a single Config_Catheter_Rotation is provided, it will be applied to all insertion points. If None, the default Config_Catheter_Rotation() will be applied to all insertion points.
     - `oar_collision_margin_mm`: float := the collision margin between catheter segments and organs at risk (OARs) (mm).
     - `segment_collision_margin_mm`: float := the collision margin between catheter segments (mm). Measured as center of the catheter segments.
     - `box_margin_mm`: float := The margin between the box boundaries and the OARs
@@ -68,7 +68,7 @@ around the right left (X) axis (degrees).")
 catheter insertion points on the bottom plane (mm).")
     num_decision_planes: int = Field(default=2, description="the number of decision planes to be \
 defined in the catheter box.")
-    config_angle: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None = Field(
+    config_catheter_rotation: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None = Field(
         default=None,
         description="The angle configuartion for each insertion point. \
 If a single Config_Catheter_Rotation is provided, it will be applied to all \

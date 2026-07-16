@@ -13,7 +13,7 @@ def test_get_geometric_constraints():
 
 def test_cluster_box_optim(
     num_decision_planes = None,
-    config_angle = None,
+    config_catheter_rotation = None,
     return_output:bool = False,
     export_cluster_box:bool = False,
     run_optimization:bool = False,):
@@ -53,8 +53,8 @@ def test_cluster_box_optim(
             )
         ]
 
-    if config_angle is None:
-        config_angle = Config_Catheter_Rotation(
+    if config_catheter_rotation is None:
+        config_catheter_rotation = Config_Catheter_Rotation(
             x_angle_max=0,
             x_angle_step=0,
             y_angle_max=10,
@@ -63,10 +63,10 @@ def test_cluster_box_optim(
     if num_decision_planes is None:
         num_decision_planes = 2
     config_cluster_box = Config_ClusterBox(
-        num_physical_catheters=5,
-        insertion_point_spacing_mm=15,
+        num_physical_catheters=15,
+        insertion_point_spacing_mm=5,
         num_decision_planes=num_decision_planes,
-        config_angle=config_angle,
+        config_catheter_rotation=config_catheter_rotation,
         box_margin_mm=5,
     )
 
@@ -84,12 +84,6 @@ def test_cluster_box_optim(
         plan=plan,
         config_cluster_box=config_cluster_box
     )
-    # # export the cluster
-    if export_cluster_box:
-        cbox_optim.export_to(
-            out_dir=outdir,
-            dose_normalization_constant=target_dose
-        )
     optimized_plan = None
     if run_optimization:
         dvh_metric_goals = {
@@ -111,8 +105,14 @@ def test_cluster_box_optim(
         observed_dvh_metrics = optimized_plan.get_dvh_metrics()
         print("DVH Metrics are:")
         print(observed_dvh_metrics)
-        optimized_plan.catheter_table.combined_dose.write_brachydose_to_file(
-            outdir/"combined_dose.seq.nrrd"
+        # optimized_plan.catheter_table.combined_dose.write_brachydose_to_file(
+        #     outdir/"combined_dose.seq.nrrd"
+        # )
+    # # export the cluster
+    if export_cluster_box:
+        cbox_optim.export_to(
+            out_dir=outdir,
+            dose_normalization_constant=target_dose
         )
 
     if return_output:
@@ -209,8 +209,19 @@ def test_constraint_continuity():
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
-    # test_cluster_box_optim()
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=8,
+        x_angle_step=8,
+        y_angle_max=8,
+        y_angle_step=8,
+    )
+    test_cluster_box_optim(
+        num_decision_planes=3,
+        config_catheter_rotation=config_catheter_rotation,
+        export_cluster_box=True,
+        run_optimization=True
+    )
     # test_constraint_catheter_number()
     # test_constraint_uniqueness()
     # test_constraint_collision()
-    test_constraint_continuity()
+    # test_constraint_continuity()
