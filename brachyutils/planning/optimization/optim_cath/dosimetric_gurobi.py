@@ -737,7 +737,7 @@ Ensure the constraint name is correct.")
     for i in range(len(variables)):
         model.addConstr(
             e_vec[i] * sum_parents == constraint.equal * var_vec[i],
-            name=constraint.name_id[i],
+            name=constraint.name_id,
         )
     model.update()
 

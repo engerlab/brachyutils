@@ -144,7 +144,7 @@ class ClusterBox(BaseModel):
     - num_decision_planes: int := the number of decision planes to be defined in the 
     catheter box. All insertion points and landing points must be on the decision planes.
     At least there are 2 planes: inferior plane and superior plane.
-    - config_angle: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None: The angle configuartion
+    - config_catheter_rotation: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None: The angle configuartion
     for each insertion point. If a single Config_Catheter_Rotation is provided, it will be 
     applied to all insertion points. If None, the default Config_Catheter_Rotation() 
     will be applied to all insertion points.
@@ -171,7 +171,7 @@ around the right left (X) axis (degrees).")
 catheter insertion points on the bottom plane (mm).")
     num_decision_planes: int = Field(default=2, description="the number of decision planes to be \
 defined in the catheter box.")
-    config_angle: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None = Field(
+    config_catheter_rotation: Dict[str, Config_Catheter_Rotation] | Config_Catheter_Rotation | None = Field(
         default=None,
         description="The angle configuartion for each insertion point. \
 If a single Config_Catheter_Rotation is provided, it will be applied to all \
@@ -209,7 +209,7 @@ catheter segments (mm). Measured as center of the catheter segments.")
             insertion_point_spacing_mm=self.insertion_point_spacing_mm,
             oar_danger_dist_mm=self.oar_collision_margin_mm,
             target_structure_names=self.target_structure_names,
-            Config_Catheter_Rotation=self.config_angle,
+            Config_Catheter_Rotation=self.config_catheter_rotation,
             bb_rotation_angle_deg=self.rotation_angle_deg,
             bb_num_planes=self.num_decision_planes,
             bb_margin_mm = self.box_margin_mm,
