@@ -12,11 +12,11 @@ add_custom_target(InstallBrachyUtils ALL
   # Copy the non-python 'admin' data folder into the site-packages directory
   
   # ----------------------- ONLY FOR WINDOWS -----------------------
-  # COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/admin" "${CMAKE_BINARY_DIR}/../python-install/Lib/site-packages/admin"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/admin" "${CMAKE_BINARY_DIR}/../python-install/Lib/site-packages/admin"
   # ---------------------------------------------------------------- 
 
   # ----------------------- ONLY FOR LINUX -----------------------
-  COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/admin" "${CMAKE_BINARY_DIR}/../python-install/lib/python3.12/site-packages/admin"
+  # COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/admin" "${CMAKE_BINARY_DIR}/../python-install/lib/python3.12/site-packages/admin"
   # ---------------------------------------------------------------- 
 
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
