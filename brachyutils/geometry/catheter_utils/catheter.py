@@ -88,7 +88,12 @@ class Catheter(BaseModel):
         ### Outputs:
         - int := the number of dwell positions in the catheter.
         """
-        return len(self.dwells)
+        # return len(self.dwells)
+        if not self.dwells:
+            return 0
+            
+        unique_indices = set(dwell.index for dwell in self.dwells)
+        return len(unique_indices)
 
     @model_validator(mode="after")
     def validate_catheter(self):
