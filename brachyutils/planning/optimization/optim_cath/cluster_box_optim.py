@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Dict, Literal
+from typing import Dict, Literal, Annotated
 from collections import defaultdict
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
@@ -128,6 +128,18 @@ class ClusterBoxOptim:
         plan:BrachyPlan,
         config_cluster_box: Config_ClusterBox,
         ):
+        r"""
+        ### Purpose:
+        - To initialize a cluster box optimization object.
+        
+        ### Inputs:
+        - plan := The brachyplan object with loaded `phantom`, `prescription_dose`,
+        `structure_list`, and `optimization_config_dict`. Note that the `catheter_table`
+        of this plan should be None.
+        - config_cluster_box := The config object for the cluster box generation. see
+        Config_ClusterBox class for details.
+        """
+        
         self.plan: BrachyPlan = None
         self.cluster_box: ClusterBox = None
         self.optimization_object: CatheterTableOptim_Gurobi = None
@@ -314,6 +326,15 @@ class ClusterBoxOptim:
             # )
         return outplan
 
+    def get_physical_catheter_table(
+        self,
+        optimized_plan:BrachyPlan):
+        r"""
+        ### Purpose:
+        - To join the optimized catheter segments into phaysical catheters.
+        """
+        pass
+        
     def export_to(
         self,
         out_dir: str | Path,
@@ -352,10 +373,65 @@ class ClusterBoxOptim:
             dwell.time = time        
         
 
-def run_catheter_recommendation():
+def run_experiment_sequential(
+    plan: BrachyPlan,
+    config_cluster_box: Config_ClusterBox,
+    max_num_physical_catheters: int = 21,
+    step_num_physical_catheters: int = 3,
+    initial_num_physical_catheters: int = 6,
+    prob_catheter_deviation: Annotated[float, "0.0 to 1.0"] = 0,
+    multi_objective_optimizer: None = None,
+    dir_output: str | Path = None
+    ):
     r"""
     ### Purpose:
-    - To recommend catheters based on two strategies: bulk or bulk-then-sequential
-    This could be a stand alone method controlling the ClusterBoxOptim.
+    - To run experiments showing the effectiveness and robustness of the sequential
+    catheter recommendation approach. The steps are as follows:
+    1. Start with `initial_num_physical_catheters`.
+    2. Run cluster box optimization.
+    3. Get the optimal catheter trajectories (c*).
+    4. Disturb c* with acording to `prob_catheter_deviation`.
+    5. Run `multi_objective_optimization` and get acceptance rate.
+    6. Generate bounding constraint dictionary c=c*.
+    7. Update the number of physical catheters by adding `step_num_physical_catheters`.
+    8. If the new number of physical catheters <= max_num_physical_catheters,
+        repeat Step 2.
+
+    ### Inputs:
+    - plan := The brachyplan object with loaded `phantom`, `prescription_dose`,
+    `structure_list`, and `optimization_config_dict`. Note that the `catheter_table`
+    of this plan should be None.
+    - `config_cluster_box` := The config object for the cluster box generation. see
+    Config_ClusterBox class for details.
+    - `max_num_physical_catheters`:= The maximum number of physical catheters to be inseretd.
+    - `step_num_physical_catheters`:= At each iteration, we add a few more catheters to see
+    their impact on acceptance rate.
+    - `initial_num_physical_catheters`:= The initial optimization with have a bulk number
+    of cathetes. prob_catheter_deviation:= After each optimization step, we can disturb
+    the unconstrained catheters with a certain probability to assess the robustness 
+    of the pipeline to catheter deviation.
+    - `multi_objective_optimizer`:= The multi objective optimization class that'll
+    give us an acceptance rate, the observed dvh metrics and their penalty weights
+    as well as the timing data. 
+    - `dir_output`:= directory where the outputs will be written to
+ 
+    ### Outputs:
+    The following infomration written to `dir_output`:
+    - `out_csv`:
+        - `num_physical_catheters` per iteration
+        - `acceptance_rate` per iteration
+        - `optimal_hyper_params` per iteration
+        - `observed_dvh_metrics` per iteration
+    `physical_catheter_table` per iteration as both json and ply
+    - `expriment_info`:
+        - max_num_physical_catheters
+        - step_num_physical_catheters
+        - initial_num_physical_catheters
+        - prob_catheter_deviation
+        - multi_objective_optimizer
     """
     pass
+
+
+
+
