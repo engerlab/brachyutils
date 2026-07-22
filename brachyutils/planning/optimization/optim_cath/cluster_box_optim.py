@@ -276,17 +276,24 @@ class ClusterBoxOptim:
         self,
         cluster_box:ClusterBox,
         optim_obj:CatheterTableOptim_Gurobi,
+        constraint_dict: Dict[str, Constraint_Config] = None,
         ):
         r"""
         ### Purpose:
         - To set the geometric catheter constraints to the model.
         These constraints are generated using get_geometric_constraints() 
         """
-        
-        self.geometric_constraint_dict = get_geometric_constraints(cluster_box=cluster_box)
-        for constraint_type, constraint_dict in self.geometric_constraint_dict.items():
-            print(f"setting {constraint_type} constraints")
+        if self.geometric_constraint_dict is None:
+            self.geometric_constraint_dict = get_geometric_constraints(cluster_box=cluster_box)            
+            for constraint_type, constraint_dict in self.geometric_constraint_dict.items():
+                print(f"setting {constraint_type} constraints")
+                optim_obj.set_constraints(constraint_config_dict=constraint_dict)
+
+        if constraint_dict is not None:
             optim_obj.set_constraints(constraint_config_dict=constraint_dict)
+            for name, constraint in constraint_dict.items():
+                print(f"added constraint to cluster box optim {name}")
+                self.geometric_constraint_dict[constraint.constraint_type][constraint.name] = constraint
 
     def get_optimized_plan_from_model(
         self,
@@ -390,7 +397,7 @@ def run_experiment_sequential(
     1. Start with `initial_num_physical_catheters`.
     2. Run cluster box optimization.
     3. Get the optimal catheter trajectories (c*).
-    4. Disturb c* with acording to `prob_catheter_deviation`.
+    4. Disturb each catheter in c* with acording to `prob_catheter_deviation`.
     5. Run `multi_objective_optimization` and get acceptance rate.
     6. Generate bounding constraint dictionary c=c*.
     7. Update the number of physical catheters by adding `step_num_physical_catheters`.
@@ -422,7 +429,8 @@ def run_experiment_sequential(
         - `acceptance_rate` per iteration
         - `optimal_hyper_params` per iteration
         - `observed_dvh_metrics` per iteration
-    `physical_catheter_table` per iteration as both json and ply
+    - `physical_catheter_table` per iteration as both json and ply
+    - `constraint_dict` per iteration
     - `expriment_info`:
         - max_num_physical_catheters
         - step_num_physical_catheters
@@ -430,8 +438,14 @@ def run_experiment_sequential(
         - prob_catheter_deviation
         - multi_objective_optimizer
     """
-    pass
+    # Initialize the cluster box optimization object
+    config_cluster_box.num_physical_catheters = initial_num_physical_catheters
+    cbox_optim = ClusterBoxOptim(plan=plan, config_cluster_box=config_cluster_box)
+    constraints_dict = cbox_optim.geometric_constraint_dict
 
-
-
-
+    for num_phys_catheters in range(
+        initial_num_physical_catheters,
+        max_num_physical_catheters+step_num_physical_catheters,
+        step_num_physical_catheters):
+        pass
+        
