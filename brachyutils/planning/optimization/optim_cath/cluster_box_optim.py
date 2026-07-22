@@ -42,6 +42,10 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     $$
     The collision constraint is on a pair of colliding segments.
 
+    4 Future:
+    - Consider bounding a cluster to 1 to enforce using a specific insertion point with
+    undetermined insertion angle.
+    
     ### Inputs:
     - cluster_box: ClusterBox := This object contains all the candidate catheter segments, organized
     by their cluster where they stem from.
