@@ -52,6 +52,8 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     
     ### Outputs:
     - all_constraints : Dict[str, dict] := A dictionary containing the many geometric constraints above.
+    The items of this dictionary are: "uniqueness", "num_catheters", "continuity", "collision"
+    The values are  Dict[constraint.name, constraint]
     """
     catheter_table = cluster_box.catheter_table
 
@@ -326,6 +328,8 @@ class ClusterBoxOptim:
         if solve_strategy == "cascaded":
             if dwell_responsibility_radius_mm is None:
                 raise ValueError("please provide the `dwell_responsibility_mm` value.")
+            raise NotImplementedError("Yeah this hasn't worked so far. The binary \
+problem is not solvable. if you figure it out, big ups!")
             # target_dose_rate_goal = get_target_dose_rate_goal(
             #     dwell_responsibility_radius_mm,
             #     voxel_dose_goal = self.plan.stru,
@@ -439,13 +443,68 @@ def run_experiment_sequential(
         - multi_objective_optimizer
     """
     # Initialize the cluster box optimization object
-    config_cluster_box.num_physical_catheters = initial_num_physical_catheters
     cbox_optim = ClusterBoxOptim(plan=plan, config_cluster_box=config_cluster_box)
-    constraints_dict = cbox_optim.geometric_constraint_dict
+    c_star_constraint_dict = defaultdict(Constraint_Config)
 
     for num_phys_catheters in range(
         initial_num_physical_catheters,
         max_num_physical_catheters+step_num_physical_catheters,
         step_num_physical_catheters):
-        pass
-        
+
+        # # First set the new number of physical catheters 
+        # TODO 1: deep debug test this thing. make sure the model is updated correctly
+        # also cosider wrapping it in an object function cbox_optim
+        config_cluster_box.num_physical_catheters = num_phys_catheters
+        cbox_optim.geometric_constraint_dict.get(
+            "num_catheters").get("num_catheters").maximum = num_phys_catheters
+        cbox_optim.set_geometric_constraints(
+            cluster_box=cbox_optim.cluster_box,
+            optim_obj=cbox_optim.optimization_object,
+            constraint_dict=cbox_optim.geometric_constraint_dict["num_catheters"]
+            )
+
+        # # Get the optimal catheters (c*)
+        optimized_plan = cbox_optim.get_optimized_plan_from_model()
+        disturbed_catheter_table = disturbe_catheters(
+            catheter_table=optimized_plan.catheter_table,
+            prob_catheter_deviation=prob_catheter_deviation,
+            cluster_box=cbox_optim.cluster_box
+        )
+        for catheter in disturbed_catheter_table:
+            if catheter.total_channel_time == 0:
+                bound = 0
+            else:
+                bound = 1
+            catheter_binding_constraint = Constraint_Config(
+                constraint_type="bound",
+                variable_type="catheter",
+                equal=bound,
+                variable_name_ids=[catheter.name_id],
+            )
+            c_star_constraint_dict[
+                catheter_binding_constraint.name_id
+                ] = catheter_binding_constraint
+
+        # # now add the new bounds to the optimization object
+        cbox_optim.optimization_object.set_constraints(
+            constraint_config_dict=c_star_constraint_dict
+        )
+
+        # # Pass it to MOO and get acceptance rate as well as
+        # other metrics The final solution is the one with
+        # lowest dose to urethra.
+        # TODO: to be implemented!
+
+def disturbe_catheters(
+    catheter_table,
+    prob_catheter_deviation,
+    cluster_box,
+    ):
+    r"""
+    ### Purpose:
+    - To disturbe the trajectory of a physical catheter.
+    Note that disturbance at a lower depth has much larger
+    consequences than disturbance at higher depths.
+    """
+    # TODO: Figure out disturbance later
+    return catheter_table

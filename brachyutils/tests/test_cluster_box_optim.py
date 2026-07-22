@@ -224,4 +224,6 @@ if __name__ == "__main__":
     # test_constraint_catheter_number()
     # test_constraint_uniqueness()
     # test_constraint_collision()
-    test_constraint_continuity()
+    # test_constraint_continuity()
+    test_set_constraint()
+    test_run_experiment_sequential()
