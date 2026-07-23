@@ -198,6 +198,7 @@ class CatheterTableOptim_Gurobi():
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         model = Model("CatheterTable_Optimization")
         model.Params.TimeLimit = 600 # set a 10 minute time limit.
+        # model.setParam("MIPFocus", 1) # was not helpful.
         model.setParam("LogFile", str(pth_logfile))
         return model
 
@@ -321,7 +322,7 @@ class CatheterTableOptim_Gurobi():
             for c_var, t_var in zip(c_MVar.tolist(), t_MVar.tolist()):
                 model.addGenConstrIndicator(
                     c_var, False, t_var, GRB.EQUAL, 0.0,
-                    name="cohesion")             
+                    name="cohesion")
         model.update()
 
 def set_catheter_variables(

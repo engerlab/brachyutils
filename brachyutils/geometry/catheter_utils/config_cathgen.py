@@ -61,7 +61,7 @@ class Config_ClusterBox(BaseModel):
     - `segment_collision_margin_mm`: float := the collision margin between catheter segments (mm). Measured as center of the catheter segments.
     - `box_margin_mm`: float := The margin between the box boundaries and the OARs
     """
-    num_physical_catheters: int = Field(default=1, description="the number of physical catheters to be inserted.")
+    num_physical_catheters: int | List[int] = Field(default=1, description="the number of physical catheters to be inserted.")
     rotation_angle_deg: float = Field(default=0, description="the rotation angle of the catheter box \
 around the right left (X) axis (degrees).")
     insertion_point_spacing_mm: float = Field(default=10, description="the spacing between adjacent \
@@ -79,3 +79,9 @@ catheter segments and organs at risk (OARs) (mm).")
     segment_collision_margin_mm: float = Field(default=5, description="the collision margin between \
 catheter segments (mm). Measured as center of the catheter segments.")
     box_margin_mm: float = Field(default=0, description="The margin between the box boundaries and the OARs")
+
+    def model_post_init(self, __context):
+        if isinstance(self.num_physical_catheters, list):
+            if len(self.num_physical_catheters) != 2:
+                raise ValueError("The number of physical catheters should either\
+be a single int specifying the max or a list of two ints specifying the min and max")
