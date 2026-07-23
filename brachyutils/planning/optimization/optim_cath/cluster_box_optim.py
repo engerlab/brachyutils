@@ -454,7 +454,7 @@ def run_experiment_sequential(
         # # First set the new number of physical catheters 
         # TODO 1: deep debug test this thing. make sure the model is updated correctly
         # also cosider wrapping it in an object function cbox_optim
-        config_cluster_box.num_physical_catheters = num_phys_catheters
+        cbox_optim.cluster_box.num_physical_catheters = num_phys_catheters
         cbox_optim.geometric_constraint_dict.get(
             "num_catheters").get("num_catheters").maximum = num_phys_catheters
         cbox_optim.set_geometric_constraints(

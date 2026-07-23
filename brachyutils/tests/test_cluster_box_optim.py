@@ -1,5 +1,5 @@
 from brachyutils.planning.optimization.optim_cath.cluster_box_optim import get_geometric_constraints
-from brachyutils.planning.optimization.optim_configs import Optimization_Config
+from brachyutils.planning.optimization.optim_configs import Optimization_Config, Constraint_Config
 from brachyutils.tests.test_cluster_box import test_cluster_box
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from pathlib import Path
@@ -13,6 +13,8 @@ def test_get_geometric_constraints():
 
 def test_cluster_box_optim(
     num_decision_planes = None,
+    num_physical_catheters = None,
+    insertion_point_spacing_mm = None,
     config_catheter_rotation = None,
     return_output:bool = False,
     export_cluster_box:bool = False,
@@ -62,9 +64,13 @@ def test_cluster_box_optim(
         )
     if num_decision_planes is None:
         num_decision_planes = 2
+    if num_physical_catheters is None:
+        num_physical_catheters = 5
+    if insertion_point_spacing_mm is None:
+        insertion_point_spacing_mm = 15
     config_cluster_box = Config_ClusterBox(
-        num_physical_catheters=5,
-        insertion_point_spacing_mm=15,
+        num_physical_catheters=num_physical_catheters,
+        insertion_point_spacing_mm=insertion_point_spacing_mm,
         num_decision_planes=num_decision_planes,
         config_catheter_rotation=config_catheter_rotation,
         box_margin_mm=5,
@@ -206,6 +212,30 @@ def test_constraint_continuity():
             raise ValueError("SOMETHING IS VERY WRONG")
     print("continuity constraints passed")
 
+def test_modify_constraint():
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=0,
+        x_angle_step=0,
+        y_angle_max=0,
+        y_angle_step=0,
+    )
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        num_decision_planes=2,
+        num_physical_catheters = 4,
+        insertion_point_spacing_mm = 15,
+        return_output=True,
+        export_cluster_box=False,
+        run_optimization=False,)
+    
+    cbox_optim.cluster_box.num_physical_catheters = cbox_optim.cluster_box.num_physical_catheters + 3
+    cbox_optim.geometric_constraint_dict.get(
+        "num_catheters").get("num_catheters").maximum = cbox_optim.cluster_box.num_physical_catheters
+    cbox_optim.set_geometric_constraints(
+        cluster_box=cbox_optim.cluster_box,
+        optim_obj=cbox_optim.optimization_object,
+        constraint_dict=cbox_optim.geometric_constraint_dict["num_catheters"]
+        )
+
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
@@ -225,5 +255,5 @@ if __name__ == "__main__":
     # test_constraint_uniqueness()
     # test_constraint_collision()
     # test_constraint_continuity()
-    test_set_constraint()
-    test_run_experiment_sequential()
+    test_modify_constraint()
+    # test_run_experiment_sequential()
