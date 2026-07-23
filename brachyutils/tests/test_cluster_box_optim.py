@@ -4,7 +4,8 @@ from brachyutils.tests.test_cluster_box import test_cluster_box
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Catheter_Rotation, Config_ClusterBox
-from brachyutils.planning.optimization.optim_cath.cluster_box_optim import ClusterBoxOptim
+from brachyutils.planning.optimization.optim_cath.cluster_box_optim import (
+    ClusterBoxOptim, run_experiment_sequential)
     
 def test_get_geometric_constraints():
     cbox = test_cluster_box(return_box=True)
@@ -225,7 +226,8 @@ def test_modify_constraint():
         insertion_point_spacing_mm = 15,
         return_output=True,
         export_cluster_box=False,
-        run_optimization=False,)
+        run_optimization=False,
+        config_catheter_rotation=config_catheter_rotation)
     
     cbox_optim.cluster_box.num_physical_catheters = cbox_optim.cluster_box.num_physical_catheters + 3
     cbox_optim.geometric_constraint_dict.get(
@@ -237,8 +239,32 @@ def test_modify_constraint():
         )
 
 def test_run_experiment_sequential():
-    pass
-    # TODO 1: fill this out!
+    max_num_physical_catheters = 12
+    step_num_physical_catheters = 3
+    initial_num_physical_catheters = 9
+    prob_catheter_deviation = 0
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=0,
+        x_angle_step=0,
+        y_angle_max=0,
+        y_angle_step=0,
+    )
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        num_decision_planes=2,
+        num_physical_catheters = 6,
+        insertion_point_spacing_mm = 10,
+        return_output=True,
+        export_cluster_box=True,
+        run_optimization=False,
+        config_catheter_rotation=config_catheter_rotation,)
+
+    run_experiment_sequential(
+        cbox_optim=cbox_optim,
+        max_num_physical_catheters = max_num_physical_catheters,
+        step_num_physical_catheters = step_num_physical_catheters,
+        initial_num_physical_catheters = initial_num_physical_catheters,
+        prob_catheter_deviation = prob_catheter_deviation,)
+
 
 if __name__ == "__main__":
     print("Testing cluster box optimization")

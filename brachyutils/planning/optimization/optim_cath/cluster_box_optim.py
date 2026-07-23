@@ -400,8 +400,9 @@ problem is not solvable. if you figure it out, big ups!")
         
 
 def run_experiment_sequential(
-    plan: BrachyPlan,
-    config_cluster_box: Config_ClusterBox,
+    # plan: BrachyPlan,
+    # config_cluster_box: Config_ClusterBox,
+    cbox_optim:ClusterBoxOptim,
     max_num_physical_catheters: int = 21,
     step_num_physical_catheters: int = 3,
     initial_num_physical_catheters: int = 6,
@@ -458,7 +459,7 @@ def run_experiment_sequential(
         - multi_objective_optimizer
     """
     # Initialize the cluster box optimization object
-    cbox_optim = ClusterBoxOptim(plan=plan, config_cluster_box=config_cluster_box)
+    # cbox_optim = ClusterBoxOptim(plan=plan, config_cluster_box=config_cluster_box)
     c_star_constraint_dict = defaultdict(Constraint_Config)
 
     for num_phys_catheters in range(
@@ -474,11 +475,10 @@ def run_experiment_sequential(
         disturbed_catheter_table = disturbe_catheters(
             catheter_table=optimized_plan.catheter_table,
             prob_catheter_deviation=prob_catheter_deviation,
-            cluster_box=cbox_optim.cluster_box
-        )
+            cluster_box=cbox_optim.cluster_box,)
         # debug from here
         for catheter in disturbed_catheter_table:
-            if catheter.total_channel_time == 0:
+            if catheter.channel_total_time == 0:
                 bound = 0
             else:
                 bound = 1
