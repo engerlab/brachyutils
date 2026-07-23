@@ -70,9 +70,9 @@ class Constraint_Config(BaseModel):
         "bound", "sum", "uniqueness", "continuity", "num_catheters", "collision"
         ]
     variable_type: Literal["dwell", "catheter"]
-    minimum: int | float = None
-    maximum: int | float = None
-    equal: int | float = None
+    minimum: int | float | None = None
+    maximum: int | float | None = None
+    equal: int | float | None = None
     variable_name_ids: List[PatternDwell | PatternCatheter] = None
     segment_cluster_id: PatterCluster = None
     parent_catheter_name_ids: List[PatternCatheter] = None

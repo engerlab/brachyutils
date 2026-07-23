@@ -199,6 +199,7 @@ class CatheterTableOptim_Gurobi():
         model = Model("CatheterTable_Optimization")
         model.Params.TimeLimit = 600 # set a 10 minute time limit.
         # model.setParam("MIPFocus", 1) # was not helpful.
+        model.setParam("PreSOS1BigM", -1)
         model.setParam("LogFile", str(pth_logfile))
         return model
 
