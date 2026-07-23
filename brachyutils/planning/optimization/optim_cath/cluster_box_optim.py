@@ -287,15 +287,15 @@ class ClusterBoxOptim:
         """
         if self.geometric_constraint_dict is None:
             self.geometric_constraint_dict = get_geometric_constraints(cluster_box=cluster_box)            
-            for constraint_type, constraint_dict in self.geometric_constraint_dict.items():
+            for constraint_type, geo_constraint_dict in self.geometric_constraint_dict.items():
                 print(f"setting {constraint_type} constraints")
-                optim_obj.set_constraints(constraint_config_dict=constraint_dict)
+                optim_obj.set_constraints(constraint_config_dict=geo_constraint_dict)
 
         if constraint_dict is not None:
             optim_obj.set_constraints(constraint_config_dict=constraint_dict)
             for name, constraint in constraint_dict.items():
                 print(f"added constraint to cluster box optim {name}")
-                self.geometric_constraint_dict[constraint.constraint_type][constraint.name] = constraint
+                self.geometric_constraint_dict[constraint.constraint_type][constraint.name_id] = constraint
 
     def get_optimized_plan_from_model(
         self,

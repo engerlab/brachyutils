@@ -239,18 +239,18 @@ def test_modify_constraint():
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
-    config_catheter_rotation = Config_Catheter_Rotation(
-        x_angle_max=0,
-        x_angle_step=0,
-        y_angle_max=8,
-        y_angle_step=8,
-    )
-    test_cluster_box_optim(
-        num_decision_planes=3,
-        config_catheter_rotation=config_catheter_rotation,
-        export_cluster_box=True,
-        run_optimization=True
-    )
+    # config_catheter_rotation = Config_Catheter_Rotation(
+    #     x_angle_max=0,
+    #     x_angle_step=0,
+    #     y_angle_max=8,
+    #     y_angle_step=8,
+    # )
+    # test_cluster_box_optim(
+    #     num_decision_planes=3,
+    #     config_catheter_rotation=config_catheter_rotation,
+    #     export_cluster_box=True,
+    #     run_optimization=True
+    # )
     # test_constraint_catheter_number()
     # test_constraint_uniqueness()
     # test_constraint_collision()
