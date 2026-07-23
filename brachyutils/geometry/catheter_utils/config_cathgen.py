@@ -78,7 +78,7 @@ insertion points. If None, the default Config_Catheter_Rotation() will be applie
 to all insertion points.")
     oar_collision_margin_mm: float = Field(default=5, description="the collision margin between \
 catheter segments and organs at risk (OARs) (mm).")
-    segment_collision_margin_mm: float = Field(default=5, description="the collision margin between \
+    segment_collision_margin_mm: float = Field(default=5.5, description="the collision margin between \
 catheter segments (mm). Measured as center of the catheter segments.")
     box_margin_mm: float = Field(default=0, description="The margin between the box boundaries and the OARs")
 

@@ -159,10 +159,21 @@ def test_constraint_uniqueness():
     print("uniqueness constraints passed")
 
 def test_constraint_collision():
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=0,
+        x_angle_step=0,
+        y_angle_max=0,
+        y_angle_step=0,
+    )
     cbox_optim, optimized_plan = test_cluster_box_optim(
-        return_output=True,
+        num_decision_planes=2,
+        config_catheter_rotation=config_catheter_rotation,
         export_cluster_box=True,
-        run_optimization=True,)
+        run_optimization=False,
+        insertion_point_spacing_mm=5,
+        return_output=True,
+        num_physical_catheters=[10, 14],
+    )
     for collision in cbox_optim.geometric_constraint_dict["collision"].values():
         num_non_zero_segments = 0
         catheters = optimized_plan.catheter_table.get_catheters_by_ids(
@@ -270,29 +281,29 @@ def test_run_experiment_sequential():
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
-    config_catheter_rotation = Config_Catheter_Rotation(
-        x_angle_max=0,
-        x_angle_step=0,
-        y_angle_max=0,
-        y_angle_step=0,
-    )
-    t0 = time()
-    test_cluster_box_optim(
-        num_decision_planes=2,
-        config_catheter_rotation=config_catheter_rotation,
-        export_cluster_box=True,
-        run_optimization=True,
-        insertion_point_spacing_mm=5,
-        return_output=False,
-        num_physical_catheters=[10, 14],
-    )
-    t1 = time()
-    print("--------")
-    print("time for the entire pipeline")
-    print(t1-t0)
+    # config_catheter_rotation = Config_Catheter_Rotation(
+    #     x_angle_max=0,
+    #     x_angle_step=0,
+    #     y_angle_max=0,
+    #     y_angle_step=0,
+    # )
+    # t0 = time()
+    # test_cluster_box_optim(
+    #     num_decision_planes=2,
+    #     config_catheter_rotation=config_catheter_rotation,
+    #     export_cluster_box=True,
+    #     run_optimization=True,
+    #     insertion_point_spacing_mm=5,
+    #     return_output=False,
+    #     num_physical_catheters=[10, 14],
+    # )
+    # t1 = time()
+    # print("--------")
+    # print("time for the entire pipeline")
+    # print(t1-t0)
     # test_constraint_catheter_number()
     # test_constraint_uniqueness()
-    # test_constraint_collision()
+    test_constraint_collision()
     # test_constraint_continuity()
     # test_modify_constraint()
     # test_run_experiment_sequential()
