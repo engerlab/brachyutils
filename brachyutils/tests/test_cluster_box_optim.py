@@ -236,6 +236,10 @@ def test_modify_constraint():
         constraint_dict=cbox_optim.geometric_constraint_dict["num_catheters"]
         )
 
+def test_run_experiment_sequential():
+    pass
+    # TODO 1: fill this out!
+
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
@@ -255,5 +259,5 @@ if __name__ == "__main__":
     # test_constraint_uniqueness()
     # test_constraint_collision()
     # test_constraint_continuity()
-    test_modify_constraint()
-    # test_run_experiment_sequential()
+    # test_modify_constraint()
+    test_run_experiment_sequential()
