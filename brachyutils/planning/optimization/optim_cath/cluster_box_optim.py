@@ -337,6 +337,21 @@ problem is not solvable. if you figure it out, big ups!")
             # )
         return outplan
 
+    def update_num_physical_catheters(self, num_physical_catheters:int):
+        r"""
+        ### Purpose:
+        - To update the number of physical catheters for the cluster box and the
+        related constraint.
+        """
+        self.cluster_box.num_physical_catheters = num_physical_catheters
+        self.geometric_constraint_dict.get(
+            "num_catheters").get("num_catheters").maximum = self.cluster_box.num_physical_catheters
+        self.set_geometric_constraints(
+            cluster_box=self.cluster_box,
+            optim_obj=self.optimization_object,
+            constraint_dict=self.geometric_constraint_dict["num_catheters"]
+            )
+
     def get_physical_catheter_table(
         self,
         optimized_plan:BrachyPlan):
@@ -452,17 +467,8 @@ def run_experiment_sequential(
         step_num_physical_catheters):
 
         # # First set the new number of physical catheters 
-        # TODO 1: deep debug test this thing. make sure the model is updated correctly
-        # also cosider wrapping it in an object function cbox_optim
-        cbox_optim.cluster_box.num_physical_catheters = num_phys_catheters
-        cbox_optim.geometric_constraint_dict.get(
-            "num_catheters").get("num_catheters").maximum = num_phys_catheters
-        cbox_optim.set_geometric_constraints(
-            cluster_box=cbox_optim.cluster_box,
-            optim_obj=cbox_optim.optimization_object,
-            constraint_dict=cbox_optim.geometric_constraint_dict["num_catheters"]
-            )
-
+        cbox_optim.update_num_physical_catheters(
+            num_physical_catheters=num_phys_catheters)
         # # Get the optimal catheters (c*)
         optimized_plan = cbox_optim.get_optimized_plan_from_model()
         disturbed_catheter_table = disturbe_catheters(
@@ -470,6 +476,7 @@ def run_experiment_sequential(
             prob_catheter_deviation=prob_catheter_deviation,
             cluster_box=cbox_optim.cluster_box
         )
+        # debug from here
         for catheter in disturbed_catheter_table:
             if catheter.total_channel_time == 0:
                 bound = 0
