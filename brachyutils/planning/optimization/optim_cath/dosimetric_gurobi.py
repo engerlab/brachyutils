@@ -1,5 +1,5 @@
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Literal
 from tqdm import tqdm
 from pathlib import Path
 
@@ -300,7 +300,8 @@ class CatheterTableOptim_Gurobi():
         self,
         dwellTimeVariables:List[DwellTime_Gurobi],
         catheter_vars:List[CatheterVar_Gurobi],
-        model:Model):
+        model:Model,
+        cohesion_type:Literal["BigM", "Indicator"] = "Indicator"):
         r"""
         We bound each dwell time variable to be equal to that variable multiplied by its corresponding 
         catheter variable. t = ct. This ensures that if a catheter variable is zeor, the dwell time is
@@ -308,10 +309,19 @@ class CatheterTableOptim_Gurobi():
         """
         t_MVar = MVar([dt._model_variable for dt in dwellTimeVariables])
         c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
-        model.addConstr(
-            t_MVar == c_MVar * t_MVar,
-            name="cohesion"
-        )
+
+        if cohesion_type == "BigM":
+            t_MVar_Max = np.array([
+                dt._model_variable.UB
+                for dt in dwellTimeVariables])
+            model.addConstr(
+                t_MVar <= c_MVar * t_MVar_Max,
+                name="cohesion")
+        elif cohesion_type == "Indicator":
+            for c_var, t_var in zip(c_MVar.tolist(), t_MVar.tolist()):
+                model.addGenConstrIndicator(
+                    c_var, False, t_var, GRB.EQUAL, 0.0,
+                    name="cohesion")             
         model.update()
 
 def set_catheter_variables(
