@@ -53,6 +53,7 @@ class Config_ClusterBox(BaseModel):
     
     ### Attributes:
     - `num_physical_catheters`: int := the number of physical catheters to be inserted.
+        provide a single int for equality or [low, high] for a range.
     - `rotation_angle_deg`: float := the rotation angle of the catheter box around the right left (X) axis (degrees).
     - `insertion_point_spacing_mm`: float := the spacing between adjacent catheter insertion points on the bottom plane (mm).
     - `num_decision_planes`: int := the number of decision planes to be defined in the catheter box.
@@ -61,7 +62,8 @@ class Config_ClusterBox(BaseModel):
     - `segment_collision_margin_mm`: float := the collision margin between catheter segments (mm). Measured as center of the catheter segments.
     - `box_margin_mm`: float := The margin between the box boundaries and the OARs
     """
-    num_physical_catheters: int | List[int] = Field(default=1, description="the number of physical catheters to be inserted.")
+    num_physical_catheters: int | List[int] = Field(default=1, description="the number of physical \
+catheters to be inserted. Provide a single int for equality or [low, high] for a range.")
     rotation_angle_deg: float = Field(default=0, description="the rotation angle of the catheter box \
 around the right left (X) axis (degrees).")
     insertion_point_spacing_mm: float = Field(default=10, description="the spacing between adjacent \

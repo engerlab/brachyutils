@@ -612,6 +612,7 @@ def set_constraints(
             _set_continuity_constraint(constraint, model)
         elif constraint.constraint_type == "collision":
             _set_collision_constraint(constraint, model)
+    model.update()
 
 def _set_bound_constraint(
     constraint: Constraint_Config,
@@ -636,7 +637,7 @@ def _set_bound_constraint(
             variable == constraint.equal,
             name=constraint.name_id
         )
-    model.update()
+    # model.update()
 
 def _set_sum_constraint(
     constraint: Constraint_Config,
@@ -668,7 +669,7 @@ Ensure the constraint name is correct.")
             sum(variables) == constraint.equal,
             name=constraint.name_id
         )
-    model.update()
+    # model.update()
 
 def _set_uniqueness_constraint(
     constraint: Constraint_Config,
@@ -691,7 +692,7 @@ Ensure the constraint name is correct.")
         sum(variables) <= constraint.maximum,
         name=constraint.name_id
     )
-    model.update()
+    # model.update()
 
 def _set_num_catheters_constraint(
     constraint: Constraint_Config,
@@ -708,11 +709,19 @@ def _set_num_catheters_constraint(
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
         raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
 Ensure the constraint name is correct.")
-    model.addConstr(
-        sum(variables) <= constraint.maximum,
-        name=constraint.name_id
-    )
-    model.update()
+    if constraint.equal is not None:
+        model.addConstr(
+            sum(variables) == constraint.equal,
+            name=constraint.name_id
+        )
+    else:
+        model.addRange(
+            sum(variables),
+            constraint.minimum,
+            constraint.maximum,
+            name=constraint.name_id
+        )
+    # model.update()
 
 def _set_continuity_constraint(
     constraint: Constraint_Config,
@@ -750,7 +759,7 @@ Ensure the constraint name is correct.")
             e_vec[i] * sum_parents == constraint.equal * var_vec[i],
             name=constraint.name_id,
         )
-    model.update()
+    # model.update()
 
 def _set_collision_constraint(
     constraint: Constraint_Config,
@@ -771,4 +780,4 @@ Ensure the constraint name is correct.")
         sum(variables) <= constraint.equal,
         name=constraint.name_id
     )
-    model.update()
+    # model.update()

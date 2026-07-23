@@ -76,15 +76,18 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
         segments_at_depth_0.append(f"{segment.catheter_name_id}")
 
     if isinstance(cluster_box.num_physical_catheters, int):
-        max_num_catheters = cluster_box.num_physical_catheters
-        min_num_catheters = 0
+        eq_num_catheters = cluster_box.num_physical_catheters
+        min_num_catheters = None
+        max_num_catheters = None
     elif isinstance(cluster_box.num_physical_catheters, list):
+        eq_num_catheters = None
         min_num_catheters = cluster_box.num_physical_catheters[0]
         max_num_catheters = cluster_box.num_physical_catheters[1]
         
     constr = Constraint_Config(
         constraint_type="num_catheters",
         variable_type="catheter",
+        equal=eq_num_catheters,
         maximum=max_num_catheters,
         minimum=min_num_catheters,
         variable_name_ids=segments_at_depth_0

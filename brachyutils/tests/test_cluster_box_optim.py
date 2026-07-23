@@ -284,7 +284,7 @@ if __name__ == "__main__":
         run_optimization=True,
         insertion_point_spacing_mm=5,
         return_output=False,
-        num_physical_catheters=14,
+        num_physical_catheters=[10, 14],
     )
     t1 = time()
     print("--------")
