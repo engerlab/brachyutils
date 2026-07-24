@@ -571,6 +571,25 @@ def set_dwell_coef_dict_per_structure(
         for var, coeff in zip(dwell_vars, dose_rate_matrices):
             structure.optimization_config.dwell_coef_dict[var.VarName] = coeff
 
+def remove_constraints(
+    constraint_config_dict:Dict[str, Constraint_Config],
+    model:Model,
+    ):
+    r"""
+    ### Purpose:
+    - To remove a set of constraints from the model by their name
+    """
+    for name_id in constraint_config_dict:
+        # check if the constraint already exists, if yes remove it
+        try:
+            old_constraint = model.getConstrByName(name=name_id)
+        except GurobiError:
+            old_constraint = None
+            print(f"Constraint {name_id} was not found in the model.")
+        if old_constraint:
+            model.remove(old_constraint)
+            model.update()
+
 def set_constraints(
     constraint_config_dict:Dict[str, Constraint_Config],
     model:Model,

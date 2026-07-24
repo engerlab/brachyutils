@@ -472,7 +472,7 @@ def run_experiment_sequential(
     """
     # Initialize the cluster box optimization object
     # cbox_optim = ClusterBoxOptim(plan=plan, config_cluster_box=config_cluster_box)
-    c_star_constraint_dict = defaultdict(Constraint_Config)
+    c_equal_1_constraints = defaultdict(Constraint_Config)
 
     for num_phys_catheters in range(
         initial_num_physical_catheters,
@@ -488,31 +488,46 @@ def run_experiment_sequential(
             catheter_table=optimized_plan.catheter_table,
             prob_catheter_deviation=prob_catheter_deviation,
             cluster_box=cbox_optim.cluster_box,)
+        
+        c_equal_0_constraints = defaultdict(Constraint_Config)
         # debug from here
         for catheter in disturbed_catheter_table:
             if catheter.channel_total_time == 0:
-                bound = 0
+                bind_to_0 = Constraint_Config(
+                    constraint_type="bound",
+                    variable_type="catheter",
+                    equal=0,
+                    variable_name_ids=[catheter.name_id],
+                )
+                c_equal_0_constraints[
+                    bind_to_0.name_id] = bind_to_0
             else:
-                bound = 1
-            catheter_binding_constraint = Constraint_Config(
-                constraint_type="bound",
-                variable_type="catheter",
-                equal=bound,
-                variable_name_ids=[catheter.name_id],
-            )
-            c_star_constraint_dict[
-                catheter_binding_constraint.name_id
-                ] = catheter_binding_constraint
+                bind_to_1 = Constraint_Config(
+                    constraint_type="bound",
+                    variable_type="catheter",
+                    equal=0,
+                    variable_name_ids=[catheter.name_id],
+                )
+                c_equal_1_constraints[
+                    bind_to_1.name_id] = bind_to_1
 
         # # now add the new bounds to the optimization object
         cbox_optim.optimization_object.set_constraints(
-            constraint_config_dict=c_star_constraint_dict
+            constraint_config_dict=c_equal_1_constraints
+        )
+        cbox_optim.optimization_object.set_constraints(
+            constraint_config_dict=c_equal_0_constraints
         )
 
         # # Pass it to MOO and get acceptance rate as well as
         # other metrics The final solution is the one with
         # lowest dose to urethra.
         # TODO: to be implemented!
+
+        # # Free the catheters that were bound 0 for next iteration!
+        cbox_optim.optimization_object.remove_constraints(
+            constraint_config_dict=c_equal_0_constraints
+        )
 
 def disturbe_catheters(
     catheter_table: CatheterTable,
@@ -537,7 +552,7 @@ def disturbe_catheters(
     # # calculate p, the probability of each segment.
     n_segs_on_chain = cluster_box.num_decision_planes-1
     p = 1 - (1 - prob_catheter_deviation)^(1/n_segs_on_chain) 
-    
-    
+
+    # # start disturbing physical catheters
     # TODO: Figure out disturbance later
     return catheter_table
