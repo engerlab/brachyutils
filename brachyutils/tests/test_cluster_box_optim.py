@@ -252,7 +252,7 @@ def test_modify_constraint():
 
 def test_run_experiment_sequential():
     max_num_physical_catheters = 12
-    step_num_physical_catheters = 3
+    step_num_physical_catheters = 1
     initial_num_physical_catheters = 9
     prob_catheter_deviation = 0
     config_catheter_rotation = Config_Catheter_Rotation(
@@ -263,7 +263,7 @@ def test_run_experiment_sequential():
     )
     cbox_optim, optimized_plan = test_cluster_box_optim(
         num_decision_planes=2,
-        num_physical_catheters = 6,
+        num_physical_catheters = 9,
         insertion_point_spacing_mm = 10,
         return_output=True,
         export_cluster_box=True,
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     # print(t1-t0)
     # test_constraint_catheter_number()
     # test_constraint_uniqueness()
-    test_constraint_collision()
+    # test_constraint_collision()
     # test_constraint_continuity()
     # test_modify_constraint()
-    # test_run_experiment_sequential()
+    test_run_experiment_sequential()

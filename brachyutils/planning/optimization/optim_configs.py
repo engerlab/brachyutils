@@ -111,7 +111,7 @@ but {len(self.variable_name_ids)} was provided.")
                 or self.constraint_type == "sum"):
                 if (
                     (not (isinstance(self.minimum, int) or self.minimum is None))
-                    or (not isinstance(self.maximum, int) or self.maximum is None)
+                    or (not (isinstance(self.maximum, int) or self.maximum is None))
                     or (not (isinstance(self.equal, int) or self.equal is None))):
                     raise ValueError(f"minimum, maximum and equality constraints for {self.name_id} \
     must be integer values")
