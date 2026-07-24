@@ -9,6 +9,7 @@ from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.dose.dose_generation_utils import RapidBrachyTG43 
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import CatheterTableOptim_Gurobi 
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_ClusterBox
+import random
 
 def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     r"""
@@ -546,13 +547,41 @@ def disturbe_catheters(
     where   p:= probability of segment deviation.
             n:= number of segments on a chain.
     So in this case, we solve for p. Note that disturbance at a lower depth has
-    much larger consequences than disturbance at higher depths. p often being much
-    smaller than `prob_catheter_deviation` reflects this impact.
+    much larger consequences than disturbance at higher depths. If a segment at higher
+    depth is disturbed, all its children are set to zero and random children for 
+    neighboring segment are chosen. Accordingly, p often being much
+    smaller than `prob_catheter_deviation` reflects this depth dependent impact.
     """
     # # calculate p, the probability of each segment.
     n_segs_on_chain = cluster_box.num_decision_planes-1
     p = 1 - (1 - prob_catheter_deviation)^(1/n_segs_on_chain) 
 
-    # # start disturbing physical catheters
+    visited_catheter_ids = []
+    # need to know which insertion points have been used!
+    for cluster in cluster_box[0]:
+        # see if any of its segment has been chosen
+        for cath_id in cluster.catheter_name_ids:
+            # skip the catheters already seen
+            if cath_id in visited_catheter_ids:
+                continue
+
+            catheter = catheter_table[cath_id]
+            visited_catheter_ids.append(cath_id)
+            if catheter.channel_total_time == 0:
+                continue
+            else:
+                child_cluster = cluster_box.get_child_cluster(catheter.tip_position)
+                yes_disturb = random.random() < p
+                if yes_disturb:
+                    # reset this catheter to zero
+                    # if this catheter has child segments set them all to zero (recursion alert) 
+                    # pick a random neighbour and set their dwell times to 1
+                    # pick a random child segment among the children of the neighbour
+                    # and set their dwell times to 1. and keep going down the progeny tree. 
+                    pass
+                else:
+                    # run the same process on the child cluster (recussion alert)
+                    pass
+                  
     # TODO: Figure out disturbance later
     return catheter_table
