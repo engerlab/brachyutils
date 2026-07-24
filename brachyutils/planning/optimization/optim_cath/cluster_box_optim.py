@@ -3,6 +3,7 @@ from typing import Dict, Literal, Annotated
 from collections import defaultdict
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
+from brachyutils.geometry.catheter_utils import CatheterTable
 from brachyutils.planning.optimization.optim_configs import Constraint_Config
 from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.dose.dose_generation_utils import RapidBrachyTG43 
@@ -514,15 +515,29 @@ def run_experiment_sequential(
         # TODO: to be implemented!
 
 def disturbe_catheters(
-    catheter_table,
-    prob_catheter_deviation,
-    cluster_box,
+    catheter_table: CatheterTable,
+    prob_catheter_deviation: float,
+    cluster_box: ClusterBox,
     ):
     r"""
     ### Purpose:
     - To disturbe the trajectory of a physical catheter.
-    Note that disturbance at a lower depth has much larger
-    consequences than disturbance at higher depths.
+    The probability of a physical catheter not deviating (1 - `prob_catheter_deviation`)
+    is equal to the probability of a segment not deviating to the power of number of
+    segments.
+    $$
+    (1 - `prob_catheter_deviation`) = (1-p)^n
+    $$
+    where   p:= probability of segment deviation.
+            n:= number of segments on a chain.
+    So in this case, we solve for p. Note that disturbance at a lower depth has
+    much larger consequences than disturbance at higher depths. p often being much
+    smaller than `prob_catheter_deviation` reflects this impact.
     """
+    # # calculate p, the probability of each segment.
+    n_segs_on_chain = cluster_box.num_decision_planes-1
+    p = 1 - (1 - prob_catheter_deviation)^(1/n_segs_on_chain) 
+    
+    
     # TODO: Figure out disturbance later
     return catheter_table
