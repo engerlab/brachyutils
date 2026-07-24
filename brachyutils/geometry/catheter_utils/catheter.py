@@ -417,3 +417,17 @@ class Catheter(BaseModel):
         dir_ply = Path(dir_ply)
         dir_ply.mkdir(parents=True, exist_ok=True)
         combined_mesh.export(dir_ply/f"catheter_{self.name_id}.ply")
+    
+    def reset_dwelltimes_to(self, reset_value:float = 1.0) -> None:
+        r"""
+        ### Purpose:
+        - To reset the dwell times inside a catheter (self) to a given value.
+
+        ### Inputs:
+        - reset_value := The new value for all the dwell positions in self. 
+
+        ### Outputs:
+        - None
+        """
+        for dwell in self.dwells:
+            dwell.time = reset_value
