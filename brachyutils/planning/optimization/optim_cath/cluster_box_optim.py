@@ -612,8 +612,9 @@ def _disturbe_this_cluster(
         return
     # now pick a random neighbour that is not that catheter
     # and activate it!
-    random_neighbour_id = random.choice(deepcopy(
-        cluster.catheter_name_ids).remove(catheter_2_turn_off))
+    copied_list = deepcopy(cluster.catheter_name_ids)
+    copied_list.remove(catheter_2_turn_off)
+    random_neighbour_id = random.choice(copied_list)
     catheter = catheter_table.get_catheters_by_ids([random_neighbour_id]).pop()
     catheter.reset_dwelltimes_to(1)
     _activate_this_cluster(
@@ -679,5 +680,5 @@ def _activate_this_cluster(
     )
     catheter = catheter_table.get_catheters_by_ids([random_catheter_name_id]).pop()
     catheter.reset_dwelltimes_to(1.0)
-    _activate_this_cluster(catheter.tip_position)
+    _activate_this_cluster(catheter.tip_position, catheter_table, cluster_box)
     
