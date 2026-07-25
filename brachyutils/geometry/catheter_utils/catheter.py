@@ -1,5 +1,5 @@
 import numpy as np
-from pydantic import BaseModel, computed_field, model_validator
+from pydantic import BaseModel, computed_field, model_validator, ConfigDict
 from typing import List, Union, Any, Optional
 import SimpleITK as sitk
 import copy
@@ -36,13 +36,16 @@ class Catheter(BaseModel):
     - channel_total_time:float := the total time of the catheter.
     - step_size: float := distance between the subsequent dwell positions.
     - fit_function:PiecewiseLinear3D := a line that connects the dwell positions together.
-    - insert_position:list := The coordinates on patient body or insertion grid where the 
-    catheter was inserted from.
+    - insert_position:list := The digitization point that is furthest away from the tip.
     - gen_dose_rates: bool := whether the catheter needs to be generated for dose calculation or not.
     ### Functions:
     - to_dict() -> dict := convert the catheter to a dictionary.
     - add_dwell(dwell:DwellPosition) -> None := add a dwell position to the catheter.
     """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,)
+
     index: int
     dwells: List[DwellPosition] = None
     channel_length: Optional[float] = None
@@ -56,8 +59,7 @@ class Catheter(BaseModel):
     digitization_points: Optional[List[List[float]]] = None
     # auxiliary attributes
     afterloader_channel_number: Optional[int] = None # if none, will be set to index
-    insert_position: Optional[List[float]] = None
-    # points: Optional[List[List[float]]] = None  # to keep compatibility with previous versions
+    # insert_position: Optional[List[float]] = None
     gen_dose_rates: bool = True
 
     @computed_field
@@ -95,8 +97,15 @@ class Catheter(BaseModel):
         unique_indices = set(dwell.index for dwell in self.dwells)
         return len(unique_indices)
 
-    @model_validator(mode="after")
-    def validate_catheter(self):
+    @computed_field
+    def insert_position(self) -> np.typing.ArrayLike:
+        r"""
+        ### Purpose:
+        - The digitization point that is furthest away from the tip.
+        """
+        return self.digitization_points[0]
+
+    def model_post_init(self, __context):
         r"""
         Validate the catheter object and set necessary attributes based on provided inputs.
         This method ensures that the catheter has valid configuration by:
