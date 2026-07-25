@@ -555,9 +555,11 @@ def disturbe_catheter_table(
     """
     # # calculate p, the probability of each segment.
     n_segs_on_chain = cluster_box.num_decision_planes-1
-    p = 1 - (1 - prob_catheter_deviation)^(1/n_segs_on_chain) 
+    p = 1 - (1 - prob_catheter_deviation)**(1/n_segs_on_chain) 
 
-    for cluster in cluster_box[0]:
+    for cluster in cluster_box.cluster_dict.values():
+        if cluster.depth > 0:
+            continue
         _disturbe_this_cluster(
             prob_segment_disturbance=p,
             insert_point=cluster.insert_position,

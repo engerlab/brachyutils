@@ -251,20 +251,21 @@ def test_modify_constraint():
         )
 
 def test_run_experiment_sequential():
-    max_num_physical_catheters = 12
+    max_num_physical_catheters = 5
     step_num_physical_catheters = 1
-    initial_num_physical_catheters = 9
-    prob_catheter_deviation = 0
+    initial_num_physical_catheters = 2
+    prob_catheter_deviation = 0.2
     config_catheter_rotation = Config_Catheter_Rotation(
-        x_angle_max=0,
-        x_angle_step=0,
+        x_angle_max=4,
+        x_angle_step=8,
         y_angle_max=4,
         y_angle_step=8,
     )
     cbox_optim, optimized_plan = test_cluster_box_optim(
         num_decision_planes=3,
         num_physical_catheters = 9,
-        insertion_point_spacing_mm = 10,
+        # insertion_point_spacing_mm = 10,
+        insertion_point_spacing_mm = 15,        
         return_output=True,
         export_cluster_box=True,
         run_optimization=False,
