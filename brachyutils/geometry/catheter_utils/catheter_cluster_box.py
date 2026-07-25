@@ -400,7 +400,7 @@ catheter segments (mm). Measured as center of the catheter segments.")
 
     def get_cluster_by_insert_point(
         self,
-        insert_point: np.ArrayLike) -> SegmentCluster | None:
+        insert_point: np.typing.ArrayLike) -> SegmentCluster | None:
         r"""
         ### Purpose:
         - Given an insert point, it will return a cluster based on the

@@ -568,7 +568,7 @@ def disturbe_catheter_table(
 
 def _disturbe_this_cluster(
     prob_segment_disturbance:float,
-    insert_point: np.ArrayLike,
+    insert_point: np.typing.ArrayLike,
     catheter_table: CatheterTable,
     cluster_box:ClusterBox
     ):
@@ -619,7 +619,7 @@ def _disturbe_this_cluster(
         cluster_box)
 
 def _deactivate_this_cluster(
-    insert_point: np.ArrayLike,
+    insert_point: np.typing.ArrayLike,
     catheter_table: CatheterTable,
     cluster_box:ClusterBox
     ):
@@ -654,7 +654,7 @@ def _deactivate_this_cluster(
     )
 
 def _activate_this_cluster(
-    insert_point: np.ArrayLike,
+    insert_point: np.typing.ArrayLike,
     catheter_table: CatheterTable,
     cluster_box:ClusterBox
     ):

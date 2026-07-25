@@ -277,7 +277,6 @@ def test_run_experiment_sequential():
         initial_num_physical_catheters = initial_num_physical_catheters,
         prob_catheter_deviation = prob_catheter_deviation,)
 
-
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
