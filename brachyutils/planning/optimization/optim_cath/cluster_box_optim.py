@@ -10,6 +10,7 @@ from brachyutils.dose.dose_generation_utils import RapidBrachyTG43
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import CatheterTableOptim_Gurobi 
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_ClusterBox
 import random
+import numpy as np
 
 def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     r"""
@@ -485,7 +486,7 @@ def run_experiment_sequential(
             num_physical_catheters=num_phys_catheters)
         # # Get the optimal catheters (c*)
         optimized_plan = cbox_optim.get_optimized_plan_from_model()
-        disturbed_catheter_table = disturbe_catheters(
+        disturbed_catheter_table = disturbe_catheter_table(
             catheter_table=optimized_plan.catheter_table,
             prob_catheter_deviation=prob_catheter_deviation,
             cluster_box=cbox_optim.cluster_box,)
@@ -530,7 +531,7 @@ def run_experiment_sequential(
             constraint_config_dict=c_equal_0_constraints
         )
 
-def disturbe_catheters(
+def disturbe_catheter_table(
     catheter_table: CatheterTable,
     prob_catheter_deviation: float,
     cluster_box: ClusterBox,
@@ -556,32 +557,124 @@ def disturbe_catheters(
     n_segs_on_chain = cluster_box.num_decision_planes-1
     p = 1 - (1 - prob_catheter_deviation)^(1/n_segs_on_chain) 
 
-    visited_catheter_ids = []
-    # need to know which insertion points have been used!
     for cluster in cluster_box[0]:
-        # see if any of its segment has been chosen
-        for cath_id in cluster.catheter_name_ids:
-            # skip the catheters already seen
-            if cath_id in visited_catheter_ids:
-                continue
-
-            catheter = catheter_table[cath_id]
-            visited_catheter_ids.append(cath_id)
-            if catheter.channel_total_time == 0:
-                continue
-            else:
-                child_cluster = cluster_box.get_child_cluster(catheter.tip_position)
-                yes_disturb = random.random() < p
-                if yes_disturb:
-                    # reset this catheter to zero
-                    # if this catheter has child segments set them all to zero (recursion alert) 
-                    # pick a random neighbour and set their dwell times to 1
-                    # pick a random child segment among the children of the neighbour
-                    # and set their dwell times to 1. and keep going down the progeny tree. 
-                    pass
-                else:
-                    # run the same process on the child cluster (recussion alert)
-                    pass
-                  
-    # TODO: Figure out disturbance later
+        _disturbe_this_cluster(
+            prob_segment_disturbance=p,
+            insert_point=cluster.insert_position,
+            catheter_table=catheter_table,
+            cluster_box=cluster_box
+        )
     return catheter_table
+
+def _disturbe_this_cluster(
+    prob_segment_disturbance:float,
+    insert_point: np.ArrayLike,
+    catheter_table: CatheterTable,
+    cluster_box:ClusterBox
+    ):
+    r"""
+    ### Purpose:
+    - Given an insert point, get the cluster, get the catheter that is active
+    in this cluster, turn that catheter of, pick a random neighbour and activate it
+    as well as the cluster of that neighbour.
+    
+    - exit condition: if none of the catheters in this cluster are active
+    or the cluster has no children
+    """
+    cluster = cluster_box.get_cluster_by_insert_point(insert_point)
+    if cluster is None:
+        return
+    for catheter in catheter_table.get_catheters_by_ids(
+        cluster.catheter_name_ids):
+        if catheter.channel_total_time == 0:
+            continue
+        else:
+            yes_disturb = random.random() < prob_segment_disturbance
+            if yes_disturb:
+                catheter_2_turn_off = catheter.name_id
+                catheter.reset_dwelltimes_to(0.0)
+                _deactivate_this_cluster(
+                    catheter.tip_position,
+                    catheter_table,
+                    cluster_box)
+            else:
+                # run the same process on the child cluster (recussion alert)
+                _disturbe_this_cluster(
+                    prob_segment_disturbance,
+                    catheter.tip_position,
+                    catheter_table,
+                    cluster_box
+                )
+    if catheter_2_turn_off is None:
+        return
+    # now pick a random neighbour that is not that catheter
+    # and activate it!
+    random_neighbour_id = random.choice(deepcopy(
+        cluster.catheter_name_ids).remove(catheter_2_turn_off))
+    catheter = catheter_table.get_catheters_by_ids([random_neighbour_id]).pop()
+    catheter.reset_dwelltimes_to(1)
+    _activate_this_cluster(
+        catheter.tip_position,
+        catheter_table,
+        cluster_box)
+
+def _deactivate_this_cluster(
+    insert_point: np.ArrayLike,
+    catheter_table: CatheterTable,
+    cluster_box:ClusterBox
+    ):
+    r"""
+    ### Purpose:
+    - Given an insert point, get the cluster that stems from it
+    find the catheter that is active in that cluster, note its
+    tip position. reset_dwell_times() for all the catheters in that
+    cluster. recursively call this function on the cluster that stems
+    from the tip position.
+    
+    - exit condition: if cluster box did not return a cluster based on
+    that insert point, return!
+    
+    ### Inputs:
+    - insert_point := 3D coordinates of the insertion point
+    - catheter_table := 
+    - cluster_box :=
+    """
+    cluster = cluster_box.get_cluster_by_insert_point(insert_point)
+    if cluster is None:
+        return
+    for catheter in catheter_table.get_catheters_by_ids(
+        cluster.catheter_name_ids):
+        if catheter.channel_total_time != 0:
+            next_insertion_point = catheter.tip
+            catheter.reset_dwelltimes_to(0.0)
+    _deactivate_this_cluster(
+        insert_point=next_insertion_point,
+        catheter_table=catheter_table,
+        cluster_box=cluster_box
+    )
+
+def _activate_this_cluster(
+    insert_point: np.ArrayLike,
+    catheter_table: CatheterTable,
+    cluster_box:ClusterBox
+    ):
+    r"""
+    ### Purpose:
+    - Given an insertion point, get the cluster with this insertion
+    point from the box. randomly select one of its catheter and set
+    the dwell times of that catheter to 1. Then recursively pass the 
+    tip of that catheter to the same function for activation.
+    
+    - exit condition: if cluster box did not return a cluster based on
+    that insert point, return!
+    """
+    cluster = cluster_box.get_cluster_by_insert_point(insert_point)
+    if cluster is None:
+        return
+    random_catheter_name_id = random.choice(
+        cluster.catheter_name_ids
+    )
+    catheter = catheter_table.get_catheters_by_ids([random_catheter_name_id]).pop()
+    catheter.reset_dwelltimes_to(1.0)
+    _activate_this_cluster(catheter.tip_position)
+    
