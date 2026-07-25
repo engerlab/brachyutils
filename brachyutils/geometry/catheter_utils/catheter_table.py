@@ -623,7 +623,7 @@ match its index ({new_catheter.name_id}), be sure that the name_id == new_cathet
         r"""
         ### Purpose:
         - To return the catheters that have the queried name ids.
-        The name ids are in the format {catheter.index+1}
+        The name ids are in the format "{catheter.index+1}" or "catheter_{catheter.index+1}"
         ### Inputs:
         - name_ids := The list of name ids to be returned.
         ### Outputs:
