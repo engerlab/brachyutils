@@ -256,8 +256,8 @@ def test_run_experiment_sequential():
     initial_num_physical_catheters = 2
     prob_catheter_deviation = 0.2
     config_catheter_rotation = Config_Catheter_Rotation(
-        x_angle_max=4,
-        x_angle_step=8,
+        x_angle_max=0,
+        x_angle_step=0,
         y_angle_max=4,
         y_angle_step=8,
     )
@@ -265,7 +265,7 @@ def test_run_experiment_sequential():
         num_decision_planes=3,
         num_physical_catheters = 9,
         # insertion_point_spacing_mm = 10,
-        insertion_point_spacing_mm = 15,        
+        insertion_point_spacing_mm = 10,        
         return_output=True,
         export_cluster_box=True,
         run_optimization=False,

@@ -18,7 +18,7 @@ from brachyutils.planning.optimization.optim_gurobi import (
 # likley to be factored out later
 from brachyutils.geometry.catheter_utils.catheter_table import Catheter
 from itertools import chain
-
+from collections import defaultdict
 class CatheterVar_Gurobi():
     r"""
     ### Purpose:
@@ -197,7 +197,7 @@ class CatheterTableOptim_Gurobi():
         pth_logfile = Path(pth_logfile)
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         model = Model("CatheterTable_Optimization")
-        model.Params.TimeLimit = 600 # set a 10 minute time limit.
+        model.Params.TimeLimit = 100 # set a 10 minute time limit.
         # model.setParam("MIPFocus", 1) # was not helpful.
         model.setParam("PreSOS1BigM", -1)
         model.setParam("LogFile", str(pth_logfile))
@@ -271,6 +271,27 @@ class CatheterTableOptim_Gurobi():
             model=self.model,
             inplace=inplace
             )
+        if self.solution_found == "TimeOut":
+            # fix the catheter variables to the solution available and just
+            # run dwell time optimization
+            cath_bound_dict = defaultdict(Constraint_Config)
+            for var in self.model.getVars():
+                if "catheter" in var.VarName:
+                    bound_cath = Constraint_Config(
+                        constraint_type="bound",
+                        variable_type="catheter",
+                        equal=var.X,
+                        variable_name_ids=[var.VarName.split("_")[1]]
+                    )
+                    cath_bound_dict[bound_cath.name_id] = bound_cath
+            self.set_constraints(cath_bound_dict)
+            self.model, outplan, self.solution_found, self.solve_time = _get_optimized_plan_from_model(
+                plan=self.plan,
+                model=self.model,
+                inplace=inplace)
+            # remove the catheter constraints from the model for future runs.
+            remove_constraints(cath_bound_dict, self.model)
+
         return outplan
 
     def set_constraints(

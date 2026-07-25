@@ -414,7 +414,7 @@ catheter segments (mm). Measured as center of the catheter segments.")
         If cluster was not found it returns None
         """
         for cluster in self.cluster_dict.values():
-            if cluster.insert_position == insert_point:
+            if np.all(cluster.insert_position == insert_point):
                 return cluster
 
 def get_clusters_from_planes(
