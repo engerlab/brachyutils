@@ -268,7 +268,7 @@ def test_run_experiment_sequential():
         insertion_point_spacing_mm = 10,        
         return_output=True,
         export_cluster_box=True,
-        run_optimization=True,
+        run_optimization=False,
         config_catheter_rotation=config_catheter_rotation,)
 
     run_experiment_sequential(

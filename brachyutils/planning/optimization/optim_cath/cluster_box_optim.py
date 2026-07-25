@@ -586,6 +586,7 @@ def _disturbe_this_cluster(
     cluster = cluster_box.get_cluster_by_insert_point(insert_point)
     if cluster is None:
         return
+    catheter_2_turn_off = None
     for catheter in catheter_table.get_catheters_by_ids(
         cluster.catheter_name_ids):
         if catheter.channel_total_time == 0:
