@@ -562,7 +562,7 @@ def disturbe_catheter_table(
             continue
         _disturbe_this_cluster(
             prob_segment_disturbance=p,
-            insert_point=cluster.insert_position,
+            insert_position=cluster.insert_position,
             catheter_table=catheter_table,
             cluster_box=cluster_box
         )
@@ -570,7 +570,7 @@ def disturbe_catheter_table(
 
 def _disturbe_this_cluster(
     prob_segment_disturbance:float,
-    insert_point: np.typing.ArrayLike,
+    insert_position: np.typing.ArrayLike,
     catheter_table: CatheterTable,
     cluster_box:ClusterBox
     ):
@@ -583,7 +583,7 @@ def _disturbe_this_cluster(
     - exit condition: if none of the catheters in this cluster are active
     or the cluster has no children
     """
-    cluster = cluster_box.get_cluster_by_insert_point(insert_point)
+    cluster = cluster_box.get_cluster_by_insert_position(insert_position)
     if cluster is None:
         return
     catheter_2_turn_off = None
@@ -623,7 +623,7 @@ def _disturbe_this_cluster(
         cluster_box)
 
 def _deactivate_this_cluster(
-    insert_point: np.typing.ArrayLike,
+    insert_position: np.typing.ArrayLike,
     catheter_table: CatheterTable,
     cluster_box:ClusterBox
     ):
@@ -639,11 +639,11 @@ def _deactivate_this_cluster(
     that insert point, return!
     
     ### Inputs:
-    - insert_point := 3D coordinates of the insertion point
+    - insert_position := 3D coordinates of the insertion point
     - catheter_table := 
     - cluster_box :=
     """
-    cluster = cluster_box.get_cluster_by_insert_point(insert_point)
+    cluster = cluster_box.get_cluster_by_insert_position(insert_position)
     if cluster is None:
         return
     for catheter in catheter_table.get_catheters_by_ids(
@@ -652,13 +652,13 @@ def _deactivate_this_cluster(
             next_insertion_point = catheter.tip
             catheter.reset_dwelltimes_to(0.0)
     _deactivate_this_cluster(
-        insert_point=next_insertion_point,
+        insert_position=next_insertion_point,
         catheter_table=catheter_table,
         cluster_box=cluster_box
     )
 
 def _activate_this_cluster(
-    insert_point: np.typing.ArrayLike,
+    insert_position: np.typing.ArrayLike,
     catheter_table: CatheterTable,
     cluster_box:ClusterBox
     ):
@@ -672,7 +672,7 @@ def _activate_this_cluster(
     - exit condition: if cluster box did not return a cluster based on
     that insert point, return!
     """
-    cluster = cluster_box.get_cluster_by_insert_point(insert_point)
+    cluster = cluster_box.get_cluster_by_insert_position(insert_position)
     if cluster is None:
         return
     random_catheter_name_id = random.choice(

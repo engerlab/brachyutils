@@ -398,23 +398,23 @@ catheter segments (mm). Measured as center of the catheter segments.")
             point_pairs=all_segments_lines
         )
 
-    def get_cluster_by_insert_point(
+    def get_cluster_by_insert_position(
         self,
-        insert_point: np.typing.ArrayLike) -> SegmentCluster | None:
+        insert_position: np.typing.ArrayLike) -> SegmentCluster | None:
         r"""
         ### Purpose:
         - Given an insert point, it will return a cluster based on the
         insertion point of that cluster.
 
         ### Inputs:
-        - insert_point := The coordinates of the insert point. must have length of 3
+        - insert_position := The coordinates of the insert point. must have length of 3
         
         ### Outputs:
         - out_cluster: SegmentCluster
         If cluster was not found it returns None
         """
         for cluster in self.cluster_dict.values():
-            if np.all(cluster.insert_position == insert_point):
+            if np.all(cluster.insert_position == insert_position):
                 return cluster
 
 def get_clusters_from_planes(
@@ -428,9 +428,9 @@ def get_clusters_from_planes(
     for plane in plane_dict.values():
         if plane.depth == len(plane_dict) - 1:
             break 
-        all_insert_points = [p0 for p0, _ in plane.segment_lines]
-        idx = sorted(np.unique(all_insert_points, axis=0, return_index=True)[1])
-        idx = idx + [len(all_insert_points)]
+        all_insert_positions = [p0 for p0, _ in plane.segment_lines]
+        idx = sorted(np.unique(all_insert_positions, axis=0, return_index=True)[1])
+        idx = idx + [len(all_insert_positions)]
         for i, j in enumerate(idx):
             if j == idx[-1]:
                 break
