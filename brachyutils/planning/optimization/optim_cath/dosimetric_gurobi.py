@@ -271,26 +271,26 @@ class CatheterTableOptim_Gurobi():
             model=self.model,
             inplace=inplace
             )
-        if self.solution_found == "TimeOut":
-            # fix the catheter variables to the solution available and just
-            # run dwell time optimization
-            cath_bound_dict = defaultdict(Constraint_Config)
-            for var in self.model.getVars():
-                if "catheter" in var.VarName:
-                    bound_cath = Constraint_Config(
-                        constraint_type="bound",
-                        variable_type="catheter",
-                        equal=var.X,
-                        variable_name_ids=[var.VarName.split("_")[1]]
-                    )
-                    cath_bound_dict[bound_cath.name_id] = bound_cath
-            self.set_constraints(cath_bound_dict)
-            self.model, outplan, self.solution_found, self.solve_time = _get_optimized_plan_from_model(
-                plan=self.plan,
-                model=self.model,
-                inplace=inplace)
-            # remove the catheter constraints from the model for future runs.
-            remove_constraints(cath_bound_dict, self.model)
+        # if self.solution_found == "TimeOut":
+        #     # fix the catheter variables to the solution available and just
+        #     # run dwell time optimization
+        #     cath_bound_dict = defaultdict(Constraint_Config)
+        #     for var in self.model.getVars():
+        #         if "catheter" in var.VarName:
+        #             bound_cath = Constraint_Config(
+        #                 constraint_type="bound",
+        #                 variable_type="catheter",
+        #                 equal=var.X,
+        #                 variable_name_ids=[var.VarName.split("_")[1]]
+        #             )
+        #             cath_bound_dict[bound_cath.name_id] = bound_cath
+        #     self.set_constraints(cath_bound_dict)
+        #     self.model, outplan, self.solution_found, self.solve_time = _get_optimized_plan_from_model(
+        #         plan=self.plan,
+        #         model=self.model,
+        #         inplace=inplace)
+        #     # remove the catheter constraints from the model for future runs.
+        #     remove_constraints(cath_bound_dict, self.model)
 
         return outplan
 
