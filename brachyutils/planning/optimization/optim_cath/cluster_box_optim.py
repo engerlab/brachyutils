@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Dict, Literal, Annotated
+from typing import Dict, Literal, Annotated, List
 from collections import defaultdict
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
@@ -11,6 +11,7 @@ from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import Cathe
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_ClusterBox
 import random
 import numpy as np
+import pandas as pd
 
 def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     r"""
@@ -186,7 +187,8 @@ class ClusterBoxOptim:
             raise ValueError("The plan.structure_list is None or empty. Please load structures into the plan before proceeding.")
         if plan.optimization_config_dict is None or len(plan.optimization_config_dict) == 0:
             raise ValueError("The plan.optimization_config_dict is None or empty. Please load optimization configurations into the plan before proceeding.")
-
+        if plan.dvh_metric_goals is None or len(plan.dvh_metric_goals) == 0:
+            raise ValueError("The plan dvh metric goals is empty. please load the dvh metric goals.")
         return plan
 
     def get_cluster_box_from_plan(
@@ -422,7 +424,8 @@ def run_experiment_sequential(
     initial_num_physical_catheters: int = 6,
     prob_catheter_deviation: Annotated[float, "0.0 to 1.0"] = 0,
     multi_objective_optimizer: None = None,
-    dir_output: str | Path = None
+    list_hyper_parameters: List[str] = None,
+    dir_output: str | Path = None,
     ):
     r"""
     ### Purpose:
@@ -471,11 +474,17 @@ def run_experiment_sequential(
         - initial_num_physical_catheters
         - prob_catheter_deviation
         - multi_objective_optimizer
+        - range_hyper_parameters
     """
-    # Initialize the cluster box optimization object
-    # cbox_optim = ClusterBoxOptim(plan=plan, config_cluster_box=config_cluster_box)
-    c_equal_1_constraints = defaultdict(Constraint_Config)
+    all_dvh_metric_names = []
+    for structure in cbox_optim.plan.structure_list:
+        dvh_metric_names = dvh_metric_names + structure.dvh_metric_names
 
+    out_df = pd.DataFrame(columns=(
+        ["num_physical_catheters","acceptance_rate"]
+        + all_dvh_metric_names))
+
+    c_equal_1_constraints = defaultdict(Constraint_Config)
     for num_phys_catheters in range(
         initial_num_physical_catheters,
         max_num_physical_catheters+step_num_physical_catheters,
@@ -486,13 +495,16 @@ def run_experiment_sequential(
             num_physical_catheters=num_phys_catheters)
         # # Get the optimal catheters (c*)
         optimized_plan = cbox_optim.get_optimized_plan_from_model()
+        
+        # # Now disturbe the catheters
         disturbed_catheter_table = disturbe_catheter_table(
             catheter_table=optimized_plan.catheter_table,
             prob_catheter_deviation=prob_catheter_deviation,
             cluster_box=cbox_optim.cluster_box,)
 
+        # # get ready for MOO by binding the model to c*
+        # # c* has two parts those that =1 and =0.
         c_equal_0_constraints = defaultdict(Constraint_Config)
-        # debug from here
         for catheter in disturbed_catheter_table:
             if catheter.channel_total_time == 0:
                 bind_to_0 = Constraint_Config(
@@ -530,6 +542,18 @@ def run_experiment_sequential(
         cbox_optim.optimization_object.remove_constraints(
             constraint_config_dict=c_equal_0_constraints
         )
+        physical_catheters_used = _count_physical_catheters_used(
+            catheter_table=disturbed_catheter_table,
+            cluster_box=cbox_optim.cluster_box
+        )
+
+        out_df.loc[len(out_df)] = {
+        "num_physical_catheters": physical_catheters_used,
+        "acceptance_rate": 0,
+        "optimal_hyper_params": 0,
+        "observed_dvh_metrics": 0,
+        }
+
 
 def disturbe_catheter_table(
     catheter_table: CatheterTable,
@@ -556,6 +580,8 @@ def disturbe_catheter_table(
     This method recursively travels down the cluster children to activate, deactivate
     or disturbe them using catheter.digitization_points[1]
     """
+    if prob_catheter_deviation == 0:
+        return catheter_table
     # # calculate p, the probability of each segment.
     n_segs_on_chain = cluster_box.num_decision_planes-1
     p = 1 - (1 - prob_catheter_deviation)**(1/n_segs_on_chain) 
@@ -678,8 +704,6 @@ def _activate_this_cluster(
     cluster = cluster_box.get_cluster_by_insert_position(insert_position)
     if cluster is None:
         return
-    # TODO continue debug here
-    print(f"activating cluster {cluster.name_id}")
     random_catheter_name_id = random.choice(
         cluster.catheter_name_ids
     )
@@ -687,3 +711,19 @@ def _activate_this_cluster(
     catheter.reset_dwelltimes_to(1.0)
     _activate_this_cluster(catheter.digitization_points[1], catheter_table, cluster_box)
     
+def _count_physical_catheters_used(
+    catheter_table:CatheterTable,
+    cluster_box: ClusterBox,) -> int:
+    r"""
+    Counts the number of physical catheters used in the table based
+    on the clusters with depth = 0 that had an active catheter
+    """
+    catheter_count = 0
+    for cluster in cluster_box.cluster_dict.values():
+        if cluster.depth > 0:
+            continue
+        catheters = catheter_table.get_catheters_by_ids(cluster.catheter_name_ids)
+        for catheter in catheters:
+            if catheter.channel_total_time > 0:
+                catheter_count += 1
+    return catheter_count

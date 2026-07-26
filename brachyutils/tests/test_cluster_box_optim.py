@@ -79,6 +79,17 @@ def test_cluster_box_optim(
         config_catheter_rotation=config_catheter_rotation,
         box_margin_mm=5,
     )
+    dvh_metric_goals = {
+        "D90%(CTV)": target_dose,
+        "D2cc(RECTUM)": target_dose * 0.75,
+        "D10%(URETHRA)": target_dose * 1.133,
+        "D30%(URETHRA)": target_dose,
+        "CI(CTV)": 1.0,
+        "HI(CTV)": 0.5,
+        "V200%(CTV)": target_dose * 0.2,
+        "V150%(CTV)": target_dose * 0.4,
+        "V100%(CTV)": 100.0,
+    }
 
     # # build a plan without catheter table but have optimizatio constraints.
     plan = load_dicom_to_plan(
@@ -88,6 +99,7 @@ def test_cluster_box_optim(
         optimization_config_list=optimization_config_list,
         strict_name_match=False,
         prescription_dose=target_dose,
+        dvh_metric_goals = dvh_metric_goals,
         )
 
     cbox_optim = ClusterBoxOptim(
@@ -96,17 +108,6 @@ def test_cluster_box_optim(
     )
     optimized_plan = None
     if run_optimization:
-        dvh_metric_goals = {
-            "D90%(CTV)": target_dose,
-            "D2cc(RECTUM)": target_dose * 0.75,
-            "D10%(URETHRA)": target_dose * 1.133,
-            "D30%(URETHRA)": target_dose,
-            "CI(CTV)": 1.0,
-            "HI(CTV)": 0.5,
-            "V200%(CTV)": target_dose * 0.2,
-            "V150%(CTV)": target_dose * 0.4,
-            "V100%(CTV)": 100.0,
-        }
         optimized_plan = cbox_optim.get_optimized_plan_from_model()
         optimized_plan.set_dvh_metric_goals(
             dvh_metric_goals=dvh_metric_goals,
@@ -256,7 +257,7 @@ def test_run_experiment_sequential():
     max_num_physical_catheters = 5
     step_num_physical_catheters = 1
     initial_num_physical_catheters = 2
-    prob_catheter_deviation = 0.2
+    prob_catheter_deviation = 0 # 0.2
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=0,
         x_angle_step=0,
@@ -283,7 +284,7 @@ def test_run_experiment_sequential():
 def test_disturbe_catheter_table():
     outdir = Path("data_test/test_export_plan/prostate/disturb_catheters")
     initial_num_physical_catheters = 2
-    prob_catheter_deviation = 0.8
+    prob_catheter_deviation = 0.2
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=0,
         x_angle_step=0,
@@ -361,5 +362,5 @@ if __name__ == "__main__":
     # test_constraint_collision()
     # test_constraint_continuity()
     # test_modify_constraint()
-    # test_run_experiment_sequential()
-    test_disturbe_catheter_table()
+    test_run_experiment_sequential()
+    # test_disturbe_catheter_table()
