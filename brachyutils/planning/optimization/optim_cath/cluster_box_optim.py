@@ -490,7 +490,7 @@ def run_experiment_sequential(
             catheter_table=optimized_plan.catheter_table,
             prob_catheter_deviation=prob_catheter_deviation,
             cluster_box=cbox_optim.cluster_box,)
-        
+
         c_equal_0_constraints = defaultdict(Constraint_Config)
         # debug from here
         for catheter in disturbed_catheter_table:
@@ -507,7 +507,7 @@ def run_experiment_sequential(
                 bind_to_1 = Constraint_Config(
                     constraint_type="bound",
                     variable_type="catheter",
-                    equal=0,
+                    equal=1,
                     variable_name_ids=[catheter.name_id],
                 )
                 c_equal_1_constraints[
@@ -651,8 +651,8 @@ def _deactivate_this_cluster(
         return
     for catheter in catheter_table.get_catheters_by_ids(
         cluster.catheter_name_ids):
+        next_insertion_point = catheter.digitization_points[1]
         if catheter.channel_total_time != 0:
-            next_insertion_point = catheter.digitization_points[1]
             catheter.reset_dwelltimes_to(0.0)
     _deactivate_this_cluster(
         insert_position=next_insertion_point,
