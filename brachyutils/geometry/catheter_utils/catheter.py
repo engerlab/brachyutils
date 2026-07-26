@@ -103,7 +103,7 @@ class Catheter(BaseModel):
         ### Purpose:
         - The digitization point that is furthest away from the tip.
         """
-        return self.digitization_points[0]
+        return self.digitization_points[1]
 
     def model_post_init(self, __context):
         r"""

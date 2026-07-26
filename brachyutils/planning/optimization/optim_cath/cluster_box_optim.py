@@ -675,6 +675,7 @@ def _activate_this_cluster(
     cluster = cluster_box.get_cluster_by_insert_position(insert_position)
     if cluster is None:
         return
+    print(f"activating cluster {cluster.name_id}")
     random_catheter_name_id = random.choice(
         cluster.catheter_name_ids
     )
