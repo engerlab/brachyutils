@@ -249,3 +249,17 @@ class Optimization_Config(BaseModel):
             assert self.penalty_weight_variance_time == 0, "only target structure can have penalty_weight_variance_time"
             assert self.penalty_weight_uniformity == 0, "only target structure can have penalty_weight_uniformity"
         return self
+
+    def to_dict(self)->dict:
+        return {
+            "structure_name": self.structure_name,
+            "is_target": self.is_target,
+            "spacing_mm": self.spacing_mm,
+            "dose_voxel_goal": self.dose_voxel_goal,
+            "penalty_weight_linear": self.penalty_weight_linear,
+            "penalty_weight_quadratic": self.penalty_weight_quadratic,
+            "penalty_weight_hotspot": self.penalty_weight_hotspot,
+            "hotspot_threshold": self.hotspot_threshold,
+            "penalty_weight_uniformity": self.penalty_weight_uniformity,
+            "penalty_weight_variance_time": self.penalty_weight_variance_time,
+        }
