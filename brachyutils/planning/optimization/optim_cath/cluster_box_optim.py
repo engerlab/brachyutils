@@ -552,6 +552,9 @@ def disturbe_catheter_table(
     depth is disturbed, all its children are set to zero and random children for 
     neighboring segment are chosen. Accordingly, p often being much
     smaller than `prob_catheter_deviation` reflects this depth dependent impact.
+    
+    This method recursively travels down the cluster children to activate, deactivate
+    or disturbe them using catheter.digitization_points[1]
     """
     # # calculate p, the probability of each segment.
     n_segs_on_chain = cluster_box.num_decision_planes-1
@@ -597,14 +600,14 @@ def _disturbe_this_cluster(
                 catheter_2_turn_off = catheter.name_id
                 catheter.reset_dwelltimes_to(0.0)
                 _deactivate_this_cluster(
-                    catheter.tip_position,
+                    catheter.digitization_points[1],
                     catheter_table,
                     cluster_box)
             else:
                 # run the same process on the child cluster (recussion alert)
                 _disturbe_this_cluster(
                     prob_segment_disturbance,
-                    catheter.tip_position,
+                    catheter.digitization_points[1],
                     catheter_table,
                     cluster_box
                 )
@@ -618,7 +621,7 @@ def _disturbe_this_cluster(
     catheter = catheter_table.get_catheters_by_ids([random_neighbour_id]).pop()
     catheter.reset_dwelltimes_to(1)
     _activate_this_cluster(
-        catheter.tip_position,
+        catheter.digitization_points[1],
         catheter_table,
         cluster_box)
 
@@ -649,7 +652,7 @@ def _deactivate_this_cluster(
     for catheter in catheter_table.get_catheters_by_ids(
         cluster.catheter_name_ids):
         if catheter.channel_total_time != 0:
-            next_insertion_point = catheter.tip
+            next_insertion_point = catheter.digitization_points[1]
             catheter.reset_dwelltimes_to(0.0)
     _deactivate_this_cluster(
         insert_position=next_insertion_point,
@@ -682,5 +685,5 @@ def _activate_this_cluster(
     )
     catheter = catheter_table.get_catheters_by_ids([random_catheter_name_id]).pop()
     catheter.reset_dwelltimes_to(1.0)
-    _activate_this_cluster(catheter.tip_position, catheter_table, cluster_box)
+    _activate_this_cluster(catheter.digitization_points[1], catheter_table, cluster_box)
     
