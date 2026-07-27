@@ -461,11 +461,12 @@ def run_experiment_sequential(
  
     ### Outputs:
     The following infomration written to `dir_output`:
-    - `out_csv`:
+    - `out_csv`:= A dataframe with containing the info of each number of catheters and
+    multiple coloumns with the following information.
         - `num_physical_catheters` per iteration
         - `acceptance_rate` per iteration
-        - `optimal_hyper_params` per iteration
-        - `observed_dvh_metrics` per iteration
+        - optimal_hyper_params from MOO per iteration.
+        - observed_dvh_metrics from BrachyPlan per iteration.
     - `physical_catheter_table` per iteration as both json and ply
     - `constraint_dict` per iteration
     - `expriment_info`:
