@@ -449,6 +449,7 @@ problem is not solvable. if you figure it out, big ups!")
             out_ply_dir=out_dir)
         self.cluster_box.catheter_table.write_to_json(
             pth_json=out_dir/"catheter_table.json")
+        # TODO write get_physical_catheter_table() instead or as well.
         self.plan.catheter_table.combined_dose.write_brachydose_to_file(
             pth_dose_file=out_dir/"combined.seq.nrrd"
         )
