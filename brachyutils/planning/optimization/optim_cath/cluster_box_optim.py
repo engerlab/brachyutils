@@ -467,7 +467,6 @@ problem is not solvable. if you figure it out, big ups!")
                 self.plan.catheter_table.all_dwells,
                 saved_dwelltimes):
                 dwell.time = time        
-        
 
 def run_experiment_sequential(
     # plan: BrachyPlan,
