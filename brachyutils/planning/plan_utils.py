@@ -491,7 +491,7 @@ class BrachyPlan:
                     dvh_metric_goals = json.load(json_file)
             dvh_metric_names = list(dvh_metric_goals.keys())
 
-        self.dvh_metric_goals = defaultdict(dict)
+        self.dvh_metric_goals = {}
         # let's match the structure names in the DVH with the structure names
         # in the BrachyPlan.
         for brachy_structure in self.structure_list:
@@ -509,6 +509,8 @@ class BrachyPlan:
                         structure_dvh_metrics_names.append(dvh_name)
                     else:
                         continue
+            if len(structure_dvh_metrics_names) == 0:
+                continue
             self.dvh_metric_goals[brachy_structure.name] = {
                 "dvh_metric_names": structure_dvh_metrics_names
             }
@@ -516,14 +518,10 @@ class BrachyPlan:
                 self.dvh_metric_goals.get(brachy_structure.name).get("dvh_metric_names")
             )
             if dvh_metric_goals is not None:
-                self.dvh_metric_goals[brachy_structure.name] = {
-                        "dvh_metric_goals": {}}
+                structure_dvh_metric_goals = {}
                 for dvh_name in structure_dvh_metrics_names:
-                    self.dvh_metric_goals[brachy_structure.name] = {
-                        "dvh_metric_goals": {
-                            dvh_name: dvh_metric_goals[dvh_name]
-                        }
-                    }
+                    structure_dvh_metric_goals[dvh_name] = dvh_metric_goals[dvh_name]
+                self.dvh_metric_goals[brachy_structure.name]["dvh_metric_goals"] = structure_dvh_metric_goals 
                 brachy_structure.set_dvh_metric_goals(
                     self.dvh_metric_goals.get(brachy_structure.name).get("dvh_metric_goals")
                 )
