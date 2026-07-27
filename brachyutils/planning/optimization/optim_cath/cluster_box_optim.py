@@ -134,6 +134,41 @@ def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
         "collision": collision_constraints
     }
 
+def get_angle_constraints(
+    cluster_box: ClusterBox,
+    x_angle: float = None,
+    y_angle: float = None,
+    ):
+    r"""
+    ### Purpose:
+    - To generate constraints that tells the model to chose catheters with a user-defined
+    angle only. For example, among all the catheters in a cluster only pick the ones that
+    are straight (x_angle = 0, y_angle = 0) or not. Note that this is not an equality constraint,
+    but a maximum constraint so that the catheter variable may be zero.
+    
+    ### Inputs:
+    - cluster_box := The catheter cluster box object containing all the angle information.
+    - x_angle := Describes the rotation anlge arround the y axis.
+    - y_angle := Describes the rotation anlge arround the x axis.
+    
+    """
+    angle_constraint_dict = defaultdict(Constraint_Config)
+    for segment in cluster_box.all_segments_list:
+        pick_this_segment = False
+        if x_angle is not None:
+            if np.isclose(segment.angle, x_angle, atol=0.01):
+                pick_this_segment = True
+        if y_angle is not None:
+            if np.isclose(segment.angle, y_angle, atol=0.01):
+                pick_this_segment = True
+        if pick_this_segment:
+            bind_angle = Constraint_Config(
+                constraint_type="bound",
+                variable_type="catheter",
+                variable_name_ids=[segment.catheter_name_id],
+                maximum=1,)
+            angle_constraint_dict[bind_angle.name_id] = bind_angle
+
 class ClusterBoxOptim:
     r"""
     ### Purpose:
@@ -423,6 +458,7 @@ def run_experiment_sequential(
     step_num_physical_catheters: int = 3,
     initial_num_physical_catheters: int = 6,
     prob_catheter_deviation: Annotated[float, "0.0 to 1.0"] = 0,
+    prepandicular_catheters:bool = False,
     multi_objective_optimizer: None = None,
     list_hyper_parameters: List[str] = None,
     dir_output: str | Path = None,
@@ -454,6 +490,9 @@ def run_experiment_sequential(
     of cathetes. prob_catheter_deviation:= After each optimization step, we can disturb
     the unconstrained catheters with a certain probability to assess the robustness 
     of the pipeline to catheter deviation.
+    - `prepandicular_catheters` := If true, an additional constraint is added per segment
+    cluster that tells the model to pick only the straight catheters or not. Note that
+    during robustness analysis, the disturbance may deviate from prepandicular path.
     - `multi_objective_optimizer`:= The multi objective optimization class that'll
     give us an acceptance rate, the observed dvh metrics and their penalty weights
     as well as the timing data. 
@@ -499,9 +538,18 @@ def run_experiment_sequential(
         # # First set the new number of physical catheters 
         cbox_optim.update_num_physical_catheters(
             num_physical_catheters=num_phys_catheters)
-        # # Get the optimal catheters (c*)
-        optimized_plan = cbox_optim.get_optimized_plan_from_model()
         
+        # # add straight catheter constraint if needed
+        prepandicular_constraints = get_angle_constraints(
+            cluster_box=cbox_optim.cluster_box,
+            x_angle=0,
+            y_angle=0,)
+        cbox_optim.optimization_object.set_constraints(prepandicular_constraints)
+        # # Get the optimal catheters (c*)
+        optimized_plan = cbox_optim.get_optimized_plan_from_model() 
+        # # Free the model for future constraints
+        cbox_optim.optimization_object.remove_constraints(prepandicular_constraints)
+
         # # Now disturbe the catheters
         disturbed_catheter_table = disturbe_catheter_table(
             catheter_table=optimized_plan.catheter_table,
@@ -714,7 +762,7 @@ def _activate_this_cluster(
     catheter = catheter_table.get_catheters_by_ids([random_catheter_name_id]).pop()
     catheter.reset_dwelltimes_to(1.0)
     _activate_this_cluster(catheter.digitization_points[1], catheter_table, cluster_box)
-    
+
 def _count_physical_catheters_used(
     catheter_table:CatheterTable,
     cluster_box: ClusterBox,) -> int:
