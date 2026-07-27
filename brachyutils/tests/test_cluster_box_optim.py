@@ -269,7 +269,6 @@ def test_run_experiment_sequential():
     cbox_optim, optimized_plan = test_cluster_box_optim(
         num_decision_planes=3,
         num_physical_catheters = initial_num_physical_catheters,
-        # insertion_point_spacing_mm = 10,
         insertion_point_spacing_mm = 10,        
         return_output=True,
         export_cluster_box=True,
