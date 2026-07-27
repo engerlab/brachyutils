@@ -156,10 +156,10 @@ def get_angle_constraints(
     for segment in cluster_box.all_segments_list:
         pick_this_segment = False
         if x_angle is not None:
-            if np.isclose(segment.angle, x_angle, atol=0.01):
+            if np.isclose(segment.x_angle, x_angle, atol=0.01):
                 pick_this_segment = True
         if y_angle is not None:
-            if np.isclose(segment.angle, y_angle, atol=0.01):
+            if np.isclose(segment.y_angle, y_angle, atol=0.01):
                 pick_this_segment = True
         if pick_this_segment:
             bind_angle = Constraint_Config(
@@ -538,7 +538,7 @@ def run_experiment_sequential(
         # # First set the new number of physical catheters 
         cbox_optim.update_num_physical_catheters(
             num_physical_catheters=num_phys_catheters)
-        
+
         # # add straight catheter constraint if needed
         prepandicular_constraints = get_angle_constraints(
             cluster_box=cbox_optim.cluster_box,

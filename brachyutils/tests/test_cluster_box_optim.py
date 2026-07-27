@@ -258,11 +258,12 @@ def test_run_experiment_sequential():
     step_num_physical_catheters = 1
     initial_num_physical_catheters = 2
     prob_catheter_deviation = 0 # 0.2
+    prepandicular_catheters = True
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=0,
         x_angle_step=0,
         y_angle_max=4,
-        y_angle_step=8,
+        y_angle_step=4,
     )
     cbox_optim, optimized_plan = test_cluster_box_optim(
         num_decision_planes=3,
@@ -279,7 +280,8 @@ def test_run_experiment_sequential():
         max_num_physical_catheters = max_num_physical_catheters,
         step_num_physical_catheters = step_num_physical_catheters,
         initial_num_physical_catheters = initial_num_physical_catheters,
-        prob_catheter_deviation = prob_catheter_deviation,)
+        prob_catheter_deviation = prob_catheter_deviation,
+        prepandicular_catheters=prepandicular_catheters,)
 
 def test_disturbe_catheter_table():
     outdir = Path("data_test/test_export_plan/prostate/disturb_catheters")
@@ -360,5 +362,5 @@ if __name__ == "__main__":
     # test_constraint_collision()
     # test_constraint_continuity()
     # test_modify_constraint()
-    # test_run_experiment_sequential()
-    test_disturbe_catheter_table()
+    test_run_experiment_sequential()
+    # test_disturbe_catheter_table()
