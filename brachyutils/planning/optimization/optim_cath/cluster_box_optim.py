@@ -477,12 +477,17 @@ def run_experiment_sequential(
         - range_hyper_parameters
     """
     all_dvh_metric_names = []
-    for structure in cbox_optim.plan.structure_list:
-        dvh_metric_names = dvh_metric_names + structure.dvh_metric_names
+    for structure in cbox_optim.plan.dvh_metric_goals:
+        all_dvh_metric_names = all_dvh_metric_names + (
+            cbox_optim.plan.dvh_metric_goals.get(
+                structure).get("dvh_metric_names")
+        )
 
     out_df = pd.DataFrame(columns=(
         ["num_physical_catheters","acceptance_rate"]
-        + all_dvh_metric_names))
+        + all_dvh_metric_names)
+        # + all_hyper_parameter_names TO Be Added Next Week!
+        )
 
     c_equal_1_constraints = defaultdict(Constraint_Config)
     for num_phys_catheters in range(
@@ -550,9 +555,7 @@ def run_experiment_sequential(
         out_df.loc[len(out_df)] = {
         "num_physical_catheters": physical_catheters_used,
         "acceptance_rate": 0,
-        "optimal_hyper_params": 0,
-        "observed_dvh_metrics": 0,
-        }
+        } | cbox_optim.plan.get_dvh_metrics()
 
 
 def disturbe_catheter_table(

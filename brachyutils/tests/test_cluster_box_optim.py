@@ -80,14 +80,14 @@ def test_cluster_box_optim(
         box_margin_mm=5,
     )
     dvh_metric_goals = {
-        "D90%(CTV)": target_dose,
-        "D2cc(RECTUM)": target_dose * 0.75,
-        "D10%(URETHRA)": target_dose * 1.133,
-        "D30%(URETHRA)": target_dose,
+        "D90%(CTV)": 100.0,
+        "D2cc(RECTUM)": 100.0 * 0.75,
+        "D10%(URETHRA)": 100.0 * 1.133,
+        "D30%(URETHRA)": 100.0,
         "CI(CTV)": 1.0,
         "HI(CTV)": 0.5,
-        "V200%(CTV)": target_dose * 0.2,
-        "V150%(CTV)": target_dose * 0.4,
+        "V200%(CTV)": 100.0 * 0.2,
+        "V150%(CTV)": 100.0 * 0.4,
         "V100%(CTV)": 100.0,
     }
 
