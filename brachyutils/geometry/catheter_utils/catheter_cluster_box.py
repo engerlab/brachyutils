@@ -11,7 +11,8 @@ from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
     generate_candidate_segments,
     decision_planes_to_ply,
     segment_lines_to_ply,
-    TupleKeyDict, find_colliding_pairs
+    TupleKeyDict, find_colliding_pairs,
+    get_angles
     )
 
 class Segment(BaseModel):
@@ -34,7 +35,10 @@ class Segment(BaseModel):
 segment in patients coordinates.")
     # these attributes will be set and used later when interacting with the optimization model.
     catheter_name_id:int = None
-    # dwell_index_list:List[int] = None
+    x_angle: float = Field(None, description="Angle of this segment rotating around Y axis\
+with respect to the normal of its decision plane.")
+    y_angle: float = Field(None, description="Angle of this segment rotating around X axis\
+    with respect to the normal of its decision plane.")
     def model_post_init(self, __context):
         if len(self.line) != 2:
             raise ValueError(f"Line attribute must have a start and endpoint \
@@ -446,10 +450,13 @@ def get_clusters_from_planes(
             if len(segments_in_a_cluster) == 0:
                 continue
             for k, line in enumerate(segments_in_a_cluster):
+                angles = get_angles(line, plane.normal)
                 segment_dict[k] = Segment(
                     cluster_name_id=cluster.name_id,
                     index=k,
-                    line=line
+                    line=line,
+                    x_angle=angles[0],
+                    y_angle=angles[1],
                     )
             cluster.segment_dict = segment_dict
             cluster_dict[cluster.name_id] = cluster

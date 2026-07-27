@@ -749,3 +749,47 @@ def find_colliding_pairs(starts, ends, danger_mm, chunk_size=5000):
     
     return (np.column_stack([np.concatenate(out_i), np.concatenate(out_j)]),
             np.concatenate(out_d), np.concatenate(out_pa), np.concatenate(out_pb))
+
+def get_angles(
+    line: np.typing.ArrayLike,
+    plane_normal: np.typing.ArrayLike
+):
+    r"""
+    ### Purpose:
+    - To get the rotation angles of a line based on the plane normal.
+
+    ### Inputs:
+    - `line` := 2 points each with a coordinate in 3D
+    - `plane_normal` := a 3D vector.
+
+    ### Outputs:
+    - `angles` := A pair of angles in degrees, each in range [-180, 180].
+      The first is the rotation around the y axis (x_angle),
+      and the second is the rotation around the x axis (y_angle).
+    """
+    line = np.asarray(line, dtype=float)
+    n = np.asarray(plane_normal, dtype=float)
+    n = n / np.linalg.norm(n)
+
+    d = line[1] - line[0]
+    d = d / np.linalg.norm(d)
+
+    # pick a reference vector not parallel to n, to build a stable in-plane frame
+    ref = np.array([0.0, 0.0, 1.0])
+    if np.allclose(np.abs(np.dot(n, ref)), 1.0):
+        ref = np.array([0.0, 1.0, 0.0])
+
+    x_axis = np.cross(ref, n)
+    x_axis = x_axis / np.linalg.norm(x_axis)
+
+    y_axis = np.cross(n, x_axis)
+    y_axis = y_axis / np.linalg.norm(y_axis)
+
+    dx = np.dot(d, x_axis)
+    dy = np.dot(d, y_axis)
+    dz = np.dot(d, n)
+
+    x_angle = np.degrees(np.arctan2(dx, dz))  # rotation around local y axis, range [-180, 180]
+    y_angle = np.degrees(np.arctan2(dy, dz))  # rotation around local x axis, range [-180, 180]
+
+    return np.array([x_angle, y_angle])
