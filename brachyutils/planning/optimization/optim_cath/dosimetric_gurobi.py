@@ -197,7 +197,7 @@ class CatheterTableOptim_Gurobi():
         pth_logfile = Path(pth_logfile)
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         model = Model("CatheterTable_Optimization")
-        model.Params.TimeLimit = 100 # set a 10 minute time limit.
+        model.Params.TimeLimit = 180 # set a 10 minute time limit.
         # model.setParam("MIPFocus", 1) # was not helpful.
         model.setParam("PreSOS1BigM", -1)
         model.setParam("LogFile", str(pth_logfile))

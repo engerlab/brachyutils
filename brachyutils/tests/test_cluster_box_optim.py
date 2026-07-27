@@ -254,9 +254,10 @@ def test_modify_constraint():
         )
 
 def test_run_experiment_sequential():
-    max_num_physical_catheters = 5
-    step_num_physical_catheters = 1
-    initial_num_physical_catheters = 2
+    outdir=Path("data_test/test_export_plan/prostate/clusterbox_optim")
+    max_num_physical_catheters = 12
+    step_num_physical_catheters = 2
+    initial_num_physical_catheters = 6
     prob_catheter_deviation = 0 # 0.2
     prepandicular_catheters = True
     config_catheter_rotation = Config_Catheter_Rotation(
@@ -281,7 +282,8 @@ def test_run_experiment_sequential():
         step_num_physical_catheters = step_num_physical_catheters,
         initial_num_physical_catheters = initial_num_physical_catheters,
         prob_catheter_deviation = prob_catheter_deviation,
-        prepandicular_catheters=prepandicular_catheters,)
+        prepandicular_catheters=prepandicular_catheters,
+        dir_output=outdir)
 
 def test_disturbe_catheter_table():
     outdir = Path("data_test/test_export_plan/prostate/disturb_catheters")

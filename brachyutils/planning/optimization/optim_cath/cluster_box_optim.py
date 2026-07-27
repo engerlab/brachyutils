@@ -395,15 +395,24 @@ problem is not solvable. if you figure it out, big ups!")
             # )
         return outplan
 
-    def update_num_physical_catheters(self, num_physical_catheters:int):
+    def update_num_physical_catheters(
+        self,
+        num_physical_catheters:int|List[int]):
         r"""
         ### Purpose:
         - To update the number of physical catheters for the cluster box and the
         related constraint.
         """
         self.cluster_box.num_physical_catheters = num_physical_catheters
-        self.geometric_constraint_dict.get(
-            "num_catheters").get("num_catheters").maximum = self.cluster_box.num_physical_catheters
+        if isinstance(num_physical_catheters, int):
+            self.geometric_constraint_dict.get(
+                "num_catheters").get("num_catheters").equal = self.cluster_box.num_physical_catheters
+        else:
+            self.geometric_constraint_dict.get(
+                "num_catheters").get("num_catheters").minimum = self.cluster_box.num_physical_catheters[0]
+            self.geometric_constraint_dict.get(
+                "num_catheters").get("num_catheters").maximum = self.cluster_box.num_physical_catheters[1]
+
         self.set_geometric_constraints(
             cluster_box=self.cluster_box,
             optim_obj=self.optimization_object,
@@ -612,7 +621,8 @@ def run_experiment_sequential(
         "num_physical_catheters": physical_catheters_used,
         "acceptance_rate": 0,
         } | cbox_optim.plan.get_dvh_metrics()
-
+        out_df.to_csv(dir_output/f"num_catheters_{physical_catheters_used}.csv")
+        print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
 
 def disturbe_catheter_table(
     catheter_table: CatheterTable,
