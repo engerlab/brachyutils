@@ -469,12 +469,10 @@ problem is not solvable. if you figure it out, big ups!")
                 dwell.time = time        
 
 def run_experiment_sequential(
-    # plan: BrachyPlan,
-    # config_cluster_box: Config_ClusterBox,
     cbox_optim:ClusterBoxOptim,
-    max_num_physical_catheters: int = 21,
-    step_num_physical_catheters: int = 3,
-    initial_num_physical_catheters: int = 6,
+    max_num_physical_catheters: int,
+    step_num_physical_catheters: int,
+    initial_num_physical_catheters: int,
     prob_catheter_deviation: Annotated[float, "0.0 to 1.0"] = 0,
     prepandicular_catheters:bool = False,
     multi_objective_optimizer: None = None,
@@ -496,16 +494,13 @@ def run_experiment_sequential(
         repeat Step 2.
 
     ### Inputs:
-    - plan := The brachyplan object with loaded `phantom`, `prescription_dose`,
-    `structure_list`, and `optimization_config_dict`. Note that the `catheter_table`
-    of this plan should be None.
-    - `config_cluster_box` := The config object for the cluster box generation. see
-    Config_ClusterBox class for details.
+    - `cbox_optim` := A cluster box optimization objec that is already initialized. 
     - `max_num_physical_catheters`:= The maximum number of physical catheters to be inseretd.
     - `step_num_physical_catheters`:= At each iteration, we add a few more catheters to see
     their impact on acceptance rate.
     - `initial_num_physical_catheters`:= The initial optimization with have a bulk number
-    of cathetes. prob_catheter_deviation:= After each optimization step, we can disturb
+    of cathetes. 
+    - `prob_catheter_deviation`:= After each optimization step, we can disturb
     the unconstrained catheters with a certain probability to assess the robustness 
     of the pipeline to catheter deviation.
     - `prepandicular_catheters` := If true, an additional constraint is added per segment
@@ -524,7 +519,9 @@ def run_experiment_sequential(
         - `acceptance_rate` per iteration
         - optimal_hyper_params from MOO per iteration.
         - observed_dvh_metrics from BrachyPlan per iteration.
-    - `physical_catheter_table` per iteration as both json and ply
+    - `cbox_optim` post optimization is exported to 
+    `dir_output`/f"cbox_{num_physical_catheters}_catheters". For the export content see 
+    `ClusterBoxOptim.export_to()`
     - `constraint_dict` per iteration
     - `expriment_info`:
         - max_num_physical_catheters
@@ -534,6 +531,15 @@ def run_experiment_sequential(
         - multi_objective_optimizer
         - range_hyper_parameters
     """
+    experiment_info_df = pd.DataFrame(
+        columns=([
+            "max_num_physical_catheters",
+            "step_num_physical_catheters",
+            "initial_num_physical_catheters",
+            "prob_catheter_deviation",])
+        # + ["multi_objective_optimizer", range_hyper_parameters] TODO figure out after MOO
+    )
+    
     all_dvh_metric_names = []
     for structure in cbox_optim.plan.dvh_metric_goals:
         all_dvh_metric_names = all_dvh_metric_names + (
@@ -629,8 +635,8 @@ def run_experiment_sequential(
         if dir_output is not None:
             out_df.to_csv(dir_output/f"results.csv")
             print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
-            cbox_optim.export_to(out_dir=dir_output)
-            
+            cbox_optim.export_to(out_dir=dir_output/f"cbox_{physical_catheters_used}_catheters")
+
 def disturbe_catheter_table(
     catheter_table: CatheterTable,
     prob_catheter_deviation: float,
@@ -719,7 +725,11 @@ def _disturbe_this_cluster(
     # and activate it!
     copied_list = deepcopy(cluster.catheter_name_ids)
     copied_list.remove(catheter_2_turn_off)
-    random_neighbour_id = random.choice(copied_list)
+    if len(copied_list) == 0:
+        # if there are no other candidates available, just keep this one.
+        random_neighbour_id = catheter_2_turn_off
+    else:
+        random_neighbour_id = random.choice(copied_list)
     catheter = catheter_table.get_catheters_by_ids([random_neighbour_id]).pop()
     catheter.reset_dwelltimes_to(1)
     _activate_this_cluster(
