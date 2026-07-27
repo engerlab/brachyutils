@@ -431,6 +431,7 @@ problem is not solvable. if you figure it out, big ups!")
     def export_to(
         self,
         out_dir: str | Path,
+        export_combined_dose_rate:bool = False,
         dose_normalization_constant:float = 1):
         r"""
         ### Purpose:
@@ -440,7 +441,8 @@ problem is not solvable. if you figure it out, big ups!")
 
         ### Inputs:
         - out_dir:= directory where self will be exported.
-        - dose_normalization_constant:= the combined dose rate map is normalized by this value.
+        - export_combined_dose_rate := If ture, it'll write out the combined dose rate. 
+        - dose_normalization_constant := the combined dose rate map is normalized by this value.
         """
         out_dir = Path(out_dir)
         self.cluster_box.to_ply(
@@ -452,18 +454,19 @@ problem is not solvable. if you figure it out, big ups!")
         )
         self.original_phantom.export_to(dir_nrrd_out=out_dir)
 
-        saved_dwelltimes = [deepcopy(dwell.time) for dwell in self.plan.catheter_table.all_dwells]
+        if export_combined_dose_rate:
+            saved_dwelltimes = [deepcopy(dwell.time) for dwell in self.plan.catheter_table.all_dwells]
         # # export the normalized combined dose rate
-        self.plan.catheter_table.reset_dwelltimes_to(reset_value=1)
-        combined_dose_rate = self.plan.combined_dose
-        combined_dose_rate.dose_image.imageArray = (
-            combined_dose_rate.dose_image.imageArray / dose_normalization_constant)
-        combined_dose_rate.write_brachydose_to_file(
-            pth_dose_file=out_dir/"combined_dose_rate.seq.nrrd")
-        for dwell, time in zip(
-            self.plan.catheter_table.all_dwells,
-            saved_dwelltimes):
-            dwell.time = time        
+            self.plan.catheter_table.reset_dwelltimes_to(reset_value=1)
+            combined_dose_rate = self.plan.combined_dose
+            combined_dose_rate.dose_image.imageArray = (
+                combined_dose_rate.dose_image.imageArray / dose_normalization_constant)
+            combined_dose_rate.write_brachydose_to_file(
+                pth_dose_file=out_dir/"combined_dose_rate.seq.nrrd")
+            for dwell, time in zip(
+                self.plan.catheter_table.all_dwells,
+                saved_dwelltimes):
+                dwell.time = time        
         
 
 def run_experiment_sequential(
@@ -516,8 +519,8 @@ def run_experiment_sequential(
  
     ### Outputs:
     The following infomration written to `dir_output`:
-    - `out_csv`:= A dataframe with containing the info of each number of catheters and
-    multiple coloumns with the following information.
+    - `out_df`:= A dataframe with containing the info of each number of catheters and
+    multiple coloumns with the following information written to dir_output/"results.csv"
         - `num_physical_catheters` per iteration
         - `acceptance_rate` per iteration
         - optimal_hyper_params from MOO per iteration.
@@ -556,15 +559,18 @@ def run_experiment_sequential(
             num_physical_catheters=num_phys_catheters)
 
         # # add straight catheter constraint if needed
-        prepandicular_constraints = get_angle_constraints(
-            cluster_box=cbox_optim.cluster_box,
-            x_angle=0,
-            y_angle=0,)
-        cbox_optim.optimization_object.set_constraints(prepandicular_constraints)
+        if prepandicular_catheters:
+            prepandicular_constraints = get_angle_constraints(
+                cluster_box=cbox_optim.cluster_box,
+                x_angle=0,
+                y_angle=0,)
+            cbox_optim.optimization_object.set_constraints(prepandicular_constraints)
         # # Get the optimal catheters (c*)
         optimized_plan = cbox_optim.get_optimized_plan_from_model() 
-        # # Free the model for future constraints
-        cbox_optim.optimization_object.remove_constraints(prepandicular_constraints)
+
+        if prepandicular_catheters:
+            # # Free the model for future constraints
+            cbox_optim.optimization_object.remove_constraints(prepandicular_constraints)
 
         # # Now disturbe the catheters
         disturbed_catheter_table = disturbe_catheter_table(
@@ -621,9 +627,11 @@ def run_experiment_sequential(
         "num_physical_catheters": physical_catheters_used,
         "acceptance_rate": 0,
         } | cbox_optim.plan.get_dvh_metrics()
-        out_df.to_csv(dir_output/f"num_catheters_{physical_catheters_used}.csv")
-        print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
-
+        if dir_output is not None:
+            out_df.to_csv(dir_output/f"results.csv")
+            print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
+            cbox_optim.export_to(out_dir=dir_output)
+            
 def disturbe_catheter_table(
     catheter_table: CatheterTable,
     prob_catheter_deviation: float,
