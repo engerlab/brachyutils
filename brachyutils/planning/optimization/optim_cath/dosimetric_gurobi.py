@@ -703,7 +703,6 @@ Ensure the constraint name is correct.")
             sum(variables) == constraint.equal,
             name=constraint.name_id
         )
-    # model.update()
 
 def _set_uniqueness_constraint(
     constraint: Constraint_Config,
@@ -726,7 +725,6 @@ Ensure the constraint name is correct.")
         sum(variables) <= constraint.maximum,
         name=constraint.name_id
     )
-    # model.update()
 
 def _set_num_catheters_constraint(
     constraint: Constraint_Config,
@@ -755,7 +753,6 @@ Ensure the constraint name is correct.")
             constraint.maximum,
             name=constraint.name_id
         )
-    # model.update()
 
 def _set_continuity_constraint(
     constraint: Constraint_Config,
@@ -793,7 +790,6 @@ Ensure the constraint name is correct.")
             e_vec[i] * sum_parents == constraint.equal * var_vec[i],
             name=constraint.name_id,
         )
-    # model.update()
 
 def _set_collision_constraint(
     constraint: Constraint_Config,
@@ -814,4 +810,3 @@ Ensure the constraint name is correct.")
         sum(variables) <= constraint.equal,
         name=constraint.name_id
     )
-    # model.update()
