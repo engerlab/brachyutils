@@ -512,16 +512,20 @@ class BrachyPlan:
             if len(structure_dvh_metrics_names) == 0:
                 continue
             self.dvh_metric_goals[brachy_structure.name] = {
-                "dvh_metric_names": structure_dvh_metrics_names
-            }
+                "dvh_metric_names": structure_dvh_metrics_names}
             brachy_structure.set_dvh_metric_names(
-                self.dvh_metric_goals.get(brachy_structure.name).get("dvh_metric_names")
+                self.dvh_metric_goals.get(
+                    brachy_structure.name).get(
+                        "dvh_metric_names")
             )
             if dvh_metric_goals is not None:
                 structure_dvh_metric_goals = {}
                 for dvh_name in structure_dvh_metrics_names:
-                    structure_dvh_metric_goals[dvh_name] = dvh_metric_goals[dvh_name]
-                self.dvh_metric_goals[brachy_structure.name]["dvh_metric_goals"] = structure_dvh_metric_goals 
+                    structure_dvh_metric_goals[
+                        dvh_name] = dvh_metric_goals[dvh_name]
+                self.dvh_metric_goals[
+                    brachy_structure.name][
+                        "dvh_metric_goals"] = structure_dvh_metric_goals 
                 brachy_structure.set_dvh_metric_goals(
                     self.dvh_metric_goals.get(brachy_structure.name).get("dvh_metric_goals")
                 )
