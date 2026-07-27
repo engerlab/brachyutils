@@ -155,12 +155,18 @@ def get_angle_constraints(
     angle_constraint_dict = defaultdict(Constraint_Config)
     for segment in cluster_box.all_segments_list:
         pick_this_segment = False
-        if x_angle is not None:
-            if np.isclose(segment.x_angle, x_angle, atol=0.01):
+        if ((x_angle is not None)
+            and y_angle is not None):
+            if (np.isclose(segment.x_angle, x_angle, atol=0.01)
+                and np.isclose(segment.y_angle, y_angle, atol=0.01)):
                 pick_this_segment = True
-        if y_angle is not None:
-            if np.isclose(segment.y_angle, y_angle, atol=0.01):
-                pick_this_segment = True
+        else:
+            if x_angle is not None:
+                if np.isclose(segment.x_angle, x_angle, atol=0.01):
+                    pick_this_segment = True
+            if y_angle is not None:
+                if np.isclose(segment.y_angle, y_angle, atol=0.01):
+                    pick_this_segment = True
         if pick_this_segment:
             bind_angle = Constraint_Config(
                 constraint_type="bound",
@@ -168,6 +174,7 @@ def get_angle_constraints(
                 variable_name_ids=[segment.catheter_name_id],
                 maximum=1,)
             angle_constraint_dict[bind_angle.name_id] = bind_angle
+    return angle_constraint_dict
 
 class ClusterBoxOptim:
     r"""
