@@ -421,6 +421,53 @@ catheter segments (mm). Measured as center of the catheter segments.")
             if np.all(cluster.insert_position == insert_position):
                 return cluster
 
+    def get_catheters_on_chain(
+        self,
+        insert_position: np.typing.ArrayLike,
+        catheter_table: CatheterTable,
+        catheters_on_chain:List[Catheter] = None) -> List[Catheter]:
+        r"""
+        ### Purpose:
+        - To recursively get the activated catheters in a cluster and its childern.
+        There can only be one activated catheter in a single cluster. Activated
+        catheters have a non-zero `channel_total_time`.
+        
+        - Exit condition: If cluster described by that insertion point is None,
+        this function returns the catheters_on_chain
+
+        ### Inputs:
+        - insert_position := The insertion point for segment cluster with at most 1 activated catheter.
+        - catheters_on_chain := The list of the activated catheters from this 
+        cluster and its childern.
+        
+        ### Outputs:
+        - catheters_on_chain := filled with that one active catheter!
+        """
+        if catheters_on_chain is None:
+            catheters_on_chain = []
+        cluster = self.get_cluster_by_insert_position(insert_position=insert_position)
+        if cluster is None:
+            return catheters_on_chain
+        active_cath_count = 0
+
+        for catheter in catheter_table.get_catheters_by_ids(
+            cluster.catheter_name_ids):
+            if catheter.channel_total_time == 0:
+                continue
+            active_cath_count += 1
+            catheters_on_chain.append(catheter)
+
+        if active_cath_count > 1:
+            raise ValueError(f"More than 1 active catheter in cluster {cluster.name_id}\
+    something's horribly wrong!")
+        if active_cath_count == 0:
+            return catheters_on_chain
+
+        return self.get_catheters_on_chain(
+            insert_position=catheter.digitization_points[1],
+            catheter_table=catheter_table,
+            catheters_on_chain=catheters_on_chain,)
+
 def get_clusters_from_planes(
     plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
     r"""
