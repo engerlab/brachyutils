@@ -6,7 +6,7 @@ from pathlib import Path
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Catheter_Rotation, Config_ClusterBox
 from brachyutils.planning.optimization.optim_cath.cluster_box_optim import (
     ClusterBoxOptim, run_experiment_sequential, disturbe_catheter_table,
-    _activate_this_cluster)
+    _activate_this_cluster, _count_physical_catheters_used)
 from time import time
 import random
 
@@ -287,7 +287,7 @@ def test_run_experiment_sequential():
 def test_disturbe_catheter_table():
     outdir = Path("data_test/test_export_plan/prostate/disturb_catheters")
     initial_num_physical_catheters = 2
-    prob_catheter_deviation = 0.2
+    prob_catheter_deviation = 0.6
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=4,
         x_angle_step=8,
@@ -316,7 +316,7 @@ def test_disturbe_catheter_table():
             cluster.insert_position,
             catheter_table,
             cluster_box)
-    
+    assert _count_physical_catheters_used(catheter_table, cluster_box) == 5
     catheter_table.combined_dose.write_brachydose_to_file(
         pth_dose_file=outdir/"before.seq.nrrd"
     )
@@ -334,6 +334,43 @@ def test_disturbe_catheter_table():
     diturbed_table.write_to_json(
         pth_json=outdir/"after.json"
     )
+
+def test_get_physical_catheter_tabel():
+    outdir = Path("data_test/test_export_plan/prostate/clusterbox_optim")
+    initial_num_physical_catheters = 2
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=0,
+        x_angle_step=0,
+        y_angle_max=4,
+        y_angle_step=8,
+    )
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        num_decision_planes=4,
+        num_physical_catheters = initial_num_physical_catheters,
+        insertion_point_spacing_mm = 10,        
+        return_output=True,
+        export_cluster_box=True,
+        run_optimization=False,
+        config_catheter_rotation=config_catheter_rotation,)
+    cluster_box = cbox_optim.cluster_box
+    catheter_table = cbox_optim.plan.catheter_table
+
+    # randomly activate some of the clusters in this box
+    clusters_depth_zero = []
+    for cluster in cluster_box.cluster_dict.values():
+        if cluster.depth == 0:
+            clusters_depth_zero.append(cluster)
+    selected_clusters = random.sample(clusters_depth_zero, 5)
+    for cluster in selected_clusters:
+        _activate_this_cluster(
+            cluster.insert_position,
+            catheter_table,
+            cluster_box)
+    # assert _count_physical_catheters_used(catheter_table, cluster_box) == 5
+    physical_catheter_table = cbox_optim.get_physical_catheter_table(
+        catheter_table=catheter_table)
+    physical_catheter_table.write_to_slicer_markup(
+        pth_mrk_json=outdir/"physical_catheter_table.mrk.json")
 
 if __name__ == "__main__":
     print("Testing cluster box optimization")
@@ -363,5 +400,8 @@ if __name__ == "__main__":
     # test_constraint_collision()
     # test_constraint_continuity()
     # test_modify_constraint()
-    test_run_experiment_sequential()
+    # test_run_experiment_sequential()
     # test_disturbe_catheter_table()
+    test_get_physical_catheter_tabel()
+    
+    

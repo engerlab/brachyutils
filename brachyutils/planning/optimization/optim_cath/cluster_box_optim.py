@@ -3,7 +3,7 @@ from typing import Dict, Literal, Annotated, List
 from collections import defaultdict
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
-from brachyutils.geometry.catheter_utils import CatheterTable
+from brachyutils.geometry.catheter_utils import CatheterTable, Catheter
 from brachyutils.planning.optimization.optim_configs import Constraint_Config
 from brachyutils.planning.plan_utils import BrachyPlan
 from brachyutils.dose.dose_generation_utils import RapidBrachyTG43 
@@ -306,7 +306,7 @@ class ClusterBoxOptim:
         from time import time
         plan.set_catheter_table(
             catheter_table=cluster_box.catheter_table,
-            dwells_near_ptv=True,
+            dwells_near_ptv=False, # set to true for reducing number of dwells
             )
         t0 = time()
         dose_generator = RapidBrachyTG43(
@@ -421,13 +421,47 @@ problem is not solvable. if you figure it out, big ups!")
 
     def get_physical_catheter_table(
         self,
-        optimized_plan:BrachyPlan):
+        catheter_table: CatheterTable,) -> CatheterTable:
         r"""
         ### Purpose:
         - To join the optimized catheter segments into phaysical catheters.
         """
-        pass
-        
+        # # Find all the catheters that are on the same chain
+        new_catheter_table = defaultdict(Catheter)
+        indx_physical_catheter = 0
+        for cluster in self.cluster_box.cluster_dict.values():
+            if cluster.depth != 0:
+                continue
+            # # gatheter all the catheter segments recursively
+            caths_on_chain = self.cluster_box.get_catheters_on_chain(
+                cluster.insert_position,
+                catheter_table)
+            if len(caths_on_chain) == 0:
+                continue
+            # # Join them in a single chain (dwell positions and digitization)
+            # # make sure catheters are ordered from tip to base
+            caths_on_chain.reverse()
+            new_dwells = []
+            indx_dwell = 0
+            digitization_points = []
+            for cath in caths_on_chain:
+                for dwell in cath.dwells:
+                    dwell.index = indx_dwell
+                    new_dwells.append(dwell)
+                    indx_dwell +=1
+                digitization_points.extend(cath.digitization_points)
+            physical_catheter = Catheter(
+                index=indx_physical_catheter,
+                dwells=new_dwells,
+                digitization_points=digitization_points,)
+            new_catheter_table[physical_catheter.name_id] = physical_catheter
+            indx_physical_catheter +=1
+
+        physical_catheter_table = CatheterTable(
+            catheters_dict=new_catheter_table
+        )
+        return physical_catheter_table
+
     def export_to(
         self,
         out_dir: str | Path,
@@ -448,8 +482,7 @@ problem is not solvable. if you figure it out, big ups!")
         self.cluster_box.to_ply(
             out_ply_dir=out_dir)
         self.cluster_box.catheter_table.write_to_json(
-            pth_json=out_dir/"catheter_table.json")
-        # TODO write get_physical_catheter_table() instead or as well.
+            pth_json=out_dir/"candidate_catheter_table.json")
         self.plan.catheter_table.combined_dose.write_brachydose_to_file(
             pth_dose_file=out_dir/"combined.seq.nrrd"
         )
@@ -637,6 +670,8 @@ def run_experiment_sequential(
             out_df.to_csv(dir_output/f"results.csv")
             print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
             cbox_optim.export_to(out_dir=dir_output/f"cbox_{physical_catheters_used}_catheters")
+            physical_cath_table = cbox_optim.get_physical_catheter_table(disturbed_catheter_table)
+            physical_cath_table.write
 
 def disturbe_catheter_table(
     catheter_table: CatheterTable,
@@ -791,10 +826,16 @@ def _activate_this_cluster(
     cluster = cluster_box.get_cluster_by_insert_position(insert_position)
     if cluster is None:
         return
-    random_catheter_name_id = random.choice(
-        cluster.catheter_name_ids
-    )
-    catheter = catheter_table.get_catheters_by_ids([random_catheter_name_id]).pop()
+    num_dwells = 0
+    num_sampling = 0
+    while num_dwells == 0 and num_sampling <= len(cluster.catheter_name_ids):
+        random_catheter_name_id = random.choice(
+            cluster.catheter_name_ids
+        )
+        catheter = catheter_table.get_catheters_by_ids([random_catheter_name_id])[0]
+        num_dwells = len(catheter.dwells)
+        num_sampling += 1
+
     catheter.reset_dwelltimes_to(1.0)
     _activate_this_cluster(catheter.digitization_points[1], catheter_table, cluster_box)
 
