@@ -87,23 +87,13 @@ def change_model_dose_to_target(new_target_dose:float, model:Model, coords_targe
     
     model.update()
 
-def _clear_mip_start(model:Model):
-    r"""
-    ### Purpose:
-    - Clean the previous solution from the variables to ensure
-    previous solution is not used as a hot start for this one since
-    previous solution may be in conflict with the new constraints.
-    """
-    for v in model.getVars():
-        v.Start = GRB.UNDEFINED
-    model.update()
-
 def _run(model: Model):
     r"""
     ### Purpose:
     - A function to run the optimizer. See `BrachyDwellTimeOptim.run` for details. 
     """
-    _clear_mip_start(model)
+    model.reset(1)
+    model.update()
     time_start = time.time()
     model.optimize()
     time_end = time.time()
