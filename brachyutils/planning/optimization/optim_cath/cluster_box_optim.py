@@ -576,6 +576,7 @@ def run_experiment_sequential(
         - multi_objective_optimizer
         - range_hyper_parameters
     """
+    # TODO: Deep debug this shit!
     experiment_info = {
             "max_num_physical_catheters": max_num_physical_catheters,
             "step_num_physical_catheters": step_num_physical_catheters,
