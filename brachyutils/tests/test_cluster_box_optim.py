@@ -258,7 +258,7 @@ def test_run_experiment_sequential():
     max_num_physical_catheters = 12
     step_num_physical_catheters = 2
     initial_num_physical_catheters = 10
-    prob_catheter_deviation = 0.6
+    prob_catheter_deviation = 1
     prepandicular_catheters = True
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=0,

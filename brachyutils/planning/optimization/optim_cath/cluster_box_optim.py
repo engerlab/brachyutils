@@ -315,7 +315,7 @@ class ClusterBoxOptim:
         from time import time
         plan.set_catheter_table(
             catheter_table=cluster_box.catheter_table,
-            dwells_near_ptv=True, # set to true for reducing number of dwells
+            dwells_near_ptv=False, # set to true for reducing number of dwells
             )
         t0 = time()
         dose_generator = RapidBrachyTG43(
@@ -676,6 +676,30 @@ def run_experiment_sequential(
                 )
                 c_equal_1_constraints[
                     bind_to_1.name_id] = bind_to_1
+
+        # # Make sure there are no colliding pairs in the disturbed
+        # # catheter table! resolve by setting one to zero randomly.
+        collision_pairs = [
+            constr.variable_name_ids for constr in
+            cbox_optim.geometric_constraint_dict["collision"].values()]
+        c_eq_1_catheters = []
+        for constr in c_equal_1_constraints.values():
+            c_eq_1_catheters.extend(constr.variable_name_ids)
+        conflict_found = []            
+        for col_pair in collision_pairs:
+            if (col_pair[0] in c_eq_1_catheters
+                and col_pair[1] in c_eq_1_catheters):
+                conflict_found.append(col_pair)
+                set_to_zero = random.choice(col_pair)
+                c_equal_1_constraints.pop(f"bound_catheter_{set_to_zero}_eq")
+                bind_to_0 = Constraint_Config(
+                    constraint_type="bound",
+                    variable_type="catheter",
+                    equal=0,
+                    variable_name_ids=[set_to_zero],
+                )
+                c_equal_0_constraints[
+                    bind_to_0.name_id] = bind_to_0
 
         # # now add the new bounds to the optimization object
         cbox_optim.optimization_object.set_constraints(
