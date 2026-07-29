@@ -684,7 +684,7 @@ def run_experiment_sequential(
         "num_physical_catheters": physical_catheters_used,
         "acceptance_rate": 0,
         "time_optim_catheters": t1_cath - t0_cath,
-        "time_optim_moo": t1_moo - t1_moo,
+        "time_optim_moo": t1_moo - t0_moo,
         } | cbox_optim.plan.get_dvh_metrics()
         if dir_output is not None:
             out_df.to_csv(dir_output/f"results.csv")
