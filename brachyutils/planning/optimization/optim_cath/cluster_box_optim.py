@@ -12,6 +12,8 @@ from brachyutils.geometry.catheter_utils.config_cathgen import Config_ClusterBox
 import random
 import numpy as np
 import pandas as pd
+from time import time
+import json
 
 def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     r"""
@@ -306,7 +308,7 @@ class ClusterBoxOptim:
         from time import time
         plan.set_catheter_table(
             catheter_table=cluster_box.catheter_table,
-            dwells_near_ptv=False, # set to true for reducing number of dwells
+            dwells_near_ptv=True, # set to true for reducing number of dwells
             )
         t0 = time()
         dose_generator = RapidBrachyTG43(
@@ -483,6 +485,15 @@ problem is not solvable. if you figure it out, big ups!")
             out_ply_dir=out_dir)
         self.cluster_box.catheter_table.write_to_json(
             pth_json=out_dir/"candidate_catheter_table.json")
+        self.cluster_box.catheter_table.write_to_slicer_markup(
+            pth_mrk_json=out_dir/"candidate_catheter_table.mrk.json")
+
+        physical_catheter_table = self.get_physical_catheter_table(self.plan.catheter_table)
+        physical_catheter_table.write_to_json(
+            pth_json=out_dir/"catheter_table.json")
+        physical_catheter_table.write_to_slicer_markup(
+            pth_mrk_json=out_dir/"catheter_table.mrk.json")
+
         self.plan.catheter_table.combined_dose.write_brachydose_to_file(
             pth_dose_file=out_dir/"combined.seq.nrrd"
         )
@@ -565,15 +576,16 @@ def run_experiment_sequential(
         - multi_objective_optimizer
         - range_hyper_parameters
     """
-    experiment_info_df = pd.DataFrame(
-        columns=([
-            "max_num_physical_catheters",
-            "step_num_physical_catheters",
-            "initial_num_physical_catheters",
-            "prob_catheter_deviation",])
+    experiment_info = {
+            "max_num_physical_catheters": max_num_physical_catheters,
+            "step_num_physical_catheters": step_num_physical_catheters,
+            "initial_num_physical_catheters": initial_num_physical_catheters,
+            "prob_catheter_deviation":prob_catheter_deviation,
         # + ["multi_objective_optimizer", range_hyper_parameters] TODO figure out after MOO
-    )
-    
+    }
+    with open(dir_output/"experiment_info.json", "w") as out_file:
+        json.dump(experiment_info, out_file, indent=4)   
+
     all_dvh_metric_names = []
     for structure in cbox_optim.plan.dvh_metric_goals:
         all_dvh_metric_names = all_dvh_metric_names + (
@@ -582,7 +594,8 @@ def run_experiment_sequential(
         )
 
     out_df = pd.DataFrame(columns=(
-        ["num_physical_catheters","acceptance_rate"]
+        ["num_physical_catheters","acceptance_rate",
+         "time_optim_catheters", "time_optim_moo"]
         + all_dvh_metric_names)
         # + all_hyper_parameter_names TO Be Added Next Week!
         )
@@ -605,8 +618,9 @@ def run_experiment_sequential(
                 y_angle=0,)
             cbox_optim.optimization_object.set_constraints(prepandicular_constraints)
         # # Get the optimal catheters (c*)
+        t0_cath = time()
         optimized_plan = cbox_optim.get_optimized_plan_from_model() 
-
+        t1_cath = time()
         if prepandicular_catheters:
             # # Free the model for future constraints
             cbox_optim.optimization_object.remove_constraints(prepandicular_constraints)
@@ -652,6 +666,9 @@ def run_experiment_sequential(
         # other metrics The final solution is the one with
         # lowest dose to urethra.
         # TODO: to be implemented!
+        t0_moo = time()
+        cbox_optim.get_optimized_plan_from_model()
+        t1_moo = time()
 
         # # Free the catheters that were bound 0 for next iteration!
         cbox_optim.optimization_object.remove_constraints(
@@ -665,13 +682,13 @@ def run_experiment_sequential(
         out_df.loc[len(out_df)] = {
         "num_physical_catheters": physical_catheters_used,
         "acceptance_rate": 0,
+        "time_optim_catheters": t1_cath - t0_cath,
+        "time_optim_moo": t1_moo - t1_moo,
         } | cbox_optim.plan.get_dvh_metrics()
         if dir_output is not None:
             out_df.to_csv(dir_output/f"results.csv")
             print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
             cbox_optim.export_to(out_dir=dir_output/f"cbox_{physical_catheters_used}_catheters")
-            physical_cath_table = cbox_optim.get_physical_catheter_table(disturbed_catheter_table)
-            physical_cath_table.write
 
 def disturbe_catheter_table(
     catheter_table: CatheterTable,

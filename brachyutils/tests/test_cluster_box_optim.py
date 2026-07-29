@@ -258,7 +258,7 @@ def test_run_experiment_sequential():
     max_num_physical_catheters = 12
     step_num_physical_catheters = 2
     initial_num_physical_catheters = 6
-    prob_catheter_deviation = 0.4
+    prob_catheter_deviation = 0
     prepandicular_catheters = True
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=0,
@@ -271,7 +271,7 @@ def test_run_experiment_sequential():
         num_physical_catheters = initial_num_physical_catheters,
         insertion_point_spacing_mm = 10,        
         return_output=True,
-        export_cluster_box=True,
+        export_cluster_box=False,
         run_optimization=False,
         config_catheter_rotation=config_catheter_rotation,)
 
@@ -400,8 +400,8 @@ if __name__ == "__main__":
     # test_constraint_collision()
     # test_constraint_continuity()
     # test_modify_constraint()
-    # test_run_experiment_sequential()
+    test_run_experiment_sequential()
     # test_disturbe_catheter_table()
-    test_get_physical_catheter_tabel()
+    # test_get_physical_catheter_tabel()
     
     
