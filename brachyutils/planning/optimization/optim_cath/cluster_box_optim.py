@@ -145,16 +145,19 @@ def get_angle_constraints(
     ### Purpose:
     - To generate constraints that tells the model to chose catheters with a user-defined
     angle only. For example, among all the catheters in a cluster only pick the ones that
-    are straight (x_angle = 0, y_angle = 0) or not. Note that this is not an equality constraint,
-    but a maximum constraint so that the catheter variable may be zero.
-    
+    are straight (x_angle = 0, y_angle = 0) or not. All the catheters that do not have the
+    desired angles are bound to zero.
+
     ### Inputs:
     - cluster_box := The catheter cluster box object containing all the angle information.
     - x_angle := Describes the rotation anlge arround the y axis.
     - y_angle := Describes the rotation anlge arround the x axis.
-    
+
+    ### Output:
+    - `angle_constraint_dict` := 
     """
     angle_constraint_dict = defaultdict(Constraint_Config)
+    segments_to_keep = []
     for segment in cluster_box.all_segments_list:
         pick_this_segment = False
         if ((x_angle is not None)
@@ -170,11 +173,15 @@ def get_angle_constraints(
                 if np.isclose(segment.y_angle, y_angle, atol=0.01):
                     pick_this_segment = True
         if pick_this_segment:
+            segments_to_keep.append(segment.catheter_name_id)
+
+    for segment in cluster_box.all_segments_list:
+        if segment.catheter_name_id not in segments_to_keep:
             bind_angle = Constraint_Config(
                 constraint_type="bound",
                 variable_type="catheter",
                 variable_name_ids=[segment.catheter_name_id],
-                maximum=1,)
+                equal=0,)
             angle_constraint_dict[bind_angle.name_id] = bind_angle
     return angle_constraint_dict
 
@@ -617,6 +624,16 @@ def run_experiment_sequential(
                 cluster_box=cbox_optim.cluster_box,
                 x_angle=0,
                 y_angle=0,)
+            # If a catheter has been previously bound to 1 (already inserted)
+            # remove its angle constraint
+            donot_disturbe_constrs = []
+            for angle_constr_name in prepandicular_constraints:
+                c_equal_1 = c_equal_1_constraints.get(angle_constr_name)
+                if c_equal_1 is not None:
+                    donot_disturbe_constrs.append(angle_constr_name)
+            for constr_name in donot_disturbe_constrs:
+                prepandicular_constraints.pop(constr_name)
+
             cbox_optim.optimization_object.set_constraints(prepandicular_constraints)
         # # Get the optimal catheters (c*)
         t0_cath = time()
@@ -627,10 +644,15 @@ def run_experiment_sequential(
             cbox_optim.optimization_object.remove_constraints(prepandicular_constraints)
 
         # # Now disturbe the catheters
+        donot_disturbe_catheters = []
+        for c_equal_1 in c_equal_1_constraints.values():
+            donot_disturbe_catheters.extend(c_equal_1.variable_name_ids)
         disturbed_catheter_table = disturbe_catheter_table(
             catheter_table=optimized_plan.catheter_table,
             prob_catheter_deviation=prob_catheter_deviation,
-            cluster_box=cbox_optim.cluster_box,)
+            cluster_box=cbox_optim.cluster_box,
+            donot_disturbe_catheters=donot_disturbe_catheters,
+            )
 
         # # get ready for MOO by binding the model to c*
         # # c* has two parts those that =1 and =0.
@@ -695,6 +717,7 @@ def disturbe_catheter_table(
     catheter_table: CatheterTable,
     prob_catheter_deviation: float,
     cluster_box: ClusterBox,
+    donot_disturbe_catheters:List[str],
     ):
     r"""
     ### Purpose:
@@ -729,7 +752,8 @@ def disturbe_catheter_table(
             prob_segment_disturbance=p,
             insert_position=cluster.insert_position,
             catheter_table=catheter_table,
-            cluster_box=cluster_box
+            cluster_box=cluster_box,
+            donot_disturbe_catheters=donot_disturbe_catheters,
         )
     return catheter_table
 
@@ -737,7 +761,8 @@ def _disturbe_this_cluster(
     prob_segment_disturbance:float,
     insert_position: np.typing.ArrayLike,
     catheter_table: CatheterTable,
-    cluster_box:ClusterBox
+    cluster_box:ClusterBox,
+    donot_disturbe_catheters:List[str],
     ):
     r"""
     ### Purpose:
@@ -754,6 +779,8 @@ def _disturbe_this_cluster(
     catheter_2_turn_off = None
     for catheter in catheter_table.get_catheters_by_ids(
         cluster.catheter_name_ids):
+        if catheter.name_id in donot_disturbe_catheters:
+            continue
         if catheter.channel_total_time == 0:
             continue
         else:
@@ -771,7 +798,8 @@ def _disturbe_this_cluster(
                     prob_segment_disturbance,
                     catheter.digitization_points[1],
                     catheter_table,
-                    cluster_box
+                    cluster_box,
+                    donot_disturbe_catheters,
                 )
     if catheter_2_turn_off is None:
         return
