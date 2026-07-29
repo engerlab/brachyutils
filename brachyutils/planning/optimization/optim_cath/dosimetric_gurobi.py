@@ -662,11 +662,11 @@ def _set_bound_constraint(
     if not variable:
         raise ValueError(f"No variable with name {var_name} was found for constraint \
 {constraint.name_id}. Ensure the constraint name is correct.")
-    if constraint.minimum:
+    if constraint.minimum is not None:
         variable.LB = constraint.minimum
-    if constraint.maximum:
+    if constraint.maximum is not None:
         variable.UB = constraint.maximum
-    if constraint.equal:
+    if constraint.equal is not None:
         model.addConstr(
             variable == constraint.equal,
             name=constraint.name_id
@@ -688,17 +688,17 @@ def _set_sum_constraint(
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
         raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
 Ensure the constraint name is correct.")
-    if constraint.minimum:
+    if constraint.minimum is not None:
         model.addConstr(
             sum(variables) >= constraint.minimum,
             name=f"{constraint.name_id}"
         )
-    if constraint.maximum:
+    if constraint.maximum is not None:
         model.addConstr(
             sum(variables) <= constraint.maximum,
             name=f"{constraint.name_id}"
         )
-    if constraint.equal:
+    if constraint.equal is not None:
         model.addConstr(
             sum(variables) == constraint.equal,
             name=constraint.name_id
