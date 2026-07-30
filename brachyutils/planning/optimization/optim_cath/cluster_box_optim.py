@@ -700,6 +700,11 @@ def run_experiment_sequential(
                 )
                 c_equal_0_constraints[
                     bind_to_0.name_id] = bind_to_0
+        # # free the catheter number to avoid conflicts with
+        # # collision free scrambled catheter table binding
+        cbox_optim.optimization_object.remove_constraints(
+            cbox_optim.geometric_constraint_dict["num_catheters"]
+        )
 
         # # now add the new bounds to the optimization object
         cbox_optim.optimization_object.set_constraints(
