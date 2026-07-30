@@ -257,7 +257,7 @@ def test_run_experiment_sequential():
     outdir=Path("data_test/test_export_plan/prostate/clusterbox_optim")
     max_num_physical_catheters = 21
     step_num_physical_catheters = 3
-    initial_num_physical_catheters = 9
+    initial_num_physical_catheters = 18
     prob_catheter_deviation = 0
     prepandicular_catheters = True
     config_catheter_rotation = Config_Catheter_Rotation(

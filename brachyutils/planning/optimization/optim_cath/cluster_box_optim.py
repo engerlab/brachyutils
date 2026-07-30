@@ -645,15 +645,16 @@ def run_experiment_sequential(
         # # than the number of available catheters
         num_inserted_catheters = _count_physical_catheters_used(
             cbox_optim.plan.catheter_table, cbox_optim.cluster_box)
-        num_available_catheters = (
-            len(cbox_optim.cluster_box[0]) - num_bad_segments_depth_0
-            - num_inserted_catheters)
-        if num_available_catheters <= step_num_physical_catheters:
+        if num_bad_segments_depth_0 + num_phys_catheters > len(cbox_optim.cluster_box[0]):
             print(f"No More space on the catheter table to add new catheters\
 The total number of possible catheters is {len(cbox_optim.cluster_box[0])}\
 The current number of inserted catheters is {num_inserted_catheters}\
 The number of catheters excluded due to angle constraints is {num_bad_segments_depth_0}")
             return
+
+        # # set the prev C* if any
+        cbox_optim.optimization_object.set_constraints(
+            constraint_config_dict=c_equal_1_constraints)
 
         # # Get the optimal catheters (c*)
         t0_cath = time()
