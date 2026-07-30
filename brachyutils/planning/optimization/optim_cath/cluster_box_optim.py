@@ -723,16 +723,13 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
         # # free the catheter number to avoid conflicts with
         # # collision free scrambled catheter table binding
         cbox_optim.optimization_object.remove_constraints(
-            cbox_optim.geometric_constraint_dict["num_catheters"]
-        )
+            cbox_optim.geometric_constraint_dict["num_catheters"])
 
         # # now add the new bounds to the optimization object
         cbox_optim.optimization_object.set_constraints(
-            constraint_config_dict=c_equal_1_constraints
-        )
+            constraint_config_dict=c_equal_1_constraints)
         cbox_optim.optimization_object.set_constraints(
-            constraint_config_dict=c_equal_0_constraints
-        )
+            constraint_config_dict=c_equal_0_constraints)
 
         # # Pass it to MOO and get acceptance rate as well as
         # other metrics The final solution is the one with
