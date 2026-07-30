@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Dict, Literal, Annotated, List
+from typing import Dict, Literal, Annotated, List, Tuple
 from collections import defaultdict
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.catheter_cluster_box import ClusterBox
@@ -140,7 +140,7 @@ def get_angle_constraints(
     cluster_box: ClusterBox,
     x_angle: float = None,
     y_angle: float = None,
-    ):
+    ) -> Tuple[Dict[str, Constraint_Config], int]:
     r"""
     ### Purpose:
     - To generate constraints that tells the model to chose catheters with a user-defined
@@ -174,16 +174,20 @@ def get_angle_constraints(
                     pick_this_segment = True
         if pick_this_segment:
             segments_to_keep.append(segment.catheter_name_id)
-
+    
+    num_bad_segments_depth_0 = 0
     for segment in cluster_box.all_segments_list:
         if segment.catheter_name_id not in segments_to_keep:
+            if segment.name_id.startswith("(0,"):
+                num_bad_segments_depth_0 += 1
+
             bind_angle = Constraint_Config(
                 constraint_type="bound",
                 variable_type="catheter",
                 variable_name_ids=[segment.catheter_name_id],
                 equal=0,)
             angle_constraint_dict[bind_angle.name_id] = bind_angle
-    return angle_constraint_dict
+    return angle_constraint_dict, num_bad_segments_depth_0
 
 class ClusterBoxOptim:
     r"""
@@ -619,8 +623,9 @@ def run_experiment_sequential(
             num_physical_catheters=num_phys_catheters)
 
         # # add straight catheter constraint if needed
+        num_bad_segments_depth_0 = 0
         if prepandicular_catheters:
-            prepandicular_constraints = get_angle_constraints(
+            prepandicular_constraints, num_bad_segments_depth_0 = get_angle_constraints(
                 cluster_box=cbox_optim.cluster_box,
                 x_angle=0,
                 y_angle=0,)
@@ -635,6 +640,21 @@ def run_experiment_sequential(
                 prepandicular_constraints.pop(constr_name)
 
             cbox_optim.optimization_object.set_constraints(prepandicular_constraints)
+        
+        # # Sanity check that the number of requested catheters is less
+        # # than the number of available catheters
+        num_inserted_catheters = _count_physical_catheters_used(
+            cbox_optim.plan.catheter_table, cbox_optim.cluster_box)
+        num_available_catheters = (
+            len(cbox_optim.cluster_box[0]) - num_bad_segments_depth_0
+            - num_inserted_catheters)
+        if num_available_catheters <= step_num_physical_catheters:
+            print(f"No More space on the catheter table to add new catheters\
+The total number of possible catheters is {len(cbox_optim.cluster_box[0])}\
+The current number of inserted catheters is {num_inserted_catheters}\
+The number of catheters excluded due to angle constraints is {num_bad_segments_depth_0}")
+            return
+
         # # Get the optimal catheters (c*)
         t0_cath = time()
         optimized_plan = cbox_optim.get_optimized_plan_from_model() 
