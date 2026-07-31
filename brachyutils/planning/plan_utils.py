@@ -602,7 +602,6 @@ class BrachyPlan:
    
     def get_dvh_metrics(
         self,
-        combined_dose: BrachyDose=None,
         prescription_dose: float = None,
         return_percentage: bool = True,
         ) -> dict:
@@ -620,8 +619,8 @@ class BrachyPlan:
         assert self.structure_list is not None, "structure list is not created yet"
         assert self.prescription_dose is not None, "prescription dose is not set"
         assert self.dvh_metric_goals is not None, "DVH metrics are not set, please run set_dvh_metric_goals()"
-        if combined_dose is None:
-            combined_dose = self.combined_dose
+
+        combined_dose = self.combined_dose
         if prescription_dose is None:
             prescription_dose = self.prescription_dose
         dvh_metrics_observed = {}

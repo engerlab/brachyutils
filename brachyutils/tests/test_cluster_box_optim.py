@@ -255,9 +255,9 @@ def test_modify_constraint():
 
 def test_run_experiment_sequential():
     outdir=Path("data_test/test_export_plan/prostate/clusterbox_optim")
-    max_num_physical_catheters = 21
+    max_num_physical_catheters = 12
     step_num_physical_catheters = 3
-    initial_num_physical_catheters = 18
+    initial_num_physical_catheters = 3
     prob_catheter_deviation = 0
     prepandicular_catheters = True
     config_catheter_rotation = Config_Catheter_Rotation(
@@ -269,7 +269,7 @@ def test_run_experiment_sequential():
     cbox_optim, optimized_plan = test_cluster_box_optim(
         num_decision_planes=3,
         num_physical_catheters = initial_num_physical_catheters,
-        insertion_point_spacing_mm = 10,        
+        insertion_point_spacing_mm = 10,
         return_output=True,
         export_cluster_box=False,
         run_optimization=False,

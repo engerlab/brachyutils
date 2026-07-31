@@ -749,12 +749,14 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
             cluster_box=cbox_optim.cluster_box
         )
 
+        dvh_metrics = cbox_optim.plan.get_dvh_metrics()
+
         out_df.loc[len(out_df)] = {
         "num_physical_catheters": physical_catheters_used,
         "acceptance_rate": 0,
         "time_optim_catheters": t1_cath - t0_cath,
         "time_optim_moo": t1_moo - t0_moo,
-        } | cbox_optim.plan.get_dvh_metrics()
+        } | dvh_metrics
         if dir_output is not None:
             out_df.to_csv(dir_output/f"results.csv")
             print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
