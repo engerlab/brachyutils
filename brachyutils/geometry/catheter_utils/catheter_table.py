@@ -235,7 +235,7 @@ class CatheterTable(BaseModel):
             return self.combined_dose_explicit
 
         # Calculate combined dose with or without time diffs
-        for dwell in dwells_with_doserate:            
+        for dwell in dwells_with_doserate:
             if dwell._time_diff != 0:
                 self._cached_combined_dose.dose_image.imageArray += (
                     dwell.dose_rate.dose_image.imageArray * dwell._time_diff)

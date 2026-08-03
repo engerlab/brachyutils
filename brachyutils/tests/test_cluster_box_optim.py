@@ -264,8 +264,8 @@ def test_run_experiment_sequential():
         x_angle_max=0,
         x_angle_step=0,
         y_angle_max=4,
-        y_angle_step=4,
-    )
+        y_angle_step=4,)
+
     cbox_optim, optimized_plan = test_cluster_box_optim(
         num_decision_planes=3,
         num_physical_catheters = initial_num_physical_catheters,
@@ -347,7 +347,7 @@ def test_get_physical_catheter_tabel():
     cbox_optim, optimized_plan = test_cluster_box_optim(
         num_decision_planes=4,
         num_physical_catheters = initial_num_physical_catheters,
-        insertion_point_spacing_mm = 10,        
+        insertion_point_spacing_mm = 10,
         return_output=True,
         export_cluster_box=True,
         run_optimization=False,
