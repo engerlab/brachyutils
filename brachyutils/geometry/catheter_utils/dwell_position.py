@@ -49,15 +49,6 @@ class DwellPosition(BaseModel):
     dose_rate: SkipValidation[BrachyDose] = None
     _max_dwell_time: ClassVar[float] = 1e8
 
-    # @field_validator('time')
-    # @classmethod
-    # def validate_dwell_time(cls, value: float) -> float:
-    #     if value < 0.0:
-    #         raise ValueError(f"Dwell time cannot be negative. Got {value}")
-    #     if value > cls._max_dwell_time:
-    #         warnings.warn(f"Dwell time might be too high. Got {value}")
-    #     return value
-
     @field_validator('position', 'rotation')
     @classmethod
     def convert_to_numpy(cls, value: Any) -> Any:
@@ -68,6 +59,8 @@ class DwellPosition(BaseModel):
     def model_post_init(self, __context):
         # # Essential since initiation does not trigger setattr, so
         # # we need to set the time diff to be the same as the time.
+        if (self.time < 0.0 or self.time > self._max_dwell_time):
+            raise ValueError(f"Dwell time must be between 0 and {self._max_dwell_time}. Got {self.time}")
         self._time_diff = self.time
         return self
 
