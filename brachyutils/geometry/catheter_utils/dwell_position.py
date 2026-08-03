@@ -43,7 +43,7 @@ class DwellPosition(BaseModel):
     rotation: List[float] | np.ndarray = None
     time: float = 0.0
     _time_diff: float = PrivateAttr(default=0.0)
-    _prev_time: float = PrivateAttr(default=0.0)
+    # _prev_time: float = PrivateAttr(default=0.0)
     catheter_index: int = None
     gen_dose_rate: bool = True
     dose_rate: SkipValidation[BrachyDose] = None
@@ -65,17 +65,11 @@ class DwellPosition(BaseModel):
             return None
         return np.array(value)
 
-    # @model_validator(mode="after")
-    # def validate_dwell_position(self):
-    #     # when we instantiate a dwell position, we set the time difference to be the same as the time,
-    #     # so that during combined dose calculation, we calculate dose difference based on 
-    #     # the time diff only. Time diff is only set to zero after every dose calculation
-    #     if self.time != self._prev_time:
-    #         self._time_diff = self.time - self._prev_time
-    #         self._prev_time = self.time
-    #     else:
-    #         self._time_diff = 0.0
-    #     return self
+    def model_post_init(self, __context):
+        # # Essential since initiation does not trigger setattr, so
+        # # we need to set the time diff to be the same as the time.
+        self._time_diff = self.time
+        return self
 
     @computed_field
     def name_id(self) -> str:
