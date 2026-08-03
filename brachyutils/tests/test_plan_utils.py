@@ -114,14 +114,28 @@ def test_change_dwell_times_and_recalculate_combined_dose():
     plan_obj.set_dvh_metric_goals(
         dvh_metric_goals=dvh_metric_goals,
         strict_name_match=False)
-    plan_obj.catheter_table.reset_dwelltimes_to(5)
     dwell_times = [dwell.time for dwell in plan_obj.catheter_table.all_dwells]
     dwell_time_diffs = [dwell._time_diff for dwell in plan_obj.catheter_table.all_dwells]
     print("mean dwell times:")
     print(np.mean(dwell_times))
     print("mean dwell time diffs:")
     print(np.mean(dwell_time_diffs))
+    # plan_obj.combined_dose
     print("DVH metrics before changing dwell times:")
+    t0 = time.time()
+    print(plan_obj.get_dvh_metrics())
+    t1 = time.time()
+    print(f"Calculating DVH metrics took {t1-t0} seconds")
+
+    for dwell in plan_obj.catheter_table.all_dwells:
+        dwell.time *= 2.0
+    dwell_times = [dwell.time for dwell in plan_obj.catheter_table.all_dwells]
+    dwell_time_diffs = [dwell._time_diff for dwell in plan_obj.catheter_table.all_dwells]
+    print("mean dwell times:")
+    print(np.mean(dwell_times))
+    print("mean dwell time diffs:")
+    print(np.mean(dwell_time_diffs))
+    print("DVH metrics after changing dwell times:")
     t0 = time.time()
     print(plan_obj.get_dvh_metrics())
     t1 = time.time()
@@ -129,7 +143,7 @@ def test_change_dwell_times_and_recalculate_combined_dose():
 
     # change dwell times
     for dwell in plan_obj.catheter_table.all_dwells:
-        dwell.time *= 2.0
+        dwell.time *= 0.5
 
     dwell_times = [dwell.time for dwell in plan_obj.catheter_table.all_dwells]
     dwell_time_diffs = [dwell._time_diff for dwell in plan_obj.catheter_table.all_dwells]
