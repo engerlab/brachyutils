@@ -218,15 +218,10 @@ class CatheterTable(BaseModel):
         dwells_with_doserate = [dwell for dwell in all_dwells if dwell.dose_rate is not None]
         
         if not dwells_with_doserate:
-            # for debugging TODO: remove print
-            print("No dose rate found in this catheter table, returning cached combined dose")
             return self._cached_combined_dose
-            # raise ValueError("No dose rate found in this catheter table")
 
         # Initialize combined dose if not cached
         if self._cached_combined_dose is None:
-            # for debugging TODO: remove print
-            print("Cached Combined Dose is None, initializing it with zeros")
             self._cached_combined_dose = BrachyDose.dose_with_empty_grid_like(
             dwells_with_doserate[0].dose_rate)
 
@@ -235,20 +230,13 @@ class CatheterTable(BaseModel):
         if not self._cached_combined_dose.dose_image.hasSameGrid(
             dwells_with_doserate[0].dose_rate.dose_image
         ):
-            # for debugging TODO: remove print
-            print("Cached Combined Dose grid is different from the dose rate grid,\
-recalculating combined dose explicitly")
             return self.combined_dose_explicit
 
         # Calculate combined dose with or without time diffs
-        num_time_diffs = 0
         for dwell in dwells_with_doserate:
             if dwell._time_diff != 0:
-                num_time_diffs += 1
                 self._cached_combined_dose.dose_image.imageArray += (
                     dwell.dose_rate.dose_image.imageArray * dwell._time_diff)
-                # dwell.reset_time_diff()
-        print(f"Number of dwell positions with time differences: {num_time_diffs}")
         return self._cached_combined_dose
 
     @computed_field

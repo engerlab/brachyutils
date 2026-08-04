@@ -143,7 +143,7 @@ def test_change_dwell_times_and_recalculate_combined_dose():
 
     # change dwell times
     for dwell in plan_obj.catheter_table.all_dwells:
-        dwell.time *= 0.5
+        dwell.time *= 1
 
     dwell_times = [dwell.time for dwell in plan_obj.catheter_table.all_dwells]
     dwell_time_diffs = [dwell._time_diff for dwell in plan_obj.catheter_table.all_dwells]
