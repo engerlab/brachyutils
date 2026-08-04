@@ -319,7 +319,7 @@ class ClusterBoxOptim:
         from time import time
         plan.set_catheter_table(
             catheter_table=cluster_box.catheter_table,
-            dwells_near_ptv=False, # set to true for reducing number of dwells
+            dwells_near_ptv=True, # set to true for reducing number of dwells
             )
         t0 = time()
         dose_generator = RapidBrachyTG43(
@@ -748,7 +748,7 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
             catheter_table=disturbed_catheter_table,
             cluster_box=cbox_optim.cluster_box
         )
-
+        repr(cbox_optim.plan.catheter_table)
         dvh_metrics = cbox_optim.plan.get_dvh_metrics()
 
         out_df.loc[len(out_df)] = {
