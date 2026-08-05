@@ -43,7 +43,7 @@ def get_a_plan_to_optimize(
         optimization_config_list=optimization_config_list,
         dwells_near_ptv=True,
         add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
-        one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
+        one_hotspot_mask=kwargs.get("one_hotspot_mask", True),
         )
 
     if generate_dose_rates:

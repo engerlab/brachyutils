@@ -139,7 +139,7 @@ class BrachyPlan:
         with a margine of 10 mm.
         - add_hotspots_to_phantom: bool = False := if True, will add hotspot structures to the phantom.
         this is good for debugging, but slows down the plan creation process.
-        - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures
+        - one_hotspot_mask: bool: = True := if False, will create separate hotspot structures
         - applicator_format:str = "RapidBrachy" := the format of the applicator list 
         (default is "RapidBrachy"). See load_applicator_list() for more info. 
         - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well.
@@ -292,7 +292,7 @@ class BrachyPlan:
                 optimization_config_list,
                 self.structure_list,
                 add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
-                one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
+                one_hotspot_mask=kwargs.get("one_hotspot_mask", True),
                 strict_name_match=kwargs.get("strict_name_match", True)
             )
 
@@ -1131,7 +1131,7 @@ class BrachyPlan:
         optimization_config_list:List[Optimization_Config] | Path | str,
         structure_list:List[BrachyStructure],
         add_hotspots_to_phantom:bool=False,
-        one_hotspot_structure:bool=True,
+        one_hotspot_mask:bool=True,
         strict_name_match:bool = True,
         ):
         r"""
@@ -1182,7 +1182,7 @@ class BrachyPlan:
                 self._set_hotspot_masks(
                     target_optim_config=config,
                     add_hotspots_to_phantom=add_hotspots_to_phantom,
-                    one_hotspot_structure=one_hotspot_structure)
+                    one_hotspot_mask=one_hotspot_mask)
             for struc in structure_list:
                 if strict_name_match:
                     structure_matched = config.structure_name.lower() == struc.name.lower()
@@ -1228,7 +1228,7 @@ config do not match for structure {struc.name}"
         - one_hotspot_mask := whether to combine all hotspot masks into one structure or keep them
 
         ### Outputs:
-        - hotspot_masks := a list of hotspot masks that are added to the optimization config of
+        - None := a list of hotspot masks that are added to the optimization config of
         the target structure.
         """
         step_size = self.catheter_table.step_size
@@ -1296,7 +1296,7 @@ config do not match for structure {struc.name}"
                     raise ValueError("failed building hotspot volumes")
         if one_hotspot_mask:
             mask_union = np.zeros_like(
-                hotspot_mask_list[0].mask.imageArray, dtype=bool
+                hotspot_mask_list[0].imageArray, dtype=bool
             )
             for mask in hotspot_mask_list:
                 mask_union = np.logical_or(mask_union, mask.mask.imageArray)

@@ -38,7 +38,7 @@ def get_a_plan(
         optimization_config_list=kwargs.get("optimization_config_list", None),
         dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
         add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
-        one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
+        one_hotspot_mask=kwargs.get("one_hotspot_mask", True),
         )
     return plan_obj
 
