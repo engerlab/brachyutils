@@ -1311,27 +1311,6 @@ config do not match for structure {struc.name}"
         else:
             target_optim_config.hotspot_masks = hotspot_mask_list
 
-            # hotspot_config = Optimization_Config(
-            #     structure_name="hotspot_estimator_combined",
-            #     is_target=False,
-            #     spacing_mm=target_optim_config.spacing_mm,
-            #     dose_voxel_goal=target_optim_config.dose_voxel_goal*target_optim_config.hotspot_threshold,
-            #     penalty_weight_linear=target_optim_config.penalty_weight_hotspot
-            # )
-            # hotspot_mask_list = [
-            #     BrachyStructure(
-            #         name="hotspot_estimator_combined",
-            #         mask=ROIMask(
-            #             name="hotspot_estimator_combined",
-            #             imageArray=mask_union,
-            #             origin=self.phantom.image_obj.origin,
-            #             spacing=self.phantom.image_obj.spacing,
-            #         ),
-            #         is_target=False,
-            #         in_dvh=False,
-            #         optimization_config=hotspot_config
-            #     )
-            # ]
         if add_hotspots_to_phantom:
             for mask in hotspot_mask_list:
                 self.phantom.set_structure_set(

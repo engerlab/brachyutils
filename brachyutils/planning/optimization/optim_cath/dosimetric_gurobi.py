@@ -442,6 +442,7 @@ of the corresponding dose rate coefficients.")
         uniformity_weight = optimization_config.penalty_weight_uniformity
 
         penalty_weight_variance_time = optimization_config.penalty_weight_variance_time
+        penalty_weight_hotspot = optimization_config.penalty_weight_hotspot
 
         # now sort the dose rate matrices and dwell vars per catheter
         A_sparse = np.column_stack(list(optimization_config.dwell_coef_dict.values()))
@@ -493,18 +494,13 @@ of the corresponding dose rate coefficients.")
                     * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
                 )
 
-        elif "hotspot_estimator_" in optimization_config.structure_name:
-            x_slack_hotspot = model.addMVar(
-                shape=num_dose_points,
-                name=f"p_H_{optimization_config.structure_name}"
-            )
-            model.addConstr(
-            (A_sparse @ (c_MVar * t_MVar)) - x_slack_hotspot <= (voxel_goal_vec),
-            name=f"c_H_{optimization_config.structure_name}",
-            )
-            hotspot_weight_vec = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
-            penalty_terms["hotspot"] += sum(hotspot_weight_vec * x_slack_hotspot)
-
+            if penalty_weight_hotspot > 0:
+                penalty_terms["hotspot"] = _set_hotspot_penalty_terms(
+                    optimization_config=optimization_config,
+                    A_sparse=A_sparse,
+                    c_MVar=c_MVar,
+                    t_MVar=t_MVar,
+                    model=model,)
         # OAR constraints and penalties
         else:
             if linear_weight > 0 or quadratic_weight > 0:
@@ -570,6 +566,19 @@ def set_dwell_coef_dict_per_structure(
             roi_bounds=optim_roi_bounds,
             )
         structure.optimization_config.mask = structure_mask
+        if structure.optimization_config.hotspot_masks is not None:
+            # consider multi processing this later
+            hotspot_masks = []
+            for hotspot_mask in structure.optimization_config.hotspot_masks:
+                hotspot_mask_resampled = resample_crop_the_mask_or_contour_to_optimGrid(
+                    structure_mask=hotspot_mask,
+                    template_dose_obj=plan.combined_dose,
+                    optim_spacing=structure.optimization_config.spacing_mm,
+                    roi_bounds=optim_roi_bounds,
+                    )
+                hotspot_masks.append(hotspot_mask_resampled)
+            structure.optimization_config.hotspot_masks = hotspot_masks            
+
         # Build dose rate matrix and dwell time vector for this structure
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
             dwellTimeVariables,
@@ -810,3 +819,34 @@ Ensure the constraint name is correct.")
         sum(variables) <= constraint.equal,
         name=constraint.name_id
     )
+
+def _set_hotspot_penalty_terms(
+    optimization_config,
+    A_sparse,
+    c_MVar,
+    t_MVar,
+    model,
+    ):
+    r"""
+    ### Purpose:
+    - To set the hotspot penalty terms for the optimization model.
+    Assumes that the hotspot masks have been created and resampled to the optimization grid.
+    """
+    num_dose_points = 0 # TBD
+    linear_weight = optimization_config.penalty_weight_hotspot
+    hotspot_threshold = optimization_config.hotspot_threshold
+    voxel_goal_vec = (
+        np.ones(num_dose_points)
+        * optimization_config.dose_voxel_goal
+        * hotspot_threshold)
+
+    x_slack_hotspot = model.addMVar(
+        shape=num_dose_points,
+        name=f"p_H_{optimization_config.structure_name}"
+    )
+    model.addConstr(
+    (A_sparse @ (c_MVar * t_MVar)) - x_slack_hotspot <= (voxel_goal_vec),
+    name=f"c_H_{optimization_config.structure_name}",
+    )
+    hotspot_weight_vec = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
+    return sum(hotspot_weight_vec * x_slack_hotspot)
