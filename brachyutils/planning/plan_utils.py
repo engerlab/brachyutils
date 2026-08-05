@@ -1179,7 +1179,7 @@ class BrachyPlan:
                     raise ValueError(
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
-                self._create_hotspot_structures(
+                self._set_hotspot_masks(
                     target_optim_config=config,
                     add_hotspots_to_phantom=add_hotspots_to_phantom,
                     one_hotspot_structure=one_hotspot_structure)
@@ -1206,25 +1206,30 @@ config do not match for structure {struc.name}"
                             )
                     break
 
-    def _create_hotspot_structures(
+    def _set_hotspot_masks(
         self,
         target_optim_config: Optimization_Config,
         add_hotspots_to_phantom:bool=False,
-        one_hotspot_structure:bool=True
+        one_hotspot_mask:bool=True
         ):
         r"""
         ### Purpose:
-        - to create structures where hotspots are likely to occur inside the ptv or ctv.
-        These structures are created as spheres with radius of dwell step size centered in 
+        - to create masks where hotspots are likely to occur inside the ptv or ctv.
+        These masks are created as spheres with radius of dwell step size centered in 
         between two dwell positions that are within a step size distance from each other.
         There could be only one hotspot structure per each dwell pair.
+        The hotspot masks are added added to the optimization config of the target structure.
 
         ### Inputs:
         - self := the BrachyPlan object
-        - config := the optimization config object that contains the parameters for the hotspot structure
+        - target_optim_config := the optimization config object that contains the parameters for 
+        the hotspot structure
+        - add_hotspots_to_phantom := whether to add the hotspot estimator structures to the phantom.
+        - one_hotspot_mask := whether to combine all hotspot masks into one structure or keep them
 
         ### Outputs:
-        - None := hot spot structures are appended to the self.structure_list
+        - hotspot_masks := a list of hotspot masks that are added to the optimization config of
+        the target structure.
         """
         step_size = self.catheter_table.step_size
         # identify unique dwell pairs that are withi n the step size distance
@@ -1265,7 +1270,6 @@ config do not match for structure {struc.name}"
                     )
         # create hotspot structures masks for each dwell pair
         hotspot_mask_list = []
-        
         if all_dwells[0].dose_rate is None:
             reference_image = self.phantom.image_obj
         else:
@@ -1290,41 +1294,43 @@ config do not match for structure {struc.name}"
                     hotspot_mask_list.append(action.result())
                 except:
                     raise ValueError("failed building hotspot volumes")
-                    
-        if one_hotspot_structure:
+        if one_hotspot_mask:
             mask_union = np.zeros_like(
                 hotspot_mask_list[0].mask.imageArray, dtype=bool
             )
             for mask in hotspot_mask_list:
                 mask_union = np.logical_or(mask_union, mask.mask.imageArray)
+            target_optim_config.hotspot_masks = [mask_union]
+        else:
+            target_optim_config.hotspot_masks = hotspot_mask_list
 
-            hotspot_config = Optimization_Config(
-                structure_name="hotspot_estimator_combined",
-                is_target=False,
-                spacing_mm=target_optim_config.spacing_mm,
-                dose_voxel_goal=target_optim_config.dose_voxel_goal*target_optim_config.hotspot_threshold,
-                penalty_weight_linear=target_optim_config.penalty_weight_hotspot
-            )
-            hotspot_mask_list = [
-                BrachyStructure(
-                    name="hotspot_estimator_combined",
-                    mask=ROIMask(
-                        name="hotspot_estimator_combined",
-                        imageArray=mask_union,
-                        origin=self.phantom.image_obj.origin,
-                        spacing=self.phantom.image_obj.spacing,
-                    ),
-                    is_target=False,
-                    in_dvh=False,
-                    optimization_config=hotspot_config
-                )
-            ]
+            # hotspot_config = Optimization_Config(
+            #     structure_name="hotspot_estimator_combined",
+            #     is_target=False,
+            #     spacing_mm=target_optim_config.spacing_mm,
+            #     dose_voxel_goal=target_optim_config.dose_voxel_goal*target_optim_config.hotspot_threshold,
+            #     penalty_weight_linear=target_optim_config.penalty_weight_hotspot
+            # )
+            # hotspot_mask_list = [
+            #     BrachyStructure(
+            #         name="hotspot_estimator_combined",
+            #         mask=ROIMask(
+            #             name="hotspot_estimator_combined",
+            #             imageArray=mask_union,
+            #             origin=self.phantom.image_obj.origin,
+            #             spacing=self.phantom.image_obj.spacing,
+            #         ),
+            #         is_target=False,
+            #         in_dvh=False,
+            #         optimization_config=hotspot_config
+            #     )
+            # ]
 
         for mask in hotspot_mask_list:
-            self.structure_list.append(mask)
+            # self.structure_list.append(mask)
             if add_hotspots_to_phantom:
                 self.phantom.set_structure_set(
-                    mask_dict={mask.name: mask.mask},
+                    mask_dict={mask.name: mask},
                     mask_colors={mask.name:[251, 159, 255]}
                     )
 
@@ -1375,7 +1381,7 @@ def _gen_hotspot_mask(
     gridSize: Tuple[int, int, int],
     origin: Tuple[float, float, float],
     spacing: Tuple[float, float, float],
-    ):
+    ) -> ROIMask:
     r"""
     ### Purpose:
     - to create structures where hotspots are likely to occur inside the ptv or ctv.
@@ -1410,12 +1416,7 @@ def _gen_hotspot_mask(
             + f"/dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
             ),
     )
-    return BrachyStructure(
-        name=dwell_mask.name,
-        mask=dwell_mask,
-        is_target=False,
-        in_dvh=False,
-    )
+    return dwell_mask
 
 def _type_nested_dict_list(data):
 

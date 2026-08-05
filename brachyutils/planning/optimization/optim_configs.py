@@ -238,6 +238,7 @@ class Optimization_Config(BaseModel):
     catheter_recommendaion: bool = False
     dwell_coef_dict:Dict[str, np.ndarray] = None
     mask:ROIMask = None
+    hotspot_masks:List[ROIMask] = None
     # may be needed later
     # self.index_range_constraints: List[int] = None
     @model_validator(mode="after")
@@ -248,6 +249,7 @@ class Optimization_Config(BaseModel):
             assert self.catheter_recommendaion == False, "only target structure can have catheter_recommendaion"
             assert self.penalty_weight_variance_time == 0, "only target structure can have penalty_weight_variance_time"
             assert self.penalty_weight_uniformity == 0, "only target structure can have penalty_weight_uniformity"
+            assert self.hotspot_masks == None, "only target structure can have hotspot_masks"
         return self
 
     def to_dict(self)->dict:
