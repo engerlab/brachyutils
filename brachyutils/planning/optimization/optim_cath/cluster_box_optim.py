@@ -748,7 +748,7 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
             catheter_table=disturbed_catheter_table,
             cluster_box=cbox_optim.cluster_box
         )
-        repr(cbox_optim.plan.catheter_table) ### TODO: tell me why it works?
+
         dvh_metrics = cbox_optim.plan.get_dvh_metrics()
 
         out_df.loc[len(out_df)] = {

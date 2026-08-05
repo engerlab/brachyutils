@@ -298,6 +298,8 @@ class BrachyPlan:
 
     @computed_field
     def combined_dose(self):
+        repr(self.catheter_table) # this is to make sure the cached combined 
+        # dose is updated with the dwell times.
         return self.catheter_table.combined_dose
 
     @computed_field
