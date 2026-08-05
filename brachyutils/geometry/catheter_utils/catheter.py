@@ -102,8 +102,12 @@ class Catheter(BaseModel):
         r"""
         ### Purpose:
         - The digitization point that is furthest away from the tip.
+        If digitization point is none, return the last dwell position.
         """
-        return self.digitization_points[1]
+        if self.digitization_points is not None:
+            return self.digitization_points[1]
+        else:
+            return self.dwells[-1].position if self.dwells else None
 
     def model_post_init(self, __context):
         r"""
@@ -226,7 +230,7 @@ class Catheter(BaseModel):
             "step_size": round(float(self.step_size), 3),
             "digitization_points": [[round(float(x), 3) for x in point] for point in self.digitization_points] if self.digitization_points else None,
             "afterloader_channel_number": int(self.afterloader_channel_number) if self.afterloader_channel_number is not None else None,
-            "insert_position": [round(float(x), 3) for x in self.insert_position] if self.insert_position else None,
+            "insert_position": [round(float(x), 3) for x in self.insert_position] if self.insert_position is not None else None,
             "channel_total_time": round(float(self.channel_total_time), 3),
             "channel_length": round(float(self.channel_length), 3) if self.channel_length is not None else None
         }

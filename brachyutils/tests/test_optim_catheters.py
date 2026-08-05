@@ -269,6 +269,6 @@ if __name__ == "__main__":
     # tracer = VizTracer()
     # tracer.start()
     # test_catheter_gurobi_initialization()
-    # test_catheter_table_optim()
+    test_catheter_table_optim()
     # test_dynamic_plan_generation()
-    test_set_constraints()
+    # test_set_constraints()
