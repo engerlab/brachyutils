@@ -1299,8 +1299,15 @@ config do not match for structure {struc.name}"
                 hotspot_mask_list[0].imageArray, dtype=bool
             )
             for mask in hotspot_mask_list:
-                mask_union = np.logical_or(mask_union, mask.mask.imageArray)
-            target_optim_config.hotspot_masks = [mask_union]
+                mask_union = np.logical_or(mask_union, mask.imageArray)
+            target_optim_config.hotspot_masks = [
+                ROIMask(
+                    name="hotspot_estimator_combined",
+                    imageArray=mask_union,
+                    origin=reference_image.origin,
+                    spacing=reference_image.spacing
+                )
+            ]
         else:
             target_optim_config.hotspot_masks = hotspot_mask_list
 
@@ -1325,10 +1332,8 @@ config do not match for structure {struc.name}"
             #         optimization_config=hotspot_config
             #     )
             # ]
-
-        for mask in hotspot_mask_list:
-            # self.structure_list.append(mask)
-            if add_hotspots_to_phantom:
+        if add_hotspots_to_phantom:
+            for mask in hotspot_mask_list:
                 self.phantom.set_structure_set(
                     mask_dict={mask.name: mask},
                     mask_colors={mask.name:[251, 159, 255]}

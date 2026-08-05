@@ -562,14 +562,14 @@ def set_dwell_coef_dict_per_structure(
     for structure in plan.structure_list:
         if structure.optimization_config is None:
             continue
-        if structure.optimization_config.mask is None:
-            structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
-                structure_mask=structure.mask,
-                template_dose_obj=plan.combined_dose,
-                optim_spacing=structure.optimization_config.spacing_mm,
-                roi_bounds=optim_roi_bounds,
-                )
-            structure.optimization_config.mask = structure_mask
+        # if structure.optimization_config.mask is None:
+        structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
+            structure_mask=structure.mask,
+            template_dose_obj=plan.combined_dose,
+            optim_spacing=structure.optimization_config.spacing_mm,
+            roi_bounds=optim_roi_bounds,
+            )
+        structure.optimization_config.mask = structure_mask
         # Build dose rate matrix and dwell time vector for this structure
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
             dwellTimeVariables,
