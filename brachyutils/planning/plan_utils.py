@@ -1131,7 +1131,7 @@ class BrachyPlan:
         optimization_config_list:List[Optimization_Config] | Path | str,
         structure_list:List[BrachyStructure],
         add_hotspots_to_phantom:bool=False,
-        one_hotspot_mask:bool=True,
+        one_hotspot_mask:bool=False,
         strict_name_match:bool = True,
         ):
         r"""

@@ -839,7 +839,7 @@ def _set_hotspot_penalty_terms(
     for hotspot_mask in optimization_config.hotspot_masks:
         mask_array = hotspot_mask.imageArray.flatten()
         target_array = optimization_config.mask.imageArray.flatten()
-        mask_in_target = np.ma.multiply(mask_array, target_array)[target_array]
+        mask_in_target = np.ma.multiply(mask_array, target_array)[target_array].astype(bool)
         num_dose_points = np.sum(mask_in_target)
 
         voxel_goal_vec = (np.ones(num_dose_points) * dose_voxel_goal* hotspot_threshold)
@@ -847,12 +847,12 @@ def _set_hotspot_penalty_terms(
 
         x_slack_hotspot = model.addMVar(
             shape=num_dose_points,
-            name=f"p_H_{hotspot_mask.name}")
+            name=f"p_H_{hotspot_mask.name.split("hotspot_estimator")[1]}")
         # # Gotta filter out only the expressions that apply to hotspots.
         # # so setting them to zero is not enough, we need to isolate them!
         dose_expression = A_sparse[mask_in_target, :] @ (c_MVar * t_MVar)
         model.addConstr(
         (dose_expression) - x_slack_hotspot <= (voxel_goal_vec),
-        name=f"c_H_{hotspot_mask.name}",)
+        name=f"c_H_{hotspot_mask.name.split("hotspot_estimator")[1]}")
         total_hotspot_penalty += sum(hotspot_weight_vec * x_slack_hotspot)
     return total_hotspot_penalty

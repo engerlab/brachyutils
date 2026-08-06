@@ -128,6 +128,7 @@ def test_catheter_table_optim(
         optimization_config_list=optimization_config_list,
         structure_list=plan.structure_list,
         strict_name_match=False,
+        one_hotspot_mask=False,
     )
 
     catheter_optim_obj = CatheterTableOptim_Gurobi(
