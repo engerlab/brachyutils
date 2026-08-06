@@ -87,12 +87,13 @@ def change_model_dose_to_target(new_target_dose:float, model:Model, coords_targe
     
     model.update()
 
-
 def _run(model: Model):
     r"""
     ### Purpose:
     - A function to run the optimizer. See `BrachyDwellTimeOptim.run` for details. 
     """
+    model.reset(1)
+    model.update()
     time_start = time.time()
     model.optimize()
     time_end = time.time()

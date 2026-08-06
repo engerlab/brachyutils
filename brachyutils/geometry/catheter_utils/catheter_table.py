@@ -219,13 +219,11 @@ class CatheterTable(BaseModel):
         
         if not dwells_with_doserate:
             return self._cached_combined_dose
-            # raise ValueError("No dose rate found in this catheter table")
 
         # Initialize combined dose if not cached
         if self._cached_combined_dose is None:
             self._cached_combined_dose = BrachyDose.dose_with_empty_grid_like(
-            dwells_with_doserate[0].dose_rate
-            )
+            dwells_with_doserate[0].dose_rate)
 
         # Can trigger if recalculated the doses with a different crop
         # Needs to be explicity summed
@@ -235,18 +233,22 @@ class CatheterTable(BaseModel):
             return self.combined_dose_explicit
 
         # Calculate combined dose with or without time diffs
-        for dwell in dwells_with_doserate:            
+        combined_dose_array = self._cached_combined_dose.dose_image.imageArray
+        for dwell in dwells_with_doserate:
             if dwell._time_diff != 0:
-                self._cached_combined_dose.dose_image.imageArray += (
-                    dwell.dose_rate.dose_image.imageArray * dwell._time_diff)
-                dwell.reset_time_diff()
+                combined_dose_array += np.multiply(
+                    dwell.dose_rate.dose_image.imageArray,
+                    dwell._time_diff,
+                    dtype=dwell.dose_rate.dose_image.imageArray.dtype)
+                dwell._time_diff = 0.0
+        self._cached_combined_dose.dose_image.imageArray = combined_dose_array
         return self._cached_combined_dose
 
     @computed_field
     def combined_dose_explicit(self) -> BrachyDose:
         r"""
         ### Purpose:
-        # - To calculate the combined dose explicity with no optimizations of dwell time differences.
+        - To calculate the combined dose explicity with no optimizations of dwell time differences.
 
         ### Inputs:
         - dose_rate for each dwell position
@@ -623,7 +625,7 @@ match its index ({new_catheter.name_id}), be sure that the name_id == new_cathet
         r"""
         ### Purpose:
         - To return the catheters that have the queried name ids.
-        The name ids are in the format {catheter.index+1}
+        The name ids are in the format "{catheter.index+1}" or "catheter_{catheter.index+1}"
         ### Inputs:
         - name_ids := The list of name ids to be returned.
         ### Outputs:

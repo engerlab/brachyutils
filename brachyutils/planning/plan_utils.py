@@ -139,7 +139,7 @@ class BrachyPlan:
         with a margine of 10 mm.
         - add_hotspots_to_phantom: bool = False := if True, will add hotspot structures to the phantom.
         this is good for debugging, but slows down the plan creation process.
-        - one_hotspot_structure: bool: = True := if False, will create separate hotspot structures
+        - one_hotspot_mask: bool: = True := if False, will create separate hotspot structures
         - applicator_format:str = "RapidBrachy" := the format of the applicator list 
         (default is "RapidBrachy"). See load_applicator_list() for more info. 
         - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well.
@@ -292,12 +292,14 @@ class BrachyPlan:
                 optimization_config_list,
                 self.structure_list,
                 add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
-                one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
+                one_hotspot_mask=kwargs.get("one_hotspot_mask", False),
                 strict_name_match=kwargs.get("strict_name_match", True)
             )
 
     @computed_field
     def combined_dose(self):
+        repr(self.catheter_table) # this is to make sure the cached combined 
+        # dose is updated with the dwell times.
         return self.catheter_table.combined_dose
 
     @computed_field
@@ -491,7 +493,7 @@ class BrachyPlan:
                     dvh_metric_goals = json.load(json_file)
             dvh_metric_names = list(dvh_metric_goals.keys())
 
-        self.dvh_metric_goals = defaultdict(dict)
+        self.dvh_metric_goals = {}
         # let's match the structure names in the DVH with the structure names
         # in the BrachyPlan.
         for brachy_structure in self.structure_list:
@@ -509,21 +511,23 @@ class BrachyPlan:
                         structure_dvh_metrics_names.append(dvh_name)
                     else:
                         continue
+            if len(structure_dvh_metrics_names) == 0:
+                continue
             self.dvh_metric_goals[brachy_structure.name] = {
-                "dvh_metric_names": structure_dvh_metrics_names
-            }
+                "dvh_metric_names": structure_dvh_metrics_names}
             brachy_structure.set_dvh_metric_names(
-                self.dvh_metric_goals.get(brachy_structure.name).get("dvh_metric_names")
+                self.dvh_metric_goals.get(
+                    brachy_structure.name).get(
+                        "dvh_metric_names")
             )
             if dvh_metric_goals is not None:
-                self.dvh_metric_goals[brachy_structure.name] = {
-                        "dvh_metric_goals": {}}
+                structure_dvh_metric_goals = {}
                 for dvh_name in structure_dvh_metrics_names:
-                    self.dvh_metric_goals[brachy_structure.name] = {
-                        "dvh_metric_goals": {
-                            dvh_name: dvh_metric_goals[dvh_name]
-                        }
-                    }
+                    structure_dvh_metric_goals[
+                        dvh_name] = dvh_metric_goals[dvh_name]
+                self.dvh_metric_goals[
+                    brachy_structure.name][
+                        "dvh_metric_goals"] = structure_dvh_metric_goals 
                 brachy_structure.set_dvh_metric_goals(
                     self.dvh_metric_goals.get(brachy_structure.name).get("dvh_metric_goals")
                 )
@@ -600,7 +604,6 @@ class BrachyPlan:
    
     def get_dvh_metrics(
         self,
-        combined_dose: BrachyDose=None,
         prescription_dose: float = None,
         return_percentage: bool = True,
         ) -> dict:
@@ -618,15 +621,16 @@ class BrachyPlan:
         assert self.structure_list is not None, "structure list is not created yet"
         assert self.prescription_dose is not None, "prescription dose is not set"
         assert self.dvh_metric_goals is not None, "DVH metrics are not set, please run set_dvh_metric_goals()"
-        if combined_dose is None:
-            combined_dose = self.combined_dose
+
+        combined_dose = self.combined_dose
         if prescription_dose is None:
             prescription_dose = self.prescription_dose
         dvh_metrics_observed = {}
         for structure_obj in self.structure_list:
             if "hotspot_estimator" in structure_obj.name.lower():
                 continue
-            if not any(structure_obj.dvh_metric_names):
+            if (structure_obj.dvh_metric_names is None
+                or (not any(structure_obj.dvh_metric_names))):
                 continue
             observed_metrics = structure_obj.get_dvh_metric(
                 combined_dose,
@@ -1127,7 +1131,7 @@ class BrachyPlan:
         optimization_config_list:List[Optimization_Config] | Path | str,
         structure_list:List[BrachyStructure],
         add_hotspots_to_phantom:bool=False,
-        one_hotspot_structure:bool=True,
+        one_hotspot_mask:bool=False,
         strict_name_match:bool = True,
         ):
         r"""
@@ -1175,10 +1179,10 @@ class BrachyPlan:
                     raise ValueError(
                         "penalty_weight_hotspot can only be set for PTV or CTV structures"
                     )
-                self._create_hotspot_structures(
+                self._set_hotspot_masks(
                     target_optim_config=config,
                     add_hotspots_to_phantom=add_hotspots_to_phantom,
-                    one_hotspot_structure=one_hotspot_structure)
+                    one_hotspot_mask=one_hotspot_mask)
             for struc in structure_list:
                 if strict_name_match:
                     structure_matched = config.structure_name.lower() == struc.name.lower()
@@ -1202,25 +1206,30 @@ config do not match for structure {struc.name}"
                             )
                     break
 
-    def _create_hotspot_structures(
+    def _set_hotspot_masks(
         self,
         target_optim_config: Optimization_Config,
         add_hotspots_to_phantom:bool=False,
-        one_hotspot_structure:bool=True
+        one_hotspot_mask:bool=True
         ):
         r"""
         ### Purpose:
-        - to create structures where hotspots are likely to occur inside the ptv or ctv.
-        These structures are created as spheres with radius of dwell step size centered in 
+        - to create masks where hotspots are likely to occur inside the ptv or ctv.
+        These masks are created as spheres with radius of dwell step size centered in 
         between two dwell positions that are within a step size distance from each other.
         There could be only one hotspot structure per each dwell pair.
+        The hotspot masks are added added to the optimization config of the target structure.
 
         ### Inputs:
         - self := the BrachyPlan object
-        - config := the optimization config object that contains the parameters for the hotspot structure
+        - target_optim_config := the optimization config object that contains the parameters for 
+        the hotspot structure
+        - add_hotspots_to_phantom := whether to add the hotspot estimator structures to the phantom.
+        - one_hotspot_mask := whether to combine all hotspot masks into one structure or keep them
 
         ### Outputs:
-        - None := hot spot structures are appended to the self.structure_list
+        - None := a list of hotspot masks that are added to the optimization config of
+        the target structure.
         """
         step_size = self.catheter_table.step_size
         # identify unique dwell pairs that are withi n the step size distance
@@ -1261,7 +1270,6 @@ config do not match for structure {struc.name}"
                     )
         # create hotspot structures masks for each dwell pair
         hotspot_mask_list = []
-        
         if all_dwells[0].dose_rate is None:
             reference_image = self.phantom.image_obj
         else:
@@ -1286,41 +1294,27 @@ config do not match for structure {struc.name}"
                     hotspot_mask_list.append(action.result())
                 except:
                     raise ValueError("failed building hotspot volumes")
-                    
-        if one_hotspot_structure:
+        if one_hotspot_mask:
             mask_union = np.zeros_like(
-                hotspot_mask_list[0].mask.imageArray, dtype=bool
+                hotspot_mask_list[0].imageArray, dtype=bool
             )
             for mask in hotspot_mask_list:
-                mask_union = np.logical_or(mask_union, mask.mask.imageArray)
-
-            hotspot_config = Optimization_Config(
-                structure_name="hotspot_estimator_combined",
-                is_target=False,
-                spacing_mm=target_optim_config.spacing_mm,
-                dose_voxel_goal=target_optim_config.dose_voxel_goal*target_optim_config.hotspot_threshold,
-                penalty_weight_linear=target_optim_config.penalty_weight_hotspot
-            )
-            hotspot_mask_list = [
-                BrachyStructure(
+                mask_union = np.logical_or(mask_union, mask.imageArray)
+            target_optim_config.hotspot_masks = [
+                ROIMask(
                     name="hotspot_estimator_combined",
-                    mask=ROIMask(
-                        name="hotspot_estimator_combined",
-                        imageArray=mask_union,
-                        origin=self.phantom.image_obj.origin,
-                        spacing=self.phantom.image_obj.spacing,
-                    ),
-                    is_target=False,
-                    in_dvh=False,
-                    optimization_config=hotspot_config
+                    imageArray=mask_union,
+                    origin=reference_image.origin,
+                    spacing=reference_image.spacing
                 )
             ]
+        else:
+            target_optim_config.hotspot_masks = hotspot_mask_list
 
-        for mask in hotspot_mask_list:
-            self.structure_list.append(mask)
-            if add_hotspots_to_phantom:
+        if add_hotspots_to_phantom:
+            for mask in hotspot_mask_list:
                 self.phantom.set_structure_set(
-                    mask_dict={mask.name: mask.mask},
+                    mask_dict={mask.name: mask},
                     mask_colors={mask.name:[251, 159, 255]}
                     )
 
@@ -1371,7 +1365,7 @@ def _gen_hotspot_mask(
     gridSize: Tuple[int, int, int],
     origin: Tuple[float, float, float],
     spacing: Tuple[float, float, float],
-    ):
+    ) -> ROIMask:
     r"""
     ### Purpose:
     - to create structures where hotspots are likely to occur inside the ptv or ctv.
@@ -1406,12 +1400,7 @@ def _gen_hotspot_mask(
             + f"/dwell_{(dwellpair['dwell_pair'])[1]['dwell']}"
             ),
     )
-    return BrachyStructure(
-        name=dwell_mask.name,
-        mask=dwell_mask,
-        is_target=False,
-        in_dvh=False,
-    )
+    return dwell_mask
 
 def _type_nested_dict_list(data):
 

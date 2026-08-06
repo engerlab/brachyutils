@@ -70,9 +70,9 @@ class Constraint_Config(BaseModel):
         "bound", "sum", "uniqueness", "continuity", "num_catheters", "collision"
         ]
     variable_type: Literal["dwell", "catheter"]
-    minimum: int | float = None
-    maximum: int | float = None
-    equal: int | float = None
+    minimum: int | float | None = None
+    maximum: int | float | None = None
+    equal: int | float | None = None
     variable_name_ids: List[PatternDwell | PatternCatheter] = None
     segment_cluster_id: PatterCluster = None
     parent_catheter_name_ids: List[PatternCatheter] = None
@@ -111,7 +111,7 @@ but {len(self.variable_name_ids)} was provided.")
                 or self.constraint_type == "sum"):
                 if (
                     (not (isinstance(self.minimum, int) or self.minimum is None))
-                    or (not isinstance(self.maximum, int) or self.maximum is None)
+                    or (not (isinstance(self.maximum, int) or self.maximum is None))
                     or (not (isinstance(self.equal, int) or self.equal is None))):
                     raise ValueError(f"minimum, maximum and equality constraints for {self.name_id} \
     must be integer values")
@@ -238,6 +238,7 @@ class Optimization_Config(BaseModel):
     catheter_recommendaion: bool = False
     dwell_coef_dict:Dict[str, np.ndarray] = None
     mask:ROIMask = None
+    hotspot_masks:List[ROIMask] = None
     # may be needed later
     # self.index_range_constraints: List[int] = None
     @model_validator(mode="after")
@@ -248,4 +249,19 @@ class Optimization_Config(BaseModel):
             assert self.catheter_recommendaion == False, "only target structure can have catheter_recommendaion"
             assert self.penalty_weight_variance_time == 0, "only target structure can have penalty_weight_variance_time"
             assert self.penalty_weight_uniformity == 0, "only target structure can have penalty_weight_uniformity"
+            assert self.hotspot_masks == None, "only target structure can have hotspot_masks"
         return self
+
+    def to_dict(self)->dict:
+        return {
+            "structure_name": self.structure_name,
+            "is_target": self.is_target,
+            "spacing_mm": self.spacing_mm,
+            "dose_voxel_goal": self.dose_voxel_goal,
+            "penalty_weight_linear": self.penalty_weight_linear,
+            "penalty_weight_quadratic": self.penalty_weight_quadratic,
+            "penalty_weight_hotspot": self.penalty_weight_hotspot,
+            "hotspot_threshold": self.hotspot_threshold,
+            "penalty_weight_uniformity": self.penalty_weight_uniformity,
+            "penalty_weight_variance_time": self.penalty_weight_variance_time,
+        }

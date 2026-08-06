@@ -1,7 +1,7 @@
 from typing import ClassVar, List, Union, Any
 import numpy as np
 import warnings
-from pydantic import (BaseModel, ConfigDict, computed_field, field_validator, model_validator,
+from pydantic import (BaseModel, ConfigDict, PrivateAttr, computed_field, field_validator, model_validator,
                       SkipValidation)
 import SimpleITK as sitk
 from brachyutils.brachy_types import BrachyDose
@@ -35,27 +35,19 @@ class DwellPosition(BaseModel):
     """
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
-        validate_assignment=True,)
+        validate_assignment=False,)
     index: int
     position: List[float] | np.ndarray
     relativePos: float
     angle: int = 0
     rotation: List[float] | np.ndarray = None
     time: float = 0.0
-    _time_diff: float = 0.0
+    _time_diff: float = PrivateAttr(default=0.0)
+    # _prev_time: float = PrivateAttr(default=0.0)
     catheter_index: int = None
     gen_dose_rate: bool = True
     dose_rate: SkipValidation[BrachyDose] = None
     _max_dwell_time: ClassVar[float] = 1e8
-
-    @field_validator('time')
-    @classmethod
-    def validate_dwell_time(cls, value: float) -> float:
-        if value < 0.0:
-            raise ValueError(f"Dwell time cannot be negative. Got {value}")
-        if value > cls._max_dwell_time:
-            warnings.warn(f"Dwell time might be too high. Got {value}")
-        return value
 
     @field_validator('position', 'rotation')
     @classmethod
@@ -64,11 +56,11 @@ class DwellPosition(BaseModel):
             return None
         return np.array(value)
 
-    @model_validator(mode="after")
-    def validate_dwell_position(self):
-        # when we instantiate a dwell position, we set the time difference to be the same as the time,
-        # so that during combined dose calculation, we calculate dose difference based on 
-        # the time diff only. Time diff is only set to zero after every dose calculation.
+    def model_post_init(self, __context):
+        # # Essential since initiation does not trigger setattr, so
+        # # we need to set the time diff to be the same as the time.
+        if (self.time < 0.0 or self.time > self._max_dwell_time):
+            raise ValueError(f"Dwell time must be between 0 and {self._max_dwell_time}. Got {self.time}")
         self._time_diff = self.time
         return self
 
@@ -150,11 +142,16 @@ class DwellPosition(BaseModel):
 
     def __setattr__(self, name, value):
         if name == "time":
+            if value < 0.0:
+                raise ValueError(f"Dwell time cannot be negative. Got {value}")
+            if value > self._max_dwell_time:
+                warnings.warn(f"Dwell time might be too high. Got {value}")
+
             old_value = self.__dict__.get("time", 0.0)
-            object.__setattr__(self, "_time_diff", value - old_value)
-            super().__setattr__(name, value)
+            super().__setattr__("_time_diff", value - old_value)
+            super().__setattr__("time", value)
         else:
             super().__setattr__(name, value)
-    
+
     def reset_time_diff(self):
-        object.__setattr__(self, "_time_diff", 0.0)
+        super().__setattr__("_time_diff", 0.0)

@@ -4,8 +4,12 @@ from brachyutils.tests.test_cluster_box import test_cluster_box
 from brachyutils.planning.plan_utils import load_dicom_to_plan
 from pathlib import Path
 from brachyutils.geometry.catheter_utils.config_cathgen import Config_Catheter_Rotation, Config_ClusterBox
-from brachyutils.planning.optimization.optim_cath.cluster_box_optim import ClusterBoxOptim
-    
+from brachyutils.planning.optimization.optim_cath.cluster_box_optim import (
+    ClusterBoxOptim, run_experiment_sequential, disturbe_catheter_table,
+    _activate_this_cluster, _count_physical_catheters_used)
+from time import time
+import random
+
 def test_get_geometric_constraints():
     cbox = test_cluster_box(return_box=True)
     constraint_dict = get_geometric_constraints(cluster_box=cbox)
@@ -13,6 +17,8 @@ def test_get_geometric_constraints():
 
 def test_cluster_box_optim(
     num_decision_planes = None,
+    num_physical_catheters = None,
+    insertion_point_spacing_mm = None,
     config_catheter_rotation = None,
     return_output:bool = False,
     export_cluster_box:bool = False,
@@ -62,13 +68,28 @@ def test_cluster_box_optim(
         )
     if num_decision_planes is None:
         num_decision_planes = 2
+    if num_physical_catheters is None:
+        num_physical_catheters = 5
+    if insertion_point_spacing_mm is None:
+        insertion_point_spacing_mm = 15
     config_cluster_box = Config_ClusterBox(
-        num_physical_catheters=5,
-        insertion_point_spacing_mm=15,
+        num_physical_catheters=num_physical_catheters,
+        insertion_point_spacing_mm=insertion_point_spacing_mm,
         num_decision_planes=num_decision_planes,
         config_catheter_rotation=config_catheter_rotation,
         box_margin_mm=5,
     )
+    dvh_metric_goals = {
+        "D90%(CTV)": 100.0,
+        "D2cc(RECTUM)": 100.0 * 0.75,
+        "D10%(URETHRA)": 100.0 * 1.133,
+        "D30%(URETHRA)": 100.0,
+        "CI(CTV)": 1.0,
+        "HI(CTV)": 0.5,
+        "V200%(CTV)": 100.0 * 0.2,
+        "V150%(CTV)": 100.0 * 0.4,
+        "V100%(CTV)": 100.0,
+    }
 
     # # build a plan without catheter table but have optimizatio constraints.
     plan = load_dicom_to_plan(
@@ -78,6 +99,7 @@ def test_cluster_box_optim(
         optimization_config_list=optimization_config_list,
         strict_name_match=False,
         prescription_dose=target_dose,
+        dvh_metric_goals = dvh_metric_goals,
         )
 
     cbox_optim = ClusterBoxOptim(
@@ -86,17 +108,6 @@ def test_cluster_box_optim(
     )
     optimized_plan = None
     if run_optimization:
-        dvh_metric_goals = {
-            "D90%(CTV)": target_dose,
-            "D2cc(RECTUM)": target_dose * 0.75,
-            "D10%(URETHRA)": target_dose * 1.133,
-            "D30%(URETHRA)": target_dose,
-            "CI(CTV)": 1.0,
-            "HI(CTV)": 0.5,
-            "V200%(CTV)": target_dose * 0.2,
-            "V150%(CTV)": target_dose * 0.4,
-            "V100%(CTV)": 100.0,
-        }
         optimized_plan = cbox_optim.get_optimized_plan_from_model()
         optimized_plan.set_dvh_metric_goals(
             dvh_metric_goals=dvh_metric_goals,
@@ -151,10 +162,21 @@ def test_constraint_uniqueness():
     print("uniqueness constraints passed")
 
 def test_constraint_collision():
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=0,
+        x_angle_step=0,
+        y_angle_max=0,
+        y_angle_step=0,
+    )
     cbox_optim, optimized_plan = test_cluster_box_optim(
-        return_output=True,
+        num_decision_planes=2,
+        config_catheter_rotation=config_catheter_rotation,
         export_cluster_box=True,
-        run_optimization=True,)
+        run_optimization=False,
+        insertion_point_spacing_mm=5,
+        return_output=True,
+        num_physical_catheters=[10, 14],
+    )
     for collision in cbox_optim.geometric_constraint_dict["collision"].values():
         num_non_zero_segments = 0
         catheters = optimized_plan.catheter_table.get_catheters_by_ids(
@@ -206,22 +228,178 @@ def test_constraint_continuity():
             raise ValueError("SOMETHING IS VERY WRONG")
     print("continuity constraints passed")
 
-if __name__ == "__main__":
-    print("Testing cluster box optimization")
-    # test_get_geometric_constraints()
+def test_modify_constraint():
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=0,
         x_angle_step=0,
-        y_angle_max=8,
+        y_angle_max=0,
+        y_angle_step=0,
+    )
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        num_decision_planes=2,
+        num_physical_catheters = 4,
+        insertion_point_spacing_mm = 15,
+        return_output=True,
+        export_cluster_box=False,
+        run_optimization=False,
+        config_catheter_rotation=config_catheter_rotation)
+    
+    cbox_optim.cluster_box.num_physical_catheters = cbox_optim.cluster_box.num_physical_catheters + 3
+    cbox_optim.geometric_constraint_dict.get(
+        "num_catheters").get("num_catheters").maximum = cbox_optim.cluster_box.num_physical_catheters
+    cbox_optim.set_geometric_constraints(
+        cluster_box=cbox_optim.cluster_box,
+        optim_obj=cbox_optim.optimization_object,
+        constraint_dict=cbox_optim.geometric_constraint_dict["num_catheters"]
+        )
+
+def test_run_experiment_sequential():
+    outdir=Path("data_test/test_export_plan/prostate/clusterbox_optim")
+    max_num_physical_catheters = 6
+    step_num_physical_catheters = 3
+    initial_num_physical_catheters = 3
+    prob_catheter_deviation = 0
+    prepandicular_catheters = True
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=0,
+        x_angle_step=0,
+        y_angle_max=4,
+        y_angle_step=4,)
+
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        num_decision_planes=3,
+        num_physical_catheters = initial_num_physical_catheters,
+        insertion_point_spacing_mm = 10,
+        return_output=True,
+        export_cluster_box=False,
+        run_optimization=False,
+        config_catheter_rotation=config_catheter_rotation,)
+
+    run_experiment_sequential(
+        cbox_optim=cbox_optim,
+        max_num_physical_catheters = max_num_physical_catheters,
+        step_num_physical_catheters = step_num_physical_catheters,
+        initial_num_physical_catheters = initial_num_physical_catheters,
+        prob_catheter_deviation = prob_catheter_deviation,
+        prepandicular_catheters=prepandicular_catheters,
+        dir_output=outdir)
+
+def test_disturbe_catheter_table():
+    outdir = Path("data_test/test_export_plan/prostate/disturb_catheters")
+    initial_num_physical_catheters = 2
+    prob_catheter_deviation = 0.6
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=4,
+        x_angle_step=8,
+        y_angle_max=4,
         y_angle_step=8,
     )
-    test_cluster_box_optim(
-        num_decision_planes=3,
-        config_catheter_rotation=config_catheter_rotation,
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        num_decision_planes=2,
+        num_physical_catheters = initial_num_physical_catheters,
+        insertion_point_spacing_mm = 10,        
+        return_output=True,
         export_cluster_box=True,
-        run_optimization=True
+        run_optimization=False,
+        config_catheter_rotation=config_catheter_rotation,)
+    cluster_box = cbox_optim.cluster_box
+    catheter_table = cbox_optim.plan.catheter_table
+
+    # randomly activate some of the clusters in this box
+    clusters_depth_zero = []
+    for cluster in cluster_box.cluster_dict.values():
+        if cluster.depth == 0:
+            clusters_depth_zero.append(cluster)
+    selected_clusters = random.sample(clusters_depth_zero, 5)
+    for cluster in selected_clusters:
+        _activate_this_cluster(
+            cluster.insert_position,
+            catheter_table,
+            cluster_box)
+    assert _count_physical_catheters_used(catheter_table, cluster_box) == 5
+    catheter_table.combined_dose.write_brachydose_to_file(
+        pth_dose_file=outdir/"before.seq.nrrd"
     )
+    catheter_table.write_to_json(
+        pth_json=outdir/"before.json"
+    )
+    diturbed_table = disturbe_catheter_table(
+        catheter_table=catheter_table,
+        prob_catheter_deviation=prob_catheter_deviation,
+        cluster_box=cluster_box
+    )
+    catheter_table.combined_dose.write_brachydose_to_file(
+        pth_dose_file=outdir/"after.seq.nrrd"
+    )
+    diturbed_table.write_to_json(
+        pth_json=outdir/"after.json"
+    )
+
+def test_get_physical_catheter_tabel():
+    outdir = Path("data_test/test_export_plan/prostate/clusterbox_optim")
+    initial_num_physical_catheters = 2
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=0,
+        x_angle_step=0,
+        y_angle_max=4,
+        y_angle_step=8,
+    )
+    cbox_optim, optimized_plan = test_cluster_box_optim(
+        num_decision_planes=4,
+        num_physical_catheters = initial_num_physical_catheters,
+        insertion_point_spacing_mm = 10,
+        return_output=True,
+        export_cluster_box=True,
+        run_optimization=False,
+        config_catheter_rotation=config_catheter_rotation,)
+    cluster_box = cbox_optim.cluster_box
+    catheter_table = cbox_optim.plan.catheter_table
+
+    # randomly activate some of the clusters in this box
+    clusters_depth_zero = []
+    for cluster in cluster_box.cluster_dict.values():
+        if cluster.depth == 0:
+            clusters_depth_zero.append(cluster)
+    selected_clusters = random.sample(clusters_depth_zero, 5)
+    for cluster in selected_clusters:
+        _activate_this_cluster(
+            cluster.insert_position,
+            catheter_table,
+            cluster_box)
+    # assert _count_physical_catheters_used(catheter_table, cluster_box) == 5
+    physical_catheter_table = cbox_optim.get_physical_catheter_table(
+        catheter_table=catheter_table)
+    physical_catheter_table.write_to_slicer_markup(
+        pth_mrk_json=outdir/"physical_catheter_table.mrk.json")
+
+if __name__ == "__main__":
+    print("Testing cluster box optimization")
+    # test_get_geometric_constraints()
+    # config_catheter_rotation = Config_Catheter_Rotation(
+    #     x_angle_max=0,
+    #     x_angle_step=0,
+    #     y_angle_max=0,
+    #     y_angle_step=0,
+    # )
+    # t0 = time()
+    # test_cluster_box_optim(
+    #     num_decision_planes=2,
+    #     config_catheter_rotation=config_catheter_rotation,
+    #     export_cluster_box=True,
+    #     run_optimization=True,
+    #     insertion_point_spacing_mm=5,
+    #     return_output=False,
+    #     num_physical_catheters=[10, 14],
+    # )
+    # t1 = time()
+    # print("--------")
+    # print("time for the entire pipeline")
+    # print(t1-t0)
     # test_constraint_catheter_number()
     # test_constraint_uniqueness()
     # test_constraint_collision()
-    test_constraint_continuity()
+    # test_constraint_continuity()
+    # test_modify_constraint()
+    test_run_experiment_sequential()
+    # test_disturbe_catheter_table()
+    # test_get_physical_catheter_tabel()

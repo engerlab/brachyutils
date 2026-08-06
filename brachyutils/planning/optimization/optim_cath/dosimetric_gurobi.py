@@ -1,5 +1,5 @@
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Literal
 from tqdm import tqdm
 from pathlib import Path
 
@@ -18,7 +18,7 @@ from brachyutils.planning.optimization.optim_gurobi import (
 # likley to be factored out later
 from brachyutils.geometry.catheter_utils.catheter_table import Catheter
 from itertools import chain
-
+from collections import defaultdict
 class CatheterVar_Gurobi():
     r"""
     ### Purpose:
@@ -197,7 +197,9 @@ class CatheterTableOptim_Gurobi():
         pth_logfile = Path(pth_logfile)
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         model = Model("CatheterTable_Optimization")
-        model.Params.TimeLimit = 600 # set a 10 minute time limit.
+        model.Params.TimeLimit = 180 # set a 10 minute time limit.
+        # model.setParam("MIPFocus", 1) # was not helpful.
+        model.setParam("PreSOS1BigM", -1)
         model.setParam("LogFile", str(pth_logfile))
         return model
 
@@ -269,6 +271,7 @@ class CatheterTableOptim_Gurobi():
             model=self.model,
             inplace=inplace
             )
+
         return outplan
 
     def set_constraints(
@@ -300,7 +303,8 @@ class CatheterTableOptim_Gurobi():
         self,
         dwellTimeVariables:List[DwellTime_Gurobi],
         catheter_vars:List[CatheterVar_Gurobi],
-        model:Model):
+        model:Model,
+        cohesion_type:Literal["BigM", "Indicator"] = "Indicator"):
         r"""
         We bound each dwell time variable to be equal to that variable multiplied by its corresponding 
         catheter variable. t = ct. This ensures that if a catheter variable is zeor, the dwell time is
@@ -308,11 +312,33 @@ class CatheterTableOptim_Gurobi():
         """
         t_MVar = MVar([dt._model_variable for dt in dwellTimeVariables])
         c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
-        model.addConstr(
-            t_MVar == c_MVar * t_MVar,
-            name="cohesion"
-        )
+
+        if cohesion_type == "BigM":
+            t_MVar_Max = np.array([
+                dt._model_variable.UB
+                for dt in dwellTimeVariables])
+            model.addConstr(
+                t_MVar <= c_MVar * t_MVar_Max,
+                name="cohesion")
+        elif cohesion_type == "Indicator":
+            for c_var, t_var in zip(c_MVar.tolist(), t_MVar.tolist()):
+                model.addGenConstrIndicator(
+                    c_var, False, t_var, GRB.EQUAL, 0.0,
+                    name="cohesion")
         model.update()
+
+    def remove_constraints(
+        self,
+        constraint_config_dict:Dict[str, Constraint_Config],
+        ):
+        r"""
+        ### Purpose:
+        - To remove a set of constraints from the model by their name
+        """
+        remove_constraints(
+            constraint_config_dict=constraint_config_dict,
+            model=self.model
+        )
 
 def set_catheter_variables(
     plan: BrachyPlan,
@@ -416,6 +442,7 @@ of the corresponding dose rate coefficients.")
         uniformity_weight = optimization_config.penalty_weight_uniformity
 
         penalty_weight_variance_time = optimization_config.penalty_weight_variance_time
+        penalty_weight_hotspot = optimization_config.penalty_weight_hotspot
 
         # now sort the dose rate matrices and dwell vars per catheter
         A_sparse = np.column_stack(list(optimization_config.dwell_coef_dict.values()))
@@ -467,18 +494,13 @@ of the corresponding dose rate coefficients.")
                     * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time))/ t_MVar.size
                 )
 
-        elif "hotspot_estimator_" in optimization_config.structure_name:
-            x_slack_hotspot = model.addMVar(
-                shape=num_dose_points,
-                name=f"p_H_{optimization_config.structure_name}"
-            )
-            model.addConstr(
-            (A_sparse @ (c_MVar * t_MVar)) - x_slack_hotspot <= (voxel_goal_vec),
-            name=f"c_H_{optimization_config.structure_name}",
-            )
-            hotspot_weight_vec = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
-            penalty_terms["hotspot"] += sum(hotspot_weight_vec * x_slack_hotspot)
-
+            if penalty_weight_hotspot > 0:
+                penalty_terms["hotspot"] = _set_hotspot_penalty_terms(
+                    optimization_config=optimization_config,
+                    A_sparse=A_sparse,
+                    c_MVar=c_MVar,
+                    t_MVar=t_MVar,
+                    model=model,)
         # OAR constraints and penalties
         else:
             if linear_weight > 0 or quadratic_weight > 0:
@@ -536,14 +558,27 @@ def set_dwell_coef_dict_per_structure(
     for structure in plan.structure_list:
         if structure.optimization_config is None:
             continue
-        if structure.optimization_config.mask is None:
-            structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
-                structure_mask=structure.mask,
-                template_dose_obj=plan.combined_dose,
-                optim_spacing=structure.optimization_config.spacing_mm,
-                roi_bounds=optim_roi_bounds,
-                )
-            structure.optimization_config.mask = structure_mask
+        # if structure.optimization_config.mask is None:
+        structure_mask = resample_crop_the_mask_or_contour_to_optimGrid(
+            structure_mask=structure.mask,
+            template_dose_obj=plan.combined_dose,
+            optim_spacing=structure.optimization_config.spacing_mm,
+            roi_bounds=optim_roi_bounds,
+            )
+        structure.optimization_config.mask = structure_mask
+        if structure.optimization_config.hotspot_masks is not None:
+            # consider multi processing this later
+            hotspot_masks = []
+            for hotspot_mask in structure.optimization_config.hotspot_masks:
+                hotspot_mask_resampled = resample_crop_the_mask_or_contour_to_optimGrid(
+                    structure_mask=hotspot_mask,
+                    template_dose_obj=plan.combined_dose,
+                    optim_spacing=structure.optimization_config.spacing_mm,
+                    roi_bounds=optim_roi_bounds,
+                    )
+                hotspot_masks.append(hotspot_mask_resampled)
+            structure.optimization_config.hotspot_masks = hotspot_masks            
+
         # Build dose rate matrix and dwell time vector for this structure
         dwell_vars, dose_rate_matrices = compute_dose_rate_matrices(
             dwellTimeVariables,
@@ -558,6 +593,25 @@ def set_dwell_coef_dict_per_structure(
         # build the coeff matricies
         for var, coeff in zip(dwell_vars, dose_rate_matrices):
             structure.optimization_config.dwell_coef_dict[var.VarName] = coeff
+
+def remove_constraints(
+    constraint_config_dict:Dict[str, Constraint_Config],
+    model:Model,
+    ):
+    r"""
+    ### Purpose:
+    - To remove a set of constraints from the model by their name
+    """
+    for name_id in constraint_config_dict:
+        # check if the constraint already exists, if yes remove it
+        try:
+            old_constraint = model.getConstrByName(name=name_id)
+        except GurobiError:
+            old_constraint = None
+            print(f"Constraint {name_id} was not found in the model.")
+        if old_constraint:
+            model.remove(old_constraint)
+            model.update()
 
 def set_constraints(
     constraint_config_dict:Dict[str, Constraint_Config],
@@ -601,6 +655,7 @@ def set_constraints(
             _set_continuity_constraint(constraint, model)
         elif constraint.constraint_type == "collision":
             _set_collision_constraint(constraint, model)
+    model.update()
 
 def _set_bound_constraint(
     constraint: Constraint_Config,
@@ -616,16 +671,16 @@ def _set_bound_constraint(
     if not variable:
         raise ValueError(f"No variable with name {var_name} was found for constraint \
 {constraint.name_id}. Ensure the constraint name is correct.")
-    if constraint.minimum:
+    if constraint.minimum is not None:
         variable.LB = constraint.minimum
-    if constraint.maximum:
+    if constraint.maximum is not None:
         variable.UB = constraint.maximum
-    if constraint.equal:
+    if constraint.equal is not None:
         model.addConstr(
             variable == constraint.equal,
             name=constraint.name_id
         )
-    model.update()
+    # model.update()
 
 def _set_sum_constraint(
     constraint: Constraint_Config,
@@ -642,22 +697,21 @@ def _set_sum_constraint(
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
         raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
 Ensure the constraint name is correct.")
-    if constraint.minimum:
+    if constraint.minimum is not None:
         model.addConstr(
             sum(variables) >= constraint.minimum,
             name=f"{constraint.name_id}"
         )
-    if constraint.maximum:
+    if constraint.maximum is not None:
         model.addConstr(
             sum(variables) <= constraint.maximum,
             name=f"{constraint.name_id}"
         )
-    if constraint.equal:
+    if constraint.equal is not None:
         model.addConstr(
             sum(variables) == constraint.equal,
             name=constraint.name_id
         )
-    model.update()
 
 def _set_uniqueness_constraint(
     constraint: Constraint_Config,
@@ -680,7 +734,6 @@ Ensure the constraint name is correct.")
         sum(variables) <= constraint.maximum,
         name=constraint.name_id
     )
-    model.update()
 
 def _set_num_catheters_constraint(
     constraint: Constraint_Config,
@@ -697,11 +750,18 @@ def _set_num_catheters_constraint(
         missing_vars = [var_name for var_name, var in zip(var_names, variables) if not var]
         raise ValueError(f"No variable(s) with name(s) {missing_vars} were found for constraint {constraint.name_id}. \
 Ensure the constraint name is correct.")
-    model.addConstr(
-        sum(variables) <= constraint.maximum,
-        name=constraint.name_id
-    )
-    model.update()
+    if constraint.equal is not None:
+        model.addConstr(
+            sum(variables) == constraint.equal,
+            name=constraint.name_id
+        )
+    else:
+        model.addRange(
+            sum(variables),
+            constraint.minimum,
+            constraint.maximum,
+            name=constraint.name_id
+        )
 
 def _set_continuity_constraint(
     constraint: Constraint_Config,
@@ -739,7 +799,6 @@ Ensure the constraint name is correct.")
             e_vec[i] * sum_parents == constraint.equal * var_vec[i],
             name=constraint.name_id,
         )
-    model.update()
 
 def _set_collision_constraint(
     constraint: Constraint_Config,
@@ -760,4 +819,40 @@ Ensure the constraint name is correct.")
         sum(variables) <= constraint.equal,
         name=constraint.name_id
     )
-    model.update()
+
+def _set_hotspot_penalty_terms(
+    optimization_config,
+    A_sparse,
+    c_MVar,
+    t_MVar,
+    model,
+    ):
+    r"""
+    ### Purpose:
+    - To set the hotspot penalty terms for the optimization model.
+    Assumes that the hotspot masks have been created and resampled to the optimization grid.
+    """
+    linear_weight = optimization_config.penalty_weight_hotspot
+    hotspot_threshold = optimization_config.hotspot_threshold
+    dose_voxel_goal = optimization_config.dose_voxel_goal
+    total_hotspot_penalty = 0
+    for hotspot_mask in optimization_config.hotspot_masks:
+        mask_array = hotspot_mask.imageArray.flatten()
+        target_array = optimization_config.mask.imageArray.flatten()
+        mask_in_target = np.ma.multiply(mask_array, target_array)[target_array].astype(bool)
+        num_dose_points = np.sum(mask_in_target)
+
+        voxel_goal_vec = (np.ones(num_dose_points) * dose_voxel_goal* hotspot_threshold)
+        hotspot_weight_vec = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
+
+        x_slack_hotspot = model.addMVar(
+            shape=num_dose_points,
+            name=f"p_H_{hotspot_mask.name.split("hotspot_estimator")[1]}")
+        # # Gotta filter out only the expressions that apply to hotspots.
+        # # so setting them to zero is not enough, we need to isolate them!
+        dose_expression = A_sparse[mask_in_target, :] @ (c_MVar * t_MVar)
+        model.addConstr(
+        (dose_expression) - x_slack_hotspot <= (voxel_goal_vec),
+        name=f"c_H_{hotspot_mask.name.split("hotspot_estimator")[1]}")
+        total_hotspot_penalty += sum(hotspot_weight_vec * x_slack_hotspot)
+    return total_hotspot_penalty

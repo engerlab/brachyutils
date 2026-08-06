@@ -9,6 +9,8 @@ from brachyutils.tests.test_plan_utils import get_a_plan
 from brachyutils.planning.optimization.optim_configs import Optimization_Config
 from pandas import DataFrame
 from brachyutils.dose.dose_generation_utils import RapidBrachyTG43
+import numpy as np
+
 def test_catheter_gurobi_initialization():
     # we need a catheter table first!
     pth_dicom = Path("data_test/prostate-glen-p1-dcm").resolve()
@@ -89,7 +91,7 @@ def test_catheter_table_optim(
             dir_dose_rate=dir_dose_rate,
             multi_processing=multi_processing
         )
-        
+
     optimization_config_list=[
         Optimization_Config(
             structure_name="CTV",
@@ -126,6 +128,7 @@ def test_catheter_table_optim(
         optimization_config_list=optimization_config_list,
         structure_list=plan.structure_list,
         strict_name_match=False,
+        one_hotspot_mask=False,
     )
 
     catheter_optim_obj = CatheterTableOptim_Gurobi(
@@ -146,10 +149,18 @@ def test_catheter_table_optim(
                 },
         }
     )
+    dwell_times = [dt.time for dt in optimized_plan.catheter_table.all_dwells]
+    dwell_time_data = {
+        "median_dwell_times": np.median(dwell_times),
+        "iqr_dwell_times": np.percentile(dwell_times, 75) - np.percentile(dwell_times, 25),
+        "mean_dwell_times": np.mean(dwell_times),
+        "std_dwell_times": np.std(dwell_times),
+        "frac_zero_dwell_times": sum([1 for dt in dwell_times if dt == 0]) / len(dwell_times)
+    }
     dvh_metrics_dict = optimized_plan.get_dvh_metrics(return_percentage=True)
     cat_table = optimized_plan.catheter_table.write_to_slicer_markup(
         pth_mrk_json = dir_export / "catheter_table.mrk.json")
-    DataFrame([dvh_metrics_dict]).to_csv(
+    DataFrame([dvh_metrics_dict | dwell_time_data]).to_csv(
         dir_export / "dvh_metrics.csv", index=False)
 
 def test_dynamic_plan_generation():
@@ -269,6 +280,6 @@ if __name__ == "__main__":
     # tracer = VizTracer()
     # tracer.start()
     # test_catheter_gurobi_initialization()
-    # test_catheter_table_optim()
+    test_catheter_table_optim()
     # test_dynamic_plan_generation()
-    test_set_constraints()
+    # test_set_constraints()

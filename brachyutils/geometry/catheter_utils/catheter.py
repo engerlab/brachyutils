@@ -1,5 +1,5 @@
 import numpy as np
-from pydantic import BaseModel, computed_field, model_validator
+from pydantic import BaseModel, computed_field, model_validator, ConfigDict
 from typing import List, Union, Any, Optional
 import SimpleITK as sitk
 import copy
@@ -36,13 +36,16 @@ class Catheter(BaseModel):
     - channel_total_time:float := the total time of the catheter.
     - step_size: float := distance between the subsequent dwell positions.
     - fit_function:PiecewiseLinear3D := a line that connects the dwell positions together.
-    - insert_position:list := The coordinates on patient body or insertion grid where the 
-    catheter was inserted from.
+    - insert_position:list := The digitization point that is furthest away from the tip.
     - gen_dose_rates: bool := whether the catheter needs to be generated for dose calculation or not.
     ### Functions:
     - to_dict() -> dict := convert the catheter to a dictionary.
     - add_dwell(dwell:DwellPosition) -> None := add a dwell position to the catheter.
     """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,)
+
     index: int
     dwells: List[DwellPosition] = None
     channel_length: Optional[float] = None
@@ -56,8 +59,7 @@ class Catheter(BaseModel):
     digitization_points: Optional[List[List[float]]] = None
     # auxiliary attributes
     afterloader_channel_number: Optional[int] = None # if none, will be set to index
-    insert_position: Optional[List[float]] = None
-    # points: Optional[List[List[float]]] = None  # to keep compatibility with previous versions
+    # insert_position: Optional[List[float]] = None
     gen_dose_rates: bool = True
 
     @computed_field
@@ -95,8 +97,19 @@ class Catheter(BaseModel):
         unique_indices = set(dwell.index for dwell in self.dwells)
         return len(unique_indices)
 
-    @model_validator(mode="after")
-    def validate_catheter(self):
+    @computed_field
+    def insert_position(self) -> np.typing.ArrayLike:
+        r"""
+        ### Purpose:
+        - The digitization point that is furthest away from the tip.
+        If digitization point is none, return the last dwell position.
+        """
+        if self.digitization_points is not None:
+            return self.digitization_points[1]
+        else:
+            return self.dwells[-1].position if self.dwells else None
+
+    def model_post_init(self, __context):
         r"""
         Validate the catheter object and set necessary attributes based on provided inputs.
         This method ensures that the catheter has valid configuration by:
@@ -217,7 +230,7 @@ class Catheter(BaseModel):
             "step_size": round(float(self.step_size), 3),
             "digitization_points": [[round(float(x), 3) for x in point] for point in self.digitization_points] if self.digitization_points else None,
             "afterloader_channel_number": int(self.afterloader_channel_number) if self.afterloader_channel_number is not None else None,
-            "insert_position": [round(float(x), 3) for x in self.insert_position] if self.insert_position else None,
+            "insert_position": [round(float(x), 3) for x in self.insert_position] if self.insert_position is not None else None,
             "channel_total_time": round(float(self.channel_total_time), 3),
             "channel_length": round(float(self.channel_length), 3) if self.channel_length is not None else None
         }
@@ -417,3 +430,17 @@ class Catheter(BaseModel):
         dir_ply = Path(dir_ply)
         dir_ply.mkdir(parents=True, exist_ok=True)
         combined_mesh.export(dir_ply/f"catheter_{self.name_id}.ply")
+    
+    def reset_dwelltimes_to(self, reset_value:float = 1.0) -> None:
+        r"""
+        ### Purpose:
+        - To reset the dwell times inside a catheter (self) to a given value.
+
+        ### Inputs:
+        - reset_value := The new value for all the dwell positions in self. 
+
+        ### Outputs:
+        - None
+        """
+        for dwell in self.dwells:
+            dwell.time = reset_value

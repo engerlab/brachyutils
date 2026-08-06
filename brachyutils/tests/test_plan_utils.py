@@ -38,7 +38,7 @@ def get_a_plan(
         optimization_config_list=kwargs.get("optimization_config_list", None),
         dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
         add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
-        one_hotspot_structure=kwargs.get("one_hotspot_structure", True),
+        one_hotspot_mask=kwargs.get("one_hotspot_mask", True),
         )
     return plan_obj
 
@@ -85,6 +85,83 @@ def test_load_dose_rate_dict():
         "data_test/test_export_plan/prostate/new_combined.seq.nrrd")
     plan_obj.catheter_table.write_to_json(
         "data_test/test_export_plan/prostate/new_cathtabel.json")
+
+def test_change_dwell_times_and_recalculate_combined_dose():
+    from brachyutils.geometry.catheter_utils.catheter_table import CatheterTable
+    from brachyutils.dose.tg43_dose_calculator import BrachyUtilsTG43
+    dir_dicom = "data_test/prostate-glen-p1-dcm"
+    dvh_metric_goals = {
+        "D90%(CTV)": 100.0,
+        "D2cc(RECTUM)": 100.0 * 0.75,
+        "D10%(URETHRA)": 100.0 * 1.133,
+        "D30%(URETHRA)": 100.0,
+        "CI(CTV)": 1.0,
+        "HI(CTV)": 0.5,
+        "V200%(CTV)": 100.0 * 0.2,
+        "V150%(CTV)": 100.0 * 0.4,
+        "V100%(CTV)": 100.0,
+    }
+    plan_obj = load_dicom_to_plan(
+        dir_dicom=dir_dicom,
+    )
+    for cath in plan_obj.catheter_table:
+        if cath.index % 2 == 0:
+            del plan_obj.catheter_table[cath.index]
+
+    dose_calc = BrachyUtilsTG43(dir_tg43_parameters="MicroSelectronV2")
+    dose_calc.run_dose_generation(plan=plan_obj)
+
+    plan_obj.set_dvh_metric_goals(
+        dvh_metric_goals=dvh_metric_goals,
+        strict_name_match=False)
+    dwell_times = [dwell.time for dwell in plan_obj.catheter_table.all_dwells]
+    dwell_time_diffs = [dwell._time_diff for dwell in plan_obj.catheter_table.all_dwells]
+    print("mean dwell times:")
+    print(np.mean(dwell_times))
+    print("mean dwell time diffs:")
+    print(np.mean(dwell_time_diffs))
+    # plan_obj.combined_dose
+    print("DVH metrics before changing dwell times:")
+    t0 = time.time()
+    print(plan_obj.get_dvh_metrics())
+    t1 = time.time()
+    print(f"Calculating DVH metrics took {t1-t0} seconds")
+
+    for dwell in plan_obj.catheter_table.all_dwells:
+        dwell.time *= 2.0
+    dwell_times = [dwell.time for dwell in plan_obj.catheter_table.all_dwells]
+    dwell_time_diffs = [dwell._time_diff for dwell in plan_obj.catheter_table.all_dwells]
+    print("mean dwell times:")
+    print(np.mean(dwell_times))
+    print("mean dwell time diffs:")
+    print(np.mean(dwell_time_diffs))
+    print("DVH metrics after changing dwell times:")
+    t0 = time.time()
+    print(plan_obj.get_dvh_metrics())
+    t1 = time.time()
+    print(f"Calculating DVH metrics took {t1-t0} seconds")
+
+    # change dwell times
+    for dwell in plan_obj.catheter_table.all_dwells:
+        dwell.time *= 5
+
+    dwell_times = [dwell.time for dwell in plan_obj.catheter_table.all_dwells]
+    dwell_time_diffs = [dwell._time_diff for dwell in plan_obj.catheter_table.all_dwells]
+    print("mean dwell times:")
+    print(np.mean(dwell_times))
+    print("mean dwell time diffs:")
+    print(np.mean(dwell_time_diffs))
+    print("DVH metrics after changing dwell times:")
+    t0 = time.time()
+    print(plan_obj.get_dvh_metrics())
+    t1 = time.time()
+    print(f"Calculating DVH metrics took {t1-t0} seconds")
+    
+    print("DVH metrics not changing dwell times:")
+    t0 = time.time()
+    print(plan_obj.get_dvh_metrics())
+    t1 = time.time()
+    print(f"Calculating DVH metrics took {t1-t0} seconds")
 
 def test_create_structures_and_calc_dvh_metrics():
     dir_out = Path("data_test/test_export_plan/prostate")
@@ -372,7 +449,7 @@ if __name__ == "__main__":
     # testupdate_plan_from_catheter_table()
     # test_update_catheter_table_from_plan()
     # test_load_dose_rate_dict()
-    test_create_structures_and_calc_dvh_metrics()
+    # test_create_structures_and_calc_dvh_metrics()
     # test_calculate_combined_uncertainty()
     # test_calculate_uncertainty_per_structure()
     # test_BrachyPlan()
@@ -383,3 +460,4 @@ if __name__ == "__main__":
     # test__export_applicator_geometry()
     # test_brachy_structure()
     # test_load_phantom()
+    test_change_dwell_times_and_recalculate_combined_dose()

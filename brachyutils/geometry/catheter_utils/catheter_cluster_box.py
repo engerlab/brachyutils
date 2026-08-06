@@ -11,7 +11,8 @@ from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
     generate_candidate_segments,
     decision_planes_to_ply,
     segment_lines_to_ply,
-    TupleKeyDict, find_colliding_pairs
+    TupleKeyDict, find_colliding_pairs,
+    get_angles
     )
 
 class Segment(BaseModel):
@@ -34,7 +35,14 @@ class Segment(BaseModel):
 segment in patients coordinates.")
     # these attributes will be set and used later when interacting with the optimization model.
     catheter_name_id:int = None
-    # dwell_index_list:List[int] = None
+    x_angle: float = Field(None, description="Angle of this segment rotating around Y axis\
+with respect to the normal of its decision plane.")
+    y_angle: float = Field(None, description="Angle of this segment rotating around X axis\
+    with respect to the normal of its decision plane.")
+    def model_post_init(self, __context):
+        if len(self.line) != 2:
+            raise ValueError(f"Line attribute must have a start and endpoint \
+for {self.name_id}")
 
     @computed_field
     @property
@@ -43,8 +51,8 @@ segment in patients coordinates.")
         The unique identifier for this Segment. The format is
         ({SegmentCluster.depth}, {SegmentCluster.index+1})_{Segment.index+1}
         """
-        
         return f"{self.cluster_name_id}_{self.index+1}"
+
 
 class SegmentCluster(BaseModel):
     r"""
@@ -135,6 +143,7 @@ class ClusterBox(BaseModel):
 
     ### Attributes:
     - num_physical_catheters: int := the number of physical catheters to be inserted.
+    provide a single int for equality or [low, high] for a range.
     - structure_dict: Dict[str, Trimesh] := a dictionary of structures to be considered
     for catheter trajectory optimization.
     - rotation_angle_deg: float := the rotation angle of the catheter box around the right left (X) axis (degrees).
@@ -164,7 +173,8 @@ structures to be considered for catheter trajectory optimization.")
     target_structure_names: List[str] = Field(..., description="The list of the names of the target \
 structures; Usually CTV or PTV.")
     # # Attributes with defaults.
-    num_physical_catheters: int = Field(default=1, description="the number of physical catheters to be inserted.")
+    num_physical_catheters: int | List[int] = Field(default=1, description="the number of physical \
+catheters to be inserted. Provide a single int for equality or [low, high] for a range.")
     rotation_angle_deg: float = Field(default=0, description="the rotation angle of the catheter box \
 around the right left (X) axis (degrees).")
     insertion_point_spacing_mm: float = Field(default=10, description="the spacing between adjacent \
@@ -296,7 +306,7 @@ catheter segments (mm). Measured as center of the catheter segments.")
             6. [slice][slice]: This will get you all the segments with cluster.depth, cluster.index in indices
             7. [slice][slice][slice]: This will get you all the segments with
             cluster.depth, cluster.index, segment.index in indices
-        
+
         ### Outputs:
         - Either a single Segment or a dictionary of Segments where keys are:
             ({cluster.depth}, {cluster.index}, {segment.index+})
@@ -392,6 +402,72 @@ catheter segments (mm). Measured as center of the catheter segments.")
             point_pairs=all_segments_lines
         )
 
+    def get_cluster_by_insert_position(
+        self,
+        insert_position: np.typing.ArrayLike) -> SegmentCluster | None:
+        r"""
+        ### Purpose:
+        - Given an insert point, it will return a cluster based on the
+        insertion point of that cluster.
+
+        ### Inputs:
+        - insert_position := The coordinates of the insert point. must have length of 3
+        
+        ### Outputs:
+        - out_cluster: SegmentCluster
+        If cluster was not found it returns None
+        """
+        for cluster in self.cluster_dict.values():
+            if np.all(cluster.insert_position == insert_position):
+                return cluster
+
+    def get_catheters_on_chain(
+        self,
+        insert_position: np.typing.ArrayLike,
+        catheter_table: CatheterTable,
+        catheters_on_chain:List[Catheter] = None) -> List[Catheter]:
+        r"""
+        ### Purpose:
+        - To recursively get the activated catheters in a cluster and its childern.
+        There can only be one activated catheter in a single cluster. Activated
+        catheters have a non-zero `channel_total_time`.
+        
+        - Exit condition: If cluster described by that insertion point is None,
+        this function returns the catheters_on_chain
+
+        ### Inputs:
+        - insert_position := The insertion point for segment cluster with at most 1 activated catheter.
+        - catheters_on_chain := The list of the activated catheters from this 
+        cluster and its childern.
+        
+        ### Outputs:
+        - catheters_on_chain := filled with that one active catheter!
+        """
+        if catheters_on_chain is None:
+            catheters_on_chain = []
+        cluster = self.get_cluster_by_insert_position(insert_position=insert_position)
+        if cluster is None:
+            return catheters_on_chain
+        active_cath_count = 0
+
+        for catheter in catheter_table.get_catheters_by_ids(
+            cluster.catheter_name_ids):
+            if catheter.channel_total_time == 0:
+                continue
+            active_cath_count += 1
+            catheters_on_chain.append(catheter)
+
+        if active_cath_count > 1:
+            raise ValueError(f"More than 1 active catheter in cluster {cluster.name_id}\
+    something's horribly wrong!")
+        if active_cath_count == 0:
+            return catheters_on_chain
+
+        return self.get_catheters_on_chain(
+            insert_position=catheter.digitization_points[1],
+            catheter_table=catheter_table,
+            catheters_on_chain=catheters_on_chain,)
+
 def get_clusters_from_planes(
     plane_dict:Dict[int, Decision_Plane]) -> Dict[str, SegmentCluster]:
     r"""
@@ -403,9 +479,9 @@ def get_clusters_from_planes(
     for plane in plane_dict.values():
         if plane.depth == len(plane_dict) - 1:
             break 
-        all_insert_points = [p0 for p0, _ in plane.segment_lines]
-        idx = sorted(np.unique(all_insert_points, axis=0, return_index=True)[1])
-        idx = idx + [len(all_insert_points)]
+        all_insert_positions = [p0 for p0, _ in plane.segment_lines]
+        idx = sorted(np.unique(all_insert_positions, axis=0, return_index=True)[1])
+        idx = idx + [len(all_insert_positions)]
         for i, j in enumerate(idx):
             if j == idx[-1]:
                 break
@@ -421,10 +497,13 @@ def get_clusters_from_planes(
             if len(segments_in_a_cluster) == 0:
                 continue
             for k, line in enumerate(segments_in_a_cluster):
+                angles = get_angles(line, plane.normal)
                 segment_dict[k] = Segment(
                     cluster_name_id=cluster.name_id,
                     index=k,
-                    line=line
+                    line=line,
+                    x_angle=angles[0],
+                    y_angle=angles[1],
                     )
             cluster.segment_dict = segment_dict
             cluster_dict[cluster.name_id] = cluster
