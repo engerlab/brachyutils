@@ -292,7 +292,7 @@ class BrachyPlan:
                 optimization_config_list,
                 self.structure_list,
                 add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
-                one_hotspot_mask=kwargs.get("one_hotspot_mask", True),
+                one_hotspot_mask=kwargs.get("one_hotspot_mask", False),
                 strict_name_match=kwargs.get("strict_name_match", True)
             )
 
