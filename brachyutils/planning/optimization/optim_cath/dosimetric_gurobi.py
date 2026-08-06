@@ -832,21 +832,27 @@ def _set_hotspot_penalty_terms(
     - To set the hotspot penalty terms for the optimization model.
     Assumes that the hotspot masks have been created and resampled to the optimization grid.
     """
-    num_dose_points = 0 # TBD
     linear_weight = optimization_config.penalty_weight_hotspot
     hotspot_threshold = optimization_config.hotspot_threshold
-    voxel_goal_vec = (
-        np.ones(num_dose_points)
-        * optimization_config.dose_voxel_goal
-        * hotspot_threshold)
+    dose_voxel_goal = optimization_config.dose_voxel_goal
+    total_hotspot_penalty = 0
+    for hotspot_mask in optimization_config.hotspot_masks:
+        mask_array = hotspot_mask.imageArray.flatten()
+        target_array = optimization_config.mask.imageArray.flatten()
+        mask_in_target = np.ma.multiply(mask_array, target_array)[target_array]
+        num_dose_points = np.sum(mask_in_target)
 
-    x_slack_hotspot = model.addMVar(
-        shape=num_dose_points,
-        name=f"p_H_{optimization_config.structure_name}"
-    )
-    model.addConstr(
-    (A_sparse @ (c_MVar * t_MVar)) - x_slack_hotspot <= (voxel_goal_vec),
-    name=f"c_H_{optimization_config.structure_name}",
-    )
-    hotspot_weight_vec = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
-    return sum(hotspot_weight_vec * x_slack_hotspot)
+        voxel_goal_vec = (np.ones(num_dose_points) * dose_voxel_goal* hotspot_threshold)
+        hotspot_weight_vec = np.ones_like(voxel_goal_vec)*linear_weight/num_dose_points
+
+        x_slack_hotspot = model.addMVar(
+            shape=num_dose_points,
+            name=f"p_H_{hotspot_mask.name}")
+        # # Gotta filter out only the expressions that apply to hotspots.
+        # # so setting them to zero is not enough, we need to isolate them!
+        dose_expression = A_sparse[mask_in_target, :] @ (c_MVar * t_MVar)
+        model.addConstr(
+        (dose_expression) - x_slack_hotspot <= (voxel_goal_vec),
+        name=f"c_H_{hotspot_mask.name}",)
+        total_hotspot_penalty += sum(hotspot_weight_vec * x_slack_hotspot)
+    return total_hotspot_penalty
