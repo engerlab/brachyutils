@@ -57,7 +57,7 @@ def load_qa_along_away_dose_table(pth_csv = Path(__file__).parent.parent.parent/
     along_away_dose_table = table[1:, 1:]
     return (along, away, along_away_dose_table)
 ####################################
-def test_brachyutils_tg43(examine_values = False):
+def test_brachyutils_tg43(examine = False):
     #tester to QA the BrachyUtilsTG43 dose calculator by calculating an along-away dose table and comparing to the QA table obtained from the BRAPHYQFS database
     phantom =  get_uniform_phantom(0.0, gridSize = [201, 201, 201], # a uniform 10x10x10 phantom
                                     spacing = [1.0, 1.0, 1.0], origin = [-100.0, -100.0, -100.0])
@@ -76,10 +76,8 @@ def test_brachyutils_tg43(examine_values = False):
     percent_difference = np.abs((brachyutils_along_away_dose_table - qa_along_away_dose_table) / qa_along_away_dose_table) * 100
     percent_difference[qa_along_away_dose_table < 0] = 0 #ignore the points where the QA table is zero aka inside the source
 
-    if examine_values:
+    if examine:
         examine_values(along, away, qa_along_away_dose_table, brachyutils_along_away_dose_table, percent_difference)
-    
-
 
     assert np.all(percent_difference < 2), f"Percent difference between BrachyUtilsTG43 and QA table is greater than 2% at some points. Max percent difference: {np.max(percent_difference)}"
 ####################################
@@ -94,10 +92,20 @@ def examine_values(along, away, qa_table, brachyutils_table, percent_difference)
     print(brachyutils_table)
     print("Percent Difference Table:")
     print(percent_difference)
+    write_brachyutils_along_away_dose_table_to_csv(along, away, brachyutils_table)
     plt.imshow(percent_difference, cmap='hot', interpolation='nearest')
     plt.colorbar(label='Percent Difference (%)')
     plt.show()
 ####################################
+def write_brachyutils_along_away_dose_table_to_csv(along, away, brachyutils_table, pth_csv = Path(__file__).parent.parent.parent/ "admin/constants/TG43_Parameter_Data/GenericHDR/brachyutils_along_away.csv"):
+    #write the brachyutils along away dose table to a csv file
+    table = np.zeros((len(along) + 1, len(away) + 1))
+    table[0, 1:] = away / 10 #convert mm to cm
+    table[1:, 0] = along / 10 #convert mm to cm
+    table[1:, 1:] = brachyutils_table
+    np.savetxt(pth_csv, table, delimiter=",", fmt='%1.3e')
+
+####################################
 if __name__ == "__main__":
-    test_brachyutils_tg43()
+    test_brachyutils_tg43(examine = True)
 ####################################
