@@ -5,8 +5,10 @@ from matplotlib import pyplot as plt
 from brachyutils import (BrachyPlan, get_uniform_phantom, BrachyPhantom, 
 CatheterTable, Catheter, DwellPosition, BrachyUtilsTG43, BrachyDose)
 from pathlib import Path
+import logging
 ####################################
 matplotlib.use('TkAgg')
+logging.basicConfig(level=logging.INFO)
 ####################################
 # #Define sim constants
 ATOMIC_NUMBER = 77
@@ -45,8 +47,8 @@ CALC_PARAMETER_QUARGS = { #some arguments for the BrachyUtilsTG43 dose calculato
     "kernel_max_dose_rate": 1000, #Gy/s
     "epsilon": 1e-8, #just a little nudge to certain values :)
     "auto_kernel": False, #if not True, you must set the next two values 
-    "kernel_half_width" : 100, #half width to calculate dose rate kernel
-    "kernel_res" : 1, #resolution to calculate the dose rate kernel
+    "kernel_half_width" : 120, #half width to calculate dose rate kernel
+    "kernel_res" : 0.5, #resolution to calculate the dose rate kernel
     "auto_phantom" : False, #crop phantom to all non-body structures
 }
 ####################################
@@ -59,8 +61,8 @@ def load_qa_along_away_dose_table(pth_csv = Path(__file__).parent.parent.parent/
 ####################################
 def test_brachyutils_tg43(examine = False):
     #tester to QA the BrachyUtilsTG43 dose calculator by calculating an along-away dose table and comparing to the QA table obtained from the BRAPHYQFS database
-    phantom =  get_uniform_phantom(0.0, gridSize = [201, 201, 201], # a uniform 10x10x10 phantom
-                                    spacing = [1.0, 1.0, 1.0], origin = [-100.0, -100.0, -100.0])
+    phantom =  get_uniform_phantom(0.0, gridSize = [403, 403, 403], # a uniform 10x10x10 phantom
+                                    spacing = [0.5, 0.5, 0.5], origin = [-101.0, -101.0, -101.0])
 
     test_plan = BrachyPlan(phantom = phantom, catheter_table = CATHETER_TABLE, simulation_setup = SIM_DICT)
     along, away, qa_along_away_dose_table = load_qa_along_away_dose_table() #load the QA table
@@ -93,7 +95,7 @@ def examine_values(along, away, qa_table, brachyutils_table, percent_difference)
     print("Percent Difference Table:")
     print(percent_difference)
     write_brachyutils_along_away_dose_table_to_csv(along, away, brachyutils_table)
-    plt.imshow(percent_difference, cmap='hot', interpolation='nearest')
+    plt.imshow(percent_difference, cmap='hot', interpolation='nearest', vmin=0, vmax=2)
     plt.colorbar(label='Percent Difference (%)')
     plt.show()
 ####################################
