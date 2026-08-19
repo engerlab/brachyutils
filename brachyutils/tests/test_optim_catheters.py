@@ -275,9 +275,6 @@ def test_set_constraints():
     print("time to build model with bound variables: ", tf_build - ti_build)
     print("time to solve model with bound variables: ", t_solve - tf_build)
 
-def test_update_penalty_weights_and_targets():
-    pass    
-
 if __name__ == "__main__":
     # from viztracer import VizTracer
     # tracer = VizTracer()
@@ -286,4 +283,3 @@ if __name__ == "__main__":
     test_catheter_table_optim()
     # test_dynamic_plan_generation()
     # test_set_constraints()
-    # test_update_penalty_weights_and_targets()
