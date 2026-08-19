@@ -24,7 +24,8 @@ def test_update_penalty_weights_and_targets():
                 upper_dose_bound = int(np.ceil(prescription_dose * 1.2))
                 new_value = randint(lower_dose_bound, upper_dose_bound)
             elif (param == "penalty_weight_variance_time"
-                  or param == "penalty_weight_uniformity"):
+                  or param == "penalty_weight_uniformity"
+                  or param == "penalty_weight_hotspot"):
                 if not conf.is_target:
                     continue
             else:
