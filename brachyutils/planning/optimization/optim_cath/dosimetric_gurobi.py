@@ -114,6 +114,14 @@ class CatheterTableOptim_Gurobi():
     This is what allows `update_penalty_weights_and_voxel_goals` to change weights/target doses -
     including hotspot weight and dwell-time-variance weight for target structures - without
     rebuilding the model.
+
+    ### Important note on constraint attributes:
+    Every dose constraint created here (`c_L_*`, `c_U_*`, `c_H_*`) involves the bilinear term
+    `c_MVar * t_MVar` (catheter indicator times dwell time). Gurobi therefore stores these as
+    QUADRATIC constraints (`MQConstr`), even though they look like plain linear dose constraints.
+    That means their right-hand side is read/written through `.QCRHS`, NOT `.RHS` - `.RHS` is only
+    valid on purely linear constraints (`Constr`/`MConstr`). `update_penalty_weights_and_voxel_goals`
+    below uses `.QCRHS` accordingly.
     """
 
     def __init__(
@@ -125,7 +133,7 @@ class CatheterTableOptim_Gurobi():
     ):
         r"""
         ### Purpose:
-        - A catheter table optimization object for Gurobi solver.
+        - An catheter table optimization object for Gurobi solver.
         ### Inputs:
         - `plan`: BrachyPlan := the brachytherapy plan to be optimized.
         - `roi_margin_mm`: float := margin in mm to add around the ROIs when resampling to the optimization grid.
@@ -286,19 +294,19 @@ class CatheterTableOptim_Gurobi():
         - Dynamically updates penalty weights and/or the per-voxel target dose for structures that
         already have slack variables/constraints in the model (i.e. `set_penalty_function_and_constraints`
         has already been called at least once). This does NOT call `addVar`/`addConstr`: it only mutates
-        `Obj`, `RHS` and `UB` attributes on the existing Gurobi objects and rebuilds the (cheap, Python-side)
-        objective expression from the stored `MVar` handles - including the hotspot penalty and the
-        dwell-time-variance penalty, both of which are target-structure-only terms per `Optimization_Config`.
-        This is the recommended, fast path for the "recall repeatedly with new weights/target dose"
-        workflow, since Gurobi does not discard/overwrite previous slack variables and constraints when
-        you add new ones under the same name - rebuilding thousands of slack variables on every weight
-        tweak is unnecessary and expensive.
+        `Obj`, `QCRHS` (NOT `RHS` - see class docstring) and `UB` attributes on the existing Gurobi
+        objects and rebuilds the (cheap, Python-side) objective expression from the stored `MVar`
+        handles - including the hotspot penalty and the dwell-time-variance penalty, both of which are
+        target-structure-only terms per `Optimization_Config`. This is the recommended, fast path for
+        the "recall repeatedly with new weights/target dose" workflow, since Gurobi does not
+        discard/overwrite previous slack variables and constraints when you add new ones under the same
+        name - rebuilding thousands of slack variables on every weight tweak is unnecessary and expensive.
         ### Inputs:
         - `optimization_configs`: List[Optimization_Config] := the (updated) optimization configs. Only
         the weight/target-dose/threshold fields are read here; the structure must already be present in
         `self._penalty_handles` (i.e. unchanged mask/voxel count/hotspot-mask count).
         ### Output:
-        - None: the model's objective, RHS and variable bounds are updated in place.
+        - None: the model's objective, quadratic-constraint RHS, and variable bounds are updated in place.
         """
         if not self._penalty_handles:
             raise RuntimeError(
@@ -469,22 +477,33 @@ def _remove_variables_by_prefix(model: Model, prefix: str) -> bool:
 def _remove_constraints_by_prefix(model: Model, prefix: str) -> bool:
     r"""
     ### Purpose:
-    - Removes every linear/general constraint whose name matches `prefix` exactly or is an entry of
-    a vectorized constraint created with that base name (i.e. `prefix[0]`, `prefix[1]`, ...).
+    - Removes every constraint whose name matches `prefix` exactly or is an entry of a vectorized
+    constraint created with that base name (i.e. `prefix[0]`, `prefix[1]`, ...). Checks BOTH the
+    linear constraint list (`getConstrs`) and the quadratic constraint list (`getQConstrs`), since
+    the `c_L_*`/`c_U_*`/`c_H_*` constraints built from `c_MVar * t_MVar` are quadratic (`MQConstr`)
+    even though they look linear at a glance.
     ### Inputs:
     - `model`: Model := the Gurobi model to clean up.
     - `prefix`: str := the base constraint name (without the `[index]` suffix) to remove.
     ### Output:
     - bool := True if any constraint was removed (caller should then call `model.update()`).
     """
-    to_remove = [
+    to_remove_linear = [
         c for c in model.getConstrs()
         if c.ConstrName == prefix or c.ConstrName.startswith(prefix + "[")
     ]
-    if to_remove:
-        model.remove(to_remove)
-        return True
-    return False
+    to_remove_quad = [
+        c for c in model.getQConstrs()
+        if c.QCName == prefix or c.QCName.startswith(prefix + "[")
+    ]
+    removed = False
+    if to_remove_linear:
+        model.remove(to_remove_linear)
+        removed = True
+    if to_remove_quad:
+        model.remove(to_remove_quad)
+        removed = True
+    return removed
 
 
 def _cleanup_penalty_terms_for_structure(model: Model, structure_name: str):
@@ -518,7 +537,7 @@ def _cleanup_hotspot_penalty_terms(model: Model):
     hotspot estimator masks).
     """
     to_remove_vars = [v for v in model.getVars() if v.VarName.startswith("p_H_")]
-    to_remove_constrs = [c for c in model.getConstrs() if c.ConstrName.startswith("c_H_")]
+    to_remove_constrs = [c for c in model.getQConstrs() if c.QCName.startswith("c_H_")]
     if to_remove_vars:
         model.remove(to_remove_vars)
     if to_remove_constrs:
@@ -546,6 +565,11 @@ def set_penalty_function_and_constraints(
     (target structures only).
     - Dwell-time-variance penalty, regularizing the spread of dwell times (target structures only).
 
+    Note: `A_sparse @ (c_MVar * t_MVar)` is bilinear in the decision variables, so every dose
+    constraint built here (`c_L_*`, `c_U_*`, `c_H_*`) is registered by Gurobi as a QUADRATIC
+    constraint (`MQConstr`/`QConstr`), not a linear one. Its right-hand side attribute is therefore
+    `QCRHS`, not `RHS`.
+
     ### Inputs:
     - `optimization_configs`: List[Optimization_Config] := List of optimization configs containing the
     penalty weights, target dose, mask, dwell_coef_dict and other attibutes.
@@ -561,11 +585,11 @@ def set_penalty_function_and_constraints(
     model has never had penalty terms built for these structures before (e.g. brand new model).
     ### Output:
     - Dict[str, dict] := `handles`. Keyed by structure name, holding references to the `MVar`s and
-    constraints created for that structure (dose slack, uniformity slack, hotspot slack per hotspot
-    mask, plus the weights/bounds used), so that `update_penalty_weights_and_voxel_goals` can later mutate
-    weights/target doses/thresholds in place without rebuilding anything. Also contains a `"_shared"`
-    entry holding the model-wide `t_MVar` (dwell time vector), needed to recompute the dwell-time
-    variance penalty on demand.
+    (quadratic) constraints created for that structure (dose slack, uniformity slack, hotspot slack
+    per hotspot mask, plus the weights/bounds used), so that `update_penalty_weights_and_voxel_goals` can
+    later mutate weights/target doses/thresholds in place without rebuilding anything. Also contains a
+    `"_shared"` entry holding the model-wide `t_MVar` (dwell time vector), needed to recompute the
+    dwell-time variance penalty on demand.
     """
     penalty_terms = {
         "linear": 0,
@@ -740,13 +764,20 @@ def update_penalty_weights_and_voxel_goals(
     ### Purpose:
     - Updates penalty weights and/or per-voxel target dose for structures that already have slack
     variables/constraints in the model, WITHOUT calling `addVar`/`addConstr`/`remove`. Only `Obj`,
-    `RHS` and `UB` attributes are mutated, and the (cheap, structure-side) objective expression is
+    `QCRHS` and `UB` attributes are mutated, and the (cheap, structure-side) objective expression is
     rebuilt from the stored `MVar` handles. Handles the linear, quadratic and uniformity dose
     penalties, the hotspot penalty (target only, one term per hotspot mask), and the dwell-time
     variance penalty (target only) - all four are read fresh from each `Optimization_Config` on
     every call, so any of `penalty_weight_linear`, `penalty_weight_quadratic`,
     `penalty_weight_uniformity`, `penalty_weight_hotspot`, `hotspot_threshold`,
     `penalty_weight_variance_time`, and `dose_voxel_goal` can be changed freely between calls.
+
+    IMPORTANT: `constr_L`, `constr_U` and `constr_H` are all built from expressions containing
+    `c_MVar * t_MVar` (a product of two decision-variable vectors), so Gurobi classifies them as
+    QUADRATIC constraints. Their right-hand side must be updated via `.QCRHS`, not `.RHS` - setting
+    `.RHS` on a quadratic constraint object either raises an `AttributeError` or is a silent no-op
+    depending on the object type, and will NOT update the solve.
+
     This is far cheaper than rebuilding thousands of slack variables through
     `set_penalty_function_and_constraints` on every weight/target-dose tweak, and it sidesteps the
     duplicate-name problem entirely since no new Gurobi objects are created.
@@ -756,8 +787,8 @@ def update_penalty_weights_and_voxel_goals(
     weight/target-dose/threshold fields are read; `dwell_coef_dict` is not needed here.
     - `handles`: Dict[str, dict] := the dictionary returned by `set_penalty_function_and_constraints`.
     ### Output:
-    - None: `model`'s objective, constraint RHS values, and variable bounds are updated in place.
-    Call `model.optimize()` afterwards as usual.
+    - None: `model`'s objective, quadratic constraint QCRHS values, and variable bounds are updated
+    in place. Call `model.optimize()` afterwards as usual.
     """
     penalty_terms = {
         "linear": 0,
@@ -1160,12 +1191,13 @@ def _set_hotspot_penalty_terms(
     Assumes that the hotspot masks have been created and resampled to the optimization grid.
     Note: any previously created hotspot slack variables/constraints (`p_H_*`/`c_H_*`) should be
     removed by the caller (see `_cleanup_hotspot_penalty_terms`) before this runs again, since Gurobi
-    will otherwise accumulate duplicates rather than replacing them.
+    will otherwise accumulate duplicates rather than replacing them. `constr_H` here is a quadratic
+    constraint (bilinear `c_MVar * t_MVar` term), so its RHS is read/written via `.QCRHS`.
     ### Output:
     - Tuple[LinExpr, List[dict]] := the total hotspot penalty expression, and a list (one entry per
     hotspot mask) of handle dicts (`x_slack_hotspot`, `constr_H`, `num_dose_points`) so that
-    `update_penalty_weights_and_voxel_goals` can later refresh the RHS (target dose * threshold) and the
-    objective coefficients without rebuilding these variables/constraints.
+    `update_penalty_weights_and_voxel_goals` can later refresh the QCRHS (target dose * threshold) and
+    the objective coefficients without rebuilding these variables/constraints.
     """
     linear_weight = optimization_config.penalty_weight_hotspot
     hotspot_threshold = optimization_config.hotspot_threshold
