@@ -38,7 +38,7 @@ in the config objects inside each structure of the plan")
 
     t0_update = time()
     optim_obj.update_penalty_weights_and_voxel_goals(
-        optim_configs=optim_configs,
+        optimization_configs=optim_configs,
     )
     t1_update = time()
     

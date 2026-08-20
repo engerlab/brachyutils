@@ -794,7 +794,7 @@ def update_penalty_weights_and_voxel_goals(
             if h["x_slack"] is not None:
                 x_slack = h["x_slack"]
                 x_slack.UB = np.full(num_dose_points, voxel_goal - min_dose)
-                h["constr_L"].RHS = voxel_goal_vec
+                h["constr_L"].QCRHS = voxel_goal_vec
 
                 if linear_weight > 0:
                     linear_weight_vec = np.ones(num_dose_points) * linear_weight / num_dose_points
@@ -806,7 +806,7 @@ def update_penalty_weights_and_voxel_goals(
             if h["y_uniform"] is not None:
                 y_uniform = h["y_uniform"]
                 y_uniform.UB = np.full(num_dose_points, voxel_goal - min_dose)
-                h["constr_U"].RHS = voxel_goal_vec
+                h["constr_U"].QCRHS = voxel_goal_vec
 
                 uniformity_weight_vec = np.ones(num_dose_points) * uniformity_weight / num_dose_points * 1e-3
                 penalty_terms["uniformity"] += sum(uniformity_weight_vec * (y_uniform * y_uniform))
@@ -817,7 +817,7 @@ def update_penalty_weights_and_voxel_goals(
                     hs_num_dose_points = hs["num_dose_points"]
                     x_slack_hotspot = hs["x_slack_hotspot"]
                     new_rhs = np.full(hs_num_dose_points, voxel_goal * hotspot_threshold)
-                    hs["constr_H"].RHS = new_rhs
+                    hs["constr_H"].QCRHS = new_rhs
                     if penalty_weight_hotspot > 0:
                         hotspot_weight_vec = np.ones(hs_num_dose_points) * penalty_weight_hotspot / hs_num_dose_points
                         penalty_terms["hotspot"] += sum(hotspot_weight_vec * x_slack_hotspot)
@@ -837,7 +837,7 @@ def update_penalty_weights_and_voxel_goals(
             if h["x_slack_oar"] is not None:
                 x_slack_oar = h["x_slack_oar"]
                 x_slack_oar.UB = np.full(num_dose_points, max_dose - min_dose)
-                h["constr_L"].RHS = voxel_goal_vec
+                h["constr_L"].QCRHS = voxel_goal_vec
 
                 if linear_weight > 0:
                     linear_weight_vec_oar = np.ones(num_dose_points) * linear_weight / num_dose_points
