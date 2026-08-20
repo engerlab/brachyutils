@@ -50,7 +50,7 @@ in the config objects inside each structure of the plan")
 {t1_update - t0_update:.4f} seconds")
     print(f"Time to optimize the plan: {t1_optim - t0_optim:.4f} \
 seconds")
-    
+
     print("break point here: Check that the model has the new \
 hyper-parameters inside the model")
 
