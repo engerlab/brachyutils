@@ -461,7 +461,7 @@ def test_hotspot_estimators_generation():
     #     dir_dicom_out="data_test/test_export_plan/prostate/dcm"
     #     )
     # plan_obj.combined_dose.write_brachydose_to_file("data_test/test_export_plan/prostate/p1_dose.seq.nrrd")
-    print('debug here')
+    print('break point here')
 if __name__ == "__main__":
     # test_get_a_plan_to_optimize()
     # test_DwellTime_Gurobi()

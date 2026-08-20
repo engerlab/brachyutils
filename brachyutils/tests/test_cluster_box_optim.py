@@ -13,7 +13,7 @@ import random
 def test_get_geometric_constraints():
     cbox = test_cluster_box(return_box=True)
     constraint_dict = get_geometric_constraints(cluster_box=cbox)
-    print("debug here")
+    print("break point here")
 
 def test_cluster_box_optim(
     num_decision_planes = None,

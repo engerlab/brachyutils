@@ -320,7 +320,7 @@ def test_rt_utils():
     )
     phantom_obj2.export_to(dir_nrrd_out=pth_out/"opentps")
 
-    # print("debug here")
+    # print("break point here")
 
 def test_export_to_nrrd():
     pth_dicom = Path("data_test/prostate-glen-p1-dcm")

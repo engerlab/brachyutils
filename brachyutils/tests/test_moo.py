@@ -1,8 +1,9 @@
 from brachyutils.tests.test_optim_catheters import test_catheter_table_optim
 from random import randint
 import numpy as np
+from time import time
 
-def test_update_penalty_weights_and_targets():
+def test_update_penalty_weights_and_voxel_goals():
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
     prescription_dose = optim_obj.plan.prescription_dose
     optim_configs = list(optim_obj.plan.optimization_config_dict.values())
@@ -32,7 +33,26 @@ def test_update_penalty_weights_and_targets():
                 new_value = randint(0, 1000)
             setattr(conf, param, new_value)
 
-    print("debug here: check if the new hyper-parameters are updated")
+    print("break point here: check if the new hyper-parameters are updated \
+in the config objects inside each structure of the plan")
+
+    t0_update = time()
+    optim_obj.update_penalty_weights_and_voxel_goals(
+        optim_configs=optim_configs,
+    )
+    t1_update = time()
+    
+    t0_optim = time()
+    optimized_plan = optim_obj.get_optimized_plan_from_model()
+    t1_optim = time()
+
+    print(f"Time to update the penalty weights and voxel goals: \
+{t1_update - t0_update:.4f} seconds")
+    print(f"Time to optimize the plan: {t1_optim - t0_optim:.4f} \
+seconds")
+    
+    print("break point here: Check that the model has the new \
+hyper-parameters inside the model")
 
 if __name__ == "__main__":
-    test_update_penalty_weights_and_targets()
+    test_update_penalty_weights_and_voxel_goals()

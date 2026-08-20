@@ -182,7 +182,7 @@ def test_egsphant_constructor(
 def test_read_egsphant():
     pth_egsphant = "data_test/test_export_plan/FMIO_cropped_ct_egsphant.nrrd"
     egsphant_obj = BrachyEgsphant(pth_egsphant_file=pth_egsphant)
-    print("debug here")
+    print("break point here")
 
 if __name__ == "__main__":
     # test_load_from_ctegsphant()
