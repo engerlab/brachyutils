@@ -488,18 +488,18 @@ def _remove_constraints_by_prefix(model: Model, prefix: str) -> bool:
     ### Output:
     - bool := True if any constraint was removed (caller should then call `model.update()`).
     """
-    to_remove_linear = [
-        c for c in model.getConstrs()
-        if c.ConstrName == prefix or c.ConstrName.startswith(prefix + "[")
-    ]
+    # to_remove_linear = [
+    #     c for c in model.getConstrs()
+    #     if c.ConstrName == prefix or c.ConstrName.startswith(prefix + "[")
+    # ]
     to_remove_quad = [
         c for c in model.getQConstrs()
         if c.QCName == prefix or c.QCName.startswith(prefix + "[")
     ]
     removed = False
-    if to_remove_linear:
-        model.remove(to_remove_linear)
-        removed = True
+    # if to_remove_linear:
+    #     model.remove(to_remove_linear)
+    #     removed = True
     if to_remove_quad:
         model.remove(to_remove_quad)
         removed = True
@@ -1213,7 +1213,7 @@ def _set_hotspot_penalty_terms(
         voxel_goal_vec = (np.ones(num_dose_points) * dose_voxel_goal * hotspot_threshold)
         hotspot_weight_vec = np.ones_like(voxel_goal_vec) * linear_weight / num_dose_points
 
-        hotspot_suffix = hotspot_mask.name.split("hotspot_estimator")[1]
+        hotspot_suffix = hotspot_mask.name.split("hotspot_estimator_")[1]
         x_slack_hotspot = model.addMVar(
             shape=num_dose_points,
             name=f"p_H_{hotspot_suffix}")
