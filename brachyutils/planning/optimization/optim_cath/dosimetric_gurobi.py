@@ -111,7 +111,7 @@ class CatheterTableOptim_Gurobi():
     - `solve_time`: float := the time taken to solve the optimization problem.
     - `_penalty_handles`: Dict[str, dict] := internal bookkeeping of the slack variables/constraints
     created per structure (and the shared dwell-time MVar) by `set_penalty_function_and_constraints`.
-    This is what allows `update_penalty_weights_and_targets` to change weights/target doses -
+    This is what allows `update_penalty_weights_and_voxel_goals` to change weights/target doses -
     including hotspot weight and dwell-time-variance weight for target structures - without
     rebuilding the model.
     """
@@ -266,7 +266,7 @@ class CatheterTableOptim_Gurobi():
         accumulating duplicate variables/constraints, since Gurobi does NOT deduplicate by name on its own.
         ### Output:
         - None: The model is updated with the constraints and penalty function. `self._penalty_handles`
-        is populated/refreshed so that `update_penalty_weights_and_targets` can later mutate weights
+        is populated/refreshed so that `update_penalty_weights_and_voxel_goals` can later mutate weights
         and target doses in place, without rebuilding variables/constraints.
         """
         self._penalty_handles = set_penalty_function_and_constraints(
@@ -277,7 +277,7 @@ class CatheterTableOptim_Gurobi():
             cleanup=cleanup,
         )
 
-    def update_penalty_weights_and_targets(
+    def update_penalty_weights_and_voxel_goals(
         self,
         optimization_configs: List[Optimization_Config],
     ):
@@ -303,9 +303,9 @@ class CatheterTableOptim_Gurobi():
         if not self._penalty_handles:
             raise RuntimeError(
                 "No existing penalty handles found. Call set_penalty_function_and_constraints "
-                "at least once before calling update_penalty_weights_and_targets."
+                "at least once before calling update_penalty_weights_and_voxel_goals."
             )
-        update_penalty_weights_and_targets(
+        update_penalty_weights_and_voxel_goals(
             model=self.model,
             optimization_configs=optimization_configs,
             handles=self._penalty_handles,
@@ -562,7 +562,7 @@ def set_penalty_function_and_constraints(
     ### Output:
     - Dict[str, dict] := `handles`. Keyed by structure name, holding references to the `MVar`s and
     constraints created for that structure (dose slack, uniformity slack, hotspot slack per hotspot
-    mask, plus the weights/bounds used), so that `update_penalty_weights_and_targets` can later mutate
+    mask, plus the weights/bounds used), so that `update_penalty_weights_and_voxel_goals` can later mutate
     weights/target doses/thresholds in place without rebuilding anything. Also contains a `"_shared"`
     entry holding the model-wide `t_MVar` (dwell time vector), needed to recompute the dwell-time
     variance penalty on demand.
@@ -731,7 +731,7 @@ of the corresponding dose rate coefficients.")
     return handles
 
 
-def update_penalty_weights_and_targets(
+def update_penalty_weights_and_voxel_goals(
     model: Model,
     optimization_configs: List[Optimization_Config],
     handles: Dict[str, dict],
@@ -1164,7 +1164,7 @@ def _set_hotspot_penalty_terms(
     ### Output:
     - Tuple[LinExpr, List[dict]] := the total hotspot penalty expression, and a list (one entry per
     hotspot mask) of handle dicts (`x_slack_hotspot`, `constr_H`, `num_dose_points`) so that
-    `update_penalty_weights_and_targets` can later refresh the RHS (target dose * threshold) and the
+    `update_penalty_weights_and_voxel_goals` can later refresh the RHS (target dose * threshold) and the
     objective coefficients without rebuilding these variables/constraints.
     """
     linear_weight = optimization_config.penalty_weight_hotspot
