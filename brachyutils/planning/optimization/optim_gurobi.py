@@ -109,19 +109,13 @@ def _run(model: Model):
         solution_found = False
     return model, solution_found, solve_time
 
-def _get_optimized_plan_from_model(
-    plan: BrachyPlan,
+def _get_optimized_dwelltimes_from_model(
     model: Model,
-    inplace=True,
-    ) -> BrachyPlan | None:
+    ) -> List[Var]:
     r"""
-    See `BrachyDwellTime.get_optimized_plan_from_model` for details.
+    ### Purpose:
+    - To run the model and get the optimized dwell times as a list
     """
-    if plan is None:
-        raise ValueError("Plan is not set. Please set the plan first.")
-    if model is None:
-        raise ValueError("Model is not set. Please set the model first.")
-    
     model, solution_found, solve_time = _run(model)
 
     if not solution_found:
@@ -134,6 +128,24 @@ def _get_optimized_plan_from_model(
     for x in model.getVars():
         if ("dwell" in x.VarName):
             dwelltime_and_name.append((x.X, x.VarName))
+    return dwelltime_and_name
+
+def _get_optimized_plan_from_model(
+    plan: BrachyPlan,
+    model: Model,
+    inplace=True,
+    ) -> BrachyPlan | None:
+    r"""
+    See `BrachyDwellTime.get_optimized_plan_from_model` for details.
+    """
+    if plan is None:
+        raise ValueError("Plan is not set. Please set the plan first.")
+    if model is None:
+        raise ValueError("Model is not set. Please set the model first.")
+
+    dwelltime_and_name = _get_optimized_dwelltimes_from_model(model)
+    if dwelltime_and_name is None:
+        return None
 
     # set the dwell time to the plan
     if inplace:
