@@ -1012,6 +1012,33 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
             dwell.time = reset_value
             dwell.gen_dose_rate = True
 
+    def get_stats(self) -> Dict[str, int | float]:
+        r"""
+        ### Purpose:
+        - To get the following stats in a dictionary format:
+            - `median_dwell_times`
+            - `iqr_dwell_times`
+            - `mean_dwell_times`
+            - `std_dwell_times`
+            - `num_dwells`
+            - `num_catheters`
+            - `frac_used_catheters`
+            - `frac_used_dwells`
+        """
+        dwell_times = [dt.time for dt in self.all_dwells]
+        dwell_time_data = {
+            "median_dwell_times": np.median(dwell_times),
+            "iqr_dwell_times": np.percentile(dwell_times, 75) - np.percentile(dwell_times, 25),
+            "mean_dwell_times": np.mean(dwell_times),
+            "std_dwell_times": np.std(dwell_times),
+            "num_dwells": len(dwell_times),
+            "num_catheters": self.num_catheters,
+            "frac_used_dwells": sum([1 for dt in dwell_times if dt != 0]) / len(dwell_times),
+            "frac_used_catheters": sum([1 for cath in self if cath.channel_total_time != 0])/self.num_catheters,
+        }
+        return dwell_time_data
+
+
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""
     Purpose:

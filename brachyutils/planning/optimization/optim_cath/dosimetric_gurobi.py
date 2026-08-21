@@ -1,4 +1,4 @@
-import time
+from time import time
 from typing import Dict, List, Optional, Literal
 from tqdm import tqdm
 from pathlib import Path
@@ -109,6 +109,7 @@ class CatheterTableOptim_Gurobi():
     - `roi_margin_mm`: float := margin in mm to add around the ROIs when resampling to the optimization grid.
     - `solution_found`: bool := whether a solution was found.
     - `solve_time`: float := the time taken to solve the optimization problem.
+    - `build_time`: float := the time taken to build the optimization model from plan.
     - `_penalty_handles`: Dict[str, dict] := internal bookkeeping of the slack variables/constraints
     created per structure (and the shared dwell-time MVar) by `set_penalty_function_and_constraints`.
     This is what allows `update_penalty_weights_and_voxel_goals` to change weights/target doses -
@@ -158,9 +159,11 @@ class CatheterTableOptim_Gurobi():
 
         self.solution_found: bool = False
         self.solve_time: float = 0.0
+        self.build_time: float = 0.0
         self.multi_processing = multi_processing
 
         # start building this optimization object
+        t0_build = time()
         self.model = self.initialize_model(self.solver, pth_logfile=pth_logfile)
         self.catheter_vars = self.set_catheter_variables(
             plan=self.plan,
@@ -202,6 +205,8 @@ class CatheterTableOptim_Gurobi():
         if plan.optimization_constraint_dict is not None:
             self.set_constraints(
                 constraint_config_dict=plan.optimization_constraint_dict)
+        t1_build = time()
+        self.build_time = t1_build - t0_build
 
     def initialize_model(self, solver: str, pth_logfile: str = None) -> Model:
         r"""
@@ -1230,3 +1235,39 @@ def _set_hotspot_penalty_terms(
             "num_dose_points": int(num_dose_points),
         })
     return total_hotspot_penalty, hotspot_handles
+
+def get_optimization_result_stats(
+    catheter_table_optim: CatheterTableOptim_Gurobi,
+    ) -> Dict[str, dict]:
+    r"""
+    ### Purpose:
+    - To get all sorts of optimization result from the optimized plan.
+
+    ### Inputs:
+    - catheter_table_optim: CatheterTableOptim_Gurobi := the optimization object that has the optimized plan.
+
+    ### Outputs: 
+    - A dictionary with the following information:
+        - dvh_metrics: Dict[str, dict] := a dictionary containing the DVH metrics for each structure in the plan.
+        - num_voxels_optimized: Dict[str, int] := a dictionary containing the number of voxels used for
+        optimization in each structure.
+        - catheter_table_stats: Dict[str, float] :=  a dictionary containing mean, std, median and IQR of dwell times
+        number of dwell positions and catheters as well as fraction of used dwell positions and catheters.
+        - optimization_timing: Dict[str, float] := a dictionary containing the build time and solve time for the model.
+    """
+    dvh_metrics = catheter_table_optim.plan.get_dvh_metrics()
+    catheter_table_stats = catheter_table_optim.plan.catheter_table.get_stats()
+    num_voxels_optimized = {
+        optim_config.structure_name : len(list(optim_config.dwell_coef_dict.values())[0])
+        for optim_config in catheter_table_optim.plan.optimization_config_dict.values()
+    }
+    optimization_timing = {
+        "build_time" : catheter_table_optim.build_time,
+        "solve_time" : catheter_table_optim.solve_time,
+    }
+    return {
+        "dvh_metrics": dvh_metrics,
+        "catheter_table_stats": catheter_table_stats,
+        "num_voxels_optimized": num_voxels_optimized,
+        "optimization_timing": optimization_timing,
+    }

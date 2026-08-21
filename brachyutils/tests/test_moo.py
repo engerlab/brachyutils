@@ -54,5 +54,11 @@ seconds")
     print("break point here: Check that the model has the new \
 hyper-parameters inside the model")
 
+def test_get_optimization_result_stats():
+    from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import get_optimization_result_stats
+    optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
+    print(get_optimization_result_stats(optim_obj))
+
 if __name__ == "__main__":
-    test_update_penalty_weights_and_voxel_goals()
+    # test_update_penalty_weights_and_voxel_goals()
+    test_get_optimization_result_stats()
