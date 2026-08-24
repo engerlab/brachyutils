@@ -576,7 +576,10 @@ def _get_qconstrs_by_name_indices(model: Model, prefix: str, n: int) -> Optional
     """
     if n <= 0:
         return None
-    constrs = [model.getQConstrByName(f"{prefix}[{i}]") for i in range(n)]
+    constrs = []
+    for constraint in model.getQConstrs():
+        if prefix in constraint.QCName:
+           constrs.append(constraint) 
     if any(c is None for c in constrs):
         return None
     return constrs
