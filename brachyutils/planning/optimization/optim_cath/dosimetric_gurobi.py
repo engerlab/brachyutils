@@ -110,19 +110,17 @@ class CatheterTableOptim_Gurobi():
     - `solution_found`: bool := whether a solution was found.
     - `solve_time`: float := the time taken to solve the optimization problem.
     - `build_time`: float := the time taken to build the optimization model from plan.
-    - `_penalty_handles`: Dict[str, dict] := internal bookkeeping of the slack variables/constraints
-    created per structure (and the shared dwell-time MVar) by `set_penalty_function_and_constraints`.
-    This is what allows `update_penalty_weights_and_voxel_goals` to change weights/target doses -
-    including hotspot weight and dwell-time-variance weight for target structures - without
-    rebuilding the model.
+    - `_penalty_blueprint`: Dict[str, dict] := the ONLY bookkeeping structure for penalties. Keyed by
+    structure name, it holds references to the slack `MVar`s and (quadratic) constraints created by
+    `set_penalty_function_and_constraints`, for `self.model`. `update_penalty_weights_and_voxel_goals`
+    reads penalty weights/target dose straight from each `Optimization_Config` and uses this blueprint
+    purely to know WHICH Gurobi objects to mutate - no weight/dose/bound values are duplicated here.
 
     ### Important note on constraint attributes:
     Every dose constraint created here (`c_L_*`, `c_U_*`, `c_H_*`) involves the bilinear term
     `c_MVar * t_MVar` (catheter indicator times dwell time). Gurobi therefore stores these as
-    QUADRATIC constraints (`MQConstr`), even though they look like plain linear dose constraints.
-    That means their right-hand side is read/written through `.QCRHS`, NOT `.RHS` - `.RHS` is only
-    valid on purely linear constraints (`Constr`/`MConstr`). `update_penalty_weights_and_voxel_goals`
-    below uses `.QCRHS` accordingly.
+    QUADRATIC constraints (`QConstr`/`MQConstr`), even though they look like plain linear dose
+    constraints. That means their right-hand side is read/written through `QCRHS`, NOT `RHS`.
     """
 
     def __init__(
@@ -149,7 +147,7 @@ class CatheterTableOptim_Gurobi():
         self.dwellTimeVariables: List[DwellTime_Gurobi] = []
         self.roi_margin_mm: List[float] = None
         self.roi_bounds: List[List[float]] = None
-        self._penalty_handles: Dict[str, dict] = {}
+        self._penalty_blueprint: Dict[str, dict] = {}
 
         if roi_margin_mm is not None:
             self.roi_margin_mm: float = (
@@ -278,11 +276,10 @@ class CatheterTableOptim_Gurobi():
         call this function repeatedly (e.g. after changing the structure list or masks) without
         accumulating duplicate variables/constraints, since Gurobi does NOT deduplicate by name on its own.
         ### Output:
-        - None: The model is updated with the constraints and penalty function. `self._penalty_handles`
-        is populated/refreshed so that `update_penalty_weights_and_voxel_goals` can later mutate weights
-        and target doses in place, without rebuilding variables/constraints.
+        - None: `self._penalty_blueprint` is populated/refreshed, and the model's objective/bounds/RHS
+        are set to match the current `optimization_configs` values.
         """
-        self._penalty_handles = set_penalty_function_and_constraints(
+        self._penalty_blueprint = set_penalty_function_and_constraints(
             optimization_configs=optimization_configs,
             dwellTimeVariables=dwellTimeVariables,
             catheter_vars=catheter_vars,
@@ -298,30 +295,25 @@ class CatheterTableOptim_Gurobi():
         ### Purpose:
         - Dynamically updates penalty weights and/or the per-voxel target dose for structures that
         already have slack variables/constraints in the model (i.e. `set_penalty_function_and_constraints`
-        has already been called at least once). This does NOT call `addVar`/`addConstr`: it only mutates
-        `Obj`, `QCRHS` (NOT `RHS` - see class docstring) and `UB` attributes on the existing Gurobi
-        objects and rebuilds the (cheap, Python-side) objective expression from the stored `MVar`
-        handles - including the hotspot penalty and the dwell-time-variance penalty, both of which are
-        target-structure-only terms per `Optimization_Config`. This is the recommended, fast path for
-        the "recall repeatedly with new weights/target dose" workflow, since Gurobi does not
-        discard/overwrite previous slack variables and constraints when you add new ones under the same
-        name - rebuilding thousands of slack variables on every weight tweak is unnecessary and expensive.
+        has already been called at least once). Does NOT call `addVar`/`addConstr`: it only mutates
+        `Obj`, `QCRHS` and `UB` attributes on the existing Gurobi objects referenced in
+        `self._penalty_blueprint`, and rebuilds the (cheap, Python-side) objective expression - reading
+        every weight/dose/threshold value fresh from each `Optimization_Config` on every call.
         ### Inputs:
-        - `optimization_configs`: List[Optimization_Config] := the (updated) optimization configs. Only
-        the weight/target-dose/threshold fields are read here; the structure must already be present in
-        `self._penalty_handles` (i.e. unchanged mask/voxel count/hotspot-mask count).
+        - `optimization_configs`: List[Optimization_Config] := the (updated) optimization configs. The
+        structure must already be present in `self._penalty_blueprint` (i.e. unchanged mask/voxel count).
         ### Output:
         - None: the model's objective, quadratic-constraint RHS, and variable bounds are updated in place.
         """
-        if not self._penalty_handles:
+        if not self._penalty_blueprint:
             raise RuntimeError(
-                "No existing penalty handles found. Call set_penalty_function_and_constraints "
+                "No penalty blueprint found. Call set_penalty_function_and_constraints "
                 "at least once before calling update_penalty_weights_and_voxel_goals."
             )
         update_penalty_weights_and_voxel_goals(
             model=self.model,
             optimization_configs=optimization_configs,
-            handles=self._penalty_handles,
+            blueprint=self._penalty_blueprint,
         )
 
     def run(self):
@@ -483,28 +475,20 @@ def _remove_constraints_by_prefix(model: Model, prefix: str) -> bool:
     r"""
     ### Purpose:
     - Removes every constraint whose name matches `prefix` exactly or is an entry of a vectorized
-    constraint created with that base name (i.e. `prefix[0]`, `prefix[1]`, ...). Checks BOTH the
-    linear constraint list (`getConstrs`) and the quadratic constraint list (`getQConstrs`), since
-    the `c_L_*`/`c_U_*`/`c_H_*` constraints built from `c_MVar * t_MVar` are quadratic (`MQConstr`)
-    even though they look linear at a glance.
+    constraint created with that base name (i.e. `prefix[0]`, `prefix[1]`, ...). Checks the quadratic
+    constraint list (`getQConstrs`), since the `c_L_*`/`c_U_*`/`c_H_*` constraints built from
+    `c_MVar * t_MVar` are quadratic (`MQConstr`/`QConstr`) even though they look linear at a glance.
     ### Inputs:
     - `model`: Model := the Gurobi model to clean up.
     - `prefix`: str := the base constraint name (without the `[index]` suffix) to remove.
     ### Output:
     - bool := True if any constraint was removed (caller should then call `model.update()`).
     """
-    # to_remove_linear = [
-    #     c for c in model.getConstrs()
-    #     if c.ConstrName == prefix or c.ConstrName.startswith(prefix + "[")
-    # ]
     to_remove_quad = [
         c for c in model.getQConstrs()
         if c.QCName == prefix or c.QCName.startswith(prefix + "[")
     ]
     removed = False
-    # if to_remove_linear:
-    #     model.remove(to_remove_linear)
-    #     removed = True
     if to_remove_quad:
         model.remove(to_remove_quad)
         removed = True
@@ -551,6 +535,65 @@ def _cleanup_hotspot_penalty_terms(model: Model):
         model.update()
 
 
+def _to_constr_list(constr_obj) -> List:
+    r"""
+    ### Purpose:
+    - Normalizes the return value of a vectorized `model.addConstr(...)` call (an `MQConstr`, which
+    behaves like a numpy array of `QConstr`) into a plain Python list of `QConstr` objects, so that
+    RHS updates can always use the uniform bulk form `model.setAttr("QCRHS", constr_list, values_list)`.
+    """
+    if hasattr(constr_obj, "tolist"):
+        return list(constr_obj.tolist())
+    return [constr_obj]
+
+
+def _create_hotspot_slacks_and_constraints(
+    optimization_config: Optimization_Config,
+    A_sparse: np.ndarray,
+    c_MVar: MVar,
+    t_MVar: MVar,
+    model: Model,
+) -> List[dict]:
+    r"""
+    ### Purpose:
+    - Creates the hotspot slack variables and constraints (target structures only) for one
+    `Optimization_Config`, one entry per hotspot mask. Only the Gurobi objects are created here -
+    RHS values and objective coefficients are set later by `update_penalty_weights_and_voxel_goals`,
+    so this function uses a throwaway RHS of 0 (immediately overwritten on the first call to that
+    function, which `set_penalty_function_and_constraints` always makes right after creation).
+    As a side effect, caches `optimization_config.hotspot_num_dose_points` (one entry per hotspot
+    mask) so downstream code never has to recompute `mask ∩ target` voxel counts.
+    ### Output:
+    - List[dict] := one entry per hotspot mask, each `{"x_slack_hotspot": MVar, "constr_H": List[QConstr]}`.
+    """
+    hotspot_blueprint = []
+    hotspot_num_dose_points = []
+    for hotspot_mask in optimization_config.hotspot_masks:
+        mask_array = hotspot_mask.imageArray.flatten()
+        target_array = optimization_config.mask.imageArray.flatten()
+        mask_in_target = np.ma.multiply(mask_array, target_array)[target_array].astype(bool)
+        num_dose_points = int(np.sum(mask_in_target))
+        hotspot_num_dose_points.append(num_dose_points)
+
+        hotspot_suffix = hotspot_mask.name.split("hotspot_estimator_")[1]
+        x_slack_hotspot = model.addMVar(
+            shape=num_dose_points,
+            name=f"p_H_{hotspot_suffix}")
+        # Gotta filter out only the expressions that apply to hotspots.
+        # so setting them to zero is not enough, we need to isolate them!
+        dose_expression = A_sparse[mask_in_target, :] @ (c_MVar * t_MVar)
+        constr_H = model.addConstr(
+            dose_expression - x_slack_hotspot <= np.zeros(num_dose_points),
+            name=f"c_H_{hotspot_suffix}")
+        hotspot_blueprint.append({
+            "x_slack_hotspot": x_slack_hotspot,
+            "constr_H": _to_constr_list(constr_H),
+        })
+
+    optimization_config.hotspot_num_dose_points = hotspot_num_dose_points
+    return hotspot_blueprint
+
+
 def set_penalty_function_and_constraints(
     optimization_configs: List[Optimization_Config],
     dwellTimeVariables: List[DwellTime_Gurobi],
@@ -560,24 +603,26 @@ def set_penalty_function_and_constraints(
 ) -> Dict[str, dict]:
     r"""
     ### Purpose:
-    - sets the penalty function and constraints for the optimization model.
-    The objective function takes the form:
-    minimize sum(weights * penalties) where penalties include:
-    - Linear penalties for over/under dosing relative to target dose
-    - Quadratic penalties for over/under dosing
-    - Uniformity penalties for target volumes
-    - Hotspot penalties for hotspot estimator structures encapsulating two closest dwell positions
-    (target structures only).
-    - Dwell-time-variance penalty, regularizing the spread of dwell times (target structures only).
+    - Creates the slack variables and (quadratic) dose constraints for every structure, then
+    delegates ALL weight/target-dose/objective logic to `update_penalty_weights_and_voxel_goals`.
+    This function's only unique responsibility is deciding WHICH slack variables need to exist (a
+    structural decision, gated on `penalty_weight_* > 0` at build time) and creating them - Gurobi's
+    `addMVar`/`addConstr` require some concrete bound/RHS value at call time, so placeholder values
+    (`GRB.INFINITY` bounds, RHS of 0) are used; these are immediately overwritten by the call to
+    `update_penalty_weights_and_voxel_goals` at the end. This is why the two functions can't be fully
+    merged: variable/constraint CREATION only happens once and needs gating logic + Gurobi API calls
+    that `update_penalty_weights_and_voxel_goals` deliberately never performs (by design, so it stays
+    cheap and side-effect-free on the model's structure).
 
     Note: `A_sparse @ (c_MVar * t_MVar)` is bilinear in the decision variables, so every dose
-    constraint built here (`c_L_*`, `c_U_*`, `c_H_*`) is registered by Gurobi as a QUADRATIC
-    constraint (`MQConstr`/`QConstr`), not a linear one. Its right-hand side attribute is therefore
-    `QCRHS`, not `RHS`.
+    constraint built here (`c_L_*`, `c_U_*`, `c_H_*`) is a QUADRATIC constraint (`QConstr`), not a
+    linear one - its right-hand side attribute is `QCRHS`, not `RHS`.
 
     ### Inputs:
     - `optimization_configs`: List[Optimization_Config] := List of optimization configs containing the
-    penalty weights, target dose, mask, dwell_coef_dict and other attibutes.
+    penalty weights, target dose, mask, dwell_coef_dict and other attributes. As a side effect, this
+    function sets `optimization_config.num_dose_points` (and `.hotspot_num_dose_points`, for target
+    structures with hotspot masks) on each config.
     - `dwellTimeVariables`: The list of the dwell times variables in the catheter table. it should be
     synched up with catheter_vars.
     - `catheter_vars`: List[CatheterVar_Gurobi] := the catheter variables to be used in the optimization.
@@ -585,29 +630,18 @@ def set_penalty_function_and_constraints(
     - `cleanup`: bool := if True (default), removes any slack variables/constraints previously created
     for the structures being (re)processed here, before adding the new ones. Gurobi does not do this
     automatically: calling `addVar`/`addConstr` with a name that already exists creates a *second*
-    object rather than replacing the first, so repeated calls without cleanup silently accumulate
-    duplicate slack variables and duplicate dose constraints. Set to False only if you are certain the
-    model has never had penalty terms built for these structures before (e.g. brand new model).
+    object rather than replacing the first.
     ### Output:
-    - Dict[str, dict] := `handles`. Keyed by structure name, holding references to the `MVar`s and
-    (quadratic) constraints created for that structure (dose slack, uniformity slack, hotspot slack
-    per hotspot mask, plus the weights/bounds used), so that `update_penalty_weights_and_voxel_goals` can
-    later mutate weights/target doses/thresholds in place without rebuilding anything. Also contains a
-    `"_shared"` entry holding the model-wide `t_MVar` (dwell time vector), needed to recompute the
-    dwell-time variance penalty on demand.
+    - Dict[str, dict] := the penalty blueprint. Keyed by structure name, holding only the `MVar`s and
+    quadratic constraints created for that structure (`x_slack`/`x_slack_oar`, `constr_L`, `y_uniform`,
+    `constr_U`, `hotspot`). Also a `"_shared"` entry holding the model-wide `t_MVar`. No weight/dose
+    values are stored here - `update_penalty_weights_and_voxel_goals` reads those straight from the
+    `Optimization_Config` objects every time.
     """
-    penalty_terms = {
-        "linear": 0,
-        "quadratic": 0,
-        "hotspot": 0,
-        "uniformity": 0,
-        "dwelltimes": 0,
-    }
-
     t_MVar = MVar([dt._model_variable for dt in dwellTimeVariables])
     c_MVar = MVar([c._model_variable for c in catheter_vars for _ in c])
 
-    handles: Dict[str, dict] = {"_shared": {"t_MVar": t_MVar}}
+    blueprint: Dict[str, dict] = {"_shared": {"t_MVar": t_MVar}}
     hotspot_cleanup_done = False
 
     for optimization_config in tqdm(optimization_configs):
@@ -628,169 +662,98 @@ of the corresponding dose rate coefficients.")
                 _cleanup_hotspot_penalty_terms(model)
                 hotspot_cleanup_done = True
 
-        min_dose = optimization_config.min_dose
-        max_dose = optimization_config.max_dose
-
-        voxel_goal = optimization_config.dose_voxel_goal
-        linear_weight = optimization_config.penalty_weight_linear
-        quadratic_weight = optimization_config.penalty_weight_quadratic
-        uniformity_weight = optimization_config.penalty_weight_uniformity
-
-        penalty_weight_variance_time = optimization_config.penalty_weight_variance_time
-        penalty_weight_hotspot = optimization_config.penalty_weight_hotspot
-
         A_sparse = np.column_stack(list(optimization_config.dwell_coef_dict.values()))
         num_dose_points = A_sparse.shape[0]
+        optimization_config.num_dose_points = num_dose_points
         if num_dose_points == 0:
             continue
 
-        voxel_goal_vec = np.ones(num_dose_points) * voxel_goal
-        structure_handles = {
-            "is_target": optimization_config.is_target,
-            "num_dose_points": num_dose_points,
-            "min_dose": min_dose,
-            "max_dose": max_dose,
+        structure_blueprint = {
             "x_slack": None,
             "y_uniform": None,
             "x_slack_oar": None,
             "constr_L": None,
             "constr_U": None,
-            "hotspot": None,          # list of per-hotspot-mask handle dicts (target only)
-            "variance_time": None,    # dwell-time-variance handle (target only)
+            "hotspot": None,   # list of per-hotspot-mask {"x_slack_hotspot", "constr_H"} (target only)
         }
 
         if optimization_config.is_target:
-            if linear_weight > 0 or quadratic_weight > 0:
+            if optimization_config.penalty_weight_linear > 0 or optimization_config.penalty_weight_quadratic > 0:
                 x_slack = model.addMVar(
-                    shape=num_dose_points,
-                    lb=0.0,
-                    ub=voxel_goal - min_dose,
-                    name=f"p_L_{structure_name}")
-
+                    shape=num_dose_points, lb=0.0, ub=GRB.INFINITY, name=f"p_L_{structure_name}")
                 constr_L = model.addConstr(
-                    A_sparse @ (c_MVar * t_MVar) + x_slack >= voxel_goal_vec,
+                    A_sparse @ (c_MVar * t_MVar) + x_slack >= np.zeros(num_dose_points),
                     name=f"c_L_{structure_name}")
+                structure_blueprint["x_slack"] = x_slack
+                structure_blueprint["constr_L"] = _to_constr_list(constr_L)
 
-                structure_handles["x_slack"] = x_slack
-                structure_handles["constr_L"] = constr_L
-
-                if linear_weight > 0:
-                    linear_weight_vec = np.ones_like(voxel_goal_vec) * linear_weight / num_dose_points
-                    penalty_terms["linear"] += sum(linear_weight_vec * x_slack)
-
-                if quadratic_weight > 0:
-                    quadratic_weight_vec = np.ones_like(voxel_goal_vec) * quadratic_weight / num_dose_points
-                    penalty_terms["quadratic"] += sum(quadratic_weight_vec * (x_slack * x_slack))
-
-            if uniformity_weight > 0:
+            if optimization_config.penalty_weight_uniformity > 0:
                 y_uniform = model.addMVar(
-                    shape=num_dose_points,
-                    lb=-GRB.INFINITY,
-                    ub=voxel_goal - min_dose,
-                    name=f"p_U_{structure_name}")
-
-                # Uniformity constraints: A @ dwell_times + y_uniform == voxel_goal
+                    shape=num_dose_points, lb=-GRB.INFINITY, ub=GRB.INFINITY, name=f"p_U_{structure_name}")
                 constr_U = model.addConstr(
-                    A_sparse @ (c_MVar * t_MVar) + y_uniform == voxel_goal_vec,
+                    A_sparse @ (c_MVar * t_MVar) + y_uniform == np.zeros(num_dose_points),
                     name=f"c_U_{structure_name}")
+                structure_blueprint["y_uniform"] = y_uniform
+                structure_blueprint["constr_U"] = _to_constr_list(constr_U)
 
-                structure_handles["y_uniform"] = y_uniform
-                structure_handles["constr_U"] = constr_U
-
-                uniformity_weight_vec = np.ones_like(voxel_goal_vec) * uniformity_weight / num_dose_points * 1e-3
-                penalty_terms["uniformity"] += sum(uniformity_weight_vec * (y_uniform * y_uniform))
-
-            if penalty_weight_variance_time > 0:
-                mean_dwell_time = sum(t_MVar) / t_MVar.size
-                penalty_terms["dwelltimes"] += (
-                    penalty_weight_variance_time * 1e-3
-                    * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time)) / t_MVar.size
-                )
-                # No new Var/Constr is created for this term (it only depends on t_MVar, which is
-                # shared model-wide), so all that needs to be remembered is which structure owns
-                # this weight, to rebuild the term later with a new weight.
-                structure_handles["variance_time"] = {"weight": penalty_weight_variance_time}
-
-            if penalty_weight_hotspot > 0:
-                hotspot_penalty, hotspot_handles = _set_hotspot_penalty_terms(
+            if optimization_config.penalty_weight_hotspot > 0:
+                structure_blueprint["hotspot"] = _create_hotspot_slacks_and_constraints(
                     optimization_config=optimization_config,
                     A_sparse=A_sparse,
                     c_MVar=c_MVar,
                     t_MVar=t_MVar,
                     model=model,
                 )
-                penalty_terms["hotspot"] += hotspot_penalty
-                structure_handles["hotspot"] = hotspot_handles
-        # OAR constraints and penalties
+        # OAR constraints
         else:
-            if linear_weight > 0 or quadratic_weight > 0:
+            if optimization_config.penalty_weight_linear > 0 or optimization_config.penalty_weight_quadratic > 0:
                 x_slack_oar = model.addMVar(
-                    shape=num_dose_points,
-                    lb=0.0,
-                    ub=max_dose - min_dose,
-                    name=f"p_L_{structure_name}")
-
+                    shape=num_dose_points, lb=0.0, ub=GRB.INFINITY, name=f"p_L_{structure_name}")
                 constr_L = model.addConstr(
-                    A_sparse @ (c_MVar * t_MVar) - x_slack_oar <= voxel_goal_vec,
+                    A_sparse @ (c_MVar * t_MVar) - x_slack_oar <= np.zeros(num_dose_points),
                     name=f"c_L_{structure_name}")
+                structure_blueprint["x_slack_oar"] = x_slack_oar
+                structure_blueprint["constr_L"] = _to_constr_list(constr_L)
 
-                structure_handles["x_slack_oar"] = x_slack_oar
-                structure_handles["constr_L"] = constr_L
+        blueprint[structure_name] = structure_blueprint
 
-                if linear_weight > 0:
-                    linear_weight_vec_oar = np.ones_like(voxel_goal_vec) * linear_weight / num_dose_points
-                    penalty_terms["linear"] += sum(linear_weight_vec_oar * x_slack_oar)
-
-                if quadratic_weight > 0:
-                    quadratic_weight_vec_oar = np.ones_like(voxel_goal_vec) * quadratic_weight / num_dose_points
-                    penalty_terms["quadratic"] += sum(quadratic_weight_vec_oar * (x_slack_oar * x_slack_oar))
-
-        handles[structure_name] = structure_handles
-
-    # Set the objective function
-    model.setObjective(
-        penalty_terms["linear"]
-        + penalty_terms["quadratic"]
-        + penalty_terms["uniformity"]
-        + penalty_terms["hotspot"]
-        + penalty_terms["dwelltimes"],
-        GRB.MINIMIZE)
-
-    model.update()
-    return handles
+    model.update()  # flush additions so the setAttr calls below can find them
+    update_penalty_weights_and_voxel_goals(
+        model=model,
+        optimization_configs=optimization_configs,
+        blueprint=blueprint,
+    )
+    return blueprint
 
 
 def update_penalty_weights_and_voxel_goals(
     model: Model,
     optimization_configs: List[Optimization_Config],
-    handles: Dict[str, dict],
+    blueprint: Dict[str, dict],
 ):
     r"""
     ### Purpose:
-    - Updates penalty weights and/or per-voxel target dose for structures that already have slack
-    variables/constraints in the model, WITHOUT calling `addVar`/`addConstr`/`remove`. Only `Obj`,
-    `QCRHS` and `UB` attributes are mutated, and the (cheap, structure-side) objective expression is
-    rebuilt from the stored `MVar` handles. Handles the linear, quadratic and uniformity dose
-    penalties, the hotspot penalty (target only, one term per hotspot mask), and the dwell-time
-    variance penalty (target only) - all four are read fresh from each `Optimization_Config` on
-    every call, so any of `penalty_weight_linear`, `penalty_weight_quadratic`,
-    `penalty_weight_uniformity`, `penalty_weight_hotspot`, `hotspot_threshold`,
-    `penalty_weight_variance_time`, and `dose_voxel_goal` can be changed freely between calls.
+    - Sets penalty weights and per-voxel target dose for every structure in `optimization_configs`,
+    reading every numeric value (weights, `dose_voxel_goal`, `min_dose`, `max_dose`, `hotspot_threshold`,
+    `num_dose_points`, `hotspot_num_dose_points`) straight from each `Optimization_Config` - nothing is
+    cached or duplicated here. `blueprint` only tells this function WHICH Gurobi objects to mutate for
+    each structure (created once by `set_penalty_function_and_constraints`).
+    - Never calls `addVar`/`addConstr`/`remove`: only `Obj`, `QCRHS` and `UB` attributes are mutated,
+    and the objective expression is rebuilt from the `MVar`s already referenced in `blueprint`. This
+    is what makes repeated weight/target-dose changes cheap, regardless of how many thousands of
+    slack variables exist.
 
-    IMPORTANT: `constr_L`, `constr_U` and `constr_H` are all built from expressions containing
-    `c_MVar * t_MVar` (a product of two decision-variable vectors), so Gurobi classifies them as
-    QUADRATIC constraints. Their right-hand side must be updated via `.QCRHS`, not `.RHS` - setting
-    `.RHS` on a quadratic constraint object either raises an `AttributeError` or is a silent no-op
-    depending on the object type, and will NOT update the solve.
+    IMPORTANT: `constr_L`/`constr_U`/`constr_H` are QUADRATIC constraints (bilinear `c_MVar * t_MVar`
+    term), stored as plain lists of `QConstr` (see `_to_constr_list`), so their RHS is updated in bulk
+    via `model.setAttr("QCRHS", constr_list, values_list)`.
 
-    This is far cheaper than rebuilding thousands of slack variables through
-    `set_penalty_function_and_constraints` on every weight/target-dose tweak, and it sidesteps the
-    duplicate-name problem entirely since no new Gurobi objects are created.
     ### Inputs:
-    - `model`: Model := the Gurobi model (already built once via `set_penalty_function_and_constraints`).
-    - `optimization_configs`: List[Optimization_Config] := updated optimization configs. Only the
-    weight/target-dose/threshold fields are read; `dwell_coef_dict` is not needed here.
-    - `handles`: Dict[str, dict] := the dictionary returned by `set_penalty_function_and_constraints`.
+    - `model`: Model := the Gurobi model that `blueprint`'s objects belong to.
+    - `optimization_configs`: List[Optimization_Config] := the current optimization configs. Any of
+    `penalty_weight_linear`, `penalty_weight_quadratic`, `penalty_weight_uniformity`,
+    `penalty_weight_hotspot`, `hotspot_threshold`, `penalty_weight_variance_time`, `dose_voxel_goal`,
+    `min_dose`, `max_dose` can be changed freely between calls.
+    - `blueprint`: Dict[str, dict] := the dict returned by `set_penalty_function_and_constraints`.
     ### Output:
     - None: `model`'s objective, quadratic constraint QCRHS values, and variable bounds are updated
     in place. Call `model.optimize()` afterwards as usual.
@@ -803,21 +766,25 @@ def update_penalty_weights_and_voxel_goals(
         "dwelltimes": 0,
     }
 
-    t_MVar = handles["_shared"]["t_MVar"]
+    t_MVar = blueprint["_shared"]["t_MVar"]
 
     for optimization_config in optimization_configs:
         structure_name = optimization_config.structure_name
-        if structure_name not in handles:
+        if structure_name not in blueprint:
             raise ValueError(
-                f"No existing penalty handles found for structure {structure_name}. "
-                "Run set_penalty_function_and_constraints first (structural change required)."
+                f"No penalty blueprint found for structure {structure_name}. Run "
+                "set_penalty_function_and_constraints first (structural change required), or, if this "
+                "structure legitimately has 0 dose points, remove it from optimization_configs."
             )
-        h = handles[structure_name]
-        num_dose_points = h["num_dose_points"]
+        bp = blueprint[structure_name]
+        num_dose_points = optimization_config.num_dose_points
+        if not num_dose_points:
+            continue
+
         min_dose = optimization_config.min_dose
         max_dose = optimization_config.max_dose
         voxel_goal = optimization_config.dose_voxel_goal
-        voxel_goal_vec = np.ones(num_dose_points) * voxel_goal
+        voxel_goal_vec = np.full(num_dose_points, voxel_goal)
 
         linear_weight = optimization_config.penalty_weight_linear
         quadratic_weight = optimization_config.penalty_weight_quadratic
@@ -826,65 +793,53 @@ def update_penalty_weights_and_voxel_goals(
         penalty_weight_hotspot = optimization_config.penalty_weight_hotspot
         hotspot_threshold = optimization_config.hotspot_threshold
 
-        if h["is_target"]:
-            if h["x_slack"] is not None:
-                x_slack = h["x_slack"]
+        if optimization_config.is_target:
+            if bp["x_slack"] is not None:
+                x_slack = bp["x_slack"]
                 x_slack.UB = np.full(num_dose_points, voxel_goal - min_dose)
-                h["constr_L"].QCRHS = voxel_goal_vec
+                model.setAttr("QCRHS", bp["constr_L"], list(voxel_goal_vec))
 
                 if linear_weight > 0:
-                    linear_weight_vec = np.ones(num_dose_points) * linear_weight / num_dose_points
-                    penalty_terms["linear"] += sum(linear_weight_vec * x_slack)
+                    penalty_terms["linear"] += sum((linear_weight / num_dose_points) * x_slack)
                 if quadratic_weight > 0:
-                    quadratic_weight_vec = np.ones(num_dose_points) * quadratic_weight / num_dose_points
-                    penalty_terms["quadratic"] += sum(quadratic_weight_vec * (x_slack * x_slack))
+                    penalty_terms["quadratic"] += sum((quadratic_weight / num_dose_points) * (x_slack * x_slack))
 
-            if h["y_uniform"] is not None:
-                y_uniform = h["y_uniform"]
+            if bp["y_uniform"] is not None:
+                y_uniform = bp["y_uniform"]
                 y_uniform.UB = np.full(num_dose_points, voxel_goal - min_dose)
-                h["constr_U"].QCRHS = voxel_goal_vec
+                model.setAttr("QCRHS", bp["constr_U"], list(voxel_goal_vec))
 
-                uniformity_weight_vec = np.ones(num_dose_points) * uniformity_weight / num_dose_points * 1e-3
-                penalty_terms["uniformity"] += sum(uniformity_weight_vec * (y_uniform * y_uniform))
+                uniformity_coeff = uniformity_weight / num_dose_points * 1e-3
+                penalty_terms["uniformity"] += sum(uniformity_coeff * (y_uniform * y_uniform))
 
             # --- hotspot penalty (target structures only) ---
-            if h.get("hotspot"):
-                for hs in h["hotspot"]:
-                    hs_num_dose_points = hs["num_dose_points"]
+            if bp["hotspot"]:
+                hotspot_num_dose_points = optimization_config.hotspot_num_dose_points or []
+                for hs, hs_num in zip(bp["hotspot"], hotspot_num_dose_points):
                     x_slack_hotspot = hs["x_slack_hotspot"]
-                    new_rhs = np.full(hs_num_dose_points, voxel_goal * hotspot_threshold)
-                    hs["constr_H"].QCRHS = new_rhs
+                    new_rhs = [voxel_goal * hotspot_threshold] * hs_num
+                    model.setAttr("QCRHS", hs["constr_H"], new_rhs)
                     if penalty_weight_hotspot > 0:
-                        hotspot_weight_vec = np.ones(hs_num_dose_points) * penalty_weight_hotspot / hs_num_dose_points
-                        penalty_terms["hotspot"] += sum(hotspot_weight_vec * x_slack_hotspot)
+                        hotspot_coeff = penalty_weight_hotspot / hs_num
+                        penalty_terms["hotspot"] += sum(hotspot_coeff * x_slack_hotspot)
 
-            # --- dwell-time-variance penalty (target structures only) ---
-            if h.get("variance_time") is not None or penalty_weight_variance_time > 0:
-                if penalty_weight_variance_time > 0:
-                    mean_dwell_time = sum(t_MVar) / t_MVar.size
-                    penalty_terms["dwelltimes"] += (
-                        penalty_weight_variance_time * 1e-3
-                        * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time)) / t_MVar.size
-                    )
-                    h["variance_time"] = {"weight": penalty_weight_variance_time}
-                else:
-                    h["variance_time"] = None
+            # --- dwell-time-variance penalty (target structures only, no slack vars involved) ---
+            if penalty_weight_variance_time > 0:
+                mean_dwell_time = sum(t_MVar) / t_MVar.size
+                penalty_terms["dwelltimes"] += (
+                    penalty_weight_variance_time * 1e-3
+                    * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time)) / t_MVar.size
+                )
         else:
-            if h["x_slack_oar"] is not None:
-                x_slack_oar = h["x_slack_oar"]
+            if bp["x_slack_oar"] is not None:
+                x_slack_oar = bp["x_slack_oar"]
                 x_slack_oar.UB = np.full(num_dose_points, max_dose - min_dose)
-                h["constr_L"].QCRHS = voxel_goal_vec
+                model.setAttr("QCRHS", bp["constr_L"], list(voxel_goal_vec))
 
                 if linear_weight > 0:
-                    linear_weight_vec_oar = np.ones(num_dose_points) * linear_weight / num_dose_points
-                    penalty_terms["linear"] += sum(linear_weight_vec_oar * x_slack_oar)
+                    penalty_terms["linear"] += sum((linear_weight / num_dose_points) * x_slack_oar)
                 if quadratic_weight > 0:
-                    quadratic_weight_vec_oar = np.ones(num_dose_points) * quadratic_weight / num_dose_points
-                    penalty_terms["quadratic"] += sum(quadratic_weight_vec_oar * (x_slack_oar * x_slack_oar))
-
-        # keep the bookkeeping in sync for the *next* dynamic update
-        h["min_dose"] = min_dose
-        h["max_dose"] = max_dose
+                    penalty_terms["quadratic"] += sum((quadratic_weight / num_dose_points) * (x_slack_oar * x_slack_oar))
 
     model.setObjective(
         penalty_terms["linear"]
@@ -1183,62 +1138,9 @@ Ensure the constraint name is correct.")
         name=constraint.name_id)
 
 
-def _set_hotspot_penalty_terms(
-    optimization_config,
-    A_sparse,
-    c_MVar,
-    t_MVar,
-    model,
-):
-    r"""
-    ### Purpose:
-    - To set the hotspot penalty terms for the optimization model (target structures only).
-    Assumes that the hotspot masks have been created and resampled to the optimization grid.
-    Note: any previously created hotspot slack variables/constraints (`p_H_*`/`c_H_*`) should be
-    removed by the caller (see `_cleanup_hotspot_penalty_terms`) before this runs again, since Gurobi
-    will otherwise accumulate duplicates rather than replacing them. `constr_H` here is a quadratic
-    constraint (bilinear `c_MVar * t_MVar` term), so its RHS is read/written via `.QCRHS`.
-    ### Output:
-    - Tuple[LinExpr, List[dict]] := the total hotspot penalty expression, and a list (one entry per
-    hotspot mask) of handle dicts (`x_slack_hotspot`, `constr_H`, `num_dose_points`) so that
-    `update_penalty_weights_and_voxel_goals` can later refresh the QCRHS (target dose * threshold) and
-    the objective coefficients without rebuilding these variables/constraints.
-    """
-    linear_weight = optimization_config.penalty_weight_hotspot
-    hotspot_threshold = optimization_config.hotspot_threshold
-    dose_voxel_goal = optimization_config.dose_voxel_goal
-    total_hotspot_penalty = 0
-    hotspot_handles = []
-    for hotspot_mask in optimization_config.hotspot_masks:
-        mask_array = hotspot_mask.imageArray.flatten()
-        target_array = optimization_config.mask.imageArray.flatten()
-        mask_in_target = np.ma.multiply(mask_array, target_array)[target_array].astype(bool)
-        num_dose_points = np.sum(mask_in_target)
-
-        voxel_goal_vec = (np.ones(num_dose_points) * dose_voxel_goal * hotspot_threshold)
-        hotspot_weight_vec = np.ones_like(voxel_goal_vec) * linear_weight / num_dose_points
-
-        hotspot_suffix = hotspot_mask.name.split("hotspot_estimator_")[1]
-        x_slack_hotspot = model.addMVar(
-            shape=num_dose_points,
-            name=f"p_H_{hotspot_suffix}")
-        # Gotta filter out only the expressions that apply to hotspots.
-        # so setting them to zero is not enough, we need to isolate them!
-        dose_expression = A_sparse[mask_in_target, :] @ (c_MVar * t_MVar)
-        constr_H = model.addConstr(
-            (dose_expression) - x_slack_hotspot <= (voxel_goal_vec),
-            name=f"c_H_{hotspot_suffix}")
-        total_hotspot_penalty += sum(hotspot_weight_vec * x_slack_hotspot)
-        hotspot_handles.append({
-            "x_slack_hotspot": x_slack_hotspot,
-            "constr_H": constr_H,
-            "num_dose_points": int(num_dose_points),
-        })
-    return total_hotspot_penalty, hotspot_handles
-
 def get_optimization_result_stats(
     catheter_table_optim: CatheterTableOptim_Gurobi,
-    ) -> Dict[str, dict]:
+) -> Dict[str, dict]:
     r"""
     ### Purpose:
     - To get all sorts of optimization result from the optimized plan.
@@ -1246,24 +1148,24 @@ def get_optimization_result_stats(
     ### Inputs:
     - catheter_table_optim: CatheterTableOptim_Gurobi := the optimization object that has the optimized plan.
 
-    ### Outputs: 
+    ### Outputs:
     - A dictionary with the following information:
-        - dvh_metrics: Dict[str, dict] := a dictionary containing the DVH metrics for each structure in the plan.
-        - num_voxels_optimized: Dict[str, int] := a dictionary containing the number of voxels used for
-        optimization in each structure.
-        - catheter_table_stats: Dict[str, float] :=  a dictionary containing mean, std, median and IQR of dwell times
-        number of dwell positions and catheters as well as fraction of used dwell positions and catheters.
-        - optimization_timing: Dict[str, float] := a dictionary containing the build time and solve time for the model.
+    - dvh_metrics: Dict[str, dict] := a dictionary containing the DVH metrics for each structure in the plan.
+    - num_voxels_optimized: Dict[str, int] := a dictionary containing the number of voxels used for
+    optimization in each structure.
+    - catheter_table_stats: Dict[str, float] := a dictionary containing mean, std, median and IQR of dwell times
+    number of dwell positions and catheters as well as fraction of used dwell positions and catheters.
+    - optimization_timing: Dict[str, float] := a dictionary containing the build time and solve time for the model.
     """
     dvh_metrics = catheter_table_optim.plan.get_dvh_metrics()
     catheter_table_stats = catheter_table_optim.plan.catheter_table.get_stats()
     num_voxels_optimized = {
-        optim_config.structure_name : len(list(optim_config.dwell_coef_dict.values())[0])
+        optim_config.structure_name: optim_config.num_dose_points
         for optim_config in catheter_table_optim.plan.optimization_config_dict.values()
     }
     optimization_timing = {
-        "build_time" : catheter_table_optim.build_time,
-        "solve_time" : catheter_table_optim.solve_time,
+        "build_time": catheter_table_optim.build_time,
+        "solve_time": catheter_table_optim.solve_time,
     }
     return {
         "dvh_metrics": dvh_metrics,
