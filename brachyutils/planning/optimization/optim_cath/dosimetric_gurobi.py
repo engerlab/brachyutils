@@ -776,7 +776,10 @@ def update_penalty_weights_and_voxel_goals(
         "hotspot": 0,
         "dwelltimes": 0,
     }
-
+    # TODO: Considering speeding this up by getting all the variables
+    # and all the constraints once, then depending on the name of the
+    # variable, deal with it.
+    
     # All dwell-time variables share the "dwell_" name prefix (see CatheterVar_Gurobi). A single scan
     # of the model's variables is enough to rebuild t_MVar - order doesn't matter here since it only
     # feeds a mean/variance computation.
