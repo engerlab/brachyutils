@@ -128,7 +128,7 @@ def _get_optimized_dwelltimes_from_model(
     for x in model.getVars():
         if ("dwell" in x.VarName):
             dwelltime_and_name.append((x.X, x.VarName))
-    return dwelltime_and_name
+    return dwelltime_and_name, solution_found, solve_time
 
 def _get_optimized_plan_from_model(
     plan: BrachyPlan,
@@ -143,7 +143,7 @@ def _get_optimized_plan_from_model(
     if model is None:
         raise ValueError("Model is not set. Please set the model first.")
 
-    dwelltime_and_name = _get_optimized_dwelltimes_from_model(model)
+    dwelltime_and_name, solution_found, solve_time = _get_optimized_dwelltimes_from_model(model)
     if dwelltime_and_name is None:
         return None
 
