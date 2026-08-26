@@ -873,9 +873,9 @@ def update_penalty_weights_and_voxel_goals(
                 model.setAttr("QCRHS", constr_L, list(voxel_goal_vec))
 
                 if linear_weight > 0:
-                    penalty_terms["linear"] += sum((linear_weight / num_dose_points) * x_slack)
+                    penalty_terms["linear"] += (linear_weight / num_dose_points) * x_slack.sum()
                 if quadratic_weight > 0:
-                    penalty_terms["quadratic"] += sum((quadratic_weight / num_dose_points) * (x_slack * x_slack))
+                    penalty_terms["quadratic"] += (quadratic_weight / num_dose_points) * (x_slack @ x_slack)
 
             constr_U_raw = slots["U"]
             constr_U = constr_U_raw if constr_U_raw is not None and all(c is not None for c in constr_U_raw) else None
@@ -885,7 +885,7 @@ def update_penalty_weights_and_voxel_goals(
                 model.setAttr("QCRHS", constr_U, list(voxel_goal_vec))
 
                 uniformity_coeff = uniformity_weight / num_dose_points * 1e-3
-                penalty_terms["uniformity"] += sum(uniformity_coeff * (y_uniform * y_uniform))
+                penalty_terms["uniformity"] += uniformity_coeff * (y_uniform @ y_uniform)
 
             # --- hotspot penalty (target structures only, one term per hotspot mask) ---
             hotspot_masks = optimization_config.hotspot_masks or []
@@ -903,14 +903,14 @@ def update_penalty_weights_and_voxel_goals(
                 model.setAttr("QCRHS", constr_H, [voxel_goal * hotspot_threshold] * hs_num)
                 if penalty_weight_hotspot > 0:
                     hotspot_coeff = penalty_weight_hotspot / hs_num
-                    penalty_terms["hotspot"] += sum(hotspot_coeff * x_slack_hotspot)
+                    penalty_terms["hotspot"] += hotspot_coeff * x_slack_hotspot.sum()
 
             # --- dwell-time-variance penalty (target structures only, no slack vars involved) ---
             if penalty_weight_variance_time > 0 and t_MVar is not None:
                 mean_dwell_time = sum(t_MVar) / t_MVar.size
                 penalty_terms["dwelltimes"] += (
                     penalty_weight_variance_time * 1e-3
-                    * sum((t_MVar - mean_dwell_time) * (t_MVar - mean_dwell_time)) / t_MVar.size
+                    * ((t_MVar - mean_dwell_time) @ (t_MVar - mean_dwell_time)) / t_MVar.size
                 )
         else:
             if x_slack is not None and constr_L is not None:
@@ -918,9 +918,9 @@ def update_penalty_weights_and_voxel_goals(
                 model.setAttr("QCRHS", constr_L, list(voxel_goal_vec))
 
                 if linear_weight > 0:
-                    penalty_terms["linear"] += sum((linear_weight / num_dose_points) * x_slack)
+                    penalty_terms["linear"] += (linear_weight / num_dose_points) * x_slack.sum()
                 if quadratic_weight > 0:
-                    penalty_terms["quadratic"] += sum((quadratic_weight / num_dose_points) * (x_slack * x_slack))
+                    penalty_terms["quadratic"] += (quadratic_weight / num_dose_points) * (x_slack @ x_slack)
 
     model.setObjective(
         penalty_terms["linear"]
