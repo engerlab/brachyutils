@@ -558,34 +558,6 @@ def _get_mvar_by_name_indices(model: Model, prefix: str, n: int) -> Optional[MVa
         return None
     return MVar.fromlist(variables)
 
-
-def _get_qconstrs_by_name_indices(model: Model, prefix: str, n: int) -> Optional[List]:
-    r"""
-    ### Purpose:
-    - Resolves `n` quadratic constraints named `f"{prefix}[0]"` ... `f"{prefix}[{n-1}]"` into a plain
-    list of `QConstr` objects, by generating the exact names on the fly and calling
-    `model.getQConstrByName` for each. All dose constraints here (`c_L_*`, `c_U_*`, `c_H_*`) are
-    quadratic because of the bilinear `c_MVar * t_MVar` term, so `getQConstrByName` (not
-    `getConstrByName`) is required.
-    ### Inputs:
-    - `model`: Model := the model to resolve constraints on.
-    - `prefix`: str := the base constraint name (e.g. `f"c_L_{structure_name}"`).
-    - `n`: int := how many indices to resolve (0 .. n-1).
-    ### Output:
-    - Optional[List[QConstr]] := the resolved constraints, or `None` if `n == 0` or any expected
-    constraint is missing.
-    """
-    if n <= 0:
-        return None
-    constrs = []
-    for constraint in model.getQConstrs():
-        if prefix in constraint.QCName:
-           constrs.append(constraint) 
-    if any(c is None for c in constrs):
-        return None
-    return constrs
-
-
 def _create_hotspot_slacks_and_constraints(
     optimization_config: Optimization_Config,
     A_sparse: np.ndarray,
