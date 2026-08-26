@@ -60,5 +60,5 @@ def test_get_optimization_result_stats():
     print(get_optimization_result_stats(optim_obj))
 
 if __name__ == "__main__":
-    # test_update_penalty_weights_and_voxel_goals()
-    test_get_optimization_result_stats()
+    test_update_penalty_weights_and_voxel_goals()
+    # test_get_optimization_result_stats()

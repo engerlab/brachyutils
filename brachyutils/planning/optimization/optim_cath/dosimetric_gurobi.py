@@ -2,6 +2,7 @@ from time import time
 from typing import Dict, List, Optional, Literal
 from tqdm import tqdm
 from pathlib import Path
+import re
 
 from gurobipy import Model, Var, GRB, MVar, GurobiError
 import numpy as np
@@ -734,10 +735,12 @@ of the corresponding dose rate coefficients.")
         optimization_configs=optimization_configs,
     )
 
+_QCONSTR_NAME_RE = re.compile(r"^(c_L|c_U|c_H)_(.+)\[(\d+)\]$")
+
 
 def update_penalty_weights_and_voxel_goals(
     model: Model,
-    optimization_configs: List[Optimization_Config],
+    optimization_configs: List["Optimization_Config"],
 ):
     r"""
     ### Purpose:
@@ -747,16 +750,26 @@ def update_penalty_weights_and_voxel_goals(
     `Optimization_Config`. NO handles, NO blueprint, NO cached Gurobi object references anywhere:
     every variable/constraint name is regenerated on the fly from `structure_name` + `num_dose_points`
     (and, for hotspots, each hotspot mask's name-derived suffix + its own voxel count), then resolved
-    via `model.getVarByName`/`model.getQConstrByName`.
+    via `model.getVarByName` / a single pass over `model.getQConstrs()`.
     - Never calls `addVar`/`addConstr`/`remove`: only `Obj`, `QCRHS` and `UB` attributes are mutated,
     and the objective expression is rebuilt from the resolved `MVar`s. If a structure's weight was 0
     when `set_penalty_function_and_constraints` ran (so its slack variables were never created), the
     corresponding name lookup returns `None` and that term is silently skipped - it cannot be added
     retroactively without calling `set_penalty_function_and_constraints` again.
 
+    ### Performance note:
+    - The original implementation resolved quadratic constraints per-structure by scanning
+    `model.getQConstrs()` once per structure (`O(num_structures * num_qconstrs)`). This version
+    scans `model.getQConstrs()` exactly once for the whole model, parses each constraint's name to
+    determine its type (`c_L`/`c_U`/`c_H`) and owning structure/hotspot-suffix, and drops it into a
+    preallocated slot list resolved via `O(1)` dict lookups. Total constraint-resolution cost is now
+    `O(num_qconstrs + num_structures)` instead of `O(num_structures * num_qconstrs)`. Variable
+    lookups still go through `model.getVarByName` (already `O(1)` per call once the model has been
+    `update()`-d), so `_get_mvar_by_name_indices` is unchanged.
+
     IMPORTANT: `c_L_*`/`c_U_*`/`c_H_*` are QUADRATIC constraints (bilinear `c_MVar * t_MVar` term), so
-    their RHS is read/written via `QCRHS` (not `RHS`) and resolved via `getQConstrByName` (not
-    `getConstrByName`). RHS updates use the bulk `model.setAttr("QCRHS", constr_list, values_list)` form.
+    their RHS is read/written via `QCRHS` (not `RHS`). RHS updates use the bulk
+    `model.setAttr("QCRHS", constr_list, values_list)` form.
 
     ### Inputs:
     - `model`: Model := the Gurobi model whose variables/constraints follow the naming convention
@@ -776,15 +789,19 @@ def update_penalty_weights_and_voxel_goals(
         "hotspot": 0,
         "dwelltimes": 0,
     }
-    # TODO: Considering speeding this up by getting all the variables
-    # and all the constraints once, then depending on the name of the
-    # variable, deal with it.
-    
+
     # All dwell-time variables share the "dwell_" name prefix (see CatheterVar_Gurobi). A single scan
     # of the model's variables is enough to rebuild t_MVar - order doesn't matter here since it only
     # feeds a mean/variance computation.
     dwell_vars = [v for v in model.getVars() if v.VarName.startswith("dwell_")]
     t_MVar = MVar.fromlist(dwell_vars) if dwell_vars else None
+
+    # --- Pass 1 over configs: build lookup structures + preallocate constraint slot lists ---
+    configs_by_structure = {}
+    # structure_name -> {"L": [None]*n, "U": [None]*n or None}
+    constr_slots = {}
+    # hotspot_suffix -> [None]*hs_num
+    hotspot_slots = {}
 
     for optimization_config in optimization_configs:
         structure_name = optimization_config.structure_name
@@ -792,6 +809,44 @@ def update_penalty_weights_and_voxel_goals(
         if not num_dose_points:
             continue
 
+        configs_by_structure[structure_name] = optimization_config
+        constr_slots[structure_name] = {
+            "L": [None] * num_dose_points,
+            "U": [None] * num_dose_points if optimization_config.is_target else None,
+        }
+
+        if optimization_config.is_target:
+            hotspot_masks = optimization_config.hotspot_masks or []
+            hotspot_num_dose_points = optimization_config.hotspot_num_dose_points or []
+            for hotspot_mask, hs_num in zip(hotspot_masks, hotspot_num_dose_points):
+                if not hs_num:
+                    continue
+                hotspot_suffix = hotspot_mask.name.split("hotspot_estimator_")[1]
+                hotspot_slots[hotspot_suffix] = [None] * hs_num
+
+    # --- Pass 2: single scan over all quadratic constraints in the model ---
+    for constraint in model.getQConstrs():
+        match = _QCONSTR_NAME_RE.match(constraint.QCName)
+        if match is None:
+            continue
+        ctype, name_part, idx_str = match.groups()
+        idx = int(idx_str)
+
+        if ctype in ("c_L", "c_U"):
+            slots = constr_slots.get(name_part)
+            if slots is None:
+                continue
+            slot_list = slots["L"] if ctype == "c_L" else slots["U"]
+            if slot_list is not None and idx < len(slot_list):
+                slot_list[idx] = constraint
+        else:  # ctype == "c_H"
+            slot_list = hotspot_slots.get(name_part)
+            if slot_list is not None and idx < len(slot_list):
+                slot_list[idx] = constraint
+
+    # --- Pass 3 over configs: resolve variables (O(1) getVarByName calls) and build the objective ---
+    for structure_name, optimization_config in configs_by_structure.items():
+        num_dose_points = optimization_config.num_dose_points
         min_dose = optimization_config.min_dose
         max_dose = optimization_config.max_dose
         voxel_goal = optimization_config.dose_voxel_goal
@@ -804,10 +859,13 @@ def update_penalty_weights_and_voxel_goals(
         penalty_weight_hotspot = optimization_config.penalty_weight_hotspot
         hotspot_threshold = optimization_config.hotspot_threshold
 
+        slots = constr_slots[structure_name]
+        constr_L_raw = slots["L"]
+        constr_L = constr_L_raw if all(c is not None for c in constr_L_raw) else None
+
         # p_L_/c_L_ is shared naming for both the target dose-slack and the OAR dose-slack (a
         # structure is either a target or an OAR, never both, so there is no name collision).
         x_slack = _get_mvar_by_name_indices(model, f"p_L_{structure_name}", num_dose_points)
-        constr_L = _get_qconstrs_by_name_indices(model, f"c_L_{structure_name}", num_dose_points)
 
         if optimization_config.is_target:
             if x_slack is not None and constr_L is not None:
@@ -819,8 +877,9 @@ def update_penalty_weights_and_voxel_goals(
                 if quadratic_weight > 0:
                     penalty_terms["quadratic"] += sum((quadratic_weight / num_dose_points) * (x_slack * x_slack))
 
+            constr_U_raw = slots["U"]
+            constr_U = constr_U_raw if constr_U_raw is not None and all(c is not None for c in constr_U_raw) else None
             y_uniform = _get_mvar_by_name_indices(model, f"p_U_{structure_name}", num_dose_points)
-            constr_U = _get_qconstrs_by_name_indices(model, f"c_U_{structure_name}", num_dose_points)
             if y_uniform is not None and constr_U is not None:
                 y_uniform.UB = np.full(num_dose_points, voxel_goal - min_dose)
                 model.setAttr("QCRHS", constr_U, list(voxel_goal_vec))
@@ -832,9 +891,12 @@ def update_penalty_weights_and_voxel_goals(
             hotspot_masks = optimization_config.hotspot_masks or []
             hotspot_num_dose_points = optimization_config.hotspot_num_dose_points or []
             for hotspot_mask, hs_num in zip(hotspot_masks, hotspot_num_dose_points):
+                if not hs_num:
+                    continue
                 hotspot_suffix = hotspot_mask.name.split("hotspot_estimator_")[1]
+                constr_H_raw = hotspot_slots.get(hotspot_suffix)
+                constr_H = constr_H_raw if constr_H_raw is not None and all(c is not None for c in constr_H_raw) else None
                 x_slack_hotspot = _get_mvar_by_name_indices(model, f"p_H_{hotspot_suffix}", hs_num)
-                constr_H = _get_qconstrs_by_name_indices(model, f"c_H_{hotspot_suffix}", hs_num)
                 if x_slack_hotspot is None or constr_H is None:
                     continue
 
