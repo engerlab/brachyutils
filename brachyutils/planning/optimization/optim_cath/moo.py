@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Dict, Any
 from abc import ABC, abstractmethod
+import pandas as pd
 
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
     CatheterTableOptim_Gurobi,
@@ -39,8 +40,10 @@ class MOO(ABC):
         self.parameter_space = parameter_space
         self.batch_size = batch_size
         # # Attributes to be filled out
-        self.dvh_metric_goals = None
-
+        self.dvh_metric_goals: Dict[str, float] = None
+        self.tuner: Any = None
+        self.trial_data:pd.DataFrame = None
+        # # Fill out the attributes
         self.validate_init()
 
     @abstractmethod
@@ -49,6 +52,20 @@ class MOO(ABC):
         ### Purpose:
         - To ensure `self.catheter_table_optim` and `parameter_space` contain
         the correct information.
+        
+        ### Inputs:
+        None := Expects the following to be filled already:
+        - `self.catheter_table_optim`
+        - `self.parameter_space`
+        
+        ### Outputs:
+        None := Fills out the following attributes:
+        - `self.dvh_metric_goals` := maps the DVH names {metric_name(structure_name)}
+        to their clinically desired values.
+        - `self.trial_data`: pd.DataFrame := A master dataframe containing the result of
+        all the trials. The columns are parameter names from the keys of 
+        `self.parameter_space` and the dvh metric names from the keys of 
+        `self.dvh_metric_goals`.  
         """
         self.dvh_metric_goals = self.catheter_table_optim.plan.dvh_metric_goals
         if (
@@ -76,3 +93,26 @@ multi-objective optimization. please provide it to the optimization object.")
             if not parameter_found:
                 raise ValueError(f"The parameter: {parameter_name} was not found in the \
  as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
+
+        # Now build the columns of the 
+        self.trial_data = pd.DataFrame(
+            columns=(
+                list(self.parameter_space.keys())
+                +list(self.dvh_metric_goals.keys())))
+
+    @abstractmethod
+    def evaluate_parameters(self, parameters: np.typing.ArrayLike):
+        r"""
+        Evaluates the parameters and returns the observed dvh metrics 
+        corresponding to those parameters.
+        """
+        pass
+    
+    @abstractmethod
+    def set_tuner(self):
+        r"""
+        ### Purpose:
+        Builds the Tuner object that will recommend the next batch of parameter
+        queries to be evaluated.
+        """
+        
