@@ -12,6 +12,16 @@ from brachyutils.planning.optimization.optim_gurobi import (
     get_optimized_dwelltimes_from_model
 )
 class MOO(ABC):
+    _valid_parameter_names = [
+        "dose_voxel_goal",
+        "penalty_weight_linear",
+        "penalty_weight_quadratic",
+        "penalty_weight_hotspot",
+        "hotspot_threshold",
+        "penalty_weight_uniformity",
+        "penalty_weight_variance_time",
+    ]
+
     @abstractmethod
     def __init__(
         self,
@@ -84,7 +94,7 @@ multi-objective optimization. please provide it to the optimization object.")
             for optim_config in self.catheter_table_optim.plan.optimization_config_dict.values():
                 if optim_config.structure_name == structure_name:
                     structure_found = True
-                if optim_config.to_dict().get(parameter_name, None) is not None:
+                if parameter_name in MOO._valid_parameter_names:
                     parameter_found = True
 
             if not structure_found:
@@ -101,13 +111,13 @@ multi-objective optimization. please provide it to the optimization object.")
                 +list(self.dvh_metric_goals.keys())))
 
     @abstractmethod
-    def evaluate_parameters(self, parameters: np.typing.ArrayLike):
+    def evaluate(self, parameters: np.DataFrame) -> pd.DataFrame:
         r"""
         Evaluates the parameters and returns the observed dvh metrics 
         corresponding to those parameters.
         """
         pass
-    
+
     @abstractmethod
     def set_tuner(self):
         r"""
