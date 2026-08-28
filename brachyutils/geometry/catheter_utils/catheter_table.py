@@ -98,7 +98,6 @@ class CatheterTable(BaseModel):
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
     _cached_combined_dose: BrachyDose = None
-    # _time_diffs:Dict[str, float] = None
 
     @computed_field
     def all_dwells(self) -> List[DwellPosition]:
@@ -107,6 +106,13 @@ class CatheterTable(BaseModel):
         - returns a list of all the dwell positions in this catheter table.
         """
         return list(chain.from_iterable(self))
+
+    @computed_field
+    def all_dwells_dict(self) -> Dict[str, DwellPosition]:
+        return {
+            dwell.name_id: dwell
+            for dwell in self.all_dwells
+        }
 
     @computed_field
     def catheters_list(self) -> List[Catheter]:
@@ -611,15 +617,26 @@ match its index ({new_catheter.name_id}), be sure that the name_id == new_cathet
                     out_dwells.append(dwell)
         return out_dwells
 
-    def set_dwells_by_name_id(self, new_dwell: DwellPosition):
+    def set_dwelltimes_by_names(
+        self, dwell_time_dict: Dict[str, float]):
         r"""
         ### Purpose:
-        - To set the dwell on the right catheter by their name id.
-        If the dwell already exists, its fields should be updated accordingly.
-        If the change is only in dwell time and nothing else, the change in dwell time is recorded in
-        self._time_diff
+        - To set the dwell on the right dwell position by their name id.
+        If the dwell position does not exist, raise an error!
+        
+        ### Inputs:
+        dwell_time_dict := A dictionary mapping dwell name id to the 
+        new dwell time.
+        
+        ### Outputs:
+        - None := It will update the dwell times of the catheter table
+        in place.
         """
-        pass
+        for dwell_id, dwell_time in dwell_time_dict.items():
+            dwell = self.all_dwells_dict.get(dwell_id, None)
+            if dwell is None:
+                raise ValueError(f"Dwell {dwell_id} was not found in catheter table.")
+            dwell.time = dwell_time
 
     def get_catheters_by_ids(self, name_ids: List[str]) -> List[Catheter]:
         r"""
