@@ -2,25 +2,35 @@ import ray
 from ray import tune
 from ray.tune import TuneConfig, RunConfig, Tuner
 import numpy as np
-from typing import Dict
+from typing import Dict, Any
 
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
-    CatheterTableOptim_Gurobi
+    CatheterTableOptim_Gurobi,
+    update_penalty_weights_and_voxel_goals,
     )
 
+from brachyutils.planning.optimization.optim_gurobi import (
+    get_optimized_dwelltimes_from_model
+)
 class MOO_Ray():
     def __init__(self, catheter_table_optim:CatheterTableOptim_Gurobi):
         ### TODO: Complete it later
-        self.search_space:dict = None
+        self.param_space:dict = None
         self.algorithm:str = None
         self.trainable = tune.with_resources(
             {}
         )
 
 def dvh_eval(
-    w: np.ndarray) -> Dict[str, float]:
+    parameters: np.ndarray,
+    model: Any) -> Dict[str, float]:
+    r"""
+    ### Purpose:
+    - Given a set of parameters (penalty weight and target doses),
+    
+    """
     pass
-        
+
 def compute_objectives(
     dvh_dict: Dict[str, float]) -> Dict[str, float]:
     r"""

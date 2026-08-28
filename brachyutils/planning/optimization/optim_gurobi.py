@@ -109,7 +109,7 @@ def _run(model: Model):
         solution_found = False
     return model, solution_found, solve_time
 
-def _get_optimized_dwelltimes_from_model(
+def get_optimized_dwelltimes_from_model(
     model: Model,
     ) -> List[Var]:
     r"""
@@ -143,7 +143,7 @@ def _get_optimized_plan_from_model(
     if model is None:
         raise ValueError("Model is not set. Please set the model first.")
 
-    dwell_name_time, solution_found, solve_time = _get_optimized_dwelltimes_from_model(model)
+    dwell_name_time, solution_found, solve_time = get_optimized_dwelltimes_from_model(model)
     if dwell_name_time is None:
         return None
 
