@@ -23,11 +23,12 @@ class MOO_Ray():
 
 def dvh_eval(
     parameters: np.ndarray,
-    model: Any) -> Dict[str, float]:
+    model: Any,
+    plan:Any) -> Dict[str, float]:
     r"""
     ### Purpose:
     - Given a set of parameters (penalty weight and target doses),
-    
+    optimize the model, update the 
     """
     pass
 
