@@ -59,6 +59,26 @@ def test_get_optimization_result_stats():
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
     print(get_optimization_result_stats(optim_obj))
 
+def test_init_MOO(return_obj=False):
+    optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
+    
+    # # Build the range of the parameters
+    structure_names = ["CTV", "RECTUM", "URETHRA"]
+    parameter_space = {}
+    for name in structure_names:
+        if name == "CTV":
+            parameter_space[f"dose_voxel_goal({name})"] = [
+                optim_obj.plan.prescription_dose,
+                optim_obj.plan.prescription_dose*1.15 
+            ]
+            parameter_space[f"penalty_weight_hotspot({name})"] = [0, 1000]
+            parameter_space[f"penalty_weight_uniformity({name})"] = [0, 1000]
+            parameter_space[f"penalty_weight_variance_time({name})"] = [0, 1000]
+
+        parameter_space[f"penalty_weight_linear({name})"] = [0, 1000]
+        parameter_space[f"penalty_weight_quadratic({name})"] = [0, 1000]
+
 if __name__ == "__main__":
-    test_update_penalty_weights_and_voxel_goals()
+    # test_update_penalty_weights_and_voxel_goals()
     # test_get_optimization_result_stats()
+    test_init_MOO()
