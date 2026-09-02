@@ -139,6 +139,7 @@ class MOO_Optuna(MOO):
         )
 
     def set_tuner(self):
+        # TODO(Priority 1)
         return NotImplementedError("The tuner is not implemented yet. \
 Please use the `MOO_Optuna` class to implement the tuner.")
     def evaluate(self, parameters: pd.DataFrame) -> pd.DataFrame:
