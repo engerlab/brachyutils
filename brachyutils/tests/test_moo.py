@@ -2,6 +2,7 @@ from brachyutils.tests.test_optim_catheters import test_catheter_table_optim
 from random import randint
 import numpy as np
 from time import time
+from brachyutils.planning.optimization.optim_cath.moo import MOO, MOO_Optuna, MOO_Optuna
 
 def test_update_penalty_weights_and_voxel_goals():
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
@@ -77,6 +78,13 @@ def test_init_MOO(return_obj=False):
 
         parameter_space[f"penalty_weight_linear({name})"] = [0, 1000]
         parameter_space[f"penalty_weight_quadratic({name})"] = [0, 1000]
+
+    MOO_obj = MOO_Optuna(
+        catheter_table_optim=optim_obj,
+        parameter_space=parameter_space,
+        batch_size=5
+    )
+    print("break point here: Check that the MOO object is initialized correctly")
 
 if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()

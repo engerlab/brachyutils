@@ -56,7 +56,6 @@ class MOO(ABC):
         # # Fill out the attributes
         self.validate_init()
 
-    @abstractmethod
     def validate_init(self):
         r"""
         ### Purpose:
@@ -111,7 +110,7 @@ multi-objective optimization. please provide it to the optimization object.")
                 +list(self.dvh_metric_goals.keys())))
 
     @abstractmethod
-    def evaluate(self, parameters: np.DataFrame) -> pd.DataFrame:
+    def evaluate(self, parameters: pd.DataFrame) -> pd.DataFrame:
         r"""
         Evaluates the parameters and returns the observed dvh metrics 
         corresponding to those parameters.
@@ -125,4 +124,24 @@ multi-objective optimization. please provide it to the optimization object.")
         Builds the Tuner object that will recommend the next batch of parameter
         queries to be evaluated.
         """
-        
+        pass
+
+class MOO_Optuna(MOO):
+    def __init__(
+        self,
+        catheter_table_optim: CatheterTableOptim_Gurobi,
+        parameter_space: Dict[str, np.typing.ArrayLike],
+        batch_size: int):
+        super().__init__(
+            catheter_table_optim=catheter_table_optim,
+            parameter_space=parameter_space,
+            batch_size=batch_size
+        )
+
+    def set_tuner(self):
+        return NotImplementedError("The tuner is not implemented yet. \
+Please use the `MOO_Optuna` class to implement the tuner.")
+    def evaluate(self, parameters: pd.DataFrame) -> pd.DataFrame:
+        return NotImplementedError("The evaluation is not implemented yet. \
+Please use the `MOO_Optuna` class to implement the evaluation.")
+    
