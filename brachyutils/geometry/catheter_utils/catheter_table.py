@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Union, Dict, Tuple
+from typing import List, Union, Dict, Tuple, Optional
 from pathlib import Path
 from pydantic import BaseModel, computed_field, ConfigDict, model_validator
 import json
@@ -99,6 +99,7 @@ class CatheterTable(BaseModel):
     from_delivered_dwellpositions: bool = False
     _cached_combined_dose: BrachyDose = None
     # _time_diffs:Dict[str, float] = None
+    treatment_type: Optional[str] = None
 
     @computed_field
     def all_dwells(self) -> List[DwellPosition]:
@@ -128,6 +129,11 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - float := the total treatment time.
         """
+        # If the treatment is TLDR, the total treatment time is the treatment time of ONE SEED
+        # This is simply how RapidBrachyMC handles TLDR cases. For PLDR cases, RapidBrachyMC ignores total time
+        if self.treatment_type == "LDR":
+            return np.sum([catheter.channel_total_time for catheter in self.catheters_list]) / len(self.catheters_list)
+        
         return np.sum([catheter.channel_total_time for catheter in self.catheters_list])
 
     @computed_field
@@ -304,13 +310,15 @@ class CatheterTable(BaseModel):
                 # if the file is a slicer markup file, load it as a json file
                 raise NotImplementedError("this feature is not implemented yet.")
 
-            if str(catheter_file).endswith(".json"):
+            if str(catheter_file).endswith(".json"): # LDR NEEDS TO BE IMPLEMENTED FOR JSON LOADING TOO
                 cat_dict = load_from_json(catheter_file)
             elif str(catheter_file).endswith(".dcm"):
                 cat_dict = load_from_dicom(
                     pth_dicom=catheter_file,
                     from_delivered_dwellpositions=self.from_delivered_dwellpositions,
                 )
+                self.treatment_type = cat_dict["treatment_type"]
+
             self.catheters_dict = cat_dict["catheter_list"]
             self.step_size = cat_dict["step_size"]
 
@@ -1185,7 +1193,7 @@ def load_ldr_cathetertable_from_dicom(pth_dicom: Path) -> dict:
         - dict := dict with keys catheter_list, treatment_time, step_size
     """
     import pydicom
-
+    print("LDR PLAN!!!")
     plan = pydicom.dcmread(pth_dicom, stop_before_pixels=True)
 
     # Map Reference Air Kerma Rate and Isotope from SourceSequence
@@ -1209,6 +1217,11 @@ def load_ldr_cathetertable_from_dicom(pth_dicom: Path) -> dict:
             
             # Extract the implant time for this seed/channel
             catheter_time = float(getattr(channel, "ChannelTotalTime", 0.0))
+            channel_final_time_weight = (
+                float(channel.FinalCumulativeTimeWeight)
+                if hasattr(channel, "FinalCumulativeTimeWeight")
+                else 0
+            )
             
             for cp in channel.BrachyControlPointSequence:
                 if hasattr(cp, "ControlPoint3DPosition"):
@@ -1220,7 +1233,7 @@ def load_ldr_cathetertable_from_dicom(pth_dicom: Path) -> dict:
                         "angle": 0.0,
                         "position": [float(pos[0]), float(pos[1]), float(pos[2])],
                         "relativePos": 0.0,
-                        "rotation": [0.0, 0.0, 0.0],
+                        "rotation": [0.0, 0.0, 1.0],
                         "time": catheter_time, # Pass the time to the individual seed
                         "weight": 1.0,   
                         "rakr": source_info["rakr"],
@@ -1326,9 +1339,12 @@ def load_from_dicom(
         for dwell in catheter["dwells"]:
             dwell["catheter_index"] = catheter["index"]
 
+    # Inject the modality so downstream objects can read it
+    catheter_table_dict["treatment_type"] = modality
+
     return catheter_table_dict
 
-def load_from_json(pth_json: Path) -> list:
+def load_from_json(pth_json: Path) -> list: # LDR NEEDS TO BE IMPLEMENTED FOR JSON LOADING TOO
     r"""
     ### Purpose:
     - Load the catheter table from a json file.
@@ -1365,7 +1381,7 @@ def load_from_json(pth_json: Path) -> list:
             "non_zero_dwell_positions": non_zero_dwell_positions
             }
 
-def detect_modality_from_structure(plan: pydicom.dataset.FileDataset) -> str:
+def detect_modality_from_structure(plan) -> str:
     """
     Analyzes the Reference Air Kerma Rate of the sources in the DICOM RT Plan file
     to physically differentiate between HDR and LDR.

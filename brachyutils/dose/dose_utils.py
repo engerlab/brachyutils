@@ -105,6 +105,32 @@ class BrachyDose:
         self.xyz_format: bool = True
         self.modification_time:float = self.path.stat().st_mtime if self.path else None
         if self.dose_image is not None:
+            test_array = self.dose_image.imageArray
+
+            print("\n--- MONTE CARLO DOSE DIAGNOSTICS ---")
+            print(f"Array shape: {test_array.shape}, dtype: {test_array.dtype}")
+
+            # 1. Check for NaNs (Usually caused by 0/0 or 0 density)
+            has_nan = np.any(np.isnan(test_array))
+            print(f"Contains NaN? : {has_nan}")
+            if has_nan:
+                print(f"Total NaN count: {np.count_nonzero(np.isnan(test_array))}")
+
+            # 2. Check for Infs (Caused by division by zero or float overflow)
+            has_inf = np.any(np.isinf(test_array))
+            print(f"Contains Inf? : {has_inf}")
+            if has_inf:
+                print(f"Total Inf count: {np.count_nonzero(np.isinf(test_array))}")
+
+            # 3. Check the maximum finite value (To see if it's overflowing float32 bounds)
+            # Float32 max is ~3.4e38. If your max finite value is close to this, 
+            # the LDR time multiplier is blowing it up.
+            finite_max = np.max(test_array[np.isfinite(test_array)]) if np.any(np.isfinite(test_array)) else "None"
+            print(f"Max finite value: {finite_max}")
+            print("------------------------------------\n")
+
+
+
             self.dose_image.imageArray = self.dose_image.imageArray.astype(dtype)
         if self.uncertainty_image is not None:
             self.uncertainty_image.imageArray = self.uncertainty_image.imageArray.astype(dtype)

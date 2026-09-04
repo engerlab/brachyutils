@@ -141,15 +141,33 @@ class BrachySource(BaseModel):
         # Fill in reference air kerma from dicom though.
         source_dict = defaultdict(str)
         source_dict["treatment_type"] = plan_dcm.get("BrachyTreatmentType", "HDR")
-        source_dict["source_geometry"] = plan_dcm.TreatmentMachineSequence[0].ManufacturerModelName
+        if source_dict["treatment_type"] == "MANUAL":
+            source_dict["treatment_type"] = "PLDR"
+        try:
+            model_name = plan_dcm.TreatmentMachineSequence[0].ManufacturerModelName
+        except (AttributeError, IndexError):
+            # If the sequence doesn't exist or is empty, look at the root level.
+            # Using getattr() to provide a safe default ("Unknown") just in case it is completely missing from the DICOM file.
+            model_name = getattr(plan_dcm, "ManufacturerModelName", "Unknown")
+        source_dict["source_geometry"] = str(model_name)
+
         if "microselectron-hdr v2" in source_dict["source_geometry"].lower():
             source_dict["source_geometry"] = "MicroSelectronV2"
         elif "microselectron v3" in source_dict["source_geometry"].lower():
             source_dict["source_geometry"] = "MicroSelectronV3"
         elif "flexitron hdr 192-ir" in source_dict["source_geometry"].lower():
             source_dict["source_geometry"] = "FlexiSource"
+            source_dict["source_geometry"] = "OncoSeed6711_I125" # REMOVE THIS #######################################################################
+        elif "variseed" in source_dict["source_geometry"].lower():
+            source_dict["source_geometry"] = "AGX100"
         # source_dict["source_geometry"] = plan_dcm.get("SourceModelName", "MicroSelectronV2")
         source_dict["core_material"] = plan_dcm.SourceSequence[0].SourceIsotopeName
+        # THIS WAS HARDCODED FOR TESTING PURPOSES ################################################################################
+        if source_dict["core_material"] == "I-125":
+            source_dict["core_material"] = "G4_I"
+        if source_dict["core_material"] == "I-125 (AgX100)":
+            source_dict["core_material"] = "SilverIodide"
+            ######################################################################################################################
         if source_dict["core_material"] == "Ir-192":
             source_dict["core_material"] = "G4_Ir"
             source_dict["mass_number"] = 192
