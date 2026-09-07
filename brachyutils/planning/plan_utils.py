@@ -448,7 +448,7 @@ class BrachyPlan:
     def set_dvh_metric_goals(
         self,
         dvh_metric_names: List[str] | Path = None,
-        dvh_metric_goals: Dict[str, float] | Dict[str, List[str, float]] | Path = None,
+        dvh_metric_goals: Dict[str, float] | Dict[str, List[Literal["==", "<=", ">="], float]] | Path = None,
         strict_name_match: bool = True
         ) -> None:
         r"""

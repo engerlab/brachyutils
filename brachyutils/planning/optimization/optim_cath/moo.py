@@ -1,8 +1,7 @@
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, List
 from abc import ABC, abstractmethod
 import pandas as pd
-
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
     CatheterTableOptim_Gurobi,
     update_penalty_weights_and_voxel_goals,
@@ -11,6 +10,9 @@ from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
 from brachyutils.planning.optimization.optim_gurobi import (
     get_optimized_dwelltimes_from_model
 )
+
+import optuna
+
 class MOO(ABC):
     _valid_parameter_names = [
         "dose_voxel_goal",
@@ -50,7 +52,7 @@ class MOO(ABC):
         self.parameter_space = parameter_space
         self.batch_size = batch_size
         # # Attributes to be filled out
-        self.dvh_metric_goals: Dict[str, float] = None
+        self.dvh_metric_goals: Dict[str, List[str, float]] = None
         self.tuner: Any = None
         self.trial_data:pd.DataFrame = None
         # # Fill out the attributes
@@ -74,7 +76,7 @@ class MOO(ABC):
         - `self.trial_data`: pd.DataFrame := A master dataframe containing the result of
         all the trials. The columns are parameter names from the keys of 
         `self.parameter_space` and the dvh metric names from the keys of 
-        `self.dvh_metric_goals`.  
+        `self.dvh_metric_goals`. 
         """
         self.dvh_metric_goals = self.catheter_table_optim.plan.dvh_metric_goals
         if (
@@ -83,6 +85,20 @@ class MOO(ABC):
             or isinstance(self.dvh_metric_goals, list)):
             raise ValueError("The DVH metric goal dictionary is essential for \
 multi-objective optimization. please provide it to the optimization object.") 
+        for key, value in self.dvh_metric_goals.items():
+            wrong_value = False
+            if not isinstance(value, list):
+                wrong_value = True
+            elif len(value) != 2:
+                wrong_value = True
+            elif value[0] not in ["==", "<=", ">="]:
+                wrong_value = True
+            elif not isinstance(value[1], (int, float)):
+                wrong_value = True
+            if wrong_value:
+                raise ValueError(f"The value of the DVH metric goal: {key} \
+should be a list of string operation (one of ['==', '<=', '>=']) and float \
+see `BrachyStructure.set_dvh_metric_goals()` for more details.")
 
         for key in self.parameter_space.keys():
             structure_name = key.split("(")[-1].split(")")[0]
@@ -140,8 +156,15 @@ class MOO_Optuna(MOO):
 
     def set_tuner(self):
         # TODO(Priority 1)
+        
+        study = optuna.create_study(
+            directions = None, ### Figure out how to set the directions for each DVH metric.
+            
+        )
+        
         return NotImplementedError("The tuner is not implemented yet. \
 Please use the `MOO_Optuna` class to implement the tuner.")
+
     def evaluate(self, parameters: pd.DataFrame) -> pd.DataFrame:
         return NotImplementedError("The evaluation is not implemented yet. \
 Please use the `MOO_Optuna` class to implement the evaluation.")

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Literal, Dict, List
 from opentps.core.data.images import ROIMask
 from opentps.core.data import DVH, ROIContour
 import numpy as np
@@ -115,7 +115,7 @@ class BrachyStructure:
 
     def set_dvh_metric_goals(
         self,
-        dvh_metric_goals: Dict[str, float] | Dict[str, List[str, float]]):
+        dvh_metric_goals: Dict[str, float] | Dict[str, List[Literal["==", "<=", ">="], float]]):
         r"""
         ### Purpose:
         - To set the DVH metrics or their goals for this structure.
