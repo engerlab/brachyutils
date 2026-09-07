@@ -143,12 +143,12 @@ class BrachyPlan:
         - applicator_format:str = "RapidBrachy" := the format of the applicator list 
         (default is "RapidBrachy"). See load_applicator_list() for more info. 
         - load_uncertainty: bool := If true, it will the uncertainty of the dose rates as well.
-        - dvh_metric_goals: List[str] | Dict[str, float] | Path | str := A list of all DVH metric
-        names or the dictionary containing the DVH metric names and their goals or the path to its
-        json file. Look at set_dvh_metric_goals for guideline on the names of the DVH metrics.
-        The phantom should be loaded with structures for the Brachy stuctures to be created. The names 
-        are of the format V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or.
-        For example D95%(organName).
+        - dvh_metric_goals: List[str] | Dict[str, float] | Dict[str, List[str, float]] |  Path | str :=
+        A list of all DVH metric names or the dictionary containing the DVH metric names and 
+        their goals or the path to its json file. Look at set_dvh_metric_goals for guideline on the
+        names of the DVH metrics. The phantom should be loaded with structures for the Brachy
+        stuctures to be created. The names are of the format V_{#Gy|%}(organName), where # represents 
+        the numerical threshold and "|" is or. For example D95%(organName).
         - strict_name_match: bool = True := If True, the name of the structure in the phantom and the DVH metric
         as well as the structure name in the optimization config should match perfectly. Otherwise, the name 
         of the structure in the DVH metric goals and optimization config can be a substring of the name of
@@ -448,7 +448,7 @@ class BrachyPlan:
     def set_dvh_metric_goals(
         self,
         dvh_metric_names: List[str] | Path = None,
-        dvh_metric_goals: dict | Path = None,
+        dvh_metric_goals: Dict[str, float] | Dict[str, List[str, float]] | Path = None,
         strict_name_match: bool = True
         ) -> None:
         r"""
@@ -460,8 +460,16 @@ class BrachyPlan:
         - dvh_metric_names: List[str] := a list containing the DVH metrics for this structure. The names 
         are of the format V_{#Gy|%}(organName), where # represents the numerical threshold and "|" is or.
         For example D95%(organName).
-        - dvh_metric_goals:Dict[str, float] := a dictionary of DVH metrics and their clinical goals.
-        The keys should be following the same convention as for dvh_metric_names.
+        - dvh_metric_goals: Dict[str, float] | Dict[str, List[str, float]] := The dictionary mapping the
+        DVH metric names to their corresponding goal value. see self.set_dvh_metric_names() for 
+        the naming convention of the keys.
+        If the value is a list, the first element is the operation for that metric. The operations 
+        could are "<=", ">=", and "==". The second element is the goal value. For example:
+            {
+                "D95%(CTV)": [">=", 95],
+                "V100%(CTV)": [">=", 90],
+                "D2cc(Bladder)": ["<=", 75],
+            }
         - strict_name_match: bool := If True, the name of the structure in the phantom and the DVH metric
         goals should mask perfectly. Otherwise, the name of the structure in the DVH metric goals can be
         a substring of the name of the structure in the phantom. For example, "CTV" in "CTV_BRACHY".
