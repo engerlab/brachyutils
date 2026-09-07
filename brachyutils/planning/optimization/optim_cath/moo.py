@@ -29,7 +29,7 @@ class MOO(ABC):
         self,
         catheter_table_optim: CatheterTableOptim_Gurobi,
         parameter_space: Dict[str, np.typing.ArrayLike],
-        batch_size: int):
+        ):
         r"""
         ### Purpose:
         - The multi-objective optimization class performs hyper-parameter tuning
@@ -46,11 +46,9 @@ class MOO(ABC):
             {
                 penalty_weight_linear(CTV) : [1, 500]
             }
-        - `batch_size` := Number of parallel trials. This can change in the future. 
         """        
         self.catheter_table_optim = catheter_table_optim
         self.parameter_space = parameter_space
-        self.batch_size = batch_size
         # # Attributes to be filled out
         self.dvh_metric_goals: Dict[str, List[str, float]] = None
         self.tuner: Any = None
@@ -142,30 +140,79 @@ see `BrachyStructure.set_dvh_metric_goals()` for more details.")
         """
         pass
 
+    @abstractmethod
+    def run_trials(self, n_trials: int):
+        r"""
+        ### Purpose:
+        - To run the multi-objective optimization for `n_trials` number of trials.
+        The tuner will recommend the next batch of parameters to be evaluated.
+        The evaluation will be done by the `evaluate()` method. The results will be
+        stored in `self.trial_data`.
+        ### Inputs:
+        - n_trials: int := The number of trials to run.
+        
+        ### Outputs:
+        None := Fills out the following attributes:
+        - `self.trial_data`: pd.DataFrame := A master dataframe containing the result of
+        all the trials. The columns are parameter names from the keys of 
+        `self.parameter_space` and the dvh metric names from the keys of 
+        `self.dvh_metric_goals`. 
+        """
+        pass
+
 class MOO_Optuna(MOO):
     def __init__(
         self,
         catheter_table_optim: CatheterTableOptim_Gurobi,
         parameter_space: Dict[str, np.typing.ArrayLike],
-        batch_size: int):
+        ):
         super().__init__(
             catheter_table_optim=catheter_table_optim,
             parameter_space=parameter_space,
-            batch_size=batch_size
-        )
+            )
 
     def set_tuner(self):
-        # TODO(Priority 1)
-        
+        directions = self._get_directions_from_dvh_metric_goals()
+        sampler = optuna.samplers.NSGAIISampler()
         study = optuna.create_study(
-            directions = None, ### Figure out how to set the directions for each DVH metric.
-            
+            directions = list(directions.values()),
+            study_name = f"MOO_{self.catheter_table_optim.plan.phantom.pth_image.stem}",
+            sampler = sampler,
         )
+
+    def _get_directions_from_dvh_metric_goals(self):
+        r"""
+        ### Purpose:
+        - To get the directions of optimization for each DVH metric goal.
+        The direction is either "minimize" or "maximize" depending on the 
+        operation in the dvh_metric_goals. For example, if the operation is "<=",
+        then the direction is "minimize". If the operation is ">=", then the direction
+        is "maximize". If the operation is "==", then the direction is "minimize".
+        ### Inputs:
+        None := Expects self.dvh_metric_goals to be filled out.
         
-        return NotImplementedError("The tuner is not implemented yet. \
-Please use the `MOO_Optuna` class to implement the tuner.")
+        ### Outputs:
+        directions: Dict[str, str] := A dictionary of directions for each DVH metric goal.
+        The order of the directions corresponds to the order of the keys in 
+        self.dvh_metric_goals.
+        """
+        directions = {}
+        for key, value in self.dvh_metric_goals.items():
+            if value[0] == "<=":
+                directions[key] = "minimize"
+            elif value[0] == ">=":
+                directions[key] = "maximize"
+            elif value[0] == "==":
+                directions[key] = "minimize"
+            else:
+                raise ValueError(f"The operation: {value[0]} \
+for DVH metric goal: {key} is not valid. Please use one of ['==', '<=', '>=']")
+        return directions
 
     def evaluate(self, parameters: pd.DataFrame) -> pd.DataFrame:
         return NotImplementedError("The evaluation is not implemented yet. \
 Please use the `MOO_Optuna` class to implement the evaluation.")
-    
+
+    def run_trials(self, n_trials: int):
+        return NotImplementedError("The run_trials is not implemented yet. \
+Please use the `MOO_Optuna` class to implement the run_trials.")
