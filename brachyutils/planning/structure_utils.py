@@ -115,7 +115,7 @@ class BrachyStructure:
 
     def set_dvh_metric_goals(
         self,
-        dvh_metric_goals: Dict[str, float] | Dict[str, List[Literal["==", "<=", ">="], float]]):
+        dvh_metric_goals: Dict[str, float] | Dict[str, List]):
         r"""
         ### Purpose:
         - To set the DVH metrics or their goals for this structure.
