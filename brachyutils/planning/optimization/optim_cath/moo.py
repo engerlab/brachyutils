@@ -76,7 +76,11 @@ class MOO(ABC):
         `self.parameter_space` and the dvh metric names from the keys of 
         `self.dvh_metric_goals`. 
         """
-        self.dvh_metric_goals = self.catheter_table_optim.plan.dvh_metric_goals
+        self.dvh_metric_goals = {}
+        for value in self.catheter_table_optim.plan.dvh_metric_goals.values():
+            for dvh in value["dvh_metric_goals"]:
+                if value["dvh_metric_goals"].get(dvh, None) is not None:
+                    self.dvh_metric_goals[dvh] = value["dvh_metric_goals"][dvh]
         if (
             self.dvh_metric_goals is None
             or len(self.dvh_metric_goals) == 0
@@ -212,7 +216,7 @@ class MOO_Optuna(MOO):
         for key, value in self.parameter_space.items():
             if len(value) != 2:
                 raise ValueError(f"The parameter space for {key} should be a list of two values [min, max]")
-            self._parameter_distributions[key] = optuna.distributions.IntDistribution(
+            self._parameter_distributions[key] = optuna.distributions.FloatDistribution(
                 low=value[0], high=value[1])
 
     def set_tuner(self):

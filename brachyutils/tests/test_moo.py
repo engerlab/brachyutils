@@ -88,6 +88,7 @@ def test_init_MOO(return_obj=False):
                 optim_obj.plan.prescription_dose*1.15 
             ]
             parameter_space[f"penalty_weight_hotspot({name})"] = [0, 1000]
+            parameter_space[f"hotspot_threshold({name})"] = [1, 2]
             parameter_space[f"penalty_weight_uniformity({name})"] = [0, 1000]
             parameter_space[f"penalty_weight_variance_time({name})"] = [0, 1000]
 
