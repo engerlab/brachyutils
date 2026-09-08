@@ -141,7 +141,35 @@ see `BrachyStructure.set_dvh_metric_goals()` for more details.")
         pass
 
     @abstractmethod
-    def run_trials(self, n_trials: int):
+    def run_warmups(
+        self,
+        n_warmups: int,
+        multi_proc: bool = True,
+        ):
+        r"""
+        ### Purpose:
+        - To run random sampling for `n_warmups` number of warmup trials.
+        All the warmup trials will be randomly sampled from the parameter space and
+        evaluated either sequentially or in parallel. The results will be stored in 
+        `self.trial_data`. The tuner will be built after the warmup trials are completed.
+
+        ### Inputs:
+        - n_warmups: int := The number of warmup trials to run.
+        
+        ### Outputs:
+        None := Fills out the following attributes:
+        - `self.trial_data`: pd.DataFrame := A master dataframe containing the result of
+        all the trials. The columns are parameter names from the keys of 
+        `self.parameter_space` and the dvh metric names from the keys of 
+        `self.dvh_metric_goals`.
+        """
+        pass
+
+    @abstractmethod
+    def run_trials(
+        self,
+        n_trials: int,
+        ):
         r"""
         ### Purpose:
         - To run the multi-objective optimization for `n_trials` number of trials.
@@ -170,6 +198,22 @@ class MOO_Optuna(MOO):
             catheter_table_optim=catheter_table_optim,
             parameter_space=parameter_space,
             )
+        self._parameter_distributions = None
+        self._parameter_space_to_distributions()
+
+    def _parameter_space_to_distributions(self):
+        r"""
+        ### Purpose:
+        - To convert the parameter space to distributions that can be used by Optuna.
+        The distributions are stored in `self._parameter_distributions` as a dictionary
+        mapping the parameter names to their distributions.
+        """
+        self._parameter_distributions = {}
+        for key, value in self.parameter_space.items():
+            if len(value) != 2:
+                raise ValueError(f"The parameter space for {key} should be a list of two values [min, max]")
+            self._parameter_distributions[key] = optuna.distributions.IntDistribution(
+                low=value[0], high=value[1])
 
     def set_tuner(self):
         directions = self._get_directions_from_dvh_metric_goals()
@@ -179,6 +223,31 @@ class MOO_Optuna(MOO):
             study_name = f"MOO_{self.catheter_table_optim.plan.phantom.pth_image.stem}",
             sampler = sampler,
         )
+        self.tuner = study
+
+    def run_warmups(
+        self,
+        n_warmups: int,
+        multi_proc: bool = True,
+        ):
+        r"""
+        ### Purpose:
+        - To run random sampling for `n_warmups` number of warmup trials.
+        All the warmup trials will be randomly sampled from the parameter space and
+        evaluated either sequentially or in parallel. The results will be stored in 
+        `self.trial_data`. The tuner will be built after the warmup trials are completed.
+
+        ### Inputs:
+        - n_warmups: int := The number of warmup trials to run.
+        
+        ### Outputs:
+        None := Fills out the following attributes:
+        - `self.trial_data`: pd.DataFrame := A master dataframe containing the result of
+        all the trials. The columns are parameter names from the keys of 
+        `self.parameter_space` and the dvh metric names from the keys of 
+        `self.dvh_metric_goals`.
+        """
+        trails = []
 
     def _get_directions_from_dvh_metric_goals(self):
         r"""
