@@ -2,7 +2,7 @@ from brachyutils.tests.test_optim_catheters import test_catheter_table_optim
 from random import randint
 import numpy as np
 from time import time
-from brachyutils.planning.optimization.optim_cath.moo import MOO, MOO_Optuna, MOO_Optuna
+from brachyutils.planning.optimization.optim_cath.moo import MOO_Optuna
 
 def test_update_penalty_weights_and_voxel_goals():
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
@@ -62,7 +62,22 @@ def test_get_optimization_result_stats():
 
 def test_init_MOO(return_obj=False):
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
-    
+    dvh_metric_goals = {
+        "D95%(CTV)": [">=", 95],
+        "D2cc(RECTUM)": ["<=", 66],
+        "D10%(URETHRA)": ["<=", 113],
+        "D30%(URETHRA)": ["<=", 100],
+        "CI(CTV)": None,
+        "HI(CTV)": None,
+        "V200%(CTV)": None,
+        "V150%(CTV)": ["<=", 40],
+        "V100%(CTV)": [">=", 100],
+    }
+    optim_obj.plan.set_dvh_metric_goals(
+        dvh_metric_goals=dvh_metric_goals,
+        strict_name_match=False,
+        )
+
     # # Build the range of the parameters
     structure_names = ["CTV", "RECTUM", "URETHRA"]
     parameter_space = {}
@@ -82,7 +97,6 @@ def test_init_MOO(return_obj=False):
     MOO_obj = MOO_Optuna(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
-        batch_size=5
     )
     print("break point here: Check that the MOO object is initialized correctly")
 
@@ -90,3 +104,4 @@ if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()
     # test_get_optimization_result_stats()
     test_init_MOO()
+    # test_evaluate()
