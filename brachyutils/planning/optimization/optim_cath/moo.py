@@ -221,7 +221,7 @@ class MOO_Optuna(MOO):
 
     def set_tuner(self):
         directions = self._get_directions_from_dvh_metric_goals()
-        sampler = optuna.samplers.NSGAIISampler()
+        sampler = optuna.samplers.NSGAIISampler() # you can control the sampler here.
         study = optuna.create_study(
             directions = list(directions.values()),
             study_name = f"MOO_{self.catheter_table_optim.plan.phantom.pth_image.stem}",
@@ -251,7 +251,9 @@ class MOO_Optuna(MOO):
         `self.parameter_space` and the dvh metric names from the keys of 
         `self.dvh_metric_goals`.
         """
-        trails = []
+        original_sampler = self.tuner.sampler
+        # TODO 1:
+        # replace the sample with random sampler for warmup trials
 
     def _get_directions_from_dvh_metric_goals(self):
         r"""
