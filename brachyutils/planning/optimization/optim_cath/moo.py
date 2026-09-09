@@ -12,7 +12,7 @@ from brachyutils.planning.optimization.optim_gurobi import (
 )
 
 import optuna
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
 class MOO(ABC):
     _valid_parameter_names = [
         "dose_voxel_goal",
@@ -252,8 +252,28 @@ class MOO_Optuna(MOO):
         `self.dvh_metric_goals`.
         """
         original_sampler = self.tuner.sampler
-        # TODO 1:
         # replace the sample with random sampler for warmup trials
+        random_sampler = optuna.samplers.RandomSampler(seed=1)
+        self.tuner.sampler = random_sampler
+        # TODO 2: check if trials.params are in the right format
+        trials = [self.tuner.ask() for _ in range(n_warmups)]
+        if multi_proc:
+            with ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(self.evaluate, pd.DataFrame([trial.params])) 
+                    for trial in trials
+                ]
+                for future in as_completed(futures):
+                    trial = futures[future]
+                    values = future.result()
+                    # TODO 2: check if the values are in the right format
+                    self.tuner.tell(trial, values)
+        else:
+            for trial in trials:
+                values = self.evaluate(pd.DataFrame([trial.params]))
+                self.tuner.tell(trial, values)
+        # restore the original sampler
+        self.tuner.sampler = original_sampler
 
     def _get_directions_from_dvh_metric_goals(self):
         r"""
@@ -285,6 +305,7 @@ for DVH metric goal: {key} is not valid. Please use one of ['==', '<=', '>=']")
         return directions
 
     def evaluate(self, parameters: pd.DataFrame) -> pd.DataFrame:
+        # TODO 1: Implement this function as a stand alone function for the MOO class.
         return NotImplementedError("The evaluation is not implemented yet. \
 Please use the `MOO_Optuna` class to implement the evaluation.")
 
