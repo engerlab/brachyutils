@@ -9,7 +9,7 @@ ARG clean_source="false"
 
 WORKDIR ${dir_software}
 
-# # install requirements needed for python 3.12
+# install requirements needed for python 3.12
 RUN apt update && apt install -y zip unzip wget curl net-tools\
     nano git openssh-client &&\
     mkdir -p /root/.ssh &&\
@@ -26,10 +26,6 @@ RUN --mount=type=ssh bash ${dir_software}/install_python.sh
 # # install opentps-brachyutils
 COPY docker_src/repositories/install_opentps.sh ${dir_software}/install_opentps.sh
 RUN --mount=type=ssh bash ${dir_software}/install_opentps.sh
-
-# # install ai-assisted-brachytherapy
-# COPY docker_src/repositories/install_ai_bt.sh ${dir_software}/install_ai_bt.sh
-# RUN --mount=type=ssh bash ${dir_software}/install_ai_bt.sh
 
 # # install brachyutils
 COPY install_brachyutils.sh ${dir_software}/install_brachyutils.sh
