@@ -84,6 +84,7 @@ class CatheterTable(BaseModel):
     - export_dose()
     - merge()
     - reset_dwelltimes_to()
+    - set_dwelltimes_by_names()
 
     """
     ## To enable using CatheterSetUp and CreatedSetUp as a data types, default is False.

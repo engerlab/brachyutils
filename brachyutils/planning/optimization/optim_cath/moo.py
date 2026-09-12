@@ -41,11 +41,6 @@ def evaluate_parameters(
     corresponding to those parameters.
     
     """
-    
-    # we need to do a few things here:
-    # in a regular for loop, deep copy a bunch of models. update the parameters in each model
-    # using a template optimization_config list. then run those models in parallel and get their dwell times.
-    # in a for loop, get dvh metrics from the models and return them as a dataframe.
     model_list = []
     optimization_configs = list(optim_obj.plan.optimization_config_dict.values())
     for row in range(parameters.shape[0]):
@@ -59,15 +54,20 @@ def evaluate_parameters(
             )
         model_list.append(model)
 
-    # with ThreadPoolExecutor() as executor:
-    #     futures = [
-    #         executor.submit(get_optimized_dwelltimes_from_model, row)
-    #         for row in parameters
-    #     ]
-    #     for future in as_completed(futures):
-    #         trial = futures[future]
-    #         values = future.result()            
+    with ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(get_optimized_dwelltimes_from_model, model)
+            for model in model_list
+        ]
+        dvh_metrics_list = []
+        for future in as_completed(futures):
+            dwell_time_dict = future.result()[0]
+            optim_obj.plan.catheter_table.set_dwelltimes_by_names(
+                dwell_time_dict)
+            dvh_metrics = optim_obj.plan.get_dvh_metrics()
+            dvh_metrics_list.append(dvh_metrics)
 
+    return pd.DataFrame(dvh_metrics_list)
 
 class MOO(ABC):
     _valid_parameter_names = [
