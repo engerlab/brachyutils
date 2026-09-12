@@ -1,8 +1,10 @@
 from brachyutils.tests.test_optim_catheters import test_catheter_table_optim
 from random import randint
 import numpy as np
+import pandas as pd
 from time import time
-from brachyutils.planning.optimization.optim_cath.moo import MOO_Optuna
+from brachyutils.planning.optimization.optim_cath.moo import (
+    MOO_Optuna, evaluate_parameters)
 
 def test_update_penalty_weights_and_voxel_goals():
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
@@ -95,14 +97,39 @@ def test_init_MOO(return_obj=False):
         parameter_space[f"penalty_weight_linear({name})"] = [0, 1000]
         parameter_space[f"penalty_weight_quadratic({name})"] = [0, 1000]
 
-    MOO_obj = MOO_Optuna(
+    Moo_obj = MOO_Optuna(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
     )
     print("break point here: Check that the MOO object is initialized correctly")
+    if return_obj:
+        return Moo_obj
+
+def test_evaluate_parameters():
+    optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
+    structure_names = ["CTV", "RECTUM", "URETHRA"]
+    parameters = {}
+    for name in structure_names:
+        if name == "CTV":
+            parameters[f"dose_voxel_goal({name})"] = np.random.uniform(
+                optim_obj.plan.prescription_dose,
+                optim_obj.plan.prescription_dose*1.15 
+            )
+            parameters[f"penalty_weight_hotspot({name})"] = np.random.uniform(0, 1000)
+            parameters[f"hotspot_threshold({name})"] = np.random.uniform(1, 2)
+            parameters[f"penalty_weight_uniformity({name})"] = np.random.uniform(0, 1000)
+            parameters[f"penalty_weight_variance_time({name})"] = np.random.uniform(0, 1000)
+
+        parameters[f"penalty_weight_linear({name})"] = np.random.uniform(0, 1000)
+        parameters[f"penalty_weight_quadratic({name})"] = np.random.uniform(0, 1000)
+    parameters = pd.DataFrame([parameters])
+    evaluate_parameters(
+        parameters, 
+        optim_obj, 
+        )
 
 if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()
     # test_get_optimization_result_stats()
-    test_init_MOO()
-    # test_evaluate()
+    # test_init_MOO()
+    test_evaluate_parameters()

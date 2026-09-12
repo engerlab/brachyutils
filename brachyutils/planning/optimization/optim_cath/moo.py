@@ -13,6 +13,62 @@ from brachyutils.planning.optimization.optim_gurobi import (
 
 import optuna
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def _update_optimization_configs_with_parameters(
+    parameters: pd.DataFrame,
+    optimization_configs: List[Any],
+    ) -> None:
+    r"""
+    ### Purpose:
+    - To update the optimization config of each structure with the parameters from the dataframe.
+    """
+    if parameters.shape[0] != 1:
+        raise ValueError("The parameters dataframe should have only one row.")
+    for key, value in parameters.iloc[0].items():
+        structure_name = key.split("(")[-1].split(")")[0]
+        parameter_name = key.split("(")[0]
+        for optim_config in optimization_configs:
+            if optim_config.structure_name == structure_name:
+                setattr(optim_config, parameter_name, value)
+
+def evaluate_parameters(
+    parameters: pd.DataFrame,
+    optim_obj: CatheterTableOptim_Gurobi
+    ) -> pd.DataFrame:
+    r"""
+    ### Purpose:
+    - Evaluates the parameters and returns the observed dvh metrics 
+    corresponding to those parameters.
+    
+    """
+    
+    # we need to do a few things here:
+    # in a regular for loop, deep copy a bunch of models. update the parameters in each model
+    # using a template optimization_config list. then run those models in parallel and get their dwell times.
+    # in a for loop, get dvh metrics from the models and return them as a dataframe.
+    model_list = []
+    optimization_configs = list(optim_obj.plan.optimization_config_dict.values())
+    for row in range(parameters.shape[0]):
+        model = optim_obj.model.copy()
+        _update_optimization_configs_with_parameters(
+            parameters.iloc[row:row+1],
+            optimization_configs)
+        update_penalty_weights_and_voxel_goals(
+            model,
+            optimization_configs
+            )
+        model_list.append(model)
+
+    # with ThreadPoolExecutor() as executor:
+    #     futures = [
+    #         executor.submit(get_optimized_dwelltimes_from_model, row)
+    #         for row in parameters
+    #     ]
+    #     for future in as_completed(futures):
+    #         trial = futures[future]
+    #         values = future.result()            
+
+
 class MOO(ABC):
     _valid_parameter_names = [
         "dose_voxel_goal",
@@ -128,10 +184,8 @@ see `BrachyStructure.set_dvh_metric_goals()` for more details.")
                 +list(self.dvh_metric_goals.keys())))
 
     @abstractmethod
-    def evaluate(self, parameters: pd.DataFrame) -> pd.DataFrame:
+    def objectives(self, parameters: pd.DataFrame) -> pd.DataFrame:
         r"""
-        Evaluates the parameters and returns the observed dvh metrics 
-        corresponding to those parameters.
         """
         pass
 
@@ -304,7 +358,7 @@ class MOO_Optuna(MOO):
 for DVH metric goal: {key} is not valid. Please use one of ['==', '<=', '>=']")
         return directions
 
-    def evaluate(self, parameters: pd.DataFrame) -> pd.DataFrame:
+    def objectives(self, parameters: pd.DataFrame) -> pd.DataFrame:
         # TODO 1: Implement this function as a stand alone function for the MOO class.
         return NotImplementedError("The evaluation is not implemented yet. \
 Please use the `MOO_Optuna` class to implement the evaluation.")
