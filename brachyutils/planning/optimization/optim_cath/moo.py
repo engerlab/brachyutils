@@ -34,7 +34,7 @@ def _update_optimization_configs_with_parameters(
 def evaluate_parameters(
     parameters: pd.DataFrame,
     optim_obj: CatheterTableOptim_Gurobi,
-    num_threads: int = 8,
+    max_workers: int = 16,
     ) -> pd.DataFrame:
     r"""
     ### Purpose:
@@ -54,8 +54,8 @@ def evaluate_parameters(
             optimization_configs
             )
         model_list.append(model)
-    if num_threads > 1:
-        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+    if max_workers > 1:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
                 executor.submit(get_optimized_dwelltimes_from_model, model)
                 for model in model_list
