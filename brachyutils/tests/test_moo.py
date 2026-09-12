@@ -129,6 +129,7 @@ def test_evaluate_parameters():
     dvh_metrics_data = evaluate_parameters(
         parameters, 
         optim_obj, 
+        max_workers=16
         )
     print(dvh_metrics_data.mean())
 

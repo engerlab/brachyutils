@@ -38,9 +38,20 @@ def evaluate_parameters(
     ) -> pd.DataFrame:
     r"""
     ### Purpose:
-    - Evaluates the parameters and returns the observed dvh metrics 
-    corresponding to those parameters.
-    
+    - Evaluates the parameters (i.e. penalty weights and target dose) and 
+    returns the observed dvh metrics corresponding to those parameters.
+
+    ### Inputs:
+    - parameters: pd.DataFrame := A dataframe with the parameters to be evaluated.
+    The columns are the parameter names and the rows are the different parameter sets to be evaluated.
+    - optim_obj: CatheterTableOptim_Gurobi := The optimization object that will be used to evaluate the parameters.
+    - max_workers: int := The maximum number of workers to use for parallel evaluation.
+    If max_workers is 1, the evaluation will be done sequentially.
+
+    ### Outputs:
+    - dvh_metrics_data: pd.DataFrame := A dataframe with the observed dvh metrics
+    corresponding to the evaluated parameters. The columns are the dvh metric names and 
+    the rows are the different parameter sets that were evaluated.
     """
     model_list = []
     optimization_configs = list(optim_obj.plan.optimization_config_dict.values())
