@@ -33,7 +33,8 @@ def _update_optimization_configs_with_parameters(
 
 def evaluate_parameters(
     parameters: pd.DataFrame,
-    optim_obj: CatheterTableOptim_Gurobi
+    optim_obj: CatheterTableOptim_Gurobi,
+    num_threads: int = 8,
     ) -> pd.DataFrame:
     r"""
     ### Purpose:
@@ -53,20 +54,27 @@ def evaluate_parameters(
             optimization_configs
             )
         model_list.append(model)
-
-    with ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(get_optimized_dwelltimes_from_model, model)
-            for model in model_list
-        ]
+    if num_threads > 1:
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = [
+                executor.submit(get_optimized_dwelltimes_from_model, model)
+                for model in model_list
+            ]
+            dvh_metrics_list = []
+            for future in as_completed(futures):
+                dwell_time_dict = future.result()[0]
+                optim_obj.plan.catheter_table.set_dwelltimes_by_names(
+                    dwell_time_dict)
+                dvh_metrics = optim_obj.plan.get_dvh_metrics()
+                dvh_metrics_list.append(dvh_metrics)
+    else:
         dvh_metrics_list = []
-        for future in as_completed(futures):
-            dwell_time_dict = future.result()[0]
+        for model in model_list:
+            dwell_time_dict = get_optimized_dwelltimes_from_model(model)[0]
             optim_obj.plan.catheter_table.set_dwelltimes_by_names(
                 dwell_time_dict)
             dvh_metrics = optim_obj.plan.get_dvh_metrics()
             dvh_metrics_list.append(dvh_metrics)
-
     return pd.DataFrame(dvh_metrics_list)
 
 class MOO(ABC):
