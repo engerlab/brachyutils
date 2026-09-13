@@ -104,6 +104,7 @@ class MOO(ABC):
         self,
         catheter_table_optim: CatheterTableOptim_Gurobi,
         parameter_space: Dict[str, np.typing.ArrayLike],
+        max_workers: int = 16,
         ):
         r"""
         ### Purpose:
@@ -124,6 +125,7 @@ class MOO(ABC):
         """        
         self.catheter_table_optim = catheter_table_optim
         self.parameter_space = parameter_space
+        self.max_workers = max_workers
         # # Attributes to be filled out
         self.dvh_metric_goals: Dict[str, List[str, float]] = None
         self.tuner: Any = None
@@ -270,13 +272,16 @@ class MOO_Optuna(MOO):
         self,
         catheter_table_optim: CatheterTableOptim_Gurobi,
         parameter_space: Dict[str, np.typing.ArrayLike],
+        max_workers: int = 16,
         ):
         super().__init__(
             catheter_table_optim=catheter_table_optim,
             parameter_space=parameter_space,
+            max_workers=max_workers,
             )
         self._parameter_distributions = None
         self._parameter_space_to_distributions()
+        self.set_tuner()
 
     def _parameter_space_to_distributions(self):
         r"""
@@ -305,7 +310,6 @@ class MOO_Optuna(MOO):
     def run_warmups(
         self,
         n_warmups: int,
-        multi_proc: bool = True,
         ):
         r"""
         ### Purpose:
@@ -328,23 +332,13 @@ class MOO_Optuna(MOO):
         # replace the sample with random sampler for warmup trials
         random_sampler = optuna.samplers.RandomSampler(seed=1)
         self.tuner.sampler = random_sampler
-        # TODO 2: check if trials.params are in the right format
-        trials = [self.tuner.ask() for _ in range(n_warmups)]
-        if multi_proc:
-            with ThreadPoolExecutor() as executor:
-                futures = [
-                    executor.submit(self.evaluate, pd.DataFrame([trial.params])) 
-                    for trial in trials
-                ]
-                for future in as_completed(futures):
-                    trial = futures[future]
-                    values = future.result()
-                    # TODO 2: check if the values are in the right format
-                    self.tuner.tell(trial, values)
-        else:
-            for trial in trials:
-                values = self.evaluate(pd.DataFrame([trial.params]))
-                self.tuner.tell(trial, values)
+        trials = [
+            self.tuner.ask(self._parameter_distributions)
+            for _ in range(n_warmups)]
+
+        objectives = self.objectives(trials)
+        for trial, objective in zip(trials, objectives):
+            self.tuner.tell(trial.number, objective)
         # restore the original sampler
         self.tuner.sampler = original_sampler
 
@@ -377,10 +371,32 @@ class MOO_Optuna(MOO):
 for DVH metric goal: {key} is not valid. Please use one of ['==', '<=', '>=']")
         return directions
 
-    def objectives(self, parameters: pd.DataFrame) -> pd.DataFrame:
-        # TODO 1: Implement this function as a stand alone function for the MOO class.
-        return NotImplementedError("The evaluation is not implemented yet. \
-Please use the `MOO_Optuna` class to implement the evaluation.")
+    def objectives(self, trials: List[optuna.trial.Trial]) -> list:
+        r"""
+        ### Purpose:
+        - To evaluate the objectives for each trial. The objectives are the DVH metrics
+        corresponding to the parameters in the trial. The order of the objectives
+        corresponds to the order of the keys in self.dvh_metric_goals.
+        ### Inputs:
+        - trials: List[optuna.trial.Trial] := A list of trials to be evaluated.
+        
+        ### Outputs:
+        objectives: list := A list of lists of objectives for each trial. The order
+        of the objectives corresponds to the order of the keys in self.dvh_metric_goals.
+        """
+        trial_params = pd.DataFrame([trial.params for trial in trials])
+        dvh_metrics_data = evaluate_parameters(
+            trial_params,
+            self.catheter_table_optim,
+            max_workers=self.max_workers,
+            )
+        self.trial_data = pd.concat([
+            self.trial_data,
+            pd.concat([trial_params, dvh_metrics_data], axis=1)
+            ], axis=0)
+        self.trial_data.reset_index(drop=True, inplace=True)
+        objectives = dvh_metrics_data[self.dvh_metric_goals.keys()].values.tolist()
+        return objectives
 
     def run_trials(self, n_trials: int):
         return NotImplementedError("The run_trials is not implemented yet. \

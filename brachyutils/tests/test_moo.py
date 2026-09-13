@@ -133,8 +133,14 @@ def test_evaluate_parameters():
         )
     print(dvh_metrics_data.mean())
 
+def test_run_warmps():
+    Moo_obj = test_init_MOO(return_obj=True)
+    Moo_obj.run_warmups(n_warmups=5)
+    print(Moo_obj.trial_data)
+
 if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()
     # test_get_optimization_result_stats()
     # test_init_MOO()
-    test_evaluate_parameters()
+    # test_evaluate_parameters()
+    test_run_warmps()
