@@ -135,7 +135,13 @@ def test_evaluate_parameters():
 
 def test_run_warmps():
     Moo_obj = test_init_MOO(return_obj=True)
-    Moo_obj.run_warmups(n_warmups=5)
+    Moo_obj.run_warmups(batch_size=5)
+    print(Moo_obj.trial_data)
+
+def test_run_trials():
+    Moo_obj = test_init_MOO(return_obj=True)
+    Moo_obj.run_warmups(batch_size=10)
+    Moo_obj.run_trials(n_trials=2, batch_size=3)
     print(Moo_obj.trial_data)
 
 if __name__ == "__main__":
@@ -143,4 +149,6 @@ if __name__ == "__main__":
     # test_get_optimization_result_stats()
     # test_init_MOO()
     # test_evaluate_parameters()
-    test_run_warmps()
+    # test_run_warmps()
+    test_run_trials()
+    
