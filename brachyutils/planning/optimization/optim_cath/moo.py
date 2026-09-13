@@ -307,16 +307,13 @@ class MOO_Optuna(MOO):
         )
         self.tuner = study
 
-    def run_warmups(
-        self,
-        n_warmups: int,
-        ):
+    def run_warmups(self, n_warmups: int):
         r"""
         ### Purpose:
         - To run random sampling for `n_warmups` number of warmup trials.
         All the warmup trials will be randomly sampled from the parameter space and
         evaluated either sequentially or in parallel. The results will be stored in 
-        `self.trial_data`. The tuner will be built after the warmup trials are completed.
+        `self.trial_data`.
 
         ### Inputs:
         - n_warmups: int := The number of warmup trials to run.
@@ -377,9 +374,10 @@ for DVH metric goal: {key} is not valid. Please use one of ['==', '<=', '>=']")
         - To evaluate the objectives for each trial. The objectives are the DVH metrics
         corresponding to the parameters in the trial. The order of the objectives
         corresponds to the order of the keys in self.dvh_metric_goals.
+
         ### Inputs:
         - trials: List[optuna.trial.Trial] := A list of trials to be evaluated.
-        
+
         ### Outputs:
         objectives: list := A list of lists of objectives for each trial. The order
         of the objectives corresponds to the order of the keys in self.dvh_metric_goals.
