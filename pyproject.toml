@@ -61,7 +61,7 @@ core = []
 reg = ["monai"]
 plan = ["gurobipy", "amplpy", "ortools"]
 full = ["monai", "gurobipy", "amplpy", "ortools"]
-moo = ["gurobipy", "ax-platform", "optuna"]
+moo = ["gurobipy", "ax-platform", "optuna", "optunahub"]
 
 [tool.setuptools.packages.find]
 include = ["brachyutils.*", "brachyutils", "admin", "admin.*"]

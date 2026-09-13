@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Literal
 from abc import ABC, abstractmethod
 import pandas as pd
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
@@ -12,6 +12,7 @@ from brachyutils.planning.optimization.optim_gurobi import (
 )
 
 import optuna
+import optunahub
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def _update_optimization_configs_with_parameters(
@@ -273,12 +274,16 @@ class MOO_Optuna(MOO):
         catheter_table_optim: CatheterTableOptim_Gurobi,
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
+        sampler_name_id: Literal[ "AutoSampler",
+            "NSGAIISampler", "TPESampler", "GPSampler",
+            "NSGAIIISampler", "BoTorchSampler"] = "AutoSampler",
         ):
         super().__init__(
             catheter_table_optim=catheter_table_optim,
             parameter_space=parameter_space,
             max_workers=max_workers,
-            )
+        )
+        self.sampler_name_id = sampler_name_id
         self._parameter_distributions = None
         self._parameter_space_to_distributions()
         self.set_tuner()
@@ -298,12 +303,39 @@ class MOO_Optuna(MOO):
                 low=value[0], high=value[1])
 
     def set_tuner(self):
+        r"""
+        ### Purpose:
+        - To build the tuner object that will recommend the next batch of parameter
+        queries to be evaluated. The tuner is built using the Optuna library and the
+        sampler specified in the constructor. The tuner is stored in `self.tuner`.
+        
+        ### Inputs:
+        None := Expects the following to be filled already:
+        - `self.catheter_table_optim`
+        - `self.parameter_space`
+        - `self.dvh_metric_goals`
+        - `self.sampler_name_id`
+        """
         directions = self._get_directions_from_dvh_metric_goals()
-        sampler = optuna.samplers.NSGAIISampler() # you can control the sampler here.
+        if self.sampler_name_id == "AutoSampler":
+            auto_sampler_module = optunahub.load_module(
+                        package="samplers/auto_sampler"
+                    )
+            sampler_obj = auto_sampler_module.AutoSampler()
+        elif self.sampler_name_id == "NSGAIISampler":
+            sampler_obj = optuna.samplers.NSGAIISampler()
+        elif self.sampler_name_id == "TPESampler":
+            sampler_obj = optuna.samplers.TPESampler()
+        elif self.sampler_name_id == "GPSampler":
+            sampler_obj = optuna.samplers.GPSampler()
+        elif self.sampler_name_id == "NSGAIIISampler":
+            sampler_obj = optuna.samplers.NSGAIIISampler()
+        elif self.sampler_name_id == "BoTorchSampler":
+            sampler_obj = optuna.samplers.BoTorchSampler()
         study = optuna.create_study(
             directions = list(directions.values()),
             study_name = f"MOO_{self.catheter_table_optim.plan.phantom.pth_image.stem}",
-            sampler = sampler,
+            sampler = sampler_obj,
         )
         self.tuner = study
 
@@ -397,5 +429,24 @@ for DVH metric goal: {key} is not valid. Please use one of ['==', '<=', '>=']")
         return objectives
 
     def run_trials(self, n_trials: int):
-        return NotImplementedError("The run_trials is not implemented yet. \
-Please use the `MOO_Optuna` class to implement the run_trials.")
+        r"""
+        ### Purpose:
+        - To run the multi-objective optimization for `n_trials` number of trials.
+        The tuner will recommend the next batch of parameters to be evaluated.
+        The evaluation will be done by the `objectives()` method. The results will be
+        stored in `self.trial_data`.
+
+        ### Inputs:
+        - n_trials: int := The number of trials to run.
+        
+        ### Outputs:
+        None := Fills out the following attributes:
+        - `self.trial_data`: pd.DataFrame := A master dataframe containing the result of
+        all the trials. The columns are parameter names from the keys of 
+        `self.parameter_space` and the dvh metric names from the keys of 
+        `self.dvh_metric_goals`. 
+        """
+        for _ in range(n_trials):
+            trial = self.tuner.ask(self._parameter_distributions)
+            objective = self.objectives([trial])[0]
+            self.tuner.tell(trial.number, objective)
