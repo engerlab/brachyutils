@@ -91,11 +91,11 @@ def test_init_MOO(return_obj=False):
             ]
             parameter_space[f"penalty_weight_hotspot({name})"] = [0, 1000]
             parameter_space[f"hotspot_threshold({name})"] = [1, 2]
-            parameter_space[f"penalty_weight_uniformity({name})"] = [0, 1000]
-            parameter_space[f"penalty_weight_variance_time({name})"] = [0, 1000]
+            # parameter_space[f"penalty_weight_uniformity({name})"] = [0, 1000]
+            # parameter_space[f"penalty_weight_variance_time({name})"] = [0, 1000]
 
         parameter_space[f"penalty_weight_linear({name})"] = [0, 1000]
-        parameter_space[f"penalty_weight_quadratic({name})"] = [0, 1000]
+        # parameter_space[f"penalty_weight_quadratic({name})"] = [0, 1000]
 
     Moo_obj = MOO_Optuna(
         catheter_table_optim=optim_obj,
