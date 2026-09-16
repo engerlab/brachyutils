@@ -141,7 +141,7 @@ class BrachySource(BaseModel):
         # Fill in reference air kerma from dicom though.
         source_dict = defaultdict(str)
         source_dict["treatment_type"] = plan_dcm.get("BrachyTreatmentType", "HDR")
-        if source_dict["treatment_type"] == "MANUAL":
+        if source_dict["treatment_type"] == "MANUAL": # THIS IS WEIRD ##########################################################
             source_dict["treatment_type"] = "PLDR"
         try:
             model_name = plan_dcm.TreatmentMachineSequence[0].ManufacturerModelName
@@ -157,17 +157,14 @@ class BrachySource(BaseModel):
             source_dict["source_geometry"] = "MicroSelectronV3"
         elif "flexitron hdr 192-ir" in source_dict["source_geometry"].lower():
             source_dict["source_geometry"] = "FlexiSource"
-            source_dict["source_geometry"] = "OncoSeed6711_I125" # REMOVE THIS #######################################################################
         elif "variseed" in source_dict["source_geometry"].lower():
             source_dict["source_geometry"] = "AGX100"
         # source_dict["source_geometry"] = plan_dcm.get("SourceModelName", "MicroSelectronV2")
         source_dict["core_material"] = plan_dcm.SourceSequence[0].SourceIsotopeName
-        # THIS WAS HARDCODED FOR TESTING PURPOSES ################################################################################
         if source_dict["core_material"] == "I-125":
             source_dict["core_material"] = "G4_I"
-        if source_dict["core_material"] == "I-125 (AgX100)":
-            source_dict["core_material"] = "SilverIodide"
-            ######################################################################################################################
+        if "I-125" in source_dict["core_material"]:
+            source_dict["core_material"] = "G4_I"
         if source_dict["core_material"] == "Ir-192":
             source_dict["core_material"] = "G4_Ir"
             source_dict["mass_number"] = 192
