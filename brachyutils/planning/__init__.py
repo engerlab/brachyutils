@@ -18,7 +18,10 @@ from .plan_utils import BrachyPlan, load_dicom_to_plan
 from .structure_utils import BrachyStructure
 
 # trunk-ignore(ruff/F401)
-from .simulation_utils import BrachySimulation, BrachySource
+from .simulation_utils import BrachySimulation
+
+# trunk-ignore(ruff/F401)
+from .source_utils import BrachySource
 
 from .plan_export_configs import (
     ExportConfig_PlanAndMac,
