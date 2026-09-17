@@ -1193,7 +1193,6 @@ def load_ldr_cathetertable_from_dicom(pth_dicom: Path) -> dict:
         - dict := dict with keys catheter_list, treatment_time, step_size
     """
     import pydicom
-    print("LDR PLAN!!!")
     plan = pydicom.dcmread(pth_dicom, stop_before_pixels=True)
 
     # Map Reference Air Kerma Rate and Isotope from SourceSequence
