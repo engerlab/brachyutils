@@ -121,8 +121,8 @@ class BrachySimulation(BaseModel):
                 )
         outstring = (
             outstring
-            + f"/parallel_world/ak_per_history {self.brachy_source.air_kerma_per_history}\n"
-            + f"/parallel_world/AKS {self.brachy_source.reference_air_kerma_rate}\n"
+            + f"/parallel_world/AKS {self.brachy_source.air_kerma_strength}\n"
+            + f"/parallel_world/ak_per_history {self.brachy_source.air_kerma_per_history_strength}\n"
             + f"/parallel_world/total_time {self.total_time}\n"
             + f"/dose/format {self.dose_format}\n"
             + f"/run/numberOfThreads {self.number_of_threads}\n"

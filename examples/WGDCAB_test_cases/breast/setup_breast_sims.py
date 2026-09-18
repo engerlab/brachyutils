@@ -12,14 +12,14 @@ os.chdir(VALIDATION_DIR)
 REEXPORT_EGSPHANTS = True
 ####################################
 #Define sim constants
-AIR_KERMA_PER_HISTORY = 1.15723e-11
+AIR_KERMA_PER_HISTORY_STRENGTH = 1.15723e-11
 ATOMIC_NUMBER = 77
 BEAM_ON = 2e9
 CORE_MATERIAL = "G4_Ir"
 MASS_NUMBER = 192
 NUMBER_HISTORIES = int(2e9)
 NUMBER_OF_THREADS = 48
-REFERENCE_AIR_KERMA = 40700
+AIR_KERMA_STRENGTH = 40700
 
 ####################################
 #Create the simulation objects
@@ -28,7 +28,7 @@ SIM_DICT = {
     "control_verbose": 0, "run_verbose": 0, "tracking_verbose": 0,
     "print_progress": int(NUMBER_HISTORIES / 100), "world_material": "Water", 
     "source_dict" : {"treatment_type": "HDR", "source_geometry": "GenericHDR", "core_material": CORE_MATERIAL, "mass_number": MASS_NUMBER, "atomic_number": ATOMIC_NUMBER, 
-    "air_kerma_per_history": AIR_KERMA_PER_HISTORY, "reference_air_kerma": REFERENCE_AIR_KERMA} }
+    "air_kerma_per_history_strength": AIR_KERMA_PER_HISTORY_STRENGTH, "air_kerma_strength": AIR_KERMA_STRENGTH} }
 CONTENT_TO_EXPORT = {"dose": False, "dose_type": "nrrd", "uncertainty": False, "dose_rate_maps": False, "catheter_table": True,
 "plan": True, "mac": True, "egsphant": True, "AppliacatorMaterials": True, "applicator_geometry": False, "structure_set": False }
 MATERIAL_DICT = {
