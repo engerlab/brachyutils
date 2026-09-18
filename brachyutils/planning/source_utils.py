@@ -160,9 +160,9 @@ class BrachySource(BaseModel):
         source_dict["air_kerma_strength"] = plan_dcm.SourceSequence[0].ReferenceAirKermaRate
 
         #figure out source model name
-        source_dict["source_geometry"] = str(model_name)
         model_name = cls.check_manual_override_model_name(model_name)
         cls.update_source_data_for_model(source_dict, model_name)
+        source_dict["source_geometry"] = str(model_name)
 
         #check to make sure that the source parameters for the model from source_data.json match those from the DICOM (if they exist)
         cls.check_source_data_dicom_match(source_dict, plan_dcm)
