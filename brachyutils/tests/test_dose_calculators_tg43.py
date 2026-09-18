@@ -20,7 +20,7 @@ DWELL_TIME = 3600 #1 hr
 #choosing the dwell time/AKS such that our dose is per cGy/hr/U (=Gy/hr/100 U)
 ####################################
 #Create the simulation objects
-SOURCE_DICT = {"reference_air_kerma_rate": AIR_KERMA_STRENGTH,
+SOURCE_DICT = {"air_kerma_strength": AIR_KERMA_STRENGTH,
                       "source_geometry": SOURCE_GEOMETRY, "atomic_number": ATOMIC_NUMBER, "mass_number": MASS_NUMBER,
                       "core_material": CORE_MATERIAL}
 SIM_DICT = {"treatment_type": "HDR", "total_time": DWELL_TIME, "dose_format": "nrrd", "pth_plan": "combined.plan","pth_phantom": "phantom.egsphant",#egsphant", 
@@ -139,5 +139,5 @@ def write_along_away_dose_table_to_csv(along, away, table, calculator, pth_csv =
 ####################################
 if __name__ == "__main__":
     test_brachyutilstg43(examine = True)
-    test_rapidbrachytg43(examine = True, dock = False)
+    #test_rapidbrachytg43(examine = True, dock = False)
 ####################################
