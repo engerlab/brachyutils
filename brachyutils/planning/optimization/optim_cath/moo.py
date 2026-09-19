@@ -215,7 +215,8 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         self.trial_data = pd.DataFrame(
             columns=(
                 list(self.parameter_space.keys())
-                + list(self.dvh_metric_goals.keys())))
+                + list(self.dvh_metric_goals.keys())
+                + ["sampler_id", "acceptable", "hypervolume"]))
 
     @abstractmethod
     def objectives(self, parameters: pd.DataFrame) -> pd.DataFrame:
@@ -629,7 +630,10 @@ will not be pruned/penalized by the sampler.")
 for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
         return directions
 
-    def objectives(self, trials: List[optuna.trial.Trial]) -> list:
+    def objectives(
+        self,
+        trials: List[optuna.trial.Trial],
+        sampler_name_id: str) -> list:
         r"""
         ### Purpose:
         - To evaluate the objectives for each trial. The objectives are the DVH metrics
@@ -645,6 +649,8 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
 
         ### Inputs:
         - trials: List[optuna.trial.Trial] := A list of trials to be evaluated.
+        - sampler_name_id: str := The name of the sampler being used. This is used to
+        keep track of which sampler was used for each trial in the `self.trial_data` dataframe.
 
         ### Outputs:
         objectives: list := A list of lists of objectives for each trial. The order
@@ -657,9 +663,12 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
             max_workers=self.max_workers,
         )
 
+        acceptable_trials = are_acceptable(dvh_metrics_data, self.dvh_metric_goals)
+        hypervolume_trials = get_hyper_volume(dvh_metrics_data, self.dvh_metric_goals)
+
         self.trial_data = pd.concat([
             self.trial_data,
-            pd.concat([trial_params, dvh_metrics_data], axis=1)
+            pd.concat([trial_params, dvh_metrics_data, acceptable_trials], axis=1)
         ], axis=0)
         self.trial_data.reset_index(drop=True, inplace=True)
 
@@ -704,3 +713,40 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
             objectives = self.objectives(trials)
             for trial, objective in zip(trials, objectives):
                 self.tuner.tell(trial.number, objective)
+
+def are_acceptable(
+    dvh_metrics: pd.DataFrame,
+    dvh_metrics_goals: Dict
+    ) -> pd.DataFrame:
+    r"""
+    ### Purpose:
+    - To assess if the provided dvh metrics are acceptable according to
+    the dvh metric goals
+
+    ### Inputs:
+    - dvh_metrics := DVH metric names and their observed values
+    - dvh_metric_goals := The operation and goal for each DVH metrics
+    Ex. D95%(CTV): [">=", 100]    
+    
+    ### Outputs:
+    - results_df: pd.DataFrame := a data frame containing boolean values
+    for each row of the dvh_metrics. 
+    """
+    results_df = pd.DataFrame(columns=["acceptable"])
+    for i, row in dvh_metrics.iterrows():    
+        acceptable = True
+        for key, value in dvh_metrics_goals.items():
+            observed_value = row.get(key, None)
+            if observed_value is None:
+                acceptable = False
+            else:
+                if value[0] == "<=":
+                    if not observed_value <= value[1]:
+                        acceptable = False
+                        break
+                if value[0] == ">=":
+                    if not observed_value >= value[1]:
+                        acceptable = False
+                        break
+        results_df.loc[i] = acceptable
+    return results_df
