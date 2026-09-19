@@ -37,6 +37,7 @@ def evaluate_parameters(
     parameters: pd.DataFrame,
     optim_obj: CatheterTableOptim_Gurobi,
     max_workers: int = 16,
+    normalize: bool = True,
 ) -> pd.DataFrame:
     r"""
     ### Purpose:
@@ -44,14 +45,15 @@ def evaluate_parameters(
     returns the observed dvh metrics corresponding to those parameters.
 
     ### Inputs:
-    - parameters: pd.DataFrame := A dataframe with the parameters to be evaluated.
+    - `parameters`: pd.DataFrame := A dataframe with the parameters to be evaluated.
     The columns are the parameter names and the rows are the different parameter sets to be evaluated.
-    - optim_obj: CatheterTableOptim_Gurobi := The optimization object that will be used to evaluate the parameters.
-    - max_workers: int := The maximum number of workers to use for parallel evaluation.
+    - `optim_obj`: CatheterTableOptim_Gurobi := The optimization object that will be used to evaluate the parameters.
+    - `max_workers`: int := The maximum number of workers to use for parallel evaluation.
     If max_workers is 1, the evaluation will be done sequentially.
+    - `normalize`: If True, the dvh metric values are devided by 100.
 
     ### Outputs:
-    - dvh_metrics_data: pd.DataFrame := A dataframe with the observed dvh metrics
+    - `dvh_metrics_data`: pd.DataFrame := A dataframe with the observed dvh metrics
     corresponding to the evaluated parameters. The columns are the dvh metric names and
     the rows are the different parameter sets that were evaluated.
     """
@@ -86,6 +88,9 @@ def evaluate_parameters(
             optim_obj.plan.catheter_table.set_dwelltimes_by_names(
                 dwell_time_dict)
             dvh_metrics = optim_obj.plan.get_dvh_metrics()
+            if normalize:
+                for key in dvh_metrics:
+                    dvh_metrics[key] = dvh_metrics[key]/100
             dvh_metrics_list.append(dvh_metrics)
 
     return pd.DataFrame(dvh_metrics_list)
@@ -107,6 +112,7 @@ class MOO(ABC):
         catheter_table_optim: CatheterTableOptim_Gurobi,
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
+        normalize: bool = True,
     ):
         r"""
         ### Purpose:
@@ -114,6 +120,7 @@ class MOO(ABC):
         to yield clinically acceptable treatment plans with Pareto optimal DVHs.
         The definition of clinically acceptale is set by the dvh metric goals inside
         the BrachyPlan of the `catheter_table_optim`.
+
         ### Inputs:
         - `catheter_table_optim` := An optimization object with a BrachyPlan and
         a Gurobi model. The plan shold have DVH metrics goal loaded.
@@ -121,12 +128,15 @@ class MOO(ABC):
         optimized to their range [min, max]. The names of the parameters are
         some attributes of the Optimization_Config class followed by the name of
         that structure in paranthesis. For example:
-
             penalty_weight_linear(CTV) : [1, 500]
+        - `normalize` := If true dvh_metric_goals would be normalized.
+        Be sure that the DVH metrics are in percentage form (defualt is percentage).
+
         """
         self.catheter_table_optim = catheter_table_optim
         self.parameter_space = parameter_space
         self.max_workers = max_workers
+        self.normalize = normalize
         # # Attributes to be filled out
         self.dvh_metric_goals: Dict[str, List] = None
         self.tuner: Any = None
@@ -161,6 +171,8 @@ class MOO(ABC):
             for dvh in value["dvh_metric_goals"]:
                 if value["dvh_metric_goals"].get(dvh, None) is not None:
                     self.dvh_metric_goals[dvh] = value["dvh_metric_goals"][dvh]
+                    if self.normalize:
+                        self.dvh_metric_goals[dvh] = self.dvh_metric_goals[dvh]/100
 
         if (
             self.dvh_metric_goals is None
