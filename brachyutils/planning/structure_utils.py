@@ -212,9 +212,13 @@ class BrachyStructure:
                         "invalid name for DVH metric name. \
                         The metrics starting with 'V' should have percent sign (%) or Gy.\
                         for example 'V95%(organ name)' or 'V2Gy(organ name)'"
-                    ) 
+                    )
             elif metric_string.startswith("HI"):
-                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.homogeneityIndex()
+                if return_percentage:
+                    hi = self.dvh_obj.homogeneityIndex()*100
+                else:
+                    hi = self.dvh_obj.homogeneityIndex()                    
+                self.dvh_metrics_observed[dvh_metric_name] = hi
             elif metric_string.startswith("CI"):
                 if body_contour is None:
                     raise ValueError("body_contour should be defined to compute the conformity index")
@@ -224,7 +228,11 @@ class BrachyStructure:
                 else:
                     # body contour is ROIContour, it's good to go
                     pass
-                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformityIndex(body_contour)
+                if return_percentage:
+                    ci = self.dvh_obj.conformityIndex(body_contour)*100
+                else:
+                    ci = self.dvh_obj.conformityIndex(body_contour)
+                self.dvh_metrics_observed[dvh_metric_name] = ci
             else:
                 raise ValueError(
                     "invalid name for DVH metric name. \
