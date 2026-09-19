@@ -12,15 +12,8 @@ from brachyutils.planning.optimization.optim_gurobi import (
 import optuna
 import optunahub
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-def _dominates_min(a: np.ndarray, b: np.ndarray) -> bool:
-    r"""
-    ### Purpose:
-    - Pareto dominance check in a minimization convention: `a` dominates `b` if `a`
-    is no worse than `b` in every dimension and strictly better in at least one.
-    """
-    return bool(np.all(a <= b) and np.any(a < b))
-
+from botorch.utils.multi_objective import Hypervolume
+import torch
 
 def _update_optimization_configs_with_parameters(
     parameters: pd.DataFrame,
@@ -96,7 +89,6 @@ def evaluate_parameters(
             dvh_metrics_list.append(dvh_metrics)
 
     return pd.DataFrame(dvh_metrics_list)
-
 
 class MOO(ABC):
     _valid_parameter_names = [
@@ -281,143 +273,6 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         """
         pass
 
-    def get_convergence_stats(
-        self,
-        reference_point: Optional[Dict[str, float]] = None,
-        reference_margin: float = 0.1,
-    ) -> Dict[str, Any]:
-        r"""
-        ### Purpose:
-        - To report whether the trials recorded in `self.trial_data` are "getting better",
-        using three complementary diagnostics computed purely from `self.trial_data` and
-        `self.dvh_metric_goals`:
-
-        1. Acceptance: whether each trial satisfies every DVH metric goal, plus the overall
-        and running (cumulative) acceptance rate.
-        2. Per-metric running best: the best value seen so far for each DVH metric
-        individually (min for `<=` goals, max for `>=` goals), tracked trial-by-trial.
-        3. Hypervolume: the dominated hypervolume of the feasible Pareto front, tracked
-        trial-by-trial. This is the standard scalar convergence indicator for
-        multi-objective optimization; it should trend upward (or plateau once converged)
-        as better, more balanced trade-offs are discovered.
-
-        ### Inputs:
-        - reference_point: Optional[Dict[str, float]] := An explicit reference point for
-        the hypervolume computation, mapping DVH metric name to a value that is *worse*
-        than any trial should reasonably achieve (e.g. `{"D2cc(RECTUM)": 75}` for a
-        `<=66` goal). Any metric not supplied here falls back to the automatic default
-        below. If None entirely, all metrics use the automatic default.
-        - reference_margin: float := Fractional margin used to build the automatic
-        reference point when not supplied: `threshold * (1 + margin)` for `<=` goals
-        and `threshold * (1 - margin)` for `>=` goals (or `threshold +/- margin` if the
-        threshold is 0). Defaults to 0.1 (10%).
-
-        ### Outputs:
-        stats: Dict[str, Any] := A dictionary with:
-        - "per_trial": pd.DataFrame := One row per trial (same order as `self.trial_data`),
-        with columns "is_feasible", "cumulative_acceptance_rate", "hypervolume", and
-        "running_best_{metric}" for every key in `self.dvh_metric_goals`.
-        - "summary": Dict[str, Any] := {"n_trials", "n_feasible", "acceptance_rate",
-        "final_hypervolume", "reference_point"}.
-        """
-        if self.trial_data is None or len(self.trial_data) == 0:
-            raise ValueError("self.trial_data is empty. Run some trials before \
-calling get_convergence_stats().")
-
-        metrics = list(self.dvh_metric_goals.keys())
-        data = self.trial_data.reset_index(drop=True)
-        n = len(data)
-
-        # # 1. Per-trial feasibility w.r.t. every DVH metric goal.
-        is_feasible = np.ones(n, dtype=bool)
-        for metric in metrics:
-            operation, threshold = self.dvh_metric_goals[metric]
-            observed = data[metric].to_numpy(dtype=float)
-            if operation == "<=":
-                satisfied = observed <= threshold
-            else:  # ">="
-                satisfied = observed >= threshold
-            is_feasible &= satisfied
-        cumulative_acceptance_rate = np.cumsum(is_feasible) / np.arange(1, n + 1)
-
-        # # 2. Per-metric running best (independent of overall feasibility, tracks
-        # # each metric's own trajectory across all trials).
-        running_best = {}
-        for metric in metrics:
-            operation, _ = self.dvh_metric_goals[metric]
-            observed = data[metric].to_numpy(dtype=float)
-            if operation == "<=":
-                running_best[f"running_best_{metric}"] = np.minimum.accumulate(observed)
-            else:  # ">="
-                running_best[f"running_best_{metric}"] = np.maximum.accumulate(observed)
-
-        # # 3. Hypervolume of the feasible Pareto front, tracked trial-by-trial.
-        signs = np.array([
-            1.0 if self.dvh_metric_goals[metric][0] == "<=" else -1.0
-            for metric in metrics
-        ])
-        loss_matrix = data[metrics].to_numpy(dtype=float) * signs
-
-        resolved_reference = {}
-        for metric in metrics:
-            operation, threshold = self.dvh_metric_goals[metric]
-            if reference_point is not None and metric in reference_point:
-                resolved_reference[metric] = reference_point[metric]
-            elif operation == "<=":
-                resolved_reference[metric] = (
-                    threshold * (1 + reference_margin) if threshold != 0
-                    else threshold + reference_margin)
-            else:  # ">="
-                resolved_reference[metric] = (
-                    threshold * (1 - reference_margin) if threshold != 0
-                    else threshold - reference_margin)
-        reference_loss = np.array([
-            resolved_reference[metric] * sign
-            for metric, sign in zip(metrics, signs)
-        ])
-
-        try:
-            from optuna._hypervolume import compute_hypervolume
-        except ImportError:
-            compute_hypervolume = None
-
-        pareto_front_loss: List[np.ndarray] = []
-        current_hypervolume = 0.0
-        hypervolume_history = []
-        for i in range(n):
-            if not is_feasible[i]:
-                hypervolume_history.append(current_hypervolume)
-                continue
-            point = loss_matrix[i]
-            if any(_dominates_min(f, point) for f in pareto_front_loss):
-                hypervolume_history.append(current_hypervolume)
-                continue
-            pareto_front_loss = [
-                f for f in pareto_front_loss if not _dominates_min(point, f)
-            ] + [point]
-            valid_points = np.array([
-                f for f in pareto_front_loss if np.all(f <= reference_loss)
-            ])
-            if valid_points.size > 0 and compute_hypervolume is not None:
-                current_hypervolume = compute_hypervolume(valid_points, reference_loss)
-            hypervolume_history.append(current_hypervolume)
-
-        per_trial = pd.DataFrame({
-            "is_feasible": is_feasible,
-            "cumulative_acceptance_rate": cumulative_acceptance_rate,
-            "hypervolume": hypervolume_history,
-            **running_best,
-        })
-
-        summary = {
-            "n_trials": n,
-            "n_feasible": int(is_feasible.sum()),
-            "acceptance_rate": float(is_feasible.mean()),
-            "final_hypervolume": hypervolume_history[-1] if hypervolume_history else 0.0,
-            "reference_point": resolved_reference,
-        }
-
-        return {"per_trial": per_trial, "summary": summary}
 
 class MOO_Optuna(MOO):
     # # Samplers that accept a `constraints_func` kwarg for constrained optimization.
@@ -664,11 +519,12 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
         )
 
         acceptable_trials = are_acceptable(dvh_metrics_data, self.dvh_metric_goals)
-        hypervolume_trials = get_hyper_volume(dvh_metrics_data, self.dvh_metric_goals)
-
+        hv_trials = get_hyper_volume(dvh_metrics_data, self.dvh_metric_goals)
         self.trial_data = pd.concat([
             self.trial_data,
-            pd.concat([trial_params, dvh_metrics_data, acceptable_trials], axis=1)
+            pd.concat([
+                trial_params, dvh_metrics_data,
+                acceptable_trials, hv_trials], axis=1)
         ], axis=0)
         self.trial_data.reset_index(drop=True, inplace=True)
 
@@ -716,7 +572,7 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
 
 def are_acceptable(
     dvh_metrics: pd.DataFrame,
-    dvh_metrics_goals: Dict
+    dvh_metric_goals: Dict
     ) -> pd.DataFrame:
     r"""
     ### Purpose:
@@ -735,7 +591,7 @@ def are_acceptable(
     results_df = pd.DataFrame(columns=["acceptable"])
     for i, row in dvh_metrics.iterrows():    
         acceptable = True
-        for key, value in dvh_metrics_goals.items():
+        for key, value in dvh_metric_goals.items():
             observed_value = row.get(key, None)
             if observed_value is None:
                 acceptable = False
@@ -750,3 +606,79 @@ def are_acceptable(
                         break
         results_df.loc[i] = acceptable
     return results_df
+
+def get_hyper_volume(
+    dvh_metrics: pd.DataFrame, 
+    dvh_metric_goals: dict[str, list],
+    return_series: bool = True
+):
+    """
+    ### Purpose:
+    - Computes hypervolume for valid points and a negative penalty score
+    for points violating at least one DVH requirement.
+
+    ### Inputs
+        - dvh_metrics: pd.DataFrame with candidate solutions as rows.
+        - dvh_metric_goals: dict mapping metric -> [operator ('>=' or '<='), threshold].
+        - return_series: If True, returns a pd.Series with scores for each individual row.
+        If False, returns a single float (joint HV of valid set, 
+        or worst negative violation if no point is valid).
+    """
+    ordered_keys = list(dvh_metric_goals.keys())
+    
+    # 1. Parse operators and reference points
+    signs = []
+    ref_values = []
+    raw_thresholds = []
+    for key in ordered_keys:
+        op, threshold = dvh_metric_goals[key]
+        raw_thresholds.append(float(threshold))
+        if op == ">=":
+            signs.append(1.0)
+            ref_values.append(float(threshold))
+        elif op == "<=":
+            signs.append(-1.0)
+            ref_values.append(-float(threshold))
+        else:
+            raise ValueError(f"Unsupported operation '{op}' for '{key}'.")
+
+    sign_tensor = torch.tensor(signs, dtype=torch.double)
+    ref_point = torch.tensor(ref_values, dtype=torch.double)
+    scale = torch.tensor([max(abs(t), 1.0) for t in raw_thresholds], dtype=torch.double)
+
+    # 2. Align to BoTorch maximization format (Y >= ref_point is feasible)
+    metric_matrix = dvh_metrics[ordered_keys].to_numpy(dtype=np.float64)
+    Y = torch.tensor(metric_matrix, dtype=torch.double) * sign_tensor
+
+    # 3. Evaluate each solution row-by-row
+    hv_calculator = Hypervolume(ref_point=ref_point)
+    scores = []
+
+    for i in range(Y.shape[0]):
+        y_i = Y[i]
+        diff = y_i - ref_point  # diff >= 0 means goal is satisfied
+        
+        if (diff >= 0).all():
+            # Solution meets all goals: compute positive individual hypervolume
+            val = float(hv_calculator.compute(y_i.unsqueeze(0)))
+            scores.append(val)
+        else:
+            # Solution violates at least one goal: compute negative relative violation
+            violations = torch.clamp(-diff, min=0.0)
+            rel_violation = (violations / scale).sum().item()
+            scores.append(-rel_violation)
+
+    score_series = pd.Series(scores, index=dvh_metrics.index, name="hypervolume_score")
+
+    if return_series:
+        return score_series.to_frame()
+
+    # If aggregated: return joint hypervolume of valid Pareto front,
+    # or the best (least negative) violation score if none are valid
+    valid_mask = Y >= ref_point
+    all_valid_idx = valid_mask.all(dim=-1)
+    
+    if all_valid_idx.any():
+        return float(hv_calculator.compute(Y[all_valid_idx]))
+    else:
+        return float(max(scores))

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from time import time
 from brachyutils.planning.optimization.optim_cath.moo import (
-    MOO_Optuna, evaluate_parameters, are_acceptable)
+    MOO_Optuna, evaluate_parameters, are_acceptable, get_hyper_volume)
 
 def test_update_penalty_weights_and_voxel_goals():
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
@@ -161,7 +161,6 @@ def test_are_acceptable():
         "V150%(CTV)": 30,
         "V100%(CTV)": 105,
     }
-
     dvh_metrics2 = {
         "D95%(CTV)": 87,
         "D2cc(RECTUM)": 50,
@@ -170,11 +169,45 @@ def test_are_acceptable():
         "V150%(CTV)": 30,
         "V100%(CTV)": 105,
     }
+    
     dvh_metrcics = pd.DataFrame([dvh_metrics1,dvh_metrics2])
     print(
         are_acceptable(
             dvh_metrics=dvh_metrcics,
-            dvh_metrics_goals=dvh_metric_goals)
+            dvh_metric_goals=dvh_metric_goals)
+    )
+
+def test_get_hyper_volume():
+    dvh_metric_goals = {
+        "D95%(CTV)": [">=", 95],
+        "D2cc(RECTUM)": ["<=", 66],
+        "D10%(URETHRA)": ["<=", 113],
+        "D30%(URETHRA)": ["<=", 100],
+        "V150%(CTV)": ["<=", 40],
+        "V100%(CTV)": [">=", 100],
+    }
+    dvh_metrics1 = {
+        "D95%(CTV)": 98,
+        "D2cc(RECTUM)": 50,
+        "D10%(URETHRA)": 98,
+        "D30%(URETHRA)": 85,
+        "V150%(CTV)": 30,
+        "V100%(CTV)": 105,
+    }
+    dvh_metrics2 = {
+        "D95%(CTV)": 87,
+        "D2cc(RECTUM)": 50,
+        "D10%(URETHRA)": 98,
+        "D30%(URETHRA)": 105,
+        "V150%(CTV)": 30,
+        "V100%(CTV)": 105,
+    }
+    
+    dvh_metrcics = pd.DataFrame([dvh_metrics1,dvh_metrics2])
+    print(
+        get_hyper_volume(
+            dvh_metrics=dvh_metrcics,
+            dvh_metric_goals=dvh_metric_goals)
     )
 
 if __name__ == "__main__":
@@ -184,4 +217,5 @@ if __name__ == "__main__":
     # test_evaluate_parameters()
     # test_run_warmps()
     # test_run_trials()
-    test_are_acceptable()
+    # test_are_acceptable()
+    test_get_hyper_volume()
