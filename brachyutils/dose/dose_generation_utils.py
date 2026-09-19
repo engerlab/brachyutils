@@ -154,6 +154,9 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         if pth_mac is None:
             pth_mac = list(self.dir_plan_export.glob("combined.mac")).pop()
 
+        if dir_output is None:
+            dir_output = Path(".")
+
         if "http" in str(self.pth_dose_executable):
             # use fast api post to request the dose calculation
             import requests

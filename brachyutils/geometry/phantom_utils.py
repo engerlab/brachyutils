@@ -1331,7 +1331,7 @@ def get_uniform_phantom(
         origin=origin,
     )
     phantom.image_modality = None
-    phantom.structure_set = None
+    phantom.structure_set = RTStruct()
     phantom.structure_names = []
     phantom.unit_length = "cm"
     phantom.xyz_format = "LPS"

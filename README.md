@@ -4,6 +4,19 @@
 
 BrachyUtils is developed to be a scripting treatment planning system for brachytherapy. The current state mostly focuses on high dose rate (HDR) brachytherapy. For full documentation, take a look at our [docs webpage](https://engerlab.github.io/brachyutils/brachyutils.html). If you are a developer, please take a look at the bottom of this page.
 
+**Please Cite our paper!**
+```bibtex
+@ARTICLE{
+  author={Jafarzadeh, Hossein and Quetin, Sébastien and Kalinowski, Jonathan and Farahnak, Farhood and Enger, Shirin A.},
+  journal={IEEE Transactions on Radiation and Plasma Medical Sciences}, 
+  title={BrachyUtils: A High-throughput and Modular Brachytherapy Treatment Planning System Built for Python Scripting}, 
+  year={2026},
+  volume={},
+  number={},
+  pages={1-1},
+  keywords={Optimization;Planning;Brachytherapy;Modeling;Timing;Biopsy;Physics;Packaging;Modules (abstract algebra);Measurement;Brachytherapy;Treatment Planning;Registration;Dosimetry;Optimization;Scripting;Benchmarking},
+  doi={10.1109/TRPMS.2026.3700423}
+```
 ## Installation
 
 Start by clonning this repository to `YourDesiredLocation`:
