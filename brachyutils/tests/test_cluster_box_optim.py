@@ -377,31 +377,31 @@ def test_get_physical_catheter_tabel():
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
-    # config_catheter_rotation = Config_Catheter_Rotation(
-    #     x_angle_max=0,
-    #     x_angle_step=0,
-    #     y_angle_max=0,
-    #     y_angle_step=0,
-    # )
-    # t0 = time()
-    # test_cluster_box_optim(
-    #     num_decision_planes=2,
-    #     config_catheter_rotation=config_catheter_rotation,
-    #     export_cluster_box=True,
-    #     run_optimization=True,
-    #     insertion_point_spacing_mm=5,
-    #     return_output=False,
-    #     num_physical_catheters=[10, 14],
-    # )
-    # t1 = time()
-    # print("--------")
-    # print("time for the entire pipeline")
-    # print(t1-t0)
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=8,
+        x_angle_step=16,
+        y_angle_max=8,
+        y_angle_step=8,
+    )
+    t0 = time()
+    test_cluster_box_optim(
+        num_decision_planes=3,
+        config_catheter_rotation=config_catheter_rotation,
+        export_cluster_box=True,
+        run_optimization=False,
+        insertion_point_spacing_mm=10,
+        return_output=False,
+        num_physical_catheters=[10, 14],
+    )
+    t1 = time()
+    print("--------")
+    print("time for the entire pipeline")
+    print(t1-t0)
     # test_constraint_catheter_number()
     # test_constraint_uniqueness()
     # test_constraint_collision()
     # test_constraint_continuity()
     # test_modify_constraint()
-    test_run_experiment_sequential()
+    # test_run_experiment_sequential()
     # test_disturbe_catheter_table()
     # test_get_physical_catheter_tabel()
