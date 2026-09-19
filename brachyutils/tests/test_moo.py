@@ -142,7 +142,7 @@ def test_run_trials():
     Moo_obj = test_init_MOO(return_obj=True)
     Moo_obj.run_warmups(batch_size=10)
     Moo_obj.run_trials(n_trials=10, batch_size=3)
-    Moo_obj.get_convergence_stats() # TODO: check this out!
+    print("break point here.")
 
 def test_are_acceptable():
     dvh_metric_goals = {
@@ -216,6 +216,6 @@ if __name__ == "__main__":
     # test_init_MOO()
     # test_evaluate_parameters()
     # test_run_warmps()
-    # test_run_trials()
+    test_run_trials()
     # test_are_acceptable()
-    test_get_hyper_volume()
+    # test_get_hyper_volume()

@@ -172,7 +172,10 @@ class MOO(ABC):
                 if value["dvh_metric_goals"].get(dvh, None) is not None:
                     self.dvh_metric_goals[dvh] = value["dvh_metric_goals"][dvh]
                     if self.normalize:
-                        self.dvh_metric_goals[dvh] = self.dvh_metric_goals[dvh]/100
+                        self.dvh_metric_goals[dvh] = [
+                            self.dvh_metric_goals[dvh][0],
+                            self.dvh_metric_goals[dvh][1]/100,
+                        ]
 
         if (
             self.dvh_metric_goals is None
@@ -220,7 +223,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
             columns=(
                 list(self.parameter_space.keys())
                 + list(self.dvh_metric_goals.keys())
-                + ["sampler_id", "acceptable", "hypervolume"]))
+                + ["sampler_name_id", "acceptable", "hypervolume"]))
 
     @abstractmethod
     def objectives(self, parameters: pd.DataFrame) -> pd.DataFrame:
@@ -463,7 +466,7 @@ will not be pruned/penalized by the sampler.")
             self.tuner.ask(self._parameter_distributions)
             for _ in range(batch_size)]
 
-        objectives = self.objectives(trials)
+        objectives = self.objectives(trials, "RandomSampler")
         for trial, objective in zip(trials, objectives):
             self.tuner.tell(trial.number, objective)
 
@@ -532,11 +535,14 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
 
         acceptable_trials = are_acceptable(dvh_metrics_data, self.dvh_metric_goals)
         hv_trials = get_hyper_volume(dvh_metrics_data, self.dvh_metric_goals)
+        sampler_df = pd.Series(
+            [sampler_name_id for _ in range(len(trial_params))],
+            name="sampler_name_id").to_frame()
         self.trial_data = pd.concat([
             self.trial_data,
             pd.concat([
                 trial_params, dvh_metrics_data,
-                acceptable_trials, hv_trials], axis=1)
+                acceptable_trials, hv_trials, sampler_df], axis=1)
         ], axis=0)
         self.trial_data.reset_index(drop=True, inplace=True)
 
@@ -578,7 +584,7 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
             trials = [
                 self.tuner.ask(self._parameter_distributions)
                 for _ in range(batch_size)]
-            objectives = self.objectives(trials)
+            objectives = self.objectives(trials, self.sampler_name_id)
             for trial, objective in zip(trials, objectives):
                 self.tuner.tell(trial.number, objective)
 
