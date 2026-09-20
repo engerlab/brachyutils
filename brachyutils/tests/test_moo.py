@@ -1,3 +1,4 @@
+from pathlib import Path
 from brachyutils.tests.test_optim_catheters import test_catheter_table_optim
 from random import randint
 import numpy as np
@@ -139,11 +140,13 @@ def test_run_warmps():
     print(Moo_obj.trial_data)
 
 def test_run_trials():
+    dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO(return_obj=True)
     Moo_obj.run_warmups(batch_size=10)
-    # Moo_obj.run_trials(n_trials=10, batch_size=3)
+    Moo_obj.run_trials(n_trials=5, batch_size=10)
     print("break point here.")
     print(Moo_obj.trial_data)
+    Moo_obj.trial_data.to_csv(dir_out/"test_trial.csv")
 
 def test_are_acceptable():
     dvh_metric_goals = {
