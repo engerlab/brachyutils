@@ -37,7 +37,7 @@ def evaluate_parameters(
     parameters: pd.DataFrame,
     optim_obj: CatheterTableOptim_Gurobi,
     max_workers: int = 16,
-    normalize: bool = True,
+    normalize: bool = False,
 ) -> pd.DataFrame:
     r"""
     ### Purpose:
@@ -115,7 +115,7 @@ class MOO(ABC):
         catheter_table_optim: CatheterTableOptim_Gurobi,
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
-        normalize: bool = True,
+        normalize: bool = False,
     ):
         r"""
         ### Purpose:
