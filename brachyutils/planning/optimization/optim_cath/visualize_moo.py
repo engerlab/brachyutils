@@ -6,7 +6,7 @@ from matplotlib.patches import Rectangle
 import matplotlib.patches as mpatches
 
 
-def plot_dvh_mobo_space(
+def plot_dvh_moo_space(
     trial_df: pd.DataFrame,
     dvh_metric_goals: dict,
     path_out_svg: str,
@@ -15,7 +15,7 @@ def plot_dvh_mobo_space(
     title: str = None):
     r"""
     ### Purpose:
-    - Plot the DVH metric space explored during MOBO/random optimization trials.
+    - Plot the DVH metric space explored during MOO/random optimization trials.
     For each DVH metric in `dvh_metric_goals` (other than the CTV target metric,
     D90% or D95%, which is used as the x-axis), a scatter subplot is produced with:
       - x axis = D90%(CTV) or D95%(CTV)

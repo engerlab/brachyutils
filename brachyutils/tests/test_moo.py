@@ -6,6 +6,7 @@ import pandas as pd
 from time import time
 from brachyutils.planning.optimization.optim_cath.moo import (
     MOO_Optuna, evaluate_parameters, are_acceptable, get_hyper_volume)
+from brachyutils.planning.optimization.optim_cath.visualize_moo import plot_dvh_moo_space
 
 def test_update_penalty_weights_and_voxel_goals():
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
@@ -139,7 +140,7 @@ def test_run_warmps():
     Moo_obj.run_warmups(batch_size=5)
     print(Moo_obj.trial_data)
 
-def test_run_trials():
+def test_run_trials(return_output:bool = False):
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO(return_obj=True)
     Moo_obj.run_warmups(batch_size=10)
@@ -147,6 +148,8 @@ def test_run_trials():
     print("break point here.")
     print(Moo_obj.trial_data)
     Moo_obj.trial_data.to_csv(dir_out/"test_trial.csv")
+    if return_output:
+        return Moo_obj
 
 def test_are_acceptable():
     dvh_metric_goals = {
@@ -214,12 +217,24 @@ def test_get_hyper_volume():
             dvh_metric_goals=dvh_metric_goals)
     )
 
+def test_plot_dvh_moo_space():
+    dir_out = Path("data_test/test_export_plan/prostate")
+    Moo_obj = test_run_trials(True)
+    plot_dvh_moo_space(
+        trial_df=Moo_obj.trial_data,
+        dvh_metric_goals=Moo_obj.dvh_metric_goals,
+        path_out_svg=dir_out/"test.svg",
+        sampler_col="sampler_name_id",
+        title="test trial"
+    )
+
 if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()
     # test_get_optimization_result_stats()
     # test_init_MOO()
     # test_evaluate_parameters()
     # test_run_warmps()
-    test_run_trials()
+    # test_run_trials()
     # test_are_acceptable()
     # test_get_hyper_volume()
+    test_plot_dvh_moo_space()
