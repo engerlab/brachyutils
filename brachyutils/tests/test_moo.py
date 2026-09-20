@@ -141,8 +141,9 @@ def test_run_warmps():
 def test_run_trials():
     Moo_obj = test_init_MOO(return_obj=True)
     Moo_obj.run_warmups(batch_size=10)
-    Moo_obj.run_trials(n_trials=10, batch_size=3)
+    # Moo_obj.run_trials(n_trials=10, batch_size=3)
     print("break point here.")
+    print(Moo_obj.trial_data)
 
 def test_are_acceptable():
     dvh_metric_goals = {

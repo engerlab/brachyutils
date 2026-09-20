@@ -80,6 +80,9 @@ def evaluate_parameters(
                 optim_obj.plan.catheter_table.set_dwelltimes_by_names(
                     dwell_time_dict)
                 dvh_metrics = optim_obj.plan.get_dvh_metrics()
+                if normalize:
+                    for key in dvh_metrics:
+                        dvh_metrics[key] = dvh_metrics[key]/100
                 dvh_metrics_list.append(dvh_metrics)
     else:
         dvh_metrics_list = []
@@ -686,7 +689,7 @@ def get_hyper_volume(
             rel_violation = (violations / scale).sum().item()
             scores.append(-rel_violation)
 
-    score_series = pd.Series(scores, index=dvh_metrics.index, name="hypervolume_score")
+    score_series = pd.Series(scores, index=dvh_metrics.index, name="hypervolume")
 
     if return_series:
         return score_series.to_frame()
