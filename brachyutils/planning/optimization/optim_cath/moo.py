@@ -32,7 +32,6 @@ def _update_optimization_configs_with_parameters(
             if optim_config.structure_name == structure_name:
                 setattr(optim_config, parameter_name, value)
 
-
 def evaluate_parameters(
     parameters: pd.DataFrame,
     optim_obj: CatheterTableOptim_Gurobi,
@@ -144,9 +143,11 @@ class MOO(ABC):
         self.dvh_metric_goals: Dict[str, List] = None
         self.tuner: Any = None
         self.trial_data: pd.DataFrame = None
+        self.directions = None
         # # Fill out the attributes
         self.validate_init()
         self.build_constraints_func()
+        self.get_directions_from_dvh_metric_goals()
 
     def validate_init(self):
         r"""
@@ -291,6 +292,32 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         """
         pass
 
+    def get_directions_from_dvh_metric_goals(self):
+        r"""
+        ### Purpose:
+        - To get the directions of optimization for each DVH metric goal.
+        The direction is either "minimize" or "maximize" depending on the
+        operation in the dvh_metric_goals. For example, if the operation is "<=",
+        then the direction is "minimize". If the operation is ">=", then the direction
+        is "maximize".
+        ### Inputs:
+        None := Expects self.dvh_metric_goals to be filled out.
+
+        ### Outputs:
+        -None:= sets self.directions: Dict[str, str] := A dictionary of directions for each DVH metric goal.
+        The order of the directions corresponds to the order of the keys in
+        self.dvh_metric_goals.
+        """
+        directions = {}
+        for key, value in self.dvh_metric_goals.items():
+            if value[0] == "<=":
+                directions[key] = "minimize"
+            elif value[0] == ">=":
+                directions[key] = "maximize"
+            else:
+                raise ValueError(f"The operation: {value[0]} \
+for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
+        self.directions = directions
 
 class MOO_Optuna(MOO):
     # # Samplers that accept a `constraints_func` kwarg for constrained optimization.
@@ -310,6 +337,7 @@ class MOO_Optuna(MOO):
         sampler_name_id: Literal["AutoSampler",
             "NSGAIISampler", "TPESampler", "GPSampler",
             "NSGAIIISampler", "BoTorchSampler"] = "AutoSampler",
+        use_constraints: bool = False,
     ):
         super().__init__(
             catheter_table_optim=catheter_table_optim,
@@ -317,6 +345,7 @@ class MOO_Optuna(MOO):
             max_workers=max_workers,
         )
         self.sampler_name_id = sampler_name_id
+        self.use_constraints = use_constraints
         self._parameter_distributions = None
         self.constraints_func = None
         self._parameter_space_to_distributions()
@@ -328,7 +357,7 @@ class MOO_Optuna(MOO):
         ### Purpose:
         - To build, once, the constraint function that Optuna's samplers will use to
         determine trial feasibility. Every entry in `self.dvh_metric_goals` is treated
-        as BOTH a multi-objective direction (see `_get_directions_from_dvh_metric_goals`)
+        as BOTH a multi-objective direction (see `get_directions_from_dvh_metric_goals`)
         AND a hard clinical constraint: the plan must, ideally, satisfy the goal, and
         Optuna's constrained samplers will steer the search towards the feasible region.
 
@@ -407,9 +436,8 @@ constraint {key}. Only '<=' and '>=' are supported.")
         - `self.constraints_func`
         - `self.sampler_name_id`
         """
-        directions = self._get_directions_from_dvh_metric_goals()
         use_constraints = self.sampler_name_id in self._constraint_capable_samplers
-
+        use_constraints = self.use_constraints and use_constraints
         if not use_constraints:
             print(f"Warning: sampler '{self.sampler_name_id}' does not support \
 `constraints_func`. Falling back to unconstrained multi-objective optimization. \
@@ -436,7 +464,7 @@ will not be pruned/penalized by the sampler.")
             raise ValueError(f"Unknown sampler_name_id: {self.sampler_name_id}")
 
         study = optuna.create_study(
-            directions=list(directions.values()),
+            directions=list(self.directions.values()),
             study_name=f"MOO_{self.catheter_table_optim.plan.phantom.pth_image.stem}",
             sampler=sampler_obj,
         )
@@ -475,33 +503,6 @@ will not be pruned/penalized by the sampler.")
 
         # restore the original sampler
         self.tuner.sampler = original_sampler
-
-    def _get_directions_from_dvh_metric_goals(self):
-        r"""
-        ### Purpose:
-        - To get the directions of optimization for each DVH metric goal.
-        The direction is either "minimize" or "maximize" depending on the
-        operation in the dvh_metric_goals. For example, if the operation is "<=",
-        then the direction is "minimize". If the operation is ">=", then the direction
-        is "maximize".
-        ### Inputs:
-        None := Expects self.dvh_metric_goals to be filled out.
-
-        ### Outputs:
-        directions: Dict[str, str] := A dictionary of directions for each DVH metric goal.
-        The order of the directions corresponds to the order of the keys in
-        self.dvh_metric_goals.
-        """
-        directions = {}
-        for key, value in self.dvh_metric_goals.items():
-            if value[0] == "<=":
-                directions[key] = "minimize"
-            elif value[0] == ">=":
-                directions[key] = "maximize"
-            else:
-                raise ValueError(f"The operation: {value[0]} \
-for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
-        return directions
 
     def objectives(
         self,
