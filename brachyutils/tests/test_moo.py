@@ -143,8 +143,8 @@ def test_run_warmps():
 def test_run_trials(return_output:bool = False):
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO(return_obj=True)
-    Moo_obj.run_warmups(batch_size=10)
-    Moo_obj.run_trials(n_trials=5, batch_size=10)
+    Moo_obj.run_warmups(batch_size=30)
+    Moo_obj.run_trials(n_trials=2, batch_size=5)
     print("break point here.")
     print(Moo_obj.trial_data)
     Moo_obj.trial_data.to_csv(dir_out/"test_trial.csv")
