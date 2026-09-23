@@ -129,7 +129,7 @@ class MOO(ABC):
         some attributes of the Optimization_Config class followed by the name of
         that structure in paranthesis. For example:
             penalty_weight_linear(CTV) : [1, 500]
-        - `normalize` := If true dvh_metric_goals would be normalized.
+        - `normalize` := If true dvh_metric_goals would be normalized from 100% to 1.
         Be sure that the DVH metrics are in percentage form (defualt is percentage).
 
         """

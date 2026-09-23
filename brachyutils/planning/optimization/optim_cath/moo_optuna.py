@@ -29,11 +29,13 @@ class MOO_Optuna(MOO):
             "NSGAIISampler", "TPESampler", "GPSampler",
             "NSGAIIISampler", "BoTorchSampler"] = "AutoSampler",
         use_constraints: bool = False,
+        normalize:bool = False
     ):
         super().__init__(
             catheter_table_optim=catheter_table_optim,
             parameter_space=parameter_space,
             max_workers=max_workers,
+            normalize=normalize,
         )
         self.sampler_name_id = sampler_name_id
         self.use_constraints = use_constraints
