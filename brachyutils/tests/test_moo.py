@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 from time import time
 from brachyutils.planning.optimization.optim_cath.moo import (
-    MOO_Optuna, evaluate_parameters, are_acceptable, get_hyper_volume)
+    evaluate_parameters, are_acceptable, get_hyper_volume)
+from brachyutils.planning.optimization.optim_cath.moo_optuna import MOO_Optuna
 from brachyutils.planning.optimization.optim_cath.visualize_moo import plot_dvh_moo_space
 
 def test_update_penalty_weights_and_voxel_goals():
@@ -143,8 +144,8 @@ def test_run_warmps():
 def test_run_trials(return_output:bool = False):
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Optuna(return_obj=True)
-    Moo_obj.run_warmups(batch_size=30)
-    Moo_obj.run_trials(n_trials=2, batch_size=5)
+    Moo_obj.run_warmups(batch_size=50)
+    Moo_obj.run_trials(n_trials=5, batch_size=10)
     print("break point here.")
     print(Moo_obj.trial_data)
     Moo_obj.trial_data.to_csv(dir_out/"test_trial.csv")
