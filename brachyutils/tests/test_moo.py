@@ -64,7 +64,7 @@ def test_get_optimization_result_stats():
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
     print(get_optimization_result_stats(optim_obj))
 
-def test_init_MOO(return_obj=False):
+def test_init_MOO_Optuna(return_obj=False):
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
     dvh_metric_goals = {
         "D95%(CTV)": [">=", 95],
@@ -130,19 +130,19 @@ def test_evaluate_parameters():
     parameters = pd.DataFrame(parameters_list)
     dvh_metrics_data = evaluate_parameters(
         parameters, 
-        optim_obj, 
+        optim_obj,
         max_workers=16
         )
     print(dvh_metrics_data.mean())
 
 def test_run_warmps():
-    Moo_obj = test_init_MOO(return_obj=True)
+    Moo_obj = test_init_MOO_Optuna(return_obj=True)
     Moo_obj.run_warmups(batch_size=5)
     print(Moo_obj.trial_data)
 
 def test_run_trials(return_output:bool = False):
     dir_out = Path("data_test/test_export_plan/prostate")
-    Moo_obj = test_init_MOO(return_obj=True)
+    Moo_obj = test_init_MOO_Optuna(return_obj=True)
     Moo_obj.run_warmups(batch_size=30)
     Moo_obj.run_trials(n_trials=2, batch_size=5)
     print("break point here.")
@@ -231,7 +231,7 @@ def test_plot_dvh_moo_space():
 if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()
     # test_get_optimization_result_stats()
-    # test_init_MOO()
+    # test_init_MOO_Optuna()
     # test_evaluate_parameters()
     # test_run_warmps()
     # test_run_trials()
