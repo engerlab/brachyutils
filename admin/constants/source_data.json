@@ -86,8 +86,8 @@
   "IsoAid_Advantage": {
     "isotope": "Pd-103",
     "core" : "G4_Pd",
-    "AKSA": null,
-    "AKHS": null
+    "AKSA": 2.571-8,
+    "AKHS": 0.8240e-11
   },
   "OncoSeed6711_I125": {
     "isotope": "I-125",
@@ -98,8 +98,8 @@
   "TheraSeed": {
     "isotope": "Pd-103",
     "core" : "G4_Pd",
-    "AKSA": null,
-    "AKHS": null
+    "AKSA": 1.7329e-8,
+    "AKHS": 0.5553e-11
   },
   "Xoft": {
     "isotope": null,
