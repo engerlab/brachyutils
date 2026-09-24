@@ -86,7 +86,7 @@
   "IsoAid_Advantage": {
     "isotope": "Pd-103",
     "core" : "G4_Pd",
-    "AKSA": 2.571-8,
+    "AKSA": 2.571e-8,
     "AKHS": 0.8240e-11
   },
   "OncoSeed6711_I125": {
