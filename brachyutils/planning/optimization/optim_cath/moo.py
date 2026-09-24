@@ -144,7 +144,6 @@ class MOO(ABC):
         self.directions = None
         # # Fill out the attributes
         self.validate_init()
-        self.build_constraints_func()
         self.get_directions_from_dvh_metric_goals()
 
     def validate_init(self):
@@ -228,8 +227,24 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
                 + ["sampler_name_id", "acceptable", "hypervolume"]))
 
     @abstractmethod
-    def objectives(self, parameters: pd.DataFrame) -> pd.DataFrame:
+    def objectives(self, trials: List[Any]) -> pd.DataFrame:
         r"""
+        ### Purpose:
+        - To evaluate the objectives for each trial from the tuner. The objectives are the DVH metrics
+        corresponding to the parameters in the trial of the underlying tuner object (optuna or ax).
+        
+        - The order of the objectives corresponds to the order of the keys in self.dvh_metric_goals.
+        - All trials passed in are evaluated together in a single, batched call to
+        `evaluate_parameters()`, which parallelizes the underlying Gurobi solves across
+        `self.max_workers` threads. This is what powers batch mode: `run_trials` decides
+        how many trials to ask for at once, and this method evaluates them all together.
+
+        ### Inputs:
+        - trials: List[Any] := A list of trial objects from the tuner to be evaluated.
+
+        ### Outputs:
+        objectives: list := A list of lists of objectives for each trial. The order
+        of the objectives corresponds to the order of the keys in self.dvh_metric_goals.
         """
         pass
 
@@ -252,8 +267,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         ### Purpose:
         - To run random sampling for `n_warmups` number of warmup trials.
         All the warmup trials will be randomly sampled from the parameter space and
-        evaluated either sequentially or in parallel. The results will be stored in
-        `self.trial_data`. The tuner will be built after the warmup trials are completed.
+        evaluated either sequentially or in parallel.
 
         ### Inputs:
         - n_warmups: int := The number of warmup trials to run.

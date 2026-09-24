@@ -7,6 +7,7 @@ from time import time
 from brachyutils.planning.optimization.optim_cath.moo import (
     evaluate_parameters, are_acceptable, get_hyper_volume)
 from brachyutils.planning.optimization.optim_cath.moo_optuna import MOO_Optuna
+from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax
 from brachyutils.planning.optimization.optim_cath.visualize_moo import plot_dvh_moo_space
 
 def test_update_penalty_weights_and_voxel_goals():
@@ -229,6 +230,50 @@ def test_plot_dvh_moo_space():
         title="test trial"
     )
 
+def test_init_MOO_Ax(return_obj=False):
+    optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
+    dvh_metric_goals = {
+        "D95%(CTV)": [">=", 95],
+        "D2cc(RECTUM)": ["<=", 66],
+        "D10%(URETHRA)": ["<=", 113],
+        "D30%(URETHRA)": ["<=", 100],
+        "CI(CTV)": None,
+        "HI(CTV)": None,
+        "V200%(CTV)": None,
+        "V150%(CTV)": ["<=", 40],
+        "V100%(CTV)": [">=", 100],
+    }
+    optim_obj.plan.set_dvh_metric_goals(
+        dvh_metric_goals=dvh_metric_goals,
+        strict_name_match=False,
+        )
+
+    # # Build the range of the parameters
+    structure_names = ["CTV", "RECTUM", "URETHRA"]
+    parameter_space = {}
+    for name in structure_names:
+        if name == "CTV":
+            parameter_space[f"dose_voxel_goal({name})"] = [
+                optim_obj.plan.prescription_dose,
+                optim_obj.plan.prescription_dose*1.15 
+            ]
+            parameter_space[f"penalty_weight_hotspot({name})"] = [0, 1000]
+            parameter_space[f"hotspot_threshold({name})"] = [1, 2]
+            # parameter_space[f"penalty_weight_uniformity({name})"] = [0, 1000]
+            # parameter_space[f"penalty_weight_variance_time({name})"] = [0, 1000]
+
+        parameter_space[f"penalty_weight_linear({name})"] = [0, 1000]
+        # parameter_space[f"penalty_weight_quadratic({name})"] = [0, 1000]
+
+    Moo_obj = MOO_Ax(
+        catheter_table_optim=optim_obj,
+        parameter_space=parameter_space,
+    )
+    print("break point here: Check that the MOO object is initialized correctly")
+    if return_obj:
+        return Moo_obj
+
+
 if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()
     # test_get_optimization_result_stats()
@@ -238,4 +283,5 @@ if __name__ == "__main__":
     # test_run_trials()
     # test_are_acceptable()
     # test_get_hyper_volume()
-    test_plot_dvh_moo_space()
+    # test_plot_dvh_moo_space()
+    test_init_MOO_Ax()

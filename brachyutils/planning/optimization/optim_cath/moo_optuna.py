@@ -207,7 +207,7 @@ will not be pruned/penalized by the sampler.")
         corresponding to the parameters in the trial. The order of the objectives
         corresponds to the order of the keys in self.dvh_metric_goals.
         - All trials passed in are evaluated together in a single, batched call to
-        `evaluate_parameters`, which parallelizes the underlying Gurobi solves across
+        `evaluate_parameters()`, which parallelizes the underlying Gurobi solves across
         `self.max_workers` threads. This is what powers batch mode: `run_trials` decides
         how many trials to ask for at once, and this method evaluates them all together.
         - As a side effect, this also stores the observed DVH metrics on each trial via
