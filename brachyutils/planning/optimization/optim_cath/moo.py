@@ -144,7 +144,7 @@ class MOO(ABC):
         self.directions = None
         # # Fill out the attributes
         self.validate_init()
-        self.get_directions_from_dvh_metric_goals()
+        self.set_directions_from_dvh_metric_goals()
 
     def validate_init(self):
         r"""
@@ -304,7 +304,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         """
         pass
 
-    def get_directions_from_dvh_metric_goals(self):
+    def set_directions_from_dvh_metric_goals(self):
         r"""
         ### Purpose:
         - To get the directions of optimization for each DVH metric goal.

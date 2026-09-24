@@ -50,7 +50,7 @@ class MOO_Optuna(MOO):
         ### Purpose:
         - To build, once, the constraint function that Optuna's samplers will use to
         determine trial feasibility. Every entry in `self.dvh_metric_goals` is treated
-        as BOTH a multi-objective direction (see `get_directions_from_dvh_metric_goals`)
+        as BOTH a multi-objective direction (see `set_directions_from_dvh_metric_goals`)
         AND a hard clinical constraint: the plan must, ideally, satisfy the goal, and
         Optuna's constrained samplers will steer the search towards the feasible region.
 

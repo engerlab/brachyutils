@@ -18,7 +18,7 @@ class MOO_Ax(MOO):
         max_workers: int = 16,
         normalize = False,
         ):
-
+        self.tuner: Client
         super().__init__(
             catheter_table_optim= catheter_table_optim,
             parameter_space= parameter_space,
@@ -52,10 +52,36 @@ class MOO_Ax(MOO):
     def set_tuner(self):
         # # instantiate a new tuner object. in ax it's called Client
         self.tuner = Client()
-
         self.tuner.configure_experiment(parameters = self._ax_parameters)
+        # # build the objective string
+        ax_objectives = []
+        for dvh_name, direction in self.directions.items():
+            if direction == "minimize":
+                ax_objectives.append(
+                    f"-{_clean_dvh_names(dvh_name)}"
+                )
+            else:
+                ax_objectives.append(
+                    f"{_clean_dvh_names(dvh_name)}"
+                )
+        ax_objectives = ", ".join(ax_objectives)
+        self.tuner.configure_optimization(
+            objective=ax_objectives
+        )
 
     def run_warmups(self, n_warmups, multi_proc = True):
         pass
     def run_trials(self, n_trials):
         pass
+
+def _clean_dvh_names(dvh_name:str) -> str:
+    r"""
+    ### Purpose:
+    - remove %, (, ) characters from the dvh names and replace them with _.
+    so V150%(CTV) -> V150_CTV
+    """
+    dvh_name = dvh_name.replace("%", "_")
+    dvh_name = dvh_name.replace("(", "")
+    dvh_name = dvh_name.replace(")", "")
+    return dvh_name
+    
