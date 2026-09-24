@@ -885,51 +885,82 @@ class BrachyPlan:
         """
         total_dwell_time = catheter_table.treatment_time
         num_dwells = catheter_table.num_dwell_positions
-        combined_plan = "Treatment Plan\n"
-        combined_plan += f"{num_dwells} Control Points\n"
 
-        for cat in catheter_table:
-            for dwell in cat.dwells:
-                if not dwell.gen_dose_rate:
-                    continue
-                dwell_coordinates_str = np.array(
-                    list(dwell.position)
-                    + list(dwell.rotation)
-                    + [dwell.angle]
-                    + list(self.applicator_rotation_axis)
-                    + list(self.applicator_rotation_origin),
-                    dtype=np.float32,
-                )
-                dwell_coordinates_str = (
-                    ",".join(
-                        [
-                            str(int(coord)) if coord == int(coord) else format(coord, ".6f")
-                            for coord in dwell_coordinates_str
-                        ]
+        is_ldr = self.catheter_table.treatment_time.lower().contains("ldr")
+        if not is_ldr:
+            combined_plan = "Treatment Plan\n"
+            combined_plan += f"{num_dwells} Control Points\n"
+
+            for cat in catheter_table:
+                for dwell in cat.dwells:
+                    if not dwell.gen_dose_rate:
+                        continue
+                    dwell_coordinates_str = np.array(
+                        list(dwell.position)
+                        + list(dwell.rotation)
+                        + [dwell.angle]
+                        + list(self.applicator_rotation_axis)
+                        + list(self.applicator_rotation_origin),
+                        dtype=np.float32,
                     )
-                    + "\n"
-                )
+                    dwell_coordinates_str = (
+                        ",".join(
+                            [
+                                str(int(coord)) if coord == int(coord) else format(coord, ".6f")
+                                for coord in dwell_coordinates_str
+                            ]
+                        )
+                        + "\n"
+                    )
 
-                catheter_idx = cat.index
-                dwell_idx = dwell.index
-                combined_plan += "Control Point\n"
-                combined_plan += f"weight = {dwell.time/total_dwell_time}\n"
-                combined_plan += f"1 Dwell Position - Catheter {catheter_idx + 1}\n"
-                combined_plan += dwell_coordinates_str
+                    catheter_idx = cat.index
+                    dwell_idx = dwell.index
+                    combined_plan += "Control Point\n"
+                    combined_plan += f"weight = {dwell.time/total_dwell_time:.4f}.\n"
+                    combined_plan += f"1 Dwell Position - Catheter {catheter_idx + 1}\n"
+                    combined_plan += dwell_coordinates_str
 
-                run_i_plan = "Treatment Plan\n"
-                run_i_plan += "1 Control Points\n"
-                run_i_plan += "Control Point\nweight = 1.0\n"
-                run_i_plan += "1 Dwell Position\n"
-                run_i_plan += dwell_coordinates_str
-                # Not dealing with shield angle for now but the new convention for filename is
-                # xxx_catheter#_dwell#_shieldangle.plan
-                shield_angle = dwell.angle
-                if not export_config_plan_and_mac.combined_only:
-                    order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
-                    with open(export_config_plan_and_mac.dir_export / f"dwell_{order}.plan", "w") as file:
-                        file.write(run_i_plan)
-    
+                    run_i_plan = "Treatment Plan\n"
+                    run_i_plan += "1 Control Points\n"
+                    run_i_plan += "Control Point\nweight = 1.0\n"
+                    run_i_plan += "1 Dwell Position\n"
+                    run_i_plan += dwell_coordinates_str
+                    # Not dealing with shield angle for now but the new convention for filename is
+                    # xxx_catheter#_dwell#_shieldangle.plan
+                    shield_angle = dwell.angle
+                    if not export_config_plan_and_mac.combined_only:
+                        order = f"{catheter_idx + 1}_{dwell_idx + 1}_{shield_angle}"
+                        with open(export_config_plan_and_mac.dir_export / f"dwell_{order}.plan", "w") as file:
+                            file.write(run_i_plan)
+        else:
+            #ldr plan - all the dwells in one control point
+            combined_plan = "Treatment Plan\n"
+            combined_plan += "1 Control Points\n"
+            combined_plan += "Control Point\n"
+            combined_plan += f"{num_dwells} Dwell Positions\n"
+            for cat in catheter_table:
+                for dwell in cat.dwells:
+                    if not dwell.gen_dose_rate:
+                        continue
+                    dwell_coordinates_str = np.array(
+                        list(dwell.position)
+                        + list(dwell.rotation)
+                        + [dwell.angle]
+                        + list(self.applicator_rotation_axis)
+                        + list(self.applicator_rotation_origin),
+                        dtype=np.float32,
+                    )
+                    dwell_coordinates_str = (
+                        ",".join(
+                            [
+                                str(int(coord)) if coord == int(coord) else format(coord, ".6f")
+                                for coord in dwell_coordinates_str
+                            ]
+                        )
+                        + "\n"
+                    )
+                    combined_plan += dwell_coordinates_str
+        
         if export_config_plan_and_mac.combined_only:
             with open(export_config_plan_and_mac.pth_plan_combined, "w") as file:
                 file.write(combined_plan)
@@ -982,6 +1013,8 @@ class BrachyPlan:
         sim_obj.pth_plan = export_config_plan_and_mac.pth_plan_combined.name
         sim_obj.pth_phantom = export_config_plan_and_mac.pth_phantom
         sim_obj.applicator_list = self.applicator_list
+        if sim_obj.treatment_type == "HDR" and self.catheter_table.treatment_type == "LDR":
+            sim_obj.treatment_type = "TLDR" #make sure that treatment type is set correctly in the brachysource according to the catheteter table
 
         if export_config_plan_and_mac.auto_mvm:
             #check if we need it - if the dimensions of the image are sufficiently small
