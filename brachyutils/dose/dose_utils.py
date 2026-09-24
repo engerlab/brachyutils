@@ -560,6 +560,7 @@ class BrachyDose:
         axis_2_coords: np.ndarray,
         plane_coord: float,
         plane: str,
+        uncertainty: bool = False
     ):
         r"""
         ### Purpose:
@@ -569,6 +570,7 @@ class BrachyDose:
         - axis_1_coords, axis_2_coords := the coordinates along the two axes that define the plane of extraction. they should be 1D numpy arrays.
         - plane_coord := the coordinate along the third axis that defines the plane of extraction.
         - plane := the plane along which to extract the profile. should be one of 'xy', 'xz', or 'yz'.
+        - uncertainty := a boolean flag to indicate whether to extract the uncertainty values instead of the dose values. the default is False.
 
         ### Outputs:
         - profile := the extracted 2D profile at the given coordinates and plane. the shape of the output
@@ -584,27 +586,27 @@ class BrachyDose:
             )
         if plane == "xy":
             return self.extract_dose_values_from_coordinates(
-                axis_1_coords, axis_2_coords, plane_coord
+                axis_1_coords, axis_2_coords, plane_coord, uncertainty=uncertainty
             )
         elif plane == "xz":
             return self.extract_dose_values_from_coordinates(
-                axis_1_coords, plane_coord, axis_2_coords
+                axis_1_coords, plane_coord, axis_2_coords, uncertainty=uncertainty
             )
         elif plane == "yz":
             return self.extract_dose_values_from_coordinates(
-                plane_coord, axis_1_coords, axis_2_coords
+                plane_coord, axis_1_coords, axis_2_coords, uncertainty=uncertainty
             )
         elif plane == "yx":
             return self.extract_dose_values_from_coordinates(
-                axis_2_coords, axis_1_coords, plane_coord
+                axis_2_coords, axis_1_coords, plane_coord, uncertainty=uncertainty
             )
         elif plane == "zx":
             return self.extract_dose_values_from_coordinates(
-                axis_2_coords, plane_coord, axis_1_coords
+                axis_2_coords, plane_coord, axis_1_coords, uncertainty=uncertainty
             )
         elif plane == "zy":
             return self.extract_dose_values_from_coordinates(
-                plane_coord, axis_2_coords, axis_1_coords
+                plane_coord, axis_2_coords, axis_1_coords, uncertainty=uncertainty
             )
         else:
             raise ValueError(
@@ -614,9 +616,10 @@ class BrachyDose:
     def extract_profile_1d(
         self,
         axis: str,
-        axis_1_coords: np.ndarray,
-        axis_2_coords: np.ndarray,
-        axis_3_coords: List[float],
+        axis_1_coord: float,
+        axis_2_coord: float,
+        profile_axis_coords: np.ndarray,
+        uncertainty: bool = False
     ) -> np.ndarray:
         r"""
         ### Purpose:
@@ -625,33 +628,23 @@ class BrachyDose:
 
         ### Inputs:
         - axis (str): the axis along which to extract the line profile. Must be one of 'x', 'y', or 'z'.
-        - axis_1_coords (np.ndarray): the coordinates of the first axis, as a 1D numpy array.
-        - axis_2_coords (np.ndarray): the coordinates of the second axis, as a 1D numpy array.
+        - axis_1_coords: (float) the profile's first coordinate
+        - axis_2_coords (float): the profile's second coordinate
         - axis_3_coords (List[float]): the coordinates along the axis of extraction, as a list of floats.
+        - uncertainty (bool): a flag indicating whether to extract the uncertainty values instead of the dose values. Default is False.
 
         ### Outputs:
         - profile (np.ndarray): the line profile extracted from the dose grid, as a 1D numpy array.
         """
         if axis not in ["x", "y", "z"]:
             raise ValueError("axis must be one of 'x', 'y', or 'z'")
-
-        if axis == "x":
-            x = np.array(axis_3_coords)
-            y, z = np.meshgrid(axis_2_coords, axis_1_coords, indexing="ij")
+        if axis == "x": 
+            profile = self.extract_dose_values_from_coordinates(profile_axis_coords, axis_1_coord, axis_2_coord, uncertainty=uncertainty).flatten()
         elif axis == "y":
-            y = np.array(axis_3_coords)
-            x, z = np.meshgrid(axis_1_coords, axis_2_coords, indexing="ij")
+            profile = self.extract_dose_values_from_coordinates(axis_1_coord, profile_axis_coords, axis_2_coord, uncertainty=uncertainty).flatten()
         else:
-            z = np.array(axis_3_coords)
-            x, y = np.meshgrid(axis_1_coords, axis_2_coords, indexing="ij")
-
-        dose_grid = self.extract_dose_values_from_coordinates(x, y, z)
-        profile = np.mean(dose_grid, axis=(1, 2))
+            profile = self.extract_dose_values_from_coordinates(axis_1_coord, axis_2_coord, profile_axis_coords, uncertainty=uncertainty).flatten()
         return profile
-
-        # pdd_dict["x_axis"] = z_values
-        # pdd_dict["y_axis"] = np.array(dose_values)
-        # return pdd_dict
 
     def get_average_uncertainty(self, mask: Optional[np.ndarray] = None) -> float:
         r"""
