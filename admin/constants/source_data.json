@@ -92,8 +92,8 @@
   "OncoSeed6711_I125": {
     "isotope": "I-125",
     "core" : "G4_I",
-    "AKSA": null,
-    "AKHS": null
+    "AKSA": 2.306e-8,
+    "AKHS": 0.4043e-11
   },
   "TheraSeed": {
     "isotope": "Pd-103",
