@@ -102,6 +102,7 @@ class BrachySimulation(BaseModel):
             + f"/source/core/Z {self.brachy_source.atomic_number}\n"
             + f"/sim/plan {self.pth_plan}\n"
             + f"/world/phantom {self.pth_phantom}\n"
+            + f"/world/material {self.world_material}\n"
         )
         if self.pth_body_stl is not None:
             outstring = (

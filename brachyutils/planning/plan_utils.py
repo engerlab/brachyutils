@@ -886,7 +886,7 @@ class BrachyPlan:
         total_dwell_time = catheter_table.treatment_time
         num_dwells = catheter_table.num_dwell_positions
 
-        is_ldr = self.catheter_table.treatment_time.lower().contains("ldr")
+        is_ldr = "ldr" in self.catheter_table.treatment_type.lower()
         if not is_ldr:
             combined_plan = "Treatment Plan\n"
             combined_plan += f"{num_dwells} Control Points\n"
@@ -937,6 +937,7 @@ class BrachyPlan:
             combined_plan = "Treatment Plan\n"
             combined_plan += "1 Control Points\n"
             combined_plan += "Control Point\n"
+            combined_plan += "weight = 1.0\n"
             combined_plan += f"{num_dwells} Dwell Positions\n"
             for cat in catheter_table:
                 for dwell in cat.dwells:
@@ -1013,7 +1014,7 @@ class BrachyPlan:
         sim_obj.pth_plan = export_config_plan_and_mac.pth_plan_combined.name
         sim_obj.pth_phantom = export_config_plan_and_mac.pth_phantom
         sim_obj.applicator_list = self.applicator_list
-        if sim_obj.treatment_type == "HDR" and self.catheter_table.treatment_type == "LDR":
+        if sim_obj.brachy_source.treatment_type == "HDR" and self.catheter_table.treatment_type == "LDR":
             sim_obj.treatment_type = "TLDR" #make sure that treatment type is set correctly in the brachysource according to the catheteter table
 
         if export_config_plan_and_mac.auto_mvm:
