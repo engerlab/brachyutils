@@ -80,8 +80,8 @@ def _clean_dvh_names(dvh_name:str) -> str:
     - remove %, (, ) characters from the dvh names and replace them with _.
     so V150%(CTV) -> V150_CTV
     """
-    dvh_name = dvh_name.replace("%", "_")
-    dvh_name = dvh_name.replace("(", "")
+    dvh_name = dvh_name.replace("%", "")
+    dvh_name = dvh_name.replace("(", "_")
     dvh_name = dvh_name.replace(")", "")
     return dvh_name
     
