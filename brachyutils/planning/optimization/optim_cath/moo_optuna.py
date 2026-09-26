@@ -220,10 +220,10 @@ will not be pruned/penalized by the sampler.")
         keep track of which sampler was used for each trial in the `self.trial_data` dataframe.
 
         ### Outputs:
-        objectives: list := A list of lists of objectives for each trial. The order
+        - objectives: list := A list of lists of objectives for each trial. The order
         of the objectives corresponds to the order of the keys in self.dvh_metric_goals.
         """
-        trial_params = pd.DataFrame([trial.params for trial in trials])
+        trial_params = self.get_parameters_from_trials(trials=trials)
         dvh_metrics_data = evaluate_parameters(
             trial_params,
             self.catheter_table_optim,
@@ -243,12 +243,24 @@ will not be pruned/penalized by the sampler.")
         ], axis=0)
         self.trial_data.reset_index(drop=True, inplace=True)
 
-        # # Attach the observed DVH metrics to each trial for the constraints_func to use.
-        for trial, (_, row) in zip(trials, dvh_metrics_data.iterrows()):
-            trial.set_user_attr("dvh_metrics", row.to_dict())
-
         objectives = dvh_metrics_data[list(self.dvh_metric_goals.keys())].values.tolist()
+        # # Attach the observed DVH metrics to each trial for the constraints_func to use.
+        self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
         return objectives
+
+    def get_parameters_from_trials(
+        self,
+        trials: List[optuna.trial.Trial],
+        ) -> pd.DataFrame:
+        return pd.DataFrame([trial.params for trial in trials])
+
+    def attach_objectives_to_trials(
+        self,
+        trials: List[optuna.trial.Trial],
+        observed_objectives: pd.DataFrame,
+        ):
+        for trial, (_, row) in zip(trials, observed_objectives.iterrows()):
+            trial.set_user_attr("dvh_metrics", row.to_dict())
 
     def run_trials(self, n_trials: int, batch_size: int = 1):
         r"""
