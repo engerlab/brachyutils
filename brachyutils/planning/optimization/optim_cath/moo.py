@@ -267,7 +267,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         self.trial_data = pd.concat([
             self.trial_data,
             pd.concat([
-                parameters, dvh_metrics_data,
+                parameters.reset_index(drop=True), dvh_metrics_data,
                 acceptable_trials, hv_trials, sampler_df], axis=1)
         ], axis=0)
         self.trial_data.reset_index(drop=True, inplace=True)
