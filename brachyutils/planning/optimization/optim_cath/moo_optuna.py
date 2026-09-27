@@ -244,8 +244,11 @@ will not be pruned/penalized by the sampler.")
         self.trial_data.reset_index(drop=True, inplace=True)
 
         objectives = dvh_metrics_data[list(self.dvh_metric_goals.keys())].values.tolist()
+        
         # # Attach the observed DVH metrics to each trial for the constraints_func to use.
-        self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
+        self.attach_objectives_to_trials(
+            trials=trials,
+            observed_objectives=dvh_metrics_data[list(self.dvh_metric_goals.keys())])
         return objectives
 
     def get_parameters_from_trials(

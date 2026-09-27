@@ -283,5 +283,5 @@ if __name__ == "__main__":
     # test_run_trials()
     # test_are_acceptable()
     # test_get_hyper_volume()
-    # test_plot_dvh_moo_space()
-    test_init_MOO_Ax()
+    test_plot_dvh_moo_space()
+    # test_init_MOO_Ax()
