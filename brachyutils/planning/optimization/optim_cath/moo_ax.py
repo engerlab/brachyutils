@@ -54,18 +54,26 @@ class MOO_Ax(MOO):
         self.tuner.configure_experiment(parameters = self._ax_parameters)
         # # build the objective string
         ax_objectives = []
+        outcome_constraints = []
         for dvh_name, direction in self.directions.items():
             if direction == "minimize":
                 ax_objectives.append(
                     f"-{_clean_dvh_names(dvh_name)}"
                 )
+                outcome_constraints.append(
+                    f"{_clean_dvh_names(dvh_name)} <= {self.dvh_metric_goals[dvh_name][1]}"
+                )
             else:
                 ax_objectives.append(
                     f"{_clean_dvh_names(dvh_name)}"
                 )
+                outcome_constraints.append(
+                    f"{_clean_dvh_names(dvh_name)} >= {self.dvh_metric_goals[dvh_name][1]}"
+                )
         ax_objectives = ", ".join(ax_objectives)
         self.tuner.configure_optimization(
-            objective=ax_objectives
+            objective=ax_objectives,
+            outcome_constraints=outcome_constraints
         )
 
     def objectives(self, parameters, sampler_name_id):
