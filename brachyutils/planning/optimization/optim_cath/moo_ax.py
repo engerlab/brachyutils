@@ -4,8 +4,8 @@ import pandas as pd
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
     CatheterTableOptim_Gurobi,
 )
-from brachyutils.planning.optimization.optim_cath.moo import (
-    MOO, evaluate_parameters, are_acceptable, get_hyper_volume)
+from brachyutils.planning.optimization.optim_cath.moo import MOO
+from torch import cuda
 
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
@@ -89,7 +89,8 @@ class MOO_Ax(MOO):
     def run_trials(self, n_trials: int, batch_size: int = 1):
         self.tuner.configure_generation_strategy(
             method=self.sampler_name_id,
-            simplify_parameter_changes=True)
+            # simplify_parameter_changes=True,
+            torch_device="cuda" if cuda.is_available() else "cpu")
 
         for _ in range(n_trials):
             trials = self.tuner.get_next_trials(max_trials=batch_size)
