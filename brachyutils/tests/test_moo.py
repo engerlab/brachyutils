@@ -277,6 +277,19 @@ def test_run_warmps_Ax():
     Moo_obj = test_init_MOO_Ax(return_obj=True)
     Moo_obj.run_warmups(n_warmups=10)
 
+def test_run_trials_Ax():
+    dir_out = Path("data_test/test_export_plan/prostate")
+    Moo_obj = test_init_MOO_Ax(return_obj=True)
+    Moo_obj.run_warmups(n_warmups=10)
+    Moo_obj.run_trials(n_trials=5, batch_size=10)
+    plot_dvh_moo_space(
+        trial_df=Moo_obj.trial_data,
+        dvh_metric_goals=Moo_obj.dvh_metric_goals,
+        path_out_svg=dir_out/"test_ax.svg",
+        sampler_col="sampler_name_id",
+        title="test trial"
+    )
+
 if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()
     # test_get_optimization_result_stats()
@@ -288,4 +301,5 @@ if __name__ == "__main__":
     # test_get_hyper_volume()
     # test_plot_dvh_moo_space()
     # test_init_MOO_Ax()
-    test_run_warmps_Ax()
+    # test_run_warmps_Ax()
+    test_run_trials_Ax()

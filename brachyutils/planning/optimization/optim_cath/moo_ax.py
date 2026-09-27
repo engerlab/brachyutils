@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Literal
 import pandas as pd
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
     CatheterTableOptim_Gurobi,
@@ -17,6 +17,7 @@ class MOO_Ax(MOO):
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
         normalize = False,
+        sampler_name_id:Literal["fast", "quality"]="quality",
         ):
         self.tuner: Client
         super().__init__(
@@ -25,6 +26,7 @@ class MOO_Ax(MOO):
             max_workers= max_workers,
             normalize= normalize
             )
+        self.sampler_name_id = sampler_name_id
         self._ax_parameters = None
 
         # fill out the ax-specific attributes
@@ -66,6 +68,15 @@ class MOO_Ax(MOO):
             objective=ax_objectives
         )
 
+    def objectives(self, parameters, sampler_name_id):
+        observed_objects = super().objectives(parameters, sampler_name_id)
+        old_columns = observed_objects.columns
+        new_columns = []
+        for col in old_columns:
+            new_columns.append(_clean_dvh_names(col))
+        observed_objects.columns = new_columns
+        return observed_objects
+
     def run_warmups(self, n_warmups):
         self.tuner.configure_generation_strategy(
             method="random_search",
@@ -75,8 +86,16 @@ class MOO_Ax(MOO):
         objectives = self.objectives(parameters=param_trials, sampler_name_id="random_search")
         self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
 
-    def run_trials(self, n_trials):
-        pass ### TODO
+    def run_trials(self, n_trials: int, batch_size: int = 1):
+        self.tuner.configure_generation_strategy(
+            method=self.sampler_name_id,
+            simplify_parameter_changes=True)
+
+        for _ in range(n_trials):
+            trials = self.tuner.get_next_trials(max_trials=batch_size)
+            param_trials = self.get_parameters_from_trials(trials=trials)
+            objectives = self.objectives(parameters=param_trials, sampler_name_id=self.sampler_name_id)
+            self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
 
     def get_parameters_from_trials(self, trials: List[Any]) -> pd.DataFrame:
         """
