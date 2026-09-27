@@ -263,7 +263,7 @@ def test_init_MOO_Ax(return_obj=False):
             # parameter_space[f"penalty_weight_variance_time({name})"] = [0, 1000]
             parameter_space[f"penalty_weight_linear({name})"] = [500, 1000]
         else:
-            parameter_space[f"penalty_weight_linear({name})"] = [0, 1000]
+            parameter_space[f"penalty_weight_linear({name})"] = [0, 500]
             # parameter_space[f"penalty_weight_quadratic({name})"] = [0, 1000]
 
     Moo_obj = MOO_Ax(
