@@ -189,9 +189,14 @@ will not be pruned/penalized by the sampler.")
         trials = [
             self.tuner.ask(self._parameter_distributions)
             for _ in range(batch_size)]
+        trial_params = self.get_parameters_from_trials(trials=trials)
+        observed_objectives = self.objectives(trial_params, "RandomSampler")
 
-        objectives = self.objectives(trials, "RandomSampler")
-        for trial, objective in zip(trials, objectives):
+        self.attach_objectives_to_trials(
+            trials=trials,
+            observed_objectives=observed_objectives)
+
+        for trial, objective in zip(trials, observed_objectives.values.tolist()):
             self.tuner.tell(trial.number, objective)
 
         # restore the original sampler
@@ -199,57 +204,51 @@ will not be pruned/penalized by the sampler.")
 
     def objectives(
         self,
-        trials: List[optuna.trial.Trial],
-        sampler_name_id: str) -> list:
+        parameters:pd.DataFrame,
+        sampler_name_id: str) -> pd.DataFrame:
         r"""
         ### Purpose:
-        - To evaluate the objectives for each trial. The objectives are the DVH metrics
-        corresponding to the parameters in the trial. The order of the objectives
-        corresponds to the order of the keys in self.dvh_metric_goals.
-        - All trials passed in are evaluated together in a single, batched call to
+        - To evaluate the objectives for the parameters generated in each trial.
+        The objectives are the DVH metrics in the order set by the keys in self.dvh_metric_goals.
+        - All parameters passed here are evaluated together in a single, batched call to
         `evaluate_parameters()`, which parallelizes the underlying Gurobi solves across
-        `self.max_workers` threads. This is what powers batch mode: `run_trials` decides
-        how many trials to ask for at once, and this method evaluates them all together.
-        - As a side effect, this also stores the observed DVH metrics on each trial via
-        `trial.set_user_attr("dvh_metrics", ...)`, so that `self.constraints_func` (built
-        once in `__init__`) can read them back after `tell()` without re-evaluating anything.
+        `self.max_workers` threads.
+        - Also calculates the hyper-volume and whetheter each parameter lead to acceptable
+        dvh metrics or not.
+        - Lastly, `self.trial_data` is updated with all the information:
+            - parameter values
+            - dvh metrics observed
+            - hyper volume
+            - acceptability
 
         ### Inputs:
-        - trials: List[optuna.trial.Trial] := A list of trials to be evaluated.
+        - parameters := A dataframe of parameters to be evaluated. The columns are the names
+        of the parameters while the rows are parameter values for each trial.
         - sampler_name_id: str := The name of the sampler being used. This is used to
         keep track of which sampler was used for each trial in the `self.trial_data` dataframe.
 
         ### Outputs:
-        - objectives: list := A list of lists of objectives for each trial. The order
-        of the objectives corresponds to the order of the keys in self.dvh_metric_goals.
+        - A dataframe with the dvh metrics specified by the keys in self.dvh_metric_goals.
         """
-        trial_params = self.get_parameters_from_trials(trials=trials)
         dvh_metrics_data = evaluate_parameters(
-            trial_params,
+            parameters,
             self.catheter_table_optim,
             max_workers=self.max_workers,
         )
-
         acceptable_trials = are_acceptable(dvh_metrics_data, self.dvh_metric_goals)
         hv_trials = get_hyper_volume(dvh_metrics_data, self.dvh_metric_goals)
         sampler_df = pd.Series(
-            [sampler_name_id for _ in range(len(trial_params))],
+            [sampler_name_id for _ in range(len(parameters))],
             name="sampler_name_id").to_frame()
         self.trial_data = pd.concat([
             self.trial_data,
             pd.concat([
-                trial_params, dvh_metrics_data,
+                parameters, dvh_metrics_data,
                 acceptable_trials, hv_trials, sampler_df], axis=1)
         ], axis=0)
         self.trial_data.reset_index(drop=True, inplace=True)
 
-        objectives = dvh_metrics_data[list(self.dvh_metric_goals.keys())].values.tolist()
-        
-        # # Attach the observed DVH metrics to each trial for the constraints_func to use.
-        self.attach_objectives_to_trials(
-            trials=trials,
-            observed_objectives=dvh_metrics_data[list(self.dvh_metric_goals.keys())])
-        return objectives
+        return dvh_metrics_data[list(self.dvh_metric_goals.keys())]
 
     def get_parameters_from_trials(
         self,
@@ -262,6 +261,12 @@ will not be pruned/penalized by the sampler.")
         trials: List[optuna.trial.Trial],
         observed_objectives: pd.DataFrame,
         ):
+        r"""
+        ### Purpose:
+        - To store the observed DVH metrics on each trial via
+        `trial.set_user_attr("dvh_metrics", ...)`, so that `self.constraints_func` (built
+        once in `__init__`) can read them back after `tell()` without re-evaluating anything.
+        """
         for trial, (_, row) in zip(trials, observed_objectives.iterrows()):
             trial.set_user_attr("dvh_metrics", row.to_dict())
 
@@ -296,6 +301,11 @@ will not be pruned/penalized by the sampler.")
             trials = [
                 self.tuner.ask(self._parameter_distributions)
                 for _ in range(batch_size)]
-            objectives = self.objectives(trials, self.sampler_name_id)
-            for trial, objective in zip(trials, objectives):
+            trial_params = self.get_parameters_from_trials(trials=trials)
+            observed_objectives = self.objectives(trial_params, self.sampler_name_id)
+            self.attach_objectives_to_trials(
+                trials=trials,
+                observed_objectives=observed_objectives)
+
+            for trial, objective in zip(trials, observed_objectives.values.tolist()):
                 self.tuner.tell(trial.number, objective)
