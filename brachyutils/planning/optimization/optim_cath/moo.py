@@ -226,30 +226,53 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
                 + list(self.dvh_metric_goals.keys())
                 + ["sampler_name_id", "acceptable", "hypervolume"]))
 
-    @abstractmethod
     def objectives(
         self,
-        trials: List[Any],
-        sampler_name_id:str) -> pd.DataFrame:
+        parameters:pd.DataFrame,
+        sampler_name_id: str) -> pd.DataFrame:
         r"""
         ### Purpose:
-        - To evaluate the objectives for each trial from the tuner. The objectives are the DVH metrics
-        corresponding to the parameters in the trial of the underlying tuner object (optuna or ax).
-        
-        - The order of the objectives corresponds to the order of the keys in self.dvh_metric_goals.
-        - All trials passed in are evaluated together in a single, batched call to
+        - To evaluate the objectives for the parameters generated in each trial.
+        The objectives are the DVH metrics in the order set by the keys in self.dvh_metric_goals.
+        - All parameters passed here are evaluated together in a single, batched call to
         `evaluate_parameters()`, which parallelizes the underlying Gurobi solves across
-        `self.max_workers` threads. This is what powers batch mode: `run_trials` decides
-        how many trials to ask for at once, and this method evaluates them all together.
+        `self.max_workers` threads.
+        - Also calculates the hyper-volume and whetheter each parameter lead to acceptable
+        dvh metrics or not.
+        - Lastly, `self.trial_data` is updated with all the information:
+            - parameter values
+            - dvh metrics observed
+            - hyper volume
+            - acceptability
 
         ### Inputs:
-        - trials: List[Any] := A list of trial objects from the tuner to be evaluated.
+        - parameters := A dataframe of parameters to be evaluated. The columns are the names
+        of the parameters while the rows are parameter values for each trial.
+        - sampler_name_id: str := The name of the sampler being used. This is used to
+        keep track of which sampler was used for each trial in the `self.trial_data` dataframe.
 
         ### Outputs:
-        objectives: list := A list of lists of objectives for each trial. The order
-        of the objectives corresponds to the order of the keys in self.dvh_metric_goals.
+        - A dataframe with the dvh metrics specified by the keys in self.dvh_metric_goals.
         """
-        pass
+        dvh_metrics_data = evaluate_parameters(
+            parameters,
+            self.catheter_table_optim,
+            max_workers=self.max_workers,
+        )
+        acceptable_trials = are_acceptable(dvh_metrics_data, self.dvh_metric_goals)
+        hv_trials = get_hyper_volume(dvh_metrics_data, self.dvh_metric_goals)
+        sampler_df = pd.Series(
+            [sampler_name_id for _ in range(len(parameters))],
+            name="sampler_name_id").to_frame()
+        self.trial_data = pd.concat([
+            self.trial_data,
+            pd.concat([
+                parameters, dvh_metrics_data,
+                acceptable_trials, hv_trials, sampler_df], axis=1)
+        ], axis=0)
+        self.trial_data.reset_index(drop=True, inplace=True)
+
+        return dvh_metrics_data[list(self.dvh_metric_goals.keys())]
 
     @abstractmethod
     def set_tuner(self):
