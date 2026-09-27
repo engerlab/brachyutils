@@ -273,6 +273,9 @@ def test_init_MOO_Ax(return_obj=False):
     if return_obj:
         return Moo_obj
 
+def test_run_warmps_Ax():
+    Moo_obj = test_init_MOO_Ax(return_obj=True)
+    Moo_obj.run_warmups(n_warmups=10)
 
 if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()
@@ -283,5 +286,6 @@ if __name__ == "__main__":
     # test_run_trials()
     # test_are_acceptable()
     # test_get_hyper_volume()
-    test_plot_dvh_moo_space()
+    # test_plot_dvh_moo_space()
     # test_init_MOO_Ax()
+    test_run_warmps_Ax()

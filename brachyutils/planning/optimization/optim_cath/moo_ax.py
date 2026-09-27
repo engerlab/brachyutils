@@ -31,38 +31,6 @@ class MOO_Ax(MOO):
         self._parameter_space_to_ax()
         self.set_tuner()
 
-    def objectives(
-        self,
-        trials: List[Any],
-        sampler_name_id:str):
-        trial_params = self.get_params_from_ax_trials(trials)
-        dvh_metrics_data = evaluate_parameters(
-            trial_params,
-            self.catheter_table_optim,
-            max_workers=self.max_workers,
-        )
-
-        acceptable_trials = are_acceptable(dvh_metrics_data, self.dvh_metric_goals)
-        hv_trials = get_hyper_volume(dvh_metrics_data, self.dvh_metric_goals)
-        sampler_df = pd.Series(
-            [sampler_name_id for _ in range(len(trial_params))],
-            name="sampler_name_id").to_frame()
-        self.trial_data = pd.concat([
-            self.trial_data,
-            pd.concat([
-                trial_params, dvh_metrics_data,
-                acceptable_trials, hv_trials, sampler_df], axis=1)
-        ], axis=0)
-        self.trial_data.reset_index(drop=True, inplace=True)
-
-        # # Attach the observed DVH metrics to each trial for the constraints_func to use.
-        # # XXX do this for AX!
-        for trial, (_, row) in zip(trials, dvh_metrics_data.iterrows()):
-            trial.set_user_attr("dvh_metrics", row.to_dict())
-
-        objectives = dvh_metrics_data[list(self.dvh_metric_goals.keys())].values.tolist()
-        return objectives
-
     def _parameter_space_to_ax(self):
         r"""
         ### Purpose:
@@ -103,12 +71,13 @@ class MOO_Ax(MOO):
             method="random_search",
             initialization_budget=n_warmups,)
         trials = self.tuner.get_next_trials(max_trials=n_warmups)
-        objectives = self.objectives(trials=trials, sampler_name_id="random_search")
+        param_trials = self.get_parameters_from_trials(trials=trials)
+        objectives = self.objectives(parameters=param_trials, sampler_name_id="random_search")
 
     def run_trials(self, n_trials):
         pass ### TODO
 
-    def get_params_from_ax_trials(trials: List[Any]) -> pd.DataFrame:
+    def get_parameters_from_trials(self, trials: List[Any]) -> pd.DataFrame:
         """
         ### Purpose:
         - To extract the plan optimization parameters (penalty weights) from Ax trial
@@ -121,7 +90,7 @@ class MOO_Ax(MOO):
         - parameters_df := a dataframe with the name of the parameters as columns and
         their values in the rows.
         """
-        pass
+        return pd.DataFrame(trials).T
 
     def attach_objectives_to_trials(self, trials, observed_objectives):
         pass ### TODO
