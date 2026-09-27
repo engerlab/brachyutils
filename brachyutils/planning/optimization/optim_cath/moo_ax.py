@@ -73,6 +73,7 @@ class MOO_Ax(MOO):
         trials = self.tuner.get_next_trials(max_trials=n_warmups)
         param_trials = self.get_parameters_from_trials(trials=trials)
         objectives = self.objectives(parameters=param_trials, sampler_name_id="random_search")
+        self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
 
     def run_trials(self, n_trials):
         pass ### TODO
@@ -93,7 +94,8 @@ class MOO_Ax(MOO):
         return pd.DataFrame(trials).T
 
     def attach_objectives_to_trials(self, trials, observed_objectives):
-        pass ### TODO
+        for trial, (_, row) in zip(trials.items(), observed_objectives.iterrows()):
+            self.tuner.complete_trial(trial_index=trial[0], raw_data=row)
 
 def _clean_dvh_names(dvh_name:str) -> str:
     r"""
