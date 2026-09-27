@@ -310,21 +310,22 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         pass
 
     @abstractmethod
-    def run_trials(
-        self,
-        n_trials: int,
-        max_workers: int = 16,
-    ):
+    def run_trials(self, n_trials: int, batch_size: int = 1):
         r"""
         ### Purpose:
-        - To run the multi-objective optimization for `n_trials` number of trials.
-        The tuner will recommend the next batch of parameters to be evaluated.
-        The evaluation will be done by the `evaluate()` method. The results will be
-        stored in `self.trial_data`.
+        - To run the multi-objective optimization for `n_trials` outer iterations.
+        On each iteration, `batch_size` trials are asked for at once and evaluated
+        together in a single batched call to `objectives()` (which itself parallelizes
+        the Gurobi solves via `self.max_workers`), then each trial is told back to the
+        study individually. The total number of trials evaluated across the whole run
+        is `n_trials * batch_size`.
+        - When `batch_size == 1` this reduces to the original sequential ask/evaluate/tell
+        loop.
+
         ### Inputs:
-        - n_trials: int := The number of trials to run.
-        - max_workers: int := The number of threads to be used for parallelized
-        evaluation of the penalty weights.
+        - n_trials: int := The number of outer iterations (batches) to run.
+        - batch_size: int := The number of trials to ask for and evaluate together on
+        each iteration. Total trials evaluated = n_trials * batch_size.
 
         ### Outputs:
         None := Fills out the following attributes:
