@@ -50,7 +50,7 @@ def evaluate_parameters(
     If max_workers is 1, the evaluation will be done sequentially.
     - `normalize`: If True, the dvh metric values are devided by 100.
     - `anchor_dvh_metric` := The dwell times are scaled to match the desired value for 
-    the dvh metric provided. Only one anchor can be provided. 
+    the dvh metric provided. Only one anchor can be provided in the format of {dvh_metric_name: value}
     ### Outputs:
     - `dvh_metrics_data`: pd.DataFrame := A dataframe with the observed dvh metrics
     corresponding to the evaluated parameters. The columns are the dvh metric names and
@@ -143,7 +143,9 @@ class MOO(ABC):
             penalty_weight_linear(CTV) : [1, 500]
         - `normalize` := If true dvh_metric_goals would be normalized from 100% to 1.
         Be sure that the DVH metrics are in percentage form (defualt is percentage).
-
+        - `scale_dwelltimes_by_metric`:str := Provide a DVH metric name to be used for
+        anchoring the plan, i.e. the dwell times will be scaled so that this DVH metric
+        goals is met.
         """
         self.catheter_table_optim = catheter_table_optim
         self.parameter_space = parameter_space
