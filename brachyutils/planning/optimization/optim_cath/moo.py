@@ -35,6 +35,7 @@ def evaluate_parameters(
     optim_obj: CatheterTableOptim_Gurobi,
     max_workers: int = 16,
     normalize: bool = False,
+    anchor_dvh_metric: Dict[str, float] = None
 ) -> pd.DataFrame:
     r"""
     ### Purpose:
@@ -48,7 +49,8 @@ def evaluate_parameters(
     - `max_workers`: int := The maximum number of workers to use for parallel evaluation.
     If max_workers is 1, the evaluation will be done sequentially.
     - `normalize`: If True, the dvh metric values are devided by 100.
-
+    - `anchor_dvh_metric` := The dwell times are scaled to match the desired value for 
+    the dvh metric provided. Only one anchor can be provided. 
     ### Outputs:
     - `dvh_metrics_data`: pd.DataFrame := A dataframe with the observed dvh metrics
     corresponding to the evaluated parameters. The columns are the dvh metric names and
@@ -77,6 +79,11 @@ def evaluate_parameters(
                 optim_obj.plan.catheter_table.set_dwelltimes_by_names(
                     dwell_time_dict)
                 dvh_metrics = optim_obj.plan.get_dvh_metrics()
+                if anchor_dvh_metric is not None:
+                    dvh_metrics = _anchor_plan_to_dvh_metric(
+                        plan=optim_obj.plan,
+                        anchor_dvh_metric=anchor_dvh_metric,
+                        observed_dvh_metrics=dvh_metrics,)
                 if normalize:
                     for key in dvh_metrics:
                         dvh_metrics[key] = dvh_metrics[key]/100
@@ -88,11 +95,15 @@ def evaluate_parameters(
             optim_obj.plan.catheter_table.set_dwelltimes_by_names(
                 dwell_time_dict)
             dvh_metrics = optim_obj.plan.get_dvh_metrics()
+            if anchor_dvh_metric is not None:
+                dvh_metrics = _anchor_plan_to_dvh_metric(
+                    plan=optim_obj.plan,
+                    anchor_dvh_metric=anchor_dvh_metric,
+                    observed_dvh_metrics=dvh_metrics,)
             if normalize:
                 for key in dvh_metrics:
                     dvh_metrics[key] = dvh_metrics[key]/100
-            dvh_metrics_list.append(dvh_metrics)
-
+            dvh_metrics_list.append(dvh_metrics)        
     return pd.DataFrame(dvh_metrics_list)
 
 class MOO(ABC):
@@ -113,6 +124,7 @@ class MOO(ABC):
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
         normalize: bool = False,
+        scale_dwelltimes_by_metric: str = None
     ):
         r"""
         ### Purpose:
@@ -137,6 +149,7 @@ class MOO(ABC):
         self.parameter_space = parameter_space
         self.max_workers = max_workers
         self.normalize = normalize
+        self.scale_dwelltimes_by_metric = scale_dwelltimes_by_metric
         # # Attributes to be filled out
         self.dvh_metric_goals: Dict[str, List] = None
         self.tuner: Any = None
@@ -254,10 +267,18 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         ### Outputs:
         - A dataframe with the dvh metrics specified by the keys in self.dvh_metric_goals.
         """
+        if self.scale_dwelltimes_by_metric is not None:
+            anchor_dvh_metric = {
+                self.scale_dwelltimes_by_metric: self.dvh_metric_goals[
+                    self.scale_dwelltimes_by_metric][1]
+            }
+        else:
+            anchor_dvh_metric=None
         dvh_metrics_data = evaluate_parameters(
             parameters,
             self.catheter_table_optim,
             max_workers=self.max_workers,
+            anchor_dvh_metric=anchor_dvh_metric,
         )
         acceptable_trials = are_acceptable(dvh_metrics_data, self.dvh_metric_goals)
         hv_trials = get_hyper_volume(dvh_metrics_data, self.dvh_metric_goals)
@@ -507,3 +528,30 @@ def get_hyper_volume(
         return float(hv_calculator.compute(Y[all_valid_idx]))
     else:
         return float(max(scores))
+
+def _anchor_plan_to_dvh_metric(
+    plan,
+    anchor_dvh_metric: dict,
+    observed_dvh_metrics: dict,
+    ):
+    r"""
+    ### Purpose:
+    - plan:BrachyPlan := the whose dwell times are to be scaled to match the anchor DVH metric.
+    
+    ### Inputs:
+    - `anchor_dvh_metric`: dict := a dictionary containing the name of the DVH metric to be used
+    for anchoring as well its desired value.
+    - `observed_dvh_metrics`: dict := The dictinoray of the observed dvh metrics from the plan.
+    
+    ### Outputs:
+    - scaled_dvh_metrics: dict := The dictionary of the dvh metrics from the scaled dvh dwell times.
+    """
+    if len(anchor_dvh_metric) != 1:
+        raise ValueError("Only one dvh metric can be used for anchoring")
+
+    dvh_name, dvh_value = list(anchor_dvh_metric.items())[0]
+    observed_dvh_value = observed_dvh_metrics[dvh_name]
+    scaling_factor = dvh_value / observed_dvh_value
+
+    plan.catheter_table.scale_dwelltimes_by(scaling_factor)
+    return plan.get_dvh_metrics()

@@ -269,6 +269,7 @@ def test_init_MOO_Ax(return_obj=False):
     Moo_obj = MOO_Ax(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
+        scale_dwelltimes_by_metric="V100%(CTV)"
     )
     print("break point here: Check that the MOO object is initialized correctly")
     if return_obj:

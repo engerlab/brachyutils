@@ -17,6 +17,7 @@ class MOO_Ax(MOO):
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
         normalize = False,
+        scale_dwelltimes_by_metric: str = None,
         sampler_name_id:Literal["fast", "quality"]="quality",
         ):
         self.tuner: Client
@@ -24,7 +25,8 @@ class MOO_Ax(MOO):
             catheter_table_optim= catheter_table_optim,
             parameter_space= parameter_space,
             max_workers= max_workers,
-            normalize= normalize
+            normalize= normalize,
+            scale_dwelltimes_by_metric=scale_dwelltimes_by_metric,
             )
         self.sampler_name_id = sampler_name_id
         self._ax_parameters = None
