@@ -1056,6 +1056,20 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         }
         return dwell_time_data
 
+    def scale_dwelltimes_by(self, scaling_factor:float):
+        r"""
+        ### Purpose:
+        - To scale all the dwell times by a certain scaling factor.
+        new dwell time = old dwell time x scaling factor
+
+        ### Inputs:
+        - scaling_factor: flaot := All the dwell times are multiplied by this scaling factor.
+
+        ### Outputs:
+        - None := Changes the dwell times in place.
+        """
+        for dwell in self.all_dwells:
+            dwell.time *= scaling_factor
 
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""
