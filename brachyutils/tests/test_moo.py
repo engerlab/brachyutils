@@ -257,7 +257,7 @@ def test_init_MOO_Ax(return_obj=False):
                 optim_obj.plan.prescription_dose,
                 optim_obj.plan.prescription_dose*1.15 
             ]
-            # parameter_space[f"penalty_weight_hotspot({name})"] = [0, 1000]
+            parameter_space[f"penalty_weight_hotspot({name})"] = [0, 500]
             # parameter_space[f"hotspot_threshold({name})"] = [1.5, 2]
             # parameter_space[f"penalty_weight_uniformity({name})"] = [0, 1000]
             # parameter_space[f"penalty_weight_variance_time({name})"] = [0, 1000]
@@ -269,7 +269,7 @@ def test_init_MOO_Ax(return_obj=False):
     Moo_obj = MOO_Ax(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
-        scale_dwelltimes_by_metric="V100%(CTV)"
+        scale_dwelltimes_by_metric="D95%(CTV)"
     )
     print("break point here: Check that the MOO object is initialized correctly")
     if return_obj:
