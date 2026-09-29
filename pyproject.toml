@@ -61,7 +61,10 @@ core = []
 reg = ["monai"]
 plan = ["gurobipy", "amplpy", "ortools"]
 full = ["monai", "gurobipy", "amplpy", "ortools"]
-moo = ["gurobipy", "ax-platform", "optuna", "optunahub", "cmaes", "torch", "botorch[fully_bayesian]"]
+moo = [
+    "gurobipy", "ax-platform", "optuna", 
+    "optunahub", "cmaes", "torch",
+    "botorch[fully_bayesian]", "jax[cuda13]"]
 
 [tool.setuptools.packages.find]
 include = ["brachyutils.*", "brachyutils", "admin", "admin.*"]

@@ -19,7 +19,13 @@ class MOO_Ax(MOO):
         normalize = False,
         scale_dwelltimes_by_metric: str = None,
         sampler_name_id:Literal["fast", "quality"]="quality",
+        slack_factor: float = 0,
+        device: Literal["cpu", "cuda"] = "cpu",
         ):
+        r"""
+        - slack_factor
+        """
+        
         self.tuner: Client
         super().__init__(
             catheter_table_optim= catheter_table_optim,
@@ -29,8 +35,15 @@ class MOO_Ax(MOO):
             scale_dwelltimes_by_metric=scale_dwelltimes_by_metric,
             )
         self.sampler_name_id = sampler_name_id
+        self.slack_factor = slack_factor
+        self.device = device
         self._ax_parameters = None
-
+        if (self.slack_factor < -1
+            or self.slack_factor > 1):
+            raise ValueError("slack factor should be between -1 and 1")
+        if self.device == "cuda":
+            if not cuda.is_available:
+                self.device = "cpu"
         # fill out the ax-specific attributes
         self._parameter_space_to_ax()
         self.set_tuner()
@@ -63,14 +76,16 @@ class MOO_Ax(MOO):
                     f"-{_clean_dvh_names(dvh_name)}"
                 )
                 outcome_constraints.append(
-                    f"{_clean_dvh_names(dvh_name)} <= {self.dvh_metric_goals[dvh_name][1]}"
+                    f"{_clean_dvh_names(dvh_name)} <= {
+                        self.dvh_metric_goals[dvh_name][1]*(1+self.slack_factor)}"
                 )
             else:
                 ax_objectives.append(
                     f"{_clean_dvh_names(dvh_name)}"
                 )
                 outcome_constraints.append(
-                    f"{_clean_dvh_names(dvh_name)} >= {self.dvh_metric_goals[dvh_name][1]}"
+                    f"{_clean_dvh_names(dvh_name)} >= {
+                        self.dvh_metric_goals[dvh_name][1]*(1-self.slack_factor)}"
                 )
         ax_objectives = ", ".join(ax_objectives)
         self.tuner.configure_optimization(
@@ -99,8 +114,11 @@ class MOO_Ax(MOO):
     def run_trials(self, n_trials: int, batch_size: int = 1):
         self.tuner.configure_generation_strategy(
             method=self.sampler_name_id,
+            initialization_budget=0,
+            allow_exceeding_initialization_budget=False,
+            use_existing_trials_for_initialization=True,
             # simplify_parameter_changes=True,
-            torch_device="cuda" if cuda.is_available() else "cpu")
+            torch_device=self.device)
 
         for _ in range(n_trials):
             trials = self.tuner.get_next_trials(max_trials=batch_size)
