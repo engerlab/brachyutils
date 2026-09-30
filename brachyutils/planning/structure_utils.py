@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Literal, Dict, List
 from opentps.core.data.images import ROIMask
 from opentps.core.data import DVH, ROIContour
 import numpy as np
@@ -113,16 +113,25 @@ class BrachyStructure:
         #     "name should be in dvh metric name enclosed by paranthesis"
         self.dvh_metric_names = dvh_metric_names
 
-    def set_dvh_metric_goals(self, dvh_metric_goals: Dict[str, float]):
+    def set_dvh_metric_goals(
+        self,
+        dvh_metric_goals: Dict[str, float] | Dict[str, List]):
         r"""
         ### Purpose:
         - To set the DVH metrics or their goals for this structure.
         The keys should ideally match the self.dvh_metric_names.
         if self.dvh_metric_names is None, this function sets the names based on the keys.
         ### Inputs:
-        - dvh_metric_goals: Dict[str, float] := The dictionary mapping the DVH metric
-        names to their corresponding goal value. see self.set_dvh_metric_names() for 
-        the naming convention of the keys. 
+        - dvh_metric_goals: Dict[str, float] | Dict[str, List[str, float]] := The dictionary mapping the
+        DVH metric names to their corresponding goal value. see self.set_dvh_metric_names() for 
+        the naming convention of the keys.
+        If the value is a list, the first element is the operation for that metric. The operations 
+        could are "<=", ">=", and "==". The second element is the goal value. For example:
+            {
+                "D95%(CTV)": [">=", 95],
+                "V100%(CTV)": [">=", 90],
+                "D2cc(Bladder)": ["<=", 75],
+            }
         """
         if self.dvh_metric_names is None:
             self.set_dvh_metric_names(list(dvh_metric_goals.keys()))
@@ -203,9 +212,13 @@ class BrachyStructure:
                         "invalid name for DVH metric name. \
                         The metrics starting with 'V' should have percent sign (%) or Gy.\
                         for example 'V95%(organ name)' or 'V2Gy(organ name)'"
-                    ) 
+                    )
             elif metric_string.startswith("HI"):
-                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.homogeneityIndex()
+                if return_percentage:
+                    hi = self.dvh_obj.homogeneityIndex()*100
+                else:
+                    hi = self.dvh_obj.homogeneityIndex()                    
+                self.dvh_metrics_observed[dvh_metric_name] = hi
             elif metric_string.startswith("CI"):
                 if body_contour is None:
                     raise ValueError("body_contour should be defined to compute the conformity index")
@@ -215,7 +228,11 @@ class BrachyStructure:
                 else:
                     # body contour is ROIContour, it's good to go
                     pass
-                self.dvh_metrics_observed[dvh_metric_name] = self.dvh_obj.conformityIndex(body_contour)
+                if return_percentage:
+                    ci = self.dvh_obj.conformityIndex(body_contour)*100
+                else:
+                    ci = self.dvh_obj.conformityIndex(body_contour)
+                self.dvh_metrics_observed[dvh_metric_name] = ci
             else:
                 raise ValueError(
                     "invalid name for DVH metric name. \

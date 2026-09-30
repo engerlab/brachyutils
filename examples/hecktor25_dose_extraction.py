@@ -52,7 +52,7 @@ if __name__ == "__main__":
     # phantom_registered, _ = reg_obj.register()
     # # # for debugging {
     # phantom_registered.export_to(dir_nrrd_out=dir_test_export/"phantom_registered")
-    # print("debug here")
+    # print("break point here")
     # # }
 
     # # load the dose file

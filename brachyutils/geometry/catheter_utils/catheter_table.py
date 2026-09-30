@@ -84,6 +84,7 @@ class CatheterTable(BaseModel):
     - export_dose()
     - merge()
     - reset_dwelltimes_to()
+    - set_dwelltimes_by_names()
 
     """
     ## To enable using CatheterSetUp and CreatedSetUp as a data types, default is False.
@@ -98,7 +99,6 @@ class CatheterTable(BaseModel):
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
     _cached_combined_dose: BrachyDose = None
-    # _time_diffs:Dict[str, float] = None
 
     @computed_field
     def all_dwells(self) -> List[DwellPosition]:
@@ -107,6 +107,13 @@ class CatheterTable(BaseModel):
         - returns a list of all the dwell positions in this catheter table.
         """
         return list(chain.from_iterable(self))
+
+    @computed_field
+    def all_dwells_dict(self) -> Dict[str, DwellPosition]:
+        return {
+            dwell.name_id: dwell
+            for dwell in self.all_dwells
+        }
 
     @computed_field
     def catheters_list(self) -> List[Catheter]:
@@ -611,15 +618,26 @@ match its index ({new_catheter.name_id}), be sure that the name_id == new_cathet
                     out_dwells.append(dwell)
         return out_dwells
 
-    def set_dwells_by_name_id(self, new_dwell: DwellPosition):
+    def set_dwelltimes_by_names(
+        self, dwell_time_dict: Dict[str, float]):
         r"""
         ### Purpose:
-        - To set the dwell on the right catheter by their name id.
-        If the dwell already exists, its fields should be updated accordingly.
-        If the change is only in dwell time and nothing else, the change in dwell time is recorded in
-        self._time_diff
+        - To set the dwell on the right dwell position by their name id.
+        If the dwell position does not exist, raise an error!
+        
+        ### Inputs:
+        dwell_time_dict := A dictionary mapping dwell name id to the 
+        new dwell time.
+        
+        ### Outputs:
+        - None := It will update the dwell times of the catheter table
+        in place.
         """
-        pass
+        for dwell_id, dwell_time in dwell_time_dict.items():
+            dwell = self.all_dwells_dict.get(dwell_id, None)
+            if dwell is None:
+                raise ValueError(f"Dwell {dwell_id} was not found in catheter table.")
+            dwell.time = dwell_time
 
     def get_catheters_by_ids(self, name_ids: List[str]) -> List[Catheter]:
         r"""
@@ -1011,6 +1029,47 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
         for dwell in self.all_dwells:
             dwell.time = reset_value
             dwell.gen_dose_rate = True
+
+    def get_stats(self) -> Dict[str, int | float]:
+        r"""
+        ### Purpose:
+        - To get the following stats in a dictionary format:
+            - `median_dwell_times`
+            - `iqr_dwell_times`
+            - `mean_dwell_times`
+            - `std_dwell_times`
+            - `num_dwells`
+            - `num_catheters`
+            - `frac_used_catheters`
+            - `frac_used_dwells`
+        """
+        dwell_times = [dt.time for dt in self.all_dwells]
+        dwell_time_data = {
+            "median_dwell_times": np.median(dwell_times),
+            "iqr_dwell_times": np.percentile(dwell_times, 75) - np.percentile(dwell_times, 25),
+            "mean_dwell_times": np.mean(dwell_times),
+            "std_dwell_times": np.std(dwell_times),
+            "num_dwells": len(dwell_times),
+            "num_catheters": self.num_catheters,
+            "frac_used_dwells": sum([1 for dt in dwell_times if dt != 0]) / len(dwell_times),
+            "frac_used_catheters": sum([1 for cath in self if cath.channel_total_time != 0])/self.num_catheters,
+        }
+        return dwell_time_data
+
+    def scale_dwelltimes_by(self, scaling_factor:float):
+        r"""
+        ### Purpose:
+        - To scale all the dwell times by a certain scaling factor.
+        new dwell time = old dwell time x scaling factor
+
+        ### Inputs:
+        - scaling_factor: flaot := All the dwell times are multiplied by this scaling factor.
+
+        ### Outputs:
+        - None := Changes the dwell times in place.
+        """
+        for dwell in self.all_dwells:
+            dwell.time *= scaling_factor
 
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""

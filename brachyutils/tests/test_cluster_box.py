@@ -117,7 +117,7 @@ def test_gen_catheter_table_from_contours():
     cat_table[0].write_to_ply(
         dir_ply=Path(outdir)
     )
-    print("debug here")
+    print("break point here")
 
 def test_cluster_box(
     return_box:bool=False,

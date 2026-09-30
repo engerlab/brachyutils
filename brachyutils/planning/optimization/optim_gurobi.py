@@ -109,6 +109,27 @@ def _run(model: Model):
         solution_found = False
     return model, solution_found, solve_time
 
+def get_optimized_dwelltimes_from_model(
+    model: Model,
+    ) -> List[Var]:
+    r"""
+    ### Purpose:
+    - To run the model and get the optimized dwell times as a list
+    """
+    model, solution_found, solve_time = _run(model)
+
+    if not solution_found:
+        warnings.warn(
+            "No optimal solution found. Return None.",
+            stacklevel=2)
+        return None
+
+    dwell_name_time = {}
+    for x in model.getVars():
+        if (x.VarName.startswith("dwell_")):
+            dwell_name_time[x.VarName.split("dwell_")[-1]] = x.X
+    return dwell_name_time, solution_found, solve_time
+
 def _get_optimized_plan_from_model(
     plan: BrachyPlan,
     model: Model,
@@ -121,19 +142,10 @@ def _get_optimized_plan_from_model(
         raise ValueError("Plan is not set. Please set the plan first.")
     if model is None:
         raise ValueError("Model is not set. Please set the model first.")
-    
-    model, solution_found, solve_time = _run(model)
 
-    if not solution_found:
-        warnings.warn(
-            "No optimal solution found. Return None.",
-            stacklevel=2)
+    dwell_name_time, solution_found, solve_time = get_optimized_dwelltimes_from_model(model)
+    if dwell_name_time is None:
         return None
-
-    dwelltime_and_name = []
-    for x in model.getVars():
-        if ("dwell" in x.VarName):
-            dwelltime_and_name.append((x.X, x.VarName))
 
     # set the dwell time to the plan
     if inplace:
@@ -141,18 +153,10 @@ def _get_optimized_plan_from_model(
     else:
         outplan:BrachyPlan = deepcopy(plan)
 
-    for dwell_time, name in dwelltime_and_name:
-        # set the dwell time to the optimized value
-        if dwell_time < 0.1:
-            dwell_time = 0
-        for catheter in outplan.catheter_table:
-            for dwell_position in catheter.dwells:
-                if (
-                    f"dwell_{dwell_position.name_id}"
-                    == name):
-                    dwell_position.time = dwell_time
-    # update the plan with the new dwell times
-    # outplan.update_plan_from_catheter_table()
+    outplan.catheter_table.set_dwelltimes_by_names(
+        dwell_name_time
+    )
+
     return model, outplan, solution_found, solve_time
 
 class BrachyOptim_Gurobi(BrachyDwellTimeOptim):
