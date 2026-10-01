@@ -93,7 +93,7 @@
     "isotope": "I-125",
     "core" : "G4_I",
     "AKSA": 2.306e-8,
-    "AKHS": 0.4113-11
+    "AKHS": 0.4113e-11
   },
   "TheraSeed": {
     "isotope": "Pd-103",
