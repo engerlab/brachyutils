@@ -152,5 +152,22 @@
             "Cl": 0.001,
             "K": 0.002
         }
+    },
+    "GlassfiberElekta": {
+        "density": 2.1,
+        "min_density": null,
+        "max_density": null,
+        "density_increment": null,
+        "composition": {
+            "H": 0.0258,
+            "C": 0.2733,
+            "N": 0.0022,
+            "O": 0.3658,
+            "B": 0.0204,
+            "Mg": 0.0366,
+            "Al": 0.0489,
+            "Si": 0.1666,
+            "Ca": 0.0604
+        }
     }
 }

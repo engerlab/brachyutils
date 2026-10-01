@@ -89,11 +89,11 @@
     "AKSA": 2.571e-8,
     "AKHS": 0.8240e-11
   },
-  "OncoSeed6711_I125": {
+  "OncoSeed6711": {
     "isotope": "I-125",
     "core" : "G4_I",
     "AKSA": 2.306e-8,
-    "AKHS": 0.4043e-11
+    "AKHS": 0.4113-11
   },
   "TheraSeed": {
     "isotope": "Pd-103",

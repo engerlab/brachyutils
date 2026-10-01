@@ -173,7 +173,7 @@ class BrachySource(BaseModel):
     def check_manual_override_model_name(cls, model_name: str) -> str:
         r"""
         Purpose:
-            - to check if the model name is a manual override and return the correct model name.
+            - to check if the model name is a manual override and return the correct model name according to RapidBrachyMC naming conventions.
         Input:
             - model_name: str
         Output:
@@ -189,6 +189,8 @@ class BrachySource(BaseModel):
             model_name = "FlexiSource"
         elif "variseed" in model_name.lower():
             model_name = "AGX100"
+        elif "oncoseed6711" in model_name.lower():
+            model_name = "OncoSeed6711"
 
         if model_name not in cls.SOURCE_CONSTANTS.keys():
             raise ValueError(f"Source model name {model_name} is not recognized. Please check the source_data.json file.")

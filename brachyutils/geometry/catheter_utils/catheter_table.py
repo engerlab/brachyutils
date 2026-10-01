@@ -99,7 +99,7 @@ class CatheterTable(BaseModel):
     from_delivered_dwellpositions: bool = False
     _cached_combined_dose: BrachyDose = None
     # _time_diffs:Dict[str, float] = None
-    treatment_type: Optional[str] = None
+    treatment_type: Optional[str] = "HDR"
 
     @computed_field
     def all_dwells(self) -> List[DwellPosition]:
