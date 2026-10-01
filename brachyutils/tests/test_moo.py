@@ -270,7 +270,7 @@ def test_init_MOO_Ax(return_obj=False):
     Moo_obj = MOO_Ax(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
-        # scale_dwelltimes_by_metric="D90%(CTV)",
+        scale_dwelltimes_by_metric="D90%(CTV)",
         slack_factor=0.1,
         device="cuda",
     )
