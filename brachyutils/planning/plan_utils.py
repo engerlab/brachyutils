@@ -916,7 +916,7 @@ class BrachyPlan:
                     catheter_idx = cat.index
                     dwell_idx = dwell.index
                     combined_plan += "Control Point\n"
-                    combined_plan += f"weight = {dwell.time/total_dwell_time:.4f}.\n"
+                    combined_plan += f"weight = {dwell.time/total_dwell_time:.4f}\n"
                     combined_plan += f"1 Dwell Position - Catheter {catheter_idx + 1}\n"
                     combined_plan += dwell_coordinates_str
 
