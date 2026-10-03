@@ -273,6 +273,7 @@ def test_init_MOO_Ax(return_obj=False):
         scale_dwelltimes_by_metric="D90%(CTV)",
         slack_factor=0.1,
         device="cuda",
+        # max_workers=1,
     )
     print("break point here: Check that the MOO object is initialized correctly")
     if return_obj:
