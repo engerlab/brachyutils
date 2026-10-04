@@ -103,7 +103,7 @@ def test_catheter_table_optim(
             penalty_weight_uniformity=0,
             penalty_weight_hotspot=1,
             hotspot_threshold=1.75,
-            # penalty_weight_variance_time=1,
+            penalty_weight_variance_time=0,
             mask_margin_mm=0,
             spacing_mm=3,
             catheter_recommendaion=catheter_recommendaion),
@@ -114,7 +114,7 @@ def test_catheter_table_optim(
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=1),
+            spacing_mm=3,),
         Optimization_Config(
             structure_name="RECTUM",
             is_target=False,

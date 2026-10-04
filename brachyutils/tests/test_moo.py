@@ -241,24 +241,19 @@ def test_plot_dvh_moo_space():
 
 def test_init_MOO_Ax(return_obj=False):
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
-    # dvh_metric_goals = {
-    #     "D90%(CTV)": [">=", 100],
-    #     "D2cc(RECTUM)": ["<=", 66],
-    #     "D10%(URETHRA)": ["<=", 113],
-    #     "D30%(URETHRA)": ["<=", 100],
-    #     "CI(CTV)": None,
-    #     "HI(CTV)": None,
-    #     "V200%(CTV)": None,
-    #     "V150%(CTV)": ["<=", 40],
-    #     "V100%(CTV)": [">=", 95],
-    # }
     dvh_metric_goals = {
         "D90%(CTV)": [">=", 100],
+        "D2cc(RECTUM)": ["<=", 66],
+        "D10%(URETHRA)": ["<=", 113],
+        "D30%(URETHRA)": ["<=", 100],
         "D1cc(RECTUM)": ["<=", 75],
         "D0.1cc(URETHRA)": ["<=", 125],
-        "D30%(URETHRA)": ["<=", 100],
+
         "CI(CTV)": None,
         "HI(CTV)": None,
+        "V200%(CTV)": None,
+        "V150%(CTV)": ["<=", 40],
+        "V100%(CTV)": [">=", 95],
     }
 
     optim_obj.plan.set_dvh_metric_goals(
@@ -283,13 +278,13 @@ def test_init_MOO_Ax(return_obj=False):
             # parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
         else:
             parameter_space[f"penalty_weight_linear({name})"] = [1, 500]
-            parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
+            # parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
 
     Moo_obj = MOO_Ax(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
         # scale_dwelltimes_by_metric="V100%(CTV)",
-        slack_factor=-0.1,
+        slack_factor=0.15,
         device="cuda",
         # max_workers=1,
     )
@@ -305,7 +300,7 @@ def test_run_trials_Ax():
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Ax(return_obj=True)
     Moo_obj.run_warmups(n_warmups=50)
-    Moo_obj.run_trials(n_trials=5, batch_size=10)
+    Moo_obj.run_trials(n_trials=5, batch_size=5)
     Moo_obj.trial_data.to_csv(dir_out/"test_ax.csv")
     plot_dvh_moo_space(
         trial_df=Moo_obj.trial_data,
