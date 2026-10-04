@@ -241,17 +241,26 @@ def test_plot_dvh_moo_space():
 
 def test_init_MOO_Ax(return_obj=False):
     optim_obj = test_catheter_table_optim(retrun_optim_obj=True)
+    # dvh_metric_goals = {
+    #     "D90%(CTV)": [">=", 100],
+    #     "D2cc(RECTUM)": ["<=", 66],
+    #     "D10%(URETHRA)": ["<=", 113],
+    #     "D30%(URETHRA)": ["<=", 100],
+    #     "CI(CTV)": None,
+    #     "HI(CTV)": None,
+    #     "V200%(CTV)": None,
+    #     "V150%(CTV)": ["<=", 40],
+    #     "V100%(CTV)": [">=", 95],
+    # }
     dvh_metric_goals = {
         "D90%(CTV)": [">=", 100],
-        "D2cc(RECTUM)": ["<=", 66],
-        "D10%(URETHRA)": ["<=", 113],
+        "D1cc(RECTUM)": ["<=", 75],
+        "D0.1cc(URETHRA)": ["<=", 125],
         "D30%(URETHRA)": ["<=", 100],
         "CI(CTV)": None,
         "HI(CTV)": None,
-        "V200%(CTV)": None,
-        "V150%(CTV)": ["<=", 40],
-        "V100%(CTV)": [">=", 95],
     }
+
     optim_obj.plan.set_dvh_metric_goals(
         dvh_metric_goals=dvh_metric_goals,
         strict_name_match=False,
@@ -280,7 +289,7 @@ def test_init_MOO_Ax(return_obj=False):
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
         # scale_dwelltimes_by_metric="V100%(CTV)",
-        slack_factor=0.1,
+        slack_factor=-0.1,
         device="cuda",
         # max_workers=1,
     )
