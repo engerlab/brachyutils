@@ -53,6 +53,7 @@ def test_catheter_table_optim(
         dir_dicom=pth_dicom,
         from_delivered_dwellpositions=from_delivered_dwellpositions,
         dvh_metric_goals=dvh_metric_names,
+        non_overlapping_structures=True,
         )
 
     if gen_dose_rates:
