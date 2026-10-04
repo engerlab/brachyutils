@@ -221,10 +221,19 @@ def test_get_hyper_volume():
 
 def test_plot_dvh_moo_space():
     dir_out = Path("data_test/test_export_plan/prostate")
-    Moo_obj = test_run_trials(True)
+    # Moo_obj = test_run_trials(True)
+    trial_data = pd.read_csv(dir_out/"test_ax.csv", index_col=0)
+    dvh_metric_goals = {
+        "D90%(CTV)": [">=", 100],
+        "D2cc(RECTUM)": ["<=", 66],
+        "D10%(URETHRA)": ["<=", 113],
+        "D30%(URETHRA)": ["<=", 100],
+        "V150%(CTV)": ["<=", 40],
+        "V100%(CTV)": [">=", 95],
+    }
     plot_dvh_moo_space(
-        trial_df=Moo_obj.trial_data,
-        dvh_metric_goals=Moo_obj.dvh_metric_goals,
+        trial_df=trial_data,
+        dvh_metric_goals=dvh_metric_goals,
         path_out_svg=dir_out/"test.svg",
         sampler_col="sampler_name_id",
         title="test trial"
@@ -258,19 +267,19 @@ def test_init_MOO_Ax(return_obj=False):
                 optim_obj.plan.prescription_dose*1.15
             ]
             parameter_space[f"penalty_weight_hotspot({name})"] = [1, 500]
-            # parameter_space[f"hotspot_threshold({name})"] = [1.5, 2]
+            parameter_space[f"hotspot_threshold({name})"] = [1.5, 2]
             # parameter_space[f"penalty_weight_uniformity({name})"] = [1, 5]
             # parameter_space[f"penalty_weight_variance_time({name})"] = [1, 5]
             # parameter_space[f"penalty_weight_linear({name})"] = [500, 1000]
             # parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
         else:
             parameter_space[f"penalty_weight_linear({name})"] = [1, 500]
-            # parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
+            parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
 
     Moo_obj = MOO_Ax(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
-        scale_dwelltimes_by_metric="D90%(CTV)",
+        # scale_dwelltimes_by_metric="V100%(CTV)",
         slack_factor=0.1,
         device="cuda",
         # max_workers=1,
