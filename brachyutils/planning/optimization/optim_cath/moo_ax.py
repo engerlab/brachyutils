@@ -9,6 +9,11 @@ from torch import cuda
 
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
+from ax.adapter.registry import Generators
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_node import GenerationStep
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
+from ax.core.utils import get_pending_observation_features
 
 class MOO_Ax(MOO):
     def __init__(
@@ -18,7 +23,7 @@ class MOO_Ax(MOO):
         max_workers: int = 16,
         normalize = False,
         scale_dwelltimes_by_metric: str = None,
-        sampler_name_id:Literal["fast", "quality"]="quality",
+        sampler_name_id:Literal["fast", "quality", "qNEHVI"]="fast",
         slack_factor: float = 0,
         device: Literal["cpu", "cuda"] = "cpu",
         ):
@@ -112,13 +117,31 @@ class MOO_Ax(MOO):
         self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
 
     def run_trials(self, n_trials: int, batch_size: int = 1):
-        self.tuner.configure_generation_strategy(
-            method=self.sampler_name_id,
-            initialization_budget=0,
-            allow_exceeding_initialization_budget=False,
-            use_existing_trials_for_initialization=True,
-            # simplify_parameter_changes=True,
-            torch_device=self.device)
+        if self.sampler_name_id == "qNEHVI":
+            nodes = [GenerationStep(
+                ## Refer to 
+                # S. Ament, S. Daulton, D. Eriksson, M. Balandat, and E. Bakshy.
+                # Unexpected Improvements to Expected Improvement for Bayesian Optimization. Advances
+                # in Neural Information Processing Systems 36, 2023.
+                # https://github.com/meta-pytorch/botorch/blob/main/botorch/acquisition/logei.py#L239
+                generator=Generators.BOTORCH_MODULAR,  # Use this for multi-objective optimization
+                num_trials=-1,
+                model_kwargs={
+                    "botorch_acqf_class": qLogNoisyExpectedImprovement,
+                },
+                model_gen_kwargs={
+                    "pending_observations":get_pending_observation_features
+                },
+            )]
+            self.tuner.set_generation_strategy(GenerationStrategy(nodes=nodes))
+        else:
+            self.tuner.configure_generation_strategy(
+                method=self.sampler_name_id,
+                initialization_budget=0,
+                allow_exceeding_initialization_budget=False,
+                use_existing_trials_for_initialization=True,
+                # simplify_parameter_changes=True,
+                torch_device=self.device)
 
         for _ in range(n_trials):
             trials = self.tuner.get_next_trials(max_trials=batch_size)
