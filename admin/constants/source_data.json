@@ -91,7 +91,7 @@
   },
   "OncoSeed6711": {
     "isotope": "I-125",
-    "core" : "G4_I",
+    "core" : "AgBrAgI",
     "AKSA": 2.306e-8,
     "AKHS": 0.4113e-11
   },
