@@ -169,5 +169,31 @@
             "Si": 0.1666,
             "Ca": 0.0604
         }
+    },
+    "Modulay" : {
+    "density" : 15.8,
+    "min_density" : null,
+    "max_density" : null,
+    "density_increment" : null,
+    "composition": {
+        "Au": 0.77,
+        "Ag" : 0.14,
+        "Cu" : 0.08,
+        "Pd" : 0.01
+    },
+    "Silastic" : {
+        "density": 1.12,
+        "min_density" : null,
+        "max_density" : null,
+        "density_increment" : null,
+        "composition" : 
+        {
+            "Si" : 0.399,
+            "O" : 0.289,
+            "C" : 0.249,
+            "H" : 0.063,
+            "Pt": 0.00005
+        }
     }
+}
 }
