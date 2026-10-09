@@ -74,30 +74,17 @@
         "max_density": null,
         "min_density": null
     },
-    "Modulay": {
-        "Silastic": {
-            "composition": {
-                "C": 0.249,
-                "H": 0.063,
-                "O": 0.289,
-                "Pt": 5e-05,
-                "Si": 0.399
-            },
-            "density": 1.12,
-            "density_increment": null,
-            "max_density": null,
-            "min_density": null
-        },
+    "Modulay" : {
+        "density" : 15.8,
+        "min_density" : null,
+        "max_density" : null,
+        "density_increment" : null,
         "composition": {
-            "Ag": 0.14,
             "Au": 0.77,
-            "Cu": 0.08,
-            "Pd": 0.01
-        },
-        "density": 15.8,
-        "density_increment": null,
-        "max_density": null,
-        "min_density": null
+            "Ag" : 0.14,
+            "Cu" : 0.08,
+            "Pd" : 0.01
+        }
     },
     "PEEK": {
         "composition": {
@@ -132,6 +119,20 @@
         "density_increment": null,
         "max_density": null,
         "min_density": null
+    },
+    "Silastic" : {
+        "density": 1.12,
+        "min_density" : null,
+        "max_density" : null,
+        "density_increment" : null,
+        "composition" : 
+        {
+            "Si" : 0.399,
+            "O" : 0.289,
+            "C" : 0.249,
+            "H" : 0.063,
+            "Pt": 0.00005
+        }
     },
     "Silicone": {
         "composition": {
