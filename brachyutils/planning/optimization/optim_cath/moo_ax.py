@@ -12,8 +12,13 @@ from ax.api.configs import RangeParameterConfig
 from ax.adapter.registry import Generators
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generation_strategy.generation_node import GenerationStep
-from botorch.acquisition.logei import qLogNoisyExpectedImprovement
+from botorch.acquisition.multi_objective import qLogNoisyExpectedHypervolumeImprovement
 from ax.core.utils import get_pending_observation_features
+
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generator_spec import GeneratorSpec
+from ax.adapter.registry import Generators
 
 class MOO_Ax(MOO):
     def __init__(
@@ -43,6 +48,9 @@ class MOO_Ax(MOO):
         self.slack_factor = slack_factor
         self.device = device
         self._ax_parameters = None
+        self._ax_constraints = None
+        self._ax_objectives = None
+
         if (self.slack_factor < -1
             or self.slack_factor > 1):
             raise ValueError("slack factor should be between -1 and 1")
@@ -93,6 +101,9 @@ class MOO_Ax(MOO):
                         self.dvh_metric_goals[dvh_name][1]*(1-self.slack_factor)}"
                 )
         ax_objectives = ", ".join(ax_objectives)
+        self._ax_objectives = ax_objectives
+        self._ax_constraints = outcome_constraints
+
         self.tuner.configure_optimization(
             objective=ax_objectives,
             outcome_constraints=outcome_constraints
@@ -127,20 +138,19 @@ class MOO_Ax(MOO):
                 generator=Generators.BOTORCH_MODULAR,  # Use this for multi-objective optimization
                 num_trials=-1,
                 model_kwargs={
-                    "botorch_acqf_class": qLogNoisyExpectedImprovement,
-                },
-                model_gen_kwargs={
-                    "pending_observations":get_pending_observation_features
+                    "botorch_acqf_class": qLogNoisyExpectedHypervolumeImprovement,
+                    "torch_device": self.device,
                 },
             )]
-            self.tuner.set_generation_strategy(GenerationStrategy(nodes=nodes))
+            self.tuner.set_generation_strategy(
+                GenerationStrategy(nodes=nodes, name=self.sampler_name_id))
         else:
             self.tuner.configure_generation_strategy(
                 method=self.sampler_name_id,
                 initialization_budget=0,
                 allow_exceeding_initialization_budget=False,
                 use_existing_trials_for_initialization=True,
-                # simplify_parameter_changes=True,
+                simplify_parameter_changes=True,
                 torch_device=self.device)
 
         for _ in range(n_trials):
@@ -178,4 +188,3 @@ def _clean_dvh_names(dvh_name:str) -> str:
     dvh_name = dvh_name.replace("(", "_")
     dvh_name = dvh_name.replace(")", "")
     return dvh_name
-    
