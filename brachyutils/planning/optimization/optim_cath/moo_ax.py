@@ -28,12 +28,12 @@ class MOO_Ax(MOO):
         max_workers: int = 16,
         normalize = False,
         scale_dwelltimes_by_metric: str = None,
-        sampler_name_id:Literal["fast", "quality", "qNEHVI"]="fast",
-        slack_factor: float = 0,
+        sampler_name_id:Literal["fast", "quality", "qNEHVI"]="qNEHVI",
+        slack_objective_threshold: float = 0,
         device: Literal["cpu", "cuda"] = "cpu",
         ):
         r"""
-        - slack_factor
+        - slack_objective_threshold
         """
         
         self.tuner: Client
@@ -45,14 +45,14 @@ class MOO_Ax(MOO):
             scale_dwelltimes_by_metric=scale_dwelltimes_by_metric,
             )
         self.sampler_name_id = sampler_name_id
-        self.slack_factor = slack_factor
+        self.slack_objective_threshold = slack_objective_threshold
         self.device = device
         self._ax_parameters = None
         self._ax_constraints = None
         self._ax_objectives = None
 
-        if (self.slack_factor < -1
-            or self.slack_factor > 1):
+        if (self.slack_objective_threshold < -1
+            or self.slack_objective_threshold > 1):
             raise ValueError("slack factor should be between -1 and 1")
         if self.device == "cuda":
             if not cuda.is_available:
@@ -90,7 +90,7 @@ class MOO_Ax(MOO):
                 )
                 outcome_constraints.append(
                     f"{_clean_dvh_names(dvh_name)} <= {
-                        self.dvh_metric_goals[dvh_name][1]*(1+self.slack_factor)}"
+                        self.dvh_metric_goals[dvh_name][1]*(1+self.slack_objective_threshold)}"
                 )
             else:
                 ax_objectives.append(
@@ -98,7 +98,7 @@ class MOO_Ax(MOO):
                 )
                 outcome_constraints.append(
                     f"{_clean_dvh_names(dvh_name)} >= {
-                        self.dvh_metric_goals[dvh_name][1]*(1-self.slack_factor)}"
+                        self.dvh_metric_goals[dvh_name][1]*(1-self.slack_objective_threshold)}"
                 )
         ax_objectives = ", ".join(ax_objectives)
         self._ax_objectives = ax_objectives
