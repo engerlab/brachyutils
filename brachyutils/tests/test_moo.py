@@ -283,11 +283,11 @@ def test_init_MOO_Ax(return_obj=False):
     Moo_obj = MOO_Ax(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
-        # scale_dwelltimes_by_metric="V100%(CTV)",
-        slack_objective_threshold=-0.15,
+        scale_dwelltimes_by_metric="V100%(CTV)",
+        slack_objective_threshold=-0.2,
         device="cuda",
         sampler_name_id="qNEHVI",
-        slack_space_shrinkage=0.05,
+        # slack_space_shrinkage=0.1,
         # max_workers=1,
     )
     print("break point here: Check that the MOO object is initialized correctly")
@@ -301,8 +301,8 @@ def test_run_warmps_Ax():
 def test_run_trials_Ax():
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Ax(return_obj=True)
-    Moo_obj.run_warmups(n_warmups=50)
-    Moo_obj.run_trials(n_trials=10, batch_size=5)
+    Moo_obj.run_warmups(n_warmups=1)
+    Moo_obj.run_trials(n_trials=20, batch_size=2)
     Moo_obj.trial_data.to_csv(dir_out/"test_ax.csv")
     plot_dvh_moo_space(
         trial_df=Moo_obj.trial_data,

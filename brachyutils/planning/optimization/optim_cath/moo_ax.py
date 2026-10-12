@@ -127,9 +127,14 @@ class MOO_Ax(MOO):
         trials = self.tuner.get_next_trials(max_trials=n_warmups)
         param_trials = self.get_parameters_from_trials(trials=trials)
         objectives = self.objectives(parameters=param_trials, sampler_name_id="random_search")
-        if self.shrink_parameter_space is not None:
-            self.shrink_parameter_space()
+        if self.slack_space_shrinkage is not None:
+            acceptable_trials = self.shrink_parameter_space(return_acceptable_trials=True)
             self.set_tuner()
+            true_indices = acceptable_trials.index[acceptable_trials["acceptable"]].tolist()
+            new_trials = {}
+            for i, true_indx in enumerate(true_indices):
+                new_trials[i]=trials[true_indx]
+            trials = new_trials
         self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
 
     def run_trials(self, n_trials: int, batch_size: int = 1):

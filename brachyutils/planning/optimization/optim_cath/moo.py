@@ -425,7 +425,7 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
         """
         pass
 
-    def shrink_parameter_space(self):
+    def shrink_parameter_space(self, return_acceptable_trials: bool = False):
         r"""
         ### Purpose:
         - To shrink the parameter space based on the observed dvh metrics and the dvh metric goals.
@@ -437,10 +437,12 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
         - Be sure to update the parameter space in the self.tuner afterwards
 
         ### Inputs:
-        None := Expects self.trial_data to be filled out with at least one trial.
+        - return_acceptable_trials: bool := If True, returns a dataframe with the trials that meet the relaxed goals.
+        - Expects self.trial_data to be filled out with at least one trial.
 
         ### Outputs:
         None := Updates self.parameter_space with the new shrunk parameter space.
+        - If return_acceptable_trials is True, returns a dataframe with the trials that meet the relaxed goals.
         """
         if self.slack_space_shrinkage is None:
             return
@@ -475,6 +477,8 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
             if len(param_values) == 0:
                 raise ValueError("No acceptable trials found. Cannot shrink parameter space.")
             self.parameter_space[param] = [param_values.min(), param_values.max()]
+        if return_acceptable_trials:
+            return acceptable_trials
 
 def are_acceptable(
     dvh_metrics: pd.DataFrame,
