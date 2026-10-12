@@ -30,6 +30,7 @@ class MOO_Ax(MOO):
         scale_dwelltimes_by_metric: str = None,
         sampler_name_id:Literal["fast", "quality", "qNEHVI"]="qNEHVI",
         slack_objective_threshold: float = 0,
+        slack_space_shrinkage: float = None,
         device: Literal["cpu", "cuda"] = "cpu",
         ):
         r"""
@@ -43,6 +44,7 @@ class MOO_Ax(MOO):
             max_workers= max_workers,
             normalize= normalize,
             scale_dwelltimes_by_metric=scale_dwelltimes_by_metric,
+            slack_space_shrinkage=slack_space_shrinkage,
             )
         self.sampler_name_id = sampler_name_id
         self.slack_objective_threshold = slack_objective_threshold
@@ -58,7 +60,6 @@ class MOO_Ax(MOO):
             if not cuda.is_available:
                 self.device = "cpu"
         # fill out the ax-specific attributes
-        self._parameter_space_to_ax()
         self.set_tuner()
 
     def _parameter_space_to_ax(self):
@@ -77,6 +78,7 @@ class MOO_Ax(MOO):
             self._ax_parameters.append(ax_param)
 
     def set_tuner(self):
+        self._parameter_space_to_ax()
         # # instantiate a new tuner object. in ax it's called Client
         self.tuner = Client()
         self.tuner.configure_experiment(parameters = self._ax_parameters)
@@ -125,17 +127,15 @@ class MOO_Ax(MOO):
         trials = self.tuner.get_next_trials(max_trials=n_warmups)
         param_trials = self.get_parameters_from_trials(trials=trials)
         objectives = self.objectives(parameters=param_trials, sampler_name_id="random_search")
+        if self.shrink_parameter_space is not None:
+            self.shrink_parameter_space()
+            self.set_tuner()
         self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
 
     def run_trials(self, n_trials: int, batch_size: int = 1):
         if self.sampler_name_id == "qNEHVI":
             nodes = [GenerationStep(
-                ## Refer to 
-                # S. Ament, S. Daulton, D. Eriksson, M. Balandat, and E. Bakshy.
-                # Unexpected Improvements to Expected Improvement for Bayesian Optimization. Advances
-                # in Neural Information Processing Systems 36, 2023.
-                # https://github.com/meta-pytorch/botorch/blob/main/botorch/acquisition/logei.py#L239
-                generator=Generators.BOTORCH_MODULAR,  # Use this for multi-objective optimization
+                generator=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs={
                     "botorch_acqf_class": qLogNoisyExpectedHypervolumeImprovement,
@@ -176,6 +176,8 @@ class MOO_Ax(MOO):
 
     def attach_objectives_to_trials(self, trials, observed_objectives):
         for trial, (_, row) in zip(trials.items(), observed_objectives.iterrows()):
+            if not trial[0] in self.tuner._experiment.trials:
+                self.tuner.attach_trial(trial[1])
             self.tuner.complete_trial(trial_index=trial[0], raw_data=row)
 
 def _clean_dvh_names(dvh_name:str) -> str:

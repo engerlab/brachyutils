@@ -124,7 +124,8 @@ class MOO(ABC):
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
         normalize: bool = False,
-        scale_dwelltimes_by_metric: str = None
+        scale_dwelltimes_by_metric: str = None,
+        slack_space_shrinkage: float = None,
     ):
         r"""
         ### Purpose:
@@ -146,12 +147,18 @@ class MOO(ABC):
         - `scale_dwelltimes_by_metric`:str := Provide a DVH metric name to be used for
         anchoring the plan, i.e. the dwell times will be scaled so that this DVH metric
         goals is met.
+        - `slack_parameter_space_shrinkage`: float := Based on random sampling, the parameter space
+        is shrunk to focus on the region of parameters that yield clinically acceptable plans. 
+        This value is slack on relaxing the DVH metric goals. For example, if the DVH metric 
+        goal is [">=", 100] and the slack is 0.1, then the parameter space will be shrunk to
+        focus on the region of parameters that yield plans with DVH metric >= 90.
         """
         self.catheter_table_optim = catheter_table_optim
         self.parameter_space = parameter_space
         self.max_workers = max_workers
         self.normalize = normalize
         self.scale_dwelltimes_by_metric = scale_dwelltimes_by_metric
+        self.slack_space_shrinkage = slack_space_shrinkage
         # # Attributes to be filled out
         self.dvh_metric_goals: Dict[str, List] = None
         self.tuner: Any = None
@@ -417,6 +424,57 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
         observed dvh metrics
         """
         pass
+
+    def shrink_parameter_space(self):
+        r"""
+        ### Purpose:
+        - To shrink the parameter space based on the observed dvh metrics and the dvh metric goals.
+        The parameter space is shrunk to focus on the region of parameters that yield clinically
+        acceptable plans. This is done by relaxing the dvh metric goals by a fraction of
+        `self.slack_space_shrinkage` and then finding the range of parameters that yield
+        plans that meet the relaxed goals.
+
+        - Be sure to update the parameter space in the self.tuner afterwards
+
+        ### Inputs:
+        None := Expects self.trial_data to be filled out with at least one trial.
+
+        ### Outputs:
+        None := Updates self.parameter_space with the new shrunk parameter space.
+        """
+        if self.slack_space_shrinkage is None:
+            return
+        if self.slack_space_shrinkage <= -1 or self.slack_space_shrinkage >= 1:
+            raise ValueError("slack_space_shrinkage should be between -1 and 1.")
+        if len(self.trial_data) == 0:
+            raise ValueError("No trials have been run yet. Cannot shrink parameter space.")
+
+        # # Relax the dvh metric goals by a fraction of slack_space_shrinkage
+        relaxed_dvh_metric_goals = {}
+        for key, value in self.dvh_metric_goals.items():
+            if value[0] == "<=":
+                relaxed_dvh_metric_goals[key] = [
+                    value[0],
+                    value[1] * (1 + self.slack_space_shrinkage),
+                ]
+            elif value[0] == ">=":
+                relaxed_dvh_metric_goals[key] = [
+                    value[0],
+                    value[1] * (1 - self.slack_space_shrinkage),
+                ]
+            else:
+                raise ValueError(f"The operation: {value[0]} \
+for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
+
+        # # Find the min and max of the parameters that yield plans that meet the relaxed goals
+        acceptable_trials = are_acceptable(
+            self.trial_data[list(self.dvh_metric_goals.keys())],
+            relaxed_dvh_metric_goals)
+        for param in self.parameter_space.keys():
+            param_values = self.trial_data.loc[acceptable_trials["acceptable"], param]
+            if len(param_values) == 0:
+                raise ValueError("No acceptable trials found. Cannot shrink parameter space.")
+            self.parameter_space[param] = [param_values.min(), param_values.max()]
 
 def are_acceptable(
     dvh_metrics: pd.DataFrame,

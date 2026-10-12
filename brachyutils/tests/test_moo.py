@@ -287,6 +287,7 @@ def test_init_MOO_Ax(return_obj=False):
         slack_objective_threshold=-0.15,
         device="cuda",
         sampler_name_id="qNEHVI",
+        slack_space_shrinkage=0.05,
         # max_workers=1,
     )
     print("break point here: Check that the MOO object is initialized correctly")
