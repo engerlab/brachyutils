@@ -25,7 +25,7 @@ class MOO_Optuna(MOO):
         catheter_table_optim: CatheterTableOptim_Gurobi,
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
-        scale_dwelltimes_by_metric:str = None,
+        anchor_dvh_metric:str = None,
         sampler_name_id: Literal["AutoSampler",
             "NSGAIISampler", "TPESampler", "GPSampler",
             "NSGAIIISampler", "BoTorchSampler"] = "AutoSampler",
@@ -37,7 +37,7 @@ class MOO_Optuna(MOO):
             parameter_space=parameter_space,
             max_workers=max_workers,
             normalize=normalize,
-            scale_dwelltimes_by_metric=scale_dwelltimes_by_metric,
+            anchor_dvh_metric=anchor_dvh_metric,
         )
         self.sampler_name_id = sampler_name_id
         self.use_constraints = use_constraints

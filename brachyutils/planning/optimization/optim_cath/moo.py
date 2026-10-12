@@ -124,7 +124,7 @@ class MOO(ABC):
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
         normalize: bool = False,
-        scale_dwelltimes_by_metric: str = None,
+        anchor_dvh_metric: Dict[str, float] = None,
         slack_space_shrinkage: float = None,
     ):
         r"""
@@ -144,9 +144,9 @@ class MOO(ABC):
             penalty_weight_linear(CTV) : [1, 500]
         - `normalize` := If true dvh_metric_goals would be normalized from 100% to 1.
         Be sure that the DVH metrics are in percentage form (defualt is percentage).
-        - `scale_dwelltimes_by_metric`:str := Provide a DVH metric name to be used for
-        anchoring the plan, i.e. the dwell times will be scaled so that this DVH metric
-        goals is met.
+        - `anchor_dvh_metric`: Dict[str, float] := Provide a DVH metric name to be used for
+        anchoring the plan, i.e. the dwell times will be scaled so that the desired value for
+        this metric is met. Example: {"V100%(CTV)": 95} will scale the dwell times so that V100%(CTV) = 95.
         - `slack_parameter_space_shrinkage`: float := Based on random sampling, the parameter space
         is shrunk to focus on the region of parameters that yield clinically acceptable plans. 
         This value is slack on relaxing the DVH metric goals. For example, if the DVH metric 
@@ -157,7 +157,7 @@ class MOO(ABC):
         self.parameter_space = parameter_space
         self.max_workers = max_workers
         self.normalize = normalize
-        self.scale_dwelltimes_by_metric = scale_dwelltimes_by_metric
+        self.anchor_dvh_metric = anchor_dvh_metric
         self.slack_space_shrinkage = slack_space_shrinkage
         # # Attributes to be filled out
         self.dvh_metric_goals: Dict[str, List] = None
@@ -276,18 +276,11 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         ### Outputs:
         - A dataframe with the dvh metrics specified by the keys in self.dvh_metric_goals.
         """
-        if self.scale_dwelltimes_by_metric is not None:
-            anchor_dvh_metric = {
-                self.scale_dwelltimes_by_metric: self.dvh_metric_goals[
-                    self.scale_dwelltimes_by_metric][1]
-            }
-        else:
-            anchor_dvh_metric=None
         dvh_metrics_data = evaluate_parameters(
             parameters,
             self.catheter_table_optim,
             max_workers=self.max_workers,
-            anchor_dvh_metric=anchor_dvh_metric,
+            anchor_dvh_metric=self.anchor_dvh_metric,
         )
         acceptable_trials = are_acceptable(dvh_metrics_data, self.dvh_metric_goals)
         hv_trials = get_hyper_volume(dvh_metrics_data, self.dvh_metric_goals)

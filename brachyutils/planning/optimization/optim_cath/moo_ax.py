@@ -27,7 +27,7 @@ class MOO_Ax(MOO):
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
         normalize = False,
-        scale_dwelltimes_by_metric: str = None,
+        anchor_dvh_metric: str = None,
         sampler_name_id:Literal["fast", "quality", "qNEHVI"]="qNEHVI",
         slack_objective_threshold: float = 0,
         slack_space_shrinkage: float = None,
@@ -43,7 +43,7 @@ class MOO_Ax(MOO):
             parameter_space= parameter_space,
             max_workers= max_workers,
             normalize= normalize,
-            scale_dwelltimes_by_metric=scale_dwelltimes_by_metric,
+            anchor_dvh_metric=anchor_dvh_metric,
             slack_space_shrinkage=slack_space_shrinkage,
             )
         self.sampler_name_id = sampler_name_id
