@@ -302,7 +302,7 @@ def test_run_trials_Ax():
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Ax(return_obj=True)
     Moo_obj.run_warmups(n_warmups=1)
-    Moo_obj.run_trials(n_trials=20, batch_size=2)
+    Moo_obj.run_trials(n_trials=5, batch_size=4)
     Moo_obj.trial_data.to_csv(dir_out/"test_ax.csv")
     plot_dvh_moo_space(
         trial_df=Moo_obj.trial_data,

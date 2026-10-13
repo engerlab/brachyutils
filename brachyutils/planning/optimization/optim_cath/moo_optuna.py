@@ -30,7 +30,8 @@ class MOO_Optuna(MOO):
             "NSGAIISampler", "TPESampler", "GPSampler",
             "NSGAIIISampler", "BoTorchSampler"] = "AutoSampler",
         use_constraints: bool = False,
-        normalize:bool = False
+        normalize:bool = False,
+        slack_space_shrinkage: float = None,
     ):
         super().__init__(
             catheter_table_optim=catheter_table_optim,
@@ -38,12 +39,12 @@ class MOO_Optuna(MOO):
             max_workers=max_workers,
             normalize=normalize,
             anchor_dvh_metric=anchor_dvh_metric,
+            slack_space_shrinkage=slack_space_shrinkage,
         )
         self.sampler_name_id = sampler_name_id
         self.use_constraints = use_constraints
         self._parameter_distributions = None
         self.constraints_func = None
-        self._parameter_space_to_distributions()
         self.build_constraints_func()
         self.set_tuner()
 
@@ -53,7 +54,7 @@ class MOO_Optuna(MOO):
         - To build, once, the constraint function that Optuna's samplers will use to
         determine trial feasibility. Every entry in `self.dvh_metric_goals` is treated
         as BOTH a multi-objective direction (see `set_directions_from_dvh_metric_goals`)
-        AND a hard clinical constraint: the plan must, ideally, satisfy the goal, and
+        AND a clinical constraint: the plan must, ideally, satisfy the goal, and
         Optuna's constrained samplers will steer the search towards the feasible region.
 
         Only `"<="` and `">="` operators are supported (see `validate_init`).
@@ -95,7 +96,7 @@ constraint {key}. Only '<=' and '>=' are supported.")
 
         self.constraints_func = constraints_func
 
-    def _parameter_space_to_distributions(self):
+    def _parameter_space_to_optuna(self):
         r"""
         ### Purpose:
         - To convert the parameter space to distributions that can be used by Optuna.
@@ -131,6 +132,7 @@ constraint {key}. Only '<=' and '>=' are supported.")
         - `self.constraints_func`
         - `self.sampler_name_id`
         """
+        self._parameter_space_to_optuna()
         use_constraints = self.sampler_name_id in self._constraint_capable_samplers
         use_constraints = self.use_constraints and use_constraints
         if not use_constraints:

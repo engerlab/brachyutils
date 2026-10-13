@@ -147,7 +147,7 @@ class MOO(ABC):
         - `anchor_dvh_metric`: Dict[str, float] := Provide a DVH metric name to be used for
         anchoring the plan, i.e. the dwell times will be scaled so that the desired value for
         this metric is met. Example: {"V100%(CTV)": 95} will scale the dwell times so that V100%(CTV) = 95.
-        - `slack_parameter_space_shrinkage`: float := Based on random sampling, the parameter space
+        - `slack_space_shrinkage`: float := Based on random sampling, the parameter space
         is shrunk to focus on the region of parameters that yield clinically acceptable plans. 
         This value is slack on relaxing the DVH metric goals. For example, if the DVH metric 
         goal is [">=", 100] and the slack is 0.1, then the parameter space will be shrunk to
