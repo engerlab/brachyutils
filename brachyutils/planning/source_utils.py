@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Union, Literal, List
 import pydicom
@@ -191,9 +192,11 @@ class BrachySource(BaseModel):
             model_name = "AGX100"
         elif "oncoseed6711" in model_name.lower():
             model_name = "OncoSeed6711"
-
+        elif "bravos" in model_name.lower():
+            model_name = "GammaMedPlus"
         if model_name not in cls.SOURCE_CONSTANTS.keys():
-            raise ValueError(f"Source model name {model_name} is not recognized. Please check the source_data.json file.")
+            logging.warn(f"Source model name {model_name} is not recognized. Please check the source_data.json file. Defaulting to GenericHDR source.")
+            model_name = "GenericHDR"
         
         return model_name
 
