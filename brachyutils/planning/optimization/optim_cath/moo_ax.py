@@ -120,7 +120,11 @@ class MOO_Ax(MOO):
         observed_objects.columns = new_columns
         return observed_objects
 
-    def run_random_sampling(self, n_samples):
+    def run_random_sampling(
+        self,
+        n_samples,
+        use_for_warmup: bool = False
+        ):
         self.tuner.configure_generation_strategy(
             method="random_search",
             initialization_budget=n_samples,)
