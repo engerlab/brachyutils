@@ -301,8 +301,10 @@ def test_run_warmps_Ax():
 def test_run_trials_Ax():
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Ax(return_obj=True)
-    Moo_obj.run_warmups(n_warmups=1)
+    Moo_obj.run_warmups(n_warmups=40)
+    t0 = time()
     Moo_obj.run_trials(n_trials=5, batch_size=4)
+    t1 = time() - t0
     Moo_obj.trial_data.to_csv(dir_out/"test_ax.csv")
     plot_dvh_moo_space(
         trial_df=Moo_obj.trial_data,
@@ -311,6 +313,7 @@ def test_run_trials_Ax():
         sampler_col="sampler_name_id",
         title="test trial"
     )
+    print(f"Time to run the trials: {t1:.4f} seconds")
 
 if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()
