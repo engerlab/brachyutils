@@ -139,13 +139,13 @@ def test_evaluate_parameters():
 
 def test_run_warmps():
     Moo_obj = test_init_MOO_Optuna(return_obj=True)
-    Moo_obj.run_warmups(batch_size=5)
+    Moo_obj.run_random_sampling(batch_size=5)
     print(Moo_obj.trial_data)
 
 def test_run_trials(return_output:bool = False):
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Optuna(return_obj=True)
-    Moo_obj.run_warmups(batch_size=10)
+    Moo_obj.run_random_sampling(batch_size=10)
     Moo_obj.run_trials(n_trials=2, batch_size=10)
     print("break point here.")
     print(Moo_obj.trial_data)
@@ -296,12 +296,12 @@ def test_init_MOO_Ax(return_obj=False):
 
 def test_run_warmps_Ax():
     Moo_obj = test_init_MOO_Ax(return_obj=True)
-    Moo_obj.run_warmups(n_warmups=10)
+    Moo_obj.run_random_sampling(n_samples=10)
 
 def test_run_trials_Ax():
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Ax(return_obj=True)
-    Moo_obj.run_warmups(n_warmups=40)
+    Moo_obj.run_random_sampling(n_samples=40)
     t0 = time()
     Moo_obj.run_trials(n_trials=5, batch_size=4)
     t1 = time() - t0

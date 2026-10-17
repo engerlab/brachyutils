@@ -167,16 +167,22 @@ will not be pruned/penalized by the sampler.")
         )
         self.tuner = study
 
-    def run_warmups(self, batch_size: int):
+    def run_random_sampling(
+        self,
+        n_samples: int,
+        use_for_warmup: bool = False
+        ):
         r"""
         ### Purpose:
-        - To run random sampling for `batch_size` number of warmup trials.
-        All the warmup trials will be randomly sampled from the parameter space and
+        - To run random sampling for `n_samples` number of samples.
+        All the samples will be randomly sampled from the parameter space and
         evaluated either sequentially or in parallel. The results will be stored in
         `self.trial_data`.
 
         ### Inputs:
-        - batch_size: int := The number of warmup trials to run.
+        - n_samples: int := The number of samples to generate and evaluate.
+        - use_for_warmup: bool := If True, the random samples will be used to warm up
+        the tuner. If False, the random samples will just be stored to self.trial_data.
 
         ### Outputs:
         None := Fills out the following attributes:
@@ -192,7 +198,7 @@ will not be pruned/penalized by the sampler.")
 
         trials = [
             self.tuner.ask(self._parameter_distributions)
-            for _ in range(batch_size)]
+            for _ in range(n_samples)]
         trial_params = self.get_parameters_from_trials(trials=trials)
         observed_objectives = self.objectives(trial_params, "RandomSampler")
 

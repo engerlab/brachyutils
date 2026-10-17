@@ -120,11 +120,11 @@ class MOO_Ax(MOO):
         observed_objects.columns = new_columns
         return observed_objects
 
-    def run_warmups(self, n_warmups):
+    def run_random_sampling(self, n_samples):
         self.tuner.configure_generation_strategy(
             method="random_search",
-            initialization_budget=n_warmups,)
-        trials = self.tuner.get_next_trials(max_trials=n_warmups)
+            initialization_budget=n_samples,)
+        trials = self.tuner.get_next_trials(max_trials=n_samples)
         param_trials = self.get_parameters_from_trials(trials=trials)
         objectives = self.objectives(parameters=param_trials, sampler_name_id="random_search")
         if self.slack_space_shrinkage is not None:

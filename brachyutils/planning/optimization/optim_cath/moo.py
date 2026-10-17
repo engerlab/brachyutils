@@ -307,21 +307,20 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         pass
 
     @abstractmethod
-    def run_warmups(
+    def run_random_sampling(
         self,
-        n_warmups: int,
-        max_workers: int = 16,
+        n_samples: int,
+        use_for_warmup: bool = False
     ):
         r"""
         ### Purpose:
-        - To run random sampling for `n_warmups` number of warmup trials.
-        All the warmup trials will be randomly sampled from the parameter space and
+        - To run random sampling for `n_samples`. of the parameter space
         evaluated either sequentially or in parallel.
 
         ### Inputs:
-        - n_warmups: int := The number of warmup trials to run.
-        - max_workers: int := The number of threads to be used for parallelized
-        evaluation of the penalty weights.
+        - n_samples: int := The number of samples to generate and evaluate.
+        - use_for_warmup: bool := If True, the random samples will be used to warm up
+        the tuner. If False, the random samples will just be stored to self.trial_data.
 
         ### Outputs:
         None := Fills out the following attributes:
