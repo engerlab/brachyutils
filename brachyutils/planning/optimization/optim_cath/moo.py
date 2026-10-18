@@ -152,6 +152,41 @@ class MOO(ABC):
         This value is slack on relaxing the DVH metric goals. For example, if the DVH metric 
         goal is [">=", 100] and the slack is 0.1, then the parameter space will be shrunk to
         focus on the region of parameters that yield plans with DVH metric >= 90.
+        
+        ### Outputs:
+        None := Fills out the following attributes:
+        - `self.dvh_metric_goals` := maps the DVH names {metric_name
+        (structure_name)} to their clinically desired values. Metrics with a `None` goal 
+        (i.e. not clinically constrained/tracked) are skipped entirely and never appear here.
+        - `self.trial_data`: pd.DataFrame := A master dataframe containing 
+        the result of all the trials. The columns are parameter names from
+        the keys of `self.parameter_space` and the dvh metric names from the keys of `self.dvh_metric_goals`.
+        - `self.directions`: Dict[str, str] := A dictionary of directions for each DVH 
+        metric goal. The order of the directions corresponds to the order of 
+        the keys in `self.dvh_metric_goals`. The direction is either "minimize" 
+        or "maximize" depending on the operation in the dvh_metric_goals. For example,
+        if the operation is "<=", then the direction is "minimize". If the operation is ">=", 
+        then the direction is "maximize".
+        - `self.tuner`: Any := The tuner object that will be used to recommend the next 
+        batch of parameter queries to be evaluated.
+        - `self.max_workers`: int := The maximum number of workers to use for parallel evaluation.
+        - `self.normalize`: bool := If true dvh_metric_goals would be normalized from 100% to 1.
+        This is lowkey trash, don't use it.
+        - `self.anchor_dvh_metric`: Dict[str, float] := Provide a DVH metric name to be used for
+        anchoring the plan, i.e. the dwell times will be scaled so that the desired
+        value for this metric is met. Example: {"V100%(CTV)": 95} will scale the dwell times so 
+        that V100%(CTV) = 95.
+        - `self.slack_space_shrinkage`: float := Based on random sampling, the parameter space
+        is shrunk to focus on the region of parameters that yield clinically acceptable plans
+        with some slack.
+        
+        The object has the following abstract methods that must be implemented in a subclass:
+        - `set_tuner()` := Builds the Tuner object that will recommend the next batch
+        of parameter queries to be evaluated.
+        - `run_random_sampling(n_samples: int, use_for_warmup: bool = True)` := To run random
+        sampling for `n_samples` of the parameter space.
+        - `run_trials(n_trials: int, batch_size: int = 1)` := To run the multi-objective optimization
+        for `n_trials` outer iterations.
         """
         self.catheter_table_optim = catheter_table_optim
         self.parameter_space = parameter_space
