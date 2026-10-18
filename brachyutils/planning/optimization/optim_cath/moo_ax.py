@@ -29,7 +29,7 @@ class MOO_Ax(MOO):
         normalize = False,
         anchor_dvh_metric: str = None,
         sampler_name_id:Literal["fast", "quality", "qNEHVI"]="qNEHVI",
-        slack_objective_threshold: float = 0,
+        slack_objective_threshold: float | Dict[str, float] = 0,
         slack_space_shrinkage: float = None,
         device: Literal["cpu", "cuda"] = "cpu",
         ):
@@ -53,9 +53,18 @@ class MOO_Ax(MOO):
         self._ax_constraints = None
         self._ax_objectives = None
 
-        if (self.slack_objective_threshold < -1
-            or self.slack_objective_threshold > 1):
-            raise ValueError("slack factor should be between -1 and 1")
+        if isinstance(self.slack_objective_threshold, dict):
+            for key, value in self.slack_objective_threshold.items():
+                if value < -1 or value > 1:
+                    raise ValueError(f"slack factor for {key} should be between -1 and 1")
+        else:
+            if (self.slack_objective_threshold < -1
+                or self.slack_objective_threshold > 1):
+                raise ValueError("slack factor should be between -1 and 1")
+            slack_objective_threshold_dict = {}
+            for dvh_name in self.dvh_metric_goals.keys():
+                slack_objective_threshold_dict[dvh_name] = self.slack_objective_threshold
+            self.slack_objective_threshold = slack_objective_threshold_dict
         if self.device == "cuda":
             if not cuda.is_available:
                 self.device = "cpu"
@@ -92,7 +101,8 @@ class MOO_Ax(MOO):
                 )
                 outcome_constraints.append(
                     f"{_clean_dvh_names(dvh_name)} <= {
-                        self.dvh_metric_goals[dvh_name][1]*(1+self.slack_objective_threshold)}"
+                        self.dvh_metric_goals[dvh_name][1]
+                        *(1+self.slack_objective_threshold.get(dvh_name, 0))}"
                 )
             else:
                 ax_objectives.append(
@@ -100,7 +110,8 @@ class MOO_Ax(MOO):
                 )
                 outcome_constraints.append(
                     f"{_clean_dvh_names(dvh_name)} >= {
-                        self.dvh_metric_goals[dvh_name][1]*(1-self.slack_objective_threshold)}"
+                        self.dvh_metric_goals[dvh_name][1]
+                        *(1-self.slack_objective_threshold.get(dvh_name, 0))}"
                 )
         ax_objectives = ", ".join(ax_objectives)
         self._ax_objectives = ax_objectives

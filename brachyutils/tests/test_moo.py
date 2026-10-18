@@ -248,11 +248,11 @@ def test_init_MOO_Ax(return_obj=False):
         "D30%(URETHRA)": ["<=", 100],
         "D1cc(RECTUM)": ["<=", 75],
         "D0.1cc(URETHRA)": ["<=", 125],
+        "V150%(CTV)": ["<=", 40],
 
         "CI(CTV)": None,
         "HI(CTV)": None,
         "V200%(CTV)": None,
-        "V150%(CTV)": ["<=", 40],
         "V100%(CTV)": [">=", 95],
     }
 
@@ -284,7 +284,15 @@ def test_init_MOO_Ax(return_obj=False):
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
         anchor_dvh_metric={"V100%(CTV)": 90},
-        slack_objective_threshold=-0.2,
+        slack_objective_threshold={
+            # "D90%(CTV)": 0,
+            # "D2cc(RECTUM)": 0,
+            "D10%(URETHRA)": -0.2,
+            "D30%(URETHRA)": -0.2,
+            # "D1cc(RECTUM)":0,
+            # "D0.1cc(URETHRA)":0,
+            # "V150%(CTV)":0,
+            },
         device="cuda",
         sampler_name_id="qNEHVI",
         # slack_space_shrinkage=0.1,
