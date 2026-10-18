@@ -35,37 +35,27 @@ class MOO_Ax(MOO):
         ):
         r"""
         ### Purpose:
-        - The multi-objective optimization class performs hyper-parameter tuning
-        to yield clinically acceptable treatment plans with Pareto optimal DVHs.
-        The definition of clinically acceptale is set by the dvh metric goals inside
-        the BrachyPlan of the `catheter_table_optim`.
+        - Configure Ax as the backend for multi-objective optimization.
+
+        - For the shared optimization inputs, DVH goals, parameter-space format,
+        and inherited behavior, see the `MOO` documentation in `moo.py`.
+
+        - The instance exposes the Ax `Client` as `tuner`, along with the
+        configured sampler and objective slack values.
 
         ### Inputs:
-        - `catheter_table_optim` := An optimization object with a BrachyPlan and
-        a Gurobi model. The plan shold have DVH metrics goal loaded.
-        - `parameter_space` := A dictionary mapping the names of the parameters to be
-        optimized to their range [min, max]. The names of the parameters are
-        some attributes of the Optimization_Config class followed by the name of
-        that structure in paranthesis. For example:
-            penalty_weight_linear(CTV) : [1, 500]
-        - `normalize` := If true dvh_metric_goals would be normalized from 100% to 1.
-        Be sure that the DVH metrics are in percentage form (defualt is percentage).
-        - `anchor_dvh_metric`: Dict[str, float] := Provide a DVH metric name to be used for
-        anchoring the plan, i.e. the dwell times will be scaled so that the desired value for
-        this metric is met. Example: {"V100%(CTV)": 95} will scale the dwell times so that V100%(CTV) = 95.
-        - `slack_space_shrinkage`: float := Based on random sampling, the parameter space
-        is shrunk to focus on the region of parameters that yield clinically acceptable plans. 
-        This value is slack on relaxing the DVH metric goals. For example, if the DVH metric 
-        goal is [">=", 100] and the slack is 0.1, then the parameter space will be shrunk to
-        focus on the region of parameters that yield plans with DVH metric >= 90.
-        - `slack_objective_threshold`: Allowed relative slack for each DVH
-        objective's goal constraint. A float applies to every DVH
-        metric; a dictionary specifies the slack per metric. Values
-        must be between -1 and 1. Positive values relax the constraint, negative values tighten it. For example,
-        if the goal for a DVH metric is [">=", 100] and the slack
-        is 0.1, then the optimization will try to achieve [">=", 90] for that metric.
-        - device: str := "cpu" or "cuda". If cuda is available, the optimization
-        will be performed on the GPU.
+        The following inputs are specific to the Ax backend:
+        - `sampler_name_id`: Ax generation strategy to use: `"fast"`,
+            `"quality"`, or `"qNEHVI"` (default).
+        - `slack_objective_threshold`: Relative slack for each DVH outcome
+            constraint. A float applies to all metrics; a dictionary sets slack
+            by DVH metric name (unspecified metrics use zero slack). Values must
+            be in [-1, 1]. Positive slack relaxes constraints and negative slack
+            tightens them. For a goal of `">= 100"`, slack `0.1` sets the Ax
+            constraint to `>= 90`; for a goal of `"<= 100"`, it sets it to
+            `<= 110`.
+        - `device`: `"cpu"` or `"cuda"`; selects the device for Ax's
+            BoTorch optimization when using `"qNEHVI"`.
         """
         self.tuner: Client
         super().__init__(
