@@ -123,7 +123,7 @@ class MOO_Ax(MOO):
     def run_random_sampling(
         self,
         n_samples,
-        use_for_warmup: bool = False
+        use_for_warmup: bool = True
         ):
         self.tuner.configure_generation_strategy(
             method="random_search",
@@ -139,24 +139,31 @@ class MOO_Ax(MOO):
             for i, true_indx in enumerate(true_indices):
                 new_trials[i]=trials[true_indx]
             trials = new_trials
-        self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
+        if use_for_warmup:
+            self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
+        else:
+            self.set_tuner()
 
     def run_trials(self, n_trials: int, batch_size: int = 1):
         if self.sampler_name_id == "qNEHVI":
-            nodes = [GenerationStep(
+            nodes = [
+                GenerationStep(
+                generator=Generators.SOBOL,
+                num_trials=1,),
+                GenerationStep(
                 generator=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs={
                     "botorch_acqf_class": qLogNoisyExpectedHypervolumeImprovement,
                     "torch_device": self.device,
-                },
-            )]
+                    },)
+                ]
             self.tuner.set_generation_strategy(
                 GenerationStrategy(nodes=nodes, name=self.sampler_name_id))
         else:
             self.tuner.configure_generation_strategy(
                 method=self.sampler_name_id,
-                initialization_budget=0,
+                initialization_budget=1,
                 allow_exceeding_initialization_budget=False,
                 use_existing_trials_for_initialization=True,
                 simplify_parameter_changes=True,

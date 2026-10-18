@@ -310,7 +310,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
     def run_random_sampling(
         self,
         n_samples: int,
-        use_for_warmup: bool = False
+        use_for_warmup: bool = True
     ):
         r"""
         ### Purpose:
