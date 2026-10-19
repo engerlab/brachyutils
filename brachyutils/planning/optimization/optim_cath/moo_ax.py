@@ -47,13 +47,6 @@ class MOO_Ax(MOO):
         The following inputs are specific to the Ax backend:
         - `sampler_name_id`: Ax generation strategy to use: `"fast"`,
             `"quality"`, or `"qNEHVI"` (default).
-        - `slack_objective_threshold`: Relative slack for each DVH outcome
-            constraint. A float applies to all metrics; a dictionary sets slack
-            by DVH metric name (unspecified metrics use zero slack). Values must
-            be in [-1, 1]. Positive slack relaxes constraints and negative slack
-            tightens them. For a goal of `">= 100"`, slack `0.1` sets the Ax
-            constraint to `>= 90`; for a goal of `"<= 100"`, it sets it to
-            `<= 110`.
         - `device`: `"cpu"` or `"cuda"`; selects the device for Ax's
             BoTorch optimization when using `"qNEHVI"`.
         """
@@ -65,26 +58,14 @@ class MOO_Ax(MOO):
             normalize= normalize,
             anchor_dvh_metric=anchor_dvh_metric,
             slack_space_shrinkage=slack_space_shrinkage,
+            slack_objective_threshold=slack_objective_threshold
             )
         self.sampler_name_id = sampler_name_id
-        self.slack_objective_threshold = slack_objective_threshold
         self.device = device
         self._ax_parameters = None
         self._ax_constraints = None
         self._ax_objectives = None
 
-        if isinstance(self.slack_objective_threshold, dict):
-            for key, value in self.slack_objective_threshold.items():
-                if value < -1 or value > 1:
-                    raise ValueError(f"slack factor for {key} should be between -1 and 1")
-        else:
-            if (self.slack_objective_threshold < -1
-                or self.slack_objective_threshold > 1):
-                raise ValueError("slack factor should be between -1 and 1")
-            slack_objective_threshold_dict = {}
-            for dvh_name in self.dvh_metric_goals.keys():
-                slack_objective_threshold_dict[dvh_name] = self.slack_objective_threshold
-            self.slack_objective_threshold = slack_objective_threshold_dict
         if self.device == "cuda":
             if not cuda.is_available:
                 self.device = "cpu"

@@ -126,6 +126,7 @@ class MOO(ABC):
         normalize: bool = False,
         anchor_dvh_metric: Dict[str, float] = None,
         slack_space_shrinkage: float = None,
+        slack_objective_threshold: float | Dict[str, float] = 0,
     ):
         r"""
         ### Purpose:
@@ -179,7 +180,14 @@ class MOO(ABC):
         - `self.slack_space_shrinkage`: float := Based on random sampling, the parameter space
         is shrunk to focus on the region of parameters that yield clinically acceptable plans
         with some slack.
-        
+        - `slack_objective_threshold`: Relative slack for each DVH outcome
+        constraint. A float applies to all metrics; a dictionary sets slack
+        by DVH metric name (unspecified metrics use zero slack). Values must
+        be in [-1, 1]. Positive slack relaxes constraints and negative slack
+        tightens them. For a goal of `">= 100"`, slack `0.1` sets the Ax
+        constraint to `>= 90`; for a goal of `"<= 100"`, it sets it to
+        `<= 110`.
+
         The object has the following abstract methods that must be implemented in a subclass:
         - `set_tuner()` := Builds the Tuner object that will recommend the next batch
         of parameter queries to be evaluated.
@@ -200,10 +208,11 @@ class MOO(ABC):
         self.trial_data: pd.DataFrame = None
         self.directions = None
         # # Fill out the attributes
-        self.validate_init()
-        self.set_directions_from_dvh_metric_goals()
+        self._validate_init()
+        self._set_directions_from_dvh_metric_goals()
+        self._set_slack_objective_threshold(slack_objective_threshold)
 
-    def validate_init(self):
+    def _validate_init(self):
         r"""
         ### Purpose:
         - To ensure `self.catheter_table_optim` and `parameter_space` contain
@@ -282,6 +291,21 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
                 list(self.parameter_space.keys())
                 + list(self.dvh_metric_goals.keys())
                 + ["sampler_name_id", "acceptable", "hypervolume"]))
+
+    def _set_slack_objective_threshold(self, slack_objective_threshold):
+        if isinstance(slack_objective_threshold, dict):
+            for key, value in slack_objective_threshold.items():
+                if value < -1 or value > 1:
+                    raise ValueError(f"slack factor for {key} should be between -1 and 1")
+        else:
+            if (slack_objective_threshold < -1
+                or slack_objective_threshold > 1):
+                raise ValueError("slack factor should be between -1 and 1")
+            slack_objective_threshold_dict = {}
+            for dvh_name in self.dvh_metric_goals.keys():
+                slack_objective_threshold_dict[dvh_name] = slack_objective_threshold
+            self.slack_objective_threshold = slack_objective_threshold_dict
+
 
     def objectives(
         self,
@@ -393,7 +417,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         """
         pass
 
-    def set_directions_from_dvh_metric_goals(self):
+    def _set_directions_from_dvh_metric_goals(self):
         r"""
         ### Purpose:
         - To get the directions of optimization for each DVH metric goal.

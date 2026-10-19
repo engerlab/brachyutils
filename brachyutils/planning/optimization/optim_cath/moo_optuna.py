@@ -11,7 +11,7 @@ from brachyutils.planning.optimization.optim_cath.moo import (
     MOO, evaluate_parameters, are_acceptable, get_hyper_volume)
 
 class MOO_Optuna(MOO):
-    # # Samplers that accept a `constraints_func` kwarg for constrained optimization.
+    # # Samplers that accept a `_optuna_constraints` kwarg for constrained optimization.
     _constraint_capable_samplers = {
         "AutoSampler",
         "NSGAIISampler",
@@ -29,10 +29,10 @@ class MOO_Optuna(MOO):
         sampler_name_id: Literal["AutoSampler",
             "NSGAIISampler", "TPESampler", "GPSampler",
             "NSGAIIISampler", "BoTorchSampler"] = "AutoSampler",
-        use_constraints: bool = False,
         normalize:bool = False,
         slack_space_shrinkage: float = None,
-    ):
+        slack_objective_threshold: float | Dict[str, float] = 0,
+        ):
         super().__init__(
             catheter_table_optim=catheter_table_optim,
             parameter_space=parameter_space,
@@ -40,15 +40,15 @@ class MOO_Optuna(MOO):
             normalize=normalize,
             anchor_dvh_metric=anchor_dvh_metric,
             slack_space_shrinkage=slack_space_shrinkage,
+            slack_objective_threshold=slack_objective_threshold,
         )
         self.sampler_name_id = sampler_name_id
-        self.use_constraints = use_constraints
-        self._parameter_distributions = None
-        self.constraints_func = None
-        self.build_constraints_func()
+        self._optuna_parameters = None
+        self._optuna_constraints = None
+        self._optuna_objectives = None
         self.set_tuner()
 
-    def build_constraints_func(self):
+    def _build_optuna_constraints(self):
         r"""
         ### Purpose:
         - To build, once, the constraint function that Optuna's samplers will use to
@@ -73,41 +73,45 @@ class MOO_Optuna(MOO):
 
         ### Outputs:
         None := Fills out the following attribute:
-        - `self.constraints_func`: Callable[[optuna.trial.FrozenTrial], List[float]]
+        - `self._optuna_constraints`: Callable[[optuna.trial.FrozenTrial], List[float]]
         """
         constraint_specs = [
             (key, operation, threshold)
             for key, (operation, threshold) in self.dvh_metric_goals.items()
         ]
 
-        def constraints_func(trial: "optuna.trial.FrozenTrial") -> List[float]:
+        def _optuna_constraints(trial: "optuna.trial.FrozenTrial") -> List[float]:
             dvh_metrics = trial.user_attrs["dvh_metrics"]
             constraint_values = []
             for key, operation, threshold in constraint_specs:
                 observed = dvh_metrics[key]
                 if operation == "<=":
-                    constraint_values.append(observed - threshold)
+                    constraint_values.append(observed - threshold*(
+                        1 + self.slack_objective_threshold.get(key, 0)
+                    ))
                 elif operation == ">=":
-                    constraint_values.append(threshold - observed)
+                    constraint_values.append(threshold*(
+                        1 - self.slack_objective_threshold.get(key, 0)
+                    ) - observed)
                 else:
                     raise ValueError(f"Unsupported operator {operation} for \
 constraint {key}. Only '<=' and '>=' are supported.")
             return constraint_values
 
-        self.constraints_func = constraints_func
+        self._optuna_constraints = _optuna_constraints
 
     def _parameter_space_to_optuna(self):
         r"""
         ### Purpose:
         - To convert the parameter space to distributions that can be used by Optuna.
-        The distributions are stored in `self._parameter_distributions` as a dictionary
+        The distributions are stored in `self._optuna_parameters` as a dictionary
         mapping the parameter names to their distributions.
         """
-        self._parameter_distributions = {}
+        self._optuna_parameters = {}
         for key, value in self.parameter_space.items():
             if len(value) != 2:
                 raise ValueError(f"The parameter space for {key} should be a list of two values [min, max]")
-            self._parameter_distributions[key] = optuna.distributions.FloatDistribution(
+            self._optuna_parameters[key] = optuna.distributions.FloatDistribution(
                 low=value[0], high=value[1])
 
     def set_tuner(self):
@@ -117,9 +121,9 @@ constraint {key}. Only '<=' and '>=' are supported.")
         queries to be evaluated. The tuner is built using the Optuna library and the
         sampler specified in the constructor. The tuner is stored in `self.tuner`.
 
-        Constraints (built once in `__init__` via `build_constraints_func`) are passed
+        Constraints (built once in `__init__` via `build__optuna_constraints`) are passed
         into the sampler here, for every sampler that supports Optuna's
-        `constraints_func` convention. Samplers that don't support constraints (e.g.
+        `_optuna_constraints` convention. Samplers that don't support constraints (e.g.
         `NSGAIIISampler`, or a future sampler not in `_constraint_capable_samplers`)
         fall back to unconstrained multi-objective optimization with a warning, since
         passing an unsupported kwarg would raise a `TypeError`.
@@ -129,19 +133,21 @@ constraint {key}. Only '<=' and '>=' are supported.")
         - `self.catheter_table_optim`
         - `self.parameter_space`
         - `self.dvh_metric_goals`
-        - `self.constraints_func`
+        - `self._optuna_constraints`
         - `self.sampler_name_id`
         """
         self._parameter_space_to_optuna()
+        self._build_optuna_constraints()
         use_constraints = self.sampler_name_id in self._constraint_capable_samplers
         use_constraints = self.use_constraints and use_constraints
         if not use_constraints:
             print(f"Warning: sampler '{self.sampler_name_id}' does not support \
-`constraints_func`. Falling back to unconstrained multi-objective optimization. \
+`_optuna_constraints`. Falling back to unconstrained multi-objective optimization. \
 The DVH metric goals will still be tracked as objectives, but infeasible trials \
 will not be pruned/penalized by the sampler.")
 
-        constraints_kwargs = {"constraints_func": self.constraints_func} if use_constraints else {}
+        constraints_kwargs = {
+            "_optuna_constraints": self._optuna_constraints} if use_constraints else {}
 
         if self.sampler_name_id == "AutoSampler":
             auto_sampler_module = optunahub.load_module(
@@ -197,7 +203,7 @@ will not be pruned/penalized by the sampler.")
         self.tuner.sampler = random_sampler
 
         trials = [
-            self.tuner.ask(self._parameter_distributions)
+            self.tuner.ask(self._optuna_parameters)
             for _ in range(n_samples)]
         trial_params = self.get_parameters_from_trials(trials=trials)
         observed_objectives = self.objectives(trial_params, "RandomSampler")
@@ -226,7 +232,7 @@ will not be pruned/penalized by the sampler.")
         r"""
         ### Purpose:
         - To store the observed DVH metrics on each trial via
-        `trial.set_user_attr("dvh_metrics", ...)`, so that `self.constraints_func` (built
+        `trial.set_user_attr("dvh_metrics", ...)`, so that `self._optuna_constraints` (built
         once in `__init__`) can read them back after `tell()` without re-evaluating anything.
         """
         for trial, (_, row) in zip(trials, observed_objectives.iterrows()):
@@ -261,7 +267,7 @@ will not be pruned/penalized by the sampler.")
 
         for _ in range(n_trials):
             trials = [
-                self.tuner.ask(self._parameter_distributions)
+                self.tuner.ask(self._optuna_parameters)
                 for _ in range(batch_size)]
             trial_params = self.get_parameters_from_trials(trials=trials)
             observed_objectives = self.objectives(trial_params, self.sampler_name_id)
