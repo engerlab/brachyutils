@@ -7,8 +7,7 @@ from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
 import optuna
 import optunahub
 
-from brachyutils.planning.optimization.optim_cath.moo import (
-    MOO, evaluate_parameters, are_acceptable, get_hyper_volume)
+from brachyutils.planning.optimization.optim_cath.moo import MOO
 
 class MOO_Optuna(MOO):
     # # Samplers that accept a `_optuna_constraints` kwarg for constrained optimization.
@@ -32,6 +31,7 @@ class MOO_Optuna(MOO):
         normalize:bool = False,
         slack_space_shrinkage: float = None,
         slack_objective_threshold: float | Dict[str, float] = 0,
+        use_constraints: bool = True,
         ):
         super().__init__(
             catheter_table_optim=catheter_table_optim,
@@ -43,6 +43,7 @@ class MOO_Optuna(MOO):
             slack_objective_threshold=slack_objective_threshold,
         )
         self.sampler_name_id = sampler_name_id
+        self.use_constraints = use_constraints
         self._optuna_parameters = None
         self._optuna_constraints = None
         self._optuna_objectives = None
@@ -207,14 +208,12 @@ will not be pruned/penalized by the sampler.")
             for _ in range(n_samples)]
         trial_params = self.get_parameters_from_trials(trials=trials)
         observed_objectives = self.objectives(trial_params, "RandomSampler")
-
-        self.attach_objectives_to_trials(
-            trials=trials,
-            observed_objectives=observed_objectives)
-
-        for trial, objective in zip(trials, observed_objectives.values.tolist()):
-            self.tuner.tell(trial.number, objective)
-
+        if use_for_warmup:
+            self.attach_objectives_to_trials(
+                trials=trials,
+                observed_objectives=observed_objectives)
+        else:
+            self.set_tuner()
         # restore the original sampler
         self.tuner.sampler = original_sampler
 
@@ -237,6 +236,9 @@ will not be pruned/penalized by the sampler.")
         """
         for trial, (_, row) in zip(trials, observed_objectives.iterrows()):
             trial.set_user_attr("dvh_metrics", row.to_dict())
+            self.tuner.tell(trial, row.tolist())
+        # for trial, objective in zip(trials, observed_objectives.values.tolist()):
+        #     self.tuner.tell(trial.number, objective)
 
     def run_trials(self, n_trials: int, batch_size: int = 1):
         r"""
@@ -274,6 +276,3 @@ will not be pruned/penalized by the sampler.")
             self.attach_objectives_to_trials(
                 trials=trials,
                 observed_objectives=observed_objectives)
-
-            for trial, objective in zip(trials, observed_objectives.values.tolist()):
-                self.tuner.tell(trial.number, objective)
