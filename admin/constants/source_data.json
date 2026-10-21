@@ -74,8 +74,8 @@
   "GammaMedPlus": {
     "isotope": "Ir-192",
     "core" : "G4_Ir",
-    "AKSA": null,
-    "AKHS": null
+    "AKSA": 9.580e-8,
+    "AKHS": 1.162e-11
   },
   "Intrabeam": {
     "isotope": null,
