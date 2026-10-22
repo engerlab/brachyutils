@@ -192,7 +192,7 @@ class BrachySource(BaseModel):
             model_name = "AGX100"
         elif "oncoseed6711" in model_name.lower():
             model_name = "OncoSeed6711"
-        elif "bravos" in model_name.lower():
+        elif "bravos" in model_name.lower() or "gammamed" in model_name.lower():
             model_name = "GammaMedPlus"
         if model_name not in cls.SOURCE_CONSTANTS.keys():
             logging.warn(f"Source model name {model_name} is not recognized. Please check the source_data.json file. Defaulting to GenericHDR source.")
@@ -218,15 +218,25 @@ class BrachySource(BaseModel):
         element = source_data["isotope"].split("-")[0]
         source_dict["atomic_number"] = list(cls.ELEMENTS["symbols"]).index(element) + 1
         source_dict["mass_number"] = int(source_data["isotope"].split("-")[1])
-        source_dict["air_kerma_per_history_strength"] = source_data["AKHS"]
+        # AKHS/AKSA are null in source_data.json for sources that haven't been calibrated yet (e.g. GammaMedPlus);
+        # keep the BrachySource defaults in that case, as the GUI does.
+        if source_data["AKHS"] is not None:
+            source_dict["air_kerma_per_history_strength"] = source_data["AKHS"]
+        else:
+            logging.warning(f"No air-kerma per history in source_data.json for {model_name}; using the default value.")
         #compute activity
-        source_dict["activity"] = source_dict["air_kerma_strength"] / (source_data["AKSA"] * 3.7e10)  # convert to Ci
+        if source_data["AKSA"] is not None:
+            source_dict["activity"] = source_dict["air_kerma_strength"] / (source_data["AKSA"] * 3.7e10)  # convert to Ci
+        else:
+            logging.warning(f"No air-kerma strength per activity in source_data.json for {model_name}; using the default activity.")
 
     @classmethod
     def check_source_data_dicom_match(cls, source_dict: dict, plan_dcm: pydicom.Dataset) -> None:
         # source_dict["source_geometry"] = plan_dcm.get("SourceModelName", "MicroSelectronV2")
         dcm_isotope = plan_dcm.SourceSequence[0].SourceIsotopeName
         isotope_candidates = ["Ir-192", "Co-60", "I-125", "Pd-103", "Cs-137"]
+        if "gammamed" in dcm_isotope.lower(): #some TPS put the source model name here, e.g. "GammaMed Plus HDR source 0.9 mm"
+            dcm_isotope = "Ir-192"
         for isotope in isotope_candidates: #to deal with some weirdness for how isotope names are written in the dicom
             if isotope.lower() in dcm_isotope.lower():
                 dcm_isotope = isotope
