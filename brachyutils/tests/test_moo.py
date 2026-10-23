@@ -142,7 +142,7 @@ def test_run_warmps():
     Moo_obj.run_random_sampling(batch_size=5)
     print(Moo_obj.trial_data)
 
-def test_run_trials(return_output:bool = False):
+def test_run_trials_optuna(return_output:bool = False):
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Optuna(return_obj=True)
     Moo_obj.run_random_sampling(batch_size=10)
@@ -329,10 +329,10 @@ if __name__ == "__main__":
     # test_init_MOO_Optuna()
     # test_evaluate_parameters()
     # test_run_warmps()
-    # test_run_trials()
+    test_run_trials_optuna()
     # test_are_acceptable()
     # test_get_hyper_volume()
     # test_plot_dvh_moo_space()
     # test_init_MOO_Ax()
     # test_run_warmps_Ax()
-    test_run_trials_Ax()
+    # test_run_trials_Ax()

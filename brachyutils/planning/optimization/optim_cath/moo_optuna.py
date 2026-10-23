@@ -148,7 +148,7 @@ The DVH metric goals will still be tracked as objectives, but infeasible trials 
 will not be pruned/penalized by the sampler.")
 
         constraints_kwargs = {
-            "_optuna_constraints": self._optuna_constraints} if use_constraints else {}
+            "constraints_func": self._optuna_constraints} if use_constraints else {}
         # TODO 1: test this
         if self.sampler_name_id == "AutoSampler":
             auto_sampler_module = optunahub.load_module(
