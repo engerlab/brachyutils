@@ -149,7 +149,6 @@ will not be pruned/penalized by the sampler.")
 
         constraints_kwargs = {
             "constraints_func": self._optuna_constraints} if use_constraints else {}
-        # TODO 1: test this
         if self.sampler_name_id == "AutoSampler":
             auto_sampler_module = optunahub.load_module(
                 package="samplers/auto_sampler")
@@ -236,10 +235,7 @@ will not be pruned/penalized by the sampler.")
         """
         for trial, (_, row) in zip(trials, observed_objectives.iterrows()):
             trial.set_user_attr("dvh_metrics", row.to_dict())
-            # TODO 1: test this
             self.tuner.tell(trial, row.tolist())
-        # for trial, objective in zip(trials, observed_objectives.values.tolist()):
-        #     self.tuner.tell(trial.number, objective)
 
     def run_trials(self, n_trials: int, batch_size: int = 1):
         r"""
