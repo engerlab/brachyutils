@@ -6,6 +6,7 @@ from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
 )
 import optuna
 import optunahub
+from optuna.trial import TrialState
 
 from brachyutils.planning.optimization.optim_cath.moo import MOO
 
@@ -176,7 +177,7 @@ will not be pruned/penalized by the sampler.")
     def run_random_sampling(
         self,
         n_samples: int,
-        use_for_warmup: bool = False
+        use_for_warmup: bool = True
         ):
         r"""
         ### Purpose:
@@ -207,12 +208,20 @@ will not be pruned/penalized by the sampler.")
             for _ in range(n_samples)]
         trial_params = self.get_parameters_from_trials(trials=trials)
         observed_objectives = self.objectives(trial_params, "RandomSampler")
-        if use_for_warmup:
-            self.attach_objectives_to_trials(
-                trials=trials,
-                observed_objectives=observed_objectives)
-        else:
-            self.set_tuner()
+
+        if self.slack_space_shrinkage is not None:
+            acceptable_trials = self.shrink_parameter_space(return_acceptable_trials=True)
+            true_indices = acceptable_trials.index[acceptable_trials["acceptable"]].tolist()
+            for j in range(len(observed_objectives)):
+                if j not in true_indices:
+                    observed_objectives.loc[j] = np.nan
+
+        if not use_for_warmup:
+            observed_objectives[:] = np.nan
+        self.attach_objectives_to_trials(
+            trials=trials,
+            observed_objectives=observed_objectives)
+            
         # restore the original sampler
         self.tuner.sampler = original_sampler
 
@@ -235,7 +244,10 @@ will not be pruned/penalized by the sampler.")
         """
         for trial, (_, row) in zip(trials, observed_objectives.iterrows()):
             trial.set_user_attr("dvh_metrics", row.to_dict())
-            self.tuner.tell(trial, row.tolist())
+            if row.isna().any():
+                self.tuner.tell(trial, state=TrialState.PRUNED)
+            else:
+                self.tuner.tell(trial, row.tolist())
 
     def run_trials(self, n_trials: int, batch_size: int = 1):
         r"""

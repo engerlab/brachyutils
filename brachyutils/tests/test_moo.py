@@ -91,19 +91,24 @@ def test_init_MOO_Optuna(return_obj=False):
         if name == "CTV":
             parameter_space[f"dose_voxel_goal({name})"] = [
                 optim_obj.plan.prescription_dose,
-                optim_obj.plan.prescription_dose*1.15 
+                optim_obj.plan.prescription_dose*1.15
             ]
-            parameter_space[f"penalty_weight_hotspot({name})"] = [0, 1000]
-            parameter_space[f"hotspot_threshold({name})"] = [1, 2]
-            # parameter_space[f"penalty_weight_uniformity({name})"] = [0, 1000]
-            # parameter_space[f"penalty_weight_variance_time({name})"] = [0, 1000]
-
-        parameter_space[f"penalty_weight_linear({name})"] = [0, 1000]
-        # parameter_space[f"penalty_weight_quadratic({name})"] = [0, 1000]
+            parameter_space[f"penalty_weight_hotspot({name})"] = [1, 500]
+            parameter_space[f"hotspot_threshold({name})"] = [1.5, 2]
+            # parameter_space[f"penalty_weight_uniformity({name})"] = [1, 5]
+            # parameter_space[f"penalty_weight_variance_time({name})"] = [1, 5]
+            # parameter_space[f"penalty_weight_linear({name})"] = [500, 1000]
+            # parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
+        else:
+            parameter_space[f"penalty_weight_linear({name})"] = [1, 500]
+            # parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
 
     Moo_obj = MOO_Optuna(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
+        sampler_name_id="NSGAIIISampler",
+        slack_space_shrinkage=0.1,
+        anchor_dvh_metric={"V100%(CTV)": 90},
     )
     print("break point here: Check that the MOO object is initialized correctly")
     if return_obj:
@@ -145,7 +150,7 @@ def test_run_warmps():
 def test_run_trials_optuna(return_output:bool = False):
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Optuna(return_obj=True)
-    Moo_obj.run_random_sampling(n_samples=10)
+    Moo_obj.run_random_sampling(n_samples=10, use_for_warmup=False)
     Moo_obj.run_trials(n_trials=2, batch_size=10)
     print("break point here.")
     print(Moo_obj.trial_data)
