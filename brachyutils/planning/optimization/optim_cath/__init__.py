@@ -22,6 +22,6 @@ from .moo_ax import(
     MOO_Ax
 )
 
-from moo_optuna import(
+from .moo_optuna import(
     MOO_Optuna
 )
