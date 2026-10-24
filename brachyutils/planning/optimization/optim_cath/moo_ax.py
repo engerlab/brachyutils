@@ -13,11 +13,8 @@ from ax.adapter.registry import Generators
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generation_strategy.generation_node import GenerationStep
 from botorch.acquisition.multi_objective import qLogNoisyExpectedHypervolumeImprovement
-from ax.core.utils import get_pending_observation_features
 
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generation_strategy.generation_node import GenerationNode
-from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.adapter.registry import Generators
 
 class MOO_Ax(MOO):
