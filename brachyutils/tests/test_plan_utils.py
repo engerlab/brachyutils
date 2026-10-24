@@ -39,6 +39,7 @@ def get_a_plan(
         dwells_near_ptv=kwargs.get("dwells_near_ptv", True),
         add_hotspots_to_phantom=kwargs.get("add_hotspots_to_phantom", False),
         one_hotspot_mask=kwargs.get("one_hotspot_mask", True),
+        non_overlapping_structures=kwargs.get("non_overlapping_structures", False),
         )
     return plan_obj
 

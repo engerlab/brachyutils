@@ -9,6 +9,13 @@ from torch import cuda
 
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
+from ax.adapter.registry import Generators
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_node import GenerationStep
+from botorch.acquisition.multi_objective import qLogNoisyExpectedHypervolumeImprovement
+
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.adapter.registry import Generators
 
 class MOO_Ax(MOO):
     def __init__(
@@ -17,35 +24,49 @@ class MOO_Ax(MOO):
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
         normalize = False,
-        scale_dwelltimes_by_metric: str = None,
-        sampler_name_id:Literal["fast", "quality"]="quality",
-        slack_factor: float = 0,
+        anchor_dvh_metric: str = None,
+        sampler_name_id:Literal["fast", "quality", "qNEHVI"]="qNEHVI",
+        slack_space_shrinkage: float = None,
+        slack_objective_threshold: float | Dict[str, float] = 0,
         device: Literal["cpu", "cuda"] = "cpu",
         ):
         r"""
-        - slack_factor
+        ### Purpose:
+        - Configure Ax as the backend for multi-objective optimization.
+
+        - For the shared optimization inputs, DVH goals, parameter-space format,
+        and inherited behavior, see the `MOO` documentation in `moo.py`.
+
+        - The instance exposes the Ax `Client` as `tuner`, along with the
+        configured sampler and objective slack values.
+
+        ### Inputs:
+        The following inputs are specific to the Ax backend:
+        - `sampler_name_id`: Ax generation strategy to use: `"fast"`,
+            `"quality"`, or `"qNEHVI"` (default).
+        - `device`: `"cpu"` or `"cuda"`; selects the device for Ax's
+            BoTorch optimization when using `"qNEHVI"`.
         """
-        
         self.tuner: Client
         super().__init__(
             catheter_table_optim= catheter_table_optim,
             parameter_space= parameter_space,
             max_workers= max_workers,
             normalize= normalize,
-            scale_dwelltimes_by_metric=scale_dwelltimes_by_metric,
+            anchor_dvh_metric=anchor_dvh_metric,
+            slack_space_shrinkage=slack_space_shrinkage,
+            slack_objective_threshold=slack_objective_threshold
             )
         self.sampler_name_id = sampler_name_id
-        self.slack_factor = slack_factor
         self.device = device
         self._ax_parameters = None
-        if (self.slack_factor < -1
-            or self.slack_factor > 1):
-            raise ValueError("slack factor should be between -1 and 1")
+        self._ax_constraints = None
+        self._ax_objectives = None
+
         if self.device == "cuda":
             if not cuda.is_available:
                 self.device = "cpu"
         # fill out the ax-specific attributes
-        self._parameter_space_to_ax()
         self.set_tuner()
 
     def _parameter_space_to_ax(self):
@@ -64,6 +85,7 @@ class MOO_Ax(MOO):
             self._ax_parameters.append(ax_param)
 
     def set_tuner(self):
+        self._parameter_space_to_ax()
         # # instantiate a new tuner object. in ax it's called Client
         self.tuner = Client()
         self.tuner.configure_experiment(parameters = self._ax_parameters)
@@ -77,7 +99,8 @@ class MOO_Ax(MOO):
                 )
                 outcome_constraints.append(
                     f"{_clean_dvh_names(dvh_name)} <= {
-                        self.dvh_metric_goals[dvh_name][1]*(1+self.slack_factor)}"
+                        self.dvh_metric_goals[dvh_name][1]
+                        *(1+self.slack_objective_threshold.get(dvh_name, 0))}"
                 )
             else:
                 ax_objectives.append(
@@ -85,9 +108,13 @@ class MOO_Ax(MOO):
                 )
                 outcome_constraints.append(
                     f"{_clean_dvh_names(dvh_name)} >= {
-                        self.dvh_metric_goals[dvh_name][1]*(1-self.slack_factor)}"
+                        self.dvh_metric_goals[dvh_name][1]
+                        *(1-self.slack_objective_threshold.get(dvh_name, 0))}"
                 )
         ax_objectives = ", ".join(ax_objectives)
+        self._ax_objectives = ax_objectives
+        self._ax_constraints = outcome_constraints
+
         self.tuner.configure_optimization(
             objective=ax_objectives,
             outcome_constraints=outcome_constraints
@@ -102,23 +129,54 @@ class MOO_Ax(MOO):
         observed_objects.columns = new_columns
         return observed_objects
 
-    def run_warmups(self, n_warmups):
+    def run_random_sampling(
+        self,
+        n_samples,
+        use_for_warmup: bool = True
+        ):
         self.tuner.configure_generation_strategy(
             method="random_search",
-            initialization_budget=n_warmups,)
-        trials = self.tuner.get_next_trials(max_trials=n_warmups)
+            initialization_budget=n_samples,)
+        trials = self.tuner.get_next_trials(max_trials=n_samples)
         param_trials = self.get_parameters_from_trials(trials=trials)
         objectives = self.objectives(parameters=param_trials, sampler_name_id="random_search")
-        self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
+        if self.slack_space_shrinkage is not None:
+            acceptable_trials = self.shrink_parameter_space(return_acceptable_trials=True)
+            self.set_tuner()
+            true_indices = acceptable_trials.index[acceptable_trials["acceptable"]].tolist()
+            new_trials = {}
+            for i, true_indx in enumerate(true_indices):
+                new_trials[i]=trials[true_indx]
+            trials = new_trials
+        if use_for_warmup:
+            self.attach_objectives_to_trials(trials=trials, observed_objectives=objectives)
+        else:
+            self.set_tuner()
 
     def run_trials(self, n_trials: int, batch_size: int = 1):
-        self.tuner.configure_generation_strategy(
-            method=self.sampler_name_id,
-            initialization_budget=0,
-            allow_exceeding_initialization_budget=False,
-            use_existing_trials_for_initialization=True,
-            # simplify_parameter_changes=True,
-            torch_device=self.device)
+        if self.sampler_name_id == "qNEHVI":
+            nodes = [
+                GenerationStep(
+                generator=Generators.SOBOL,
+                num_trials=1,),
+                GenerationStep(
+                generator=Generators.BOTORCH_MODULAR,
+                num_trials=-1,
+                model_kwargs={
+                    "botorch_acqf_class": qLogNoisyExpectedHypervolumeImprovement,
+                    "torch_device": self.device,
+                    },)
+                ]
+            self.tuner.set_generation_strategy(
+                GenerationStrategy(nodes=nodes, name=self.sampler_name_id))
+        else:
+            self.tuner.configure_generation_strategy(
+                method=self.sampler_name_id,
+                initialization_budget=1,
+                allow_exceeding_initialization_budget=False,
+                use_existing_trials_for_initialization=True,
+                simplify_parameter_changes=True,
+                torch_device=self.device)
 
         for _ in range(n_trials):
             trials = self.tuner.get_next_trials(max_trials=batch_size)
@@ -143,6 +201,8 @@ class MOO_Ax(MOO):
 
     def attach_objectives_to_trials(self, trials, observed_objectives):
         for trial, (_, row) in zip(trials.items(), observed_objectives.iterrows()):
+            if not trial[0] in self.tuner._experiment.trials:
+                self.tuner.attach_trial(trial[1])
             self.tuner.complete_trial(trial_index=trial[0], raw_data=row)
 
 def _clean_dvh_names(dvh_name:str) -> str:
@@ -155,4 +215,3 @@ def _clean_dvh_names(dvh_name:str) -> str:
     dvh_name = dvh_name.replace("(", "_")
     dvh_name = dvh_name.replace(")", "")
     return dvh_name
-    

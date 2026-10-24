@@ -9,6 +9,19 @@ __all__ = [
     "ExportConfig_CatheterTable",
     "ExportConfig_Dose",
     "ExportConfig_BrachyPlan",
+    'Optimization_Config',
+    'BrachyDwellTime',
+    'BrachyDwellTimeOptim',
+    'DwellTime_Gurobi',
+    "get_optimized_dwelltimes_from_model",
+    "CatheterTableOptim_Gurobi",
+    "update_penalty_weights_and_voxel_goals",
+    "MOO",
+    "evaluate_parameters",
+    "are_acceptable",
+    "get_hyper_volume",
+    "MOO_Ax",
+    "MOO_Optuna",
 ]
 
 # trunk-ignore(ruff/F401)
@@ -27,3 +40,4 @@ from .plan_export_configs import (
     ExportConfig_Dose,
     ExportConfig_BrachyPlan,
 )
+from .optimization import *

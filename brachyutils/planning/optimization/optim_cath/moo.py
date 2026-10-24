@@ -124,7 +124,9 @@ class MOO(ABC):
         parameter_space: Dict[str, np.typing.ArrayLike],
         max_workers: int = 16,
         normalize: bool = False,
-        scale_dwelltimes_by_metric: str = None
+        anchor_dvh_metric: Dict[str, float] = None,
+        slack_space_shrinkage: float = None,
+        slack_objective_threshold: float | Dict[str, float] = 0,
     ):
         r"""
         ### Purpose:
@@ -143,25 +145,74 @@ class MOO(ABC):
             penalty_weight_linear(CTV) : [1, 500]
         - `normalize` := If true dvh_metric_goals would be normalized from 100% to 1.
         Be sure that the DVH metrics are in percentage form (defualt is percentage).
-        - `scale_dwelltimes_by_metric`:str := Provide a DVH metric name to be used for
-        anchoring the plan, i.e. the dwell times will be scaled so that this DVH metric
-        goals is met.
+        - `anchor_dvh_metric`: Dict[str, float] := Provide a DVH metric name to be used for
+        anchoring the plan, i.e. the dwell times will be scaled so that the desired value for
+        this metric is met. Example: {"V100%(CTV)": 95} will scale the dwell times so that V100%(CTV) = 95.
+        - `slack_space_shrinkage`: float := Based on random sampling, the parameter space
+        is shrunk to focus on the region of parameters that yield clinically acceptable plans. 
+        This value is slack on relaxing the DVH metric goals. For example, if the DVH metric 
+        goal is [">=", 100] and the slack is 0.1, then the parameter space will be shrunk to
+        focus on the region of parameters that yield plans with DVH metric >= 90.
+        
+        ### Outputs:
+        None := Fills out the following attributes:
+        - `self.dvh_metric_goals` := maps the DVH names {metric_name
+        (structure_name)} to their clinically desired values. Metrics with a `None` goal 
+        (i.e. not clinically constrained/tracked) are skipped entirely and never appear here.
+        - `self.trial_data`: pd.DataFrame := A master dataframe containing 
+        the result of all the trials. The columns are parameter names from
+        the keys of `self.parameter_space` and the dvh metric names from the keys of `self.dvh_metric_goals`.
+        - `self.directions`: Dict[str, str] := A dictionary of directions for each DVH 
+        metric goal. The order of the directions corresponds to the order of 
+        the keys in `self.dvh_metric_goals`. The direction is either "minimize" 
+        or "maximize" depending on the operation in the dvh_metric_goals. For example,
+        if the operation is "<=", then the direction is "minimize". If the operation is ">=", 
+        then the direction is "maximize".
+        - `self.tuner`: Any := The tuner object that will be used to recommend the next 
+        batch of parameter queries to be evaluated.
+        - `self.max_workers`: int := The maximum number of workers to use for parallel evaluation.
+        - `self.normalize`: bool := If true dvh_metric_goals would be normalized from 100% to 1.
+        This is lowkey trash, don't use it.
+        - `self.anchor_dvh_metric`: Dict[str, float] := Provide a DVH metric name to be used for
+        anchoring the plan, i.e. the dwell times will be scaled so that the desired
+        value for this metric is met. Example: {"V100%(CTV)": 95} will scale the dwell times so 
+        that V100%(CTV) = 95.
+        - `self.slack_space_shrinkage`: float := Based on random sampling, the parameter space
+        is shrunk to focus on the region of parameters that yield clinically acceptable plans
+        with some slack.
+        - `slack_objective_threshold`: Relative slack for each DVH outcome
+        constraint. A float applies to all metrics; a dictionary sets slack
+        by DVH metric name (unspecified metrics use zero slack). Values must
+        be in [-1, 1]. Positive slack relaxes constraints and negative slack
+        tightens them. For a goal of `">= 100"`, slack `0.1` sets the Ax
+        constraint to `>= 90`; for a goal of `"<= 100"`, it sets it to
+        `<= 110`.
+
+        The object has the following abstract methods that must be implemented in a subclass:
+        - `set_tuner()` := Builds the Tuner object that will recommend the next batch
+        of parameter queries to be evaluated.
+        - `run_random_sampling(n_samples: int, use_for_warmup: bool = True)` := To run random
+        sampling for `n_samples` of the parameter space.
+        - `run_trials(n_trials: int, batch_size: int = 1)` := To run the multi-objective optimization
+        for `n_trials` outer iterations.
         """
         self.catheter_table_optim = catheter_table_optim
         self.parameter_space = parameter_space
         self.max_workers = max_workers
         self.normalize = normalize
-        self.scale_dwelltimes_by_metric = scale_dwelltimes_by_metric
+        self.anchor_dvh_metric = anchor_dvh_metric
+        self.slack_space_shrinkage = slack_space_shrinkage
         # # Attributes to be filled out
         self.dvh_metric_goals: Dict[str, List] = None
         self.tuner: Any = None
         self.trial_data: pd.DataFrame = None
         self.directions = None
         # # Fill out the attributes
-        self.validate_init()
-        self.set_directions_from_dvh_metric_goals()
+        self._validate_init()
+        self._set_directions_from_dvh_metric_goals()
+        self._set_slack_objective_threshold(slack_objective_threshold)
 
-    def validate_init(self):
+    def _validate_init(self):
         r"""
         ### Purpose:
         - To ensure `self.catheter_table_optim` and `parameter_space` contain
@@ -241,6 +292,21 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
                 + list(self.dvh_metric_goals.keys())
                 + ["sampler_name_id", "acceptable", "hypervolume"]))
 
+    def _set_slack_objective_threshold(self, slack_objective_threshold):
+        if isinstance(slack_objective_threshold, dict):
+            for key, value in slack_objective_threshold.items():
+                if value < -1 or value > 1:
+                    raise ValueError(f"slack factor for {key} should be between -1 and 1")
+        else:
+            if (slack_objective_threshold < -1
+                or slack_objective_threshold > 1):
+                raise ValueError("slack factor should be between -1 and 1")
+            slack_objective_threshold_dict = {}
+            for dvh_name in self.dvh_metric_goals.keys():
+                slack_objective_threshold_dict[dvh_name] = slack_objective_threshold
+            self.slack_objective_threshold = slack_objective_threshold_dict
+
+
     def objectives(
         self,
         parameters:pd.DataFrame,
@@ -269,18 +335,11 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         ### Outputs:
         - A dataframe with the dvh metrics specified by the keys in self.dvh_metric_goals.
         """
-        if self.scale_dwelltimes_by_metric is not None:
-            anchor_dvh_metric = {
-                self.scale_dwelltimes_by_metric: self.dvh_metric_goals[
-                    self.scale_dwelltimes_by_metric][1]
-            }
-        else:
-            anchor_dvh_metric=None
         dvh_metrics_data = evaluate_parameters(
             parameters,
             self.catheter_table_optim,
             max_workers=self.max_workers,
-            anchor_dvh_metric=anchor_dvh_metric,
+            anchor_dvh_metric=self.anchor_dvh_metric,
         )
         acceptable_trials = are_acceptable(dvh_metrics_data, self.dvh_metric_goals)
         hv_trials = get_hyper_volume(dvh_metrics_data, self.dvh_metric_goals)
@@ -307,21 +366,20 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         pass
 
     @abstractmethod
-    def run_warmups(
+    def run_random_sampling(
         self,
-        n_warmups: int,
-        max_workers: int = 16,
+        n_samples: int,
+        use_for_warmup: bool = True
     ):
         r"""
         ### Purpose:
-        - To run random sampling for `n_warmups` number of warmup trials.
-        All the warmup trials will be randomly sampled from the parameter space and
+        - To run random sampling for `n_samples`. of the parameter space
         evaluated either sequentially or in parallel.
 
         ### Inputs:
-        - n_warmups: int := The number of warmup trials to run.
-        - max_workers: int := The number of threads to be used for parallelized
-        evaluation of the penalty weights.
+        - n_samples: int := The number of samples to generate and evaluate.
+        - use_for_warmup: bool := If True, the random samples will be used to warm up
+        the tuner. If False, the random samples will just be stored to self.trial_data.
 
         ### Outputs:
         None := Fills out the following attributes:
@@ -359,7 +417,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         """
         pass
 
-    def set_directions_from_dvh_metric_goals(self):
+    def _set_directions_from_dvh_metric_goals(self):
         r"""
         ### Purpose:
         - To get the directions of optimization for each DVH metric goal.
@@ -417,6 +475,61 @@ for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
         observed dvh metrics
         """
         pass
+
+    def shrink_parameter_space(self, return_acceptable_trials: bool = False):
+        r"""
+        ### Purpose:
+        - To shrink the parameter space based on the observed dvh metrics and the dvh metric goals.
+        The parameter space is shrunk to focus on the region of parameters that yield clinically
+        acceptable plans. This is done by relaxing the dvh metric goals by a fraction of
+        `self.slack_space_shrinkage` and then finding the range of parameters that yield
+        plans that meet the relaxed goals.
+
+        - Be sure to update the parameter space in the self.tuner afterwards
+
+        ### Inputs:
+        - return_acceptable_trials: bool := If True, returns a dataframe with the trials that meet the relaxed goals.
+        - Expects self.trial_data to be filled out with at least one trial.
+
+        ### Outputs:
+        None := Updates self.parameter_space with the new shrunk parameter space.
+        - If return_acceptable_trials is True, returns a dataframe with the trials that meet the relaxed goals.
+        """
+        if self.slack_space_shrinkage is None:
+            return
+        if self.slack_space_shrinkage <= -1 or self.slack_space_shrinkage >= 1:
+            raise ValueError("slack_space_shrinkage should be between -1 and 1.")
+        if len(self.trial_data) == 0:
+            raise ValueError("No trials have been run yet. Cannot shrink parameter space.")
+
+        # # Relax the dvh metric goals by a fraction of slack_space_shrinkage
+        relaxed_dvh_metric_goals = {}
+        for key, value in self.dvh_metric_goals.items():
+            if value[0] == "<=":
+                relaxed_dvh_metric_goals[key] = [
+                    value[0],
+                    value[1] * (1 + self.slack_space_shrinkage),
+                ]
+            elif value[0] == ">=":
+                relaxed_dvh_metric_goals[key] = [
+                    value[0],
+                    value[1] * (1 - self.slack_space_shrinkage),
+                ]
+            else:
+                raise ValueError(f"The operation: {value[0]} \
+for DVH metric goal: {key} is not valid. Please use one of ['<=', '>=']")
+
+        # # Find the min and max of the parameters that yield plans that meet the relaxed goals
+        acceptable_trials = are_acceptable(
+            self.trial_data[list(self.dvh_metric_goals.keys())],
+            relaxed_dvh_metric_goals)
+        for param in self.parameter_space.keys():
+            param_values = self.trial_data.loc[acceptable_trials["acceptable"], param]
+            if len(param_values) == 0:
+                raise ValueError("No acceptable trials found. Cannot shrink parameter space.")
+            self.parameter_space[param] = [param_values.min(), param_values.max()]
+        if return_acceptable_trials:
+            return acceptable_trials
 
 def are_acceptable(
     dvh_metrics: pd.DataFrame,

@@ -234,6 +234,7 @@ class CatheterTableOptim_Gurobi():
         # model.setParam("MIPFocus", 1)  # was not helpful.
         model.setParam("PreSOS1BigM", -1)
         model.setParam("LogFile", str(pth_logfile))
+        model.setParam("OutputFlag", 0)  # set to 0 to suppress output
         return model
 
     def set_catheter_variables(

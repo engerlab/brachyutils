@@ -53,6 +53,7 @@ def test_catheter_table_optim(
         dir_dicom=pth_dicom,
         from_delivered_dwellpositions=from_delivered_dwellpositions,
         dvh_metric_goals=dvh_metric_names,
+        non_overlapping_structures=True,
         )
 
     if gen_dose_rates:
@@ -97,12 +98,12 @@ def test_catheter_table_optim(
             structure_name="CTV",
             is_target=True,
             dose_voxel_goal=target_dose,
-            penalty_weight_linear=100,
+            penalty_weight_linear=1000,
             penalty_weight_quadratic=1,
-            penalty_weight_uniformity=1,
+            penalty_weight_uniformity=0,
             penalty_weight_hotspot=1,
             hotspot_threshold=1.75,
-            # penalty_weight_variance_time=1,
+            penalty_weight_variance_time=0,
             mask_margin_mm=0,
             spacing_mm=3,
             catheter_recommendaion=catheter_recommendaion),
@@ -113,7 +114,7 @@ def test_catheter_table_optim(
             penalty_weight_linear=1,
             penalty_weight_quadratic=1,
             mask_margin_mm=0,
-            spacing_mm=1),
+            spacing_mm=1,),
         Optimization_Config(
             structure_name="RECTUM",
             is_target=False,

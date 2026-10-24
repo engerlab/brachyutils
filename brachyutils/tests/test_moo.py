@@ -91,19 +91,24 @@ def test_init_MOO_Optuna(return_obj=False):
         if name == "CTV":
             parameter_space[f"dose_voxel_goal({name})"] = [
                 optim_obj.plan.prescription_dose,
-                optim_obj.plan.prescription_dose*1.15 
+                optim_obj.plan.prescription_dose*1.15
             ]
-            parameter_space[f"penalty_weight_hotspot({name})"] = [0, 1000]
-            parameter_space[f"hotspot_threshold({name})"] = [1, 2]
-            # parameter_space[f"penalty_weight_uniformity({name})"] = [0, 1000]
-            # parameter_space[f"penalty_weight_variance_time({name})"] = [0, 1000]
-
-        parameter_space[f"penalty_weight_linear({name})"] = [0, 1000]
-        # parameter_space[f"penalty_weight_quadratic({name})"] = [0, 1000]
+            parameter_space[f"penalty_weight_hotspot({name})"] = [1, 500]
+            parameter_space[f"hotspot_threshold({name})"] = [1.5, 2]
+            # parameter_space[f"penalty_weight_uniformity({name})"] = [1, 5]
+            # parameter_space[f"penalty_weight_variance_time({name})"] = [1, 5]
+            # parameter_space[f"penalty_weight_linear({name})"] = [500, 1000]
+            # parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
+        else:
+            parameter_space[f"penalty_weight_linear({name})"] = [1, 500]
+            # parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
 
     Moo_obj = MOO_Optuna(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
+        sampler_name_id="NSGAIIISampler",
+        slack_space_shrinkage=0.1,
+        anchor_dvh_metric={"V100%(CTV)": 90},
     )
     print("break point here: Check that the MOO object is initialized correctly")
     if return_obj:
@@ -139,13 +144,13 @@ def test_evaluate_parameters():
 
 def test_run_warmps():
     Moo_obj = test_init_MOO_Optuna(return_obj=True)
-    Moo_obj.run_warmups(batch_size=5)
+    Moo_obj.run_random_sampling(n_samples=5)
     print(Moo_obj.trial_data)
 
-def test_run_trials(return_output:bool = False):
+def test_run_trials_optuna(return_output:bool = False):
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Optuna(return_obj=True)
-    Moo_obj.run_warmups(batch_size=10)
+    Moo_obj.run_random_sampling(n_samples=10, use_for_warmup=False)
     Moo_obj.run_trials(n_trials=2, batch_size=10)
     print("break point here.")
     print(Moo_obj.trial_data)
@@ -221,10 +226,19 @@ def test_get_hyper_volume():
 
 def test_plot_dvh_moo_space():
     dir_out = Path("data_test/test_export_plan/prostate")
-    Moo_obj = test_run_trials(True)
+    # Moo_obj = test_run_trials(True)
+    trial_data = pd.read_csv(dir_out/"test_ax.csv", index_col=0)
+    dvh_metric_goals = {
+        "D90%(CTV)": [">=", 100],
+        "D2cc(RECTUM)": ["<=", 66],
+        "D10%(URETHRA)": ["<=", 113],
+        "D30%(URETHRA)": ["<=", 100],
+        "V150%(CTV)": ["<=", 40],
+        "V100%(CTV)": [">=", 95],
+    }
     plot_dvh_moo_space(
-        trial_df=Moo_obj.trial_data,
-        dvh_metric_goals=Moo_obj.dvh_metric_goals,
+        trial_df=trial_data,
+        dvh_metric_goals=dvh_metric_goals,
         path_out_svg=dir_out/"test.svg",
         sampler_col="sampler_name_id",
         title="test trial"
@@ -237,12 +251,16 @@ def test_init_MOO_Ax(return_obj=False):
         "D2cc(RECTUM)": ["<=", 66],
         "D10%(URETHRA)": ["<=", 113],
         "D30%(URETHRA)": ["<=", 100],
+        "D1cc(RECTUM)": ["<=", 75],
+        "D0.1cc(URETHRA)": ["<=", 125],
+        "V150%(CTV)": ["<=", 40],
+
         "CI(CTV)": None,
         "HI(CTV)": None,
         "V200%(CTV)": None,
-        "V150%(CTV)": ["<=", 40],
         "V100%(CTV)": [">=", 95],
     }
+
     optim_obj.plan.set_dvh_metric_goals(
         dvh_metric_goals=dvh_metric_goals,
         strict_name_match=False,
@@ -258,7 +276,7 @@ def test_init_MOO_Ax(return_obj=False):
                 optim_obj.plan.prescription_dose*1.15
             ]
             parameter_space[f"penalty_weight_hotspot({name})"] = [1, 500]
-            # parameter_space[f"hotspot_threshold({name})"] = [1.5, 2]
+            parameter_space[f"hotspot_threshold({name})"] = [1.5, 2]
             # parameter_space[f"penalty_weight_uniformity({name})"] = [1, 5]
             # parameter_space[f"penalty_weight_variance_time({name})"] = [1, 5]
             # parameter_space[f"penalty_weight_linear({name})"] = [500, 1000]
@@ -270,9 +288,20 @@ def test_init_MOO_Ax(return_obj=False):
     Moo_obj = MOO_Ax(
         catheter_table_optim=optim_obj,
         parameter_space=parameter_space,
-        # scale_dwelltimes_by_metric="D90%(CTV)",
-        slack_factor=0.1,
+        anchor_dvh_metric={"V100%(CTV)": 90},
+        slack_objective_threshold={
+            # "D90%(CTV)": 0,
+            # "D2cc(RECTUM)": 0,
+            "D10%(URETHRA)": -0.2,
+            "D30%(URETHRA)": -0.2,
+            # "D1cc(RECTUM)":0,
+            # "D0.1cc(URETHRA)":0,
+            # "V150%(CTV)":0,
+            },
         device="cuda",
+        sampler_name_id="qNEHVI",
+        # slack_space_shrinkage=0.1,
+        # max_workers=1,
     )
     print("break point here: Check that the MOO object is initialized correctly")
     if return_obj:
@@ -280,13 +309,15 @@ def test_init_MOO_Ax(return_obj=False):
 
 def test_run_warmps_Ax():
     Moo_obj = test_init_MOO_Ax(return_obj=True)
-    Moo_obj.run_warmups(n_warmups=10)
+    Moo_obj.run_random_sampling(n_samples=10)
 
 def test_run_trials_Ax():
     dir_out = Path("data_test/test_export_plan/prostate")
     Moo_obj = test_init_MOO_Ax(return_obj=True)
-    Moo_obj.run_warmups(n_warmups=50)
-    Moo_obj.run_trials(n_trials=5, batch_size=10)
+    Moo_obj.run_random_sampling(n_samples=32, use_for_warmup=False)
+    t0 = time()
+    Moo_obj.run_trials(n_trials=8, batch_size=4)
+    t1 = time() - t0
     Moo_obj.trial_data.to_csv(dir_out/"test_ax.csv")
     plot_dvh_moo_space(
         trial_df=Moo_obj.trial_data,
@@ -295,6 +326,7 @@ def test_run_trials_Ax():
         sampler_col="sampler_name_id",
         title="test trial"
     )
+    print(f"Time to run the trials: {t1:.4f} seconds")
 
 if __name__ == "__main__":
     # test_update_penalty_weights_and_voxel_goals()
@@ -302,10 +334,10 @@ if __name__ == "__main__":
     # test_init_MOO_Optuna()
     # test_evaluate_parameters()
     # test_run_warmps()
-    # test_run_trials()
+    test_run_trials_optuna()
     # test_are_acceptable()
     # test_get_hyper_volume()
     # test_plot_dvh_moo_space()
     # test_init_MOO_Ax()
     # test_run_warmps_Ax()
-    test_run_trials_Ax()
+    # test_run_trials_Ax()
