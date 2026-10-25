@@ -18,6 +18,7 @@ class MOO_Optuna(MOO):
         "TPESampler",
         "GPSampler",
         "BoTorchSampler",
+        "NSGAIIISampler",
     }
 
     def __init__(
@@ -43,12 +44,18 @@ class MOO_Optuna(MOO):
             slack_space_shrinkage=slack_space_shrinkage,
             slack_objective_threshold=slack_objective_threshold,
         )
-        self.sampler_name_id = sampler_name_id
+        self.set_sampler_name_id(sampler_name_id)
         self.use_constraints = use_constraints
         self._optuna_parameters = None
         self._optuna_constraints = None
         self._optuna_objectives = None
         self.set_tuner()
+
+    def set_sampler_name_id(self, sampler_name_id):
+        if sampler_name_id not in self._constraint_capable_samplers:
+            raise ValueError(f"Sampler name id was {sampler_name_id}\
+but it should be one of {self._constraint_capable_samplers}")
+        self.set_sampler_name_id = sampler_name_id
 
     def _build_optuna_constraints(self):
         r"""

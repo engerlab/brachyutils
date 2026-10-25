@@ -143,6 +143,8 @@ class MOO(ABC):
         some attributes of the Optimization_Config class followed by the name of
         that structure in paranthesis. For example:
             penalty_weight_linear(CTV) : [1, 500]
+        - `max_workers` := The number of threads for your machine for cuncurrently optimizating
+        the optimization model in parallel.
         - `normalize` := If true dvh_metric_goals would be normalized from 100% to 1.
         Be sure that the DVH metrics are in percentage form (defualt is percentage).
         - `anchor_dvh_metric`: Dict[str, float] := Provide a DVH metric name to be used for
@@ -153,7 +155,14 @@ class MOO(ABC):
         This value is slack on relaxing the DVH metric goals. For example, if the DVH metric 
         goal is [">=", 100] and the slack is 0.1, then the parameter space will be shrunk to
         focus on the region of parameters that yield plans with DVH metric >= 90.
-        
+        - `slack_objective_threshold`: Relative slack for each DVH outcome
+        constraint. A float applies to all metrics; a dictionary sets slack
+        by DVH metric name (unspecified metrics use zero slack). Values must
+        be in [-1, 1]. Positive slack relaxes constraints and negative slack
+        tightens them. For a goal of `">= 100"`, slack `0.1` sets the Ax
+        constraint to `>= 90`; for a goal of `"<= 100"`, it sets it to
+        `<= 110`.
+    
         ### Outputs:
         None := Fills out the following attributes:
         - `self.dvh_metric_goals` := maps the DVH names {metric_name
@@ -180,13 +189,6 @@ class MOO(ABC):
         - `self.slack_space_shrinkage`: float := Based on random sampling, the parameter space
         is shrunk to focus on the region of parameters that yield clinically acceptable plans
         with some slack.
-        - `slack_objective_threshold`: Relative slack for each DVH outcome
-        constraint. A float applies to all metrics; a dictionary sets slack
-        by DVH metric name (unspecified metrics use zero slack). Values must
-        be in [-1, 1]. Positive slack relaxes constraints and negative slack
-        tightens them. For a goal of `">= 100"`, slack `0.1` sets the Ax
-        constraint to `>= 90`; for a goal of `"<= 100"`, it sets it to
-        `<= 110`.
 
         The object has the following abstract methods that must be implemented in a subclass:
         - `set_tuner()` := Builds the Tuner object that will recommend the next batch
@@ -297,6 +299,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
             for key, value in slack_objective_threshold.items():
                 if value < -1 or value > 1:
                     raise ValueError(f"slack factor for {key} should be between -1 and 1")
+            slack_objective_threshold_dict = slack_objective_threshold
         else:
             if (slack_objective_threshold < -1
                 or slack_objective_threshold > 1):
@@ -304,8 +307,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
             slack_objective_threshold_dict = {}
             for dvh_name in self.dvh_metric_goals.keys():
                 slack_objective_threshold_dict[dvh_name] = slack_objective_threshold
-            self.slack_objective_threshold = slack_objective_threshold_dict
-
+        self.slack_objective_threshold = slack_objective_threshold_dict
 
     def objectives(
         self,

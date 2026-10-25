@@ -15,6 +15,10 @@ import pandas as pd
 from time import time
 import json
 
+from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax
+from brachyutils.planning.optimization.optim_cath.moo_optuna import MOO_Optuna
+from brachyutils.planning.optimization.optim_cath.config_moo import Config_MOO
+
 def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     r"""
     ### Purpose:
@@ -529,10 +533,9 @@ def run_experiment_sequential(
     max_num_physical_catheters: int,
     step_num_physical_catheters: int,
     initial_num_physical_catheters: int,
+    config_moo: Config_MOO,
     prob_catheter_deviation: Annotated[float, "0.0 to 1.0"] = 0,
     prepandicular_catheters:bool = False,
-    multi_objective_optimizer: None = None,
-    list_hyper_parameters: List[str] = None,
     dir_output: str | Path = None,
     ):
     r"""
@@ -737,7 +740,10 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
         # lowest dose to urethra.
         # TODO: to be implemented!
         t0_moo = time()
-        cbox_optim.get_optimized_plan_from_model()
+        best_dvh_metrics, acceptance_rate = run_moo(
+            catheter_table_optim=cbox_optim.optimization_object,
+            config_moo=config_moo
+        )
         t1_moo = time()
 
         # # Free the catheters that were bound 0 for next iteration!
@@ -749,14 +755,12 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
             cluster_box=cbox_optim.cluster_box
         )
 
-        dvh_metrics = cbox_optim.plan.get_dvh_metrics()
-
         out_df.loc[len(out_df)] = {
         "num_physical_catheters": physical_catheters_used,
-        "acceptance_rate": 0,
+        "acceptance_rate": acceptance_rate,
         "time_optim_catheters": t1_cath - t0_cath,
         "time_optim_moo": t1_moo - t0_moo,
-        } | dvh_metrics
+        } | best_dvh_metrics.to_dict()
         if dir_output is not None:
             out_df.to_csv(dir_output/f"results.csv")
             print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
@@ -950,3 +954,48 @@ def _count_physical_catheters_used(
             if catheter.channel_total_time > 0:
                 catheter_count += 1
     return catheter_count
+
+def run_moo(
+    catheter_table_optim:CatheterTableOptim_Gurobi,
+    config_moo: Config_MOO,
+    ):
+    r"""
+    ### Purpose:
+    - Run a multi-objective optimization on a catheter table optimization object.
+
+    ### Inputs:
+    - catheter_table_optim
+    - config_moo
+    
+    ### Outputs:
+    None: to be determined!
+    """
+    if config_moo.moo_class == "MOO_Ax":
+        from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax as Moo_Class
+    elif config_moo.moo_class == "MOO_Optuna":
+        from brachyutils.planning.optimization.optim_cath.moo_optuna import MOO_Optuna as Moo_Class
+    else:
+        raise ValueError("Unsupported Moo class")
+    
+    Moo_obj = Moo_Class(
+        catheter_table_optim=catheter_table_optim,
+        parameter_space=config_moo.parameter_space,
+        sampler_name_id=config_moo.sampler_name_id,
+        max_workers=config_moo.max_workers,
+        anchor_dvh_metric=config_moo.anchor_dvh_metric,
+        slack_objective_threshold=config_moo.slack_objective_threshold,
+        slack_space_shrinkage=config_moo.slack_space_shrinkage,
+    )
+    Moo_obj.run_random_sampling(
+        n_samples=config_moo.n_random_samples,
+        use_for_warmup=config_moo.use_random_samples_in_warmup
+    )
+    Moo_obj.run_trials(
+        n_trials=config_moo.n_tuning_trials,
+        batch_size=config_moo.trial_batch_size
+    )
+    acceptance_rate = Moo_obj.trial_data["acceptable"].sum()/(Moo_obj.trial_data.shape[0])
+    acceptable_rows = Moo_obj.trial_data.loc[Moo_obj.trial_data["acceptable"]==True]
+    best_dvh_metrics = acceptable_rows.loc[acceptable_rows["hypervolume"].idxmin]
+    best_dvh_metrics = best_dvh_metrics[list(Moo_obj.dvh_metric_goals.keys())]
+    return best_dvh_metrics, acceptance_rate
