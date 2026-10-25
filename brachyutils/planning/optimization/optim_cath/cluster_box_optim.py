@@ -740,7 +740,7 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
         # lowest dose to urethra.
         # TODO: to be implemented!
         t0_moo = time()
-        run_moo(
+        best_dvh_metrics, acceptance_rate = run_moo(
             catheter_table_optim=cbox_optim.optimization_object,
             config_moo=config_moo
         )
@@ -755,14 +755,12 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
             cluster_box=cbox_optim.cluster_box
         )
 
-        dvh_metrics = cbox_optim.plan.get_dvh_metrics()
-
         out_df.loc[len(out_df)] = {
         "num_physical_catheters": physical_catheters_used,
-        "acceptance_rate": 0,
+        "acceptance_rate": acceptance_rate,
         "time_optim_catheters": t1_cath - t0_cath,
         "time_optim_moo": t1_moo - t0_moo,
-        } | dvh_metrics
+        } | best_dvh_metrics.to_dict()
         if dir_output is not None:
             out_df.to_csv(dir_output/f"results.csv")
             print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
@@ -996,3 +994,8 @@ def run_moo(
         n_trials=config_moo.n_trials,
         batch_size=config_moo.trial_batch_size
     )
+    acceptance_rate = Moo_obj.trial_data["acceptable"].sum()/(Moo_obj.trial_data.shape[0])
+    acceptable_rows = Moo_obj.trial_data.loc[Moo_obj.trial_data["acceptable"]==True]
+    best_dvh_metrics = acceptable_rows.loc[acceptable_rows["hypervolume"].idxmin]
+    best_dvh_metrics = best_dvh_metrics[list(Moo_obj.dvh_metric_goals.keys())]
+    return best_dvh_metrics, acceptance_rate
