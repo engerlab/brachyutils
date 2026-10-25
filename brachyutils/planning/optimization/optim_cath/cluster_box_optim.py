@@ -15,6 +15,10 @@ import pandas as pd
 from time import time
 import json
 
+from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax
+from brachyutils.planning.optimization.optim_cath.moo_optuna import MOO_Optuna
+from brachyutils.planning.optimization.optim_cath.config_moo import Config_MOO
+
 def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
     r"""
     ### Purpose:
@@ -529,10 +533,9 @@ def run_experiment_sequential(
     max_num_physical_catheters: int,
     step_num_physical_catheters: int,
     initial_num_physical_catheters: int,
+    config_moo: Config_MOO,
     prob_catheter_deviation: Annotated[float, "0.0 to 1.0"] = 0,
     prepandicular_catheters:bool = False,
-    multi_objective_optimizer: None = None,
-    list_hyper_parameters: List[str] = None,
     dir_output: str | Path = None,
     ):
     r"""
