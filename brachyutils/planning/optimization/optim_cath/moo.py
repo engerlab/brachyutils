@@ -299,6 +299,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
             for key, value in slack_objective_threshold.items():
                 if value < -1 or value > 1:
                     raise ValueError(f"slack factor for {key} should be between -1 and 1")
+            slack_objective_threshold_dict = slack_objective_threshold
         else:
             if (slack_objective_threshold < -1
                 or slack_objective_threshold > 1):
@@ -306,8 +307,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
             slack_objective_threshold_dict = {}
             for dvh_name in self.dvh_metric_goals.keys():
                 slack_objective_threshold_dict[dvh_name] = slack_objective_threshold
-            self.slack_objective_threshold = slack_objective_threshold_dict
-
+        self.slack_objective_threshold = slack_objective_threshold_dict
 
     def objectives(
         self,

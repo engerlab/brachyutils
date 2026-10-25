@@ -35,8 +35,8 @@ def test_cluster_box_optim(
             penalty_weight_linear=300,
             penalty_weight_quadratic=1,
             penalty_weight_uniformity=1,
-            penalty_weight_hotspot=1,
-            hotspot_threshold=1.5,
+            # penalty_weight_hotspot=1,
+            # hotspot_threshold=1.5,
             # penalty_weight_variance_time=1,
             mask_margin_mm=0,
             spacing_mm=3,
@@ -300,13 +300,13 @@ def test_run_experiment_sequential():
             # "D1cc(RECTUM)":0,
             # "D0.1cc(URETHRA)":0,
             # "V150%(CTV)":0,
-            },
+            }
 
     config_moo = Config_MOO(
         moo_class="MOO_Ax",
         sampler_name_id="qNEHVI",
         parameter_space=parameter_space,
-        anchor_dvh_metric={"V100(CTV)":95},
+        anchor_dvh_metric={"V100%(CTV)":95},
         slack_objective_threshold=slack_objective_threshold,
         device="cuda",
         n_random_samples=1,

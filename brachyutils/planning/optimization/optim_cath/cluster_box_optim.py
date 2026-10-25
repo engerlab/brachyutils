@@ -991,7 +991,7 @@ def run_moo(
         use_for_warmup=config_moo.use_random_samples_in_warmup
     )
     Moo_obj.run_trials(
-        n_trials=config_moo.n_trials,
+        n_trials=config_moo.n_tuning_trials,
         batch_size=config_moo.trial_batch_size
     )
     acceptance_rate = Moo_obj.trial_data["acceptable"].sum()/(Moo_obj.trial_data.shape[0])
