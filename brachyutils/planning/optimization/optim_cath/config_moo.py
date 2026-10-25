@@ -21,6 +21,7 @@ class Config_MOO(BaseModel):
     penalty_weight_linear(CTV) : [1, 500]
     - `max_workers` := The number of threads for your machine for cuncurrently optimizating
     the optimization model in parallel.
+    - `device`: cpu or cuda depending on the sampler. this has only been tested for qEHVI
     - `anchor_dvh_metric`: Dict[str, float] := Provide a DVH metric name to be used for
     anchoring the plan, i.e. the dwell times will be scaled so that the desired value for
     this metric is met. Example: {"V100%(CTV)": 95} will scale the dwell times so that V100%(CTV) = 95.
@@ -60,6 +61,7 @@ class Config_MOO(BaseModel):
         ]
     parameter_space: Dict[str, np.typing.ArrayLike]
     max_workers: int = 16
+    device:Literal["cpu", "cuda"] = "cpu"
     anchor_dvh_metric: Dict[str, float] = None
     slack_space_shrinkage: float = None
     slack_objective_threshold: float | Dict[str, float] = 0
