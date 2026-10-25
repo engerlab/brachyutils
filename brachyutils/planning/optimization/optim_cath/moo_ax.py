@@ -18,6 +18,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.adapter.registry import Generators
 
 class MOO_Ax(MOO):
+    _valid_sampler_names = ["fast", "quality", "qNEHVI"]
     def __init__(
         self,
         catheter_table_optim: CatheterTableOptim_Gurobi,
@@ -68,6 +69,12 @@ class MOO_Ax(MOO):
                 self.device = "cpu"
         # fill out the ax-specific attributes
         self.set_tuner()
+
+    def set_sampler_name_id(self, sampler_name_id):
+        if sampler_name_id not in self._valid_parameter_names:
+            raise ValueError(f"Sampler name id was {sampler_name_id}\
+but it should be one of {self._valid_parameter_names}")
+        self.set_sampler_name_id = sampler_name_id
 
     def _parameter_space_to_ax(self):
         r"""

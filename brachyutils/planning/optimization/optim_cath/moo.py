@@ -153,7 +153,14 @@ class MOO(ABC):
         This value is slack on relaxing the DVH metric goals. For example, if the DVH metric 
         goal is [">=", 100] and the slack is 0.1, then the parameter space will be shrunk to
         focus on the region of parameters that yield plans with DVH metric >= 90.
-        
+        - `slack_objective_threshold`: Relative slack for each DVH outcome
+        constraint. A float applies to all metrics; a dictionary sets slack
+        by DVH metric name (unspecified metrics use zero slack). Values must
+        be in [-1, 1]. Positive slack relaxes constraints and negative slack
+        tightens them. For a goal of `">= 100"`, slack `0.1` sets the Ax
+        constraint to `>= 90`; for a goal of `"<= 100"`, it sets it to
+        `<= 110`.
+    
         ### Outputs:
         None := Fills out the following attributes:
         - `self.dvh_metric_goals` := maps the DVH names {metric_name
@@ -180,13 +187,6 @@ class MOO(ABC):
         - `self.slack_space_shrinkage`: float := Based on random sampling, the parameter space
         is shrunk to focus on the region of parameters that yield clinically acceptable plans
         with some slack.
-        - `slack_objective_threshold`: Relative slack for each DVH outcome
-        constraint. A float applies to all metrics; a dictionary sets slack
-        by DVH metric name (unspecified metrics use zero slack). Values must
-        be in [-1, 1]. Positive slack relaxes constraints and negative slack
-        tightens them. For a goal of `">= 100"`, slack `0.1` sets the Ax
-        constraint to `>= 90`; for a goal of `"<= 100"`, it sets it to
-        `<= 110`.
 
         The object has the following abstract methods that must be implemented in a subclass:
         - `set_tuner()` := Builds the Tuner object that will recommend the next batch
