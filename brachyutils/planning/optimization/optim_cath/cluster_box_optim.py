@@ -740,7 +740,10 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
         # lowest dose to urethra.
         # TODO: to be implemented!
         t0_moo = time()
-        cbox_optim.get_optimized_plan_from_model()
+        run_moo(
+            catheter_table_optim=cbox_optim.optimization_object,
+            config_moo=config_moo
+        )
         t1_moo = time()
 
         # # Free the catheters that were bound 0 for next iteration!
@@ -953,3 +956,43 @@ def _count_physical_catheters_used(
             if catheter.channel_total_time > 0:
                 catheter_count += 1
     return catheter_count
+
+def run_moo(
+    catheter_table_optim:CatheterTableOptim_Gurobi,
+    config_moo: Config_MOO,
+    ):
+    r"""
+    ### Purpose:
+    - Run a multi-objective optimization on a catheter table optimization object.
+
+    ### Inputs:
+    - catheter_table_optim
+    - config_moo
+    
+    ### Outputs:
+    None: to be determined!
+    """
+    if config_moo.moo_class == "MOO_Ax":
+        from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax as Moo_Class
+    elif config_moo.moo_class == "MOO_Optuna":
+        from brachyutils.planning.optimization.optim_cath.moo_optuna import MOO_Optuna as Moo_Class
+    else:
+        raise ValueError("Unsupported Moo class")
+    
+    Moo_obj = Moo_Class(
+        catheter_table_optim=catheter_table_optim,
+        parameter_space=config_moo.parameter_space,
+        sampler_name_id=config_moo.sampler_name_id,
+        max_workers=config_moo.max_workers,
+        anchor_dvh_metric=config_moo.anchor_dvh_metric,
+        slack_objective_threshold=config_moo.slack_objective_threshold,
+        slack_space_shrinkage=config_moo.slack_space_shrinkage,
+    )
+    Moo_obj.run_random_sampling(
+        n_samples=config_moo.n_random_samples,
+        use_for_warmup=config_moo.use_random_samples_in_warmup
+    )
+    Moo_obj.run_trials(
+        n_trials=config_moo.n_trials,
+        batch_size=config_moo.trial_batch_size
+    )
