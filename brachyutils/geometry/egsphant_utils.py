@@ -172,6 +172,8 @@ class BrachyEgsphant:
             self.load_from_ctegsphant(pth_egsphant_file)
         elif file_extension == ".nrrd":
             self.load_from_nrrd(pth_egsphant_file)
+        elif file_extension == ".gz":
+            self.load_from_egsphant_gzip(pth_egsphant_file)
         else:
             raise Exception(
                 f"Loading from file extension {file_extension} is not supported!"
@@ -400,6 +402,122 @@ class BrachyEgsphant:
 
         self.get_voxel_edges()
         self.unit_length = "mm"
+
+    def load_from_egsphant_gzip(self, filePath: Path):
+        r"""
+        Purpose:
+            load a gzip compressed egsphant (used in modern egsnrc sims) into a BrachyEgsphant
+        Input:
+            - filePath:Path := the path to the gzip compressed egsphant file
+        """
+        import gzip
+
+        filePath = Path(filePath)
+        if not filePath.exists():
+            raise ValueError(f"The target egsphant file {filePath} does not exist!")
+        if filePath.suffix != ".gz":
+            raise ValueError("target file does not have .gz extension")
+
+        with gzip.open(filePath, "rt", encoding="ascii", newline="") as egsphant:
+            content = egsphant.read().replace("\r\n", "\n")
+
+        content = content.replace("       \n   ", " ")
+        content = content.replace("       ", " ")
+        content = content.replace("0000000000", "0")
+        entries = content.split()
+        current_entry = 0
+
+        self.num_materials = int(entries[current_entry])
+        current_entry += 1
+
+        material_names = entries[current_entry : current_entry + self.num_materials]
+        for i, material_name in enumerate(material_names):
+            self.material_dict[material_name] = {
+                "index": BrachyEgsphant._MATERIALS_ENCODING_INT[i],
+                "encoding": BrachyEgsphant._MATERIALS_ENCODING_CHAR[i],
+            }
+        self._sort_materials_by("encoding")
+        current_entry += self.num_materials
+
+        current_entry += self.num_materials
+        grid_size = np.array(
+            [int(value) for value in entries[current_entry : current_entry + 3]],
+            dtype=int,
+        )
+        current_entry += 3
+
+        axis_values = []
+        for size in grid_size:
+            axis_values.append(
+                np.array(
+                    [
+                        float(value)
+                        for value in entries[current_entry : current_entry + int(size) + 1]
+                    ],
+                    dtype=np.float32,
+                )
+            )
+            current_entry += int(size) + 1
+        self._sanity_axis = np.array(
+            [axis[:-1] * 10 for axis in axis_values], dtype=object
+        )
+        spacing = np.array(
+            [axis[1] - axis[0] for axis in self._sanity_axis], dtype=np.float32
+        )
+        if np.any(spacing <= 0):
+            raise ValueError("Malformed gzip egsphant: voxel axes must be increasing")
+        origin = np.array(
+            [axis[0] + axis_spacing / 2 for axis, axis_spacing in zip(self._sanity_axis, spacing)],
+            dtype=np.float32,
+        )
+
+        material_matrix = np.empty(
+            (grid_size[2], grid_size[1], grid_size[0]), dtype=str
+        )
+        material_values = entries[current_entry]
+        current_entry += 1
+        if len(material_values) != int(np.prod(grid_size)):
+            material_values = None
+        for iz in range(grid_size[2]):
+            for iy in range(grid_size[1]):
+                row_start = (iz * grid_size[1] + iy) * grid_size[0]
+                if material_values is None:
+                    row = entries[current_entry]
+                    current_entry += 1
+                else:
+                    row = material_values[row_start : row_start + grid_size[0]]
+                material_matrix[iz, iy] = list(row)
+
+        density_matrix = np.asarray(
+            entries[current_entry : current_entry + int(np.prod(grid_size))],
+            dtype=np.float32,
+        ).reshape((grid_size[2], grid_size[1], grid_size[0]))
+
+        material_matrix = _convert_material_matrix_to(material_matrix, dtype=int)
+        self.material_image = Image3D(
+            imageArray=np.swapaxes(material_matrix, 0, 2),
+            origin=origin,
+            spacing=spacing,
+        )
+        self.density_image = Image3D(
+            imageArray=np.swapaxes(density_matrix, 0, 2),
+            origin=origin,
+            spacing=spacing,
+        )
+        self.voxel_edges = self.get_voxel_edges()
+        self.unit_length = "mm"
+
+        for material in self.material_dict:
+            encoding_int = get_material_value(self.material_dict[material]["encoding"])
+            density = np.unique(
+                self.density_image.imageArray[
+                    self.material_image.imageArray == encoding_int - 1
+                ]
+            )
+            self.material_dict[material]["density"] = (
+                density.min() if len(density) != 0 else 0
+            )
+            self.material_dict[material]["HU_limit"] = None
 
     def get_voxel_edges(self):
         r"""
