@@ -995,7 +995,7 @@ def run_moo(
         batch_size=config_moo.trial_batch_size
     )
     acceptance_rate = Moo_obj.trial_data["acceptable"].sum()/(Moo_obj.trial_data.shape[0])
-    acceptable_rows = Moo_obj.trial_data.loc[Moo_obj.trial_data["acceptable"]==True]
-    best_dvh_metrics = acceptable_rows.loc[acceptable_rows["hypervolume"].idxmin]
+    # acceptable_rows = Moo_obj.trial_data.loc[Moo_obj.trial_data["acceptable"]==True]
+    best_dvh_metrics = Moo_obj.trial_data.loc[Moo_obj.trial_data["hypervolume"].idxmin]
     best_dvh_metrics = best_dvh_metrics[list(Moo_obj.dvh_metric_goals.keys())]
     return best_dvh_metrics, acceptance_rate
