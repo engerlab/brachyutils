@@ -958,10 +958,11 @@ def _count_physical_catheters_used(
 def run_moo(
     catheter_table_optim:CatheterTableOptim_Gurobi,
     config_moo: Config_MOO,
-    ):
+    ) -> Tuple[dict, float]:
     r"""
     ### Purpose:
     - Run a multi-objective optimization on a catheter table optimization object.
+    
 
     ### Inputs:
     - catheter_table_optim

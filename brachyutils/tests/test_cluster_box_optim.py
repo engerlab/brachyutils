@@ -262,19 +262,19 @@ def test_modify_constraint():
 
 def test_run_experiment_sequential():
     outdir=Path("data_test/test_export_plan/prostate/clusterbox_optim")
-    max_num_physical_catheters = 6
+    max_num_physical_catheters = 17
     step_num_physical_catheters = 1
-    initial_num_physical_catheters = 3
-    num_decision_planes = 3
-    insertion_point_spacing_mm = 10
+    initial_num_physical_catheters = 14
+    num_decision_planes = 2
+    insertion_point_spacing_mm = 7
     prob_catheter_deviation = 0
     prepandicular_catheters = True
     prescription_dose = 15
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=0,
         x_angle_step=0,
-        y_angle_max=4,
-        y_angle_step=4,)
+        y_angle_max=0,
+        y_angle_step=0,)
     structure_names = ["CTV", "RECTUM", "URETHRA"]
     parameter_space = {}
     for name in structure_names:
