@@ -395,8 +395,6 @@ Please provide either the structure_set or the path of the structure file."
                 flattened_query_structure_list.append(query_structure)
 
         for query_structure in flattened_query_structure_list:
-            # TODO: ROIContour to Mask conversion is expensive. consider using masks only and
-            # generate ROIContour when needed on the fly. we already have cached_structure_masks.
             for mask_name in self.structure_names:
                 if strict_name_match:
                     pick_structure = query_structure.lower() == mask_name.lower()
