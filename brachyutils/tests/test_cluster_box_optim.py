@@ -265,16 +265,16 @@ def test_run_experiment_sequential():
     max_num_physical_catheters = 17
     step_num_physical_catheters = 1
     initial_num_physical_catheters = 14
-    num_decision_planes = 2
+    num_decision_planes = 3
     insertion_point_spacing_mm = 7
     prob_catheter_deviation = 0
-    prepandicular_catheters = True
+    prepandicular_catheters = False
     prescription_dose = 15
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=0,
         x_angle_step=0,
-        y_angle_max=0,
-        y_angle_step=0,)
+        y_angle_max=6,
+        y_angle_step=6,)
     structure_names = ["CTV", "RECTUM", "URETHRA"]
     parameter_space = {}
     for name in structure_names:
@@ -306,7 +306,7 @@ def test_run_experiment_sequential():
         moo_class="MOO_Ax",
         sampler_name_id="qNEHVI",
         parameter_space=parameter_space,
-        anchor_dvh_metric={"V100%(CTV)":95},
+        anchor_dvh_metric={"V100%(CTV)":90},
         slack_objective_threshold=slack_objective_threshold,
         device="cuda",
         n_random_samples=1,

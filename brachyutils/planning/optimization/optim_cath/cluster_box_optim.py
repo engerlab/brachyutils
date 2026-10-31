@@ -598,6 +598,7 @@ def run_experiment_sequential(
             "prob_catheter_deviation":prob_catheter_deviation,
         # + ["multi_objective_optimizer", range_hyper_parameters] TODO figure out after MOO
     }
+    dir_output.mkdir(parents=True, exist_ok=True)
     with open(dir_output/"experiment_info.json", "w") as out_file:
         json.dump(experiment_info, out_file, indent=4)   
 
