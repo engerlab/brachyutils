@@ -248,7 +248,7 @@ class RapidBrachyTG43(BrachyDoseGenerator):
         plan: BrachyPlan,
         generate_dose_rate_maps: bool = False,
         export_config_brachyplan: ExportConfig_BrachyPlan | bool | dict = None,
-        dir_source_parameters: Path = "SourceParameters/GenericHDR"
+        # dir_source_parameters: Path = "SourceParameters/GenericHDR"
         ) -> BrachyPlan:
         r"""
         ### Purpose:
@@ -284,6 +284,8 @@ class RapidBrachyTG43(BrachyDoseGenerator):
                 name=export_config_brachyplan.export_config_plan_and_mac.pth_phantom.stem.split(".")[0],
                 file_extension="".join(export_config_brachyplan.export_config_plan_and_mac.pth_phantom.suffixes)
             )
+        if plan.simulation_setup.brachy_source.source_geometry == "MicroSelectronV2":
+            dir_source_parameters = Path(f"SourceParameters/microSelectron-v2")
         # call the dose generator to generate the dose maps
         self.generate_dose(
             # dir_output=self.dir_plan_export,
