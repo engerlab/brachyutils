@@ -9,11 +9,12 @@ from brachyutils.planning.optimization.optim_cath.cluster_box_optim import (
     _activate_this_cluster, _count_physical_catheters_used)
 from time import time
 import random
+from brachyutils.planning.optimization.optim_cath.config_moo import Config_MOO
 
 def test_get_geometric_constraints():
     cbox = test_cluster_box(return_box=True)
     constraint_dict = get_geometric_constraints(cluster_box=cbox)
-    print("debug here")
+    print("break point here")
 
 def test_cluster_box_optim(
     num_decision_planes = None,
@@ -80,15 +81,21 @@ def test_cluster_box_optim(
         box_margin_mm=5,
     )
     dvh_metric_goals = {
-        "D90%(CTV)": 100.0,
-        "D2cc(RECTUM)": 100.0 * 0.75,
-        "D10%(URETHRA)": 100.0 * 1.133,
-        "D30%(URETHRA)": 100.0,
-        "CI(CTV)": 1.0,
-        "HI(CTV)": 0.5,
-        "V200%(CTV)": 100.0 * 0.2,
-        "V150%(CTV)": 100.0 * 0.4,
-        "V100%(CTV)": 100.0,
+        "D90%(CTV)": [">=", 100],
+        "V150%(CTV)": ["<=", 40],
+        "V100%(CTV)": [">=", 90],
+        # GEC-ESTRO
+        # "D2cc(RECTUM)": ["<=", 66],
+        # "D10%(URETHRA)": ["<=", 113],
+        # "D30%(URETHRA)": ["<=", 100],
+        # RTOG
+        "D1cc(RECTUM)": ["<=", 75],
+        "D0.1cc(URETHRA)": ["<=", 125],
+        # RTOG+
+        # "D90%(CTV)": [">=", 95],
+        "CI(CTV)": None,
+        "HI(CTV)": None,
+        "V200%(CTV)": None,
     }
 
     # # build a plan without catheter table but have optimizatio constraints.
@@ -256,20 +263,62 @@ def test_modify_constraint():
 def test_run_experiment_sequential():
     outdir=Path("data_test/test_export_plan/prostate/clusterbox_optim")
     max_num_physical_catheters = 6
-    step_num_physical_catheters = 3
+    step_num_physical_catheters = 1
     initial_num_physical_catheters = 3
+    num_decision_planes = 3
+    insertion_point_spacing_mm = 10
     prob_catheter_deviation = 0
     prepandicular_catheters = True
+    prescription_dose = 15
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=0,
         x_angle_step=0,
         y_angle_max=4,
         y_angle_step=4,)
+    structure_names = ["CTV", "RECTUM", "URETHRA"]
+    parameter_space = {}
+    for name in structure_names:
+        if name == "CTV":
+            parameter_space[f"dose_voxel_goal({name})"] = [
+                prescription_dose,
+                prescription_dose*1.15
+            ]
+            parameter_space[f"penalty_weight_hotspot({name})"] = [1, 500]
+            parameter_space[f"hotspot_threshold({name})"] = [1.5, 2]
+            # parameter_space[f"penalty_weight_uniformity({name})"] = [1, 5]
+            # parameter_space[f"penalty_weight_variance_time({name})"] = [1, 5]
+            # parameter_space[f"penalty_weight_linear({name})"] = [500, 1000]
+            # parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
+        else:
+            parameter_space[f"penalty_weight_linear({name})"] = [1, 500]
+            # parameter_space[f"penalty_weight_quadratic({name})"] = [1, 5]
+    slack_objective_threshold={
+            # "D90%(CTV)": 0,
+            # "D2cc(RECTUM)": 0,
+            "D10%(URETHRA)": -0.2,
+            "D30%(URETHRA)": -0.2,
+            # "D1cc(RECTUM)":0,
+            # "D0.1cc(URETHRA)":0,
+            # "V150%(CTV)":0,
+            }
+
+    config_moo = Config_MOO(
+        moo_class="MOO_Ax",
+        sampler_name_id="qNEHVI",
+        parameter_space=parameter_space,
+        anchor_dvh_metric={"V100%(CTV)":95},
+        slack_objective_threshold=slack_objective_threshold,
+        device="cuda",
+        n_random_samples=1,
+        use_random_samples_in_warmup=True,
+        n_tuning_trials=4,
+        trial_batch_size=8,
+    )
 
     cbox_optim, optimized_plan = test_cluster_box_optim(
-        num_decision_planes=3,
+        num_decision_planes=num_decision_planes,
         num_physical_catheters = initial_num_physical_catheters,
-        insertion_point_spacing_mm = 10,
+        insertion_point_spacing_mm = insertion_point_spacing_mm,
         return_output=True,
         export_cluster_box=False,
         run_optimization=False,
@@ -280,6 +329,7 @@ def test_run_experiment_sequential():
         max_num_physical_catheters = max_num_physical_catheters,
         step_num_physical_catheters = step_num_physical_catheters,
         initial_num_physical_catheters = initial_num_physical_catheters,
+        config_moo=config_moo,
         prob_catheter_deviation = prob_catheter_deviation,
         prepandicular_catheters=prepandicular_catheters,
         dir_output=outdir)
@@ -375,19 +425,19 @@ def test_get_physical_catheter_tabel():
 if __name__ == "__main__":
     print("Testing cluster box optimization")
     # test_get_geometric_constraints()
-    # config_catheter_rotation = Config_Catheter_Rotation(
-    #     x_angle_max=0,
-    #     x_angle_step=0,
-    #     y_angle_max=0,
-    #     y_angle_step=0,
-    # )
+    config_catheter_rotation = Config_Catheter_Rotation(
+        x_angle_max=8,
+        x_angle_step=16,
+        y_angle_max=8,
+        y_angle_step=8,
+    )
     # t0 = time()
     # test_cluster_box_optim(
-    #     num_decision_planes=2,
+    #     num_decision_planes=3,
     #     config_catheter_rotation=config_catheter_rotation,
     #     export_cluster_box=True,
-    #     run_optimization=True,
-    #     insertion_point_spacing_mm=5,
+    #     run_optimization=False,
+    #     insertion_point_spacing_mm=10,
     #     return_output=False,
     #     num_physical_catheters=[10, 14],
     # )

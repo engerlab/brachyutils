@@ -238,9 +238,10 @@ class Optimization_Config(BaseModel):
     catheter_recommendaion: bool = False
     dwell_coef_dict:Dict[str, np.ndarray] = None
     mask:ROIMask = None
-    hotspot_masks:List[ROIMask] = None
-    # may be needed later
-    # self.index_range_constraints: List[int] = None
+    hotspot_masks: List[ROIMask] = None
+    num_dose_points: int = None
+    hotspot_num_dose_points: List[int] = None
+
     @model_validator(mode="after")
     def validate_target_only_fields(self):
         if not self.is_target:
