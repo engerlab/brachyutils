@@ -1182,10 +1182,13 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
             #     break
             if idx % 2 == 1:
                 continue
-            dwell_time_weight = (
-                catheter["control_points"][idx + 1]["cumulative_weight"]
-                - control_point["cumulative_weight"]
-            ) / catheter["channel_final_time_weight"]
+            if catheter["channel_final_time_weight"] == 0:
+                dwell_time_weight = 0
+            else:
+                dwell_time_weight = (
+                    catheter["control_points"][idx + 1]["cumulative_weight"]
+                    - control_point["cumulative_weight"]
+                ) / catheter["channel_final_time_weight"]
             dwell_time = dwell_time_weight * catheter["channel_total_time"]
             if treatment_time > 0:
                 dwell_weight = dwell_time / treatment_time
