@@ -1182,6 +1182,7 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
             #     break
             if idx % 2 == 1:
                 continue
+            # if channel dwell time is zero, then the dwell time is zero, and the dwell weight is zero.
             if catheter["channel_final_time_weight"] == 0:
                 dwell_time_weight = 0
             else:
