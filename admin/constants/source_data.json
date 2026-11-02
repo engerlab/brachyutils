@@ -74,8 +74,8 @@
   "GammaMedPlus": {
     "isotope": "Ir-192",
     "core" : "G4_Ir",
-    "AKSA": null,
-    "AKHS": null
+    "AKSA": 9.580e-8,
+    "AKHS": 1.162e-11
   },
   "Intrabeam": {
     "isotope": null,
@@ -86,20 +86,20 @@
   "IsoAid_Advantage": {
     "isotope": "Pd-103",
     "core" : "G4_Pd",
-    "AKSA": null,
-    "AKHS": null
+    "AKSA": 2.571e-8,
+    "AKHS": 0.8240e-11
   },
-  "OncoSeed6711_I125": {
+  "OncoSeed6711": {
     "isotope": "I-125",
-    "core" : "G4_I",
-    "AKSA": null,
-    "AKHS": null
+    "core" : "AgBrAgI",
+    "AKSA": 2.306e-8,
+    "AKHS": 0.4113e-11
   },
   "TheraSeed": {
     "isotope": "Pd-103",
     "core" : "G4_Pd",
-    "AKSA": null,
-    "AKHS": null
+    "AKSA": 1.7329e-8,
+    "AKHS": 0.5553e-11
   },
   "Xoft": {
     "isotope": null,

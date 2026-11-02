@@ -402,7 +402,7 @@ def scale_by_airkerma(dir_all_plans: str | Path, dir_all_dcms: str | Path):
             continue
         pth_plan_dcm = pth_plan_dcm[0]
         source_obj = BrachySource(pth_source=pth_plan_dcm)
-        scaling_factor = source_obj.reference_air_kerma_rate/33142.4731805881
+        scaling_factor = source_obj.air_kerma_strength/33142.4731805881
         
         pth_dose_list = list(plan.glob("*.nrrd"))
         def scale_dose(pth_dose: Path, scaling_factor: float):

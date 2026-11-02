@@ -10,21 +10,21 @@ APPLICATOR_DIR = VALIDATION_DIR + "TestCase4-Elekta/Shield_Design/"
 REEXPORT_EGSPHANTS = True
 ####################################
 #Define sim constants
-AIR_KERMA_PER_HISTORY = 1.15723e-11
+AIR_KERMA_PER_HISTORY_STRENGTH = 1.15723e-11
 ATOMIC_NUMBER = 77
 BEAM_ON = 2e9
 CORE_MATERIAL = "G4_Ir"
 MASS_NUMBER = 192
 NUMBER_HISTORIES = int(2e9)
 NUMBER_OF_THREADS = 48
-REFERENCE_AIR_KERMA = 36260
+AIR_KERMA_STRENGTH = 36260
 DWELL_TIME = 10
 
 
 ####################################
 #Create the simulation objects
 SIM_DICT = {"treatment_type": "HDR", "source_geometry": "GenericHDR", "core_material": CORE_MATERIAL, "mass_number": MASS_NUMBER, "atomic_number": ATOMIC_NUMBER, 
-    "air_kerma_per_history": AIR_KERMA_PER_HISTORY, "reference_air_kerma": REFERENCE_AIR_KERMA, 
+    "air_kerma_per_history_strength": AIR_KERMA_PER_HISTORY_STRENGTH, "air_kerma_strength": AIR_KERMA_STRENGTH, 
     "number_histories": NUMBER_HISTORIES, "number_of_threads": NUMBER_OF_THREADS, 
     "control_verbose": 0, "run_verbose": 0, "tracking_verbose": 0, 
     "print_progress": int(NUMBER_HISTORIES / 100), "total_time": DWELL_TIME}

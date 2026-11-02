@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Union, Dict, Tuple
+from typing import List, Union, Dict, Tuple, Optional
 from pathlib import Path
 from pydantic import BaseModel, computed_field, ConfigDict, model_validator
 import json
@@ -99,6 +99,8 @@ class CatheterTable(BaseModel):
     step_size: float = 5.0
     from_delivered_dwellpositions: bool = False
     _cached_combined_dose: BrachyDose = None
+    # _time_diffs:Dict[str, float] = None
+    treatment_type: Optional[str] = "HDR"
 
     @computed_field
     def all_dwells(self) -> List[DwellPosition]:
@@ -135,6 +137,11 @@ class CatheterTable(BaseModel):
         ### Outputs:
         - float := the total treatment time.
         """
+        # If the treatment is TLDR, the total treatment time is the treatment time of ONE SEED
+        # This is simply how RapidBrachyMC handles TLDR cases. For PLDR cases, RapidBrachyMC ignores total time
+        if self.treatment_type == "LDR":
+            return np.sum([catheter.channel_total_time for catheter in self.catheters_list]) / len(self.catheters_list)
+        
         return np.sum([catheter.channel_total_time for catheter in self.catheters_list])
 
     @computed_field
@@ -311,13 +318,15 @@ class CatheterTable(BaseModel):
                 # if the file is a slicer markup file, load it as a json file
                 raise NotImplementedError("this feature is not implemented yet.")
 
-            if str(catheter_file).endswith(".json"):
+            if str(catheter_file).endswith(".json"): # LDR NEEDS TO BE IMPLEMENTED FOR JSON LOADING TOO
                 cat_dict = load_from_json(catheter_file)
             elif str(catheter_file).endswith(".dcm"):
                 cat_dict = load_from_dicom(
                     pth_dicom=catheter_file,
                     from_delivered_dwellpositions=self.from_delivered_dwellpositions,
                 )
+                self.treatment_type = cat_dict["treatment_type"]
+
             self.catheters_dict = cat_dict["catheter_list"]
             self.step_size = cat_dict["step_size"]
 
@@ -1073,11 +1082,11 @@ agree with the sum of dwells times that have dose rates ({sanity_time})")
 
 def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
     r"""
-    Purpose:
+    ### Purpose:
         - Load the catheter table from a dicom file.
-    Inputs:
+    ### Inputs:
         - pth_dicom: Path := the path to the dicom file containing the catheter table.
-    Outputs:
+    ### Outputs:
         - None := will update the catheter table based on the dicom file.
     """
     import pydicom
@@ -1237,6 +1246,89 @@ def load_delivered_cathetertable_from_dicom(pth_dicom: Path) -> list:
             )
     }
 
+def load_ldr_cathetertable_from_dicom(pth_dicom: Path) -> dict:
+    r"""
+    ### Purpose:
+        - Load an LDR plan and map it into the HDR catheter/dwell data model.
+        - Every seed is its own "catheter" containing exactly one "dwell position".
+    ### Inputs:
+        - pth_dicom: Path := the path to the dicom file containing the catheter table.
+    ### Outputs:
+        - dict := dict with keys catheter_list, treatment_time, step_size
+    """
+    import pydicom
+    plan = pydicom.dcmread(pth_dicom, stop_before_pixels=True)
+
+    # Map Reference Air Kerma Rate and Isotope from SourceSequence
+    source_map = {}
+    if hasattr(plan, "SourceSequence"):
+        for source in plan.SourceSequence:
+            source_num = int(getattr(source, "SourceNumber", 1))
+            source_map[source_num] = {
+                "rakr": float(getattr(source, "ReferenceAirKermaRate", 0.0)),
+                "isotope": getattr(source, "SourceIsotopeName", "Unknown")
+            }
+
+    final_catheter_table = []
+    global_catheter_index = 0
+
+    # Go through Channels and extract static positions
+    if hasattr(plan, "ApplicationSetupSequence"):
+        for channel in plan.ApplicationSetupSequence[0].ChannelSequence:
+            ref_source_num = int(getattr(channel, "ReferencedSourceNumber", 1))
+            source_info = source_map.get(ref_source_num, {"rakr": 0.0, "isotope": "Unknown"})
+            
+            # Extract the implant time for this seed/channel
+            catheter_time = float(getattr(channel, "ChannelTotalTime", 0.0))
+            channel_final_time_weight = (
+                float(channel.FinalCumulativeTimeWeight)
+                if hasattr(channel, "FinalCumulativeTimeWeight")
+                else 0
+            )
+            
+            for cp in channel.BrachyControlPointSequence:
+                if hasattr(cp, "ControlPoint3DPosition"):
+                    pos = cp.ControlPoint3DPosition
+
+                    # Create the single "dwell" (the seed)
+                    dwell = {
+                        "index": 0, # Always 0 since there's only one dwell per catheter
+                        "angle": 0.0,
+                        "position": [float(pos[0]), float(pos[1]), float(pos[2])],
+                        "relativePos": 0.0,
+                        "rotation": [0.0, 0.0, 1.0],
+                        "time": catheter_time, # Pass the time to the individual seed
+                        "weight": 1.0,   
+                        "rakr": source_info["rakr"],
+                        "isotope": source_info["isotope"]
+                    }
+
+                    # Wrap the dwell inside a "catheter"
+                    catheter = {
+                        "index": global_catheter_index,
+                        "points": [],
+                        "channel_total_time": catheter_time,
+                        "channel_final_time_weight": 0.0,
+                        "control_points": [], 
+                        "dwells": [dwell]
+                    }
+                    
+                    final_catheter_table.append(catheter)
+                    global_catheter_index += 1
+                    break # Move to the next channel once we have the position
+
+    # Set the overall treatment time is the maximum implant duration
+    if final_catheter_table:
+        treatment_time = max([cat["channel_total_time"] for cat in final_catheter_table])
+    else:
+        treatment_time = 0.0
+
+    return {
+        "catheter_list": final_catheter_table,
+        "treatment_time": treatment_time,
+        "step_size": 0.0  # Hardcoded to 0.0 to prevent the IndexError seen in HDR
+    }
+
 def _load_single_dose_rate(
     pth_dose_rate:Path,
     load_uncertainty=False,
@@ -1292,20 +1384,30 @@ def load_from_dicom(
         - catheters_dict
         - step_size
     """
-    
-    if from_delivered_dwellpositions:
-        catheter_table_dict = load_delivered_cathetertable_from_dicom(pth_dicom=pth_dicom)
-    else:
-        catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+    import pydicom
+
+    plan = pydicom.dcmread(pth_dicom)
+    modality = detect_modality_from_structure(plan)
+
+    if modality == "HDR":
+        if from_delivered_dwellpositions:
+            catheter_table_dict = load_delivered_cathetertable_from_dicom(pth_dicom=pth_dicom)
+        else:
+            catheter_table_dict, _ = dicom_to_catheter_table(dir_dicom=pth_dicom.parent)
+    elif modality == "LDR":
+        catheter_table_dict = load_ldr_cathetertable_from_dicom(pth_dicom=pth_dicom)
 
     # add catheter index to the dwells
     for catheter in catheter_table_dict["catheter_list"]:
         for dwell in catheter["dwells"]:
             dwell["catheter_index"] = catheter["index"]
 
+    # Inject the modality so downstream objects can read it
+    catheter_table_dict["treatment_type"] = modality
+
     return catheter_table_dict
 
-def load_from_json(pth_json: Path) -> list:
+def load_from_json(pth_json: Path) -> list: # LDR NEEDS TO BE IMPLEMENTED FOR JSON LOADING TOO
     r"""
     ### Purpose:
     - Load the catheter table from a json file.
@@ -1341,3 +1443,28 @@ def load_from_json(pth_json: Path) -> list:
             "step_size":step_size,
             "non_zero_dwell_positions": non_zero_dwell_positions
             }
+
+def detect_modality_from_structure(plan) -> str:
+    """
+    Analyzes the Reference Air Kerma Rate of the sources in the DICOM RT Plan file
+    to physically differentiate between HDR and LDR.
+    """
+    
+    # Checks the DICOM RT Plan file for (300A,022A) DS ReferenceAirKermaRate tag
+    if hasattr(plan, "SourceSequence"):
+        for source in plan.SourceSequence:
+            if hasattr(source, "ReferenceAirKermaRate"):
+                try:
+                    rakr = float(source.ReferenceAirKermaRate)
+                    # Threshold is set at 100.0 microGy * m^2 / h.
+                    # LDR seeds are typically < 10. PDR is ~4,000. HDR is ~40,000.
+                    if rakr > 100.0:
+                        return "HDR"
+                    else:
+                        return "LDR"
+                except (ValueError, TypeError):
+                    continue
+
+    # If somehow there is no RAKR, default to HDR
+    print("No ReferenceAirKermaRate provided in the DICOM RT Plan file. Defaulting to HDR as treatment type.")
+    return "HDR"

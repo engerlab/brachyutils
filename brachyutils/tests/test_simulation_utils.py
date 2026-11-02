@@ -8,8 +8,8 @@ def test_brachy_source():
         core_material="G4_Ir",
         mass_number="192",
         atomic_number="77",
-        air_kerma_per_history=1.149000e-11,
-        reference_air_kerma_rate=4.278729e04,
+        air_kerma_per_history_strength=1.149000e-11,
+        air_kerma_strength=4.278729e04,
     )
     print(source_obj.to_dict())
 
@@ -19,8 +19,8 @@ def test_brachy_source():
         "core_material": "G4_Ir",
         "mass_number": "192",
         "atomic_number": "77",
-        "air_kerma_per_history": 1.149000e-11,
-        "reference_air_kerma_rate": 4.278729e04,
+        "air_kerma_per_history_strength": 1.149000e-11,
+        "air_kerma_strength": 4.278729e04,
     }
     source_obj = BrachySource(**source_dict)
     print(source_obj.to_dict())
@@ -37,8 +37,8 @@ def test_brachy_simulation():
             "core_material": "G4_Ir",
             "mass_number": "192",
             "atomic_number": "77",
-            "air_kerma_per_history": 1.149000e-11,
-            "reference_air_kerma": 4.278729e04, 
+            "air_kerma_per_history_strength": 1.149000e-11,
+            "air_kerma_strength": 4.278729e04, 
         },
         "pth_plan": "combined.plan",
         "pth_phantom": "ct.egsphant",
@@ -61,8 +61,8 @@ def test_brachy_simulation():
             core_material="G4_Ir",
             mass_number="192",
             atomic_number="77",
-            air_kerma_per_history=1.149000e-11,
-            reference_air_kerma_rate=4.278729e04,
+            air_kerma_per_history_strength=1.149000e-11,
+            air_kerma_strength=4.278729e04,
         ),
         pth_plan="combined.plan",
         pth_phantom="ct.egsphant",
