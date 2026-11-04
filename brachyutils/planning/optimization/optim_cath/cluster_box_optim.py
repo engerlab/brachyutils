@@ -965,6 +965,7 @@ def _count_physical_catheters_used(
 def run_moo(
     catheter_table_optim:CatheterTableOptim_Gurobi,
     config_moo: Config_MOO,
+    best_outcome: dict = None
     ) -> Tuple[dict, float]:
     r"""
     ### Purpose:
@@ -974,7 +975,7 @@ def run_moo(
     ### Inputs:
     - catheter_table_optim
     - config_moo
-    
+    - best_outcome: defines what plan to pick based on the multi-objective optimization.
     ### Outputs:
     None: to be determined!
     """
@@ -1002,8 +1003,9 @@ def run_moo(
         n_trials=config_moo.n_tuning_trials,
         batch_size=config_moo.trial_batch_size
     )
+    # TODO 1. find the best plan!
     acceptance_rate = Moo_obj.trial_data["acceptable"].sum()/(Moo_obj.trial_data.shape[0])
-    # acceptable_rows = Moo_obj.trial_data.loc[Moo_obj.trial_data["acceptable"]==True]
-    best_dvh_metrics = Moo_obj.trial_data.loc[Moo_obj.trial_data["hypervolume"].idxmin()]
+    acceptable_rows = Moo_obj.trial_data.loc[Moo_obj.trial_data["acceptable"]==True]
+    best_dvh_metrics = Moo_obj.trial_data.loc[Moo_obj.trial_data["hypervolume"].idxmax()]
     best_dvh_metrics = best_dvh_metrics[list(Moo_obj.dvh_metric_goals.keys())]
     return best_dvh_metrics, acceptance_rate
