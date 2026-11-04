@@ -135,6 +135,7 @@ class CatheterTableOptim_Gurobi():
         plan: BrachyPlan,
         roi_margin_mm: float = None,
         multi_processing: bool = False,
+        solve_time_limit: float = 300.0,
         pth_logfile: Path = "temp_data/gurobi_model.log"
     ):
         r"""
@@ -168,7 +169,10 @@ class CatheterTableOptim_Gurobi():
 
         # start building this optimization object
         t0_build = time()
-        self.model = self.initialize_model(self.solver, pth_logfile=pth_logfile)
+        self.model = self.initialize_model(
+            self.solver,
+            time_limit=solve_time_limit,
+            pth_logfile=pth_logfile)
         self.catheter_vars = self.set_catheter_variables(
             plan=self.plan,
             model=self.model,
@@ -212,12 +216,16 @@ class CatheterTableOptim_Gurobi():
         t1_build = time()
         self.build_time = t1_build - t0_build
 
-    def initialize_model(self, solver: str, pth_logfile: str = None) -> Model:
+    def initialize_model(
+        self, solver: str,
+        time_limit: float,
+        pth_logfile: str = None) -> Model:
         r"""
         ### Purpose:
         - initializes the Gurobi optimization model and set the log paths.
         ### Inputs:
         - `solver`: str := the solver to be used. only "gurobi" is supported.
+        - `time_limit`: float := the time limit for the optimization.
         - `pth_logfile`: Optional[Path] := the path to the logfile. if
         None, default is temp_data/gurobi_model.log.
         ### Returns:
@@ -230,7 +238,7 @@ class CatheterTableOptim_Gurobi():
         pth_logfile = Path(pth_logfile)
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         model = Model("CatheterTable_Optimization")
-        model.Params.TimeLimit = 180  # set a time limit.
+        model.Params.TimeLimit = time_limit  # set a time limit.
         # model.setParam("MIPFocus", 1)  # was not helpful.
         model.setParam("PreSOS1BigM", -1)
         model.setParam("LogFile", str(pth_logfile))
