@@ -203,6 +203,7 @@ class ClusterBoxOptim:
         self,
         plan:BrachyPlan,
         config_cluster_box: Config_ClusterBox,
+        solve_time_limit: float = 300.0,
         ):
         r"""
         ### Purpose:
@@ -212,8 +213,9 @@ class ClusterBoxOptim:
         - plan := The brachyplan object with loaded `phantom`, `prescription_dose`,
         `structure_list`, and `optimization_config_dict`. Note that the `catheter_table`
         of this plan should be None.
-        - config_cluster_box := The config object for the cluster box generation. see
+        - `config_cluster_box` := The config object for the cluster box generation. see
         Config_ClusterBox class for details.
+        - `solve_time_limit` := The time limit for the optimization solver in seconds.
         """
         
         self.plan: BrachyPlan = None
@@ -230,7 +232,9 @@ class ClusterBoxOptim:
         self.generate_dose_rate_for_cluster(
             plan=self.plan,
             cluster_box=self.cluster_box,)
-        self.optimization_object = self.build_optimization_object(plan=self.plan)
+        self.optimization_object = self.build_optimization_object(
+            plan=self.plan,
+            solve_time_limit=solve_time_limit)
         self.set_geometric_constraints(
             cluster_box=self.cluster_box,
             optim_obj=self.optimization_object)
@@ -336,7 +340,8 @@ class ClusterBoxOptim:
 
     def build_optimization_object(
         self,
-        plan: BrachyPlan
+        plan: BrachyPlan,
+        solve_time_limit: float = 300.0,
         ):
         r"""
         ### Purpose:
@@ -345,7 +350,8 @@ class ClusterBoxOptim:
         print("Building optimization model for the cluster")
         optim_obj = CatheterTableOptim_Gurobi(
             plan=plan,
-            multi_processing=True
+            multi_processing=True,
+            solve_time_limit=solve_time_limit,
         )
         return optim_obj
 

@@ -146,6 +146,8 @@ class CatheterTableOptim_Gurobi():
         - `roi_margin_mm`: float := margin in mm to add around the ROIs when resampling to the optimization grid.
         - `multi_processing`: bool := whether to use multi-processing for cropping, masking and resampling
         dose rate maps.
+        - `solve_time_limit`: float := the time limit for the optimization solver in seconds.
+        - `pth_logfile`: Path := the path to the logfile for Gurobi solver.
         """
         # Initialize the attributes to their default values
         self.plan: BrachyPlan = plan
@@ -171,7 +173,7 @@ class CatheterTableOptim_Gurobi():
         t0_build = time()
         self.model = self.initialize_model(
             self.solver,
-            time_limit=solve_time_limit,
+            solve_time_limit=solve_time_limit,
             pth_logfile=pth_logfile)
         self.catheter_vars = self.set_catheter_variables(
             plan=self.plan,
@@ -218,14 +220,14 @@ class CatheterTableOptim_Gurobi():
 
     def initialize_model(
         self, solver: str,
-        time_limit: float,
+        solve_time_limit: float,
         pth_logfile: str = None) -> Model:
         r"""
         ### Purpose:
         - initializes the Gurobi optimization model and set the log paths.
         ### Inputs:
         - `solver`: str := the solver to be used. only "gurobi" is supported.
-        - `time_limit`: float := the time limit for the optimization.
+        - `solve_time_limit`: float := the time limit for the optimization.
         - `pth_logfile`: Optional[Path] := the path to the logfile. if
         None, default is temp_data/gurobi_model.log.
         ### Returns:
@@ -238,7 +240,7 @@ class CatheterTableOptim_Gurobi():
         pth_logfile = Path(pth_logfile)
         pth_logfile.parent.mkdir(parents=True, exist_ok=True)
         model = Model("CatheterTable_Optimization")
-        model.Params.TimeLimit = time_limit  # set a time limit.
+        model.Params.TimeLimit = solve_time_limit  # set a time limit.
         # model.setParam("MIPFocus", 1)  # was not helpful.
         model.setParam("PreSOS1BigM", -1)
         model.setParam("LogFile", str(pth_logfile))

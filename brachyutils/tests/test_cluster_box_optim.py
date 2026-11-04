@@ -23,7 +23,8 @@ def test_cluster_box_optim(
     config_catheter_rotation = None,
     return_output:bool = False,
     export_cluster_box:bool = False,
-    run_optimization:bool = False,):
+    run_optimization:bool = False,
+    solve_time_limit: float = 600.0):
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     outdir = Path("data_test/test_export_plan/prostate/clusterbox_optim")
     target_dose = 15
@@ -111,7 +112,8 @@ def test_cluster_box_optim(
 
     cbox_optim = ClusterBoxOptim(
         plan=plan,
-        config_cluster_box=config_cluster_box
+        config_cluster_box=config_cluster_box,
+        solve_time_limit=solve_time_limit,
     )
     optimized_plan = None
     if run_optimization:
@@ -266,7 +268,7 @@ def test_run_experiment_sequential():
     step_num_physical_catheters = 1
     initial_num_physical_catheters = 14
     num_decision_planes = 3
-    insertion_point_spacing_mm = 7
+    insertion_point_spacing_mm = 10
     prob_catheter_deviation = 0
     prepandicular_catheters = False
     prescription_dose = 15
@@ -322,7 +324,9 @@ def test_run_experiment_sequential():
         return_output=True,
         export_cluster_box=False,
         run_optimization=False,
-        config_catheter_rotation=config_catheter_rotation,)
+        config_catheter_rotation=config_catheter_rotation,
+        solve_time_limit=600.0,
+        )
 
     run_experiment_sequential(
         cbox_optim=cbox_optim,
@@ -351,7 +355,9 @@ def test_disturbe_catheter_table():
         return_output=True,
         export_cluster_box=True,
         run_optimization=False,
-        config_catheter_rotation=config_catheter_rotation,)
+        config_catheter_rotation=config_catheter_rotation,
+        solve_time_limit=600.0,
+    )
     cluster_box = cbox_optim.cluster_box
     catheter_table = cbox_optim.plan.catheter_table
 
@@ -401,7 +407,9 @@ def test_get_physical_catheter_tabel():
         return_output=True,
         export_cluster_box=True,
         run_optimization=False,
-        config_catheter_rotation=config_catheter_rotation,)
+        config_catheter_rotation=config_catheter_rotation,
+        solve_time_limit=600.0,
+    )
     cluster_box = cbox_optim.cluster_box
     catheter_table = cbox_optim.plan.catheter_table
 
