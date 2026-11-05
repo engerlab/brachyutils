@@ -1,0 +1,5 @@
+botorch[fully_bayesian]==0.18.1
+ax-platform==1.3.1
+optuna==5.0.0
+optunahub==0.5.0
+cmaes==0.13.1
