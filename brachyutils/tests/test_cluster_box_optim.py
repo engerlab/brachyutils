@@ -315,6 +315,7 @@ def test_run_experiment_sequential():
         use_random_samples_in_warmup=True,
         n_tuning_trials=4,
         trial_batch_size=8,
+        top_plan_criteria={"D0.1cc(URETHRA)": "min"},
     )
 
     cbox_optim, optimized_plan = test_cluster_box_optim(

@@ -1016,5 +1016,5 @@ def run_moo(
             best_row = acceptable_rows.loc[acceptable_rows[dvh_metric_name].idxmax()]
         else:
             raise ValueError("Selection type must be 'min' or 'max'")
-    best_dvh_metrics = best_row[catheter_table_optim.plan.dvh_metric_names].to_dict()
+    best_dvh_metrics = best_row[Moo_obj.dvh_metric_goals.keys()].to_dict()
     return best_dvh_metrics, acceptance_rate, Moo_obj.trial_data
