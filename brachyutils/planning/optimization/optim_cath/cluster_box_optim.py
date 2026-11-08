@@ -590,19 +590,18 @@ def run_experiment_sequential(
         - step_num_physical_catheters
         - initial_num_physical_catheters
         - prob_catheter_deviation
-        - multi_objective_optimizer
-        - range_hyper_parameters
+        - moo_config
     """
     experiment_info = {
             "max_num_physical_catheters": max_num_physical_catheters,
             "step_num_physical_catheters": step_num_physical_catheters,
             "initial_num_physical_catheters": initial_num_physical_catheters,
             "prob_catheter_deviation":prob_catheter_deviation,
-        # + ["multi_objective_optimizer", range_hyper_parameters] TODO figure out after MOO
+            "config_moo": config_moo.model_dump(),
     }
     dir_output.mkdir(parents=True, exist_ok=True)
     with open(dir_output/"experiment_info.json", "w") as out_file:
-        json.dump(experiment_info, out_file, indent=4)   
+        json.dump(experiment_info, out_file, indent=4)
 
     all_dvh_metric_names = []
     for structure in cbox_optim.plan.dvh_metric_goals:
@@ -611,12 +610,7 @@ def run_experiment_sequential(
                 structure).get("dvh_metric_names")
         )
 
-    out_df = pd.DataFrame(columns=(
-        ["num_physical_catheters","acceptance_rate",
-         "time_optim_catheters", "time_optim_moo"]
-        + all_dvh_metric_names)
-        # + all_hyper_parameter_names TO Be Added Next Week!
-        )
+    out_list = []
 
     c_equal_1_constraints = defaultdict(Constraint_Config)
     for num_phys_catheters in range(
@@ -742,7 +736,7 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
         # other metrics The final solution is the one with
         # lowest dose to urethra.
         t0_moo = time()
-        best_dvh_metrics, acceptance_rate, _ = run_moo(
+        best_solution, acceptance_rate, _ = run_moo(
             catheter_table_optim=cbox_optim.optimization_object,
             config_moo=config_moo,
             )
@@ -757,14 +751,14 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
             cluster_box=cbox_optim.cluster_box
         )
 
-        out_df.loc[len(out_df)] = {
+        out_list.append(pd.concat([pd.Series({
         "num_physical_catheters": physical_catheters_used,
         "acceptance_rate": acceptance_rate,
         "time_optim_catheters": t1_cath - t0_cath,
         "time_optim_moo": t1_moo - t0_moo,
-        } | best_dvh_metrics.to_dict()
+        }), best_solution]))
         if dir_output is not None:
-            out_df.to_csv(dir_output/f"results.csv")
+            pd.DataFrame(out_list).to_csv(dir_output/f"results.csv")
             print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
             cbox_optim.export_to(out_dir=dir_output/f"cbox_{physical_catheters_used}_catheters")
 

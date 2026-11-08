@@ -688,7 +688,8 @@ def run_moo(
     - `config_moo`:= A configuration object that contains the settings for the 
     multi-objective optimization.
     ### Outputs:
-    - `best_dvh_metrics`: A dictionary containing the best DVH metrics obtained from the optimization.
+    - `best_solution`: A dataframe containing the best hyper-parameters and
+    DVH metrics obtained from the optimization.
     - `acceptance_rate`: The acceptance rate of the MOO process defined as the number 
     of acceptable solutions divided by the total number of trials.
     - `trial_data`: A DataFrame containing the trial data from the optimization process.
@@ -733,5 +734,5 @@ def run_moo(
             best_row = acceptable_rows.loc[acceptable_rows[dvh_metric_name].idxmax()]
         else:
             raise ValueError("Selection type must be 'min' or 'max'")
-    best_dvh_metrics = best_row[Moo_obj.dvh_metric_goals.keys()].to_dict()
-    return best_dvh_metrics, acceptance_rate, Moo_obj.trial_data
+    # best_solution = best_row[Moo_obj.dvh_metric_goals.keys()].to_dict()
+    return best_row, acceptance_rate, Moo_obj.trial_data
