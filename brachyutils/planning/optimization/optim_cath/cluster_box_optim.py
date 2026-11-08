@@ -571,9 +571,6 @@ def run_experiment_sequential(
     - `prepandicular_catheters` := If true, an additional constraint is added per segment
     cluster that tells the model to pick only the straight catheters or not. Note that
     during robustness analysis, the disturbance may deviate from prepandicular path.
-    - `multi_objective_optimizer`:= The multi objective optimization class that'll
-    give us an acceptance rate, the observed dvh metrics and their penalty weights
-    as well as the timing data. 
     - `dir_output`:= directory where the outputs will be written to
  
     ### Outputs:
@@ -596,7 +593,6 @@ def run_experiment_sequential(
         - multi_objective_optimizer
         - range_hyper_parameters
     """
-    # TODO: Deep debug this shit!
     experiment_info = {
             "max_num_physical_catheters": max_num_physical_catheters,
             "step_num_physical_catheters": step_num_physical_catheters,
@@ -745,12 +741,11 @@ The number of catheters excluded due to angle constraints is {num_bad_segments_d
         # # Pass it to MOO and get acceptance rate as well as
         # other metrics The final solution is the one with
         # lowest dose to urethra.
-        # TODO: to be implemented!
         t0_moo = time()
-        best_dvh_metrics, acceptance_rate = run_moo(
+        best_dvh_metrics, acceptance_rate, _ = run_moo(
             catheter_table_optim=cbox_optim.optimization_object,
-            config_moo=config_moo
-        )
+            config_moo=config_moo,
+            )
         t1_moo = time()
 
         # # Free the catheters that were bound 0 for next iteration!
@@ -965,19 +960,21 @@ def _count_physical_catheters_used(
 def run_moo(
     catheter_table_optim:CatheterTableOptim_Gurobi,
     config_moo: Config_MOO,
-    best_outcome: dict = None
-    ) -> Tuple[dict, float]:
+    ) -> Tuple[dict, float, pd.DataFrame]:
     r"""
     ### Purpose:
     - Run a multi-objective optimization on a catheter table optimization object.
-    
 
     ### Inputs:
-    - catheter_table_optim
-    - config_moo
-    - best_outcome: defines what plan to pick based on the multi-objective optimization.
+    - `catheter_table_optim`: A catheter table optimization object that has been 
+    set up with the necessary constraints and parameters for optimization.
+    - `config_moo`:= A configuration object that contains the settings for the 
+    multi-objective optimization.
     ### Outputs:
-    None: to be determined!
+    - `best_dvh_metrics`: A dictionary containing the best DVH metrics obtained from the optimization.
+    - `acceptance_rate`: The acceptance rate of the MOO process defined as the number 
+    of acceptable solutions divided by the total number of trials.
+    - `trial_data`: A DataFrame containing the trial data from the optimization process.
     """
     if config_moo.moo_class == "MOO_Ax":
         from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax as Moo_Class
@@ -1003,9 +1000,21 @@ def run_moo(
         n_trials=config_moo.n_tuning_trials,
         batch_size=config_moo.trial_batch_size
     )
-    # TODO 1. find the best plan!
     acceptance_rate = Moo_obj.trial_data["acceptable"].sum()/(Moo_obj.trial_data.shape[0])
     acceptable_rows = Moo_obj.trial_data.loc[Moo_obj.trial_data["acceptable"]==True]
-    best_dvh_metrics = Moo_obj.trial_data.loc[Moo_obj.trial_data["hypervolume"].idxmax()]
-    best_dvh_metrics = best_dvh_metrics[list(Moo_obj.dvh_metric_goals.keys())]
-    return best_dvh_metrics, acceptance_rate
+    if acceptable_rows.shape[0] == 0:
+        acceptable_rows = Moo_obj.trial_data
+    if config_moo.top_plan_criteria == "hypervolume":
+        best_row = acceptable_rows.loc[acceptable_rows["hypervolume"].idxmax()]
+    else:
+        if len(config_moo.top_plan_criteria) != 1:
+            raise ValueError("Only one selection criteria is allowed")
+        dvh_metric_name, selection_type = list(config_moo.top_plan_criteria.items())[0]
+        if selection_type == "min":
+            best_row = acceptable_rows.loc[acceptable_rows[dvh_metric_name].idxmin()]
+        elif selection_type == "max":
+            best_row = acceptable_rows.loc[acceptable_rows[dvh_metric_name].idxmax()]
+        else:
+            raise ValueError("Selection type must be 'min' or 'max'")
+    best_dvh_metrics = best_row[catheter_table_optim.plan.dvh_metric_names].to_dict()
+    return best_dvh_metrics, acceptance_rate, Moo_obj.trial_data

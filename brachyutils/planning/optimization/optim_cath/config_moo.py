@@ -43,6 +43,12 @@ class Config_MOO(BaseModel):
     - `n_tuning_trials`: int := The number of outer iterations (batches) to run.
     - `trial_batch_size`:= The number of trials to ask for and evaluate together on
     each iteration. Total trials evaluated = n_trials * batch_size.
+    - `top_plan_criteria`: Dict[str, Literal["min", "max"]] | Literal["hypervolume"] := defines what plan to pick from the pool of solutions
+    on the multi-objective optimization. Only one item is allowed in the dictionary.
+    The key is the dvh metric name and the value is either "min" or "max". For example:
+        {"D0.1cc(URETHRA)": "min"}
+    The default is "hypervolume" which will select the plan that has the largest hypervolume
+    improvement with respct to the dvh_metric_goals.
     """
 
     model_config = ConfigDict(
@@ -69,3 +75,4 @@ class Config_MOO(BaseModel):
     use_random_samples_in_warmup:bool = True
     n_tuning_trials:int
     trial_batch_size:int
+    top_plan_criteria: Dict[str, Literal["min", "max"]] | Literal["hypervolume"] = "hypervolume"
