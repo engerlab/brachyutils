@@ -599,7 +599,7 @@ def run_experiment_sequential(
     """
     _write_experiment_info(
         dir_output=dir_output,
-        cbox_optim=cbox_optim,
+        # cbox_optim=cbox_optim,
         max_num_physical_catheters=max_num_physical_catheters,
         step_num_physical_catheters=step_num_physical_catheters,
         initial_num_physical_catheters=initial_num_physical_catheters,
@@ -684,7 +684,7 @@ def run_experiment_sequential(
 
 def _write_experiment_info(
     dir_output: Path,
-    cbox_optim: ClusterBoxOptim,
+    # cbox_optim: ClusterBoxOptim,
     *,
     max_num_physical_catheters: int,
     step_num_physical_catheters: int,
