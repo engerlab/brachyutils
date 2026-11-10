@@ -712,6 +712,195 @@ def run_experiment_sequential(
             cbox_optim=cbox_optim,
         )
 
+def disturbe_catheter_table(
+    catheter_table: CatheterTable,
+    prob_catheter_deviation: float,
+    cluster_box: ClusterBox,
+    donot_disturbe_catheters:List[str],
+    ):
+    r"""
+    ### Purpose:
+    - To disturbe the trajectory of a physical catheter.
+    The probability of a physical catheter not deviating (1 - `prob_catheter_deviation`)
+    is equal to the probability of a segment not deviating to the power of number of
+    segments.
+    $$
+    (1 - `prob_catheter_deviation`) = (1-p)^n
+    $$
+    where   p:= probability of segment deviation.
+            n:= number of segments on a chain.
+    So in this case, we solve for p. Note that disturbance at a lower depth has
+    much larger consequences than disturbance at higher depths. If a segment at higher
+    depth is disturbed, all its children are set to zero and random children for 
+    neighboring segment are chosen. Accordingly, p often being much
+    smaller than `prob_catheter_deviation` reflects this depth dependent impact.
+    
+    This method recursively travels down the cluster children to activate, deactivate
+    or disturbe them using catheter.digitization_points[1]
+    """
+    if prob_catheter_deviation == 0:
+        return catheter_table
+    # # calculate p, the probability of each segment.
+    n_segs_on_chain = cluster_box.num_decision_planes-1
+    p = 1 - (1 - prob_catheter_deviation)**(1/n_segs_on_chain) 
+
+    for cluster in cluster_box.cluster_dict.values():
+        if cluster.depth > 0:
+            continue
+        _disturbe_this_cluster(
+            prob_segment_disturbance=p,
+            insert_position=cluster.insert_position,
+            catheter_table=catheter_table,
+            cluster_box=cluster_box,
+            donot_disturbe_catheters=donot_disturbe_catheters,
+        )
+    return catheter_table
+
+def _disturbe_this_cluster(
+    prob_segment_disturbance:float,
+    insert_position: np.typing.ArrayLike,
+    catheter_table: CatheterTable,
+    cluster_box:ClusterBox,
+    donot_disturbe_catheters:List[str],
+    ):
+    r"""
+    ### Purpose:
+    - Given an insert point, get the cluster, get the catheter that is active
+    in this cluster, turn that catheter of, pick a random neighbour and activate it
+    as well as the cluster of that neighbour.
+    
+    - exit condition: if none of the catheters in this cluster are active
+    or the cluster has no children
+    """
+    cluster = cluster_box.get_cluster_by_insert_position(insert_position)
+    if cluster is None:
+        return
+    catheter_2_turn_off = None
+    for catheter in catheter_table.get_catheters_by_ids(
+        cluster.catheter_name_ids):
+        if catheter.name_id in donot_disturbe_catheters:
+            continue
+        if catheter.channel_total_time == 0:
+            continue
+        else:
+            yes_disturb = random.random() < prob_segment_disturbance
+            if yes_disturb:
+                catheter_2_turn_off = catheter.name_id
+                catheter.reset_dwelltimes_to(0.0)
+                _deactivate_this_cluster(
+                    catheter.digitization_points[1],
+                    catheter_table,
+                    cluster_box)
+            else:
+                # run the same process on the child cluster (recussion alert)
+                _disturbe_this_cluster(
+                    prob_segment_disturbance,
+                    catheter.digitization_points[1],
+                    catheter_table,
+                    cluster_box,
+                    donot_disturbe_catheters,
+                )
+    if catheter_2_turn_off is None:
+        return
+    # now pick a random neighbour that is not that catheter
+    # and activate it!
+    copied_list = deepcopy(cluster.catheter_name_ids)
+    copied_list.remove(catheter_2_turn_off)
+    if len(copied_list) == 0:
+        # if there are no other candidates available, just keep this one.
+        random_neighbour_id = catheter_2_turn_off
+    else:
+        random_neighbour_id = random.choice(copied_list)
+    catheter = catheter_table.get_catheters_by_ids([random_neighbour_id]).pop()
+    catheter.reset_dwelltimes_to(1)
+    _activate_this_cluster(
+        catheter.digitization_points[1],
+        catheter_table,
+        cluster_box)
+
+def _deactivate_this_cluster(
+    insert_position: np.typing.ArrayLike,
+    catheter_table: CatheterTable,
+    cluster_box:ClusterBox
+    ):
+    r"""
+    ### Purpose:
+    - Given an insert point, get the cluster that stems from it
+    find the catheter that is active in that cluster, note its
+    tip position. reset_dwell_times() for all the catheters in that
+    cluster. recursively call this function on the cluster that stems
+    from the tip position.
+    
+    - exit condition: if cluster box did not return a cluster based on
+    that insert point, return!
+    
+    ### Inputs:
+    - insert_position := 3D coordinates of the insertion point
+    - catheter_table := 
+    - cluster_box :=
+    """
+    cluster = cluster_box.get_cluster_by_insert_position(insert_position)
+    if cluster is None:
+        return
+    for catheter in catheter_table.get_catheters_by_ids(
+        cluster.catheter_name_ids):
+        next_insertion_point = catheter.digitization_points[1]
+        if catheter.channel_total_time != 0:
+            catheter.reset_dwelltimes_to(0.0)
+    _deactivate_this_cluster(
+        insert_position=next_insertion_point,
+        catheter_table=catheter_table,
+        cluster_box=cluster_box
+    )
+
+def _activate_this_cluster(
+    insert_position: np.typing.ArrayLike,
+    catheter_table: CatheterTable,
+    cluster_box:ClusterBox
+    ):
+    r"""
+    ### Purpose:
+    - Given an insertion point, get the cluster with this insertion
+    point from the box. randomly select one of its catheter and set
+    the dwell times of that catheter to 1. Then recursively pass the 
+    tip of that catheter to the same function for activation.
+    
+    - exit condition: if cluster box did not return a cluster based on
+    that insert point, return!
+    """
+    cluster = cluster_box.get_cluster_by_insert_position(insert_position)
+    if cluster is None:
+        return
+    num_dwells = 0
+    num_sampling = 0
+    while num_dwells == 0 and num_sampling <= len(cluster.catheter_name_ids):
+        random_catheter_name_id = random.choice(
+            cluster.catheter_name_ids
+        )
+        catheter = catheter_table.get_catheters_by_ids([random_catheter_name_id])[0]
+        num_dwells = len(catheter.dwells)
+        num_sampling += 1
+
+    catheter.reset_dwelltimes_to(1.0)
+    _activate_this_cluster(catheter.digitization_points[1], catheter_table, cluster_box)
+
+def _count_physical_catheters_used(
+    catheter_table:CatheterTable,
+    cluster_box: ClusterBox,) -> int:
+    r"""
+    Counts the number of physical catheters used in the table based
+    on the clusters with depth = 0 that had an active catheter
+    """
+    catheter_count = 0
+    for cluster in cluster_box.cluster_dict.values():
+        if cluster.depth > 0:
+            continue
+        catheters = catheter_table.get_catheters_by_ids(cluster.catheter_name_ids)
+        for catheter in catheters:
+            if catheter.channel_total_time > 0:
+                catheter_count += 1
+    return catheter_count
+
 def _write_experiment_info(
     dir_output: Path,
     max_num_physical_catheters: int,
