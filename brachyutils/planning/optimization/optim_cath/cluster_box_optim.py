@@ -992,6 +992,8 @@ def _optimize_catheter_selection(
     trajectories. Frees the perpendicular constraints afterwards if they
     were applied. Returns (optimized_plan, elapsed_seconds).
     """
+    # TODO: Needs deep debugging. the indexing of the dwell positions is messed up
+    # when dwells near ptv is set to True. The dwell positions are not in the same order as the catheter segments.
     cbox_optim.optimization_object.set_constraints(
         constraint_config_dict=c_equal_1_constraints)
 
