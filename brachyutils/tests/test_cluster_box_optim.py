@@ -357,7 +357,7 @@ def test_disturbe_catheter_table():
         export_cluster_box=True,
         run_optimization=False,
         config_catheter_rotation=config_catheter_rotation,
-        solve_time_limit=600.0,
+        solve_time_limit=300.0,
     )
     cluster_box = cbox_optim.cluster_box
     catheter_table = cbox_optim.plan.catheter_table
@@ -409,7 +409,7 @@ def test_get_physical_catheter_tabel():
         export_cluster_box=True,
         run_optimization=False,
         config_catheter_rotation=config_catheter_rotation,
-        solve_time_limit=600.0,
+        solve_time_limit=300.0,
     )
     cluster_box = cbox_optim.cluster_box
     catheter_table = cbox_optim.plan.catheter_table
