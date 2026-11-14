@@ -88,7 +88,8 @@ def evaluate_parameters(
                 if normalize:
                     for key in dvh_metrics:
                         dvh_metrics[key] = dvh_metrics[key]/100
-                dvh_metrics_list.append(dvh_metrics)
+                cath_table_stats = optim_obj.plan.catheter_table.get_stats()
+                dvh_metrics_list.append(dvh_metrics|cath_table_stats)
     else:
         dvh_metrics_list = []
         for model in model_list:
@@ -693,6 +694,7 @@ def run_moo(
     - `acceptance_rate`: The acceptance rate of the MOO process defined as the number 
     of acceptable solutions divided by the total number of trials.
     - `trial_data`: A DataFrame containing the trial data from the optimization process.
+    TODO: must return the catheter table corresponding to the best plan!!!
     """
     if config_moo.moo_class == "MOO_Ax":
         from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax as Moo_Class

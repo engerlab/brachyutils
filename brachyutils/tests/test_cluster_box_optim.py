@@ -264,7 +264,7 @@ def test_modify_constraint():
 
 def test_run_experiment_sequential():
     outdir=Path("data_test/test_export_plan/prostate/clusterbox_optim")
-    max_num_physical_catheters = 17
+    max_num_physical_catheters = 15
     step_num_physical_catheters = 1
     initial_num_physical_catheters = 14
     num_decision_planes = 3

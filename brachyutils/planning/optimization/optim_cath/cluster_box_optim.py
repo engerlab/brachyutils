@@ -532,7 +532,7 @@ problem is not solvable. if you figure it out, big ups!")
             for dwell, time in zip(
                 self.plan.catheter_table.all_dwells,
                 saved_dwelltimes):
-                dwell.time = time        
+                dwell.time = time
 
 
 
@@ -1114,6 +1114,7 @@ def _run_moo_timed(cbox_optim, config_moo):
     runtime. The final solution is the one with the lowest dose to urethra.
     Returns (best_solution, acceptance_rate, elapsed_seconds).
     """
+    # TODO: get the optimal catheter table from run_moo and return it
     t0_moo = time()
     best_solution, acceptance_rate, _ = run_moo(
         catheter_table_optim=cbox_optim.optimization_object,
@@ -1137,6 +1138,7 @@ def _record_iteration_results(
     Append one iteration's metrics to the running results list, then write
     the cumulative results.csv and export the cbox state for this iteration.
     """
+    # TODO: must write the optimal catheter!
     out_list.append(pd.concat([
         pd.Series({
             "num_physical_catheters": physical_catheters_used,
