@@ -921,7 +921,6 @@ def _write_experiment_info(
         json.dump(experiment_info, out_file, indent=4)
     return experiment_info
 
-
 def _collect_dvh_metric_names(cbox_optim) -> list:
     """Flatten all DVH metric names across structures in the plan."""
     all_dvh_metric_names = []
@@ -931,14 +930,12 @@ def _collect_dvh_metric_names(cbox_optim) -> list:
         )
     return all_dvh_metric_names
 
-
 def _get_bound_catheter_names(constraints: dict) -> list:
     """Collect all catheter name_ids bound by a dict of Constraint_Config."""
     bound_names = []
     for constraint in constraints.values():
         bound_names.extend(constraint.variable_name_ids)
     return bound_names
-
 
 def _apply_perpendicular_constraints(
     cbox_optim,
@@ -956,7 +953,6 @@ def _apply_perpendicular_constraints(
             prepandicular_constraints.pop(angle_constr_name)
     cbox_optim.optimization_object.set_constraints(prepandicular_constraints)
     return prepandicular_constraints
-
 
 def _check_catheter_capacity(
     cbox_optim,
@@ -979,7 +975,6 @@ def _check_catheter_capacity(
         )
         return False
     return True
-
 
 def _optimize_catheter_selection(
     cbox_optim,
@@ -1005,7 +1000,6 @@ def _optimize_catheter_selection(
 
     return optimized_plan, t1_cath - t0_cath
 
-
 def _disturb_optimized_catheters(
     cbox_optim,
     optimized_plan,
@@ -1024,7 +1018,6 @@ def _disturb_optimized_catheters(
         cluster_box=cbox_optim.cluster_box,
         donot_disturbe_catheters=donot_disturbe_catheters,
     )
-
 
 def _bind_disturbed_catheters(
     disturbed_catheter_table,
@@ -1055,7 +1048,6 @@ def _bind_disturbed_catheters(
             )
             c_equal_1_constraints[bind_to_1.name_id] = bind_to_1
     return c_equal_1_constraints, c_equal_0_constraints
-
 
 def _resolve_collision_conflicts(
     cbox_optim,
@@ -1088,7 +1080,6 @@ def _resolve_collision_conflicts(
             c_equal_0_constraints[bind_to_0.name_id] = bind_to_0
     return conflict_found
 
-
 def _update_num_catheters_binding(
     cbox_optim,
     c_equal_1_constraints: dict,
@@ -1120,7 +1111,6 @@ def _run_moo_timed(cbox_optim, config_moo):
     t1_moo = time()
     return best_solution, acceptance_rate, t1_moo - t0_moo
 
-
 def _record_iteration_results(
     dir_output: Path | None,
     out_list: list,
@@ -1135,7 +1125,6 @@ def _record_iteration_results(
     Append one iteration's metrics to the running results list, then write
     the cumulative results.csv and export the cbox state for this iteration.
     """
-    # TODO: must write the optimal catheter!
     out_list.append(pd.concat([
         pd.Series({
             "num_physical_catheters": physical_catheters_used,
