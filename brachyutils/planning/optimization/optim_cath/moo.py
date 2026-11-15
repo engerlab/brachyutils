@@ -691,6 +691,9 @@ def run_moo(
     r"""
     ### Purpose:
     - Run a multi-objective optimization on a catheter table optimization object.
+    and return the best solution from a pool of clinically acceptable trade-off solutions
+    as specfied by the `config_moo.top_plan_criteria` attribute. It also updates the catheter
+    table with the dwell times corresponding to the best solution.
 
     ### Inputs:
     - `catheter_table_optim`: A catheter table optimization object that has been 
@@ -745,5 +748,6 @@ def run_moo(
             best_row = acceptable_rows.loc[acceptable_rows[dvh_metric_name].idxmax()]
         else:
             raise ValueError("Selection type must be 'min' or 'max'")
-    # best_solution = best_row[Moo_obj.dvh_metric_goals.keys()].to_dict()
+    best_dwell_times = Moo_obj.all_dwell_times[best_row.name]
+    catheter_table_optim.plan.catheter_table.set_dwelltimes_by_names(best_dwell_times)
     return best_row, acceptance_rate, Moo_obj.trial_data
