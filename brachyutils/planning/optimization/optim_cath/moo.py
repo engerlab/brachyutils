@@ -56,6 +56,9 @@ def evaluate_parameters(
     - `dvh_metrics_data`: pd.DataFrame := A dataframe with the observed dvh metrics
     corresponding to the evaluated parameters. The columns are the dvh metric names and
     the rows are the different parameter sets that were evaluated.
+    - `all_dwell_times`: List[Dict[str, float]] := A list of dictionaries with the dwell
+    times corresponding to the `dvh_metric_data`. The order of the dwell time dictionaries
+    corresponds to the index of the `dvh_metric_data` dataframe.
     """
     model_list = []
     optimization_configs = list(optim_obj.plan.optimization_config_dict.values())
@@ -68,7 +71,7 @@ def evaluate_parameters(
             model,
             optimization_configs)
         model_list.append(model)
-
+    all_dwell_times = []
     if max_workers > 1:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
@@ -88,8 +91,8 @@ def evaluate_parameters(
                 if normalize:
                     for key in dvh_metrics:
                         dvh_metrics[key] = dvh_metrics[key]/100
-                cath_table_stats = optim_obj.plan.catheter_table.get_stats()
-                dvh_metrics_list.append(dvh_metrics|cath_table_stats)
+                dvh_metrics_list.append(dvh_metrics)
+                all_dwell_times.append(dwell_time_dict)
     else:
         dvh_metrics_list = []
         for model in model_list:
@@ -105,8 +108,9 @@ def evaluate_parameters(
             if normalize:
                 for key in dvh_metrics:
                     dvh_metrics[key] = dvh_metrics[key]/100
-            dvh_metrics_list.append(dvh_metrics)        
-    return pd.DataFrame(dvh_metrics_list)
+            dvh_metrics_list.append(dvh_metrics)
+            all_dwell_times.append(dwell_time_dict)
+    return pd.DataFrame(dvh_metrics_list), all_dwell_times
 
 class MOO(ABC):
     _valid_parameter_names = [
@@ -211,6 +215,7 @@ class MOO(ABC):
         self.tuner: Any = None
         self.trial_data: pd.DataFrame = None
         self.directions = None
+        self.all_dwell_times: List[Dict[str, float]] = None
         # # Fill out the attributes
         self._validate_init()
         self._set_directions_from_dvh_metric_goals()
@@ -329,6 +334,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
             - dvh metrics observed
             - hyper volume
             - acceptability
+        and the dwell times are appended to `self.all_dwell_times`.
 
         ### Inputs:
         - parameters := A dataframe of parameters to be evaluated. The columns are the names
@@ -339,7 +345,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         ### Outputs:
         - A dataframe with the dvh metrics specified by the keys in self.dvh_metric_goals.
         """
-        dvh_metrics_data = evaluate_parameters(
+        dvh_metrics_data, all_dwell_times = evaluate_parameters(
             parameters,
             self.catheter_table_optim,
             max_workers=self.max_workers,
@@ -356,6 +362,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
                 parameters.reset_index(drop=True), dvh_metrics_data,
                 acceptable_trials, hv_trials, sampler_df], axis=1)
         ], axis=0)
+        self.all_dwell_times = (self.all_dwell_times or []) + all_dwell_times
         self.trial_data.reset_index(drop=True, inplace=True)
 
         return dvh_metrics_data[list(self.dvh_metric_goals.keys())]
