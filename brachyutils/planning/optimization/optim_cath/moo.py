@@ -195,7 +195,9 @@ class MOO(ABC):
         - `self.slack_space_shrinkage`: float := Based on random sampling, the parameter space
         is shrunk to focus on the region of parameters that yield clinically acceptable plans
         with some slack.
-
+        - `self.all_dwell_times`: List[Dict[str, float]] := A list of dictionaries with the dwell
+        times corresponding to the `dvh_metric_data`. The order of the dwell time dictionaries
+        corresponds to the index of the `dvh_metric_data` dataframe.
         The object has the following abstract methods that must be implemented in a subclass:
         - `set_tuner()` := Builds the Tuner object that will recommend the next batch
         of parameter queries to be evaluated.
