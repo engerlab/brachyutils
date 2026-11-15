@@ -992,8 +992,6 @@ def _optimize_catheter_selection(
     trajectories. Frees the perpendicular constraints afterwards if they
     were applied. Returns (optimized_plan, elapsed_seconds).
     """
-    # TODO: Needs deep debugging. the indexing of the dwell positions is messed up
-    # when dwells near ptv is set to True. The dwell positions are not in the same order as the catheter segments.
     cbox_optim.optimization_object.set_constraints(
         constraint_config_dict=c_equal_1_constraints)
 
@@ -1114,7 +1112,6 @@ def _run_moo_timed(cbox_optim, config_moo):
     runtime. The final solution is the one with the lowest dose to urethra.
     Returns (best_solution, acceptance_rate, elapsed_seconds).
     """
-    # TODO: get the optimal catheter table from run_moo and return it
     t0_moo = time()
     best_solution, acceptance_rate, _ = run_moo(
         catheter_table_optim=cbox_optim.optimization_object,
