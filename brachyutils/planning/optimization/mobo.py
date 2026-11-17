@@ -422,7 +422,8 @@ class MOBOOptimizer:
             calc_hv:bool=False,
             mobo_objective_kwargs:dict=None, 
             mobo_parameter_kwargs:dict=None,
-            objective_to_scale_to: dict[str, float] = None
+            objective_to_scale_to: dict[str, float] = None,
+            random_seed:int=None
             ):
         r'''This function runs multi-objective bayesian optimization (mobo) for as many iterations as the user commands it to. 
             it will save the result of all iterations in a pandas dataframe. 
@@ -446,6 +447,7 @@ class MOBOOptimizer:
             - mobo_objective_kwargs:= a dictionary containing the keyword arguments for the generate_mobo_objectives() method.
             - mobo_parameter_kwargs:= a dictionary containing the keyword arguments for the generate_mobo_parameters
             - objective_to_scale_to:= a dictionary containing the objective name as key and the value to scale the plan to as value.
+            - random_seed:= an integer to set the random seed for reproducibility. If None, no seed is set.
         outputs:
             - results:dict := a dictionary containing many outcomes of the mobo iterations. 
             - optimized_cat_tables:dict := a dictionary containing the optimized catheter tables for each iteration.
@@ -534,13 +536,20 @@ class MOBOOptimizer:
             # https://ax.dev/docs/0.5.0/tutorials/generation_strategy/
             steps=steps
         )
-        
+        if random_seed is not None:
+
+            import random
+            random.seed(random_seed)
+            torch.manual_seed(random_seed)
+            np.random.seed(random_seed)
+
         ax_client = AxClient(
             generation_strategy=generation_strategy_forMOBO,
             # torch-device  as argument to the AxClient here should be useless with a custom generation strategy
             torch_device=device,
             # Putting this to False messes up with the Optimization results
-            enforce_sequential_optimization=True
+            enforce_sequential_optimization=True,
+            random_seed=random_seed
             )
 
         variable_parameters_forMOBO = self.generate_mobo_parameters(**mobo_parameter_kwargs)
