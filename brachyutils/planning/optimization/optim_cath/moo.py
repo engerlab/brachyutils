@@ -706,7 +706,6 @@ def run_moo(
     - `acceptance_rate`: The acceptance rate of the MOO process defined as the number 
     of acceptable solutions divided by the total number of trials.
     - `trial_data`: A DataFrame containing the trial data from the optimization process.
-    TODO: must return the catheter table corresponding to the best plan!!!
     """
     if config_moo.moo_class == "MOO_Ax":
         from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax as Moo_Class
