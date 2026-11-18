@@ -23,7 +23,8 @@ def test_cluster_box_optim(
     config_catheter_rotation = None,
     return_output:bool = False,
     export_cluster_box:bool = False,
-    run_optimization:bool = False,):
+    run_optimization:bool = False,
+    solve_time_limit: float = 600.0):
     dir_dicom = Path("data_test/prostate-glen-p1-dcm")
     outdir = Path("data_test/test_export_plan/prostate/clusterbox_optim")
     target_dose = 15
@@ -111,7 +112,8 @@ def test_cluster_box_optim(
 
     cbox_optim = ClusterBoxOptim(
         plan=plan,
-        config_cluster_box=config_cluster_box
+        config_cluster_box=config_cluster_box,
+        solve_time_limit=solve_time_limit,
     )
     optimized_plan = None
     if run_optimization:
@@ -262,19 +264,19 @@ def test_modify_constraint():
 
 def test_run_experiment_sequential():
     outdir=Path("data_test/test_export_plan/prostate/clusterbox_optim")
-    max_num_physical_catheters = 6
-    step_num_physical_catheters = 1
-    initial_num_physical_catheters = 3
-    num_decision_planes = 3
-    insertion_point_spacing_mm = 10
+    max_num_physical_catheters = 17
+    step_num_physical_catheters = 2
+    initial_num_physical_catheters = 13
+    num_decision_planes = 2
+    insertion_point_spacing_mm = 5
     prob_catheter_deviation = 0
-    prepandicular_catheters = True
+    prepandicular_catheters = False
     prescription_dose = 15
     config_catheter_rotation = Config_Catheter_Rotation(
         x_angle_max=0,
         x_angle_step=0,
-        y_angle_max=4,
-        y_angle_step=4,)
+        y_angle_max=0,
+        y_angle_step=0,)
     structure_names = ["CTV", "RECTUM", "URETHRA"]
     parameter_space = {}
     for name in structure_names:
@@ -306,13 +308,14 @@ def test_run_experiment_sequential():
         moo_class="MOO_Ax",
         sampler_name_id="qNEHVI",
         parameter_space=parameter_space,
-        anchor_dvh_metric={"V100%(CTV)":95},
+        anchor_dvh_metric={"V100%(CTV)":90},
         slack_objective_threshold=slack_objective_threshold,
         device="cuda",
         n_random_samples=1,
         use_random_samples_in_warmup=True,
         n_tuning_trials=4,
         trial_batch_size=8,
+        top_plan_criteria={"D0.1cc(URETHRA)": "min"},
     )
 
     cbox_optim, optimized_plan = test_cluster_box_optim(
@@ -322,7 +325,9 @@ def test_run_experiment_sequential():
         return_output=True,
         export_cluster_box=False,
         run_optimization=False,
-        config_catheter_rotation=config_catheter_rotation,)
+        config_catheter_rotation=config_catheter_rotation,
+        solve_time_limit=600.0,
+        )
 
     run_experiment_sequential(
         cbox_optim=cbox_optim,
@@ -351,7 +356,9 @@ def test_disturbe_catheter_table():
         return_output=True,
         export_cluster_box=True,
         run_optimization=False,
-        config_catheter_rotation=config_catheter_rotation,)
+        config_catheter_rotation=config_catheter_rotation,
+        solve_time_limit=300.0,
+    )
     cluster_box = cbox_optim.cluster_box
     catheter_table = cbox_optim.plan.catheter_table
 
@@ -401,7 +408,9 @@ def test_get_physical_catheter_tabel():
         return_output=True,
         export_cluster_box=True,
         run_optimization=False,
-        config_catheter_rotation=config_catheter_rotation,)
+        config_catheter_rotation=config_catheter_rotation,
+        solve_time_limit=300.0,
+    )
     cluster_box = cbox_optim.cluster_box
     catheter_table = cbox_optim.plan.catheter_table
 

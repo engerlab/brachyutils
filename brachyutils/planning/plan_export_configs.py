@@ -164,7 +164,6 @@ class ExportConfig_BrachyPlan(BaseModel):
     export_config_cathetertable: ExportConfig_CatheterTable | bool = Field(False, description="Configuration for exporting catheter table.")
     export_config_egsphant: ExportConfig_Egsphant | bool = Field(False, description="Configuration for exporting egsphant file.")
     export_config_plan_and_mac: ExportConfig_PlanAndMac | bool = Field(False, description="Configuration for exporting .plan and .mac files.")
-    # TODO: in future, add these export configs if neeeded
 
     # export_config_applicator: ExportConfig_Applicator = None
     # export_config_phantom: ExportConfig_BrachyStructure = None

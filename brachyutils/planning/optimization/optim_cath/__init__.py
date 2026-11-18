@@ -7,6 +7,7 @@ __all__ = [
     "get_hyper_volume",
     "MOO_Ax",
     "MOO_Optuna",
+    "run_moo",
 ]
 
 from .dosimetric_gurobi import (
@@ -15,7 +16,8 @@ from .dosimetric_gurobi import (
 )
 
 from .moo import (
-    MOO, evaluate_parameters, are_acceptable, get_hyper_volume
+    MOO, evaluate_parameters, are_acceptable,
+    get_hyper_volume, run_moo
 )
 
 from .moo_ax import(

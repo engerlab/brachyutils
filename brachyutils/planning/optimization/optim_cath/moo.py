@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from abc import ABC, abstractmethod
 import pandas as pd
 from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
@@ -9,6 +9,7 @@ from brachyutils.planning.optimization.optim_cath.dosimetric_gurobi import (
 from brachyutils.planning.optimization.optim_gurobi import (
     get_optimized_dwelltimes_from_model,
 )
+from brachyutils.planning.optimization.optim_cath.config_moo import Config_MOO
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from botorch.utils.multi_objective import Hypervolume
 import torch
@@ -55,6 +56,9 @@ def evaluate_parameters(
     - `dvh_metrics_data`: pd.DataFrame := A dataframe with the observed dvh metrics
     corresponding to the evaluated parameters. The columns are the dvh metric names and
     the rows are the different parameter sets that were evaluated.
+    - `all_dwell_times`: List[Dict[str, float]] := A list of dictionaries with the dwell
+    times corresponding to the `dvh_metric_data`. The order of the dwell time dictionaries
+    corresponds to the index of the `dvh_metric_data` dataframe.
     """
     model_list = []
     optimization_configs = list(optim_obj.plan.optimization_config_dict.values())
@@ -67,7 +71,7 @@ def evaluate_parameters(
             model,
             optimization_configs)
         model_list.append(model)
-
+    all_dwell_times = []
     if max_workers > 1:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
@@ -88,6 +92,7 @@ def evaluate_parameters(
                     for key in dvh_metrics:
                         dvh_metrics[key] = dvh_metrics[key]/100
                 dvh_metrics_list.append(dvh_metrics)
+                all_dwell_times.append(dwell_time_dict)
     else:
         dvh_metrics_list = []
         for model in model_list:
@@ -103,8 +108,9 @@ def evaluate_parameters(
             if normalize:
                 for key in dvh_metrics:
                     dvh_metrics[key] = dvh_metrics[key]/100
-            dvh_metrics_list.append(dvh_metrics)        
-    return pd.DataFrame(dvh_metrics_list)
+            dvh_metrics_list.append(dvh_metrics)
+            all_dwell_times.append(dwell_time_dict)
+    return pd.DataFrame(dvh_metrics_list), all_dwell_times
 
 class MOO(ABC):
     _valid_parameter_names = [
@@ -189,7 +195,9 @@ class MOO(ABC):
         - `self.slack_space_shrinkage`: float := Based on random sampling, the parameter space
         is shrunk to focus on the region of parameters that yield clinically acceptable plans
         with some slack.
-
+        - `self.all_dwell_times`: List[Dict[str, float]] := A list of dictionaries with the dwell
+        times corresponding to the `dvh_metric_data`. The order of the dwell time dictionaries
+        corresponds to the index of the `dvh_metric_data` dataframe.
         The object has the following abstract methods that must be implemented in a subclass:
         - `set_tuner()` := Builds the Tuner object that will recommend the next batch
         of parameter queries to be evaluated.
@@ -209,6 +217,7 @@ class MOO(ABC):
         self.tuner: Any = None
         self.trial_data: pd.DataFrame = None
         self.directions = None
+        self.all_dwell_times: List[Dict[str, float]] = None
         # # Fill out the attributes
         self._validate_init()
         self._set_directions_from_dvh_metric_goals()
@@ -327,6 +336,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
             - dvh metrics observed
             - hyper volume
             - acceptability
+        and the dwell times are appended to `self.all_dwell_times`.
 
         ### Inputs:
         - parameters := A dataframe of parameters to be evaluated. The columns are the names
@@ -337,7 +347,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
         ### Outputs:
         - A dataframe with the dvh metrics specified by the keys in self.dvh_metric_goals.
         """
-        dvh_metrics_data = evaluate_parameters(
+        dvh_metrics_data, all_dwell_times = evaluate_parameters(
             parameters,
             self.catheter_table_optim,
             max_workers=self.max_workers,
@@ -354,6 +364,7 @@ as a valid optimization parameter. Please see `Optimization_Config.to_dict()`")
                 parameters.reset_index(drop=True), dvh_metrics_data,
                 acceptable_trials, hv_trials, sampler_df], axis=1)
         ], axis=0)
+        self.all_dwell_times = (self.all_dwell_times or []) + all_dwell_times
         self.trial_data.reset_index(drop=True, inplace=True)
 
         return dvh_metrics_data[list(self.dvh_metric_goals.keys())]
@@ -672,3 +683,70 @@ def _anchor_plan_to_dvh_metric(
 
     plan.catheter_table.scale_dwelltimes_by(scaling_factor)
     return plan.get_dvh_metrics()
+
+def run_moo(
+    catheter_table_optim:CatheterTableOptim_Gurobi,
+    config_moo: Config_MOO,
+    ) -> Tuple[dict, float, pd.DataFrame]:
+    r"""
+    ### Purpose:
+    - Run a multi-objective optimization on a catheter table optimization object.
+    and return the best solution from a pool of clinically acceptable trade-off solutions
+    as specfied by the `config_moo.top_plan_criteria` attribute. It also updates the catheter
+    table with the dwell times corresponding to the best solution.
+
+    ### Inputs:
+    - `catheter_table_optim`: A catheter table optimization object that has been 
+    set up with the necessary constraints and parameters for optimization.
+    - `config_moo`:= A configuration object that contains the settings for the 
+    multi-objective optimization.
+    ### Outputs:
+    - `best_solution`: A dataframe containing the best hyper-parameters and
+    DVH metrics obtained from the optimization.
+    - `acceptance_rate`: The acceptance rate of the MOO process defined as the number 
+    of acceptable solutions divided by the total number of trials.
+    - `trial_data`: A DataFrame containing the trial data from the optimization process.
+    """
+    if config_moo.moo_class == "MOO_Ax":
+        from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax as Moo_Class
+    elif config_moo.moo_class == "MOO_Optuna":
+        from brachyutils.planning.optimization.optim_cath.moo_optuna import MOO_Optuna as Moo_Class
+    else:
+        raise ValueError("Unsupported Moo class")
+
+    Moo_obj = Moo_Class(
+        catheter_table_optim=catheter_table_optim,
+        parameter_space=config_moo.parameter_space,
+        sampler_name_id=config_moo.sampler_name_id,
+        max_workers=config_moo.max_workers,
+        anchor_dvh_metric=config_moo.anchor_dvh_metric,
+        slack_objective_threshold=config_moo.slack_objective_threshold,
+        slack_space_shrinkage=config_moo.slack_space_shrinkage,
+    )
+    Moo_obj.run_random_sampling(
+        n_samples=config_moo.n_random_samples,
+        use_for_warmup=config_moo.use_random_samples_in_warmup
+    )
+    Moo_obj.run_trials(
+        n_trials=config_moo.n_tuning_trials,
+        batch_size=config_moo.trial_batch_size
+    )
+    acceptance_rate = Moo_obj.trial_data["acceptable"].sum()/(Moo_obj.trial_data.shape[0])
+    acceptable_rows = Moo_obj.trial_data.loc[Moo_obj.trial_data["acceptable"]==True]
+    if acceptable_rows.shape[0] == 0:
+        acceptable_rows = Moo_obj.trial_data
+    if config_moo.top_plan_criteria == "hypervolume":
+        best_row = acceptable_rows.loc[acceptable_rows["hypervolume"].idxmax()]
+    else:
+        if len(config_moo.top_plan_criteria) != 1:
+            raise ValueError("Only one selection criteria is allowed")
+        dvh_metric_name, selection_type = list(config_moo.top_plan_criteria.items())[0]
+        if selection_type == "min":
+            best_row = acceptable_rows.loc[acceptable_rows[dvh_metric_name].idxmin()]
+        elif selection_type == "max":
+            best_row = acceptable_rows.loc[acceptable_rows[dvh_metric_name].idxmax()]
+        else:
+            raise ValueError("Selection type must be 'min' or 'max'")
+    best_dwell_times = Moo_obj.all_dwell_times[best_row.name]
+    catheter_table_optim.plan.catheter_table.set_dwelltimes_by_names(best_dwell_times)
+    return best_row, acceptance_rate, Moo_obj.trial_data

@@ -12,6 +12,7 @@ __all__ = [
     "get_hyper_volume",
     "MOO_Ax",
     "MOO_Optuna",
+    "run_moo",
 ]
 
 # trunk-ignore(ruff/F401)

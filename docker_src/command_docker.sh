@@ -1,8 +1,8 @@
 #!/bin/bash
 # xhost +local: # to allow the container to access the host display
 # set the environment variables for the container
-export UID=$(id -u)
-export GID=$(id -g)
+# export UID=$(id -u)
+# export GID=$(id -g)
 export DISPLAY=$DISPLAY
 # export HOST_HOME=${HOME}
 # # to build the image and run the container

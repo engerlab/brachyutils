@@ -15,8 +15,8 @@ import pandas as pd
 from time import time
 import json
 
-from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax
-from brachyutils.planning.optimization.optim_cath.moo_optuna import MOO_Optuna
+from brachyutils.planning.optimization.optim_cath.moo import run_moo
+# from brachyutils.planning.optimization.optim_cath.moo_optuna import MOO_Optuna
 from brachyutils.planning.optimization.optim_cath.config_moo import Config_MOO
 
 def get_geometric_constraints(cluster_box:ClusterBox) -> Dict:
@@ -203,6 +203,7 @@ class ClusterBoxOptim:
         self,
         plan:BrachyPlan,
         config_cluster_box: Config_ClusterBox,
+        solve_time_limit: float = 300.0,
         ):
         r"""
         ### Purpose:
@@ -212,8 +213,9 @@ class ClusterBoxOptim:
         - plan := The brachyplan object with loaded `phantom`, `prescription_dose`,
         `structure_list`, and `optimization_config_dict`. Note that the `catheter_table`
         of this plan should be None.
-        - config_cluster_box := The config object for the cluster box generation. see
+        - `config_cluster_box` := The config object for the cluster box generation. see
         Config_ClusterBox class for details.
+        - `solve_time_limit` := The time limit for the optimization solver in seconds.
         """
         
         self.plan: BrachyPlan = None
@@ -230,7 +232,9 @@ class ClusterBoxOptim:
         self.generate_dose_rate_for_cluster(
             plan=self.plan,
             cluster_box=self.cluster_box,)
-        self.optimization_object = self.build_optimization_object(plan=self.plan)
+        self.optimization_object = self.build_optimization_object(
+            plan=self.plan,
+            solve_time_limit=solve_time_limit)
         self.set_geometric_constraints(
             cluster_box=self.cluster_box,
             optim_obj=self.optimization_object)
@@ -323,7 +327,7 @@ class ClusterBoxOptim:
         from time import time
         plan.set_catheter_table(
             catheter_table=cluster_box.catheter_table,
-            dwells_near_ptv=True, # set to true for reducing number of dwells
+            dwells_near_ptv=False, # set to true for reducing number of dwells
             )
         t0 = time()
         dose_generator = RapidBrachyTG43(
@@ -336,7 +340,8 @@ class ClusterBoxOptim:
 
     def build_optimization_object(
         self,
-        plan: BrachyPlan
+        plan: BrachyPlan,
+        solve_time_limit: float = 300.0,
         ):
         r"""
         ### Purpose:
@@ -345,7 +350,8 @@ class ClusterBoxOptim:
         print("Building optimization model for the cluster")
         optim_obj = CatheterTableOptim_Gurobi(
             plan=plan,
-            multi_processing=True
+            multi_processing=True,
+            solve_time_limit=solve_time_limit,
         )
         return optim_obj
 
@@ -526,18 +532,20 @@ problem is not solvable. if you figure it out, big ups!")
             for dwell, time in zip(
                 self.plan.catheter_table.all_dwells,
                 saved_dwelltimes):
-                dwell.time = time        
+                dwell.time = time
+
+
 
 def run_experiment_sequential(
-    cbox_optim:ClusterBoxOptim,
+    cbox_optim: ClusterBoxOptim,
     max_num_physical_catheters: int,
     step_num_physical_catheters: int,
     initial_num_physical_catheters: int,
     config_moo: Config_MOO,
     prob_catheter_deviation: Annotated[float, "0.0 to 1.0"] = 0,
-    prepandicular_catheters:bool = False,
+    prepandicular_catheters: bool = False,
     dir_output: str | Path = None,
-    ):
+):
     r"""
     ### Purpose:
     - To run experiments showing the effectiveness and robustness of the sequential
@@ -553,23 +561,20 @@ def run_experiment_sequential(
         repeat Step 2.
 
     ### Inputs:
-    - `cbox_optim` := A cluster box optimization objec that is already initialized. 
+    - `cbox_optim` := A cluster box optimization objec that is already initialized.
     - `max_num_physical_catheters`:= The maximum number of physical catheters to be inseretd.
     - `step_num_physical_catheters`:= At each iteration, we add a few more catheters to see
     their impact on acceptance rate.
     - `initial_num_physical_catheters`:= The initial optimization with have a bulk number
-    of cathetes. 
+    of cathetes.
     - `prob_catheter_deviation`:= After each optimization step, we can disturb
-    the unconstrained catheters with a certain probability to assess the robustness 
+    the unconstrained catheters with a certain probability to assess the robustness
     of the pipeline to catheter deviation.
     - `prepandicular_catheters` := If true, an additional constraint is added per segment
     cluster that tells the model to pick only the straight catheters or not. Note that
     during robustness analysis, the disturbance may deviate from prepandicular path.
-    - `multi_objective_optimizer`:= The multi objective optimization class that'll
-    give us an acceptance rate, the observed dvh metrics and their penalty weights
-    as well as the timing data. 
     - `dir_output`:= directory where the outputs will be written to
- 
+
     ### Outputs:
     The following infomration written to `dir_output`:
     - `out_df`:= A dataframe with containing the info of each number of catheters and
@@ -578,8 +583,8 @@ def run_experiment_sequential(
         - `acceptance_rate` per iteration
         - optimal_hyper_params from MOO per iteration.
         - observed_dvh_metrics from BrachyPlan per iteration.
-    - `cbox_optim` post optimization is exported to 
-    `dir_output`/f"cbox_{num_physical_catheters}_catheters". For the export content see 
+    - `cbox_optim` post optimization is exported to
+    `dir_output`/f"cbox_{num_physical_catheters}_catheters". For the export content see
     `ClusterBoxOptim.export_to()`
     - `constraint_dict` per iteration
     - `expriment_info`:
@@ -587,184 +592,125 @@ def run_experiment_sequential(
         - step_num_physical_catheters
         - initial_num_physical_catheters
         - prob_catheter_deviation
-        - multi_objective_optimizer
-        - range_hyper_parameters
+        - moo_config
     """
-    # TODO: Deep debug this shit!
-    experiment_info = {
-            "max_num_physical_catheters": max_num_physical_catheters,
-            "step_num_physical_catheters": step_num_physical_catheters,
-            "initial_num_physical_catheters": initial_num_physical_catheters,
-            "prob_catheter_deviation":prob_catheter_deviation,
-        # + ["multi_objective_optimizer", range_hyper_parameters] TODO figure out after MOO
-    }
-    with open(dir_output/"experiment_info.json", "w") as out_file:
-        json.dump(experiment_info, out_file, indent=4)   
+    dir_output = Path(dir_output)
+    dir_output.mkdir(parents=True, exist_ok=True)
 
-    all_dvh_metric_names = []
-    for structure in cbox_optim.plan.dvh_metric_goals:
-        all_dvh_metric_names = all_dvh_metric_names + (
-            cbox_optim.plan.dvh_metric_goals.get(
-                structure).get("dvh_metric_names")
-        )
+    _write_experiment_info(
+        dir_output=dir_output,
+        max_num_physical_catheters=max_num_physical_catheters,
+        step_num_physical_catheters=step_num_physical_catheters,
+        initial_num_physical_catheters=initial_num_physical_catheters,
+        prob_catheter_deviation=prob_catheter_deviation,
+        config_moo=config_moo,
+    )
 
-    out_df = pd.DataFrame(columns=(
-        ["num_physical_catheters","acceptance_rate",
-         "time_optim_catheters", "time_optim_moo"]
-        + all_dvh_metric_names)
-        # + all_hyper_parameter_names TO Be Added Next Week!
-        )
+    _collect_dvh_metric_names(cbox_optim)
 
+    out_list = []
     c_equal_1_constraints = defaultdict(Constraint_Config)
+
     for num_phys_catheters in range(
         initial_num_physical_catheters,
-        max_num_physical_catheters+step_num_physical_catheters,
+        max_num_physical_catheters + step_num_physical_catheters,
         step_num_physical_catheters):
 
-        # # First set the new number of physical catheters 
+        # # First set the new number of physical catheters
         cbox_optim.update_num_physical_catheters(
             num_physical_catheters=num_phys_catheters)
 
         # # add straight catheter constraint if needed
         num_bad_segments_depth_0 = 0
+        prepandicular_constraints = None
         if prepandicular_catheters:
             prepandicular_constraints, num_bad_segments_depth_0 = get_angle_constraints(
                 cluster_box=cbox_optim.cluster_box,
                 x_angle=0,
-                y_angle=0,)
+                y_angle=0,
+            )
             # If a catheter has been previously bound to 1 (already inserted)
             # remove its angle constraint
-            donot_disturbe_constrs = []
-            for angle_constr_name in prepandicular_constraints:
-                c_equal_1 = c_equal_1_constraints.get(angle_constr_name)
-                if c_equal_1 is not None:
-                    donot_disturbe_constrs.append(angle_constr_name)
-            for constr_name in donot_disturbe_constrs:
-                prepandicular_constraints.pop(constr_name)
+            prepandicular_constraints = _apply_perpendicular_constraints(
+                cbox_optim=cbox_optim,
+                prepandicular_constraints=prepandicular_constraints,
+                c_equal_1_constraints=c_equal_1_constraints,
+            )
 
-            cbox_optim.optimization_object.set_constraints(prepandicular_constraints)
-        
         # # Sanity check that the number of requested catheters is less
         # # than the number of available catheters
-        num_inserted_catheters = _count_physical_catheters_used(
-            cbox_optim.plan.catheter_table, cbox_optim.cluster_box)
-        if num_bad_segments_depth_0 + num_phys_catheters > len(cbox_optim.cluster_box[0]):
-            print(f"No More space on the catheter table to add new catheters\
-The total number of possible catheters is {len(cbox_optim.cluster_box[0])}\
-The current number of inserted catheters is {num_inserted_catheters}\
-The number of catheters excluded due to angle constraints is {num_bad_segments_depth_0}")
+        has_capacity = _check_catheter_capacity(
+            cbox_optim=cbox_optim,
+            num_phys_catheters=num_phys_catheters,
+            num_bad_segments_depth_0=num_bad_segments_depth_0,
+        )
+        if not has_capacity:
             return
 
-        # # set the prev C* if any
-        cbox_optim.optimization_object.set_constraints(
-            constraint_config_dict=c_equal_1_constraints)
-
         # # Get the optimal catheters (c*)
-        t0_cath = time()
-        optimized_plan = cbox_optim.get_optimized_plan_from_model() 
-        t1_cath = time()
-        if prepandicular_catheters:
-            # # Free the model for future constraints
-            cbox_optim.optimization_object.remove_constraints(prepandicular_constraints)
+        optimized_plan, time_optim_catheters = _optimize_catheter_selection(
+            cbox_optim=cbox_optim,
+            c_equal_1_constraints=c_equal_1_constraints,
+            prepandicular_catheters=prepandicular_catheters,
+            prepandicular_constraints=prepandicular_constraints,
+        )
 
         # # Now disturbe the catheters
-        donot_disturbe_catheters = []
-        for c_equal_1 in c_equal_1_constraints.values():
-            donot_disturbe_catheters.extend(c_equal_1.variable_name_ids)
-        disturbed_catheter_table = disturbe_catheter_table(
-            catheter_table=optimized_plan.catheter_table,
+        disturbed_catheter_table = _disturb_optimized_catheters(
+            cbox_optim=cbox_optim,
+            optimized_plan=optimized_plan,
             prob_catheter_deviation=prob_catheter_deviation,
-            cluster_box=cbox_optim.cluster_box,
-            donot_disturbe_catheters=donot_disturbe_catheters,
-            )
+            c_equal_1_constraints=c_equal_1_constraints,
+        )
 
         # # get ready for MOO by binding the model to c*
         # # c* has two parts those that =1 and =0.
-        c_equal_0_constraints = defaultdict(Constraint_Config)
-        for catheter in disturbed_catheter_table:
-            if catheter.channel_total_time == 0:
-                bind_to_0 = Constraint_Config(
-                    constraint_type="bound",
-                    variable_type="catheter",
-                    equal=0,
-                    variable_name_ids=[catheter.name_id],
-                )
-                c_equal_0_constraints[
-                    bind_to_0.name_id] = bind_to_0
-            else:
-                bind_to_1 = Constraint_Config(
-                    constraint_type="bound",
-                    variable_type="catheter",
-                    equal=1,
-                    variable_name_ids=[catheter.name_id],
-                )
-                c_equal_1_constraints[
-                    bind_to_1.name_id] = bind_to_1
+        c_equal_1_constraints, c_equal_0_constraints = _bind_disturbed_catheters(
+            disturbed_catheter_table=disturbed_catheter_table,
+            c_equal_1_constraints=c_equal_1_constraints,
+        )
 
         # # Make sure there are no colliding pairs in the disturbed
         # # catheter table! resolve by setting one to zero randomly.
-        collision_pairs = [
-            constr.variable_name_ids for constr in
-            cbox_optim.geometric_constraint_dict["collision"].values()]
-        c_eq_1_catheters = []
-        for constr in c_equal_1_constraints.values():
-            c_eq_1_catheters.extend(constr.variable_name_ids)
-        conflict_found = []            
-        for col_pair in collision_pairs:
-            if (col_pair[0] in c_eq_1_catheters
-                and col_pair[1] in c_eq_1_catheters):
-                conflict_found.append(col_pair)
-                set_to_zero = random.choice(col_pair)
-                c_equal_1_constraints.pop(f"bound_catheter_{set_to_zero}_eq")
-                bind_to_0 = Constraint_Config(
-                    constraint_type="bound",
-                    variable_type="catheter",
-                    equal=0,
-                    variable_name_ids=[set_to_zero],
-                )
-                c_equal_0_constraints[
-                    bind_to_0.name_id] = bind_to_0
-        # # free the catheter number to avoid conflicts with
-        # # collision free scrambled catheter table binding
-        cbox_optim.optimization_object.remove_constraints(
-            cbox_optim.geometric_constraint_dict["num_catheters"])
+        _resolve_collision_conflicts(
+            cbox_optim=cbox_optim,
+            c_equal_1_constraints=c_equal_1_constraints,
+            c_equal_0_constraints=c_equal_0_constraints,
+        )
 
-        # # now add the new bounds to the optimization object
-        cbox_optim.optimization_object.set_constraints(
-            constraint_config_dict=c_equal_1_constraints)
-        cbox_optim.optimization_object.set_constraints(
-            constraint_config_dict=c_equal_0_constraints)
+        _update_num_catheters_binding(
+            cbox_optim=cbox_optim,
+            c_equal_1_constraints=c_equal_1_constraints,
+            c_equal_0_constraints=c_equal_0_constraints,
+        )
 
         # # Pass it to MOO and get acceptance rate as well as
         # other metrics The final solution is the one with
         # lowest dose to urethra.
-        # TODO: to be implemented!
-        t0_moo = time()
-        best_dvh_metrics, acceptance_rate = run_moo(
-            catheter_table_optim=cbox_optim.optimization_object,
-            config_moo=config_moo
+        best_solution, acceptance_rate, time_optim_moo = _run_moo_timed(
+            cbox_optim=cbox_optim,
+            config_moo=config_moo,
         )
-        t1_moo = time()
 
         # # Free the catheters that were bound 0 for next iteration!
         cbox_optim.optimization_object.remove_constraints(
-            constraint_config_dict=c_equal_0_constraints
-        )
+            constraint_config_dict=c_equal_0_constraints)
+
         physical_catheters_used = _count_physical_catheters_used(
             catheter_table=disturbed_catheter_table,
-            cluster_box=cbox_optim.cluster_box
+            cluster_box=cbox_optim.cluster_box,
         )
 
-        out_df.loc[len(out_df)] = {
-        "num_physical_catheters": physical_catheters_used,
-        "acceptance_rate": acceptance_rate,
-        "time_optim_catheters": t1_cath - t0_cath,
-        "time_optim_moo": t1_moo - t0_moo,
-        } | best_dvh_metrics.to_dict()
-        if dir_output is not None:
-            out_df.to_csv(dir_output/f"results.csv")
-            print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
-            cbox_optim.export_to(out_dir=dir_output/f"cbox_{physical_catheters_used}_catheters")
+        _record_iteration_results(
+            dir_output=dir_output,
+            out_list=out_list,
+            physical_catheters_used=physical_catheters_used,
+            acceptance_rate=acceptance_rate,
+            time_optim_catheters=time_optim_catheters,
+            time_optim_moo=time_optim_moo,
+            best_solution=best_solution,
+            cbox_optim=cbox_optim,
+        )
 
 def disturbe_catheter_table(
     catheter_table: CatheterTable,
@@ -955,47 +901,241 @@ def _count_physical_catheters_used(
                 catheter_count += 1
     return catheter_count
 
-def run_moo(
-    catheter_table_optim:CatheterTableOptim_Gurobi,
-    config_moo: Config_MOO,
-    ):
-    r"""
-    ### Purpose:
-    - Run a multi-objective optimization on a catheter table optimization object.
+def _write_experiment_info(
+    dir_output: Path,
+    max_num_physical_catheters: int,
+    step_num_physical_catheters: int,
+    initial_num_physical_catheters: int,
+    prob_catheter_deviation: float,
+    config_moo,
+) -> dict:
+    """Build the experiment info dict and dump it to experiment_info.json."""
+    experiment_info = {
+        "max_num_physical_catheters": max_num_physical_catheters,
+        "step_num_physical_catheters": step_num_physical_catheters,
+        "initial_num_physical_catheters": initial_num_physical_catheters,
+        "prob_catheter_deviation": prob_catheter_deviation,
+        "config_moo": config_moo.model_dump(),
+    }
+    with open(dir_output / "experiment_info.json", "w") as out_file:
+        json.dump(experiment_info, out_file, indent=4)
+    return experiment_info
 
-    ### Inputs:
-    - catheter_table_optim
-    - config_moo
-    
-    ### Outputs:
-    None: to be determined!
+def _collect_dvh_metric_names(cbox_optim) -> list:
+    """Flatten all DVH metric names across structures in the plan."""
+    all_dvh_metric_names = []
+    for structure in cbox_optim.plan.dvh_metric_goals:
+        all_dvh_metric_names = all_dvh_metric_names + (
+            cbox_optim.plan.dvh_metric_goals.get(structure).get("dvh_metric_names")
+        )
+    return all_dvh_metric_names
+
+def _get_bound_catheter_names(constraints: dict) -> list:
+    """Collect all catheter name_ids bound by a dict of Constraint_Config."""
+    bound_names = []
+    for constraint in constraints.values():
+        bound_names.extend(constraint.variable_name_ids)
+    return bound_names
+
+def _apply_perpendicular_constraints(
+    cbox_optim,
+    prepandicular_constraints: dict,
+    c_equal_1_constraints: dict,
+) -> dict:
     """
-    if config_moo.moo_class == "MOO_Ax":
-        from brachyutils.planning.optimization.optim_cath.moo_ax import MOO_Ax as Moo_Class
-    elif config_moo.moo_class == "MOO_Optuna":
-        from brachyutils.planning.optimization.optim_cath.moo_optuna import MOO_Optuna as Moo_Class
-    else:
-        raise ValueError("Unsupported Moo class")
-    
-    Moo_obj = Moo_Class(
-        catheter_table_optim=catheter_table_optim,
-        parameter_space=config_moo.parameter_space,
-        sampler_name_id=config_moo.sampler_name_id,
-        max_workers=config_moo.max_workers,
-        anchor_dvh_metric=config_moo.anchor_dvh_metric,
-        slack_objective_threshold=config_moo.slack_objective_threshold,
-        slack_space_shrinkage=config_moo.slack_space_shrinkage,
+    Set the perpendicular (straight-catheter) angle constraints on the
+    optimization object, skipping any catheter that is already bound to 1
+    (i.e. already physically inserted). Returns the filtered constraint dict.
+    """
+    for angle_constr_name in prepandicular_constraints:
+        c_equal_1 = c_equal_1_constraints.get(angle_constr_name)
+        if c_equal_1 is not None:
+            prepandicular_constraints.pop(angle_constr_name)
+    cbox_optim.optimization_object.set_constraints(prepandicular_constraints)
+    return prepandicular_constraints
+
+def _check_catheter_capacity(
+    cbox_optim,
+    num_phys_catheters: int,
+    num_bad_segments_depth_0: int,
+) -> bool:
+    """
+    Sanity check that the number of requested catheters fits on the catheter
+    table. Returns True if there is capacity, False otherwise (and prints why).
+    """
+    num_inserted_catheters = _count_physical_catheters_used(
+        cbox_optim.plan.catheter_table, cbox_optim.cluster_box)
+    if num_bad_segments_depth_0 + num_phys_catheters > len(cbox_optim.cluster_box[0]):
+        print(
+            f"No More space on the catheter table to add new catheters"
+            f"The total number of possible catheters is {len(cbox_optim.cluster_box[0])}"
+            f"The current number of inserted catheters is {num_inserted_catheters}"
+            f"The number of catheters excluded due to angle constraints "
+            f"is {num_bad_segments_depth_0}"
+        )
+        return False
+    return True
+
+def _optimize_catheter_selection(
+    cbox_optim,
+    c_equal_1_constraints: dict,
+    prepandicular_catheters: bool,
+    prepandicular_constraints: dict | None,
+):
+    """
+    Bind the previous C* constraints and compute the optimal catheter
+    trajectories. Frees the perpendicular constraints afterwards if they
+    were applied. Returns (optimized_plan, elapsed_seconds).
+    """
+    cbox_optim.optimization_object.set_constraints(
+        constraint_config_dict=c_equal_1_constraints)
+
+    t0_cath = time()
+    optimized_plan = cbox_optim.get_optimized_plan_from_model()
+    t1_cath = time()
+
+    if prepandicular_catheters and prepandicular_constraints is not None:
+        # # Free the model for future constraints
+        cbox_optim.optimization_object.remove_constraints(prepandicular_constraints)
+
+    return optimized_plan, t1_cath - t0_cath
+
+def _disturb_optimized_catheters(
+    cbox_optim,
+    optimized_plan,
+    prob_catheter_deviation: float,
+    c_equal_1_constraints: dict,
+):
+    """
+    Disturb the unconstrained catheters of the optimized plan according to
+    `prob_catheter_deviation`. Catheters bound to 1 (already inserted) are
+    protected from disturbance. Returns the disturbed catheter table.
+    """
+    donot_disturbe_catheters = _get_bound_catheter_names(c_equal_1_constraints)
+    return disturbe_catheter_table(
+        catheter_table=optimized_plan.catheter_table,
+        prob_catheter_deviation=prob_catheter_deviation,
+        cluster_box=cbox_optim.cluster_box,
+        donot_disturbe_catheters=donot_disturbe_catheters,
     )
-    Moo_obj.run_random_sampling(
-        n_samples=config_moo.n_random_samples,
-        use_for_warmup=config_moo.use_random_samples_in_warmup
+
+def _bind_disturbed_catheters(
+    disturbed_catheter_table,
+    c_equal_1_constraints: dict,
+) -> tuple[dict, dict]:
+    """
+    Build the C* binding constraints from the disturbed catheter table:
+    catheters with channel_total_time == 0 are bound to 0, all others to 1.
+    Mutates `c_equal_1_constraints` in place and returns
+    (c_equal_1_constraints, c_equal_0_constraints).
+    """
+    c_equal_0_constraints = defaultdict(Constraint_Config)
+    for catheter in disturbed_catheter_table:
+        if catheter.channel_total_time == 0:
+            bind_to_0 = Constraint_Config(
+                constraint_type="bound",
+                variable_type="catheter",
+                equal=0,
+                variable_name_ids=[catheter.name_id],
+            )
+            c_equal_0_constraints[bind_to_0.name_id] = bind_to_0
+        else:
+            bind_to_1 = Constraint_Config(
+                constraint_type="bound",
+                variable_type="catheter",
+                equal=1,
+                variable_name_ids=[catheter.name_id],
+            )
+            c_equal_1_constraints[bind_to_1.name_id] = bind_to_1
+    return c_equal_1_constraints, c_equal_0_constraints
+
+def _resolve_collision_conflicts(
+    cbox_optim,
+    c_equal_1_constraints: dict,
+    c_equal_0_constraints: dict,
+) -> list:
+    """
+    Ensure there are no colliding pairs among the bound-to-1 catheters by
+    randomly demoting one member of each colliding pair to 0.
+    Returns the list of conflicting collision pairs found.
+    """
+    collision_pairs = [
+        constr.variable_name_ids for constr in
+        cbox_optim.geometric_constraint_dict["collision"].values()]
+    c_eq_1_catheters = _get_bound_catheter_names(c_equal_1_constraints)
+
+    conflict_found = []
+    for col_pair in collision_pairs:
+        if (col_pair[0] in c_eq_1_catheters
+            and col_pair[1] in c_eq_1_catheters):
+            conflict_found.append(col_pair)
+            set_to_zero = random.choice(col_pair)
+            c_equal_1_constraints.pop(f"bound_catheter_{set_to_zero}_eq")
+            bind_to_0 = Constraint_Config(
+                constraint_type="bound",
+                variable_type="catheter",
+                equal=0,
+                variable_name_ids=[set_to_zero],
+            )
+            c_equal_0_constraints[bind_to_0.name_id] = bind_to_0
+    return conflict_found
+
+def _update_num_catheters_binding(
+    cbox_optim,
+    c_equal_1_constraints: dict,
+    c_equal_0_constraints: dict,
+) -> None:
+    """
+    Free the num_catheters geometric constraint (to avoid conflicts with the
+    collision-free scrambled catheter table binding) and set the new bounds.
+    """
+    cbox_optim.optimization_object.remove_constraints(
+        cbox_optim.geometric_constraint_dict["num_catheters"])
+    cbox_optim.optimization_object.set_constraints(
+        constraint_config_dict=c_equal_1_constraints)
+    cbox_optim.optimization_object.set_constraints(
+        constraint_config_dict=c_equal_0_constraints)
+
+
+def _run_moo_timed(cbox_optim, config_moo):
+    """
+    Run multi-objective optimization on the bound model and measure its
+    runtime. The final solution is the one with the lowest dose to urethra.
+    Returns (best_solution, acceptance_rate, elapsed_seconds).
+    """
+    t0_moo = time()
+    best_solution, acceptance_rate, _ = run_moo(
+        catheter_table_optim=cbox_optim.optimization_object,
+        config_moo=config_moo,
     )
-    Moo_obj.run_trials(
-        n_trials=config_moo.n_tuning_trials,
-        batch_size=config_moo.trial_batch_size
-    )
-    acceptance_rate = Moo_obj.trial_data["acceptable"].sum()/(Moo_obj.trial_data.shape[0])
-    acceptable_rows = Moo_obj.trial_data.loc[Moo_obj.trial_data["acceptable"]==True]
-    best_dvh_metrics = acceptable_rows.loc[acceptable_rows["hypervolume"].idxmin]
-    best_dvh_metrics = best_dvh_metrics[list(Moo_obj.dvh_metric_goals.keys())]
-    return best_dvh_metrics, acceptance_rate
+    t1_moo = time()
+    return best_solution, acceptance_rate, t1_moo - t0_moo
+
+def _record_iteration_results(
+    dir_output: Path | None,
+    out_list: list,
+    physical_catheters_used: int,
+    acceptance_rate: float,
+    time_optim_catheters: float,
+    time_optim_moo: float,
+    best_solution,
+    cbox_optim,
+) -> None:
+    """
+    Append one iteration's metrics to the running results list, then write
+    the cumulative results.csv and export the cbox state for this iteration.
+    """
+    out_list.append(pd.concat([
+        pd.Series({
+            "num_physical_catheters": physical_catheters_used,
+            "acceptance_rate": acceptance_rate,
+            "time_optim_catheters": time_optim_catheters,
+            "time_optim_moo": time_optim_moo,
+        }),
+        best_solution,
+    ]))
+    if dir_output is not None:
+        pd.DataFrame(out_list).to_csv(dir_output / "results.csv")
+        print(f"Wrote sequential trail for {physical_catheters_used} Catheters")
+        cbox_optim.export_to(
+            out_dir=dir_output / f"cbox_{physical_catheters_used}_catheters")
