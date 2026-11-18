@@ -26,7 +26,7 @@ def fit_spline(neelde_contour: sitk.Image, multiclass:bool=True):
     needle_spline_creator.interpolate_spline()
     return needle_spline_creator
 
-def is_running_slicer_tps()
+def is_running_slicer_tps():
     try:
         import slicer
         return getattr(slicer, "app", None) is not None
