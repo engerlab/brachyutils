@@ -207,7 +207,7 @@ class ContourSeparator:
             os.makedirs(save_details_path, exist_ok=True)
         self.save_details_path = save_details_path
         self.margin_for_cropping = margin_for_cropping
-        self.multiprocess = multiprocess
+        self.multiprocess = (not is_running_slicer_tps()) and multiprocess
         self.count_merged_catheters = 0
         self.num_overlaps = 0
 
