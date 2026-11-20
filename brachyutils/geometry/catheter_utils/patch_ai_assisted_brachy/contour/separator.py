@@ -7,7 +7,8 @@ from typing import List, Tuple
 import warnings
 
 import SimpleITK as sitk
-import multiprocessing as mp
+# import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 from scipy import ndimage
 
@@ -25,13 +26,6 @@ def fit_spline(neelde_contour: sitk.Image, multiclass:bool=True):
     needle_spline_creator = NeedleSplineCreator(neelde_contour, multiclass=multiclass)
     needle_spline_creator.interpolate_spline()
     return needle_spline_creator
-
-def is_running_slicer_tps():
-    try:
-        import slicer
-        return getattr(slicer, "app", None) is not None
-    except ImportError:
-        return False
     
 def get_distances_to_spline(neelde_contour: sitk.Image, multiclass:bool=True):
     """
@@ -213,7 +207,7 @@ class ContourSeparator:
             os.makedirs(save_details_path, exist_ok=True)
         self.save_details_path = save_details_path
         self.margin_for_cropping = margin_for_cropping
-        self.multiprocess = (not is_running_slicer_tps()) and multiprocess
+        self.multiprocess = multiprocess
         self.count_merged_catheters = 0
         self.num_overlaps = 0
 
@@ -473,14 +467,18 @@ class ContourSeparator:
                     "ignore", 
                     message="The required storage space exceeds the available storage space.",
                     category=RuntimeWarning, module="scipy")
-                with mp.Pool(8) as p:
+                # with mp.Pool(8) as p:
+                with ProcessPoolExecutor(max_workers=8) as p:
                     r = list(
                         tqdm.tqdm(
-                            p.imap(
+                            # p.imap(
+                            p.map(
                                 detect_overlap_task,
                                 args,
+                                chunksize=1
                             ),
-                            total=num_labels,
+                            # total=num_labels,
+                            total=len(args),
                             desc="Checking for overlap...",
                         )
                     )
@@ -963,14 +961,18 @@ class ContourMerger:
                     message="The required storage space exceeds the available storage space.",
                     category=RuntimeWarning, module="scipy")
 
-                with mp.Pool(8) as p:
+                # with mp.Pool(8) as p:
+                with ProcessPoolExecutor(max_workers=8) as p:
                     r = list(
                         tqdm.tqdm(
-                            p.imap(
+                            # p.imap(
+                            p.map(
                                 extend_catheter_contour_on_both_sides_wrapper,
                                 args,
+                                chunksize=1
                             ),
-                            total=self.num_labels,
+                            # total=self.num_labels,
+                            total=len(args),
                             desc="Creating add ons for potential merge..",
                         )
                     )
