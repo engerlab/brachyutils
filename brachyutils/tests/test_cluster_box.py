@@ -121,7 +121,9 @@ def test_gen_catheter_table_from_contours():
 
 def test_cluster_box(
     return_box:bool=False,
-    export_to_ply:bool=False):
+    export_to_ply:bool=False,
+    use_cvt:bool=False
+    ):
     outdir = "data_test/test_export_plan/prostate/clusterbox"
     structure_dict = get_test_structure_meshes()
     insertion_point_spacing_mm = 15
@@ -132,6 +134,10 @@ def test_cluster_box(
     rotation_angle_deg=12
     box_margin = 5
     num_physical_catheters = 5
+    if use_cvt:
+        generation_mode = "cvt"
+        outdir = "data_test/test_export_plan/prostate/clusterbox_cvt"
+
 
     cc_box = ClusterBox(
         structure_dict = structure_dict,
@@ -143,13 +149,14 @@ def test_cluster_box(
         rotation_angle_deg=rotation_angle_deg,
         box_margin_mm=box_margin,
         num_physical_catheters=num_physical_catheters,
+        generation_mode=generation_mode,
     )
     if export_to_ply:
         cc_box.to_ply(out_ply_dir=outdir)
 
     if return_box:
         return cc_box
-    
+
 def test_catheter_table_from_clusterbox():
     cc_box = test_cluster_box(True)
     cath_table = cc_box.catheter_table
@@ -206,10 +213,14 @@ if __name__ == "__main__":
     # test_get_segment_lines()
     # test_generate_candidate_segments()
     # test_gen_catheter_table_from_contours()
-    # test_cluster_box()
+    test_cluster_box(
+        return_box=False,
+        export_to_ply=True,
+        use_cvt=True
+    )
     # test_catheter_table_from_clusterbox()
     # test_all_segment_dict()
     # test_cluster_getitem()
     # test_cluster_box_getitem()
     # test_get_parent_segments()
-    test_get_colliding_segments()
+    # test_get_colliding_segments()

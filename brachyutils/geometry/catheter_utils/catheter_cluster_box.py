@@ -1,6 +1,6 @@
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator
-from typing import Dict, List, Union, Tuple
+from typing import Dict, List, Union, Tuple, Literal
 import numpy as np
 import trimesh
 from collections import defaultdict
@@ -14,6 +14,7 @@ from brachyutils.geometry.catheter_utils.catheter_cluster_box_utils import (
     TupleKeyDict, find_colliding_pairs,
     get_angles
     )
+from brachyutils.geometry.catheter_utils.cvt_candidate_segments import generate_candidate_segments_cvt
 
 class Segment(BaseModel):
     r"""
@@ -192,6 +193,9 @@ catheter segments and organs at risk (OARs) (mm).")
     segment_collision_margin_mm: float = Field(default=5, description="the collision margin between \
 catheter segments (mm). Measured as center of the catheter segments.")
     box_margin_mm: float = Field(default=0, description="The margin between the box boundaries and the OARs")
+    generation_mode: Literal["tree", "cvt"] = Field("tree", description="The mode of generating the catheter box. \
+'tree' mode generates a tree structure of segments on a grid according to `insesrtion_point_spacing_mm`, \
+while 'cvt' mode uses Centroidal Voronoi Tessellation to generate segments.")
 
     # # internal attributes
     cluster_dict: Dict[str, SegmentCluster] = Field(default=None)
@@ -212,18 +216,39 @@ catheter segments (mm). Measured as center of the catheter segments.")
         1. Generate the segment clusters for the catheter box based on the user defined attributes.
         2. Ensure the number of physical catheters is less than the number of insertion points.
         """
-        # # Initialize the catheter box 
-        # # based on the structure dict, box rotation angle, insertion point spacing 
-        _, self._plane_dict = generate_candidate_segments(
-            mesh_dict=self.structure_dict,
-            insertion_point_spacing_mm=self.insertion_point_spacing_mm,
-            oar_danger_dist_mm=self.oar_collision_margin_mm,
-            target_structure_names=self.target_structure_names,
-            Config_Catheter_Rotation=self.config_catheter_rotation,
-            bb_rotation_angle_deg=self.rotation_angle_deg,
-            bb_num_planes=self.num_decision_planes,
-            bb_margin_mm = self.box_margin_mm,
-        )
+        if self.generation_mode is "tree":
+            # # Initialize the catheter box 
+            # # based on the structure dict, box rotation angle, insertion point spacing 
+            _, self._plane_dict = generate_candidate_segments(
+                mesh_dict=self.structure_dict,
+                insertion_point_spacing_mm=self.insertion_point_spacing_mm,
+                oar_danger_dist_mm=self.oar_collision_margin_mm,
+                target_structure_names=self.target_structure_names,
+                Config_Catheter_Rotation=self.config_catheter_rotation,
+                bb_rotation_angle_deg=self.rotation_angle_deg,
+                bb_num_planes=self.num_decision_planes,
+                bb_margin_mm = self.box_margin_mm,
+            )
+        elif self.generation_mode is "cvt":
+            assert (isinstance(self.num_physical_catheters, int) and self.num_physical_catheters > 0,
+                    "Number of physical catheters must be a positive integer")
+            _, self._plane_dict = generate_candidate_segments_cvt(
+                mesh_dict=self.structure_dict,
+                insertion_point_spacing_mm=self.insertion_point_spacing_mm,
+                oar_danger_dist_mm=self.oar_collision_margin_mm,
+                target_structure_names=self.target_structure_names,
+                Config_Catheter_Rotation=self.config_catheter_rotation,
+                bb_rotation_angle_deg=self.rotation_angle_deg,
+                bb_num_planes=self.num_decision_planes,
+                bb_margin_mm = self.box_margin_mm,
+                # # CVT specific parameters
+                catheter_radius_mm=1,
+                num_physical_catheters=self.num_physical_catheters,
+                # cvt_iters=self.cvt_iters,
+                # max_snap_candidates=self.max_snap_candidates,
+                # drop_incomplete_chains=self.drop_incomplete_chains,
+                # seed=self.seed
+            )
         # # get the segment clusters and segments from plane dict.
         self.cluster_dict = get_clusters_from_planes(plane_dict=self._plane_dict)
         return self

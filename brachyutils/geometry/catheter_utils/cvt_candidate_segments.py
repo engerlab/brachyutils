@@ -176,12 +176,12 @@ def generate_candidate_segments_cvt(
     insertion_point_spacing_mm: float,
     oar_danger_dist_mm: float,
     target_structure_names: List[str],
+    num_physical_catheters: int,
     Config_Catheter_Rotation: _ConfigRotation = None,
     catheter_radius_mm: float = 1,
-    n_points_per_plane: int = 30,
     cvt_iters: int = 60,
     max_snap_candidates: int = 50,
-    drop_incomplete_chains: bool = True,
+    drop_incomplete_chains: bool = False,
     seed: int = 0,
     **kwargs,
 ) -> Tuple[List, Dict]:
@@ -193,7 +193,7 @@ def generate_candidate_segments_cvt(
     ### Inputs:
     - Same as generate_candidate_segments, plus:
     - insertion_point_spacing_mm: also used as the minimum spacing between points on a plane.
-    - n_points_per_plane: requested number of catheters (reduced if the region is too small).
+    - num_physical_catheters: requested number of catheters (reduced if the region is too small).
     - cvt_iters: Lloyd iterations.
     - max_snap_candidates: alternative landing points tried when the CVT point is invalid.
     - drop_incomplete_chains: drop catheters that cannot reach the last plane.
@@ -233,10 +233,10 @@ def generate_candidate_segments_cvt(
 
     # --- plane 0: ordinary CVT gives the insertion points ---
     ctx0 = _plane_samples(planes[0], target_meshes, oar_meshes, oar_tree,
-                          margin, n_points_per_plane)
+                          margin, num_physical_catheters)
     area0 = len(ctx0["samples"]) * ctx0["h"] ** 2
     n_max = max(1, int(area0 / (0.866 * insertion_point_spacing_mm ** 2)))  # hex packing
-    n = min(n_points_per_plane, n_max, len(ctx0["samples"]))
+    n = min(num_physical_catheters, n_max, len(ctx0["samples"]))
     g0, _ = _cvt_lloyd(ctx0["samples"], n, iters=cvt_iters, rng=rng)
     _, nn = cKDTree(ctx0["samples"]).query(g0)       # snap onto valid samples
     g0 = ctx0["samples"][nn]
@@ -249,7 +249,7 @@ def generate_candidate_segments_cvt(
     for k in range(len(planes) - 1):
         pl, nxt = planes[k], planes[k + 1]
         ctx = _plane_samples(nxt, target_meshes, oar_meshes, oar_tree,
-                             margin, n_points_per_plane)
+                             margin, num_physical_catheters)
         o, xa, ya, S = ctx["origin"], ctx["x_ax"], ctx["y_ax"], ctx["samples"]
 
         dz = abs(np.dot(np.asarray(nxt.origin) - np.asarray(pl.origin),
