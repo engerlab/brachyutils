@@ -126,18 +126,17 @@ def test_cluster_box(
     ):
     outdir = "data_test/test_export_plan/prostate/clusterbox"
     structure_dict = get_test_structure_meshes()
-    insertion_point_spacing_mm = 15
-    oar_collision_margin_mm = 5
+    insertion_point_spacing_mm = 5
+    oar_collision_margin_mm = 4
     target_structure_names = ["CTV"]
     config_catheter_rotation = Config_Catheter_Rotation()
     num_decision_planes=3
-    rotation_angle_deg=12
+    rotation_angle_deg=0
     box_margin = 5
-    num_physical_catheters = 5
+    num_physical_catheters = 17
     if use_cvt:
         generation_mode = "cvt"
         outdir = "data_test/test_export_plan/prostate/clusterbox_cvt"
-
 
     cc_box = ClusterBox(
         structure_dict = structure_dict,
