@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from numpy.typing import ArrayLike
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Literal
 
 class Config_Catheter_Rotation(BaseModel):
     """
@@ -81,9 +81,19 @@ catheter segments and organs at risk (OARs) (mm).")
     segment_collision_margin_mm: float = Field(default=5.5, description="the collision margin between \
 catheter segments (mm). Measured as center of the catheter segments.")
     box_margin_mm: float = Field(default=0, description="The margin between the box boundaries and the OARs")
+    generation_mode: Literal["tree", "cvt"] = Field("tree", description="The mode of generating the catheter box. \
+'tree' mode generates a tree structure of segments on a grid according to `insesrtion_point_spacing_mm`, \
+while 'cvt' mode uses Centroidal Voronoi Tessellation to generate segments.")
+    cvt_iters: int = Field(default=60, description="The number of iterations for the CVT algorithm.")
+    max_snap_candidates: int = Field(default=30, description="The maximum number of snap candidates for each segment.")
+    drop_incomplete_chains: bool = Field(default=False, description="Whether to drop incomplete chains of segments.")
 
     def model_post_init(self, __context):
         if isinstance(self.num_physical_catheters, list):
             if len(self.num_physical_catheters) != 2:
                 raise ValueError("The number of physical catheters should either\
 be a single int specifying the max or a list of two ints specifying the min and max")
+        if self.generation_mode == "cvt":
+            assert (isinstance(self.num_physical_catheters, int) and self.num_physical_catheters > 0,
+                    "Number of physical catheters must be a positive integer")            
+        return self

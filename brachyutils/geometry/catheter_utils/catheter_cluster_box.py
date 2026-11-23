@@ -196,7 +196,9 @@ catheter segments (mm). Measured as center of the catheter segments.")
     generation_mode: Literal["tree", "cvt"] = Field("tree", description="The mode of generating the catheter box. \
 'tree' mode generates a tree structure of segments on a grid according to `insesrtion_point_spacing_mm`, \
 while 'cvt' mode uses Centroidal Voronoi Tessellation to generate segments.")
-
+    cvt_iters: int = Field(default=100, description="The number of iterations for the CVT algorithm.")
+    max_snap_candidates: int = Field(default=10, description="The maximum number of snap candidates for each segment.")
+    drop_incomplete_chains: bool = Field(default=False, description="Whether to drop incomplete chains of segments.")
     # # internal attributes
     cluster_dict: Dict[str, SegmentCluster] = Field(default=None)
     # index of a segment in the box, when we get all segments
@@ -230,8 +232,6 @@ while 'cvt' mode uses Centroidal Voronoi Tessellation to generate segments.")
                 bb_margin_mm = self.box_margin_mm,
             )
         elif self.generation_mode is "cvt":
-            assert (isinstance(self.num_physical_catheters, int) and self.num_physical_catheters > 0,
-                    "Number of physical catheters must be a positive integer")
             _, self._plane_dict = generate_candidate_segments_cvt(
                 mesh_dict=self.structure_dict,
                 insertion_point_spacing_mm=self.insertion_point_spacing_mm,
@@ -242,12 +242,10 @@ while 'cvt' mode uses Centroidal Voronoi Tessellation to generate segments.")
                 bb_num_planes=self.num_decision_planes,
                 bb_margin_mm = self.box_margin_mm,
                 # # CVT specific parameters
-                catheter_radius_mm=1,
                 num_physical_catheters=self.num_physical_catheters,
-                # cvt_iters=self.cvt_iters,
-                # max_snap_candidates=self.max_snap_candidates,
-                # drop_incomplete_chains=self.drop_incomplete_chains,
-                # seed=self.seed
+                cvt_iters=self.cvt_iters,
+                max_snap_candidates=self.max_snap_candidates,
+                drop_incomplete_chains=self.drop_incomplete_chains,
             )
         # # get the segment clusters and segments from plane dict.
         self.cluster_dict = get_clusters_from_planes(plane_dict=self._plane_dict)
